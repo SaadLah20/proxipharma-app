@@ -81,8 +81,8 @@ export default function AdminPage() {
         return {
           ...row,
           pharmacy_name: pharmacyMap.get(row.pharmacy_id) ?? "Pharmacie inconnue",
-          pharmacist_name: pharmacist?.full_name ?? null,
-          pharmacist_email: pharmacist?.email ?? null,
+          pharmacist_name: pharmacist?.full_name ?? undefined,
+          pharmacist_email: pharmacist?.email ?? undefined,
         };
       });
 
