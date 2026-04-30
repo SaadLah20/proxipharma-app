@@ -105,16 +105,13 @@ export default function RlsDebugPage() {
       <div className="mx-auto max-w-2xl rounded-2xl bg-white p-6 shadow-sm border border-gray-100">
         <h1 className="text-2xl font-bold text-blue-900">Debug RLS products</h1>
         <p className="mt-2 text-sm text-gray-600">
-          Cette page teste l'insertion dans <code>products</code> avec l'utilisateur actuellement connecte.
+          Cette page teste l&apos;insertion dans <code>products</code> avec l&apos;utilisateur actuellement
+          connecte.
         </p>
 
         <div className="mt-4 rounded-lg border p-3 text-sm">
-          <p>
-            - Si tu es non-admin: l'insertion doit etre refusee.
-          </p>
-          <p>
-            - Si tu es admin: l'insertion doit etre autorisee.
-          </p>
+          <p>- Si tu es non-admin: l&apos;insertion doit etre refusee.</p>
+          <p>- Si tu es admin: l&apos;insertion doit etre autorisee.</p>
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
