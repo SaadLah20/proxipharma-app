@@ -8,6 +8,15 @@ This folder stores SQL migrations that must be versioned in git.
   - Enables RLS on `profiles`, `pharmacies`, and `pharmacy_staff`
   - Adds role-based policies for `admin`, `pharmacien`, and authenticated users
   - Includes `public.is_admin()` helper to prevent recursive profile policy checks
+- `migrations/20260430_001_products_reference.sql`
+  - Creates `products` reference table for pharmacy workflows
+  - Adds indexes for search/autocomplete and filters
+  - Configures RLS as public read and admin-only write
+- `migrations/20260430_002_requests_workflow_v1.sql`
+  - Creates hybrid request workflow model (common + type-specific tables)
+  - Adds request items, alternatives, comments, and status history
+  - Adds market shortage tracking per pharmacy
+  - Configures initial RLS access for patient, pharmacien, and admin
 
 ## How to apply
 
