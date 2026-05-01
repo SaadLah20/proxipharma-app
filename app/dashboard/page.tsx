@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { formatShortId, requestStatusFr, requestTypeFr } from "@/lib/request-display";
+import { one } from "@/lib/embed";
 
 type Profile = {
   id: string;
@@ -21,11 +23,22 @@ type Pharmacy = {
   telephone: string | null;
 };
 
+type MyRequest = {
+  id: string;
+  created_at: string;
+  status: string;
+  request_type: string;
+  pharmacy_id: string;
+  pharmacies: { nom: string; ville: string } | { nom: string; ville: string }[] | null;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [myPharmacy, setMyPharmacy] = useState<Pharmacy | null>(null);
   const [pharmaciesCount, setPharmaciesCount] = useState<number>(0);
+  const [myRequests, setMyRequests] = useState<MyRequest[]>([]);
+  const [requestsError, setRequestsError] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -60,6 +73,21 @@ export default function DashboardPage() {
             .from("pharmacies")
             .select("*", { count: "exact", head: true });
           setPharmaciesCount(count ?? 0);
+        }
+
+        if (typedProfile.role === "patient") {
+          const { data: reqData, error: reqErr } = await supabase
+            .from("requests")
+            .select("id,created_at,status,request_type,pharmacy_id,pharmacies(nom,ville)")
+            .eq("patient_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(25);
+
+          if (reqErr) {
+            setRequestsError(reqErr.message);
+          } else if (Array.isArray(reqData)) {
+            setMyRequests(reqData as unknown as MyRequest[]);
+          }
         }
 
         if (typedProfile.role === "pharmacien") {
@@ -138,11 +166,65 @@ export default function DashboardPage() {
 
       {profile?.role === "patient" ? (
         <section className="mt-4 rounded-xl border bg-white p-4">
-          <h2 className="mb-2 text-lg font-semibold">Espace patient</h2>
-          <p className="text-sm text-gray-700">
-            Tu peux maintenant naviguer l annuaire et preparer la suite (ordonnances, demandes produit,
-            consultations) dans les prochains sprints.
-          </p>
+          <h2 className="mb-3 text-lg font-semibold">Mes demandes</h2>
+          {requestsError ? (
+            <p className="rounded bg-red-50 p-2 text-sm text-red-700">
+              Impossible de charger les demandes : {requestsError}
+            </p>
+          ) : myRequests.length === 0 ? (
+            <p className="text-sm text-gray-600">
+              Aucune demande pour l’instant. Passe par l’annuaire, ouvre une pharmacie et utilise « Demander des
+              produits ».
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {myRequests.map((r) => {
+                const ph = one(r.pharmacies);
+                return (
+                <li key={r.id} className="rounded-lg border border-gray-100 bg-gray-50/80 p-3 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono text-xs text-gray-500">#{formatShortId(r.id)}</span>
+                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-900">
+                      {requestStatusFr[r.status] ?? r.status}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-gray-900">
+                    <span className="font-medium">{requestTypeFr[r.request_type] ?? r.request_type}</span>
+                    {ph ? (
+                      <>
+                        {" · "}
+                        {ph.nom}
+                        <span className="text-gray-500"> ({ph.ville})</span>
+                      </>
+                    ) : (
+                      <span className="text-gray-500"> · Pharmacie…</span>
+                    )}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {new Date(r.created_at).toLocaleString("fr-FR", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                    <Link
+                      href={`/dashboard/demandes/${r.id}`}
+                      className="text-xs font-semibold text-blue-800 underline"
+                    >
+                      Voir le détail
+                    </Link>
+                    <Link href={`/pharmacie/${r.pharmacy_id}`} className="text-xs font-medium text-blue-700 underline">
+                      Fiche pharmacie
+                    </Link>
+                  </div>
+                </li>
+                );
+              })}
+            </ul>
+          )}
+          <Link href="/" className="mt-4 inline-block text-sm font-medium text-blue-700 underline">
+            Aller à l’annuaire
+          </Link>
         </section>
       ) : null}
 
@@ -169,6 +251,14 @@ export default function DashboardPage() {
               Aucun lien pharmacie trouve. Verifie `pharmacy_staff`.
             </p>
           )}
+          {myPharmacy ? (
+            <Link
+              href="/dashboard/pharmacien/demandes"
+              className="mt-4 inline-flex rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Voir les demandes à traiter
+            </Link>
+          ) : null}
         </section>
       ) : null}
 
