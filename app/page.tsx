@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { MessageCircle, Phone } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
@@ -95,7 +96,13 @@ export default function Home() {
                 </span>
               </div>
 
-              <div className="mt-4 flex gap-2">
+              <Link
+                href={`/pharmacie/${pharmacy.id}`}
+                className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-blue-900 py-3 text-sm font-semibold text-white"
+              >
+                Fiche pharmacie <ArrowRight size={16} />
+              </Link>
+              <div className="mt-2 flex gap-2">
                 <a
                   href={pharmacy.telephone ? `tel:${pharmacy.telephone}` : undefined}
                   aria-disabled={!pharmacy.telephone}

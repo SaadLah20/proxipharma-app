@@ -1,12 +1,17 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormEvent, Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-export default function AuthPage() {
+function AuthForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect")?.trim() || "";
+  const safeRedirect =
+    redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "";
+
   const [isLogin, setIsLogin] = useState(true);
   const [fullName, setFullName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
@@ -19,12 +24,12 @@ export default function AuthPage() {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        router.replace("/dashboard");
+        router.replace(safeRedirect || "/dashboard");
       }
     };
 
     void checkSession();
-  }, [router]);
+  }, [router, safeRedirect]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -42,7 +47,7 @@ export default function AuthPage() {
       if (error) {
         setMessage(error.message);
       } else {
-        router.push("/dashboard");
+        router.push(safeRedirect || "/dashboard");
       }
       setLoading(false);
       return;
@@ -141,5 +146,17 @@ export default function AuthPage() {
 
       {message ? <p className="mt-4 text-sm text-gray-700">{message}</p> : null}
     </main>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center p-6 text-gray-600">Chargement...</main>
+      }
+    >
+      <AuthForm />
+    </Suspense>
   );
 }

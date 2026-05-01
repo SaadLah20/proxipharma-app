@@ -222,13 +222,25 @@ Statuts retenus v1:
 - `in_review`
 - `responded`
 - `confirmed`
+- `completed` (dossier clos apres traitement pharmacien au comptoir; voir aussi `counter_outcome` par ligne dans `request_items`)
 - `cancelled`
 - `abandoned`
 - `expired`
-- `partially_collected`
-- `fully_collected`
+- `partially_collected` / `fully_collected` (conserves en enum; hors flux officiel depuis migration 20260502 au profit de `completed` + suivi ligne a ligne au comptoir)
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
+
+### Session 2026-05-02
+- Migration `20260502_001_*`: statut `completed`, enum/colonne `counter_outcome`, RPC client `patient_resubmit_product_request_after_response`, RPC pharma `pharmacist_set_item_counter_outcome`, `pharmacist_complete_request_after_counter`
+- `patient_confirm_after_response`: lignes decochees -> `cancelled_at_counter`; lignes conservees pret comptoir en `unset` apres passage en `confirmed`
+- `patient_mark_collected`: REVOKE coté JWT `authenticated` (deprecie)
+
+### Session 2026-05-01
+- RLS alternatives: SELECT pour les participants a la demande; INSERT/UPDATE/DELETE pharmacien rattache ou admin
+- RPC client: `patient_confirm_after_response`, `patient_abandon_request`, `expire_overdue_requests()` (service_role); `patient_mark_collected` ensuite deprecie dans session 2026-05-02
+- Migration seed conditionnelle demo (alternatives sur items)
+- Next.js: pages fiche pharmacie + formulaire demande produits + redirect auth securise
+- Point ouvert: `expire_overdue_requests` a planifier cote infra; UI reaction client (appels RPC) a faire dans l espace patient
 
 ### Session 2026-04-30
 - Consolidation de la vision produit de la fiche digitale
@@ -251,28 +263,39 @@ Statuts retenus v1:
 
 ## 11) Etat actuel (point de reprise)
 
-Etat technique valide:
-- Migrations en place:
+Ce que vous faites hors repo (resume):
+- **Supabase**: appliquer les migrations dans l ordre depuis le dossier `supabase/migrations` (`supabase db push` depuis la machine avec le projet lie, ou coller/export SQL depuis le tableau SQL dans l ordre des fichiers). Aucune config Vercel requise pour ces changements tant que les variables Supabase sont deja en place dans le projet Next.js.
+- **GitHub**: `git push` votre branche comme d habitude une fois les fichiers commites (_le code frontend de ce repo est versionne ainsi_).
+- **Vercel**: si le projet est connecte au repo, le deploy se relance automatiquement apres push; verifier le build comme pour tout commit.
+
+Etat technique valide dans le depot:
+- Migrations en place (dernier fichier en date a appliquer en dernier):
   - `supabase/migrations/20260430_001_products_reference.sql`
   - `supabase/migrations/20260430_002_requests_workflow_v1.sql`
-- Table produits operationnelle avec RLS (lecture publique, ecriture admin)
-- Workflow demandes v1 operationnel (structure, statuts, historique)
+  - `supabase/migrations/20260501_001_patient_reaction_and_alternative_rls.sql` (alternatives ecriture pharmacien/admin + RPC client confirmation / abandon / expire batch)
+  - `supabase/migrations/20260501_002_seed_workflow_demo.sql`
+  - `supabase/migrations/20260502_001_resubmit_after_response_and_counter_pickup.sql` (revision ligne produits apres responded/confirmed, comptoir par ligne, statut `completed`, desactivation RPC patient `patient_mark_collected`)
 
-Etat fonctionnel teste:
-- Les 3 types de demandes sont inserables
-- Le traitement pharmacien de base fonctionne
+Regles fonctionnelles retenues (alignement dernier atelier):
+- Le client peut **modifier et renvoyer** une demande produit **meme apres une reponse** sans notion partiel/complet: RPC `patient_resubmit_product_request_after_response` (`responded`|`confirmed` -> `submitted`, reset prep pharma).
+- Le **retrait reel** au comptoir est porte par le **pharmacien**: colonne par ligne `request_items.counter_outcome` (`unset`, `picked_up`, `cancelled_at_counter`, `deferred_next_visit`) + cloture dossier via `pharmacist_complete_request_after_counter` lorsque tout est bon (plus aucune ligne encore `unset` ou `deferred_next_visit` parmi les lignes **selectionnees** par le client).
+- Les statuts enum `partially_collected` / `fully_collected` restent en base mais le flux officiel livre passe par **`completed`**; `patient_mark_collected` nest plus callable par le JWT patient (obsolete).
+
+Etat fonctionnel teste / a valider sur Supabase:
+- Les 3 types de demandes sont inserables (tel qu avant)
 - Historisation des statuts fonctionne
+- Alternatives: insertion reservee pharmacien/admin (corrige le cas ou un test patient ne voyait aucune ligne)
+- Appliquer les nouvelles migrations puis verifier le seed demo (`patient_note` = `SEED_DEMO_WORKFLOW_v1`)
 
-Reste a faire en priorite immediate (prochaine session):
-1. Corriger/finaliser le flux d'alternatives (objectif: alternatives inserees et visibles)
-2. Ecrire le script "reaction client" apres reponse pharmacien:
-   - `responded -> confirmed`
-   - puis `partially_collected` ou `fully_collected`
-   - cas `abandoned` et `expired`
-3. Ajouter seed SQL dedie dans `supabase/migrations` pour eviter les inserts manuels
-4. Commencer l'UI Sprint 2:
-   - formulaire "demande produits" base sur `products`
-   - creation `requests` + `request_items` depuis la fiche pharmacie
+UI Sprint 2 (amorce livree dans le repo):
+- Fiche pharmacie: `/pharmacie/[id]` (CTA services)
+- Demande produits: `/pharmacie/[id]/demande-produits` (auth obligatoire, recherche `products`, insert `requests` + `product_requests` + `request_items`)
+- Accueil: lien vers la fiche pharmacie; auth: parametre query `redirect` preserve apres connexion
+
+Prochaines etapes suggerees:
+1. Brancher pg_cron (ou Edge) sur `expire_overdue_requests()` (service_role uniquement)
+2. UI espace pharmacien: ecran demande (`pharmacist_set_item_counter_outcome`, `pharmacist_complete_request_after_counter`) ; UI patient: revision / renvoi (`patient_resubmit_product_request_after_response`) + confirmation lignes (`patient_confirm_after_response`, `patient_abandon_request`)
+3. Enrichissement fiche (infos, autres services ordonnance / consultation libre)
 
 ## 12) Prompt de reprise (copier/coller prochaine session)
 
