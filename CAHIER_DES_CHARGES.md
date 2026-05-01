@@ -3,6 +3,22 @@
 Ce document sert de reference produit et technique entre nous.
 Il doit etre mis a jour a chaque fin de session pour garder un historique clair des decisions.
 
+## 0.1) Routine de collaboration (profil projet sans outillage lourd — a garder tel quel)
+
+**But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
+
+Au **demarrage** d une session (copier-coller tolere ou paraphrase courte):
+> Reprends ProxiPharma depuis `CAHIER_DES_CHARGES.md` (**§ Etat actuel** + dernier bloc du **Journal**) et continue la **feuille de route**. Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander.
+
+A la **sortie**: demander ou accepter la mise a jour de ce cahier (Journal + Etat actuel + prompt de reprise du §12).
+
+**Ton role coté infra (minimal)**:
+1. Appliquer tout nouveau fichier sous `supabase/migrations/` sur Supabase (ordre chronologique des noms).
+2. `git commit` + `git push` quand l assistant indique une livraison groupee.
+3. En cas d'erreur : copier-coller integralement le message (navigateur ou console).
+
+**Ou est la verite du backend (schema)** : les migrations Git + les RPC/policies decrites dedans ; le SQL Editor hors migrations est reserve aux tests ponctuels mais ne remplace pas le fichier migre versionne dans le depot.
+
 ## 1) Vision produit
 
 La fiche digitale pharmacie est l'espace digital principal offert a chaque pharmacie.
@@ -199,6 +215,16 @@ Pourquoi:
 - Base produits: lecture publique et ecriture admin uniquement
 - Modele demandes retenu: architecture hybride (1 tronc commun + tables specialisees)
 
+### Apprentissages methodologiques récents (utiles ensuite)
+
+- **Pas d acces Supabase continu pour l assistant Cursor**: pas de MCP / pas de `DATABASE_URL` dans le depot — la coherence repose sur **migrations versionnees + ce cahier** ; le role minimal cote humain: appliquer les migrations puis push quand demande.
+- **Revision client après reponse** (`responded`|`confirmed`): remplace contenu lignes via RPC `patient_resubmit_product_request_after_response` puis retour **`submitted`**: **meme ligne `requests`**, meme URL detail ; ce n'est pas disparition dossier mais **nouveau cycle de traitement** (anciennes prep pharma purgees hors historique granularise — accepte pour MVP comme discute).
+- **Traçabilité fine des anciennes réponses pharma par tour**: pas versionnee automatiquement aujourd hui (`request_snapshots` possible plus tard si litiges/reglementation le demandent — volontairement reporte tant que MVP operationnel prime).
+- **Retrait physique**: vérité fonctionnelle côté **pharmacien** + champ `counter_outcome` lignes puis `completed` RPC `pharmacist_complete_request_after_counter` ; ne plus s appuyer sur un clic patient obsolete `patient_mark_collected`.
+- **`expires_at`** rempli côté app pharmacien lors de la mise en **`responded`** (+7 jours dans l UI actuelle) pour support futur cron `expire_overdue_requests()` (toujours a brancher infra service_role si souhaite).
+- **Liste demandes dashboard patient** peut montrer **plus de lignes** que les derniers envois manuels (seed demo migration `20260501_002` avec tag `SEED_DEMO_WORKFLOW_v1`, ou anciens tests meme `patient_id`) — comportement attendu jusqu a nettoyage donnees.
+- **Expose patient vers pharmacien**: RLS **`profiles`** = patient ne voit que soi-admin ; l UI pharmacien n affiche pas le nom complet patient seulement un **court identifiant** (`patient_id` tronque) — jusqu a politique RGPD produit definie nouvelle migration policy possible lecture minimale nominative reservee pharma sur demandes rattachees.
+
 ## 9.1 Modele donnees demandes retenu (v1 evolutif)
 
 Objectif:
@@ -229,6 +255,34 @@ Statuts retenus v1:
 - `partially_collected` / `fully_collected` (conserves en enum; hors flux officiel depuis migration 20260502 au profit de `completed` + suivi ligne a ligne au comptoir)
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
+
+### Session 2026-05-03 — UI workflow « demande de produits » (client + pharmacien) + cloture méthodo
+
+**Produit — espace patient (Next)**:
+- Liste **Mes demandes** sur `/dashboard` (avec jointure pharmacies + libellés FR depuis `lib/request-display.ts`).
+- Détail **`/dashboard/demandes/[id]`**: pharmacies message patient dates lignes `request_items` + produits + comptoir quand pertinent.
+- **Actions RPC post-réponse** (composant `PatientProductRequestActions.tsx`): après `responded` ou `confirmed` — **`patient_confirm_after_response`** (formulaire lignes qty max cap stock), **`patient_resubmit_product_request_after_response`** (liste produits retravaillée + recherche catalogue + note), **`patient_abandon_request`** avec confirm navigateur.
+
+**Produit — espace pharmacien (Next)**:
+- Liste **`/dashboard/pharmacien/demandes`**: filtres demandes active `submitted` `in_review` `responded` `confirmed` pour la pharmacie liée `pharmacy_staff`.
+- Détail **`/dashboard/pharmacien/demandes/[id]`**: produits uniquement (**`product_request`**); mise dispo lignes enums `availability_status`; publier provoque automatiquement **`submitted`→`in_review`** puis MAJ lignes puis **`responded`** + `responded_at` + **`expires_at` + 7 j** + lignes **`request_status_history`** insérées coté JS (motif pharmacien_ui / publication disponibilites). Statuts suivants vue lecture seule.
+- Lien **Voir les demandes a traiter** depuis dashboard pharmacien bloc existant.
+
+**Technique commun**:
+- Nouveaux utilitaires **`lib/embed.ts`** (embed Supabase normalise tableau/singleton `one()` et **`lib/pharmacist-availability.ts`** (select dispo pharma).
+- **`.gitignore`**: dossier **`supabase/.temp/`** (CLI locale).
+- **Git**: commits sur branche **`fix/rls-recursion`** dont dernier groupe **e22c91a** dashboards patient + pharma helpers.
+
+**Méthode / alignement équipe amateur** ajout §0.1 cadre repetee collaboration sans outillage Supabase automatique coté Cursor.
+
+**Reste coherent avec la roadmap immediate** mais pas clos dans cette session (voir backlog §12 ; priorite suivante annoncee oralement puis transcrite ligne reservee §12 a l ouverture suivante) :
+
+- Flux produit encore incomplet côte **alternatives pharmacien dans l UI** (table + RLS existe — pas d ecran encore).
+- Flux **comptoir** coté pharma appels RPC **`pharmacist_set_item_counter_outcome`** puis **`pharmacist_complete_request_after_counter`** dans l UI (manquant).
+- Chantiers **ordonnance** + **consultation libre** côté pharma detail ecran encore message « hors perimetre».
+- **Remarques qualitatives utilisateur (UX workflow)** rapportees oralement — a transcrire en ouverture prochaine (ligne reservee §12 backlog).
+
+---
 
 ### Session 2026-05-02
 - Migration `20260502_001_*`: statut `completed`, enum/colonne `counter_outcome`, RPC client `patient_resubmit_product_request_after_response`, RPC pharma `pharmacist_set_item_counter_outcome`, `pharmacist_complete_request_after_counter`
@@ -281,27 +335,50 @@ Regles fonctionnelles retenues (alignement dernier atelier):
 - Le **retrait reel** au comptoir est porte par le **pharmacien**: colonne par ligne `request_items.counter_outcome` (`unset`, `picked_up`, `cancelled_at_counter`, `deferred_next_visit`) + cloture dossier via `pharmacist_complete_request_after_counter` lorsque tout est bon (plus aucune ligne encore `unset` ou `deferred_next_visit` parmi les lignes **selectionnees** par le client).
 - Les statuts enum `partially_collected` / `fully_collected` restent en base mais le flux officiel livre passe par **`completed`**; `patient_mark_collected` nest plus callable par le JWT patient (obsolete).
 
+Implémentation frontend associée repo (voir journal **Session 2026-05-03** pour detail fichiers commits):
+- **`/`** annuaire + lien carte vers fiche **`/pharmacie/[id]`**
+- **`/pharmacie/[id]/demande-produits`**: création demande **`submitted`**
+- **`/dashboard`**, **`/dashboard/demandes/[id]`**, **`/dashboard/pharmacien/demandes`**, **`/dashboard/pharmacien/demandes/[id]`**
+- Auth **`/auth`** supporte redirection query **`?redirect=`** apres connexion
+- Travail incremental versionne sous Git sur branche **`fix/rls-recursion`** (voir historique commits `e22c91a` dernier groupe UI majeur documente journal ci-dessus)
+
 Etat fonctionnel teste / a valider sur Supabase:
 - Les 3 types de demandes sont inserables (tel qu avant)
 - Historisation des statuts fonctionne
 - Alternatives: insertion reservee pharmacien/admin (corrige le cas ou un test patient ne voyait aucune ligne)
 - Appliquer les nouvelles migrations puis verifier le seed demo (`patient_note` = `SEED_DEMO_WORKFLOW_v1`)
 
-UI Sprint 2 (amorce livree dans le repo):
-- Fiche pharmacie: `/pharmacie/[id]` (CTA services)
-- Demande produits: `/pharmacie/[id]/demande-produits` (auth obligatoire, recherche `products`, insert `requests` + `product_requests` + `request_items`)
-- Accueil: lien vers la fiche pharmacie; auth: parametre query `redirect` preserve apres connexion
+## 12) Backlog produit ouvert — tranche « workflow demande de produits » (priorité prochaine session)
 
-Prochaines etapes suggerees:
-1. Brancher pg_cron (ou Edge) sur `expire_overdue_requests()` (service_role uniquement)
-2. UI espace pharmacien: ecran demande (`pharmacist_set_item_counter_outcome`, `pharmacist_complete_request_after_counter`) ; UI patient: revision / renvoi (`patient_resubmit_product_request_after_response`) + confirmation lignes (`patient_confirm_after_response`, `patient_abandon_request`)
-3. Enrichissement fiche (infos, autres services ordonnance / consultation libre)
+_Objectif declaré_: **boucler fonctionnellement le flux « demande de produits »** de bout en bout, puis integrer les remarques UX issues des essais sur l app — a lister dans ce paragraphe des la prochaine reprise._
 
-## 12) Prompt de reprise (copier/coller prochaine session)
+**Liste technique issue etat dernier depot (hors subjective)**:
 
-Texte conseille pour reprendre exactement du meme point:
+| Sujet | Statut mémo prod |
+|------|-------------------|
+| Creation ligne demande depuis fiche + statut **`submitted`** | Fait (`/pharmacie/.../demande-produits`) |
+| Liste detail patient + actions **responded/confirmed** (confirm/resubmit/abandon) | Fait (RPC coté détail dashboard) |
+| Liste + publication reponse pharma **availability** jusqu **`responded`** + **expires_at** | Fait (`/dashboard/pharmacien/...`) |
+| **Alternatives** jusqu a 3 / ligne coté pharma UI saisie + affichage patient detail | Pas fait (BDD existe) |
+| **Comptoir** `counter_outcome` ligne + bouton cloture **`pharmacist_complete_request_after_counter`** côté UI pharma ou magasin préparation | Pas fait |
+| **Auto expiration** cron supabase **`expire_overdue_requests()`** | Pas branche infra |
+| **Ordonnance / consultation**: traitement pharmacien meme espace | Hors perimetre ecran actuel |
+| **`market_shortages`** insert auto quand pharma choisit **market_shortage** dispo ligne | Hors scope UI actuelle — decider comportement métier puis migration trigger ou RPC |
+| Consolidation UX post-retours utilisateur (libelles, ordre des etapes, messages d erreur) | A planifier des la prochaine session avec inventaire ecrit |
 
-"On reprend ProxiPharma au point de reprise du `CAHIER_DES_CHARGES.md` (section Etat actuel). Continue avec la priorite: finaliser les alternatives pharmacien puis implementer le script reaction client (`responded -> confirmed -> partially_collected/fully_collected`, plus `abandoned`/`expired`). Ensuite on passe a l'UI Sprint 2 pour creer une demande produits depuis la fiche pharmacie."
+_Ligne reservee transcription des retours utilisateur (a remplir au demarrage prochain)_ : *[vide — coller ou resumer tes remarques ici a l ouverture, ou dans le prompt §13]*
+
+---
+
+## 13) Prompt de reprise (copier/coller prochaine session)
+
+Texte conseille a copier-coller tel quel puis completer au besoin:
+
+**« Je reprends ProxiPharma. Lis le `CAHIER_DES_CHARGES.md` depuis le §0.1 (routine), puis le §11 Etat actuel, le §12 backlog, et le dernier bloc du §10 Journal. Priorite prod: complete le workflow fonctionnel bout-en-bout de la demande de produits (alternatives pharmacien dans l UI, puis comptoir `counter_outcome` + cloture `pharmacist_complete_request_after_counter`, puis le reste du §12 comme convenu). Voici mes remarques UX / produit depuis les essais : [COLLE_ICI tes remarques ou ecris "voir ligne reservee §12"]. Mets le cahier a jour en fin de session. »**
+
+_Le paragraphe entre crochets peut contenir tes notes ou renvoyer a la ligne reservee du §12._
+
+_Ancienne phrase de reprise (alternatives + patient_mark_collected + UI sprint 2) est depassee_: le flux partiel/full cote patient a ete remplace par statut **`completed`** + comptoir pharmacien (`counter_outcome`) ; une grande partie Sprint 2 demande produits est deja en place dans le depot (voir journal 2026-05-03)._
 
 ### Template pour prochaines sessions
 - Date:
