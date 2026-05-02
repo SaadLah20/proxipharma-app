@@ -17,6 +17,21 @@ import { PatientProductRequestActions } from "./PatientProductRequestActions";
 type PharmacyEmbed = { nom: string; ville: string; adresse: string; telephone: string | null };
 type ProductRequestEmbed = { patient_note: string | null };
 
+type AltEmbed = {
+  id: string;
+  rank: number;
+  availability_status: string | null;
+  available_qty: number | null;
+  unit_price: number | null;
+  pharmacist_comment: string | null;
+  products: { name: string } | { name: string }[] | null;
+};
+
+function normalizeAlternatives(raw: AltEmbed | AltEmbed[] | null | undefined): AltEmbed[] {
+  if (!raw) return [];
+  return Array.isArray(raw) ? [...raw].sort((a, b) => a.rank - b.rank) : [raw];
+}
+
 type RequestDetail = {
   id: string;
   created_at: string;
@@ -42,6 +57,7 @@ type RequestItemRow = {
   pharmacist_comment: string | null;
   counter_outcome: string;
   products: { name: string } | { name: string }[] | null;
+  request_item_alternatives: AltEmbed | AltEmbed[] | null;
 };
 
 export default function DemandeDetailPage() {
@@ -107,7 +123,7 @@ export default function DemandeDetailPage() {
       const { data: itemsData, error: itemsErr } = await supabase
         .from("request_items")
         .select(
-          "id,product_id,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,counter_outcome,products(name)"
+          "id,product_id,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,counter_outcome,products(name),request_item_alternatives(id,rank,availability_status,available_qty,unit_price,pharmacist_comment,products(name))"
         )
         .eq("request_id", id)
         .order("created_at", { ascending: true });
@@ -124,7 +140,10 @@ export default function DemandeDetailPage() {
   );
 
   useEffect(() => {
-    void loadDetail();
+    const tid = window.setTimeout(() => {
+      void loadDetail();
+    }, 0);
+    return () => window.clearTimeout(tid);
   }, [loadDetail]);
 
   if (loading) {
@@ -231,6 +250,7 @@ export default function DemandeDetailPage() {
           <ul className="space-y-3">
             {items.map((row) => {
               const prod = one(row.products);
+              const altList = normalizeAlternatives(row.request_item_alternatives);
               return (
               <li key={row.id} className="rounded-xl border border-gray-100 bg-white p-3 text-sm shadow-sm">
                 <p className="font-medium text-gray-900">{prod?.name ?? "Produit"}</p>
@@ -260,6 +280,33 @@ export default function DemandeDetailPage() {
                     {row.pharmacist_comment}
                   </p>
                 ) : null}
+                {altList.length > 0 ? (
+                  <div className="mt-3 rounded-lg border border-dashed border-amber-200 bg-amber-50/40 p-2">
+                    <p className="text-xs font-semibold text-amber-900/90">Alternatives proposées</p>
+                    <ul className="mt-2 space-y-2">
+                      {altList.map((alt) => {
+                        const altProd = one(alt.products);
+                        return (
+                          <li key={alt.id} className="rounded-md bg-white px-2 py-1.5 text-xs">
+                            <p className="font-medium text-gray-900">{altProd?.name ?? "Produit alternatif"}</p>
+                            {alt.availability_status ? (
+                              <p className="mt-1 text-blue-900">
+                                {availabilityStatusFr[alt.availability_status] ?? alt.availability_status}
+                                {alt.available_qty != null ? ` (${alt.available_qty})` : ""}
+                                {alt.unit_price != null ? ` · ${Number(alt.unit_price).toFixed(2)} MAD` : ""}
+                              </p>
+                            ) : (
+                              <p className="mt-1 text-gray-500">Disponibilité à préciser en pharmacie</p>
+                            )}
+                            {alt.pharmacist_comment ? (
+                              <p className="mt-1 text-gray-700">{alt.pharmacist_comment}</p>
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ) : null}
                 {(request.status === "confirmed" ||
                   request.status === "completed" ||
                   row.counter_outcome !== "unset") && (
@@ -279,6 +326,7 @@ export default function DemandeDetailPage() {
 
       {request.request_type === "product_request" && (request.status === "responded" || request.status === "confirmed") ? (
         <PatientProductRequestActions
+          key={[note ?? "", ...items.map((i) => [i.id, i.selected_qty, i.is_selected_by_patient, i.available_qty, i.requested_qty, i.counter_outcome].join(":"))].join("|")}
           requestId={request.id}
           status={request.status}
           items={items}

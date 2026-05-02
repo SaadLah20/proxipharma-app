@@ -19,16 +19,13 @@ type PharmacyRow = {
 export default function PharmacieFichePage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
+  const hasId = Boolean(id);
   const [pharmacy, setPharmacy] = useState<PharmacyRow | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(hasId);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!id) {
-      setLoading(false);
-      setError("Pharmacie introuvable.");
-      return;
-    }
+    if (!id) return;
 
     const load = async () => {
       const { data, error: qErr } = await supabase
@@ -51,6 +48,19 @@ export default function PharmacieFichePage() {
   }, [id]);
 
   const normalizeWhatsAppNumber = (value: string | null) => (value ?? "").replace(/[^\d]/g, "");
+
+  if (!hasId) {
+    return (
+      <main className="min-h-screen bg-gray-50 p-6">
+        <div className="mx-auto max-w-lg rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          Pharmacie introuvable.
+        </div>
+        <Link href="/" className="mt-4 block text-center text-sm font-medium text-blue-700">
+          Retour à l&apos;annuaire
+        </Link>
+      </main>
+    );
+  }
 
   if (loading) {
     return (

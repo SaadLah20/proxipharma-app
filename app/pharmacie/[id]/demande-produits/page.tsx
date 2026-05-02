@@ -57,9 +57,10 @@ export default function DemandeProduitsPage() {
 
   const debouncedQuery = useMemo(() => query.trim(), [query]);
 
+  const visibleHits = debouncedQuery.length < 2 ? [] : hits;
+
   useEffect(() => {
     if (debouncedQuery.length < 2) {
-      setHits([]);
       return;
     }
     const t = setTimeout(() => {
@@ -201,9 +202,9 @@ export default function DemandeProduitsPage() {
             className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
           />
           {searchLoading ? <p className="mt-2 text-xs text-gray-500">Recherche...</p> : null}
-          {hits.length > 0 ? (
+          {visibleHits.length > 0 ? (
             <ul className="mt-3 max-h-52 space-y-1 overflow-y-auto rounded-lg border border-gray-100 bg-gray-50/80 p-2">
-              {hits.map((p) => (
+              {visibleHits.map((p) => (
                 <li key={p.id}>
                   <button
                     type="button"

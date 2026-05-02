@@ -22,6 +22,26 @@ function maxSelectableQty(row: ActionItemRow): number {
   return row.requested_qty;
 }
 
+function computeSelFromItems(items: ActionItemRow[]): Record<string, { on: boolean; qty: number }> {
+  const next: Record<string, { on: boolean; qty: number }> = {};
+  for (const row of items) {
+    const cap = maxSelectableQty(row);
+    const defaultOn = cap > 0 && row.is_selected_by_patient !== false;
+    const qty = cap > 0 ? Math.min(cap, row.selected_qty ?? cap) : 0;
+    next[row.id] = { on: defaultOn, qty: Math.max(cap > 0 ? 1 : 0, qty) };
+    if (qty > cap) next[row.id] = { ...next[row.id], qty: Math.max(1, cap) };
+  }
+  return next;
+}
+
+function computeResubmitLinesFromItems(items: ActionItemRow[]): Array<{ product_id: string; name: string; qty: number }> {
+  return items.map((row) => ({
+    product_id: row.product_id,
+    name: one(row.products)?.name ?? "Produit",
+    qty: Math.max(1, row.requested_qty),
+  }));
+}
+
 type ProductHit = { id: string; name: string; product_type: string; laboratory: string | null };
 
 type Props = {
@@ -36,46 +56,21 @@ export function PatientProductRequestActions({ requestId, status, items, initial
   const [actionError, setActionError] = useState("");
   const [busyAction, setBusyAction] = useState<"" | "confirm" | "resubmit" | "abandon">("");
 
-  /** Confirmation responded -> confirmed */
-  const [sel, setSel] = useState<Record<string, { on: boolean; qty: number }>>({});
+  /** Confirmation responded -> confirmed — reset via parent `key` when server rows change */
+  const [sel, setSel] = useState(() => computeSelFromItems(items));
 
-  useEffect(() => {
-    const next: Record<string, { on: boolean; qty: number }> = {};
-    for (const row of items) {
-      const cap = maxSelectableQty(row);
-      const defaultOn = cap > 0 && row.is_selected_by_patient !== false;
-      const qty = cap > 0 ? Math.min(cap, row.selected_qty ?? cap) : 0;
-      next[row.id] = { on: defaultOn, qty: Math.max(cap > 0 ? 1 : 0, qty) };
-      if (qty > cap) next[row.id] = { ...next[row.id], qty: Math.max(1, cap) };
-    }
-    setSel(next);
-  }, [items]);
-
-  /** Resubmit draft */
-  const [noteDraft, setNoteDraft] = useState(initialPatientNote ?? "");
-  const [lines, setLines] = useState<Array<{ product_id: string; name: string; qty: number }>>([]);
+  /** Resubmit draft — idem */
+  const [noteDraft, setNoteDraft] = useState(() => initialPatientNote ?? "");
+  const [lines, setLines] = useState(() => computeResubmitLinesFromItems(items));
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<ProductHit[]>([]);
 
-  useEffect(() => {
-    setNoteDraft(initialPatientNote ?? "");
-  }, [initialPatientNote]);
-
-  useEffect(() => {
-    setLines(
-      items.map((row) => ({
-        product_id: row.product_id,
-        name: one(row.products)?.name ?? "Produit",
-        qty: Math.max(1, row.requested_qty),
-      }))
-    );
-  }, [items]);
-
   const debouncedQuery = useMemo(() => query.trim(), [query]);
+
+  const visibleHits = debouncedQuery.length < 2 ? [] : hits;
 
   useEffect(() => {
     if (debouncedQuery.length < 2) {
-      setHits([]);
       return;
     }
     const t = setTimeout(() => {
@@ -329,9 +324,9 @@ export function PatientProductRequestActions({ requestId, status, items, initial
           placeholder="Rechercher (2 caractères min.)"
           className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
         />
-        {hits.length > 0 ? (
+        {visibleHits.length > 0 ? (
           <ul className="mt-2 max-h-36 overflow-auto rounded border bg-gray-50 p-2 text-sm">
-            {hits.map((h) => (
+            {visibleHits.map((h) => (
               <li key={h.id}>
                 <button type="button" className="block w-full text-left hover:bg-white px-1 py-1" onClick={() => addProduct(h)}>
                   {h.name}

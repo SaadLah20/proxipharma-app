@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { PHARMACIST_AVAILABILITY_OPTIONS } from "@/lib/pharmacist-availability";
-import { availabilityStatusFr, formatShortId, requestStatusFr, requestTypeFr } from "@/lib/request-display";
+import { availabilityStatusFr, counterOutcomeFr, formatShortId, requestStatusFr, requestTypeFr } from "@/lib/request-display";
 import { one } from "@/lib/embed";
 
 type RequestRow = {
@@ -20,6 +20,18 @@ type RequestRow = {
   product_requests: { patient_note: string | null } | { patient_note: string | null }[] | null;
 };
 
+type AltRowDb = {
+  id: string;
+  rank: number;
+  product_id: string;
+  availability_status: string | null;
+  available_qty: number | null;
+  unit_price: number | null;
+  pharmacist_comment: string | null;
+  expected_availability_date: string | null;
+  products: { name: string } | { name: string }[] | null;
+};
+
 type ItemRow = {
   id: string;
   product_id: string;
@@ -29,7 +41,11 @@ type ItemRow = {
   unit_price: number | null;
   pharmacist_comment: string | null;
   expected_availability_date: string | null;
+  counter_outcome: string;
+  is_selected_by_patient: boolean;
+  selected_qty: number | null;
   products: { name: string } | { name: string }[] | null;
+  request_item_alternatives: AltRowDb | AltRowDb[] | null;
 };
 
 type ItemDraft = {
@@ -41,6 +57,27 @@ type ItemDraft = {
 };
 
 type Draft = Record<string, ItemDraft>;
+
+type ProductCatalogHit = {
+  id: string;
+  name: string;
+  product_type: string;
+  laboratory: string | null;
+};
+
+function normalizeAlts(raw: ItemRow["request_item_alternatives"]): AltRowDb[] {
+  if (!raw) return [];
+  const list = Array.isArray(raw) ? raw : [raw];
+  return [...list].sort((a, b) => a.rank - b.rank);
+}
+
+function nextAltRank(existing: AltRowDb[]): number | null {
+  const used = new Set(existing.map((a) => a.rank));
+  for (let r = 1; r <= 3; r += 1) {
+    if (!used.has(r)) return r;
+  }
+  return null;
+}
 
 async function logHistory(requestId: string, oldS: string | null, newS: string, reason?: string) {
   const { data: userData } = await supabase.auth.getUser();
@@ -65,6 +102,15 @@ export default function PharmacienDemandeDetailPage() {
   const [request, setRequest] = useState<RequestRow | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
   const [draft, setDraft] = useState<Draft>({});
+  const [altPickerOpenFor, setAltPickerOpenFor] = useState<string | null>(null);
+  const [altQuery, setAltQuery] = useState("");
+  const [altHits, setAltHits] = useState<ProductCatalogHit[]>([]);
+  const [altBusyRow, setAltBusyRow] = useState<string | null>(null);
+  const [counterBusyId, setCounterBusyId] = useState<string | null>(null);
+  const [completeBusy, setCompleteBusy] = useState(false);
+
+  const altDebounced = useMemo(() => altQuery.trim(), [altQuery]);
+  const altVisibleHits = altDebounced.length < 2 ? [] : altHits;
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -122,7 +168,7 @@ export default function PharmacienDemandeDetailPage() {
     const { data: itemsData, error: itemsErr } = await supabase
       .from("request_items")
       .select(
-        "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name)"
+        "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,is_selected_by_patient,selected_qty,products(name),request_item_alternatives(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name))"
       )
       .eq("request_id", id)
       .order("created_at", { ascending: true });
@@ -152,14 +198,110 @@ export default function PharmacienDemandeDetailPage() {
   }, [id, router]);
 
   useEffect(() => {
-    void load();
+    const tid = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(tid);
   }, [load]);
+
+  useEffect(() => {
+    if (altDebounced.length < 2 || !altPickerOpenFor) {
+      return;
+    }
+    const t = window.setTimeout(() => {
+      void (async () => {
+        const { data, error } = await supabase
+          .from("products")
+          .select("id,name,product_type,laboratory")
+          .eq("is_active", true)
+          .ilike("name", `%${altDebounced}%`)
+          .order("name")
+          .limit(12);
+        if (error || !Array.isArray(data)) {
+          setAltHits([]);
+          return;
+        }
+        setAltHits(data as ProductCatalogHit[]);
+      })();
+    }, 280);
+    return () => window.clearTimeout(t);
+  }, [altDebounced, altPickerOpenFor]);
 
   const setField = (itemId: string, field: keyof ItemDraft, value: string) => {
     setDraft((prev) => ({
       ...prev,
       [itemId]: { ...prev[itemId], [field]: value },
     }));
+  };
+
+  const resetAltPicker = () => {
+    setAltPickerOpenFor(null);
+    setAltQuery("");
+    setAltHits([]);
+  };
+
+  const insertAlternative = async (parentRow: ItemRow, catalogProductId: string) => {
+    const existing = normalizeAlts(parentRow.request_item_alternatives);
+    const rank = nextAltRank(existing);
+    setError("");
+    if (catalogProductId === parentRow.product_id) {
+      setError("Choisis un produit différent de la ligne principale.");
+      return;
+    }
+    if (existing.some((a) => a.product_id === catalogProductId)) {
+      setError("Cette alternative figure déjà sur la liste.");
+      return;
+    }
+    if (rank == null) {
+      setError("Maximum 3 alternatives par ligne.");
+      return;
+    }
+    setAltBusyRow(parentRow.id);
+    const { error: insErr } = await supabase.from("request_item_alternatives").insert({
+      request_item_id: parentRow.id,
+      rank,
+      product_id: catalogProductId,
+      availability_status: "available",
+      available_qty: Math.max(1, parentRow.requested_qty),
+      pharmacist_comment: null,
+      unit_price: null,
+      expected_availability_date: null,
+    });
+    setAltBusyRow(null);
+    if (insErr) {
+      setError(insErr.message);
+      return;
+    }
+    resetAltPicker();
+    await load();
+  };
+
+  const deleteAlternativeRow = async (altId: string, parentRowId?: string) => {
+    setError("");
+    setAltBusyRow(altId);
+    const { error: delErr } = await supabase.from("request_item_alternatives").delete().eq("id", altId);
+    setAltBusyRow(null);
+    if (delErr) {
+      setError(delErr.message);
+      return;
+    }
+    if (altPickerOpenFor === parentRowId) resetAltPicker();
+    await load();
+  };
+
+  const saveCounterOutcome = async (requestItemId: string, outcome: string) => {
+    setCounterBusyId(requestItemId);
+    setError("");
+    const { error: rpcErr } = await supabase.rpc("pharmacist_set_item_counter_outcome", {
+      p_request_item_id: requestItemId,
+      p_outcome: outcome,
+    });
+    setCounterBusyId(null);
+    if (rpcErr) {
+      setError(rpcErr.message);
+      return;
+    }
+    await load();
   };
 
   const publishResponse = async () => {
@@ -254,8 +396,35 @@ export default function PharmacienDemandeDetailPage() {
     setBusy(false);
   };
 
+  const runCompleteAfterCounter = async () => {
+    if (!id) return;
+    setCompleteBusy(true);
+    setError("");
+    const { error: rpcErr } = await supabase.rpc("pharmacist_complete_request_after_counter", {
+      p_request_id: id,
+      p_reason: "pharmacist_ui_confirm_close",
+    });
+    setCompleteBusy(false);
+    if (rpcErr) {
+      setError(rpcErr.message);
+      return;
+    }
+    await load();
+  };
+
   const canEditResponse = request && ["submitted", "in_review"].includes(request.status);
   const isProduct = request?.request_type === "product_request";
+
+  let canCompleteCounter = false;
+  if (request && isProduct && (request.status === "responded" || request.status === "confirmed")) {
+    const selectedLines = items.filter((i) => i.is_selected_by_patient);
+    const blockingSelected = selectedLines.filter(
+      (i) =>
+        String(i.counter_outcome ?? "unset") === "unset" ||
+        String(i.counter_outcome ?? "unset") === "deferred_next_visit"
+    );
+    canCompleteCounter = selectedLines.length > 0 && blockingSelected.length === 0;
+  }
 
   if (loading) {
     return (
@@ -405,6 +574,110 @@ export default function PharmacienDemandeDetailPage() {
                       <strong>{row.availability_status ? availabilityStatusFr[row.availability_status] : "—"}</strong>
                     </p>
                   ) : null}
+
+                  <div className="mt-3 rounded-lg border border-amber-100 bg-amber-50/50 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-bold uppercase tracking-wide text-amber-900/85">Alternatives</p>
+                      <span className="text-[10px] text-amber-800/70">maximum 3</span>
+                    </div>
+                    {normalizeAlts(row.request_item_alternatives).length === 0 ? (
+                      <p className="mt-2 text-xs text-gray-600">Aucune alternative ajoutée.</p>
+                    ) : (
+                      <ul className="mt-2 space-y-2">
+                        {normalizeAlts(row.request_item_alternatives).map((alt) => {
+                          const altName = one(alt.products)?.name ?? "Alternative";
+                          return (
+                            <li
+                              key={alt.id}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/80 bg-white px-2 py-2 text-xs"
+                            >
+                              <div>
+                                <p className="font-medium text-gray-900">{altName}</p>
+                                <p className="mt-1 text-[11px] text-gray-600">
+                                  Rang {alt.rank} ·{" "}
+                                  {alt.availability_status
+                                    ? availabilityStatusFr[alt.availability_status]
+                                    : "—"}
+                                  {alt.available_qty != null ? ` · Qté ${alt.available_qty}` : ""}
+                                </p>
+                              </div>
+                              {canEditResponse ? (
+                                <button
+                                  type="button"
+                                  disabled={altBusyRow === alt.id}
+                                  onClick={() => void deleteAlternativeRow(alt.id, row.id)}
+                                  className="shrink-0 text-[11px] font-medium text-red-700 underline disabled:opacity-50"
+                                >
+                                  Retirer
+                                </button>
+                              ) : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+
+                    {canEditResponse && normalizeAlts(row.request_item_alternatives).length < 3 ? (
+                      <>
+                        {altPickerOpenFor === row.id ? (
+                          <div className="mt-3 rounded-md border border-amber-200 bg-white p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <label className="flex-1 text-xs font-medium text-gray-700">Rechercher un produit</label>
+                              <button
+                                type="button"
+                                className="text-[11px] text-gray-600 underline"
+                                onClick={resetAltPicker}
+                              >
+                                Fermer
+                              </button>
+                            </div>
+                            <input
+                              type="search"
+                              value={altQuery}
+                              onChange={(e) => setAltQuery(e.target.value)}
+                              placeholder="Nom (min. 2 caractères)"
+                              className="mt-1 w-full rounded border px-2 py-1 text-sm"
+                            />
+                            {altVisibleHits.length > 0 ? (
+                              <ul className="mt-2 max-h-40 space-y-1 overflow-auto rounded border border-gray-100 bg-gray-50 p-1">
+                                {altVisibleHits.map((h) => (
+                                  <li key={h.id}>
+                                    <button
+                                      type="button"
+                                      disabled={altBusyRow === row.id}
+                                      onClick={() => void insertAlternative(row, h.id)}
+                                      className="flex w-full flex-col rounded px-2 py-1 text-left hover:bg-white disabled:opacity-50"
+                                    >
+                                      <span className="text-sm font-medium text-gray-900">{h.name}</span>
+                                      <span className="text-[11px] text-gray-500">
+                                        {h.product_type}
+                                        {h.laboratory ? ` · ${h.laboratory}` : ""}
+                                      </span>
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : altDebounced.length >= 2 ? (
+                              <p className="mt-2 text-[11px] text-gray-500">Aucun résultat.</p>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={altBusyRow === row.id}
+                            onClick={() => {
+                              setAltPickerOpenFor(row.id);
+                              setAltQuery("");
+                              setAltHits([]);
+                            }}
+                            className="mt-3 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-950 disabled:opacity-50"
+                          >
+                            Ajouter une alternative…
+                          </button>
+                        )}
+                      </>
+                    ) : null}
+                  </div>
                 </li>
               );
             })}
@@ -425,13 +698,97 @@ export default function PharmacienDemandeDetailPage() {
                 ? "Réponse déjà envoyée. Le patient traite depuis son espace (validation, modifications éventuelles)."
                 : null}
               {request.status === "confirmed"
-                ? "Demande confirmée par le patient. Suit le retrait en officine dans ton écran métier prévu ou via la base (`counter_outcome`)."
+                ? "Demande confirmée par le patient. À traiter ensuite au comptoir ci-dessous."
                 : null}
-              {request.status !== "responded" && request.status !== "confirmed" ? (
+              {request.status !== "responded" &&
+              request.status !== "confirmed" &&
+              request.status !== "completed" ? (
                 <span>Résumé disponible uniquement dans cet écran selon statut ({request.status}).</span>
+              ) : null}
+              {request.status === "completed" ? (
+                <span>Dossier clôturé côté comptoir. Les lignes ne sont plus modifiables ici.</span>
               ) : null}
             </p>
           )}
+
+          {(request.status === "responded" ||
+            request.status === "confirmed" ||
+            request.status === "completed") &&
+          items.length > 0 ? (
+            <section className="mt-8 rounded-2xl border-2 border-slate-200 bg-slate-50/50 p-4">
+              <h2 className="text-sm font-bold text-slate-900">Comptoir magasin</h2>
+              <p className="mt-2 text-xs text-slate-700">
+                Une fois le patient présent ou contacté au comptoir, indique l’issue par ligne (« récupéré », « pas
+                venu », etc.). Pour clôturer le dossier, toutes les lignes encore suivies dans la préparation doivent être
+                au statut <strong>Récupéré</strong>, <strong>Non récupéré</strong>, ou avoir été désélectionnées par le patient.
+              </p>
+              <ul className="mt-4 space-y-3">
+                {items.map((row) => {
+                  const prod = one(row.products);
+                  const co = row.counter_outcome ?? "unset";
+                  const selected = Boolean(row.is_selected_by_patient);
+                  const outcomeSelectDisabled =
+                    request.status === "completed" ||
+                    counterBusyId === row.id ||
+                    !selected;
+
+                  return (
+                    <li key={`co-${row.id}`} className="rounded-xl border bg-white px-3 py-3 text-sm shadow-sm">
+                      <p className="font-medium text-gray-900">{prod?.name ?? "Produit"}</p>
+                      {!selected ? (
+                        <p className="mt-2 text-xs text-gray-600">
+                          Ligne retirée par le patient après ta réponse (annulée côté comptoir automatiquement). État&nbsp;:{" "}
+                          <strong>{counterOutcomeFr[co] ?? co}</strong>
+                        </p>
+                      ) : (
+                        <label className="mt-2 block text-xs font-medium text-gray-700">
+                          Issue au comptoir
+                          <select
+                            value={co}
+                            disabled={outcomeSelectDisabled}
+                            onChange={(e) => void saveCounterOutcome(row.id, e.target.value)}
+                            className={`mt-1 w-full rounded-lg border px-2 py-2 text-sm ${
+                              request.status === "completed" ? "cursor-not-allowed bg-gray-100" : ""
+                            }`}
+                          >
+                            <option value="unset">{counterOutcomeFr.unset ?? "unset"}</option>
+                            <option value="picked_up">{counterOutcomeFr.picked_up}</option>
+                            <option value="cancelled_at_counter">{counterOutcomeFr.cancelled_at_counter}</option>
+                            <option value="deferred_next_visit">{counterOutcomeFr.deferred_next_visit}</option>
+                          </select>
+                          {counterBusyId === row.id ? (
+                            <span className="mt-1 block text-[11px] text-gray-500">Enregistrement…</span>
+                          ) : null}
+                        </label>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              {(request.status === "responded" || request.status === "confirmed") && (
+                <button
+                  type="button"
+                  disabled={completeBusy || !canCompleteCounter}
+                  onClick={() => void runCompleteAfterCounter()}
+                  className={`mt-4 w-full rounded-xl py-3 text-sm font-semibold disabled:opacity-50 ${
+                    canCompleteCounter
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "border border-slate-200 bg-gray-50 text-gray-700"
+                  }`}
+                >
+                  {completeBusy
+                    ? "Clôture…"
+                    : "Clôturer le dossier (comptoir OK)"}
+                </button>
+              )}
+              {!canCompleteCounter && (request.status === "responded" || request.status === "confirmed") ? (
+                <p className="mt-2 text-[11px] text-amber-900">
+                  Réglages requis avant clôture : chaque ligne gardée doit être marquée (plus de « pas encore vu » ni « à
+                  récupérer plus tard »).
+                </p>
+              ) : null}
+            </section>
+          ) : null}
         </>
       )}
     </main>

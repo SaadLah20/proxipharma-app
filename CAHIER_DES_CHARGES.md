@@ -256,6 +256,18 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-04 — ESLint CI + flux produits (alternatives pharma + comptoir RPC)
+
+**CI / Qualité**: correction des erreurs ESLint **`react-hooks/set-state-in-effect`** (Next 16 / règle stricte) sur les écrans demande détail patient, pharmacien, fiche pharmacie et formulaires catalogue : pas de `setState` synchrone dans les effets là où évitable (`key`/initialiseurs lazy côté actions patient ; `visibleHits` pour recherche courte ; erreur **`id`** fiche résolue par rendu conditionnel sans effet).
+
+**Alternatives pharmacien**: sur **`/dashboard/pharmacien/demandes/[id]`**, sous chaque ligne produit en phase éditable (`submitted`/`in_review`) — recherche catalogue, ajout (insert `request_item_alternatives`, dispo défaut disponible / qté = demandée), retrait jusqu’à 3 alternatives par ligne.
+
+**Comptoir pharmacien**: même écran en statuts **`responded` | `confirmed` | `completed`** — section « Comptoir magasin » : liste par ligne (incl. lignes non gardées par le patient en lecture seule), menu pilotant **`pharmacist_set_item_counter_outcome`** ; bouton **Clôturer le dossier** quand aucune ligne encore sélectionnée par le patient n’est **`unset`** ni **`deferred_next_visit`** — appel **`pharmacist_complete_request_after_counter`** (message d’erreur SQL remonté en UI si règle non satisfaite).
+
+**Patient**: détail demande (**`/dashboard/demandes/[id]`**) — bloc « Alternatives proposées » sous chaque produit lorsque présentes (`request_item_alternatives` enrichi dans la requête). Composant actions patient remonté avec **`key`** sur les lignes pour resynchroniser brouillon / confirmation sans effets parasites.
+
+---
+
 ### Session 2026-05-03 — UI workflow « demande de produits » (client + pharmacien) + cloture méthodo
 
 **Produit — espace patient (Next)**:
@@ -275,12 +287,13 @@ Statuts retenus v1:
 
 **Méthode / alignement équipe amateur** ajout §0.1 cadre repetee collaboration sans outillage Supabase automatique coté Cursor.
 
-**Reste coherent avec la roadmap immediate** mais pas clos dans cette session (voir backlog §12 ; priorite suivante annoncee oralement puis transcrite ligne reservee §12 a l ouverture suivante) :
+**Reste coherent avec la roadmap immediate** mais pas clos dans cette session ; **ultérieurement (session 2026-05-04)** — alternatives pharma + UI comptoir + RPC clôture sont livrées (voir ce bloc ci-dessus au journal).
 
-- Flux produit encore incomplet côte **alternatives pharmacien dans l UI** (table + RLS existe — pas d ecran encore).
-- Flux **comptoir** coté pharma appels RPC **`pharmacist_set_item_counter_outcome`** puis **`pharmacist_complete_request_after_counter`** dans l UI (manquant).
-- Chantiers **ordonnance** + **consultation libre** côté pharma detail ecran encore message « hors perimetre».
-- **Remarques qualitatives utilisateur (UX workflow)** rapportees oralement — a transcrire en ouverture prochaine (ligne reservee §12 backlog).
+Encore hors périmètre à l’instant de la rédaction historique :
+
+- Flux **alternatives** + **comptoir** côté UI → réalisés en **session 2026-05-04** (voir journal).
+- Chantiers **ordonnance** + **consultation libre** : écran pharma détail encore message « hors périmètre ».
+- **Remarques qualitatives utilisateur** : poursuivre inventaire ligne §12 dont retours ESLint / CI.
 
 ---
 
@@ -340,7 +353,7 @@ Implémentation frontend associée repo (voir journal **Session 2026-05-03** pou
 - **`/pharmacie/[id]/demande-produits`**: création demande **`submitted`**
 - **`/dashboard`**, **`/dashboard/demandes/[id]`**, **`/dashboard/pharmacien/demandes`**, **`/dashboard/pharmacien/demandes/[id]`**
 - Auth **`/auth`** supporte redirection query **`?redirect=`** apres connexion
-- Travail incremental versionne sous Git sur branche **`fix/rls-recursion`** (voir historique commits `e22c91a` dernier groupe UI majeur documente journal ci-dessus)
+- Travail incremental versionne sous Git sur branche **`fix/rls-recursion`** (voir historique commits `e22c91a` dernier groupe UI majeur documente journal ci-dessus) ; **nouvelle livraison** : alternatives + comptoir pharmacien + correctifs ESLint (**Session 2026-05-04** ci-dessus).
 
 Etat fonctionnel teste / a valider sur Supabase:
 - Les 3 types de demandes sont inserables (tel qu avant)
@@ -359,14 +372,16 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 | Creation ligne demande depuis fiche + statut **`submitted`** | Fait (`/pharmacie/.../demande-produits`) |
 | Liste detail patient + actions **responded/confirmed** (confirm/resubmit/abandon) | Fait (RPC coté détail dashboard) |
 | Liste + publication reponse pharma **availability** jusqu **`responded`** + **expires_at** | Fait (`/dashboard/pharmacien/...`) |
-| **Alternatives** jusqu a 3 / ligne coté pharma UI saisie + affichage patient detail | Pas fait (BDD existe) |
-| **Comptoir** `counter_outcome` ligne + bouton cloture **`pharmacist_complete_request_after_counter`** côté UI pharma ou magasin préparation | Pas fait |
+| **Alternatives** jusqu a 3 / ligne coté pharma UI saisie + affichage patient detail | **Fait** (pharma : recherche + insert/delete ; patient : bloc lecture après fetch joint) |
+| **Comptoir** `counter_outcome` ligne + bouton cloture **`pharmacist_complete_request_after_counter`** côté UI pharma ou magasin préparation | **Fait** (`/dashboard/pharmacien/demandes/[id]` section dédiée) |
 | **Auto expiration** cron supabase **`expire_overdue_requests()`** | Pas branche infra |
 | **Ordonnance / consultation**: traitement pharmacien meme espace | Hors perimetre ecran actuel |
 | **`market_shortages`** insert auto quand pharma choisit **market_shortage** dispo ligne | Hors scope UI actuelle — decider comportement métier puis migration trigger ou RPC |
 | Consolidation UX post-retours utilisateur (libelles, ordre des etapes, messages d erreur) | A planifier des la prochaine session avec inventaire ecrit |
 
-_Ligne reservee transcription des retours utilisateur (a remplir au demarrage prochain)_ : *[vide — coller ou resumer tes remarques ici a l ouverture, ou dans le prompt §13]*
+_Ligne reservee transcription des retours utilisateur (a remplir au demarrage prochain)_ :
+- Merge / CI GitHub Actions : erreurs **`react-hooks/set-state-in-effect`** suite au durcissement ESLint — traitées localement (**Session 2026-05-04**).
+- Essais fonctionnels utilisateur : poursuivre validation manuelle flux complet (alternatives puis passage comptoir apres **`confirmed`**), affinage libellés UX si besoin.
 
 ---
 
