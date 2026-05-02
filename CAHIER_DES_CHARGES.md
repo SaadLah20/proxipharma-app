@@ -387,13 +387,26 @@ _Ligne reservee transcription des retours utilisateur (a remplir au demarrage pr
 
 ## 13) Prompt de reprise (copier/coller prochaine session)
 
+### 13.1) Workflow « demande de produits » — plan apres atelier (prioritaire quand les reponses sont saisies)
+
+**Fichiers fixes dans le depot**:
+
+- `docs/workflow-demande-produits-QUESTIONS.md` — les 41 questions (reference, ne pas les recopier a chaque fois).
+- `docs/workflow-demande-produits-REPONSES.md` — **tes reponses** (a completer au fil de l eau ; c est le seul document a tenir a jour de ton cote pour l atelier).
+
+**Prompt conseille** (prochaine session, lorsque `REPONSES.md` est rempli ou partiellement rempli) :
+
+**« Je reprends ProxiPharma. Lis `docs/workflow-demande-produits-REPONSES.md` (mes reponses), `docs/workflow-demande-produits-QUESTIONS.md` si besoin de rappel du libelle des Q1–Q41, puis `CAHIER_DES_CHARGES.md` §0.1, §11 et §12. A partir de mes reponses, propose un plan de developpement clair de A a Z pour finaliser le workflow demande de produits entre patient et pharmacien (jalons, ordre BDD/migrations puis UI, ecart avec l existant). Signale uniquement les questions encore sans reponse. Ensuite on enchaine sur l implementation selon ce plan. Mets le cahier a jour en fin de session si pertinent. »**
+
+### 13.2) Prompt de reprise generique (hors plan atelier detaille)
+
 Texte conseille a copier-coller tel quel puis completer au besoin:
 
-**« Je reprends ProxiPharma. Lis le `CAHIER_DES_CHARGES.md` depuis le §0.1 (routine), puis le §11 Etat actuel, le §12 backlog, et le dernier bloc du §10 Journal. Priorite prod: complete le workflow fonctionnel bout-en-bout de la demande de produits (alternatives pharmacien dans l UI, puis comptoir `counter_outcome` + cloture `pharmacist_complete_request_after_counter`, puis le reste du §12 comme convenu). Voici mes remarques UX / produit depuis les essais : [COLLE_ICI tes remarques ou ecris "voir ligne reservee §12"]. Mets le cahier a jour en fin de session. »**
+**« Je reprends ProxiPharma. Lis le `CAHIER_DES_CHARGES.md` depuis le §0.1 (routine), puis le §11 Etat actuel, le §12 backlog, et le dernier bloc du §10 Journal. Priorite prod: [PRECISER]. Voici mes remarques: [OPTIONNEL]. Mets le cahier a jour en fin de session. »**
 
-_Le paragraphe entre crochets peut contenir tes notes ou renvoyer a la ligne reservee du §12._
+_Le detail des questions workflow produits vit dans §13.1 ; ne pas tout recoller dans ce prompt._
 
-_Ancienne phrase de reprise (alternatives + patient_mark_collected + UI sprint 2) est depassee_: le flux partiel/full cote patient a ete remplace par statut **`completed`** + comptoir pharmacien (`counter_outcome`) ; une grande partie Sprint 2 demande produits est deja en place dans le depot (voir journal 2026-05-03)._
+_Ancienne phrase de reprise (alternatives + patient_mark_collected + UI sprint 2) est depassee_: le flux partiel/full cote patient a ete remplace par statut **`completed`** + comptoir pharmacien (`counter_outcome`) ; une grande partie Sprint 2 demande produits est deja en place dans le depot (voir journal)._
 
 ### Template pour prochaines sessions
 - Date:
