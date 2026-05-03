@@ -3,17 +3,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { patientDashboardSections, requestStatusFr, requestTypeFr } from "@/lib/request-display";
+import { DemandeStatDashboard } from "@/components/requests/demande-stat-dashboard";
 import {
-  ALL_REQUEST_STATUSES,
-  ALL_REQUEST_TYPES,
   DemandeHubTabBar,
   type HubTab,
   PatientDemandeCard,
   type PatientRequestRow,
 } from "@/components/requests/demande-hub-ui";
 import { PageShell } from "@/components/ui/compact-shell";
+import { bucketForStatusParam, PATIENT_DASHBOARD_BUCKETS } from "@/lib/demandes-hub-buckets";
+import { one } from "@/lib/embed";
+import { supabase } from "@/lib/supabase";
 
 function tabFromSearch(v: string | null): HubTab {
   return v === "liste" ? "list" : "dashboard";
@@ -32,15 +32,20 @@ export function PatientDemandesHub() {
   const setTab = (t: HubTab) => {
     const next = new URLSearchParams(searchParams.toString());
     next.set("vue", tabToSearch(t));
+    if (t === "dashboard") {
+      next.delete("statut");
+    }
     router.replace(`/dashboard/demandes?${next.toString()}`, { scroll: false });
   };
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [rows, setRows] = useState<PatientRequestRow[]>([]);
-  const [statusFilter, setStatusFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
+  const [pharmacyFilter, setPharmacyFilter] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
+
+  const statutParam = searchParams.get("statut");
+  const activeBucket = bucketForStatusParam(statutParam);
 
   const load = useCallback(async () => {
     setError("");
@@ -62,8 +67,9 @@ export function PatientDemandesHub() {
       .from("requests")
       .select("id,created_at,status,request_type,pharmacy_id,submitted_at,responded_at,pharmacies(nom,ville)")
       .eq("patient_id", user.id)
+      .eq("request_type", "product_request")
       .order("created_at", { ascending: false })
-      .limit(180);
+      .limit(200);
 
     if (re) {
       setError(re.message);
@@ -80,29 +86,45 @@ export function PatientDemandesHub() {
     return () => window.clearTimeout(tid);
   }, [load]);
 
+  const pharmacyOptions = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of rows) {
+      if (m.has(r.pharmacy_id)) continue;
+      const ph = one(r.pharmacies);
+      m.set(
+        r.pharmacy_id,
+        ph?.nom ? `${ph.nom} (${ph.ville})` : `Pharmacie ${r.pharmacy_id.slice(0, 8)}…`
+      );
+    }
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], "fr"));
+  }, [rows]);
+
   const filteredSorted = useMemo(() => {
     let list = rows;
-    if (statusFilter) {
-      list = list.filter((r) => r.status === statusFilter);
+    if (activeBucket) {
+      const allow = new Set(activeBucket.statuses);
+      list = list.filter((r) => allow.has(r.status));
     }
-    if (typeFilter) {
-      list = list.filter((r) => r.request_type === typeFilter);
+    if (pharmacyFilter) {
+      list = list.filter((r) => r.pharmacy_id === pharmacyFilter);
     }
     return [...list].sort((a, b) => {
       const ta = new Date(a.created_at).getTime();
       const tb = new Date(b.created_at).getTime();
       return sortNewestFirst ? tb - ta : ta - tb;
     });
-  }, [rows, statusFilter, typeFilter, sortNewestFirst]);
+  }, [rows, activeBucket, pharmacyFilter, sortNewestFirst]);
 
-  const sectionRows = useMemo(() => {
-    const map = new Map<string, PatientRequestRow[]>();
-    for (const sec of patientDashboardSections) {
-      const set = new Set(sec.statuses);
-      map.set(sec.id, rows.filter((r) => set.has(r.status)));
+  const setStatutFilter = (key: string) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("vue", "liste");
+    if (key === "") {
+      next.delete("statut");
+    } else {
+      next.set("statut", key);
     }
-    return map;
-  }, [rows]);
+    router.replace(`/dashboard/demandes?${next.toString()}`, { scroll: false });
+  };
 
   if (loading) {
     return (
@@ -131,9 +153,7 @@ export function PatientDemandesHub() {
             ← Mon espace
           </Link>
           <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">Mes demandes</h1>
-          <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">
-            Suivi condensé : tableau de bord puis liste filtrable.
-          </p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">Demandes auprès des pharmacies.</p>
         </div>
         <Link
           href="/"
@@ -156,9 +176,7 @@ export function PatientDemandesHub() {
           {rows.length === 0 ? (
             <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center sm:p-8">
               <p className="text-sm font-medium text-foreground">Aucune demande</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Annuaire → pharmacie → « Demander des produits ».
-              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">Annuaire → pharmacie → demande.</p>
               <Link
                 href="/"
                 className="mt-4 inline-flex rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-95"
@@ -167,31 +185,8 @@ export function PatientDemandesHub() {
               </Link>
             </div>
           ) : (
-            <div className="mt-4 space-y-5">
-              {patientDashboardSections.map((sec) => {
-                const list = sectionRows.get(sec.id) ?? [];
-                if (list.length === 0) return null;
-                return (
-                  <section key={sec.id}>
-                    <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
-                      <div>
-                        <h2 className="text-sm font-bold text-foreground">{sec.title}</h2>
-                        <p className="text-[10px] text-muted-foreground sm:text-[11px]">{sec.description}</p>
-                      </div>
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground sm:text-xs">
-                        {list.length}
-                      </span>
-                    </div>
-                    <ul className="space-y-2">
-                      {list.map((r) => (
-                        <li key={r.id}>
-                          <PatientDemandeCard row={r} />
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                );
-              })}
+            <div className="mt-4">
+              <DemandeStatDashboard rows={rows} buckets={PATIENT_DASHBOARD_BUCKETS} basePath="/dashboard/demandes" />
             </div>
           )}
         </>
@@ -201,29 +196,29 @@ export function PatientDemandesHub() {
             <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Statut
               <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                value={activeBucket?.key ?? ""}
+                onChange={(e) => setStatutFilter(e.target.value)}
                 className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
               >
                 <option value="">Tous</option>
-                {ALL_REQUEST_STATUSES.map((st) => (
-                  <option key={st} value={st}>
-                    {requestStatusFr[st] ?? st}
+                {PATIENT_DASHBOARD_BUCKETS.map((b) => (
+                  <option key={b.key} value={b.key}>
+                    {b.label}
                   </option>
                 ))}
               </select>
             </label>
             <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Type
+              Pharmacie
               <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
+                value={pharmacyFilter}
+                onChange={(e) => setPharmacyFilter(e.target.value)}
                 className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
               >
-                <option value="">Tous</option>
-                {ALL_REQUEST_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {requestTypeFr[t] ?? t}
+                <option value="">Toutes</option>
+                {pharmacyOptions.map(([id, label]) => (
+                  <option key={id} value={id}>
+                    {label}
                   </option>
                 ))}
               </select>
@@ -242,7 +237,7 @@ export function PatientDemandesHub() {
           </div>
 
           {filteredSorted.length === 0 ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">Aucun résultat avec ces filtres.</p>
+            <p className="py-6 text-center text-xs text-muted-foreground">Aucun résultat.</p>
           ) : (
             <ul className="space-y-2">
               {filteredSorted.map((r) => (

@@ -289,7 +289,9 @@ export function PatientProductRequestActions({ requestId, status, items, initial
     });
     const anyOn = payload.some((p) => p.is_selected);
     if (!anyOn) {
-      setActionError("Garde au moins une ligne (produit ou alternative), ou utilise « Modifier et renvoyer » / abandon.");
+      setActionError(
+        "Garde au moins une ligne sélectionnée, modifie ta liste avant renvoi, ou abandonne la demande."
+      );
       return;
     }
 
@@ -389,19 +391,24 @@ export function PatientProductRequestActions({ requestId, status, items, initial
     await onReload();
   };
 
-  if (status !== "responded" && status !== "confirmed") return null;
+  const allowed =
+    status === "submitted" || status === "in_review" || status === "responded" || status === "confirmed";
+  if (!allowed) return null;
 
   const showConfirm = status === "responded";
+  const showResubmit = status === "responded" || status === "submitted" || status === "in_review";
+  const showAbandonAfterResponse = status === "responded" || status === "confirmed";
 
   const visitTimeFr = visitTime.trim() ? formatTime24hFr(htmlTimeToPg(visitTime) ?? visitTime) : "";
 
   return (
     <section className="mt-3 rounded-lg border border-border/90 bg-muted/15 p-2.5 sm:p-3">
-      <h2 className="text-xs font-bold uppercase tracking-wide text-foreground">Tes actions</h2>
-      <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+      <p className="text-[11px] leading-snug text-muted-foreground">
         {status === "responded"
           ? "Choix principal / alternative ou rien par ligne, puis valide ou renvoie ta liste."
-          : "Tu peux encore modifier ta liste ou abandonner jusqu’à la clôture en pharmacie."}
+          : status === "confirmed"
+            ? "Ta sélection est validée. Tu peux encore abandonner la demande si besoin."
+            : "Tu peux ajuster les quantités ou la liste, puis renvoyer à la pharmacie."}
       </p>
 
       {actionError ? (
@@ -633,9 +640,16 @@ export function PatientProductRequestActions({ requestId, status, items, initial
         </div>
       ) : null}
 
+      {showResubmit ? (
       <div className="mt-2 rounded-md border border-border/70 bg-card p-2 sm:p-2.5">
-        <h3 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Modifier et renvoyer</h3>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">Nouvelle liste = retraitement depuis le début.</p>
+        <h3 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+          {status === "responded" ? "Modifier la liste" : "Liste à envoyer"}
+        </h3>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          {status === "responded"
+            ? "Une nouvelle liste relance le traitement depuis le début côté pharmacie."
+            : "Les changements remplacent ta demande actuelle."}
+        </p>
         <textarea
           value={noteDraft}
           onChange={(e) => setNoteDraft(e.target.value)}
@@ -644,7 +658,7 @@ export function PatientProductRequestActions({ requestId, status, items, initial
           className="mt-2 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
         />
 
-        <p className="mt-2 text-[11px] font-semibold text-foreground">Produits</p>
+        <p className="mt-2 text-[11px] font-semibold text-foreground">Lignes</p>
         <ul className="mt-1 space-y-1.5">
           {lines.map((l, idx) => (
             <li key={`${l.product_id}-${idx}`} className="flex flex-wrap items-center gap-2 rounded border border-gray-100 px-2 py-2 text-sm">
@@ -715,10 +729,16 @@ export function PatientProductRequestActions({ requestId, status, items, initial
           onClick={() => void runResubmit()}
           className="mt-4 w-full rounded-lg border border-amber-600 bg-amber-50 py-2.5 text-sm font-semibold text-amber-950 disabled:opacity-50"
         >
-          {busyAction === "resubmit" ? "Envoi…" : "Modifier et renvoyer à la pharmacie"}
+          {busyAction === "resubmit"
+            ? "Envoi…"
+            : status === "responded"
+              ? "Renvoyer la liste à la pharmacie"
+              : "Mettre à jour et renvoyer"}
         </button>
       </div>
+      ) : null}
 
+      {showAbandonAfterResponse ? (
       <div className="mt-2 rounded-md border border-destructive/25 bg-destructive/5 p-2 sm:p-2.5">
         <p className="text-[10px] font-bold uppercase tracking-wide text-destructive">Abandon après réponse</p>
         <label className="mt-3 block text-xs font-medium text-gray-700">
@@ -756,6 +776,7 @@ export function PatientProductRequestActions({ requestId, status, items, initial
           {busyAction === "abandon" ? "Abandon…" : "Abandonner cette demande"}
         </button>
       </div>
+      ) : null}
     </section>
   );
 }

@@ -1,16 +1,28 @@
+/** Libellés demandés côté métier (patient & pharmacien). */
 export const requestStatusFr: Record<string, string> = {
-  draft: "Brouillon",
+  draft: "Annulée",
   submitted: "Envoyée",
-  in_review: "En traitement",
-  responded: "Réponse reçue",
-  confirmed: "Confirmée par toi",
-  completed: "Terminée",
+  in_review: "Envoyée",
+  responded: "Répondue",
+  confirmed: "Validée",
+  completed: "Clôturée",
   cancelled: "Annulée",
   abandoned: "Abandonnée",
   expired: "Expirée",
-  partially_collected: "Retrait (ancien)",
-  fully_collected: "Retrait (ancien)",
+  partially_collected: "Clôturée",
+  fully_collected: "Clôturée",
 };
+
+/** Libellé court pour badges (même vocabulaire, `in_review` = envoyée). */
+export function requestStatusShortFr(status: string): string {
+  return requestStatusFr[status] ?? status;
+}
+
+/** Côté officine : `confirmed` affiché « Traitée » (préparation après validation patient). */
+export function requestStatusShortFrPharmacien(status: string): string {
+  if (status === "confirmed") return "Traitée";
+  return requestStatusShortFr(status);
+}
 
 /** Regroupe les demandes dans l’écran patient « Tableau de bord ». */
 export const patientDashboardSections: {
@@ -134,7 +146,7 @@ export function requestStatusBadgeClass(status: string): string {
 
 export const requestTypeFr: Record<string, string> = {
   prescription: "Ordonnance",
-  product_request: "Produits",
+  product_request: "Demande",
   free_consultation: "Consultation libre",
 };
 
@@ -151,8 +163,8 @@ export const availabilityStatusFr: Record<string, string> = {
 };
 
 export const counterOutcomeFr: Record<string, string> = {
-  unset: "Pas encore vu au comptoir",
+  unset: "En attente",
   picked_up: "Récupéré",
-  cancelled_at_counter: "Non récupéré / annulé",
+  cancelled_at_counter: "Non récupéré",
   deferred_next_visit: "À récupérer plus tard",
 };
