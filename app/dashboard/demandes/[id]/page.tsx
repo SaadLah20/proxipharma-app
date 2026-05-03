@@ -13,6 +13,7 @@ import {
   requestTypeFr,
 } from "@/lib/request-display";
 import { one } from "@/lib/embed";
+import { PatientCancelBeforeResponse } from "./PatientCancelBeforeResponse";
 import { PatientProductRequestActions } from "./PatientProductRequestActions";
 import { pphLabel } from "@/lib/product-price";
 
@@ -383,6 +384,16 @@ export default function DemandeDetailPage() {
         </section>
       ) : request.request_type === "product_request" ? (
         <p className="mt-4 text-sm text-gray-500">Aucune ligne produit enregistrée pour cette demande.</p>
+      ) : null}
+
+      {request.request_type === "product_request" &&
+      (request.status === "submitted" || request.status === "in_review") ? (
+        <PatientCancelBeforeResponse
+          requestId={request.id}
+          onDone={async () => {
+            await loadDetail(true);
+          }}
+        />
       ) : null}
 
       {request.request_type === "product_request" && (request.status === "responded" || request.status === "confirmed") ? (

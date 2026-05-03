@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  PATIENT_CANCEL_REASON_CODES,
+  PATIENT_CANCEL_REASON_LABELS,
+  type PatientCancelReasonCode,
+} from "@/lib/patient-flow-reasons";
 import { availabilityStatusFr } from "@/lib/request-display";
 import { plannedVisitWindow } from "@/lib/planned-visit";
 import { pphLabel } from "@/lib/product-price";
@@ -102,7 +107,7 @@ function computeResubmitLinesFromItems(
   return items.map((row) => ({
     product_id: row.product_id,
     name: one(row.products)?.name ?? "Produit",
-    qty: Math.max(1, row.requested_qty),
+    qty: Math.min(10, Math.max(1, row.requested_qty)),
     price_pph: one(row.products)?.price_pph ?? null,
   }));
 }
@@ -133,6 +138,8 @@ function htmlTimeToPg(t: string): string | null {
 export function PatientProductRequestActions({ requestId, status, items, initialPatientNote, onReload }: Props) {
   const [actionError, setActionError] = useState("");
   const [busyAction, setBusyAction] = useState<"" | "confirm" | "resubmit" | "abandon">("");
+  const [abandonCode, setAbandonCode] = useState<PatientCancelReasonCode>("no_longer_needed");
+  const [abandonDetail, setAbandonDetail] = useState("");
 
   /** Confirmation responded -> confirmed — reset via parent `key` when server rows change */
   const [sel, setSel] = useState(() => computeSelFromItems(items));
@@ -327,6 +334,20 @@ export function PatientProductRequestActions({ requestId, status, items, initial
       setActionError("Ajoute au moins un produit à la liste.");
       return;
     }
+
+    const seen = new Set<string>();
+    for (const l of lines) {
+      if (seen.has(l.product_id)) {
+        setActionError("Chaque produit ne peut apparaître qu’une seule fois dans ta liste.");
+        return;
+      }
+      seen.add(l.product_id);
+      if (l.qty < 1 || l.qty > 10) {
+        setActionError("Les quantités doivent être entre 1 et 10 pour chaque produit.");
+        return;
+      }
+    }
+
     const p_items = lines.map((l) => ({ product_id: l.product_id, requested_qty: l.qty }));
     setBusyAction("resubmit");
     const { error } = await supabase.rpc("patient_resubmit_product_request_after_response", {
@@ -343,14 +364,21 @@ export function PatientProductRequestActions({ requestId, status, items, initial
   };
 
   const runAbandon = async () => {
-    if (!globalThis.confirm("Abandonner cette demande ? Le pharmacien verra cette décision dans l historique.")) {
+    const other = abandonDetail.trim();
+    if (abandonCode === "other" && other.length < 8) {
+      setActionError("Pour « Autre », précise en au moins 8 caractères.");
+      return;
+    }
+
+    if (!globalThis.confirm("Abandonner cette demande ? Le pharmacien pourra voir cette décision dans l’historique.")) {
       return;
     }
     setActionError("");
     setBusyAction("abandon");
     const { error } = await supabase.rpc("patient_abandon_request", {
       p_request_id: requestId,
-      p_reason: "patient_abandon_from_detail",
+      p_reason_code: abandonCode,
+      p_reason_other: abandonCode === "other" ? other : null,
     });
     setBusyAction("");
     if (error) {
@@ -624,10 +652,13 @@ export function PatientProductRequestActions({ requestId, status, items, initial
                 <input
                   type="number"
                   min={1}
+                  max={10}
                   value={l.qty}
                   onChange={(e) =>
                     setLines((prev) =>
-                      prev.map((row, i) => (i === idx ? { ...row, qty: Math.max(1, Number(e.target.value) || 1) } : row))
+                      prev.map((row, i) =>
+                        i === idx ? { ...row, qty: Math.min(10, Math.max(1, Number(e.target.value) || 1)) } : row
+                      )
                     )
                   }
                   className="w-14 rounded border px-1"
@@ -681,14 +712,43 @@ export function PatientProductRequestActions({ requestId, status, items, initial
         </button>
       </div>
 
-      <button
-        type="button"
-        disabled={busyAction !== ""}
-        onClick={() => void runAbandon()}
-        className="mt-3 w-full rounded-lg border border-red-300 bg-red-50 py-2 text-sm font-medium text-red-900 disabled:opacity-50"
-      >
-        {busyAction === "abandon" ? "Abandon…" : "Abandonner cette demande"}
-      </button>
+      <div className="mt-5 rounded-lg border border-red-200 bg-red-50/40 p-3">
+        <p className="text-xs font-semibold text-red-950">Abandon après réponse</p>
+        <label className="mt-3 block text-xs font-medium text-gray-700">
+          Motif
+          <select
+            value={abandonCode}
+            onChange={(e) => setAbandonCode(e.target.value as PatientCancelReasonCode)}
+            className="mt-1 block w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900"
+          >
+            {PATIENT_CANCEL_REASON_CODES.map((c) => (
+              <option key={c} value={c}>
+                {PATIENT_CANCEL_REASON_LABELS[c]}
+              </option>
+            ))}
+          </select>
+        </label>
+        {abandonCode === "other" ? (
+          <label className="mt-2 block text-xs font-medium text-gray-700">
+            Précise (min. 8 caractères)
+            <textarea
+              value={abandonDetail}
+              rows={2}
+              onChange={(e) => setAbandonDetail(e.target.value)}
+              placeholder="Ton motif…"
+              className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900"
+            />
+          </label>
+        ) : null}
+        <button
+          type="button"
+          disabled={busyAction !== "" || (abandonCode === "other" && abandonDetail.trim().length < 8)}
+          onClick={() => void runAbandon()}
+          className="mt-3 w-full rounded-lg border border-red-400 bg-white py-2 text-sm font-semibold text-red-950 disabled:opacity-50"
+        >
+          {busyAction === "abandon" ? "Abandon…" : "Abandonner cette demande"}
+        </button>
+      </div>
     </section>
   );
 }

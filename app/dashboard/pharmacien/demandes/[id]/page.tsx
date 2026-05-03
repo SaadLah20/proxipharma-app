@@ -395,15 +395,13 @@ export default function PharmacienDemandeDetailPage() {
         if (up) throw new Error(up.message);
       }
 
-      const expires = new Date();
-      expires.setDate(expires.getDate() + 7);
-
+      /* Pilote Q38/Q6 : pas d’expiration +7 j après réponse ; l’état passe par abandon 24 h (cron) après `responded` si aucune confirmation. */
       const { error: u2 } = await supabase
         .from("requests")
         .update({
           status: "responded",
           responded_at: new Date().toISOString(),
-          expires_at: expires.toISOString(),
+          expires_at: null,
         })
         .eq("id", id);
 

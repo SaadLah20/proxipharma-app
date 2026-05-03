@@ -101,9 +101,8 @@ export default function DemandeProduitsPage() {
   }, []);
 
   const setQty = (productId: string, qty: number) => {
-    setLines((prev) =>
-      prev.map((l) => (l.product_id === productId ? { ...l, qty: Math.max(1, qty) } : l))
-    );
+    const q = Math.min(10, Math.max(1, qty));
+    setLines((prev) => prev.map((l) => (l.product_id === productId ? { ...l, qty: q } : l)));
   };
 
   const removeLine = (productId: string) => {
@@ -116,6 +115,13 @@ export default function DemandeProduitsPage() {
     if (lines.length === 0) {
       setFeedback({ type: "err", text: "Ajoute au moins un produit." });
       return;
+    }
+
+    for (const l of lines) {
+      if (l.qty < 1 || l.qty > 10) {
+        setFeedback({ type: "err", text: "Chaque quantité doit être entre 1 et 10." });
+        return;
+      }
     }
 
     const { data: userData, error: userErr } = await supabase.auth.getUser();
@@ -261,7 +267,8 @@ export default function DemandeProduitsPage() {
                     <button
                       type="button"
                       aria-label="Augmenter"
-                      className="rounded-lg border border-gray-200 p-1.5 text-gray-700 hover:bg-white"
+                      disabled={l.qty >= 10}
+                      className="rounded-lg border border-gray-200 p-1.5 text-gray-700 hover:bg-white disabled:opacity-40"
                       onClick={() => setQty(l.product_id, l.qty + 1)}
                     >
                       <Plus size={16} />
