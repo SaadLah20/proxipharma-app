@@ -5,8 +5,17 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { PHARMACIST_AVAILABILITY_OPTIONS } from "@/lib/pharmacist-availability";
-import { availabilityStatusFr, counterOutcomeFr, formatShortId, requestStatusFr, requestTypeFr } from "@/lib/request-display";
+import {
+  availabilityStatusFr,
+  counterOutcomeFr,
+  formatShortId,
+  pharmacistRequestIsClosedSuccess,
+  pharmacistRequestIsHardStopped,
+  requestStatusFr,
+  requestTypeFr,
+} from "@/lib/request-display";
 import { one } from "@/lib/embed";
+import { pphLabel } from "@/lib/product-price";
 
 type RequestRow = {
   id: string;
@@ -17,8 +26,12 @@ type RequestRow = {
   created_at: string;
   submitted_at: string | null;
   responded_at: string | null;
+  patient_planned_visit_date: string | null;
+  patient_planned_visit_time: string | null;
   product_requests: { patient_note: string | null } | { patient_note: string | null }[] | null;
 };
+
+type ProdEmbedDb = { name: string; price_pph?: number | null };
 
 type AltRowDb = {
   id: string;
@@ -29,7 +42,7 @@ type AltRowDb = {
   unit_price: number | null;
   pharmacist_comment: string | null;
   expected_availability_date: string | null;
-  products: { name: string } | { name: string }[] | null;
+  products: ProdEmbedDb | ProdEmbedDb[] | null;
 };
 
 type ItemRow = {
@@ -44,7 +57,8 @@ type ItemRow = {
   counter_outcome: string;
   is_selected_by_patient: boolean;
   selected_qty: number | null;
-  products: { name: string } | { name: string }[] | null;
+  patient_chosen_alternative_id?: string | null;
+  products: ProdEmbedDb | ProdEmbedDb[] | null;
   request_item_alternatives: AltRowDb | AltRowDb[] | null;
 };
 
@@ -63,6 +77,7 @@ type ProductCatalogHit = {
   name: string;
   product_type: string;
   laboratory: string | null;
+  price_pph?: number | null;
 };
 
 function normalizeAlts(raw: ItemRow["request_item_alternatives"]): AltRowDb[] {
@@ -146,7 +161,9 @@ export default function PharmacienDemandeDetailPage() {
 
     const { data: reqRow, error: reqErr } = await supabase
       .from("requests")
-      .select("id,status,request_type,pharmacy_id,patient_id,created_at,submitted_at,responded_at,product_requests(patient_note)")
+      .select(
+        "id,status,request_type,pharmacy_id,patient_id,created_at,submitted_at,responded_at,patient_planned_visit_date,patient_planned_visit_time,product_requests(patient_note)"
+      )
       .eq("id", id)
       .maybeSingle();
 
@@ -168,7 +185,7 @@ export default function PharmacienDemandeDetailPage() {
     const { data: itemsData, error: itemsErr } = await supabase
       .from("request_items")
       .select(
-        "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,is_selected_by_patient,selected_qty,products(name),request_item_alternatives(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name))"
+        "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,is_selected_by_patient,selected_qty,patient_chosen_alternative_id,products(name,price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph))"
       )
       .eq("request_id", id)
       .order("created_at", { ascending: true });
@@ -184,11 +201,17 @@ export default function PharmacienDemandeDetailPage() {
 
     const d: Draft = {};
     for (const row of list) {
+      const catalogPph = one(row.products)?.price_pph;
       d[row.id] = {
         availability_status: row.availability_status ?? "available",
         available_qty:
           row.available_qty != null ? String(row.available_qty) : String(row.requested_qty),
-        unit_price: row.unit_price != null ? String(row.unit_price) : "",
+        unit_price:
+          row.unit_price != null
+            ? String(row.unit_price)
+            : catalogPph != null
+              ? String(catalogPph)
+              : "",
         pharmacist_comment: row.pharmacist_comment ?? "",
         expected_availability_date: row.expected_availability_date ?? "",
       };
@@ -212,7 +235,7 @@ export default function PharmacienDemandeDetailPage() {
       void (async () => {
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory")
+          .select("id,name,product_type,laboratory,price_pph")
           .eq("is_active", true)
           .ilike("name", `%${altDebounced}%`)
           .order("name")
@@ -240,9 +263,10 @@ export default function PharmacienDemandeDetailPage() {
     setAltHits([]);
   };
 
-  const insertAlternative = async (parentRow: ItemRow, catalogProductId: string) => {
+  const insertAlternative = async (parentRow: ItemRow, pick: ProductCatalogHit) => {
     const existing = normalizeAlts(parentRow.request_item_alternatives);
     const rank = nextAltRank(existing);
+    const catalogProductId = pick.id;
     setError("");
     if (catalogProductId === parentRow.product_id) {
       setError("Choisis un produit différent de la ligne principale.");
@@ -257,6 +281,7 @@ export default function PharmacienDemandeDetailPage() {
       return;
     }
     setAltBusyRow(parentRow.id);
+    const prefPrice = pick.price_pph != null && !Number.isNaN(Number(pick.price_pph)) ? Number(pick.price_pph) : null;
     const { error: insErr } = await supabase.from("request_item_alternatives").insert({
       request_item_id: parentRow.id,
       rank,
@@ -264,7 +289,7 @@ export default function PharmacienDemandeDetailPage() {
       availability_status: "available",
       available_qty: Math.max(1, parentRow.requested_qty),
       pharmacist_comment: null,
-      unit_price: null,
+      unit_price: prefPrice,
       expected_availability_date: null,
     });
     setAltBusyRow(null);
@@ -438,8 +463,8 @@ export default function PharmacienDemandeDetailPage() {
     return (
       <main className="mx-auto min-h-screen max-w-lg p-6">
         <p className="rounded-lg bg-red-50 p-4 text-sm text-red-800">{error}</p>
-        <Link href="/dashboard/pharmacien/demandes" className="mt-4 inline-block text-sm text-blue-700 underline">
-          Retour à la liste
+        <Link href="/dashboard/pharmacien/demandes" className="mt-4 inline-block text-sm text-emerald-900 underline">
+          Retour aux demandes
         </Link>
       </main>
     );
@@ -452,9 +477,22 @@ export default function PharmacienDemandeDetailPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-lg p-6 pb-12">
-      <Link href="/dashboard/pharmacien/demandes" className="text-sm font-medium text-blue-700 underline">
-        ← Liste des demandes
+      <Link href="/dashboard/pharmacien/demandes" className="text-sm font-medium text-emerald-900 underline">
+        ← Demandes pharmacie
       </Link>
+
+      {(pharmacistRequestIsHardStopped(request.status) || pharmacistRequestIsClosedSuccess(request.status)) && isProduct ? (
+        <section className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
+          <p className="font-semibold text-slate-900">
+            {pharmacistRequestIsHardStopped(request.status) ? "Dossier sans suite" : "Dossier terminé"}
+          </p>
+          <p className="mt-1 text-slate-700">
+            {pharmacistRequestIsHardStopped(request.status)
+              ? "Cette demande ne peut plus être modifiée. Les informations restent disponibles ci-dessous en lecture seule."
+              : "Clôturée côté comptoir. Les informations ci-dessous sont en lecture seule."}
+          </p>
+        </section>
+      ) : null}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <span className="font-mono text-xs text-gray-500">#{formatShortId(request.id)}</span>
@@ -479,6 +517,23 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
+      {request.patient_planned_visit_date ? (
+        <section className="mt-4 rounded-xl border border-teal-100 bg-teal-50/60 p-3 text-sm">
+          <h2 className="text-xs font-bold uppercase text-teal-900/85">Passage annoncé par le patient</h2>
+          <p className="mt-2 text-teal-950">
+            {new Date(`${request.patient_planned_visit_date}T12:00:00`).toLocaleDateString("fr-FR", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+            {request.patient_planned_visit_time
+              ? ` · vers ${String(request.patient_planned_visit_time).slice(0, 5)}`
+              : ""}
+          </p>
+        </section>
+      ) : null}
+
       {error ? (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">{error}</p>
       ) : null}
@@ -496,12 +551,32 @@ export default function PharmacienDemandeDetailPage() {
           <ul className="mt-3 space-y-4">
             {items.map((row) => {
               const prod = one(row.products);
+              const linePph = pphLabel(prod?.price_pph);
               const f = draft[row.id];
               if (!f) return null;
               return (
                 <li key={row.id} className="rounded-xl border bg-white p-3 text-sm shadow-sm">
                   <p className="font-medium text-gray-900">{prod?.name ?? "Produit"}</p>
+                  {linePph ? <p className="mt-0.5 text-xs font-medium text-teal-800">{linePph}</p> : null}
                   <p className="mt-1 text-xs text-gray-600">Demandé&nbsp;: {row.requested_qty}</p>
+                  {row.is_selected_by_patient &&
+                  row.selected_qty != null &&
+                  row.patient_chosen_alternative_id &&
+                  normalizeAlts(row.request_item_alternatives).some((a) => a.id === row.patient_chosen_alternative_id) ? (
+                    <p className="mt-1 text-xs font-semibold text-emerald-900">
+                      Patient a choisi l’alternative&nbsp;:{" "}
+                      {one(
+                        normalizeAlts(row.request_item_alternatives).find(
+                          (a) => a.id === row.patient_chosen_alternative_id
+                        )?.products
+                      )?.name ?? "—"}
+                    </p>
+                  ) : row.is_selected_by_patient &&
+                    row.selected_qty != null &&
+                    !row.patient_chosen_alternative_id &&
+                    normalizeAlts(row.request_item_alternatives).length > 0 ? (
+                    <p className="mt-1 text-xs text-gray-700">Patient a gardé le produit principal.</p>
+                  ) : null}
 
                   <label className="mt-2 block">
                     <span className="text-xs font-medium text-gray-700">Dispo pharmacie</span>
@@ -532,7 +607,9 @@ export default function PharmacienDemandeDetailPage() {
                   </label>
 
                   <label className="mt-2 block">
-                    <span className="text-xs font-medium text-gray-700">Prix unitaire (optionnel)</span>
+                    <span className="text-xs font-medium text-gray-700">
+                      Prix unitaire (réponse patient — prérempli PPH catalogue si disponible)
+                    </span>
                     <input
                       type="text"
                       inputMode="decimal"
@@ -585,14 +662,19 @@ export default function PharmacienDemandeDetailPage() {
                     ) : (
                       <ul className="mt-2 space-y-2">
                         {normalizeAlts(row.request_item_alternatives).map((alt) => {
-                          const altName = one(alt.products)?.name ?? "Alternative";
+                          const altProd = one(alt.products);
+                          const altName = altProd?.name ?? "Alternative";
+                          const altPph = pphLabel(altProd?.price_pph);
                           return (
                             <li
                               key={alt.id}
                               className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/80 bg-white px-2 py-2 text-xs"
                             >
                               <div>
-                                <p className="font-medium text-gray-900">{altName}</p>
+                                <p className="font-medium text-gray-900">
+                                  {altName}
+                                  {altPph ? <span className="ml-1 font-normal text-teal-800">· {altPph}</span> : null}
+                                </p>
                                 <p className="mt-1 text-[11px] text-gray-600">
                                   Rang {alt.rank} ·{" "}
                                   {alt.availability_status
@@ -645,10 +727,13 @@ export default function PharmacienDemandeDetailPage() {
                                     <button
                                       type="button"
                                       disabled={altBusyRow === row.id}
-                                      onClick={() => void insertAlternative(row, h.id)}
+                                      onClick={() => void insertAlternative(row, h)}
                                       className="flex w-full flex-col rounded px-2 py-1 text-left hover:bg-white disabled:opacity-50"
                                     >
                                       <span className="text-sm font-medium text-gray-900">{h.name}</span>
+                                      {pphLabel(h.price_pph) ? (
+                                        <span className="text-[11px] font-medium text-teal-800">{pphLabel(h.price_pph)}</span>
+                                      ) : null}
                                       <span className="text-[11px] text-gray-500">
                                         {h.product_type}
                                         {h.laboratory ? ` · ${h.laboratory}` : ""}
@@ -725,6 +810,7 @@ export default function PharmacienDemandeDetailPage() {
               <ul className="mt-4 space-y-3">
                 {items.map((row) => {
                   const prod = one(row.products);
+                  const counterPph = pphLabel(prod?.price_pph);
                   const co = row.counter_outcome ?? "unset";
                   const selected = Boolean(row.is_selected_by_patient);
                   const outcomeSelectDisabled =
@@ -735,6 +821,7 @@ export default function PharmacienDemandeDetailPage() {
                   return (
                     <li key={`co-${row.id}`} className="rounded-xl border bg-white px-3 py-3 text-sm shadow-sm">
                       <p className="font-medium text-gray-900">{prod?.name ?? "Produit"}</p>
+                      {counterPph ? <p className="text-xs font-medium text-teal-800">{counterPph}</p> : null}
                       {!selected ? (
                         <p className="mt-2 text-xs text-gray-600">
                           Ligne retirée par le patient après ta réponse (annulée côté comptoir automatiquement). État&nbsp;:{" "}
