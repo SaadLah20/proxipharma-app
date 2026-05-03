@@ -256,6 +256,38 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-03 — livraison technique « workflow demande produits » (après atelier)
+
+**Embeds Supabase**: correction erreur PostgREST *« more than one relationship »* entre `request_items` et `request_item_alternatives` — désormais embed explicite `request_item_alternatives!request_item_alternatives_request_item_id_fkey(...)` dans les `select` patient et pharmacien (la FK `patient_chosen_alternative_id` créait une ambiguïté).
+
+**Migrations** (`supabase/migrations/`, à appliquer sur Supabase dans l ordre si pas encore fait) :
+- `20260503_001_patient_chosen_alternative.sql` — **`patient_chosen_alternative_id`**, **`patient_confirm_after_response`** avec `chosen_alternative_id`.
+- `20260503_003_seed_products_thirty_ma.sql` — ~31 produits démo MAD (`price_pph` / `price_ppv`, idempotent par nom).
+- `20260503_004_patient_planned_visit.sql` — **`patient_planned_visit_date`** / **`patient_planned_visit_time`** ; **RPC `patient_confirm_after_response`** en **4 arguments** `(uuid, jsonb, date, text)` — **supprime** l ancienne surcharge 2 args ; borne passage : **CAS aujourd hui**, +**4 j** sans ligne « à commander » sélectionnée, sinon **max(ETA) + 3 j** avec ETA sur la **branche** choisie (principal ou alternative) ; reset des champs passage sur **`patient_resubmit_product_request_after_response`**.
+
+**Next.js**: `lib/product-price.ts` (affichage **PPH**) ; `lib/planned-visit.ts` (bornes locales date passage). UI mise à jour : fiche **demande-produits**, détails patient/pharmacien, **`PatientProductRequestActions`** (date/heure passage, confirmation RPC 4 params), préremplissage / affichage PPH côté pharmacien (y compris insert alternative depuis catalogue).
+
+**Documents**: mise à jour atelier **`docs/workflow-demande-produits-REPONSES.md`** (cohérence liste).
+
+---
+
+### Session 2026-05-03 (plan atelier workflow produits — suite)
+
+**Livrable**: plan de développement A→Z aligné sur `docs/workflow-demande-produits-REPONSES.md` (pilote ~12 à 15 pharmacies, parcours bout en bout d’abord sans tableau de bord ni canal notif hors app ; UX rupture marché à griser avec promesse future de notification groupe ; annulation avec liste de motifs + « autre » ; date/heure prévision « à commander » : date obligatoire comme aujourd’hui).
+
+**Décisions encore à préciser**: Q4 (tableau statuts métier ↔ slug), Q33 (statuts lignes/passages multiples au-delà du différé unique). À trancher côté produit : cohabitation **Q38** (« pas d’expiration pilote ») vs **Q6 §3** (abandon auto **24 h** après réponse sans validation patient) vs mécanisme actuel **`expires_at` +7 j** à la publication — le plan technique retient un seul jeu de règles évitable en doublon.
+
+**Voir §12** pour la décomposition jalons / BDD puis UI et l’écart avec l’existant.
+
+**Implémentation (suite session)** :
+- Migration `20260503_001_patient_chosen_alternative.sql` : colonne **`request_items.patient_chosen_alternative_id`** + **`patient_confirm_after_response`** enrichi (`chosen_alternative_id` dans `p_selections`, validation quantités sur la branche alternative).
+- UI patient : **`PatientProductRequestActions`** — groupe radio « rien / principal / alternative » par ligne lorsque des alternatives existent ; ruptures marché exclues des choix ; envoi **`chosen_alternative_id`** au RPC.
+- Détail patient + détail pharmacien : mention explicite du **choix patient** (principal vs alternative).
+
+**Infra humaine**: appliquer la migration Supabase après `git pull`.
+
+---
+
 ### Session 2026-05-04 — ESLint CI + flux produits (alternatives pharma + comptoir RPC)
 
 **CI / Qualité**: correction des erreurs ESLint **`react-hooks/set-state-in-effect`** (Next 16 / règle stricte) sur les écrans demande détail patient, pharmacien, fiche pharmacie et formulaires catalogue : pas de `setState` synchrone dans les effets là où évitable (`key`/initialiseurs lazy côté actions patient ; `visibleHits` pour recherche courte ; erreur **`id`** fiche résolue par rendu conditionnel sans effet).
@@ -342,8 +374,14 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260501_001_patient_reaction_and_alternative_rls.sql` (alternatives ecriture pharmacien/admin + RPC client confirmation / abandon / expire batch)
   - `supabase/migrations/20260501_002_seed_workflow_demo.sql`
   - `supabase/migrations/20260502_001_resubmit_after_response_and_counter_pickup.sql` (revision ligne produits apres responded/confirmed, comptoir par ligne, statut `completed`, desactivation RPC patient `patient_mark_collected`)
+  - `supabase/migrations/20260503_001_patient_chosen_alternative.sql` (colonne `patient_chosen_alternative_id`, RPC `patient_confirm_after_response` avec `chosen_alternative_id`)
+  - `supabase/migrations/20260503_003_seed_products_thirty_ma.sql` (≈31 produits démo MAD `price_pph` / `price_ppv`, idempotent par `name`)
+  - `supabase/migrations/20260503_004_patient_planned_visit.sql` (`patient_planned_visit_date` / `_time`, RPC confirmation 4 params, reset sur resubmit)
 
 Regles fonctionnelles retenues (alignement dernier atelier):
+- A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
+- A la **`responded` -> `confirmed`**, le patient peut choisir pour chaque ligne le **produit principal** ou **une alternative** proposee (`patient_chosen_alternative_id`), ou **rien** pour la ligne.
+- **Référentiel catalogue** : affichage **PPH** (`products.price_pph`) partout où le catalogue est lu sur les parcours produits lorsque renseigné ; **prix de réponse** pharmacien distingué (« Prix pharmacie » / champ `request_items.unit_price`).
 - Le client peut **modifier et renvoyer** une demande produit **meme apres une reponse** sans notion partiel/complet: RPC `patient_resubmit_product_request_after_response` (`responded`|`confirmed` -> `submitted`, reset prep pharma).
 - Le **retrait reel** au comptoir est porte par le **pharmacien**: colonne par ligne `request_items.counter_outcome` (`unset`, `picked_up`, `cancelled_at_counter`, `deferred_next_visit`) + cloture dossier via `pharmacist_complete_request_after_counter` lorsque tout est bon (plus aucune ligne encore `unset` ou `deferred_next_visit` parmi les lignes **selectionnees** par le client).
 - Les statuts enum `partially_collected` / `fully_collected` restent en base mais le flux officiel livre passe par **`completed`**; `patient_mark_collected` nest plus callable par le JWT patient (obsolete).
@@ -363,21 +401,57 @@ Etat fonctionnel teste / a valider sur Supabase:
 
 ## 12) Backlog produit ouvert — tranche « workflow demande de produits » (priorité prochaine session)
 
-_Objectif declaré_: **boucler fonctionnellement le flux « demande de produits »** de bout en bout, puis integrer les remarques UX issues des essais sur l app — a lister dans ce paragraphe des la prochaine reprise._
+_Objectif declaré_: **boucler fonctionnellement le flux « demande de produits »** de bout en bout (atelier REPONSES mai 2026), puis UX / notifications canaux.
+
+### Plan de développement A→Z (jalons recommandés)
+
+**Jalon 0 — Arbitrages & doc (court)**  
+- Remplir **Q4** (grille envoyée / en traitement pharma / répondue / validée patient / traitée-comptoir / annulée / abandonnée / cloturée ↔ valeurs enum actuelles).  
+- Arbitrer **expiration** : renoncer au **+7 j** piloté par `expires_at` **ou** le garder pour un usage interne uniquement ; implémenter l’**abandon 24 h** après `responded` si toujours d’actualité (**Q6** vs **Q38**).  
+- **Q33** : confirmer si le modèle actuel (`deferred_next_visit` + clôture) suffit pour « plusieurs passages » ou si des statuts supplémentaires sont requis.
+
+**Jalon 1 — BDD / migrations (avant UI dépendante)**  
+1. **Choix alternative (Q19, Q22)** : **fait** — `patient_chosen_alternative_id` + RPC + UI radios ; embed PostgREST qualifié (voir journal).  
+2. **Date de passage (Q26–Q27)** : **fait** — `patient_planned_visit_date` / `_time` sur `requests`, validation dans **`patient_confirm_after_response`** (timezone **Africa/Casablanca**, règle 4 j / ETA+3 j sur branche choisie) ; **`lib/planned-visit.ts`** + saisie patient.  
+3. **Lignes « proposées par le pharmacien » (Q20)** : distinguer les items (ex. colonne source / flag) pour libellés, et exiger motif côté saisie pharma.  
+4. **Motifs d’annulation patient (Q16)** : liste contrôlée + texte si « autre » ; passer par RPC dédiée ou enrichir **`patient_abandon_request`** / annulation pré-`confirmed`.  
+5. **Doublons & quantités** : contrainte ou garde‑fous **anti–double `product_id`** sur une même demande côté patient ; plafonnement **requested_qty ≤ 10** (**Q12**) en CHECK + validations front.  
+6. **`client_comment` par ligne (Q11)** : saisie optionnelle à la création et à la résoumission pharma ; ligne directrice « une phrase minimale » = validation UX (longueur min. côté app si activée).  
+7. **Vue pharmacien patient nominatif (Q39)** : ajuster **RLS / policy** sur `profiles` (lecture réservée au staff de la pharmacie concernée pour les patients liés à une demande), en restant RGPD‑aware.  
+8. **Pilotage rupture marché & relances (Q21, §5 cahier, Q34–Q35)** : insertion **`market_shortages`** lors du choix pharma `market_shortage` ; périmètre pilote sans canaux email/SMS = **liste in‑app / file d’événements** à modéliser (table `notifications` ou réutilisation de `request_comments` système) pour les événements listés dans **Q34** — **après** le flux critique confirm → comptoir.  
+9. **Admin pilote (Q40)** : accès lecture transverse demandes + filtres pharmacie/statut ; exports simples ou vues pour analytics (sans sur‑conception).
+
+**Jalon 2 — UI dans l’ordre des dépendances**  
+1. Fiche **`/pharmacie/.../demande-produits`** : **PPH affichés** ✓ ; reste à faire : commentaire par ligne, qty max 10 (si non déjà généralisé côté insert).  
+2. **`PatientProductRequestActions` + détail patient** : radios principal/alternative ✓ ; date passage ✓ ; reste récap dense **Q28**, totaux **Q23** si besoin au-delà de PPH + lignes réponse pharma.  
+3. **Pharmacien** : motifs sur produits ajoutés, affichage/lisibilité ETA « à commander » (date obl., heure facult. **Q18**), mention **« Mis à jour le … par la pharmacie »** (**Q32**) via `updated_at` / champ dédié.  
+4. **Post‑`confirmed`** : rappeler l’état « prêt / à commander avec date » (**Q31**), comptoir + saisie pharmacien récupéré vs annulé (**Q6 point 8** — affiner formulaire si champs métier manquants).  
+5. **Tâches planifiées** : job **abandon 24 h** ; (optionnel) désactivation ou recalibrage **`expire_overdue_requests`** ; relances **Q34** une fois stockage notif disponible.  
+6. **Espace Admin** minimal issu du jalon BDD §9.
+
+**Écart principal avec le déjà livré** : flux **`responded` → `confirmed`** inclut désormais **alternative + passage + validation serveur associée**. Restent notamment **motifs d’annulation**, **anti-doublon / plafond qté**, **lignes proposées par la pharmacien**, **`market_shortages`** auto, **expiration vs abandon 24 h**, **notifications in‑app + canaux**, **admin pilote**, **identité nominative pharma (RLS)**.
+
+**Questions sans réponse explicite (atelier)** : **Q4**, **Q33** uniquement. *(Q36 réponse implicite : « décide‑toi » → jalon 2 pour listes pharma « à commander / prêt / relance », aligné notifications **Q37**.)*
+
+---
 
 **Liste technique issue etat dernier depot (hors subjective)**:
 
 | Sujet | Statut mémo prod |
 |------|-------------------|
 | Creation ligne demande depuis fiche + statut **`submitted`** | Fait (`/pharmacie/.../demande-produits`) |
-| Liste detail patient + actions **responded/confirmed** (confirm/resubmit/abandon) | Fait (RPC coté détail dashboard) |
-| Liste + publication reponse pharma **availability** jusqu **`responded`** + **expires_at** | Fait (`/dashboard/pharmacien/...`) |
-| **Alternatives** jusqu a 3 / ligne coté pharma UI saisie + affichage patient detail | **Fait** (pharma : recherche + insert/delete ; patient : bloc lecture après fetch joint) |
+| Liste detail patient + actions **responded/confirmed** (confirm/resubmit/abandon) | Fait — **choix alternative par le patient** (migration `20260503_001` + RPC + UI radios) |
+| Liste + publication reponse pharma **availability** jusqu **`responded`** + **expires_at** | Fait (`/dashboard/pharmacien/...`) — arbitrage pilote **`expires_at` +7 j** vs abandon **24 h** (Q6 vs Q38) |
+| **Alternatives** jusqu a 3 / ligne coté pharma UI saisie + affichage patient detail | Pharma + affichage patient **OK** — **choix patient (0 ou 1 / groupe)** **fait** (voir migration `20260503_001`) |
 | **Comptoir** `counter_outcome` ligne + bouton cloture **`pharmacist_complete_request_after_counter`** côté UI pharma ou magasin préparation | **Fait** (`/dashboard/pharmacien/demandes/[id]` section dédiée) |
-| **Auto expiration** cron supabase **`expire_overdue_requests()`** | Pas branche infra |
+| **Date de passage** patient à la validation | **Fait** (`20260503_004`, RPC 4 params, UI **`PatientProductRequestActions`**) |
+| **Auto expiration** cron supabase **`expire_overdue_requests()`** | Pas branché infra — à coordonner avec règles pilote Q6 / Q38 |
+| **Abandon automatique** 24 h après **`responded`** | Non implémenté — à faire si la règle Q6 est conservée malgré Q38 |
 | **Ordonnance / consultation**: traitement pharmacien meme espace | Hors perimetre ecran actuel |
 | **`market_shortages`** insert auto quand pharma choisit **market_shortage** dispo ligne | Hors scope UI actuelle — decider comportement métier puis migration trigger ou RPC |
-| Consolidation UX post-retours utilisateur (libelles, ordre des etapes, messages d erreur) | A planifier des la prochaine session avec inventaire ecrit |
+| **Notifications Q34–Q35** | Après cœur métier : file in-app puis email/SMS/WhatsApp (**Q35** — post-pilote efficience) ; à planifier |
+| **PPH catalogue** sur parcours produits (`price_pph`) | **Fait** (`lib/product-price.ts` + selects + seed `20260503_003`) |
+| Consolidation UX post-retours utilisateur (libelles, ordre des etapes, messages d erreur) | Continuer après fonctionnel |
 
 _Ligne reservee transcription des retours utilisateur (a remplir au demarrage prochain)_ :
 - Merge / CI GitHub Actions : erreurs **`react-hooks/set-state-in-effect`** suite au durcissement ESLint — traitées localement (**Session 2026-05-04**).
@@ -407,6 +481,12 @@ Texte conseille a copier-coller tel quel puis completer au besoin:
 _Le detail des questions workflow produits vit dans §13.1 ; ne pas tout recoller dans ce prompt._
 
 _Ancienne phrase de reprise (alternatives + patient_mark_collected + UI sprint 2) est depassee_: le flux partiel/full cote patient a ete remplace par statut **`completed`** + comptoir pharmacien (`counter_outcome`) ; une grande partie Sprint 2 demande produits est deja en place dans le depot (voir journal)._
+
+### 13.3) Prompt de reprise « continue le workflow demande produits » (mai 2026)
+
+**À utiliser après le dernier commit** (alternative patient, passage en officine avec RPC 4 parametres, PPH catalogue, seed produits, correctif embed PostgREST).
+
+**« Je reprends ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §0.1, **dernier bloc §10 Journal**, §11 (**migrations liste** dont `20260503_001`, `003`, `004**) et §12 backlog. Confirme sur Supabase que les migrations **`20260503_*` non encore jouees sont appliquees** (SQL Editor ordre fichier). Ensuite poursuis le **§12 jalons ouverts prioritaires** : au choix métier (**Q6/Q38**) arbitrage puis job abandon 24 h ou desactivation **`expires_at` +7 j**, puis motifs annulation (**Q16**), anti-doublon produit + plafond qté (**Q12–Q13**), **`market_shortages`** automatique (**rupture marché**), ou esquisse notifications in-app (**Q34**). Implémente avec migrations versionnées puis UI ; corrige ESLint **`react-hooks/set-state-in-effect`** si tu touches des effets. **Commit + push** en livraison groupée si OK, puis mets à jour le cahier (Journal + États + backlog). Références atelier : `docs/workflow-demande-produits-REPONSES.md` pour le métier hors ambiguïtés. »**
 
 ### Template pour prochaines sessions
 - Date:

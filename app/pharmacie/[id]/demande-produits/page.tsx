@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Minus, Plus, Trash2 } from "lucide-react";
+import { pphLabel } from "@/lib/product-price";
 import { supabase } from "@/lib/supabase";
 
 type ProductLite = {
@@ -11,12 +12,14 @@ type ProductLite = {
   name: string;
   product_type: string;
   laboratory: string | null;
+  price_pph?: number | null;
 };
 
 type CartLine = {
   product_id: string;
   name: string;
   qty: number;
+  price_pph?: number | null;
 };
 
 export default function DemandeProduitsPage() {
@@ -68,7 +71,7 @@ export default function DemandeProduitsPage() {
         setSearchLoading(true);
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory")
+          .select("id,name,product_type,laboratory,price_pph")
           .eq("is_active", true)
           .ilike("name", `%${debouncedQuery}%`)
           .order("name")
@@ -90,7 +93,7 @@ export default function DemandeProduitsPage() {
   const addProduct = useCallback((p: ProductLite) => {
     setLines((prev) => {
       if (prev.some((l) => l.product_id === p.id)) return prev;
-      return [...prev, { product_id: p.id, name: p.name, qty: 1 }];
+      return [...prev, { product_id: p.id, name: p.name, qty: 1, price_pph: p.price_pph ?? null }];
     });
     setQuery("");
     setHits([]);
@@ -212,6 +215,9 @@ export default function DemandeProduitsPage() {
                     className="flex w-full flex-col rounded-md px-2 py-2 text-left text-sm hover:bg-white"
                   >
                     <span className="font-medium text-gray-900">{p.name}</span>
+                    {pphLabel(p.price_pph) ? (
+                      <span className="text-xs font-medium text-teal-800">{pphLabel(p.price_pph)}</span>
+                    ) : null}
                     <span className="text-xs text-gray-500">
                       {p.product_type}
                       {p.laboratory ? ` · ${p.laboratory}` : ""}
@@ -238,6 +244,9 @@ export default function DemandeProduitsPage() {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-gray-900">{l.name}</p>
+                    {pphLabel(l.price_pph) ? (
+                      <p className="truncate text-xs font-medium text-teal-800">{pphLabel(l.price_pph)}</p>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-1">
                     <button

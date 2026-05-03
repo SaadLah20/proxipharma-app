@@ -13,9 +13,12 @@ import {
 } from "@/lib/request-display";
 import { one } from "@/lib/embed";
 import { PatientProductRequestActions } from "./PatientProductRequestActions";
+import { pphLabel } from "@/lib/product-price";
 
 type PharmacyEmbed = { nom: string; ville: string; adresse: string; telephone: string | null };
 type ProductRequestEmbed = { patient_note: string | null };
+
+type ProdEmbed = { name: string; price_pph?: number | null };
 
 type AltEmbed = {
   id: string;
@@ -24,7 +27,8 @@ type AltEmbed = {
   available_qty: number | null;
   unit_price: number | null;
   pharmacist_comment: string | null;
-  products: { name: string } | { name: string }[] | null;
+  expected_availability_date: string | null;
+  products: ProdEmbed | ProdEmbed[] | null;
 };
 
 function normalizeAlternatives(raw: AltEmbed | AltEmbed[] | null | undefined): AltEmbed[] {
@@ -41,6 +45,8 @@ type RequestDetail = {
   submitted_at: string | null;
   responded_at: string | null;
   confirmed_at: string | null;
+  patient_planned_visit_date: string | null;
+  patient_planned_visit_time: string | null;
   pharmacies: PharmacyEmbed | PharmacyEmbed[] | null;
   product_requests: ProductRequestEmbed | ProductRequestEmbed[] | null;
 };
@@ -56,7 +62,9 @@ type RequestItemRow = {
   unit_price: number | null;
   pharmacist_comment: string | null;
   counter_outcome: string;
-  products: { name: string } | { name: string }[] | null;
+  expected_availability_date: string | null;
+  patient_chosen_alternative_id?: string | null;
+  products: ProdEmbed | ProdEmbed[] | null;
   request_item_alternatives: AltEmbed | AltEmbed[] | null;
 };
 
@@ -100,7 +108,7 @@ export default function DemandeDetailPage() {
       const { data: reqRow, error: reqErr } = await supabase
         .from("requests")
         .select(
-          "id,created_at,status,request_type,pharmacy_id,submitted_at,responded_at,confirmed_at,pharmacies(nom,ville,adresse,telephone),product_requests(patient_note)"
+          "id,created_at,status,request_type,pharmacy_id,submitted_at,responded_at,confirmed_at,patient_planned_visit_date,patient_planned_visit_time,pharmacies(nom,ville,adresse,telephone),product_requests(patient_note)"
         )
         .eq("id", id)
         .eq("patient_id", user.id)
@@ -123,7 +131,7 @@ export default function DemandeDetailPage() {
       const { data: itemsData, error: itemsErr } = await supabase
         .from("request_items")
         .select(
-          "id,product_id,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,counter_outcome,products(name),request_item_alternatives(id,rank,availability_status,available_qty,unit_price,pharmacist_comment,products(name))"
+          "id,product_id,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,patient_chosen_alternative_id,products(name,price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph))"
         )
         .eq("request_id", id)
         .order("created_at", { ascending: true });
@@ -234,6 +242,22 @@ export default function DemandeDetailPage() {
               <dd className="inline">{new Date(request.confirmed_at).toLocaleString("fr-FR")}</dd>
             </div>
           ) : null}
+          {request.patient_planned_visit_date ? (
+            <div>
+              <dt className="inline text-gray-500">Passage prévu à la pharmacie : </dt>
+              <dd className="inline">
+                {new Date(`${request.patient_planned_visit_date}T12:00:00`).toLocaleDateString("fr-FR", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+                {request.patient_planned_visit_time
+                  ? ` · ${String(request.patient_planned_visit_time).slice(0, 5)}`
+                  : ""}
+              </dd>
+            </div>
+          ) : null}
         </dl>
       </section>
 
@@ -251,9 +275,11 @@ export default function DemandeDetailPage() {
             {items.map((row) => {
               const prod = one(row.products);
               const altList = normalizeAlternatives(row.request_item_alternatives);
+              const linePph = pphLabel(prod?.price_pph);
               return (
               <li key={row.id} className="rounded-xl border border-gray-100 bg-white p-3 text-sm shadow-sm">
                 <p className="font-medium text-gray-900">{prod?.name ?? "Produit"}</p>
+                {linePph ? <p className="mt-0.5 text-xs font-medium text-teal-800">{linePph}</p> : null}
                 <p className="mt-1 text-gray-600">
                   Demandé : <strong>{row.requested_qty}</strong>
                   {row.selected_qty != null ? (
@@ -266,11 +292,31 @@ export default function DemandeDetailPage() {
                     </>
                   ) : null}
                 </p>
+                {(request.status === "confirmed" || request.status === "completed") &&
+                row.is_selected_by_patient &&
+                normalizeAlternatives(row.request_item_alternatives).some((a) => a.id === row.patient_chosen_alternative_id) ? (
+                  <p className="mt-1 text-xs font-medium text-emerald-900">
+                    Tu as validé l’alternative&nbsp;:{" "}
+                    <strong>
+                      {one(
+                        normalizeAlternatives(row.request_item_alternatives).find(
+                          (a) => a.id === row.patient_chosen_alternative_id
+                        )?.products
+                      )?.name ?? "Produit"}
+                    </strong>
+                  </p>
+                ) : null}
+                {(request.status === "confirmed" || request.status === "completed") &&
+                row.is_selected_by_patient &&
+                !row.patient_chosen_alternative_id &&
+                normalizeAlternatives(row.request_item_alternatives).length > 0 ? (
+                  <p className="mt-1 text-xs text-gray-700">Tu as validé le produit principal (pas d’alternative).</p>
+                ) : null}
                 {row.availability_status ? (
                   <p className="mt-1 text-xs text-blue-900">
                     <span className="font-medium">{availabilityStatusFr[row.availability_status] ?? row.availability_status}</span>
                     {row.available_qty != null ? ` (${row.available_qty})` : ""}
-                    {row.unit_price != null ? ` · ${Number(row.unit_price).toFixed(2)} MAD` : ""}
+                    {row.unit_price != null ? ` · Prix pharmacie ${Number(row.unit_price).toFixed(2)} MAD` : ""}
                   </p>
                 ) : (
                   <p className="mt-1 text-xs text-gray-500">En attente de réponse pharmacien</p>
@@ -286,14 +332,18 @@ export default function DemandeDetailPage() {
                     <ul className="mt-2 space-y-2">
                       {altList.map((alt) => {
                         const altProd = one(alt.products);
+                        const altPph = pphLabel(altProd?.price_pph);
                         return (
                           <li key={alt.id} className="rounded-md bg-white px-2 py-1.5 text-xs">
-                            <p className="font-medium text-gray-900">{altProd?.name ?? "Produit alternatif"}</p>
+                            <p className="font-medium text-gray-900">
+                              {altProd?.name ?? "Produit alternatif"}
+                              {altPph ? <span className="ml-1 font-normal text-teal-800">· {altPph}</span> : null}
+                            </p>
                             {alt.availability_status ? (
                               <p className="mt-1 text-blue-900">
                                 {availabilityStatusFr[alt.availability_status] ?? alt.availability_status}
                                 {alt.available_qty != null ? ` (${alt.available_qty})` : ""}
-                                {alt.unit_price != null ? ` · ${Number(alt.unit_price).toFixed(2)} MAD` : ""}
+                                {alt.unit_price != null ? ` · Prix pharma ${Number(alt.unit_price).toFixed(2)} MAD` : ""}
                               </p>
                             ) : (
                               <p className="mt-1 text-gray-500">Disponibilité à préciser en pharmacie</p>
@@ -326,7 +376,22 @@ export default function DemandeDetailPage() {
 
       {request.request_type === "product_request" && (request.status === "responded" || request.status === "confirmed") ? (
         <PatientProductRequestActions
-          key={[note ?? "", ...items.map((i) => [i.id, i.selected_qty, i.is_selected_by_patient, i.available_qty, i.requested_qty, i.counter_outcome].join(":"))].join("|")}
+          key={
+            [
+              note ?? "",
+              ...items.map((i) =>
+                [
+                  i.id,
+                  i.selected_qty,
+                  i.is_selected_by_patient,
+                  i.available_qty,
+                  i.requested_qty,
+                  i.counter_outcome,
+                  i.patient_chosen_alternative_id ?? "",
+                ].join(":")
+              ),
+            ].join("|")
+          }
           requestId={request.id}
           status={request.status}
           items={items}
