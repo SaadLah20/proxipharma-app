@@ -275,7 +275,7 @@ Statuts retenus v1:
 
 **Supabase (humain)** : appliquer la migration ; configurer un appel périodique **`abandon_unconfirmed_responded_requests`** (et traiter les demandes `responded` déjà en base avec `expires_at` renseigné si vous voulez les aligner sur le pilote — optionnel : `update requests set expires_at = null where status = 'responded'`).
 
-**Git** : livraison groupée sur la branche courante (`fix/rls-recursion` ou suivante).
+**Git** : commit **`a9b1b38`** sur **`fix/rls-recursion`** (push effectué).
 
 ---
 
