@@ -82,6 +82,24 @@ type ProductCatalogHit = {
   price_pph?: number | null;
 };
 
+type PatientBrief = {
+  full_name: string | null;
+  whatsapp: string | null;
+  email: string | null;
+};
+
+function patientHeadingName(profile: PatientBrief | null, patientId: string): string {
+  const n = profile?.full_name?.trim();
+  if (n) return n;
+  return `Patient #${formatShortId(patientId)}`;
+}
+
+function telHref(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length >= 8) return `tel:${digits}`;
+  return `tel:${raw.trim()}`;
+}
+
 function normalizeAlts(raw: ItemRow["request_item_alternatives"]): AltRowDb[] {
   if (!raw) return [];
   const list = Array.isArray(raw) ? raw : [raw];
@@ -125,6 +143,7 @@ export default function PharmacienDemandeDetailPage() {
   const [altBusyRow, setAltBusyRow] = useState<string | null>(null);
   const [counterBusyId, setCounterBusyId] = useState<string | null>(null);
   const [completeBusy, setCompleteBusy] = useState(false);
+  const [patientProfile, setPatientProfile] = useState<PatientBrief | null>(null);
 
   const altDebounced = useMemo(() => altQuery.trim(), [altQuery]);
   const altVisibleHits = altDebounced.length < 2 ? [] : altHits;
@@ -132,6 +151,7 @@ export default function PharmacienDemandeDetailPage() {
   const load = useCallback(async () => {
     if (!id) return;
     setError("");
+    setPatientProfile(null);
     const { data: auth } = await supabase.auth.getSession();
     const user = auth.session?.user;
     if (!user) {
@@ -183,6 +203,20 @@ export default function PharmacienDemandeDetailPage() {
     }
 
     setRequest(r);
+    const { data: contactRpc, error: patErr } = await supabase.rpc("pharmacist_patient_contact_for_request", {
+      p_request_id: id,
+    });
+    if (!patErr && contactRpc != null) {
+      const rows = Array.isArray(contactRpc) ? contactRpc : [contactRpc];
+      const first = rows[0] as PatientBrief | undefined;
+      if (first) {
+        setPatientProfile({
+          full_name: first.full_name ?? null,
+          whatsapp: first.whatsapp ?? null,
+          email: first.email ?? null,
+        });
+      }
+    }
 
     const { data: itemsData, error: itemsErr } = await supabase
       .from("request_items")
@@ -483,7 +517,7 @@ export default function PharmacienDemandeDetailPage() {
 
   if (loading) {
     return (
-      <PageShell maxWidthClass="max-w-4xl">
+      <PageShell maxWidthClass="max-w-5xl">
         <p className="text-muted-foreground">Chargement…</p>
       </PageShell>
     );
@@ -491,7 +525,7 @@ export default function PharmacienDemandeDetailPage() {
 
   if (error && !request) {
     return (
-      <PageShell maxWidthClass="max-w-4xl">
+      <PageShell maxWidthClass="max-w-5xl">
         <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</p>
         <Link href="/dashboard/pharmacien/demandes" className="mt-3 inline-block text-xs font-medium text-emerald-900 underline">
           Demandes pharmacie
@@ -505,24 +539,27 @@ export default function PharmacienDemandeDetailPage() {
   const pr = one(request.product_requests);
   const patientNote = pr?.patient_note;
 
+  const patientPhone = patientProfile?.whatsapp?.trim();
+  const patientEmail = patientProfile?.email?.trim();
+
   return (
-    <PageShell maxWidthClass="max-w-4xl" className="space-y-3">
+    <PageShell maxWidthClass="max-w-5xl" className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link href="/dashboard/pharmacien/demandes" className="text-xs font-medium text-emerald-900 underline">
           ← Demandes
         </Link>
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="font-mono text-[10px] text-muted-foreground">#{formatShortId(request.id)}</span>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-foreground sm:text-xs">
+          <span className="rounded-full border border-border/80 bg-muted/50 px-2.5 py-0.5 text-[10px] font-semibold text-foreground sm:text-xs">
             {requestStatusFr[request.status] ?? request.status}
           </span>
         </div>
       </div>
 
       {(pharmacistRequestIsHardStopped(request.status) || pharmacistRequestIsClosedSuccess(request.status)) && isProduct ? (
-        <section className="rounded-lg border border-border bg-muted/25 px-2.5 py-2 text-[11px] text-muted-foreground">
+        <section className="rounded-xl border border-border bg-muted/25 px-3 py-2.5 text-[11px] text-muted-foreground">
           <p className="font-semibold text-foreground">
-            {pharmacistRequestIsHardStopped(request.status) ? "Sans suite" : "Terminé (comptoir)"}
+            {pharmacistRequestIsHardStopped(request.status) ? "Sans suite" : "Dossier terminé"}
           </p>
           <p className="mt-0.5 leading-snug">
             {pharmacistRequestIsHardStopped(request.status)
@@ -532,27 +569,69 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      <div>
-        <h1 className="text-base font-bold text-foreground sm:text-lg">
-          {requestTypeFr[request.request_type] ?? request.request_type}
-        </h1>
-        <p className="mt-0.5 text-[10px] text-muted-foreground">
-          Patient <span className="font-mono">{formatShortId(request.patient_id)}</span>
-          <span className="hidden sm:inline"> · créée {formatDateTimeShort24hFr(request.created_at)}</span>
-        </p>
-      </div>
+      <section className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm ring-1 ring-black/[0.04]">
+        <div className="flex flex-col gap-3 border-b border-border/60 bg-gradient-to-br from-emerald-50/80 via-card to-card p-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:p-4">
+          <div className="flex min-w-0 gap-3">
+            <div
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-sm font-bold text-white shadow-md"
+              aria-hidden
+            >
+              {patientHeadingName(patientProfile, request.patient_id)
+                .slice(0, 2)
+                .toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900/80">
+                {requestTypeFr[request.request_type] ?? request.request_type}
+              </p>
+              <h1 className="truncate text-lg font-bold tracking-tight text-foreground sm:text-xl">
+                {patientHeadingName(patientProfile, request.patient_id)}
+              </h1>
+              <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">ID patient · {request.patient_id}</p>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
+                {patientPhone ? (
+                  <a
+                    href={telHref(patientPhone)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700/10 px-2.5 py-1 font-semibold text-emerald-900 ring-1 ring-emerald-700/15 hover:bg-emerald-700/15"
+                  >
+                    <span className="text-[10px] font-medium uppercase tracking-wide text-emerald-800/90">Tél.</span>
+                    {patientPhone}
+                  </a>
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">Téléphone non renseigné sur le profil.</span>
+                )}
+                {patientEmail ? (
+                  <a href={`mailto:${patientEmail}`} className="text-[11px] font-medium text-sky-800 underline">
+                    {patientEmail}
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          <div className="shrink-0 text-left text-[11px] text-muted-foreground sm:text-right">
+            <p>
+              <span className="font-medium text-foreground">Créée</span> {formatDateTimeShort24hFr(request.created_at)}
+            </p>
+            {request.submitted_at ? (
+              <p className="mt-0.5">
+                <span className="font-medium text-foreground">Envoyée</span> {formatDateTimeShort24hFr(request.submitted_at)}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </section>
 
       {patientNote ? (
-        <section className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-2.5 py-2">
-          <h2 className="text-[10px] font-bold uppercase tracking-wide text-amber-950">Message patient</h2>
-          <p className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap text-[11px] leading-snug">{patientNote}</p>
+        <section className="rounded-xl border border-amber-200/60 bg-amber-50/40 px-3 py-2.5 shadow-sm">
+          <h2 className="text-[10px] font-bold uppercase tracking-wide text-amber-950">Message du patient</h2>
+          <p className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap text-[11px] leading-snug text-amber-950/90">{patientNote}</p>
         </section>
       ) : null}
 
       {request.patient_planned_visit_date ? (
-        <section className="rounded-lg border border-teal-500/25 bg-teal-500/5 px-2.5 py-2">
-          <h2 className="text-[10px] font-bold uppercase tracking-wide text-teal-950">Passage patient</h2>
-          <p className="mt-1 text-xs font-medium text-teal-950">
+        <section className="rounded-xl border border-teal-200/60 bg-teal-50/40 px-3 py-2.5 shadow-sm">
+          <h2 className="text-[10px] font-bold uppercase tracking-wide text-teal-950">Passage prévu</h2>
+          <p className="mt-1 text-xs font-semibold text-teal-950">
             {formatPlannedVisitFr(request.patient_planned_visit_date, request.patient_planned_visit_time)}
           </p>
         </section>
@@ -570,123 +649,141 @@ export default function PharmacienDemandeDetailPage() {
         <p className="mt-2 text-[11px] text-muted-foreground">Aucune ligne produit.</p>
       ) : (
         <>
-          <h2 className="mt-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Lignes produits</h2>
-          <ul className="mt-2 space-y-2">
+          <div className="flex items-end justify-between gap-2">
+            <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Lignes à traiter</h2>
+            <span className="text-[10px] text-muted-foreground">{items.length} article(s)</span>
+          </div>
+          <ul className="mt-2 space-y-3">
             {items.map((row) => {
               const prod = one(row.products);
               const linePph = pphLabel(prod?.price_pph);
               const f = draft[row.id];
               if (!f) return null;
               return (
-                <li key={row.id} className="overflow-hidden rounded-lg border border-border/90 bg-card shadow-sm">
-                  <div className="border-b border-border/60 bg-muted/20 px-2 py-1.5">
-                    <p className="text-xs font-semibold text-foreground sm:text-sm">{prod?.name ?? "Produit"}</p>
-                    {linePph ? <p className="text-[10px] font-medium text-teal-800 sm:text-xs">{linePph}</p> : null}
-                    <p className="text-[10px] text-muted-foreground">Demandé {row.requested_qty}</p>
+                <li
+                  key={row.id}
+                  className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm ring-1 ring-black/[0.03]"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border/60 bg-muted/15 px-3 py-2 sm:px-3.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold leading-snug text-foreground">{prod?.name ?? "Produit"}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                        {linePph ? <span className="font-medium text-teal-800">{linePph}</span> : null}
+                        <span>
+                          Demandé <strong className="text-foreground">{row.requested_qty}</strong>
+                        </span>
+                      </div>
+                    </div>
                   </div>
                   {row.is_selected_by_patient &&
                   row.selected_qty != null &&
                   row.patient_chosen_alternative_id &&
                   normalizeAlts(row.request_item_alternatives).some((a) => a.id === row.patient_chosen_alternative_id) ? (
-                    <p className="border-b border-border/40 bg-emerald-500/5 px-2 py-1 text-[10px] font-semibold text-emerald-950 sm:text-[11px]">
-                      Patient : alternative{" "}
+                    <p className="border-b border-emerald-200/50 bg-emerald-50/50 px-3 py-1.5 text-[11px] font-medium text-emerald-950">
+                      Choix patient : alternative «{" "}
                       {one(
                         normalizeAlts(row.request_item_alternatives).find(
                           (a) => a.id === row.patient_chosen_alternative_id
                         )?.products
                       )?.name ?? "—"}
+                      »
                     </p>
                   ) : row.is_selected_by_patient &&
                     row.selected_qty != null &&
                     !row.patient_chosen_alternative_id &&
                     normalizeAlts(row.request_item_alternatives).length > 0 ? (
-                    <p className="border-b border-border/40 bg-muted/30 px-2 py-1 text-[10px] text-muted-foreground">
-                      Patient : produit principal.
+                    <p className="border-b border-border/40 bg-muted/20 px-3 py-1.5 text-[11px] text-muted-foreground">
+                      Choix patient : ligne principale.
                     </p>
                   ) : null}
-                  <div className="grid gap-2 p-2 sm:grid-cols-2">
-                  <label className="block sm:col-span-2">
-                    <span className="text-[10px] font-medium text-muted-foreground">Dispo</span>
-                    <select
-                      disabled={!canEditResponse}
-                      value={f.availability_status}
-                      onChange={(e) => setField(row.id, "availability_status", e.target.value)}
-                      className="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1 text-xs disabled:opacity-60"
-                    >
-                      {PHARMACIST_AVAILABILITY_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
 
-                  <label className="block">
-                    <span className="text-[10px] font-medium text-muted-foreground">Quantité (réponse)</span>
-                    <input
-                      type="number"
-                      min={0}
-                      disabled={!canEditResponse}
-                      value={f.available_qty}
-                      onChange={(e) => setField(row.id, "available_qty", e.target.value)}
-                      className="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1 text-xs disabled:opacity-60"
-                    />
-                  </label>
+                  <div className="space-y-2 p-2.5 sm:p-3">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-6 lg:grid-cols-12 lg:gap-3">
+                      <label className="col-span-2 flex min-w-0 flex-col gap-0.5 sm:col-span-3 lg:col-span-4">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Dispo</span>
+                        <select
+                          disabled={!canEditResponse}
+                          value={f.availability_status}
+                          onChange={(e) => setField(row.id, "availability_status", e.target.value)}
+                          className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs shadow-sm disabled:opacity-60"
+                        >
+                          {PHARMACIST_AVAILABILITY_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="col-span-1 flex min-w-0 flex-col gap-0.5 sm:col-span-1 lg:col-span-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Qté</span>
+                        <input
+                          type="number"
+                          min={0}
+                          disabled={!canEditResponse}
+                          value={f.available_qty}
+                          onChange={(e) => setField(row.id, "available_qty", e.target.value)}
+                          className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs tabular-nums shadow-sm disabled:opacity-60"
+                        />
+                      </label>
+                      <label className="col-span-1 flex min-w-0 flex-col gap-0.5 sm:col-span-2 lg:col-span-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Prix MAD</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          disabled={!canEditResponse}
+                          value={f.unit_price}
+                          onChange={(e) => setField(row.id, "unit_price", e.target.value)}
+                          className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs tabular-nums shadow-sm disabled:opacity-60"
+                        />
+                      </label>
+                      <label className="col-span-2 flex min-w-0 flex-col gap-0.5 sm:col-span-6 lg:col-span-4">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Note au patient</span>
+                        <textarea
+                          rows={1}
+                          disabled={!canEditResponse}
+                          value={f.pharmacist_comment}
+                          onChange={(e) => setField(row.id, "pharmacist_comment", e.target.value)}
+                          placeholder="Optionnel"
+                          className="min-h-[2.25rem] w-full resize-y rounded-lg border border-input bg-background px-2 py-1.5 text-xs leading-snug shadow-sm disabled:opacity-60"
+                        />
+                      </label>
+                    </div>
 
-                  <label className="block">
-                    <span className="text-[10px] font-medium text-muted-foreground">Prix unit. (MAD)</span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="45.50"
-                      disabled={!canEditResponse}
-                      value={f.unit_price}
-                      onChange={(e) => setField(row.id, "unit_price", e.target.value)}
-                      className="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1 text-xs disabled:opacity-60"
-                    />
-                  </label>
+                    {f.availability_status === "to_order" ? (
+                      <label className="flex max-w-md flex-col gap-0.5">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Date prévision « à commander »
+                        </span>
+                        <input
+                          type="date"
+                          disabled={!canEditResponse}
+                          value={f.expected_availability_date}
+                          onChange={(e) => setField(row.id, "expected_availability_date", e.target.value)}
+                          className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs shadow-sm disabled:opacity-60 sm:w-auto sm:min-w-[11rem]"
+                        />
+                      </label>
+                    ) : null}
 
-                  {f.availability_status === "to_order" ? (
-                    <label className="block sm:col-span-2">
-                      <span className="text-[10px] font-medium text-muted-foreground">Date prévision « à commander »</span>
-                      <input
-                        type="date"
-                        disabled={!canEditResponse}
-                        value={f.expected_availability_date}
-                        onChange={(e) => setField(row.id, "expected_availability_date", e.target.value)}
-                        className="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1 text-xs disabled:opacity-60"
-                      />
-                    </label>
-                  ) : null}
-
-                  <label className="block sm:col-span-2">
-                    <span className="text-[10px] font-medium text-muted-foreground">Commentaire patient</span>
-                    <textarea
-                      rows={2}
-                      disabled={!canEditResponse}
-                      value={f.pharmacist_comment}
-                      onChange={(e) => setField(row.id, "pharmacist_comment", e.target.value)}
-                      className="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1 text-xs disabled:opacity-60"
-                    />
-                  </label>
+                    {!canEditResponse ? (
+                      <p className="rounded-md border border-border/60 bg-muted/20 px-2 py-1 text-[10px] text-muted-foreground">
+                        Dernière dispo enregistrée :{" "}
+                        <strong className="text-foreground">
+                          {row.availability_status ? availabilityStatusFr[row.availability_status] : "—"}
+                        </strong>
+                      </p>
+                    ) : null}
                   </div>
 
-                  {!canEditResponse ? (
-                    <p className="border-t border-border/50 px-2 py-1.5 text-[10px] text-muted-foreground">
-                      Dernière dispo :{" "}
-                      <strong className="text-foreground">{row.availability_status ? availabilityStatusFr[row.availability_status] : "—"}</strong>
-                    </p>
-                  ) : null}
-
-                  <div className="border-t border-border/50 bg-amber-500/5 px-2 py-2">
-                    <div className="flex flex-wrap items-center justify-between gap-1">
+                  <div className="border-t border-amber-200/40 bg-amber-50/30 px-2.5 py-2 sm:px-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-[10px] font-bold uppercase tracking-wide text-amber-950">Alternatives</p>
-                      <span className="text-[9px] text-amber-900/80">max 3</span>
+                      <span className="rounded bg-amber-100/80 px-1.5 py-0.5 text-[9px] font-medium text-amber-900">max 3</span>
                     </div>
                     {normalizeAlts(row.request_item_alternatives).length === 0 ? (
                       <p className="mt-1 text-[10px] text-muted-foreground">Aucune alternative.</p>
                     ) : (
-                      <ul className="mt-1 space-y-1">
+                      <ul className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap">
                         {normalizeAlts(row.request_item_alternatives).map((alt) => {
                           const altProd = one(alt.products);
                           const altName = altProd?.name ?? "Alternative";
@@ -694,19 +791,15 @@ export default function PharmacienDemandeDetailPage() {
                           return (
                             <li
                               key={alt.id}
-                              className="flex flex-wrap items-center justify-between gap-1 rounded border border-border/60 bg-card px-1.5 py-1 text-[10px] sm:text-[11px]"
+                              className="flex min-w-0 flex-1 basis-full items-center justify-between gap-2 rounded-lg border border-amber-200/50 bg-card/90 px-2 py-1.5 text-[11px] shadow-sm sm:basis-[calc(50%-0.25rem)] lg:basis-[calc(33.333%-0.35rem)]"
                             >
-                              <div>
-                                <p className="font-medium text-gray-900">
-                                  {altName}
-                                  {altPph ? <span className="ml-1 font-normal text-teal-800">· {altPph}</span> : null}
-                                </p>
-                                <p className="mt-1 text-[11px] text-gray-600">
-                                  Rang {alt.rank} ·{" "}
-                                  {alt.availability_status
-                                    ? availabilityStatusFr[alt.availability_status]
-                                    : "—"}
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-foreground">{altName}</p>
+                                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                                  #{alt.rank} ·{" "}
+                                  {alt.availability_status ? availabilityStatusFr[alt.availability_status] : "—"}
                                   {alt.available_qty != null ? ` · Qté ${alt.available_qty}` : ""}
+                                  {altPph ? <span className="text-teal-800"> · {altPph}</span> : null}
                                 </p>
                               </div>
                               {canEditResponse ? (
@@ -714,7 +807,7 @@ export default function PharmacienDemandeDetailPage() {
                                   type="button"
                                   disabled={altBusyRow === alt.id}
                                   onClick={() => void deleteAlternativeRow(alt.id, row.id)}
-                                  className="shrink-0 text-[11px] font-medium text-red-700 underline disabled:opacity-50"
+                                  className="shrink-0 rounded-md border border-red-200/80 bg-white px-2 py-1 text-[10px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
                                 >
                                   Retirer
                                 </button>
@@ -728,14 +821,10 @@ export default function PharmacienDemandeDetailPage() {
                     {canEditResponse && normalizeAlts(row.request_item_alternatives).length < 3 ? (
                       <>
                         {altPickerOpenFor === row.id ? (
-                          <div className="mt-3 rounded-md border border-amber-200 bg-white p-2">
+                          <div className="mt-2 rounded-lg border border-amber-200 bg-white p-2 shadow-sm">
                             <div className="flex items-center justify-between gap-2">
-                              <label className="flex-1 text-xs font-medium text-gray-700">Rechercher un produit</label>
-                              <button
-                                type="button"
-                                className="text-[11px] text-gray-600 underline"
-                                onClick={resetAltPicker}
-                              >
+                              <span className="text-xs font-semibold text-foreground">Catalogue</span>
+                              <button type="button" className="text-[11px] font-medium text-muted-foreground hover:text-foreground" onClick={resetAltPicker}>
                                 Fermer
                               </button>
                             </div>
@@ -743,33 +832,29 @@ export default function PharmacienDemandeDetailPage() {
                               type="search"
                               value={altQuery}
                               onChange={(e) => setAltQuery(e.target.value)}
-                              placeholder="Nom (min. 2 caractères)"
-                              className="mt-1 w-full rounded border px-2 py-1 text-sm"
+                              placeholder="Nom (2 caractères min.)"
+                              className="mt-1.5 h-9 w-full rounded-lg border border-input px-2 text-sm"
                             />
                             {altVisibleHits.length > 0 ? (
-                              <ul className="mt-2 max-h-40 space-y-1 overflow-auto rounded border border-gray-100 bg-gray-50 p-1">
+                              <ul className="mt-2 max-h-36 space-y-0.5 overflow-auto rounded-lg border border-border/60 bg-muted/20 p-1">
                                 {altVisibleHits.map((h) => (
                                   <li key={h.id}>
                                     <button
                                       type="button"
                                       disabled={altBusyRow === row.id}
                                       onClick={() => void insertAlternative(row, h)}
-                                      className="flex w-full flex-col rounded px-2 py-1 text-left hover:bg-white disabled:opacity-50"
+                                      className="flex w-full flex-col rounded-md px-2 py-1.5 text-left text-sm hover:bg-card disabled:opacity-50"
                                     >
-                                      <span className="text-sm font-medium text-gray-900">{h.name}</span>
+                                      <span className="font-medium text-foreground">{h.name}</span>
                                       {pphLabel(h.price_pph) ? (
                                         <span className="text-[11px] font-medium text-teal-800">{pphLabel(h.price_pph)}</span>
                                       ) : null}
-                                      <span className="text-[11px] text-gray-500">
-                                        {h.product_type}
-                                        {h.laboratory ? ` · ${h.laboratory}` : ""}
-                                      </span>
                                     </button>
                                   </li>
                                 ))}
                               </ul>
                             ) : altDebounced.length >= 2 ? (
-                              <p className="mt-2 text-[11px] text-gray-500">Aucun résultat.</p>
+                              <p className="mt-2 text-[11px] text-muted-foreground">Aucun résultat.</p>
                             ) : null}
                           </div>
                         ) : (
@@ -781,9 +866,9 @@ export default function PharmacienDemandeDetailPage() {
                               setAltQuery("");
                               setAltHits([]);
                             }}
-                            className="mt-3 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-950 disabled:opacity-50"
+                            className="mt-2 inline-flex h-9 items-center justify-center rounded-lg border border-amber-300/90 bg-white px-3 text-xs font-semibold text-amber-950 shadow-sm hover:bg-amber-50 disabled:opacity-50"
                           >
-                            Ajouter une alternative…
+                            + Alternative
                           </button>
                         )}
                       </>
@@ -799,7 +884,7 @@ export default function PharmacienDemandeDetailPage() {
               type="button"
               disabled={busy}
               onClick={() => void publishResponse()}
-              className="mt-3 w-full rounded-md bg-emerald-700 py-2.5 text-xs font-semibold text-white shadow-sm disabled:opacity-50 sm:text-sm"
+              className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-emerald-700 text-sm font-semibold text-white shadow-md transition hover:bg-emerald-800 disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
             >
               {busy ? "Publication…" : "Envoyer la réponse au patient"}
             </button>
@@ -826,12 +911,12 @@ export default function PharmacienDemandeDetailPage() {
             request.status === "confirmed" ||
             request.status === "completed") &&
           items.length > 0 ? (
-            <section className="mt-4 rounded-lg border border-border bg-muted/15 p-2.5 sm:p-3">
-              <h2 className="text-[10px] font-bold uppercase tracking-wide text-foreground">Suivi des lignes</h2>
+            <section className="mt-4 rounded-xl border border-border/80 bg-muted/10 p-3 shadow-sm">
+              <h2 className="text-xs font-bold uppercase tracking-wide text-foreground">Suivi des lignes</h2>
               <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
-                Issue par ligne ; clôture quand plus de « pas encore vu » ni « report » sur les lignes gardées par le patient.
+                Statut de récupération par ligne ; clôture possible lorsque tout est traité.
               </p>
-              <ul className="mt-2 space-y-2">
+              <ul className="mt-3 grid gap-2 sm:grid-cols-2">
                 {items.map((row) => {
                   const prod = one(row.products);
                   const counterPph = pphLabel(prod?.price_pph);
@@ -843,22 +928,24 @@ export default function PharmacienDemandeDetailPage() {
                     !selected;
 
                   return (
-                    <li key={`co-${row.id}`} className="rounded-md border border-border/80 bg-card px-2 py-2 text-[11px] shadow-sm">
-                      <p className="font-semibold text-foreground">{prod?.name ?? "Produit"}</p>
+                    <li
+                      key={`co-${row.id}`}
+                      className="rounded-lg border border-border/70 bg-card p-2.5 text-[11px] shadow-sm"
+                    >
+                      <p className="truncate font-semibold text-foreground">{prod?.name ?? "Produit"}</p>
                       {counterPph ? <p className="text-[10px] font-medium text-teal-800">{counterPph}</p> : null}
                       {!selected ? (
-                        <p className="mt-2 text-xs text-gray-600">
-                          Ligne retirée par le patient après ta réponse (annulée côté comptoir automatiquement). État&nbsp;:{" "}
-                          <strong>{counterOutcomeFr[co] ?? co}</strong>
+                        <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+                          Ligne retirée par le patient. <strong className="text-foreground">{counterOutcomeFr[co] ?? co}</strong>
                         </p>
                       ) : (
-                        <label className="mt-1.5 block text-[10px] font-medium text-muted-foreground">
-                          Issue comptoir
+                        <label className="mt-2 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Résultat
                           <select
                             value={co}
                             disabled={outcomeSelectDisabled}
                             onChange={(e) => void saveCounterOutcome(row.id, e.target.value)}
-                            className={`mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1 text-xs ${
+                            className={`mt-1 h-9 w-full rounded-lg border border-input bg-background px-2 text-xs ${
                               request.status === "completed" ? "cursor-not-allowed opacity-60" : ""
                             }`}
                           >
@@ -868,7 +955,7 @@ export default function PharmacienDemandeDetailPage() {
                             <option value="deferred_next_visit">{counterOutcomeFr.deferred_next_visit}</option>
                           </select>
                           {counterBusyId === row.id ? (
-                            <span className="mt-1 block text-[11px] text-gray-500">Enregistrement…</span>
+                            <span className="mt-1 block text-[10px] text-muted-foreground">Enregistrement…</span>
                           ) : null}
                         </label>
                       )}

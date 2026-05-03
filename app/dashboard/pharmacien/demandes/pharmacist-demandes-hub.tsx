@@ -85,9 +85,28 @@ export function PharmacistDemandesHub() {
 
     if (re) {
       setError(re.message);
-    } else if (Array.isArray(data)) {
-      setRows(data as PharmacistRequestRow[]);
+      setLoading(false);
+      return;
     }
+
+    const raw = (data ?? []) as PharmacistRequestRow[];
+    const { data: directory, error: dirErr } = await supabase.rpc("pharmacist_patient_directory_for_my_pharmacy");
+    let enriched = raw;
+    if (dirErr) {
+      setError(dirErr.message);
+    } else {
+      type DirRow = { patient_id: string; full_name: string | null; whatsapp: string | null; email: string | null };
+      const map = new Map((directory as DirRow[] | null)?.map((p) => [p.patient_id, p]) ?? []);
+      enriched = raw.map((r) => {
+        const p = map.get(r.patient_id);
+        return {
+          ...r,
+          patient_full_name: p?.full_name ?? null,
+          patient_whatsapp: p?.whatsapp ?? null,
+        };
+      });
+    }
+    setRows(enriched);
     setLoading(false);
   }, [router]);
 
@@ -102,6 +121,15 @@ export function PharmacistDemandesHub() {
     const ids = [...new Set(rows.map((r) => r.patient_id))];
     return ids.sort();
   }, [rows]);
+
+  const patientSelectLabel = useCallback(
+    (pid: string) => {
+      const row = rows.find((r) => r.patient_id === pid);
+      const name = row?.patient_full_name?.trim();
+      return name ? `${name} · #${formatShortId(pid)}` : `Patient #${formatShortId(pid)}`;
+    },
+    [rows]
+  );
 
   const filteredSorted = useMemo(() => {
     let list = rows;
@@ -210,7 +238,7 @@ export function PharmacistDemandesHub() {
                 <option value="">Tous</option>
                 {patientOptions.map((pid) => (
                   <option key={pid} value={pid}>
-                    #{formatShortId(pid)} — {pid.slice(0, 8)}…
+                    {patientSelectLabel(pid)}
                   </option>
                 ))}
               </select>
