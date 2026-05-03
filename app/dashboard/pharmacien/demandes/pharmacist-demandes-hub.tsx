@@ -17,6 +17,7 @@ import {
   PharmacistDemandeCard,
   type PharmacistRequestRow,
 } from "@/components/requests/demande-hub-ui";
+import { PageShell } from "@/components/ui/compact-shell";
 
 function tabFromSearch(v: string | null): HubTab {
   return v === "liste" ? "list" : "dashboard";
@@ -117,34 +118,34 @@ export function PharmacistDemandesHub() {
 
   if (loading) {
     return (
-      <main className="mx-auto min-h-screen max-w-2xl p-6">
-        <p className="text-slate-600">Chargement…</p>
-      </main>
+      <PageShell maxWidthClass="max-w-3xl">
+        <p className="text-muted-foreground">Chargement…</p>
+      </PageShell>
     );
   }
 
   if (error && rows.length === 0) {
     return (
-      <main className="mx-auto min-h-screen max-w-2xl p-6 pb-16">
-        <Link href="/dashboard" className="text-sm font-medium text-emerald-900 underline">
+      <PageShell maxWidthClass="max-w-3xl">
+        <Link href="/dashboard" className="text-xs font-medium text-emerald-900 underline">
           ← Mon espace
         </Link>
-        <p className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">{error}</p>
-      </main>
+        <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</p>
+      </PageShell>
     );
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-2xl p-6 pb-16">
-      <Link href="/dashboard" className="text-sm font-medium text-emerald-900 underline">
+    <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
+      <Link href="/dashboard" className="text-xs font-medium text-emerald-900 underline">
         ← Mon espace
       </Link>
-      <h1 className="mt-4 text-2xl font-bold tracking-tight text-slate-900">Demandes de la pharmacie</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        Vue d&apos;ensemble par étape puis liste complète avec filtres — même logique que côté patient.
+      <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">Demandes pharmacie</h1>
+      <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">
+        Tableau de bord condensé + liste filtrable.
       </p>
 
-      <div className="mt-8">
+      <div className="mt-1">
         <DemandeHubTabBar
           tab={tab}
           onTab={setTab}
@@ -153,33 +154,33 @@ export function PharmacistDemandesHub() {
       </div>
 
       {error ? (
-        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">{error}</p>
+        <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-950">{error}</p>
       ) : null}
 
       {tab === "dashboard" ? (
         <>
           {rows.length === 0 ? (
-            <div className="mt-10 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-10 text-center">
-              <p className="font-medium text-slate-900">Aucune demande enregistrée</p>
-              <p className="mt-2 text-sm text-slate-600">Les dossiers envoyés par les patients apparaîtront ici.</p>
+            <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center">
+              <p className="text-sm font-medium text-foreground">Aucune demande</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">Les dossiers patients apparaîtront ici.</p>
             </div>
           ) : (
-            <div className="mt-8 space-y-10">
+            <div className="mt-4 space-y-5">
               {pharmacistDashboardSections.map((sec) => {
                 const list = sectionRows.get(sec.id) ?? [];
                 if (list.length === 0) return null;
                 return (
                   <section key={sec.id}>
-                    <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+                    <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
                       <div>
-                        <h2 className="text-base font-bold text-slate-900">{sec.title}</h2>
-                        <p className="text-xs text-slate-600">{sec.description}</p>
+                        <h2 className="text-sm font-bold text-foreground">{sec.title}</h2>
+                        <p className="text-[10px] text-muted-foreground sm:text-[11px]">{sec.description}</p>
                       </div>
-                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground sm:text-xs">
                         {list.length}
                       </span>
                     </div>
-                    <ul className="space-y-3">
+                    <ul className="space-y-2">
                       {list.map((r) => (
                         <li key={r.id}>
                           <PharmacistDemandeCard row={r} />
@@ -193,14 +194,14 @@ export function PharmacistDemandesHub() {
           )}
         </>
       ) : (
-        <div className="mt-8 space-y-6">
-          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-slate-50/40 p-4 sm:flex-row sm:flex-wrap sm:items-end">
-            <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-xs font-semibold text-slate-700">
+        <div className="mt-4 space-y-4">
+          <div className="grid gap-2 rounded-lg border border-border/80 bg-muted/20 p-2.5 sm:grid-cols-3 sm:items-end">
+            <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Statut
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-900 shadow-sm"
+                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
               >
                 <option value="">Tous</option>
                 {ALL_REQUEST_STATUSES.map((st) => (
@@ -210,12 +211,12 @@ export function PharmacistDemandesHub() {
                 ))}
               </select>
             </label>
-            <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-xs font-semibold text-slate-700">
+            <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Type
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-900 shadow-sm"
+                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
               >
                 <option value="">Tous</option>
                 {ALL_REQUEST_TYPES.map((t) => (
@@ -225,12 +226,12 @@ export function PharmacistDemandesHub() {
                 ))}
               </select>
             </label>
-            <label className="flex min-w-[180px] flex-col gap-1 text-xs font-semibold text-slate-700">
-              Tri par date de création
+            <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Tri date
               <select
                 value={sortNewestFirst ? "desc" : "asc"}
                 onChange={(e) => setSortNewestFirst(e.target.value === "desc")}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-900 shadow-sm"
+                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
               >
                 <option value="desc">Plus récentes d’abord</option>
                 <option value="asc">Plus anciennes d’abord</option>
@@ -239,9 +240,9 @@ export function PharmacistDemandesHub() {
           </div>
 
           {filteredSorted.length === 0 ? (
-            <p className="py-10 text-center text-sm text-slate-600">Aucune demande ne correspond aux filtres.</p>
+            <p className="py-6 text-center text-xs text-muted-foreground">Aucun résultat.</p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="space-y-2">
               {filteredSorted.map((r) => (
                 <li key={r.id}>
                   <PharmacistDemandeCard row={r} />
@@ -251,6 +252,6 @@ export function PharmacistDemandesHub() {
           )}
         </div>
       )}
-    </main>
+    </PageShell>
   );
 }

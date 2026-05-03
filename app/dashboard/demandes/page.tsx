@@ -1,13 +1,14 @@
 import { Suspense } from "react";
+import { PageShell } from "@/components/ui/compact-shell";
 import { PatientDemandesHub } from "./patient-demandes-hub";
 
 export default function PatientDemandesPage() {
   return (
     <Suspense
       fallback={
-        <main className="mx-auto min-h-screen max-w-2xl p-6">
-          <p className="text-slate-600">Chargement…</p>
-        </main>
+        <PageShell maxWidthClass="max-w-3xl">
+          <p className="text-muted-foreground">Chargement…</p>
+        </PageShell>
       }
     >
       <PatientDemandesHub />

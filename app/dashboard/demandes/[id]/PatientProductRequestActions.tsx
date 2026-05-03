@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { formatTime24hFr } from "@/lib/datetime-fr";
 import {
   PATIENT_CANCEL_REASON_CODES,
   PATIENT_CANCEL_REASON_LABELS,
@@ -392,26 +393,28 @@ export function PatientProductRequestActions({ requestId, status, items, initial
 
   const showConfirm = status === "responded";
 
+  const visitTimeFr = visitTime.trim() ? formatTime24hFr(htmlTimeToPg(visitTime) ?? visitTime) : "";
+
   return (
-    <section className="mt-6 rounded-xl border-2 border-blue-200 bg-blue-50/40 p-4">
-      <h2 className="text-sm font-semibold text-blue-950">Tes actions</h2>
-      <p className="mt-1 text-xs text-blue-900/90">
+    <section className="mt-3 rounded-lg border border-border/90 bg-muted/15 p-2.5 sm:p-3">
+      <h2 className="text-xs font-bold uppercase tracking-wide text-foreground">Tes actions</h2>
+      <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
         {status === "responded"
-          ? "Réponds au pharmacien : pour chaque produit, choisis le principal, une alternative ou rien ; puis valide ou modifie toute ta liste."
-          : "Tu peux encore modifier ta liste complète ou abandonner jusqu’à la clôture en pharmacie."}
+          ? "Choix principal / alternative ou rien par ligne, puis valide ou renvoie ta liste."
+          : "Tu peux encore modifier ta liste ou abandonner jusqu’à la clôture en pharmacie."}
       </p>
 
       {actionError ? (
-        <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-800">{actionError}</p>
+        <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
       ) : null}
 
       {showConfirm ? (
-        <div className="mt-4 rounded-lg border bg-white p-3">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-gray-600">Confirmer ta réservation</h3>
-          <p className="mt-1 text-xs text-gray-600">
-            Une option par groupe (produit demandé ou alternative). Les ruptures marché sont exclues par défaut.
+        <div className="mt-2 rounded-md border border-border/70 bg-card p-2 sm:p-2.5">
+          <h3 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Confirmer ta réservation</h3>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            Une option par produit. Ruptures marché exclues.
           </p>
-          <ul className="mt-3 space-y-4">
+          <ul className="mt-2 space-y-2">
             {items.map((row) => {
               const prod = one(row.products);
               const prodPph = pphLabel(prod?.price_pph);
@@ -424,9 +427,9 @@ export function PatientProductRequestActions({ requestId, status, items, initial
               const currentBranch = st.branch;
 
               return (
-                <li key={row.id} className="rounded-md border border-gray-100 px-2 py-2">
-                  <p className="text-sm font-medium text-gray-900">{prod?.name ?? "Produit"}</p>
-                  {prodPph ? <p className="text-xs font-medium text-teal-800">{prodPph}</p> : null}
+                <li key={row.id} className="rounded-md border border-border/60 bg-muted/10 px-2 py-1.5">
+                  <p className="text-xs font-semibold text-foreground sm:text-sm">{prod?.name ?? "Produit"}</p>
+                  {prodPph ? <p className="text-[10px] font-medium text-teal-800 sm:text-xs">{prodPph}</p> : null}
 
                   {!hasAlts ? (
                     <>
@@ -578,38 +581,44 @@ export function PatientProductRequestActions({ requestId, status, items, initial
             })}
           </ul>
 
-          <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
-            <h4 className="text-xs font-bold uppercase tracking-wide text-blue-900/90">Passage en pharmacie</h4>
-            <p className="mt-1 text-xs text-blue-950/90">
+          <div className="mt-2 rounded-md border border-primary/20 bg-primary/5 p-2 sm:p-2.5">
+            <h4 className="text-[10px] font-bold uppercase tracking-wide text-primary">Passage en pharmacie</h4>
+            <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
               {visitWin.hasToOrder
-                ? `Avec des produits « à commander », choisis une date entre aujourd’hui et le ${new Date(visitWin.maxYmd + "T12:00:00").toLocaleDateString("fr-FR")} (3 jours après la dernière date de réception indiquée).`
-                : `Sans produit « à commander » dans ta sélection, choisis une date dans les 4 prochains jours (au plus tard le ${new Date(visitWin.maxYmd + "T12:00:00").toLocaleDateString("fr-FR")}).`}
+                ? `Avec « à commander » : date au plus tard le ${new Date(visitWin.maxYmd + "T12:00:00").toLocaleDateString("fr-FR")} (règle ETA + 3 j).`
+                : `Sans « à commander » : date dans les 4 jours (max ${new Date(visitWin.maxYmd + "T12:00:00").toLocaleDateString("fr-FR")}).`}
             </p>
             {visitWin.missingEtaOnToOrder ? (
-              <p className="mt-2 text-xs font-semibold text-amber-900">
-                Attention : au moins un produit « à commander » n’a pas de date de livraison côté pharmacie — corrige avant de valider.
+              <p className="mt-1 text-[11px] font-semibold text-amber-900">
+                Produit « à commander » sans date côté pharmacie — contacte l’officine.
               </p>
             ) : null}
-            <label className="mt-3 block text-xs font-medium text-gray-700">
-              Date souhaitée <span className="text-red-600">*</span>
+            <label className="mt-2 block text-[11px] font-medium text-foreground">
+              Date <span className="text-destructive">*</span>
               <input
                 type="date"
                 min={visitWin.minYmd}
                 max={visitWin.maxYmd}
                 value={resolvedVisitDate}
                 onChange={(e) => setVisitDate(e.target.value)}
-                className="mt-1 block w-full rounded-lg border px-3 py-2 text-sm"
+                className="mt-0.5 block w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
                 required
               />
             </label>
-            <label className="mt-2 block text-xs font-medium text-gray-700">
-              Heure approximative (optionnel)
+            <label className="mt-2 block text-[11px] font-medium text-foreground">
+              Heure (format 24 h, optionnel)
               <input
                 type="time"
+                step={60}
                 value={visitTime}
                 onChange={(e) => setVisitTime(e.target.value)}
-                className="mt-1 block w-full rounded-lg border px-3 py-2 text-sm"
+                className="mt-0.5 block w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
               />
+              {visitTimeFr ? (
+                <span className="mt-0.5 block text-[10px] text-muted-foreground">Affichage : {visitTimeFr}</span>
+              ) : (
+                <span className="mt-0.5 block text-[10px] text-muted-foreground">ex. 18h30 → saisis 18:30</span>
+              )}
             </label>
           </div>
 
@@ -617,28 +626,26 @@ export function PatientProductRequestActions({ requestId, status, items, initial
             type="button"
             disabled={busyAction !== "" || visitWin.missingEtaOnToOrder}
             onClick={() => void runConfirm()}
-            className="mt-4 w-full rounded-lg bg-blue-700 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            className="mt-2 w-full rounded-md bg-primary py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50 sm:text-sm"
           >
             {busyAction === "confirm" ? "Confirmation…" : "Valider ma sélection"}
           </button>
         </div>
       ) : null}
 
-      <div className="mt-4 rounded-lg border bg-white p-3">
-        <h3 className="text-xs font-bold uppercase tracking-wide text-gray-600">Modifier ta demande et renvoyer</h3>
-        <p className="mt-1 text-xs text-gray-600">
-          Ta nouvelle liste remplace la préparation précédente. Le pharmacien retraitera depuis le début.
-        </p>
+      <div className="mt-2 rounded-md border border-border/70 bg-card p-2 sm:p-2.5">
+        <h3 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Modifier et renvoyer</h3>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">Nouvelle liste = retraitement depuis le début.</p>
         <textarea
           value={noteDraft}
           onChange={(e) => setNoteDraft(e.target.value)}
-          rows={3}
-          placeholder="Message pour la pharmacie (optionnel)"
-          className="mt-3 w-full rounded-lg border px-3 py-2 text-sm"
+          rows={2}
+          placeholder="Message (optionnel)"
+          className="mt-2 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
         />
 
-        <p className="mt-3 text-xs font-semibold text-gray-700">Produits dans ta demande</p>
-        <ul className="mt-2 space-y-2">
+        <p className="mt-2 text-[11px] font-semibold text-foreground">Produits</p>
+        <ul className="mt-1 space-y-1.5">
           {lines.map((l, idx) => (
             <li key={`${l.product_id}-${idx}`} className="flex flex-wrap items-center gap-2 rounded border border-gray-100 px-2 py-2 text-sm">
               <span className="flex-1 min-w-[120px]">
@@ -712,8 +719,8 @@ export function PatientProductRequestActions({ requestId, status, items, initial
         </button>
       </div>
 
-      <div className="mt-5 rounded-lg border border-red-200 bg-red-50/40 p-3">
-        <p className="text-xs font-semibold text-red-950">Abandon après réponse</p>
+      <div className="mt-2 rounded-md border border-destructive/25 bg-destructive/5 p-2 sm:p-2.5">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-destructive">Abandon après réponse</p>
         <label className="mt-3 block text-xs font-medium text-gray-700">
           Motif
           <select

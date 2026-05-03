@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { CompactCard, CompactCardBody, CompactCardHeader } from "@/components/ui/compact-shell";
 import {
   PATIENT_CANCEL_REASON_CODES,
   PATIENT_CANCEL_REASON_LABELS,
@@ -24,22 +25,20 @@ export function PatientCancelBeforeResponse({ requestId, onDone }: Props) {
   const canSubmitOther = useMemo(() => trimDetail(detail).length >= 8, [detail]);
 
   return (
-    <section className="mt-6 rounded-xl border border-rose-100 bg-rose-50/30 p-4">
-      <h2 className="text-sm font-semibold text-rose-950">Annuler la demande</h2>
-      <p className="mt-1 text-xs text-rose-900/90">
-        Tant que le pharmacien n’a pas répondu, tu peux annuler définitivement cette demande. Indique un motif.
-      </p>
-
+    <CompactCard className="mt-3 border-destructive/25 bg-destructive/[0.04]">
+      <CompactCardHeader title="Annuler la demande" />
+      <CompactCardBody>
+      <p className="text-[11px] text-muted-foreground">Avant réponse du pharmacien : annulation définitive avec motif.</p>
       {localErr ? (
-        <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-800">{localErr}</p>
+        <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{localErr}</p>
       ) : null}
 
-      <label className="mt-4 block text-xs font-medium text-gray-700">
+      <label className="mt-2 block text-[11px] font-medium text-foreground">
         Motif
         <select
           value={code}
           onChange={(e) => setCode(e.target.value as PatientCancelReasonCode)}
-          className="mt-1 block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+          className="mt-0.5 block w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
         >
           {PATIENT_CANCEL_REASON_CODES.map((c) => (
             <option key={c} value={c}>
@@ -50,14 +49,14 @@ export function PatientCancelBeforeResponse({ requestId, onDone }: Props) {
       </label>
 
       {showDetail ? (
-        <label className="mt-3 block text-xs font-medium text-gray-700">
+        <label className="mt-2 block text-[11px] font-medium text-foreground">
           Précise (min. 8 caractères)
           <textarea
             value={detail}
-            rows={3}
+            rows={2}
             onChange={(e) => setDetail(e.target.value)}
             placeholder="Explique brièvement la raison..."
-            className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+            className="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
           />
         </label>
       ) : null}
@@ -66,11 +65,12 @@ export function PatientCancelBeforeResponse({ requestId, onDone }: Props) {
         type="button"
         disabled={busy || (showDetail && !canSubmitOther)}
         onClick={() => void run()}
-        className="mt-4 w-full rounded-lg border border-red-300 bg-white py-2.5 text-sm font-semibold text-red-900 disabled:opacity-50"
+        className="mt-3 w-full rounded-md border border-destructive/40 bg-background py-2 text-xs font-semibold text-destructive disabled:opacity-50"
       >
         {busy ? "Annulation…" : "Annuler définitivement"}
       </button>
-    </section>
+    </CompactCardBody>
+    </CompactCard>
   );
 
   async function run() {
