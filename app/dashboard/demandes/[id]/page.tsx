@@ -8,6 +8,7 @@ import {
   availabilityStatusFr,
   counterOutcomeFr,
   formatShortId,
+  patientRequestHasNoActions,
   requestStatusFr,
   requestTypeFr,
 } from "@/lib/request-display";
@@ -166,8 +167,8 @@ export default function DemandeDetailPage() {
     return (
       <main className="mx-auto min-h-screen max-w-lg p-6">
         <p className="rounded-lg bg-red-50 p-4 text-sm text-red-800">{error || "Erreur."}</p>
-        <Link href="/dashboard" className="mt-4 inline-block text-sm font-medium text-blue-700 underline">
-          Retour au tableau de bord
+        <Link href="/dashboard/demandes" className="mt-4 inline-block text-sm font-medium text-blue-700 underline">
+          Retour à Mes demandes
         </Link>
       </main>
     );
@@ -179,9 +180,19 @@ export default function DemandeDetailPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-lg p-6 pb-12">
-      <Link href="/dashboard" className="mb-4 inline-block text-sm font-medium text-blue-700 underline">
+      <Link href="/dashboard/demandes" className="mb-4 inline-block text-sm font-medium text-sky-800 underline">
         ← Mes demandes
       </Link>
+
+      {patientRequestHasNoActions(request.status) ? (
+        <section className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
+          <p className="font-semibold text-slate-900">Lecture seule</p>
+          <p className="mt-1 text-slate-700">
+            Cette demande est dans un état clôturé ou sans action possible ici. Tu peux consulter l’historique et les
+            informations ci-dessous.
+          </p>
+        </section>
+      ) : null}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-700">

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import { PharmacistDemandesHub } from "./pharmacist-demandes-hub";
+import { PatientDemandesHub } from "./patient-demandes-hub";
 
-export default function PharmacienDemandesListePage() {
+export default function PatientDemandesPage() {
   return (
     <Suspense
       fallback={
@@ -10,7 +10,7 @@ export default function PharmacienDemandesListePage() {
         </main>
       }
     >
-      <PharmacistDemandesHub />
+      <PatientDemandesHub />
     </Suspense>
   );
 }

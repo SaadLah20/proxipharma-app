@@ -5,7 +5,15 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { PHARMACIST_AVAILABILITY_OPTIONS } from "@/lib/pharmacist-availability";
-import { availabilityStatusFr, counterOutcomeFr, formatShortId, requestStatusFr, requestTypeFr } from "@/lib/request-display";
+import {
+  availabilityStatusFr,
+  counterOutcomeFr,
+  formatShortId,
+  pharmacistRequestIsClosedSuccess,
+  pharmacistRequestIsHardStopped,
+  requestStatusFr,
+  requestTypeFr,
+} from "@/lib/request-display";
 import { one } from "@/lib/embed";
 import { pphLabel } from "@/lib/product-price";
 
@@ -455,8 +463,8 @@ export default function PharmacienDemandeDetailPage() {
     return (
       <main className="mx-auto min-h-screen max-w-lg p-6">
         <p className="rounded-lg bg-red-50 p-4 text-sm text-red-800">{error}</p>
-        <Link href="/dashboard/pharmacien/demandes" className="mt-4 inline-block text-sm text-blue-700 underline">
-          Retour à la liste
+        <Link href="/dashboard/pharmacien/demandes" className="mt-4 inline-block text-sm text-emerald-900 underline">
+          Retour aux demandes
         </Link>
       </main>
     );
@@ -469,9 +477,22 @@ export default function PharmacienDemandeDetailPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-lg p-6 pb-12">
-      <Link href="/dashboard/pharmacien/demandes" className="text-sm font-medium text-blue-700 underline">
-        ← Liste des demandes
+      <Link href="/dashboard/pharmacien/demandes" className="text-sm font-medium text-emerald-900 underline">
+        ← Demandes pharmacie
       </Link>
+
+      {(pharmacistRequestIsHardStopped(request.status) || pharmacistRequestIsClosedSuccess(request.status)) && isProduct ? (
+        <section className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
+          <p className="font-semibold text-slate-900">
+            {pharmacistRequestIsHardStopped(request.status) ? "Dossier sans suite" : "Dossier terminé"}
+          </p>
+          <p className="mt-1 text-slate-700">
+            {pharmacistRequestIsHardStopped(request.status)
+              ? "Cette demande ne peut plus être modifiée. Les informations restent disponibles ci-dessous en lecture seule."
+              : "Clôturée côté comptoir. Les informations ci-dessous sont en lecture seule."}
+          </p>
+        </section>
+      ) : null}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <span className="font-mono text-xs text-gray-500">#{formatShortId(request.id)}</span>

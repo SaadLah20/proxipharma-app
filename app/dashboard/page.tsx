@@ -4,9 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { formatShortId, requestStatusFr, requestTypeFr } from "@/lib/request-display";
-import { one } from "@/lib/embed";
-
 type Profile = {
   id: string;
   full_name: string | null;
@@ -165,66 +162,34 @@ export default function DashboardPage() {
       </section>
 
       {profile?.role === "patient" ? (
-        <section className="mt-4 rounded-xl border bg-white p-4">
-          <h2 className="mb-3 text-lg font-semibold">Mes demandes</h2>
+        <section className="mt-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-sky-50/80 to-white p-5 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900">Mes demandes produits</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Suivi par statuts, filtres et détail des actions — même logique que les applis livraisons ou banque en ligne.
+          </p>
           {requestsError ? (
-            <p className="rounded bg-red-50 p-2 text-sm text-red-700">
-              Impossible de charger les demandes : {requestsError}
-            </p>
-          ) : myRequests.length === 0 ? (
-            <p className="text-sm text-gray-600">
-              Aucune demande pour l’instant. Passe par l’annuaire, ouvre une pharmacie et utilise « Demander des
-              produits ».
-            </p>
+            <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">{requestsError}</p>
           ) : (
-            <ul className="space-y-3">
-              {myRequests.map((r) => {
-                const ph = one(r.pharmacies);
-                return (
-                <li key={r.id} className="rounded-lg border border-gray-100 bg-gray-50/80 p-3 text-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-mono text-xs text-gray-500">#{formatShortId(r.id)}</span>
-                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-900">
-                      {requestStatusFr[r.status] ?? r.status}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-gray-900">
-                    <span className="font-medium">{requestTypeFr[r.request_type] ?? r.request_type}</span>
-                    {ph ? (
-                      <>
-                        {" · "}
-                        {ph.nom}
-                        <span className="text-gray-500"> ({ph.ville})</span>
-                      </>
-                    ) : (
-                      <span className="text-gray-500"> · Pharmacie…</span>
-                    )}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {new Date(r.created_at).toLocaleString("fr-FR", {
-                      dateStyle: "short",
-                      timeStyle: "short",
-                    })}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                    <Link
-                      href={`/dashboard/demandes/${r.id}`}
-                      className="text-xs font-semibold text-blue-800 underline"
-                    >
-                      Voir le détail
-                    </Link>
-                    <Link href={`/pharmacie/${r.pharmacy_id}`} className="text-xs font-medium text-blue-700 underline">
-                      Fiche pharmacie
-                    </Link>
-                  </div>
-                </li>
-                );
-              })}
-            </ul>
+            <p className="mt-4 text-sm font-medium text-slate-800">
+              {myRequests.length === 0
+                ? "Tu n’as pas encore de demande enregistrée."
+                : `${myRequests.length} demande${myRequests.length > 1 ? "s" : ""} récente${myRequests.length > 1 ? "s" : ""} (aperçu).`}
+            </p>
           )}
-          <Link href="/" className="mt-4 inline-block text-sm font-medium text-blue-700 underline">
-            Aller à l’annuaire
-          </Link>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link
+              href="/dashboard/demandes"
+              className="inline-flex rounded-xl bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+            >
+              Ouvrir Mes demandes
+            </Link>
+            <Link
+              href="/"
+              className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+            >
+              Annuaire des pharmacies
+            </Link>
+          </div>
         </section>
       ) : null}
 
@@ -256,7 +221,7 @@ export default function DashboardPage() {
               href="/dashboard/pharmacien/demandes"
               className="mt-4 inline-flex rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
             >
-              Voir les demandes à traiter
+              Ouvrir les demandes pharmacie
             </Link>
           ) : null}
         </section>
