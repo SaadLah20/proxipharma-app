@@ -8,8 +8,99 @@ alter table public.request_items
   drop constraint if exists request_items_requested_qty_check;
 
 alter table public.request_items
+  drop constraint if exists request_items_requested_check;
+
+alter table public.request_items
   add constraint request_items_requested_qty_check
   check (requested_qty >= 1 and requested_qty <= 10);
+
+-- ---------------------------------------------------------------------------
+-- Dédupliquer avant index unique : données existantes (ex. même produit deux fois).
+-- Garder une ligne canonique ; fusionner requested_qty (plafonné 10).
+-- Ordre : d’abord une ligne ayant réponse pharma, sinon la plus ancienne.
+-- Les alternatives attachées aux lignes supprimées sont retirées (cas rare ;
+-- données historiques peuvent avoir ce doublon par erreur métier/API).
+-- ---------------------------------------------------------------------------
+with ranked as (
+  select
+    id,
+    sum(requested_qty) over (
+      partition by request_id, product_id
+    ) as merged_qty,
+    row_number() over (
+      partition by request_id, product_id
+      order by
+        (availability_status is not null) desc nulls last,
+        (
+          coalesce(trim(pharmacist_comment), '')
+          <> ''
+        ) desc,
+        (
+          counter_outcome is not null and counter_outcome::text <> 'unset'
+        ) desc,
+        created_at asc,
+        id asc
+    ) as rn
+  from public.request_items
+),
+keeper as (select id, merged_qty from ranked where rn = 1)
+update public.request_items ri
+set
+  requested_qty = least(
+    10,
+    greatest(1, k.merged_qty::integer)
+  ),
+  updated_at = now()
+from keeper k
+where ri.id = k.id;
+
+delete from public.request_item_alternatives a
+where a.request_item_id in (
+  with ranked as (
+    select
+      id,
+      row_number() over (
+        partition by request_id, product_id
+        order by
+          (availability_status is not null) desc nulls last,
+          (
+            coalesce(trim(pharmacist_comment), '')
+            <> ''
+          ) desc,
+          (
+            counter_outcome is not null and counter_outcome::text <> 'unset'
+          ) desc,
+          created_at asc,
+          id asc
+      ) as rn
+    from public.request_items
+  )
+  select id from ranked where rn > 1
+);
+
+delete from public.request_items ri
+where ri.id in (
+  with ranked as (
+    select
+      id,
+      row_number() over (
+        partition by request_id, product_id
+        order by
+          (availability_status is not null) desc nulls last,
+          (
+            coalesce(trim(pharmacist_comment), '')
+            <> ''
+          ) desc,
+          (
+            counter_outcome is not null and counter_outcome::text <> 'unset'
+          ) desc,
+          created_at asc,
+          id asc
+    ) as rn
+    from public.request_items
+  )
+  select id from ranked where rn > 1
+);
 
 create unique index if not exists request_items_unique_product_per_request_idx
   on public.request_items (request_id, product_id);
