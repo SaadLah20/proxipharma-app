@@ -20,7 +20,7 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 * **Annuaire Public :** Portail de découverte géolocalisé. Recherche rapide, filtres de garde et accès direct aux outils de contact.
 * **Espace Patient :** Interface transactionnelle de suivi. Gestion des demandes, historique, notifications d'état, et validation d'alternatives.
-* **Espace Pharmacien :** Outil de production. Réception et traitement des demandes, gestion des prix, dashboard de performance et notifications prioritaires.
+* **Espace Pharmacien :** Outil de production. Réception et traitement des demandes, gestion des prix, dashboard de performance et notifications prioritaires. Coordonnées patient (nom, WhatsApp) sur les demandes de sa pharmacie via **RPC** dédiés, sans lecture large cross-rôle sur `profiles`.
 * **Espace Admin :** Dashboard fondateur. Vision panoramique sur le réseau (12 pharmacies), maintenance proactive, gestion de base de données et impersonation pour débogage.
 
 ## 4. Règles Métier & UX Clés
