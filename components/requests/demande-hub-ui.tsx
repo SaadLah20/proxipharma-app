@@ -36,6 +36,9 @@ export type PharmacistRequestRow = {
   patient_id: string;
   submitted_at?: string | null;
   responded_at?: string | null;
+  /** Renseigné après chargement batch des profils (RLS pharmacien). */
+  patient_full_name?: string | null;
+  patient_whatsapp?: string | null;
 };
 
 export function DemandeHubTabBar({
@@ -144,27 +147,41 @@ export function PatientDemandeCard({ row }: { row: PatientRequestRow }) {
   );
 }
 
+function patientDisplayName(row: PharmacistRequestRow): string {
+  const n = row.patient_full_name?.trim();
+  if (n) return n;
+  return `Patient #${formatShortId(row.patient_id)}`;
+}
+
 export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
   const when = row.submitted_at ?? row.created_at;
+  const name = patientDisplayName(row);
+  const phone = row.patient_whatsapp?.trim();
 
   return (
-    <div className="relative rounded-lg border border-border/90 bg-card shadow-sm transition hover:border-emerald-500/40 hover:shadow-md">
-      <Link href={`/dashboard/pharmacien/demandes/${row.id}`} className="group block p-2.5 pr-10 sm:p-3 sm:pr-12">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] text-muted-foreground">
-              {formatDateTimeShort24hFr(when)}
-              <span className="text-foreground">
-                {" "}
-                · Patient <span className="font-mono">{formatShortId(row.patient_id)}</span>
-              </span>
-            </p>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              <span className="font-mono text-[10px] text-muted-foreground">#{formatShortId(row.id)}</span>
-              <RequestStatusBadge status={row.status} role="pharmacien" />
+    <div className="relative overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm ring-1 ring-black/[0.03] transition hover:border-emerald-500/35 hover:shadow-md">
+      <Link href={`/dashboard/pharmacien/demandes/${row.id}`} className="group block p-3 pr-11 sm:p-3.5 sm:pr-12">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 gap-3">
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600/90 to-teal-700/95 text-xs font-bold text-white shadow-inner"
+              aria-hidden
+            >
+              {(name.slice(0, 2) || "?").toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold leading-tight text-foreground">{name}</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">{formatDateTimeShort24hFr(when)}</p>
+              {phone ? (
+                <p className="mt-0.5 truncate text-[11px] font-medium text-emerald-800/90">{phone}</p>
+              ) : null}
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                <span className="font-mono text-[10px] text-muted-foreground">Réf. #{formatShortId(row.id)}</span>
+                <RequestStatusBadge status={row.status} role="pharmacien" />
+              </div>
             </div>
           </div>
-          <span className="shrink-0 text-muted-foreground group-hover:text-emerald-700" aria-hidden>
+          <span className="shrink-0 pt-1 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-emerald-700" aria-hidden>
             →
           </span>
         </div>
