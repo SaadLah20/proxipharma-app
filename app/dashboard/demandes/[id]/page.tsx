@@ -206,64 +206,9 @@ export default function DemandeDetailPage() {
         </CompactCard>
       ) : null}
 
-      <CompactCard>
-        <CompactCardHeader title={requestTypeFr[request.request_type] ?? request.request_type} />
-        <CompactCardBody className="space-y-0">
-          {pharmacy ? (
-            <>
-              <KvRow label="Pharmacie">
-                <span>
-                  {pharmacy.nom}{" "}
-                  <span className="text-muted-foreground">({pharmacy.ville})</span>
-                </span>
-              </KvRow>
-              <KvRow label="Adresse">{pharmacy.adresse}</KvRow>
-              {pharmacy.telephone ? (
-                <KvRow label="Tél.">
-                  <a href={`tel:${pharmacy.telephone}`} className="text-sky-800 underline">
-                    {pharmacy.telephone}
-                  </a>
-                </KvRow>
-              ) : null}
-              <div className="pt-1">
-                <Link href={`/pharmacie/${request.pharmacy_id}`} className="text-[11px] font-medium text-sky-800 underline">
-                  Fiche pharmacie
-                </Link>
-              </div>
-            </>
-          ) : (
-            <p className="text-muted-foreground">Pharmacie…</p>
-          )}
-        </CompactCardBody>
-      </CompactCard>
-
-      <CompactCard>
-        <CompactCardHeader title="Historique" />
-        <CompactCardBody className="space-y-0">
-          <KvRow label="Créée">{formatDateTimeShort24hFr(request.created_at)}</KvRow>
-          {request.submitted_at ? <KvRow label="Envoyée">{formatDateTimeShort24hFr(request.submitted_at)}</KvRow> : null}
-          {request.responded_at ? (
-            <KvRow label="Réponse pharma">{formatDateTimeShort24hFr(request.responded_at)}</KvRow>
-          ) : null}
-          {request.confirmed_at ? (
-            <KvRow label="Confirmée">{formatDateTimeShort24hFr(request.confirmed_at)}</KvRow>
-          ) : null}
-          {request.patient_planned_visit_date ? (
-            <KvRow label="Passage prévu">{formatPlannedVisitFr(request.patient_planned_visit_date, request.patient_planned_visit_time)}</KvRow>
-          ) : null}
-        </CompactCardBody>
-      </CompactCard>
-
-      {note ? (
-        <CompactCard>
-          <CompactCardHeader title="Ton message" />
-          <CompactCardBody className="whitespace-pre-wrap text-foreground">{note}</CompactCardBody>
-        </CompactCard>
-      ) : null}
-
       {items.length > 0 ? (
         <CompactCard>
-          <CompactCardHeader title={`Produits (${items.length})`} />
+          <CompactCardHeader title={`${items.length} ligne${items.length > 1 ? "s" : ""}`} />
           <CompactCardBody className="space-y-2 p-2 sm:p-2.5">
             <ul className="space-y-2">
               {items.map((row) => {
@@ -307,7 +252,6 @@ export default function DemandeDetailPage() {
                     {row.availability_status ? (
                       <p className="mt-1 text-primary">
                         <span className="font-medium">{availabilityStatusFr[row.availability_status] ?? row.availability_status}</span>
-                        {row.available_qty != null ? ` (${row.available_qty})` : ""}
                         {row.unit_price != null ? ` · ${Number(row.unit_price).toFixed(2)} MAD` : ""}
                       </p>
                     ) : (
@@ -330,7 +274,6 @@ export default function DemandeDetailPage() {
                                 {alt.availability_status ? (
                                   <span className="ml-1 text-primary">
                                     {availabilityStatusFr[alt.availability_status] ?? alt.availability_status}
-                                    {alt.available_qty != null ? ` (${alt.available_qty})` : ""}
                                     {alt.unit_price != null ? ` · ${Number(alt.unit_price).toFixed(2)} MAD` : ""}
                                   </span>
                                 ) : null}
@@ -343,7 +286,7 @@ export default function DemandeDetailPage() {
                     ) : null}
                     {(request.status === "confirmed" || request.status === "completed" || row.counter_outcome !== "unset") && (
                       <p className="mt-1 text-muted-foreground">
-                        Comptoir : <span className="font-medium text-foreground">{counterOutcomeFr[row.counter_outcome] ?? row.counter_outcome}</span>
+                        <span className="font-medium text-foreground">{counterOutcomeFr[row.counter_outcome] ?? row.counter_outcome}</span>
                       </p>
                     )}
                   </li>
@@ -353,22 +296,18 @@ export default function DemandeDetailPage() {
           </CompactCardBody>
         </CompactCard>
       ) : request.request_type === "product_request" ? (
-        <p className="text-center text-xs text-muted-foreground">Aucune ligne produit.</p>
+        <p className="text-center text-xs text-muted-foreground">Aucune ligne pour cette demande.</p>
       ) : null}
 
-      {request.request_type === "product_request" && (request.status === "submitted" || request.status === "in_review") ? (
-        <PatientCancelBeforeResponse
-          requestId={request.id}
-          onDone={async () => {
-            await loadDetail(true);
-          }}
-        />
-      ) : null}
-
-      {request.request_type === "product_request" && (request.status === "responded" || request.status === "confirmed") ? (
+      {request.request_type === "product_request" &&
+      (request.status === "submitted" ||
+        request.status === "in_review" ||
+        request.status === "responded" ||
+        request.status === "confirmed") ? (
         <PatientProductRequestActions
           key={
             [
+              request.status,
               note ?? "",
               ...items.map((i) =>
                 [
@@ -392,6 +331,77 @@ export default function DemandeDetailPage() {
           }}
         />
       ) : null}
+
+      {request.request_type === "product_request" && (request.status === "submitted" || request.status === "in_review") ? (
+        <PatientCancelBeforeResponse
+          requestId={request.id}
+          onDone={async () => {
+            await loadDetail(true);
+          }}
+        />
+      ) : null}
+
+      <details className="rounded-lg border border-border/70 bg-muted/10">
+        <summary className="cursor-pointer px-3 py-2.5 text-xs font-semibold text-foreground hover:bg-muted/25">
+          Pharmacie, historique et message
+        </summary>
+        <div className="space-y-3 border-t border-border/60 p-2 pt-3">
+          <CompactCard>
+            <CompactCardHeader title={requestTypeFr[request.request_type] ?? request.request_type} />
+            <CompactCardBody className="space-y-0">
+              {pharmacy ? (
+                <>
+                  <KvRow label="Pharmacie">
+                    <span>
+                      {pharmacy.nom}{" "}
+                      <span className="text-muted-foreground">({pharmacy.ville})</span>
+                    </span>
+                  </KvRow>
+                  <KvRow label="Adresse">{pharmacy.adresse}</KvRow>
+                  {pharmacy.telephone ? (
+                    <KvRow label="Tél.">
+                      <a href={`tel:${pharmacy.telephone}`} className="text-sky-800 underline">
+                        {pharmacy.telephone}
+                      </a>
+                    </KvRow>
+                  ) : null}
+                  <div className="pt-1">
+                    <Link href={`/pharmacie/${request.pharmacy_id}`} className="text-[11px] font-medium text-sky-800 underline">
+                      Fiche pharmacie
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <p className="text-muted-foreground">Pharmacie…</p>
+              )}
+            </CompactCardBody>
+          </CompactCard>
+
+          <CompactCard>
+            <CompactCardHeader title="Historique" />
+            <CompactCardBody className="space-y-0">
+              <KvRow label="Créée">{formatDateTimeShort24hFr(request.created_at)}</KvRow>
+              {request.submitted_at ? <KvRow label="Envoyée">{formatDateTimeShort24hFr(request.submitted_at)}</KvRow> : null}
+              {request.responded_at ? (
+                <KvRow label="Réponse pharma">{formatDateTimeShort24hFr(request.responded_at)}</KvRow>
+              ) : null}
+              {request.confirmed_at ? (
+                <KvRow label="Confirmée">{formatDateTimeShort24hFr(request.confirmed_at)}</KvRow>
+              ) : null}
+              {request.patient_planned_visit_date ? (
+                <KvRow label="Passage prévu">{formatPlannedVisitFr(request.patient_planned_visit_date, request.patient_planned_visit_time)}</KvRow>
+              ) : null}
+            </CompactCardBody>
+          </CompactCard>
+
+          {note ? (
+            <CompactCard>
+              <CompactCardHeader title="Ton message" />
+              <CompactCardBody className="whitespace-pre-wrap text-foreground">{note}</CompactCardBody>
+            </CompactCard>
+          ) : null}
+        </div>
+      </details>
     </PageShell>
   );
 }

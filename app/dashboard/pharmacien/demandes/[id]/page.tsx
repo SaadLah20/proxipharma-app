@@ -300,7 +300,23 @@ export default function PharmacienDemandeDetailPage() {
       return;
     }
     resetAltPicker();
-    await load();
+
+    const { data: altRows, error: fetchErr } = await supabase
+      .from("request_item_alternatives")
+      .select(
+        "id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph)"
+      )
+      .eq("request_item_id", parentRow.id)
+      .order("rank", { ascending: true });
+
+    if (fetchErr) {
+      setError(fetchErr.message);
+      return;
+    }
+
+    setItems((prev) =>
+      prev.map((r) => (r.id === parentRow.id ? { ...r, request_item_alternatives: altRows ?? [] } : r))
+    );
   };
 
   const deleteAlternativeRow = async (altId: string, parentRowId?: string) => {
@@ -313,7 +329,21 @@ export default function PharmacienDemandeDetailPage() {
       return;
     }
     if (altPickerOpenFor === parentRowId) resetAltPicker();
-    await load();
+
+    if (parentRowId) {
+      const { data: altRows, error: fetchErr } = await supabase
+        .from("request_item_alternatives")
+        .select(
+          "id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph)"
+        )
+        .eq("request_item_id", parentRowId)
+        .order("rank", { ascending: true });
+      if (!fetchErr) {
+        setItems((prev) =>
+          prev.map((r) => (r.id === parentRowId ? { ...r, request_item_alternatives: altRows ?? [] } : r))
+        );
+      }
+    }
   };
 
   const saveCounterOutcome = async (requestItemId: string, outcome: string) => {
@@ -592,7 +622,7 @@ export default function PharmacienDemandeDetailPage() {
                   </label>
 
                   <label className="block">
-                    <span className="text-[10px] font-medium text-muted-foreground">Qté dispo</span>
+                    <span className="text-[10px] font-medium text-muted-foreground">Quantité (réponse)</span>
                     <input
                       type="number"
                       min={0}
@@ -797,7 +827,7 @@ export default function PharmacienDemandeDetailPage() {
             request.status === "completed") &&
           items.length > 0 ? (
             <section className="mt-4 rounded-lg border border-border bg-muted/15 p-2.5 sm:p-3">
-              <h2 className="text-[10px] font-bold uppercase tracking-wide text-foreground">Comptoir</h2>
+              <h2 className="text-[10px] font-bold uppercase tracking-wide text-foreground">Suivi des lignes</h2>
               <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
                 Issue par ligne ; clôture quand plus de « pas encore vu » ni « report » sur les lignes gardées par le patient.
               </p>
