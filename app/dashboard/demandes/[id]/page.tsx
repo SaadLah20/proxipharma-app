@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { CompactCard, CompactCardBody, CompactCardHeader, KvRow, PageShell } from "@/components/ui/compact-shell";
+import { formatDateTimeShort24hFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
 import { supabase } from "@/lib/supabase";
 import {
   availabilityStatusFr,
@@ -13,6 +15,7 @@ import {
   requestTypeFr,
 } from "@/lib/request-display";
 import { one } from "@/lib/embed";
+import { PatientCancelBeforeResponse } from "./PatientCancelBeforeResponse";
 import { PatientProductRequestActions } from "./PatientProductRequestActions";
 import { pphLabel } from "@/lib/product-price";
 
@@ -157,20 +160,20 @@ export default function DemandeDetailPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto min-h-screen max-w-lg p-6">
-        <p className="text-gray-600">Chargement…</p>
-      </main>
+      <PageShell>
+        <p className="text-muted-foreground">Chargement…</p>
+      </PageShell>
     );
   }
 
   if (error || !request) {
     return (
-      <main className="mx-auto min-h-screen max-w-lg p-6">
-        <p className="rounded-lg bg-red-50 p-4 text-sm text-red-800">{error || "Erreur."}</p>
-        <Link href="/dashboard/demandes" className="mt-4 inline-block text-sm font-medium text-blue-700 underline">
-          Retour à Mes demandes
+      <PageShell>
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error || "Erreur."}</p>
+        <Link href="/dashboard/demandes" className="mt-3 inline-block text-xs font-medium text-sky-800 underline">
+          Mes demandes
         </Link>
-      </main>
+      </PageShell>
     );
   }
 
@@ -179,210 +182,187 @@ export default function DemandeDetailPage() {
   const note = productReq?.patient_note ?? null;
 
   return (
-    <main className="mx-auto min-h-screen max-w-lg p-6 pb-12">
-      <Link href="/dashboard/demandes" className="mb-4 inline-block text-sm font-medium text-sky-800 underline">
-        ← Mes demandes
-      </Link>
-
-      {patientRequestHasNoActions(request.status) ? (
-        <section className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
-          <p className="font-semibold text-slate-900">Lecture seule</p>
-          <p className="mt-1 text-slate-700">
-            Cette demande est dans un état clôturé ou sans action possible ici. Tu peux consulter l’historique et les
-            informations ci-dessous.
-          </p>
-        </section>
-      ) : null}
-
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-700">
-          #{formatShortId(request.id)}
-        </span>
-        <span className="rounded-full bg-blue-100 px-3 py-0.5 text-xs font-semibold text-blue-900">
-          {requestStatusFr[request.status] ?? request.status}
-        </span>
+    <PageShell className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link href="/dashboard/demandes" className="text-xs font-medium text-sky-800 underline">
+          ← Mes demandes
+        </Link>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+            #{formatShortId(request.id)}
+          </span>
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+            {requestStatusFr[request.status] ?? request.status}
+          </span>
+        </div>
       </div>
 
-      <h1 className="text-xl font-bold text-blue-950">
-        {requestTypeFr[request.request_type] ?? request.request_type}
-      </h1>
-
-      {pharmacy ? (
-        <section className="mt-4 rounded-xl border bg-white p-4 text-sm shadow-sm">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Pharmacie</h2>
-          <p className="mt-1 font-medium text-gray-900">{pharmacy.nom}</p>
-          <p className="text-gray-600">{pharmacy.ville} · {pharmacy.adresse}</p>
-          {pharmacy.telephone ? (
-            <a href={`tel:${pharmacy.telephone}`} className="mt-2 inline-block text-blue-700 underline">
-              {pharmacy.telephone}
-            </a>
-          ) : null}
-          <div className="mt-3">
-            <Link
-              href={`/pharmacie/${request.pharmacy_id}`}
-              className="text-sm font-medium text-blue-700 underline"
-            >
-              Ouvrir la fiche pharmacie
-            </Link>
-          </div>
-        </section>
+      {patientRequestHasNoActions(request.status) ? (
+        <CompactCard>
+          <CompactCardHeader title="Lecture seule" />
+          <CompactCardBody className="text-muted-foreground">
+            Cette demande est clôturée ou sans action ici. Tu peux consulter les informations ci-dessous.
+          </CompactCardBody>
+        </CompactCard>
       ) : null}
 
-      <section className="mt-4 rounded-xl border bg-white p-4 text-sm shadow-sm">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Dates</h2>
-        <dl className="mt-2 space-y-1 text-gray-700">
-          <div>
-            <dt className="inline text-gray-500">Créée : </dt>
-            <dd className="inline">{new Date(request.created_at).toLocaleString("fr-FR")}</dd>
-          </div>
-          {request.submitted_at ? (
-            <div>
-              <dt className="inline text-gray-500">Envoyée : </dt>
-              <dd className="inline">{new Date(request.submitted_at).toLocaleString("fr-FR")}</dd>
-            </div>
-          ) : null}
+      <CompactCard>
+        <CompactCardHeader title={requestTypeFr[request.request_type] ?? request.request_type} />
+        <CompactCardBody className="space-y-0">
+          {pharmacy ? (
+            <>
+              <KvRow label="Pharmacie">
+                <span>
+                  {pharmacy.nom}{" "}
+                  <span className="text-muted-foreground">({pharmacy.ville})</span>
+                </span>
+              </KvRow>
+              <KvRow label="Adresse">{pharmacy.adresse}</KvRow>
+              {pharmacy.telephone ? (
+                <KvRow label="Tél.">
+                  <a href={`tel:${pharmacy.telephone}`} className="text-sky-800 underline">
+                    {pharmacy.telephone}
+                  </a>
+                </KvRow>
+              ) : null}
+              <div className="pt-1">
+                <Link href={`/pharmacie/${request.pharmacy_id}`} className="text-[11px] font-medium text-sky-800 underline">
+                  Fiche pharmacie
+                </Link>
+              </div>
+            </>
+          ) : (
+            <p className="text-muted-foreground">Pharmacie…</p>
+          )}
+        </CompactCardBody>
+      </CompactCard>
+
+      <CompactCard>
+        <CompactCardHeader title="Historique" />
+        <CompactCardBody className="space-y-0">
+          <KvRow label="Créée">{formatDateTimeShort24hFr(request.created_at)}</KvRow>
+          {request.submitted_at ? <KvRow label="Envoyée">{formatDateTimeShort24hFr(request.submitted_at)}</KvRow> : null}
           {request.responded_at ? (
-            <div>
-              <dt className="inline text-gray-500">Réponse pharmacien : </dt>
-              <dd className="inline">{new Date(request.responded_at).toLocaleString("fr-FR")}</dd>
-            </div>
+            <KvRow label="Réponse pharma">{formatDateTimeShort24hFr(request.responded_at)}</KvRow>
           ) : null}
           {request.confirmed_at ? (
-            <div>
-              <dt className="inline text-gray-500">Confirmée par toi : </dt>
-              <dd className="inline">{new Date(request.confirmed_at).toLocaleString("fr-FR")}</dd>
-            </div>
+            <KvRow label="Confirmée">{formatDateTimeShort24hFr(request.confirmed_at)}</KvRow>
           ) : null}
           {request.patient_planned_visit_date ? (
-            <div>
-              <dt className="inline text-gray-500">Passage prévu à la pharmacie : </dt>
-              <dd className="inline">
-                {new Date(`${request.patient_planned_visit_date}T12:00:00`).toLocaleDateString("fr-FR", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
-                {request.patient_planned_visit_time
-                  ? ` · ${String(request.patient_planned_visit_time).slice(0, 5)}`
-                  : ""}
-              </dd>
-            </div>
+            <KvRow label="Passage prévu">{formatPlannedVisitFr(request.patient_planned_visit_date, request.patient_planned_visit_time)}</KvRow>
           ) : null}
-        </dl>
-      </section>
+        </CompactCardBody>
+      </CompactCard>
 
       {note ? (
-        <section className="mt-4 rounded-xl border bg-amber-50/60 p-4 text-sm">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-amber-900/80">Ton message</h2>
-          <p className="mt-2 whitespace-pre-wrap text-gray-900">{note}</p>
-        </section>
+        <CompactCard>
+          <CompactCardHeader title="Ton message" />
+          <CompactCardBody className="whitespace-pre-wrap text-foreground">{note}</CompactCardBody>
+        </CompactCard>
       ) : null}
 
       {items.length > 0 ? (
-        <section className="mt-4">
-          <h2 className="mb-2 text-sm font-semibold text-gray-800">Produits</h2>
-          <ul className="space-y-3">
-            {items.map((row) => {
-              const prod = one(row.products);
-              const altList = normalizeAlternatives(row.request_item_alternatives);
-              const linePph = pphLabel(prod?.price_pph);
-              return (
-              <li key={row.id} className="rounded-xl border border-gray-100 bg-white p-3 text-sm shadow-sm">
-                <p className="font-medium text-gray-900">{prod?.name ?? "Produit"}</p>
-                {linePph ? <p className="mt-0.5 text-xs font-medium text-teal-800">{linePph}</p> : null}
-                <p className="mt-1 text-gray-600">
-                  Demandé : <strong>{row.requested_qty}</strong>
-                  {row.selected_qty != null ? (
-                    <>
-                      {" "}
-                      · Sélectionné : <strong>{row.selected_qty}</strong>
-                      {!row.is_selected_by_patient ? (
-                        <span className="text-gray-400"> (décoché)</span>
+        <CompactCard>
+          <CompactCardHeader title={`Produits (${items.length})`} />
+          <CompactCardBody className="space-y-2 p-2 sm:p-2.5">
+            <ul className="space-y-2">
+              {items.map((row) => {
+                const prod = one(row.products);
+                const altList = normalizeAlternatives(row.request_item_alternatives);
+                const linePph = pphLabel(prod?.price_pph);
+                return (
+                  <li key={row.id} className="rounded-md border border-border/60 bg-muted/10 p-2 text-[11px] leading-snug sm:text-xs">
+                    <div className="flex flex-wrap items-start justify-between gap-1">
+                      <p className="font-semibold text-foreground">{prod?.name ?? "Produit"}</p>
+                      {linePph ? <span className="shrink-0 text-[10px] font-medium text-teal-800">{linePph}</span> : null}
+                    </div>
+                    <p className="mt-0.5 text-muted-foreground">
+                      Demandé <strong className="text-foreground">{row.requested_qty}</strong>
+                      {row.selected_qty != null ? (
+                        <>
+                          {" "}
+                          · sélect. <strong className="text-foreground">{row.selected_qty}</strong>
+                          {!row.is_selected_by_patient ? <span className="text-muted-foreground"> (décoché)</span> : null}
+                        </>
                       ) : null}
-                    </>
-                  ) : null}
-                </p>
-                {(request.status === "confirmed" || request.status === "completed") &&
-                row.is_selected_by_patient &&
-                normalizeAlternatives(row.request_item_alternatives).some((a) => a.id === row.patient_chosen_alternative_id) ? (
-                  <p className="mt-1 text-xs font-medium text-emerald-900">
-                    Tu as validé l’alternative&nbsp;:{" "}
-                    <strong>
-                      {one(
-                        normalizeAlternatives(row.request_item_alternatives).find(
-                          (a) => a.id === row.patient_chosen_alternative_id
-                        )?.products
-                      )?.name ?? "Produit"}
-                    </strong>
-                  </p>
-                ) : null}
-                {(request.status === "confirmed" || request.status === "completed") &&
-                row.is_selected_by_patient &&
-                !row.patient_chosen_alternative_id &&
-                normalizeAlternatives(row.request_item_alternatives).length > 0 ? (
-                  <p className="mt-1 text-xs text-gray-700">Tu as validé le produit principal (pas d’alternative).</p>
-                ) : null}
-                {row.availability_status ? (
-                  <p className="mt-1 text-xs text-blue-900">
-                    <span className="font-medium">{availabilityStatusFr[row.availability_status] ?? row.availability_status}</span>
-                    {row.available_qty != null ? ` (${row.available_qty})` : ""}
-                    {row.unit_price != null ? ` · Prix pharmacie ${Number(row.unit_price).toFixed(2)} MAD` : ""}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-xs text-gray-500">En attente de réponse pharmacien</p>
-                )}
-                {row.pharmacist_comment ? (
-                  <p className="mt-2 rounded-lg bg-blue-50/80 px-2 py-1 text-xs text-gray-800">
-                    {row.pharmacist_comment}
-                  </p>
-                ) : null}
-                {altList.length > 0 ? (
-                  <div className="mt-3 rounded-lg border border-dashed border-amber-200 bg-amber-50/40 p-2">
-                    <p className="text-xs font-semibold text-amber-900/90">Alternatives proposées</p>
-                    <ul className="mt-2 space-y-2">
-                      {altList.map((alt) => {
-                        const altProd = one(alt.products);
-                        const altPph = pphLabel(altProd?.price_pph);
-                        return (
-                          <li key={alt.id} className="rounded-md bg-white px-2 py-1.5 text-xs">
-                            <p className="font-medium text-gray-900">
-                              {altProd?.name ?? "Produit alternatif"}
-                              {altPph ? <span className="ml-1 font-normal text-teal-800">· {altPph}</span> : null}
-                            </p>
-                            {alt.availability_status ? (
-                              <p className="mt-1 text-blue-900">
-                                {availabilityStatusFr[alt.availability_status] ?? alt.availability_status}
-                                {alt.available_qty != null ? ` (${alt.available_qty})` : ""}
-                                {alt.unit_price != null ? ` · Prix pharma ${Number(alt.unit_price).toFixed(2)} MAD` : ""}
-                              </p>
-                            ) : (
-                              <p className="mt-1 text-gray-500">Disponibilité à préciser en pharmacie</p>
-                            )}
-                            {alt.pharmacist_comment ? (
-                              <p className="mt-1 text-gray-700">{alt.pharmacist_comment}</p>
-                            ) : null}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ) : null}
-                {(request.status === "confirmed" ||
-                  request.status === "completed" ||
-                  row.counter_outcome !== "unset") && (
-                  <p className="mt-2 text-xs text-gray-600">
-                    Comptoir :{" "}
-                    <span className="font-medium">{counterOutcomeFr[row.counter_outcome] ?? row.counter_outcome}</span>
-                  </p>
-                )}
-              </li>
-              );
-            })}
-          </ul>
-        </section>
+                    </p>
+                    {(request.status === "confirmed" || request.status === "completed") &&
+                    row.is_selected_by_patient &&
+                    normalizeAlternatives(row.request_item_alternatives).some((a) => a.id === row.patient_chosen_alternative_id) ? (
+                      <p className="mt-1 font-medium text-emerald-900">
+                        Alternative validée :{" "}
+                        {one(
+                          normalizeAlternatives(row.request_item_alternatives).find(
+                            (a) => a.id === row.patient_chosen_alternative_id
+                          )?.products
+                        )?.name ?? "—"}
+                      </p>
+                    ) : null}
+                    {(request.status === "confirmed" || request.status === "completed") &&
+                    row.is_selected_by_patient &&
+                    !row.patient_chosen_alternative_id &&
+                    normalizeAlternatives(row.request_item_alternatives).length > 0 ? (
+                      <p className="mt-1 text-muted-foreground">Produit principal validé.</p>
+                    ) : null}
+                    {row.availability_status ? (
+                      <p className="mt-1 text-primary">
+                        <span className="font-medium">{availabilityStatusFr[row.availability_status] ?? row.availability_status}</span>
+                        {row.available_qty != null ? ` (${row.available_qty})` : ""}
+                        {row.unit_price != null ? ` · ${Number(row.unit_price).toFixed(2)} MAD` : ""}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-muted-foreground">En attente réponse pharmacien</p>
+                    )}
+                    {row.pharmacist_comment ? (
+                      <p className="mt-1 rounded border border-border/50 bg-background/80 px-1.5 py-0.5 text-[11px]">{row.pharmacist_comment}</p>
+                    ) : null}
+                    {altList.length > 0 ? (
+                      <div className="mt-1.5 rounded border border-dashed border-amber-300/60 bg-amber-50/50 px-1.5 py-1">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-amber-900/90">Alternatives</p>
+                        <ul className="mt-1 space-y-1">
+                          {altList.map((alt) => {
+                            const altProd = one(alt.products);
+                            const altPph = pphLabel(altProd?.price_pph);
+                            return (
+                              <li key={alt.id} className="rounded bg-card/90 px-1.5 py-1 text-[10px] sm:text-[11px]">
+                                <span className="font-medium">{altProd?.name ?? "Alt."}</span>
+                                {altPph ? <span className="ml-1 text-teal-800">{altPph}</span> : null}
+                                {alt.availability_status ? (
+                                  <span className="ml-1 text-primary">
+                                    {availabilityStatusFr[alt.availability_status] ?? alt.availability_status}
+                                    {alt.available_qty != null ? ` (${alt.available_qty})` : ""}
+                                    {alt.unit_price != null ? ` · ${Number(alt.unit_price).toFixed(2)} MAD` : ""}
+                                  </span>
+                                ) : null}
+                                {alt.pharmacist_comment ? <span className="mt-0.5 block text-muted-foreground">{alt.pharmacist_comment}</span> : null}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {(request.status === "confirmed" || request.status === "completed" || row.counter_outcome !== "unset") && (
+                      <p className="mt-1 text-muted-foreground">
+                        Comptoir : <span className="font-medium text-foreground">{counterOutcomeFr[row.counter_outcome] ?? row.counter_outcome}</span>
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </CompactCardBody>
+        </CompactCard>
       ) : request.request_type === "product_request" ? (
-        <p className="mt-4 text-sm text-gray-500">Aucune ligne produit enregistrée pour cette demande.</p>
+        <p className="text-center text-xs text-muted-foreground">Aucune ligne produit.</p>
+      ) : null}
+
+      {request.request_type === "product_request" && (request.status === "submitted" || request.status === "in_review") ? (
+        <PatientCancelBeforeResponse
+          requestId={request.id}
+          onDone={async () => {
+            await loadDetail(true);
+          }}
+        />
       ) : null}
 
       {request.request_type === "product_request" && (request.status === "responded" || request.status === "confirmed") ? (
@@ -412,6 +392,6 @@ export default function DemandeDetailPage() {
           }}
         />
       ) : null}
-    </main>
+    </PageShell>
   );
 }
