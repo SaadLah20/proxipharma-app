@@ -222,7 +222,7 @@ Pourquoi:
 - **Traçabilité fine des anciennes réponses pharma par tour**: pas versionnee automatiquement aujourd hui (`request_snapshots` possible plus tard si litiges/reglementation le demandent — volontairement reporte tant que MVP operationnel prime).
 - **Retrait physique**: vérité fonctionnelle côté **pharmacien** + champ `counter_outcome` lignes puis `completed` RPC `pharmacist_complete_request_after_counter` ; ne plus s appuyer sur un clic patient obsolete `patient_mark_collected`.
 - **`expires_at`** rempli côté app pharmacien lors de la mise en **`responded`** (+7 jours dans l UI actuelle) pour support futur cron `expire_overdue_requests()` (toujours a brancher infra service_role si souhaite).
-- **Liste demandes dashboard patient** peut montrer **plus de lignes** que les derniers envois manuels (seed demo migration `20260501_002` avec tag `SEED_DEMO_WORKFLOW_v1`, ou anciens tests meme `patient_id`) — comportement attendu jusqu a nettoyage donnees.
+- **Hub Mes demandes** (`/dashboard/demandes`, onglets + filtres) peut montrer **plus de lignes** que les derniers envois manuels (seed demo migration `20260501_002` avec tag `SEED_DEMO_WORKFLOW_v1`, ou anciens tests meme `patient_id`) — comportement attendu jusqu a nettoyage donnees ; le tableau de bord `/dashboard` ne fait plus office de liste exhaustive (CTA vers le hub).
 - **Expose patient vers pharmacien**: RLS **`profiles`** = patient ne voit que soi-admin ; l UI pharmacien n affiche pas le nom complet patient seulement un **court identifiant** (`patient_id` tronque) — jusqu a politique RGPD produit definie nouvelle migration policy possible lecture minimale nominative reservee pharma sur demandes rattachees.
 
 ## 9.1 Modele donnees demandes retenu (v1 evolutif)
@@ -255,6 +255,28 @@ Statuts retenus v1:
 - `partially_collected` / `fully_collected` (conserves en enum; hors flux officiel depuis migration 20260502 au profit de `completed` + suivi ligne a ligne au comptoir)
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
+
+### Session 2026-05-05 — Hubs UX « Mes demandes » (patient + pharmacien)
+
+**Objectif**: refléter le flux métier lisible (« standard marché ») : tableau de bord par **familles de statuts**, **liste complète** avec filtres/tri, **cartes** cliquables, détail avec **lecture seule** quand aucune action n’est prévue.
+
+**Patient** (`/dashboard/demandes`):
+- **Onglets**: *Tableau de bord* | *Toutes les demandes* (paramètre URL `?vue=dashboard` par défaut, `?vue=liste`).
+- Tableau de bord : sections définies dans **`patientDashboardSections`** (`lib/request-display.ts`) ; cartes lien vers **`/dashboard/demandes/[id]`**.
+- Liste : filtres statut / type ; tri date création.
+- **`/dashboard`**: encart résumé + CTA « Ouvrir Mes demandes » (plus liste longue inline).
+- Détail : retour vers le hub ; encart « Lecture seule » si **`patientRequestHasNoActions`**.
+
+**Pharmacien** (`/dashboard/pharmacien/demandes`):
+- Même mécanique d’onglets + **`pharmacistDashboardSections`** ; **toutes** les demandes de l’officine liée sont chargées (pas seulement quatre statuts).
+- Liste : filtres / tri comme côté patient.
+- Détail : bannière **sans suite** / **terminée** lecture seule quand **`pharmacistRequestIsHardStopped`** / **`pharmacistRequestIsClosedSuccess`** (sur demandes produits).
+
+**Fichiers**: `components/requests/demande-hub-ui.tsx`, `app/dashboard/demandes/page.tsx`, `patient-demandes-hub.tsx`, `pharmacist-demandes-hub.tsx`.
+
+**Git**: groupe **`83cbf5f`** sur branche **`fix/rls-recursion`**.
+
+---
 
 ### Session 2026-05-03 — livraison technique « workflow demande produits » (après atelier)
 
@@ -386,12 +408,13 @@ Regles fonctionnelles retenues (alignement dernier atelier):
 - Le **retrait reel** au comptoir est porte par le **pharmacien**: colonne par ligne `request_items.counter_outcome` (`unset`, `picked_up`, `cancelled_at_counter`, `deferred_next_visit`) + cloture dossier via `pharmacist_complete_request_after_counter` lorsque tout est bon (plus aucune ligne encore `unset` ou `deferred_next_visit` parmi les lignes **selectionnees** par le client).
 - Les statuts enum `partially_collected` / `fully_collected` restent en base mais le flux officiel livre passe par **`completed`**; `patient_mark_collected` nest plus callable par le JWT patient (obsolete).
 
-Implémentation frontend associée repo (voir journal **Session 2026-05-03** pour detail fichiers commits):
+Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-05-03** et **2026-05-05**):
 - **`/`** annuaire + lien carte vers fiche **`/pharmacie/[id]`**
 - **`/pharmacie/[id]/demande-produits`**: création demande **`submitted`**
-- **`/dashboard`**, **`/dashboard/demandes/[id]`**, **`/dashboard/pharmacien/demandes`**, **`/dashboard/pharmacien/demandes/[id]`**
+- **`/dashboard`** (résumé patient + lien hub), **`/dashboard/demandes`** (hub onglets + cartes + filtres), **`/dashboard/demandes/[id]`**
+- **`/dashboard/pharmacien/demandes`** (hub onglets + cartes + filtres, tous statuts), **`/dashboard/pharmacien/demandes/[id]`**
 - Auth **`/auth`** supporte redirection query **`?redirect=`** apres connexion
-- Travail incremental versionne sous Git sur branche **`fix/rls-recursion`** (voir historique commits `e22c91a` dernier groupe UI majeur documente journal ci-dessus) ; **nouvelle livraison** : alternatives + comptoir pharmacien + correctifs ESLint (**Session 2026-05-04** ci-dessus).
+- Travail incremental versionne sous Git sur branche **`fix/rls-recursion`** (voir historique commits ; groupes récents : alternatives + passage + PPH **`ebf1d49`**, hubs UX demandes **`83cbf5f`**, ESLint/alternatives comptoir **Session 2026-05-04** §10).
 
 Etat fonctionnel teste / a valider sur Supabase:
 - Les 3 types de demandes sont inserables (tel qu avant)
@@ -422,6 +445,7 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 9. **Admin pilote (Q40)** : accès lecture transverse demandes + filtres pharmacie/statut ; exports simples ou vues pour analytics (sans sur‑conception).
 
 **Jalon 2 — UI dans l’ordre des dépendances**  
+0. **Hubs liste/tableau de bord** patient + pharmacien (`/dashboard/demandes`, `/dashboard/pharmacien/demandes`) : ✓ (**Session 2026-05-05** §10).
 1. Fiche **`/pharmacie/.../demande-produits`** : **PPH affichés** ✓ ; reste à faire : commentaire par ligne, qty max 10 (si non déjà généralisé côté insert).  
 2. **`PatientProductRequestActions` + détail patient** : radios principal/alternative ✓ ; date passage ✓ ; reste récap dense **Q28**, totaux **Q23** si besoin au-delà de PPH + lignes réponse pharma.  
 3. **Pharmacien** : motifs sur produits ajoutés, affichage/lisibilité ETA « à commander » (date obl., heure facult. **Q18**), mention **« Mis à jour le … par la pharmacie »** (**Q32**) via `updated_at` / champ dédié.  
@@ -451,7 +475,7 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 | **`market_shortages`** insert auto quand pharma choisit **market_shortage** dispo ligne | Hors scope UI actuelle — decider comportement métier puis migration trigger ou RPC |
 | **Notifications Q34–Q35** | Après cœur métier : file in-app puis email/SMS/WhatsApp (**Q35** — post-pilote efficience) ; à planifier |
 | **PPH catalogue** sur parcours produits (`price_pph`) | **Fait** (`lib/product-price.ts` + selects + seed `20260503_003`) |
-| Consolidation UX post-retours utilisateur (libelles, ordre des etapes, messages d erreur) | Continuer après fonctionnel |
+| Consolidation UX post-retours utilisateur (libelles, ordre des etapes, messages d erreur) | Hub cartes / dashboard / filtres **livré** ; affiner microcopie, skeletons chargement, accessibilité onglets |
 
 _Ligne reservee transcription des retours utilisateur (a remplir au demarrage prochain)_ :
 - Merge / CI GitHub Actions : erreurs **`react-hooks/set-state-in-effect`** suite au durcissement ESLint — traitées localement (**Session 2026-05-04**).
@@ -484,9 +508,9 @@ _Ancienne phrase de reprise (alternatives + patient_mark_collected + UI sprint 2
 
 ### 13.3) Prompt de reprise « continue le workflow demande produits » (mai 2026)
 
-**À utiliser après le dernier commit** (alternative patient, passage en officine avec RPC 4 parametres, PPH catalogue, seed produits, correctif embed PostgREST).
+**À utiliser après le dernier commit** (alternative patient, passage officine RPC 4 params, PPH, seeds, hubs **`/dashboard/demandes`** + **`/dashboard/pharmacien/demandes`** : onglets tableau de bord / liste filtres ; §10 session **2026-05-05**).
 
-**« Je reprends ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §0.1, **dernier bloc §10 Journal**, §11 (**migrations liste** dont `20260503_001`, `003`, `004**) et §12 backlog. Confirme sur Supabase que les migrations **`20260503_*` non encore jouees sont appliquees** (SQL Editor ordre fichier). Ensuite poursuis le **§12 jalons ouverts prioritaires** : au choix métier (**Q6/Q38**) arbitrage puis job abandon 24 h ou desactivation **`expires_at` +7 j**, puis motifs annulation (**Q16**), anti-doublon produit + plafond qté (**Q12–Q13**), **`market_shortages`** automatique (**rupture marché**), ou esquisse notifications in-app (**Q34**). Implémente avec migrations versionnées puis UI ; corrige ESLint **`react-hooks/set-state-in-effect`** si tu touches des effets. **Commit + push** en livraison groupée si OK, puis mets à jour le cahier (Journal + États + backlog). Références atelier : `docs/workflow-demande-produits-REPONSES.md` pour le métier hors ambiguïtés. »**
+**« Je reprends ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §0.1, **dernier bloc §10 Journal**, §11 (**migrations liste** dont `20260503_001`, `003`, `004**) et §12 backlog. Confirme sur Supabase que les migrations **`20260503_*` non encore jouees sont appliquees** (SQL Editor ordre fichier). Parcours vite les **hubs demandes** (patient + pharma) pour valider affichage filtres / vue tableau de bord. Ensuite poursuis les **§12 jalons ouverts prioritaires** : au choix métier (**Q6/Q38**) arbitrage puis job abandon 24 h ou desactivation **`expires_at` +7 j**, puis motifs annulation (**Q16**), anti-doublon produit + plafond qté (**Q12–Q13**), **`market_shortages`** automatique (**rupture marché**), ou esquisse notifications in-app (**Q34**). Implémente avec migrations versionnées puis UI ; corrige ESLint **`react-hooks/set-state-in-effect`** si tu touches des effets. **Commit + push** en livraison groupée si OK, puis mets à jour le cahier (Journal + États + backlog). Références atelier : `docs/workflow-demande-produits-REPONSES.md` pour le métier hors ambiguïtés. »**
 
 ### Template pour prochaines sessions
 - Date:

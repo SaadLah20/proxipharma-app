@@ -241,4 +241,8 @@ _Réponse :_
 
 ---
 
-_Dernière mise à jour des réponses (date) : **03/05/26**_
+**Suivi implantation (ne remplace pas les réponses ci-dessus)** — **05/05/2026** : habillage navigation « Mes demandes » côté patient (`/dashboard/demandes`) et pharmacien (`/dashboard/pharmacien/demandes`) : vue **tableau de bord par familles de statuts**, **liste complète** filtres/tri, **cartes** ; distinct du « tableau de bord analytique pilote » évoqué en **Q1**. Détail : `CAHIER_DES_CHARGES.md` §10 session **2026-05-05**.
+
+---
+
+_Dernière mise à jour des réponses (date) : **05/05/26**_
