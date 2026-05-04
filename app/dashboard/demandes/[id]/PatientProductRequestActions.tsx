@@ -7,7 +7,7 @@ import {
   PATIENT_CANCEL_REASON_LABELS,
   type PatientCancelReasonCode,
 } from "@/lib/patient-flow-reasons";
-import { availabilityStatusFr } from "@/lib/request-display";
+import { availabilityStatusFr, requestItemLineSourceFr } from "@/lib/request-display";
 import { plannedVisitWindow } from "@/lib/planned-visit";
 import { pphLabel } from "@/lib/product-price";
 import { supabase } from "@/lib/supabase";
@@ -36,6 +36,11 @@ export type ActionItemRow = {
   available_qty: number | null;
   unit_price: number | null;
   pharmacist_comment: string | null;
+  /** Q11 note patient par ligne */
+  client_comment?: string | null;
+  /** Q20 */
+  line_source?: string | null;
+  pharmacist_proposal_reason?: string | null;
   counter_outcome: string;
   expected_availability_date: string | null;
   products: ProdBrief | ProdBrief[] | null;
@@ -102,14 +107,25 @@ function computeSelFromItems(items: ActionItemRow[]): Record<string, LineSelStat
   return next;
 }
 
-function computeResubmitLinesFromItems(
-  items: ActionItemRow[]
-): Array<{ product_id: string; name: string; qty: number; price_pph?: number | null }> {
+type ResubmitLine = {
+  product_id: string;
+  name: string;
+  qty: number;
+  price_pph?: number | null;
+  client_comment: string;
+  line_source?: string | null;
+  pharmacist_proposal_reason?: string | null;
+};
+
+function computeResubmitLinesFromItems(items: ActionItemRow[]): ResubmitLine[] {
   return items.map((row) => ({
     product_id: row.product_id,
     name: one(row.products)?.name ?? "Produit",
     qty: Math.min(10, Math.max(1, row.requested_qty)),
     price_pph: one(row.products)?.price_pph ?? null,
+    client_comment: row.client_comment ?? "",
+    line_source: row.line_source ?? null,
+    pharmacist_proposal_reason: row.pharmacist_proposal_reason ?? null,
   }));
 }
 
@@ -151,7 +167,7 @@ export function PatientProductRequestActions({ requestId, status, items, initial
 
   /** Resubmit draft — idem */
   const [noteDraft, setNoteDraft] = useState(() => initialPatientNote ?? "");
-  const [lines, setLines] = useState(() => computeResubmitLinesFromItems(items));
+  const [lines, setLines] = useState<ResubmitLine[]>(() => computeResubmitLinesFromItems(items));
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<ProductHit[]>([]);
 
@@ -211,7 +227,18 @@ export function PatientProductRequestActions({ requestId, status, items, initial
   const addProduct = (p: ProductHit) => {
     setLines((prev) => {
       if (prev.some((l) => l.product_id === p.id)) return prev;
-      return [...prev, { product_id: p.id, name: p.name, qty: 1, price_pph: p.price_pph ?? null }];
+      return [
+        ...prev,
+        {
+          product_id: p.id,
+          name: p.name,
+          qty: 1,
+          price_pph: p.price_pph ?? null,
+          client_comment: "",
+          line_source: "patient_request",
+          pharmacist_proposal_reason: null,
+        },
+      ];
     });
     setQuery("");
     setHits([]);
@@ -351,7 +378,14 @@ export function PatientProductRequestActions({ requestId, status, items, initial
       }
     }
 
-    const p_items = lines.map((l) => ({ product_id: l.product_id, requested_qty: l.qty }));
+    const p_items = lines.map((l) => {
+      const cc = l.client_comment.trim().slice(0, 500);
+      return {
+        product_id: l.product_id,
+        requested_qty: l.qty,
+        ...(cc.length > 0 ? { client_comment: cc } : {}),
+      };
+    });
     setBusyAction("resubmit");
     const { error } = await supabase.rpc("patient_resubmit_product_request_after_response", {
       p_request_id: requestId,
@@ -659,39 +693,63 @@ export function PatientProductRequestActions({ requestId, status, items, initial
         />
 
         <p className="mt-2 text-[11px] font-semibold text-foreground">Lignes</p>
-        <ul className="mt-1 space-y-1.5">
+        <ul className="mt-1 space-y-2">
           {lines.map((l, idx) => (
-            <li key={`${l.product_id}-${idx}`} className="flex flex-wrap items-center gap-2 rounded border border-gray-100 px-2 py-2 text-sm">
-              <span className="flex-1 min-w-[120px]">
-                <span className="block font-medium">{l.name}</span>
-                {pphLabel(l.price_pph) ? (
-                  <span className="mt-0.5 block text-xs font-medium text-teal-800">{pphLabel(l.price_pph)}</span>
-                ) : null}
-              </span>
-              <label className="flex items-center gap-1 text-xs">
-                Qté
+            <li key={`${l.product_id}-${idx}`} className="rounded border border-gray-100 px-2 py-2 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="min-w-[120px] flex-1">
+                  <span className="block font-medium">{l.name}</span>
+                  {pphLabel(l.price_pph) ? (
+                    <span className="mt-0.5 block text-xs font-medium text-teal-800">{pphLabel(l.price_pph)}</span>
+                  ) : null}
+                  {l.line_source === "pharmacist_proposed" ? (
+                    <span className="mt-1 block text-[10px] font-medium text-violet-900">
+                      {requestItemLineSourceFr.pharmacist_proposed}
+                      {l.pharmacist_proposal_reason ? ` — ${l.pharmacist_proposal_reason}` : ""}
+                    </span>
+                  ) : null}
+                </span>
+                <label className="flex items-center gap-1 text-xs">
+                  Qté
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={l.qty}
+                    onChange={(e) =>
+                      setLines((prev) =>
+                        prev.map((row, i) =>
+                          i === idx ? { ...row, qty: Math.min(10, Math.max(1, Number(e.target.value) || 1)) } : row
+                        )
+                      )
+                    }
+                    className="w-14 rounded border px-1"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="text-xs text-red-700 underline"
+                  onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
+                >
+                  Retirer
+                </button>
+              </div>
+              <label className="mt-2 block text-[11px] text-muted-foreground">
+                Note sur ce produit (optionnel, max 500 car.)
                 <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={l.qty}
+                  type="text"
+                  value={l.client_comment}
                   onChange={(e) =>
                     setLines((prev) =>
                       prev.map((row, i) =>
-                        i === idx ? { ...row, qty: Math.min(10, Math.max(1, Number(e.target.value) || 1)) } : row
+                        i === idx ? { ...row, client_comment: e.target.value.slice(0, 500) } : row
                       )
                     )
                   }
-                  className="w-14 rounded border px-1"
+                  className="mt-1 w-full rounded border border-input px-2 py-1 text-xs"
+                  placeholder="Ex. précision posologie…"
                 />
               </label>
-              <button
-                type="button"
-                className="text-xs text-red-700 underline"
-                onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
-              >
-                Retirer
-              </button>
             </li>
           ))}
         </ul>

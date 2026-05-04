@@ -11,6 +11,7 @@ import {
   counterOutcomeFr,
   formatShortId,
   patientRequestHasNoActions,
+  requestItemLineSourceFr,
   requestStatusFr,
   requestTypeFr,
 } from "@/lib/request-display";
@@ -65,6 +66,9 @@ type RequestItemRow = {
   available_qty: number | null;
   unit_price: number | null;
   pharmacist_comment: string | null;
+  client_comment: string | null;
+  line_source: string | null;
+  pharmacist_proposal_reason: string | null;
   counter_outcome: string;
   expected_availability_date: string | null;
   patient_chosen_alternative_id?: string | null;
@@ -135,7 +139,7 @@ export default function DemandeDetailPage() {
       const { data: itemsData, error: itemsErr } = await supabase
         .from("request_items")
         .select(
-          "id,product_id,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,patient_chosen_alternative_id,products(name,price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph))"
+          "id,product_id,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,client_comment,line_source,pharmacist_proposal_reason,expected_availability_date,counter_outcome,patient_chosen_alternative_id,products(name,price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph))"
         )
         .eq("request_id", id)
         .order("created_at", { ascending: true });
@@ -221,6 +225,17 @@ export default function DemandeDetailPage() {
                       <p className="font-semibold text-foreground">{prod?.name ?? "Produit"}</p>
                       {linePph ? <span className="shrink-0 text-[10px] font-medium text-teal-800">{linePph}</span> : null}
                     </div>
+                    {row.line_source === "pharmacist_proposed" ? (
+                      <p className="mt-1 rounded bg-violet-100/80 px-1.5 py-0.5 text-[10px] font-semibold text-violet-950">
+                        {requestItemLineSourceFr.pharmacist_proposed}
+                        {row.pharmacist_proposal_reason ? ` — ${row.pharmacist_proposal_reason}` : ""}
+                      </p>
+                    ) : null}
+                    {row.client_comment ? (
+                      <p className="mt-1 text-[10px] text-sky-950/90">
+                        <span className="font-medium">Ta note :</span> {row.client_comment}
+                      </p>
+                    ) : null}
                     <p className="mt-0.5 text-muted-foreground">
                       Demandé <strong className="text-foreground">{row.requested_qty}</strong>
                       {row.selected_qty != null ? (
@@ -318,6 +333,8 @@ export default function DemandeDetailPage() {
                   i.requested_qty,
                   i.counter_outcome,
                   i.patient_chosen_alternative_id ?? "",
+                  i.client_comment ?? "",
+                  i.line_source ?? "",
                 ].join(":")
               ),
             ].join("|")

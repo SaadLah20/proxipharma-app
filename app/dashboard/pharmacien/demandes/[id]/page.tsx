@@ -12,6 +12,7 @@ import {
   formatShortId,
   pharmacistRequestIsClosedSuccess,
   pharmacistRequestIsHardStopped,
+  requestItemLineSourceFr,
   requestStatusFr,
   requestTypeFr,
 } from "@/lib/request-display";
@@ -55,11 +56,15 @@ type ItemRow = {
   available_qty: number | null;
   unit_price: number | null;
   pharmacist_comment: string | null;
+  client_comment: string | null;
+  line_source: string | null;
+  pharmacist_proposal_reason: string | null;
   expected_availability_date: string | null;
   counter_outcome: string;
   is_selected_by_patient: boolean;
   selected_qty: number | null;
   patient_chosen_alternative_id?: string | null;
+  updated_at: string;
   products: ProdEmbedDb | ProdEmbedDb[] | null;
   request_item_alternatives: AltRowDb | AltRowDb[] | null;
 };
@@ -148,6 +153,15 @@ export default function PharmacienDemandeDetailPage() {
   const altDebounced = useMemo(() => altQuery.trim(), [altQuery]);
   const altVisibleHits = altDebounced.length < 2 ? [] : altHits;
 
+  const [propOpen, setPropOpen] = useState(false);
+  const [propQuery, setPropQuery] = useState("");
+  const [propHits, setPropHits] = useState<ProductCatalogHit[]>([]);
+  const [propReason, setPropReason] = useState("");
+  const [propQty, setPropQty] = useState("1");
+  const [propBusy, setPropBusy] = useState(false);
+  const propDebounced = useMemo(() => propQuery.trim(), [propQuery]);
+  const propVisibleHits = propDebounced.length < 2 ? [] : propHits;
+
   const load = useCallback(async () => {
     if (!id) return;
     setError("");
@@ -221,7 +235,7 @@ export default function PharmacienDemandeDetailPage() {
     const { data: itemsData, error: itemsErr } = await supabase
       .from("request_items")
       .select(
-        "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,is_selected_by_patient,selected_qty,patient_chosen_alternative_id,products(name,price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph))"
+        "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,is_selected_by_patient,selected_qty,patient_chosen_alternative_id,line_source,pharmacist_proposal_reason,client_comment,updated_at,products(name,price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph))"
       )
       .eq("request_id", id)
       .order("created_at", { ascending: true });
@@ -286,6 +300,29 @@ export default function PharmacienDemandeDetailPage() {
     return () => window.clearTimeout(t);
   }, [altDebounced, altPickerOpenFor]);
 
+  useEffect(() => {
+    if (propDebounced.length < 2 || !propOpen) {
+      return;
+    }
+    const t = window.setTimeout(() => {
+      void (async () => {
+        const { data, error } = await supabase
+          .from("products")
+          .select("id,name,product_type,laboratory,price_pph")
+          .eq("is_active", true)
+          .ilike("name", `%${propDebounced}%`)
+          .order("name")
+          .limit(12);
+        if (error || !Array.isArray(data)) {
+          setPropHits([]);
+          return;
+        }
+        setPropHits(data as ProductCatalogHit[]);
+      })();
+    }, 280);
+    return () => window.clearTimeout(t);
+  }, [propDebounced, propOpen]);
+
   const setField = (itemId: string, field: keyof ItemDraft, value: string) => {
     setDraft((prev) => ({
       ...prev,
@@ -297,6 +334,46 @@ export default function PharmacienDemandeDetailPage() {
     setAltPickerOpenFor(null);
     setAltQuery("");
     setAltHits([]);
+  };
+
+  const resetPropForm = () => {
+    setPropQuery("");
+    setPropHits([]);
+    setPropReason("");
+    setPropQty("1");
+  };
+
+  const insertPharmacistProposedLine = async (pick: ProductCatalogHit) => {
+    if (!id) return;
+    setError("");
+    const reason = propReason.trim();
+    if (reason.length < 3) {
+      setError("Indique un motif d’au moins 3 caractères pour proposer ce produit.");
+      return;
+    }
+    const qty = Math.min(10, Math.max(1, parseInt(propQty, 10) || 1));
+    if (items.some((i) => i.product_id === pick.id)) {
+      setError("Ce produit figure déjà dans la demande.");
+      return;
+    }
+    setPropBusy(true);
+    const { error: insErr } = await supabase.from("request_items").insert({
+      request_id: id,
+      product_id: pick.id,
+      requested_qty: qty,
+      line_source: "pharmacist_proposed",
+      pharmacist_proposal_reason: reason,
+      is_selected_by_patient: true,
+      counter_outcome: "unset",
+    });
+    setPropBusy(false);
+    if (insErr) {
+      setError(insErr.message);
+      return;
+    }
+    setPropOpen(false);
+    resetPropForm();
+    await load();
   };
 
   const insertAlternative = async (parentRow: ItemRow, pick: ProductCatalogHit) => {
@@ -645,11 +722,89 @@ export default function PharmacienDemandeDetailPage() {
         <p className="mt-2 rounded-md border border-border bg-muted/30 p-2 text-[11px] text-muted-foreground">
           Type de demande non géré dans cet écran (hors produits).
         </p>
-      ) : items.length === 0 ? (
-        <p className="mt-2 text-[11px] text-muted-foreground">Aucune ligne produit.</p>
       ) : (
         <>
-          <div className="flex items-end justify-between gap-2">
+          {canEditResponse ? (
+            <section className="mb-3 rounded-xl border border-violet-200/80 bg-violet-50/50 px-3 py-3 shadow-sm ring-1 ring-violet-900/5">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h2 className="text-[10px] font-bold uppercase tracking-wide text-violet-950">Proposer un produit</h2>
+                  <p className="mt-0.5 max-w-lg text-[11px] leading-snug text-muted-foreground">
+                    Ligne supplémentaire avec motif affiché au patient (avant envoi de ta réponse).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPropOpen((o) => !o);
+                    setError("");
+                    resetPropForm();
+                  }}
+                  className="shrink-0 rounded-lg border border-violet-400/80 bg-white px-3 py-1.5 text-[11px] font-semibold text-violet-950 shadow-sm hover:bg-violet-100/60"
+                >
+                  {propOpen ? "Fermer" : "Ouvrir"}
+                </button>
+              </div>
+              {propOpen ? (
+                <div className="mt-3 space-y-2">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Motif obligatoire pour cette proposition
+                    <textarea
+                      rows={2}
+                      value={propReason}
+                      onChange={(e) => setPropReason(e.target.value.slice(0, 1000))}
+                      placeholder="Ex. équivalent couramment demandé dans l’officine…"
+                      className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-xs"
+                    />
+                  </label>
+                  <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Quantité vue par le patient
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={propQty}
+                      onChange={(e) => setPropQty(e.target.value)}
+                      className="mt-1 h-9 w-32 rounded-lg border border-input bg-background px-2 text-xs tabular-nums"
+                    />
+                  </label>
+                  <input
+                    type="search"
+                    value={propQuery}
+                    onChange={(e) => setPropQuery(e.target.value)}
+                    placeholder="Catalogue (nom, 2 caractères min.)"
+                    className="h-9 w-full rounded-lg border border-input px-2 text-sm"
+                  />
+                  {propVisibleHits.length > 0 ? (
+                    <ul className="max-h-40 space-y-0.5 overflow-auto rounded-lg border border-border/60 bg-muted/20 p-1">
+                      {propVisibleHits.map((h) => (
+                        <li key={h.id}>
+                          <button
+                            type="button"
+                            disabled={propBusy}
+                            onClick={() => void insertPharmacistProposedLine(h)}
+                            className="flex w-full flex-col rounded-md px-2 py-2 text-left text-sm hover:bg-card disabled:opacity-50"
+                          >
+                            <span className="font-medium text-foreground">{h.name}</span>
+                            {pphLabel(h.price_pph) ? (
+                              <span className="text-[11px] font-medium text-teal-800">{pphLabel(h.price_pph)}</span>
+                            ) : null}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : propDebounced.length >= 2 ? (
+                    <p className="text-[11px] text-muted-foreground">Aucun résultat.</p>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+          {items.length === 0 ? (
+            <p className="mt-2 text-[11px] text-muted-foreground">Aucune ligne produit.</p>
+          ) : (
+            <>
+              <div className="flex items-end justify-between gap-2">
             <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Lignes à traiter</h2>
             <span className="text-[10px] text-muted-foreground">{items.length} article(s)</span>
           </div>
@@ -673,6 +828,25 @@ export default function PharmacienDemandeDetailPage() {
                           Demandé <strong className="text-foreground">{row.requested_qty}</strong>
                         </span>
                       </div>
+                      {row.line_source === "pharmacist_proposed" ? (
+                        <p className="mt-1.5 rounded-md bg-violet-100/90 px-2 py-1 text-[10px] font-medium text-violet-950">
+                          {requestItemLineSourceFr.pharmacist_proposed}
+                          {row.pharmacist_proposal_reason ? (
+                            <>
+                              {" "}
+                              — <span className="font-normal">{row.pharmacist_proposal_reason}</span>
+                            </>
+                          ) : null}
+                        </p>
+                      ) : null}
+                      {row.client_comment ? (
+                        <p className="mt-1 text-[10px] text-sky-950/90">
+                          <span className="font-semibold">Note patient :</span> {row.client_comment}
+                        </p>
+                      ) : null}
+                      <p className="mt-0.5 text-[9px] text-muted-foreground">
+                        Mis à jour {formatDateTimeShort24hFr(row.updated_at)}
+                      </p>
                     </div>
                   </div>
                   {row.is_selected_by_patient &&
@@ -987,6 +1161,8 @@ export default function PharmacienDemandeDetailPage() {
               ) : null}
             </section>
           ) : null}
+            </>
+          )}
         </>
       )}
     </PageShell>
