@@ -150,6 +150,12 @@ export const requestTypeFr: Record<string, string> = {
   free_consultation: "Consultation libre",
 };
 
+/** Q20 — origine de la ligne produit sur la demande. */
+export const requestItemLineSourceFr: Record<string, string> = {
+  patient_request: "Demandé par le patient",
+  pharmacist_proposed: "Proposé par la pharmacie",
+};
+
 export function formatShortId(id: string) {
   return id.replace(/-/g, "").slice(0, 8);
 }

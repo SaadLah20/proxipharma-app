@@ -20,6 +20,8 @@ type CartLine = {
   name: string;
   qty: number;
   price_pph?: number | null;
+  /** Commentaire optionnel par ligne (Q11, max 500 côté BDD) */
+  client_comment?: string;
 };
 
 export default function DemandeProduitsPage() {
@@ -161,11 +163,16 @@ export default function DemandeProduitsPage() {
     }
 
     const { error: itemsErr } = await supabase.from("request_items").insert(
-      lines.map((l) => ({
-        request_id: reqRow.id,
-        product_id: l.product_id,
-        requested_qty: l.qty,
-      }))
+      lines.map((l) => {
+        const cc = l.client_comment?.trim();
+        return {
+          request_id: reqRow.id,
+          product_id: l.product_id,
+          requested_qty: l.qty,
+          line_source: "patient_request" as const,
+          client_comment: cc && cc.length > 0 ? cc.slice(0, 500) : null,
+        };
+      })
     );
 
     setSubmitLoading(false);
@@ -253,6 +260,24 @@ export default function DemandeProduitsPage() {
                     {pphLabel(l.price_pph) ? (
                       <p className="truncate text-xs font-medium text-teal-800">{pphLabel(l.price_pph)}</p>
                     ) : null}
+                    <label className="mt-1 block text-[11px] text-gray-600">
+                      <span className="sr-only">Note sur ce produit</span>
+                      <input
+                        type="text"
+                        value={l.client_comment ?? ""}
+                        onChange={(e) =>
+                          setLines((prev) =>
+                            prev.map((row) =>
+                              row.product_id === l.product_id
+                                ? { ...row, client_comment: e.target.value.slice(0, 500) }
+                                : row
+                            )
+                          )
+                        }
+                        placeholder="Note sur ce produit (optionnel)"
+                        className="mt-0.5 w-full rounded-md border border-gray-200 px-2 py-1 text-[11px] outline-none focus:border-blue-400"
+                      />
+                    </label>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
