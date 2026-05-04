@@ -257,6 +257,22 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-07 (suite 2) — Fix notif pharmacien invisible (Q34) : chainage 003/004
+
+**Problème constaté** : après `20260504_002`, certaines exécutions retournaient `42P10` sur `ON CONFLICT (source_status_history_id, recipient_id)` dans `_emit_in_app_notifications_for_status_history` (index partiel non inférable), et les premières demandes `submitted` sans historique initial ne déclenchaient pas de notif pharmacien.
+
+**Migrations ajoutées** :
+- `supabase/migrations/20260504_003_request_initial_status_history_notifications_fix.sql`
+  - trigger `trg_requests_initial_status_history` sur insert `requests` pour journaliser le statut initial.
+  - backfill des demandes `submitted` sans ligne `request_status_history`.
+- `supabase/migrations/20260504_004_fix_notifications_conflict_index.sql`
+  - remplace l’index partiel par un unique index compatible `ON CONFLICT (source_status_history_id, recipient_id)`.
+
+**Ordre recommandé si incident déjà vu en SQL Editor** :
+1) corriger index (`004` ou SQL équivalent), 2) relancer `003`, 3) tester création demande patient -> apparition notif pharmacien (`/dashboard` et `/dashboard/pharmacien/demandes`).
+
+---
+
 ### Session 2026-05-07 (suite) — Q34 notifications in-app (MVP)
 
 **Migration** `supabase/migrations/20260504_002_in_app_notifications_request_status.sql` (**à appliquer après** `20260504_001`) :
@@ -469,6 +485,8 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260503_009_drop_profiles_policy_007_recursion.sql` (**supprime** la policy `profiles_select_for_assigned_pharmacy_patients` de **007**)
   - `supabase/migrations/20260504_001_request_item_line_source_client_comment_resubmit.sql` (**Q20** `line_source` + **`pharmacist_proposal_reason`** ; **Q11** borne **`client_comment`** ; RPC resubmit avec **`client_comment` dans `p_items`**)
   - `supabase/migrations/20260504_002_in_app_notifications_request_status.sql` (**Q34 MVP** notifications in-app auto via `request_status_history`)
+  - `supabase/migrations/20260504_003_request_initial_status_history_notifications_fix.sql` (historisation statut initial à l’insert `requests` + backfill `submitted` sans historique)
+  - `supabase/migrations/20260504_004_fix_notifications_conflict_index.sql` (fix `ON CONFLICT` notifications : index unique non partiel)
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
