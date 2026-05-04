@@ -42,6 +42,9 @@ export function PharmacistDemandesHub() {
   const [rows, setRows] = useState<PharmacistRequestRow[]>([]);
   const [patientFilter, setPatientFilter] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
+  const [notifications, setNotifications] = useState<
+    Array<{ id: string; created_at: string; title: string; body: string | null; request_id: string }>
+  >([]);
 
   const statutParam = searchParams.get("statut");
   const activeBucket = bucketForStatusParam(statutParam);
@@ -107,6 +110,16 @@ export function PharmacistDemandesHub() {
       });
     }
     setRows(enriched);
+
+    const { data: notifData } = await supabase
+      .from("app_notifications")
+      .select("id,created_at,title,body,request_id")
+      .order("created_at", { ascending: false })
+      .limit(5);
+    if (Array.isArray(notifData)) {
+      setNotifications(notifData as Array<{ id: string; created_at: string; title: string; body: string | null; request_id: string }>);
+    }
+
     setLoading(false);
   }, [router]);
 
@@ -192,6 +205,23 @@ export function PharmacistDemandesHub() {
           labels={{ dashboard: "Tableau de bord", list: "Toutes les demandes" }}
         />
       </div>
+
+      {notifications.length > 0 ? (
+        <section className="rounded-lg border border-violet-200/70 bg-violet-50/40 p-2.5">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-violet-950">Notifications</p>
+          <ul className="mt-1.5 space-y-1.5">
+            {notifications.map((n) => (
+              <li key={n.id} className="rounded-md border border-violet-200/70 bg-white px-2 py-1.5">
+                <p className="text-[11px] font-semibold text-foreground">{n.title}</p>
+                {n.body ? <p className="text-[11px] text-muted-foreground">{n.body}</p> : null}
+                <Link href={`/dashboard/pharmacien/demandes/${n.request_id}`} className="text-[11px] text-emerald-800 underline">
+                  Ouvrir la demande
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {error ? (
         <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-950">{error}</p>

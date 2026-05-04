@@ -29,6 +29,15 @@ type MyRequest = {
   pharmacies: { nom: string; ville: string } | { nom: string; ville: string }[] | null;
 };
 
+type InAppNotification = {
+  id: string;
+  created_at: string;
+  title: string;
+  body: string | null;
+  request_id: string;
+  read_at: string | null;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -36,6 +45,7 @@ export default function DashboardPage() {
   const [pharmaciesCount, setPharmaciesCount] = useState<number>(0);
   const [myRequests, setMyRequests] = useState<MyRequest[]>([]);
   const [requestsError, setRequestsError] = useState("");
+  const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -64,6 +74,15 @@ export default function DashboardPage() {
       if (profileData) {
         const typedProfile = profileData as Profile;
         setProfile(typedProfile);
+
+        const { data: notifData } = await supabase
+          .from("app_notifications")
+          .select("id,created_at,title,body,request_id,read_at")
+          .order("created_at", { ascending: false })
+          .limit(8);
+        if (Array.isArray(notifData)) {
+          setNotifications(notifData as InAppNotification[]);
+        }
 
         if (typedProfile.role === "admin") {
           const { count } = await supabase
@@ -190,6 +209,34 @@ export default function DashboardPage() {
               Annuaire des pharmacies
             </Link>
           </div>
+        </section>
+      ) : null}
+
+      {(profile?.role === "patient" || profile?.role === "pharmacien") && notifications.length > 0 ? (
+        <section className="mt-4 rounded-xl border border-violet-200/70 bg-violet-50/40 p-4">
+          <h2 className="text-lg font-semibold text-violet-950">Notifications</h2>
+          <p className="mt-0.5 text-xs text-violet-900/80">Dernières mises à jour du workflow demandes.</p>
+          <ul className="mt-3 space-y-2">
+            {notifications.map((n) => (
+              <li key={n.id} className="rounded-lg border border-violet-200/70 bg-white/90 px-3 py-2">
+                <p className="text-xs font-semibold text-gray-900">{n.title}</p>
+                {n.body ? <p className="mt-0.5 text-xs text-gray-700">{n.body}</p> : null}
+                <div className="mt-1 flex items-center justify-between text-[11px] text-gray-500">
+                  <span>{new Date(n.created_at).toLocaleString("fr-FR")}</span>
+                  <Link
+                    href={
+                      profile?.role === "pharmacien"
+                        ? `/dashboard/pharmacien/demandes/${n.request_id}`
+                        : `/dashboard/demandes/${n.request_id}`
+                    }
+                    className="text-sky-700 underline"
+                  >
+                    Ouvrir
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 
