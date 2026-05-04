@@ -257,6 +257,21 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-07 (suite) — Q34 notifications in-app (MVP)
+
+**Migration** `supabase/migrations/20260504_002_in_app_notifications_request_status.sql` (**à appliquer après** `20260504_001`) :
+- Table **`app_notifications`** (recipient, request, event, title/body, read_at) + RLS (`select/update` sur ses notifications, admin full).
+- Trigger sur `request_status_history` : génération automatique des notifications in-app selon transitions (`submitted`, `in_review`, `responded`, `confirmed`, `completed`, `cancelled`, `abandoned`, `expired`).
+- Ciblage MVP : patient (étapes impactantes) + équipe pharmacien de l’officine (soumission / confirmation / annulation / abandon).
+
+**Next.js** :
+- **`/dashboard`** : bloc « Notifications » (patient/pharmacien), dernières entrées avec lien direct vers la demande.
+- Hubs **`/dashboard/demandes`** et **`/dashboard/pharmacien/demandes`** : bloc notifications compact en tête.
+
+**Contrôle** : `npm run lint` + `npm run build` OK.
+
+---
+
 ### Session 2026-05-07 — §12 Q11 & Q20 : `client_comment` bout en bout, lignes « proposées pharmacien » + motif
 
 **Migration** `supabase/migrations/20260504_001_request_item_line_source_client_comment_resubmit.sql` (**à appliquer après** `20260503_009`, ordre `YYYYMMDD_*`) :
@@ -453,6 +468,7 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260503_008_pharmacist_patient_contact_rpc.sql` (**RPC** `pharmacist_patient_contact_for_request`, `pharmacist_patient_directory_for_my_pharmacy`)
   - `supabase/migrations/20260503_009_drop_profiles_policy_007_recursion.sql` (**supprime** la policy `profiles_select_for_assigned_pharmacy_patients` de **007**)
   - `supabase/migrations/20260504_001_request_item_line_source_client_comment_resubmit.sql` (**Q20** `line_source` + **`pharmacist_proposal_reason`** ; **Q11** borne **`client_comment`** ; RPC resubmit avec **`client_comment` dans `p_items`**)
+  - `supabase/migrations/20260504_002_in_app_notifications_request_status.sql` (**Q34 MVP** notifications in-app auto via `request_status_history`)
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -496,7 +512,7 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 5. **Doublons & quantités** : **fait** — CHECK **1–10**, unique `(request_id, product_id)`, validations resubmit + fiche demande.  
 6. **`client_comment` par ligne (Q11)** : **fait** — **`demande-produits`** + composant **`PatientProductRequestActions`** (JSON vers RPC) ; borne **500** car. (**`20260504_001`**).  
 7. **Vue pharmacien patient nominatif (Q39)** : **fait côté lecture** — RPC **`20260503_008`** (+ UI cartes / fiche) ; **ne pas** réintroduire la policy **`20260503_007`** seule (récursion ; **`009`** obligatoire si **007** a été jouée).  
-8. **Pilotage rupture marché & relances (Q21, §5 cahier, Q34–Q35)** : insertion **`market_shortages`** lors du choix pharma `market_shortage` ; périmètre pilote sans canaux email/SMS = **liste in‑app / file d’événements** à modéliser (table `notifications` ou réutilisation de `request_comments` système) pour les événements listés dans **Q34** — **après** le flux critique confirm → comptoir.  
+8. **Pilotage rupture marché & relances (Q21, §5 cahier, Q34–Q35)** : insertion **`market_shortages`** lors du choix pharma `market_shortage` ; **Q34 in-app MVP fait** (`app_notifications` + trigger statut, migration **`20260504_002`**) ; canaux externes email/SMS/WhatsApp (**Q35**) après pilote.  
 9. **Admin pilote (Q40)** : accès lecture transverse demandes + filtres pharmacie/statut ; exports simples ou vues pour analytics (sans sur‑conception).
 
 **Jalon 2 — UI dans l’ordre des dépendances**  
@@ -505,10 +521,10 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 2. **`PatientProductRequestActions` + détail patient** : radios principal/alternative ✓ ; date passage ✓ ; notes par ligne au renvoi ✓ (**Q11**) ; reste récap dense **Q28**, totaux **Q23** si besoin au-delà de PPH + lignes réponse pharma.  
 3. **Pharmacien** : motif sur **lignes proposées par l’officine** ✓ (**Q20**), mention **« Mis à jour … »** sur ligne ✓ (**Q32**, `updated_at` affiché) ; reste affinages ETA « à commander » / **Q18**.  
 4. **Post‑`confirmed`** : rappeler l’état « prêt / à commander avec date » (**Q31**), comptoir + saisie pharmacien récupéré vs annulé (**Q6 point 8** — affiner formulaire si champs métier manquants).  
-5. **Tâches planifiées** : job **abandon 24 h** ✓ (**`abandon_unconfirmed_responded_requests`**, à brancher cron) ; **`expires_at` +7 j** désactivé côté app à la publication ✓ ; relances **Q34** une fois stockage notif disponible.  
+5. **Tâches planifiées** : job **abandon 24 h** ✓ (**`abandon_unconfirmed_responded_requests`**, à brancher cron) ; **`expires_at` +7 j** désactivé côté app à la publication ✓ ; **Q34 in-app MVP** ✓ (dashboards + hubs).  
 6. **Espace Admin** minimal issu du jalon BDD §9.
 
-**Écart principal avec le déjà livré** : flux **`responded` → `confirmed`** inclut désormais **alternative + passage + validation serveur associée**. **Motifs annulation**, **anti-doublon / plafond qté**, **`market_shortages`** auto, **abandon 24 h** (RPC prêt), **commentaires ligne patient (Q11)** et **propositions pharmacien (Q20)** sont en place (migration **`20260504_001`**). Restent notamment **expiration vs abandon 24 h** (arbitrage ops), **notifications in‑app + canaux**, **admin pilote**, **micro-UX** (récap Q28/Q23, libellés « comptoir »).
+**Écart principal avec le déjà livré** : flux **`responded` → `confirmed`** inclut désormais **alternative + passage + validation serveur associée**. **Motifs annulation**, **anti-doublon / plafond qté**, **`market_shortages`** auto, **abandon 24 h** (RPC prêt), **commentaires ligne patient (Q11)**, **propositions pharmacien (Q20)** et **notifications in-app MVP (Q34)** sont en place (migrations **`20260504_001`** + **`20260504_002`**). Restent notamment **expiration vs abandon 24 h** (arbitrage ops), **canaux externes notifications** (Q35), **admin pilote**, **micro-UX** (récap Q28/Q23, libellés « comptoir »).
 
 **Questions sans réponse explicite (atelier)** : **Q4**, **Q33** uniquement. *(Q36 réponse implicite : « décide‑toi » → jalon 2 pour listes pharma « à commander / prêt / relance », aligné notifications **Q37**.)*
 
@@ -528,7 +544,7 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 | **Abandon automatique** 24 h après **`responded`** | **RPC prêt** : **`abandon_unconfirmed_responded_requests()`** — brancher cron service_role |
 | **Ordonnance / consultation**: traitement pharmacien meme espace | Hors perimetre ecran actuel |
 | **`market_shortages`** insert auto quand pharma choisit **market_shortage** dispo ligne | **Fait** (trigger `20260503_005`) — UI liste dédiée / notifs à suivre |
-| **Notifications Q34–Q35** | Après cœur métier : file in-app puis email/SMS/WhatsApp (**Q35** — post-pilote efficience) ; à planifier |
+| **Notifications Q34–Q35** | **Q34 MVP fait** (`app_notifications` + trigger statuts + blocs dashboard/hubs) ; **Q35** (email/SMS/WhatsApp) à planifier post-pilote |
 | **PPH catalogue** sur parcours produits (`price_pph`) | **Fait** (`lib/product-price.ts` + selects + seed `20260503_003`) |
 | Consolidation UX post-retours utilisateur (libelles, ordre des etapes, messages d erreur) | Hub **blocs statuts** + cartes + filtres **livré** ; fiche pharmacien **compacte** + contact patient **RPC** ; affiner microcopie, skeletons, accessibilité |
 | **Nom / téléphone patient côté pharmacien** | **Fait** — RPC **`20260503_008`** ; policy **`007` + `009`** (suppression récursion) |
