@@ -17,6 +17,10 @@ Configurer ces variables dans:
 Variables:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (serveur uniquement: cron/worker, **ne jamais** exposer au navigateur)
+- `CRON_SECRET` (secret partagé pour protéger les endpoints cron)
+- `RESEND_API_KEY` (prestataire e-mail, free tier possible)
+- `EMAIL_FROM` (ex: `ProxiPharma <onboarding@resend.dev>` en dev, puis domaine validé)
 
 Regle:
 - Le nom doit etre exact
@@ -57,6 +61,16 @@ Action:
 1. Verifier secrets GitHub Actions
 2. Verifier variables Vercel
 3. Relancer workflow / redeployer
+
+### Notifications externes ne partent pas (Q35)
+
+Symptome:
+- `notification_external_queue` reste en `pending`
+
+Action:
+1. Verifier que le cron/worker appelle `POST /api/cron/send-external-emails` avec `Authorization: Bearer <CRON_SECRET>`
+2. Verifier `SUPABASE_SERVICE_ROLE_KEY` / `RESEND_API_KEY`
+3. Verifier que `notification_external_prefs` est activé pour l'utilisateur + `profiles.email` non vide
 
 ### Erreur RLS "infinite recursion detected in policy for relation profiles"
 

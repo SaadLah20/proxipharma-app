@@ -261,16 +261,20 @@ Statuts retenus v1:
 
 **Contexte (REPONSES Q35)** : intégration ultérieure e-mail / SMS / WhatsApp requise pour un pilote crédible au Maroc.
 
-**Migration** `supabase/migrations/20260505_001_external_notification_channels_queue.sql` (**à appliquer après** `20260504_004`) :
+**Migrations** :
+- `supabase/migrations/20260505_001_external_notification_channels_queue.sql` (**à appliquer après** `20260504_004`) :
 - Enum **`notification_external_channel_enum`** (`email` \| `sms` \| `whatsapp`).
 - Table **`notification_external_prefs`** (par `user_id`, opt-in par canal) + trigger **`set_updated_at`**.
 - Table **`notification_external_queue`** (lignes `pending` … `sent` \| `failed`, snapshot destinataire, lien **`app_notification_id`**, index unique anti-doublon par notif + canal).
 - Trigger **`trg_app_notifications_enqueue_external`** sur insert **`app_notifications`** : respecte les préférences et **`profiles.email` / `profiles.whatsapp`** (SMS et WhatsApp partagent le numéro profil tant qu’un champ SMS dédié n’existe pas).
 - RLS : prefs lecture/écriture soi + admin ; file **admin** uniquement (worker **`service_role`** hors RLS).
+- `supabase/migrations/20260505_002_filter_external_notification_statuses.sql` : limite la file externe aux statuts clés (`submitted`, `responded`, `confirmed`, `completed`, `cancelled`, `abandoned`, `expired`) pour éviter le doublon « en traitement » + « répondu » côté e‑mail/SMS/WhatsApp.
 
 **Next.js** : **`/dashboard`** — bloc **« Alertes hors application (pilote) »** (`ExternalNotificationPrefs`) pour patient et pharmacien (enregistrement **`upsert`** sur `notification_external_prefs`).
 
 **Suite infra** : cron ou Edge Function avec clé `service_role` pour consommer **`notification_external_queue`** et appeler fournisseurs (SendGrid, Twilio, Meta WA, etc.) — non livré dans cette session.
+
+**Suite (email first)** : endpoint serveur **`POST /api/cron/send-external-emails`** (protégé par `CRON_SECRET`) pour envoyer les lignes `pending` `channel=email` via Resend (`RESEND_API_KEY`) en utilisant Supabase `service_role` (`SUPABASE_SERVICE_ROLE_KEY`). À brancher sur un cron Vercel/GitHub/serveur.
 
 **Contrôle** : `npm run lint` + `npm run build` OK.
 
