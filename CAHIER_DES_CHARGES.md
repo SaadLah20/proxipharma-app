@@ -257,6 +257,17 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-05 (suite MVP) — Admin pilote Q40 + ruptures marché pharmacien
+
+**Next.js** :
+- **`/admin`** — bloc « Pilotage MVP » : compteurs file e-mail (`pending` / `failed` / `sent` 24 h), tableau demandes filtres pharmacie/statut/type, lien **`/admin/demandes/[id]`** vue lecture seule.
+- **`/dashboard/pharmacien/ruptures-marche`** — liste des **`market_shortages`** actifs de l’officine ; bouton **Retirer** (`is_active = false`, `resolved_at` renseigné).
+- **`/dashboard`** pharmacien — CTA « Ruptures de marché » à côté des demandes.
+
+**Contrôle** : `npm run lint` + `npm run build` OK.
+
+---
+
 ### Session 2026-05-05 — Q35 notifications externes (file + préférences)
 
 **Contexte (REPONSES Q35)** : intégration ultérieure e-mail / SMS / WhatsApp requise pour un pilote crédible au Maroc.
@@ -555,7 +566,7 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 6. **`client_comment` par ligne (Q11)** : **fait** — **`demande-produits`** + composant **`PatientProductRequestActions`** (JSON vers RPC) ; borne **500** car. (**`20260504_001`**).  
 7. **Vue pharmacien patient nominatif (Q39)** : **fait côté lecture** — RPC **`20260503_008`** (+ UI cartes / fiche) ; **ne pas** réintroduire la policy **`20260503_007`** seule (récursion ; **`009`** obligatoire si **007** a été jouée).  
 8. **Pilotage rupture marché & relances (Q21, §5 cahier, Q34–Q35)** : insertion **`market_shortages`** lors du choix pharma `market_shortage` ; **Q34 in-app MVP fait** ; **Q35** : schéma **prefs + file** + trigger depuis **`app_notifications`** (**`20260505_001`**) + opt-in UI dashboard ; branchement fournisseurs d’envoi (**service_role** / cron) **à faire**.  
-9. **Admin pilote (Q40)** : accès lecture transverse demandes + filtres pharmacie/statut ; exports simples ou vues pour analytics (sans sur‑conception).
+9. **Admin pilote (Q40)** : **partiel fait** — `/admin` + `/admin/demandes/[id]` (lecture) + filtres ; exports CSV / analytics **à cadrer** si besoin.
 
 **Jalon 2 — UI dans l’ordre des dépendances**  
 0. **Hubs liste/tableau de bord** patient + pharmacien (`/dashboard/demandes`, `/dashboard/pharmacien/demandes`) : ✓ (**Session 2026-05-05** §10).
@@ -585,7 +596,7 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 | **Auto expiration** cron supabase **`expire_overdue_requests()`** | Conservé pour jeux `expires_at` historiques ; **non alimenté** sur nouvelles publications (`expires_at` null, pilote Q38) |
 | **Abandon automatique** 24 h après **`responded`** | **RPC prêt** : **`abandon_unconfirmed_responded_requests()`** — brancher cron service_role |
 | **Ordonnance / consultation**: traitement pharmacien meme espace | Hors perimetre ecran actuel |
-| **`market_shortages`** insert auto quand pharma choisit **market_shortage** dispo ligne | **Fait** (trigger `20260503_005`) — UI liste dédiée / notifs à suivre |
+| **`market_shortages`** insert auto quand pharma choisit **market_shortage** dispo ligne | **Fait** (trigger `20260503_005`) + **UI liste / retrait pharmacien** (`/dashboard/pharmacien/ruptures-marche`) |
 | **Notifications Q34–Q35** | **Q34 MVP fait** ; **Q35** schéma + enqueue + opt-in UI (**`20260505_001`**) ; **livraison messages** (API prestataires + worker) à brancher |
 | **PPH catalogue** sur parcours produits (`price_pph`) | **Fait** (`lib/product-price.ts` + selects + seed `20260503_003`) |
 | Consolidation UX post-retours utilisateur (libelles, ordre des etapes, messages d erreur) | Hub **blocs statuts** + cartes + filtres **livré** ; fiche pharmacien **compacte** + contact patient **RPC** ; affiner microcopie, skeletons, accessibilité |

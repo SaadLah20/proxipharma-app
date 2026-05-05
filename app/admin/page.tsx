@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { AdminPilotBlock } from "@/components/admin/AdminPilotBlock";
 
 type Pharmacy = {
   id: string;
@@ -214,6 +215,8 @@ export default function AdminPage() {
       </div>
 
       {message ? <p className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{message}</p> : null}
+
+      <AdminPilotBlock pharmacies={pharmacies} />
 
       <section className="mb-6 rounded-xl border bg-white p-4">
         <h2 className="mb-3 text-lg font-semibold">Creer une pharmacie</h2>

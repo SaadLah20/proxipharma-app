@@ -269,12 +269,20 @@ export default function DashboardPage() {
             </p>
           )}
           {myPharmacy ? (
-            <Link
-              href="/dashboard/pharmacien/demandes"
-              className="mt-4 inline-flex rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
-            >
-              Ouvrir les demandes pharmacie
-            </Link>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link
+                href="/dashboard/pharmacien/demandes"
+                className="inline-flex rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Ouvrir les demandes pharmacie
+              </Link>
+              <Link
+                href="/dashboard/pharmacien/ruptures-marche"
+                className="inline-flex rounded-lg border border-emerald-800 px-4 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-50"
+              >
+                Ruptures de marché
+              </Link>
+            </div>
           ) : null}
         </section>
       ) : null}
