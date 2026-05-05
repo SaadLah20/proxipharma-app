@@ -83,6 +83,15 @@ Action:
 2. Supprimer la policy recursive
 3. Reappliquer le correctif avec fonction helper `is_admin()`
 
+### Check PR : Vercel « Deployment failed » (plan Hobby + crons trop fréquents)
+
+Cause:
+- `vercel.json` avec une expression cron du type « toutes les 2 minutes » n’est pas compatible avec le **plan Hobby** (intervalle minimal **≈ une fois par jour**).
+
+Action:
+1. Retirer les `crons` de `vercel.json` ou passer sur **Pro** si tu insistes pour Vercel Cron en minuterie.
+2. Garder **GitHub Actions** (`.github/workflows/send-external-emails-cron.yml`) pour les envois mails fréquents.
+
 ### Push refuse sur `main`
 
 Symptome:
@@ -108,16 +117,17 @@ git status
 git log --oneline -n 10
 ```
 
-## 8) Vercel Cron Q35 (email)
+## 8) Envoi automatique emails Q35
 
-- Endpoint: `/api/cron/send-external-emails`
-- Planification: `vercel.json` (`*/2 * * * *`)
-- Secret attendu: header `Authorization: Bearer <CRON_SECRET>`
+- Endpoint: `/api/cron/send-external-emails` (`GET` ou `POST`, header `Authorization: Bearer <CRON_SECRET>`)
+- **Plan Hobby Vercel** : les Cron Jobs Vercel ne permettent qu’une fréquence **minimale d’une fois par jour** (pas toutes les 2 minutes). Une entrée `vercel.json` avec `*/2 * * * *` peut **faire échouer le déploiement** ou ne jamais s’afficher comme job actif comme attendu.
+- **Référence planifiée** : GitHub Actions (voir §9).
 
-## 9) Fallback cron GitHub Actions (email)
+## 9) Cron GitHub Actions (email) — canal principal
 
 - Workflow: `.github/workflows/send-external-emails-cron.yml`
 - Fréquence: toutes les 2 minutes + déclenchement manuel (`workflow_dispatch`)
 - Secrets GitHub requis:
   - `APP_BASE_URL` (ex: `https://proxipharma-app.vercel.app`)
   - `CRON_SECRET`
+- Retry auto: les emails `failed` sont retentés automatiquement jusqu'à 3 tentatives max (`attempt_count < 3`).
