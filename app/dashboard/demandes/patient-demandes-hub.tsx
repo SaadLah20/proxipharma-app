@@ -13,6 +13,8 @@ import {
 import { PageShell } from "@/components/ui/compact-shell";
 import { bucketForStatusParam, PATIENT_DASHBOARD_BUCKETS } from "@/lib/demandes-hub-buckets";
 import { one } from "@/lib/embed";
+import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
+import { formatShortId } from "@/lib/request-display";
 import { supabase } from "@/lib/supabase";
 
 function tabFromSearch(v: string | null): HubTab {
@@ -42,10 +44,8 @@ export function PatientDemandesHub() {
   const [error, setError] = useState("");
   const [rows, setRows] = useState<PatientRequestRow[]>([]);
   const [pharmacyFilter, setPharmacyFilter] = useState("");
+  const [refQuery, setRefQuery] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
-  const [notifications, setNotifications] = useState<
-    Array<{ id: string; created_at: string; title: string; body: string | null; request_id: string }>
-  >([]);
 
   const statutParam = searchParams.get("statut");
   const activeBucket = bucketForStatusParam(statutParam);
@@ -68,7 +68,10 @@ export function PatientDemandesHub() {
 
     const { data, error: re } = await supabase
       .from("requests")
-      .select("id,created_at,status,request_type,pharmacy_id,submitted_at,responded_at,pharmacies(nom,ville)")
+      .select(
+        "id,created_at,status,request_type,pharmacy_id,submitted_at,responded_at,request_public_ref,pharmacies(nom,ville,public_ref)," +
+          "request_items(requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient)"
+      )
       .eq("patient_id", user.id)
       .eq("request_type", "product_request")
       .order("created_at", { ascending: false })
@@ -80,14 +83,6 @@ export function PatientDemandesHub() {
       setRows(data as unknown as PatientRequestRow[]);
     }
 
-    const { data: notifData } = await supabase
-      .from("app_notifications")
-      .select("id,created_at,title,body,request_id")
-      .order("created_at", { ascending: false })
-      .limit(5);
-    if (Array.isArray(notifData)) {
-      setNotifications(notifData as Array<{ id: string; created_at: string; title: string; body: string | null; request_id: string }>);
-    }
     setLoading(false);
   }, [router]);
 
@@ -120,12 +115,25 @@ export function PatientDemandesHub() {
     if (pharmacyFilter) {
       list = list.filter((r) => r.pharmacy_id === pharmacyFilter);
     }
+    if (refQuery.trim().length >= 2) {
+      const ph = (row: (typeof rows)[number]) => one(row.pharmacies);
+      list = list.filter((r) => {
+        const p = ph(r);
+        return rowMatchesPublicRefQuery(refQuery, [
+          r.request_public_ref,
+          p?.public_ref,
+          p?.nom,
+          p?.ville,
+          formatShortId(r.id),
+        ]);
+      });
+    }
     return [...list].sort((a, b) => {
       const ta = new Date(a.created_at).getTime();
       const tb = new Date(b.created_at).getTime();
       return sortNewestFirst ? tb - ta : ta - tb;
     });
-  }, [rows, activeBucket, pharmacyFilter, sortNewestFirst]);
+  }, [rows, activeBucket, pharmacyFilter, refQuery, sortNewestFirst]);
 
   const setStatutFilter = (key: string) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -149,8 +157,8 @@ export function PatientDemandesHub() {
   if (error && rows.length === 0) {
     return (
       <PageShell maxWidthClass="max-w-3xl">
-        <Link href="/dashboard" className="text-xs font-medium text-sky-800 underline">
-          ← Mon espace
+        <Link href="/" className="text-xs font-medium text-sky-800 underline">
+          ← Annuaire
         </Link>
         <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</p>
       </PageShell>
@@ -161,17 +169,17 @@ export function PatientDemandesHub() {
     <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Link href="/dashboard" className="text-xs font-medium text-sky-800 underline">
-            ← Mon espace
+          <Link href="/" className="text-xs font-medium text-sky-800 underline">
+            ← Annuaire
           </Link>
-          <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">Mes demandes</h1>
-          <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">Demandes auprès des pharmacies.</p>
+          <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">Mes demandes de produits</h1>
+          <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">Suivi de vos demandes auprès des pharmacies.</p>
         </div>
         <Link
-          href="/"
+          href="/dashboard/notifications"
           className="shrink-0 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:bg-muted/50"
         >
-          Annuaire
+          Notifications
         </Link>
       </div>
 
@@ -182,23 +190,6 @@ export function PatientDemandesHub() {
           labels={{ dashboard: "Tableau de bord", list: "Toutes les demandes" }}
         />
       </div>
-
-      {notifications.length > 0 ? (
-        <section className="rounded-lg border border-violet-200/70 bg-violet-50/40 p-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-violet-950">Notifications</p>
-          <ul className="mt-1.5 space-y-1.5">
-            {notifications.map((n) => (
-              <li key={n.id} className="rounded-md border border-violet-200/70 bg-white px-2 py-1.5">
-                <p className="text-[11px] font-semibold text-foreground">{n.title}</p>
-                {n.body ? <p className="text-[11px] text-muted-foreground">{n.body}</p> : null}
-                <Link href={`/dashboard/demandes/${n.request_id}`} className="text-[11px] text-sky-700 underline">
-                  Ouvrir la demande
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       {tab === "dashboard" ? (
         <>
@@ -221,7 +212,16 @@ export function PatientDemandesHub() {
         </>
       ) : (
         <div className="mt-4 space-y-4">
-          <div className="grid gap-2 rounded-lg border border-border/80 bg-muted/20 p-2.5 sm:grid-cols-3 sm:items-end">
+          <div className="grid gap-2 rounded-lg border border-border/80 bg-muted/20 p-2.5 sm:grid-cols-2 lg:grid-cols-4 sm:items-end">
+            <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
+              Réf. (D042/26, PH…, pharmacie…)
+              <input
+                value={refQuery}
+                onChange={(e) => setRefQuery(e.target.value)}
+                placeholder="Ex. D042/26 ou PH001R"
+                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/70"
+              />
+            </label>
             <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Statut
               <select
@@ -271,7 +271,7 @@ export function PatientDemandesHub() {
             <ul className="space-y-2">
               {filteredSorted.map((r) => (
                 <li key={r.id}>
-                  <PatientDemandeCard row={r} />
+                  <PatientDemandeCard row={r} variant="list" />
                 </li>
               ))}
             </ul>

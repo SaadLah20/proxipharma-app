@@ -38,6 +38,21 @@ export function formatPlannedVisitFr(dateYmd: string | null | undefined, timePg:
   return t ? `${d} · ${t}` : d;
 }
 
+/** Liste type maquette mobile : « 12 déc. 2023 10:45 » (fuseau Maroc sur le web). */
+export function formatDateTimeListCasablanca(iso: string | null | undefined): string {
+  if (iso == null || String(iso).trim() === "") return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("fr-FR", {
+    timeZone: "Africa/Casablanca",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 /** Instant ISO (UTC ou local) → `03/05/2026 · 18h30` (heure locale navigateur). */
 export function formatDateTimeShort24hFr(iso: string | null | undefined): string {
   if (iso == null || String(iso).trim() === "") return "";

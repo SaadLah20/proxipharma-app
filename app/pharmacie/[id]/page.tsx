@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { MessageCircle, Phone, ShoppingBag } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 
 type PharmacyRow = {
   id: string;
@@ -14,6 +15,7 @@ type PharmacyRow = {
   telephone: string | null;
   whatsapp: string | null;
   statut: string;
+  public_ref?: string | null;
 };
 
 export default function PharmacieFichePage() {
@@ -23,6 +25,7 @@ export default function PharmacieFichePage() {
   const [pharmacy, setPharmacy] = useState<PharmacyRow | null>(null);
   const [loading, setLoading] = useState(hasId);
   const [error, setError] = useState("");
+  const viewTracked = useRef(false);
 
   useEffect(() => {
     if (!id) return;
@@ -30,7 +33,7 @@ export default function PharmacieFichePage() {
     const load = async () => {
       const { data, error: qErr } = await supabase
         .from("pharmacies")
-        .select("id,nom,ville,adresse,telephone,whatsapp,statut")
+        .select("id,nom,ville,adresse,telephone,whatsapp,statut,public_ref")
         .eq("id", id)
         .maybeSingle();
 
@@ -46,6 +49,16 @@ export default function PharmacieFichePage() {
 
     void load();
   }, [id]);
+
+  useEffect(() => {
+    if (!pharmacy?.id || viewTracked.current) return;
+    viewTracked.current = true;
+    trackPharmacyEngagement({
+      pharmacyId: pharmacy.id,
+      eventType: "profile_view",
+      source: "profile",
+    });
+  }, [pharmacy?.id]);
 
   const normalizeWhatsAppNumber = (value: string | null) => (value ?? "").replace(/[^\d]/g, "");
 
@@ -83,6 +96,9 @@ export default function PharmacieFichePage() {
           <article className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
+                {pharmacy.public_ref?.trim() ? (
+                  <p className="font-mono text-xs font-bold tracking-wide text-blue-900">{pharmacy.public_ref.trim()}</p>
+                ) : null}
                 <h1 className="text-xl font-bold text-blue-950">{pharmacy.nom}</h1>
                 <p className="mt-1 text-sm text-gray-600">
                   {pharmacy.ville} • {pharmacy.adresse}
@@ -97,6 +113,13 @@ export default function PharmacieFichePage() {
               <a
                 href={pharmacy.telephone ? `tel:${pharmacy.telephone}` : undefined}
                 aria-disabled={!pharmacy.telephone}
+                onClick={() =>
+                  trackPharmacyEngagement({
+                    pharmacyId: pharmacy.id,
+                    eventType: "phone_click",
+                    source: "profile",
+                  })
+                }
                 className="flex flex-1 min-w-[120px] items-center justify-center gap-2 rounded-xl bg-blue-50 py-3 text-sm font-medium text-blue-800 aria-disabled:pointer-events-none aria-disabled:opacity-50"
               >
                 <Phone size={18} strokeWidth={2} /> Appeler
@@ -110,6 +133,13 @@ export default function PharmacieFichePage() {
                 target={normalizeWhatsAppNumber(pharmacy.whatsapp) ? "_blank" : undefined}
                 rel={normalizeWhatsAppNumber(pharmacy.whatsapp) ? "noreferrer" : undefined}
                 aria-disabled={!normalizeWhatsAppNumber(pharmacy.whatsapp)}
+                onClick={() =>
+                  trackPharmacyEngagement({
+                    pharmacyId: pharmacy.id,
+                    eventType: "whatsapp_click",
+                    source: "profile",
+                  })
+                }
                 className="flex flex-1 min-w-[120px] items-center justify-center gap-2 rounded-xl bg-green-50 py-3 text-sm font-medium text-green-800 aria-disabled:pointer-events-none aria-disabled:opacity-50"
               >
                 <MessageCircle size={18} strokeWidth={2} /> WhatsApp
