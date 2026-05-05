@@ -113,3 +113,11 @@ git log --oneline -n 10
 - Endpoint: `/api/cron/send-external-emails`
 - Planification: `vercel.json` (`*/2 * * * *`)
 - Secret attendu: header `Authorization: Bearer <CRON_SECRET>`
+
+## 9) Fallback cron GitHub Actions (email)
+
+- Workflow: `.github/workflows/send-external-emails-cron.yml`
+- Fréquence: toutes les 2 minutes + déclenchement manuel (`workflow_dispatch`)
+- Secrets GitHub requis:
+  - `APP_BASE_URL` (ex: `https://proxipharma-app.vercel.app`)
+  - `CRON_SECRET`
