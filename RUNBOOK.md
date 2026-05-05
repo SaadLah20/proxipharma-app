@@ -126,7 +126,7 @@ git log --oneline -n 10
 ## 9) Cron GitHub Actions (email) — canal principal
 
 - Workflow: `.github/workflows/send-external-emails-cron.yml`
-- Fréquence: toutes les 2 minutes + déclenchement manuel (`workflow_dispatch`)
+- Fréquence: toutes les 5 minutes (`*/5 * * * *`, limite pratique GitHub Actions) + déclenchement manuel (`workflow_dispatch`)
 - Secrets GitHub requis:
   - `APP_BASE_URL` (ex: `https://proxipharma-app.vercel.app`)
   - `CRON_SECRET`

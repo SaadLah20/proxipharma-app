@@ -2,7 +2,8 @@ name: Send External Emails Cron
 
 on:
   schedule:
-    - cron: "*/2 * * * *"
+    # GitHub Actions schedule minimum cadence is every 5 minutes.
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
