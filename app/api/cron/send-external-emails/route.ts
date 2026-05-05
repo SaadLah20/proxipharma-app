@@ -2,12 +2,19 @@ import { createSupabaseServiceClient } from "@/lib/supabase-service";
 
 type QueueRow = {
   id: string;
+  recipient_id: string;
   destination_snapshot: string;
   title: string;
   body: string | null;
   request_id: string;
   event_type: string;
   attempt_count: number;
+};
+
+type RequestMeta = {
+  id: string;
+  request_type: string | null;
+  pharmacies: { nom: string | null } | { nom: string | null }[] | null;
 };
 
 async function sendEmailViaResend(args: { to: string; subject: string; text: string }) {
@@ -44,6 +51,13 @@ async function sendEmailViaResend(args: { to: string; subject: string; text: str
   }
 }
 
+function requestPathForRole(role: string | null | undefined, requestId: string) {
+  if (role === "pharmacien") {
+    return `/dashboard/pharmacien/demandes/${requestId}`;
+  }
+  return `/dashboard/demandes/${requestId}`;
+}
+
 export async function POST(req: Request) {
   const expected = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization") ?? "";
@@ -61,7 +75,7 @@ export async function POST(req: Request) {
 
   const { data: pending, error: qErr } = await supabase
     .from("notification_external_queue")
-    .select("id,destination_snapshot,title,body,request_id,event_type,attempt_count")
+    .select("id,recipient_id,destination_snapshot,title,body,request_id,event_type,attempt_count")
     .eq("channel", "email")
     .eq("status", "pending")
     .order("created_at", { ascending: true })
@@ -89,11 +103,53 @@ export async function POST(req: Request) {
 
   let sent = 0;
   let failed = 0;
+  const requestOrigin = process.env.APP_BASE_URL ?? new URL(req.url).origin;
+  const recipientIds = [...new Set(rows.map((r) => r.recipient_id))];
+  const requestIds = [...new Set(rows.map((r) => r.request_id))];
+  const roleByRecipient = new Map<string, string>();
+  const requestMetaById = new Map<string, { requestType: string | null; pharmacyName: string | null }>();
+
+  if (recipientIds.length > 0) {
+    const { data: profiles } = await supabase.from("profiles").select("id,role").in("id", recipientIds);
+    for (const p of profiles ?? []) {
+      const row = p as { id: string; role: string | null };
+      roleByRecipient.set(row.id, row.role ?? "patient");
+    }
+  }
+
+  if (requestIds.length > 0) {
+    const { data: reqRows } = await supabase
+      .from("requests")
+      .select("id,request_type,pharmacies(nom)")
+      .in("id", requestIds);
+    for (const raw of (reqRows ?? []) as unknown as RequestMeta[]) {
+      const pharmacy = Array.isArray(raw.pharmacies) ? raw.pharmacies[0] : raw.pharmacies;
+      requestMetaById.set(raw.id, {
+        requestType: raw.request_type ?? null,
+        pharmacyName: pharmacy?.nom ?? null,
+      });
+    }
+  }
 
   for (const r of rows) {
     const to = r.destination_snapshot;
     const subject = r.title;
-    const text = [r.body ?? "", "", `Demande: ${r.request_id}`, `Type: ${r.event_type}`].join("\n").trim();
+    const role = roleByRecipient.get(r.recipient_id);
+    const requestLink = `${requestOrigin}${requestPathForRole(role, r.request_id)}`;
+    const meta = requestMetaById.get(r.request_id);
+    const pharmacyLabel = meta?.pharmacyName ?? "Pharmacie non renseignée";
+    const requestTypeLabel = meta?.requestType ?? "non renseigné";
+    const text = [
+      r.body ?? "",
+      "",
+      `Pharmacie: ${pharmacyLabel}`,
+      `Type de demande: ${requestTypeLabel}`,
+      `Ouvrir la demande: ${requestLink}`,
+      `Demande: ${r.request_id}`,
+      `Type: ${r.event_type}`,
+    ]
+      .join("\n")
+      .trim();
 
     try {
       const out = await sendEmailViaResend({ to, subject, text });
