@@ -9,6 +9,7 @@ type QueueRow = {
   request_id: string;
   event_type: string;
   attempt_count: number;
+  status: "pending" | "processing" | "sent" | "failed";
 };
 
 type RequestMeta = {
@@ -73,21 +74,41 @@ async function handleCron(req: Request) {
   const supabase = createSupabaseServiceClient();
   const limit = 20;
 
-  const { data: pending, error: qErr } = await supabase
+  const { data: pending, error: pendingErr } = await supabase
     .from("notification_external_queue")
-    .select("id,recipient_id,destination_snapshot,title,body,request_id,event_type,attempt_count")
+    .select("id,recipient_id,destination_snapshot,title,body,request_id,event_type,attempt_count,status")
     .eq("channel", "email")
     .eq("status", "pending")
     .order("created_at", { ascending: true })
     .limit(limit);
 
-  if (qErr) {
-    return Response.json({ ok: false, error: qErr.message }, { status: 500 });
+  if (pendingErr) {
+    return Response.json({ ok: false, error: pendingErr.message }, { status: 500 });
   }
 
-  const rows = (pending ?? []) as unknown as QueueRow[];
+  const pendingRows = (pending ?? []) as unknown as QueueRow[];
+  const remaining = Math.max(0, limit - pendingRows.length);
+  let retryRows: QueueRow[] = [];
+
+  if (remaining > 0) {
+    const { data: failed, error: failedErr } = await supabase
+      .from("notification_external_queue")
+      .select("id,recipient_id,destination_snapshot,title,body,request_id,event_type,attempt_count,status")
+      .eq("channel", "email")
+      .eq("status", "failed")
+      .lt("attempt_count", 3)
+      .order("created_at", { ascending: true })
+      .limit(remaining);
+
+    if (failedErr) {
+      return Response.json({ ok: false, error: failedErr.message }, { status: 500 });
+    }
+    retryRows = (failed ?? []) as unknown as QueueRow[];
+  }
+
+  const rows = [...pendingRows, ...retryRows];
   if (rows.length === 0) {
-    return Response.json({ ok: true, processed: 0, sent: 0, failed: 0 });
+    return Response.json({ ok: true, processed: 0, sent: 0, failed: 0, retried: 0 });
   }
 
   // Mark as processing first to avoid double-send.
@@ -96,7 +117,8 @@ async function handleCron(req: Request) {
     .from("notification_external_queue")
     .update({ status: "processing" })
     .in("id", ids)
-    .eq("status", "pending");
+    .in("status", ["pending", "failed"])
+    .lt("attempt_count", 3);
   if (lockErr) {
     return Response.json({ ok: false, error: lockErr.message }, { status: 500 });
   }
@@ -177,7 +199,7 @@ async function handleCron(req: Request) {
     }
   }
 
-  return Response.json({ ok: true, processed: rows.length, sent, failed });
+  return Response.json({ ok: true, processed: rows.length, sent, failed, retried: retryRows.length });
 }
 
 export async function GET(req: Request) {

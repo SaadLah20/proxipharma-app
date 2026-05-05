@@ -121,3 +121,4 @@ git log --oneline -n 10
 - Secrets GitHub requis:
   - `APP_BASE_URL` (ex: `https://proxipharma-app.vercel.app`)
   - `CRON_SECRET`
+- Retry auto: les emails `failed` sont retentés automatiquement jusqu'à 3 tentatives max (`attempt_count < 3`).
