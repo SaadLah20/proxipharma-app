@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { ExternalNotificationPrefs } from "@/components/notifications/external-notification-prefs";
 type Profile = {
   id: string;
   full_name: string | null;
@@ -179,6 +180,10 @@ export default function DashboardPage() {
           </p>
         ) : null}
       </section>
+
+      {profile?.role === "patient" || profile?.role === "pharmacien" ? (
+        <ExternalNotificationPrefs userId={profile?.id ?? null} />
+      ) : null}
 
       {profile?.role === "patient" ? (
         <section className="mt-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-sky-50/80 to-white p-5 shadow-sm">
