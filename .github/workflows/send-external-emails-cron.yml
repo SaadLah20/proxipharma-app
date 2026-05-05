@@ -1,3 +1,6 @@
+# Les jobs `schedule` ne tournent que depuis la branche par défaut du dépôt (souvent `main`).
+# Tant que ce fichier n’est pas fusionné dans `main`, le cron ne se déclenchera pas automatiquement.
+# Test manuel : onglet Actions → ce workflow → « Run workflow » (workflow_dispatch).
 name: Send External Emails Cron
 
 on:
