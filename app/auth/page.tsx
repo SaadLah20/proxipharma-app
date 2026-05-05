@@ -4,15 +4,16 @@ import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { defaultPathAfterAuth } from "@/lib/post-auth-redirect";
 
-function AuthForm() {
+function AuthForm({ initialLogin }: { initialLogin: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect")?.trim() || "";
   const safeRedirect =
     redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "";
 
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(initialLogin);
   const [fullName, setFullName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [email, setEmail] = useState("");
@@ -24,7 +25,8 @@ function AuthForm() {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        router.replace(safeRedirect || "/dashboard");
+        const dest = safeRedirect || (await defaultPathAfterAuth());
+        router.replace(dest);
       }
     };
 
@@ -47,7 +49,8 @@ function AuthForm() {
       if (error) {
         setMessage(error.message);
       } else {
-        router.push(safeRedirect || "/dashboard");
+        const dest = safeRedirect || (await defaultPathAfterAuth());
+        router.push(dest);
       }
       setLoading(false);
       return;
@@ -149,6 +152,13 @@ function AuthForm() {
   );
 }
 
+function AuthFormGate() {
+  const searchParams = useSearchParams();
+  const mode = searchParams.get("mode");
+  const initialLogin = mode !== "signup";
+  return <AuthForm key={mode ?? "login"} initialLogin={initialLogin} />;
+}
+
 export default function AuthPage() {
   return (
     <Suspense
@@ -156,7 +166,7 @@ export default function AuthPage() {
         <main className="flex min-h-screen items-center justify-center p-6 text-gray-600">Chargement...</main>
       }
     >
-      <AuthForm />
+      <AuthFormGate />
     </Suspense>
   );
 }

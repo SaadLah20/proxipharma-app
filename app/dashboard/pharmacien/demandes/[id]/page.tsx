@@ -16,6 +16,7 @@ import {
   requestStatusFr,
   requestTypeFr,
 } from "@/lib/request-display";
+import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
 import { pphLabel } from "@/lib/product-price";
 import { PageShell } from "@/components/ui/compact-shell";
@@ -31,6 +32,7 @@ type RequestRow = {
   responded_at: string | null;
   patient_planned_visit_date: string | null;
   patient_planned_visit_time: string | null;
+  request_public_ref?: string | null;
   product_requests: { patient_note: string | null } | { patient_note: string | null }[] | null;
 };
 
@@ -91,6 +93,7 @@ type PatientBrief = {
   full_name: string | null;
   whatsapp: string | null;
   email: string | null;
+  patient_ref: string | null;
 };
 
 function patientHeadingName(profile: PatientBrief | null, patientId: string): string {
@@ -198,7 +201,7 @@ export default function PharmacienDemandeDetailPage() {
     const { data: reqRow, error: reqErr } = await supabase
       .from("requests")
       .select(
-        "id,status,request_type,pharmacy_id,patient_id,created_at,submitted_at,responded_at,patient_planned_visit_date,patient_planned_visit_time,product_requests(patient_note)"
+        "id,status,request_type,pharmacy_id,patient_id,created_at,submitted_at,responded_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,product_requests(patient_note)"
       )
       .eq("id", id)
       .maybeSingle();
@@ -228,6 +231,7 @@ export default function PharmacienDemandeDetailPage() {
           full_name: first.full_name ?? null,
           whatsapp: first.whatsapp ?? null,
           email: first.email ?? null,
+          patient_ref: first.patient_ref ?? null,
         });
       }
     }
@@ -623,10 +627,10 @@ export default function PharmacienDemandeDetailPage() {
     <PageShell maxWidthClass="max-w-5xl" className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link href="/dashboard/pharmacien/demandes" className="text-xs font-medium text-emerald-900 underline">
-          ← Demandes
+          ← Demandes de produits
         </Link>
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="font-mono text-[10px] text-muted-foreground">#{formatShortId(request.id)}</span>
+          <span className="font-mono text-[10px] font-semibold text-foreground">{displayRequestPublicRef(request)}</span>
           <span className="rounded-full border border-border/80 bg-muted/50 px-2.5 py-0.5 text-[10px] font-semibold text-foreground sm:text-xs">
             {requestStatusFr[request.status] ?? request.status}
           </span>
@@ -664,7 +668,12 @@ export default function PharmacienDemandeDetailPage() {
               <h1 className="truncate text-lg font-bold tracking-tight text-foreground sm:text-xl">
                 {patientHeadingName(patientProfile, request.patient_id)}
               </h1>
-              <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">ID patient · {request.patient_id}</p>
+              {patientProfile?.patient_ref?.trim() ? (
+                <p className="mt-0.5 font-mono text-[10px] font-semibold text-emerald-900/90">
+                  Code client {patientProfile.patient_ref.trim()}
+                </p>
+              ) : null}
+              <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">ID technique · {formatShortId(request.patient_id)}</p>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
                 {patientPhone ? (
                   <a

@@ -345,8 +345,8 @@ export default function DemandeProduitsPage() {
           {submitLoading ? "Envoi..." : "Envoyer la demande"}
         </button>
 
-        <Link href="/dashboard" className="mt-4 block text-center text-sm text-blue-700">
-          Mon espace
+        <Link href="/dashboard/demandes" className="mt-4 block text-center text-sm text-blue-700">
+          Mes demandes de produits
         </Link>
       </div>
     </main>

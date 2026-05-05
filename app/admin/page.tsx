@@ -107,7 +107,7 @@ export default function AdminPage() {
         .single();
 
       if (!profile || profile.role !== "admin") {
-        router.replace("/dashboard");
+        router.replace("/");
         return;
       }
 
@@ -209,8 +209,8 @@ export default function AdminPage() {
     <main className="mx-auto min-h-screen w-full max-w-4xl p-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Panneau admin</h1>
-        <Link href="/dashboard" className="text-sm text-blue-700 underline">
-          Retour au dashboard
+        <Link href="/" className="text-sm text-blue-700 underline">
+          Annuaire
         </Link>
       </div>
 

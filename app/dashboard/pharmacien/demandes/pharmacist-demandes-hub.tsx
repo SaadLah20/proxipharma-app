@@ -12,6 +12,7 @@ import {
 } from "@/components/requests/demande-hub-ui";
 import { PageShell } from "@/components/ui/compact-shell";
 import { bucketForStatusParam, PHARMACIST_DASHBOARD_BUCKETS } from "@/lib/demandes-hub-buckets";
+import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { formatShortId } from "@/lib/request-display";
 import { supabase } from "@/lib/supabase";
 
@@ -41,10 +42,8 @@ export function PharmacistDemandesHub() {
   const [error, setError] = useState("");
   const [rows, setRows] = useState<PharmacistRequestRow[]>([]);
   const [patientFilter, setPatientFilter] = useState("");
+  const [refQuery, setRefQuery] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
-  const [notifications, setNotifications] = useState<
-    Array<{ id: string; created_at: string; title: string; body: string | null; request_id: string }>
-  >([]);
 
   const statutParam = searchParams.get("statut");
   const activeBucket = bucketForStatusParam(statutParam);
@@ -80,7 +79,7 @@ export function PharmacistDemandesHub() {
 
     const { data, error: re } = await supabase
       .from("requests")
-      .select("id,created_at,status,request_type,patient_id,submitted_at,responded_at")
+      .select("id,created_at,status,request_type,patient_id,submitted_at,responded_at,request_public_ref")
       .eq("pharmacy_id", staff.pharmacy_id)
       .eq("request_type", "product_request")
       .order("created_at", { ascending: false })
@@ -98,7 +97,13 @@ export function PharmacistDemandesHub() {
     if (dirErr) {
       setError(dirErr.message);
     } else {
-      type DirRow = { patient_id: string; full_name: string | null; whatsapp: string | null; email: string | null };
+      type DirRow = {
+        patient_id: string;
+        full_name: string | null;
+        whatsapp: string | null;
+        email: string | null;
+        patient_ref: string | null;
+      };
       const map = new Map((directory as DirRow[] | null)?.map((p) => [p.patient_id, p]) ?? []);
       enriched = raw.map((r) => {
         const p = map.get(r.patient_id);
@@ -106,19 +111,11 @@ export function PharmacistDemandesHub() {
           ...r,
           patient_full_name: p?.full_name ?? null,
           patient_whatsapp: p?.whatsapp ?? null,
+          patient_ref: p?.patient_ref ?? null,
         };
       });
     }
     setRows(enriched);
-
-    const { data: notifData } = await supabase
-      .from("app_notifications")
-      .select("id,created_at,title,body,request_id")
-      .order("created_at", { ascending: false })
-      .limit(5);
-    if (Array.isArray(notifData)) {
-      setNotifications(notifData as Array<{ id: string; created_at: string; title: string; body: string | null; request_id: string }>);
-    }
 
     setLoading(false);
   }, [router]);
@@ -139,7 +136,9 @@ export function PharmacistDemandesHub() {
     (pid: string) => {
       const row = rows.find((r) => r.patient_id === pid);
       const name = row?.patient_full_name?.trim();
-      return name ? `${name} · #${formatShortId(pid)}` : `Patient #${formatShortId(pid)}`;
+      const pref = row?.patient_ref?.trim();
+      const tag = pref ? pref : `#${formatShortId(pid)}`;
+      return name ? `${name} · ${tag}` : `Patient ${tag}`;
     },
     [rows]
   );
@@ -153,12 +152,23 @@ export function PharmacistDemandesHub() {
     if (patientFilter) {
       list = list.filter((r) => r.patient_id === patientFilter);
     }
+    if (refQuery.trim().length >= 2) {
+      list = list.filter((r) =>
+        rowMatchesPublicRefQuery(refQuery, [
+          r.request_public_ref,
+          r.patient_ref,
+          r.patient_full_name,
+          formatShortId(r.id),
+          formatShortId(r.patient_id),
+        ])
+      );
+    }
     return [...list].sort((a, b) => {
       const ta = new Date(a.created_at).getTime();
       const tb = new Date(b.created_at).getTime();
       return sortNewestFirst ? tb - ta : ta - tb;
     });
-  }, [rows, activeBucket, patientFilter, sortNewestFirst]);
+  }, [rows, activeBucket, patientFilter, refQuery, sortNewestFirst]);
 
   const setStatutFilter = (key: string) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -182,8 +192,8 @@ export function PharmacistDemandesHub() {
   if (error && rows.length === 0) {
     return (
       <PageShell maxWidthClass="max-w-3xl">
-        <Link href="/dashboard" className="text-xs font-medium text-emerald-900 underline">
-          ← Mon espace
+        <Link href="/dashboard/pharmacien" className="text-xs font-medium text-emerald-900 underline">
+          ← Tableau de bord
         </Link>
         <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</p>
       </PageShell>
@@ -192,11 +202,13 @@ export function PharmacistDemandesHub() {
 
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
-      <Link href="/dashboard" className="text-xs font-medium text-emerald-900 underline">
-        ← Mon espace
+      <Link href="/dashboard/pharmacien" className="text-xs font-medium text-emerald-900 underline">
+        ← Tableau de bord
       </Link>
-      <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">Demandes</h1>
-      <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">Demandes enregistrées pour ta pharmacie.</p>
+      <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">Demandes de produits</h1>
+      <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">
+        Tableau de bord et liste comme côté patient — traiter les dossiers depuis votre officine.
+      </p>
 
       <div className="mt-1">
         <DemandeHubTabBar
@@ -205,23 +217,6 @@ export function PharmacistDemandesHub() {
           labels={{ dashboard: "Tableau de bord", list: "Toutes les demandes" }}
         />
       </div>
-
-      {notifications.length > 0 ? (
-        <section className="rounded-lg border border-violet-200/70 bg-violet-50/40 p-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-violet-950">Notifications</p>
-          <ul className="mt-1.5 space-y-1.5">
-            {notifications.map((n) => (
-              <li key={n.id} className="rounded-md border border-violet-200/70 bg-white px-2 py-1.5">
-                <p className="text-[11px] font-semibold text-foreground">{n.title}</p>
-                {n.body ? <p className="text-[11px] text-muted-foreground">{n.body}</p> : null}
-                <Link href={`/dashboard/pharmacien/demandes/${n.request_id}`} className="text-[11px] text-emerald-800 underline">
-                  Ouvrir la demande
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       {error ? (
         <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-950">{error}</p>
@@ -242,7 +237,16 @@ export function PharmacistDemandesHub() {
         </>
       ) : (
         <div className="mt-4 space-y-4">
-          <div className="grid gap-2 rounded-lg border border-border/80 bg-muted/20 p-2.5 sm:grid-cols-3 sm:items-end">
+          <div className="grid gap-2 rounded-lg border border-border/80 bg-muted/20 p-2.5 sm:grid-cols-2 lg:grid-cols-4 sm:items-end">
+            <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
+              Réf. demande ou code client
+              <input
+                value={refQuery}
+                onChange={(e) => setRefQuery(e.target.value)}
+                placeholder="Ex. D042/26 ou P0001-X"
+                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/70"
+              />
+            </label>
             <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Statut
               <select

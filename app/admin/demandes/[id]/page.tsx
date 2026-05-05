@@ -70,7 +70,7 @@ export default function AdminDemandeDetailPage() {
 
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
     if ((profile as { role?: string } | null)?.role !== "admin") {
-      router.replace("/dashboard");
+      router.replace("/");
       return;
     }
 

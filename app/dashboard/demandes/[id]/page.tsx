@@ -9,18 +9,24 @@ import { supabase } from "@/lib/supabase";
 import {
   availabilityStatusFr,
   counterOutcomeFr,
-  formatShortId,
   patientRequestHasNoActions,
   requestItemLineSourceFr,
   requestStatusFr,
   requestTypeFr,
 } from "@/lib/request-display";
+import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
 import { PatientCancelBeforeResponse } from "./PatientCancelBeforeResponse";
 import { PatientProductRequestActions } from "./PatientProductRequestActions";
 import { pphLabel } from "@/lib/product-price";
 
-type PharmacyEmbed = { nom: string; ville: string; adresse: string; telephone: string | null };
+type PharmacyEmbed = {
+  nom: string;
+  ville: string;
+  adresse: string;
+  telephone: string | null;
+  public_ref?: string | null;
+};
 type ProductRequestEmbed = { patient_note: string | null };
 
 type ProdEmbed = { name: string; price_pph?: number | null };
@@ -52,6 +58,7 @@ type RequestDetail = {
   confirmed_at: string | null;
   patient_planned_visit_date: string | null;
   patient_planned_visit_time: string | null;
+  request_public_ref?: string | null;
   pharmacies: PharmacyEmbed | PharmacyEmbed[] | null;
   product_requests: ProductRequestEmbed | ProductRequestEmbed[] | null;
 };
@@ -116,7 +123,7 @@ export default function DemandeDetailPage() {
       const { data: reqRow, error: reqErr } = await supabase
         .from("requests")
         .select(
-          "id,created_at,status,request_type,pharmacy_id,submitted_at,responded_at,confirmed_at,patient_planned_visit_date,patient_planned_visit_time,pharmacies(nom,ville,adresse,telephone),product_requests(patient_note)"
+          "id,created_at,status,request_type,pharmacy_id,submitted_at,responded_at,confirmed_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,pharmacies(nom,ville,adresse,telephone,public_ref),product_requests(patient_note)"
         )
         .eq("id", id)
         .eq("patient_id", user.id)
@@ -192,8 +199,8 @@ export default function DemandeDetailPage() {
           ← Mes demandes
         </Link>
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-            #{formatShortId(request.id)}
+          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground">
+            {displayRequestPublicRef(request)}
           </span>
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
             {requestStatusFr[request.status] ?? request.status}
@@ -368,6 +375,11 @@ export default function DemandeDetailPage() {
             <CompactCardBody className="space-y-0">
               {pharmacy ? (
                 <>
+                  {pharmacy.public_ref?.trim() ? (
+                    <KvRow label="Code officine">
+                      <span className="font-mono text-xs font-semibold">{pharmacy.public_ref.trim()}</span>
+                    </KvRow>
+                  ) : null}
                   <KvRow label="Pharmacie">
                     <span>
                       {pharmacy.nom}{" "}
