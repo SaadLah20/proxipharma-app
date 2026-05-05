@@ -21,6 +21,7 @@ Variables:
 - `CRON_SECRET` (secret partagé pour protéger les endpoints cron)
 - `RESEND_API_KEY` (prestataire e-mail, free tier possible)
 - `EMAIL_FROM` (ex: `ProxiPharma <onboarding@resend.dev>` en dev, puis domaine validé)
+- `APP_BASE_URL` (URL publique Vercel/custome domain, utilisée dans les liens e-mail)
 
 Regle:
 - Le nom doit etre exact

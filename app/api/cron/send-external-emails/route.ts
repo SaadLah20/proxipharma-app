@@ -58,7 +58,7 @@ function requestPathForRole(role: string | null | undefined, requestId: string) 
   return `/dashboard/demandes/${requestId}`;
 }
 
-export async function POST(req: Request) {
+async function handleCron(req: Request) {
   const expected = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization") ?? "";
 
@@ -178,5 +178,13 @@ export async function POST(req: Request) {
   }
 
   return Response.json({ ok: true, processed: rows.length, sent, failed });
+}
+
+export async function GET(req: Request) {
+  return handleCron(req);
+}
+
+export async function POST(req: Request) {
+  return handleCron(req);
 }
 
