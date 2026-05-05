@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session (copier-coller tolere ou paraphrase courte):
-> Reprends ProxiPharma depuis `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12**) et continue la **feuille de route**. Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*` ; base déjà en **007** sans **009** → appliquer **`20260503_009`** (récursion `profiles`).
+> Reprends ProxiPharma depuis `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12**) et continue la **feuille de route**. Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 A la **sortie**: demander ou accepter la mise a jour de ce cahier (Journal + Etat actuel + prompt de reprise du §12).
 
@@ -256,6 +256,30 @@ Statuts retenus v1:
 - `partially_collected` / `fully_collected` (conserves en enum; hors flux officiel depuis migration 20260502 au profit de `completed` + suivi ligne a ligne au comptoir)
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
+
+### Session 2026-05-05 (lot groupé) — Plateforme header, notifs riches 003–006, codes publics 007, espaces patient/pharmacien
+
+**Objectif** : une coque UI commune, des notifications lisibles, des **codes courts** PH / P / D pour annuaire, support et recherche.
+
+**Migrations** (à appliquer dans l’ordre après `20260505_002` si pas déjà fait) :
+- **`20260505_003_rich_notifications_pharmacy_engagement.sql`** — textes notifs patient/pharmacien via `_in_app_notification_patient` / `_in_app_notification_pharmacist` ; table **`pharmacy_engagement_events`** (tracking vues fiche / clics).
+- **`20260505_004_patient_notif_title_pharmacy.sql`**, **`20260505_005_pharmacist_notifications_vouvoiement_client.sql`** — ajustements titres / vouvoiement.
+- **`20260505_006_pharmacist_notif_patient_display_name.sql`** — nom patient côté notif pharmacien : `full_name` → `email` → `whatsapp` → `Client` dans `_emit_in_app_notifications_for_status_history`.
+- **`20260505_007_public_reference_codes.sql`** — colonnes **`pharmacies.public_ref`**, **`profiles.patient_ref`**, **`requests.request_public_ref`** (+ `request_ref_year` / `request_ref_seq`) ; séquences, **`pharmacy_request_ref_counters`**, triggers (dont **SECURITY DEFINER** sur affectation ref demande) ; backfill ; **obligatoire** : **`DROP FUNCTION`** des RPC **`pharmacist_patient_contact_for_request(uuid)`** et **`pharmacist_patient_directory_for_my_pharmacy()`** avant recréation si extension de `RETURNS TABLE` (sinon erreur **`42P13`**).
+
+**Next.js** :
+- **`components/layout/platform-chrome.tsx`**, **`platform-header.tsx`** — header fixe, nav patient & pharmacien (demandes produits, ordonnances, consultations libres, etc.), cloche notifs **`InAppNotificationItem`**.
+- **`/`** annuaire — affichage code officine, recherche par ref / nom / ville / contact.
+- **`/dashboard/demandes`**, **`/dashboard/pharmacien/demandes`** — colonnes ref, filtres « réf. », copie mémorable ; hub pharmacien libellé **Demandes de produits**.
+- **`/dashboard/pharmacien/page.tsx`** — dashboard analytics (Recharts) + liens ; gestion si table engagement absente.
+- **Placeholders** : **`/dashboard/patient/ordonnances`**, **`consultations-libres`**, **`/dashboard/pharmacien/ordonnances`**, **`consultations-libres`**, autres volets pharmacien (clients avec recherche par **code client**, etc.).
+- **`lib/public-ref.ts`**, **`lib/pharmacy-engagement.ts`**, **`lib/post-auth-redirect.ts`**, résumés cartes patient (**`lib/patient-request-list-summary.ts`**, **`lib/currency-ma.ts`**).
+
+**Git** : commit **`a20c8c4`**, push **`fix/rls-recursion`**.
+
+**Apprentissage infra** : `SELECT setval(...)` dans l’éditeur SQL retourne la valeur fixée (comportement normal) ; un **count** sur `request_public_ref` n’est pas l’année « /26 ».
+
+---
 
 ### Session 2026-05-05 (suite MVP) — Admin pilote Q40 + ruptures marché pharmacien
 
@@ -522,6 +546,12 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260504_003_request_initial_status_history_notifications_fix.sql` (historisation statut initial à l’insert `requests` + backfill `submitted` sans historique)
   - `supabase/migrations/20260504_004_fix_notifications_conflict_index.sql` (fix `ON CONFLICT` notifications : index unique non partiel)
   - `supabase/migrations/20260505_001_external_notification_channels_queue.sql` (**Q35** préférences canaux + file `notification_external_queue` + trigger depuis `app_notifications`)
+  - `supabase/migrations/20260505_002_filter_external_notification_statuses.sql` (filtre statuts éligibles file externe)
+  - `supabase/migrations/20260505_003_rich_notifications_pharmacy_engagement.sql` (notifs texte riche + **`pharmacy_engagement_events`**)
+  - `supabase/migrations/20260505_004_patient_notif_title_pharmacy.sql`
+  - `supabase/migrations/20260505_005_pharmacist_notifications_vouvoiement_client.sql`
+  - `supabase/migrations/20260505_006_pharmacist_notif_patient_display_name.sql` (fallback nom patient dans notifs pharmacien)
+  - `supabase/migrations/20260505_007_public_reference_codes.sql` (**codes** `public_ref` / `patient_ref` / `request_public_ref` + RPC directory/contact avec **`patient_ref`** — inclut **`DROP FUNCTION`** avant recréation RPC)
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -532,13 +562,15 @@ Regles fonctionnelles retenues (alignement dernier atelier):
 - **Après réponse** : l’app ne renseigne plus **`expires_at` +7 j** sur publication (pilote) ; l’**abandon auto 24 h** sur statut **`responded`** non confirmé est porté par le batch SQL `abandon_unconfirmed_responded_requests()` (à cron). Les **`request_items`** sont limités à **qté 1–10** et **un seul `product_id` par demande**.
 - Les statuts enum `partially_collected` / `fully_collected` restent en base mais le flux officiel livre passe par **`completed`**; `patient_mark_collected` nest plus callable par le JWT patient (obsolete).
 
-Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-05-03** et **2026-05-05**):
-- **`/`** annuaire + lien carte vers fiche **`/pharmacie/[id]`**
+Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-05-03**, **2026-05-05** et **lot plateforme / codes publics 2026-05-05**):
+- **`/`** annuaire + recherche par code officine **`public_ref`** + lien carte vers fiche **`/pharmacie/[id]`** (affiche aussi le code)
 - **`/pharmacie/[id]/demande-produits`**: création demande **`submitted`**
-- **`/dashboard`** (résumé patient + lien hub), **`/dashboard/demandes`** (hub onglets + cartes + filtres), **`/dashboard/demandes/[id]`**
-- **`/dashboard/pharmacien/demandes`** (hub onglets + cartes + filtres, tous statuts), **`/dashboard/pharmacien/demandes/[id]`**
-- Auth **`/auth`** supporte redirection query **`?redirect=`** apres connexion
-- Travail incremental versionne sous Git sur branche **`fix/rls-recursion`** (voir historique commits ; groupes récents : alternatives + passage + PPH **`ebf1d49`**, hubs UX demandes **`83cbf5f`**, ESLint/alternatives comptoir **Session 2026-05-04** §10, hub statuts + RPC contact patient + fix RLS **Session 2026-05-06** §10).
+- **`/dashboard`** (résumé / routage rôle), **`/dashboard/demandes`** (hub + **filtre par réf.** + codes **`request_public_ref`** sur cartes), **`/dashboard/demandes/[id]`** (ref mémorable + code officine en détail)
+- **`/dashboard/pharmacien`** (tableau de bord analytics + liens), **`/dashboard/pharmacien/demandes`** (idem refs + **code client** sur cartes), **`/dashboard/pharmacien/demandes/[id]`**, **`/dashboard/pharmacien/clients`** (recherche par **`patient_ref`**)
+- **Chrome** : **`components/layout/platform-*.tsx`** — nav patient & pharmacien (ordonnances / consultations libres en menu, etc.), notifs in-app header
+- **Patient** : **`/dashboard/patient/*`** (paramètres avec **code client**, pharmacies, liste souhaits, placeholders ordonnances / consultations libres)
+- Auth **`/auth`** + **`lib/post-auth-redirect.ts`**
+- Travail incrementale sur branche **`fix/rls-recursion`** (dernier groupe notoire : **`a20c8c4`** — plateforme + **007** + notifs **003–006**).
 
 Etat fonctionnel teste / a valider sur Supabase:
 - Les 3 types de demandes sont inserables (tel qu avant)
@@ -569,7 +601,8 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 9. **Admin pilote (Q40)** : **partiel fait** — `/admin` + `/admin/demandes/[id]` (lecture) + filtres ; exports CSV / analytics **à cadrer** si besoin.
 
 **Jalon 2 — UI dans l’ordre des dépendances**  
-0. **Hubs liste/tableau de bord** patient + pharmacien (`/dashboard/demandes`, `/dashboard/pharmacien/demandes`) : ✓ (**Session 2026-05-05** §10).
+0. **Hubs liste/tableau de bord** patient + pharmacien (`/dashboard/demandes`, `/dashboard/pharmacien/demandes`) : ✓ (**Session 2026-05-05** §10) ; **rafraîchissement UX** : continuer **écran par écran** (micro-copies, états vides, accessibilité, alignement maquettes) — voir **§13.5** phrase de reprise UI.
+0bis. **Codes publics PH / P / D** : ✓ BDD + annuaire + hubs + paramètres / clients (**`20260505_007`**, session journal lot 2026-05-05).
 1. Fiche **`/pharmacie/.../demande-produits`** : **PPH affichés** ✓ ; **qté max 10** ✓ ; **commentaire par ligne** ✓ (**Q11**, session **2026-05-07**).  
 2. **`PatientProductRequestActions` + détail patient** : radios principal/alternative ✓ ; date passage ✓ ; notes par ligne au renvoi ✓ (**Q11**) ; reste récap dense **Q28**, totaux **Q23** si besoin au-delà de PPH + lignes réponse pharma.  
 3. **Pharmacien** : motif sur **lignes proposées par l’officine** ✓ (**Q20**), mention **« Mis à jour … »** sur ligne ✓ (**Q32**, `updated_at` affiché) ; reste affinages ETA « à commander » / **Q18**.  
@@ -640,7 +673,13 @@ _Ancienne phrase de reprise (alternatives + patient_mark_collected + UI sprint 2
 
 ### 13.4) Phrase de reprise courte (recommandée après la session 2026-05-06)
 
-**« Reprends ProxiPharma : `CAHIER_DES_CHARGES.md` §0.1, dernier §10, §11–§12 ; Supabase avec **`008`+`009`** (jamais **007** sans **009**) ; enchaîne le flux demande produits (§12) avec migrations Git ; mets le cahier à jour en fin de session. »**
+**« Reprends ProxiPharma : `CAHIER_DES_CHARGES.md` §0.1, dernier §10, §11–§12 ; Supabase avec **`008`+`009`** (ne pas réappliquer la policy **`20260503_007`** seule ; ne pas confondre avec **`20260505_007`** codes publics) ; enchaîne le flux demande produits (§12) avec migrations Git ; mets le cahier à jour en fin de session. »**
+
+### 13.5) Phrase de reprise « UI ensuite page par page » (recommandée après le lot plateforme + `20260505_007`)
+
+À copier-coller pour la prochaine session **produit / interface** :
+
+**« Je reprends ProxiPharma côté UI : lis `CONTEXTE.md` puis `CAHIER_DES_CHARGES.md` §11 et §12. On développe **page par page** et **fonctionnalité par fonctionnalité** (polish écrans existants, puis brancher progressivement ordonnances & consultations libres et le reste des placeholders pharmacien/patient). Pas de nouvelle migration sauf blocage technique explicite. Mets le §10 Journal et l’état §11 à jour en fin de session. »**
 
 ### Template pour prochaines sessions
 - Date:

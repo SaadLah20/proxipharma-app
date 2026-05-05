@@ -83,6 +83,14 @@ Action:
 2. Supprimer la policy recursive
 3. Reappliquer le correctif avec fonction helper `is_admin()`
 
+### Erreur Postgres `42P13` sur migration `20260505_007` (changement `RETURNS TABLE` des RPC pharmacien)
+
+Cause:
+- `CREATE OR REPLACE FUNCTION` ne suffit pas si la liste des colonnes retournées (`pharmacist_patient_contact_for_request`, `pharmacist_patient_directory_for_my_pharmacy`) change.
+
+Action:
+- Le fichier migre versionne inclut `DROP FUNCTION IF EXISTS ...` puis `CREATE FUNCTION`. Rejouer ce bloc ou mettre a jour le depot et reexecuter la migration.
+
 ### Check PR : Vercel « Deployment failed » (plan Hobby + crons trop fréquents)
 
 Cause:
