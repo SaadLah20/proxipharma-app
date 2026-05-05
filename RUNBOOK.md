@@ -107,3 +107,9 @@ npm run build
 git status
 git log --oneline -n 10
 ```
+
+## 8) Vercel Cron Q35 (email)
+
+- Endpoint: `/api/cron/send-external-emails`
+- Planification: `vercel.json` (`*/2 * * * *`)
+- Secret attendu: header `Authorization: Bearer <CRON_SECRET>`
