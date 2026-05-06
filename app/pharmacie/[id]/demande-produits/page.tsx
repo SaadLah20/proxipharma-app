@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Minus, Plus, Trash2 } from "lucide-react";
-import { pphLabel } from "@/lib/product-price";
+import { unitPriceLabel } from "@/lib/product-price";
 import { supabase } from "@/lib/supabase";
 
 type ProductLite = {
@@ -228,8 +228,8 @@ export default function DemandeProduitsPage() {
                     className="flex w-full flex-col rounded-md px-2 py-2 text-left text-sm hover:bg-white"
                   >
                     <span className="font-medium text-gray-900">{p.name}</span>
-                    {pphLabel(p.price_pph) ? (
-                      <span className="text-xs font-medium text-teal-800">{pphLabel(p.price_pph)}</span>
+                    {unitPriceLabel(p.price_pph) ? (
+                      <span className="text-xs font-medium text-teal-800">{unitPriceLabel(p.price_pph)}</span>
                     ) : null}
                     <span className="text-xs text-gray-500">
                       {p.product_type}
@@ -257,8 +257,8 @@ export default function DemandeProduitsPage() {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-gray-900">{l.name}</p>
-                    {pphLabel(l.price_pph) ? (
-                      <p className="truncate text-xs font-medium text-teal-800">{pphLabel(l.price_pph)}</p>
+                    {unitPriceLabel(l.price_pph) ? (
+                      <p className="truncate text-xs font-medium text-teal-800">{unitPriceLabel(l.price_pph)}</p>
                     ) : null}
                     <label className="mt-1 block text-[11px] text-gray-600">
                       <span className="sr-only">Note sur ce produit</span>

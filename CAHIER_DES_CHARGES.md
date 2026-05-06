@@ -316,6 +316,21 @@ Statuts retenus v1:
 
 ---
 
+### Session 2026-05-06 (suite 5) — Détail demande patient recentré produit (header sticky + actions globales)
+
+**Next.js** :
+- `app/dashboard/demandes/[id]/page.tsx` : structure simplifiée
+  - header **figé** (sticky) avec référence, statut, montant contextualisé par statut, nombre de lignes et passage prévu ;
+  - corps centré sur les **blocs produits** (sans sections historiques/pharmacie secondaires) ;
+  - zone basse réservée aux **actions globales** (validation, renvoi, abandon selon statut).
+- `app/dashboard/demandes/[id]/PatientProductRequestActions.tsx` :
+  - ajout d’une mise à jour de la **date/heure de passage** en statut `confirmed` (sans migration) ;
+  - conservation du flux produit-first (`responded` : choix principal/alternative, puis confirmation).
+
+**Contrôle** : `npm run lint` OK.
+
+---
+
 ### Session 2026-05-06 — UI page par page : ordonnances & consultations libres (patient + pharmacien)
 
 **Objectif** : démarrer le chantier UI incrémental sans migration, en remplaçant les placeholders des pages secondaires par des vues utiles.
@@ -642,6 +657,7 @@ Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-
 - **`/dashboard`** (résumé / routage rôle), **`/dashboard/demandes`** (hub + **filtre par réf.** + codes **`request_public_ref`** sur cartes), **`/dashboard/demandes/[id]`** (ref mémorable + code officine en détail)
 - **`/dashboard/demandes`** (vue liste) : refonte UX des filtres/cartes ; suppression bouton copie ; compteurs et montants contextualisés (`responded` vs validé/en préparation/clôturé) ; statut intermédiaire UI **En préparation** (virtuel, sans migration)
 - **`/dashboard/demandes`** et **`/dashboard/pharmacien/demandes`** (vue dashboard) : bloc supplémentaire **En préparation** alimenté par statut dérivé UI (`confirmed` + progression comptoir), cohérent avec les cartes
+- **`/dashboard/demandes/[id]`** (détail patient) : refonte orientée produit avec header sticky montant+volume+passage prévu et actions globales en bas ; date de passage modifiable aussi en `confirmed` côté UI/app
 - **`/dashboard/pharmacien`** (tableau de bord analytics + liens), **`/dashboard/pharmacien/demandes`** (idem refs + **code client** sur cartes), **`/dashboard/pharmacien/demandes/[id]`**, **`/dashboard/pharmacien/clients`** (recherche par **`patient_ref`**)
 - **Chrome** : **`components/layout/platform-*.tsx`** — nav patient & pharmacien (ordonnances / consultations libres en menu, etc.), notifs in-app header
 - **Patient** : **`/dashboard/patient/*`** (paramètres avec **code client**, pharmacies, liste souhaits, ordonnances/consultations libres désormais branchées en listes filtrées par type)

@@ -3,22 +3,22 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { CompactCard, CompactCardBody, CompactCardHeader, KvRow, PageShell } from "@/components/ui/compact-shell";
-import { formatDateTimeShort24hFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
+import { PageShell } from "@/components/ui/compact-shell";
+import { formatPlannedVisitFr } from "@/lib/datetime-fr";
 import { supabase } from "@/lib/supabase";
 import {
   availabilityStatusFr,
   counterOutcomeFr,
-  patientRequestHasNoActions,
   requestItemLineSourceFr,
   requestStatusFr,
-  requestTypeFr,
 } from "@/lib/request-display";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
 import { PatientCancelBeforeResponse } from "./PatientCancelBeforeResponse";
 import { PatientProductRequestActions } from "./PatientProductRequestActions";
-import { pphLabel } from "@/lib/product-price";
+import { unitPriceLabel } from "@/lib/product-price";
+import { formatDh } from "@/lib/currency-ma";
+import { summarizeRequestForPatientCard, type PatientRequestItemRow } from "@/lib/patient-request-list-summary";
 
 type PharmacyEmbed = {
   nom: string;
@@ -83,6 +83,26 @@ type RequestItemRow = {
   request_item_alternatives: AltEmbed | AltEmbed[] | null;
 };
 
+type StatusHistoryRow = {
+  id: string;
+  created_at: string;
+  old_status: string | null;
+  new_status: string;
+  reason: string | null;
+};
+
+function historyReasonLabel(reason: string | null | undefined): string {
+  if (!reason) return "Mise à jour du dossier";
+  if (reason === "publication_disponibilites") return "Réponse de la pharmacie publiée";
+  if (reason === "pharmacist_adjustments_after_confirmation") return "Ajustements après validation";
+  if (reason === "counter_product_added") return "Produit ajouté au comptoir";
+  if (reason === "counter_line_cancelled") return "Produit annulé au comptoir";
+  if (reason === "counter_alternative_added") return "Alternative ajoutée";
+  if (reason === "counter_alternative_removed") return "Alternative retirée";
+  if (reason.startsWith("counter_outcome:")) return "Statut de récupération mis à jour";
+  return "Mise à jour du dossier";
+}
+
 export default function DemandeDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -92,6 +112,9 @@ export default function DemandeDetailPage() {
   const [error, setError] = useState("");
   const [request, setRequest] = useState<RequestDetail | null>(null);
   const [items, setItems] = useState<RequestItemRow[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [historyRows, setHistoryRows] = useState<StatusHistoryRow[]>([]);
 
   const loadDetail = useCallback(
     async (silent?: boolean) => {
@@ -169,6 +192,21 @@ export default function DemandeDetailPage() {
     return () => window.clearTimeout(tid);
   }, [loadDetail]);
 
+  const loadHistory = useCallback(async () => {
+    if (!id) return;
+    setHistoryBusy(true);
+    const { data, error: histErr } = await supabase
+      .from("request_status_history")
+      .select("id,created_at,old_status,new_status,reason")
+      .eq("request_id", id)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    if (!histErr && Array.isArray(data)) {
+      setHistoryRows(data as StatusHistoryRow[]);
+    }
+    setHistoryBusy(false);
+  }, [id]);
+
   if (loading) {
     return (
       <PageShell>
@@ -188,9 +226,32 @@ export default function DemandeDetailPage() {
     );
   }
 
-  const pharmacy = one(request.pharmacies);
   const productReq = one(request.product_requests);
   const note = productReq?.patient_note ?? null;
+  const summary = summarizeRequestForPatientCard(items as unknown as PatientRequestItemRow[]);
+  const isInitialAmountView =
+    request.status === "submitted" || request.status === "in_review" || request.status === "responded";
+  const totalLabel = isInitialAmountView
+    ? summary.totalInitialDh != null
+      ? formatDh(summary.totalInitialDh)
+      : "—"
+    : summary.totalSelectedDh != null
+      ? formatDh(summary.totalSelectedDh)
+      : "—";
+  const amountHint = isInitialAmountView
+    ? "montant basé sur les produits et quantités initialement demandés"
+    : "montant basé sur les produits validés par vous";
+  const hasBottomActions =
+    request.request_type === "product_request" &&
+    (request.status === "submitted" ||
+      request.status === "in_review" ||
+      request.status === "responded" ||
+      request.status === "confirmed");
+  const showPlannedVisitBlock =
+    request.status === "confirmed" ||
+    request.status === "completed" ||
+    request.status === "partially_collected" ||
+    request.status === "fully_collected";
 
   return (
     <PageShell className="space-y-3">
@@ -198,7 +259,9 @@ export default function DemandeDetailPage() {
         <Link href="/dashboard/demandes" className="text-xs font-medium text-sky-800 underline">
           ← Mes demandes
         </Link>
-        <div className="flex flex-wrap items-center gap-1.5">
+      </div>
+      <section className="rounded-xl border-2 border-sky-100 bg-white p-2.5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-1.5">
           <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground">
             {displayRequestPublicRef(request)}
           </span>
@@ -206,28 +269,75 @@ export default function DemandeDetailPage() {
             {requestStatusFr[request.status] ?? request.status}
           </span>
         </div>
-      </div>
+        <div className={`mt-2 grid gap-2 ${showPlannedVisitBlock ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+          <div className="rounded-lg border border-sky-100 bg-sky-50/60 px-2.5 py-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-900">Montant</p>
+            <p className="text-sm font-bold text-sky-950">{totalLabel}</p>
+            <p className="text-[10px] text-sky-900/80">{amountHint}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 py-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-700">Produits</p>
+            <p className="text-sm font-bold text-foreground">{summary.lineCount} ligne{summary.lineCount > 1 ? "s" : ""}</p>
+          </div>
+          {showPlannedVisitBlock ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-2.5 py-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800">Passage prévu</p>
+              <p className="text-xs font-semibold text-emerald-950">
+                {request.patient_planned_visit_date
+                  ? formatPlannedVisitFr(request.patient_planned_visit_date, request.patient_planned_visit_time)
+                  : "À définir"}
+              </p>
+              <p className="text-[10px] text-emerald-900/80">modifiable dans les actions ci-dessous</p>
+            </div>
+          ) : null}
+        </div>
+      </section>
+      <section className="rounded-xl border border-border/80 bg-card p-2.5 shadow-sm">
+        <button
+          type="button"
+          onClick={() => {
+            const next = !historyOpen;
+            setHistoryOpen(next);
+            if (next && historyRows.length === 0 && !historyBusy) {
+              void loadHistory();
+            }
+          }}
+          className="inline-flex h-9 items-center justify-center rounded-lg border border-border px-3 text-xs font-semibold text-foreground hover:bg-muted/40"
+        >
+          {historyOpen ? "Masquer l’historique" : "Voir l’historique"}
+        </button>
+        {historyOpen ? (
+          <div className="mt-2 space-y-1.5">
+            {historyBusy ? (
+              <p className="text-xs text-muted-foreground">Chargement…</p>
+            ) : historyRows.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Aucun événement disponible.</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {historyRows.map((h) => (
+                  <li key={h.id} className="rounded-lg border border-border/60 bg-muted/20 px-2 py-1.5 text-xs">
+                    <p className="font-medium text-foreground">{historyReasonLabel(h.reason)}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {h.old_status ? `${requestStatusFr[h.old_status] ?? h.old_status} → ` : ""}
+                      {requestStatusFr[h.new_status] ?? h.new_status}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
+      </section>
 
-      {patientRequestHasNoActions(request.status) ? (
-        <CompactCard>
-          <CompactCardHeader title="Lecture seule" />
-          <CompactCardBody className="text-muted-foreground">
-            Cette demande est clôturée ou sans action ici. Tu peux consulter les informations ci-dessous.
-          </CompactCardBody>
-        </CompactCard>
-      ) : null}
-
-      {items.length > 0 ? (
-        <CompactCard>
-          <CompactCardHeader title={`${items.length} ligne${items.length > 1 ? "s" : ""}`} />
-          <CompactCardBody className="space-y-2 p-2 sm:p-2.5">
-            <ul className="space-y-2">
+      {items.length > 0 && !hasBottomActions ? (
+        <section className="space-y-2">
+            <ul className="space-y-2.5">
               {items.map((row) => {
                 const prod = one(row.products);
                 const altList = normalizeAlternatives(row.request_item_alternatives);
-                const linePph = pphLabel(prod?.price_pph);
+                const linePph = unitPriceLabel(prod?.price_pph);
                 return (
-                  <li key={row.id} className="rounded-md border border-border/60 bg-muted/10 p-2 text-[11px] leading-snug sm:text-xs">
+                  <li key={row.id} className="rounded-xl border-2 border-slate-100 bg-white p-2.5 text-[11px] leading-snug shadow-sm sm:text-xs">
                     <div className="flex flex-wrap items-start justify-between gap-1">
                       <p className="font-semibold text-foreground">{prod?.name ?? "Produit"}</p>
                       {linePph ? <span className="shrink-0 text-[10px] font-medium text-teal-800">{linePph}</span> : null}
@@ -288,7 +398,7 @@ export default function DemandeDetailPage() {
                         <ul className="mt-1 space-y-1">
                           {altList.map((alt) => {
                             const altProd = one(alt.products);
-                            const altPph = pphLabel(altProd?.price_pph);
+                            const altPph = unitPriceLabel(altProd?.price_pph);
                             return (
                               <li key={alt.id} className="rounded bg-card/90 px-1.5 py-1 text-[10px] sm:text-[11px]">
                                 <span className="font-medium">{altProd?.name ?? "Alt."}</span>
@@ -315,17 +425,13 @@ export default function DemandeDetailPage() {
                 );
               })}
             </ul>
-          </CompactCardBody>
-        </CompactCard>
-      ) : request.request_type === "product_request" ? (
+        </section>
+      ) : request.request_type === "product_request" && !hasBottomActions ? (
         <p className="text-center text-xs text-muted-foreground">Aucune ligne pour cette demande.</p>
       ) : null}
 
-      {request.request_type === "product_request" &&
-      (request.status === "submitted" ||
-        request.status === "in_review" ||
-        request.status === "responded" ||
-        request.status === "confirmed") ? (
+      {hasBottomActions ? (
+        <section className="pb-3">
         <PatientProductRequestActions
           key={
             [
@@ -350,10 +456,13 @@ export default function DemandeDetailPage() {
           status={request.status}
           items={items}
           initialPatientNote={note}
+          initialPlannedVisitDate={request.patient_planned_visit_date}
+          initialPlannedVisitTime={request.patient_planned_visit_time}
           onReload={async () => {
             await loadDetail(true);
           }}
         />
+        </section>
       ) : null}
 
       {request.request_type === "product_request" && (request.status === "submitted" || request.status === "in_review") ? (
@@ -364,73 +473,6 @@ export default function DemandeDetailPage() {
           }}
         />
       ) : null}
-
-      <details className="rounded-lg border border-border/70 bg-muted/10">
-        <summary className="cursor-pointer px-3 py-2.5 text-xs font-semibold text-foreground hover:bg-muted/25">
-          Pharmacie, historique et message
-        </summary>
-        <div className="space-y-3 border-t border-border/60 p-2 pt-3">
-          <CompactCard>
-            <CompactCardHeader title={requestTypeFr[request.request_type] ?? request.request_type} />
-            <CompactCardBody className="space-y-0">
-              {pharmacy ? (
-                <>
-                  {pharmacy.public_ref?.trim() ? (
-                    <KvRow label="Code officine">
-                      <span className="font-mono text-xs font-semibold">{pharmacy.public_ref.trim()}</span>
-                    </KvRow>
-                  ) : null}
-                  <KvRow label="Pharmacie">
-                    <span>
-                      {pharmacy.nom}{" "}
-                      <span className="text-muted-foreground">({pharmacy.ville})</span>
-                    </span>
-                  </KvRow>
-                  <KvRow label="Adresse">{pharmacy.adresse}</KvRow>
-                  {pharmacy.telephone ? (
-                    <KvRow label="Tél.">
-                      <a href={`tel:${pharmacy.telephone}`} className="text-sky-800 underline">
-                        {pharmacy.telephone}
-                      </a>
-                    </KvRow>
-                  ) : null}
-                  <div className="pt-1">
-                    <Link href={`/pharmacie/${request.pharmacy_id}`} className="text-[11px] font-medium text-sky-800 underline">
-                      Fiche pharmacie
-                    </Link>
-                  </div>
-                </>
-              ) : (
-                <p className="text-muted-foreground">Pharmacie…</p>
-              )}
-            </CompactCardBody>
-          </CompactCard>
-
-          <CompactCard>
-            <CompactCardHeader title="Historique" />
-            <CompactCardBody className="space-y-0">
-              <KvRow label="Créée">{formatDateTimeShort24hFr(request.created_at)}</KvRow>
-              {request.submitted_at ? <KvRow label="Envoyée">{formatDateTimeShort24hFr(request.submitted_at)}</KvRow> : null}
-              {request.responded_at ? (
-                <KvRow label="Réponse pharma">{formatDateTimeShort24hFr(request.responded_at)}</KvRow>
-              ) : null}
-              {request.confirmed_at ? (
-                <KvRow label="Confirmée">{formatDateTimeShort24hFr(request.confirmed_at)}</KvRow>
-              ) : null}
-              {request.patient_planned_visit_date ? (
-                <KvRow label="Passage prévu">{formatPlannedVisitFr(request.patient_planned_visit_date, request.patient_planned_visit_time)}</KvRow>
-              ) : null}
-            </CompactCardBody>
-          </CompactCard>
-
-          {note ? (
-            <CompactCard>
-              <CompactCardHeader title="Ton message" />
-              <CompactCardBody className="whitespace-pre-wrap text-foreground">{note}</CompactCardBody>
-            </CompactCard>
-          ) : null}
-        </div>
-      </details>
     </PageShell>
   );
 }
