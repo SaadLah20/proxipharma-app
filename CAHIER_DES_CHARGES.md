@@ -257,6 +257,54 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-06 (suite) — Refonte UI « Mes demandes de produits / Toutes les demandes »
+
+**Objectif** : rendre l’écran liste beaucoup plus lisible (public peu digitalisé), compact et orienté compréhension immédiate.
+
+**Next.js** :
+- **`/dashboard/demandes`** (vue **Toutes les demandes**) : bloc **Filtres et recherche** séparé visuellement (encart dédié, compact, labels plus explicites).
+- **Cartes patient** (`components/requests/demande-hub-ui.tsx`) : design plus compact/structuré, sections nettes (entête, statut, compteurs, total, CTA détail), lisibilité renforcée.
+- **Suppression** du bouton **Copier référence** sur les cartes patient de cette vue.
+- Enrichissement des données lues sur la liste (`request_items` + alternatives) pour calculer les métriques métier demandées.
+- **Statut intermédiaire UI** ajouté côté patient (virtuel, sans migration) : quand une demande est `confirmed` et que l’exécution comptoir a démarré, affichage **« En préparation »** au lieu de **« Validée »**.
+- Compteurs carte selon statut :
+  - **`responded`** : nb produits principaux, nb alternatives proposées, nb produits proposés officine ; total basé sur **quantités demandées initialement**.
+  - **`confirmed` / `En préparation` / `completed`** : total basé sur **produits validés** ; compteurs validés (principaux / alternatives / proposés).
+  - **`En préparation`** : compteurs opérationnels visibles (en attente, récupérés, annulés, commandés non reçus).
+
+**Libs** :
+- `lib/patient-request-list-summary.ts` : nouveau calculateur de synthèse (totaux + compteurs par origine/validation/comptoir).
+- `lib/request-display.ts` : libellé + style badge pour le statut UI virtuel `in_progress_virtual` = **En préparation**.
+
+**Contrôle** : `npm run lint` OK.
+
+---
+
+### Session 2026-05-06 (suite 2) — Dashboard patient : cohérence visuelle avec la liste
+
+**Next.js** :
+- `components/requests/demande-stat-dashboard.tsx` : bloc dashboard redesigné avec encart distinct, titre d’aide, cartes plus lisibles (contraste, surfaces blanches, CTA « ouvrir », meilleure séparation visuelle).
+- Objectif : aligner la lisibilité du **Tableau de bord** sur la nouvelle vue **Toutes les demandes** pour un usage plus simple côté patient.
+
+**Contrôle** : `npm run lint` OK.
+
+---
+
+### Session 2026-05-06 — UI page par page : ordonnances & consultations libres (patient + pharmacien)
+
+**Objectif** : démarrer le chantier UI incrémental sans migration, en remplaçant les placeholders des pages secondaires par des vues utiles.
+
+**Next.js** :
+- **`/dashboard/patient/ordonnances`** — liste réelle des demandes `request_type=prescription` du patient connecté (réf. publique, date, statut, lien détail).
+- **`/dashboard/patient/consultations-libres`** — liste réelle des demandes `request_type=free_consultation` du patient (mêmes patterns UI que ci-dessus).
+- **`/dashboard/pharmacien/ordonnances`** — liste des ordonnances reçues pour l’officine du pharmacien (`pharmacy_staff`), avec accès au détail demande.
+- **`/dashboard/pharmacien/consultations-libres`** — liste des consultations libres reçues par l’officine, avec statuts et navigation vers détail.
+- Harmonisation des états **chargement / erreur / vide** sur les quatre pages ; aucun changement BDD.
+
+**Contrôle** : `npm run lint` OK.
+
+---
+
 ### Session 2026-05-05 (lot groupé) — Plateforme header, notifs riches 003–006, codes publics 007, espaces patient/pharmacien
 
 **Objectif** : une coque UI commune, des notifications lisibles, des **codes courts** PH / P / D pour annuaire, support et recherche.
@@ -566,9 +614,11 @@ Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-
 - **`/`** annuaire + recherche par code officine **`public_ref`** + lien carte vers fiche **`/pharmacie/[id]`** (affiche aussi le code)
 - **`/pharmacie/[id]/demande-produits`**: création demande **`submitted`**
 - **`/dashboard`** (résumé / routage rôle), **`/dashboard/demandes`** (hub + **filtre par réf.** + codes **`request_public_ref`** sur cartes), **`/dashboard/demandes/[id]`** (ref mémorable + code officine en détail)
+- **`/dashboard/demandes`** (vue liste) : refonte UX des filtres/cartes ; suppression bouton copie ; compteurs et montants contextualisés (`responded` vs validé/en préparation/clôturé) ; statut intermédiaire UI **En préparation** (virtuel, sans migration)
 - **`/dashboard/pharmacien`** (tableau de bord analytics + liens), **`/dashboard/pharmacien/demandes`** (idem refs + **code client** sur cartes), **`/dashboard/pharmacien/demandes/[id]`**, **`/dashboard/pharmacien/clients`** (recherche par **`patient_ref`**)
 - **Chrome** : **`components/layout/platform-*.tsx`** — nav patient & pharmacien (ordonnances / consultations libres en menu, etc.), notifs in-app header
-- **Patient** : **`/dashboard/patient/*`** (paramètres avec **code client**, pharmacies, liste souhaits, placeholders ordonnances / consultations libres)
+- **Patient** : **`/dashboard/patient/*`** (paramètres avec **code client**, pharmacies, liste souhaits, ordonnances/consultations libres désormais branchées en listes filtrées par type)
+- **Pharmacien** : **`/dashboard/pharmacien/ordonnances`** et **`/dashboard/pharmacien/consultations-libres`** branchées sur les demandes existantes de l’officine (filtre `request_type`, cartes simples, lien détail)
 - Auth **`/auth`** + **`lib/post-auth-redirect.ts`**
 - Travail incrementale sur branche **`fix/rls-recursion`** (dernier groupe notoire : **`a20c8c4`** — plateforme + **007** + notifs **003–006**).
 

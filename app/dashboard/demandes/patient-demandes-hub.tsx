@@ -70,7 +70,7 @@ export function PatientDemandesHub() {
       .from("requests")
       .select(
         "id,created_at,status,request_type,pharmacy_id,submitted_at,responded_at,request_public_ref,pharmacies(nom,ville,public_ref)," +
-          "request_items(requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient)"
+          "request_items(requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient,line_source,patient_chosen_alternative_id,counter_outcome,availability_status,products(price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,unit_price))"
       )
       .eq("patient_id", user.id)
       .eq("request_type", "product_request")
@@ -212,13 +212,18 @@ export function PatientDemandesHub() {
         </>
       ) : (
         <div className="mt-4 space-y-4">
-          <div className="grid gap-2 rounded-lg border border-border/80 bg-muted/20 p-2.5 sm:grid-cols-2 lg:grid-cols-4 sm:items-end">
+          <section className="rounded-xl border-2 border-sky-100 bg-sky-50/50 p-3 shadow-sm">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-xs font-bold uppercase tracking-wide text-sky-950">Filtres et recherche</h2>
+              <p className="text-[10px] text-sky-900/85">Saisissez une référence pour accès immédiat</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 sm:items-end">
             <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
-              Réf. (D042/26, PH…, pharmacie…)
+              Référence demande (accès direct)
               <input
                 value={refQuery}
                 onChange={(e) => setRefQuery(e.target.value)}
-                placeholder="Ex. D042/26 ou PH001R"
+                placeholder="Ex. D042/26"
                 className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/70"
               />
             </label>
@@ -264,6 +269,7 @@ export function PatientDemandesHub() {
               </select>
             </label>
           </div>
+          </section>
 
           {filteredSorted.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">Aucun résultat.</p>

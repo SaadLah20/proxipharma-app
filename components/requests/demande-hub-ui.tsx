@@ -2,7 +2,7 @@
 
 import type React from "react";
 import Link from "next/link";
-import { Clipboard, Cross } from "lucide-react";
+import { Cross } from "lucide-react";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import {
   formatShortId,
@@ -133,74 +133,129 @@ export function PatientDemandeCard({
   const items = (Array.isArray(itemsRaw) ? itemsRaw : []) as PatientRequestItemRow[];
   const summary = summarizeRequestForPatientCard(items.length ? items : null);
   const refVisuel = displayRequestPublicRef(row);
-  const copyLabel = row.request_public_ref?.trim()
-    ? `${row.request_public_ref.trim()} (${row.id})`
-    : row.id;
+  const cardStatus =
+    row.status === "confirmed" && summary.hasExecutionProgress ? "in_progress_virtual" : row.status;
 
   if (variant === "list") {
-    const totalLabel = summary.totalDh != null ? formatDh(summary.totalDh) : "—";
-    const nLines = summary.lineCount;
+    const isInitialDemandView = row.status === "submitted" || row.status === "in_review" || row.status === "responded";
+    const statusLabel = cardStatus === "in_progress_virtual" ? "En préparation" : requestStatusShortFr(cardStatus);
+    const statusClass =
+      cardStatus === "in_progress_virtual"
+        ? "bg-indigo-100 text-indigo-950 ring-1 ring-indigo-200/80"
+        : requestStatusBadgeClass(cardStatus);
+    const totalLabel =
+      isInitialDemandView
+        ? summary.totalInitialDh != null
+          ? formatDh(summary.totalInitialDh)
+          : "—"
+        : summary.totalSelectedDh != null
+          ? formatDh(summary.totalSelectedDh)
+          : "—";
 
     return (
-      <div className="relative overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition hover:border-sky-300/60 hover:shadow-md">
-        <Link href={`/dashboard/demandes/${row.id}`} className="group block px-4 py-3.5 pr-14">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 flex-1 gap-3">
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:border-sky-300/70 hover:shadow-md">
+        <Link href={`/dashboard/demandes/${row.id}`} className="group block px-3.5 py-3 sm:px-4">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex min-w-0 flex-1 gap-2.5">
               <div
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700 ring-1 ring-sky-100"
+                className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-700 ring-1 ring-sky-100"
                 aria-hidden
               >
-                <Cross className="h-[22px] w-[22px]" strokeWidth={2.25} />
+                <Cross className="h-5 w-5" strokeWidth={2.25} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-semibold leading-tight tracking-tight text-gray-950">
+                <p className="truncate text-sm font-semibold leading-tight text-gray-950 sm:text-[15px]">
                   {ph?.nom ?? "Pharmacie"}
                 </p>
-                {ph?.ville ? <p className="mt-0.5 text-xs text-muted-foreground">{ph.ville}</p> : null}
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                  <span className="font-mono font-medium text-foreground">{refVisuel}</span>
+                  {ph?.ville ? <span>{ph.ville}</span> : null}
+                </p>
               </div>
             </div>
             <time
               dateTime={when}
-              className="shrink-0 whitespace-nowrap text-right text-[11px] tabular-nums text-muted-foreground"
+              className="shrink-0 whitespace-nowrap text-right text-[10px] tabular-nums text-muted-foreground sm:text-[11px]"
             >
               {formatDateTimeListCasablanca(when)}
             </time>
           </div>
 
-          <div className="mt-3 flex items-center justify-between gap-2 border-t border-gray-100/90 pt-3 text-[12px] text-muted-foreground">
-            <span>
-              Réf.&nbsp;: <span className="font-mono font-medium text-gray-900">{refVisuel}</span>
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-gray-100 pt-2.5">
+            <span className={clsx("inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold", statusClass)}>
+              {statusLabel}
             </span>
-            <span className="font-medium tabular-nums text-gray-800">
-              {nLines} produit{nLines > 1 ? "s" : ""}
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-700">
+              {summary.lineCount} lignes
             </span>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-gray-900">
+          <div className="mt-2.5 grid grid-cols-2 gap-1.5 text-[10px] text-muted-foreground sm:grid-cols-3">
+            {isInitialDemandView ? (
+              <>
+                <span className="rounded-md bg-slate-50 px-2 py-1">
+                  Princ. <strong className="text-foreground">{summary.principalCount}</strong>
+                </span>
+                <span className="rounded-md bg-slate-50 px-2 py-1">
+                  Alt. <strong className="text-foreground">{summary.alternativesCount}</strong>
+                </span>
+                <span className="rounded-md bg-slate-50 px-2 py-1">
+                  Proposés <strong className="text-foreground">{summary.proposedCount}</strong>
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="rounded-md bg-slate-50 px-2 py-1">
+                  Princ. validés <strong className="text-foreground">{summary.selectedPrincipalCount}</strong>
+                </span>
+                <span className="rounded-md bg-slate-50 px-2 py-1">
+                  Alt. validés <strong className="text-foreground">{summary.selectedAlternativesCount}</strong>
+                </span>
+                <span className="rounded-md bg-slate-50 px-2 py-1">
+                  Proposés validés <strong className="text-foreground">{summary.selectedProposedCount}</strong>
+                </span>
+              </>
+            )}
+            {cardStatus === "in_progress_virtual" ? (
+              <>
+                <span className="rounded-md bg-indigo-50 px-2 py-1">
+                  En attente <strong className="text-indigo-950">{summary.selectedPendingPickupCount}</strong>
+                </span>
+                <span className="rounded-md bg-emerald-50 px-2 py-1">
+                  Récupérés <strong className="text-emerald-950">{summary.selectedPickedUpCount}</strong>
+                </span>
+                <span className="rounded-md bg-rose-50 px-2 py-1">
+                  Annulés <strong className="text-rose-950">{summary.selectedCancelledCount}</strong>
+                </span>
+                <span className="rounded-md bg-amber-50 px-2 py-1">
+                  Commandés non reçus <strong className="text-amber-950">{summary.selectedToOrderPendingCount}</strong>
+                </span>
+              </>
+            ) : null}
+          </div>
+
+          <div className="mt-2.5 rounded-md border border-sky-100 bg-sky-50/50 px-2.5 py-1.5 text-[11px] text-sky-950">
+            <span className="font-semibold">
               Total : <span className="tabular-nums">{totalLabel}</span>
-              {summary.totalDh == null ? <span className="ml-1 text-[11px] font-normal text-muted-foreground">(prix après réponse)</span> : null}
             </span>
-            <RequestStatusBadge status={row.status} role="patient" />
+            {isInitialDemandView ? (
+              <span className="ml-1 text-sky-900/85">(montant basé sur les produits et quantités initialement demandés)</span>
+            ) : (
+              <span className="ml-1 text-sky-900/85">(montant basé sur les produits validés par vous)</span>
+            )}
           </div>
 
-          <p className="mt-2 text-[11px] font-medium text-sky-800/90">Voir le détail de la demande</p>
+          <p className="mt-2 text-[11px] font-medium text-sky-800/90">
+            Voir le détail de la demande
+          </p>
         </Link>
-        <button
-          type="button"
-          title="Copier la référence complète"
-          onClick={(e) => copyRef(e, copyLabel)}
-          className="absolute right-3 top-3 rounded-full border border-gray-200 bg-gray-50/90 p-1.5 text-muted-foreground hover:bg-gray-100"
-        >
-          <Clipboard className="h-4 w-4" strokeWidth={2} />
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="relative rounded-lg border border-border/90 bg-card shadow-sm transition hover:border-sky-500/40 hover:shadow-md">
-      <Link href={`/dashboard/demandes/${row.id}`} className="group block p-2.5 pr-10 sm:p-3 sm:pr-12">
+    <div className="rounded-lg border border-border/90 bg-card shadow-sm transition hover:border-sky-500/40 hover:shadow-md">
+      <Link href={`/dashboard/demandes/${row.id}`} className="group block p-2.5 sm:p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] text-muted-foreground">
@@ -215,7 +270,7 @@ export function PatientDemandeCard({
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <span className="font-mono text-[10px] font-medium text-foreground">{displayRequestPublicRef(row)}</span>
-              <RequestStatusBadge status={row.status} role="patient" />
+              <RequestStatusBadge status={cardStatus} role="patient" />
             </div>
           </div>
           <span className="shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-sky-700" aria-hidden>
@@ -223,19 +278,6 @@ export function PatientDemandeCard({
           </span>
         </div>
       </Link>
-      <button
-        type="button"
-        title="Copier la référence complète"
-        onClick={(e) =>
-          copyRef(
-            e,
-            row.request_public_ref?.trim() ? `${row.request_public_ref.trim()} (${row.id})` : row.id
-          )
-        }
-        className="absolute right-2 top-2 rounded border border-border/80 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted"
-      >
-        Copier
-      </button>
     </div>
   );
 }

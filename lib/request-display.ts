@@ -5,6 +5,7 @@ export const requestStatusFr: Record<string, string> = {
   in_review: "Envoyée",
   responded: "Répondue",
   confirmed: "Validée",
+  in_progress_virtual: "En préparation",
   completed: "Clôturée",
   cancelled: "Annulée",
   abandoned: "Abandonnée",
@@ -78,13 +79,13 @@ export const pharmacistDashboardSections: {
   },
   {
     id: "wait_patient",
-    title: "En attente du patient",
-    description: "Réponse envoyée ; le patient doit confirmer.",
+    title: "En attente du client",
+    description: "Réponse envoyée ; votre client doit confirmer.",
     statuses: ["responded"],
   },
   {
     id: "confirmed",
-    title: "Confirmée par le patient",
+    title: "Confirmée par le client",
     description: "Préparation / comptoir.",
     statuses: ["confirmed"],
   },
@@ -129,6 +130,8 @@ export function requestStatusBadgeClass(status: string): string {
       return "bg-amber-100 text-amber-950 ring-1 ring-amber-200/80";
     case "confirmed":
       return "bg-violet-100 text-violet-950 ring-1 ring-violet-200/80";
+    case "in_progress_virtual":
+      return "bg-indigo-100 text-indigo-950 ring-1 ring-indigo-200/80";
     case "completed":
     case "partially_collected":
     case "fully_collected":
@@ -152,7 +155,7 @@ export const requestTypeFr: Record<string, string> = {
 
 /** Q20 — origine de la ligne produit sur la demande. */
 export const requestItemLineSourceFr: Record<string, string> = {
-  patient_request: "Demandé par le patient",
+  patient_request: "Demandé par vous",
   pharmacist_proposed: "Proposé par la pharmacie",
 };
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageShell } from "@/components/ui/compact-shell";
 import { InAppNotificationItem } from "@/components/notifications/in-app-notification-item";
+import { rewriteForPatientView, rewriteForPharmacistView } from "@/lib/patient-copy";
 import { supabase } from "@/lib/supabase";
 
 type Row = {
@@ -97,8 +98,20 @@ export default function NotificationsPage() {
           {rows.map((n) => (
             <li key={n.id}>
               <InAppNotificationItem
-                title={n.title}
-                body={n.body}
+                title={
+                  role === "patient"
+                    ? rewriteForPatientView(n.title) ?? n.title
+                    : role === "pharmacien"
+                      ? rewriteForPharmacistView(n.title) ?? n.title
+                      : n.title
+                }
+                body={
+                  role === "patient"
+                    ? rewriteForPatientView(n.body)
+                    : role === "pharmacien"
+                      ? rewriteForPharmacistView(n.body)
+                      : n.body
+                }
                 createdAt={n.created_at}
                 eventType={n.event_type}
                 href={hrefFor(role, n.request_id)}
