@@ -916,8 +916,8 @@ export default function PharmacienDemandeDetailPage() {
             <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Lignes à traiter</h2>
             <span className="text-[10px] text-muted-foreground">{items.length} article(s)</span>
           </div>
-          <ul className="mt-2 space-y-4">
-            {items.map((row) => {
+          <ul className="mt-3 space-y-7">
+            {items.map((row, rowIndex) => {
               const prod = one(row.products);
               const linePph = pphLabel(prod?.price_pph);
               const f = draft[row.id];
@@ -927,6 +927,10 @@ export default function PharmacienDemandeDetailPage() {
               const lineLockedTrace = co === "cancelled_at_counter";
               const canEditThisRow = canEditLines && !lineLockedTrace;
               const rowAlts = normalizeAlts(row.request_item_alternatives);
+              const chosenAltId = row.patient_chosen_alternative_id ?? null;
+              const chosenAltRow = chosenAltId ? rowAlts.find((a) => a.id === chosenAltId) : null;
+              const showPatientConfirmedChoice =
+                selected && (request.status === "confirmed" || request.status === "completed");
               const showInlineCounter =
                 request.status === "responded" || request.status === "confirmed" || request.status === "completed";
               const outcomeSelectDisabled =
@@ -934,10 +938,16 @@ export default function PharmacienDemandeDetailPage() {
                 counterBusyId === row.id ||
                 !selected ||
                 lineLockedTrace;
+              const edgePalette = [
+                "border-l-teal-600 shadow-teal-900/10",
+                "border-l-emerald-600 shadow-emerald-900/10",
+                "border-l-sky-600 shadow-sky-900/10",
+              ] as const;
+              const edgeTone = edgePalette[rowIndex % edgePalette.length];
               return (
                 <li
                   key={row.id}
-                  className="overflow-hidden rounded-xl border-2 border-slate-200/90 bg-card shadow-md ring-1 ring-black/[0.04]"
+                  className={`overflow-hidden rounded-xl border-2 border-slate-300/80 bg-card shadow-xl ring-1 ring-black/[0.06] border-l-[6px] ${edgeTone}`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-1.5 border-b border-border/60 bg-muted/15 px-2.5 py-1.5 sm:px-3">
                     <div className="min-w-0 flex-1">
@@ -967,6 +977,33 @@ export default function PharmacienDemandeDetailPage() {
                             </>
                           ) : null}
                         </p>
+                      ) : null}
+                      {showPatientConfirmedChoice ? (
+                        <div className="mt-1.5 rounded-lg border border-sky-300/70 bg-sky-50/95 px-2 py-1.5 text-[11px] leading-snug text-sky-950 shadow-sm">
+                          <p className="text-[9px] font-bold uppercase tracking-wide text-sky-900/90">Choix patient après votre réponse</p>
+                          <p className="mt-0.5 font-medium">
+                            {chosenAltRow ? (
+                              <>
+                                <span className="text-sky-800/90">Alternative retenue · </span>
+                                <strong>{one(chosenAltRow.products)?.name ?? "Produit"}</strong>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-sky-800/90">Produit principal retenu · </span>
+                                <strong>{prod?.name ?? "Produit"}</strong>
+                              </>
+                            )}
+                            <span className="text-sky-900/80">
+                              {" "}
+                              · Quantité <strong>{row.selected_qty ?? row.requested_qty}</strong>
+                            </span>
+                          </p>
+                          {chosenAltId && !chosenAltRow ? (
+                            <p className="mt-1 text-[10px] text-amber-900/90">
+                              Réf. alternative en base introuvable dans la liste affichée — vérifiez les alternatives de la ligne.
+                            </p>
+                          ) : null}
+                        </div>
                       ) : null}
                       {row.client_comment ? (
                         <p className="mt-1 text-[10px] text-sky-950/90">
