@@ -62,6 +62,9 @@ export function summarizeRequestForPatientCard(items: PatientRequestItemRow[] | 
   let hasExecutionProgress = false;
 
   for (const it of rows) {
+    const outcomeAll = it.counter_outcome ?? "unset";
+    if (outcomeAll !== "unset") hasExecutionProgress = true;
+    if (outcomeAll === "cancelled_at_counter") selectedCancelledCount += 1;
     const isProposed = it.line_source === "pharmacist_proposed";
     if (isProposed) proposedCount += 1;
     else principalCount += 1;
@@ -92,10 +95,8 @@ export function summarizeRequestForPatientCard(items: PatientRequestItemRow[] | 
     }
 
     const outcome = it.counter_outcome ?? "unset";
-    if (outcome !== "unset") hasExecutionProgress = true;
     if (outcome === "picked_up") selectedPickedUpCount += 1;
-    else if (outcome === "cancelled_at_counter") selectedCancelledCount += 1;
-    else selectedPendingPickupCount += 1;
+    else if (outcome !== "cancelled_at_counter") selectedPendingPickupCount += 1;
 
     if (it.availability_status === "to_order" && (outcome === "unset" || outcome === "deferred_next_visit")) {
       selectedToOrderPendingCount += 1;

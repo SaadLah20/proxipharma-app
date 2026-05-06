@@ -496,7 +496,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirm ? (
-        <ul className="space-y-2">
+        <ul className="space-y-4">
               {items.map((row) => {
                 const prod = one(row.products);
                 const prodUnitPrice = unitPriceLabel(prod?.price_pph);
@@ -506,9 +506,26 @@ export function PatientProductRequestActions({
                 const capPrincipal = maxQtyPrincipal(row);
                 const radioName = `line-choice-${row.id}`;
                 const currentBranch = st.branch;
+                const isProposedLine = row.line_source === "pharmacist_proposed";
 
                 return (
-                  <li key={row.id} className="rounded-md border border-border/60 bg-muted/10 px-2 py-1.5">
+                  <li
+                    key={row.id}
+                    className="rounded-xl border-2 border-slate-200/90 bg-white px-3 py-2.5 shadow-md ring-1 ring-black/[0.04]"
+                  >
+                    {isProposedLine ? (
+                      <div className="mb-2.5 rounded-lg border border-violet-300/70 bg-violet-50 px-2.5 py-2 text-[11px] leading-snug text-violet-950">
+                        <p className="font-bold text-violet-950">{requestItemLineSourceFr.pharmacist_proposed}</p>
+                        {row.pharmacist_proposal_reason?.trim() ? (
+                          <p className="mt-1 text-violet-900/95">
+                            <span className="font-semibold">Motif : </span>
+                            {row.pharmacist_proposal_reason.trim()}
+                          </p>
+                        ) : (
+                          <p className="mt-1 italic text-violet-800/80">Aucun motif renseigné par la pharmacie.</p>
+                        )}
+                      </div>
+                    ) : null}
                     <p className="text-xs font-semibold text-foreground sm:text-sm">{prod?.name ?? "Produit"}</p>
                     {!hasAlts && prodUnitPrice ? (
                       <p className="text-[10px] font-medium text-teal-800 sm:text-xs">{prodUnitPrice}</p>
@@ -560,7 +577,7 @@ export function PatientProductRequestActions({
                     ) : (
                       <fieldset className="mt-2 space-y-2 border-0 p-0">
                         <legend className="sr-only">Choix pour {prod?.name ?? "Produit"}</legend>
-                        <label className={`flex gap-2 text-sm ${capPrincipal === 0 ? "text-gray-400" : ""}`}>
+                        <label className="flex gap-2 text-sm text-foreground">
                           <input type="radio" name={radioName} checked={currentBranch === null} onChange={() => setLineBranch(row.id, null)} />
                           <span>Je ne prends aucune option</span>
                         </label>
@@ -668,7 +685,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirmedCards ? (
-        <ul className="space-y-2">
+        <ul className="space-y-4">
           {items.map((row) => {
             const prod = one(row.products);
             const altList = normalizeAlternatives(row.request_item_alternatives);

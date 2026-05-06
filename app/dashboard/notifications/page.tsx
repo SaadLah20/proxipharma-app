@@ -32,12 +32,18 @@ export default function NotificationsPage() {
   const [error, setError] = useState("");
 
   const markRowsAsRead = useCallback(async (rowsToMark: Row[]) => {
+    const { data: auth } = await supabase.auth.getSession();
+    const userId = auth.session?.user?.id;
+    if (!userId) return;
     const unreadRows = rowsToMark.filter((r) => !r.read_at);
     if (unreadRows.length === 0) return;
-    const ids = unreadRows.map((r) => r.id);
     const nowIso = new Date().toISOString();
-    setRows((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, read_at: nowIso } : r)));
-    await supabase.from("app_notifications").update({ read_at: nowIso }).in("id", ids);
+    setRows((prev) => prev.map((r) => (!r.read_at ? { ...r, read_at: nowIso } : r)));
+    await supabase
+      .from("app_notifications")
+      .update({ read_at: nowIso })
+      .eq("recipient_id", userId)
+      .is("read_at", null);
   }, []);
 
   const load = useCallback(async () => {
