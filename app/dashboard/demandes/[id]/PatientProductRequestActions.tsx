@@ -860,11 +860,7 @@ export function PatientProductRequestActions({
                 onClick={() => void runResubmit()}
                 className="w-full rounded-lg border border-amber-600 bg-amber-50 py-2.5 text-sm font-semibold text-amber-950 disabled:opacity-50"
               >
-                {busyAction === "resubmit"
-                  ? "Envoi…"
-                  : status === "responded"
-                    ? "Renvoyer la liste à la pharmacie"
-                    : "Mettre à jour et renvoyer"}
+                {busyAction === "resubmit" ? "Envoi…" : "Mettre à jour et renvoyer"}
               </button>
             </div>
           </>
