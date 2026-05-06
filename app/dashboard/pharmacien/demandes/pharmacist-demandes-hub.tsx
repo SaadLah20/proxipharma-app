@@ -46,7 +46,7 @@ export function PharmacistDemandesHub() {
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
 
   const statutParam = searchParams.get("statut");
-  const activeBucket = bucketForStatusParam(statutParam);
+  const activeBucket = bucketForStatusParam(statutParam, PHARMACIST_DASHBOARD_BUCKETS);
 
   const load = useCallback(async () => {
     setError("");
@@ -79,7 +79,7 @@ export function PharmacistDemandesHub() {
 
     const { data, error: re } = await supabase
       .from("requests")
-      .select("id,created_at,status,request_type,patient_id,submitted_at,responded_at,request_public_ref")
+      .select("id,created_at,status,request_type,patient_id,submitted_at,responded_at,request_public_ref,request_items(counter_outcome,is_selected_by_patient)")
       .eq("pharmacy_id", staff.pharmacy_id)
       .eq("request_type", "product_request")
       .order("created_at", { ascending: false })
@@ -143,11 +143,27 @@ export function PharmacistDemandesHub() {
     [rows]
   );
 
+  const rowsWithDashboardStatus = useMemo(
+    () =>
+      rows.map((r) => {
+        const rawItems = ((r as unknown as { request_items?: Array<{ counter_outcome?: string | null; is_selected_by_patient?: boolean | null }> }).request_items ??
+          []) as Array<{ counter_outcome?: string | null; is_selected_by_patient?: boolean | null }>;
+        const hasExecutionProgress =
+          r.status === "confirmed" &&
+          rawItems.some((it) => (it.is_selected_by_patient ?? true) && (it.counter_outcome ?? "unset") !== "unset");
+        return {
+          ...r,
+          status_for_dashboard: hasExecutionProgress ? "in_progress_virtual" : r.status,
+        };
+      }),
+    [rows]
+  );
+
   const filteredSorted = useMemo(() => {
-    let list = rows;
+    let list = rowsWithDashboardStatus;
     if (activeBucket) {
       const allow = new Set(activeBucket.statuses);
-      list = list.filter((r) => allow.has(r.status));
+      list = list.filter((r) => allow.has((r as { status_for_dashboard?: string }).status_for_dashboard ?? r.status));
     }
     if (patientFilter) {
       list = list.filter((r) => r.patient_id === patientFilter);
@@ -168,7 +184,7 @@ export function PharmacistDemandesHub() {
       const tb = new Date(b.created_at).getTime();
       return sortNewestFirst ? tb - ta : ta - tb;
     });
-  }, [rows, activeBucket, patientFilter, refQuery, sortNewestFirst]);
+  }, [rowsWithDashboardStatus, activeBucket, patientFilter, refQuery, sortNewestFirst]);
 
   const setStatutFilter = (key: string) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -231,7 +247,7 @@ export function PharmacistDemandesHub() {
             </div>
           ) : (
             <div className="mt-4">
-              <DemandeStatDashboard rows={rows} buckets={PHARMACIST_DASHBOARD_BUCKETS} basePath="/dashboard/pharmacien/demandes" />
+              <DemandeStatDashboard rows={rowsWithDashboardStatus} buckets={PHARMACIST_DASHBOARD_BUCKETS} basePath="/dashboard/pharmacien/demandes" />
             </div>
           )}
         </>

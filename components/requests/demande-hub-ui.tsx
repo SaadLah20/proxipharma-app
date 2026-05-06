@@ -52,6 +52,7 @@ export type PharmacistRequestRow = {
   patient_full_name?: string | null;
   patient_whatsapp?: string | null;
   patient_ref?: string | null;
+  request_items?: { counter_outcome?: string | null; is_selected_by_patient?: boolean | null }[] | null;
 };
 
 export function DemandeHubTabBar({

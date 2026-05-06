@@ -5,7 +5,7 @@ import { clsx } from "clsx";
 import type { DemandeStatBucket } from "@/lib/demandes-hub-buckets";
 import { countInBucket } from "@/lib/demandes-hub-buckets";
 
-type Row = { status: string };
+type Row = { status: string; status_for_dashboard?: string };
 
 export function DemandeStatDashboard({
   rows,
