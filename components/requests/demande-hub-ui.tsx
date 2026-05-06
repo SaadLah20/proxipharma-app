@@ -154,7 +154,8 @@ export function PatientDemandeCard({
           : "—";
 
     return (
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:border-sky-300/70 hover:shadow-md">
+      <div className="overflow-hidden rounded-2xl border-2 border-sky-100 bg-gradient-to-br from-white via-white to-sky-50/40 shadow-[0_2px_10px_rgba(2,132,199,0.08)] transition hover:border-sky-300 hover:shadow-[0_6px_18px_rgba(2,132,199,0.16)]">
+        <div className="h-1.5 w-full bg-gradient-to-r from-sky-400 via-blue-400 to-indigo-400" aria-hidden />
         <Link href={`/dashboard/demandes/${row.id}`} className="group block px-3.5 py-3 sm:px-4">
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 flex-1 gap-2.5">
@@ -194,25 +195,25 @@ export function PatientDemandeCard({
           <div className="mt-2.5 grid grid-cols-2 gap-1.5 text-[10px] text-muted-foreground sm:grid-cols-3">
             {isInitialDemandView ? (
               <>
-                <span className="rounded-md bg-slate-50 px-2 py-1">
+                <span className="rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
                   Princ. <strong className="text-foreground">{summary.principalCount}</strong>
                 </span>
-                <span className="rounded-md bg-slate-50 px-2 py-1">
+                <span className="rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
                   Alt. <strong className="text-foreground">{summary.alternativesCount}</strong>
                 </span>
-                <span className="rounded-md bg-slate-50 px-2 py-1">
+                <span className="rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
                   Proposés <strong className="text-foreground">{summary.proposedCount}</strong>
                 </span>
               </>
             ) : (
               <>
-                <span className="rounded-md bg-slate-50 px-2 py-1">
+                <span className="rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
                   Princ. validés <strong className="text-foreground">{summary.selectedPrincipalCount}</strong>
                 </span>
-                <span className="rounded-md bg-slate-50 px-2 py-1">
+                <span className="rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
                   Alt. validés <strong className="text-foreground">{summary.selectedAlternativesCount}</strong>
                 </span>
-                <span className="rounded-md bg-slate-50 px-2 py-1">
+                <span className="rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
                   Proposés validés <strong className="text-foreground">{summary.selectedProposedCount}</strong>
                 </span>
               </>
@@ -295,7 +296,8 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
   const phone = row.patient_whatsapp?.trim();
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm ring-1 ring-black/[0.03] transition hover:border-emerald-500/35 hover:shadow-md">
+    <div className="relative overflow-hidden rounded-2xl border-2 border-emerald-100 bg-gradient-to-br from-white via-white to-emerald-50/35 shadow-[0_2px_10px_rgba(16,185,129,0.08)] transition hover:border-emerald-300 hover:shadow-[0_6px_18px_rgba(16,185,129,0.16)]">
+      <div className="h-1.5 w-full bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400" aria-hidden />
       <Link href={`/dashboard/pharmacien/demandes/${row.id}`} className="group block p-3 pr-11 sm:p-3.5 sm:pr-12">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 gap-3">
@@ -312,9 +314,11 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
                 <p className="mt-0.5 truncate text-[11px] font-medium text-emerald-800/90">{phone}</p>
               ) : null}
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                <span className="font-mono text-[10px] font-medium text-foreground">{displayRequestPublicRef(row)}</span>
+                <span className="rounded-md border border-emerald-200 bg-white px-1.5 py-0.5 font-mono text-[10px] font-medium text-foreground shadow-sm">
+                  {displayRequestPublicRef(row)}
+                </span>
                 {row.patient_ref ? (
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-sm">
                     Client <span className="font-mono font-medium text-foreground">{row.patient_ref}</span>
                   </span>
                 ) : null}

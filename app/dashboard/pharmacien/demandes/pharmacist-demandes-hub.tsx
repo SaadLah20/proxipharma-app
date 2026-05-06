@@ -44,6 +44,7 @@ export function PharmacistDemandesHub() {
   const [patientFilter, setPatientFilter] = useState("");
   const [refQuery, setRefQuery] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const statutParam = searchParams.get("statut");
   const activeBucket = bucketForStatusParam(statutParam, PHARMACIST_DASHBOARD_BUCKETS);
@@ -253,7 +254,22 @@ export function PharmacistDemandesHub() {
         </>
       ) : (
         <div className="mt-4 space-y-4">
-          <div className="grid gap-2 rounded-lg border border-border/80 bg-muted/20 p-2.5 sm:grid-cols-2 lg:grid-cols-4 sm:items-end">
+          <section className="rounded-xl border-2 border-emerald-100 bg-emerald-50/40 p-3 shadow-sm">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wide text-emerald-950">Filtres et recherche</h2>
+                <p className="text-[10px] text-emerald-900/85">Saisissez une référence pour accès immédiat</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((v) => !v)}
+                className="rounded-md border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-900 shadow-sm hover:bg-emerald-50"
+              >
+                {filtersOpen ? "Masquer" : "Afficher"}
+              </button>
+            </div>
+            {filtersOpen ? (
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 sm:items-end">
             <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
               Réf. demande ou code client
               <input
@@ -305,6 +321,12 @@ export function PharmacistDemandesHub() {
               </select>
             </label>
           </div>
+            ) : (
+              <p className="mt-2 text-[11px] text-emerald-900/85">
+                Ouvrez les filtres pour retrouver rapidement un dossier client.
+              </p>
+            )}
+          </section>
 
           {filteredSorted.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">Aucun résultat.</p>
