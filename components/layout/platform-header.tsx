@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Bell, LogOut, User } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { InAppNotificationItem } from "@/components/notifications/in-app-notification-item";
+import { rewriteForPatientView, rewriteForPharmacistView } from "@/lib/patient-copy";
 import { supabase } from "@/lib/supabase";
 
 type ProfileLite = {
@@ -193,8 +194,20 @@ export function PlatformHeader() {
                           {notifications.map((n) => (
                             <li key={n.id}>
                               <InAppNotificationItem
-                                title={n.title}
-                                body={n.body}
+                                title={
+                                  role === "patient"
+                                    ? rewriteForPatientView(n.title) ?? n.title
+                                    : role === "pharmacien"
+                                      ? rewriteForPharmacistView(n.title) ?? n.title
+                                      : n.title
+                                }
+                                body={
+                                  role === "patient"
+                                    ? rewriteForPatientView(n.body)
+                                    : role === "pharmacien"
+                                      ? rewriteForPharmacistView(n.body)
+                                      : n.body
+                                }
                                 createdAt={n.created_at}
                                 eventType={n.event_type}
                                 href={notifDetailHref(role, n.request_id)}

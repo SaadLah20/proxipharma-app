@@ -709,7 +709,7 @@ export default function PharmacienDemandeDetailPage() {
 
       {patientNote ? (
         <section className="rounded-xl border border-amber-200/60 bg-amber-50/40 px-3 py-2.5 shadow-sm">
-          <h2 className="text-[10px] font-bold uppercase tracking-wide text-amber-950">Message du patient</h2>
+          <h2 className="text-[10px] font-bold uppercase tracking-wide text-amber-950">Message du client</h2>
           <p className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap text-[11px] leading-snug text-amber-950/90">{patientNote}</p>
         </section>
       ) : null}
@@ -767,7 +767,7 @@ export default function PharmacienDemandeDetailPage() {
                     />
                   </label>
                   <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Quantité vue par le patient
+                    Quantité vue par le client
                     <input
                       type="number"
                       min={1}
@@ -1077,7 +1077,7 @@ export default function PharmacienDemandeDetailPage() {
                 ? "Réponse déjà envoyée. Le patient traite depuis son espace (validation, modifications éventuelles)."
                 : null}
               {request.status === "confirmed"
-                ? "Demande confirmée par le patient. À traiter ensuite au comptoir ci-dessous."
+                ? "Demande confirmée par votre client. À traiter ensuite au comptoir ci-dessous."
                 : null}
               {request.status !== "responded" &&
               request.status !== "confirmed" &&
@@ -1119,7 +1119,7 @@ export default function PharmacienDemandeDetailPage() {
                       {counterPph ? <p className="text-[10px] font-medium text-teal-800">{counterPph}</p> : null}
                       {!selected ? (
                         <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
-                          Ligne retirée par le patient. <strong className="text-foreground">{counterOutcomeFr[co] ?? co}</strong>
+                          Ligne retirée par votre client. <strong className="text-foreground">{counterOutcomeFr[co] ?? co}</strong>
                         </p>
                       ) : (
                         <label className="mt-2 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
