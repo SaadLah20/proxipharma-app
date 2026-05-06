@@ -290,6 +290,22 @@ Statuts retenus v1:
 
 ---
 
+### Session 2026-05-06 (suite 3) — Blocs dashboard : ajout « En préparation » (statut virtuel UI)
+
+**Next.js** :
+- `lib/demandes-hub-buckets.ts` : nouveau bucket **`en_preparation`** pour patient/pharmacien ; `bucketForStatusParam` généralisé par liste de buckets ; comptage basé sur un statut dashboard dérivé.
+- `app/dashboard/demandes/patient-demandes-hub.tsx` : dérivation `status_for_dashboard` = **`in_progress_virtual`** quand `status='confirmed'` et progression comptoir détectée sur lignes validées.
+- `app/dashboard/pharmacien/demandes/pharmacist-demandes-hub.tsx` : même logique dérivée, avec chargement `request_items(counter_outcome,is_selected_by_patient)` pour calculer le bucket.
+- `components/requests/demande-stat-dashboard.tsx` : compatibilité `status_for_dashboard` pour compter les blocs sur le statut dérivé.
+
+**Règle métier UI (sans migration)** :
+- **Validée** : `confirmed` sans progression comptoir.
+- **En préparation** : `confirmed` avec au moins une ligne validée sortie de `unset`.
+
+**Contrôle** : `npm run lint` OK.
+
+---
+
 ### Session 2026-05-06 — UI page par page : ordonnances & consultations libres (patient + pharmacien)
 
 **Objectif** : démarrer le chantier UI incrémental sans migration, en remplaçant les placeholders des pages secondaires par des vues utiles.
@@ -615,6 +631,7 @@ Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-
 - **`/pharmacie/[id]/demande-produits`**: création demande **`submitted`**
 - **`/dashboard`** (résumé / routage rôle), **`/dashboard/demandes`** (hub + **filtre par réf.** + codes **`request_public_ref`** sur cartes), **`/dashboard/demandes/[id]`** (ref mémorable + code officine en détail)
 - **`/dashboard/demandes`** (vue liste) : refonte UX des filtres/cartes ; suppression bouton copie ; compteurs et montants contextualisés (`responded` vs validé/en préparation/clôturé) ; statut intermédiaire UI **En préparation** (virtuel, sans migration)
+- **`/dashboard/demandes`** et **`/dashboard/pharmacien/demandes`** (vue dashboard) : bloc supplémentaire **En préparation** alimenté par statut dérivé UI (`confirmed` + progression comptoir), cohérent avec les cartes
 - **`/dashboard/pharmacien`** (tableau de bord analytics + liens), **`/dashboard/pharmacien/demandes`** (idem refs + **code client** sur cartes), **`/dashboard/pharmacien/demandes/[id]`**, **`/dashboard/pharmacien/clients`** (recherche par **`patient_ref`**)
 - **Chrome** : **`components/layout/platform-*.tsx`** — nav patient & pharmacien (ordonnances / consultations libres en menu, etc.), notifs in-app header
 - **Patient** : **`/dashboard/patient/*`** (paramètres avec **code client**, pharmacies, liste souhaits, ordonnances/consultations libres désormais branchées en listes filtrées par type)

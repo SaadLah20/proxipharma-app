@@ -7,6 +7,7 @@ export type DemandeStatBucketKey =
   | "envoyees"
   | "repondues"
   | "validees_traitees"
+  | "en_preparation"
   | "cloturees"
   | "abandonnees"
   | "expirees"
@@ -38,8 +39,14 @@ export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "validees_traitees",
     label: "Validées",
-    hint: "Tu as validé la proposition.",
+    hint: "Validation faite, attente de prise en charge.",
     statuses: ["confirmed"],
+  },
+  {
+    key: "en_preparation",
+    label: "En préparation",
+    hint: "Traitement officine démarré.",
+    statuses: ["in_progress_virtual"],
   },
   {
     key: "cloturees",
@@ -75,14 +82,20 @@ export const PHARMACIST_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "repondues",
     label: "Répondues",
-    hint: "En attente du patient.",
+    hint: "En attente du client.",
     statuses: ["responded"],
   },
   {
     key: "validees_traitees",
-    label: "Traitées",
-    hint: "Validées par le patient — préparation.",
+    label: "Validées",
+    hint: "Validées par le client, non démarrées.",
     statuses: ["confirmed"],
+  },
+  {
+    key: "en_preparation",
+    label: "En préparation",
+    hint: "Traitement comptoir en cours.",
+    statuses: ["in_progress_virtual"],
   },
   {
     key: "cloturees",
@@ -106,12 +119,12 @@ export const PHARMACIST_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   },
 ];
 
-export function bucketForStatusParam(param: string | null): DemandeStatBucket | null {
+export function bucketForStatusParam(param: string | null, buckets: DemandeStatBucket[] = PATIENT_DASHBOARD_BUCKETS): DemandeStatBucket | null {
   if (!param) return null;
-  return PATIENT_DASHBOARD_BUCKETS.find((b) => b.key === param) ?? null;
+  return buckets.find((b) => b.key === param) ?? null;
 }
 
-export function countInBucket(rows: { status: string }[], bucket: DemandeStatBucket): number {
+export function countInBucket(rows: { status: string; status_for_dashboard?: string }[], bucket: DemandeStatBucket): number {
   const set = new Set(bucket.statuses);
-  return rows.filter((r) => set.has(r.status)).length;
+  return rows.filter((r) => set.has((r.status_for_dashboard ?? r.status))).length;
 }

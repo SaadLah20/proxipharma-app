@@ -48,7 +48,7 @@ export function PatientDemandesHub() {
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
 
   const statutParam = searchParams.get("statut");
-  const activeBucket = bucketForStatusParam(statutParam);
+  const activeBucket = bucketForStatusParam(statutParam, PATIENT_DASHBOARD_BUCKETS);
 
   const load = useCallback(async () => {
     setError("");
@@ -106,11 +106,26 @@ export function PatientDemandesHub() {
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], "fr"));
   }, [rows]);
 
+  const rowsWithDashboardStatus = useMemo(
+    () =>
+      rows.map((r) => {
+        const rawItems = (r.request_items ?? []) as Array<{ counter_outcome?: string | null; is_selected_by_patient?: boolean | null }>;
+        const hasExecutionProgress =
+          r.status === "confirmed" &&
+          rawItems.some((it) => (it.is_selected_by_patient ?? true) && (it.counter_outcome ?? "unset") !== "unset");
+        return {
+          ...r,
+          status_for_dashboard: hasExecutionProgress ? "in_progress_virtual" : r.status,
+        };
+      }),
+    [rows]
+  );
+
   const filteredSorted = useMemo(() => {
-    let list = rows;
+    let list = rowsWithDashboardStatus;
     if (activeBucket) {
       const allow = new Set(activeBucket.statuses);
-      list = list.filter((r) => allow.has(r.status));
+      list = list.filter((r) => allow.has((r as { status_for_dashboard?: string }).status_for_dashboard ?? r.status));
     }
     if (pharmacyFilter) {
       list = list.filter((r) => r.pharmacy_id === pharmacyFilter);
@@ -133,7 +148,7 @@ export function PatientDemandesHub() {
       const tb = new Date(b.created_at).getTime();
       return sortNewestFirst ? tb - ta : ta - tb;
     });
-  }, [rows, activeBucket, pharmacyFilter, refQuery, sortNewestFirst]);
+  }, [rowsWithDashboardStatus, activeBucket, pharmacyFilter, refQuery, sortNewestFirst]);
 
   const setStatutFilter = (key: string) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -206,7 +221,7 @@ export function PatientDemandesHub() {
             </div>
           ) : (
             <div className="mt-4">
-              <DemandeStatDashboard rows={rows} buckets={PATIENT_DASHBOARD_BUCKETS} basePath="/dashboard/demandes" />
+              <DemandeStatDashboard rows={rowsWithDashboardStatus} buckets={PATIENT_DASHBOARD_BUCKETS} basePath="/dashboard/demandes" />
             </div>
           )}
         </>
