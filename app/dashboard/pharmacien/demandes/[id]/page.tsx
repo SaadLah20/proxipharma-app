@@ -20,6 +20,11 @@ import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
 import { pphLabel } from "@/lib/product-price";
 import { PageShell } from "@/components/ui/compact-shell";
+import {
+  stringifyPharmaConfirmAudit,
+  type PharmaConfirmAdjustmentAudit,
+  type PharmaConfirmAdjustmentLine,
+} from "@/lib/patient-request-history-audit";
 
 type RequestRow = {
   id: string;
@@ -152,6 +157,32 @@ function buildItemUpdatePayload(f: ItemDraft) {
     pharmacist_comment: f.pharmacist_comment.trim() || null,
     expected_availability_date: f.expected_availability_date.trim() !== "" ? f.expected_availability_date : null,
   };
+}
+
+function buildPharmaConfirmAdjustmentAudit(items: ItemRow[], draft: Draft): PharmaConfirmAdjustmentAudit | null {
+  const lines: PharmaConfirmAdjustmentLine[] = [];
+  for (const row of items) {
+    const f = draft[row.id];
+    if (!f) continue;
+    const newQtyNum = Number(f.available_qty);
+    const oldQty = row.available_qty;
+    const newAvail = f.availability_status;
+    const oldAvail = row.availability_status ?? null;
+    if (oldQty === newQtyNum && oldAvail === newAvail) continue;
+    const validatedQty = Math.min(10, Math.max(1, Number(row.selected_qty ?? row.requested_qty) || 1));
+    lines.push({
+      productName: one(row.products)?.name ?? "Produit",
+      validatedQty,
+      oldAvailQty: oldQty,
+      newAvailQty: Number.isFinite(newQtyNum) ? newQtyNum : oldQty ?? 0,
+      oldAvailabilityStatus: oldAvail,
+      newAvailabilityStatus: newAvail,
+      oldAvailLabelFr: oldAvail ? availabilityStatusFr[oldAvail] ?? oldAvail : null,
+      newAvailLabelFr: availabilityStatusFr[newAvail] ?? newAvail,
+    });
+  }
+  if (lines.length === 0) return null;
+  return { v: 1, kind: "pharma_adjust_confirmed", lines };
 }
 
 /** État du formulaire officine depuis une ligne base (chargement ou nouvelle ligne). */
@@ -369,15 +400,38 @@ export default function PharmacienDemandeDetailPage() {
     }));
   };
 
-  const setAvailableQty = (itemId: string, raw: string) => {
+  /** Ligne validée : quantité préparation ≤ choix patient tant que pas « récupéré » ; sinon plafonné à 10. */
+  const maxPreparationQtyForRow = useCallback(
+    (row: ItemRow): number => {
+      if (!request || request.status !== "confirmed") return 10;
+      if (!row.is_selected_by_patient) return 10;
+      const co = row.counter_outcome ?? "unset";
+      const baseline = Math.min(10, Math.max(1, Number(row.selected_qty ?? row.requested_qty) || 1));
+      if (co === "picked_up") return 10;
+      return baseline;
+    },
+    [request]
+  );
+
+  const setAvailableQty = (row: ItemRow, raw: string) => {
     const digits = raw.replace(/[^\d]/g, "");
-    setField(itemId, "available_qty", digits === "" ? "" : String(Number(digits)));
+    const max = maxPreparationQtyForRow(row);
+    if (digits === "") {
+      setField(row.id, "available_qty", "");
+      return;
+    }
+    const n = Math.min(max, Math.max(0, Number(digits)));
+    setField(row.id, "available_qty", String(Number.isFinite(n) ? n : 0));
   };
 
-  const nudgeAvailableQty = (itemId: string, delta: number) => {
-    const current = Number(draft[itemId]?.available_qty ?? "0");
-    const next = Math.max(0, Number.isFinite(current) ? current + delta : delta > 0 ? 1 : 0);
-    setField(itemId, "available_qty", String(next));
+  const nudgeAvailableQty = (row: ItemRow, delta: number) => {
+    const max = maxPreparationQtyForRow(row);
+    const current = Number(draft[row.id]?.available_qty ?? "0");
+    const next = Math.min(
+      max,
+      Math.max(0, Number.isFinite(current) ? current + delta : delta > 0 ? 1 : 0)
+    );
+    setField(row.id, "available_qty", String(next));
   };
 
   const resetAltPicker = () => {
@@ -530,6 +584,14 @@ export default function PharmacienDemandeDetailPage() {
   };
 
   const saveCounterOutcome = async (requestItemId: string, outcome: string) => {
+    const rowSnap = items.find((r) => r.id === requestItemId);
+    const prevCo = rowSnap?.counter_outcome ?? "unset";
+    const shouldResetPrepQtyAfterDropPickup =
+      request?.status === "confirmed" &&
+      Boolean(rowSnap?.is_selected_by_patient) &&
+      prevCo === "picked_up" &&
+      outcome !== "picked_up";
+
     setCounterBusyId(requestItemId);
     setError("");
     const { error: rpcErr } = await supabase.rpc("pharmacist_set_item_counter_outcome", {
@@ -540,6 +602,10 @@ export default function PharmacienDemandeDetailPage() {
     if (rpcErr) {
       setError(rpcErr.message);
       return;
+    }
+    if (shouldResetPrepQtyAfterDropPickup && rowSnap) {
+      const baseline = Math.min(10, Math.max(1, Number(rowSnap.selected_qty ?? rowSnap.requested_qty) || 1));
+      setField(requestItemId, "available_qty", String(baseline));
     }
     if (request?.status === "confirmed") {
       const { error: h } = await logHistory(id, "confirmed", "confirmed", `counter_outcome:${outcome}`);
@@ -559,13 +625,25 @@ export default function PharmacienDemandeDetailPage() {
       for (const row of items) {
         const f = draft[row.id];
         if (!f?.availability_status) throw new Error("Choisis une disponibilité pour chaque ligne.");
+        const qtyPrep = Number(f.available_qty);
+        if (Number.isNaN(qtyPrep) || qtyPrep < 0) throw new Error("Quantité disponible invalide sur une ligne.");
+        const maxQ = maxPreparationQtyForRow(row);
+        const co = row.counter_outcome ?? "unset";
+        if (row.is_selected_by_patient && co !== "picked_up" && qtyPrep > maxQ) {
+          const nm = one(row.products)?.name ?? "ce produit";
+          throw new Error(
+            `« ${nm} » : jusqu'à récupération, la quantité ne peut pas dépasser celle validée par le patient (${maxQ}).`
+          );
+        }
         const { error: up } = await supabase
           .from("request_items")
           .update(buildItemUpdatePayload(f))
           .eq("id", row.id);
         if (up) throw new Error(up.message);
       }
-      const { error: h } = await logHistory(id, "confirmed", "confirmed", "pharmacist_adjustments_after_confirmation");
+      const audit = buildPharmaConfirmAdjustmentAudit(items, draft);
+      const histReason = audit ? stringifyPharmaConfirmAudit(audit) : "pharmacist_adjustments_after_confirmation";
+      const { error: h } = await logHistory(id, "confirmed", "confirmed", histReason);
       if (h) throw new Error(h.message);
       await load();
     } catch (e) {
@@ -1071,7 +1149,7 @@ export default function PharmacienDemandeDetailPage() {
                             <button
                               type="button"
                               disabled={!canEditThisRow}
-                              onClick={() => nudgeAvailableQty(row.id, -1)}
+                              onClick={() => nudgeAvailableQty(row, -1)}
                               className="h-full w-7 border-r border-input text-xs font-bold text-muted-foreground disabled:opacity-50"
                               aria-label="Diminuer la quantité"
                             >
@@ -1083,13 +1161,13 @@ export default function PharmacienDemandeDetailPage() {
                               pattern="[0-9]*"
                               disabled={!canEditThisRow}
                               value={f.available_qty}
-                              onChange={(e) => setAvailableQty(row.id, e.target.value)}
+                              onChange={(e) => setAvailableQty(row, e.target.value)}
                               className="h-full w-full border-0 px-2 text-xs tabular-nums shadow-none focus:outline-none"
                             />
                             <button
                               type="button"
                               disabled={!canEditThisRow}
-                              onClick={() => nudgeAvailableQty(row.id, 1)}
+                              onClick={() => nudgeAvailableQty(row, 1)}
                               className="h-full w-7 border-l border-input text-xs font-bold text-muted-foreground disabled:opacity-50"
                               aria-label="Augmenter la quantité"
                             >
@@ -1121,6 +1199,16 @@ export default function PharmacienDemandeDetailPage() {
                           />
                         </label>
                       </div>
+                      {request.status === "confirmed" &&
+                      row.is_selected_by_patient &&
+                      canEditThisRow &&
+                      (row.counter_outcome ?? "unset") !== "picked_up" ? (
+                        <p className="col-span-full text-[9px] leading-snug text-muted-foreground">
+                          Quantité préparation · plafonnée à{" "}
+                          <strong className="text-foreground">{maxPreparationQtyForRow(row)}</strong> jusqu&apos;à
+                          « Distribuée / récupérée », puis jusqu&apos;à 10 selon votre saisie.
+                        </p>
+                      ) : null}
 
                       {f.availability_status === "to_order" ? (
                         <label className="flex max-w-sm flex-col gap-0.5">
@@ -1161,13 +1249,36 @@ export default function PharmacienDemandeDetailPage() {
                           const altProd = one(alt.products);
                           const altName = altProd?.name ?? "Alternative";
                           const altPph = pphLabel(altProd?.price_pph);
+                          const chosenAltId = row.patient_chosen_alternative_id ?? null;
+                          const patientChoseHere =
+                            request.status === "confirmed" &&
+                            selected &&
+                            chosenAltId != null &&
+                            chosenAltId === alt.id;
+                          const showIndicatif =
+                            request.status === "confirmed" && selected && rowAlts.length > 0 && !patientChoseHere;
                           return (
                             <li
                               key={alt.id}
-                              className="flex min-w-0 flex-1 basis-full items-center justify-between gap-1.5 rounded-md border border-amber-200/50 bg-card/90 px-1.5 py-1 text-[10px] shadow-sm sm:basis-[calc(50%-0.25rem)] lg:basis-[calc(33.333%-0.35rem)]"
+                              className={`flex min-w-0 flex-1 basis-full items-center justify-between gap-1.5 rounded-md border border-amber-200/50 bg-card/90 px-1.5 py-1 text-[10px] shadow-sm sm:basis-[calc(50%-0.25rem)] lg:basis-[calc(33.333%-0.35rem)] ${
+                                patientChoseHere
+                                  ? "ring-2 ring-emerald-500/65 ring-offset-2 ring-offset-amber-50/30 bg-emerald-50/70"
+                                  : showIndicatif
+                                    ? "opacity-65"
+                                    : ""
+                              }`}
                             >
                               <div className="min-w-0">
                                 <p className="truncate font-medium text-foreground">{altName}</p>
+                                {patientChoseHere ? (
+                                  <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-900">
+                                    Retenu par le patient
+                                  </p>
+                                ) : showIndicatif ? (
+                                  <p className="mt-0.5 text-[9px] font-medium text-muted-foreground">
+                                    À titre indicatif (non choisi au passage en pharmacie validé)
+                                  </p>
+                                ) : null}
                                 <p className="mt-0.5 text-[10px] text-muted-foreground">
                                   #{alt.rank} ·{" "}
                                   {alt.availability_status ? availabilityStatusFr[alt.availability_status] : "—"}

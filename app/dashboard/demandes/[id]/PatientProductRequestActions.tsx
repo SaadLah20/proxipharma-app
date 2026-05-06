@@ -7,7 +7,12 @@ import {
   PATIENT_CANCEL_REASON_LABELS,
   type PatientCancelReasonCode,
 } from "@/lib/patient-flow-reasons";
-import { availabilityStatusFr, counterOutcomeFr, requestItemLineSourceFr } from "@/lib/request-display";
+import {
+  availabilityStatusFr,
+  counterOutcomeFr,
+  requestItemLineSourceFr,
+  requestStatusFr,
+} from "@/lib/request-display";
 import { plannedVisitWindow } from "@/lib/planned-visit";
 import { unitPriceLabel } from "@/lib/product-price";
 import { supabase } from "@/lib/supabase";
@@ -697,23 +702,52 @@ export function PatientProductRequestActions({
             const displayStatus = chosenAlt?.availability_status ?? row.availability_status;
             const displayEta = chosenAlt?.expected_availability_date ?? row.expected_availability_date;
             const displayComment = chosenAlt?.pharmacist_comment ?? row.pharmacist_comment;
+            const validatedQty = row.selected_qty ?? row.requested_qty;
+            const prepQty = row.available_qty;
+            const qtyDiffers =
+              prepQty != null && Number(prepQty) !== Number(validatedQty);
             return (
               <li key={`confirmed-${row.id}`} className="rounded-xl border-2 border-slate-100 bg-white p-2.5 text-[11px] shadow-sm">
-                <p className="text-sm font-semibold text-foreground">{displayName}</p>
-                <p className="mt-1 text-xs text-gray-600">
-                  {displayStatus ? availabilityStatusFr[displayStatus] ?? displayStatus : "—"}
-                  {displayPrice != null ? ` · Prix pharmacie ${Number(displayPrice).toFixed(2)} MAD` : ""}
-                  {displayStatus === "to_order" && displayEta ? ` · Disponible le ${formatDateShortFr(displayEta)}` : ""}
-                </p>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <p className="text-xs text-muted-foreground">Qté validée {row.selected_qty ?? row.requested_qty}</p>
-                  <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${counterOutcomeBadgeClass(counterOutcome)}`}
-                  >
-                    {counterOutcomeLabel}
-                  </span>
+                <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2 py-1.5">
+                  <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900">Ce que vous avez validé</p>
+                  <p className="mt-0.5 text-sm font-semibold text-emerald-950">{displayName}</p>
+                  <p className="mt-0.5 text-[11px] text-emerald-900/85">
+                    Quantité · <strong className="tabular-nums">{validatedQty}</strong> unité(s)
+                  </p>
+                  {chosenAlt ? (
+                    <p className="mt-1 text-[10px] text-emerald-900/85">Alternative retenue par rapport au produit demandé.</p>
+                  ) : altList.length > 0 ? (
+                    <p className="mt-1 text-[10px] text-emerald-900/85">Produit principal retenu.</p>
+                  ) : null}
                 </div>
-                {displayComment ? <p className="mt-1 text-xs text-muted-foreground">{displayComment}</p> : null}
+                <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
+                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-600">
+                    Suivi officine ({requestStatusFr[status] ?? status})
+                  </p>
+                  <p className="mt-0.5 text-xs text-gray-700">
+                    {displayStatus ? availabilityStatusFr[displayStatus] ?? displayStatus : "—"}
+                    {displayPrice != null ? ` · Prix pharmacie ${Number(displayPrice).toFixed(2)} MAD` : ""}
+                    {displayStatus === "to_order" && displayEta ? ` · Disponible le ${formatDateShortFr(displayEta)}` : ""}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-800">
+                    Quantité suivie&nbsp;:{" "}
+                    <strong className="tabular-nums">{prepQty ?? "—"}</strong>
+                  </p>
+                  {qtyDiffers ? (
+                    <p className="mt-1 text-[10px] leading-snug text-amber-900">
+                      Diffère de votre validation — évolution gérée en pharmacie. Détail dans l&apos;historique si la pharmacie met à
+                      jour le dossier.
+                    </p>
+                  ) : null}
+                  <div className="mt-1.5">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${counterOutcomeBadgeClass(counterOutcome)}`}
+                    >
+                      {counterOutcomeLabel}
+                    </span>
+                  </div>
+                </div>
+                {displayComment ? <p className="mt-2 text-xs text-muted-foreground">{displayComment}</p> : null}
               </li>
             );
           })}
