@@ -174,6 +174,6 @@ export const availabilityStatusFr: Record<string, string> = {
 export const counterOutcomeFr: Record<string, string> = {
   unset: "En attente",
   picked_up: "Récupéré",
-  cancelled_at_counter: "Non récupéré",
+  cancelled_at_counter: "Annulé à votre demande",
   deferred_next_visit: "À récupérer plus tard",
 };

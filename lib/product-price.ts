@@ -18,3 +18,9 @@ export function pphLabel(pricePph: number | string | null | undefined): string |
   const mad = formatPphMad(pricePph);
   return mad ? `PPH ${mad}` : null;
 }
+
+/** Libellé patient-friendly (“Prix unitaire …”) */
+export function unitPriceLabel(pricePph: number | string | null | undefined): string | null {
+  const mad = formatPphMad(pricePph);
+  return mad ? `Prix unitaire ${mad}` : null;
+}

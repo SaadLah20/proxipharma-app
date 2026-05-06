@@ -122,6 +122,11 @@ function nextAltRank(existing: AltRowDb[]): number | null {
   return null;
 }
 
+function counterOutcomeLabelPharmacien(outcome: string): string {
+  if (outcome === "cancelled_at_counter") return "Annulé à la demande du client";
+  return counterOutcomeFr[outcome] ?? outcome;
+}
+
 async function logHistory(requestId: string, oldS: string | null, newS: string, reason?: string) {
   const { data: userData } = await supabase.auth.getUser();
   return supabase.from("request_status_history").insert({
@@ -368,12 +373,20 @@ export default function PharmacienDemandeDetailPage() {
       line_source: "pharmacist_proposed",
       pharmacist_proposal_reason: reason,
       is_selected_by_patient: true,
+      selected_qty: qty,
       counter_outcome: "unset",
     });
     setPropBusy(false);
     if (insErr) {
       setError(insErr.message);
       return;
+    }
+    if (request?.status === "confirmed") {
+      const { error: h } = await logHistory(id, "confirmed", "confirmed", "counter_product_added");
+      if (h) {
+        setError(h.message);
+        return;
+      }
     }
     setPropOpen(false);
     resetPropForm();
@@ -414,6 +427,13 @@ export default function PharmacienDemandeDetailPage() {
       setError(insErr.message);
       return;
     }
+    if (request?.status === "confirmed") {
+      const { error: h } = await logHistory(id, "confirmed", "confirmed", "counter_alternative_added");
+      if (h) {
+        setError(h.message);
+        return;
+      }
+    }
     resetAltPicker();
 
     const { data: altRows, error: fetchErr } = await supabase
@@ -443,6 +463,13 @@ export default function PharmacienDemandeDetailPage() {
       setError(delErr.message);
       return;
     }
+    if (request?.status === "confirmed") {
+      const { error: h } = await logHistory(id, "confirmed", "confirmed", "counter_alternative_removed");
+      if (h) {
+        setError(h.message);
+        return;
+      }
+    }
     if (altPickerOpenFor === parentRowId) resetAltPicker();
 
     if (parentRowId) {
@@ -471,6 +498,79 @@ export default function PharmacienDemandeDetailPage() {
     setCounterBusyId(null);
     if (rpcErr) {
       setError(rpcErr.message);
+      return;
+    }
+    if (request?.status === "confirmed") {
+      const { error: h } = await logHistory(id, "confirmed", "confirmed", `counter_outcome:${outcome}`);
+      if (h) {
+        setError(h.message);
+        return;
+      }
+    }
+    await load();
+  };
+
+  const saveConfirmedAdjustments = async () => {
+    if (!request || request.status !== "confirmed") return;
+    setBusy(true);
+    setError("");
+    try {
+      for (const row of items) {
+        const f = draft[row.id];
+        if (!f?.availability_status) throw new Error("Choisis une disponibilité pour chaque ligne.");
+        const availQty = Number(f.available_qty);
+        if (Number.isNaN(availQty) || availQty < 0) throw new Error("Quantité disponible invalide sur une ligne.");
+        const price = f.unit_price.trim() === "" ? null : Number(f.unit_price.replace(",", "."));
+        if (f.unit_price.trim() !== "" && (price == null || Number.isNaN(price) || price < 0)) {
+          throw new Error("Prix unitaire invalide.");
+        }
+        const { error: up } = await supabase
+          .from("request_items")
+          .update({
+            availability_status: f.availability_status,
+            available_qty: availQty,
+            unit_price: price,
+            pharmacist_comment: f.pharmacist_comment.trim() || null,
+            expected_availability_date: f.expected_availability_date.trim() !== "" ? f.expected_availability_date : null,
+          })
+          .eq("id", row.id);
+        if (up) throw new Error(up.message);
+      }
+      const { error: h } = await logHistory(id, "confirmed", "confirmed", "pharmacist_adjustments_after_confirmation");
+      if (h) throw new Error(h.message);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Une erreur est survenue.");
+    }
+    setBusy(false);
+  };
+
+  const cancelLineAtCounter = async (row: ItemRow) => {
+    if (!request || request.status !== "confirmed") return;
+    setCounterBusyId(row.id);
+    setError("");
+    const currentComment = (row.pharmacist_comment ?? "").trim();
+    const nextComment = currentComment
+      ? `${currentComment}\nAnnulé au comptoir à la demande du client.`
+      : "Annulé au comptoir à la demande du client.";
+    const { error: upErr } = await supabase
+      .from("request_items")
+      .update({
+        is_selected_by_patient: false,
+        selected_qty: null,
+        counter_outcome: "cancelled_at_counter",
+        pharmacist_comment: nextComment,
+      })
+      .eq("id", row.id);
+    if (upErr) {
+      setCounterBusyId(null);
+      setError(upErr.message);
+      return;
+    }
+    const { error: h } = await logHistory(id, "confirmed", "confirmed", "counter_line_cancelled");
+    setCounterBusyId(null);
+    if (h) {
+      setError(h.message);
       return;
     }
     await load();
@@ -583,6 +683,8 @@ export default function PharmacienDemandeDetailPage() {
   };
 
   const canEditResponse = request && ["submitted", "in_review"].includes(request.status);
+  const canManageConfirmed = request?.status === "confirmed";
+  const canEditLines = Boolean(canEditResponse || canManageConfirmed);
   const isProduct = request?.request_type === "product_request";
 
   let canCompleteCounter = false;
@@ -733,13 +835,13 @@ export default function PharmacienDemandeDetailPage() {
         </p>
       ) : (
         <>
-          {canEditResponse ? (
+          {canEditLines ? (
             <section className="mb-3 rounded-xl border border-violet-200/80 bg-violet-50/50 px-3 py-3 shadow-sm ring-1 ring-violet-900/5">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h2 className="text-[10px] font-bold uppercase tracking-wide text-violet-950">Proposer un produit</h2>
                   <p className="mt-0.5 max-w-lg text-[11px] leading-snug text-muted-foreground">
-                    Ligne supplémentaire avec motif affiché au patient (avant envoi de ta réponse).
+                    Ligne supplémentaire avec motif affiché au patient, y compris après validation.
                   </p>
                 </div>
                 <button
@@ -885,7 +987,7 @@ export default function PharmacienDemandeDetailPage() {
                       <label className="col-span-2 flex min-w-0 flex-col gap-0.5 sm:col-span-3 lg:col-span-4">
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Dispo</span>
                         <select
-                          disabled={!canEditResponse}
+                          disabled={!canEditLines}
                           value={f.availability_status}
                           onChange={(e) => setField(row.id, "availability_status", e.target.value)}
                           className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs shadow-sm disabled:opacity-60"
@@ -902,7 +1004,7 @@ export default function PharmacienDemandeDetailPage() {
                         <input
                           type="number"
                           min={0}
-                          disabled={!canEditResponse}
+                          disabled={!canEditLines}
                           value={f.available_qty}
                           onChange={(e) => setField(row.id, "available_qty", e.target.value)}
                           className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs tabular-nums shadow-sm disabled:opacity-60"
@@ -914,7 +1016,7 @@ export default function PharmacienDemandeDetailPage() {
                           type="text"
                           inputMode="decimal"
                           placeholder="0.00"
-                          disabled={!canEditResponse}
+                          disabled={!canEditLines}
                           value={f.unit_price}
                           onChange={(e) => setField(row.id, "unit_price", e.target.value)}
                           className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs tabular-nums shadow-sm disabled:opacity-60"
@@ -924,7 +1026,7 @@ export default function PharmacienDemandeDetailPage() {
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Note au patient</span>
                         <textarea
                           rows={1}
-                          disabled={!canEditResponse}
+                          disabled={!canEditLines}
                           value={f.pharmacist_comment}
                           onChange={(e) => setField(row.id, "pharmacist_comment", e.target.value)}
                           placeholder="Optionnel"
@@ -940,7 +1042,7 @@ export default function PharmacienDemandeDetailPage() {
                         </span>
                         <input
                           type="date"
-                          disabled={!canEditResponse}
+                          disabled={!canEditLines}
                           value={f.expected_availability_date}
                           onChange={(e) => setField(row.id, "expected_availability_date", e.target.value)}
                           className="h-9 w-full rounded-lg border border-input bg-background px-2 text-xs shadow-sm disabled:opacity-60 sm:w-auto sm:min-w-[11rem]"
@@ -948,7 +1050,7 @@ export default function PharmacienDemandeDetailPage() {
                       </label>
                     ) : null}
 
-                    {!canEditResponse ? (
+                    {!canEditLines ? (
                       <p className="rounded-md border border-border/60 bg-muted/20 px-2 py-1 text-[10px] text-muted-foreground">
                         Dernière dispo enregistrée :{" "}
                         <strong className="text-foreground">
@@ -985,7 +1087,7 @@ export default function PharmacienDemandeDetailPage() {
                                   {altPph ? <span className="text-teal-800"> · {altPph}</span> : null}
                                 </p>
                               </div>
-                              {canEditResponse ? (
+                              {canEditLines ? (
                                 <button
                                   type="button"
                                   disabled={altBusyRow === alt.id}
@@ -1001,7 +1103,7 @@ export default function PharmacienDemandeDetailPage() {
                       </ul>
                     )}
 
-                    {canEditResponse && normalizeAlts(row.request_item_alternatives).length < 3 ? (
+                    {canEditLines && normalizeAlts(row.request_item_alternatives).length < 3 ? (
                       <>
                         {altPickerOpenFor === row.id ? (
                           <div className="mt-2 rounded-lg border border-amber-200 bg-white p-2 shadow-sm">
@@ -1056,21 +1158,47 @@ export default function PharmacienDemandeDetailPage() {
                         )}
                       </>
                     ) : null}
+                    {canManageConfirmed ? (
+                      <div className="mt-2 border-t border-border/60 pt-2">
+                        <button
+                          type="button"
+                          disabled={counterBusyId === row.id}
+                          onClick={() => void cancelLineAtCounter(row)}
+                          className="inline-flex h-8 items-center justify-center rounded-lg border border-rose-300/90 bg-white px-3 text-[11px] font-semibold text-rose-800 hover:bg-rose-50 disabled:opacity-50"
+                        >
+                          {counterBusyId === row.id ? "Annulation…" : "Annuler cette ligne"}
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 </li>
               );
             })}
           </ul>
 
-          {canEditResponse ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void publishResponse()}
-              className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-emerald-700 text-sm font-semibold text-white shadow-md transition hover:bg-emerald-800 disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
-            >
-              {busy ? "Publication…" : "Envoyer la réponse au patient"}
-            </button>
+          {canEditResponse || canManageConfirmed ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {canEditResponse ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void publishResponse()}
+                  className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-md transition hover:bg-emerald-800 disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
+                >
+                  {busy ? "Publication…" : "Envoyer la réponse au patient"}
+                </button>
+              ) : null}
+              {canManageConfirmed ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void saveConfirmedAdjustments()}
+                  className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-sky-300 bg-sky-50 px-4 text-sm font-semibold text-sky-900 shadow-sm transition hover:bg-sky-100 disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
+                >
+                  {busy ? "Enregistrement…" : "Enregistrer les ajustements"}
+                </button>
+              ) : null}
+            </div>
           ) : (
             <p className="mt-3 rounded-md border border-border bg-muted/30 p-2 text-[11px] text-muted-foreground">
               {request.status === "responded"
@@ -1119,7 +1247,7 @@ export default function PharmacienDemandeDetailPage() {
                       {counterPph ? <p className="text-[10px] font-medium text-teal-800">{counterPph}</p> : null}
                       {!selected ? (
                         <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
-                          Ligne retirée par votre client. <strong className="text-foreground">{counterOutcomeFr[co] ?? co}</strong>
+                          Ligne retirée par votre client. <strong className="text-foreground">{counterOutcomeLabelPharmacien(co)}</strong>
                         </p>
                       ) : (
                         <label className="mt-2 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -1132,10 +1260,10 @@ export default function PharmacienDemandeDetailPage() {
                               request.status === "completed" ? "cursor-not-allowed opacity-60" : ""
                             }`}
                           >
-                            <option value="unset">{counterOutcomeFr.unset ?? "unset"}</option>
-                            <option value="picked_up">{counterOutcomeFr.picked_up}</option>
-                            <option value="cancelled_at_counter">{counterOutcomeFr.cancelled_at_counter}</option>
-                            <option value="deferred_next_visit">{counterOutcomeFr.deferred_next_visit}</option>
+                            <option value="unset">{counterOutcomeLabelPharmacien("unset")}</option>
+                            <option value="picked_up">{counterOutcomeLabelPharmacien("picked_up")}</option>
+                            <option value="cancelled_at_counter">{counterOutcomeLabelPharmacien("cancelled_at_counter")}</option>
+                            <option value="deferred_next_visit">{counterOutcomeLabelPharmacien("deferred_next_visit")}</option>
                           </select>
                           {counterBusyId === row.id ? (
                             <span className="mt-1 block text-[10px] text-muted-foreground">Enregistrement…</span>
