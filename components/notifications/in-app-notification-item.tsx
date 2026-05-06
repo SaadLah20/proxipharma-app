@@ -49,6 +49,7 @@ export function InAppNotificationItem({
   href,
   onNavigate,
   compact,
+  isRead = false,
 }: {
   title: string;
   body: string | null;
@@ -58,9 +59,14 @@ export function InAppNotificationItem({
   onNavigate?: () => void;
   /** Liste déroulante : texte un peu plus condensé */
   compact?: boolean;
+  /** Distinction discrète lu/non lu */
+  isRead?: boolean;
 }) {
   const commonClass = clsx(
-    "flex w-full gap-3 rounded-xl border border-border/80 bg-card p-3 text-left shadow-sm transition hover:bg-muted/30",
+    "flex w-full gap-3 rounded-xl p-3 text-left shadow-sm transition hover:bg-muted/30",
+    isRead
+      ? "border-border/70 bg-card"
+      : "border-sky-200/80 bg-sky-50/35 ring-1 ring-sky-100/70",
     href && "cursor-pointer"
   );
 
@@ -75,7 +81,10 @@ export function InAppNotificationItem({
         <NotificationGlyph eventType={eventType} compact={compact} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className={clsx("font-semibold leading-snug text-foreground", compact ? "text-xs" : "text-sm")}>{title}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className={clsx("font-semibold leading-snug text-foreground", compact ? "text-xs" : "text-sm")}>{title}</p>
+          {!isRead ? <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-sky-500" aria-hidden /> : null}
+        </div>
         {body ? (
           <p
             className={clsx(

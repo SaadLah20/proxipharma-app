@@ -31,6 +31,15 @@ export default function NotificationsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState("");
 
+  const markRowsAsRead = useCallback(async (rowsToMark: Row[]) => {
+    const unreadRows = rowsToMark.filter((r) => !r.read_at);
+    if (unreadRows.length === 0) return;
+    const ids = unreadRows.map((r) => r.id);
+    const nowIso = new Date().toISOString();
+    setRows((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, read_at: nowIso } : r)));
+    await supabase.from("app_notifications").update({ read_at: nowIso }).in("id", ids);
+  }, []);
+
   const load = useCallback(async () => {
     setError("");
     const { data: auth } = await supabase.auth.getSession();
@@ -57,10 +66,12 @@ export default function NotificationsPage() {
     if (ne) {
       setError(ne.message);
     } else {
-      setRows((data ?? []) as Row[]);
+      const nextRows = (data ?? []) as Row[];
+      setRows(nextRows);
+      void markRowsAsRead(nextRows);
     }
     setLoading(false);
-  }, [router]);
+  }, [markRowsAsRead, router]);
 
   useEffect(() => {
     const tid = window.setTimeout(() => void load(), 0);
@@ -115,6 +126,7 @@ export default function NotificationsPage() {
                 createdAt={n.created_at}
                 eventType={n.event_type}
                 href={hrefFor(role, n.request_id)}
+                isRead={Boolean(n.read_at)}
               />
             </li>
           ))}
