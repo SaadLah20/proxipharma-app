@@ -19,6 +19,11 @@ import { PatientProductRequestActions } from "./PatientProductRequestActions";
 import { unitPriceLabel } from "@/lib/product-price";
 import { formatDh } from "@/lib/currency-ma";
 import { summarizeRequestForPatientCard, type PatientRequestItemRow } from "@/lib/patient-request-list-summary";
+import {
+  patientHistoryAuditDetailLines,
+  patientHistoryAuditTitle,
+  tryParsePatientHistoryAudit,
+} from "@/lib/patient-request-history-audit";
 
 type PharmacyEmbed = {
   nom: string;
@@ -94,13 +99,30 @@ type StatusHistoryRow = {
 function historyReasonLabel(reason: string | null | undefined): string {
   if (!reason) return "Mise à jour du dossier";
   if (reason === "publication_disponibilites") return "Réponse de la pharmacie publiée";
-  if (reason === "pharmacist_adjustments_after_confirmation") return "Ajustements après validation";
+  if (reason === "pharmacist_adjustments_after_confirmation") return "Préparation pharmacie mise à jour";
   if (reason === "counter_product_added") return "Produit ajouté au comptoir";
   if (reason === "counter_line_cancelled") return "Produit annulé au comptoir";
   if (reason === "counter_alternative_added") return "Alternative ajoutée";
   if (reason === "counter_alternative_removed") return "Alternative retirée";
   if (reason.startsWith("counter_outcome:")) return "Statut de récupération mis à jour";
   return "Mise à jour du dossier";
+}
+
+function PatientHistoryReasonBlock({ reason }: { reason: string | null }) {
+  const audit = tryParsePatientHistoryAudit(reason);
+  if (audit) {
+    return (
+      <>
+        <p className="font-medium text-foreground">{patientHistoryAuditTitle(audit)}</p>
+        <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] leading-snug text-muted-foreground">
+          {patientHistoryAuditDetailLines(audit).map((line, idx) => (
+            <li key={idx}>{line}</li>
+          ))}
+        </ul>
+      </>
+    );
+  }
+  return <p className="font-medium text-foreground">{historyReasonLabel(reason)}</p>;
 }
 
 export default function DemandeDetailPage() {
@@ -316,8 +338,8 @@ export default function DemandeDetailPage() {
               <ul className="space-y-1.5">
                 {historyRows.map((h) => (
                   <li key={h.id} className="rounded-lg border border-border/60 bg-muted/20 px-2 py-1.5 text-xs">
-                    <p className="font-medium text-foreground">{historyReasonLabel(h.reason)}</p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <PatientHistoryReasonBlock reason={h.reason} />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
                       {h.old_status ? `${requestStatusFr[h.old_status] ?? h.old_status} → ` : ""}
                       {requestStatusFr[h.new_status] ?? h.new_status}
                     </p>
@@ -336,6 +358,17 @@ export default function DemandeDetailPage() {
                 const prod = one(row.products);
                 const altList = normalizeAlternatives(row.request_item_alternatives);
                 const linePph = unitPriceLabel(prod?.price_pph);
+                const postConfirmPatientView = [
+                  "confirmed",
+                  "completed",
+                  "partially_collected",
+                  "fully_collected",
+                ].includes(request.status);
+                const chosenAltForValidated = altList.find((a) => a.id === row.patient_chosen_alternative_id);
+                const validatedProductName = chosenAltForValidated
+                  ? one(chosenAltForValidated.products)?.name ?? "Alternative"
+                  : prod?.name ?? "Produit";
+                const validatedQtyBaseline = row.selected_qty ?? row.requested_qty;
                 return (
                   <li key={row.id} className="rounded-xl border-2 border-slate-100 bg-white p-2.5 text-[11px] leading-snug shadow-sm sm:text-xs">
                     <div className="flex flex-wrap items-start justify-between gap-1">
@@ -363,25 +396,54 @@ export default function DemandeDetailPage() {
                         </>
                       ) : null}
                     </p>
-                    {(request.status === "confirmed" || request.status === "completed") &&
-                    row.is_selected_by_patient &&
-                    normalizeAlternatives(row.request_item_alternatives).some((a) => a.id === row.patient_chosen_alternative_id) ? (
-                      <p className="mt-1 font-medium text-emerald-900">
-                        Alternative validée :{" "}
-                        {one(
-                          normalizeAlternatives(row.request_item_alternatives).find(
-                            (a) => a.id === row.patient_chosen_alternative_id
-                          )?.products
-                        )?.name ?? "—"}
-                      </p>
-                    ) : null}
-                    {(request.status === "confirmed" || request.status === "completed") &&
-                    row.is_selected_by_patient &&
-                    !row.patient_chosen_alternative_id &&
-                    normalizeAlternatives(row.request_item_alternatives).length > 0 ? (
-                      <p className="mt-1 text-muted-foreground">Produit principal validé.</p>
-                    ) : null}
-                    {row.availability_status ? (
+                    {postConfirmPatientView && row.is_selected_by_patient ? (
+                      <>
+                        <div className="mt-2 rounded-lg border border-emerald-300/70 bg-emerald-50 px-2 py-1.5">
+                          <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900">
+                            Ce que vous avez validé
+                          </p>
+                          <p className="mt-0.5 text-xs font-semibold leading-snug text-emerald-950">
+                            <span>{validatedProductName}</span>
+                            <span className="tabular-nums"> · {validatedQtyBaseline} unité(s)</span>
+                          </p>
+                          {chosenAltForValidated ? (
+                            <p className="mt-1 text-[10px] text-emerald-900/85">
+                              Alternative retenue par rapport au produit initialement demandé.
+                            </p>
+                          ) : altList.length > 0 ? (
+                            <p className="mt-1 text-[10px] text-emerald-900/85">Produit principal retenu.</p>
+                          ) : null}
+                        </div>
+                        <div className="mt-2 rounded-lg border border-slate-300/80 bg-slate-50 px-2 py-1.5">
+                          <p className="text-[9px] font-bold uppercase tracking-wide text-slate-700">
+                            Préparation actuelle (pharmacie)
+                          </p>
+                          <p className="mt-0.5 text-[11px] leading-snug text-slate-900">
+                            Quantité suivie :{" "}
+                            <strong className="tabular-nums">{row.available_qty ?? "—"}</strong>
+                            {row.availability_status ? (
+                              <>
+                                {" "}
+                                · {availabilityStatusFr[row.availability_status] ?? row.availability_status}
+                              </>
+                            ) : null}
+                            {(chosenAltForValidated?.unit_price ?? row.unit_price) != null ? (
+                              <span className="tabular-nums">
+                                {" "}
+                                · {Number(chosenAltForValidated?.unit_price ?? row.unit_price).toFixed(2)} MAD
+                              </span>
+                            ) : null}
+                          </p>
+                          {row.available_qty != null &&
+                          Number(row.available_qty) !== Number(validatedQtyBaseline) ? (
+                            <p className="mt-1 text-[10px] leading-snug text-amber-900">
+                              Peut différer de votre validation sans nouvelle validation de votre part. Consultez
+                              l&apos;historique du dossier pour le détail des changements.
+                            </p>
+                          ) : null}
+                        </div>
+                      </>
+                    ) : row.availability_status ? (
                       <p className="mt-1 text-primary">
                         <span className="font-medium">{availabilityStatusFr[row.availability_status] ?? row.availability_status}</span>
                         {row.unit_price != null ? ` · ${Number(row.unit_price).toFixed(2)} MAD` : ""}
