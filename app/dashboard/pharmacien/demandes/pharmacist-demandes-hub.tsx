@@ -258,7 +258,7 @@ export function PharmacistDemandesHub() {
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h2 className="text-xs font-bold uppercase tracking-wide text-emerald-950">Filtres et recherche</h2>
-                <p className="text-[10px] text-emerald-900/85">Saisissez une référence pour accès immédiat</p>
+                <p className="text-[10px] text-emerald-900/85">Référence demande pour accès direct</p>
               </div>
               <button
                 type="button"
@@ -271,11 +271,11 @@ export function PharmacistDemandesHub() {
             {filtersOpen ? (
             <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 sm:items-end">
             <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
-              Réf. demande ou code client
+              Référence demande / client
               <input
                 value={refQuery}
                 onChange={(e) => setRefQuery(e.target.value)}
-                placeholder="Ex. D042/26 ou P0001-X"
+                placeholder="Ex. D042/26"
                 className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/70"
               />
             </label>

@@ -98,6 +98,23 @@ export function PlatformHeader() {
     setNotifications(Array.isArray(notifData) ? (notifData as NotifRow[]) : []);
   }, []);
 
+  const markNotificationsAsRead = useCallback(async () => {
+    const unreadRows = notifications.filter((n) => !n.read_at);
+    if (unreadRows.length === 0) return;
+    const ids = unreadRows.map((n) => n.id);
+    const nowIso = new Date().toISOString();
+    setNotifications((prev) => prev.map((n) => (ids.includes(n.id) ? { ...n, read_at: nowIso } : n)));
+    const { error } = await supabase
+      .from("app_notifications")
+      .update({ read_at: nowIso })
+      .in("id", ids);
+    if (error) {
+      // Re-sync from source of truth if update fails.
+      const userId = session?.user?.id;
+      if (userId) await loadProfileAndNotifs(userId);
+    }
+  }, [loadProfileAndNotifs, notifications, session?.user?.id]);
+
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getSession();
@@ -169,8 +186,12 @@ export function PlatformHeader() {
                   <button
                     type="button"
                     onClick={() => {
-                      setNotifOpen((v) => !v);
+                      const next = !notifOpen;
+                      setNotifOpen(next);
                       setProfileOpen(false);
+                      if (next) {
+                        void markNotificationsAsRead();
+                      }
                     }}
                     className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50"
                     aria-label="Notifications"
@@ -178,7 +199,7 @@ export function PlatformHeader() {
                     <Bell className="h-5 w-5" />
                     {unread > 0 ? (
                       <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                        {unread > 9 ? "9+" : unread}
+                        {unread}
                       </span>
                     ) : null}
                   </button>
@@ -213,6 +234,7 @@ export function PlatformHeader() {
                                 href={notifDetailHref(role, n.request_id)}
                                 onNavigate={() => setNotifOpen(false)}
                                 compact
+                                isRead={Boolean(n.read_at)}
                               />
                             </li>
                           ))}

@@ -294,6 +294,16 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
   const when = row.submitted_at ?? row.created_at;
   const name = patientDisplayName(row);
   const phone = row.patient_whatsapp?.trim();
+  const lines = Array.isArray(row.request_items) ? row.request_items : [];
+  const selectedCount = lines.filter((l) => l.is_selected_by_patient ?? true).length;
+  const inCounterProgress =
+    row.status === "confirmed" &&
+    lines.some((l) => (l.is_selected_by_patient ?? true) && (l.counter_outcome ?? "unset") !== "unset");
+  const pendingCounter = lines.filter(
+    (l) => (l.is_selected_by_patient ?? true) && (l.counter_outcome ?? "unset") === "unset"
+  ).length;
+  const pickedUp = lines.filter((l) => (l.is_selected_by_patient ?? true) && (l.counter_outcome ?? "unset") === "picked_up").length;
+  const statusForCard = inCounterProgress ? "in_progress_virtual" : row.status;
 
   return (
     <div className="relative overflow-hidden rounded-2xl border-2 border-emerald-100 bg-gradient-to-br from-white via-white to-emerald-50/35 shadow-[0_2px_10px_rgba(16,185,129,0.08)] transition hover:border-emerald-300 hover:shadow-[0_6px_18px_rgba(16,185,129,0.16)]">
@@ -322,8 +332,24 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
                     Client <span className="font-mono font-medium text-foreground">{row.patient_ref}</span>
                   </span>
                 ) : null}
-                <RequestStatusBadge status={row.status} role="pharmacien" />
+                <RequestStatusBadge status={statusForCard} role="pharmacien" />
               </div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5 text-[10px] text-muted-foreground">
+                <span className="rounded-md border border-slate-200 bg-white px-1.5 py-1 shadow-sm">
+                  Lignes <strong className="text-foreground">{lines.length}</strong>
+                </span>
+                <span className="rounded-md border border-slate-200 bg-white px-1.5 py-1 shadow-sm">
+                  Retenues <strong className="text-foreground">{selectedCount}</strong>
+                </span>
+                <span className="rounded-md border border-slate-200 bg-white px-1.5 py-1 shadow-sm">
+                  Comptoir <strong className="text-foreground">{pendingCounter}</strong>
+                </span>
+              </div>
+              {statusForCard === "in_progress_virtual" ? (
+                <p className="mt-1 text-[10px] font-medium text-emerald-900/85">
+                  Exécution en cours: {pickedUp} récupéré(s), {pendingCounter} en attente.
+                </p>
+              ) : null}
             </div>
           </div>
           <span className="shrink-0 pt-1 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-emerald-700" aria-hidden>
