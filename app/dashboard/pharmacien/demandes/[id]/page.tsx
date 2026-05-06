@@ -123,8 +123,17 @@ function nextAltRank(existing: AltRowDb[]): number | null {
 }
 
 function counterOutcomeLabelPharmacien(outcome: string): string {
-  if (outcome === "cancelled_at_counter") return "Annulé à la demande du client";
-  return counterOutcomeFr[outcome] ?? outcome;
+  if (outcome === "cancelled_at_counter") return "Sans distribution au comptoir";
+  switch (outcome) {
+    case "unset":
+      return "En attente au comptoir";
+    case "picked_up":
+      return "Distribuée / récupérée";
+    case "deferred_next_visit":
+      return counterOutcomeFr[outcome] ?? outcome;
+    default:
+      return counterOutcomeFr[outcome] ?? outcome;
+  }
 }
 
 function buildItemUpdatePayload(f: ItemDraft) {
@@ -142,6 +151,19 @@ function buildItemUpdatePayload(f: ItemDraft) {
     unit_price: price,
     pharmacist_comment: f.pharmacist_comment.trim() || null,
     expected_availability_date: f.expected_availability_date.trim() !== "" ? f.expected_availability_date : null,
+  };
+}
+
+/** État du formulaire officine depuis une ligne base (chargement ou nouvelle ligne). */
+function buildItemDraftFromRow(row: ItemRow): ItemDraft {
+  const catalogPph = one(row.products)?.price_pph;
+  return {
+    availability_status: row.availability_status ?? "available",
+    available_qty: row.available_qty != null ? String(row.available_qty) : String(row.requested_qty),
+    unit_price:
+      row.unit_price != null ? String(row.unit_price) : catalogPph != null ? String(catalogPph) : "",
+    pharmacist_comment: row.pharmacist_comment ?? "",
+    expected_availability_date: row.expected_availability_date ?? "",
   };
 }
 
@@ -276,24 +298,14 @@ export default function PharmacienDemandeDetailPage() {
     const list = (itemsData as ItemRow[]) ?? [];
     setItems(list);
 
-    const d: Draft = {};
-    for (const row of list) {
-      const catalogPph = one(row.products)?.price_pph;
-      d[row.id] = {
-        availability_status: row.availability_status ?? "available",
-        available_qty:
-          row.available_qty != null ? String(row.available_qty) : String(row.requested_qty),
-        unit_price:
-          row.unit_price != null
-            ? String(row.unit_price)
-            : catalogPph != null
-              ? String(catalogPph)
-              : "",
-        pharmacist_comment: row.pharmacist_comment ?? "",
-        expected_availability_date: row.expected_availability_date ?? "",
-      };
-    }
-    setDraft(d);
+    /** Ne pas réécraser le brouillon des lignes encore présentes (ex. après insert ligne proposée + reload). */
+    setDraft((prev) => {
+      const next: Draft = {};
+      for (const row of list) {
+        next[row.id] = prev[row.id] ?? buildItemDraftFromRow(row);
+      }
+      return next;
+    });
     setLoading(false);
   }, [id, router]);
 
@@ -590,9 +602,8 @@ export default function PharmacienDemandeDetailPage() {
     setCounterBusyId(row.id);
     setError("");
     const currentComment = (row.pharmacist_comment ?? "").trim();
-    const nextComment = currentComment
-      ? `${currentComment}\nAnnulé au comptoir à la demande du client.`
-      : "Annulé au comptoir à la demande du client.";
+    const stamp = "Sans distribution au comptoir (marqué depuis l’interface pharmacien).";
+    const nextComment = currentComment ? `${currentComment}\n${stamp}` : stamp;
     const { error: upErr } = await supabase
       .from("request_items")
       .update({
@@ -905,7 +916,7 @@ export default function PharmacienDemandeDetailPage() {
             <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Lignes à traiter</h2>
             <span className="text-[10px] text-muted-foreground">{items.length} article(s)</span>
           </div>
-          <ul className="mt-2 space-y-2">
+          <ul className="mt-2 space-y-4">
             {items.map((row) => {
               const prod = one(row.products);
               const linePph = pphLabel(prod?.price_pph);
@@ -913,16 +924,20 @@ export default function PharmacienDemandeDetailPage() {
               if (!f) return null;
               const co = row.counter_outcome ?? "unset";
               const selected = Boolean(row.is_selected_by_patient);
+              const lineLockedTrace = co === "cancelled_at_counter";
+              const canEditThisRow = canEditLines && !lineLockedTrace;
+              const rowAlts = normalizeAlts(row.request_item_alternatives);
               const showInlineCounter =
                 request.status === "responded" || request.status === "confirmed" || request.status === "completed";
               const outcomeSelectDisabled =
                 request.status === "completed" ||
                 counterBusyId === row.id ||
-                !selected;
+                !selected ||
+                lineLockedTrace;
               return (
                 <li
                   key={row.id}
-                  className="overflow-hidden rounded-lg border border-border/80 bg-card shadow-sm ring-1 ring-black/[0.03]"
+                  className="overflow-hidden rounded-xl border-2 border-slate-200/90 bg-card shadow-md ring-1 ring-black/[0.04]"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-1.5 border-b border-border/60 bg-muted/15 px-2.5 py-1.5 sm:px-3">
                     <div className="min-w-0 flex-1">
@@ -932,10 +947,14 @@ export default function PharmacienDemandeDetailPage() {
                         <span>
                           Demandé <strong className="text-foreground">{row.requested_qty}</strong>
                         </span>
-                        {row.is_selected_by_patient ? (
-                          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-900">Retenu client</span>
+                        {lineLockedTrace ? (
+                          <span className="rounded bg-rose-100 px-1.5 py-0.5 font-medium text-rose-900 ring-1 ring-rose-200/80">
+                            Sans distribution au comptoir
+                          </span>
+                        ) : selected ? (
+                          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-900">Retenu après réponse patient</span>
                         ) : (
-                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">Retiré client</span>
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">Non retenu après réponse patient</span>
                         )}
                       </div>
                       {row.line_source === "pharmacist_proposed" ? (
@@ -960,115 +979,148 @@ export default function PharmacienDemandeDetailPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-1 p-1.5 sm:p-2">
-                    <div className="grid grid-cols-2 gap-1 sm:grid-cols-6 lg:grid-cols-12 lg:gap-1.5">
-                      <label className="col-span-2 flex min-w-0 flex-col gap-0.5 sm:col-span-3 lg:col-span-4">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Dispo</span>
-                        <select
-                          disabled={!canEditLines}
-                          value={f.availability_status}
-                          onChange={(e) => setField(row.id, "availability_status", e.target.value)}
-                          className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs shadow-sm disabled:opacity-60"
-                        >
-                          {PHARMACIST_AVAILABILITY_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="col-span-1 flex min-w-0 flex-col gap-0.5 sm:col-span-1 lg:col-span-2">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Qté</span>
-                        <div className="flex h-8 items-center overflow-hidden rounded-md border border-input bg-background shadow-sm">
-                          <button
-                            type="button"
-                            disabled={!canEditLines}
-                            onClick={() => nudgeAvailableQty(row.id, -1)}
-                            className="h-full w-7 border-r border-input text-xs font-bold text-muted-foreground disabled:opacity-50"
-                            aria-label="Diminuer la quantité"
+                  {lineLockedTrace ? (
+                    <div className="space-y-2 border-t border-rose-200/50 bg-rose-50/20 px-2.5 py-2 text-[11px] leading-snug text-foreground">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-rose-950">Lecture seule · trace comptoir</p>
+                      <p>
+                        <span className="text-muted-foreground">Dispo renseignée : </span>
+                        <strong>{row.availability_status ? availabilityStatusFr[row.availability_status] : "—"}</strong>
+                        {row.availability_status === "to_order" && row.expected_availability_date ? (
+                          <span className="text-muted-foreground"> · Prévu le {row.expected_availability_date}</span>
+                        ) : null}
+                      </p>
+                      <p>
+                        <span className="text-muted-foreground">Qté disponible : </span>
+                        <strong>{row.available_qty != null ? row.available_qty : "—"}</strong>
+                      </p>
+                      <p>
+                        <span className="text-muted-foreground">Prix MAD : </span>
+                        <strong>{row.unit_price != null ? Number(row.unit_price).toFixed(2) : "—"}</strong>
+                      </p>
+                      {row.pharmacist_comment ? (
+                        <p className="whitespace-pre-wrap text-[10px] text-muted-foreground">
+                          <span className="font-semibold text-foreground">Note enregistrée : </span>
+                          {row.pharmacist_comment}
+                        </p>
+                      ) : null}
+                      {showInlineCounter ? (
+                        <p className="border-t border-rose-200/40 pt-2 text-[10px] text-muted-foreground">
+                          État au comptoir :{" "}
+                          <strong className="text-foreground">{counterOutcomeLabelPharmacien(co)}</strong>
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="space-y-1 p-1.5 sm:p-2">
+                      <div className="grid grid-cols-2 gap-1 sm:grid-cols-6 lg:grid-cols-12 lg:gap-1.5">
+                        <label className="col-span-2 flex min-w-0 flex-col gap-0.5 sm:col-span-3 lg:col-span-4">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Dispo</span>
+                          <select
+                            disabled={!canEditThisRow}
+                            value={f.availability_status}
+                            onChange={(e) => setField(row.id, "availability_status", e.target.value)}
+                            className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs shadow-sm disabled:opacity-60"
                           >
-                            −
-                          </button>
+                            {PHARMACIST_AVAILABILITY_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="col-span-1 flex min-w-0 flex-col gap-0.5 sm:col-span-1 lg:col-span-2">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Qté</span>
+                          <div className="flex h-8 items-center overflow-hidden rounded-md border border-input bg-background shadow-sm">
+                            <button
+                              type="button"
+                              disabled={!canEditThisRow}
+                              onClick={() => nudgeAvailableQty(row.id, -1)}
+                              className="h-full w-7 border-r border-input text-xs font-bold text-muted-foreground disabled:opacity-50"
+                              aria-label="Diminuer la quantité"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              disabled={!canEditThisRow}
+                              value={f.available_qty}
+                              onChange={(e) => setAvailableQty(row.id, e.target.value)}
+                              className="h-full w-full border-0 px-2 text-xs tabular-nums shadow-none focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              disabled={!canEditThisRow}
+                              onClick={() => nudgeAvailableQty(row.id, 1)}
+                              className="h-full w-7 border-l border-input text-xs font-bold text-muted-foreground disabled:opacity-50"
+                              aria-label="Augmenter la quantité"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </label>
+                        <label className="col-span-1 flex min-w-0 flex-col gap-0.5 sm:col-span-2 lg:col-span-2">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Prix MAD</span>
                           <input
                             type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            disabled={!canEditLines}
-                            value={f.available_qty}
-                            onChange={(e) => setAvailableQty(row.id, e.target.value)}
-                            className="h-full w-full border-0 px-2 text-xs tabular-nums shadow-none focus:outline-none"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            disabled={!canEditThisRow}
+                            value={f.unit_price}
+                            onChange={(e) => setField(row.id, "unit_price", e.target.value)}
+                            className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs tabular-nums shadow-sm disabled:opacity-60"
                           />
-                          <button
-                            type="button"
-                            disabled={!canEditLines}
-                            onClick={() => nudgeAvailableQty(row.id, 1)}
-                            className="h-full w-7 border-l border-input text-xs font-bold text-muted-foreground disabled:opacity-50"
-                            aria-label="Augmenter la quantité"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </label>
-                      <label className="col-span-1 flex min-w-0 flex-col gap-0.5 sm:col-span-2 lg:col-span-2">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Prix MAD</span>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="0.00"
-                          disabled={!canEditLines}
-                          value={f.unit_price}
-                          onChange={(e) => setField(row.id, "unit_price", e.target.value)}
-                          className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs tabular-nums shadow-sm disabled:opacity-60"
-                        />
-                      </label>
-                      <label className="col-span-2 flex min-w-0 flex-col gap-0.5 sm:col-span-6 lg:col-span-4">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Note au patient</span>
-                        <textarea
-                          rows={1}
-                          disabled={!canEditLines}
-                          value={f.pharmacist_comment}
-                          onChange={(e) => setField(row.id, "pharmacist_comment", e.target.value)}
-                          placeholder="Optionnel"
-                          className="h-8 min-h-[2rem] w-full resize-none rounded-md border border-input bg-background px-2 py-1 text-xs leading-snug shadow-sm disabled:opacity-60"
-                        />
-                      </label>
+                        </label>
+                        <label className="col-span-2 flex min-w-0 flex-col gap-0.5 sm:col-span-6 lg:col-span-4">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Note au patient</span>
+                          <textarea
+                            rows={1}
+                            disabled={!canEditThisRow}
+                            value={f.pharmacist_comment}
+                            onChange={(e) => setField(row.id, "pharmacist_comment", e.target.value)}
+                            placeholder="Optionnel"
+                            className="h-8 min-h-[2rem] w-full resize-none rounded-md border border-input bg-background px-2 py-1 text-xs leading-snug shadow-sm disabled:opacity-60"
+                          />
+                        </label>
+                      </div>
+
+                      {f.availability_status === "to_order" ? (
+                        <label className="flex max-w-sm flex-col gap-0.5">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Date prévision « à commander »
+                          </span>
+                          <input
+                            type="date"
+                            disabled={!canEditThisRow}
+                            value={f.expected_availability_date}
+                            onChange={(e) => setField(row.id, "expected_availability_date", e.target.value)}
+                            className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs shadow-sm disabled:opacity-60 sm:w-auto sm:min-w-[9.5rem]"
+                          />
+                        </label>
+                      ) : null}
+
+                      {!canEditLines ? (
+                        <p className="rounded-md border border-border/60 bg-muted/20 px-2 py-0.5 text-[10px] text-muted-foreground">
+                          Dernière dispo enregistrée :{" "}
+                          <strong className="text-foreground">
+                            {row.availability_status ? availabilityStatusFr[row.availability_status] : "—"}
+                          </strong>
+                        </p>
+                      ) : null}
                     </div>
-
-                    {f.availability_status === "to_order" ? (
-                      <label className="flex max-w-sm flex-col gap-0.5">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Date prévision « à commander »
-                        </span>
-                        <input
-                          type="date"
-                          disabled={!canEditLines}
-                          value={f.expected_availability_date}
-                          onChange={(e) => setField(row.id, "expected_availability_date", e.target.value)}
-                          className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs shadow-sm disabled:opacity-60 sm:w-auto sm:min-w-[9.5rem]"
-                        />
-                      </label>
-                    ) : null}
-
-                    {!canEditLines ? (
-                      <p className="rounded-md border border-border/60 bg-muted/20 px-2 py-0.5 text-[10px] text-muted-foreground">
-                        Dernière dispo enregistrée :{" "}
-                        <strong className="text-foreground">
-                          {row.availability_status ? availabilityStatusFr[row.availability_status] : "—"}
-                        </strong>
-                      </p>
-                    ) : null}
-                  </div>
+                  )}
 
                   <div className="border-t border-amber-200/40 bg-amber-50/30 px-2 py-1.5 sm:px-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-[10px] font-bold uppercase tracking-wide text-amber-950">Alternatives</p>
                       <span className="rounded bg-amber-100/80 px-1.5 py-0.5 text-[9px] font-medium text-amber-900">max 3</span>
                     </div>
-                    {normalizeAlts(row.request_item_alternatives).length === 0 ? (
+                    {rowAlts.length === 0 ? (
                       <p className="mt-1 text-[10px] text-muted-foreground">Aucune alternative.</p>
                     ) : (
                       <ul className="mt-1.5 flex flex-col gap-1 sm:flex-row sm:flex-wrap">
-                        {normalizeAlts(row.request_item_alternatives).map((alt) => {
+                        {rowAlts.map((alt) => {
                           const altProd = one(alt.products);
                           const altName = altProd?.name ?? "Alternative";
                           const altPph = pphLabel(altProd?.price_pph);
@@ -1086,7 +1138,7 @@ export default function PharmacienDemandeDetailPage() {
                                   {altPph ? <span className="text-teal-800"> · {altPph}</span> : null}
                                 </p>
                               </div>
-                              {canEditLines ? (
+                              {canEditThisRow ? (
                                 <button
                                   type="button"
                                   disabled={altBusyRow === alt.id}
@@ -1102,7 +1154,7 @@ export default function PharmacienDemandeDetailPage() {
                       </ul>
                     )}
 
-                    {canEditLines && normalizeAlts(row.request_item_alternatives).length < 3 ? (
+                    {canEditThisRow && rowAlts.length < 3 ? (
                       <>
                         {altPickerOpenFor === row.id ? (
                           <div className="mt-2 rounded-lg border border-amber-200 bg-white p-2 shadow-sm">
@@ -1157,23 +1209,28 @@ export default function PharmacienDemandeDetailPage() {
                         )}
                       </>
                     ) : null}
-                    {canManageConfirmed ? (
+                    {canManageConfirmed && selected && !lineLockedTrace ? (
                       <div className="mt-1.5 border-t border-border/60 pt-1.5">
                         <button
                           type="button"
                           disabled={counterBusyId === row.id}
                           onClick={() => void cancelLineAtCounter(row)}
-                          className="inline-flex h-7 items-center justify-center rounded-md border border-rose-300/90 bg-white px-2.5 text-[10px] font-semibold text-rose-800 hover:bg-rose-50 disabled:opacity-50"
+                          className="inline-flex h-8 items-center justify-center rounded-md border border-rose-300/90 bg-white px-2.5 text-[10px] font-semibold text-rose-800 hover:bg-rose-50 disabled:opacity-50"
                         >
-                          {counterBusyId === row.id ? "Annulation…" : "Annuler cette ligne"}
+                          {counterBusyId === row.id ? "Enregistrement…" : "Sans distribution pour cette ligne"}
                         </button>
+                        <p className="mt-1 max-w-md text-[9px] leading-snug text-muted-foreground">
+                          Pas la même chose qu&apos;une ligne non retenue par le patient après votre réponse — ici la ligne avait été
+                          gardée puis n&apos;est pas distribuée au comptoir.
+                        </p>
                       </div>
                     ) : null}
-                    {showInlineCounter ? (
+                    {showInlineCounter && !lineLockedTrace ? (
                       <div className="mt-1.5 border-t border-border/60 pt-1.5">
                         {!selected ? (
                           <p className="text-[10px] text-muted-foreground">
-                            Ligne retirée par votre client · <strong className="text-foreground">{counterOutcomeLabelPharmacien(co)}</strong>
+                            Patient n&apos;ayant pas retenu cette ligne après votre réponse. État au comptoir :{" "}
+                            <strong className="text-foreground">{counterOutcomeLabelPharmacien(co)}</strong>
                           </p>
                         ) : (
                           <label className="flex max-w-[260px] flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">

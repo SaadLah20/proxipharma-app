@@ -151,7 +151,7 @@ export function PharmacistDemandesHub() {
           []) as Array<{ counter_outcome?: string | null; is_selected_by_patient?: boolean | null }>;
         const hasExecutionProgress =
           r.status === "confirmed" &&
-          rawItems.some((it) => (it.is_selected_by_patient ?? true) && (it.counter_outcome ?? "unset") !== "unset");
+          rawItems.some((it) => (it.counter_outcome ?? "unset") !== "unset");
         return {
           ...r,
           status_for_dashboard: hasExecutionProgress ? "in_progress_virtual" : r.status,

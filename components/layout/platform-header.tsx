@@ -72,6 +72,7 @@ export function PlatformHeader() {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<ProfileLite | null>(null);
   const [notifications, setNotifications] = useState<NotifRow[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [booting, setBooting] = useState(true);
@@ -96,24 +97,31 @@ export function PlatformHeader() {
       .limit(12);
 
     setNotifications(Array.isArray(notifData) ? (notifData as NotifRow[]) : []);
+
+    const { count } = await supabase
+      .from("app_notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("recipient_id", userId)
+      .is("read_at", null);
+    setUnreadCount(count ?? 0);
   }, []);
 
   const markNotificationsAsRead = useCallback(async () => {
-    const unreadRows = notifications.filter((n) => !n.read_at);
-    if (unreadRows.length === 0) return;
-    const ids = unreadRows.map((n) => n.id);
+    const userId = session?.user?.id;
+    if (!userId) return;
     const nowIso = new Date().toISOString();
-    setNotifications((prev) => prev.map((n) => (ids.includes(n.id) ? { ...n, read_at: nowIso } : n)));
+    setNotifications((prev) => prev.map((n) => (!n.read_at ? { ...n, read_at: nowIso } : n)));
+    setUnreadCount(0);
     const { error } = await supabase
       .from("app_notifications")
       .update({ read_at: nowIso })
-      .in("id", ids);
+      .eq("recipient_id", userId)
+      .is("read_at", null);
     if (error) {
       // Re-sync from source of truth if update fails.
-      const userId = session?.user?.id;
       if (userId) await loadProfileAndNotifs(userId);
     }
-  }, [loadProfileAndNotifs, notifications, session?.user?.id]);
+  }, [loadProfileAndNotifs, session?.user?.id]);
 
   useEffect(() => {
     const init = async () => {
@@ -124,6 +132,7 @@ export function PlatformHeader() {
       } else {
         setProfile(null);
         setNotifications([]);
+        setUnreadCount(0);
       }
       setBooting(false);
     };
@@ -137,6 +146,7 @@ export function PlatformHeader() {
       } else {
         setProfile(null);
         setNotifications([]);
+        setUnreadCount(0);
       }
     });
 
@@ -166,7 +176,7 @@ export function PlatformHeader() {
   };
 
   const role = profile?.role ?? "patient";
-  const unread = notifications.filter((n) => !n.read_at).length;
+  const unread = unreadCount;
   const showNotifs = Boolean(session);
 
   return (
