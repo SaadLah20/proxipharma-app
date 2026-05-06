@@ -46,6 +46,7 @@ export function PatientDemandesHub() {
   const [pharmacyFilter, setPharmacyFilter] = useState("");
   const [refQuery, setRefQuery] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const statutParam = searchParams.get("statut");
   const activeBucket = bucketForStatusParam(statutParam, PATIENT_DASHBOARD_BUCKETS);
@@ -228,11 +229,21 @@ export function PatientDemandesHub() {
       ) : (
         <div className="mt-4 space-y-4">
           <section className="rounded-xl border-2 border-sky-100 bg-sky-50/50 p-3 shadow-sm">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <h2 className="text-xs font-bold uppercase tracking-wide text-sky-950">Filtres et recherche</h2>
-              <p className="text-[10px] text-sky-900/85">Saisissez une référence pour accès immédiat</p>
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wide text-sky-950">Filtres et recherche</h2>
+                <p className="text-[10px] text-sky-900/85">Saisissez une référence pour accès immédiat</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((v) => !v)}
+                className="rounded-md border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-900 shadow-sm hover:bg-sky-50"
+              >
+                {filtersOpen ? "Masquer" : "Afficher"}
+              </button>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 sm:items-end">
+            {filtersOpen ? (
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 sm:items-end">
             <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
               Référence demande (accès direct)
               <input
@@ -284,6 +295,11 @@ export function PatientDemandesHub() {
               </select>
             </label>
           </div>
+            ) : (
+              <p className="mt-2 text-[11px] text-sky-900/85">
+                Ouvrez les filtres pour rechercher rapidement une demande ou affiner la liste.
+              </p>
+            )}
           </section>
 
           {filteredSorted.length === 0 ? (

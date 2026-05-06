@@ -306,6 +306,16 @@ Statuts retenus v1:
 
 ---
 
+### Session 2026-05-06 (suite 4) — Vue pharmacien « Toutes les demandes » : filtres repliables + cartes modernisées
+
+**Next.js** :
+- `app/dashboard/pharmacien/demandes/pharmacist-demandes-hub.tsx` : bloc filtres/recherche rendu **repliable** (`Afficher/Masquer`) avec micro-aide quand fermé.
+- `components/requests/demande-hub-ui.tsx` (`PharmacistDemandeCard`) : séparation visuelle renforcée (bordure plus épaisse, top bar couleur, dégradé léger, badges encadrés pour ref/code client) pour éviter l’effet « page blanche continue ».
+
+**Contrôle** : `npm run lint` OK.
+
+---
+
 ### Session 2026-05-06 — UI page par page : ordonnances & consultations libres (patient + pharmacien)
 
 **Objectif** : démarrer le chantier UI incrémental sans migration, en remplaçant les placeholders des pages secondaires par des vues utiles.
