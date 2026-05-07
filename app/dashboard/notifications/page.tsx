@@ -93,9 +93,9 @@ export default function NotificationsPage() {
   }
 
   return (
-    <PageShell className="space-y-4">
+    <PageShell className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
+        <div className="min-w-0">
           <Link href="/" className="text-xs font-medium text-sky-800 underline">
             ← Annuaire
           </Link>
@@ -111,9 +111,9 @@ export default function NotificationsPage() {
           Aucune notification pour le moment.
         </p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="w-full min-w-0 max-w-full space-y-3">
           {rows.map((n) => (
-            <li key={n.id}>
+            <li key={n.id} className="min-w-0 max-w-full">
               <InAppNotificationItem
                 title={
                   role === "patient"

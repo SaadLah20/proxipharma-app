@@ -138,10 +138,19 @@ Cas de rendu attendus:
 
 Sans nouvelle validation patient obligatoire pour les ajustements officine courants :
 
-- **Référence figée** : ce que le patient a validé reste lisible via **`selected_qty`**, **`patient_chosen_alternative_id`** (principal vs alternative) — encarts UI **« Ce que vous avez validé »**.
-- **Suivi courant** : quantité / dispo saisie ou ajustée par la pharmacie (**`available_qty`**, **`availability_status`**, commentaire) — encart **« Préparation actuelle / suivi officine »** ; message si **quantité suivie ≠ quantité validée**.
-- **Historique patient** : lors d’un enregistrement d’ajustements après validation, `request_status_history.reason` peut porter un payload **`audit_v1:`** (JSON) expliquant **par produit** les changements (interprété en français dans l’UI) — voir `lib/patient-request-history-audit.ts`.
-- **Règles officine (UI `confirmed`)** : la quantité **préparation** est **plafonnée** par la quantité validée tant que la ligne n’est pas marquée **récupérée** (`picked_up`) ; en repassant de **récupéré** à un autre état comptoir, la quantité brouillon est **réalignée** sur la quantité validée avant nouvel enregistrement. Lignes **`cancelled_at_counter`** : **lecture seule** côté pharmacien (traçabilité). Compteur **Annulés** sur les cartes patient : toutes les lignes **`cancelled_at_counter`**, y compris si **`is_selected_by_patient`** repasse à false après action officine.
+- **Référence figée** : ce que le patient a validé reste lisible via **`selected_qty`**, **`patient_chosen_alternative_id`** (principal vs alternative) — encart UI **« Ce que vous avez validé »** : **qté · dispo · prix · état** (parité visuelle avec « Suivi officine »).
+- **Suivi courant** : encart **« Suivi officine »** avec **mêmes champs** (qté, dispo, prix, état). Tant qu'**aucun `counter_outcome` n'est posé** sur la ligne (i.e. la pharmacie n'a pas commencé l'exécution comptoir), l'encart affiche un placeholder **« En cours · la pharmacie n'a pas encore commencé… »** (pas de données techniques exposées). Dès qu'un résultat comptoir est saisi, le bloc bascule en mode complet ; message si **quantité suivie ≠ quantité validée**.
+- **Lignes décochées** (`is_selected_by_patient = false` après réponse patient) : **aucun bloc** Validé / Suivi (juste la mention « Vous n'avez pas retenu cette ligne »).
+- **Historique patient** : lors d'un enregistrement d'ajustements après validation, `request_status_history.reason` peut porter un payload **`audit_v1:`** (JSON) expliquant **par produit** les changements (interprété en français dans l'UI) — voir `lib/patient-request-history-audit.ts`. Chaque entrée d'historique affiche désormais **auteur** (Vous / La pharmacie / Système, cf. `historyActorLabel`) **et date** (`formatDateTimeShort24hFr`).
+- **Règles officine (UI `confirmed`)** : la quantité **préparation** est **plafonnée** par la quantité validée tant que la ligne n'est pas marquée **récupérée** (`picked_up`) ; en repassant de **récupéré** à un autre état comptoir, la quantité brouillon est **réalignée** sur la quantité validée avant nouvel enregistrement. Lignes **`cancelled_at_counter`** : **lecture seule** côté pharmacien (traçabilité), avec choix du **motif** (`client_request` / `pharmacy_unable`) et **détail libre** facultatif. Compteur **Annulés** sur les cartes patient : toutes les lignes **`cancelled_at_counter`**, y compris si **`is_selected_by_patient`** repasse à false après action officine.
+
+### 4.5 Réponse pharmacien — règles de saisie
+
+- **Disponibilités proposées au pharmacien (lignes patient)** : `Disponible`, `Indisponible`, `À commander`, `Rupture du marché`. **« Partiellement disponible » n'est plus saisissable** : il est **dérivé automatiquement** à l'enregistrement quand `available_qty < requested_qty` (`inferAvailabilityStatusFromQty` dans `lib/pharmacist-availability.ts`). Si la base contient encore `partially_available`, le brouillon repart à `available` et sera réinféré.
+- **Disponibilités sur lignes proposées par la pharmacie** (`line_source = 'pharmacist_proposed'`) : **uniquement** `Disponible` ou `À commander`.
+- **Annulation totale par la pharmacie** : RPC **`pharmacist_cancel_request(p_request_id, p_reason_text)`** (motif obligatoire ≥ 5 car.) depuis `submitted` / `in_review` / `responded` / `confirmed` → `cancelled`. Le patient voit l'événement dans son historique avec auteur « La pharmacie ».
+- **Heure de passage patient** : saisie **texte 24 h** (HH:MM, normalisée par `parseFreeTime24h` qui accepte `18`, `18h30`, `1830`, `18:30`). Plus de `<input type="time">`.
+- **Le badge « Retenu après réponse patient »** sur la fiche pharmacien n'apparaît qu'à partir du statut `responded` (caché en `submitted` / `in_review`).
 
 ## 5) Rupture du marche - logique specifique
 
@@ -268,6 +277,42 @@ Statuts retenus v1:
 - `partially_collected` / `fully_collected` (conserves en enum; hors flux officiel depuis migration 20260502 au profit de `completed` + suivi ligne a ligne au comptoir)
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
+
+### Session 2026-05-07 (suite 3) — Workflow demandes : terminologie, UX mobile, parité validé/officine, annulation pharmacie
+
+**Objectif** : traiter une liste de 14 retours utilisateur sur le détail demande (patient + pharmacien) suite aux deux premiers lots du 2026-05-07.
+
+**SQL — migrations ajoutées** :
+- **`supabase/migrations/20260507_003_pharmacist_cancel_request.sql`** — RPC **`pharmacist_cancel_request(p_request_id, p_reason_text)`** : annulation totale par la pharmacie depuis `submitted/in_review/responded/confirmed` → **`cancelled`**, motif obligatoire (≥ 5 caractères), trace history `pharmacist_cancel|<motif>`.
+
+**Next.js / lib** :
+- `lib/pharmacist-availability.ts` :
+  - `PHARMACIST_AVAILABILITY_OPTIONS` : suppression de **« Disponible partiellement »** (statut désormais dérivé).
+  - Nouveau **`PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS`** (`Disponible` / `À commander`) pour les lignes `pharmacist_proposed`.
+  - **`inferAvailabilityStatusFromQty(...)`** : passe `available` à `partially_available` si `available_qty < requested_qty`.
+- `lib/request-display.ts` : ajout **`historyActorLabel(role, reason)`** (Vous / La pharmacie / Système — convention de préfixes `patient_*` / `pharmacist_*` / `auto_*` / `audit_v1:*`).
+- `app/dashboard/pharmacien/demandes/[id]/page.tsx` :
+  - Menu Dispo bascule sur les options proposées-only quand la ligne est `pharmacist_proposed`.
+  - `partially_available` n'est plus saisi : `buildItemUpdatePayload` + `publishResponse` réinfèrent automatiquement le statut. Brouillon : si la base contient `partially_available`, le draft repart à `available`.
+  - Badge **« Retenu après réponse patient » / « Non retenu »** caché sur `submitted` / `in_review`.
+  - Nouveau bloc **« Annuler cette demande »** (textarea motif → RPC ci-dessus).
+  - Nouveau bouton **« Voir l'historique »** : timeline + auteur + date (`historyActorLabel("pharmacien", reason)` + `formatDateTimeShort24hFr`).
+- `app/dashboard/demandes/[id]/PatientProductRequestActions.tsx` :
+  - Resubmit mobile : quantités via boutons **+/−** + input texte tabular ; bouton « Modifier » ↔ **« Annuler les modifications »** (reset complet : lignes, note, recherche) ; **« Mettre à jour et renvoyer »** **caché** tant que pas en mode édition.
+  - Heure de passage : **`<input type="text">`** 24 h avec normaliseur `parseFreeTime24h` (accepte `18`, `18h30`, `1830`, `18:30`).
+  - Cartes `confirmed` : `is_selected_by_patient = false` → message « Vous n'avez pas retenu cette ligne… » (plus de blocs Validé / Suivi).
+  - **Parité de champs** : « Ce que vous avez validé » et « Suivi officine » présentent qté / dispo / prix / état.
+  - **« En cours »** : tant qu'aucun `counter_outcome` n'est posé sur la ligne, le bloc « Suivi officine » affiche le placeholder « En cours · la pharmacie n'a pas encore commencé… ».
+- `app/dashboard/demandes/[id]/page.tsx` :
+  - Mêmes blocs symétriques pour `completed` / `partially_collected` / `fully_collected`.
+  - Historique patient : auteur + date sur chaque entrée.
+- Notifications mobile (`components/notifications/in-app-notification-item.tsx` + `app/dashboard/notifications/page.tsx`) : `min-w-0` / `max-w-full` / `overflow-hidden` / `break-words` pour empêcher le débordement à gauche.
+
+**Contrôle** : `npm run build` ✅ (29/29 pages, TypeScript OK), `npm run lint` ✅.
+
+**À appliquer côté Supabase** : `20260507_003_pharmacist_cancel_request.sql`.
+
+---
 
 ### Session 2026-05-06 (suite) — Refonte UI « Mes demandes de produits / Toutes les demandes »
 
@@ -667,6 +712,9 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260505_005_pharmacist_notifications_vouvoiement_client.sql`
   - `supabase/migrations/20260505_006_pharmacist_notif_patient_display_name.sql` (fallback nom patient dans notifs pharmacien)
   - `supabase/migrations/20260505_007_public_reference_codes.sql` (**codes** `public_ref` / `patient_ref` / `request_public_ref` + RPC directory/contact avec **`patient_ref`** — inclut **`DROP FUNCTION`** avant recréation RPC)
+  - `supabase/migrations/20260507_001_patient_abandon_cancel_expire_clone.sql` (règles abandon/annulation/expiré ; batch 24 h → **`expired`** ; RPC **`patient_create_followup_from_expired_product_request`**)
+  - `supabase/migrations/20260507_002_counter_cancel_reason.sql` (motifs annulation ligne au comptoir : `client_request` / `pharmacy_unable` + détail libre, RPC `pharmacist_set_item_counter_outcome` étendue)
+  - `supabase/migrations/20260507_003_pharmacist_cancel_request.sql` (**RPC `pharmacist_cancel_request`** : annulation totale par la pharmacie avec motif obligatoire)
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -727,7 +775,7 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 1. Fiche **`/pharmacie/.../demande-produits`** : **PPH affichés** ✓ ; **qté max 10** ✓ ; **commentaire par ligne** ✓ (**Q11**, session **2026-05-07**).  
 2. **`PatientProductRequestActions` + détail patient** : radios principal/alternative ✓ ; date passage ✓ ; notes par ligne au renvoi ✓ (**Q11**) ; reste récap dense **Q28**, totaux **Q23** si besoin au-delà de PPH + lignes réponse pharma.  
 3. **Pharmacien** : motif sur **lignes proposées par l’officine** ✓ (**Q20**), mention **« Mis à jour … »** sur ligne ✓ (**Q32**, `updated_at` affiché) ; reste affinages ETA « à commander » / **Q18**.  
-4. **Post‑`confirmed`** : **partiellement livré** (§4.4, session **2026-05-06**) — deux niveaux lecture patient (validé vs préparation), règles qté officine avant récupération, alternatives indicatif vs retenu, lignes fermées lecture seule, historique **`audit_v1`**. Reste : **annulation globale de la demande avec motif** côté pharmacien si non branchée métier/UI ; raffinement **Q31** / **Q18** libellés et champs métier si besoin.  
+4. **Post‑`confirmed`** : **livré** (§4.4 + §4.5, sessions **2026-05-06** et **2026-05-07**) — deux niveaux lecture patient (validé vs préparation) à **parité de champs** (qté / dispo / prix / état), placeholder **« En cours »** tant que la pharmacie n'a pas touché au comptoir, règles qté officine avant récupération, alternatives indicatif vs retenu, lignes fermées lecture seule, historique **`audit_v1`** + auteur/date, **annulation globale par la pharmacie avec motif** (RPC `pharmacist_cancel_request`), **annulation patient ↔ statuts** (cancelled / abandoned / expired), **« partiellement disponible » dérivé**, lignes **proposées** restreintes à `Disponible` / `À commander`, heure de passage en **saisie texte 24 h**, **resubmit mobile** avec +/− + bouton « Annuler les modifications ». Reste : raffinement **Q31** / **Q18** libellés et champs métier si besoin.  
 5. **Tâches planifiées** : job **abandon 24 h** ✓ (**`abandon_unconfirmed_responded_requests`**, à brancher cron) ; **`expires_at` +7 j** désactivé côté app à la publication ✓ ; **Q34 in-app MVP** ✓ (dashboards + hubs).  
 6. **Espace Admin** minimal issu du jalon BDD §9.
 
@@ -813,6 +861,10 @@ Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre 
 À copier-coller pour la prochaine session **produit / interface** :
 
 **« Je reprends ProxiPharma côté UI : lis `CONTEXTE.md` puis `CAHIER_DES_CHARGES.md` §11 et §12. On développe **page par page** et **fonctionnalité par fonctionnalité** (polish écrans existants, puis brancher progressivement ordonnances & consultations libres et le reste des placeholders pharmacien/patient). Pas de nouvelle migration sauf blocage technique explicite. Mets le §10 Journal et l’état §11 à jour en fin de session. »**
+
+### 13.7) Phrase de reprise courte (recommandée après la session 2026-05-07 — workflow demandes affiné)
+
+**« On reprend ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §0.1, dernier §10, §4.4 + §4.5, §11 (migrations dont `20260507_001/002/003`) et §12. Migrations Supabase à jour côté infra. Je te dis ensuite quoi faire (UI ou nouveau lot). »**
 
 ### Template pour prochaines sessions
 - Date:

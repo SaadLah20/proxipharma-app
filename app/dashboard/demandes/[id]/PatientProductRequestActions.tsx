@@ -11,7 +11,6 @@ import {
   availabilityStatusFr,
   counterOutcomePatientLabel,
   requestItemLineSourceFr,
-  requestStatusFr,
 } from "@/lib/request-display";
 import { plannedVisitWindow } from "@/lib/planned-visit";
 import { unitPriceLabel } from "@/lib/product-price";
@@ -174,6 +173,35 @@ function htmlTimeToPg(t: string): string | null {
   return s;
 }
 
+/**
+ * Normalise une saisie utilisateur libre en HH:MM (24h).
+ * Accepte 7, 07, 9h5, 18h30, 18:30, 730, 1830...
+ * Renvoie « » si la saisie n'est pas exploitable (jamais d'exception).
+ */
+function parseFreeTime24h(raw: string): string {
+  const s = raw.trim().toLowerCase();
+  if (!s) return "";
+  const cleaned = s.replace(/[^0-9hH:.\s]/g, "").replace(/[hH.\s]/g, ":");
+  let hh = "";
+  let mm = "";
+  if (cleaned.includes(":")) {
+    const [h, m = ""] = cleaned.split(":");
+    hh = h;
+    mm = m;
+  } else if (/^\d{3,4}$/.test(cleaned)) {
+    hh = cleaned.slice(0, cleaned.length - 2);
+    mm = cleaned.slice(-2);
+  } else if (/^\d{1,2}$/.test(cleaned)) {
+    hh = cleaned;
+    mm = "00";
+  } else {
+    return "";
+  }
+  const hi = Math.min(23, Math.max(0, Number.parseInt(hh, 10) || 0));
+  const mi = Math.min(59, Math.max(0, Number.parseInt(mm, 10) || 0));
+  return `${String(hi).padStart(2, "0")}:${String(mi).padStart(2, "0")}`;
+}
+
 export function PatientProductRequestActions({
   requestId,
   status,
@@ -203,6 +231,15 @@ export function PatientProductRequestActions({
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<ProductHit[]>([]);
   const [editMode, setEditMode] = useState(false);
+
+  /** Restaure le brouillon resubmit à l'état initial (sortie du mode édition sans renvoi). */
+  const resetResubmitDraft = () => {
+    setLines(computeResubmitLinesFromItems(items));
+    setNoteDraft(initialPatientNote ?? "");
+    setQuery("");
+    setHits([]);
+    setActionError("");
+  };
 
   const debouncedQuery = useMemo(() => query.trim(), [query]);
 
@@ -706,53 +743,97 @@ export function PatientProductRequestActions({
             const displayComment = chosenAlt?.pharmacist_comment ?? row.pharmacist_comment;
             const validatedQty = row.selected_qty ?? row.requested_qty;
             const prepQty = row.available_qty;
-            const qtyDiffers =
-              prepQty != null && Number(prepQty) !== Number(validatedQty);
+            const qtyDiffers = prepQty != null && Number(prepQty) !== Number(validatedQty);
+            const isSelected = Boolean(row.is_selected_by_patient);
+            const counterTouched = counterOutcome !== "unset";
             return (
               <li key={`confirmed-${row.id}`} className="rounded-xl border-2 border-slate-100 bg-white p-2.5 text-[11px] shadow-sm">
-                <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2 py-1.5">
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900">Ce que vous avez validé</p>
-                  <p className="mt-0.5 text-sm font-semibold text-emerald-950">{displayName}</p>
-                  <p className="mt-0.5 text-[11px] text-emerald-900/85">
-                    Quantité · <strong className="tabular-nums">{validatedQty}</strong> unité(s)
-                  </p>
-                  {chosenAlt ? (
-                    <p className="mt-1 text-[10px] text-emerald-900/85">Alternative retenue par rapport au produit demandé.</p>
-                  ) : altList.length > 0 ? (
-                    <p className="mt-1 text-[10px] text-emerald-900/85">Produit principal retenu.</p>
+                <p className="text-sm font-semibold text-foreground">{prod?.name ?? "Produit"}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  Demandé <strong className="text-foreground">{row.requested_qty}</strong>
+                  {row.selected_qty != null ? (
+                    <>
+                      {" "}· validé <strong className="text-foreground">{row.selected_qty}</strong>
+                    </>
                   ) : null}
-                </div>
-                <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-600">
-                    Suivi officine ({requestStatusFr[status] ?? status})
+                </p>
+                {!isSelected ? (
+                  <p className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] leading-snug text-slate-700">
+                    Vous n&apos;avez pas retenu cette ligne lors de votre validation. Aucun suivi pharmacie pour ce produit.
                   </p>
-                  <p className="mt-0.5 text-xs text-gray-700">
-                    {displayStatus ? availabilityStatusFr[displayStatus] ?? displayStatus : "—"}
-                    {displayPrice != null ? ` · Prix pharmacie ${Number(displayPrice).toFixed(2)} MAD` : ""}
-                    {displayStatus === "to_order" && displayEta ? ` · Disponible le ${formatDateShortFr(displayEta)}` : ""}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-800">
-                    Quantité suivie&nbsp;:{" "}
-                    <strong className="tabular-nums">{prepQty ?? "—"}</strong>
-                  </p>
-                  {qtyDiffers ? (
-                    <p className="mt-1 text-[10px] leading-snug text-amber-900">
-                      Diffère de votre validation — évolution gérée en pharmacie. Détail dans l&apos;historique si la pharmacie met à
-                      jour le dossier.
-                    </p>
-                  ) : null}
-                  <div className="mt-1.5">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${counterOutcomeBadgeClass(counterOutcome)}`}
-                    >
-                      {counterOutcomeLabel}
-                    </span>
-                    {row.counter_cancel_detail ? (
-                      <p className="mt-1 text-[10px] text-muted-foreground">{row.counter_cancel_detail}</p>
-                    ) : null}
-                  </div>
-                </div>
-                {displayComment ? <p className="mt-2 text-xs text-muted-foreground">{displayComment}</p> : null}
+                ) : (
+                  <>
+                    <div className="mt-2 rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2 py-1.5">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900">Ce que vous avez validé</p>
+                      <p className="mt-0.5 text-sm font-semibold text-emerald-950">{displayName}</p>
+                      <p className="mt-0.5 text-[11px] leading-snug text-emerald-900/90">
+                        <span>Qté validée · <strong className="tabular-nums">{validatedQty}</strong></span>
+                        {displayStatus ? (
+                          <>
+                            {" "}· Dispo · <strong>{availabilityStatusFr[displayStatus] ?? displayStatus}</strong>
+                          </>
+                        ) : null}
+                        {displayPrice != null ? (
+                          <>
+                            {" "}· Prix · <strong className="tabular-nums">{Number(displayPrice).toFixed(2)} MAD</strong>
+                          </>
+                        ) : null}
+                        {" "}· État · <strong>Pas encore récupéré</strong>
+                      </p>
+                      {chosenAlt ? (
+                        <p className="mt-1 text-[10px] text-emerald-900/80">Alternative retenue par rapport au produit demandé.</p>
+                      ) : altList.length > 0 ? (
+                        <p className="mt-1 text-[10px] text-emerald-900/80">Produit principal retenu.</p>
+                      ) : null}
+                    </div>
+                    <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-600">Suivi officine</p>
+                      {!counterTouched ? (
+                        <p className="mt-0.5 text-[11px] leading-snug text-slate-700">
+                          <strong className="text-slate-900">En cours</strong> · la pharmacie n&apos;a pas encore commencé l&apos;exécution au comptoir. Le suivi détaillé apparaîtra dès la première action.
+                        </p>
+                      ) : (
+                        <>
+                          <p className="mt-0.5 text-sm font-semibold text-slate-950">{displayName}</p>
+                          <p className="mt-0.5 text-[11px] leading-snug text-slate-800">
+                            <span>Qté suivie · <strong className="tabular-nums">{prepQty ?? "—"}</strong></span>
+                            {displayStatus ? (
+                              <>
+                                {" "}· Dispo · <strong>{availabilityStatusFr[displayStatus] ?? displayStatus}</strong>
+                              </>
+                            ) : null}
+                            {displayPrice != null ? (
+                              <>
+                                {" "}· Prix · <strong className="tabular-nums">{Number(displayPrice).toFixed(2)} MAD</strong>
+                              </>
+                            ) : null}
+                            {displayStatus === "to_order" && displayEta ? (
+                              <>
+                                {" "}· Disponible le {formatDateShortFr(displayEta)}
+                              </>
+                            ) : null}
+                          </p>
+                          <div className="mt-1.5">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${counterOutcomeBadgeClass(counterOutcome)}`}
+                            >
+                              {counterOutcomeLabel}
+                            </span>
+                            {row.counter_cancel_detail ? (
+                              <p className="mt-1 text-[10px] text-muted-foreground">{row.counter_cancel_detail}</p>
+                            ) : null}
+                          </div>
+                          {qtyDiffers ? (
+                            <p className="mt-1 text-[10px] leading-snug text-amber-900">
+                              Diffère de votre validation — évolution gérée en pharmacie. Détail dans l&apos;historique si la pharmacie met à jour le dossier.
+                            </p>
+                          ) : null}
+                        </>
+                      )}
+                    </div>
+                    {displayComment ? <p className="mt-2 text-xs text-muted-foreground">{displayComment}</p> : null}
+                  </>
+                )}
               </li>
             );
           })}
@@ -777,24 +858,55 @@ export function PatientProductRequestActions({
                         </span>
                       ) : null}
                     </span>
-                    <label className="flex items-center gap-1 text-xs">
-                      Qté
-                      <input
-                        type="number"
-                        min={1}
-                        max={10}
-                        disabled={!editMode}
-                        value={l.qty}
-                        onChange={(e) =>
-                          setLines((prev) =>
-                            prev.map((row, i) =>
-                              i === idx ? { ...row, qty: Math.min(10, Math.max(1, Number(e.target.value) || 1)) } : row
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground">Qté</span>
+                      <div className="flex h-9 items-center overflow-hidden rounded-md border border-input bg-background">
+                        <button
+                          type="button"
+                          disabled={!editMode || l.qty <= 1}
+                          onClick={() =>
+                            setLines((prev) =>
+                              prev.map((row, i) =>
+                                i === idx ? { ...row, qty: Math.max(1, row.qty - 1) } : row
+                              )
                             )
-                          )
-                        }
-                        className="w-14 rounded border px-1 disabled:bg-muted"
-                      />
-                    </label>
+                          }
+                          aria-label="Diminuer la quantité"
+                          className="h-full w-9 border-r border-input text-base font-bold text-muted-foreground disabled:opacity-40"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          disabled={!editMode}
+                          value={l.qty}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, "");
+                            const next = digits === "" ? 1 : Math.min(10, Math.max(1, Number(digits)));
+                            setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: next } : row)));
+                          }}
+                          className="h-full w-12 border-0 bg-transparent text-center text-sm tabular-nums focus:outline-none disabled:bg-muted"
+                          aria-label="Quantité"
+                        />
+                        <button
+                          type="button"
+                          disabled={!editMode || l.qty >= 10}
+                          onClick={() =>
+                            setLines((prev) =>
+                              prev.map((row, i) =>
+                                i === idx ? { ...row, qty: Math.min(10, row.qty + 1) } : row
+                              )
+                            )
+                          }
+                          aria-label="Augmenter la quantité"
+                          className="h-full w-9 border-l border-input text-base font-bold text-muted-foreground disabled:opacity-40"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
                     {editMode ? (
                       <button
                         type="button"
@@ -845,13 +957,19 @@ export function PatientProductRequestActions({
               />
             </label>
             <label className="mt-2 block text-[11px] font-medium text-foreground">
-              Heure (optionnel)
+              Heure de passage (optionnel · 24 h, format HH:MM)
               <input
-                type="time"
-                step={60}
+                type="text"
+                inputMode="numeric"
+                placeholder="ex. 18:30"
+                pattern="^\d{1,2}[:hH]?\d{0,2}$"
                 value={visitTime}
                 onChange={(e) => setVisitTime(e.target.value)}
-                className="mt-0.5 block w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+                onBlur={(e) => {
+                  const norm = parseFreeTime24h(e.target.value);
+                  setVisitTime(norm);
+                }}
+                className="mt-0.5 block w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs tabular-nums"
               />
               {visitTimeFr ? (
                 <span className="mt-0.5 block text-[10px] text-muted-foreground">Affichage : {visitTimeFr}</span>
@@ -904,20 +1022,29 @@ export function PatientProductRequestActions({
             <div className="rounded-md border border-amber-200/70 bg-amber-50/40 p-2.5 space-y-2">
               <button
                 type="button"
-                onClick={() => setEditMode((v) => !v)}
+                onClick={() => {
+                  if (editMode) {
+                    resetResubmitDraft();
+                    setEditMode(false);
+                  } else {
+                    setEditMode(true);
+                  }
+                }}
                 className="w-full rounded-md border border-amber-300 bg-amber-50 py-2 text-xs font-semibold text-amber-900"
               >
-                {editMode ? "Fermer la modification" : "Modifier"}
+                {editMode ? "Annuler les modifications" : "Modifier"}
               </button>
 
-              <button
-                type="button"
-                disabled={busyAction !== "" || lines.length === 0 || !editMode}
-                onClick={() => void runResubmit()}
-                className="w-full rounded-lg border border-amber-600 bg-amber-50 py-2.5 text-sm font-semibold text-amber-950 disabled:opacity-50"
-              >
-                {busyAction === "resubmit" ? "Envoi…" : "Mettre à jour et renvoyer"}
-              </button>
+              {editMode ? (
+                <button
+                  type="button"
+                  disabled={busyAction !== "" || lines.length === 0}
+                  onClick={() => void runResubmit()}
+                  className="w-full rounded-lg border border-amber-600 bg-amber-50 py-2.5 text-sm font-semibold text-amber-950 disabled:opacity-50"
+                >
+                  {busyAction === "resubmit" ? "Envoi…" : "Mettre à jour et renvoyer"}
+                </button>
+              ) : null}
             </div>
           </>
         ) : null}

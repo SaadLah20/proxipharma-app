@@ -212,3 +212,39 @@ export function counterOutcomePatientLabel(
   if (cancelReason === "pharmacy_unable") return "Annulé par la pharmacie";
   return "Annulé";
 }
+
+/**
+ * Devine l'auteur d'un événement historique à partir du champ `reason`.
+ * Les conventions de prefix sont stables côté SQL : `patient_*` = patient,
+ * `pharmacist_*` / `pharma_*` / `counter_*` / `publication_*` = pharmacie,
+ * `auto_*` / `data_migration_*` / null = système / batch.
+ */
+export function historyActorLabel(role: "patient" | "pharmacien", reason: string | null | undefined): string {
+  const r = (reason ?? "").trim();
+  const isPatient =
+    r.startsWith("patient_") ||
+    r.startsWith("audit_v1:patient_");
+  const isPharmacy =
+    r.startsWith("pharmacist_") ||
+    r.startsWith("pharmacy_") ||
+    r.startsWith("pharma_") ||
+    r.startsWith("counter_") ||
+    r.startsWith("publication_") ||
+    r.startsWith("audit_v1:pharma_");
+  const isSystem =
+    r.startsWith("auto_") ||
+    r.startsWith("data_migration") ||
+    r === "request_created_with_status" ||
+    r === "" ||
+    r === "pharmacien_ui";
+  if (role === "patient") {
+    if (isPatient) return "Vous";
+    if (isPharmacy) return "La pharmacie";
+    if (isSystem) return "Système";
+    return "—";
+  }
+  if (isPatient) return "Le patient";
+  if (isPharmacy) return "Vous (pharmacie)";
+  if (isSystem) return "Système";
+  return "—";
+}

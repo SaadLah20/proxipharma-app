@@ -5,11 +5,16 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { formatDateTimeShort24hFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
-import { PHARMACIST_AVAILABILITY_OPTIONS } from "@/lib/pharmacist-availability";
+import {
+  PHARMACIST_AVAILABILITY_OPTIONS,
+  PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS,
+  inferAvailabilityStatusFromQty,
+} from "@/lib/pharmacist-availability";
 import {
   availabilityStatusFr,
   counterOutcomeFr,
   formatShortId,
+  historyActorLabel,
   pharmacistRequestIsClosedSuccess,
   pharmacistRequestIsHardStopped,
   requestItemLineSourceFr,
@@ -170,7 +175,7 @@ function decodeCounterSelectKey(key: string): { outcome: string; cancelReason: s
   return { outcome: key, cancelReason: null };
 }
 
-function buildItemUpdatePayload(f: ItemDraft) {
+function buildItemUpdatePayload(f: ItemDraft, row: ItemRow) {
   const availQty = Number(f.available_qty);
   if (Number.isNaN(availQty) || availQty < 0) {
     throw new Error("Quantité disponible invalide sur une ligne.");
@@ -179,8 +184,15 @@ function buildItemUpdatePayload(f: ItemDraft) {
   if (f.unit_price.trim() !== "" && (price == null || Number.isNaN(price) || price < 0)) {
     throw new Error("Prix unitaire invalide.");
   }
+  const isProposed = row.line_source === "pharmacist_proposed";
+  const inferred = inferAvailabilityStatusFromQty({
+    status: f.availability_status,
+    availableQty: availQty,
+    requestedQty: row.requested_qty,
+    isProposedLine: isProposed,
+  });
   return {
-    availability_status: f.availability_status,
+    availability_status: inferred,
     available_qty: availQty,
     unit_price: price,
     pharmacist_comment: f.pharmacist_comment.trim() || null,
@@ -217,8 +229,12 @@ function buildPharmaConfirmAdjustmentAudit(items: ItemRow[], draft: Draft): Phar
 /** État du formulaire officine depuis une ligne base (chargement ou nouvelle ligne). */
 function buildItemDraftFromRow(row: ItemRow): ItemDraft {
   const catalogPph = one(row.products)?.price_pph;
+  /* `partially_available` est dérivé automatiquement (qté < demandée). On affiche le brouillon en `available` :
+     il sera réinféré au save si la quantité reste < demandée. */
+  const rawStatus = row.availability_status ?? "available";
+  const draftStatus = rawStatus === "partially_available" ? "available" : rawStatus;
   return {
-    availability_status: row.availability_status ?? "available",
+    availability_status: draftStatus,
     available_qty: row.available_qty != null ? String(row.available_qty) : String(row.requested_qty),
     unit_price:
       row.unit_price != null ? String(row.unit_price) : catalogPph != null ? String(catalogPph) : "",
@@ -257,6 +273,14 @@ export default function PharmacienDemandeDetailPage() {
   const [counterBusyId, setCounterBusyId] = useState<string | null>(null);
   const [completeBusy, setCompleteBusy] = useState(false);
   const [patientProfile, setPatientProfile] = useState<PatientBrief | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [historyRows, setHistoryRows] = useState<
+    { id: string; created_at: string; old_status: string | null; new_status: string; reason: string | null }[]
+  >([]);
 
   const altDebounced = useMemo(() => altQuery.trim(), [altQuery]);
   const altVisibleHits = altDebounced.length < 2 ? [] : altHits;
@@ -677,7 +701,7 @@ export default function PharmacienDemandeDetailPage() {
         }
         const { error: up } = await supabase
           .from("request_items")
-          .update(buildItemUpdatePayload(f))
+          .update(buildItemUpdatePayload(f, row))
           .eq("id", row.id);
         if (up) throw new Error(up.message);
       }
@@ -702,7 +726,7 @@ export default function PharmacienDemandeDetailPage() {
         if (!f?.availability_status) throw new Error("Choisis une disponibilité pour chaque ligne.");
         const { error: up } = await supabase
           .from("request_items")
-          .update(buildItemUpdatePayload(f))
+          .update(buildItemUpdatePayload(f, row))
           .eq("id", row.id);
         if (up) throw new Error(up.message);
       }
@@ -765,11 +789,17 @@ export default function PharmacienDemandeDetailPage() {
         if (f.unit_price.trim() !== "" && (price == null || Number.isNaN(price) || price < 0)) {
           throw new Error("Prix unitaire invalide.");
         }
+        const inferredStatus = inferAvailabilityStatusFromQty({
+          status: f.availability_status,
+          availableQty: availQty,
+          requestedQty: row.requested_qty,
+          isProposedLine: row.line_source === "pharmacist_proposed",
+        });
 
         const { error: up } = await supabase
           .from("request_items")
           .update({
-            availability_status: f.availability_status,
+            availability_status: inferredStatus,
             available_qty: availQty,
             unit_price: price,
             pharmacist_comment: f.pharmacist_comment.trim() || null,
@@ -804,6 +834,47 @@ export default function PharmacienDemandeDetailPage() {
 
     setBusy(false);
   };
+
+  const runPharmacistCancelRequest = async () => {
+    if (!id) return;
+    const motif = cancelReason.trim();
+    if (motif.length < 5) {
+      setError("Précisez un motif d'annulation d'au moins 5 caractères.");
+      return;
+    }
+    if (!globalThis.confirm("Annuler définitivement cette demande ? Le patient sera notifié.")) {
+      return;
+    }
+    setCancelBusy(true);
+    setError("");
+    const { error: rpcErr } = await supabase.rpc("pharmacist_cancel_request", {
+      p_request_id: id,
+      p_reason_text: motif,
+    });
+    setCancelBusy(false);
+    if (rpcErr) {
+      setError(rpcErr.message);
+      return;
+    }
+    setCancelOpen(false);
+    setCancelReason("");
+    await load();
+  };
+
+  const loadHistory = useCallback(async () => {
+    if (!id) return;
+    setHistoryBusy(true);
+    const { data, error: histErr } = await supabase
+      .from("request_status_history")
+      .select("id,created_at,old_status,new_status,reason")
+      .eq("request_id", id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (!histErr && Array.isArray(data)) {
+      setHistoryRows(data as typeof historyRows);
+    }
+    setHistoryBusy(false);
+  }, [id]);
 
   const runCompleteAfterCounter = async () => {
     if (!id) return;
@@ -1048,11 +1119,19 @@ export default function PharmacienDemandeDetailPage() {
                           <span className="rounded bg-rose-100 px-1.5 py-0.5 font-medium text-rose-900 ring-1 ring-rose-200/80">
                             Non remis au comptoir
                           </span>
-                        ) : selected ? (
-                          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-900">Retenu après réponse patient</span>
                         ) : (
-                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">Non retenu après réponse patient</span>
-                        )}
+                          request.status === "responded" ||
+                          request.status === "confirmed" ||
+                          request.status === "completed" ||
+                          request.status === "partially_collected" ||
+                          request.status === "fully_collected"
+                        ) ? (
+                          selected ? (
+                            <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-900">Retenu après réponse patient</span>
+                          ) : (
+                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">Non retenu après réponse patient</span>
+                          )
+                        ) : null}
                       </div>
                       {row.line_source === "pharmacist_proposed" ? (
                         <p className="mt-1 rounded-md bg-violet-100/90 px-1.5 py-0.5 text-[10px] font-medium text-violet-950">
@@ -1147,12 +1226,21 @@ export default function PharmacienDemandeDetailPage() {
                             onChange={(e) => setField(row.id, "availability_status", e.target.value)}
                             className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs shadow-sm disabled:opacity-60"
                           >
-                            {PHARMACIST_AVAILABILITY_OPTIONS.map((o) => (
+                            {(row.line_source === "pharmacist_proposed"
+                              ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
+                              : PHARMACIST_AVAILABILITY_OPTIONS
+                            ).map((o) => (
                               <option key={o.value} value={o.value}>
                                 {o.label}
                               </option>
                             ))}
                           </select>
+                          {row.line_source !== "pharmacist_proposed" ? (
+                            <span className="text-[9px] leading-snug text-muted-foreground">
+                              « Disponible partiellement » s&apos;applique automatiquement si la quantité saisie est inférieure à
+                              celle demandée.
+                            </span>
+                          ) : null}
                         </label>
                         <label className="col-span-1 flex min-w-0 flex-col gap-0.5 sm:col-span-1 lg:col-span-2">
                           <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Qté</span>
@@ -1607,6 +1695,106 @@ export default function PharmacienDemandeDetailPage() {
               ) : null}
             </section>
           ) : null}
+
+          {(request.status === "submitted" ||
+            request.status === "in_review" ||
+            request.status === "responded" ||
+            request.status === "confirmed") ? (
+            <section className="mt-3 rounded-lg border border-rose-200/80 bg-rose-50/35 p-2.5">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h2 className="text-[10px] font-bold uppercase tracking-wide text-rose-950">Annuler cette demande</h2>
+                  <p className="mt-0.5 text-[11px] leading-snug text-rose-900/85">
+                    Annulation totale par la pharmacie (motif obligatoire ; le patient sera notifié).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCancelOpen((v) => !v);
+                    setCancelReason("");
+                    setError("");
+                  }}
+                  className="shrink-0 rounded-md border border-rose-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-950 shadow-sm hover:bg-rose-50"
+                >
+                  {cancelOpen ? "Fermer" : "Ouvrir"}
+                </button>
+              </div>
+              {cancelOpen ? (
+                <div className="mt-2 space-y-2">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wide text-rose-950">
+                    Motif (visible dans l&apos;historique)
+                    <textarea
+                      rows={2}
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value.slice(0, 1000))}
+                      placeholder="Ex. demande dupliquée, erreur de saisie, indisponibilité prolongée…"
+                      className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={cancelBusy || cancelReason.trim().length < 5}
+                    onClick={() => void runPharmacistCancelRequest()}
+                    className="w-full rounded-md border border-rose-500 bg-rose-600 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-50"
+                  >
+                    {cancelBusy ? "Annulation…" : "Annuler la demande"}
+                  </button>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
+          <section className="mt-3 rounded-lg border border-border/70 bg-card p-2.5 shadow-sm">
+            <button
+              type="button"
+              onClick={() => {
+                const next = !historyOpen;
+                setHistoryOpen(next);
+                if (next && historyRows.length === 0 && !historyBusy) {
+                  void loadHistory();
+                }
+              }}
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-border px-3 text-xs font-semibold text-foreground hover:bg-muted/40"
+            >
+              {historyOpen ? "Masquer l'historique" : "Voir l'historique"}
+            </button>
+            {historyOpen ? (
+              <div className="mt-2 space-y-1.5">
+                {historyBusy ? (
+                  <p className="text-xs text-muted-foreground">Chargement…</p>
+                ) : historyRows.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Aucun événement.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {historyRows.map((h) => (
+                      <li key={h.id} className="rounded-lg border border-border/60 bg-muted/15 px-2 py-1.5 text-xs">
+                        <p className="font-medium text-foreground">
+                          {h.old_status ? `${requestStatusFr[h.old_status] ?? h.old_status} → ` : ""}
+                          {requestStatusFr[h.new_status] ?? h.new_status}
+                        </p>
+                        {h.reason ? (
+                          <p className="mt-0.5 break-words text-[11px] text-muted-foreground">
+                            <span className="font-medium text-foreground">Motif/contexte : </span>
+                            {h.reason}
+                          </p>
+                        ) : null}
+                        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                          <span>
+                            Par <strong className="font-medium text-foreground">{historyActorLabel("pharmacien", h.reason)}</strong>
+                          </span>
+                          <span aria-hidden>·</span>
+                          <time dateTime={h.created_at} className="tabular-nums">
+                            {formatDateTimeShort24hFr(h.created_at)}
+                          </time>
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
+          </section>
             </>
           )}
         </>
