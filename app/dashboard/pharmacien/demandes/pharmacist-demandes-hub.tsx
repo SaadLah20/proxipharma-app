@@ -80,7 +80,7 @@ export function PharmacistDemandesHub() {
 
     const { data, error: re } = await supabase
       .from("requests")
-      .select("id,created_at,status,request_type,patient_id,submitted_at,responded_at,request_public_ref,request_items(counter_outcome,is_selected_by_patient)")
+      .select("id,created_at,status,request_type,patient_id,submitted_at,responded_at,request_public_ref,request_items(counter_outcome,is_selected_by_patient,post_confirm_fulfillment)")
       .eq("pharmacy_id", staff.pharmacy_id)
       .eq("request_type", "product_request")
       .order("created_at", { ascending: false })
@@ -147,11 +147,14 @@ export function PharmacistDemandesHub() {
   const rowsWithDashboardStatus = useMemo(
     () =>
       rows.map((r) => {
-        const rawItems = ((r as unknown as { request_items?: Array<{ counter_outcome?: string | null; is_selected_by_patient?: boolean | null }> }).request_items ??
-          []) as Array<{ counter_outcome?: string | null; is_selected_by_patient?: boolean | null }>;
+        const rawItems = ((r as unknown as { request_items?: Array<{ post_confirm_fulfillment?: string | null; is_selected_by_patient?: boolean | null }> }).request_items ??
+          []) as Array<{ post_confirm_fulfillment?: string | null; is_selected_by_patient?: boolean | null }>;
         const hasExecutionProgress =
           r.status === "confirmed" &&
-          rawItems.some((it) => (it.counter_outcome ?? "unset") !== "unset");
+          rawItems.some((it) => {
+            const p = it.post_confirm_fulfillment ?? "unset";
+            return p === "reserved" || p === "ordered";
+          });
         return {
           ...r,
           status_for_dashboard: hasExecutionProgress ? "in_progress_virtual" : r.status,

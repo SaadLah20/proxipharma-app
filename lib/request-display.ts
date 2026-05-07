@@ -5,7 +5,7 @@ export const requestStatusFr: Record<string, string> = {
   in_review: "En cours de traitement",
   responded: "Réponse reçue — à valider",
   confirmed: "Validée",
-  in_progress_virtual: "En préparation",
+  in_progress_virtual: "En traitement",
   completed: "Clôturée",
   cancelled: "Annulée",
   abandoned: "Abandonnée",
@@ -19,9 +19,9 @@ export function requestStatusShortFr(status: string): string {
   return requestStatusFr[status] ?? status;
 }
 
-/** Côté officine : `confirmed` affiché « Traitée » (préparation après validation patient). */
+/** Côté officine : `confirmed` = validé par le patient ; l’étape « en traitement » est le statut virtuel `in_progress_virtual`. */
 export function requestStatusShortFrPharmacien(status: string): string {
-  if (status === "confirmed") return "Traitée";
+  if (status === "confirmed") return "Validée client";
   return requestStatusShortFr(status);
 }
 

@@ -87,6 +87,7 @@ type RequestItemRow = {
   counter_cancel_detail: string | null;
   expected_availability_date: string | null;
   patient_chosen_alternative_id?: string | null;
+  post_confirm_fulfillment?: string | null;
   products: ProdEmbed | ProdEmbed[] | null;
   request_item_alternatives: AltEmbed | AltEmbed[] | null;
 };
@@ -101,7 +102,7 @@ type StatusHistoryRow = {
 
 function historyReasonLabel(reason: string | null | undefined): string {
   if (!reason) return "Mise à jour du dossier";
-  if (reason === "publication_disponibilites") return "Réponse de la pharmacie publiée";
+  if (reason === "patient_planned_visit_updated") return "Créneau de passage modifié";
   if (reason === "pharmacist_adjustments_after_confirmation") return "Préparation pharmacie mise à jour";
   if (reason === "counter_product_added") return "Produit ajouté au comptoir";
   if (reason === "counter_line_cancelled") return "Produit annulé au comptoir";
@@ -215,7 +216,7 @@ export default function DemandeDetailPage() {
       const { data: itemsData, error: itemsErr } = await supabase
         .from("request_items")
         .select(
-          "id,product_id,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,client_comment,line_source,pharmacist_proposal_reason,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,patient_chosen_alternative_id,products(name,price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph))"
+          "id,product_id,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,client_comment,line_source,pharmacist_proposal_reason,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,patient_chosen_alternative_id,post_confirm_fulfillment,products(name,price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph))"
         )
         .eq("request_id", id)
         .order("created_at", { ascending: true });
@@ -662,7 +663,7 @@ export default function DemandeDetailPage() {
                   i.available_qty,
                   i.requested_qty,
                   i.counter_outcome,
-                  i.patient_chosen_alternative_id ?? "",
+                  i.post_confirm_fulfillment ?? "",
                   i.client_comment ?? "",
                   i.line_source ?? "",
                 ].join(":")

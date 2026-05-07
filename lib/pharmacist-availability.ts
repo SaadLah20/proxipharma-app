@@ -41,6 +41,8 @@ export function inferAvailabilityStatusFromQty(args: {
     return isProposedLine ? "available" : "unavailable";
   }
   if (availableQty < requestedQty) {
+    /** Produit proposé par la pharmacie : pas de « partiellement disponible » automatique. */
+    if (isProposedLine) return "available";
     return "partially_available";
   }
   return "available";
