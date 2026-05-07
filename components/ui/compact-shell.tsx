@@ -15,7 +15,7 @@ export function PageShell({
   return (
     <main
       className={clsx(
-        "mx-auto min-h-screen px-3 pb-12 pt-3 sm:px-4 sm:pb-14 sm:pt-4",
+        "mx-auto min-h-screen px-3 pb-12 pt-4 sm:px-5 sm:pb-16 sm:pt-5",
         maxWidthClass,
         className
       )}
@@ -29,7 +29,7 @@ export function CompactCard({ children, className }: { children: ReactNode; clas
   return (
     <section
       className={clsx(
-        "overflow-hidden rounded-lg border border-border/90 bg-card text-card-foreground shadow-sm",
+        "overflow-hidden rounded-xl border border-border/90 bg-card text-card-foreground shadow-sm",
         className
       )}
     >
@@ -50,26 +50,28 @@ export function CompactCardHeader({
   return (
     <div
       className={clsx(
-        "flex items-center justify-between gap-2 border-b border-border/70 bg-muted/25 px-2.5 py-1.5 sm:px-3",
+        "flex items-center justify-between gap-2 border-b border-border/70 bg-muted/30 px-3 py-2 sm:px-3.5",
         className
       )}
     >
-      <h2 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</h2>
+      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</h2>
       {right ? <div className="shrink-0">{right}</div> : null}
     </div>
   );
 }
 
 export function CompactCardBody({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={clsx("p-2.5 text-xs leading-snug sm:p-3 sm:text-[13px]", className)}>{children}</div>;
+  return (
+    <div className={clsx("p-3 text-sm leading-relaxed sm:p-3.5 sm:text-[0.9375rem]", className)}>{children}</div>
+  );
 }
 
 /** Ligne horizontale label — valeur (pleine largeur). */
 export function KvRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-border/40 py-1 last:border-0">
-      <span className="shrink-0 text-[11px] text-muted-foreground">{label}</span>
-      <span className="min-w-0 text-right text-[11px] font-medium text-foreground sm:text-xs">{children}</span>
+    <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-border/40 py-1.5 last:border-0">
+      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
+      <span className="min-w-0 text-right text-xs font-medium text-foreground sm:text-sm">{children}</span>
     </div>
   );
 }

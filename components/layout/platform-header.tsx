@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, LogOut, User } from "lucide-react";
+import { Bell, Cross, LogOut, User } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { InAppNotificationItem } from "@/components/notifications/in-app-notification-item";
 import { rewriteForPatientView, rewriteForPharmacistView } from "@/lib/patient-copy";
@@ -181,15 +181,24 @@ export function PlatformHeader() {
   const showNotifs = Boolean(session);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-white/80">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-border/90 bg-card/92 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-card/78">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-5">
-        <Link href="/" className="shrink-0 text-lg font-bold tracking-tight text-blue-900">
-          ProxiPharma
+        <Link
+          href="/"
+          className="group flex shrink-0 items-center gap-2 text-lg font-bold tracking-tight text-primary"
+        >
+          <span
+            className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15 transition group-hover:bg-primary/15"
+            aria-hidden
+          >
+            <Cross className="size-[1.125rem]" strokeWidth={2.25} />
+          </span>
+          <span className="text-foreground">ProxiPharma</span>
         </Link>
 
         <div ref={wrapRef} className="relative flex items-center gap-2">
           {booting ? (
-            <div className="h-9 w-9 animate-pulse rounded-full bg-gray-200" />
+            <div className="h-9 w-9 animate-pulse rounded-full bg-muted" />
           ) : (
             <>
               {showNotifs ? (
@@ -215,12 +224,12 @@ export function PlatformHeader() {
                     ) : null}
                   </button>
                   {notifOpen ? (
-                    <div className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,24rem)] translate-x-1 rounded-xl border border-gray-200 bg-white py-2 shadow-xl sm:translate-x-0">
-                      <div className="border-b border-gray-100 px-3 pb-2">
-                        <p className="text-xs font-semibold text-gray-900">Notifications</p>
+                    <div className="fixed inset-x-3 top-14 z-50 max-h-[min(85vh,28rem)] overflow-hidden rounded-xl border border-border bg-popover py-2 text-popover-foreground shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-none sm:w-[min(100vw-2rem,24rem)]">
+                      <div className="border-b border-border/80 px-3 pb-2">
+                        <p className="text-xs font-semibold text-foreground">Notifications</p>
                       </div>
                       {notifications.length === 0 ? (
-                        <p className="px-3 py-4 text-center text-xs text-gray-500">Aucune notification récente.</p>
+                        <p className="px-3 py-4 text-center text-xs text-muted-foreground">Aucune notification récente.</p>
                       ) : (
                         <ul className="max-h-[min(70vh,22rem)] space-y-2 overflow-y-auto px-2 py-2">
                           {notifications.map((n) => (
@@ -251,11 +260,11 @@ export function PlatformHeader() {
                           ))}
                         </ul>
                       )}
-                      <div className="border-t border-gray-100 px-3 pt-2">
+                      <div className="border-t border-border/80 px-3 pt-2">
                         <Link
                           href="/dashboard/notifications"
                           onClick={() => setNotifOpen(false)}
-                          className="block text-center text-xs font-medium text-blue-700 hover:underline"
+                          className="block text-center text-xs font-semibold text-primary hover:underline"
                         >
                           Tout voir
                         </Link>
@@ -272,46 +281,46 @@ export function PlatformHeader() {
                     setProfileOpen((v) => !v);
                     setNotifOpen(false);
                   }}
-                  className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50"
+                  className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border bg-card text-foreground shadow-sm transition hover:bg-muted/80"
                   aria-label="Compte"
                 >
                   {session ? (
-                    <span className="flex h-full w-full items-center justify-center bg-blue-100 text-xs font-bold text-blue-900">
+                    <span className="flex h-full w-full items-center justify-center bg-primary/15 text-xs font-bold text-primary">
                       {initials(profile?.full_name)}
                     </span>
                   ) : (
-                    <User className="h-5 w-5 text-gray-400" />
+                    <User className="h-5 w-5 text-muted-foreground" />
                   )}
                 </button>
 
                 {profileOpen ? (
-                  <div className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,18rem)] rounded-xl border border-gray-200 bg-white py-2 shadow-xl">
+                  <div className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,18rem)] rounded-xl border border-border bg-popover py-2 text-popover-foreground shadow-xl">
                     {!session ? (
                       <div className="px-2">
                         <Link
                           href="/auth?mode=signup"
                           onClick={() => setProfileOpen(false)}
-                          className="block rounded-lg px-3 py-2.5 text-sm font-semibold text-blue-900 hover:bg-blue-50"
+                          className="block rounded-lg px-3 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10"
                         >
                           Créer un compte
                         </Link>
                         <Link
                           href="/auth"
                           onClick={() => setProfileOpen(false)}
-                          className="mt-0.5 block rounded-lg px-3 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50"
+                          className="mt-0.5 block rounded-lg px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/80"
                         >
                           Se connecter
                         </Link>
                       </div>
                     ) : profile?.role === "admin" ? (
                       <div className="px-2">
-                        <p className="truncate px-3 py-1 text-xs text-gray-500">
+                        <p className="truncate px-3 py-1 text-xs text-muted-foreground">
                           {profile.full_name?.trim() || "Administrateur"}
                         </p>
                         <Link
                           href="/admin"
                           onClick={() => setProfileOpen(false)}
-                          className="block rounded-lg px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
+                          className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/80"
                         >
                           Administration
                         </Link>
@@ -326,7 +335,7 @@ export function PlatformHeader() {
                       </div>
                     ) : profile?.role === "pharmacien" ? (
                       <div className="max-h-[min(70vh,24rem)] overflow-y-auto px-2">
-                        <p className="truncate px-3 py-1 text-xs text-gray-500">
+                        <p className="truncate px-3 py-1 text-xs text-muted-foreground">
                           {profile.full_name?.trim() || "Pharmacien"}
                         </p>
                         {pharmacienNavLinks.map((item) => (
@@ -334,7 +343,7 @@ export function PlatformHeader() {
                             key={item.href}
                             href={item.href}
                             onClick={() => setProfileOpen(false)}
-                            className="block rounded-lg px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
+                            className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/80"
                           >
                             {item.label}
                           </Link>
@@ -350,7 +359,7 @@ export function PlatformHeader() {
                       </div>
                     ) : (
                       <div className="max-h-[min(70vh,22rem)] overflow-y-auto px-2">
-                        <p className="truncate px-3 py-1 text-xs text-gray-500">
+                        <p className="truncate px-3 py-1 text-xs text-muted-foreground">
                           {profile?.full_name?.trim() || "Patient"}
                         </p>
                         {patientNavLinks.map((item) => (
@@ -358,7 +367,7 @@ export function PlatformHeader() {
                             key={item.href}
                             href={item.href}
                             onClick={() => setProfileOpen(false)}
-                            className="block rounded-lg px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
+                            className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/80"
                           >
                             {item.label}
                           </Link>
