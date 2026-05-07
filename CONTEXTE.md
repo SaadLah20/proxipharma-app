@@ -59,9 +59,20 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 Les routes **ordonnances** et **consultations libres** (patient et pharmacien) sont des **placeholders** : développement ciblé **page par page** puis branchement métier.
 
 ### Workflow « demande de produits » après validation patient (**`confirmed`** — mai 2026)
-Sans migration dédiée pour l’historique structuré : le patient voit ce qu’il a **validé** vs la **préparation actuelle** ; l’historique peut inclure **`audit_v1:`** dans `reason` (voir **`lib/patient-request-history-audit.ts`**, **`CAHIER_DES_CHARGES.md`** §4.4 et journal §10 **2026-05-06**). Côté officine : plafonds qté, alternatives retenues vs indicatif, lignes fermées lecture seule, brouillon conservé au rechargement. Compteur **Annulés** patient : lignes **`cancelled_at_counter`**. Réinitialiser les données de test : **`scripts/clear-all-requests.mjs`** ou **`supabase/scripts/clear-all-requests.sql`**. Canvas de scénarios E2E : **`canvases/product-requests-e2e-test-plan.canvas.tsx`**.
+Sans migration dédiée pour l’historique structuré : le patient voit ce qu’il a **validé** vs la **préparation actuelle** ; l’historique peut inclure **`audit_v1:`** dans `reason` (voir **`lib/patient-request-history-audit.ts`**, **`CAHIER_DES_CHARGES.md`** §4.4 + §4.5 et journal §10 **2026-05-06** / **2026-05-07**). Côté officine : plafonds qté, alternatives retenues vs indicatif, lignes fermées lecture seule, brouillon conservé au rechargement. Compteur **Annulés** patient : lignes **`cancelled_at_counter`**. Réinitialiser les données de test : **`scripts/clear-all-requests.mjs`** ou **`supabase/scripts/clear-all-requests.sql`**. Canvas de scénarios E2E : **`canvases/product-requests-e2e-test-plan.canvas.tsx`**.
 
-Reste roadmap (voir **`CAHIER_DES_CHARGES.md`** §12) : notamment **annulation globale de la demande avec motif** si non couvert.
+### Affinages workflow demandes (sessions 2026-05-07)
+Migrations **`20260507_001/002/003`** :
+- **`001`** — règles **abandon / annulation / expiré** (batch 24 h désormais → **`expired`** au lieu de `abandoned`) + RPC **`patient_create_followup_from_expired_product_request`** (resoumettre une demande expirée).
+- **`002`** — motifs d’annulation au comptoir (`client_request` / `pharmacy_unable`) + détail libre, RPC `pharmacist_set_item_counter_outcome` étendue.
+- **`003`** — RPC **`pharmacist_cancel_request`** (annulation totale par la pharmacie, motif obligatoire).
+
+UI :
+- « **Disponible partiellement** » est dérivé automatiquement (jamais saisi) ; lignes **proposées par la pharmacie** restreintes à `Disponible` / `À commander`.
+- Détail patient : « Ce que vous avez validé » et « Suivi officine » à **parité de champs** (qté / dispo / prix / état) ; **« En cours »** placeholder tant que `counter_outcome === 'unset'` ; pas de blocs pour les lignes décochées par le patient.
+- Historique : **auteur** (Vous / La pharmacie / Système, helper `historyActorLabel`) + **date** (`formatDateTimeShort24hFr`) sur chaque entrée.
+- Heure de passage : input **texte 24 h** (HH:MM) avec normaliseur `parseFreeTime24h`.
+- Resubmit patient : quantités via **+/−** ; bouton « Modifier » ↔ « Annuler les modifications » (reset complet) ; « Mettre à jour et renvoyer » caché tant que pas en mode édition.
 
 ### Livraison & Q35 externe
 Branche **`fix/rls-recursion`** ; **journal §10 — session 2026-05-06** pour le dernier lot demandes-produits (voir **`git log`** au-delà du groupe **`a20c8c4`**). File **`notification_external_queue`** (**`20260505_001`**) — envoi réel via **`/api/cron/send-external-emails`** et secrets Vercel (voir **`RUNBOOK.md`**).

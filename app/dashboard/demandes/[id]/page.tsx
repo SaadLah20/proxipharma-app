@@ -4,11 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { PageShell } from "@/components/ui/compact-shell";
-import { formatPlannedVisitFr } from "@/lib/datetime-fr";
+import { formatDateShortFr, formatDateTimeShort24hFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
 import { supabase } from "@/lib/supabase";
 import {
   availabilityStatusFr,
   counterOutcomePatientLabel,
+  historyActorLabel,
   requestItemLineSourceFr,
   requestStatusFr,
 } from "@/lib/request-display";
@@ -362,6 +363,15 @@ export default function DemandeDetailPage() {
                       {h.old_status ? `${requestStatusFr[h.old_status] ?? h.old_status} → ` : ""}
                       {requestStatusFr[h.new_status] ?? h.new_status}
                     </p>
+                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                      <span>
+                        Par <strong className="font-medium text-foreground">{historyActorLabel("patient", h.reason)}</strong>
+                      </span>
+                      <span aria-hidden>·</span>
+                      <time dateTime={h.created_at} className="tabular-nums">
+                        {formatDateTimeShort24hFr(h.created_at)}
+                      </time>
+                    </p>
                   </li>
                 ))}
               </ul>
@@ -457,53 +467,110 @@ export default function DemandeDetailPage() {
                         </>
                       ) : null}
                     </p>
+                    {postConfirmPatientView && !row.is_selected_by_patient ? (
+                      <p className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] leading-snug text-slate-700">
+                        Vous n&apos;avez pas retenu cette ligne lors de votre validation. Aucun suivi pharmacie pour ce produit.
+                      </p>
+                    ) : null}
                     {postConfirmPatientView && row.is_selected_by_patient ? (
-                      <>
-                        <div className="mt-2 rounded-lg border border-emerald-300/70 bg-emerald-50 px-2 py-1.5">
-                          <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900">
-                            Ce que vous avez validé
-                          </p>
-                          <p className="mt-0.5 text-xs font-semibold leading-snug text-emerald-950">
-                            <span>{validatedProductName}</span>
-                            <span className="tabular-nums"> · {validatedQtyBaseline} unité(s)</span>
-                          </p>
-                          {chosenAltForValidated ? (
-                            <p className="mt-1 text-[10px] text-emerald-900/85">
-                              Alternative retenue par rapport au produit initialement demandé.
-                            </p>
-                          ) : altList.length > 0 ? (
-                            <p className="mt-1 text-[10px] text-emerald-900/85">Produit principal retenu.</p>
-                          ) : null}
-                        </div>
-                        <div className="mt-2 rounded-lg border border-slate-300/80 bg-slate-50 px-2 py-1.5">
-                          <p className="text-[9px] font-bold uppercase tracking-wide text-slate-700">
-                            Préparation actuelle (pharmacie)
-                          </p>
-                          <p className="mt-0.5 text-[11px] leading-snug text-slate-900">
-                            Quantité suivie :{" "}
-                            <strong className="tabular-nums">{row.available_qty ?? "—"}</strong>
-                            {row.availability_status ? (
-                              <>
-                                {" "}
-                                · {availabilityStatusFr[row.availability_status] ?? row.availability_status}
-                              </>
-                            ) : null}
-                            {(chosenAltForValidated?.unit_price ?? row.unit_price) != null ? (
-                              <span className="tabular-nums">
-                                {" "}
-                                · {Number(chosenAltForValidated?.unit_price ?? row.unit_price).toFixed(2)} MAD
-                              </span>
-                            ) : null}
-                          </p>
-                          {row.available_qty != null &&
-                          Number(row.available_qty) !== Number(validatedQtyBaseline) ? (
-                            <p className="mt-1 text-[10px] leading-snug text-amber-900">
-                              Peut différer de votre validation sans nouvelle validation de votre part. Consultez
-                              l&apos;historique du dossier pour le détail des changements.
-                            </p>
-                          ) : null}
-                        </div>
-                      </>
+                      (() => {
+                        const counterTouched = (row.counter_outcome ?? "unset") !== "unset";
+                        const validatedDispo = chosenAltForValidated?.availability_status ?? row.availability_status;
+                        const validatedPrice = chosenAltForValidated?.unit_price ?? row.unit_price;
+                        const validatedEta =
+                          chosenAltForValidated?.expected_availability_date ?? row.expected_availability_date;
+                        return (
+                          <>
+                            <div className="mt-2 rounded-lg border border-emerald-300/70 bg-emerald-50 px-2 py-1.5">
+                              <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900">
+                                Ce que vous avez validé
+                              </p>
+                              <p className="mt-0.5 text-xs font-semibold leading-snug text-emerald-950">
+                                {validatedProductName}
+                              </p>
+                              <p className="mt-0.5 text-[11px] leading-snug text-emerald-900/90">
+                                Qté validée · <strong className="tabular-nums">{validatedQtyBaseline}</strong>
+                                {validatedDispo ? (
+                                  <>
+                                    {" "}
+                                    · Dispo · <strong>{availabilityStatusFr[validatedDispo] ?? validatedDispo}</strong>
+                                  </>
+                                ) : null}
+                                {validatedPrice != null ? (
+                                  <>
+                                    {" "}
+                                    · Prix ·{" "}
+                                    <strong className="tabular-nums">{Number(validatedPrice).toFixed(2)} MAD</strong>
+                                  </>
+                                ) : null}{" "}
+                                · État · <strong>Pas encore récupéré</strong>
+                              </p>
+                              {chosenAltForValidated ? (
+                                <p className="mt-1 text-[10px] text-emerald-900/80">
+                                  Alternative retenue par rapport au produit initialement demandé.
+                                </p>
+                              ) : altList.length > 0 ? (
+                                <p className="mt-1 text-[10px] text-emerald-900/80">Produit principal retenu.</p>
+                              ) : null}
+                            </div>
+                            <div className="mt-2 rounded-lg border border-slate-300/80 bg-slate-50 px-2 py-1.5">
+                              <p className="text-[9px] font-bold uppercase tracking-wide text-slate-700">Suivi officine</p>
+                              {!counterTouched ? (
+                                <p className="mt-0.5 text-[11px] leading-snug text-slate-700">
+                                  <strong className="text-slate-900">En cours</strong> · la pharmacie n&apos;a pas encore commencé
+                                  l&apos;exécution au comptoir. Le suivi détaillé apparaîtra dès la première action.
+                                </p>
+                              ) : (
+                                <>
+                                  <p className="mt-0.5 text-xs font-semibold leading-snug text-slate-950">
+                                    {validatedProductName}
+                                  </p>
+                                  <p className="mt-0.5 text-[11px] leading-snug text-slate-800">
+                                    Qté suivie ·{" "}
+                                    <strong className="tabular-nums">{row.available_qty ?? "—"}</strong>
+                                    {row.availability_status ? (
+                                      <>
+                                        {" "}
+                                        · Dispo ·{" "}
+                                        <strong>
+                                          {availabilityStatusFr[row.availability_status] ?? row.availability_status}
+                                        </strong>
+                                      </>
+                                    ) : null}
+                                    {validatedPrice != null ? (
+                                      <>
+                                        {" "}
+                                        · Prix ·{" "}
+                                        <strong className="tabular-nums">{Number(validatedPrice).toFixed(2)} MAD</strong>
+                                      </>
+                                    ) : null}
+                                    {row.availability_status === "to_order" && validatedEta ? (
+                                      <> · Disponible le {formatDateShortFr(validatedEta)}</>
+                                    ) : null}
+                                  </p>
+                                  <div className="mt-1.5 text-[11px]">
+                                    <span className="font-medium text-foreground">
+                                      {counterOutcomePatientLabel(row.counter_outcome, row.counter_cancel_reason)}
+                                    </span>
+                                    {row.counter_cancel_detail ? (
+                                      <span className="ml-1 text-[10px] text-muted-foreground">
+                                        — {row.counter_cancel_detail}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  {row.available_qty != null &&
+                                  Number(row.available_qty) !== Number(validatedQtyBaseline) ? (
+                                    <p className="mt-1 text-[10px] leading-snug text-amber-900">
+                                      Peut différer de votre validation sans nouvelle validation de votre part. Consultez
+                                      l&apos;historique du dossier pour le détail des changements.
+                                    </p>
+                                  ) : null}
+                                </>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()
                     ) : row.availability_status ? (
                       <p className="mt-1 text-primary">
                         <span className="font-medium">{availabilityStatusFr[row.availability_status] ?? row.availability_status}</span>
@@ -539,7 +606,7 @@ export default function DemandeDetailPage() {
                         </ul>
                       </div>
                     ) : null}
-                    {(request.status === "confirmed" || request.status === "completed" || row.counter_outcome !== "unset") && (
+                    {!postConfirmPatientView && row.counter_outcome !== "unset" ? (
                       <p className="mt-1 text-muted-foreground">
                         <span className="font-medium text-foreground">
                           {counterOutcomePatientLabel(row.counter_outcome, row.counter_cancel_reason)}
@@ -548,7 +615,7 @@ export default function DemandeDetailPage() {
                           <span className="ml-1 text-[10px] text-muted-foreground">— {row.counter_cancel_detail}</span>
                         ) : null}
                       </p>
-                    )}
+                    ) : null}
                   </li>
                 );
               })}
