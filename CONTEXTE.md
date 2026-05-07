@@ -58,5 +58,10 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 ### Prochain chantier UX (hors bloc demande-produits déjà mature)
 Les routes **ordonnances** et **consultations libres** (patient et pharmacien) sont des **placeholders** : développement ciblé **page par page** puis branchement métier.
 
+### Workflow « demande de produits » après validation patient (**`confirmed`** — mai 2026)
+Sans migration dédiée pour l’historique structuré : le patient voit ce qu’il a **validé** vs la **préparation actuelle** ; l’historique peut inclure **`audit_v1:`** dans `reason` (voir **`lib/patient-request-history-audit.ts`**, **`CAHIER_DES_CHARGES.md`** §4.4 et journal §10 **2026-05-06**). Côté officine : plafonds qté, alternatives retenues vs indicatif, lignes fermées lecture seule, brouillon conservé au rechargement. Compteur **Annulés** patient : lignes **`cancelled_at_counter`**. Réinitialiser les données de test : **`scripts/clear-all-requests.mjs`** ou **`supabase/scripts/clear-all-requests.sql`**. Canvas de scénarios E2E : **`canvases/product-requests-e2e-test-plan.canvas.tsx`**.
+
+Reste roadmap (voir **`CAHIER_DES_CHARGES.md`** §12) : notamment **annulation globale de la demande avec motif** si non couvert.
+
 ### Livraison & Q35 externe
-Branche **`fix/rls-recursion`** ; gros groupe récent **`a20c8c4`**. File **`notification_external_queue`** (**`20260505_001`**) — envoi réel via **`/api/cron/send-external-emails`** et secrets Vercel (voir **`RUNBOOK.md`**).
+Branche **`fix/rls-recursion`** ; **journal §10 — session 2026-05-06** pour le dernier lot demandes-produits (voir **`git log`** au-delà du groupe **`a20c8c4`**). File **`notification_external_queue`** (**`20260505_001`**) — envoi réel via **`/api/cron/send-external-emails`** et secrets Vercel (voir **`RUNBOOK.md`**).

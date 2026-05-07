@@ -1,9 +1,9 @@
 /** Libellés demandés côté métier (patient & pharmacien). */
 export const requestStatusFr: Record<string, string> = {
-  draft: "Annulée",
+  draft: "Brouillon",
   submitted: "Envoyée",
-  in_review: "Envoyée",
-  responded: "Répondue",
+  in_review: "En cours de traitement",
+  responded: "Réponse reçue — à valider",
   confirmed: "Validée",
   in_progress_virtual: "En préparation",
   completed: "Clôturée",
@@ -41,7 +41,7 @@ export const patientDashboardSections: {
   {
     id: "response_waiting",
     title: "Réponse reçue",
-    description: "Le pharmacien a répondu — action de ta part.",
+    description: "À valider ou annuler avant expiration (24 h).",
     statuses: ["responded"],
   },
   {
@@ -57,10 +57,22 @@ export const patientDashboardSections: {
     statuses: ["completed", "partially_collected", "fully_collected"],
   },
   {
-    id: "closed",
-    title: "Sans suite",
-    description: "Brouillon, annulée, expirée ou abandonnée.",
-    statuses: ["draft", "cancelled", "abandoned", "expired"],
+    id: "closed_cancelled",
+    title: "Annulées",
+    description: "Annulées avant ou après la réponse de la pharmacie.",
+    statuses: ["cancelled", "draft"],
+  },
+  {
+    id: "closed_abandoned",
+    title: "Abandonnées",
+    description: "Annulées après validation, sans récupération de produit.",
+    statuses: ["abandoned"],
+  },
+  {
+    id: "closed_expired",
+    title: "Expirées",
+    description: "Sans réponse de ta part dans les 24 h après la réponse pharmacien.",
+    statuses: ["expired"],
   },
 ];
 
@@ -96,10 +108,22 @@ export const pharmacistDashboardSections: {
     statuses: ["completed", "partially_collected", "fully_collected"],
   },
   {
-    id: "closed",
-    title: "Sans suite",
-    description: "Non poursuivie ou expirée.",
-    statuses: ["draft", "cancelled", "abandoned", "expired"],
+    id: "closed_cancelled",
+    title: "Annulées",
+    description: "Annulées par le client (avant ou après réponse).",
+    statuses: ["cancelled", "draft"],
+  },
+  {
+    id: "closed_abandoned",
+    title: "Abandonnées",
+    description: "Validées puis annulées sans récupération.",
+    statuses: ["abandoned"],
+  },
+  {
+    id: "closed_expired",
+    title: "Expirées",
+    description: "Sans action du client dans les 24 h après votre réponse.",
+    statuses: ["expired"],
   },
 ];
 
@@ -174,6 +198,6 @@ export const availabilityStatusFr: Record<string, string> = {
 export const counterOutcomeFr: Record<string, string> = {
   unset: "En attente",
   picked_up: "Récupéré",
-  cancelled_at_counter: "Sans distribution au comptoir",
+  cancelled_at_counter: "Non remis au comptoir",
   deferred_next_visit: "À récupérer plus tard",
 };

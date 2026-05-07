@@ -437,7 +437,7 @@ export function PatientProductRequestActions({
       return;
     }
 
-    if (!globalThis.confirm("Abandonner cette demande ? Le pharmacien pourra voir cette décision dans l’historique.")) {
+    if (!globalThis.confirm("Annuler cette demande ? Le pharmacien verra cette décision dans l’historique.")) {
       return;
     }
     setActionError("");
@@ -942,7 +942,7 @@ export function PatientProductRequestActions({
         {showAbandonAfterResponse ? (
           <>
             <label className="block text-xs font-medium text-gray-700">
-              Motif d’abandon
+              Motif d’annulation
               <select
                 value={abandonCode}
                 onChange={(e) => setAbandonCode(e.target.value as PatientCancelReasonCode)}
@@ -970,7 +970,7 @@ export function PatientProductRequestActions({
               onClick={() => void runAbandon()}
               className="w-full rounded-lg border border-red-400 bg-white py-2 text-sm font-semibold text-red-950 disabled:opacity-50"
             >
-              {busyAction === "abandon" ? "Abandon…" : "Abandonner la demande"}
+              {busyAction === "abandon" ? "Annulation…" : "Annuler la demande"}
             </button>
           </>
         ) : null}

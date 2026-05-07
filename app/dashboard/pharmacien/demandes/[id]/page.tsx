@@ -128,7 +128,7 @@ function nextAltRank(existing: AltRowDb[]): number | null {
 }
 
 function counterOutcomeLabelPharmacien(outcome: string): string {
-  if (outcome === "cancelled_at_counter") return "Sans distribution au comptoir";
+  if (outcome === "cancelled_at_counter") return "Non remis au comptoir";
   switch (outcome) {
     case "unset":
       return "En attente au comptoir";
@@ -680,7 +680,7 @@ export default function PharmacienDemandeDetailPage() {
     setCounterBusyId(row.id);
     setError("");
     const currentComment = (row.pharmacist_comment ?? "").trim();
-    const stamp = "Sans distribution au comptoir (marqué depuis l’interface pharmacien).";
+    const stamp = "Ligne non remise au comptoir (action pharmacien).";
     const nextComment = currentComment ? `${currentComment}\n${stamp}` : stamp;
     const { error: upErr } = await supabase
       .from("request_items")
@@ -1037,7 +1037,7 @@ export default function PharmacienDemandeDetailPage() {
                         </span>
                         {lineLockedTrace ? (
                           <span className="rounded bg-rose-100 px-1.5 py-0.5 font-medium text-rose-900 ring-1 ring-rose-200/80">
-                            Sans distribution au comptoir
+                            Non remis au comptoir
                           </span>
                         ) : selected ? (
                           <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-900">Retenu après réponse patient</span>
@@ -1365,11 +1365,11 @@ export default function PharmacienDemandeDetailPage() {
                           onClick={() => void cancelLineAtCounter(row)}
                           className="inline-flex h-8 items-center justify-center rounded-md border border-rose-300/90 bg-white px-2.5 text-[10px] font-semibold text-rose-800 hover:bg-rose-50 disabled:opacity-50"
                         >
-                          {counterBusyId === row.id ? "Enregistrement…" : "Sans distribution pour cette ligne"}
+                          {counterBusyId === row.id ? "Enregistrement…" : "Marquer comme non remis au comptoir"}
                         </button>
                         <p className="mt-1 max-w-md text-[9px] leading-snug text-muted-foreground">
-                          Pas la même chose qu&apos;une ligne non retenue par le patient après votre réponse — ici la ligne avait été
-                          gardée puis n&apos;est pas distribuée au comptoir.
+                          Différent d&apos;une ligne décochée par le patient après votre réponse : ici la ligne avait été conservée par le
+                          client, mais n&apos;a finalement pas été remise au comptoir.
                         </p>
                       </div>
                     ) : null}

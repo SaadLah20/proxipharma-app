@@ -105,6 +105,16 @@ function historyReasonLabel(reason: string | null | undefined): string {
   if (reason === "counter_alternative_added") return "Alternative ajoutée";
   if (reason === "counter_alternative_removed") return "Alternative retirée";
   if (reason.startsWith("counter_outcome:")) return "Statut de récupération mis à jour";
+  if (reason === "auto_expire_24h_after_response") return "Délai de 24 h dépassé sans validation — demande expirée";
+  if (reason === "auto_abandon_24h_after_response") return "Délai de 24 h dépassé (ancien classement, désormais expiré)";
+  if (reason === "data_migration_auto_abandon_to_expire") return "Mise à jour : expirée (remplace l’ancien abandon automatique)";
+  if (reason === "request_created_with_status") return "Demande créée";
+  if (reason.startsWith("patient_abandon|")) {
+    if (reason.includes("after_pickup"))
+      return "Demande clôturée après au moins une récupération (arrêt par vous)";
+    return "Annulation ou abandon par vous (motif enregistré)";
+  }
+  if (reason.startsWith("patient_cancel|")) return "Demande annulée par vous (avant réponse pharmacie)";
   return "Mise à jour du dossier";
 }
 
@@ -137,6 +147,8 @@ export default function DemandeDetailPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyBusy, setHistoryBusy] = useState(false);
   const [historyRows, setHistoryRows] = useState<StatusHistoryRow[]>([]);
+  const [followUpBusy, setFollowUpBusy] = useState(false);
+  const [followUpErr, setFollowUpErr] = useState("");
 
   const loadDetail = useCallback(
     async (silent?: boolean) => {
@@ -350,6 +362,48 @@ export default function DemandeDetailPage() {
           </div>
         ) : null}
       </section>
+
+      {request.request_type === "product_request" && request.status === "expired" ? (
+        <section className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-3 shadow-sm">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-amber-950">Demande expirée</h2>
+          <p className="mt-1 text-[11px] leading-snug text-amber-950/90">
+            Vous n&apos;avez pas validé la réponse de la pharmacie dans les 24 h. Vous pouvez créer une nouvelle demande avec les
+            mêmes produits que vous aviez demandés au départ, les ajuster si besoin, puis les renvoyer à la pharmacie.
+          </p>
+          {followUpErr ? (
+            <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">
+              {followUpErr}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            disabled={followUpBusy}
+            onClick={() => {
+              void (async () => {
+                setFollowUpErr("");
+                setFollowUpBusy(true);
+                const { data, error: rpcErr } = await supabase.rpc("patient_create_followup_from_expired_product_request", {
+                  p_expired_request_id: request.id,
+                });
+                setFollowUpBusy(false);
+                if (rpcErr) {
+                  setFollowUpErr(rpcErr.message);
+                  return;
+                }
+                const newId = typeof data === "string" ? data : Array.isArray(data) ? data[0] : null;
+                if (!newId || typeof newId !== "string") {
+                  setFollowUpErr("Réponse inattendue du serveur.");
+                  return;
+                }
+                router.push(`/dashboard/demandes/${newId}`);
+              })();
+            }}
+            className="mt-3 w-full rounded-lg bg-amber-700 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-800 disabled:opacity-50"
+          >
+            {followUpBusy ? "Création…" : "Ajuster et renvoyer une nouvelle demande"}
+          </button>
+        </section>
+      ) : null}
 
       {items.length > 0 && !hasBottomActions ? (
         <section className="space-y-2">

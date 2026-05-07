@@ -1,0 +1,215 @@
+================================================================================
+PROXIPHARM — PROMPTS POUR OUTIL IA DE DESIGN / MOODBOARD / RÉFÉRENCES UI
+Usage : copier-coller chaque bloc dans votre outil (Figma IA, Galileo, Uizard,
+Midjourney pour mood uniquement, etc.). Adapter si l’outil exige une langue ou
+un format (ratio, plat / perspective).
+Contexte produit : plateforme pharma Maroc — mobile-first — arabe / français —
+réduction de friction — confiance santé sans aspect clinique froid — proximité quartier.
+Marque exemple : proxipharma.ma (non définitive) — palettes à proposer dans les sorties.
+
+================================================================================
+0) PROMPT RACINE (“DESIGN LANGUAGE”) — À LANCER EN PREMIER
+================================================================================
+Tu es designer produit pour une app web santé / officine au Maroc. Propose une
+direction visuelle unique et cohérente pour toute une plateforme (patient +
+pharmacien + annuaire public). Contraintes : mobile-first ; accessibilité
+(contrastes WCAG AA) ; bilinguisme FR/AR (RTL possible) ; ton chaleureux et
+clair, pas hospitalier ; accents discrets santé/pharma (sans croix médicale
+stéréotypée omniprésente). Définis pour livrables : palette (primaire, secondaire,
+succès/avertissement/erreur/info), typo (titres + corps, lisibles petite taille),
+rayons cartes/chips/radius, styles boutons primaire-secondaire-lien-ghost, champs
+formulaire états défaut-focus-erreur, ombres, espacements 4/8 multiples, grille.
+Inclus 3 ambiances variations (premium sobre, approachable friendly, très minimal)
+et une matrice tokens type design system léger pour dev (noms FR optionnels).
+
+
+================================================================================
+1) NAVIGATION & HEADER (patient / pharmacien / public)
+================================================================================
+Design d’un bandeau fixe top mobile : logo texte discret, menu hamburger ou onglets
+selon rôle, icône notifications avec pastille, avatar ou initiales. Sur desktop :
+barre plus large avec mêmes éléments. Style ProxiPharma — confiance locale — CTA
+secondaire “mon espace”. États : scroll compressé ; notification non lues ; RTL
+avec miroitement logique sans casser UX.
+
+Variante mood image (sans texte UI lisible détaillé) :
+“premium mobile healthcare app chrome, soft green and warm white, subtle shadow,
+Marocco-friendly modern SaaS navbar, dribbble trending UI moodboard, minimalist”
+
+
+================================================================================
+2) LISTE DEMANDES — ESPACE PATIENT (hub cartes demandes produits / ordonnances)
+================================================================================
+Écran mobile : titre “Mes demandes”, filtres chips (À traiter, En cours,
+Terminées, Annulées), barre recherche facultative sous les filtres, liste de cartes.
+Chaque carte : réf publique courte (ex. D042/26), nom officine ou avatar,
+statut lisible avec couleur pastel, lignes métier KPI (ex. lignes préparées,
+annulées comptoir), chevron ou chemin visuel swipe-friendly. Vide : illustration
+minimaliste + CTA explorer pharmacies. Accessible, grands zones touch.
+
+Ajoute une variante tableau compact pour breakpoint desktop (colonnes réf /
+pharmacie / statut / date).
+
+
+================================================================================
+3) LISTE DEMANDES — ESPACE PHARMACIEN (“file d’attente production”)
+================================================================================
+Dashboard liste des demandes entrantes traitées par équipe officine ; stress sur
+priorité (< 15 min) et volumétrie. Cartes avec code demande patient visible,
+pastille urgente SLA, snippets patient (sans photo obligatoire), statut étape
+workflow. Filtres : nouvelles, en cours, retard, récence. Indicateur KPI header
+(nb en attente, > 24h). Style outil métier précis mais calme pas alert fatigue ;
+microcopy FR court professionnel pharmacien.
+
+
+================================================================================
+4) DÉTAIL DEMANDE — PATIENT (validation produits / alternatives / suivi confirmé)
+================================================================================
+Flux long-scroll mobile : bloc contexte officine avec contact WhatsApp/icône téléphone ;
+section produits lignes comme cartes imbriquées avec : nom médicamenteux + dosage,
+pastille disponibilité, quantité stepper ou lecture seule, alternatives radio max 3 ;
+état désactivé “rupture marché” grisé avec message empathique pas culpabilité ;
+deux niveaux après validation officine (“ce que vous avez validé” vs “préparation
+actuelle”) en deux surfaces visuellement distinctes (fond différent léger timeline
+ou colonne lecture seule) ; bloc historique type journal avec lignes événements.
+CTA primaire évident en bas sticky quand pertinent. Mention accessibilité : focus ring.
+
+
+================================================================================
+5) DÉTAIL DEMANDE — PHARMACIEN (réponse officine / comptoir / audit)
+================================================================================
+Interface “poste travail officine tablet-first” puis desktop : colonne gauche info
+patient + pièces (ordonnance placeholder) ; droite éditeur lignes produits avec
+champs stock dispo, statut dispo, alternatives, commentaires ; barre action enregistrer ;
+bandeau choix patient figé quand statut confirmé ; liste alternatives hiérarchisée :
+“retenu patient” vs “indicatif” ; lignes fermées lecture seule différenciées ; tooltips.
+Palette professionnelle, pas jeu ; densité médium ; badges statut officine très lisibles.
+
+
+================================================================================
+6) BLOCS PRODUIT (composants cartes lignes médicaments & alternatives)
+================================================================================
+Set de variants UI component : carte produit standard ; carte avec mini timeline
+état préparation ; ligne compacte liste ; vignette rupture marché avec icône stock ;
+grille alternatives 3 max avec radio/check ; quantité préparation capped visual hint.
+Inclure microcopy exemples FR placeholders. Shadows légères, radius médium harmonisé.
+
+
+================================================================================
+7) STATUT & BADGES (workflow demandes / comptoir)
+================================================================================
+Bibliothèque chips/badges : Nouveau, Répondu patient, Confirmé préparation,
+Prêt récupération, Terminé, Annulé comptoir, En préparation métier générique —
+couleur + icône + mode sombre léger pas obligatoire. Étiquettes très petites lisibles.
+
+
+================================================================================
+8) KPI & CARTES MÉTRIQUES PHARMACIEN + PATIENT (compteurs dashboards)
+================================================================================
+Cartes KPI modernes mais sobres pour petit commerce santé ; icônes line ; trend
+indicator option ; usage sur page d’accueil officine analytics + vignettes hubs
+patient. Responsive : grille 2 col mobile, 4 desktop. Pas data visualization médicale
+effrayante — lignes temps réels simple bar chart optionnel.
+
+
+================================================================================
+9) ACCUEIL DASHBOARD PHARMACIEN (hub post-login)
+================================================================================
+Écran d’entrée officine après auth : grille modules (Mes demandes, Officine,
+Pricing/PPH, Produits/commandes, Clients, Notifications, Hors-gardes, etc.).
+Carreaux grandes surfaces touch avec pictos cohérents ; carte “priorité SLA” mise
+avant autres ; section “actions rapides” ; empty states si aucune donnée encore.
+Tablet split view friendly.
+
+
+================================================================================
+10) ACCUEIL / PORTAIL PATIENT après login
+================================================================================
+Résumé prochain rendez-vous santé générique placeholders ; lien demandes récentes ;
+offres facultatives placeholders ; carte annuaire “trouver officine”; style life app
+friendly Maroc urbain suburbain inclusif âge.
+
+
+================================================================================
+11) ANNUAIRE PUBLIC pharmacies (liste + filtres géo / garde)
+================================================================================
+Map placeholder style card list hybrid mobile : champ recherche géolocalisée,
+filtre garde aujourd’hui, carte pharmacie dans liste avec distance, badges services,
+boutons téléphone WhatsApp très visibles verts acceptés sobres conformes whatsapp mais
+sans logo IP illégal — utiliser “icône chat” générique stylisée ou picto téléphone.
+Couleurs confiance.
+
+
+================================================================================
+12) FICHE PHARMACIE PUBLIQUE (SEO / conversion)
+================================================================================
+Hero photo officine optionnelle placeholder ; horaires ; services ; CTA demande
+produits ; avis placeholder ; section contact ; module ordonnance future placeholder.
+Design vitrine locale warm.
+
+
+================================================================================
+13) FORMULAIRE DEMANDE PRODUITS (entrée publique depuis fiche pharmacie)
+================================================================================
+Wizard 2–3 étapes mobile : upload ordonnance optionnel + texte libre + ajout produits
+simulés ; progress stepper minimal ; validations inline ; reassurance confidentialité courte.
+Sticky footer suivant précédent.
+
+
+================================================================================
+14) NOTIFICATIONS (centre liste in-app + état unread)
+================================================================================
+Liste notifications groupées date ; icônes type ; swipe actions désactivées pour ref
+garder lecture simple ; différentiation événements patient/officine couleur pastel.
+Bell header micro interaction.
+
+
+================================================================================
+15) ÉCRANS AUTH — login / inscription
+================================================================================
+Auth mobile simple : téléphone/email, OTP placeholder champs stylisés, disclaimer
+ légal santé léger ; SSO absent ; tonalité sérieuse mais courte ; illustration
+ géométrique abstraite pharma-friendly.
+
+
+================================================================================
+16) ADMIN FONDATEUR (vision réseau 12 officines placeholders)
+================================================================================
+Table dashboards minimal admin-only ; impersonation fictive comme bouton désactivé
+style guideline ; filtres grandes listes dense desktop ; éviter jeu couleurs.
+Accessibilité clavier évidente.
+
+
+================================================================================
+17) SETTINGS / PARAMÈTRES patient & pharmacien
+================================================================================
+Liste settings iOS-modern android-friendly ; lignes séparateurs ; toggles grandes ;
+section langue FR/AR ; codes réf publique mise en évidence copiable (monospace léger).
+
+
+================================================================================
+18) VIDES (“EMPTY STATES”) cohérents plateforme
+================================================================================
+Famille compositions illustratives géométriques abstraites (pas personnages caricaturaux):
+aucune demande ; aucune notification ; filtres aucun résultat ; rupture données temporaires.
+Texte exemple FR empathique courte + bouton primaire contextualisé.
+
+
+================================================================================
+19) RUPTURE DU MARCHÉ — écran liste interne officine placeholders
+================================================================================
+Vue liste produits rupture par officine gestion désenlist ; tags ; bulk actions léger —
+style back-office calme santé réglementaire implication soft.
+
+
+================================================================================
+20) PROMPT “SYNTHÈSE LIVRAISON” À FAIRE GÉNÉRER ENSUITE À PARTIR DES SORTIES IA
+================================================================================
+À partir des références précédentes, produis une fiche concise “Guidelines Proxipharma
+relook final” fusionnée : grille 8 px, rayon unique, palettes finales codées HEX,
+liste composants nécessitant variant dark optionnel RTL, exemple couverture onboarding
+avec capture fictive téléphone Morocco city subtle background blur medical abstract.
+
+================================================================================
+FIN DU FICHIER — Mettre à jour ce document si vous ajoutez un nouvel écran majeur.
+

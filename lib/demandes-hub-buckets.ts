@@ -33,7 +33,7 @@ export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "repondues",
     label: "Répondues",
-    hint: "À traiter de ton côté.",
+    hint: "À valider sous 24 h, sinon la demande expire.",
     statuses: ["responded"],
   },
   {
@@ -57,16 +57,19 @@ export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "abandonnees",
     label: "Abandonnées",
+    hint: "Après validation, sans récupération.",
     statuses: ["abandoned"],
   },
   {
     key: "expirees",
     label: "Expirées",
+    hint: "Sans réponse dans les 24 h après la pharmacie.",
     statuses: ["expired"],
   },
   {
     key: "annulees",
     label: "Annulées",
+    hint: "Avant ou après réponse, sans validation.",
     statuses: ["cancelled", "draft"],
   },
 ];
@@ -82,7 +85,7 @@ export const PHARMACIST_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "repondues",
     label: "Répondues",
-    hint: "En attente du client.",
+    hint: "Le client a 24 h pour répondre, sinon expiration.",
     statuses: ["responded"],
   },
   {
@@ -105,16 +108,19 @@ export const PHARMACIST_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "abandonnees",
     label: "Abandonnées",
+    hint: "Validées puis arrêt sans récupération.",
     statuses: ["abandoned"],
   },
   {
     key: "expirees",
     label: "Expirées",
+    hint: "Aucune action client sous 24 h après votre réponse.",
     statuses: ["expired"],
   },
   {
     key: "annulees",
     label: "Annulées",
+    hint: "Annulation client (avant ou après réponse).",
     statuses: ["cancelled", "draft"],
   },
 ];
