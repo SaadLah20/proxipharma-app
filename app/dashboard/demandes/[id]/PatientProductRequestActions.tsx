@@ -212,7 +212,7 @@ export function PatientProductRequestActions({
   onReload,
 }: Props) {
   const [actionError, setActionError] = useState("");
-  const [busyAction, setBusyAction] = useState<"" | "confirm" | "resubmit" | "abandon">("");
+  const [busyAction, setBusyAction] = useState<"" | "confirm" | "resubmit" | "abandon" | "visit">("");
   const [abandonCode, setAbandonCode] = useState<PatientCancelReasonCode>("no_longer_needed");
   const [abandonDetail, setAbandonDetail] = useState("");
 
@@ -246,11 +246,29 @@ export function PatientProductRequestActions({
   const visitWin = useMemo(() => {
     const linesPayload = items.map((row) => {
       const alts = normalizeAlternatives(row.request_item_alternatives);
-      const st = sel[row.id] ?? { branch: null, qty: 1 };
-      const cap = maxQtyForBranch(row, st.branch, alts);
+      let branch: LineBranch = null;
+      let capPositive = false;
+
+      if (status === "confirmed") {
+        if (!row.is_selected_by_patient) {
+          branch = null;
+          capPositive = false;
+        } else if (row.patient_chosen_alternative_id) {
+          branch = row.patient_chosen_alternative_id;
+          capPositive = maxQtyForBranch(row, branch, alts) > 0;
+        } else {
+          branch = "principal";
+          capPositive = maxQtyPrincipal(row) > 0;
+        }
+      } else {
+        const st = sel[row.id] ?? { branch: null, qty: 1 };
+        branch = st.branch;
+        capPositive = st.branch !== null && maxQtyForBranch(row, st.branch, alts) > 0;
+      }
+
       return {
-        capPositive: st.branch !== null && cap > 0,
-        branch: st.branch,
+        capPositive,
+        branch,
         principalAvail: row.availability_status,
         principalEta: row.expected_availability_date ?? null,
         alternatives: alts.map((a) => ({
@@ -261,7 +279,7 @@ export function PatientProductRequestActions({
       };
     });
     return plannedVisitWindow(linesPayload);
-  }, [items, sel]);
+  }, [items, sel, status]);
 
   const resolvedVisitDate = useMemo(() => {
     const t = visitDate.trim();
@@ -505,7 +523,7 @@ export function PatientProductRequestActions({
       );
       return;
     }
-    setBusyAction("confirm");
+    setBusyAction("visit");
     const { error } = await supabase
       .from("requests")
       .update({
@@ -530,6 +548,8 @@ export function PatientProductRequestActions({
   const showResubmit = status === "submitted" || status === "in_review";
   const showAbandonAfterResponse = status === "responded" || status === "confirmed";
   const showConfirmedCards = status === "confirmed";
+  /** Date/heure de passage : à la validation (responded) et pour modifier après coup (confirmed). */
+  const showVisitFields = showConfirm || status === "confirmed";
 
   const visitTimeFr = visitTime.trim() ? formatTime24hFr(htmlTimeToPg(visitTime) ?? visitTime) : "";
 
@@ -746,8 +766,25 @@ export function PatientProductRequestActions({
             const qtyDiffers = prepQty != null && Number(prepQty) !== Number(validatedQty);
             const isSelected = Boolean(row.is_selected_by_patient);
             const counterTouched = counterOutcome !== "unset";
+            const isPharmacistProposed = row.line_source === "pharmacist_proposed";
             return (
               <li key={`confirmed-${row.id}`} className="rounded-xl border-2 border-slate-100 bg-white p-2.5 text-[11px] shadow-sm">
+                {isPharmacistProposed && isSelected ? (
+                  <div className="mb-2 rounded-lg border border-violet-300/80 bg-violet-50 px-2 py-2 text-[11px] leading-snug text-violet-950">
+                    <p className="font-bold text-violet-950">Produit proposé par la pharmacie</p>
+                    {row.pharmacist_proposal_reason?.trim() ? (
+                      <p className="mt-1">
+                        <span className="font-semibold">Motif : </span>
+                        {row.pharmacist_proposal_reason.trim()}
+                      </p>
+                    ) : (
+                      <p className="mt-1 italic text-violet-800/85">Motif enregistré par la pharmacie (voir le détail).</p>
+                    )}
+                    <p className="mt-1 text-[10px] text-violet-900/90">
+                      Ce produit ne figurait pas dans votre liste initiale ; vous l&apos;avez accepté lors de votre validation.
+                    </p>
+                  </div>
+                ) : null}
                 <p className="text-sm font-semibold text-foreground">{prod?.name ?? "Produit"}</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
                   Demandé <strong className="text-foreground">{row.requested_qty}</strong>
@@ -764,7 +801,9 @@ export function PatientProductRequestActions({
                 ) : (
                   <>
                     <div className="mt-2 rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2 py-1.5">
-                      <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900">Ce que vous avez validé</p>
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900">
+                        {isPharmacistProposed ? "Ce que vous avez accepté (ajout pharmacie)" : "Ce que vous avez validé"}
+                      </p>
                       <p className="mt-0.5 text-sm font-semibold text-emerald-950">{displayName}</p>
                       <p className="mt-0.5 text-[11px] leading-snug text-emerald-900/90">
                         <span>Qté validée · <strong className="tabular-nums">{validatedQty}</strong></span>
@@ -790,7 +829,7 @@ export function PatientProductRequestActions({
                       <p className="text-[9px] font-bold uppercase tracking-wide text-slate-600">Suivi officine</p>
                       {!counterTouched ? (
                         <p className="mt-0.5 text-[11px] leading-snug text-slate-700">
-                          <strong className="text-slate-900">En cours</strong> · la pharmacie n&apos;a pas encore commencé l&apos;exécution au comptoir. Le suivi détaillé apparaîtra dès la première action.
+                          <strong className="text-slate-900">En cours</strong> · la pharmacie n&apos;a pas encore indiqué si le produit est prêt ou remis. Le détail apparaît dès la première mise à jour.
                         </p>
                       ) : (
                         <>
@@ -942,10 +981,10 @@ export function PatientProductRequestActions({
       ) : null}
 
       <div className="mt-3 space-y-2 rounded-md border border-border/70 bg-card p-2 sm:p-2.5">
-        {showConfirm && (
+        {showVisitFields ? (
           <div className="rounded-md border border-primary/20 bg-primary/5 p-2">
             <label className="block text-[11px] font-medium text-foreground">
-              Date de passage <span className="text-destructive">*</span>
+              Date de passage {showConfirm ? <span className="text-destructive">*</span> : null}
               <input
                 type="date"
                 min={visitWin.minYmd}
@@ -953,7 +992,7 @@ export function PatientProductRequestActions({
                 value={resolvedVisitDate}
                 onChange={(e) => setVisitDate(e.target.value)}
                 className="mt-0.5 block w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
-                required
+                required={showConfirm}
               />
             </label>
             <label className="mt-2 block text-[11px] font-medium text-foreground">
@@ -975,8 +1014,13 @@ export function PatientProductRequestActions({
                 <span className="mt-0.5 block text-[10px] text-muted-foreground">Affichage : {visitTimeFr}</span>
               ) : null}
             </label>
+            {status === "confirmed" ? (
+              <p className="mt-2 text-[10px] leading-snug text-primary/90">
+                Vous pouvez changer la date ou l&apos;heure prévues ; la pharmacie les verra sur la demande.
+              </p>
+            ) : null}
           </div>
-        )}
+        ) : null}
 
         {showResubmit ? (
           <>
@@ -1067,7 +1111,7 @@ export function PatientProductRequestActions({
             onClick={() => void runUpdateVisit()}
             className="w-full rounded-md border border-primary/30 bg-primary/10 py-2 text-xs font-semibold text-primary disabled:opacity-50 sm:text-sm"
           >
-            {busyAction === "confirm" ? "Mise à jour…" : "Mettre à jour ma date de passage"}
+            {busyAction === "visit" ? "Mise à jour…" : "Mettre à jour ma date de passage"}
           </button>
         ) : null}
 

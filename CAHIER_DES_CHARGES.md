@@ -278,6 +278,26 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-07 (suite 4) — Hubs demandes, passage prévu `confirmed`, notifications, dropdown mobile
+
+**Objectif** : retours UX liste + détail patient/pharmacien + cohérence des notifications (mise à jour vs nouvelle demande, motif annulation pharmacien) sans régression workflow.
+
+**SQL — migrations ajoutées** :
+- **`supabase/migrations/20260507_004_in_app_notifications_reasoning.sql`** — réécrit **`_in_app_notification_patient`** / **`_in_app_notification_pharmacist`** / **`_emit_in_app_notifications_for_status_history`** : distinction **`submitted`** nouvelle vs mise à jour patient (`old_status`), **motif** dans notif patient si **`pharmacist_cancel|<motif>`**, notifs pharmacien **`expired`**, annulation avec contexte.
+
+**Next.js** :
+- **`components/requests/demande-hub-ui.tsx`** : cartes liste patient (`submitted`/`in_review`) sans compteurs alternatives / ajouts pharmacie ; libellés grand public ; cartes pharmacien « envoyées » : **Lignes** seulement ; suppression bouton **Copier**.
+- **`app/dashboard/demandes/[id]/PatientProductRequestActions.tsx`** : fenêtre de passage calculée aussi en **`confirmed`** (`patient_chosen_alternative_id`) ; champs date/heure affichés pour **« Mettre à jour ma date de passage »** ; bandeau **produit proposé par la pharmacie** en `confirmed` ; libellés **Suivi officine** simplifiés.
+- **`app/dashboard/demandes/[id]/page.tsx`** : même bandeau / titres pour lignes **`pharmacist_proposed`** ; historique **`pharmacist_cancel|<motif>`** ; **key** inclut passage prévu pour resync état.
+- **`app/dashboard/pharmacien/demandes/[id]/page.tsx`** : badge **« Non distribué au patient »** (remplace ancienne formulation comptoir).
+- **`components/layout/platform-header.tsx`** : liste notifs filtrée **`recipient_id`** ; panneau mobile léger **`translate-x-1`**.
+
+**Contrôle** : `npm run lint` ✅, `npm run build` ✅.
+
+**À appliquer côté Supabase** : **`20260507_004_in_app_notifications_reasoning.sql`**.
+
+---
+
 ### Session 2026-05-07 (suite 3) — Workflow demandes : terminologie, UX mobile, parité validé/officine, annulation pharmacie
 
 **Objectif** : traiter une liste de 14 retours utilisateur sur le détail demande (patient + pharmacien) suite aux deux premiers lots du 2026-05-07.
@@ -715,6 +735,7 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260507_001_patient_abandon_cancel_expire_clone.sql` (règles abandon/annulation/expiré ; batch 24 h → **`expired`** ; RPC **`patient_create_followup_from_expired_product_request`**)
   - `supabase/migrations/20260507_002_counter_cancel_reason.sql` (motifs annulation ligne au comptoir : `client_request` / `pharmacy_unable` + détail libre, RPC `pharmacist_set_item_counter_outcome` étendue)
   - `supabase/migrations/20260507_003_pharmacist_cancel_request.sql` (**RPC `pharmacist_cancel_request`** : annulation totale par la pharmacie avec motif obligatoire)
+  - `supabase/migrations/20260507_004_in_app_notifications_reasoning.sql` (notifs : mise à jour vs nouvelle demande, motif annulation pharmacien, pharmacien notifié sur **`expired`**)
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).

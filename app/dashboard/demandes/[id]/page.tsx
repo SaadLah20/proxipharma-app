@@ -123,6 +123,10 @@ function historyReasonLabel(reason: string | null | undefined): string {
     return "Annulation ou abandon par vous (motif enregistré)";
   }
   if (reason.startsWith("patient_cancel|")) return "Demande annulée par vous (avant réponse pharmacie)";
+  if (reason.startsWith("pharmacist_cancel|")) {
+    const motif = reason.slice("pharmacist_cancel|".length).trim();
+    return motif ? `Demande annulée par la pharmacie — ${motif}` : "Demande annulée par la pharmacie";
+  }
   return "Mise à jour du dossier";
 }
 
@@ -446,7 +450,8 @@ export default function DemandeDetailPage() {
                       <p className="font-semibold text-foreground">{prod?.name ?? "Produit"}</p>
                       {linePph ? <span className="shrink-0 text-[10px] font-medium text-teal-800">{linePph}</span> : null}
                     </div>
-                    {row.line_source === "pharmacist_proposed" ? (
+                    {row.line_source === "pharmacist_proposed" &&
+                    !(postConfirmPatientView && row.is_selected_by_patient) ? (
                       <p className="mt-1 rounded bg-violet-100/80 px-1.5 py-0.5 text-[10px] font-semibold text-violet-950">
                         {requestItemLineSourceFr.pharmacist_proposed}
                         {row.pharmacist_proposal_reason ? ` — ${row.pharmacist_proposal_reason}` : ""}
@@ -479,11 +484,26 @@ export default function DemandeDetailPage() {
                         const validatedPrice = chosenAltForValidated?.unit_price ?? row.unit_price;
                         const validatedEta =
                           chosenAltForValidated?.expected_availability_date ?? row.expected_availability_date;
+                        const isPharmaProposed = row.line_source === "pharmacist_proposed";
                         return (
                           <>
+                            {isPharmaProposed ? (
+                              <div className="mt-2 rounded-lg border border-violet-300/80 bg-violet-50 px-2 py-2 text-[11px] leading-snug text-violet-950">
+                                <p className="font-bold text-violet-950">Produit proposé par la pharmacie</p>
+                                {row.pharmacist_proposal_reason?.trim() ? (
+                                  <p className="mt-1">
+                                    <span className="font-semibold">Motif : </span>
+                                    {row.pharmacist_proposal_reason.trim()}
+                                  </p>
+                                ) : null}
+                                <p className="mt-1 text-[10px] text-violet-900/90">
+                                  Ajouté par l&apos;officine ; vous l&apos;avez accepté lors de votre validation.
+                                </p>
+                              </div>
+                            ) : null}
                             <div className="mt-2 rounded-lg border border-emerald-300/70 bg-emerald-50 px-2 py-1.5">
                               <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900">
-                                Ce que vous avez validé
+                                {isPharmaProposed ? "Ce que vous avez accepté (ajout pharmacie)" : "Ce que vous avez validé"}
                               </p>
                               <p className="mt-0.5 text-xs font-semibold leading-snug text-emerald-950">
                                 {validatedProductName}
@@ -517,8 +537,8 @@ export default function DemandeDetailPage() {
                               <p className="text-[9px] font-bold uppercase tracking-wide text-slate-700">Suivi officine</p>
                               {!counterTouched ? (
                                 <p className="mt-0.5 text-[11px] leading-snug text-slate-700">
-                                  <strong className="text-slate-900">En cours</strong> · la pharmacie n&apos;a pas encore commencé
-                                  l&apos;exécution au comptoir. Le suivi détaillé apparaîtra dès la première action.
+                                  <strong className="text-slate-900">En cours</strong> · la pharmacie n&apos;a pas encore indiqué si le
+                                  produit est prêt ou remis. Le détail apparaît dès la première mise à jour.
                                 </p>
                               ) : (
                                 <>
@@ -632,6 +652,8 @@ export default function DemandeDetailPage() {
             [
               request.status,
               note ?? "",
+              request.patient_planned_visit_date ?? "",
+              request.patient_planned_visit_time ?? "",
               ...items.map((i) =>
                 [
                   i.id,
