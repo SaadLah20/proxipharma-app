@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { MessageCircle, Phone } from "lucide-react";
+import { ArrowRight, Building2, Loader2, MapPin, MessageCircle, Phone, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type Pharmacy = {
   id: string;
@@ -53,99 +54,147 @@ export default function Home() {
   }, [pharmacies, searchQuery]);
 
   if (loading) {
-    return <main className="min-h-screen p-6">Chargement...</main>;
+    return (
+      <main className="flex min-h-[50vh] flex-1 flex-col items-center justify-center gap-3 bg-background p-6 text-muted-foreground">
+        <Loader2 className="size-8 animate-spin text-primary" aria-hidden />
+        <p className="text-sm font-medium text-foreground">Chargement de l&apos;annuaire…</p>
+      </main>
+    );
   }
 
   return (
-    <main className="min-h-0 flex-1 bg-gray-50 p-4 pb-10">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-blue-900">Annuaire</h1>
-        <p className="text-sm text-gray-600">
-          Pharmacies affichées ({filtered.length}
-          {searchQuery.trim().length >= 2 ? ` / ${pharmacies.length}` : ""})
-        </p>
-        <label className="mt-3 block text-xs font-medium text-gray-700">
-          Recherche nom, ville, adresse ou code officine (ex. PH001R)
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tapez au moins 2 caractères…"
-            className="mt-1 w-full max-w-md rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-blue-400"
-          />
-        </label>
-      </div>
-
-      <div className="space-y-4">
-        {errorMessage ? (
-          <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-            Erreur chargement pharmacies: {errorMessage}
-          </p>
-        ) : null}
-        {filtered.length > 0 ? (
-          filtered.map((pharmacy) => (
-            <div key={pharmacy.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-              <div className="mb-2 flex items-start justify-between gap-2">
-                <div>
-                  <p className="font-mono text-[11px] font-semibold tracking-wide text-blue-900/90">
-                    {pharmacy.public_ref?.trim() ?? "—"}
-                  </p>
-                  <h3 className="text-lg font-bold">{pharmacy.nom}</h3>
-                  <p className="text-sm text-gray-500">
-                    {pharmacy.ville} • {pharmacy.adresse}
-                  </p>
-                </div>
-                <span className="rounded-lg bg-green-100 px-2 py-1 text-xs font-bold uppercase text-green-700">
-                  {pharmacy.statut}
-                </span>
-              </div>
-
-              <Link
-                href={`/pharmacie/${pharmacy.id}`}
-                className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-blue-900 py-3 text-sm font-semibold text-white"
-              >
-                Fiche pharmacie <ArrowRight size={16} />
-              </Link>
-              <div className="mt-2 flex gap-2">
-                <a
-                  href={pharmacy.telephone ? `tel:${pharmacy.telephone}` : undefined}
-                  aria-disabled={!pharmacy.telephone}
-                  onClick={() =>
-                    trackPharmacyEngagement({
-                      pharmacyId: pharmacy.id,
-                      eventType: "phone_click",
-                      source: "annuaire",
-                    })
-                  }
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-50 py-2 font-medium text-blue-700 aria-disabled:pointer-events-none aria-disabled:opacity-50"
-                >
-                  <Phone size={16} /> {pharmacy.telephone ?? "Non disponible"}
-                </a>
-                <a
-                  href={
-                    normalizeWhatsAppNumber(pharmacy.whatsapp)
-                      ? `https://wa.me/${normalizeWhatsAppNumber(pharmacy.whatsapp)}`
-                      : undefined
-                  }
-                  target={normalizeWhatsAppNumber(pharmacy.whatsapp) ? "_blank" : undefined}
-                  rel={normalizeWhatsAppNumber(pharmacy.whatsapp) ? "noreferrer" : undefined}
-                  aria-disabled={!normalizeWhatsAppNumber(pharmacy.whatsapp)}
-                  onClick={() =>
-                    trackPharmacyEngagement({
-                      pharmacyId: pharmacy.id,
-                      eventType: "whatsapp_click",
-                      source: "annuaire",
-                    })
-                  }
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-50 py-2 font-medium text-green-700 aria-disabled:pointer-events-none aria-disabled:opacity-50"
-                >
-                  <MessageCircle size={16} /> WhatsApp
-                </a>
-              </div>
+    <main className="min-h-0 flex-1 bg-background p-4 pb-14 sm:p-5">
+      <div className="mx-auto max-w-lg sm:max-w-xl">
+        <div className="mb-6 rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06] p-4 shadow-sm sm:p-5">
+          <div className="flex items-start gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary" aria-hidden>
+              <Building2 className="size-5" strokeWidth={2.25} />
+            </span>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight text-foreground sm:text-xl">Annuaire des officines</h1>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                Trouvez une pharmacie partenaire, consultez ses coordonnées et accédez à sa fiche pour vos demandes de
+                produits.
+              </p>
             </div>
-          ))
-        ) : (
-          <p className="py-10 text-center text-gray-500">Aucune pharmacie trouvée pour le moment.</p>
-        )}
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Pharmacies affichées :{" "}
+            <span className="font-semibold text-foreground">
+              {filtered.length}
+              {searchQuery.trim().length >= 2 ? ` / ${pharmacies.length}` : ""}
+            </span>
+          </p>
+          <label className="mt-3 block text-sm font-medium text-foreground">
+            <span className="flex items-center gap-2">
+              <Search className="size-4 text-primary" aria-hidden />
+              Recherche (nom, ville, adresse ou code officine)
+            </span>
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Ex. Casablanca, PH001R… (2 caractères minimum pour filtrer)"
+              className={cn(
+                "mt-2 w-full rounded-xl border border-input bg-card px-3 py-2.5 text-sm text-foreground shadow-sm outline-none",
+                "placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+              )}
+            />
+          </label>
+        </div>
+
+        <div className="space-y-4">
+          {errorMessage ? (
+            <p className="rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
+              Erreur chargement pharmacies : {errorMessage}
+            </p>
+          ) : null}
+          {filtered.length > 0 ? (
+            filtered.map((pharmacy) => (
+              <article
+                key={pharmacy.id}
+                className="overflow-hidden rounded-2xl border border-border/90 bg-card text-card-foreground shadow-sm transition hover:border-primary/25 hover:shadow-md"
+              >
+                <div className="border-b border-border/60 bg-muted/25 px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-mono text-[11px] font-semibold tracking-wide text-primary">
+                        {pharmacy.public_ref?.trim() ?? "—"}
+                      </p>
+                      <h2 className="mt-1 text-base font-bold leading-snug sm:text-lg">{pharmacy.nom}</h2>
+                      <p className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground">
+                        <MapPin className="mt-0.5 size-4 shrink-0 text-primary/80" aria-hidden />
+                        <span>
+                          {pharmacy.ville} · {pharmacy.adresse}
+                        </span>
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-lg bg-emerald-500/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+                      {pharmacy.statut}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-4 pt-3">
+                  <Link
+                    href={`/pharmacie/${pharmacy.id}`}
+                    className={cn(buttonVariants({ size: "lg" }), "h-11 w-full gap-2 px-4 text-sm")}
+                  >
+                    Fiche pharmacie
+                    <ArrowRight className="size-4" aria-hidden />
+                  </Link>
+                  <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <a
+                      href={pharmacy.telephone ? `tel:${pharmacy.telephone}` : undefined}
+                      aria-disabled={!pharmacy.telephone}
+                      onClick={() =>
+                        trackPharmacyEngagement({
+                          pharmacyId: pharmacy.id,
+                          eventType: "phone_click",
+                          source: "annuaire",
+                        })
+                      }
+                      className={cn(
+                        buttonVariants({ variant: "outline", size: "lg" }),
+                        "h-11 w-full justify-center gap-2 text-sm aria-disabled:pointer-events-none aria-disabled:opacity-50"
+                      )}
+                    >
+                      <Phone className="size-4" aria-hidden />
+                      <span className="truncate">{pharmacy.telephone ?? "Téléphone indisponible"}</span>
+                    </a>
+                    <a
+                      href={
+                        normalizeWhatsAppNumber(pharmacy.whatsapp)
+                          ? `https://wa.me/${normalizeWhatsAppNumber(pharmacy.whatsapp)}`
+                          : undefined
+                      }
+                      target={normalizeWhatsAppNumber(pharmacy.whatsapp) ? "_blank" : undefined}
+                      rel={normalizeWhatsAppNumber(pharmacy.whatsapp) ? "noreferrer" : undefined}
+                      aria-disabled={!normalizeWhatsAppNumber(pharmacy.whatsapp)}
+                      onClick={() =>
+                        trackPharmacyEngagement({
+                          pharmacyId: pharmacy.id,
+                          eventType: "whatsapp_click",
+                          source: "annuaire",
+                        })
+                      }
+                      className={cn(
+                        buttonVariants({ variant: "secondary", size: "lg" }),
+                        "h-11 w-full justify-center gap-2 border-emerald-500/20 bg-emerald-500/10 text-emerald-900 hover:bg-emerald-500/18 dark:text-emerald-100 aria-disabled:pointer-events-none aria-disabled:opacity-50"
+                      )}
+                    >
+                      <MessageCircle className="size-4" aria-hidden />
+                      WhatsApp
+                    </a>
+                  </div>
+                </div>
+              </article>
+            ))
+          ) : (
+            <p className="rounded-xl border border-dashed border-border bg-muted/20 py-12 text-center text-sm text-muted-foreground">
+              Aucune pharmacie ne correspond à votre recherche.
+            </p>
+          )}
+        </div>
       </div>
     </main>
   );

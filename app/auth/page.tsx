@@ -3,8 +3,14 @@
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft, Cross, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { defaultPathAfterAuth } from "@/lib/post-auth-redirect";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+const fieldClass =
+  "w-full rounded-xl border border-input bg-card px-3 py-2.5 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
 
 function AuthForm({ initialLogin }: { initialLogin: boolean }) {
   const router = useRouter();
@@ -39,7 +45,7 @@ function AuthForm({ initialLogin }: { initialLogin: boolean }) {
     setMessage("");
 
     if (!isLogin && whatsapp.trim().length < 8) {
-      setMessage("Le numero WhatsApp est obligatoire et doit etre valide.");
+      setMessage("Le numéro WhatsApp est obligatoire et doit être valide.");
       setLoading(false);
       return;
     }
@@ -70,7 +76,7 @@ function AuthForm({ initialLogin }: { initialLogin: boolean }) {
     if (error) {
       setMessage(error.message);
     } else {
-      setMessage("Compte cree. Verifie ton email si confirmation activee, puis connecte-toi.");
+      setMessage("Compte créé. Vérifiez votre e-mail si la confirmation est activée, puis connectez-vous.");
       setIsLogin(true);
     }
 
@@ -78,76 +84,119 @@ function AuthForm({ initialLogin }: { initialLogin: boolean }) {
   };
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center p-6">
-      <Link href="/" className="mb-6 text-sm text-blue-700 underline">
-        Retour a l annuaire
-      </Link>
-      <h1 className="mb-2 text-2xl font-bold">{isLogin ? "Connexion" : "Creer un compte patient"}</h1>
-      <p className="mb-6 text-sm text-gray-600">
-        Sprint 1: authentification simple. WhatsApp est obligatoire a l inscription.
-      </p>
-
-      <form className="space-y-3" onSubmit={handleSubmit}>
-        {!isLogin && (
-          <>
-            <input
-              type="text"
-              placeholder="Nom complet"
-              className="w-full rounded-lg border p-3"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="WhatsApp (obligatoire)"
-              className="w-full rounded-lg border p-3"
-              value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
-              required
-            />
-          </>
+    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-10 sm:px-6">
+      <Link
+        href="/"
+        className={cn(
+          buttonVariants({ variant: "ghost", size: "sm" }),
+          "mb-6 -ml-2 w-fit gap-1.5 px-2 text-sm font-semibold text-primary"
         )}
+      >
+        <ArrowLeft className="size-4" aria-hidden />
+        Retour à l&apos;annuaire
+      </Link>
 
-        <input
-          type="email"
-          placeholder="Email"
-          className="w-full rounded-lg border p-3"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+      <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06] p-5 shadow-sm sm:p-6">
+        <div className="mb-5 flex items-start gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary" aria-hidden>
+            <Cross className="size-5" strokeWidth={2.25} />
+          </span>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+              {isLogin ? "Connexion" : "Créer un compte patient"}
+            </h1>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              Accédez à vos demandes de produits et au suivi avec votre pharmacie. Le numéro WhatsApp est requis à
+              l&apos;inscription pour faciliter le contact officinal.
+            </p>
+          </div>
+        </div>
 
-        <input
-          type="password"
-          placeholder="Mot de passe"
-          className="w-full rounded-lg border p-3"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={6}
-        />
+        <form className="space-y-3" onSubmit={handleSubmit}>
+          {!isLogin && (
+            <>
+              <input
+                type="text"
+                placeholder="Nom complet"
+                className={fieldClass}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                autoComplete="name"
+              />
+              <input
+                type="text"
+                placeholder="WhatsApp (obligatoire)"
+                className={fieldClass}
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value)}
+                required
+                autoComplete="tel"
+              />
+            </>
+          )}
+
+          <input
+            type="email"
+            placeholder="E-mail"
+            className={fieldClass}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+
+          <input
+            type="password"
+            placeholder="Mot de passe"
+            className={fieldClass}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+            autoComplete={isLogin ? "current-password" : "new-password"}
+          />
+
+          <Button type="submit" disabled={loading} className="mt-1 h-11 w-full gap-2 text-sm">
+            {loading ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+                Patientez…
+              </>
+            ) : isLogin ? (
+              "Se connecter"
+            ) : (
+              "Créer le compte"
+            )}
+          </Button>
+        </form>
 
         <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-blue-600 p-3 font-medium text-white disabled:opacity-50"
+          type="button"
+          onClick={() => {
+            setIsLogin((v) => !v);
+            setMessage("");
+          }}
+          className={cn(
+            buttonVariants({ variant: "ghost" }),
+            "mt-3 h-auto w-full py-2 text-sm font-semibold text-primary"
+          )}
         >
-          {loading ? "Chargement..." : isLogin ? "Se connecter" : "Creer le compte"}
+          {isLogin ? "Pas de compte ? Inscription" : "Déjà un compte ? Connexion"}
         </button>
-      </form>
 
-      <button
-        type="button"
-        onClick={() => {
-          setIsLogin((v) => !v);
-          setMessage("");
-        }}
-        className="mt-4 text-sm text-blue-700 underline"
-      >
-        {isLogin ? "Pas de compte ? Inscription" : "Deja un compte ? Connexion"}
-      </button>
-
-      {message ? <p className="mt-4 text-sm text-gray-700">{message}</p> : null}
+        {message ? (
+          <p
+            className={cn(
+              "mt-4 rounded-xl border px-3 py-2.5 text-sm leading-relaxed",
+              message.toLowerCase().includes("créé") || message.toLowerCase().includes("créée")
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100"
+                : "border-border bg-muted/50 text-foreground"
+            )}
+          >
+            {message}
+          </p>
+        ) : null}
+      </div>
     </main>
   );
 }
@@ -163,7 +212,10 @@ export default function AuthPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center p-6 text-gray-600">Chargement...</main>
+        <main className="flex min-h-screen items-center justify-center gap-2 bg-background p-6 text-muted-foreground">
+          <Loader2 className="size-6 animate-spin text-primary" aria-hidden />
+          <span className="text-sm font-medium text-foreground">Chargement…</span>
+        </main>
       }
     >
       <AuthFormGate />
