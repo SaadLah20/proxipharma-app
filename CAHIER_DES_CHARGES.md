@@ -7,8 +7,11 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
-Au **demarrage** d une session (copier-coller tolere ou paraphrase courte):
-> Reprends ProxiPharma depuis `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12**) et continue la **feuille de route**. Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
+Au **demarrage** d une session :
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.5** ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
+- **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
+
+**Outils utiles (hors migration)** : pour **vider toutes les demandes** en environnement de test → `scripts/clear-all-requests.mjs` (`.env.local` avec `SUPABASE_SERVICE_ROLE_KEY`) ou SQL `supabase/scripts/clear-all-requests.sql` dans l’éditeur Supabase. Plan de tests E2E demandes produits → fichier Canvas Cursor `canvases/product-requests-e2e-test-plan.canvas.tsx` (mention §13.5).
 
 A la **sortie**: demander ou accepter la mise a jour de ce cahier (Journal + Etat actuel + prompt de reprise du §12).
 
@@ -130,6 +133,15 @@ Cas de rendu attendus:
 2. Produit disponible: coche et validable
 3. Produit a commander: coche, engage commande pharmacie
 4. Produit en rupture: grise + mention notification future
+
+### 4.4 Apres validation patient (`confirmed` → préparation / comptoir)
+
+Sans nouvelle validation patient obligatoire pour les ajustements officine courants :
+
+- **Référence figée** : ce que le patient a validé reste lisible via **`selected_qty`**, **`patient_chosen_alternative_id`** (principal vs alternative) — encarts UI **« Ce que vous avez validé »**.
+- **Suivi courant** : quantité / dispo saisie ou ajustée par la pharmacie (**`available_qty`**, **`availability_status`**, commentaire) — encart **« Préparation actuelle / suivi officine »** ; message si **quantité suivie ≠ quantité validée**.
+- **Historique patient** : lors d’un enregistrement d’ajustements après validation, `request_status_history.reason` peut porter un payload **`audit_v1:`** (JSON) expliquant **par produit** les changements (interprété en français dans l’UI) — voir `lib/patient-request-history-audit.ts`.
+- **Règles officine (UI `confirmed`)** : la quantité **préparation** est **plafonnée** par la quantité validée tant que la ligne n’est pas marquée **récupérée** (`picked_up`) ; en repassant de **récupéré** à un autre état comptoir, la quantité brouillon est **réalignée** sur la quantité validée avant nouvel enregistrement. Lignes **`cancelled_at_counter`** : **lecture seule** côté pharmacien (traçabilité). Compteur **Annulés** sur les cartes patient : toutes les lignes **`cancelled_at_counter`**, y compris si **`is_selected_by_patient`** repasse à false après action officine.
 
 ## 5) Rupture du marche - logique specifique
 
@@ -548,6 +560,20 @@ Statuts retenus v1:
 
 ---
 
+### Session 2026-05-06 — demandes produits : post-`confirmed`, historique audit, UX & reset tests
+
+**Patient (détail + actions `confirmed`)** : double affichage **validation figée** vs **préparation actuelle** ; historique avec entrées **audit structuré** `audit_v1:` lors des enregistrements pharmacien après validation (`lib/patient-request-history-audit.ts`). En **`responded`** : encart **produit proposé par la pharmacie** + **motif** ; option **« Je ne prends aucune option »** toujours lisible si le principal est en rupture. Compteur **Annulés** sur cartes hub : compte **toutes** les lignes **`cancelled_at_counter`** (y compris après désélection officine) ; statut virtuel **En préparation** si toute ligne a un **`counter_outcome`** non `unset` (même hors « retenu patient »).
+
+**Pharmacien (`/dashboard/pharmacien/demandes/[id]`)** : bandeau **choix patient** (principal / alternative + qté) en **`confirmed` / `completed`** ; alternatives **mises en avant** vs **indicatif** ; **plafond quantité préparation** = validation patient tant que pas **récupéré** ; **réinitialisation** de la qté brouillon si passage **récupéré → autre** ; lignes **sans distribution comptoir** en **lecture seule** ; libellés **sans confusion** client vs comptoir. **Brouillon** : fusion au `load()` — les saisies non encore persistées ne sont plus écrasées par un reload (ex. après **proposer un produit**).
+
+**Maintenance** : `scripts/clear-all-requests.mjs` + `supabase/scripts/clear-all-requests.sql` — suppression **toutes** les `requests` + reset **`pharmacy_request_ref_counters`** pour repartir les tests (**`SERVICE_ROLE`** requis pour le script JS).
+
+**Plan de tests** : canvas Cursor **`canvases/product-requests-e2e-test-plan.canvas.tsx`** (parcours patient / pharmacien / notifs / cas limites).
+
+**Branche livrée** : **`fix/rls-recursion`** (voir `git log` pour références de commits — lot incluant audits UI, merges brouillon, scripts reset).
+
+---
+
 ### Session 2026-05-03 — UI workflow « demande de produits » (client + pharmacien) + cloture méthodo
 
 **Produit — espace patient (Next)**:
@@ -651,7 +677,7 @@ Regles fonctionnelles retenues (alignement dernier atelier):
 - **Après réponse** : l’app ne renseigne plus **`expires_at` +7 j** sur publication (pilote) ; l’**abandon auto 24 h** sur statut **`responded`** non confirmé est porté par le batch SQL `abandon_unconfirmed_responded_requests()` (à cron). Les **`request_items`** sont limités à **qté 1–10** et **un seul `product_id` par demande**.
 - Les statuts enum `partially_collected` / `fully_collected` restent en base mais le flux officiel livre passe par **`completed`**; `patient_mark_collected` nest plus callable par le JWT patient (obsolete).
 
-Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-05-03**, **2026-05-05** et **lot plateforme / codes publics 2026-05-05**):
+Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-05-03**, **2026-05-05**, **2026-05-06** et **lot plateforme / codes publics 2026-05-05**):
 - **`/`** annuaire + recherche par code officine **`public_ref`** + lien carte vers fiche **`/pharmacie/[id]`** (affiche aussi le code)
 - **`/pharmacie/[id]/demande-produits`**: création demande **`submitted`**
 - **`/dashboard`** (résumé / routage rôle), **`/dashboard/demandes`** (hub + **filtre par réf.** + codes **`request_public_ref`** sur cartes), **`/dashboard/demandes/[id]`** (ref mémorable + code officine en détail)
@@ -663,7 +689,9 @@ Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-
 - **Patient** : **`/dashboard/patient/*`** (paramètres avec **code client**, pharmacies, liste souhaits, ordonnances/consultations libres désormais branchées en listes filtrées par type)
 - **Pharmacien** : **`/dashboard/pharmacien/ordonnances`** et **`/dashboard/pharmacien/consultations-libres`** branchées sur les demandes existantes de l’officine (filtre `request_type`, cartes simples, lien détail)
 - Auth **`/auth`** + **`lib/post-auth-redirect.ts`**
-- Travail incrementale sur branche **`fix/rls-recursion`** (dernier groupe notoire : **`a20c8c4`** — plateforme + **007** + notifs **003–006**).
+- **`lib/patient-request-history-audit.ts`** — sérialisation / lecture **`audit_v1:`** dans `request_status_history.reason` pour l’historique patient après ajustements **`confirmed`**.
+- **`scripts/clear-all-requests.mjs`** — reset complet des demandes + compteurs ref publique (tests ; clé **`SUPABASE_SERVICE_ROLE_KEY`**).
+- Travail incrémental sur branche **`fix/rls-recursion`** ; derniers lots : plateforme + codes **`20260505_007`**, puis post-**`confirmed`** + audit + resets (**voir dernier bloc §10** et `git log`).
 
 Etat fonctionnel teste / a valider sur Supabase:
 - Les 3 types de demandes sont inserables (tel qu avant)
@@ -699,7 +727,7 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 1. Fiche **`/pharmacie/.../demande-produits`** : **PPH affichés** ✓ ; **qté max 10** ✓ ; **commentaire par ligne** ✓ (**Q11**, session **2026-05-07**).  
 2. **`PatientProductRequestActions` + détail patient** : radios principal/alternative ✓ ; date passage ✓ ; notes par ligne au renvoi ✓ (**Q11**) ; reste récap dense **Q28**, totaux **Q23** si besoin au-delà de PPH + lignes réponse pharma.  
 3. **Pharmacien** : motif sur **lignes proposées par l’officine** ✓ (**Q20**), mention **« Mis à jour … »** sur ligne ✓ (**Q32**, `updated_at` affiché) ; reste affinages ETA « à commander » / **Q18**.  
-4. **Post‑`confirmed`** : rappeler l’état « prêt / à commander avec date » (**Q31**), comptoir + saisie pharmacien récupéré vs annulé (**Q6 point 8** — affiner formulaire si champs métier manquants).  
+4. **Post‑`confirmed`** : **partiellement livré** (§4.4, session **2026-05-06**) — deux niveaux lecture patient (validé vs préparation), règles qté officine avant récupération, alternatives indicatif vs retenu, lignes fermées lecture seule, historique **`audit_v1`**. Reste : **annulation globale de la demande avec motif** côté pharmacien si non branchée métier/UI ; raffinement **Q31** / **Q18** libellés et champs métier si besoin.  
 5. **Tâches planifiées** : job **abandon 24 h** ✓ (**`abandon_unconfirmed_responded_requests`**, à brancher cron) ; **`expires_at` +7 j** désactivé côté app à la publication ✓ ; **Q34 in-app MVP** ✓ (dashboards + hubs).  
 6. **Espace Admin** minimal issu du jalon BDD §9.
 
@@ -768,7 +796,19 @@ _Ancienne phrase de reprise (alternatives + patient_mark_collected + UI sprint 2
 
 **« Reprends ProxiPharma : `CAHIER_DES_CHARGES.md` §0.1, dernier §10, §11–§12 ; Supabase avec **`008`+`009`** (ne pas réappliquer la policy **`20260503_007`** seule ; ne pas confondre avec **`20260505_007`** codes publics) ; enchaîne le flux demande produits (§12) avec migrations Git ; mets le cahier à jour en fin de session. »**
 
-### 13.5) Phrase de reprise « UI ensuite page par page » (recommandée après le lot plateforme + `20260505_007`)
+### 13.5) Phrase d’ouverture de session (**recommandée** — environnement où **toutes les migrations sont déjà exécutées**)
+
+Une ligne suffit pour reprendre : le **réel périmètre de travail** sera précisé **dans ton message suivant** (ou dans la suite du même).
+
+**« On reprend ProxiPharma. Je te dis tout de suite quoi faire. »**
+
+(Optionnel dans la même bulle si tu préfères cadrer le dépôt : *contexte projet dans `CONTEXTE.md` / `CAHIER_DES_CHARGES.md` au besoin, branche `fix/rls-recursion`* — mais **sans rouvrir les migrations** tant que l’infra est à jour.)
+
+#### §13.5-suite — Référence contexte étendue (optionnel ou onboarding / nouveau déploiement)
+
+Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre alors : **`CONTEXTE.md`**, **`CAHIER_DES_CHARGES.md`** (§0.1 complète, dernier §10, §11, §12, §4.4 pour le post-validation). Pour **nouvelles migrations uniquement** : respecter **`supabase/migrations/`**, ordre **`YYYYMMDD_*`**, ne pas réappliquer **`20260503_007`** hors **`009`**, **`20260505_007`** = codes PH/P/D. Réinitialiser données tests : **`scripts/clear-all-requests.mjs`** ou **`supabase/scripts/clear-all-requests.sql`**. Plan scénarios E2E demandes-produits : canvas **`canvases/product-requests-e2e-test-plan.canvas.tsx`**.
+
+### 13.6) Phrase de reprise « UI ensuite page par page » (recommandée après le lot plateforme + `20260505_007`)
 
 À copier-coller pour la prochaine session **produit / interface** :
 

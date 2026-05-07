@@ -15,7 +15,8 @@ Ce dossier contient le SQL versionne sous Git (**source de verite schema + RLS /
 | `20260503_001_patient_chosen_alternative.sql` | `patient_chosen_alternative_id` ; RPC confirmation enrichi |
 | `20260503_003_seed_products_thirty_ma.sql` | Seed produits démo (~31, MAD) |
 | `20260503_004_patient_planned_visit.sql` | Passage officine ; RPC `patient_confirm_after_response` 4 args |
-| `20260503_005_abandon_24h_qty_dupe_shortage_reasons.sql` | Qté 1–10, unique produit/demande, motifs abandon/annulation, `abandon_unconfirmed_responded_requests`, trigger `market_shortages` |
+| `20260503_005_abandon_24h_qty_dupe_shortage_reasons.sql` | Qté 1–10, unique produit/demande, motifs abandon/annulation, `abandon_unconfirmed_responded_requests` (comportement historique → voir **20260507**), trigger `market_shortages` |
+| `20260507_001_patient_abandon_cancel_expire_clone.sql` | Règles abandon/annulation/expiré ; batch 24 h → **`expired`** ; RPC **`patient_create_followup_from_expired_product_request`** |
 | `20260503_006_patient_resubmit_submitted_in_review.sql` | `patient_resubmit_*` aussi depuis **`submitted` / `in_review`** |
 | `20260503_007_profiles_pharmacist_select_request_patients.sql` | Policy `profiles` (⚠️ provoque récursion si **009** non appliquée) |
 | `20260503_008_pharmacist_patient_contact_rpc.sql` | RPC **`pharmacist_patient_contact_for_request`** + **`pharmacist_patient_directory_for_my_pharmacy`** (lecture nom/contact patient) |
