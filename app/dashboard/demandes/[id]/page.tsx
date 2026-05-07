@@ -8,7 +8,7 @@ import { formatPlannedVisitFr } from "@/lib/datetime-fr";
 import { supabase } from "@/lib/supabase";
 import {
   availabilityStatusFr,
-  counterOutcomeFr,
+  counterOutcomePatientLabel,
   requestItemLineSourceFr,
   requestStatusFr,
 } from "@/lib/request-display";
@@ -82,6 +82,8 @@ type RequestItemRow = {
   line_source: string | null;
   pharmacist_proposal_reason: string | null;
   counter_outcome: string;
+  counter_cancel_reason: string | null;
+  counter_cancel_detail: string | null;
   expected_availability_date: string | null;
   patient_chosen_alternative_id?: string | null;
   products: ProdEmbed | ProdEmbed[] | null;
@@ -104,6 +106,11 @@ function historyReasonLabel(reason: string | null | undefined): string {
   if (reason === "counter_line_cancelled") return "Produit annulé au comptoir";
   if (reason === "counter_alternative_added") return "Alternative ajoutée";
   if (reason === "counter_alternative_removed") return "Alternative retirée";
+  if (reason === "counter_outcome:cancelled_at_counter:client_request") return "Ligne annulée à votre demande";
+  if (reason === "counter_outcome:cancelled_at_counter:pharmacy_unable") return "Ligne annulée par la pharmacie";
+  if (reason === "counter_outcome:picked_up") return "Ligne marquée comme récupérée";
+  if (reason === "counter_outcome:deferred_next_visit") return "Ligne reportée — à récupérer plus tard";
+  if (reason === "counter_outcome:unset") return "Ligne remise en attente au comptoir";
   if (reason.startsWith("counter_outcome:")) return "Statut de récupération mis à jour";
   if (reason === "auto_expire_24h_after_response") return "Délai de 24 h dépassé sans validation — demande expirée";
   if (reason === "auto_abandon_24h_after_response") return "Délai de 24 h dépassé (ancien classement, désormais expiré)";
@@ -203,7 +210,7 @@ export default function DemandeDetailPage() {
       const { data: itemsData, error: itemsErr } = await supabase
         .from("request_items")
         .select(
-          "id,product_id,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,client_comment,line_source,pharmacist_proposal_reason,expected_availability_date,counter_outcome,patient_chosen_alternative_id,products(name,price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph))"
+          "id,product_id,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,client_comment,line_source,pharmacist_proposal_reason,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,patient_chosen_alternative_id,products(name,price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph))"
         )
         .eq("request_id", id)
         .order("created_at", { ascending: true });
@@ -534,7 +541,12 @@ export default function DemandeDetailPage() {
                     ) : null}
                     {(request.status === "confirmed" || request.status === "completed" || row.counter_outcome !== "unset") && (
                       <p className="mt-1 text-muted-foreground">
-                        <span className="font-medium text-foreground">{counterOutcomeFr[row.counter_outcome] ?? row.counter_outcome}</span>
+                        <span className="font-medium text-foreground">
+                          {counterOutcomePatientLabel(row.counter_outcome, row.counter_cancel_reason)}
+                        </span>
+                        {row.counter_cancel_detail ? (
+                          <span className="ml-1 text-[10px] text-muted-foreground">— {row.counter_cancel_detail}</span>
+                        ) : null}
                       </p>
                     )}
                   </li>

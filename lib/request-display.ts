@@ -196,8 +196,19 @@ export const availabilityStatusFr: Record<string, string> = {
 };
 
 export const counterOutcomeFr: Record<string, string> = {
-  unset: "En attente",
+  unset: "Pas encore récupéré",
   picked_up: "Récupéré",
-  cancelled_at_counter: "Non remis au comptoir",
+  cancelled_at_counter: "Annulé",
   deferred_next_visit: "À récupérer plus tard",
 };
+
+/** Libellé patient selon la raison d'annulation (si counter_outcome = cancelled_at_counter). */
+export function counterOutcomePatientLabel(
+  outcome: string,
+  cancelReason: string | null | undefined
+): string {
+  if (outcome !== "cancelled_at_counter") return counterOutcomeFr[outcome] ?? outcome;
+  if (cancelReason === "client_request") return "Annulé à votre demande";
+  if (cancelReason === "pharmacy_unable") return "Annulé par la pharmacie";
+  return "Annulé";
+}

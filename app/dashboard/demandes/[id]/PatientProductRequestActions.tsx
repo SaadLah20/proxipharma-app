@@ -9,7 +9,7 @@ import {
 } from "@/lib/patient-flow-reasons";
 import {
   availabilityStatusFr,
-  counterOutcomeFr,
+  counterOutcomePatientLabel,
   requestItemLineSourceFr,
   requestStatusFr,
 } from "@/lib/request-display";
@@ -47,6 +47,8 @@ export type ActionItemRow = {
   line_source?: string | null;
   pharmacist_proposal_reason?: string | null;
   counter_outcome: string;
+  counter_cancel_reason?: string | null;
+  counter_cancel_detail?: string | null;
   expected_availability_date: string | null;
   products: ProdBrief | ProdBrief[] | null;
   patient_chosen_alternative_id?: string | null;
@@ -696,7 +698,7 @@ export function PatientProductRequestActions({
             const altList = normalizeAlternatives(row.request_item_alternatives);
             const chosenAlt = altList.find((a) => a.id === row.patient_chosen_alternative_id);
             const counterOutcome = row.counter_outcome ?? "unset";
-            const counterOutcomeLabel = counterOutcomeFr[counterOutcome] ?? counterOutcome;
+            const counterOutcomeLabel = counterOutcomePatientLabel(counterOutcome, row.counter_cancel_reason ?? null);
             const displayName = chosenAlt ? one(chosenAlt.products)?.name ?? "Alternative" : prod?.name ?? "Produit";
             const displayPrice = chosenAlt?.unit_price ?? row.unit_price;
             const displayStatus = chosenAlt?.availability_status ?? row.availability_status;
@@ -745,6 +747,9 @@ export function PatientProductRequestActions({
                     >
                       {counterOutcomeLabel}
                     </span>
+                    {row.counter_cancel_detail ? (
+                      <p className="mt-1 text-[10px] text-muted-foreground">{row.counter_cancel_detail}</p>
+                    ) : null}
                   </div>
                 </div>
                 {displayComment ? <p className="mt-2 text-xs text-muted-foreground">{displayComment}</p> : null}
