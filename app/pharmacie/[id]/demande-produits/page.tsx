@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, Trash2, Package } from "lucide-react";
 import { unitPriceLabel } from "@/lib/product-price";
 import { supabase } from "@/lib/supabase";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type ProductLite = {
   id: string;
@@ -188,50 +190,74 @@ export default function DemandeProduitsPage() {
 
   if (!sessionReady) {
     return (
-      <main className="min-h-screen bg-gray-50 p-6">
-        <p className="text-gray-600">Vérification de la session...</p>
+      <main className="min-h-screen bg-background p-6">
+        <p className="text-sm text-muted-foreground">Vérification de la session…</p>
       </main>
     );
   }
 
+  const fieldFocus =
+    "outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
+
   return (
-    <main className="min-h-screen bg-gray-50 p-4 pb-12">
+    <main className="min-h-screen bg-background p-4 pb-14 sm:p-5">
       <div className="mx-auto max-w-lg">
-        <Link href={`/pharmacie/${pharmacyId}`} className="mb-3 inline-block text-sm font-medium text-blue-700">
+        <Link
+          href={`/pharmacie/${pharmacyId}`}
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "mb-4 -ml-2 h-auto px-2 text-sm font-semibold text-primary")}
+        >
           Retour à la pharmacie
         </Link>
 
-        <h1 className="text-2xl font-bold text-blue-950">Demande de produits</h1>
-        {pharmacyName ? (
-          <p className="mt-1 text-sm text-gray-600">
-            Pour <span className="font-medium text-gray-800">{pharmacyName}</span>
-          </p>
-        ) : null}
+        <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06] p-4 shadow-sm sm:p-5">
+          <div className="flex items-start gap-3">
+            <span
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary"
+              aria-hidden
+            >
+              <Package className="size-5" strokeWidth={2.25} />
+            </span>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Demande de produits</h1>
+              {pharmacyName ? (
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  Pour <span className="font-semibold text-foreground">{pharmacyName}</span>
+                </p>
+              ) : null}
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Ajoutez les produits souhaités, puis envoyez : l&apos;officine pourra vous répondre depuis la plateforme.
+              </p>
+            </div>
+          </div>
+        </div>
 
-        <section className="mt-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-          <label className="block text-sm font-medium text-gray-700">Rechercher un produit</label>
+        <section className="mt-5 rounded-2xl border border-border/90 bg-card p-4 text-card-foreground shadow-sm">
+          <label className="block text-sm font-medium text-foreground">Rechercher un produit</label>
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Nom (min. 2 caractères)"
-            className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            className={cn(
+              "mt-2 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm shadow-sm placeholder:text-muted-foreground",
+              fieldFocus
+            )}
           />
-          {searchLoading ? <p className="mt-2 text-xs text-gray-500">Recherche...</p> : null}
+          {searchLoading ? <p className="mt-2 text-xs text-muted-foreground">Recherche…</p> : null}
           {visibleHits.length > 0 ? (
-            <ul className="mt-3 max-h-52 space-y-1 overflow-y-auto rounded-lg border border-gray-100 bg-gray-50/80 p-2">
+            <ul className="mt-3 max-h-52 space-y-1 overflow-y-auto rounded-xl border border-border/70 bg-muted/25 p-2">
               {visibleHits.map((p) => (
                 <li key={p.id}>
                   <button
                     type="button"
                     onClick={() => addProduct(p)}
-                    className="flex w-full flex-col rounded-md px-2 py-2 text-left text-sm hover:bg-white"
+                    className="flex w-full flex-col rounded-lg px-2 py-2 text-left text-sm transition hover:bg-card"
                   >
-                    <span className="font-medium text-gray-900">{p.name}</span>
+                    <span className="font-medium text-foreground">{p.name}</span>
                     {unitPriceLabel(p.price_pph) ? (
-                      <span className="text-xs font-medium text-teal-800">{unitPriceLabel(p.price_pph)}</span>
+                      <span className="text-xs font-medium text-primary">{unitPriceLabel(p.price_pph)}</span>
                     ) : null}
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-muted-foreground">
                       {p.product_type}
                       {p.laboratory ? ` · ${p.laboratory}` : ""}
                     </span>
@@ -240,27 +266,27 @@ export default function DemandeProduitsPage() {
               ))}
             </ul>
           ) : debouncedQuery.length >= 2 && !searchLoading ? (
-            <p className="mt-2 text-xs text-gray-500">Aucun résultat.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Aucun résultat.</p>
           ) : null}
         </section>
 
-        <section className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-gray-800">Ta liste</h2>
+        <section className="mt-4 rounded-2xl border border-border/90 bg-card p-4 text-card-foreground shadow-sm">
+          <h2 className="text-sm font-semibold text-foreground">Ta liste</h2>
           {lines.length === 0 ? (
-            <p className="mt-2 text-sm text-gray-500">Aucun produit pour l’instant.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Aucun produit pour l’instant.</p>
           ) : (
             <ul className="mt-3 space-y-3">
               {lines.map((l) => (
                 <li
                   key={l.product_id}
-                  className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-gray-50/50 px-3 py-2"
+                  className="flex flex-wrap items-center gap-2 rounded-xl border border-border/70 bg-muted/20 px-3 py-2"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-gray-900">{l.name}</p>
+                    <p className="truncate text-sm font-medium text-foreground">{l.name}</p>
                     {unitPriceLabel(l.price_pph) ? (
-                      <p className="truncate text-xs font-medium text-teal-800">{unitPriceLabel(l.price_pph)}</p>
+                      <p className="truncate text-xs font-medium text-primary">{unitPriceLabel(l.price_pph)}</p>
                     ) : null}
-                    <label className="mt-1 block text-[11px] text-gray-600">
+                    <label className="mt-1 block text-[11px] text-muted-foreground">
                       <span className="sr-only">Note sur ce produit</span>
                       <input
                         type="text"
@@ -275,7 +301,10 @@ export default function DemandeProduitsPage() {
                           )
                         }
                         placeholder="Note sur ce produit (optionnel)"
-                        className="mt-0.5 w-full rounded-md border border-gray-200 px-2 py-1 text-[11px] outline-none focus:border-blue-400"
+                        className={cn(
+                          "mt-0.5 w-full rounded-lg border border-input bg-background px-2 py-1 text-[11px]",
+                          fieldFocus
+                        )}
                       />
                     </label>
                   </div>
@@ -283,17 +312,17 @@ export default function DemandeProduitsPage() {
                     <button
                       type="button"
                       aria-label="Diminuer"
-                      className="rounded-lg border border-gray-200 p-1.5 text-gray-700 hover:bg-white"
+                      className="rounded-lg border border-border bg-card p-1.5 text-foreground hover:bg-muted/60"
                       onClick={() => setQty(l.product_id, l.qty - 1)}
                     >
                       <Minus size={16} />
                     </button>
-                    <span className="w-8 text-center text-sm font-semibold">{l.qty}</span>
+                    <span className="w-8 text-center text-sm font-semibold tabular-nums">{l.qty}</span>
                     <button
                       type="button"
                       aria-label="Augmenter"
                       disabled={l.qty >= 10}
-                      className="rounded-lg border border-gray-200 p-1.5 text-gray-700 hover:bg-white disabled:opacity-40"
+                      className="rounded-lg border border-border bg-card p-1.5 text-foreground hover:bg-muted/60 disabled:opacity-40"
                       onClick={() => setQty(l.product_id, l.qty + 1)}
                     >
                       <Plus size={16} />
@@ -301,7 +330,7 @@ export default function DemandeProduitsPage() {
                     <button
                       type="button"
                       aria-label="Retirer"
-                      className="ml-1 rounded-lg p-1.5 text-red-600 hover:bg-red-50"
+                      className="ml-1 rounded-lg p-1.5 text-destructive hover:bg-destructive/10"
                       onClick={() => removeLine(l.product_id)}
                     >
                       <Trash2 size={16} />
@@ -313,39 +342,52 @@ export default function DemandeProduitsPage() {
           )}
         </section>
 
-        <section className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-          <label className="block text-sm font-medium text-gray-700">Message pour la pharmacie (optionnel)</label>
+        <section className="mt-4 rounded-2xl border border-border/90 bg-card p-4 text-card-foreground shadow-sm">
+          <label className="block text-sm font-medium text-foreground">Message pour la pharmacie (optionnel)</label>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={3}
-            className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+            className={cn(
+              "mt-2 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm shadow-sm placeholder:text-muted-foreground",
+              fieldFocus
+            )}
             placeholder="Précisions, créneau de retrait..."
           />
         </section>
 
         {feedback ? (
           <div
-            className={`mt-4 rounded-xl border p-3 text-sm ${
+            className={cn(
+              "mt-4 rounded-xl border px-3 py-2.5 text-sm leading-relaxed",
               feedback.type === "ok"
-                ? "border-green-200 bg-green-50 text-green-900"
-                : "border-red-200 bg-red-50 text-red-800"
-            }`}
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100"
+                : "border-destructive/30 bg-destructive/10 text-destructive"
+            )}
           >
             {feedback.text}
           </div>
         ) : null}
 
-        <button
-          type="button"
-          disabled={submitLoading || lines.length === 0}
-          onClick={() => void submit()}
-          className="mt-6 w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
-        >
-          {submitLoading ? "Envoi..." : "Envoyer la demande"}
-        </button>
+        <p className="mt-6 text-center text-sm leading-relaxed text-muted-foreground">
+          En validant, votre liste est transmise à la pharmacie. Vous pourrez suivre la réponse depuis{" "}
+          <span className="font-medium text-foreground">Mes demandes</span>.
+        </p>
 
-        <Link href="/dashboard/demandes" className="mt-4 block text-center text-sm text-blue-700">
+        <Button
+          type="button"
+          size="lg"
+          disabled={submitLoading || lines.length === 0}
+          className="mt-3 h-11 w-full text-sm"
+          onClick={() => void submit()}
+        >
+          {submitLoading ? "Envoi…" : "Envoyer la demande"}
+        </Button>
+
+        <Link
+          href="/dashboard/demandes"
+          className={cn(buttonVariants({ variant: "outline", size: "lg" }), "mt-3 flex h-11 w-full items-center justify-center text-sm")}
+        >
           Mes demandes de produits
         </Link>
       </div>

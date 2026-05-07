@@ -140,6 +140,7 @@ Sans nouvelle validation patient obligatoire pour les ajustements officine coura
 
 - **Référence figée** : ce que le patient a validé reste lisible via **`selected_qty`**, **`patient_chosen_alternative_id`** (principal vs alternative) — encart UI **« Ce que vous avez validé »** : **qté · dispo · prix · état** (parité visuelle avec « Suivi officine »).
 - **Suivi courant** : encart **« Suivi officine »** avec **mêmes champs** (qté, dispo, prix, état). Tant qu'**aucun `counter_outcome` n'est posé** sur la ligne (i.e. la pharmacie n'a pas commencé l'exécution comptoir), l'encart affiche un placeholder **« En cours · la pharmacie n'a pas encore commencé… »** (pas de données techniques exposées). Dès qu'un résultat comptoir est saisi, le bloc bascule en mode complet ; message si **quantité suivie ≠ quantité validée**.
+- **Après validation — réservation / commande (sans comptoir)** : chaque ligne peut porter **`post_confirm_fulfillment`** (`unset` / `reserved` / `ordered`) — saisie pharmacien après **`confirmed`**. Les **hubs** et les **cartes liste** affichent le statut virtuel **`in_progress_virtual`** (« **En traitement** ») dès qu'**au moins une ligne** sélectionnée a **`reserved`** ou **`ordered`** ; tant que tout reste **`unset`**, l'affichage grand public reste sur **validée par le patient** (blocs dashboard : **« Validée par vous »** / **« Validée par le client »**), et non « en traitement ».
 - **Lignes décochées** (`is_selected_by_patient = false` après réponse patient) : **aucun bloc** Validé / Suivi (juste la mention « Vous n'avez pas retenu cette ligne »).
 - **Historique patient** : lors d'un enregistrement d'ajustements après validation, `request_status_history.reason` peut porter un payload **`audit_v1:`** (JSON) expliquant **par produit** les changements (interprété en français dans l'UI) — voir `lib/patient-request-history-audit.ts`. Chaque entrée d'historique affiche désormais **auteur** (Vous / La pharmacie / Système, cf. `historyActorLabel`) **et date** (`formatDateTimeShort24hFr`).
 - **Règles officine (UI `confirmed`)** : la quantité **préparation** est **plafonnée** par la quantité validée tant que la ligne n'est pas marquée **récupérée** (`picked_up`) ; en repassant de **récupéré** à un autre état comptoir, la quantité brouillon est **réalignée** sur la quantité validée avant nouvel enregistrement. Lignes **`cancelled_at_counter`** : **lecture seule** côté pharmacien (traçabilité), avec choix du **motif** (`client_request` / `pharmacy_unable`) et **détail libre** facultatif. Compteur **Annulés** sur les cartes patient : toutes les lignes **`cancelled_at_counter`**, y compris si **`is_selected_by_patient`** repasse à false après action officine.
@@ -278,6 +279,26 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-07 (suite 5) — Post-`confirmed` : `post_confirm_fulfillment`, passage en `confirmed`, libellés hub
+
+**Objectif** : séparer nettement **validée par le patient** (aucune réservation/commande pharmacien sur les lignes) de **en traitement** (au moins une ligne **`reserved`** ou **`ordered`**). Permettre au patient de **modifier date/heure de passage** une fois **`confirmed`** (RPC dédiée). Harmoniser badges et buckets avec ce vocabulaire.
+
+**SQL — migration ajoutée** :
+- **`supabase/migrations/20260507_005_post_confirm_fulfillment_visit_rpc.sql`** — type/colonne **`request_items.post_confirm_fulfillment`** (`unset` | `reserved` | `ordered`), index, RPC **`pharmacist_set_post_confirm_fulfillment`**, **`patient_update_planned_visit_after_confirmation`** (mêmes fenêtres que la validation initiale), ajustements notifications (ex. pas de notif patient « gratuite » sur seul passage en **`in_review`** ; libellé « mise à jour » côté pharmacien selon contexte).
+
+**Next.js / lib** :
+- **`app/dashboard/demandes/patient-demandes-hub.tsx`**, **`app/dashboard/pharmacien/demandes/pharmacist-demandes-hub.tsx`** : `status_for_dashboard` = **`in_progress_virtual`** si **`confirmed`** et **`post_confirm_fulfillment`** réservé ou commandé sur au moins une ligne (pas seulement l’ancre comptoir).
+- **`lib/demandes-hub-buckets.ts`** : titres **« Validée par vous »** / **« Validée par le client »** pour le bucket **`confirmed`** ; **« En traitement »** pour le bucket virtuel.
+- **`lib/request-display.ts`** : court pharmacien **`confirmed`** → **« Validée client »**.
+- **`lib/patient-request-list-summary.ts`**, **`lib/patient-confirmed-line-buckets.ts`**, **`components/requests/demande-hub-ui.tsx`**, **`app/dashboard/demandes/[id]/page.tsx`**, **`PatientProductRequestActions.tsx`**, **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**, **`app/pharmacie/[id]/demande-produits/page.tsx`** : sélection `post_confirm_fulfillment`, synthèse / groupement lignes, UI pharmacien (réservé vs commandé).
+- **`lib/pharmacist-availability.ts`** : lignes **`pharmacist_proposed`** — pas d’inférence automatique **`partially_available`** lorsque `available_qty < requested_qty` (reste **`available`**).
+
+**Contrôle** : `npm run lint` ✅, `npm run build` ✅.
+
+**À appliquer côté Supabase** : **`20260507_005_post_confirm_fulfillment_visit_rpc.sql`** (après **`004`**), avec **`supabase db push`** ou copie depuis le fichier versionné. **Si déjà appliquée sur votre projet** (cas courant après synchro infra) : aucune action ; en cas de doute, vérifier en base la présence de **`request_items.post_confirm_fulfillment`** et des RPC **`patient_update_planned_visit_after_confirmation`** / **`pharmacist_set_post_confirm_fulfillment`**.
+
+---
+
 ### Session 2026-05-07 (suite 4) — Hubs demandes, passage prévu `confirmed`, notifications, dropdown mobile
 
 **Objectif** : retours UX liste + détail patient/pharmacien + cohérence des notifications (mise à jour vs nouvelle demande, motif annulation pharmacien) sans régression workflow.
@@ -343,15 +364,15 @@ Statuts retenus v1:
 - **Cartes patient** (`components/requests/demande-hub-ui.tsx`) : design plus compact/structuré, sections nettes (entête, statut, compteurs, total, CTA détail), lisibilité renforcée.
 - **Suppression** du bouton **Copier référence** sur les cartes patient de cette vue.
 - Enrichissement des données lues sur la liste (`request_items` + alternatives) pour calculer les métriques métier demandées.
-- **Statut intermédiaire UI** ajouté côté patient (virtuel, sans migration) : quand une demande est `confirmed` et que l’exécution comptoir a démarré, affichage **« En préparation »** au lieu de **« Validée »**.
+- **Statut intermédiaire UI** ajouté côté patient (virtuel, sans migration à l’époque) : quand une demande est `confirmed` et que l’exécution post-validation a démarré, affichage **« En traitement »** au lieu de **« Validée »** (depuis **`20260507_005`** : voir `post_confirm_fulfillment` ; avant ce lot : proxy via comptoir, voir journal suite 5).
 - Compteurs carte selon statut :
   - **`responded`** : nb produits principaux, nb alternatives proposées, nb produits proposés officine ; total basé sur **quantités demandées initialement**.
-  - **`confirmed` / `En préparation` / `completed`** : total basé sur **produits validés** ; compteurs validés (principaux / alternatives / proposés).
-  - **`En préparation`** : compteurs opérationnels visibles (en attente, récupérés, annulés, commandés non reçus).
+  - **`confirmed` / `En traitement` / `completed`** : total basé sur **produits validés** ; compteurs validés (principaux / alternatives / proposés).
+  - **`En traitement`** : compteurs opérationnels visibles (en attente, récupérés, annulés, réservés, commandés non reçus selon maquette).
 
 **Libs** :
 - `lib/patient-request-list-summary.ts` : nouveau calculateur de synthèse (totaux + compteurs par origine/validation/comptoir).
-- `lib/request-display.ts` : libellé + style badge pour le statut UI virtuel `in_progress_virtual` = **En préparation**.
+- `lib/request-display.ts` : libellé + style badge pour le statut UI virtuel `in_progress_virtual` = **En traitement**.
 
 **Contrôle** : `npm run lint` OK.
 
@@ -367,17 +388,17 @@ Statuts retenus v1:
 
 ---
 
-### Session 2026-05-06 (suite 3) — Blocs dashboard : ajout « En préparation » (statut virtuel UI)
+### Session 2026-05-06 (suite 3) — Blocs dashboard : ajout statut virtuel « en traitement préparation » (statut virtuel UI)
 
 **Next.js** :
 - `lib/demandes-hub-buckets.ts` : nouveau bucket **`en_preparation`** pour patient/pharmacien ; `bucketForStatusParam` généralisé par liste de buckets ; comptage basé sur un statut dashboard dérivé.
-- `app/dashboard/demandes/patient-demandes-hub.tsx` : dérivation `status_for_dashboard` = **`in_progress_virtual`** quand `status='confirmed'` et progression comptoir détectée sur lignes validées.
-- `app/dashboard/pharmacien/demandes/pharmacist-demandes-hub.tsx` : même logique dérivée, avec chargement `request_items(counter_outcome,is_selected_by_patient)` pour calculer le bucket.
+- `app/dashboard/demandes/patient-demandes-hub.tsx` : dérivation `status_for_dashboard` = **`in_progress_virtual`** quand `status='confirmed'` et progression détectée sur lignes validées (initialement via comptoir).
+- `app/dashboard/pharmacien/demandes/pharmacist-demandes-hub.tsx` : même logique dérivée, avec chargement `request_items(...)` pour calculer le bucket.
 - `components/requests/demande-stat-dashboard.tsx` : compatibilité `status_for_dashboard` pour compter les blocs sur le statut dérivé.
 
-**Règle métier UI (sans migration)** :
-- **Validée** : `confirmed` sans progression comptoir.
-- **En préparation** : `confirmed` avec au moins une ligne validée sortie de `unset`.
+**Règle métier UI (évoluée depuis suite 5 du 2026-05-07)** :
+- **Validée** : `confirmed` sans **`post_confirm_fulfillment`** réservé/commandé sur une ligne (ni ancienne logique comptoir seule avant **`005`**).
+- **En traitement** (`in_progress_virtual`) : **`20260507_005`** — `confirmed` avec au moins une ligne **`reserved`** ou **`ordered`** (libellés hub : **Validée par vous / le client** vs **En traitement**).
 
 **Contrôle** : `npm run lint` OK.
 
@@ -736,6 +757,7 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260507_002_counter_cancel_reason.sql` (motifs annulation ligne au comptoir : `client_request` / `pharmacy_unable` + détail libre, RPC `pharmacist_set_item_counter_outcome` étendue)
   - `supabase/migrations/20260507_003_pharmacist_cancel_request.sql` (**RPC `pharmacist_cancel_request`** : annulation totale par la pharmacie avec motif obligatoire)
   - `supabase/migrations/20260507_004_in_app_notifications_reasoning.sql` (notifs : mise à jour vs nouvelle demande, motif annulation pharmacien, pharmacien notifié sur **`expired`**)
+  - `supabase/migrations/20260507_005_post_confirm_fulfillment_visit_rpc.sql` (**`post_confirm_fulfillment`** par ligne après **`confirmed`**, RPC passage patient **`patient_update_planned_visit_after_confirmation`**, RPC **`pharmacist_set_post_confirm_fulfillment`**, ajustements notifs associés)
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -750,8 +772,8 @@ Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-
 - **`/`** annuaire + recherche par code officine **`public_ref`** + lien carte vers fiche **`/pharmacie/[id]`** (affiche aussi le code)
 - **`/pharmacie/[id]/demande-produits`**: création demande **`submitted`**
 - **`/dashboard`** (résumé / routage rôle), **`/dashboard/demandes`** (hub + **filtre par réf.** + codes **`request_public_ref`** sur cartes), **`/dashboard/demandes/[id]`** (ref mémorable + code officine en détail)
-- **`/dashboard/demandes`** (vue liste) : refonte UX des filtres/cartes ; suppression bouton copie ; compteurs et montants contextualisés (`responded` vs validé/en préparation/clôturé) ; statut intermédiaire UI **En préparation** (virtuel, sans migration)
-- **`/dashboard/demandes`** et **`/dashboard/pharmacien/demandes`** (vue dashboard) : bloc supplémentaire **En préparation** alimenté par statut dérivé UI (`confirmed` + progression comptoir), cohérent avec les cartes
+- **`/dashboard/demandes`** (vue liste) : refonte UX des filtres/cartes ; suppression bouton copie ; compteurs et montants contextualisés (`responded` vs validé/en traitement/clôturé) ; statut intermédiaire UI **En traitement** (virtuel : `confirmed` + **`post_confirm_fulfillment`** `reserved`/`ordered`, migration **`20260507_005`**)
+- **`/dashboard/demandes`** et **`/dashboard/pharmacien/demandes`** (vue dashboard) : bloc **En traitement** alimenté par le même statut dérivé ; bucket **Validée par vous / le client** pour **`confirmed`** sans réservation/commande
 - **`/dashboard/demandes/[id]`** (détail patient) : refonte orientée produit avec header sticky montant+volume+passage prévu et actions globales en bas ; date de passage modifiable aussi en `confirmed` côté UI/app
 - **`/dashboard/pharmacien`** (tableau de bord analytics + liens), **`/dashboard/pharmacien/demandes`** (idem refs + **code client** sur cartes), **`/dashboard/pharmacien/demandes/[id]`**, **`/dashboard/pharmacien/clients`** (recherche par **`patient_ref`**)
 - **Chrome** : **`components/layout/platform-*.tsx`** — nav patient & pharmacien (ordonnances / consultations libres en menu, etc.), notifs in-app header
@@ -883,9 +905,9 @@ Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre 
 
 **« Je reprends ProxiPharma côté UI : lis `CONTEXTE.md` puis `CAHIER_DES_CHARGES.md` §11 et §12. On développe **page par page** et **fonctionnalité par fonctionnalité** (polish écrans existants, puis brancher progressivement ordonnances & consultations libres et le reste des placeholders pharmacien/patient). Pas de nouvelle migration sauf blocage technique explicite. Mets le §10 Journal et l’état §11 à jour en fin de session. »**
 
-### 13.7) Phrase de reprise courte (recommandée après la session 2026-05-07 — workflow demandes affiné)
+### 13.7) Phrase de reprise courte (recommandée après la session 2026-05-07 — workflow demandes affiné + `post_confirm_fulfillment`)
 
-**« On reprend ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §0.1, dernier §10, §4.4 + §4.5, §11 (migrations dont `20260507_001/002/003`) et §12. Migrations Supabase à jour côté infra. Je te dis ensuite quoi faire (UI ou nouveau lot). »**
+**« On reprend ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §0.1, dernier §10, §4.4 + §4.5, §11 (migrations dont `20260507_001` … `005`) et §12. Migrations Supabase à jour côté infra. Je te dis ensuite quoi faire (UI ou nouveau lot). »**
 
 ### Template pour prochaines sessions
 - Date:

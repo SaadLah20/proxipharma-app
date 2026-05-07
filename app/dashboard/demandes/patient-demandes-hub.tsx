@@ -71,7 +71,7 @@ export function PatientDemandesHub() {
       .from("requests")
       .select(
         "id,created_at,status,request_type,pharmacy_id,submitted_at,responded_at,request_public_ref,pharmacies(nom,ville,public_ref)," +
-          "request_items(requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient,line_source,patient_chosen_alternative_id,counter_outcome,availability_status,products(price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,unit_price))"
+          "request_items(requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient,line_source,patient_chosen_alternative_id,counter_outcome,post_confirm_fulfillment,availability_status,products(price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,unit_price))"
       )
       .eq("patient_id", user.id)
       .eq("request_type", "product_request")
@@ -110,10 +110,16 @@ export function PatientDemandesHub() {
   const rowsWithDashboardStatus = useMemo(
     () =>
       rows.map((r) => {
-        const rawItems = (r.request_items ?? []) as Array<{ counter_outcome?: string | null; is_selected_by_patient?: boolean | null }>;
+        const rawItems = (r.request_items ?? []) as Array<{
+          post_confirm_fulfillment?: string | null;
+          is_selected_by_patient?: boolean | null;
+        }>;
         const hasExecutionProgress =
           r.status === "confirmed" &&
-          rawItems.some((it) => (it.counter_outcome ?? "unset") !== "unset");
+          rawItems.some((it) => {
+            const p = it.post_confirm_fulfillment ?? "unset";
+            return p === "reserved" || p === "ordered";
+          });
         return {
           ...r,
           status_for_dashboard: hasExecutionProgress ? "in_progress_virtual" : r.status,

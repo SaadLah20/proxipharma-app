@@ -8,6 +8,8 @@ export type PatientRequestItemRow = {
   line_source?: string | null;
   patient_chosen_alternative_id?: string | null;
   counter_outcome?: string | null;
+  /** Après validation patient : réservé / commandé — pour l’état « en traitement ». */
+  post_confirm_fulfillment?: string | null;
   availability_status?: string | null;
   products?: { price_pph?: number | string | null } | { price_pph?: number | string | null }[] | null;
   request_item_alternatives?: Array<{
@@ -63,7 +65,8 @@ export function summarizeRequestForPatientCard(items: PatientRequestItemRow[] | 
 
   for (const it of rows) {
     const outcomeAll = it.counter_outcome ?? "unset";
-    if (outcomeAll !== "unset") hasExecutionProgress = true;
+    const pcf = it.post_confirm_fulfillment ?? "unset";
+    if (pcf === "reserved" || pcf === "ordered") hasExecutionProgress = true;
     if (outcomeAll === "cancelled_at_counter") selectedCancelledCount += 1;
     const isProposed = it.line_source === "pharmacist_proposed";
     if (isProposed) proposedCount += 1;

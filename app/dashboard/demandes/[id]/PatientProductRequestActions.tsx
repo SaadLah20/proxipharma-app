@@ -13,6 +13,10 @@ import {
   requestItemLineSourceFr,
 } from "@/lib/request-display";
 import { plannedVisitWindow } from "@/lib/planned-visit";
+import {
+  groupPatientConfirmedLines,
+  patientConfirmedLinesNotInBuckets,
+} from "@/lib/patient-confirmed-line-buckets";
 import { unitPriceLabel } from "@/lib/product-price";
 import { supabase } from "@/lib/supabase";
 import { one } from "@/lib/embed";
@@ -49,6 +53,7 @@ export type ActionItemRow = {
   counter_cancel_reason?: string | null;
   counter_cancel_detail?: string | null;
   expected_availability_date: string | null;
+  post_confirm_fulfillment?: string | null;
   products: ProdBrief | ProdBrief[] | null;
   patient_chosen_alternative_id?: string | null;
   request_item_alternatives?: ActionItemAltRow | ActionItemAltRow[] | null;
@@ -70,6 +75,7 @@ function isMarketShortage(st: string | null | undefined): boolean {
 
 function maxQtyPrincipal(row: ActionItemRow): number {
   if (isMarketShortage(row.availability_status)) return 0;
+  if (row.availability_status === "unavailable") return 0;
   let cap = row.requested_qty;
   if (row.available_qty != null) cap = Math.min(cap, row.available_qty);
   return Math.max(0, cap);
@@ -77,6 +83,7 @@ function maxQtyPrincipal(row: ActionItemRow): number {
 
 function maxQtyAlt(row: ActionItemRow, alt: ActionItemAltRow): number {
   if (isMarketShortage(alt.availability_status)) return 0;
+  if (alt.availability_status === "unavailable") return 0;
   let cap = row.requested_qty;
   if (alt.available_qty != null) cap = Math.min(cap, alt.available_qty);
   return Math.max(0, cap);
@@ -101,6 +108,156 @@ function counterOutcomeBadgeClass(outcome: string): string {
     default:
       return "bg-sky-100 text-sky-900 ring-1 ring-sky-200";
   }
+}
+
+function postConfirmFulfillmentPatientFr(v: string | null | undefined): string {
+  if (v === "reserved") return "Réservé en officine";
+  if (v === "ordered") return "Commandé";
+  return "À préciser par la pharmacie";
+}
+
+function ConfirmedPatientLineRow({ row }: { row: ActionItemRow }) {
+  const prod = one(row.products);
+  const altList = normalizeAlternatives(row.request_item_alternatives);
+  const chosenAlt = altList.find((a) => a.id === row.patient_chosen_alternative_id);
+  const counterOutcome = row.counter_outcome ?? "unset";
+  const counterOutcomeLabel = counterOutcomePatientLabel(counterOutcome, row.counter_cancel_reason ?? null);
+  const displayName = chosenAlt ? one(chosenAlt.products)?.name ?? "Alternative" : prod?.name ?? "Produit";
+  const displayPrice = chosenAlt?.unit_price ?? row.unit_price;
+  const displayStatus = chosenAlt?.availability_status ?? row.availability_status;
+  const displayEta = chosenAlt?.expected_availability_date ?? row.expected_availability_date;
+  const displayComment = chosenAlt?.pharmacist_comment ?? row.pharmacist_comment;
+  const validatedQty = row.selected_qty ?? row.requested_qty;
+  const prepQty = row.available_qty;
+  const qtyDiffers = prepQty != null && Number(prepQty) !== Number(validatedQty);
+  const isSelected = Boolean(row.is_selected_by_patient);
+  const counterTouched = counterOutcome !== "unset";
+  const isPharmacistProposed = row.line_source === "pharmacist_proposed";
+
+  return (
+    <li className="rounded-xl border-2 border-slate-100 bg-white p-2.5 text-[11px] shadow-sm">
+      {isPharmacistProposed && isSelected ? (
+        <div className="mb-2 rounded-lg border border-violet-300/80 bg-violet-50 px-2 py-2 text-[11px] leading-snug text-violet-950">
+          <p className="font-bold text-violet-950">Produit proposé par la pharmacie</p>
+          {row.pharmacist_proposal_reason?.trim() ? (
+            <p className="mt-1">
+              <span className="font-semibold">Motif : </span>
+              {row.pharmacist_proposal_reason.trim()}
+            </p>
+          ) : (
+            <p className="mt-1 italic text-violet-800/85">Motif enregistré par la pharmacie (voir le détail).</p>
+          )}
+          <p className="mt-1 text-[10px] text-violet-900/90">
+            Ce produit ne figurait pas dans votre liste initiale ; vous l&apos;avez accepté lors de votre validation.
+          </p>
+        </div>
+      ) : null}
+      <p className="text-sm font-semibold text-foreground">{prod?.name ?? "Produit"}</p>
+      <p className="mt-0.5 text-[11px] text-muted-foreground">
+        Demandé <strong className="text-foreground">{row.requested_qty}</strong>
+        {row.selected_qty != null ? (
+          <>
+            {" "}· validé <strong className="text-foreground">{row.selected_qty}</strong>
+          </>
+        ) : null}
+      </p>
+      {!isSelected ? (
+        <p className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] leading-snug text-slate-700">
+          Vous n&apos;avez pas retenu cette ligne lors de votre validation. Aucun suivi pharmacie pour ce produit.
+        </p>
+      ) : (
+        <>
+          <div className="mt-2 rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2 py-1.5">
+            <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900">
+              {isPharmacistProposed ? "Ce que vous avez accepté (ajout pharmacie)" : "Ce que vous avez validé"}
+            </p>
+            <p className="mt-0.5 text-sm font-semibold text-emerald-950">{displayName}</p>
+            {displayStatus === "partially_available" ? (
+              <p className="mt-1 text-[10px] leading-snug text-emerald-900">
+                Quantité <strong>initialement demandée</strong> pour cette ligne :{" "}
+                <strong className="tabular-nums">{row.requested_qty}</strong>
+              </p>
+            ) : null}
+            <p className="mt-0.5 text-[11px] leading-snug text-emerald-900/90">
+              <span>
+                Qté validée · <strong className="tabular-nums">{validatedQty}</strong>
+              </span>
+              {displayStatus ? (
+                <>
+                  {" "}· Dispo · <strong>{availabilityStatusFr[displayStatus] ?? displayStatus}</strong>
+                </>
+              ) : null}
+              {displayPrice != null ? (
+                <>
+                  {" "}· Prix · <strong className="tabular-nums">{Number(displayPrice).toFixed(2)} MAD</strong>
+                </>
+              ) : null}
+              {" "}· État comptoir · <strong>Pas encore récupéré</strong>
+            </p>
+            {chosenAlt ? (
+              <p className="mt-1 text-[10px] text-emerald-900/80">Alternative retenue par rapport au produit demandé.</p>
+            ) : altList.length > 0 ? (
+              <p className="mt-1 text-[10px] text-emerald-900/80">Produit principal retenu.</p>
+            ) : null}
+          </div>
+          <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
+            <p className="text-[9px] font-bold uppercase tracking-wide text-slate-600">Suivi officine</p>
+            <p className="mt-0.5 text-[10px] leading-snug text-slate-800">
+              Préparation indiquée par la pharmacie :{" "}
+              <strong className="text-slate-950">{postConfirmFulfillmentPatientFr(row.post_confirm_fulfillment)}</strong>
+            </p>
+            {!counterTouched ? (
+              <p className="mt-0.5 text-[11px] leading-snug text-slate-700">
+                <strong className="text-slate-900">En cours</strong> · détail du retrait dès que la pharmacie mettra à jour le
+                comptoir.
+              </p>
+            ) : (
+              <>
+                <p className="mt-0.5 text-sm font-semibold text-slate-950">{displayName}</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-slate-800">
+                  <span>
+                    Qté suivie · <strong className="tabular-nums">{prepQty ?? "—"}</strong>
+                  </span>
+                  {displayStatus ? (
+                    <>
+                      {" "}· Dispo · <strong>{availabilityStatusFr[displayStatus] ?? displayStatus}</strong>
+                    </>
+                  ) : null}
+                  {displayPrice != null ? (
+                    <>
+                      {" "}· Prix · <strong className="tabular-nums">{Number(displayPrice).toFixed(2)} MAD</strong>
+                    </>
+                  ) : null}
+                  {displayStatus === "to_order" && displayEta ? (
+                    <>
+                      {" "}· Disponible le {formatDateShortFr(displayEta)}
+                    </>
+                  ) : null}
+                </p>
+                <div className="mt-1.5">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${counterOutcomeBadgeClass(counterOutcome)}`}
+                  >
+                    {counterOutcomeLabel}
+                  </span>
+                  {row.counter_cancel_detail ? (
+                    <p className="mt-1 text-[10px] text-muted-foreground">{row.counter_cancel_detail}</p>
+                  ) : null}
+                </div>
+                {qtyDiffers ? (
+                  <p className="mt-1 text-[10px] leading-snug text-amber-900">
+                    Diffère de votre validation — évolution gérée en pharmacie. Détail dans l&apos;historique si la pharmacie met à
+                    jour le dossier.
+                  </p>
+                ) : null}
+              </>
+            )}
+          </div>
+          {displayComment ? <p className="mt-2 text-xs text-muted-foreground">{displayComment}</p> : null}
+        </>
+      )}
+    </li>
+  );
 }
 
 /** Défaut atelier : d’abord le principal disponible, sinon première alternative disponible, sinon rien */
@@ -173,33 +330,11 @@ function htmlTimeToPg(t: string): string | null {
   return s;
 }
 
-/**
- * Normalise une saisie utilisateur libre en HH:MM (24h).
- * Accepte 7, 07, 9h5, 18h30, 18:30, 730, 1830...
- * Renvoie « » si la saisie n'est pas exploitable (jamais d'exception).
- */
-function parseFreeTime24h(raw: string): string {
-  const s = raw.trim().toLowerCase();
-  if (!s) return "";
-  const cleaned = s.replace(/[^0-9hH:.\s]/g, "").replace(/[hH.\s]/g, ":");
-  let hh = "";
-  let mm = "";
-  if (cleaned.includes(":")) {
-    const [h, m = ""] = cleaned.split(":");
-    hh = h;
-    mm = m;
-  } else if (/^\d{3,4}$/.test(cleaned)) {
-    hh = cleaned.slice(0, cleaned.length - 2);
-    mm = cleaned.slice(-2);
-  } else if (/^\d{1,2}$/.test(cleaned)) {
-    hh = cleaned;
-    mm = "00";
-  } else {
-    return "";
-  }
-  const hi = Math.min(23, Math.max(0, Number.parseInt(hh, 10) || 0));
-  const mi = Math.min(59, Math.max(0, Number.parseInt(mm, 10) || 0));
-  return `${String(hi).padStart(2, "0")}:${String(mi).padStart(2, "0")}`;
+function splitVisitHm(raw: string | null | undefined): { h: string; m: string } {
+  if (!raw) return { h: "", m: "" };
+  const m = /^(\d{1,2}):(\d{2})/.exec(raw.trim());
+  if (!m) return { h: "", m: "" };
+  return { h: m[1] ?? "", m: m[2] ?? "" };
 }
 
 export function PatientProductRequestActions({
@@ -221,9 +356,8 @@ export function PatientProductRequestActions({
 
   /** Créneau de passage officine (`''` = défaut automatique borne min) */
   const [visitDate, setVisitDate] = useState(initialPlannedVisitDate ?? "");
-  const [visitTime, setVisitTime] = useState(
-    initialPlannedVisitTime ? initialPlannedVisitTime.slice(0, 5) : ""
-  );
+  const [visitHour, setVisitHour] = useState(() => splitVisitHm(initialPlannedVisitTime).h);
+  const [visitMinute, setVisitMinute] = useState(() => splitVisitHm(initialPlannedVisitTime).m);
 
   /** Resubmit draft — idem */
   const [noteDraft, setNoteDraft] = useState(() => initialPatientNote ?? "");
@@ -286,6 +420,15 @@ export function PatientProductRequestActions({
     if (t === "") return visitWin.minYmd;
     return clampVisitYmd(t, visitWin.minYmd, visitWin.maxYmd);
   }, [visitDate, visitWin.minYmd, visitWin.maxYmd]);
+
+  const visitTimeComposed = useMemo(() => {
+    const h = visitHour.trim();
+    const m = visitMinute.trim();
+    if (h === "" && m === "") return "";
+    const hi = Math.min(23, Math.max(0, Number.parseInt(h, 10) || 0));
+    const mi = Math.min(59, Math.max(0, Number.parseInt(m, 10) || 0));
+    return `${String(hi).padStart(2, "0")}:${String(mi).padStart(2, "0")}`;
+  }, [visitHour, visitMinute]);
 
   const visibleHits = debouncedQuery.length < 2 ? [] : hits;
 
@@ -435,7 +578,7 @@ export function PatientProductRequestActions({
         chosen_alternative_id: p.chosen_alternative_id,
       })),
       p_planned_visit_date: resolvedVisitDate,
-      p_planned_visit_time: htmlTimeToPg(visitTime),
+      p_planned_visit_time: htmlTimeToPg(visitTimeComposed),
     });
     setBusyAction("");
     if (error) {
@@ -524,14 +667,11 @@ export function PatientProductRequestActions({
       return;
     }
     setBusyAction("visit");
-    const { error } = await supabase
-      .from("requests")
-      .update({
-        patient_planned_visit_date: resolvedVisitDate,
-        patient_planned_visit_time: htmlTimeToPg(visitTime),
-      })
-      .eq("id", requestId)
-      .eq("status", "confirmed");
+    const { error } = await supabase.rpc("patient_update_planned_visit_after_confirmation", {
+      p_request_id: requestId,
+      p_planned_visit_date: resolvedVisitDate,
+      p_planned_visit_time: htmlTimeToPg(visitTimeComposed),
+    });
     setBusyAction("");
     if (error) {
       setActionError(error.message);
@@ -551,7 +691,7 @@ export function PatientProductRequestActions({
   /** Date/heure de passage : à la validation (responded) et pour modifier après coup (confirmed). */
   const showVisitFields = showConfirm || status === "confirmed";
 
-  const visitTimeFr = visitTime.trim() ? formatTime24hFr(htmlTimeToPg(visitTime) ?? visitTime) : "";
+  const visitTimeFr = visitTimeComposed ? formatTime24hFr(htmlTimeToPg(visitTimeComposed) ?? visitTimeComposed) : "";
 
   return (
     <section className="mt-3 rounded-lg border border-border/90 bg-muted/15 p-2.5 sm:p-3">
@@ -749,134 +889,67 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirmedCards ? (
-        <ul className="space-y-4">
-          {items.map((row) => {
-            const prod = one(row.products);
-            const altList = normalizeAlternatives(row.request_item_alternatives);
-            const chosenAlt = altList.find((a) => a.id === row.patient_chosen_alternative_id);
-            const counterOutcome = row.counter_outcome ?? "unset";
-            const counterOutcomeLabel = counterOutcomePatientLabel(counterOutcome, row.counter_cancel_reason ?? null);
-            const displayName = chosenAlt ? one(chosenAlt.products)?.name ?? "Alternative" : prod?.name ?? "Produit";
-            const displayPrice = chosenAlt?.unit_price ?? row.unit_price;
-            const displayStatus = chosenAlt?.availability_status ?? row.availability_status;
-            const displayEta = chosenAlt?.expected_availability_date ?? row.expected_availability_date;
-            const displayComment = chosenAlt?.pharmacist_comment ?? row.pharmacist_comment;
-            const validatedQty = row.selected_qty ?? row.requested_qty;
-            const prepQty = row.available_qty;
-            const qtyDiffers = prepQty != null && Number(prepQty) !== Number(validatedQty);
-            const isSelected = Boolean(row.is_selected_by_patient);
-            const counterTouched = counterOutcome !== "unset";
-            const isPharmacistProposed = row.line_source === "pharmacist_proposed";
-            return (
-              <li key={`confirmed-${row.id}`} className="rounded-xl border-2 border-slate-100 bg-white p-2.5 text-[11px] shadow-sm">
-                {isPharmacistProposed && isSelected ? (
-                  <div className="mb-2 rounded-lg border border-violet-300/80 bg-violet-50 px-2 py-2 text-[11px] leading-snug text-violet-950">
-                    <p className="font-bold text-violet-950">Produit proposé par la pharmacie</p>
-                    {row.pharmacist_proposal_reason?.trim() ? (
-                      <p className="mt-1">
-                        <span className="font-semibold">Motif : </span>
-                        {row.pharmacist_proposal_reason.trim()}
-                      </p>
-                    ) : (
-                      <p className="mt-1 italic text-violet-800/85">Motif enregistré par la pharmacie (voir le détail).</p>
-                    )}
-                    <p className="mt-1 text-[10px] text-violet-900/90">
-                      Ce produit ne figurait pas dans votre liste initiale ; vous l&apos;avez accepté lors de votre validation.
-                    </p>
-                  </div>
-                ) : null}
-                <p className="text-sm font-semibold text-foreground">{prod?.name ?? "Produit"}</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  Demandé <strong className="text-foreground">{row.requested_qty}</strong>
-                  {row.selected_qty != null ? (
-                    <>
-                      {" "}· validé <strong className="text-foreground">{row.selected_qty}</strong>
-                    </>
-                  ) : null}
-                </p>
-                {!isSelected ? (
-                  <p className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] leading-snug text-slate-700">
-                    Vous n&apos;avez pas retenu cette ligne lors de votre validation. Aucun suivi pharmacie pour ce produit.
+        (() => {
+          const buckets = groupPatientConfirmedLines(items);
+          const other = patientConfirmedLinesNotInBuckets(items, buckets);
+          return (
+            <div className="space-y-6">
+              {buckets.atPharmacy.length > 0 ? (
+                <section className="space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-emerald-900">
+                    Produits à récupérer en pharmacie
+                  </h3>
+                  <p className="text-[10px] leading-snug text-muted-foreground">
+                    Disponibles ou partiellement disponibles sur la branche que vous avez validée ; la pharmacie indique quand ils sont{" "}
+                    <strong>réservés</strong> pour vous.
                   </p>
-                ) : (
-                  <>
-                    <div className="mt-2 rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2 py-1.5">
-                      <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900">
-                        {isPharmacistProposed ? "Ce que vous avez accepté (ajout pharmacie)" : "Ce que vous avez validé"}
-                      </p>
-                      <p className="mt-0.5 text-sm font-semibold text-emerald-950">{displayName}</p>
-                      <p className="mt-0.5 text-[11px] leading-snug text-emerald-900/90">
-                        <span>Qté validée · <strong className="tabular-nums">{validatedQty}</strong></span>
-                        {displayStatus ? (
-                          <>
-                            {" "}· Dispo · <strong>{availabilityStatusFr[displayStatus] ?? displayStatus}</strong>
-                          </>
-                        ) : null}
-                        {displayPrice != null ? (
-                          <>
-                            {" "}· Prix · <strong className="tabular-nums">{Number(displayPrice).toFixed(2)} MAD</strong>
-                          </>
-                        ) : null}
-                        {" "}· État · <strong>Pas encore récupéré</strong>
-                      </p>
-                      {chosenAlt ? (
-                        <p className="mt-1 text-[10px] text-emerald-900/80">Alternative retenue par rapport au produit demandé.</p>
-                      ) : altList.length > 0 ? (
-                        <p className="mt-1 text-[10px] text-emerald-900/80">Produit principal retenu.</p>
-                      ) : null}
-                    </div>
-                    <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
-                      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-600">Suivi officine</p>
-                      {!counterTouched ? (
-                        <p className="mt-0.5 text-[11px] leading-snug text-slate-700">
-                          <strong className="text-slate-900">En cours</strong> · la pharmacie n&apos;a pas encore indiqué si le produit est prêt ou remis. Le détail apparaît dès la première mise à jour.
-                        </p>
-                      ) : (
-                        <>
-                          <p className="mt-0.5 text-sm font-semibold text-slate-950">{displayName}</p>
-                          <p className="mt-0.5 text-[11px] leading-snug text-slate-800">
-                            <span>Qté suivie · <strong className="tabular-nums">{prepQty ?? "—"}</strong></span>
-                            {displayStatus ? (
-                              <>
-                                {" "}· Dispo · <strong>{availabilityStatusFr[displayStatus] ?? displayStatus}</strong>
-                              </>
-                            ) : null}
-                            {displayPrice != null ? (
-                              <>
-                                {" "}· Prix · <strong className="tabular-nums">{Number(displayPrice).toFixed(2)} MAD</strong>
-                              </>
-                            ) : null}
-                            {displayStatus === "to_order" && displayEta ? (
-                              <>
-                                {" "}· Disponible le {formatDateShortFr(displayEta)}
-                              </>
-                            ) : null}
-                          </p>
-                          <div className="mt-1.5">
-                            <span
-                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${counterOutcomeBadgeClass(counterOutcome)}`}
-                            >
-                              {counterOutcomeLabel}
-                            </span>
-                            {row.counter_cancel_detail ? (
-                              <p className="mt-1 text-[10px] text-muted-foreground">{row.counter_cancel_detail}</p>
-                            ) : null}
-                          </div>
-                          {qtyDiffers ? (
-                            <p className="mt-1 text-[10px] leading-snug text-amber-900">
-                              Diffère de votre validation — évolution gérée en pharmacie. Détail dans l&apos;historique si la pharmacie met à jour le dossier.
-                            </p>
-                          ) : null}
-                        </>
-                      )}
-                    </div>
-                    {displayComment ? <p className="mt-2 text-xs text-muted-foreground">{displayComment}</p> : null}
-                  </>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                  <ul className="space-y-3">
+                    {buckets.atPharmacy.map((row) => (
+                      <ConfirmedPatientLineRow key={row.id} row={row} />
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              {buckets.toOrder.length > 0 ? (
+                <section className="space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-amber-900">Produits à commander</h3>
+                  <p className="text-[10px] leading-snug text-muted-foreground">
+                    Fournisseur / grossiste — suivez l&apos;état <strong>commandé</strong> et les dates de réception indiquées par
+                    l&apos;officine.
+                  </p>
+                  <ul className="space-y-3">
+                    {buckets.toOrder.map((row) => (
+                      <ConfirmedPatientLineRow key={row.id} row={row} />
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              {buckets.unavailableOrShortage.length > 0 ? (
+                <section className="space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-800">Indisponibles ou rupture de marché</h3>
+                  <p className="text-[10px] leading-snug text-muted-foreground">
+                    Tel que répondu par la pharmacie sur la demande (y compris les lignes non retenues lors de votre validation).
+                  </p>
+                  <ul className="space-y-3">
+                    {buckets.unavailableOrShortage.map((row) => (
+                      <ConfirmedPatientLineRow key={row.id} row={row} />
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              {other.length > 0 ? (
+                <section className="space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Autres lignes</h3>
+                  <ul className="space-y-3">
+                    {other.map((row) => (
+                      <ConfirmedPatientLineRow key={row.id} row={row} />
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </div>
+          );
+        })()
       ) : null}
 
       {showResubmit ? (
@@ -995,25 +1068,37 @@ export function PatientProductRequestActions({
                 required={showConfirm}
               />
             </label>
-            <label className="mt-2 block text-[11px] font-medium text-foreground">
-              Heure de passage (optionnel · 24 h, format HH:MM)
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="ex. 18:30"
-                pattern="^\d{1,2}[:hH]?\d{0,2}$"
-                value={visitTime}
-                onChange={(e) => setVisitTime(e.target.value)}
-                onBlur={(e) => {
-                  const norm = parseFreeTime24h(e.target.value);
-                  setVisitTime(norm);
-                }}
-                className="mt-0.5 block w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs tabular-nums"
-              />
-              {visitTimeFr ? (
-                <span className="mt-0.5 block text-[10px] text-muted-foreground">Affichage : {visitTimeFr}</span>
-              ) : null}
-            </label>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <label className="block text-[11px] font-medium text-foreground">
+                Heure (optionnel · 0–23)
+                <input
+                  type="number"
+                  min={0}
+                  max={23}
+                  inputMode="numeric"
+                  placeholder="—"
+                  value={visitHour}
+                  onChange={(e) => setVisitHour(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                  className="mt-0.5 block w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs tabular-nums"
+                />
+              </label>
+              <label className="block text-[11px] font-medium text-foreground">
+                Minutes (optionnel · 0–59)
+                <input
+                  type="number"
+                  min={0}
+                  max={59}
+                  inputMode="numeric"
+                  placeholder="—"
+                  value={visitMinute}
+                  onChange={(e) => setVisitMinute(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                  className="mt-0.5 block w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs tabular-nums"
+                />
+              </label>
+            </div>
+            {visitTimeFr ? (
+              <span className="mt-1 block text-[10px] text-muted-foreground">Heure enregistrée : {visitTimeFr}</span>
+            ) : null}
             {status === "confirmed" ? (
               <p className="mt-2 text-[10px] leading-snug text-primary/90">
                 Vous pouvez changer la date ou l&apos;heure prévues ; la pharmacie les verra sur la demande.

@@ -22,7 +22,7 @@ export type DemandeStatBucket = {
   statuses: readonly string[];
 };
 
-/** Patient : « Validée » regroupe le statut confirmé (en attente clôture côté pharmacie). */
+/** Patient : « Validée par vous » tant que la pharmacie n’a pas commencé la préparation ; « En traitement » une fois l’officine active (voir `status_for_dashboard`). */
 export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "envoyees",
@@ -38,14 +38,14 @@ export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   },
   {
     key: "validees_traitees",
-    label: "Validées",
-    hint: "Validation faite, attente de prise en charge.",
+    label: "Validée par vous",
+    hint: "Vous avez validé ; la pharmacie n’a pas encore indiqué de réservation ou commande sur la ligne.",
     statuses: ["confirmed"],
   },
   {
     key: "en_preparation",
-    label: "En préparation",
-    hint: "Traitement officine démarré.",
+    label: "En traitement",
+    hint: "La pharmacie a commencé à mettre à jour la commande (réservé ou commandé sur au moins une ligne).",
     statuses: ["in_progress_virtual"],
   },
   {
@@ -74,7 +74,7 @@ export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   },
 ];
 
-/** Pharmacien : même découpage ; « Traitées » = confirmées par le patient (préparation). */
+/** Pharmacien : « Validée par le client » tant que vous n’avez pas commencé la préparation ; « En traitement » après première action (réservé / commandé). */
 export const PHARMACIST_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "envoyees",
@@ -90,14 +90,14 @@ export const PHARMACIST_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   },
   {
     key: "validees_traitees",
-    label: "Validées",
-    hint: "Validées par le client, non démarrées.",
+    label: "Validée par le client",
+    hint: "Le client a validé ; aucune réservation / commande saisie par vous sur les lignes concernées.",
     statuses: ["confirmed"],
   },
   {
     key: "en_preparation",
-    label: "En préparation",
-    hint: "Traitement comptoir en cours.",
+    label: "En traitement",
+    hint: "Réservation ou commande renseignée sur au moins une ligne.",
     statuses: ["in_progress_virtual"],
   },
   {
