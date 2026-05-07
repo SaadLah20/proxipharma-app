@@ -295,7 +295,7 @@ Statuts retenus v1:
 
 **Contrôle** : `npm run lint` ✅, `npm run build` ✅.
 
-**À appliquer côté Supabase** : **`20260507_005_post_confirm_fulfillment_visit_rpc.sql`** (après **`004`**).
+**À appliquer côté Supabase** : **`20260507_005_post_confirm_fulfillment_visit_rpc.sql`** (après **`004`**), avec **`supabase db push`** ou copie depuis le fichier versionné. **Si déjà appliquée sur votre projet** (cas courant après synchro infra) : aucune action ; en cas de doute, vérifier en base la présence de **`request_items.post_confirm_fulfillment`** et des RPC **`patient_update_planned_visit_after_confirmation`** / **`pharmacist_set_post_confirm_fulfillment`**.
 
 ---
 
