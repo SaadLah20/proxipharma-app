@@ -93,6 +93,7 @@ export function PlatformHeader() {
     const { data: notifData } = await supabase
       .from("app_notifications")
       .select("id,created_at,title,body,request_id,read_at,event_type")
+      .eq("recipient_id", userId)
       .order("created_at", { ascending: false })
       .limit(12);
 
@@ -214,7 +215,7 @@ export function PlatformHeader() {
                     ) : null}
                   </button>
                   {notifOpen ? (
-                    <div className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,24rem)] rounded-xl border border-gray-200 bg-white py-2 shadow-xl">
+                    <div className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,24rem)] translate-x-1 rounded-xl border border-gray-200 bg-white py-2 shadow-xl sm:translate-x-0">
                       <div className="border-b border-gray-100 px-3 pb-2">
                         <p className="text-xs font-semibold text-gray-900">Notifications</p>
                       </div>

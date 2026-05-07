@@ -1,6 +1,5 @@
 "use client";
 
-import type React from "react";
 import Link from "next/link";
 import { Cross } from "lucide-react";
 import { displayRequestPublicRef } from "@/lib/public-ref";
@@ -114,12 +113,6 @@ export function RequestStatusBadge({
   );
 }
 
-function copyRef(e: React.MouseEvent, text: string) {
-  e.preventDefault();
-  e.stopPropagation();
-  void navigator.clipboard.writeText(text);
-}
-
 export function PatientDemandeCard({
   row,
   variant = "default",
@@ -139,6 +132,8 @@ export function PatientDemandeCard({
 
   if (variant === "list") {
     const isInitialDemandView = row.status === "submitted" || row.status === "in_review" || row.status === "responded";
+    /** Avant réponse pharmacie : pas d’alternatives ni produits ajoutés à afficher sur la carte. */
+    const isSentAwaitingPharmacy = row.status === "submitted" || row.status === "in_review";
     const statusLabel = cardStatus === "in_progress_virtual" ? "En préparation" : requestStatusShortFr(cardStatus);
     const statusClass =
       cardStatus === "in_progress_virtual"
@@ -192,29 +187,42 @@ export function PatientDemandeCard({
             </span>
           </div>
 
-          <div className="mt-2.5 grid grid-cols-2 gap-1.5 text-[10px] text-muted-foreground sm:grid-cols-3">
+          <div
+            className={clsx(
+              "mt-2.5 grid gap-1.5 text-[10px] text-muted-foreground",
+              isInitialDemandView && isSentAwaitingPharmacy ? "grid-cols-1" : "grid-cols-2 sm:grid-cols-3"
+            )}
+          >
             {isInitialDemandView ? (
-              <>
+              isSentAwaitingPharmacy ? (
                 <span className="rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
-                  Princ. <strong className="text-foreground">{summary.principalCount}</strong>
+                  Produits demandés <strong className="text-foreground">{summary.principalCount}</strong>
                 </span>
-                <span className="rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
-                  Alt. <strong className="text-foreground">{summary.alternativesCount}</strong>
-                </span>
-                <span className="rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
-                  Proposés <strong className="text-foreground">{summary.proposedCount}</strong>
-                </span>
-              </>
+              ) : (
+                <>
+                  <span className="rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
+                    Produits demandés <strong className="text-foreground">{summary.principalCount}</strong>
+                  </span>
+                  <span className="rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
+                    Alternatives proposées <strong className="text-foreground">{summary.alternativesCount}</strong>
+                  </span>
+                  <span className="rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm sm:col-span-2 lg:col-span-1">
+                    Produits ajoutés par la pharmacie{" "}
+                    <strong className="text-foreground">{summary.proposedCount}</strong>
+                  </span>
+                </>
+              )
             ) : (
               <>
                 <span className="rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
-                  Princ. validés <strong className="text-foreground">{summary.selectedPrincipalCount}</strong>
+                  Produits validés <strong className="text-foreground">{summary.selectedPrincipalCount}</strong>
                 </span>
                 <span className="rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
-                  Alt. validés <strong className="text-foreground">{summary.selectedAlternativesCount}</strong>
+                  Alternatives validées <strong className="text-foreground">{summary.selectedAlternativesCount}</strong>
                 </span>
                 <span className="rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
-                  Proposés validés <strong className="text-foreground">{summary.selectedProposedCount}</strong>
+                  Ajouts pharmacie validés{" "}
+                  <strong className="text-foreground">{summary.selectedProposedCount}</strong>
                 </span>
               </>
             )}
@@ -304,11 +312,13 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
   ).length;
   const pickedUp = lines.filter((l) => (l.is_selected_by_patient ?? true) && (l.counter_outcome ?? "unset") === "picked_up").length;
   const statusForCard = inCounterProgress ? "in_progress_virtual" : row.status;
+  /** Cartes « demandes envoyées » : uniquement le nombre de lignes (pas comptoir / récupération). */
+  const isSentAwaitingPharmacyAction = row.status === "submitted" || row.status === "in_review";
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border-2 border-emerald-100 bg-gradient-to-br from-white via-white to-emerald-50/35 shadow-[0_2px_10px_rgba(16,185,129,0.08)] transition hover:border-emerald-300 hover:shadow-[0_6px_18px_rgba(16,185,129,0.16)]">
+    <div className="overflow-hidden rounded-2xl border-2 border-emerald-100 bg-gradient-to-br from-white via-white to-emerald-50/35 shadow-[0_2px_10px_rgba(16,185,129,0.08)] transition hover:border-emerald-300 hover:shadow-[0_6px_18px_rgba(16,185,129,0.16)]">
       <div className="h-1.5 w-full bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400" aria-hidden />
-      <Link href={`/dashboard/pharmacien/demandes/${row.id}`} className="group block p-3 pr-11 sm:p-3.5 sm:pr-12">
+      <Link href={`/dashboard/pharmacien/demandes/${row.id}`} className="group block p-3 sm:p-3.5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 gap-3">
             <div
@@ -334,16 +344,25 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
                 ) : null}
                 <RequestStatusBadge status={statusForCard} role="pharmacien" />
               </div>
-              <div className="mt-2 grid grid-cols-3 gap-1.5 text-[10px] text-muted-foreground">
+              <div
+                className={clsx(
+                  "mt-2 gap-1.5 text-[10px] text-muted-foreground",
+                  isSentAwaitingPharmacyAction ? "flex flex-wrap" : "grid grid-cols-3"
+                )}
+              >
                 <span className="rounded-md border border-slate-200 bg-white px-1.5 py-1 shadow-sm">
                   Lignes <strong className="text-foreground">{lines.length}</strong>
                 </span>
-                <span className="rounded-md border border-slate-200 bg-white px-1.5 py-1 shadow-sm">
-                  Retenues <strong className="text-foreground">{selectedCount}</strong>
-                </span>
-                <span className="rounded-md border border-slate-200 bg-white px-1.5 py-1 shadow-sm">
-                  Comptoir <strong className="text-foreground">{pendingCounter}</strong>
-                </span>
+                {!isSentAwaitingPharmacyAction ? (
+                  <>
+                    <span className="rounded-md border border-slate-200 bg-white px-1.5 py-1 shadow-sm">
+                      Retenues <strong className="text-foreground">{selectedCount}</strong>
+                    </span>
+                    <span className="rounded-md border border-slate-200 bg-white px-1.5 py-1 shadow-sm">
+                      Comptoir <strong className="text-foreground">{pendingCounter}</strong>
+                    </span>
+                  </>
+                ) : null}
               </div>
               {statusForCard === "in_progress_virtual" ? (
                 <p className="mt-1 text-[10px] font-medium text-emerald-900/85">
@@ -357,19 +376,6 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
           </span>
         </div>
       </Link>
-      <button
-        type="button"
-        title="Copier la référence complète"
-        onClick={(e) =>
-          copyRef(
-            e,
-            row.request_public_ref?.trim() ? `${row.request_public_ref.trim()} (${row.id})` : row.id
-          )
-        }
-        className="absolute right-2 top-2 rounded border border-border/80 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted"
-      >
-        Copier
-      </button>
     </div>
   );
 }

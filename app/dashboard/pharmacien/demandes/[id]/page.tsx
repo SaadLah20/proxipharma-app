@@ -1117,7 +1117,7 @@ export default function PharmacienDemandeDetailPage() {
                         </span>
                         {lineLockedTrace ? (
                           <span className="rounded bg-rose-100 px-1.5 py-0.5 font-medium text-rose-900 ring-1 ring-rose-200/80">
-                            Non remis au comptoir
+                            Non distribué au patient
                           </span>
                         ) : (
                           request.status === "responded" ||
