@@ -68,6 +68,8 @@ type ItemRow = {
   pharmacist_proposal_reason: string | null;
   expected_availability_date: string | null;
   counter_outcome: string;
+  counter_cancel_reason: string | null;
+  counter_cancel_detail: string | null;
   is_selected_by_patient: boolean;
   selected_qty: number | null;
   patient_chosen_alternative_id?: string | null;
@@ -127,18 +129,45 @@ function nextAltRank(existing: AltRowDb[]): number | null {
   return null;
 }
 
-function counterOutcomeLabelPharmacien(outcome: string): string {
-  if (outcome === "cancelled_at_counter") return "Non remis au comptoir";
+function counterOutcomeLabelPharmacien(outcome: string, cancelReason: string | null = null): string {
+  if (outcome === "cancelled_at_counter") {
+    if (cancelReason === "client_request") return "Annulé à la demande du client";
+    if (cancelReason === "pharmacy_unable") return "Annulé par la pharmacie";
+    return "Annulé";
+  }
   switch (outcome) {
     case "unset":
-      return "En attente au comptoir";
+      return "À traiter";
     case "picked_up":
-      return "Distribuée / récupérée";
+      return "Remis au client";
     case "deferred_next_visit":
-      return counterOutcomeFr[outcome] ?? outcome;
+      return "Plus tard";
     default:
       return counterOutcomeFr[outcome] ?? outcome;
   }
+}
+
+/** Valeur composite encodée dans le <select> côté pharmacien. */
+type CounterSelectKey =
+  | "unset"
+  | "picked_up"
+  | "deferred_next_visit"
+  | "cancelled_at_counter:client_request"
+  | "cancelled_at_counter:pharmacy_unable";
+
+function counterSelectKeyFromRow(row: { counter_outcome: string; counter_cancel_reason: string | null }): CounterSelectKey {
+  if (row.counter_outcome !== "cancelled_at_counter") {
+    return row.counter_outcome as CounterSelectKey;
+  }
+  if (row.counter_cancel_reason === "pharmacy_unable") return "cancelled_at_counter:pharmacy_unable";
+  return "cancelled_at_counter:client_request";
+}
+
+function decodeCounterSelectKey(key: string): { outcome: string; cancelReason: string | null } {
+  if (key.startsWith("cancelled_at_counter:")) {
+    return { outcome: "cancelled_at_counter", cancelReason: key.slice("cancelled_at_counter:".length) };
+  }
+  return { outcome: key, cancelReason: null };
 }
 
 function buildItemUpdatePayload(f: ItemDraft) {
@@ -315,7 +344,7 @@ export default function PharmacienDemandeDetailPage() {
     const { data: itemsData, error: itemsErr } = await supabase
       .from("request_items")
       .select(
-        "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,is_selected_by_patient,selected_qty,patient_chosen_alternative_id,line_source,pharmacist_proposal_reason,client_comment,updated_at,products(name,price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph))"
+        "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,is_selected_by_patient,selected_qty,patient_chosen_alternative_id,line_source,pharmacist_proposal_reason,client_comment,updated_at,products(name,price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph))"
       )
       .eq("request_id", id)
       .order("created_at", { ascending: true });
@@ -583,7 +612,12 @@ export default function PharmacienDemandeDetailPage() {
     }
   };
 
-  const saveCounterOutcome = async (requestItemId: string, outcome: string) => {
+  const saveCounterOutcome = async (
+    requestItemId: string,
+    outcome: string,
+    cancelReason: string | null = null,
+    cancelDetail: string | null = null
+  ) => {
     const rowSnap = items.find((r) => r.id === requestItemId);
     const prevCo = rowSnap?.counter_outcome ?? "unset";
     const shouldResetPrepQtyAfterDropPickup =
@@ -597,6 +631,8 @@ export default function PharmacienDemandeDetailPage() {
     const { error: rpcErr } = await supabase.rpc("pharmacist_set_item_counter_outcome", {
       p_request_item_id: requestItemId,
       p_outcome: outcome,
+      p_cancel_reason: outcome === "cancelled_at_counter" ? cancelReason : null,
+      p_cancel_detail: outcome === "cancelled_at_counter" ? cancelDetail : null,
     });
     setCounterBusyId(null);
     if (rpcErr) {
@@ -608,7 +644,11 @@ export default function PharmacienDemandeDetailPage() {
       setField(requestItemId, "available_qty", String(baseline));
     }
     if (request?.status === "confirmed") {
-      const { error: h } = await logHistory(id, "confirmed", "confirmed", `counter_outcome:${outcome}`);
+      const reasonStr =
+        outcome === "cancelled_at_counter" && cancelReason
+          ? `counter_outcome:cancelled_at_counter:${cancelReason}`
+          : `counter_outcome:${outcome}`;
+      const { error: h } = await logHistory(id, "confirmed", "confirmed", reasonStr);
       if (h) {
         setError(h.message);
         return;
@@ -673,36 +713,6 @@ export default function PharmacienDemandeDetailPage() {
       setError(e instanceof Error ? e.message : "Une erreur est survenue.");
     }
     setBusy(false);
-  };
-
-  const cancelLineAtCounter = async (row: ItemRow) => {
-    if (!request || request.status !== "confirmed") return;
-    setCounterBusyId(row.id);
-    setError("");
-    const currentComment = (row.pharmacist_comment ?? "").trim();
-    const stamp = "Ligne non remise au comptoir (action pharmacien).";
-    const nextComment = currentComment ? `${currentComment}\n${stamp}` : stamp;
-    const { error: upErr } = await supabase
-      .from("request_items")
-      .update({
-        is_selected_by_patient: false,
-        selected_qty: null,
-        counter_outcome: "cancelled_at_counter",
-        pharmacist_comment: nextComment,
-      })
-      .eq("id", row.id);
-    if (upErr) {
-      setCounterBusyId(null);
-      setError(upErr.message);
-      return;
-    }
-    const { error: h } = await logHistory(id, "confirmed", "confirmed", "counter_line_cancelled");
-    setCounterBusyId(null);
-    if (h) {
-      setError(h.message);
-      return;
-    }
-    await load();
   };
 
   const publishResponse = async () => {
@@ -1014,8 +1024,7 @@ export default function PharmacienDemandeDetailPage() {
               const outcomeSelectDisabled =
                 request.status === "completed" ||
                 counterBusyId === row.id ||
-                !selected ||
-                lineLockedTrace;
+                !selected;
               const edgePalette = [
                 "border-l-teal-600 shadow-teal-900/10",
                 "border-l-emerald-600 shadow-emerald-900/10",
@@ -1096,7 +1105,15 @@ export default function PharmacienDemandeDetailPage() {
 
                   {lineLockedTrace ? (
                     <div className="space-y-2 border-t border-rose-200/50 bg-rose-50/20 px-2.5 py-2 text-[11px] leading-snug text-foreground">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-rose-950">Lecture seule · trace comptoir</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-rose-950">
+                        Lecture seule · {counterOutcomeLabelPharmacien(co, row.counter_cancel_reason)}
+                      </p>
+                      {row.counter_cancel_detail ? (
+                        <p className="text-[10px] text-muted-foreground">
+                          <span className="font-semibold text-foreground">Détail : </span>
+                          {row.counter_cancel_detail}
+                        </p>
+                      ) : null}
                       <p>
                         <span className="text-muted-foreground">Dispo renseignée : </span>
                         <strong>{row.availability_status ? availabilityStatusFr[row.availability_status] : "—"}</strong>
@@ -1116,12 +1133,6 @@ export default function PharmacienDemandeDetailPage() {
                         <p className="whitespace-pre-wrap text-[10px] text-muted-foreground">
                           <span className="font-semibold text-foreground">Note enregistrée : </span>
                           {row.pharmacist_comment}
-                        </p>
-                      ) : null}
-                      {showInlineCounter ? (
-                        <p className="border-t border-rose-200/40 pt-2 text-[10px] text-muted-foreground">
-                          État au comptoir :{" "}
-                          <strong className="text-foreground">{counterOutcomeLabelPharmacien(co)}</strong>
                         </p>
                       ) : null}
                     </div>
@@ -1357,47 +1368,66 @@ export default function PharmacienDemandeDetailPage() {
                         )}
                       </>
                     ) : null}
-                    {canManageConfirmed && selected && !lineLockedTrace ? (
-                      <div className="mt-1.5 border-t border-border/60 pt-1.5">
-                        <button
-                          type="button"
-                          disabled={counterBusyId === row.id}
-                          onClick={() => void cancelLineAtCounter(row)}
-                          className="inline-flex h-8 items-center justify-center rounded-md border border-rose-300/90 bg-white px-2.5 text-[10px] font-semibold text-rose-800 hover:bg-rose-50 disabled:opacity-50"
-                        >
-                          {counterBusyId === row.id ? "Enregistrement…" : "Marquer comme non remis au comptoir"}
-                        </button>
-                        <p className="mt-1 max-w-md text-[9px] leading-snug text-muted-foreground">
-                          Différent d&apos;une ligne décochée par le patient après votre réponse : ici la ligne avait été conservée par le
-                          client, mais n&apos;a finalement pas été remise au comptoir.
-                        </p>
-                      </div>
-                    ) : null}
-                    {showInlineCounter && !lineLockedTrace ? (
+                    {showInlineCounter ? (
                       <div className="mt-1.5 border-t border-border/60 pt-1.5">
                         {!selected ? (
                           <p className="text-[10px] text-muted-foreground">
                             Patient n&apos;ayant pas retenu cette ligne après votre réponse. État au comptoir :{" "}
-                            <strong className="text-foreground">{counterOutcomeLabelPharmacien(co)}</strong>
+                            <strong className="text-foreground">
+                              {counterOutcomeLabelPharmacien(co, row.counter_cancel_reason)}
+                            </strong>
                           </p>
                         ) : (
-                          <label className="flex max-w-[260px] flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Résultat comptoir
-                            <select
-                              value={co}
-                              disabled={outcomeSelectDisabled}
-                              onChange={(e) => void saveCounterOutcome(row.id, e.target.value)}
-                              className={`h-8 w-full rounded-md border border-input bg-background px-2 text-[11px] ${
-                                request.status === "completed" ? "cursor-not-allowed opacity-60" : ""
-                              }`}
-                            >
-                              <option value="unset">{counterOutcomeLabelPharmacien("unset")}</option>
-                              <option value="picked_up">{counterOutcomeLabelPharmacien("picked_up")}</option>
-                              <option value="cancelled_at_counter">{counterOutcomeLabelPharmacien("cancelled_at_counter")}</option>
-                              <option value="deferred_next_visit">{counterOutcomeLabelPharmacien("deferred_next_visit")}</option>
-                            </select>
+                          <div className="flex max-w-[320px] flex-col gap-1">
+                            <label className="flex flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Résultat
+                              <select
+                                value={counterSelectKeyFromRow(row)}
+                                disabled={outcomeSelectDisabled}
+                                onChange={(e) => {
+                                  const decoded = decodeCounterSelectKey(e.target.value);
+                                  void saveCounterOutcome(
+                                    row.id,
+                                    decoded.outcome,
+                                    decoded.cancelReason,
+                                    decoded.outcome === "cancelled_at_counter" ? row.counter_cancel_detail : null
+                                  );
+                                }}
+                                className={`h-8 w-full rounded-md border border-input bg-background px-2 text-[11px] ${
+                                  request.status === "completed" ? "cursor-not-allowed opacity-60" : ""
+                                }`}
+                              >
+                                <option value="unset">À traiter</option>
+                                <option value="picked_up">Remis au client</option>
+                                <option value="deferred_next_visit">Plus tard</option>
+                                <option value="cancelled_at_counter:client_request">Annulé à la demande du client</option>
+                                <option value="cancelled_at_counter:pharmacy_unable">Annulé par la pharmacie</option>
+                              </select>
+                            </label>
+                            {co === "cancelled_at_counter" ? (
+                              <label className="flex flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Détail (optionnel)
+                                <input
+                                  type="text"
+                                  defaultValue={row.counter_cancel_detail ?? ""}
+                                  disabled={outcomeSelectDisabled}
+                                  placeholder="Ex. appel téléphonique du 7 mai"
+                                  onBlur={(e) => {
+                                    const next = e.target.value.trim().slice(0, 1000);
+                                    if ((row.counter_cancel_detail ?? "") === next) return;
+                                    void saveCounterOutcome(
+                                      row.id,
+                                      "cancelled_at_counter",
+                                      row.counter_cancel_reason ?? "client_request",
+                                      next || null
+                                    );
+                                  }}
+                                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-[11px] normal-case"
+                                />
+                              </label>
+                            ) : null}
                             {counterBusyId === row.id ? <span className="text-[10px] text-muted-foreground">Enregistrement…</span> : null}
-                          </label>
+                          </div>
                         )}
                       </div>
                     ) : null}
