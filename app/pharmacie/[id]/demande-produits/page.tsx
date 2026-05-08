@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Minus, Plus, Trash2, Package } from "lucide-react";
+import { Minus, Plus, Trash2, Package, Search } from "lucide-react";
 import { unitPriceLabel } from "@/lib/product-price";
 import { supabase } from "@/lib/supabase";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -14,12 +14,14 @@ type ProductLite = {
   name: string;
   product_type: string;
   laboratory: string | null;
+  photo_url: string | null;
   price_pph?: number | null;
 };
 
 type CartLine = {
   product_id: string;
   name: string;
+  photo_url: string | null;
   qty: number;
   price_pph?: number | null;
   /** Commentaire optionnel par ligne (Q11, max 500 côté BDD) */
@@ -75,7 +77,7 @@ export default function DemandeProduitsPage() {
         setSearchLoading(true);
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,price_pph")
+          .select("id,name,product_type,laboratory,photo_url,price_pph")
           .eq("is_active", true)
           .ilike("name", `%${debouncedQuery}%`)
           .order("name")
@@ -97,7 +99,10 @@ export default function DemandeProduitsPage() {
   const addProduct = useCallback((p: ProductLite) => {
     setLines((prev) => {
       if (prev.some((l) => l.product_id === p.id)) return prev;
-      return [...prev, { product_id: p.id, name: p.name, qty: 1, price_pph: p.price_pph ?? null }];
+      return [
+        ...prev,
+        { product_id: p.id, name: p.name, photo_url: p.photo_url, qty: 1, price_pph: p.price_pph ?? null },
+      ];
     });
     setQuery("");
     setHits([]);
@@ -188,6 +193,13 @@ export default function DemandeProduitsPage() {
     setNote("");
   };
 
+  const fieldFocus =
+    "outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
+  const totalAmount = useMemo(
+    () => lines.reduce((sum, l) => sum + (l.price_pph ?? 0) * l.qty, 0),
+    [lines]
+  );
+
   if (!sessionReady) {
     return (
       <main className="min-h-screen bg-background p-6">
@@ -196,11 +208,8 @@ export default function DemandeProduitsPage() {
     );
   }
 
-  const fieldFocus =
-    "outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
-
   return (
-    <main className="min-h-screen bg-background p-4 pb-14 sm:p-5">
+    <main className="min-h-screen bg-background p-4 pb-28 sm:p-5 sm:pb-32">
       <div className="mx-auto max-w-lg">
         <Link
           href={`/pharmacie/${pharmacyId}`}
@@ -231,36 +240,50 @@ export default function DemandeProduitsPage() {
           </div>
         </div>
 
-        <section className="mt-5 rounded-2xl border border-border/90 bg-card p-4 text-card-foreground shadow-sm">
-          <label className="block text-sm font-medium text-foreground">Rechercher un produit</label>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Nom (min. 2 caractères)"
-            className={cn(
-              "mt-2 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm shadow-sm placeholder:text-muted-foreground",
-              fieldFocus
-            )}
-          />
+        <section className="mt-5 rounded-2xl border border-primary/20 bg-primary/[0.06] p-4 text-card-foreground shadow-sm">
+          <label className="block text-sm font-semibold text-foreground">Recherche de produits</label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Commencez à taper le nom du produit (2 caractères minimum).
+          </p>
+          <div className="relative mt-2">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Ex: Doliprane, Smecta..."
+              className={cn(
+                "w-full rounded-xl border border-input bg-background py-2.5 pl-9 pr-3 text-sm shadow-sm placeholder:text-muted-foreground",
+                fieldFocus
+              )}
+            />
+          </div>
           {searchLoading ? <p className="mt-2 text-xs text-muted-foreground">Recherche…</p> : null}
           {visibleHits.length > 0 ? (
-            <ul className="mt-3 max-h-52 space-y-1 overflow-y-auto rounded-xl border border-border/70 bg-muted/25 p-2">
+            <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto">
               {visibleHits.map((p) => (
                 <li key={p.id}>
                   <button
                     type="button"
                     onClick={() => addProduct(p)}
-                    className="flex w-full flex-col rounded-lg px-2 py-2 text-left text-sm transition hover:bg-card"
+                    className="flex w-full items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-3 py-2 text-left transition hover:bg-muted/35"
                   >
-                    <span className="font-medium text-foreground">{p.name}</span>
-                    {unitPriceLabel(p.price_pph) ? (
-                      <span className="text-xs font-medium text-primary">{unitPriceLabel(p.price_pph)}</span>
-                    ) : null}
-                    <span className="text-xs text-muted-foreground">
-                      {p.product_type}
-                      {p.laboratory ? ` · ${p.laboratory}` : ""}
-                    </span>
+                    <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card">
+                      {p.photo_url ? (
+                        <img src={p.photo_url} alt={p.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <Package className="size-5 text-muted-foreground" aria-hidden />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-foreground">{p.name}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-xs font-semibold text-primary">{unitPriceLabel(p.price_pph) ?? "Prix indisponible"}</p>
+                    </div>
                   </button>
                 </li>
               ))}
@@ -271,7 +294,7 @@ export default function DemandeProduitsPage() {
         </section>
 
         <section className="mt-4 rounded-2xl border border-border/90 bg-card p-4 text-card-foreground shadow-sm">
-          <h2 className="text-sm font-semibold text-foreground">Ta liste</h2>
+          <h2 className="text-sm font-semibold text-foreground">Produits ajoutés</h2>
           {lines.length === 0 ? (
             <p className="mt-2 text-sm text-muted-foreground">Aucun produit pour l’instant.</p>
           ) : (
@@ -279,62 +302,79 @@ export default function DemandeProduitsPage() {
               {lines.map((l) => (
                 <li
                   key={l.product_id}
-                  className="flex flex-wrap items-center gap-2 rounded-xl border border-border/70 bg-muted/20 px-3 py-2"
+                  className="relative rounded-xl border border-border/70 bg-muted/20 p-2.5"
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{l.name}</p>
-                    {unitPriceLabel(l.price_pph) ? (
-                      <p className="truncate text-xs font-medium text-primary">{unitPriceLabel(l.price_pph)}</p>
-                    ) : null}
-                    <label className="mt-1 block text-[11px] text-muted-foreground">
-                      <span className="sr-only">Note sur ce produit</span>
-                      <input
-                        type="text"
-                        value={l.client_comment ?? ""}
-                        onChange={(e) =>
-                          setLines((prev) =>
-                            prev.map((row) =>
-                              row.product_id === l.product_id
-                                ? { ...row, client_comment: e.target.value.slice(0, 500) }
-                                : row
+                  <button
+                    type="button"
+                    aria-label="Retirer"
+                    className="absolute right-2 top-2 rounded-lg p-1.5 text-destructive hover:bg-destructive/10"
+                    onClick={() => removeLine(l.product_id)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+
+                  <div className="flex items-stretch gap-3 pr-9">
+                    <div className="aspect-square w-24 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card">
+                      {l.photo_url ? (
+                        <img src={l.photo_url} alt={l.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <Package className="size-7 text-muted-foreground" aria-hidden />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col justify-between">
+                      <p className="truncate text-sm font-semibold text-foreground">{l.name}</p>
+                      <p className="mt-0.5 text-xs font-medium text-primary">
+                        {unitPriceLabel(l.price_pph) ?? "Prix unitaire indisponible"}
+                      </p>
+                      <div className="mt-2 flex items-center gap-1">
+                        <button
+                          type="button"
+                          aria-label="Diminuer"
+                          className="rounded-lg border border-border bg-card p-1.5 text-foreground hover:bg-muted/60"
+                          onClick={() => setQty(l.product_id, l.qty - 1)}
+                        >
+                          <Minus size={16} />
+                        </button>
+                        <span className="w-8 text-center text-sm font-semibold tabular-nums">{l.qty}</span>
+                        <button
+                          type="button"
+                          aria-label="Augmenter"
+                          disabled={l.qty >= 10}
+                          className="rounded-lg border border-border bg-card p-1.5 text-foreground hover:bg-muted/60 disabled:opacity-40"
+                          onClick={() => setQty(l.product_id, l.qty + 1)}
+                        >
+                          <Plus size={16} />
+                        </button>
+                        <span className="ml-2 text-[11px] text-muted-foreground">
+                          Total{" "}
+                          <span className="ml-1 inline-block rounded bg-background px-1.5 py-0.5 font-semibold text-foreground">
+                            {l.price_pph != null ? `${(l.price_pph * l.qty).toFixed(2)} MAD` : "-"}
+                          </span>
+                        </span>
+                      </div>
+                      <label className="mt-2 block text-[11px] font-medium text-foreground">
+                        <input
+                          type="text"
+                          value={l.client_comment ?? ""}
+                          onChange={(e) =>
+                            setLines((prev) =>
+                              prev.map((row) =>
+                                row.product_id === l.product_id
+                                  ? { ...row, client_comment: e.target.value.slice(0, 500) }
+                                  : row
+                              )
                             )
-                          )
-                        }
-                        placeholder="Note sur ce produit (optionnel)"
-                        className={cn(
-                          "mt-0.5 w-full rounded-lg border border-input bg-background px-2 py-1 text-[11px]",
-                          fieldFocus
-                        )}
-                      />
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      aria-label="Diminuer"
-                      className="rounded-lg border border-border bg-card p-1.5 text-foreground hover:bg-muted/60"
-                      onClick={() => setQty(l.product_id, l.qty - 1)}
-                    >
-                      <Minus size={16} />
-                    </button>
-                    <span className="w-8 text-center text-sm font-semibold tabular-nums">{l.qty}</span>
-                    <button
-                      type="button"
-                      aria-label="Augmenter"
-                      disabled={l.qty >= 10}
-                      className="rounded-lg border border-border bg-card p-1.5 text-foreground hover:bg-muted/60 disabled:opacity-40"
-                      onClick={() => setQty(l.product_id, l.qty + 1)}
-                    >
-                      <Plus size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Retirer"
-                      className="ml-1 rounded-lg p-1.5 text-destructive hover:bg-destructive/10"
-                      onClick={() => removeLine(l.product_id)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                          }
+                          placeholder="Commentaire sur ce produit (optionnel)"
+                          className={cn(
+                            "mt-1 w-full rounded-lg border border-primary/35 bg-primary/[0.04] px-2.5 py-2 text-xs placeholder:text-muted-foreground",
+                            fieldFocus
+                          )}
+                        />
+                      </label>
+                    </div>
                   </div>
                 </li>
               ))}
@@ -390,6 +430,19 @@ export default function DemandeProduitsPage() {
         >
           Mes demandes de produits
         </Link>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+        <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">{lines.length}</span>{" "}
+            {lines.length > 1 ? "produits" : "produit"} ajoutés
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Total indicatif{" "}
+            <span className="font-semibold text-foreground">{totalAmount.toFixed(2)} MAD</span>
+          </p>
+        </div>
       </div>
     </main>
   );
