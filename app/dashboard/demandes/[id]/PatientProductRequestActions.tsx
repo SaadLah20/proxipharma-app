@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Minus, Package, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+  Layers,
+  MessageSquare,
+  Minus,
+  Package,
+  Pencil,
+  Plus,
+  Search,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { formatDateShortFr, formatTime24hFr } from "@/lib/datetime-fr";
 import {
   PATIENT_CANCEL_REASON_CODES,
@@ -346,6 +357,366 @@ function htmlTimeToPg(t: string): string | null {
   return s;
 }
 
+type RespondedChooserProps = {
+  row: ActionItemRow;
+  selState: LineSelState;
+  setLineBranch: (itemId: string, branch: LineBranch) => void;
+  setLineQty: (itemId: string, qty: number) => void;
+  togglePrincipalOnlyLine: (itemId: string, on: boolean) => void;
+};
+
+function RespondedPatientLineChooser({
+  row,
+  selState,
+  setLineBranch,
+  setLineQty,
+  togglePrincipalOnlyLine,
+}: RespondedChooserProps) {
+  const prod = one(row.products);
+  const prodUnitPrice = unitPriceLabel(prod?.price_pph);
+  const altList = normalizeAlternatives(row.request_item_alternatives);
+  const hasAlts = altList.length > 0;
+  const capPrincipal = maxQtyPrincipal(row);
+  const radioName = `line-choice-${row.id}`;
+  const currentBranch = selState.branch;
+  const isProposedLine = row.line_source === "pharmacist_proposed";
+  const maxBranch = maxQtyForBranch(row, currentBranch, altList);
+
+  const patientNote = row.client_comment?.trim();
+  const pharmaLineNote = row.pharmacist_comment?.trim();
+
+  const thumb = (
+    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
+      {prod?.photo_url ? (
+        <img src={prod.photo_url} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center">
+          <Package className="size-7 text-muted-foreground" aria-hidden />
+        </div>
+      )}
+    </div>
+  );
+
+  const qtyStepper =
+    currentBranch !== null && maxBranch > 0 ? (
+      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background/80 px-2.5 py-2">
+        <span className="text-[11px] text-muted-foreground">
+          Quantité <span className="tabular-nums">(max. {maxBranch})</span>
+        </span>
+        <button
+          type="button"
+          aria-label="Diminuer la quantité"
+          disabled={selState.qty <= 1}
+          className="rounded-lg border border-border bg-card p-1.5 text-foreground hover:bg-muted/60 disabled:opacity-40"
+          onClick={() => setLineQty(row.id, selState.qty - 1)}
+        >
+          <Minus size={16} />
+        </button>
+        <span className="min-w-[2rem] text-center text-sm font-semibold tabular-nums">{selState.qty}</span>
+        <button
+          type="button"
+          aria-label="Augmenter la quantité"
+          disabled={selState.qty >= maxBranch}
+          className="rounded-lg border border-border bg-card p-1.5 text-foreground hover:bg-muted/60 disabled:opacity-40"
+          onClick={() => setLineQty(row.id, selState.qty + 1)}
+        >
+          <Plus size={16} />
+        </button>
+        {(() => {
+          const branchPrice =
+            currentBranch === "principal"
+              ? row.unit_price
+              : altList.find((a) => a.id === currentBranch)?.unit_price ?? null;
+          return branchPrice != null ? (
+            <span className="ml-auto text-[11px] font-semibold text-foreground">
+              Total <span className="tabular-nums">{(selState.qty * Number(branchPrice)).toFixed(2)}</span> MAD
+            </span>
+          ) : null;
+        })()}
+      </div>
+    ) : null;
+
+  const commentsBlock = (
+    <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
+      <div
+        className={`rounded-xl border px-2.5 py-2 ${
+          patientNote
+            ? "border-sky-200/90 bg-sky-50/90"
+            : "border-dashed border-slate-200 bg-slate-50/50"
+        }`}
+      >
+        <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-sky-900/90">
+          <MessageSquare className="size-3.5 shrink-0 opacity-80" aria-hidden />
+          Votre précision
+        </p>
+        {patientNote ? (
+          <p className="mt-1 text-[11px] leading-snug text-sky-950">{patientNote}</p>
+        ) : (
+          <p className="mt-1 text-[10px] italic text-slate-500">Aucune précision sur ce produit.</p>
+        )}
+      </div>
+      <div
+        className={`rounded-xl border px-2.5 py-2 ${
+          pharmaLineNote
+            ? "border-emerald-200/90 bg-emerald-50/90"
+            : "border-dashed border-slate-200 bg-slate-50/50"
+        }`}
+      >
+        <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-emerald-950/90">
+          <Sparkles className="size-3.5 shrink-0 opacity-80" aria-hidden />
+          Réponse pharmacie (ligne)
+        </p>
+        {pharmaLineNote ? (
+          <p className="mt-1 text-[11px] leading-snug text-emerald-950">{pharmaLineNote}</p>
+        ) : (
+          <p className="mt-1 text-[10px] italic text-slate-500">La pharmacie n’a pas laissé de commentaire sur cette ligne.</p>
+        )}
+      </div>
+    </div>
+  );
+
+  const cardShell = (inner: ReactNode) => (
+    <li
+      className={`overflow-hidden rounded-2xl border-2 bg-white shadow-md ring-1 ring-black/[0.04] ${
+        isProposedLine ? "border-violet-200/90" : "border-emerald-200/70"
+      }`}
+    >
+      {isProposedLine ? (
+        <div className="border-b border-violet-200/80 bg-gradient-to-r from-violet-50 to-white px-3 py-2.5">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-violet-800">
+            {requestItemLineSourceFr.pharmacist_proposed}
+          </p>
+          {row.pharmacist_proposal_reason?.trim() ? (
+            <p className="mt-1 text-[11px] leading-snug text-violet-950">
+              <span className="font-semibold">Motif : </span>
+              {row.pharmacist_proposal_reason.trim()}
+            </p>
+          ) : (
+            <p className="mt-1 text-[11px] italic text-violet-800/80">Motif non renseigné par l’officine.</p>
+          )}
+        </div>
+      ) : (
+        <div className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50/80 to-white px-3 py-2">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-900">Votre demande initiale</p>
+          <p className="mt-0.5 text-[10px] text-emerald-900/70">
+            Origine : <strong>{requestItemLineSourceFr.patient_request}</strong>
+          </p>
+        </div>
+      )}
+      <div className="p-3">{inner}</div>
+    </li>
+  );
+
+  if (!hasAlts) {
+    return cardShell(
+      <>
+        <div className="flex min-h-[96px] items-stretch gap-3">
+          {thumb}
+          <div className="min-w-0 flex-1">
+            <p
+              className="overflow-hidden pr-1 text-[13px] font-semibold leading-tight text-foreground sm:text-[15px]"
+              style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
+            >
+              {prod?.name ?? "Produit"}
+            </p>
+            {prodUnitPrice ? <p className="mt-0.5 text-xs font-medium text-primary">{prodUnitPrice}</p> : null}
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+              <span>
+                Demandé · <strong className="tabular-nums text-foreground">{row.requested_qty}</strong>
+              </span>
+              {row.availability_status ? (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-800">
+                  {availabilityStatusFr[row.availability_status] ?? row.availability_status}
+                </span>
+              ) : null}
+              {row.availability_status === "to_order" && row.expected_availability_date ? (
+                <span className="text-[10px]">Dispo&nbsp;≈ {formatDateShortFr(row.expected_availability_date)}</span>
+              ) : null}
+            </p>
+          </div>
+        </div>
+        {commentsBlock}
+        <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border-2 border-slate-200 bg-slate-50/40 px-3 py-2.5 transition hover:border-emerald-200">
+          <input
+            type="checkbox"
+            className="mt-1 rounded border-primary"
+            checked={currentBranch === "principal" && capPrincipal > 0}
+            disabled={capPrincipal === 0}
+            onChange={(e) => togglePrincipalOnlyLine(row.id, e.target.checked)}
+          />
+          <span className="text-sm leading-snug">
+            <span className="font-semibold text-foreground">Je retiens cette ligne</span>
+            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+              Une seule option possible — quantité réglable jusqu’à la limite communiquée par la pharmacie.
+            </span>
+          </span>
+        </label>
+        {capPrincipal === 0 ? (
+          <p className="mt-2 rounded-lg border border-amber-200/80 bg-amber-50 px-2.5 py-2 text-[11px] leading-snug text-amber-950">
+            Aucune quantité disponible sur ce produit pour l’instant. Tu peux ne pas retenir cette ligne ou repasser après un échange avec
+            l’officine.
+          </p>
+        ) : null}
+        {qtyStepper}
+      </>
+    );
+  }
+
+  return cardShell(
+    <>
+      <div className="flex min-h-[96px] items-stretch gap-3">
+        {thumb}
+        <div className="min-w-0 flex-1">
+          <p
+            className="overflow-hidden pr-1 text-[13px] font-semibold leading-tight text-foreground sm:text-[15px]"
+            style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
+          >
+            {prod?.name ?? "Produit"}
+          </p>
+          {prodUnitPrice ? <p className="mt-0.5 text-xs font-medium text-primary">{prodUnitPrice}</p> : null}
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            Quantité dans ta demande : <strong className="tabular-nums text-foreground">{row.requested_qty}</strong>
+          </p>
+        </div>
+      </div>
+
+      {commentsBlock}
+
+      <div className="mt-4 rounded-xl border border-teal-200/70 bg-gradient-to-b from-teal-50/50 to-background p-2.5">
+        <div className="mb-2 flex items-center gap-2 text-teal-950">
+          <Layers className="size-4 shrink-0 opacity-90" aria-hidden />
+          <p className="text-[10px] font-bold uppercase tracking-wide">Choisis quoi récupérer</p>
+        </div>
+        <p className="mb-3 text-[10px] leading-snug text-teal-900/85">
+          <strong className="text-teal-950">Principal</strong> = produit demandé. <strong className="text-teal-950">Alternatives</strong>{" "}
+          = équivalences proposées par ta pharmacie. Tu peux aussi ne garder aucune option pour cette ligne.
+        </p>
+
+        <fieldset className="space-y-2 border-0 p-0">
+          <legend className="sr-only">Choix pour {prod?.name ?? "Produit"}</legend>
+
+          <label
+            className={`flex cursor-pointer flex-col rounded-xl border-2 px-3 py-2.5 transition ${
+              currentBranch === null
+                ? "border-slate-500 bg-slate-100/60 shadow-sm ring-2 ring-slate-300/30"
+                : "border-slate-200 bg-white hover:border-slate-300"
+            }`}
+          >
+            <span className="flex items-start gap-2.5">
+              <input type="radio" name={radioName} className="mt-1 shrink-0" checked={currentBranch === null} onChange={() => setLineBranch(row.id, null)} />
+              <span>
+                <span className="text-sm font-semibold text-foreground">Ne pas retenir cette ligne</span>
+                <span className="mt-0.5 block text-[11px] text-muted-foreground">Aucun des produits ci-dessous ne m’intéresse.</span>
+              </span>
+            </span>
+          </label>
+
+          <label
+            className={`flex cursor-pointer flex-col rounded-xl border-2 px-3 py-2.5 transition ${
+              currentBranch === "principal"
+                ? "border-emerald-500 bg-emerald-50/80 shadow-sm ring-1 ring-emerald-200"
+                : capPrincipal === 0
+                  ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60"
+                  : "border-emerald-200/80 bg-white hover:border-emerald-300"
+            }`}
+          >
+            <span className="flex items-start gap-2.5">
+              <input
+                type="radio"
+                name={radioName}
+                className="mt-1 shrink-0"
+                checked={currentBranch === "principal"}
+                disabled={capPrincipal === 0}
+                onChange={() => setLineBranch(row.id, "principal")}
+              />
+              <span className="min-w-0 flex-1 space-y-1">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold text-foreground">Produit principal</span>
+                  <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                    Demandé
+                  </span>
+                </span>
+                <span className="flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
+                  {row.unit_price != null ? (
+                    <span>
+                      Prix <strong className="tabular-nums text-foreground">{Number(row.unit_price).toFixed(2)}</strong> MAD
+                    </span>
+                  ) : null}
+                  {row.availability_status ? (
+                    <span>{availabilityStatusFr[row.availability_status] ?? row.availability_status}</span>
+                  ) : null}
+                  {row.availability_status === "to_order" && row.expected_availability_date ? (
+                    <span>Disponible le {formatDateShortFr(row.expected_availability_date)}</span>
+                  ) : null}
+                </span>
+              </span>
+            </span>
+          </label>
+
+          {altList.map((alt) => {
+            const altProd = one(alt.products);
+            const capA = maxQtyAlt(row, alt);
+            const disabled = capA === 0;
+            const altComment = alt.pharmacist_comment?.trim();
+            return (
+              <label
+                key={alt.id}
+                className={`flex cursor-pointer flex-col rounded-xl border-2 px-3 py-2.5 transition ${
+                  currentBranch === alt.id
+                    ? "border-teal-500 bg-teal-50/80 shadow-sm ring-1 ring-teal-200"
+                    : disabled
+                      ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60"
+                      : "border-teal-200/70 bg-white hover:border-teal-400"
+                }`}
+              >
+                <span className="flex items-start gap-2.5">
+                  <input
+                    type="radio"
+                    name={radioName}
+                    className="mt-1 shrink-0"
+                    checked={currentBranch === alt.id}
+                    disabled={disabled}
+                    onChange={() => setLineBranch(row.id, alt.id)}
+                  />
+                  <span className="min-w-0 flex-1 space-y-1">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">{altProd?.name ?? "Alternative"}</span>
+                      <span className="rounded-full bg-teal-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                        Alternative
+                      </span>
+                    </span>
+                    <span className="flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
+                      {alt.unit_price != null ? (
+                        <span>
+                          Prix <strong className="tabular-nums text-foreground">{Number(alt.unit_price).toFixed(2)}</strong> MAD
+                        </span>
+                      ) : null}
+                      {alt.availability_status ? (
+                        <span>{availabilityStatusFr[alt.availability_status] ?? alt.availability_status}</span>
+                      ) : null}
+                      {alt.availability_status === "to_order" && alt.expected_availability_date ? (
+                        <span>Disponible le {formatDateShortFr(alt.expected_availability_date)}</span>
+                      ) : null}
+                    </span>
+                    {altComment ? (
+                      <p className="rounded-lg border border-teal-200/60 bg-white/70 px-2 py-1.5 text-[10px] leading-snug text-teal-950">
+                        <span className="font-semibold text-teal-900">Note officine : </span>
+                        {altComment}
+                      </p>
+                    ) : null}
+                  </span>
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
+      </div>
+
+      {qtyStepper}
+    </>
+  );
+}
+
 function splitVisitHm(raw: string | null | undefined): { h: string; m: string } {
   if (!raw) return { h: "", m: "" };
   const m = /^(\d{1,2}):(\d{2})/.exec(raw.trim());
@@ -380,6 +751,9 @@ export function PatientProductRequestActions({
   const [visitDate, setVisitDate] = useState(initialPlannedVisitDate ?? "");
   const [visitHour, setVisitHour] = useState(() => splitVisitHm(initialPlannedVisitTime).h);
   const [visitMinute, setVisitMinute] = useState(() => splitVisitHm(initialPlannedVisitTime).m);
+
+  /** Note générale à l’étape « pharmacie a répondu » (persistée avec la validation). */
+  const [confirmPatientNote, setConfirmPatientNote] = useState(() => initialPatientNote ?? "");
 
   /** Resubmit draft — idem */
   const [noteDraft, setNoteDraft] = useState(() => initialPatientNote ?? "");
@@ -458,6 +832,35 @@ export function PatientProductRequestActions({
   const resubmitTotal = useMemo(
     () => lines.reduce((sum, l) => sum + (l.price_pph ?? 0) * l.qty, 0),
     [lines]
+  );
+
+  const confirmSelectionSummary = useMemo(() => {
+    let count = 0;
+    let total = 0;
+    if (status !== "responded") return { count, total };
+    for (const row of items) {
+      const alts = normalizeAlternatives(row.request_item_alternatives);
+      const st = sel[row.id];
+      if (!st || st.branch === null) continue;
+      const cap = maxQtyForBranch(row, st.branch, alts);
+      if (cap < 1) continue;
+      count += 1;
+      const branchPrice =
+        st.branch === "principal"
+          ? row.unit_price
+          : alts.find((a) => a.id === st.branch)?.unit_price ?? null;
+      if (branchPrice != null) total += Number(branchPrice) * st.qty;
+    }
+    return { count, total };
+  }, [status, items, sel]);
+
+  const demandLinesResponded = useMemo(
+    () => items.filter((r) => r.line_source !== "pharmacist_proposed"),
+    [items]
+  );
+  const proposedLinesResponded = useMemo(
+    () => items.filter((r) => r.line_source === "pharmacist_proposed"),
+    [items]
   );
 
   useEffect(() => {
@@ -614,6 +1017,14 @@ export function PatientProductRequestActions({
       setActionError(error.message);
       return;
     }
+    const trimmedNote = confirmPatientNote.trim();
+    const { error: noteErr } = await supabase
+      .from("product_requests")
+      .update({ patient_note: trimmedNote === "" ? null : trimmedNote })
+      .eq("request_id", requestId);
+    if (noteErr) {
+      console.error("patient_note after confirm:", noteErr);
+    }
     await onReload();
   };
 
@@ -723,198 +1134,90 @@ export function PatientProductRequestActions({
   const visitTimeFr = visitTimeComposed ? formatTime24hFr(htmlTimeToPg(visitTimeComposed) ?? visitTimeComposed) : "";
 
   return (
-    <section className={`mt-3 rounded-lg border border-border/90 bg-muted/15 p-2.5 sm:p-3 ${showResubmit ? "pb-20" : ""}`}>
+    <section
+      className={`mt-3 rounded-lg border border-border/90 bg-muted/15 p-2.5 sm:p-3 ${showResubmit ? "pb-20" : ""} ${showConfirm ? "pb-28" : ""}`}
+    >
       {actionError ? (
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
       ) : null}
 
       {showConfirm ? (
-        <ul className="space-y-4">
-              {items.map((row) => {
-                const prod = one(row.products);
-                const prodUnitPrice = unitPriceLabel(prod?.price_pph);
-                const altList = normalizeAlternatives(row.request_item_alternatives);
-                const st = sel[row.id] ?? { branch: null, qty: 1 };
-                const hasAlts = altList.length > 0;
-                const capPrincipal = maxQtyPrincipal(row);
-                const radioName = `line-choice-${row.id}`;
-                const currentBranch = st.branch;
-                const isProposedLine = row.line_source === "pharmacist_proposed";
+        <div className="space-y-5">
+          <div className="rounded-2xl border-2 border-emerald-200/80 bg-gradient-to-br from-emerald-50/90 via-white to-sky-50/40 p-3 shadow-sm sm:p-4">
+            <h2 className="text-[15px] font-bold leading-snug text-foreground sm:text-base">La pharmacie a répondu — à toi de confirmer</h2>
+            <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
+              Pour chaque ligne, retiens le <strong className="text-foreground">principal</strong>, une{" "}
+              <strong className="text-foreground">alternative</strong>, ou{" "}
+              <strong className="text-foreground">aucune option</strong>. Les quantités ne peuvent pas dépasser celles indiquées par
+              l&apos;officine, mais tu peux les baisser.
+            </p>
+            <ul className="mt-3 grid gap-1.5 text-[10px] leading-snug text-muted-foreground sm:grid-cols-2 sm:text-[11px]">
+              <li className="flex items-center gap-2">
+                <span className="inline-block size-2 shrink-0 rounded-full bg-emerald-500" aria-hidden />
+                <span>
+                  <strong className="text-emerald-950">Principal / ta liste</strong> — produits demandés au départ.
+                </span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="inline-block size-2 shrink-0 rounded-full bg-teal-500" aria-hidden />
+                <span>
+                  <strong className="text-teal-950">Alternatives</strong> — choix proposés à la place ou en complément du principal.
+                </span>
+              </li>
+              <li className="flex items-center gap-2 sm:col-span-2">
+                <span className="inline-block size-2 shrink-0 rounded-full bg-violet-500" aria-hidden />
+                <span>
+                  <strong className="text-violet-950">Proposé par la pharmacie</strong> — ajout hors de ta liste d&apos;origine.
+                </span>
+              </li>
+            </ul>
+          </div>
 
-                return (
-                  <li
+          {demandLinesResponded.length > 0 ? (
+            <section className="space-y-2.5">
+              <h3 className="flex items-center gap-2 px-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-950">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-sm" aria-hidden />
+                Ta liste et les alternatives
+              </h3>
+              <ul className="space-y-4">
+                {demandLinesResponded.map((row) => (
+                  <RespondedPatientLineChooser
                     key={row.id}
-                    className="rounded-xl border-2 border-slate-200/90 bg-white px-3 py-2.5 shadow-md ring-1 ring-black/[0.04]"
-                  >
-                    {isProposedLine ? (
-                      <div className="mb-2.5 rounded-lg border border-violet-300/70 bg-violet-50 px-2.5 py-2 text-[11px] leading-snug text-violet-950">
-                        <p className="font-bold text-violet-950">{requestItemLineSourceFr.pharmacist_proposed}</p>
-                        {row.pharmacist_proposal_reason?.trim() ? (
-                          <p className="mt-1 text-violet-900/95">
-                            <span className="font-semibold">Motif : </span>
-                            {row.pharmacist_proposal_reason.trim()}
-                          </p>
-                        ) : (
-                          <p className="mt-1 italic text-violet-800/80">Aucun motif renseigné par la pharmacie.</p>
-                        )}
-                      </div>
-                    ) : null}
-                    <p className="text-xs font-semibold text-foreground sm:text-sm">{prod?.name ?? "Produit"}</p>
-                    {!hasAlts && prodUnitPrice ? (
-                      <p className="text-[10px] font-medium text-teal-800 sm:text-xs">{prodUnitPrice}</p>
-                    ) : null}
+                    row={row}
+                    selState={sel[row.id] ?? { branch: null, qty: 1 }}
+                    setLineBranch={setLineBranch}
+                    setLineQty={setLineQty}
+                    togglePrincipalOnlyLine={togglePrincipalOnlyLine}
+                  />
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
-                    {!hasAlts ? (
-                      <>
-                        <p className="mt-1 text-xs text-gray-600">
-                          {row.availability_status ? availabilityStatusFr[row.availability_status] ?? row.availability_status : "—"}
-                          {row.availability_status === "to_order" && row.expected_availability_date
-                            ? ` · Disponible le ${formatDateShortFr(row.expected_availability_date)}`
-                            : ""}
-                        </p>
-                        {row.pharmacist_comment ? (
-                          <p className="mt-1 text-xs text-muted-foreground">{row.pharmacist_comment}</p>
-                        ) : null}
-                        <label className="mt-2 flex gap-2 text-sm font-medium text-gray-900">
-                          <input
-                            type="checkbox"
-                            checked={currentBranch === "principal" && capPrincipal > 0}
-                            disabled={capPrincipal === 0}
-                            onChange={(e) => togglePrincipalOnlyLine(row.id, e.target.checked)}
-                          />
-                          <span>Je prends ce produit</span>
-                        </label>
-                        {capPrincipal > 0 ? (
-                          <div className="ml-6 mt-2 flex flex-wrap items-center gap-2 text-xs">
-                            <span className="text-gray-500">Quantité max. {capPrincipal}</span>
-                            <label className="flex items-center gap-1">
-                              <span>J’en prends :</span>
-                              <input
-                                type="number"
-                                min={1}
-                                max={capPrincipal}
-                                disabled={currentBranch !== "principal"}
-                                value={currentBranch === "principal" ? st.qty : 0}
-                                onChange={(e) => setLineQty(row.id, Number(e.target.value))}
-                                className="w-16 rounded border px-1 py-0.5"
-                              />
-                            </label>
-                            {row.unit_price != null ? (
-                              <span className="font-semibold text-foreground">
-                                Total {Number(st.qty * row.unit_price).toFixed(2)} MAD
-                              </span>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </>
-                    ) : (
-                      <fieldset className="mt-2 space-y-2 border-0 p-0">
-                        <legend className="sr-only">Choix pour {prod?.name ?? "Produit"}</legend>
-                        <label className="flex gap-2 text-sm text-foreground">
-                          <input type="radio" name={radioName} checked={currentBranch === null} onChange={() => setLineBranch(row.id, null)} />
-                          <span>Je ne prends aucune option</span>
-                        </label>
-                        <label className={`flex flex-col gap-0.5 text-sm ${capPrincipal === 0 ? "text-gray-400" : ""}`}>
-                          <span className="flex gap-2">
-                            <input
-                              type="radio"
-                              name={radioName}
-                              checked={currentBranch === "principal"}
-                              disabled={capPrincipal === 0}
-                              onChange={() => setLineBranch(row.id, "principal")}
-                            />
-                            <span>
-                              Produit principal
-                              {row.unit_price != null ? (
-                                <span className="ml-1 text-xs font-normal text-gray-600">
-                                  · Prix pharmacie {Number(row.unit_price).toFixed(2)} MAD
-                                </span>
-                              ) : null}
-                              {row.availability_status ? (
-                                <span className="ml-1 text-xs font-normal text-gray-600">
-                                  ({availabilityStatusFr[row.availability_status] ?? row.availability_status})
-                                </span>
-                              ) : null}
-                              {row.availability_status === "to_order" && row.expected_availability_date ? (
-                                <span className="ml-1 text-xs font-normal text-gray-600">
-                                  · Disponible le {formatDateShortFr(row.expected_availability_date)}
-                                </span>
-                              ) : null}
-                            </span>
-                          </span>
-                        </label>
-                        {altList.map((alt) => {
-                          const altProd = one(alt.products);
-                          const capA = maxQtyAlt(row, alt);
-                          const disabled = capA === 0;
-                          return (
-                            <label key={alt.id} className={`flex flex-col gap-0.5 text-sm ${disabled ? "text-gray-400" : ""}`}>
-                              <span className="flex gap-2">
-                                <input
-                                  type="radio"
-                                  name={radioName}
-                                  checked={currentBranch === alt.id}
-                                  disabled={disabled}
-                                  onChange={() => setLineBranch(row.id, alt.id)}
-                                />
-                                <span>
-                                  Alternative : {altProd?.name ?? "Produit"}
-                                  {alt.unit_price != null ? (
-                                    <span className="ml-1 text-xs font-normal text-gray-600">
-                                      · Prix pharmacie {Number(alt.unit_price).toFixed(2)} MAD
-                                    </span>
-                                  ) : null}
-                                  {alt.availability_status ? (
-                                    <span className="ml-1 text-xs font-normal text-gray-600">
-                                      ({availabilityStatusFr[alt.availability_status] ?? alt.availability_status})
-                                    </span>
-                                  ) : null}
-                                  {alt.availability_status === "to_order" && alt.expected_availability_date ? (
-                                    <span className="ml-1 text-xs font-normal text-gray-600">
-                                      · Disponible le {formatDateShortFr(alt.expected_availability_date)}
-                                    </span>
-                                  ) : null}
-                                </span>
-                              </span>
-                              {alt.pharmacist_comment ? (
-                                <span className="ml-6 text-xs text-muted-foreground">{alt.pharmacist_comment}</span>
-                              ) : null}
-                            </label>
-                          );
-                        })}
-                        {currentBranch !== null && maxQtyForBranch(row, currentBranch, altList) > 0 ? (
-                          <div className="ml-6 mt-1 flex flex-wrap items-center gap-2 text-xs">
-                            <span className="text-gray-500">Quantité max. {maxQtyForBranch(row, currentBranch, altList)}</span>
-                            <label className="flex items-center gap-1">
-                              <span>J’en prends :</span>
-                              <input
-                                type="number"
-                                min={1}
-                                max={maxQtyForBranch(row, currentBranch, altList)}
-                                value={st.qty}
-                                onChange={(e) => setLineQty(row.id, Number(e.target.value))}
-                                className="w-16 rounded border px-1 py-0.5"
-                              />
-                            </label>
-                            {(() => {
-                              const branchPrice =
-                                currentBranch === "principal"
-                                  ? row.unit_price
-                                  : altList.find((a) => a.id === currentBranch)?.unit_price ?? null;
-                              return branchPrice != null ? (
-                                <span className="font-semibold text-foreground">
-                                  Total {Number(st.qty * branchPrice).toFixed(2)} MAD
-                                </span>
-                              ) : null;
-                            })()}
-                          </div>
-                        ) : null}
-                      </fieldset>
-                    )}
-                  </li>
-                );
-              })}
-        </ul>
+          {proposedLinesResponded.length > 0 ? (
+            <section className="space-y-2.5">
+              <h3 className="flex items-center gap-2 px-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-violet-950">
+                <span className="h-2 w-2 rounded-full bg-violet-500 shadow-sm" aria-hidden />
+                Suggestions de l&apos;officine
+              </h3>
+              <p className="px-0.5 text-[10px] leading-snug text-muted-foreground sm:text-[11px]">
+                Produits ajoutés par ta pharmacie. Tu décides comme pour le reste : retenir (avec une quantité autorisée) ou ne pas prendre cette ligne.
+              </p>
+              <ul className="space-y-4">
+                {proposedLinesResponded.map((row) => (
+                  <RespondedPatientLineChooser
+                    key={row.id}
+                    row={row}
+                    selState={sel[row.id] ?? { branch: null, qty: 1 }}
+                    setLineBranch={setLineBranch}
+                    setLineQty={setLineQty}
+                    togglePrincipalOnlyLine={togglePrincipalOnlyLine}
+                  />
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
       ) : null}
 
       {showConfirmedCards ? (
@@ -1197,14 +1500,21 @@ export function PatientProductRequestActions({
         ) : null}
 
         {showConfirm ? (
-          <button
-            type="button"
-            disabled={busyAction !== "" || visitWin.missingEtaOnToOrder}
-            onClick={() => void runConfirm()}
-            className="w-full rounded-md bg-primary py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50 sm:text-sm"
-          >
-            {busyAction === "confirm" ? "Confirmation…" : "Valider ma sélection"}
-          </button>
+          <div className="rounded-xl border border-sky-200/80 bg-sky-50/35 p-2.5 sm:p-3">
+            <label className="block text-xs font-semibold text-foreground">
+              Message général pour la pharmacie (optionnel)
+              <textarea
+                value={confirmPatientNote}
+                onChange={(e) => setConfirmPatientNote(e.target.value.slice(0, 2000))}
+                rows={3}
+                placeholder="Précisions complémentaires, horaires, questions… seront enregistrées avec ta validation."
+                className="mt-1 w-full resize-y rounded-xl border border-sky-200/90 bg-background px-3 py-2 text-xs shadow-sm placeholder:text-muted-foreground sm:text-sm"
+              />
+            </label>
+            <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
+              Tu peux reprendre ou adapter le message précédent ; cette version remplace celui attaché à la demande après validation.
+            </p>
+          </div>
         ) : null}
 
         {status === "confirmed" ? (
@@ -1296,6 +1606,33 @@ export function PatientProductRequestActions({
             <p className="text-xs text-muted-foreground">
               Total indicatif <span className="font-semibold text-foreground">{resubmitTotal.toFixed(2)} MAD</span>
             </p>
+          </div>
+        </div>
+      ) : null}
+
+      {showConfirm ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-background/95 px-4 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] backdrop-blur supports-[backdrop-filter]:bg-background/90">
+          <div className="mx-auto flex max-w-lg flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="min-w-0 text-[11px] text-muted-foreground sm:text-xs">
+              <p>
+                <span className="font-semibold text-foreground">{confirmSelectionSummary.count}</span>{" "}
+                {confirmSelectionSummary.count > 1 ? "lignes retenues" : "ligne retenue"}
+              </p>
+              <p className="mt-0.5">
+                Total indicatif{" "}
+                <span className="font-semibold tabular-nums text-foreground">
+                  {confirmSelectionSummary.total > 0 ? `${confirmSelectionSummary.total.toFixed(2)} MAD` : "—"}
+                </span>
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={busyAction !== "" || visitWin.missingEtaOnToOrder}
+              onClick={() => void runConfirm()}
+              className="w-full shrink-0 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-95 disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
+            >
+              {busyAction === "confirm" ? "Validation…" : "Valider ma demande"}
+            </button>
           </div>
         </div>
       ) : null}
