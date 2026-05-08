@@ -46,6 +46,7 @@ import {
   type PharmaConfirmAdjustmentAudit,
   type PharmaConfirmAdjustmentLine,
 } from "@/lib/patient-request-history-audit";
+import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
 
 type RequestRow = {
   id: string;
@@ -689,6 +690,16 @@ export default function PharmacienDemandeDetailPage() {
     }, 0);
     return () => window.clearTimeout(tid);
   }, [load]);
+
+  useEffect(() => {
+    const listener = (ev: Event) => {
+      const detail = (ev as CustomEvent<RequestDetailRefreshDetail>).detail;
+      if (detail?.requestId !== id) return;
+      void load();
+    };
+    window.addEventListener(REQUEST_DETAIL_REFRESH_EVENT, listener);
+    return () => window.removeEventListener(REQUEST_DETAIL_REFRESH_EVENT, listener);
+  }, [id, load]);
 
   useEffect(() => {
     if (altDebounced.length < 2 || !altPickerOpenFor) {

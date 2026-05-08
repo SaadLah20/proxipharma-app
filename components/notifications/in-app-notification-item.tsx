@@ -2,6 +2,12 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  dispatchRequestDetailRefresh,
+  notificationHrefTargetsCurrentPath,
+  requestIdFromNotificationDemandeHref,
+} from "@/lib/request-detail-refresh-bus";
 import {
   Bell,
   Building2,
@@ -62,6 +68,8 @@ export function InAppNotificationItem({
   /** Distinction discrète lu/non lu */
   isRead?: boolean;
 }) {
+  const pathname = usePathname();
+
   const commonClass = clsx(
     "flex w-full max-w-full gap-3 overflow-hidden rounded-xl border p-3 text-left shadow-sm transition hover:bg-muted/30",
     isRead
@@ -115,7 +123,18 @@ export function InAppNotificationItem({
 
   if (href) {
     return (
-      <Link href={href} onClick={onNavigate} className={commonClass}>
+      <Link
+        href={href}
+        onClick={(e) => {
+          onNavigate?.();
+          const rid = requestIdFromNotificationDemandeHref(href);
+          if (rid && notificationHrefTargetsCurrentPath(pathname, href)) {
+            e.preventDefault();
+            dispatchRequestDetailRefresh(rid);
+          }
+        }}
+        className={commonClass}
+      >
         {inner}
       </Link>
     );

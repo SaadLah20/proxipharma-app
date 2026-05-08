@@ -13,6 +13,7 @@ import {
   requestTypeFr,
 } from "@/lib/request-display";
 import { one } from "@/lib/embed";
+import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
 
 type PharmacyEmbed = { nom: string; ville: string; adresse: string; telephone: string | null };
 
@@ -116,6 +117,16 @@ export default function AdminDemandeDetailPage() {
     }, 0);
     return () => window.clearTimeout(tid);
   }, [load]);
+
+  useEffect(() => {
+    const listener = (ev: Event) => {
+      const detail = (ev as CustomEvent<RequestDetailRefreshDetail>).detail;
+      if (detail?.requestId !== id) return;
+      void load();
+    };
+    window.addEventListener(REQUEST_DETAIL_REFRESH_EVENT, listener);
+    return () => window.removeEventListener(REQUEST_DETAIL_REFRESH_EVENT, listener);
+  }, [id, load]);
 
   const ph = request ? one(request.pharmacies) : null;
 

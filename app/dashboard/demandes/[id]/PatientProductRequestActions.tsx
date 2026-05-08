@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Layers,
@@ -10,10 +10,11 @@ import {
   Pencil,
   Plus,
   Search,
+  ShoppingCart,
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { formatDateShortFr, formatTime24hFr } from "@/lib/datetime-fr";
+import { formatDateShortFr, formatPlannedVisitFr, formatTime24hFr } from "@/lib/datetime-fr";
 import {
   PATIENT_CANCEL_REASON_CODES,
   PATIENT_CANCEL_REASON_LABELS,
@@ -365,6 +366,27 @@ type RespondedChooserProps = {
   togglePrincipalOnlyLine: (itemId: string, on: boolean) => void;
 };
 
+/** Même résumé qté + dispo que la ligne ait des alternatives ou non. */
+function RespondedProductQtyStatusLine({ row }: { row: ActionItemRow }) {
+  return (
+    <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+      <span>
+        Demandé · <strong className="tabular-nums text-foreground">{row.requested_qty}</strong>
+      </span>
+      {row.availability_status ? (
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-800">
+          {availabilityStatusFr[row.availability_status] ?? row.availability_status}
+        </span>
+      ) : null}
+      {row.availability_status === "to_order" && row.expected_availability_date ? (
+        <span className="text-[10px]">
+          Réception indicative · {formatDateShortFr(row.expected_availability_date)}
+        </span>
+      ) : null}
+    </p>
+  );
+}
+
 function RespondedPatientLineChooser({
   row,
   selState,
@@ -520,19 +542,7 @@ function RespondedPatientLineChooser({
               {prod?.name ?? "Produit"}
             </p>
             {prodUnitPrice ? <p className="mt-0.5 text-xs font-medium text-primary">{prodUnitPrice}</p> : null}
-            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-              <span>
-                Demandé · <strong className="tabular-nums text-foreground">{row.requested_qty}</strong>
-              </span>
-              {row.availability_status ? (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-800">
-                  {availabilityStatusFr[row.availability_status] ?? row.availability_status}
-                </span>
-              ) : null}
-              {row.availability_status === "to_order" && row.expected_availability_date ? (
-                <span className="text-[10px]">Dispo&nbsp;≈ {formatDateShortFr(row.expected_availability_date)}</span>
-              ) : null}
-            </p>
+            <RespondedProductQtyStatusLine row={row} />
           </div>
         </div>
         {commentsBlock}
@@ -574,9 +584,7 @@ function RespondedPatientLineChooser({
             {prod?.name ?? "Produit"}
           </p>
           {prodUnitPrice ? <p className="mt-0.5 text-xs font-medium text-primary">{prodUnitPrice}</p> : null}
-          <p className="mt-1.5 text-[11px] text-muted-foreground">
-            Quantité dans ta demande : <strong className="tabular-nums text-foreground">{row.requested_qty}</strong>
-          </p>
+          <RespondedProductQtyStatusLine row={row} />
         </div>
       </div>
 
@@ -724,6 +732,211 @@ function splitVisitHm(raw: string | null | undefined): { h: string; m: string } 
   return { h: m[1] ?? "", m: m[2] ?? "" };
 }
 
+type PatientConfirmRpcRow = {
+  request_item_id: string;
+  is_selected: boolean;
+  selected_qty: number | null;
+  chosen_alternative_id: string | null;
+};
+
+type PatientConfirmPreviewLine = {
+  rowId: string;
+  productName: string;
+  choiceDetail: string;
+  qty: number;
+  unitPriceMad: number | null;
+  lineTotalMad: number | null;
+  bucket: "reserve" | "order";
+  etaLabel: string | null;
+  photoUrl: string | null;
+};
+
+type PatientConfirmReviewSnapshot = {
+  rpcPayload: PatientConfirmRpcRow[];
+  preview: PatientConfirmPreviewLine[];
+  plannedVisitDate: string;
+  plannedVisitTimePg: string | null;
+  visitSummaryFr: string;
+};
+
+function buildPatientConfirmSelection(
+  items: ActionItemRow[],
+  sel: Record<string, LineSelState>
+): { rpcPayload: PatientConfirmRpcRow[]; preview: PatientConfirmPreviewLine[] } {
+  const preview: PatientConfirmPreviewLine[] = [];
+  const rpcPayload = items.map((row) => {
+    const alts = normalizeAlternatives(row.request_item_alternatives);
+    const st = sel[row.id] ?? ({ branch: null, qty: 1 } satisfies LineSelState);
+    const cap = maxQtyForBranch(row, st.branch, alts);
+    const on = st.branch !== null && cap > 0;
+    const qty = on ? Math.min(st.qty, cap) : null;
+    const chosenAlt = on && st.branch !== null && st.branch !== "principal" ? st.branch : null;
+
+    if (on && qty != null) {
+      const principalProd = one(row.products);
+      let productName: string;
+      let unitPrice: number | null;
+      let effStatus: string | null;
+      let eta: string | null = null;
+      let choiceDetail: string;
+      let photoUrl: string | null;
+
+      if (st.branch === "principal") {
+        productName = principalProd?.name ?? "Produit";
+        unitPrice = row.unit_price != null ? Number(row.unit_price) : null;
+        effStatus = row.availability_status;
+        if (row.line_source === "pharmacist_proposed") {
+          choiceDetail = "Proposition officine — produit ajouté par la pharmacie";
+        } else {
+          choiceDetail = "Produit demandé initialement";
+        }
+        if (effStatus === "to_order" && row.expected_availability_date) {
+          eta = formatDateShortFr(row.expected_availability_date);
+        }
+        photoUrl = principalProd?.photo_url ?? null;
+      } else {
+        const alt = alts.find((a) => a.id === st.branch);
+        const altProd = alt ? one(alt.products) : null;
+        productName = altProd?.name ?? "Alternative";
+        unitPrice = alt?.unit_price != null ? Number(alt.unit_price) : null;
+        effStatus = alt?.availability_status ?? null;
+        choiceDetail = "Alternative proposée par la pharmacie";
+        if (effStatus === "to_order" && alt?.expected_availability_date) {
+          eta = formatDateShortFr(alt.expected_availability_date);
+        }
+        photoUrl = altProd?.photo_url ?? null;
+      }
+
+      const lineTotalMad =
+        unitPrice != null && Number.isFinite(unitPrice) ? unitPrice * qty : null;
+      const bucket: "reserve" | "order" = effStatus === "to_order" ? "order" : "reserve";
+
+      preview.push({
+        rowId: row.id,
+        productName,
+        choiceDetail,
+        qty,
+        unitPriceMad: unitPrice,
+        lineTotalMad,
+        bucket,
+        etaLabel: eta,
+        photoUrl,
+      });
+    }
+
+    return {
+      request_item_id: row.id,
+      is_selected: on,
+      selected_qty: qty,
+      chosen_alternative_id: chosenAlt,
+    };
+  });
+
+  return { rpcPayload, preview };
+}
+
+function validatePatientConfirmBeforeReview(
+  rpcPayload: PatientConfirmRpcRow[],
+  visitWin: ReturnType<typeof plannedVisitWindow>,
+  resolvedVisitDate: string,
+  visitDateRaw: string
+): string | null {
+  const anyOn = rpcPayload.some((p) => p.is_selected);
+  if (!anyOn) {
+    return "Garde au moins une ligne sélectionnée, modifie ta liste avant renvoi, ou abandonne la demande.";
+  }
+  if (visitWin.missingEtaOnToOrder) {
+    return "Une ligne « à commander » n’a pas de date de réception côté pharmacie. Contacte l’officine ou modifie ta sélection.";
+  }
+  const rawVisit = visitDateRaw.trim();
+  if (rawVisit !== "" && rawVisit !== resolvedVisitDate) {
+    return visitWin.hasToOrder
+      ? `Date hors plage autorisée (jusqu’au ${new Date(visitWin.maxYmd + "T12:00:00").toLocaleDateString("fr-FR")} inclus selon les produits à commander).`
+      : `Date hors plage : au plus tard le ${new Date(visitWin.maxYmd + "T12:00:00").toLocaleDateString("fr-FR")} (4 jours).`;
+  }
+  return null;
+}
+
+function blockMonetarySummary(lines: PatientConfirmPreviewLine[]): { sumKnown: number; missingUnitPrice: boolean } {
+  let sumKnown = 0;
+  let missingUnitPrice = false;
+  for (const L of lines) {
+    if (L.lineTotalMad == null) missingUnitPrice = true;
+    else sumKnown += L.lineTotalMad;
+  }
+  return { sumKnown, missingUnitPrice };
+}
+
+function formatBlockSubtotalLabel(lines: PatientConfirmPreviewLine[]): string {
+  const { sumKnown, missingUnitPrice } = blockMonetarySummary(lines);
+  if (lines.length === 0) return "";
+  if (missingUnitPrice && sumKnown === 0) return "Sous-total du bloc — prix non communiqué sur une ou plusieurs lignes";
+  if (missingUnitPrice) return `Sous-total du bloc (partiel) · ${sumKnown.toFixed(2)} MAD · certaines lignes sans prix unitaire`;
+  return `Sous-total du bloc · ${sumKnown.toFixed(2)} MAD`;
+}
+
+function formatGrandTotalLabel(all: PatientConfirmPreviewLine[]): string {
+  const { sumKnown, missingUnitPrice } = blockMonetarySummary(all);
+  if (all.length === 0) return "";
+  if (missingUnitPrice && sumKnown === 0) return "Total estimé — impossible à calculer sans prix unitaire";
+  if (missingUnitPrice) return `Total connu (indicatif) · ${sumKnown.toFixed(2)} MAD · certaines lignes sans prix`;
+  return `Total estimé · ${sumKnown.toFixed(2)} MAD`;
+}
+
+function PatientConfirmReviewLineCard({ line }: { line: PatientConfirmPreviewLine }) {
+  const thumb = (
+    <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
+      {line.photoUrl ? (
+        <img src={line.photoUrl} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center">
+          <Package className="size-6 text-muted-foreground" aria-hidden />
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <li className="rounded-xl border-2 border-border/60 bg-white p-2.5 shadow-sm">
+      <div className="flex gap-2.5">
+        {thumb}
+        <div className="min-w-0 flex-1">
+          <p
+            className="text-[13px] font-semibold leading-tight text-foreground sm:text-sm"
+            style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
+          >
+            {line.productName}
+          </p>
+          <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{line.choiceDetail}</p>
+          <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] text-foreground">
+            <span>
+              Quantité · <strong className="tabular-nums">{line.qty}</strong>
+            </span>
+            <span className="text-muted-foreground">·</span>
+            <span>
+              Prix unitaire ·{" "}
+              <strong className="tabular-nums">
+                {line.unitPriceMad != null && Number.isFinite(line.unitPriceMad)
+                  ? `${line.unitPriceMad.toFixed(2)} MAD`
+                  : "non communiqué"}
+              </strong>
+            </span>
+          </p>
+          {line.bucket === "order" && line.etaLabel ? (
+            <p className="mt-1 text-[10px] text-teal-900/90">Disponibilité communiquée · {line.etaLabel}</p>
+          ) : null}
+          <p className="mt-1.5 text-right text-[11px] font-semibold text-foreground">
+            Total ligne ·{" "}
+            <span className="tabular-nums">
+              {line.lineTotalMad != null ? `${line.lineTotalMad.toFixed(2)} MAD` : "—"}
+            </span>
+          </p>
+        </div>
+      </div>
+    </li>
+  );
+}
+
 export function PatientProductRequestActions({
   requestId,
   status,
@@ -735,6 +948,8 @@ export function PatientProductRequestActions({
 }: Props) {
   const [actionError, setActionError] = useState("");
   const [busyAction, setBusyAction] = useState<"" | "confirm" | "resubmit" | "abandon" | "visit">("");
+  const [confirmReviewOpen, setConfirmReviewOpen] = useState(false);
+  const [confirmReviewSnap, setConfirmReviewSnap] = useState<PatientConfirmReviewSnapshot | null>(null);
   const [abandonCode, setAbandonCode] = useState<PatientCancelReasonCode>("no_longer_needed");
   const [abandonDetail, setAbandonDetail] = useState("");
 
@@ -845,11 +1060,12 @@ export function PatientProductRequestActions({
       const cap = maxQtyForBranch(row, st.branch, alts);
       if (cap < 1) continue;
       count += 1;
+      const effQty = Math.min(st.qty, cap);
       const branchPrice =
         st.branch === "principal"
           ? row.unit_price
           : alts.find((a) => a.id === st.branch)?.unit_price ?? null;
-      if (branchPrice != null) total += Number(branchPrice) * st.qty;
+      if (branchPrice != null) total += Number(branchPrice) * effQty;
     }
     return { count, total };
   }, [status, items, sel]);
@@ -959,58 +1175,62 @@ export function PatientProductRequestActions({
     });
   };
 
-  const runConfirm = async () => {
+  const closeConfirmReview = useCallback(() => {
+    setConfirmReviewOpen(false);
+    setConfirmReviewSnap(null);
+  }, []);
+
+  const openConfirmReview = useCallback(() => {
+    const built = buildPatientConfirmSelection(items, sel);
+    const err = validatePatientConfirmBeforeReview(built.rpcPayload, visitWin, resolvedVisitDate, visitDate);
+    if (err) {
+      setActionError(err);
+      return;
+    }
     setActionError("");
-    const payload = items.map((row) => {
-      const alts = normalizeAlternatives(row.request_item_alternatives);
-      const st = sel[row.id] ?? ({ branch: null, qty: 1 } satisfies LineSelState);
-      const cap = maxQtyForBranch(row, st.branch, alts);
-      const on = st.branch !== null && cap > 0;
-      const qty = on ? Math.min(st.qty, cap) : null;
-      const chosenAlt =
-        on && st.branch !== null && st.branch !== "principal" ? st.branch : null;
-      return {
-        request_item_id: row.id,
-        is_selected: on,
-        selected_qty: qty,
-        chosen_alternative_id: chosenAlt,
-      };
+    const timePg = htmlTimeToPg(visitTimeComposed);
+    setConfirmReviewSnap({
+      rpcPayload: built.rpcPayload,
+      preview: built.preview,
+      plannedVisitDate: resolvedVisitDate,
+      plannedVisitTimePg: timePg,
+      visitSummaryFr: formatPlannedVisitFr(resolvedVisitDate, timePg ?? null),
     });
-    const anyOn = payload.some((p) => p.is_selected);
-    if (!anyOn) {
-      setActionError(
-        "Garde au moins une ligne sélectionnée, modifie ta liste avant renvoi, ou abandonne la demande."
-      );
-      return;
-    }
+    setConfirmReviewOpen(true);
+  }, [items, sel, visitWin, resolvedVisitDate, visitDate, visitTimeComposed]);
 
-    if (visitWin.missingEtaOnToOrder) {
-      setActionError(
-        "Une ligne « à commander » n’a pas de date de réception côté pharmacie. Contacte l’officine ou modifie ta sélection."
-      );
-      return;
-    }
-    const rawVisit = visitDate.trim();
-    if (rawVisit !== "" && rawVisit !== resolvedVisitDate) {
-      setActionError(
-        visitWin.hasToOrder
-          ? `Date hors plage autorisée (jusqu’au ${new Date(visitWin.maxYmd + "T12:00:00").toLocaleDateString("fr-FR")} inclus selon les produits à commander).`
-          : `Date hors plage : au plus tard le ${new Date(visitWin.maxYmd + "T12:00:00").toLocaleDateString("fr-FR")} (4 jours).`
-      );
-      return;
-    }
+  useEffect(() => {
+    if (!confirmReviewOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeConfirmReview();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirmReviewOpen, closeConfirmReview]);
 
+  useEffect(() => {
+    if (!confirmReviewOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [confirmReviewOpen]);
+
+  const performConfirmAfterReview = async () => {
+    if (!confirmReviewSnap) return;
+    setActionError("");
     setBusyAction("confirm");
     const { error } = await supabase.rpc("patient_confirm_after_response", {
       p_request_id: requestId,
-      p_selections: payload.map((p) => ({
+      p_selections: confirmReviewSnap.rpcPayload.map((p) => ({
         request_item_id: p.request_item_id,
         is_selected: p.is_selected,
         selected_qty: p.selected_qty,
         chosen_alternative_id: p.chosen_alternative_id,
       })),
-      p_planned_visit_date: resolvedVisitDate,
-      p_planned_visit_time: htmlTimeToPg(visitTimeComposed),
+      p_planned_visit_date: confirmReviewSnap.plannedVisitDate,
+      p_planned_visit_time: confirmReviewSnap.plannedVisitTimePg,
     });
     setBusyAction("");
     if (error) {
@@ -1025,6 +1245,7 @@ export function PatientProductRequestActions({
     if (noteErr) {
       console.error("patient_note after confirm:", noteErr);
     }
+    closeConfirmReview();
     await onReload();
   };
 
@@ -1132,6 +1353,11 @@ export function PatientProductRequestActions({
   const showVisitFields = showConfirm || status === "confirmed";
 
   const visitTimeFr = visitTimeComposed ? formatTime24hFr(htmlTimeToPg(visitTimeComposed) ?? visitTimeComposed) : "";
+
+  const confirmReserveLines =
+    confirmReviewSnap?.preview.filter((l) => l.bucket === "reserve") ?? [];
+  const confirmOrderLines = confirmReviewSnap?.preview.filter((l) => l.bucket === "order") ?? [];
+  const confirmAllPreviewLines = confirmReviewSnap?.preview ?? [];
 
   return (
     <section
@@ -1430,6 +1656,40 @@ export function PatientProductRequestActions({
       ) : null}
 
       <div className="mt-3 space-y-2 rounded-md border border-border/70 bg-card p-2 sm:p-2.5">
+        {showResubmit ? (
+          <div className="rounded-md border border-border/70 bg-background p-2.5">
+            <label className="block text-xs font-medium text-gray-700">
+              Message pour la pharmacie (optionnel)
+              <textarea
+                value={noteDraft}
+                disabled={!editMode}
+                onChange={(e) => setNoteDraft(e.target.value)}
+                rows={2}
+                placeholder="Précisions, créneau de retrait..."
+                className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs disabled:bg-muted"
+              />
+            </label>
+          </div>
+        ) : null}
+
+        {showConfirm ? (
+          <div className="rounded-xl border border-sky-200/80 bg-sky-50/35 p-2.5 sm:p-3">
+            <label className="block text-xs font-semibold text-foreground">
+              Message général pour la pharmacie (optionnel)
+              <textarea
+                value={confirmPatientNote}
+                onChange={(e) => setConfirmPatientNote(e.target.value.slice(0, 2000))}
+                rows={3}
+                placeholder="Précisions complémentaires, horaires, questions… seront enregistrées avec ta validation."
+                className="mt-1 w-full resize-y rounded-xl border border-sky-200/90 bg-background px-3 py-2 text-xs shadow-sm placeholder:text-muted-foreground/70 sm:text-sm"
+              />
+            </label>
+            <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
+              Tu peux reprendre ou adapter le message précédent ; cette version remplace celui attaché à la demande après validation.
+            </p>
+          </div>
+        ) : null}
+
         {showVisitFields ? (
           <div className="rounded-md border border-primary/20 bg-primary/5 p-2">
             <label className="block text-[11px] font-medium text-foreground">
@@ -1480,40 +1740,6 @@ export function PatientProductRequestActions({
                 Vous pouvez changer la date ou l&apos;heure prévues ; la pharmacie les verra sur la demande.
               </p>
             ) : null}
-          </div>
-        ) : null}
-
-        {showResubmit ? (
-          <div className="rounded-md border border-border/70 bg-background p-2.5">
-            <label className="block text-xs font-medium text-gray-700">
-              Message pour la pharmacie (optionnel)
-              <textarea
-                value={noteDraft}
-                disabled={!editMode}
-                onChange={(e) => setNoteDraft(e.target.value)}
-                rows={2}
-                placeholder="Précisions, créneau de retrait..."
-                className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs disabled:bg-muted"
-              />
-            </label>
-          </div>
-        ) : null}
-
-        {showConfirm ? (
-          <div className="rounded-xl border border-sky-200/80 bg-sky-50/35 p-2.5 sm:p-3">
-            <label className="block text-xs font-semibold text-foreground">
-              Message général pour la pharmacie (optionnel)
-              <textarea
-                value={confirmPatientNote}
-                onChange={(e) => setConfirmPatientNote(e.target.value.slice(0, 2000))}
-                rows={3}
-                placeholder="Précisions complémentaires, horaires, questions… seront enregistrées avec ta validation."
-                className="mt-1 w-full resize-y rounded-xl border border-sky-200/90 bg-background px-3 py-2 text-xs shadow-sm placeholder:text-muted-foreground sm:text-sm"
-              />
-            </label>
-            <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
-              Tu peux reprendre ou adapter le message précédent ; cette version remplace celui attaché à la demande après validation.
-            </p>
           </div>
         ) : null}
 
@@ -1628,11 +1854,118 @@ export function PatientProductRequestActions({
             <button
               type="button"
               disabled={busyAction !== "" || visitWin.missingEtaOnToOrder}
-              onClick={() => void runConfirm()}
+              onClick={openConfirmReview}
               className="w-full shrink-0 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-95 disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
             >
-              {busyAction === "confirm" ? "Validation…" : "Valider ma demande"}
+              Valider ma demande
             </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showConfirm && confirmReviewOpen && confirmReviewSnap ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/45"
+            aria-label="Fermer le récapitulatif"
+            onClick={() => {
+              if (busyAction !== "confirm") closeConfirmReview();
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-review-title"
+            className="relative z-10 flex max-h-[min(92vh,760px)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-2xl"
+          >
+            <div className="shrink-0 border-b border-border/80 px-4 py-3">
+              <h2 id="confirm-review-title" className="text-base font-semibold text-foreground sm:text-lg">
+                Récapitulatif avant validation
+              </h2>
+              <p className="mt-1 text-[11px] leading-snug text-muted-foreground sm:text-xs">
+                Vérifiez les lignes ci-dessous. Rien n&apos;est envoyé à la pharmacie tant que vous n&apos;avez pas confirmé.
+              </p>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4">
+              <div className="rounded-xl border border-primary/25 bg-primary/5 px-3 py-2">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-primary/95">Passage en officine retenu</p>
+                <p className="mt-1 text-[12px] font-medium text-foreground">{confirmReviewSnap.visitSummaryFr}</p>
+              </div>
+
+              {confirmReserveLines.length > 0 ? (
+                <div className="mt-4">
+                  <div className="mb-2 flex items-center gap-2 rounded-lg border border-emerald-200/80 bg-emerald-50/70 px-2.5 py-2">
+                    <Package className="size-4 shrink-0 text-emerald-900" aria-hidden />
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-950">
+                      Produits disponibles à réserver
+                    </p>
+                  </div>
+                  <ul className="space-y-2">
+                    {confirmReserveLines.map((line) => (
+                      <PatientConfirmReviewLineCard key={line.rowId} line={line} />
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-right text-[11px] leading-snug text-muted-foreground">
+                    {formatBlockSubtotalLabel(confirmReserveLines)}
+                  </p>
+                </div>
+              ) : null}
+
+              {confirmOrderLines.length > 0 ? (
+                <div className="mt-4">
+                  <div className="mb-2 flex items-center gap-2 rounded-lg border border-teal-200/85 bg-teal-50/70 px-2.5 py-2">
+                    <ShoppingCart className="size-4 shrink-0 text-teal-950" aria-hidden />
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-teal-950">Produits à commander</p>
+                  </div>
+                  <ul className="space-y-2">
+                    {confirmOrderLines.map((line) => (
+                      <PatientConfirmReviewLineCard key={line.rowId} line={line} />
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-right text-[11px] leading-snug text-muted-foreground">
+                    {formatBlockSubtotalLabel(confirmOrderLines)}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="mt-4 rounded-xl border-2 border-slate-200 bg-slate-50/90 px-3 py-2.5">
+                <p className="text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
+                  {formatGrandTotalLabel(confirmAllPreviewLines)}
+                </p>
+                {blockMonetarySummary(confirmAllPreviewLines).missingUnitPrice ? (
+                  <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
+                    Les montants reflètent uniquement les prix unitaires communiqués par la pharmacie. Une ligne sans prix n&apos;entre pas dans le total.
+                  </p>
+                ) : (
+                  <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
+                    Total indicatif (TTC selon officine au moment du retrait).
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="shrink-0 border-t border-border/80 bg-background/95 px-3 py-3 backdrop-blur sm:px-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
+                <button
+                  type="button"
+                  disabled={busyAction === "confirm"}
+                  onClick={closeConfirmReview}
+                  className="w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted/60 disabled:opacity-50 sm:order-1 sm:w-auto"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  disabled={busyAction === "confirm"}
+                  onClick={() => void performConfirmAfterReview()}
+                  className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-95 disabled:opacity-50 sm:order-2 sm:w-auto sm:min-w-[200px]"
+                >
+                  {busyAction === "confirm" ? "Enregistrement…" : "Confirmer définitivement"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}
