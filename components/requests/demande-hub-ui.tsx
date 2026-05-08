@@ -131,7 +131,7 @@ export function PatientDemandeCard({
   const when = row.submitted_at ?? row.created_at;
   const itemsRaw = row.request_items;
   const items = (Array.isArray(itemsRaw) ? itemsRaw : []) as PatientRequestItemRow[];
-  const summary = summarizeRequestForPatientCard(items.length ? items : null);
+  const summary = summarizeRequestForPatientCard(items.length ? items : null, row.status);
   const refVisuel = displayRequestPublicRef(row);
   const cardStatus =
     row.status === "confirmed" && summary.hasExecutionProgress ? "in_progress_virtual" : row.status;
@@ -376,7 +376,11 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
         </Link>
 
         <div className="mt-2.5">
-          <CollapsibleDetails title="Lignes, comptoir et préparation" variant="muted" defaultOpen={isSentAwaitingPharmacyAction}>
+          <CollapsibleDetails
+            title={isSentAwaitingPharmacyAction ? "Contenu envoyé par le patient" : "Lignes, comptoir et préparation"}
+            variant="muted"
+            defaultOpen={isSentAwaitingPharmacyAction}
+          >
             <div
               className={clsx(
                 "gap-1.5 text-[10px] text-muted-foreground",

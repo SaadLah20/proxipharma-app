@@ -27,7 +27,11 @@ function catalogPph(row: PatientRequestItemRow): number | null {
   return n;
 }
 
-export function summarizeRequestForPatientCard(items: PatientRequestItemRow[] | null | undefined): {
+export function summarizeRequestForPatientCard(
+  items: PatientRequestItemRow[] | null | undefined,
+  /** Si `submitted` / `in_review`, ignore les lignes seulement en brouillon côté pharmacie (`pharmacist_proposed`). */
+  requestStatus?: string | null
+): {
   lineCount: number;
   principalCount: number;
   proposedCount: number;
@@ -43,7 +47,13 @@ export function summarizeRequestForPatientCard(items: PatientRequestItemRow[] | 
   totalSelectedDh: number | null;
   hasExecutionProgress: boolean;
 } {
-  const rows = Array.isArray(items) ? items : [];
+  let rows = Array.isArray(items) ? items : [];
+  if (
+    requestStatus === "submitted" ||
+    requestStatus === "in_review"
+  ) {
+    rows = rows.filter((r) => r.line_source !== "pharmacist_proposed");
+  }
   const selectedRows = rows.filter((r) => r.is_selected_by_patient !== false);
 
   let principalCount = 0;

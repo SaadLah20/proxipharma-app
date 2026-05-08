@@ -332,7 +332,13 @@ export function PharmacistDemandesHub() {
           </section>
 
           {filteredSorted.length === 0 ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">Aucun résultat.</p>
+            <p className="py-6 text-center text-xs text-muted-foreground">
+              {activeBucket?.key === "envoyees"
+                ? "Aucune demande à prendre en charge (soumise / en relecture) avec ces filtres."
+                : activeBucket
+                  ? "Aucune demande ne correspond aux filtres."
+                  : "Aucun résultat."}
+            </p>
           ) : (
             <ul className="space-y-2">
               {filteredSorted.map((r) => (

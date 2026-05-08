@@ -4,7 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { PageShell } from "@/components/ui/compact-shell";
-import { formatDateShortFr, formatDateTimeShort24hFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
+import {
+  formatDateShortCasablancaWithTime24hFr,
+  formatDateShortFr,
+  formatDateTimeShort24hFr,
+  formatPlannedVisitFr,
+} from "@/lib/datetime-fr";
 import { supabase } from "@/lib/supabase";
 import {
   availabilityStatusFr,
@@ -235,8 +240,8 @@ export default function DemandeDetailPage() {
       <section className="rounded-xl border-2 border-sky-100 bg-white p-2.5 shadow-sm">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground">{displayRequestPublicRef(request)}</span>
-          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-            {formatDateShortFr(request.submitted_at ?? request.created_at)}
+          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 tabular-nums">
+            {formatDateShortCasablancaWithTime24hFr(request.submitted_at ?? request.created_at)}
           </span>
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
             {requestStatusFr[request.status] ?? request.status}

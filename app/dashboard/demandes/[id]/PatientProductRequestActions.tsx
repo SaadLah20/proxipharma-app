@@ -295,6 +295,12 @@ type ResubmitLine = {
   pharmacist_proposal_reason?: string | null;
 };
 
+/** Tant que la réponse n’est pas publiée, les propositions officine sont un brouillon : le patient ne les voit qu’après `responded`. */
+function visibleItemsForPatientBeforePharmacyResponse(items: ActionItemRow[], status: string): ActionItemRow[] {
+  if (status !== "submitted" && status !== "in_review") return items;
+  return items.filter((row) => row.line_source !== "pharmacist_proposed");
+}
+
 function computeResubmitLinesFromItems(items: ActionItemRow[]): ResubmitLine[] {
   return items.map((row) => ({
     product_id: row.product_id,
@@ -361,6 +367,12 @@ export function PatientProductRequestActions({
   const [abandonCode, setAbandonCode] = useState<PatientCancelReasonCode>("no_longer_needed");
   const [abandonDetail, setAbandonDetail] = useState("");
 
+  /** Lignes `pharmacist_proposed` masquées tant que statut submitted / in_review — elles sont un brouillon coté officine. */
+  const itemsFilteredPending = useMemo(
+    () => visibleItemsForPatientBeforePharmacyResponse(items, status),
+    [items, status]
+  );
+
   /** Confirmation responded -> confirmed — reset via parent `key` when server rows change */
   const [sel, setSel] = useState(() => computeSelFromItems(items));
 
@@ -371,14 +383,16 @@ export function PatientProductRequestActions({
 
   /** Resubmit draft — idem */
   const [noteDraft, setNoteDraft] = useState(() => initialPatientNote ?? "");
-  const [lines, setLines] = useState<ResubmitLine[]>(() => computeResubmitLinesFromItems(items));
+  const [lines, setLines] = useState<ResubmitLine[]>(() =>
+    computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status))
+  );
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<ProductHit[]>([]);
   const [editMode, setEditMode] = useState(false);
 
   /** Restaure le brouillon resubmit à l'état initial (sortie du mode édition sans renvoi). */
   const resetResubmitDraft = () => {
-    setLines(computeResubmitLinesFromItems(items));
+    setLines(computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status)));
     setNoteDraft(initialPatientNote ?? "");
     setQuery("");
     setHits([]);
@@ -388,7 +402,7 @@ export function PatientProductRequestActions({
   const debouncedQuery = useMemo(() => query.trim(), [query]);
 
   const visitWin = useMemo(() => {
-    const linesPayload = items.map((row) => {
+    const linesPayload = itemsFilteredPending.map((row) => {
       const alts = normalizeAlternatives(row.request_item_alternatives);
       let branch: LineBranch = null;
       let capPositive = false;
@@ -423,7 +437,7 @@ export function PatientProductRequestActions({
       };
     });
     return plannedVisitWindow(linesPayload);
-  }, [items, sel, status]);
+  }, [itemsFilteredPending, sel, status]);
 
   const resolvedVisitDate = useMemo(() => {
     const t = visitDate.trim();
@@ -1167,50 +1181,19 @@ export function PatientProductRequestActions({
         ) : null}
 
         {showResubmit ? (
-          <>
-            <div className="rounded-md border border-border/70 bg-background p-2.5">
-              <label className="block text-xs font-medium text-gray-700">
-                Message pour la pharmacie (optionnel)
-                <textarea
-                  value={noteDraft}
-                  disabled={!editMode}
-                  onChange={(e) => setNoteDraft(e.target.value)}
-                  rows={2}
-                  placeholder="Précisions, créneau de retrait..."
-                  className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs disabled:bg-muted"
-                />
-              </label>
-            </div>
-
-            <div className="rounded-md border border-amber-200/70 bg-amber-50/40 p-2.5 space-y-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (editMode) {
-                    resetResubmitDraft();
-                    setEditMode(false);
-                  } else {
-                    setEditMode(true);
-                  }
-                }}
-                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 text-xs font-semibold text-amber-900"
-              >
-                <Pencil size={15} />
-                {editMode ? "Annuler les modifications" : "Modifier"}
-              </button>
-
-              {editMode ? (
-                <button
-                  type="button"
-                  disabled={busyAction !== "" || lines.length === 0}
-                  onClick={() => void runResubmit()}
-                  className="w-full rounded-lg border border-amber-600 bg-amber-50 py-2.5 text-sm font-semibold text-amber-950 disabled:opacity-50"
-                >
-                  {busyAction === "resubmit" ? "Envoi…" : "Mettre à jour et renvoyer"}
-                </button>
-              ) : null}
-            </div>
-          </>
+          <div className="rounded-md border border-border/70 bg-background p-2.5">
+            <label className="block text-xs font-medium text-gray-700">
+              Message pour la pharmacie (optionnel)
+              <textarea
+                value={noteDraft}
+                disabled={!editMode}
+                onChange={(e) => setNoteDraft(e.target.value)}
+                rows={2}
+                placeholder="Précisions, créneau de retrait..."
+                className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs disabled:bg-muted"
+              />
+            </label>
+          </div>
         ) : null}
 
         {showConfirm ? (
@@ -1271,6 +1254,38 @@ export function PatientProductRequestActions({
           </>
         ) : null}
       </div>
+
+      {showResubmit ? (
+        <div className="mt-3 space-y-2 rounded-md border border-amber-200/80 bg-amber-50/50 p-2.5 shadow-sm sm:p-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (editMode) {
+                resetResubmitDraft();
+                setEditMode(false);
+              } else {
+                setEditMode(true);
+              }
+            }}
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-amber-400/90 bg-white px-3 text-xs font-semibold text-amber-950 shadow-sm hover:bg-amber-50/90"
+          >
+            <Pencil size={15} />
+            {editMode ? "Annuler les modifications" : "Modifier"}
+          </button>
+
+          {editMode ? (
+            <button
+              type="button"
+              disabled={busyAction !== "" || lines.length === 0}
+              onClick={() => void runResubmit()}
+              className="w-full rounded-lg border border-amber-600 bg-amber-100/80 py-2.5 text-sm font-semibold text-amber-950 shadow-sm disabled:opacity-50"
+            >
+              {busyAction === "resubmit" ? "Envoi…" : "Mettre à jour et renvoyer"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       {showResubmit ? (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
           <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
