@@ -4,12 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { PageShell } from "@/components/ui/compact-shell";
-import { formatDateShortFr, formatDateTimeShort24hFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
+import { formatDateShortFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
 import { supabase } from "@/lib/supabase";
 import {
   availabilityStatusFr,
   counterOutcomePatientLabel,
-  historyActorLabel,
   requestItemLineSourceFr,
   requestStatusFr,
 } from "@/lib/request-display";
@@ -18,13 +17,6 @@ import { one } from "@/lib/embed";
 import { PatientCancelBeforeResponse } from "./PatientCancelBeforeResponse";
 import { PatientProductRequestActions } from "./PatientProductRequestActions";
 import { unitPriceLabel } from "@/lib/product-price";
-import { formatDh } from "@/lib/currency-ma";
-import { summarizeRequestForPatientCard, type PatientRequestItemRow } from "@/lib/patient-request-list-summary";
-import {
-  patientHistoryAuditDetailLines,
-  patientHistoryAuditTitle,
-  tryParsePatientHistoryAudit,
-} from "@/lib/patient-request-history-audit";
 
 type PharmacyEmbed = {
   nom: string;
@@ -92,62 +84,6 @@ type RequestItemRow = {
   request_item_alternatives: AltEmbed | AltEmbed[] | null;
 };
 
-type StatusHistoryRow = {
-  id: string;
-  created_at: string;
-  old_status: string | null;
-  new_status: string;
-  reason: string | null;
-};
-
-function historyReasonLabel(reason: string | null | undefined): string {
-  if (!reason) return "Mise à jour du dossier";
-  if (reason === "patient_planned_visit_updated") return "Créneau de passage modifié";
-  if (reason === "pharmacist_adjustments_after_confirmation") return "Préparation pharmacie mise à jour";
-  if (reason === "counter_product_added") return "Produit ajouté au comptoir";
-  if (reason === "counter_line_cancelled") return "Produit annulé au comptoir";
-  if (reason === "counter_alternative_added") return "Alternative ajoutée";
-  if (reason === "counter_alternative_removed") return "Alternative retirée";
-  if (reason === "counter_outcome:cancelled_at_counter:client_request") return "Ligne annulée à votre demande";
-  if (reason === "counter_outcome:cancelled_at_counter:pharmacy_unable") return "Ligne annulée par la pharmacie";
-  if (reason === "counter_outcome:picked_up") return "Ligne marquée comme récupérée";
-  if (reason === "counter_outcome:deferred_next_visit") return "Ligne reportée — à récupérer plus tard";
-  if (reason === "counter_outcome:unset") return "Ligne remise en attente au comptoir";
-  if (reason.startsWith("counter_outcome:")) return "Statut de récupération mis à jour";
-  if (reason === "auto_expire_24h_after_response") return "Délai de 24 h dépassé sans validation — demande expirée";
-  if (reason === "auto_abandon_24h_after_response") return "Délai de 24 h dépassé (ancien classement, désormais expiré)";
-  if (reason === "data_migration_auto_abandon_to_expire") return "Mise à jour : expirée (remplace l’ancien abandon automatique)";
-  if (reason === "request_created_with_status") return "Demande créée";
-  if (reason.startsWith("patient_abandon|")) {
-    if (reason.includes("after_pickup"))
-      return "Demande clôturée après au moins une récupération (arrêt par vous)";
-    return "Annulation ou abandon par vous (motif enregistré)";
-  }
-  if (reason.startsWith("patient_cancel|")) return "Demande annulée par vous (avant réponse pharmacie)";
-  if (reason.startsWith("pharmacist_cancel|")) {
-    const motif = reason.slice("pharmacist_cancel|".length).trim();
-    return motif ? `Demande annulée par la pharmacie — ${motif}` : "Demande annulée par la pharmacie";
-  }
-  return "Mise à jour du dossier";
-}
-
-function PatientHistoryReasonBlock({ reason }: { reason: string | null }) {
-  const audit = tryParsePatientHistoryAudit(reason);
-  if (audit) {
-    return (
-      <>
-        <p className="font-medium text-foreground">{patientHistoryAuditTitle(audit)}</p>
-        <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] leading-snug text-muted-foreground">
-          {patientHistoryAuditDetailLines(audit).map((line, idx) => (
-            <li key={idx}>{line}</li>
-          ))}
-        </ul>
-      </>
-    );
-  }
-  return <p className="font-medium text-foreground">{historyReasonLabel(reason)}</p>;
-}
-
 export default function DemandeDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -157,9 +93,6 @@ export default function DemandeDetailPage() {
   const [error, setError] = useState("");
   const [request, setRequest] = useState<RequestDetail | null>(null);
   const [items, setItems] = useState<RequestItemRow[]>([]);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyBusy, setHistoryBusy] = useState(false);
-  const [historyRows, setHistoryRows] = useState<StatusHistoryRow[]>([]);
   const [followUpBusy, setFollowUpBusy] = useState(false);
   const [followUpErr, setFollowUpErr] = useState("");
 
@@ -239,21 +172,6 @@ export default function DemandeDetailPage() {
     return () => window.clearTimeout(tid);
   }, [loadDetail]);
 
-  const loadHistory = useCallback(async () => {
-    if (!id) return;
-    setHistoryBusy(true);
-    const { data, error: histErr } = await supabase
-      .from("request_status_history")
-      .select("id,created_at,old_status,new_status,reason")
-      .eq("request_id", id)
-      .order("created_at", { ascending: false })
-      .limit(30);
-    if (!histErr && Array.isArray(data)) {
-      setHistoryRows(data as StatusHistoryRow[]);
-    }
-    setHistoryBusy(false);
-  }, [id]);
-
   if (loading) {
     return (
       <PageShell>
@@ -275,19 +193,6 @@ export default function DemandeDetailPage() {
 
   const productReq = one(request.product_requests);
   const note = productReq?.patient_note ?? null;
-  const summary = summarizeRequestForPatientCard(items as unknown as PatientRequestItemRow[]);
-  const isInitialAmountView =
-    request.status === "submitted" || request.status === "in_review" || request.status === "responded";
-  const totalLabel = isInitialAmountView
-    ? summary.totalInitialDh != null
-      ? formatDh(summary.totalInitialDh)
-      : "—"
-    : summary.totalSelectedDh != null
-      ? formatDh(summary.totalSelectedDh)
-      : "—";
-  const amountHint = isInitialAmountView
-    ? "montant basé sur les produits et quantités initialement demandés"
-    : "montant basé sur les produits validés par vous";
   const hasBottomActions =
     request.request_type === "product_request" &&
     (request.status === "submitted" ||
@@ -308,84 +213,24 @@ export default function DemandeDetailPage() {
         </Link>
       </div>
       <section className="rounded-xl border-2 border-sky-100 bg-white p-2.5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-1.5">
-          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground">
-            {displayRequestPublicRef(request)}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground">{displayRequestPublicRef(request)}</span>
+          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+            {formatDateShortFr(request.submitted_at ?? request.created_at)}
           </span>
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
             {requestStatusFr[request.status] ?? request.status}
           </span>
         </div>
-        <div className={`mt-2 grid gap-2 ${showPlannedVisitBlock ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
-          <div className="rounded-lg border border-sky-100 bg-sky-50/60 px-2.5 py-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-900">Montant</p>
-            <p className="text-sm font-bold text-sky-950">{totalLabel}</p>
-            <p className="text-[10px] text-sky-900/80">{amountHint}</p>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 py-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-700">Produits</p>
-            <p className="text-sm font-bold text-foreground">{summary.lineCount} ligne{summary.lineCount > 1 ? "s" : ""}</p>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 py-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-700">Date</p>
-            <p className="text-sm font-bold text-foreground">{formatDateShortFr(request.submitted_at ?? request.created_at)}</p>
-          </div>
-          {showPlannedVisitBlock ? (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-2.5 py-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800">Passage prévu</p>
-              <p className="text-xs font-semibold text-emerald-950">
-                {request.patient_planned_visit_date
-                  ? formatPlannedVisitFr(request.patient_planned_visit_date, request.patient_planned_visit_time)
-                  : "À définir"}
-              </p>
-              <p className="text-[10px] text-emerald-900/80">modifiable dans les actions ci-dessous</p>
-            </div>
-          ) : null}
-        </div>
-      </section>
-      <section className="rounded-xl border border-border/80 bg-card p-2.5 shadow-sm">
-        <button
-          type="button"
-          onClick={() => {
-            const next = !historyOpen;
-            setHistoryOpen(next);
-            if (next && historyRows.length === 0 && !historyBusy) {
-              void loadHistory();
-            }
-          }}
-          className="inline-flex h-9 items-center justify-center rounded-lg border border-border px-3 text-xs font-semibold text-foreground hover:bg-muted/40"
-        >
-          {historyOpen ? "Masquer l’historique" : "Voir l’historique"}
-        </button>
-        {historyOpen ? (
-          <div className="mt-2 space-y-1.5">
-            {historyBusy ? (
-              <p className="text-xs text-muted-foreground">Chargement…</p>
-            ) : historyRows.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Aucun événement disponible.</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {historyRows.map((h) => (
-                  <li key={h.id} className="rounded-lg border border-border/60 bg-muted/20 px-2 py-1.5 text-xs">
-                    <PatientHistoryReasonBlock reason={h.reason} />
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      {h.old_status ? `${requestStatusFr[h.old_status] ?? h.old_status} → ` : ""}
-                      {requestStatusFr[h.new_status] ?? h.new_status}
-                    </p>
-                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
-                      <span>
-                        Par <strong className="font-medium text-foreground">{historyActorLabel("patient", h.reason)}</strong>
-                      </span>
-                      <span aria-hidden>·</span>
-                      <time dateTime={h.created_at} className="tabular-nums">
-                        {formatDateTimeShort24hFr(h.created_at)}
-                      </time>
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+        {showPlannedVisitBlock ? (
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            Passage prévu :{" "}
+            <span className="font-medium text-foreground">
+              {request.patient_planned_visit_date
+                ? formatPlannedVisitFr(request.patient_planned_visit_date, request.patient_planned_visit_time)
+                : "À définir"}
+            </span>
+          </p>
         ) : null}
       </section>
 
