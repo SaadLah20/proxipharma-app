@@ -192,11 +192,6 @@ export default function DemandeDetailPage() {
     setHistoryBusy(false);
   }, [id]);
 
-  useEffect(() => {
-    if (!request) return;
-    void loadHistory();
-  }, [request?.id, loadHistory]);
-
   if (loading) {
     return (
       <PageShell>
