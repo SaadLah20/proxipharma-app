@@ -441,6 +441,10 @@ export function PatientProductRequestActions({
   }, [visitHour, visitMinute]);
 
   const visibleHits = debouncedQuery.length < 2 ? [] : hits;
+  const resubmitTotal = useMemo(
+    () => lines.reduce((sum, l) => sum + (l.price_pph ?? 0) * l.qty, 0),
+    [lines]
+  );
 
   useEffect(() => {
     if (debouncedQuery.length < 2) {
@@ -705,7 +709,7 @@ export function PatientProductRequestActions({
   const visitTimeFr = visitTimeComposed ? formatTime24hFr(htmlTimeToPg(visitTimeComposed) ?? visitTimeComposed) : "";
 
   return (
-    <section className="mt-3 rounded-lg border border-border/90 bg-muted/15 p-2.5 sm:p-3">
+    <section className={`mt-3 rounded-lg border border-border/90 bg-muted/15 p-2.5 sm:p-3 ${showResubmit ? "pb-20" : ""}`}>
       {actionError ? (
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
       ) : null}
@@ -963,6 +967,57 @@ export function PatientProductRequestActions({
         })()
       ) : null}
 
+      {showResubmit && editMode ? (
+        <div className="mt-2 rounded-2xl border border-primary/20 bg-primary/[0.06] p-3 shadow-sm">
+          <label className="block text-sm font-semibold text-foreground">Recherche de produits</label>
+          <p className="mt-1 text-xs text-muted-foreground">Commencez à taper le nom du produit (2 caractères minimum).</p>
+          <div className="relative mt-2">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Ex: Doliprane, Smecta..."
+              className="w-full rounded-xl border border-input bg-background py-2.5 pl-9 pr-3 text-sm shadow-sm placeholder:text-muted-foreground"
+            />
+          </div>
+          {visibleHits.length > 0 ? (
+            <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto">
+              {visibleHits.map((h) => (
+                <li key={h.id}>
+                  <button
+                    type="button"
+                    onClick={() => addProduct(h)}
+                    className="flex h-20 w-full items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-2.5 py-2 text-left transition hover:bg-muted/35"
+                  >
+                    <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card">
+                      {h.photo_url ? (
+                        <img src={h.photo_url} alt={h.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <Package className="size-5 text-muted-foreground" aria-hidden />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex flex-1 flex-col justify-center">
+                      <p
+                        className="overflow-hidden pr-1 text-[14px] font-semibold leading-tight text-foreground sm:text-[15px]"
+                        style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
+                      >
+                        {h.name}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-primary sm:text-sm">
+                        {unitPriceLabel(h.price_pph) ?? "Prix indisponible"}
+                      </p>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : query.trim().length >= 2 ? (
+            <p className="mt-2 text-xs text-muted-foreground">Aucun résultat.</p>
+          ) : null}
+        </div>
+      ) : null}
+
       {showResubmit ? (
         <div className="mt-2">
           <ul className="space-y-3">
@@ -1113,6 +1168,20 @@ export function PatientProductRequestActions({
 
         {showResubmit ? (
           <>
+            <div className="rounded-md border border-border/70 bg-background p-2.5">
+              <label className="block text-xs font-medium text-gray-700">
+                Message pour la pharmacie (optionnel)
+                <textarea
+                  value={noteDraft}
+                  disabled={!editMode}
+                  onChange={(e) => setNoteDraft(e.target.value)}
+                  rows={2}
+                  placeholder="Précisions, créneau de retrait..."
+                  className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs disabled:bg-muted"
+                />
+              </label>
+            </div>
+
             <div className="rounded-md border border-amber-200/70 bg-amber-50/40 p-2.5 space-y-2">
               <button
                 type="button"
@@ -1141,71 +1210,6 @@ export function PatientProductRequestActions({
                 </button>
               ) : null}
             </div>
-
-            <div className="rounded-md border border-border/70 bg-background p-2.5">
-              <label className="block text-xs font-medium text-gray-700">
-                Message pour la pharmacie (optionnel)
-                <textarea
-                  value={noteDraft}
-                  disabled={!editMode}
-                  onChange={(e) => setNoteDraft(e.target.value)}
-                  rows={2}
-                  placeholder="Précisions, créneau de retrait..."
-                  className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs disabled:bg-muted"
-                />
-              </label>
-            </div>
-
-            {editMode ? (
-              <div className="rounded-2xl border border-primary/20 bg-primary/[0.06] p-3 shadow-sm">
-                <label className="block text-sm font-semibold text-foreground">Recherche de produits</label>
-                <p className="mt-1 text-xs text-muted-foreground">Commencez à taper le nom du produit (2 caractères minimum).</p>
-                <div className="relative mt-2">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="search"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Ex: Doliprane, Smecta..."
-                    className="w-full rounded-xl border border-input bg-background py-2.5 pl-9 pr-3 text-sm shadow-sm placeholder:text-muted-foreground"
-                  />
-                </div>
-                {visibleHits.length > 0 ? (
-                  <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto">
-                    {visibleHits.map((h) => (
-                      <li key={h.id}>
-                        <button
-                          type="button"
-                          onClick={() => addProduct(h)}
-                          className="flex h-20 w-full items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-2.5 py-2 text-left transition hover:bg-muted/35"
-                        >
-                          <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card">
-                            {h.photo_url ? (
-                              <img src={h.photo_url} alt={h.name} className="h-full w-full object-cover" />
-                            ) : (
-                              <Package className="size-5 text-muted-foreground" aria-hidden />
-                            )}
-                          </div>
-                          <div className="min-w-0 flex flex-1 flex-col justify-center">
-                            <p
-                              className="overflow-hidden pr-1 text-[14px] font-semibold leading-tight text-foreground sm:text-[15px]"
-                              style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
-                            >
-                              {h.name}
-                            </p>
-                            <p className="mt-1 text-xs font-semibold text-primary sm:text-sm">
-                              {unitPriceLabel(h.price_pph) ?? "Prix indisponible"}
-                            </p>
-                          </div>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : query.trim().length >= 2 ? (
-                  <p className="mt-2 text-xs text-muted-foreground">Aucun résultat.</p>
-                ) : null}
-              </div>
-            ) : null}
           </>
         ) : null}
 
@@ -1267,6 +1271,19 @@ export function PatientProductRequestActions({
           </>
         ) : null}
       </div>
+      {showResubmit ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+          <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">{lines.length}</span>{" "}
+              {lines.length > 1 ? "produits" : "produit"} ajoutés
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Total indicatif <span className="font-semibold text-foreground">{resubmitTotal.toFixed(2)} MAD</span>
+            </p>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
