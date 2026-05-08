@@ -1388,7 +1388,7 @@ export default function PharmacienDemandeDetailPage() {
       }
     }
     return true;
-  }, [request?.status, items]);
+  }, [request, items]);
 
   const runDeclareRequestTreated = async () => {
     if (!id) return;
