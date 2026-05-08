@@ -4,11 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { PageShell } from "@/components/ui/compact-shell";
-import { formatDateShortFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
+import { formatDateShortFr, formatDateTimeShort24hFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
 import { supabase } from "@/lib/supabase";
 import {
   availabilityStatusFr,
   counterOutcomePatientLabel,
+  historyActorLabel,
   requestItemLineSourceFr,
   requestStatusFr,
 } from "@/lib/request-display";
@@ -93,6 +94,10 @@ export default function DemandeDetailPage() {
   const [error, setError] = useState("");
   const [request, setRequest] = useState<RequestDetail | null>(null);
   const [items, setItems] = useState<RequestItemRow[]>([]);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [historyRows, setHistoryRows] = useState<
+    { id: string; created_at: string; old_status: string | null; new_status: string; reason: string | null }[]
+  >([]);
   const [followUpBusy, setFollowUpBusy] = useState(false);
   const [followUpErr, setFollowUpErr] = useState("");
 
@@ -171,6 +176,26 @@ export default function DemandeDetailPage() {
     }, 0);
     return () => window.clearTimeout(tid);
   }, [loadDetail]);
+
+  useEffect(() => {
+    if (!request) return;
+    void loadHistory();
+  }, [request?.id, loadHistory]);
+
+  const loadHistory = useCallback(async () => {
+    if (!id) return;
+    setHistoryBusy(true);
+    const { data, error: histErr } = await supabase
+      .from("request_status_history")
+      .select("id,created_at,old_status,new_status,reason")
+      .eq("request_id", id)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    if (!histErr && Array.isArray(data)) {
+      setHistoryRows(data as typeof historyRows);
+    }
+    setHistoryBusy(false);
+  }, [id]);
 
   if (loading) {
     return (
@@ -540,6 +565,47 @@ export default function DemandeDetailPage() {
           }}
         />
       ) : null}
+
+      <section className="rounded-xl border border-border/70 bg-card p-2.5 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Historique</h2>
+          <button
+            type="button"
+            onClick={() => void loadHistory()}
+            className="inline-flex h-8 items-center justify-center rounded-md border border-border px-2.5 text-[11px] font-semibold text-foreground hover:bg-muted/40"
+          >
+            Rafraîchir
+          </button>
+        </div>
+        <div className="mt-2 space-y-1.5">
+          {historyBusy ? (
+            <p className="text-xs text-muted-foreground">Chargement…</p>
+          ) : historyRows.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Aucun événement disponible.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {historyRows.map((h) => (
+                <li key={h.id} className="rounded-lg border border-border/60 bg-muted/20 px-2 py-1.5 text-xs">
+                  <p className="font-medium text-foreground">
+                    {h.old_status ? `${requestStatusFr[h.old_status] ?? h.old_status} → ` : ""}
+                    {requestStatusFr[h.new_status] ?? h.new_status}
+                  </p>
+                  {h.reason ? <p className="mt-0.5 text-[11px] text-muted-foreground">{h.reason}</p> : null}
+                  <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                    <span>
+                      Par <strong className="font-medium text-foreground">{historyActorLabel("patient", h.reason)}</strong>
+                    </span>
+                    <span aria-hidden>·</span>
+                    <time dateTime={h.created_at} className="tabular-nums">
+                      {formatDateTimeShort24hFr(h.created_at)}
+                    </time>
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
     </PageShell>
   );
 }
