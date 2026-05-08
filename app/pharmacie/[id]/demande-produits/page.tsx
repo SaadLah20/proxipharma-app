@@ -188,9 +188,7 @@ export default function DemandeProduitsPage() {
       return;
     }
 
-    setFeedback({ type: "ok", text: "Demande envoyée. Tu pourras suivre l’avancement depuis ton espace." });
-    setLines([]);
-    setNote("");
+    router.push(`/dashboard/demandes/${reqRow.id}`);
   };
 
   const fieldFocus =

@@ -35,7 +35,7 @@ type PharmacyEmbed = {
 };
 type ProductRequestEmbed = { patient_note: string | null };
 
-type ProdEmbed = { name: string; price_pph?: number | null };
+type ProdEmbed = { name: string; price_pph?: number | null; photo_url?: string | null };
 
 type AltEmbed = {
   id: string;
@@ -216,7 +216,7 @@ export default function DemandeDetailPage() {
       const { data: itemsData, error: itemsErr } = await supabase
         .from("request_items")
         .select(
-          "id,product_id,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,client_comment,line_source,pharmacist_proposal_reason,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,patient_chosen_alternative_id,post_confirm_fulfillment,products(name,price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph))"
+          "id,product_id,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,client_comment,line_source,pharmacist_proposal_reason,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,patient_chosen_alternative_id,post_confirm_fulfillment,products(name,price_pph,photo_url),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph,photo_url))"
         )
         .eq("request_id", id)
         .order("created_at", { ascending: true });
@@ -316,7 +316,7 @@ export default function DemandeDetailPage() {
             {requestStatusFr[request.status] ?? request.status}
           </span>
         </div>
-        <div className={`mt-2 grid gap-2 ${showPlannedVisitBlock ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+        <div className={`mt-2 grid gap-2 ${showPlannedVisitBlock ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
           <div className="rounded-lg border border-sky-100 bg-sky-50/60 px-2.5 py-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-900">Montant</p>
             <p className="text-sm font-bold text-sky-950">{totalLabel}</p>
@@ -325,6 +325,10 @@ export default function DemandeDetailPage() {
           <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 py-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-700">Produits</p>
             <p className="text-sm font-bold text-foreground">{summary.lineCount} ligne{summary.lineCount > 1 ? "s" : ""}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 py-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-700">Date</p>
+            <p className="text-sm font-bold text-foreground">{formatDateShortFr(request.submitted_at ?? request.created_at)}</p>
           </div>
           {showPlannedVisitBlock ? (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-2.5 py-1.5">

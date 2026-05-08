@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Minus, Package, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { formatDateShortFr, formatTime24hFr } from "@/lib/datetime-fr";
 import {
   PATIENT_CANCEL_REASON_CODES,
@@ -21,7 +22,7 @@ import { unitPriceLabel } from "@/lib/product-price";
 import { supabase } from "@/lib/supabase";
 import { one } from "@/lib/embed";
 
-type ProdBrief = { name: string; price_pph?: number | null };
+type ProdBrief = { name: string; price_pph?: number | null; photo_url?: string | null };
 
 export type ActionItemAltRow = {
   id: string;
@@ -286,6 +287,7 @@ function computeSelFromItems(items: ActionItemRow[]): Record<string, LineSelStat
 type ResubmitLine = {
   product_id: string;
   name: string;
+  photo_url?: string | null;
   qty: number;
   price_pph?: number | null;
   client_comment: string;
@@ -297,6 +299,7 @@ function computeResubmitLinesFromItems(items: ActionItemRow[]): ResubmitLine[] {
   return items.map((row) => ({
     product_id: row.product_id,
     name: one(row.products)?.name ?? "Produit",
+    photo_url: one(row.products)?.photo_url ?? null,
     qty: Math.min(10, Math.max(1, row.requested_qty)),
     price_pph: one(row.products)?.price_pph ?? null,
     client_comment: row.client_comment ?? "",
@@ -305,7 +308,14 @@ function computeResubmitLinesFromItems(items: ActionItemRow[]): ResubmitLine[] {
   }));
 }
 
-type ProductHit = { id: string; name: string; product_type: string; laboratory: string | null; price_pph?: number | null };
+type ProductHit = {
+  id: string;
+  name: string;
+  product_type: string;
+  laboratory: string | null;
+  photo_url?: string | null;
+  price_pph?: number | null;
+};
 
 type Props = {
   requestId: string;
@@ -440,7 +450,7 @@ export function PatientProductRequestActions({
       void (async () => {
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,price_pph")
+          .select("id,name,product_type,laboratory,photo_url,price_pph")
           .eq("is_active", true)
           .ilike("name", `%${debouncedQuery}%`)
           .order("name")
@@ -463,6 +473,7 @@ export function PatientProductRequestActions({
         {
           product_id: p.id,
           name: p.name,
+          photo_url: p.photo_url ?? null,
           qty: 1,
           price_pph: p.price_pph ?? null,
           client_comment: "",
@@ -953,104 +964,97 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showResubmit ? (
-      <div className="mt-2">
-            <ul className="space-y-2">
-              {lines.map((l, idx) => (
-                <li key={`${l.product_id}-${idx}`} className="rounded-xl border-2 border-slate-100 bg-white px-2.5 py-2 text-sm shadow-sm">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="min-w-[120px] flex-1">
-                      <span className="block font-medium">{l.name}</span>
-                      {unitPriceLabel(l.price_pph) ? (
-                        <span className="mt-0.5 block text-xs font-medium text-teal-800">{unitPriceLabel(l.price_pph)}</span>
-                      ) : null}
-                      {l.line_source === "pharmacist_proposed" ? (
-                        <span className="mt-1 block text-[10px] font-medium text-violet-900">
-                          {requestItemLineSourceFr.pharmacist_proposed}
-                          {l.pharmacist_proposal_reason ? ` — ${l.pharmacist_proposal_reason}` : ""}
-                        </span>
-                      ) : null}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-muted-foreground">Qté</span>
-                      <div className="flex h-9 items-center overflow-hidden rounded-md border border-input bg-background">
-                        <button
-                          type="button"
-                          disabled={!editMode || l.qty <= 1}
-                          onClick={() =>
-                            setLines((prev) =>
-                              prev.map((row, i) =>
-                                i === idx ? { ...row, qty: Math.max(1, row.qty - 1) } : row
-                              )
-                            )
-                          }
-                          aria-label="Diminuer la quantité"
-                          className="h-full w-9 border-r border-input text-base font-bold text-muted-foreground disabled:opacity-40"
-                        >
-                          −
-                        </button>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          disabled={!editMode}
-                          value={l.qty}
-                          onChange={(e) => {
-                            const digits = e.target.value.replace(/\D/g, "");
-                            const next = digits === "" ? 1 : Math.min(10, Math.max(1, Number(digits)));
-                            setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: next } : row)));
-                          }}
-                          className="h-full w-12 border-0 bg-transparent text-center text-sm tabular-nums focus:outline-none disabled:bg-muted"
-                          aria-label="Quantité"
-                        />
-                        <button
-                          type="button"
-                          disabled={!editMode || l.qty >= 10}
-                          onClick={() =>
-                            setLines((prev) =>
-                              prev.map((row, i) =>
-                                i === idx ? { ...row, qty: Math.min(10, row.qty + 1) } : row
-                              )
-                            )
-                          }
-                          aria-label="Augmenter la quantité"
-                          className="h-full w-9 border-l border-input text-base font-bold text-muted-foreground disabled:opacity-40"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
+        <div className="mt-2">
+          <ul className="space-y-3">
+            {lines.map((l, idx) => (
+              <li key={`${l.product_id}-${idx}`} className="rounded-xl border border-border/70 bg-muted/20 p-2">
+                <div className="flex min-h-[96px] items-stretch gap-2.5">
+                  <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card">
                     {editMode ? (
                       <button
                         type="button"
-                        className="text-xs text-red-700 underline"
+                        aria-label="Retirer"
+                        className="absolute right-1 top-1 z-10 rounded-md bg-background/90 p-1 text-destructive shadow-sm hover:bg-destructive/10"
                         onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
                       >
-                        Retirer
+                        <Trash2 size={15} />
                       </button>
                     ) : null}
+                    {l.photo_url ? (
+                      <img src={l.photo_url} alt={l.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <Package className="size-7 text-muted-foreground" aria-hidden />
+                      </div>
+                    )}
                   </div>
-                  <label className="mt-2 block text-[11px] text-muted-foreground">
-                    Note sur ce produit (optionnel, max 500 car.)
-                    <input
-                      type="text"
-                      disabled={!editMode}
-                      value={l.client_comment}
-                      onChange={(e) =>
-                        setLines((prev) =>
-                          prev.map((row, i) =>
-                            i === idx ? { ...row, client_comment: e.target.value.slice(0, 500) } : row
-                          )
-                        )
-                      }
-                      className="mt-1 w-full rounded border border-input px-2 py-1 text-xs disabled:bg-muted"
-                      placeholder="Vous n’avez ajouté aucune note pour ce produit."
-                    />
-                  </label>
-                </li>
-              ))}
-            </ul>
-
-      </div>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <p
+                      className="overflow-hidden pr-1 text-[13px] font-semibold leading-tight text-foreground sm:text-[15px]"
+                      style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
+                    >
+                      {l.name}
+                    </p>
+                    <p className="mt-0.5 text-xs font-medium text-primary">
+                      {unitPriceLabel(l.price_pph) ?? "Prix unitaire indisponible"}
+                    </p>
+                    {l.line_source === "pharmacist_proposed" ? (
+                      <p className="mt-1 text-[10px] font-medium text-violet-900">
+                        {requestItemLineSourceFr.pharmacist_proposed}
+                        {l.pharmacist_proposal_reason ? ` — ${l.pharmacist_proposal_reason}` : ""}
+                      </p>
+                    ) : null}
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        aria-label="Diminuer"
+                        disabled={!editMode || l.qty <= 1}
+                        className="rounded-lg border border-border bg-card p-1.5 text-foreground hover:bg-muted/60 disabled:opacity-40"
+                        onClick={() =>
+                          setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.max(1, row.qty - 1) } : row)))
+                        }
+                      >
+                        <Minus size={16} />
+                      </button>
+                      <span className="w-8 text-center text-sm font-semibold tabular-nums">{l.qty}</span>
+                      <button
+                        type="button"
+                        aria-label="Augmenter"
+                        disabled={!editMode || l.qty >= 10}
+                        className="rounded-lg border border-border bg-card p-1.5 text-foreground hover:bg-muted/60 disabled:opacity-40"
+                        onClick={() =>
+                          setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.min(10, row.qty + 1) } : row)))
+                        }
+                      >
+                        <Plus size={16} />
+                      </button>
+                      <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                        Total{" "}
+                        <span className="inline-block rounded bg-background px-1.5 py-0.5 font-semibold text-foreground">
+                          {l.price_pph != null ? `${(l.price_pph * l.qty).toFixed(2)} MAD` : "-"}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <label className="mt-2 block">
+                  <input
+                    type="text"
+                    disabled={!editMode}
+                    value={l.client_comment}
+                    onChange={(e) =>
+                      setLines((prev) =>
+                        prev.map((row, i) => (i === idx ? { ...row, client_comment: e.target.value.slice(0, 500) } : row))
+                      )
+                    }
+                    placeholder="Commentaire sur ce produit (optionnel)"
+                    className="w-full touch-pan-x rounded-lg border border-primary/45 bg-primary/[0.06] px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-70"
+                  />
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       <div className="mt-3 space-y-2 rounded-md border border-border/70 bg-card p-2 sm:p-2.5">
@@ -1109,45 +1113,6 @@ export function PatientProductRequestActions({
 
         {showResubmit ? (
           <>
-            <div className="rounded-md border border-border/70 bg-background p-2.5">
-              <label className="block text-xs font-medium text-gray-700">
-                Commentaire général (optionnel)
-                <textarea
-                  value={noteDraft}
-                  disabled={!editMode}
-                  onChange={(e) => setNoteDraft(e.target.value)}
-                  rows={2}
-                  placeholder="Ajoutez un message pour la pharmacie"
-                  className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs disabled:bg-muted"
-                />
-              </label>
-              {editMode ? (
-                <>
-                  <label className="mt-2 block text-xs font-medium text-gray-700">
-                    Ajouter un produit
-                    <input
-                      type="search"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Rechercher (2 caractères min.)"
-                      className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-                    />
-                  </label>
-                  {visibleHits.length > 0 ? (
-                    <ul className="mt-2 max-h-36 overflow-auto rounded border bg-gray-50 p-2 text-sm">
-                      {visibleHits.map((h) => (
-                        <li key={h.id}>
-                          <button type="button" className="block w-full px-1 py-1 text-left hover:bg-white" onClick={() => addProduct(h)}>
-                            <span className="font-medium">{h.name}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </>
-              ) : null}
-            </div>
-
             <div className="rounded-md border border-amber-200/70 bg-amber-50/40 p-2.5 space-y-2">
               <button
                 type="button"
@@ -1159,8 +1124,9 @@ export function PatientProductRequestActions({
                     setEditMode(true);
                   }
                 }}
-                className="w-full rounded-md border border-amber-300 bg-amber-50 py-2 text-xs font-semibold text-amber-900"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 text-xs font-semibold text-amber-900"
               >
+                <Pencil size={15} />
                 {editMode ? "Annuler les modifications" : "Modifier"}
               </button>
 
@@ -1175,6 +1141,71 @@ export function PatientProductRequestActions({
                 </button>
               ) : null}
             </div>
+
+            <div className="rounded-md border border-border/70 bg-background p-2.5">
+              <label className="block text-xs font-medium text-gray-700">
+                Message pour la pharmacie (optionnel)
+                <textarea
+                  value={noteDraft}
+                  disabled={!editMode}
+                  onChange={(e) => setNoteDraft(e.target.value)}
+                  rows={2}
+                  placeholder="Précisions, créneau de retrait..."
+                  className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs disabled:bg-muted"
+                />
+              </label>
+            </div>
+
+            {editMode ? (
+              <div className="rounded-2xl border border-primary/20 bg-primary/[0.06] p-3 shadow-sm">
+                <label className="block text-sm font-semibold text-foreground">Recherche de produits</label>
+                <p className="mt-1 text-xs text-muted-foreground">Commencez à taper le nom du produit (2 caractères minimum).</p>
+                <div className="relative mt-2">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Ex: Doliprane, Smecta..."
+                    className="w-full rounded-xl border border-input bg-background py-2.5 pl-9 pr-3 text-sm shadow-sm placeholder:text-muted-foreground"
+                  />
+                </div>
+                {visibleHits.length > 0 ? (
+                  <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto">
+                    {visibleHits.map((h) => (
+                      <li key={h.id}>
+                        <button
+                          type="button"
+                          onClick={() => addProduct(h)}
+                          className="flex h-20 w-full items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-2.5 py-2 text-left transition hover:bg-muted/35"
+                        >
+                          <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card">
+                            {h.photo_url ? (
+                              <img src={h.photo_url} alt={h.name} className="h-full w-full object-cover" />
+                            ) : (
+                              <Package className="size-5 text-muted-foreground" aria-hidden />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex flex-1 flex-col justify-center">
+                            <p
+                              className="overflow-hidden pr-1 text-[14px] font-semibold leading-tight text-foreground sm:text-[15px]"
+                              style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
+                            >
+                              {h.name}
+                            </p>
+                            <p className="mt-1 text-xs font-semibold text-primary sm:text-sm">
+                              {unitPriceLabel(h.price_pph) ?? "Prix indisponible"}
+                            </p>
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : query.trim().length >= 2 ? (
+                  <p className="mt-2 text-xs text-muted-foreground">Aucun résultat.</p>
+                ) : null}
+              </div>
+            ) : null}
           </>
         ) : null}
 
