@@ -28,27 +28,23 @@ export function PharmacistLineReactControl({
 
   useEffect(() => {
     if (!open) return undefined;
-    const onDoc = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) {
-        setOpen(false);
-        setMode("menu");
+    const onDocMouseDown = (e: MouseEvent) => {
+      if (wrapRef.current?.contains(e.target as Node)) return;
+      if (mode === "custom") {
+        onReplyChange(customText.trim());
       }
+      setOpen(false);
+      setMode("menu");
     };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [open, mode, customText, onReplyChange]);
 
   const applyQuick = useCallback(() => {
     onReplyChange(QUICK);
     setOpen(false);
     setMode("menu");
   }, [onReplyChange]);
-
-  const applyCustom = useCallback(() => {
-    onReplyChange(customText.trim());
-    setOpen(false);
-    setMode("menu");
-  }, [customText, onReplyChange]);
 
   return (
     <div ref={wrapRef} className="relative flex min-w-0 shrink-0 items-start justify-end">
@@ -108,22 +104,16 @@ export function PharmacistLineReactControl({
                 className="w-full resize-none rounded-lg border border-input bg-background px-2 py-1.5 text-[11px] shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 autoFocus
               />
-              <div className="flex justify-end gap-1.5">
+              <div className="flex justify-end">
                 <button
                   type="button"
                   className="rounded-lg border border-border px-2.5 py-1 text-[10px] font-semibold text-muted-foreground hover:bg-muted/50"
                   onClick={() => {
+                    setCustomText(pharmacistReply);
                     setMode("menu");
                   }}
                 >
                   Retour
-                </button>
-                <button
-                  type="button"
-                  className="rounded-lg bg-primary px-2.5 py-1 text-[10px] font-semibold text-primary-foreground shadow-sm hover:opacity-95"
-                  onClick={() => applyCustom()}
-                >
-                  OK
                 </button>
               </div>
             </div>

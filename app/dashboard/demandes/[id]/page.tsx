@@ -20,6 +20,7 @@ import {
 } from "@/lib/request-display";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
+import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
 import { PatientCancelBeforeResponse } from "./PatientCancelBeforeResponse";
 import { PatientProductRequestActions } from "./PatientProductRequestActions";
 import { unitPriceLabel } from "@/lib/product-price";
@@ -181,6 +182,16 @@ export default function DemandeDetailPage() {
     }, 0);
     return () => window.clearTimeout(tid);
   }, [loadDetail]);
+
+  useEffect(() => {
+    const listener = (ev: Event) => {
+      const detail = (ev as CustomEvent<RequestDetailRefreshDetail>).detail;
+      if (detail?.requestId !== id) return;
+      void loadDetail(true);
+    };
+    window.addEventListener(REQUEST_DETAIL_REFRESH_EVENT, listener);
+    return () => window.removeEventListener(REQUEST_DETAIL_REFRESH_EVENT, listener);
+  }, [id, loadDetail]);
 
   const loadHistory = useCallback(async () => {
     if (!id) return;
