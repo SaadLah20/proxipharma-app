@@ -46,6 +46,15 @@ export function PharmacistLineReactControl({
     setMode("menu");
   }, [onReplyChange]);
 
+  const clearReply = useCallback(() => {
+    onReplyChange("");
+    setCustomText("");
+    setOpen(false);
+    setMode("menu");
+  }, [onReplyChange]);
+
+  const hasReply = pharmacistReply.trim().length > 0;
+
   return (
     <div ref={wrapRef} className="relative flex min-w-0 shrink-0 items-start justify-end">
       <button
@@ -56,15 +65,21 @@ export function PharmacistLineReactControl({
         aria-expanded={open}
         onClick={() => {
           if (disabled) return;
-          setOpen((o) => !o);
-          setMode("menu");
+          setOpen((o) => {
+            const nextOpen = !o;
+            if (nextOpen) {
+              setCustomText(pharmacistReply);
+              setMode("menu");
+            }
+            return nextOpen;
+          });
         }}
         className={clsx(
           "inline-flex h-8 max-w-full items-center gap-1 rounded-lg border border-sky-300/90 bg-white px-2.5 text-[10px] font-semibold text-sky-900 shadow-sm transition hover:bg-sky-50 disabled:opacity-50 sm:text-[11px]"
         )}
       >
         <MessageCircleReply className="size-3.5 shrink-0" aria-hidden />
-        <span className="truncate">Réagir</span>
+        <span className="truncate">{hasReply ? "Réaction" : "Réagir"}</span>
         <ChevronDown className={clsx("size-3.5 shrink-0 opacity-70 transition", open && "rotate-180")} aria-hidden />
       </button>
 
@@ -93,6 +108,15 @@ export function PharmacistLineReactControl({
               >
                 Écrire un message…
               </button>
+              {hasReply ? (
+                <button
+                  type="button"
+                  className="rounded-lg px-2.5 py-2 text-left text-[11px] font-semibold text-destructive hover:bg-destructive/10"
+                  onClick={() => clearReply()}
+                >
+                  Retirer ma réaction
+                </button>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-2 px-2.5 py-2">

@@ -8,6 +8,7 @@ export type DemandeStatBucketKey =
   | "repondues"
   | "validees_traitees"
   | "en_preparation"
+  | "traitee_retrait"
   | "cloturees"
   | "abandonnees"
   | "expirees"
@@ -39,14 +40,20 @@ export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "validees_traitees",
     label: "Validée par vous",
-    hint: "Vous avez validé ; la pharmacie n’a pas encore indiqué de réservation ou commande sur la ligne.",
+    hint: "Vous avez validé ; la pharmacie ne vous a pas encore déclaré en préparation active sur le dossier.",
     statuses: ["confirmed"],
   },
   {
     key: "en_preparation",
-    label: "En traitement",
-    hint: "La pharmacie a commencé à mettre à jour la commande (réservé ou commandé sur au moins une ligne).",
-    statuses: ["in_progress_virtual"],
+    label: "En préparation officine",
+    hint: "Réservation / commande ou ajustements après validation.",
+    statuses: ["in_progress_virtual", "processing"],
+  },
+  {
+    key: "traitee_retrait",
+    label: "Traitée · retrait",
+    hint: "Préparation officine terminée ; retrait ou suivi au comptoir.",
+    statuses: ["treated"],
   },
   {
     key: "cloturees",
@@ -91,14 +98,20 @@ export const PHARMACIST_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "validees_traitees",
     label: "Validée par le client",
-    hint: "Le client a validé ; aucune réservation / commande saisie par vous sur les lignes concernées.",
+    hint: "Le dossier figure encore tout juste validé côté client (pas encore votre entrée officine préparation).",
     statuses: ["confirmed"],
   },
   {
     key: "en_preparation",
-    label: "En traitement",
-    hint: "Réservation ou commande renseignée sur au moins une ligne.",
-    statuses: ["in_progress_virtual"],
+    label: "En préparation",
+    hint: "Réservations, commandes ou ajustements en cours après validation client.",
+    statuses: ["in_progress_virtual", "processing"],
+  },
+  {
+    key: "traitee_retrait",
+    label: "Traitée · comptoir",
+    hint: "Vous déclarez la préparation terminée ; retrait ligne à ligne jusqu’à clôture.",
+    statuses: ["treated"],
   },
   {
     key: "cloturees",

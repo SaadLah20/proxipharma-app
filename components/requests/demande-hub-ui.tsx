@@ -134,17 +134,32 @@ export function PatientDemandeCard({
   const summary = summarizeRequestForPatientCard(items.length ? items : null, row.status);
   const refVisuel = displayRequestPublicRef(row);
   const cardStatus =
-    row.status === "confirmed" && summary.hasExecutionProgress ? "in_progress_virtual" : row.status;
+    row.status === "processing"
+      ? "processing"
+      : row.status === "treated"
+        ? "treated"
+        : row.status === "confirmed" && summary.hasExecutionProgress
+          ? "in_progress_virtual"
+          : row.status;
 
   if (variant === "list") {
     const isInitialDemandView = row.status === "submitted" || row.status === "in_review" || row.status === "responded";
     /** Avant réponse pharmacie : pas d’alternatives ni produits ajoutés à afficher sur la carte. */
     const isSentAwaitingPharmacy = row.status === "submitted" || row.status === "in_review";
-    const statusLabel = cardStatus === "in_progress_virtual" ? "En traitement" : requestStatusShortFr(cardStatus);
-    const statusClass =
+    const statusLabel =
       cardStatus === "in_progress_virtual"
+        ? "En préparation"
+        : cardStatus === "processing"
+          ? requestStatusShortFr("processing")
+          : cardStatus === "treated"
+            ? requestStatusShortFr("treated")
+            : requestStatusShortFr(cardStatus);
+    const statusClass =
+      cardStatus === "in_progress_virtual" || cardStatus === "processing"
         ? "bg-indigo-100 text-indigo-950 ring-1 ring-indigo-200/80"
-        : requestStatusBadgeClass(cardStatus);
+        : cardStatus === "treated"
+          ? "bg-cyan-100 text-cyan-950 ring-1 ring-cyan-200/80"
+          : requestStatusBadgeClass(cardStatus);
     const totalLabel =
       isInitialDemandView
         ? summary.totalInitialDh != null
@@ -254,7 +269,7 @@ export function PatientDemandeCard({
                     </span>
                   </>
                 )}
-                {cardStatus === "in_progress_virtual" ? (
+                {cardStatus === "in_progress_virtual" || cardStatus === "processing" || cardStatus === "treated" ? (
                   <>
                     <span className="rounded-md bg-indigo-50 px-2 py-1 dark:bg-indigo-950/40">
                       En attente <strong className="text-indigo-950 dark:text-indigo-100">{summary.selectedPendingPickupCount}</strong>
@@ -333,7 +348,14 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
     (l) => (l.is_selected_by_patient ?? true) && (l.post_confirm_fulfillment ?? "unset") === "ordered"
   ).length;
   const hasFulfillmentProgress = nReserved + nOrdered > 0;
-  const statusForCard = hasFulfillmentProgress ? "in_progress_virtual" : row.status;
+  const statusForCard =
+    row.status === "processing"
+      ? "processing"
+      : row.status === "treated"
+        ? "treated"
+        : hasFulfillmentProgress && row.status === "confirmed"
+          ? "in_progress_virtual"
+          : row.status;
   /** Cartes « demandes envoyées » : uniquement le nombre de lignes (pas comptoir / récupération). */
   const isSentAwaitingPharmacyAction = row.status === "submitted" || row.status === "in_review";
 
