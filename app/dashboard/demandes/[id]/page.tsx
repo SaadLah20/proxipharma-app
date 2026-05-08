@@ -22,7 +22,10 @@ import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
 import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
 import { PatientCancelBeforeResponse } from "./PatientCancelBeforeResponse";
-import { PatientProductRequestActions } from "./PatientProductRequestActions";
+import {
+  PatientProductRequestActions,
+  type PatientPharmacyContactInfo,
+} from "./PatientProductRequestActions";
 import { unitPriceLabel } from "@/lib/product-price";
 
 type PharmacyEmbed = {
@@ -31,6 +34,7 @@ type PharmacyEmbed = {
   adresse: string;
   telephone: string | null;
   public_ref?: string | null;
+  contact_email?: string | null;
 };
 type ProductRequestEmbed = { patient_note: string | null };
 
@@ -87,6 +91,7 @@ type RequestItemRow = {
   expected_availability_date: string | null;
   patient_chosen_alternative_id?: string | null;
   post_confirm_fulfillment?: string | null;
+  withdrawn_after_confirm?: boolean | null;
   products: ProdEmbed | ProdEmbed[] | null;
   request_item_alternatives: AltEmbed | AltEmbed[] | null;
 };
@@ -106,6 +111,7 @@ export default function DemandeDetailPage() {
   >([]);
   const [followUpBusy, setFollowUpBusy] = useState(false);
   const [followUpErr, setFollowUpErr] = useState("");
+  const [supplyAmendments, setSupplyAmendments] = useState<{ id: string; created_at: string; amendments: unknown }[]>([]);
 
   const loadDetail = useCallback(
     async (silent?: boolean) => {
@@ -137,7 +143,7 @@ export default function DemandeDetailPage() {
       const { data: reqRow, error: reqErr } = await supabase
         .from("requests")
         .select(
-          "id,created_at,status,request_type,pharmacy_id,submitted_at,responded_at,confirmed_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,pharmacies(nom,ville,adresse,telephone,public_ref),product_requests(patient_note)"
+          "id,created_at,status,request_type,pharmacy_id,submitted_at,responded_at,confirmed_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,pharmacies(nom,ville,adresse,telephone,public_ref,contact_email),product_requests(patient_note)"
         )
         .eq("id", id)
         .eq("patient_id", user.id)
@@ -157,18 +163,33 @@ export default function DemandeDetailPage() {
 
       setRequest(reqRow as RequestDetail);
 
-      const { data: itemsData, error: itemsErr } = await supabase
-        .from("request_items")
-        .select(
-          "id,product_id,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,client_comment,line_source,pharmacist_proposal_reason,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,patient_chosen_alternative_id,post_confirm_fulfillment,products(name,price_pph,photo_url),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph,photo_url))"
-        )
-        .eq("request_id", id)
-        .order("created_at", { ascending: true });
+      const [itemsResult, amendmentsResult] = await Promise.all([
+        supabase
+          .from("request_items")
+          .select(
+            "id,product_id,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,client_comment,line_source,pharmacist_proposal_reason,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,patient_chosen_alternative_id,post_confirm_fulfillment,withdrawn_after_confirm,products(name,price_pph,photo_url),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph,photo_url))"
+          )
+          .eq("request_id", id)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("request_supply_amendments")
+          .select("id,created_at,amendments")
+          .eq("request_id", id)
+          .order("created_at", { ascending: false })
+          .limit(40),
+      ]);
 
+      const itemsErr = itemsResult.error;
+      const itemsData = itemsResult.data;
       if (itemsErr) {
         setError(itemsErr.message);
       } else if (Array.isArray(itemsData)) {
         setItems(itemsData as RequestItemRow[]);
+      }
+      if (!amendmentsResult.error && Array.isArray(amendmentsResult.data)) {
+        setSupplyAmendments(amendmentsResult.data as { id: string; created_at: string; amendments: unknown }[]);
+      } else {
+        setSupplyAmendments([]);
       }
 
       setLoading(false);
@@ -234,9 +255,13 @@ export default function DemandeDetailPage() {
     (request.status === "submitted" ||
       request.status === "in_review" ||
       request.status === "responded" ||
-      request.status === "confirmed");
+      request.status === "confirmed" ||
+      request.status === "processing" ||
+      request.status === "treated");
   const showPlannedVisitBlock =
     request.status === "confirmed" ||
+    request.status === "processing" ||
+    request.status === "treated" ||
     request.status === "completed" ||
     request.status === "partially_collected" ||
     request.status === "fully_collected";
@@ -321,6 +346,8 @@ export default function DemandeDetailPage() {
                 const linePph = unitPriceLabel(prod?.price_pph);
                 const postConfirmPatientView = [
                   "confirmed",
+                  "processing",
+                  "treated",
                   "completed",
                   "partially_collected",
                   "fully_collected",
@@ -540,6 +567,8 @@ export default function DemandeDetailPage() {
               note ?? "",
               request.patient_planned_visit_date ?? "",
               request.patient_planned_visit_time ?? "",
+              one(request.pharmacies)?.telephone ?? "",
+              one(request.pharmacies)?.contact_email ?? "",
               ...items.map((i) =>
                 [
                   i.id,
@@ -549,18 +578,33 @@ export default function DemandeDetailPage() {
                   i.requested_qty,
                   i.counter_outcome,
                   i.post_confirm_fulfillment ?? "",
+                  i.withdrawn_after_confirm ? "1" : "0",
                   i.client_comment ?? "",
                   i.line_source ?? "",
                 ].join(":")
               ),
+              supplyAmendments.map((a) => a.id).join(","),
             ].join("|")
           }
           requestId={request.id}
           status={request.status}
           items={items}
+          supplyAmendmentBundles={supplyAmendments}
           initialPatientNote={note}
           initialPlannedVisitDate={request.patient_planned_visit_date}
           initialPlannedVisitTime={request.patient_planned_visit_time}
+          requestPublicRef={displayRequestPublicRef(request)}
+          pharmacyContact={(() => {
+            const ph = one(request.pharmacies);
+            if (!ph?.nom?.trim()) return null;
+            const c: PatientPharmacyContactInfo = {
+              nom: ph.nom,
+              ville: ph.ville,
+              telephone: ph.telephone,
+              contact_email: ph.contact_email ?? null,
+            };
+            return c;
+          })()}
           onReload={async () => {
             await loadDetail(true);
           }}

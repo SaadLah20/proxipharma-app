@@ -5,7 +5,9 @@ export const requestStatusFr: Record<string, string> = {
   in_review: "En cours de traitement",
   responded: "Réponse reçue — à valider",
   confirmed: "Validée",
-  in_progress_virtual: "En traitement",
+  processing: "En préparation officine",
+  treated: "Traitée",
+  in_progress_virtual: "En préparation",
   completed: "Clôturée",
   cancelled: "Annulée",
   abandoned: "Abandonnée",
@@ -19,7 +21,7 @@ export function requestStatusShortFr(status: string): string {
   return requestStatusFr[status] ?? status;
 }
 
-/** Côté officine : `confirmed` = validé par le patient ; l’étape « en traitement » est le statut virtuel `in_progress_virtual`. */
+/** Côté officine : `confirmed` = validé par le patient ; l’étape « en préparation » peut être virtuelle ou réelle (`processing`). */
 export function requestStatusShortFrPharmacien(status: string): string {
   if (status === "confirmed") return "Validée client";
   return requestStatusShortFr(status);
@@ -47,8 +49,20 @@ export const patientDashboardSections: {
   {
     id: "confirmed",
     title: "Confirmée",
-    description: "Tu as validé ; passage ou retrait à prévoir.",
+    description: "Tu as validé ; la pharmacie n’a pas encore enregistré l’entrée officine préparation.",
     statuses: ["confirmed"],
+  },
+  {
+    id: "supply_processing",
+    title: "En préparation",
+    description: "La pharmacie met à jour la commande après ta validation.",
+    statuses: ["processing", "in_progress_virtual"],
+  },
+  {
+    id: "treated_pickup",
+    title: "Traitée · retrait",
+    description: "Préparation déclarée ; suivi récupération des produits au comptoir.",
+    statuses: ["treated"],
   },
   {
     id: "done",
@@ -97,9 +111,21 @@ export const pharmacistDashboardSections: {
   },
   {
     id: "confirmed",
-    title: "Confirmée par le client",
-    description: "Préparation / comptoir.",
+    title: "Validée client",
+    description: "Aucune saisie « réservé / commandé » ou dossier officine pas encore entré en préparation.",
     statuses: ["confirmed"],
+  },
+  {
+    id: "supply_processing_ph",
+    title: "Préparation",
+    description: "Réservations / commandes ou ajustements en cours après validation.",
+    statuses: ["processing", "in_progress_virtual"],
+  },
+  {
+    id: "treated_pickup_ph",
+    title: "Traitée · comptoir",
+    description: "Préparation déclarée ; retrait ligne par ligne au comptoir.",
+    statuses: ["treated"],
   },
   {
     id: "done",
@@ -127,7 +153,15 @@ export const pharmacistDashboardSections: {
   },
 ];
 
-const PATIENT_CLOSED_STATUSES = new Set(["cancelled", "abandoned", "expired", "completed", "partially_collected", "fully_collected", "draft"]);
+const PATIENT_CLOSED_STATUSES = new Set([
+  "cancelled",
+  "abandoned",
+  "expired",
+  "completed",
+  "partially_collected",
+  "fully_collected",
+  "draft",
+]);
 
 /** Détail patient : aucun bloc d’action (formulaire confirmation, etc.). */
 export function patientRequestHasNoActions(status: string): boolean {
@@ -154,6 +188,10 @@ export function requestStatusBadgeClass(status: string): string {
       return "bg-amber-100 text-amber-950 ring-1 ring-amber-200/80";
     case "confirmed":
       return "bg-violet-100 text-violet-950 ring-1 ring-violet-200/80";
+    case "processing":
+      return "bg-indigo-100 text-indigo-950 ring-1 ring-indigo-200/80";
+    case "treated":
+      return "bg-cyan-100 text-cyan-950 ring-1 ring-cyan-200/80";
     case "in_progress_virtual":
       return "bg-indigo-100 text-indigo-950 ring-1 ring-indigo-200/80";
     case "completed":

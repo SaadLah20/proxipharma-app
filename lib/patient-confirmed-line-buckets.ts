@@ -17,6 +17,7 @@ export type PatientLineLike = {
   counter_cancel_reason?: string | null;
   counter_cancel_detail?: string | null;
   post_confirm_fulfillment?: string | null;
+  withdrawn_after_confirm?: boolean | null;
   products?: { name?: string | null; price_pph?: number | string | null } | { name?: string | null; price_pph?: number | string | null }[] | null;
   request_item_alternatives?:
     | Array<{
@@ -133,4 +134,23 @@ export function patientConfirmedLinesNotInBuckets<T extends PatientLineLike>(
     ...b.unavailableOrShortage.map((r) => r.id),
   ]);
   return items.filter((i) => !used.has(i.id));
+}
+
+/** Vue « dossier validé par le patient » : 3 blocs (officine / commande / hors périmètre). */
+/** Lignes retenues mais retirées après validation avec traçabilité (hors trois blocs de commande ouverte). */
+export function patientWithdrawnAfterConfirmLines<T extends PatientLineLike>(items: T[]): T[] {
+  return items.filter((r) => Boolean(r.is_selected_by_patient) && Boolean(r.withdrawn_after_confirm));
+}
+
+export function bucketPatientValidatedLinesThreeWays<T extends PatientLineLike>(items: T[]): {
+  dispoOfficine: T[];
+  aCommander: T[];
+  horsPerimetre: T[];
+  retireesApresValidation: T[];
+} {
+  const retireesApresValidation = patientWithdrawnAfterConfirmLines(items);
+  const withoutRetired = items.filter((r) => !retireesApresValidation.some((x) => x.id === r.id));
+  const b = groupPatientConfirmedLines(withoutRetired);
+  const horsPerimetre = [...b.unavailableOrShortage, ...patientConfirmedLinesNotInBuckets(withoutRetired, b)];
+  return { dispoOfficine: b.atPharmacy, aCommander: b.toOrder, horsPerimetre, retireesApresValidation };
 }
