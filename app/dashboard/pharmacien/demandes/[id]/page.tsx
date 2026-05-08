@@ -3,9 +3,24 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Mail, MessageCircle, MessageSquare, Phone } from "lucide-react";
+import { clsx } from "clsx";
+import {
+  CalendarClock,
+  ChevronDown,
+  Hash,
+  Layers,
+  Mail,
+  MessageCircle,
+  MessageSquare,
+  Package,
+  Phone,
+  Plus,
+  User,
+} from "lucide-react";
+import { PharmacistLineReactControl } from "@/components/pharmacist/pharmacist-line-react-control";
+import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import { supabase } from "@/lib/supabase";
-import { formatDateTimeShort24hFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
+import { formatDateShortFr, formatDateTimeShort24hFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
 import {
   PHARMACIST_AVAILABILITY_OPTIONS,
   PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS,
@@ -20,13 +35,11 @@ import {
   pharmacistRequestIsHardStopped,
   requestItemLineSourceFr,
   requestStatusFr,
-  requestTypeFr,
 } from "@/lib/request-display";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
 import { pphLabel } from "@/lib/product-price";
-import { PageShell } from "@/components/ui/compact-shell";
-import { CollapsibleDetails } from "@/components/ui/collapsible-details";
+import { CompactCard, CompactCardBody, CompactCardHeader, PageShell } from "@/components/ui/compact-shell";
 import {
   stringifyPharmaConfirmAudit,
   type PharmaConfirmAdjustmentAudit,
@@ -259,9 +272,13 @@ function buildItemDraftFromRow(row: ItemRow): ItemDraft {
      il sera réinféré au save si la quantité reste < demandée. */
   const rawStatus = row.availability_status ?? "available";
   const draftStatus = rawStatus === "partially_available" ? "available" : rawStatus;
+  const reqCap = Math.max(0, Math.floor(Number(row.requested_qty)) || 0);
+  let availNum = row.available_qty != null ? Number(row.available_qty) : Number(row.requested_qty);
+  if (!Number.isFinite(availNum)) availNum = reqCap;
+  availNum = Math.max(0, Math.min(reqCap, Math.floor(availNum)));
   return {
     availability_status: draftStatus,
-    available_qty: row.available_qty != null ? String(row.available_qty) : String(row.requested_qty),
+    available_qty: String(availNum),
     unit_price:
       row.unit_price != null ? String(row.unit_price) : catalogPph != null ? String(catalogPph) : "",
     pharmacist_comment: row.pharmacist_comment ?? "",
@@ -301,7 +318,6 @@ export default function PharmacienDemandeDetailPage() {
   const [fulfillmentBusyId, setFulfillmentBusyId] = useState<string | null>(null);
   const [completeBusy, setCompleteBusy] = useState(false);
   const [patientProfile, setPatientProfile] = useState<PatientBrief | null>(null);
-  const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelBusy, setCancelBusy] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -311,6 +327,8 @@ export default function PharmacienDemandeDetailPage() {
   >([]);
   const [globalComment, setGlobalComment] = useState("");
   const [initialGlobalComment, setInitialGlobalComment] = useState("");
+  /** Après publication (`responded`), affichage figé jusqu'à « Modifier ». */
+  const [respondedEditMode, setRespondedEditMode] = useState(false);
 
   const altDebounced = useMemo(() => altQuery.trim(), [altQuery]);
   const altVisibleHits = altDebounced.length < 2 ? [] : altHits;
@@ -379,6 +397,9 @@ export default function PharmacienDemandeDetailPage() {
     }
 
     setRequest(r);
+    if (r.status !== "responded") {
+      setRespondedEditMode(false);
+    }
     const { data: contactRpc, error: patErr } = await supabase.rpc("pharmacist_patient_contact_for_request", {
       p_request_id: id,
     });
@@ -496,26 +517,6 @@ export default function PharmacienDemandeDetailPage() {
     }));
   };
 
-  const setAvailabilityStatus = (row: ItemRow, nextStatus: string) => {
-    setDraft((prev) => {
-      const current = prev[row.id];
-      if (!current) return prev;
-      let qty = Number(current.available_qty || "0");
-      if (!Number.isFinite(qty)) qty = 0;
-      if (nextStatus === "market_shortage" || nextStatus === "unavailable") qty = 0;
-      if (nextStatus === "to_order") qty = row.requested_qty;
-      if (nextStatus === "available" && qty <= 0) qty = row.requested_qty;
-      return {
-        ...prev,
-        [row.id]: {
-          ...current,
-          availability_status: nextStatus,
-          available_qty: String(Math.max(0, Math.min(10, qty))),
-        },
-      };
-    });
-  };
-
   /** Ligne validée : quantité préparation ≤ choix patient tant que pas « récupéré » ; sinon plafonné à 10. */
   const maxPreparationQtyForRow = useCallback(
     (row: ItemRow): number => {
@@ -529,11 +530,42 @@ export default function PharmacienDemandeDetailPage() {
     [request]
   );
 
+  /** Plafond de saisie « Stock » : jamais au-dessus de la quantité demandée sur la ligne, et règle comptoir si applicable. */
+  const draftStockCeilingForRow = useCallback(
+    (row: ItemRow): number => {
+      const rqRaw = Number(row.requested_qty);
+      const reqCap = Number.isFinite(rqRaw) ? Math.max(0, Math.floor(rqRaw)) : 0;
+      return Math.min(maxPreparationQtyForRow(row), reqCap);
+    },
+    [maxPreparationQtyForRow]
+  );
+
+  const setAvailabilityStatus = (row: ItemRow, nextStatus: string) => {
+    setDraft((prev) => {
+      const current = prev[row.id];
+      if (!current) return prev;
+      let qty = Number(current.available_qty || "0");
+      if (!Number.isFinite(qty)) qty = 0;
+      if (nextStatus === "market_shortage" || nextStatus === "unavailable") qty = 0;
+      const cap = draftStockCeilingForRow(row);
+      if (nextStatus === "to_order") qty = Math.min(cap, row.requested_qty);
+      if (nextStatus === "available" && qty <= 0) qty = Math.min(cap, row.requested_qty);
+      return {
+        ...prev,
+        [row.id]: {
+          ...current,
+          availability_status: nextStatus,
+          available_qty: String(Math.max(0, Math.min(cap, qty))),
+        },
+      };
+    });
+  };
+
   const setAvailableQty = (row: ItemRow, raw: string) => {
     const status = draft[row.id]?.availability_status ?? "available";
     if (status === "market_shortage") return;
     const digits = raw.replace(/[^\d]/g, "");
-    const max = maxPreparationQtyForRow(row);
+    const max = draftStockCeilingForRow(row);
     if (digits === "") {
       setField(row.id, "available_qty", "");
       return;
@@ -559,7 +591,7 @@ export default function PharmacienDemandeDetailPage() {
   const nudgeAvailableQty = (row: ItemRow, delta: number) => {
     const status = draft[row.id]?.availability_status ?? "available";
     if (status === "market_shortage") return;
-    const max = maxPreparationQtyForRow(row);
+    const max = draftStockCeilingForRow(row);
     const current = Number(draft[row.id]?.available_qty ?? "0");
     const next = Math.min(
       max,
@@ -581,14 +613,13 @@ export default function PharmacienDemandeDetailPage() {
     }));
   };
 
-  const validatePatientCommentsHandled = (): string | null => {
+  /** Une note officine obligatoire sur chaque ligne (Réagir / Note officine). */
+  const validatePharmacistRemarksPerLine = (): string | null => {
     for (const row of items) {
-      const patientComment = row.client_comment?.trim() ?? "";
-      if (!patientComment) continue;
       const reply = draft[row.id]?.pharmacist_comment?.trim() ?? "";
       if (reply.length === 0) {
         const name = one(row.products)?.name ?? "Produit";
-        return `Répondez au commentaire patient pour « ${name} » (au moins « C'est noté »).`;
+        return `Ajoutez une note officine pour « ${name} » (bouton Réagir ou Note officine : « C'est noté » ou message).`;
       }
     }
     return null;
@@ -824,7 +855,7 @@ export default function PharmacienDemandeDetailPage() {
 
   const saveConfirmedAdjustments = async () => {
     if (!request || request.status !== "confirmed") return;
-    const commentError = validatePatientCommentsHandled();
+    const commentError = validatePharmacistRemarksPerLine();
     if (commentError) {
       setError(commentError);
       return;
@@ -837,10 +868,13 @@ export default function PharmacienDemandeDetailPage() {
         if (!f?.availability_status) throw new Error("Choisis une disponibilité pour chaque ligne.");
         const qtyPrep = Number(f.available_qty);
         if (Number.isNaN(qtyPrep) || qtyPrep < 0) throw new Error("Quantité disponible invalide sur une ligne.");
+        const nm = one(row.products)?.name ?? "ce produit";
+        if (qtyPrep > row.requested_qty) {
+          throw new Error(`« ${nm} » : la quantité en stock ne peut pas dépasser la quantité demandée (${row.requested_qty}).`);
+        }
         const maxQ = maxPreparationQtyForRow(row);
         const co = row.counter_outcome ?? "unset";
         if (row.is_selected_by_patient && co !== "picked_up" && qtyPrep > maxQ) {
-          const nm = one(row.products)?.name ?? "ce produit";
           throw new Error(
             `« ${nm} » : jusqu'à récupération, la quantité ne peut pas dépasser celle validée par le patient (${maxQ}).`
           );
@@ -870,7 +904,7 @@ export default function PharmacienDemandeDetailPage() {
 
   const saveRespondedAdjustments = async () => {
     if (!request || request.status !== "responded") return;
-    const commentError = validatePatientCommentsHandled();
+    const commentError = validatePharmacistRemarksPerLine();
     if (commentError) {
       setError(commentError);
       return;
@@ -890,6 +924,7 @@ export default function PharmacienDemandeDetailPage() {
       const { error: h } = await logHistory(id, "responded", "responded", "pharmacist_response_updated");
       if (h) throw new Error(h.message);
       await persistGlobalCommentIfChanged();
+      setRespondedEditMode(false);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Une erreur est survenue.");
@@ -908,7 +943,7 @@ export default function PharmacienDemandeDetailPage() {
       return;
     }
 
-    const commentError = validatePatientCommentsHandled();
+    const commentError = validatePharmacistRemarksPerLine();
     if (commentError) {
       setError(commentError);
       return;
@@ -923,6 +958,11 @@ export default function PharmacienDemandeDetailPage() {
       const qty = Number(f.available_qty);
       if (Number.isNaN(qty) || qty < 0) {
         setError("Quantité disponible invalide sur une ligne.");
+        return;
+      }
+      if (qty > row.requested_qty) {
+        const nm = one(row.products)?.name ?? "Produit";
+        setError(`« ${nm} » : la quantité en stock ne peut pas dépasser la quantité demandée (${row.requested_qty}).`);
         return;
       }
     }
@@ -1021,7 +1061,6 @@ export default function PharmacienDemandeDetailPage() {
       setError(rpcErr.message);
       return;
     }
-    setCancelOpen(false);
     setCancelReason("");
     await load();
   };
@@ -1060,11 +1099,26 @@ export default function PharmacienDemandeDetailPage() {
   const canEditResponse = request && ["submitted", "in_review"].includes(request.status);
   const canManageConfirmed = request?.status === "confirmed";
   const canManageResponded = request?.status === "responded";
-  const canEditLines = Boolean(canEditResponse || canManageResponded || canManageConfirmed);
+  const respondedFrozenView = Boolean(request?.status === "responded" && !respondedEditMode);
+  const showLineAndPublishEdits =
+    !!request &&
+    (["submitted", "in_review"].includes(request.status) ||
+      (request.status === "responded" && respondedEditMode) ||
+      request.status === "confirmed");
   const isProduct = request?.request_type === "product_request";
 
+  const resetDraftFromRows = useCallback(() => {
+    setDraft(() => {
+      const next: Draft = {};
+      for (const row of items) {
+        next[row.id] = buildItemDraftFromRow(row);
+      }
+      return next;
+    });
+  }, [items]);
+
   let canCompleteCounter = false;
-  if (request && isProduct && (request.status === "responded" || request.status === "confirmed")) {
+  if (request && isProduct && request.status === "confirmed") {
     const selectedLines = items.filter((i) => i.is_selected_by_patient);
     const blockingSelected = selectedLines.filter(
       (i) =>
@@ -1107,28 +1161,26 @@ export default function PharmacienDemandeDetailPage() {
   const pickedUpCount = items.filter(
     (i) => i.is_selected_by_patient && (i.counter_outcome ?? "unset") === "picked_up"
   ).length;
-  const requestTypeHeading =
-    request.request_type === "product_request"
-      ? "Demande de produits"
-      : (requestTypeFr[request.request_type] ?? request.request_type);
 
   return (
-    <PageShell maxWidthClass="max-w-5xl" className="space-y-4">
+    <PageShell maxWidthClass="max-w-3xl" className="space-y-2 sm:space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link href="/dashboard/pharmacien/demandes" className="text-xs font-medium text-emerald-900 underline">
           ← Demandes de produits
         </Link>
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
           <span className="font-mono text-[10px] font-semibold text-foreground">{displayRequestPublicRef(request)}</span>
-          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+          <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
             {formatDateTimeShort24hFr(request.submitted_at ?? request.created_at)}
           </span>
-          <span className="rounded-full border border-border/80 bg-muted/50 px-2.5 py-0.5 text-[10px] font-semibold text-foreground sm:text-xs">
+          <span className="rounded-full border border-border/80 bg-muted/50 px-2 py-0.5 text-[10px] font-semibold text-foreground">
             {requestStatusFr[request.status] ?? request.status}
           </span>
-          <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-900">
-            Lignes {items.length}
-          </span>
+          {isProduct ? (
+            <span className="rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-900">
+              {items.length} ligne{items.length !== 1 ? "s" : ""}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -1145,121 +1197,71 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      <section className="overflow-hidden rounded-lg border border-border/80 bg-card shadow-sm ring-1 ring-black/[0.04]">
-        <div className="flex items-start gap-2.5 px-2.5 py-2 sm:gap-3 sm:px-3">
-          <div
-            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-[11px] font-bold text-white shadow-sm"
-            aria-hidden
-          >
-            {patientHeadingName(patientProfile, request.patient_id)
-              .slice(0, 2)
-              .toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-bold tracking-tight text-foreground sm:text-lg">
-              {patientHeadingName(patientProfile, request.patient_id)}
-            </h1>
-            <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-              <span className="font-semibold text-foreground">{requestTypeHeading}</span>
-              {" — "}
-              demande du client{" "}
-              <span className="font-mono font-semibold text-foreground">
-                {patientProfile?.patient_ref?.trim() || `n°${formatShortId(request.patient_id)}`}
-              </span>
-            </p>
-            <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
-              Mise à jour {formatDateTimeShort24hFr(request.updated_at)}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-semibold text-foreground">
-                Client: {patientHeadingName(patientProfile, request.patient_id)}
-              </span>
-              {patientPhone ? (
-                <>
-                  <a href={telHref(patientPhone)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-medium hover:bg-muted/40">
-                    <Phone size={12} /> Appeler
-                  </a>
-                  <a href={whatsappHref(patientPhone)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-medium hover:bg-muted/40">
-                    <MessageCircle size={12} /> WhatsApp
-                  </a>
-                  <a href={smsHref(patientPhone)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-medium hover:bg-muted/40">
-                    <MessageSquare size={12} /> SMS
-                  </a>
-                </>
-              ) : null}
-              {patientEmail ? (
-                <a href={`mailto:${patientEmail}`} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-medium hover:bg-muted/40">
-                  <Mail size={12} /> Email
-                </a>
-              ) : null}
-            </div>
-            {isProduct ? (
-              <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px] sm:text-[11px]">
-                <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-px font-semibold text-emerald-900">
-                  Lignes {items.length}
+      <section className="overflow-hidden rounded-2xl border-2 border-emerald-100 bg-gradient-to-br from-white via-white to-emerald-50/30 shadow-[0_2px_14px_rgba(16,185,129,0.08)] ring-1 ring-black/[0.04]">
+        <div className="h-1 w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" aria-hidden />
+        <div className="flex flex-wrap items-start justify-between gap-2 px-2.5 py-2 sm:gap-3 sm:px-3.5 sm:py-2.5">
+          <div className="flex min-w-0 flex-1 gap-3">
+            <span
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600/95 text-white shadow-inner"
+              title="Client"
+              aria-hidden
+            >
+              <User className="size-5" strokeWidth={2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold leading-tight text-foreground sm:text-base">
+                {patientHeadingName(patientProfile, request.patient_id)}
+              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
+                <span className="inline-flex items-center gap-0.5 font-mono font-semibold text-foreground">
+                  <Hash className="size-3 opacity-70" aria-hidden />
+                  {patientProfile?.patient_ref?.trim() || `#${formatShortId(request.patient_id)}`}
                 </span>
-                {request.status !== "submitted" && request.status !== "in_review" ? (
-                  <>
-                    <span className="rounded border border-sky-200 bg-sky-50 px-1.5 py-px font-semibold text-sky-900">
-                      Sélection {selectedLinesCount}
-                    </span>
-                    <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-px font-semibold text-amber-900">
-                      Comptoir {pendingCounterCount}
-                    </span>
-                    <span className="text-emerald-900/90">Récupérés {pickedUpCount}</span>
-                  </>
-                ) : null}
+                <span className="text-muted-foreground/50" aria-hidden>
+                  ·
+                </span>
+                <span className="font-mono text-[10px] font-medium text-emerald-900/90">{displayRequestPublicRef(request)}</span>
               </div>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+            {patientPhone ? (
+              <>
+                <a
+                  href={telHref(patientPhone)}
+                  className="inline-flex size-9 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+                  title={`Appeler ${patientPhone}`}
+                >
+                  <Phone className="size-4" aria-hidden />
+                </a>
+                <a
+                  href={whatsappHref(patientPhone)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex size-9 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+                  title="WhatsApp"
+                >
+                  <MessageCircle className="size-4" aria-hidden />
+                </a>
+                <a
+                  href={smsHref(patientPhone)}
+                  className="inline-flex size-9 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+                  title="SMS"
+                >
+                  <MessageSquare className="size-4" aria-hidden />
+                </a>
+              </>
+            ) : null}
+            {patientEmail ? (
+              <a
+                href={`mailto:${patientEmail}`}
+                className="inline-flex size-9 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+                title={patientEmail}
+              >
+                <Mail className="size-4" aria-hidden />
+              </a>
             ) : null}
           </div>
-        </div>
-        <div className="border-t border-border/50 px-2 pb-2 sm:px-2.5">
-          <CollapsibleDetails title="Coordonnées, identifiants et dates" variant="muted" className="text-left">
-            <div className="space-y-2 pt-1 text-[11px] leading-snug text-muted-foreground">
-              <p>
-                <span className="font-semibold text-foreground">ID technique : </span>
-                <span className="font-mono">{formatShortId(request.patient_id)}</span>
-              </p>
-              {patientProfile?.patient_ref?.trim() ? (
-                <p>
-                  <span className="font-semibold text-foreground">Code client : </span>
-                  <span className="font-mono">{patientProfile.patient_ref.trim()}</span>
-                </p>
-              ) : null}
-              <div className="flex flex-wrap gap-x-3 gap-y-1">
-                {patientPhone ? (
-                  <a
-                    href={telHref(patientPhone)}
-                    className="inline-flex items-center gap-1 font-semibold text-primary underline-offset-2 hover:underline"
-                  >
-                    {patientPhone}
-                  </a>
-                ) : (
-                  <span>Tél. non renseigné</span>
-                )}
-                {patientEmail ? (
-                  <a href={`mailto:${patientEmail}`} className="font-medium text-primary underline-offset-2 hover:underline">
-                    {patientEmail}
-                  </a>
-                ) : null}
-              </div>
-              <div className="space-y-0.5 border-t border-border/50 pt-1.5 text-[10px] tabular-nums">
-                <p>
-                  <span className="font-medium text-foreground">Créée</span> {formatDateTimeShort24hFr(request.created_at)}
-                </p>
-                {request.submitted_at ? (
-                  <p>
-                    <span className="font-medium text-foreground">Envoyée</span> {formatDateTimeShort24hFr(request.submitted_at)}
-                  </p>
-                ) : null}
-                {request.responded_at ? (
-                  <p>
-                    <span className="font-medium text-foreground">Réponse</span> {formatDateTimeShort24hFr(request.responded_at)}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </CollapsibleDetails>
         </div>
       </section>
 
@@ -1293,12 +1295,48 @@ export default function PharmacienDemandeDetailPage() {
             <p className="mt-2 text-[11px] text-muted-foreground">Aucune ligne produit.</p>
           ) : (
             <>
-              <div className="flex items-end justify-between gap-2">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Lignes à traiter</h2>
+              {respondedFrozenView ? (
+                <section className="rounded-2xl border border-sky-200/85 bg-gradient-to-br from-sky-50 via-white to-indigo-50/30 px-3 py-2.5 shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-sky-950">Réponse publiée</p>
+                  <p className="mt-1 text-[11px] leading-snug text-sky-950/85">
+                    C&apos;est la vision actuelle pour le patient. Pour ajuster prix, disponibilités ou alternatives, utilisez «
+                    Modifier la réponse ».
+                  </p>
+                  {request.responded_at ? (
+                    <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <CalendarClock className="size-3 shrink-0" aria-hidden />
+                      <span>Envoyée le {formatDateTimeShort24hFr(request.responded_at)}</span>
+                    </p>
+                  ) : null}
+                </section>
+              ) : null}
+
+              {respondedFrozenView && initialGlobalComment.trim() ? (
+                <section className="rounded-xl border border-violet-200/70 bg-violet-50/40 px-3 py-2 shadow-sm">
+                  <p className="text-[9px] font-bold uppercase tracking-wide text-violet-950">Commentaire général envoyé</p>
+                  <p className="mt-0.5 whitespace-pre-wrap text-[11px] leading-snug text-violet-950/90">{initialGlobalComment}</p>
+                </section>
+              ) : null}
+
+              <div className="flex flex-wrap items-end justify-between gap-1.5 sm:gap-2">
+            <div>
+              <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground sm:text-xs">Produits</h2>
+              {request.status === "confirmed" || request.status === "completed" ? (
+                <div className="mt-1 flex flex-wrap gap-1 text-[9px] text-muted-foreground">
+                  <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">Sél. {selectedLinesCount}</span>
+                  <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">
+                    Attente comptoir {pendingCounterCount}
+                  </span>
+                  <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">
+                    Récp. {pickedUpCount}
+                  </span>
+                </div>
+              ) : null}
+            </div>
             <span className="text-[10px] text-muted-foreground">{items.length} article(s)</span>
           </div>
-          <ul className="mt-2 space-y-3">
-            {items.map((row, rowIndex) => {
+          <ul className="mt-2 space-y-2 sm:space-y-3">
+            {items.map((row) => {
               const prod = one(row.products);
               const linePph = pphLabel(prod?.price_pph);
               const f = draft[row.id];
@@ -1306,7 +1344,7 @@ export default function PharmacienDemandeDetailPage() {
               const co = row.counter_outcome ?? "unset";
               const selected = Boolean(row.is_selected_by_patient);
               const lineLockedTrace = co === "cancelled_at_counter";
-              const canEditThisRow = canEditLines && !lineLockedTrace;
+              const canEditThisRow = showLineAndPublishEdits && !lineLockedTrace;
               const rowAlts = normalizeAlts(row.request_item_alternatives);
               const chosenAltId = row.patient_chosen_alternative_id ?? null;
               const chosenAltRow = chosenAltId ? rowAlts.find((a) => a.id === chosenAltId) : null;
@@ -1320,53 +1358,115 @@ export default function PharmacienDemandeDetailPage() {
                 request.status === "confirmed" && selected && !lineLockedTrace && effAvailRow === "to_order";
               const showPatientConfirmedChoice =
                 selected && (request.status === "confirmed" || request.status === "completed");
-              const showInlineCounter =
-                request.status === "responded" || request.status === "confirmed" || request.status === "completed";
+              const showInlineCounter = request.status === "confirmed" || request.status === "completed";
               const outcomeSelectDisabled =
                 request.status === "completed" ||
                 counterBusyId === row.id ||
                 !selected;
-              const edgePalette = [
-                "border-l-teal-600 shadow-teal-900/10",
-                "border-l-emerald-600 shadow-emerald-900/10",
-                "border-l-sky-600 shadow-sky-900/10",
-              ] as const;
-              const edgeTone = edgePalette[rowIndex % edgePalette.length];
+              const draftAvailQty = Number(f.available_qty);
+              const draftInferredStatus = inferAvailabilityStatusFromQty({
+                status: f.availability_status,
+                availableQty: Number.isFinite(draftAvailQty) ? draftAvailQty : 0,
+                requestedQty: row.requested_qty,
+                isProposedLine: row.line_source === "pharmacist_proposed",
+              });
+              const statusForBadge =
+                lineLockedTrace || respondedFrozenView || !canEditThisRow
+                  ? row.availability_status
+                  : draftInferredStatus;
+              const availUi = availabilityStatusUi(statusForBadge);
+              const AvailIcon = availUi.Icon;
+              const isProposedLine = row.line_source === "pharmacist_proposed";
+              const stockCeiling = draftStockCeilingForRow(row);
+              const stockParsedQty = Number(f.available_qty);
+              const stockPlusDisabled =
+                !canEditThisRow ||
+                f.availability_status === "market_shortage" ||
+                f.availability_status === "to_order" ||
+                (Number.isFinite(stockParsedQty) && stockParsedQty >= stockCeiling);
               return (
                 <li
                   key={row.id}
-                  className={`overflow-hidden rounded-lg border border-border/90 bg-card shadow-sm ring-1 ring-black/[0.04] border-l-[3px] ${edgeTone}`}
+                  className={clsx(
+                    "overflow-hidden rounded-2xl border bg-white",
+                    isProposedLine
+                      ? "border-violet-400/80 bg-gradient-to-br from-violet-50/90 via-fuchsia-50/[0.35] to-white shadow-[0_4px_22px_rgba(109,40,217,0.13)] ring-1 ring-violet-300/45"
+                      : "border-slate-200/70 shadow-[0_2px_10px_rgba(15,23,42,0.045)] ring-1 ring-slate-900/[0.025]",
+                    availUi.accentClass,
+                    isProposedLine ? "border-l-[4px] border-l-violet-500" : "border-l-[3px]"
+                  )}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-1 border-b border-border/50 bg-muted/10 px-2 py-1 sm:px-2">
+                  <div
+                    className={clsx(
+                      "flex flex-wrap items-start gap-2 border-b px-2.5 py-2 sm:gap-3 sm:px-3.5 sm:py-2.5",
+                      isProposedLine
+                        ? "border-violet-200/55 bg-gradient-to-r from-violet-100/[0.42] via-white to-transparent"
+                        : "border-slate-100/90 bg-slate-50/25"
+                    )}
+                  >
+                    <div
+                      className={clsx(
+                        "relative h-[6rem] w-[6rem] shrink-0 overflow-hidden rounded-2xl border bg-white shadow-sm sm:h-[6.25rem] sm:w-[6.25rem]",
+                        isProposedLine ? "border-violet-200/80 ring-2 ring-violet-200/35" : "border-slate-200/75"
+                      )}
+                    >
+                      {prod?.photo_url ? (
+                        <img src={prod.photo_url} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                          <Package
+                            className={clsx("size-10 sm:size-[2.65rem]", isProposedLine ? "text-violet-400/90" : "text-slate-400")}
+                            aria-hidden
+                          />
+                        </div>
+                      )}
+                    </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold leading-tight text-foreground sm:text-[13px]">{prod?.name ?? "Produit"}</p>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0 text-[9px] text-muted-foreground sm:gap-x-2 sm:text-[10px]">
-                        {linePph ? <span className="font-medium text-primary">{linePph}</span> : null}
-                        <span className="text-muted-foreground/80">·</span>
-                        <span>
-                          Dem. <strong className="text-foreground">{row.requested_qty}</strong>
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <p className="min-w-0 flex-1 text-[13px] font-bold leading-tight text-foreground sm:text-sm">
+                          {prod?.name ?? "Produit"}
+                        </p>
+                        <span
+                          className={clsx(
+                            "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1",
+                            availUi.badgeClass
+                          )}
+                        >
+                          <AvailIcon className="size-3.5 shrink-0" aria-hidden />
+                          {availUi.label}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                        <span className="inline-flex items-center gap-0.5">
+                          <Package className="size-3 text-muted-foreground/80" aria-hidden />
+                          <span>
+                            Demandé <strong className="text-foreground">{row.requested_qty}</strong>
+                          </span>
                         </span>
                         {lineLockedTrace ? (
-                          <span className="rounded px-1 py-px text-[8px] font-medium bg-rose-100 text-rose-900 ring-1 ring-rose-200/80 sm:text-[9px]">
+                          <span className="rounded-md bg-rose-100 px-1.5 py-px text-[9px] font-semibold text-rose-900 ring-1 ring-rose-200/80">
                             Non distribué
                           </span>
                         ) : ["responded", "confirmed", "completed"].includes(request.status) ? (
                           selected ? (
-                            <span className="rounded px-1 py-px text-[8px] bg-emerald-100 text-emerald-900 sm:text-[9px]">Retenu</span>
+                            <span className="rounded-md bg-emerald-100 px-1.5 py-px text-[9px] font-semibold text-emerald-900">
+                              Retenu
+                            </span>
                           ) : (
-                            <span className="rounded px-1 py-px text-[8px] bg-slate-100 text-slate-700 sm:text-[9px]">Non retenu</span>
+                            <span className="rounded-md bg-slate-100 px-1.5 py-px text-[9px] font-semibold text-slate-700">
+                              Non retenu
+                            </span>
                           )
                         ) : null}
-                        <span className="text-muted-foreground/80">·</span>
-                        <span className="tabular-nums text-muted-foreground/90">Màj {formatDateTimeShort24hFr(row.updated_at)}</span>
                       </div>
-                      {row.line_source === "pharmacist_proposed" ? (
-                        <p className="mt-0.5 rounded bg-violet-100/90 px-1.5 py-0.5 text-[9px] font-medium leading-snug text-violet-950">
+                      {isProposedLine ? (
+                        <p className="mt-1.5 rounded-lg border border-violet-300/85 bg-gradient-to-br from-violet-200/65 to-violet-100/50 px-2 py-1 text-[10px] font-semibold leading-snug text-violet-950 shadow-sm ring-1 ring-violet-400/35">
+                          <span className="text-violet-900">Proposition officine · </span>
                           {requestItemLineSourceFr.pharmacist_proposed}
                           {row.pharmacist_proposal_reason ? (
                             <>
                               {" "}
-                              — <span className="font-normal">{row.pharmacist_proposal_reason}</span>
+                              <span className="font-normal text-violet-900/90">— {row.pharmacist_proposal_reason}</span>
                             </>
                           ) : null}
                         </p>
@@ -1433,11 +1533,39 @@ export default function PharmacienDemandeDetailPage() {
                           </p>
                         </div>
                       ) : null}
-                      {row.client_comment ? (
-                        <p className="mt-1 rounded border border-sky-200 bg-sky-50 px-1.5 py-1 text-[10px] leading-snug text-sky-950">
-                          <span className="font-semibold">Commentaire patient :</span> {row.client_comment}
-                        </p>
-                      ) : null}
+                      <div className="mt-1.5 space-y-1.5 rounded-xl border border-sky-200/45 bg-sky-50/35 px-2 py-1.5 sm:mt-2 sm:px-2.5 sm:py-2">
+                        <div className="flex flex-wrap items-start justify-between gap-2 gap-y-2">
+                          <div className="min-w-0 flex-1 text-[10px] leading-snug">
+                            {row.client_comment?.trim() ? (
+                              <p className="text-sky-950">
+                                <span className="font-bold text-sky-900">Patient · </span>
+                                {row.client_comment.trim()}
+                              </p>
+                            ) : (
+                              <p className="text-muted-foreground italic">
+                                {canEditThisRow
+                                  ? "Pas de commentaire patient sur cette ligne — ajoutez une note officine (bouton ci-contre)."
+                                  : "Pas de commentaire patient sur cette ligne."}
+                              </p>
+                            )}
+                          </div>
+                          {canEditThisRow ? (
+                            <PharmacistLineReactControl
+                              lineId={row.id}
+                              patientComment={row.client_comment}
+                              pharmacistReply={f.pharmacist_comment}
+                              disabled={false}
+                              onReplyChange={(text) => setField(row.id, "pharmacist_comment", text)}
+                            />
+                          ) : null}
+                        </div>
+                        {(canEditThisRow ? f.pharmacist_comment : row.pharmacist_comment)?.trim() ? (
+                          <p className="rounded-lg border border-emerald-200/70 bg-emerald-50/50 px-2 py-1 text-[10px] leading-snug text-emerald-950">
+                            <span className="font-bold text-emerald-900">Réponse officine · </span>
+                            {(canEditThisRow ? f.pharmacist_comment : row.pharmacist_comment)?.trim()}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
 
@@ -1474,17 +1602,17 @@ export default function PharmacienDemandeDetailPage() {
                         </p>
                       ) : null}
                     </div>
-                  ) : (
-                    <div className="space-y-0.5 p-1 sm:p-1.5">
-                      <div className="grid grid-cols-6 gap-1 sm:grid-cols-12 lg:gap-1">
-                        <label className="col-span-6 flex min-w-0 flex-col gap-0 sm:col-span-5 lg:col-span-5">
-                          <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Dispo</span>
+                  ) : showLineAndPublishEdits ? (
+                    <div className="space-y-1.5 px-2 py-2 sm:space-y-2 sm:px-3 sm:py-2.5">
+                      <div className="flex flex-wrap items-end gap-1.5 sm:gap-2">
+                        <label className="flex min-w-[9.5rem] flex-1 flex-col gap-0.5">
+                          <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Disponibilité</span>
                           <select
                             disabled={!canEditThisRow}
                             value={f.availability_status}
                             onChange={(e) => setAvailabilityStatus(row, e.target.value)}
-                            title="« Disponible partiellement » si qté &lt; demandé."
-                            className="h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] shadow-sm disabled:opacity-60"
+                            title="Disponibilité"
+                            className="h-9 w-full rounded-xl border border-input bg-background px-2 text-[12px] font-medium shadow-sm disabled:opacity-60"
                           >
                             {(row.line_source === "pharmacist_proposed"
                               ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
@@ -1495,20 +1623,15 @@ export default function PharmacienDemandeDetailPage() {
                               </option>
                             ))}
                           </select>
-                          {row.line_source !== "pharmacist_proposed" ? (
-                            <span className="text-[8px] leading-tight text-muted-foreground">
-                              Partiel si qté &lt; demandée.
-                            </span>
-                          ) : null}
                         </label>
-                        <label className="col-span-3 flex min-w-0 flex-col gap-0 sm:col-span-2 lg:col-span-2">
-                          <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Qté</span>
-                          <div className="flex h-7 items-center overflow-hidden rounded border border-input bg-background shadow-sm">
+                        <label className="flex w-[5.5rem] flex-col gap-0.5">
+                          <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Stock</span>
+                          <div className="flex h-9 items-center overflow-hidden rounded-xl border border-input bg-background shadow-sm">
                             <button
                               type="button"
                               disabled={!canEditThisRow}
                               onClick={() => nudgeAvailableQty(row, -1)}
-                              className="h-full w-6 border-r border-input text-[11px] font-bold text-muted-foreground disabled:opacity-50"
+                              className="h-full w-8 border-r border-input text-sm font-bold text-muted-foreground disabled:opacity-50"
                               aria-label="Diminuer la quantité"
                             >
                               −
@@ -1520,52 +1643,56 @@ export default function PharmacienDemandeDetailPage() {
                               disabled={!canEditThisRow || f.availability_status === "market_shortage" || f.availability_status === "to_order"}
                               value={f.available_qty}
                               onChange={(e) => setAvailableQty(row, e.target.value)}
-                              className={`h-full w-full border-0 px-1 text-[11px] tabular-nums shadow-none focus:outline-none ${
-                                f.availability_status === "market_shortage" ? "bg-muted text-muted-foreground" : ""
-                              }`}
+                              className={clsx(
+                                "h-full w-full min-w-[2rem] border-0 bg-transparent px-1 text-center text-[12px] font-semibold tabular-nums focus:outline-none",
+                                f.availability_status === "market_shortage" && "bg-muted text-muted-foreground"
+                              )}
                             />
                             <button
                               type="button"
-                              disabled={!canEditThisRow}
+                              disabled={stockPlusDisabled}
                               onClick={() => nudgeAvailableQty(row, 1)}
-                              className="h-full w-6 border-l border-input text-[11px] font-bold text-muted-foreground disabled:opacity-50"
+                              className="h-full w-8 border-l border-input text-sm font-bold text-muted-foreground disabled:opacity-50"
                               aria-label="Augmenter la quantité"
                             >
                               +
                             </button>
                           </div>
                         </label>
-                        <label className="col-span-3 flex min-w-0 flex-col gap-0 sm:col-span-2 lg:col-span-2">
-                          <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Prix</span>
+                        <label className="flex min-w-[5rem] flex-1 flex-col gap-0.5 sm:max-w-[7rem]">
+                          <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                            Prix <span className="normal-case opacity-70">MAD</span>
+                          </span>
                           <input
                             type="text"
                             inputMode="decimal"
-                            placeholder="0.00"
-                              disabled
+                            placeholder="—"
+                            disabled
                             value={f.unit_price}
-                            className="h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] tabular-nums shadow-sm disabled:opacity-60"
-                          />
-                        </label>
-                        <label className="col-span-6 flex min-w-0 flex-col gap-0 sm:col-span-3 lg:col-span-3">
-                          <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Réponse au commentaire</span>
-                          <textarea
-                            rows={1}
-                            disabled={!canEditThisRow}
-                            value={f.pharmacist_comment}
-                            onChange={(e) => setField(row.id, "pharmacist_comment", e.target.value)}
-                            placeholder={row.client_comment ? "Ex: C'est noté" : "Optionnel"}
-                            className="h-7 min-h-[1.75rem] w-full resize-none rounded border border-input bg-background px-1.5 py-0.5 text-[11px] leading-tight shadow-sm disabled:opacity-60"
+                            title={linePph ? `PPH catalogue : ${linePph}` : undefined}
+                            className="h-9 w-full rounded-xl border border-dashed border-border bg-muted/30 px-2 text-[12px] font-semibold tabular-nums opacity-80"
                           />
                         </label>
                       </div>
-                      {request.status === "confirmed" &&
-                      row.is_selected_by_patient &&
-                      canEditThisRow &&
-                      (row.counter_outcome ?? "unset") !== "picked_up" ? (
-                        <p className="col-span-full text-[9px] leading-snug text-muted-foreground">
-                          Quantité préparation · plafonnée à{" "}
-                          <strong className="text-foreground">{maxPreparationQtyForRow(row)}</strong> jusqu&apos;à
-                          « Distribuée / récupérée », puis jusqu&apos;à 10 selon votre saisie.
+                      {canEditThisRow &&
+                      f.availability_status !== "market_shortage" &&
+                      f.availability_status !== "unavailable" ? (
+                        <p className="text-[9px] leading-snug text-muted-foreground">
+                          Stock · max.&nbsp;
+                          <strong className="text-foreground">{stockCeiling}</strong>
+                          {" "}(≤ quantité demandée&nbsp;
+                          <strong className="text-foreground">{row.requested_qty}</strong>
+                          ).
+                          {request.status === "confirmed" &&
+                          row.is_selected_by_patient &&
+                          (row.counter_outcome ?? "unset") !== "picked_up" &&
+                          maxPreparationQtyForRow(row) < row.requested_qty ? (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              Au comptoir, plafonné à <strong className="text-foreground">{maxPreparationQtyForRow(row)}</strong> jusqu&apos;à
+                              récupération.
+                            </span>
+                          ) : null}
                         </p>
                       ) : null}
 
@@ -1583,143 +1710,187 @@ export default function PharmacienDemandeDetailPage() {
                           />
                         </label>
                       ) : null}
-
-                      {!canEditLines ? (
-                        <p className="rounded border border-border/60 bg-muted/20 px-1.5 py-0.5 text-[9px] text-muted-foreground">
-                          Dernière dispo :{" "}
-                          <strong className="text-foreground">
-                            {row.availability_status ? availabilityStatusFr[row.availability_status] : "—"}
-                          </strong>
-                        </p>
-                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="border-t border-slate-100/90 bg-slate-50/30 px-3 py-2.5">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                        {respondedFrozenView
+                          ? "Réponse publiée · lecture seule"
+                          : "Lecture seule · dossier non modifiable"}
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap gap-2">
+                        <span className="inline-flex items-center gap-1 rounded-xl border border-border/70 bg-background px-2 py-1 text-[11px] font-medium shadow-sm tabular-nums">
+                          <Package className="size-3.5 text-muted-foreground" aria-hidden />
+                          Qté&nbsp;
+                          <strong>{row.available_qty != null ? row.available_qty : "—"}</strong>
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-xl border border-border/70 bg-background px-2 py-1 text-[11px] font-medium shadow-sm tabular-nums">
+                          <span className="text-[10px] text-muted-foreground">MAD</span>
+                          <strong>{row.unit_price != null ? Number(row.unit_price).toFixed(2) : "—"}</strong>
+                        </span>
+                        {row.availability_status === "to_order" && row.expected_availability_date ? (
+                          <span className="inline-flex items-center gap-1 rounded-xl border border-amber-200/80 bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-950">
+                            <CalendarClock className="size-3.5 shrink-0" aria-hidden />
+                            {formatDateShortFr(row.expected_availability_date)}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   )}
 
-                  <div className="border-t border-amber-200/40 bg-amber-50/25 px-1.5 py-1">
-                    <button
-                      type="button"
-                      onClick={() => toggleAltOpen(row.id)}
-                      className="flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1 text-left"
-                    >
-                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        <span className="text-[9px] font-bold uppercase tracking-wide text-amber-950">Alternatives</span>
-                        <span className="rounded bg-amber-100/80 px-1 py-px text-[8px] font-medium text-amber-900">max 3</span>
-                        <span className="text-[9px] text-muted-foreground">{rowAlts.length} alternative(s)</span>
-                      </div>
-                      <span className="text-[10px] font-semibold text-amber-950">{isAltOpen(row.id) ? "Masquer" : "Afficher"}</span>
-                    </button>
-                    {canEditThisRow && rowAlts.length < 3 && altPickerOpenFor !== row.id ? (
+                  <div className="mx-2 mb-2 mt-1.5 overflow-hidden rounded-xl border border-teal-200/55 border-l-[3px] border-l-teal-500/65 bg-gradient-to-br from-teal-50/50 via-cyan-50/25 to-transparent pl-2.5 pr-2 pb-1.5 pt-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] sm:mx-3 sm:mt-2 sm:pl-3 sm:pb-2 sm:pt-2">
+                    <div className="flex min-w-0 items-center gap-1.5">
                       <button
                         type="button"
-                        disabled={altBusyRow === row.id}
-                        onClick={() => {
-                          setAltPickerOpenFor(row.id);
-                          setAltQuery("");
-                          setAltHits([]);
-                          setAltRowsOpen((prev) => ({ ...prev, [row.id]: true }));
-                        }}
-                        className="mt-1 inline-flex h-7 shrink-0 items-center rounded border border-amber-300/90 bg-card px-2 text-[10px] font-semibold text-amber-950 shadow-sm hover:bg-amber-50/80 disabled:opacity-50"
+                        aria-expanded={isAltOpen(row.id)}
+                        onClick={() => toggleAltOpen(row.id)}
+                        className="flex min-h-10 min-w-0 flex-1 items-center justify-between gap-2 rounded-xl bg-white/90 px-2.5 py-2 text-left ring-1 ring-teal-200/40 shadow-sm backdrop-blur-[2px] transition hover:bg-white"
                       >
-                        + Ajouter alternative
+                        <span className="flex min-w-0 items-center gap-2">
+                          <Layers className="size-4 shrink-0 text-teal-600" strokeWidth={2} aria-hidden />
+                          <span className="truncate text-[11px] font-semibold text-teal-950">
+                            <span className="text-teal-800/85">Alternatives </span>
+                            <span className="font-mono tabular-nums text-teal-700">
+                              {rowAlts.length}/3
+                            </span>
+                          </span>
+                        </span>
+                        <ChevronDown
+                          className={clsx("size-[18px] shrink-0 text-teal-600 transition-transform duration-200", isAltOpen(row.id) && "rotate-180")}
+                          aria-hidden
+                        />
                       </button>
-                    ) : null}
-                    {rowAlts.length > 0 && isAltOpen(row.id) ? (
-                      <ul className="mt-1 flex flex-col gap-0.5 sm:flex-row sm:flex-wrap">
-                        {rowAlts.map((alt) => {
-                          const altProd = one(alt.products);
-                          const altName = altProd?.name ?? "Alternative";
-                          const altPph = pphLabel(altProd?.price_pph);
-                          const chosenAltId = row.patient_chosen_alternative_id ?? null;
-                          const patientChoseHere =
-                            request.status === "confirmed" &&
-                            selected &&
-                            chosenAltId != null &&
-                            chosenAltId === alt.id;
-                          const showIndicatif =
-                            request.status === "confirmed" && selected && rowAlts.length > 0 && !patientChoseHere;
-                          return (
-                            <li
-                              key={alt.id}
-                              className={`flex min-w-0 flex-1 basis-full items-center justify-between gap-2 rounded border border-amber-200/50 bg-card/90 px-1.5 py-1 text-[10px] shadow-sm sm:basis-[calc(50%-0.25rem)] lg:basis-[calc(33.333%-0.35rem)] ${
-                                patientChoseHere
-                                  ? "ring-1 ring-emerald-500/50 ring-offset-1 ring-offset-amber-50/30 bg-emerald-50/70"
-                                  : showIndicatif
-                                    ? "opacity-65"
-                                    : ""
-                              }`}
-                            >
-                              <div className="size-12 shrink-0 overflow-hidden rounded border border-border/70 bg-background">
-                                {altProd?.photo_url ? (
-                                  <img src={altProd.photo_url} alt={altName} className="h-full w-full object-cover" />
-                                ) : (
-                                  <div className="flex h-full w-full items-center justify-center">
-                                    <span className="text-[9px] text-muted-foreground">IMG</span>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium text-foreground">{altName}</p>
-                                <p className="mt-0.5 text-[10px] text-muted-foreground">
-                                  #{alt.rank} · Qté figée {row.requested_qty}
-                                  {altPph ? <span className="text-teal-800"> · {altPph}</span> : null}
-                                </p>
-                              </div>
-                              {canEditThisRow ? (
-                                <button
-                                  type="button"
-                                  disabled={altBusyRow === alt.id}
-                                  onClick={() => void deleteAlternativeRow(alt.id, row.id)}
-                                  className="shrink-0 rounded border border-red-200/80 bg-card px-1.5 py-0.5 text-[9px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
-                                >
-                                  Retirer
-                                </button>
-                              ) : null}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    ) : null}
+                      {canEditThisRow && rowAlts.length < 3 && altPickerOpenFor !== row.id ? (
+                        <button
+                          type="button"
+                          disabled={altBusyRow === row.id}
+                          title="Ajouter une alternative"
+                          aria-label="Ajouter une alternative"
+                          onClick={() => {
+                            setAltPickerOpenFor(row.id);
+                            setAltQuery("");
+                            setAltHits([]);
+                            setAltRowsOpen((prev) => ({ ...prev, [row.id]: true }));
+                          }}
+                          className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white shadow-sm ring-1 ring-teal-500/35 transition hover:bg-teal-700 disabled:opacity-50"
+                        >
+                          <Plus className="size-5" strokeWidth={2.5} aria-hidden />
+                        </button>
+                      ) : null}
+                    </div>
 
                     {canEditThisRow && rowAlts.length < 3 && altPickerOpenFor === row.id ? (
-                          <div className="mt-1.5 rounded-md border border-amber-200 bg-card p-1.5 shadow-sm">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[11px] font-semibold text-foreground">Catalogue</span>
-                              <button type="button" className="text-[10px] font-medium text-muted-foreground hover:text-foreground" onClick={resetAltPicker}>
-                                Fermer
-                              </button>
-                            </div>
-                            <input
-                              type="search"
-                              value={altQuery}
-                              onChange={(e) => setAltQuery(e.target.value)}
-                              placeholder="Nom (2 car. min.)"
-                              className="mt-1 h-7 w-full rounded border border-input px-2 text-[11px]"
-                            />
-                            {altVisibleHits.length > 0 ? (
-                              <ul className="mt-1 max-h-32 space-y-0.5 overflow-auto rounded border border-border/60 bg-muted/20 p-0.5">
-                                {altVisibleHits.map((h) => (
-                                  <li key={h.id}>
+                      <div className="mt-2 rounded-xl border border-teal-300/35 bg-white/90 p-2 shadow-inner ring-1 ring-teal-100/80">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-semibold text-teal-950">Catalogue</span>
+                          <button
+                            type="button"
+                            className="rounded-md px-2 py-0.5 text-[10px] font-medium text-teal-800 hover:bg-teal-100/70"
+                            onClick={resetAltPicker}
+                          >
+                            Fermer
+                          </button>
+                        </div>
+                        <input
+                          type="search"
+                          value={altQuery}
+                          onChange={(e) => setAltQuery(e.target.value)}
+                          placeholder="Nom (2 car. min.)"
+                          className="mt-1.5 h-8 w-full rounded-lg border border-teal-200/50 bg-background px-2 text-[11px] shadow-sm"
+                        />
+                        {altVisibleHits.length > 0 ? (
+                          <ul className="mt-1 max-h-32 space-y-0.5 overflow-auto rounded-lg border border-teal-200/35 bg-teal-50/30 p-0.5">
+                            {altVisibleHits.map((h) => (
+                              <li key={h.id}>
+                                <button
+                                  type="button"
+                                  disabled={altBusyRow === row.id}
+                                  onClick={() => void insertAlternative(row, h)}
+                                  className="flex w-full flex-col rounded-lg px-2 py-1.5 text-left text-[11px] hover:bg-white disabled:opacity-50"
+                                >
+                                  <span className="font-medium text-foreground">{h.name}</span>
+                                  {pphLabel(h.price_pph) ? (
+                                    <span className="text-[10px] font-medium text-teal-800">{pphLabel(h.price_pph)}</span>
+                                  ) : null}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : altDebounced.length >= 2 ? (
+                          <p className="mt-1 text-[10px] text-teal-800/80">Aucun résultat.</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {isAltOpen(row.id) ? (
+                      <div className="mt-2 border-t border-teal-200/40 pt-2">
+                        {rowAlts.length === 0 ? (
+                          <p className="text-[10px] leading-snug text-teal-900/85">Pas encore d&apos;alternative sur cette ligne.</p>
+                        ) : (
+                          <ul className="space-y-1.5">
+                            {rowAlts.map((alt) => {
+                              const altProd = one(alt.products);
+                              const altName = altProd?.name ?? "Alternative";
+                              const altPph = pphLabel(altProd?.price_pph);
+                              const chosenAltId = row.patient_chosen_alternative_id ?? null;
+                              const patientChoseHere =
+                                request.status === "confirmed" &&
+                                selected &&
+                                chosenAltId != null &&
+                                chosenAltId === alt.id;
+                              const showIndicatif =
+                                request.status === "confirmed" && selected && rowAlts.length > 0 && !patientChoseHere;
+                              return (
+                                <li
+                                  key={alt.id}
+                                  className={clsx(
+                                    "flex items-center justify-between gap-2 rounded-xl border px-2 py-1.5 text-[10px] shadow-sm ring-1",
+                                    patientChoseHere
+                                      ? "border-emerald-300/70 bg-emerald-50/80 ring-emerald-200/50"
+                                      : showIndicatif
+                                        ? "border-teal-200/35 bg-white/50 opacity-70 ring-transparent"
+                                        : "border-teal-200/50 bg-white/95 ring-teal-100/60"
+                                  )}
+                                >
+                                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                                    <div className="size-11 shrink-0 overflow-hidden rounded-lg border border-teal-200/50 bg-teal-50/50">
+                                      {altProd?.photo_url ? (
+                                        <img src={altProd.photo_url} alt={altName} className="h-full w-full object-cover" />
+                                      ) : (
+                                        <div className="flex h-full w-full items-center justify-center text-teal-600/70">
+                                          <Layers className="size-5" aria-hidden />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate font-semibold text-teal-950">{altName}</p>
+                                      <p className="mt-0.5 text-[10px] text-teal-800/85">
+                                        #{alt.rank} · Qté {row.requested_qty}
+                                        {altPph ? <span className="text-teal-700"> · {altPph}</span> : null}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  {canEditThisRow ? (
                                     <button
                                       type="button"
-                                      disabled={altBusyRow === row.id}
-                                      onClick={() => void insertAlternative(row, h)}
-                                      className="flex w-full flex-col rounded px-2 py-1 text-left text-[11px] hover:bg-card disabled:opacity-50"
+                                      disabled={altBusyRow === alt.id}
+                                      onClick={() => void deleteAlternativeRow(alt.id, row.id)}
+                                      className="shrink-0 rounded-lg border border-rose-200/80 bg-rose-50/80 px-2 py-1 text-[9px] font-semibold text-rose-800 hover:bg-rose-100 disabled:opacity-50"
                                     >
-                                      <span className="font-medium text-foreground">{h.name}</span>
-                                      {pphLabel(h.price_pph) ? (
-                                        <span className="text-[10px] font-medium text-primary">{pphLabel(h.price_pph)}</span>
-                                      ) : null}
+                                      Retirer
                                     </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : altDebounced.length >= 2 ? (
-                              <p className="mt-1 text-[10px] text-muted-foreground">Aucun résultat.</p>
-                            ) : null}
-                          </div>
+                                  ) : null}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </div>
                     ) : null}
-                    {showInlineCounter ? (
-                      <div className="mt-1 border-t border-border/60 pt-1">
+                  </div>
+
+                  {showInlineCounter ? (
+                    <div className="border-t border-slate-100 bg-slate-50/25 px-3 py-2">
                         {!selected ? (
                           <p className="text-[10px] text-muted-foreground">
                             Patient n&apos;ayant pas retenu cette ligne après votre réponse. État au comptoir :{" "}
@@ -1781,31 +1952,35 @@ export default function PharmacienDemandeDetailPage() {
                         )}
                       </div>
                     ) : null}
-                  </div>
                 </li>
               );
             })}
           </ul>
 
-          {canEditLines ? (
-            <section className="mt-2 rounded-lg border border-violet-200/80 bg-violet-50/45 px-2.5 py-2 shadow-sm ring-1 ring-violet-900/5">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h2 className="text-[10px] font-bold uppercase tracking-wide text-violet-950">Proposer un produit</h2>
-                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">Ajouter un produit après la dernière ligne.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPropOpen((o) => !o);
-                    setError("");
-                    resetPropForm();
-                  }}
-                  className="shrink-0 rounded-md border border-violet-400/80 bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-950 shadow-sm hover:bg-violet-100/60"
-                >
-                  {propOpen ? "Fermer" : "Ouvrir"}
-                </button>
-              </div>
+          {showLineAndPublishEdits ? (
+            <section className="mt-2 rounded-xl border border-violet-300/70 bg-gradient-to-br from-violet-50/80 via-fuchsia-50/35 to-white px-2 py-1.5 shadow-sm ring-1 ring-violet-300/35 sm:px-2.5 sm:py-2">
+              <button
+                type="button"
+                aria-expanded={propOpen}
+                onClick={() => {
+                  const next = !propOpen;
+                  setPropOpen(next);
+                  setError("");
+                  if (next) resetPropForm();
+                }}
+                className="flex w-full min-h-11 items-start justify-between gap-2 rounded-lg bg-white/90 px-2 py-2 text-left ring-1 ring-violet-200/55 shadow-sm transition hover:bg-violet-50/60 sm:min-h-0 sm:items-center sm:px-2.5"
+              >
+                <span className="min-w-0">
+                  <span className="block text-[10px] font-bold uppercase tracking-wide text-violet-950">Proposer un produit</span>
+                  <span className="mt-0.5 block text-[10px] leading-snug text-violet-900/85 sm:text-[11px]">
+                    Une ligne après la liste — motif et catalogue ci-dessous.
+                  </span>
+                </span>
+                <ChevronDown
+                  className={clsx("mx-px size-6 shrink-0 text-violet-700 transition-transform sm:size-5", propOpen && "rotate-180")}
+                  aria-hidden
+                />
+              </button>
               {propOpen ? (
                 <div className="mt-2 space-y-1.5">
                   <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -1880,78 +2055,97 @@ export default function PharmacienDemandeDetailPage() {
             </section>
           ) : null}
 
-          {(canEditResponse || canManageResponded || canManageConfirmed) ? (
-            <section className="mt-2 rounded-lg border border-border/80 bg-card px-2.5 py-2 shadow-sm">
-              <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {showLineAndPublishEdits ? (
+            <section className="mt-2 rounded-xl border border-border/80 bg-card px-2 py-1.5 shadow-sm sm:px-3 sm:py-2">
+              <label className="block text-[9px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[10px]">
                 Commentaire général pour le patient
                 <textarea
                   rows={2}
                   value={globalComment}
                   onChange={(e) => setGlobalComment(e.target.value.slice(0, 1200))}
-                  placeholder="Message global (optionnel) visible dans la demande"
-                  className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
+                  placeholder="Message global (optionnel), visible avec la réponse"
+                  className="mt-1 max-h-24 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-[11px] shadow-sm sm:rounded-xl sm:text-xs"
                 />
               </label>
             </section>
           ) : null}
 
-          {canEditResponse || canManageResponded || canManageConfirmed ? (
-            <section className="mt-4 rounded-xl border border-emerald-200/70 bg-emerald-50/35 p-3">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-950">Actions globales</p>
-              <p className="mt-0.5 text-[11px] text-emerald-900/85">Valider vos modifications de dossier ou publier la réponse.</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-              {canEditResponse ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void publishResponse()}
-                  className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-md transition hover:bg-emerald-800 disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
-                >
-                  {busy ? "Publication…" : "Envoyer la réponse au patient"}
-                </button>
-              ) : null}
-              {canManageResponded ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void saveRespondedAdjustments()}
-                  className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-sky-300 bg-sky-50 px-4 text-sm font-semibold text-sky-900 shadow-sm transition hover:bg-sky-100 disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
-                >
-                  {busy ? "Enregistrement…" : "Enregistrer la réponse modifiée"}
-                </button>
-              ) : null}
-              {canManageConfirmed ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void saveConfirmedAdjustments()}
-                  className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-sky-300 bg-sky-50 px-4 text-sm font-semibold text-sky-900 shadow-sm transition hover:bg-sky-100 disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
-                >
-                  {busy ? "Enregistrement…" : "Enregistrer les ajustements"}
-                </button>
-              ) : null}
+          {respondedFrozenView ? (
+            <section className="mt-4 rounded-2xl border-2 border-sky-200/80 bg-gradient-to-br from-sky-50/80 to-white p-4 shadow-sm">
+              <button
+                type="button"
+                onClick={() => {
+                  resetDraftFromRows();
+                  setGlobalComment(initialGlobalComment);
+                  setRespondedEditMode(true);
+                }}
+                className="w-full rounded-xl bg-sky-800 py-3 text-sm font-bold text-white shadow-md transition hover:bg-sky-900"
+              >
+                Modifier la réponse
+              </button>
+            </section>
+          ) : null}
+
+          {showLineAndPublishEdits ? (
+            <section className="mt-3 sm:mt-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                {canEditResponse ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void publishResponse()}
+                    className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-md transition hover:bg-emerald-800 disabled:opacity-50 sm:min-w-[200px]"
+                  >
+                    {busy ? "Publication…" : "Envoyer la réponse au patient"}
+                  </button>
+                ) : null}
+                {canManageResponded && respondedEditMode ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void saveRespondedAdjustments()}
+                      className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-sky-300 bg-white px-4 text-sm font-semibold text-sky-900 shadow-sm transition hover:bg-sky-50 disabled:opacity-50 sm:min-w-[200px]"
+                    >
+                      {busy ? "Enregistrement…" : "Enregistrer les changements"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        resetDraftFromRows();
+                        setGlobalComment(initialGlobalComment);
+                        setRespondedEditMode(false);
+                      }}
+                      className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-semibold text-muted-foreground shadow-sm transition hover:bg-muted/40 disabled:opacity-50 sm:min-w-[160px]"
+                    >
+                      Annuler les modifications
+                    </button>
+                  </>
+                ) : null}
+                {canManageConfirmed ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void saveConfirmedAdjustments()}
+                    className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-sky-300 bg-white px-4 text-sm font-semibold text-sky-900 shadow-sm transition hover:bg-sky-50 disabled:opacity-50 sm:min-w-[220px]"
+                  >
+                    {busy ? "Enregistrement…" : "Enregistrer les ajustements"}
+                  </button>
+                ) : null}
               </div>
             </section>
-          ) : (
+          ) : !respondedFrozenView ? (
             <p className="mt-3 rounded-md border border-border bg-muted/30 p-2 text-[11px] text-muted-foreground">
-              {request.status === "responded"
-                ? "Réponse déjà envoyée. Le patient traite depuis son espace (validation, modifications éventuelles)."
-                : null}
               {request.status === "confirmed"
-                ? "Demande confirmée par votre client. À traiter ensuite au comptoir ci-dessous."
-                : null}
-              {request.status !== "responded" &&
-              request.status !== "confirmed" &&
-              request.status !== "completed" ? (
-                <span>Résumé disponible uniquement dans cet écran selon statut ({request.status}).</span>
-              ) : null}
-              {request.status === "completed" ? (
-                <span>Dossier clôturé côté comptoir. Les lignes ne sont plus modifiables ici.</span>
-              ) : null}
+                ? "Demande confirmée par votre client. Traitez chaque ligne au comptoir ci-dessus."
+                : request.status === "completed"
+                  ? "Dossier clôturé côté comptoir ; les lignes restent lisibles sans modification."
+                  : `Statut : ${requestStatusFr[request.status] ?? request.status}.`}
             </p>
-          )}
+          ) : null}
 
-          {(request.status === "responded" || request.status === "confirmed") && items.length > 0 ? (
+          {request.status === "confirmed" && items.length > 0 ? (
             <section className="mt-2">
               <button
                 type="button"
@@ -1977,49 +2171,32 @@ export default function PharmacienDemandeDetailPage() {
             request.status === "in_review" ||
             request.status === "responded" ||
             request.status === "confirmed") ? (
-            <section className="mt-3 rounded-lg border border-rose-200/80 bg-rose-50/35 p-2.5">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h2 className="text-[10px] font-bold uppercase tracking-wide text-rose-950">Annuler cette demande</h2>
-                  <p className="mt-0.5 text-[11px] leading-snug text-rose-900/85">
-                    Annulation totale par la pharmacie (motif obligatoire ; le patient sera notifié).
-                  </p>
-                </div>
+            <CompactCard className="mt-3 border-rose-200/60 bg-rose-50/[0.35] shadow-sm">
+              <CompactCardHeader title="Annuler cette demande" className="border-rose-200/50 bg-rose-100/40" />
+              <CompactCardBody className="space-y-2 px-3 py-2.5 text-xs sm:px-3.5">
+                <p className="text-[11px] text-rose-950/80">
+                  Annulation définitive par la pharmacie avec motif (obligatoire, ≥ 5 caractères). Le patient sera notifié.
+                </p>
+                <label className="block text-[11px] font-medium text-rose-950">
+                  Motif visible dans l&apos;historique
+                  <textarea
+                    rows={3}
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value.slice(0, 1000))}
+                    placeholder="Ex. demande dupliquée, erreur de saisie, indisponibilité prolongée…"
+                    className="mt-1 w-full rounded-lg border border-rose-200/60 bg-background px-2 py-1.5 text-xs shadow-sm"
+                  />
+                </label>
                 <button
                   type="button"
-                  onClick={() => {
-                    setCancelOpen((v) => !v);
-                    setCancelReason("");
-                    setError("");
-                  }}
-                  className="shrink-0 rounded-md border border-rose-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-950 shadow-sm hover:bg-rose-50"
+                  disabled={cancelBusy || cancelReason.trim().length < 5}
+                  onClick={() => void runPharmacistCancelRequest()}
+                  className="w-full rounded-lg border border-rose-400/60 bg-background py-2.5 text-xs font-semibold text-rose-700 shadow-sm transition hover:bg-rose-50 disabled:opacity-50"
                 >
-                  {cancelOpen ? "Fermer" : "Ouvrir"}
+                  {cancelBusy ? "Annulation…" : "Annuler définitivement cette demande"}
                 </button>
-              </div>
-              {cancelOpen ? (
-                <div className="mt-2 space-y-2">
-                  <label className="block text-[10px] font-semibold uppercase tracking-wide text-rose-950">
-                    Motif (visible dans l&apos;historique)
-                    <textarea
-                      rows={2}
-                      value={cancelReason}
-                      onChange={(e) => setCancelReason(e.target.value.slice(0, 1000))}
-                      placeholder="Ex. demande dupliquée, erreur de saisie, indisponibilité prolongée…"
-                      className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    disabled={cancelBusy || cancelReason.trim().length < 5}
-                    onClick={() => void runPharmacistCancelRequest()}
-                    className="w-full rounded-md border border-rose-500 bg-rose-600 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-50"
-                  >
-                    {cancelBusy ? "Annulation…" : "Annuler la demande"}
-                  </button>
-                </div>
-              ) : null}
-            </section>
+              </CompactCardBody>
+            </CompactCard>
           ) : null}
 
           <section className="mt-3 rounded-lg border border-border/70 bg-card p-2.5 shadow-sm">
