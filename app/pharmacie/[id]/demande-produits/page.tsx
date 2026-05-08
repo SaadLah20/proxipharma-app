@@ -269,9 +269,9 @@ export default function DemandeProduitsPage() {
                   <button
                     type="button"
                     onClick={() => addProduct(p)}
-                    className="flex w-full items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-3 py-2 text-left transition hover:bg-muted/35"
+                    className="flex w-full items-center gap-2.5 rounded-xl border border-border/70 bg-muted/20 px-2.5 py-2 text-left transition hover:bg-muted/35"
                   >
-                    <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card">
+                    <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card">
                       {p.photo_url ? (
                         <img src={p.photo_url} alt={p.name} className="h-full w-full object-cover" />
                       ) : (
@@ -279,10 +279,12 @@ export default function DemandeProduitsPage() {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-foreground">{p.name}</p>
+                      <p className="truncate text-[15px] font-semibold leading-tight text-foreground">{p.name}</p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-xs font-semibold text-primary">{unitPriceLabel(p.price_pph) ?? "Prix indisponible"}</p>
+                      <p className="text-xs font-semibold text-primary sm:text-sm">
+                        {unitPriceLabel(p.price_pph) ?? "Prix indisponible"}
+                      </p>
                     </div>
                   </button>
                 </li>
@@ -313,8 +315,8 @@ export default function DemandeProduitsPage() {
                     <Trash2 size={16} />
                   </button>
 
-                  <div className="flex items-stretch gap-3 pr-9">
-                    <div className="aspect-square w-24 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card">
+                  <div className="flex items-stretch gap-2.5 pr-9">
+                    <div className="aspect-square w-20 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card sm:w-24">
                       {l.photo_url ? (
                         <img src={l.photo_url} alt={l.name} className="h-full w-full object-cover" />
                       ) : (
@@ -323,12 +325,12 @@ export default function DemandeProduitsPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex min-w-0 flex-1 flex-col justify-between">
-                      <p className="truncate text-sm font-semibold text-foreground">{l.name}</p>
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <p className="truncate pr-1 text-[15px] font-semibold leading-tight text-foreground">{l.name}</p>
                       <p className="mt-0.5 text-xs font-medium text-primary">
                         {unitPriceLabel(l.price_pph) ?? "Prix unitaire indisponible"}
                       </p>
-                      <div className="mt-2 flex items-center gap-1">
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         <button
                           type="button"
                           aria-label="Diminuer"
@@ -347,14 +349,14 @@ export default function DemandeProduitsPage() {
                         >
                           <Plus size={16} />
                         </button>
-                        <span className="ml-2 text-[11px] text-muted-foreground">
+                        <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                           Total{" "}
-                          <span className="ml-1 inline-block rounded bg-background px-1.5 py-0.5 font-semibold text-foreground">
+                          <span className="inline-block rounded bg-background px-1.5 py-0.5 font-semibold text-foreground">
                             {l.price_pph != null ? `${(l.price_pph * l.qty).toFixed(2)} MAD` : "-"}
                           </span>
                         </span>
                       </div>
-                      <label className="mt-2 block text-[11px] font-medium text-foreground">
+                      <label className="mt-2 block">
                         <input
                           type="text"
                           value={l.client_comment ?? ""}
@@ -369,7 +371,7 @@ export default function DemandeProduitsPage() {
                           }
                           placeholder="Commentaire sur ce produit (optionnel)"
                           className={cn(
-                            "mt-1 w-full rounded-lg border border-primary/35 bg-primary/[0.04] px-2.5 py-2 text-xs placeholder:text-muted-foreground",
+                            "w-full rounded-lg border border-primary/45 bg-primary/[0.06] px-2.5 py-2 text-xs placeholder:text-muted-foreground",
                             fieldFocus
                           )}
                         />
