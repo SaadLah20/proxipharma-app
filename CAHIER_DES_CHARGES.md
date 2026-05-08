@@ -153,6 +153,39 @@ Sans nouvelle validation patient obligatoire pour les ajustements officine coura
 - **Heure de passage patient** : saisie **texte 24 h** (HH:MM, normalisée par `parseFreeTime24h` qui accepte `18`, `18h30`, `1830`, `18:30`). Plus de `<input type="time">`.
 - **Le badge « Retenu après réponse patient »** sur la fiche pharmacien n'apparaît qu'à partir du statut `responded` (caché en `submitted` / `in_review`).
 
+### 4.6 Roadmap écrans « demandes produits » MVP — par statut, patient + pharmacien
+
+**Décision méthodo** : on **traite les familles de statuts séparément** (avec changements fonctionnels/UI possibles étape par étape), toujours en **gardant les deux rôles alignés** sur le même jalon quand l’écran existe des deux côtés.
+
+**Ordre de travail validé** :
+
+| Étape | Périmètre métier (libellé grand public) | Côté patient | Côté pharmacien |
+|-------|----------------------------------------|--------------|-----------------|
+| 1 | **Demande envoyée** (`submitted` / `in_review`) | Page détail + hub — **déjà affinée** | Page détail + hub — **à clôturer** pour ce jalon |
+| 2 | **Demande répondue** (`responded`) | À affiner | À affiner |
+| 3 | **Validée** (`confirmed` sans « en traitement » virtuel) | À affiner | À affiner |
+| 4 | **En traitement** (ex. `confirmed` + `post_confirm_fulfillment` / logique hub `in_progress_virtual`, et suite comptoir selon règles §4.4) | À affiner | À affiner |
+
+**Statuts « autres » — dossiers figés (règle transverse)**
+
+S’applique aux demandes dont le statut de la ligne `requests` est notamment :
+
+- **`cancelled`** — annulée (ex. par la pharmacie, selon flux existants) ;
+- **`abandoned`** — abandonnée (ex. patient / délais métier sans confirmation) ;
+- **`expired`** — expirée (si cron / règle applicable en production) ;
+- **`completed`** — **clôturée** avec succès (après traitement pharmacien au comptoir / clôture officine selon §4.4 et RPC existantes).
+
+Pour **tous** ces cas :
+
+| Rôle | Modification données | Actions UI |
+|------|---------------------|------------|
+| Patient | **Interdites** — écran reflète fidèlement le **dernier état** exploitable du dossier (contenu lisible comme au dernier statut métier pertinent). | **Aucune** action de traitement (pas de renvoi, validation, abandon, réservation client, etc. — hors navigation : retour hub, fermer). |
+| Pharmacien | **Interdites** — même principe de **lecture fidèle**. | **Aucune** action de traitement (pas envoi réponse, ajustements, comptoir, annulation dossier depuis cette fiche, etc. — hors navigation). |
+
+*Remarque* : ces statuts peuvent avoir des libellés différents en UI (grand public vs interne). La règle produit ci-dessus est **lecture seule + zéro action**, pas une réécriture du libellé de statut dans la colonne technique.
+
+Les étapes du premier tableau ci-dessus couvrent les **parcours encore évoluant** dans le MVP ; les statuts figés du second tableau ne reçoivent **pas** de nouvelles actions au fil des jalons — seulement cohérence d’affichage et stabilité.
+
 ## 5) Rupture du marche - logique specifique
 
 Quand le pharmacien marque "rupture du marche":
@@ -278,6 +311,52 @@ Statuts retenus v1:
 - `partially_collected` / `fully_collected` (conserves en enum; hors flux officiel depuis migration 20260502 au profit de `completed` + suivi ligne a ligne au comptoir)
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
+
+### Session 2026-05-08 (suite) — Cahier §4.6 roadmap statuts MVP + dossiers figés
+
+**Décision doc** — formalisation dans **`§4.6`** :
+- Ordre des jalons UI « demandes produits » : **envoyée** (patient ✅, pharmacien à clôturer pour le jalon) → **répondue** patient+pharmacien → **validée** patient+pharmacien → **en traitement** patient+pharmacien.
+- Règle transverse **`cancelled` / `abandoned` / `expired` / `completed`** : affichage fidèle au dernier état, **aucune modification**, **aucune action** hormis navigation retour liste / fermeture ; patient et pharmacien.
+- Pas de nouveau code applicatif ni migration sur ce bloc (documentation seule).
+
+**Git** — commit + push par l’assistant après mise à jour du cahier.
+
+### Session 2026-05-08 — UI demandes produits (patient + pharmacien), reprise historique patient, stabilisation CI lint/build
+
+**Objectif** : finaliser la boucle UX entre **création patient** → **demande envoyée** → **traitement pharmacien**, avec continuité visuelle mobile, règles métier de saisie plus robustes, puis corriger le blocage CI.
+
+**SQL / Infra** :
+- **Aucune nouvelle migration** sur ce lot (infra Supabase inchangée).
+- Réutilisation des structures existantes (`request_items`, `request_item_alternatives`, `request_comments`, RPC déjà en place).
+
+**Next.js / lib — patient** :
+- **`app/pharmacie/[id]/demande-produits/page.tsx`** : refonte mobile des cartes (recherche + produits ajoutés) ; redirection post-envoi vers le détail **`/dashboard/demandes/[id]`**.
+- **`app/dashboard/demandes/[id]/PatientProductRequestActions.tsx`** : mode resubmit aligné visuellement sur la page de saisie (cartes homogènes), recherche activée uniquement en mode **Modifier**, footer sticky synthèse.
+- **`app/dashboard/demandes/[id]/page.tsx`** : simplification en-tête (réf + date + statut), suppression du bloc montant/produits, retrait historique intermédiaire puis **historique replacé en bas de page**.
+
+**Next.js / lib — pharmacien** :
+- **`app/dashboard/pharmacien/demandes/[id]/page.tsx`** :
+  - en-tête enrichi (réf, statut, date, nb lignes) + contact client direct (**appeler / WhatsApp / SMS / email**) ;
+  - règles de saisie durcies : auto-ajustement dispo selon quantité (`available` / `partially_available` / `unavailable`), `market_shortage` non modifiable, `to_order` force la quantité demandée ;
+  - prix rendu en lecture seule côté pharmacien ;
+  - commentaire patient produit **obligatoirement traité** avant envoi/enregistrement (au moins une réponse type « C'est noté ») ;
+  - alternatives : ligne pliable/dépliable, compteur, ajout/suppression, cartes compactes (photo + prix + qté figée).
+  - ajout d’un **commentaire global pharmacien** persistant via `request_comments`.
+
+**CI / Qualité** :
+- Erreur GH Actions `react-hooks/set-state-in-effect` corrigée sur **`app/dashboard/demandes/[id]/page.tsx`** (suppression de l’effet déclenchant `loadHistory`).
+- Vérifications locales : **`npm run lint`** ✅ (warnings `no-img-element` non bloquants), **`npm run build`** ✅.
+
+**Remarque ouverte (non implémentée)** :
+- Heure optionnelle dédiée pour les lignes **`À commander`** côté pharmacien : demanderait un micro-lot schéma (colonne horaire) si validation métier.
+
+**Suite chantier « demandes envoyées » (reprise même lot, aucune migration)** :
+- Détail patient **`submitted` / `in_review`** : encart **« Demande envoyée »** (rôle des notifications, liens hub filtré `envoyées` + toutes les demandes).
+- Détail pharmacien **`submitted` / `in_review`** : encart **« Demande envoyée par le patient »** (prochaines étapes, lien liste filtrée `envoyées`).
+- Liste hubs : messages **liste vide** contextualisés quand le filtre **Envoyées** est actif.
+- Cartes liste pharmacien : panneau pliable renommé **« Contenu envoyé par le patient »** tant que le dossier est en **`submitted` / `in_review`** (sans mention comptoir prématurée).
+
+---
 
 ### Session 2026-05-07 (suite 5) — Post-`confirmed` : `post_confirm_fulfillment`, passage en `confirmed`, libellés hub
 
@@ -908,6 +987,14 @@ Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre 
 ### 13.7) Phrase de reprise courte (recommandée après la session 2026-05-07 — workflow demandes affiné + `post_confirm_fulfillment`)
 
 **« On reprend ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §0.1, dernier §10, §4.4 + §4.5, §11 (migrations dont `20260507_001` … `005`) et §12. Migrations Supabase à jour côté infra. Je te dis ensuite quoi faire (UI ou nouveau lot). »**
+
+### 13.8) Phrase de reprise courte (recommandée après la session 2026-05-08 — pages envoyées patient/pharmacien)
+
+**« On reprend ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §0.1, dernier §10, §4.4 + §4.5, §11 et §12. Infra Supabase inchangée (pas de migration sur le lot 2026-05-08). Reprends le chantier UI demandes envoyées (patient + pharmacien), puis on décide si on ajoute l’heure dédiée pour les lignes “À commander”. »**
+
+### 13.9) Phrase de reprise après **§4.6** roadmap (jalons répondue / validée / en traitement + dossiers figés)
+
+**« On reprend ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §0.1, **§4.6**, dernier §10, §11 et §12 — jalon en cours précisé dans le message suivant (répondue, validée, en traitement, ou fermeture page pharmacien demande envoyée). Pas de nouvelles actions UI sur dossiers figés §4.6 (cancelled/abandoned/expired/completed) sauf cohérence lecture seule. »**
 
 ### Template pour prochaines sessions
 - Date:

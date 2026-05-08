@@ -173,6 +173,68 @@ function nextAltRank(existing: AltRowDb[]): number | null {
   return null;
 }
 
+const LOCAL_PROPOSED_ID_PREFIX = "__pp_local:";
+const LOCAL_ALT_ID_PREFIX = "__alt_local:";
+
+function isLocalProposedItemId(rowId: string) {
+  return rowId.startsWith(LOCAL_PROPOSED_ID_PREFIX);
+}
+
+function isLocalAltId(altId: string) {
+  return altId.startsWith(LOCAL_ALT_ID_PREFIX);
+}
+
+function newLocalProposedId() {
+  return `${LOCAL_PROPOSED_ID_PREFIX}${crypto.randomUUID()}`;
+}
+
+function newLocalAltId() {
+  return `${LOCAL_ALT_ID_PREFIX}${crypto.randomUUID()}`;
+}
+
+type PendingAlternativeEntry = {
+  localAltId: string;
+  parentItemId: string;
+  rank: number;
+  product_id: string;
+  availability_status: string | null;
+  available_qty: number | null;
+  unit_price: number | null;
+  pharmacist_comment: string | null;
+  expected_availability_date: string | null;
+  products: ProdEmbedDb | ProdEmbedDb[] | null;
+};
+
+function pendingAltsAsRankedDb(prev: PendingAlternativeEntry[], parentId: string): AltRowDb[] {
+  return [...prev]
+    .filter((p) => p.parentItemId === parentId)
+    .sort((a, b) => a.rank - b.rank)
+    .map(
+      (e): AltRowDb => ({
+        id: e.localAltId,
+        rank: e.rank,
+        product_id: e.product_id,
+        availability_status: e.availability_status,
+        available_qty: e.available_qty,
+        unit_price: e.unit_price,
+        pharmacist_comment: e.pharmacist_comment,
+        expected_availability_date: e.expected_availability_date,
+        products: e.products,
+      })
+    );
+}
+
+/** Alternatives encore non persistées, fusion de la ligne vue écran. */
+function mergePendingAlternativesOntoRows(rows: ItemRow[], pendingAlternatives: PendingAlternativeEntry[]): ItemRow[] {
+  return rows.map((row) => {
+    const extra = pendingAltsAsRankedDb(pendingAlternatives, row.id);
+    if (extra.length === 0) return row;
+    const existing = normalizeAlts(row.request_item_alternatives);
+    const merged = [...existing, ...extra].sort((a, b) => a.rank - b.rank);
+    return { ...row, request_item_alternatives: merged };
+  });
+}
+
 function counterOutcomeLabelPharmacien(outcome: string, cancelReason: string | null = null): string {
   if (outcome === "cancelled_at_counter") {
     if (cancelReason === "client_request") return "Annulé à la demande du client";
@@ -329,6 +391,9 @@ export default function PharmacienDemandeDetailPage() {
   const [initialGlobalComment, setInitialGlobalComment] = useState("");
   /** Après publication (`responded`), affichage figé jusqu'à « Modifier ». */
   const [respondedEditMode, setRespondedEditMode] = useState(false);
+  /** Lignes proposées / alternatives encore non écrites en base tant que réponse pas publiée ou enregistrée (hors `confirmed`). */
+  const [pendingProposalRows, setPendingProposalRows] = useState<ItemRow[]>([]);
+  const [pendingAlternatives, setPendingAlternatives] = useState<PendingAlternativeEntry[]>([]);
 
   const altDebounced = useMemo(() => altQuery.trim(), [altQuery]);
   const altVisibleHits = altDebounced.length < 2 ? [] : altHits;
@@ -341,6 +406,32 @@ export default function PharmacienDemandeDetailPage() {
   const [propBusy, setPropBusy] = useState(false);
   const propDebounced = useMemo(() => propQuery.trim(), [propQuery]);
   const propVisibleHits = propDebounced.length < 2 ? [] : propHits;
+
+  /** Avant première réponse : aucune ligne `pharmacist_proposed` ne doit subsister en base (anciens inserts). */
+  const hideStaleServerPharmacistProposals = useMemo(
+    () =>
+      !!request &&
+      request.status !== "confirmed" &&
+      ["submitted", "in_review"].includes(request.status),
+    [request]
+  );
+
+  const deferPersistOfficineAdditions = useMemo(
+    () =>
+      !!request &&
+      request.status !== "confirmed" &&
+      (["submitted", "in_review"].includes(request.status) ||
+        (request.status === "responded" && respondedEditMode)),
+    [request, respondedEditMode]
+  );
+
+  const displayRows = useMemo(() => {
+    const baseRows = hideStaleServerPharmacistProposals
+      ? items.filter((r) => r.line_source !== "pharmacist_proposed")
+      : items.slice();
+    const withSynthetic = [...baseRows, ...pendingProposalRows];
+    return mergePendingAlternativesOntoRows(withSynthetic, pendingAlternatives);
+  }, [items, hideStaleServerPharmacistProposals, pendingProposalRows, pendingAlternatives]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -443,7 +534,37 @@ export default function PharmacienDemandeDetailPage() {
       return;
     }
 
-    const list = (itemsData as ItemRow[]) ?? [];
+    let list = (itemsData as ItemRow[]) ?? [];
+    /* Nettoyer d’anciennes propositions officine encore en base alors que la demande n’a pas encore été répondue au patient. */
+    if (
+      ["submitted", "in_review"].includes(r.status) &&
+      list.some((row) => row.line_source === "pharmacist_proposed")
+    ) {
+      const { error: delStale } = await supabase
+        .from("request_items")
+        .delete()
+        .eq("request_id", id)
+        .eq("line_source", "pharmacist_proposed");
+      if (delStale) {
+        setError(delStale.message);
+        setLoading(false);
+        return;
+      }
+      const { data: itemsDataRetry, error: itemsErrRetry } = await supabase
+        .from("request_items")
+        .select(
+          "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,is_selected_by_patient,selected_qty,patient_chosen_alternative_id,post_confirm_fulfillment,line_source,pharmacist_proposal_reason,client_comment,updated_at,products(name,price_pph,photo_url),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph,photo_url))"
+        )
+        .eq("request_id", id)
+        .order("created_at", { ascending: true });
+      if (itemsErrRetry) {
+        setError(itemsErrRetry.message);
+        setLoading(false);
+        return;
+      }
+      list = (itemsDataRetry as ItemRow[]) ?? [];
+    }
+
     setItems(list);
 
     /** Ne pas réécraser le brouillon des lignes encore présentes (ex. après insert ligne proposée + reload). */
@@ -613,13 +734,15 @@ export default function PharmacienDemandeDetailPage() {
     }));
   };
 
-  /** Une note officine obligatoire sur chaque ligne (Réagir / Note officine). */
-  const validatePharmacistRemarksPerLine = (): string | null => {
-    for (const row of items) {
+  /** Réaction obligatoire seulement sur les lignes où le patient a laissé un commentaire produit. */
+  const validatePharmacistReplyWhenPatientCommented = (): string | null => {
+    for (const row of displayRows) {
+      const patientComment = row.client_comment?.trim() ?? "";
+      if (!patientComment) continue;
       const reply = draft[row.id]?.pharmacist_comment?.trim() ?? "";
       if (reply.length === 0) {
         const name = one(row.products)?.name ?? "Produit";
-        return `Ajoutez une note officine pour « ${name} » (bouton Réagir ou Note officine : « C'est noté » ou message).`;
+        return `Répondez au commentaire patient pour « ${name} » (Réagir · « C'est noté » ou message).`;
       }
     }
     return null;
@@ -651,8 +774,45 @@ export default function PharmacienDemandeDetailPage() {
       return;
     }
     const qty = Math.min(10, Math.max(1, parseInt(propQty, 10) || 1));
-    if (items.some((i) => i.product_id === pick.id)) {
+    if (displayRows.some((i) => i.product_id === pick.id)) {
       setError("Ce produit figure déjà dans la demande.");
+      return;
+    }
+    if (deferPersistOfficineAdditions) {
+      const prefPrice =
+        pick.price_pph != null && !Number.isNaN(Number(pick.price_pph)) ? Number(pick.price_pph) : null;
+      const syntheticId = newLocalProposedId();
+      const syntheticRow: ItemRow = {
+        id: syntheticId,
+        product_id: pick.id,
+        requested_qty: qty,
+        availability_status: "available",
+        available_qty: qty,
+        unit_price: prefPrice,
+        pharmacist_comment: null,
+        client_comment: null,
+        line_source: "pharmacist_proposed",
+        pharmacist_proposal_reason: reason,
+        expected_availability_date: null,
+        counter_outcome: "unset",
+        counter_cancel_reason: null,
+        counter_cancel_detail: null,
+        is_selected_by_patient: true,
+        selected_qty: qty,
+        patient_chosen_alternative_id: null,
+        post_confirm_fulfillment: null,
+        updated_at: new Date().toISOString(),
+        products: {
+          name: pick.name,
+          price_pph: pick.price_pph ?? null,
+          photo_url: pick.photo_url ?? null,
+        },
+        request_item_alternatives: null,
+      };
+      setPendingProposalRows((prev) => [...prev, syntheticRow]);
+      setDraft((prev) => ({ ...prev, [syntheticId]: buildItemDraftFromRow(syntheticRow) }));
+      setPropOpen(false);
+      resetPropForm();
       return;
     }
     setPropBusy(true);
@@ -684,14 +844,62 @@ export default function PharmacienDemandeDetailPage() {
   };
 
   const insertAlternative = async (parentRow: ItemRow, pick: ProductCatalogHit) => {
-    const existing = normalizeAlts(parentRow.request_item_alternatives);
-    const rank = nextAltRank(existing);
     const catalogProductId = pick.id;
     setError("");
     if (catalogProductId === parentRow.product_id) {
       setError("Choisis un produit différent de la ligne principale.");
       return;
     }
+    if (deferPersistOfficineAdditions) {
+      setAltBusyRow(parentRow.id);
+      const prefPrice = pick.price_pph != null && !Number.isNaN(Number(pick.price_pph)) ? Number(pick.price_pph) : null;
+      let validationError: string | null = null;
+      let added = false;
+      setPendingAlternatives((prev) => {
+        const mergedExisting: AltRowDb[] = [
+          ...normalizeAlts(parentRow.request_item_alternatives),
+          ...pendingAltsAsRankedDb(prev, parentRow.id),
+        ];
+        if (mergedExisting.some((a) => a.product_id === catalogProductId)) {
+          validationError = "Cette alternative figure déjà sur la liste.";
+          return prev;
+        }
+        const rank = nextAltRank(mergedExisting);
+        if (rank == null) {
+          validationError = "Maximum 3 alternatives par ligne.";
+          return prev;
+        }
+        added = true;
+        return [
+          ...prev,
+          {
+            localAltId: newLocalAltId(),
+            parentItemId: parentRow.id,
+            rank,
+            product_id: catalogProductId,
+            availability_status: "available",
+            available_qty: Math.max(1, parentRow.requested_qty),
+            pharmacist_comment: null,
+            unit_price: prefPrice,
+            expected_availability_date: null,
+            products: {
+              name: pick.name,
+              price_pph: pick.price_pph ?? null,
+              photo_url: pick.photo_url ?? null,
+            },
+          },
+        ];
+      });
+      setAltBusyRow(null);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+      if (added) resetAltPicker();
+      return;
+    }
+    const existing = normalizeAlts(parentRow.request_item_alternatives);
+    const rank = nextAltRank(existing);
     if (existing.some((a) => a.product_id === catalogProductId)) {
       setError("Cette alternative figure déjà sur la liste.");
       return;
@@ -746,6 +954,11 @@ export default function PharmacienDemandeDetailPage() {
 
   const deleteAlternativeRow = async (altId: string, parentRowId?: string) => {
     setError("");
+    if (deferPersistOfficineAdditions && isLocalAltId(altId)) {
+      setPendingAlternatives((prev) => prev.filter((a) => a.localAltId !== altId));
+      if (altPickerOpenFor === parentRowId) resetAltPicker();
+      return;
+    }
     setAltBusyRow(altId);
     const { error: delErr } = await supabase.from("request_item_alternatives").delete().eq("id", altId);
     setAltBusyRow(null);
@@ -775,6 +988,85 @@ export default function PharmacienDemandeDetailPage() {
           prev.map((r) => (r.id === parentRowId ? { ...r, request_item_alternatives: altRows ?? [] } : r))
         );
       }
+    }
+  };
+
+  /** Écrit en base les propositions / alternatives tenues en mémoire locale (flux avant `confirmed`). */
+  const flushDeferredOfficineAdds = async (
+    draftSnap: Draft,
+    proposalSnap: ItemRow[],
+    altSnap: PendingAlternativeEntry[]
+  ) => {
+    if (!id) throw new Error("Requête invalide.");
+    if (proposalSnap.length === 0 && altSnap.length === 0) return;
+
+    const proposedIdMap = new Map<string, string>();
+
+    for (const row of proposalSnap) {
+      const f = draftSnap[row.id];
+      if (!f?.availability_status) {
+        throw new Error("Choisis une disponibilité pour chaque ligne (propositions officine).");
+      }
+      const availQty = Number(f.available_qty);
+      if (Number.isNaN(availQty) || availQty < 0) {
+        throw new Error("Quantité disponible invalide sur une proposition.");
+      }
+      const price = f.unit_price.trim() === "" ? null : Number(f.unit_price.replace(",", "."));
+      if (f.unit_price.trim() !== "" && (price == null || Number.isNaN(price) || price < 0)) {
+        throw new Error("Prix unitaire invalide.");
+      }
+      const inferredStatus = inferAvailabilityStatusFromQty({
+        status: f.availability_status,
+        availableQty: availQty,
+        requestedQty: row.requested_qty,
+        isProposedLine: row.line_source === "pharmacist_proposed",
+      });
+
+      const { data: inserted, error: insErr } = await supabase
+        .from("request_items")
+        .insert({
+          request_id: id,
+          product_id: row.product_id,
+          requested_qty: row.requested_qty,
+          line_source: "pharmacist_proposed",
+          pharmacist_proposal_reason: row.pharmacist_proposal_reason,
+          is_selected_by_patient: true,
+          selected_qty: row.requested_qty,
+          counter_outcome: "unset",
+          availability_status: inferredStatus,
+          available_qty: availQty,
+          unit_price: price,
+          pharmacist_comment: f.pharmacist_comment.trim() || null,
+          expected_availability_date:
+            f.expected_availability_date.trim() !== "" ? f.expected_availability_date : null,
+        })
+        .select("id")
+        .single();
+
+      if (insErr || !inserted?.id) {
+        throw new Error(insErr?.message ?? "Échec de l'enregistrement d'une proposition.");
+      }
+      proposedIdMap.set(row.id, inserted.id);
+    }
+
+    for (const p of altSnap) {
+      const parentResolved = isLocalProposedItemId(p.parentItemId)
+        ? proposedIdMap.get(p.parentItemId)
+        : p.parentItemId;
+      if (!parentResolved) {
+        throw new Error("Référence de ligne invalide pour une alternative.");
+      }
+      const { error: altErr } = await supabase.from("request_item_alternatives").insert({
+        request_item_id: parentResolved,
+        rank: p.rank,
+        product_id: p.product_id,
+        availability_status: p.availability_status,
+        available_qty: p.available_qty,
+        pharmacist_comment: p.pharmacist_comment,
+        unit_price: p.unit_price,
+        expected_availability_date: p.expected_availability_date,
+      });
+      if (altErr) throw new Error(altErr.message);
     }
   };
 
@@ -855,7 +1147,7 @@ export default function PharmacienDemandeDetailPage() {
 
   const saveConfirmedAdjustments = async () => {
     if (!request || request.status !== "confirmed") return;
-    const commentError = validatePharmacistRemarksPerLine();
+    const commentError = validatePharmacistReplyWhenPatientCommented();
     if (commentError) {
       setError(commentError);
       return;
@@ -904,16 +1196,20 @@ export default function PharmacienDemandeDetailPage() {
 
   const saveRespondedAdjustments = async () => {
     if (!request || request.status !== "responded") return;
-    const commentError = validatePharmacistRemarksPerLine();
+    const commentError = validatePharmacistReplyWhenPatientCommented();
     if (commentError) {
       setError(commentError);
       return;
     }
     setBusy(true);
     setError("");
+    const draftSnap = draft;
+    const proposalSnap = [...pendingProposalRows];
+    const altSnap = [...pendingAlternatives];
     try {
-      for (const row of items) {
-        const f = draft[row.id];
+      for (const row of displayRows) {
+        if (isLocalProposedItemId(row.id)) continue;
+        const f = draftSnap[row.id];
         if (!f?.availability_status) throw new Error("Choisis une disponibilité pour chaque ligne.");
         const { error: up } = await supabase
           .from("request_items")
@@ -921,6 +1217,9 @@ export default function PharmacienDemandeDetailPage() {
           .eq("id", row.id);
         if (up) throw new Error(up.message);
       }
+      await flushDeferredOfficineAdds(draftSnap, proposalSnap, altSnap);
+      setPendingProposalRows([]);
+      setPendingAlternatives([]);
       const { error: h } = await logHistory(id, "responded", "responded", "pharmacist_response_updated");
       if (h) throw new Error(h.message);
       await persistGlobalCommentIfChanged();
@@ -938,18 +1237,18 @@ export default function PharmacienDemandeDetailPage() {
       setError("Pour l’instant, seules les demandes « Produits » sont traitées ici.");
       return;
     }
-    if (items.length === 0) {
+    if (displayRows.length === 0) {
       setError("Aucune ligne produit à renseigner.");
       return;
     }
 
-    const commentError = validatePharmacistRemarksPerLine();
+    const commentError = validatePharmacistReplyWhenPatientCommented();
     if (commentError) {
       setError(commentError);
       return;
     }
 
-    for (const row of items) {
+    for (const row of displayRows) {
       const f = draft[row.id];
       if (!f?.availability_status) {
         setError("Choisis une disponibilité pour chaque ligne.");
@@ -972,6 +1271,10 @@ export default function PharmacienDemandeDetailPage() {
 
     let currentStatus = request.status;
 
+    const draftSnap = draft;
+    const proposalSnap = [...pendingProposalRows];
+    const altSnap = [...pendingAlternatives];
+
     try {
       if (currentStatus === "submitted") {
         const { error: u1 } = await supabase.from("requests").update({ status: "in_review" }).eq("id", id);
@@ -985,8 +1288,9 @@ export default function PharmacienDemandeDetailPage() {
         throw new Error(`Statut inattendu pour envoyer la réponse: ${currentStatus}`);
       }
 
-      for (const row of items) {
-        const f = draft[row.id]!;
+      for (const row of displayRows) {
+        if (isLocalProposedItemId(row.id)) continue;
+        const f = draftSnap[row.id]!;
         const availQty = Number(f.available_qty);
         const price =
           f.unit_price.trim() === "" ? null : Number(f.unit_price.replace(",", "."));
@@ -1014,6 +1318,10 @@ export default function PharmacienDemandeDetailPage() {
 
         if (up) throw new Error(up.message);
       }
+
+      await flushDeferredOfficineAdds(draftSnap, proposalSnap, altSnap);
+      setPendingProposalRows([]);
+      setPendingAlternatives([]);
 
       /* Pilote Q38/Q6 : pas d’expiration +7 j après réponse ; l’état passe par abandon 24 h (cron) après `responded` si aucune confirmation. */
       const { error: u2 } = await supabase
@@ -1178,7 +1486,7 @@ export default function PharmacienDemandeDetailPage() {
           </span>
           {isProduct ? (
             <span className="rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-900">
-              {items.length} ligne{items.length !== 1 ? "s" : ""}
+              {displayRows.length} ligne{displayRows.length !== 1 ? "s" : ""}
             </span>
           ) : null}
         </div>
@@ -1298,7 +1606,7 @@ export default function PharmacienDemandeDetailPage() {
         </p>
       ) : (
         <>
-          {items.length === 0 ? (
+          {displayRows.length === 0 ? (
             <p className="mt-2 text-[11px] text-muted-foreground">Aucune ligne produit.</p>
           ) : (
             <>
@@ -1340,10 +1648,10 @@ export default function PharmacienDemandeDetailPage() {
                 </div>
               ) : null}
             </div>
-            <span className="text-[10px] text-muted-foreground">{items.length} article(s)</span>
+            <span className="text-[10px] text-muted-foreground">{displayRows.length} article(s)</span>
           </div>
           <ul className="mt-2 space-y-2 sm:space-y-3">
-            {items.map((row) => {
+            {displayRows.map((row) => {
               const prod = one(row.products);
               const linePph = pphLabel(prod?.price_pph);
               const f = draft[row.id];
@@ -1542,60 +1850,49 @@ export default function PharmacienDemandeDetailPage() {
                           </p>
                         </div>
                       ) : null}
-                      <div className="mt-1.5 space-y-1.5 rounded-xl border border-sky-200/45 bg-sky-50/35 px-2 py-1.5 sm:mt-2 sm:px-2.5 sm:py-2">
-                        {row.client_comment?.trim() ? (
-                          <>
-                            <div className="flex flex-wrap items-start justify-between gap-2 gap-y-2">
-                              <p className="min-w-0 flex-1 text-[10px] leading-snug text-sky-950">
-                                <span className="font-bold text-sky-900">Patient · </span>
-                                {row.client_comment.trim()}
-                              </p>
-                              {canEditThisRow ? (
-                                <PharmacistLineReactControl
-                                  lineId={row.id}
-                                  pharmacistReply={f.pharmacist_comment}
-                                  disabled={false}
-                                  onReplyChange={(text) => setField(row.id, "pharmacist_comment", text)}
-                                />
-                              ) : null}
-                            </div>
-                            {(canEditThisRow ? f.pharmacist_comment : row.pharmacist_comment)?.trim() ? (
-                              <p className="rounded-lg border border-emerald-200/70 bg-emerald-50/50 px-2 py-1 text-[10px] leading-snug text-emerald-950">
-                                <span className="font-bold text-emerald-900">Réponse officine · </span>
-                                {(canEditThisRow ? f.pharmacist_comment : row.pharmacist_comment)?.trim()}
-                              </p>
+                      {row.client_comment?.trim() ? (
+                        <div className="mt-1.5 space-y-1.5 rounded-xl border border-sky-200/45 bg-sky-50/35 px-2 py-1.5 sm:mt-2 sm:px-2.5 sm:py-2">
+                          <div className="flex flex-wrap items-start justify-between gap-2 gap-y-2">
+                            <p className="min-w-0 flex-1 text-[10px] leading-snug text-sky-950">
+                              <span className="font-bold text-sky-900">Patient · </span>
+                              {row.client_comment.trim()}
+                            </p>
+                            {canEditThisRow ? (
+                              <PharmacistLineReactControl
+                                lineId={row.id}
+                                pharmacistReply={f.pharmacist_comment}
+                                disabled={false}
+                                onReplyChange={(text) => setField(row.id, "pharmacist_comment", text)}
+                              />
                             ) : null}
-                          </>
-                        ) : canEditThisRow ? (
-                          <label className="flex flex-col gap-1">
-                            <span className="text-[10px] font-semibold text-sky-950">Note visible pour cette ligne</span>
-                            <span className="text-[9px] leading-snug text-muted-foreground">
-                              Ce que vous saisissez sera associé au produit dans la réponse (ex. précision délai, consigne, ou «&nbsp;C&apos;est
-                              noté&nbsp;»).
-                            </span>
-                            <textarea
-                              rows={3}
-                              maxLength={2000}
-                              value={f.pharmacist_comment}
-                              onChange={(e) =>
-                                setField(row.id, "pharmacist_comment", e.target.value.slice(0, 2000))
-                              }
-                              placeholder="Ex. Disponible dès demain matin · Nous vous rappellerons pour la commande …"
-                              className="mt-0.5 w-full resize-y rounded-lg border border-sky-200/80 bg-white px-2 py-1.5 text-[11px] leading-snug text-foreground shadow-sm placeholder:text-muted-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/35"
-                            />
+                          </div>
+                          {(canEditThisRow ? f.pharmacist_comment : row.pharmacist_comment)?.trim() ? (
+                            <p className="rounded-lg border border-emerald-200/70 bg-emerald-50/50 px-2 py-1 text-[10px] leading-snug text-emerald-950">
+                              <span className="font-bold text-emerald-900">Réponse officine · </span>
+                              {(canEditThisRow ? f.pharmacist_comment : row.pharmacist_comment)?.trim()}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : canEditThisRow ? (
+                        <div className="mt-2">
+                          <label className="sr-only" htmlFor={`pharmacist-note-${row.id}`}>
+                            Note officine (sans commentaire patient)
                           </label>
-                        ) : (
-                          <>
-                            <p className="text-[10px] italic text-muted-foreground">Pas de commentaire patient sur cette ligne.</p>
-                            {row.pharmacist_comment?.trim() ? (
-                              <p className="rounded-lg border border-emerald-200/70 bg-emerald-50/50 px-2 py-1 text-[10px] leading-snug text-emerald-950">
-                                <span className="font-bold text-emerald-900">Note officine · </span>
-                                {row.pharmacist_comment.trim()}
-                              </p>
-                            ) : null}
-                          </>
-                        )}
-                      </div>
+                          <input
+                            id={`pharmacist-note-${row.id}`}
+                            type="text"
+                            value={f.pharmacist_comment}
+                            onChange={(e) => setField(row.id, "pharmacist_comment", e.target.value.slice(0, 1000))}
+                            placeholder="Note pour le patient sur cette ligne (optionnel)"
+                            className="w-full touch-manipulation rounded-lg border border-emerald-200/55 bg-emerald-50/[0.2] px-3 py-2 text-sm placeholder:text-muted-foreground/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35"
+                          />
+                        </div>
+                      ) : row.pharmacist_comment?.trim() ? (
+                        <p className="mt-2 rounded-lg border border-border/70 bg-muted/25 px-2.5 py-1.5 text-[10px] leading-snug text-muted-foreground">
+                          <span className="font-semibold text-foreground">Note officine · </span>
+                          {row.pharmacist_comment.trim()}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 
@@ -2116,6 +2413,8 @@ export default function PharmacienDemandeDetailPage() {
                 onClick={() => {
                   resetDraftFromRows();
                   setGlobalComment(initialGlobalComment);
+                  setPendingProposalRows([]);
+                  setPendingAlternatives([]);
                   setRespondedEditMode(true);
                 }}
                 className="w-full rounded-xl bg-sky-800 py-3 text-sm font-bold text-white shadow-md transition hover:bg-sky-900"
@@ -2133,7 +2432,7 @@ export default function PharmacienDemandeDetailPage() {
                     type="button"
                     disabled={busy}
                     onClick={() => void publishResponse()}
-                    className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-md transition hover:bg-emerald-800 disabled:opacity-50 sm:min-w-[200px]"
+                    className="inline-flex min-h-[3.5rem] flex-1 items-center justify-center rounded-2xl bg-emerald-700 px-6 py-3 text-base font-bold tracking-tight text-white shadow-lg ring-2 ring-emerald-900/15 transition hover:bg-emerald-800 hover:shadow-xl disabled:opacity-50 sm:min-h-[3.75rem] sm:min-w-[220px] sm:text-[1.05rem]"
                   >
                     {busy ? "Publication…" : "Envoyer la réponse au patient"}
                   </button>
@@ -2155,6 +2454,8 @@ export default function PharmacienDemandeDetailPage() {
                         resetDraftFromRows();
                         setGlobalComment(initialGlobalComment);
                         setRespondedEditMode(false);
+                        setPendingProposalRows([]);
+                        setPendingAlternatives([]);
                       }}
                       className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-semibold text-muted-foreground shadow-sm transition hover:bg-muted/40 disabled:opacity-50 sm:min-w-[160px]"
                     >

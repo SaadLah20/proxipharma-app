@@ -53,6 +53,29 @@ export function formatDateTimeListCasablanca(iso: string | null | undefined): st
   });
 }
 
+/** Instant ISO → même style date que dans l’app (« 8 mai 2026 ») + heure 24 h (« 17h58 »), fuseau Casablanca. */
+export function formatDateShortCasablancaWithTime24hFr(iso: string | null | undefined): string {
+  if (iso == null || String(iso).trim() === "") return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const datePart = d.toLocaleDateString("fr-FR", {
+    timeZone: "Africa/Casablanca",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  const f = new Intl.DateTimeFormat("fr-FR", {
+    timeZone: "Africa/Casablanca",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = f.formatToParts(d);
+  const hh = parts.find((p) => p.type === "hour")?.value.padStart(2, "0") ?? "00";
+  const mm = parts.find((p) => p.type === "minute")?.value.padStart(2, "0") ?? "00";
+  return `${datePart} · ${hh}h${mm}`;
+}
+
 /** Instant ISO (UTC ou local) → `03/05/2026 · 18h30` (heure locale navigateur). */
 export function formatDateTimeShort24hFr(iso: string | null | undefined): string {
   if (iso == null || String(iso).trim() === "") return "";
