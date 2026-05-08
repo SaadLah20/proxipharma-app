@@ -269,20 +269,27 @@ export default function DemandeProduitsPage() {
                   <button
                     type="button"
                     onClick={() => addProduct(p)}
-                    className="flex w-full items-center gap-2.5 rounded-xl border border-border/70 bg-muted/20 px-2.5 py-2 text-left transition hover:bg-muted/35"
+                    className="flex h-20 w-full items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-2.5 py-2 text-left transition hover:bg-muted/35"
                   >
-                    <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card">
+                    <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card">
                       {p.photo_url ? (
                         <img src={p.photo_url} alt={p.name} className="h-full w-full object-cover" />
                       ) : (
                         <Package className="size-5 text-muted-foreground" aria-hidden />
                       )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-semibold leading-tight text-foreground">{p.name}</p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-xs font-semibold text-primary sm:text-sm">
+                    <div className="min-w-0 flex flex-1 flex-col justify-center">
+                      <p
+                        className="overflow-hidden pr-1 text-[14px] font-semibold leading-tight text-foreground sm:text-[15px]"
+                        style={{
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                        }}
+                      >
+                        {p.name}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-primary sm:text-sm">
                         {unitPriceLabel(p.price_pph) ?? "Prix indisponible"}
                       </p>
                     </div>
@@ -304,7 +311,7 @@ export default function DemandeProduitsPage() {
               {lines.map((l) => (
                 <li
                   key={l.product_id}
-                  className="relative rounded-xl border border-border/70 bg-muted/20 p-2.5"
+                  className="relative rounded-xl border border-border/70 bg-muted/20 p-2"
                 >
                   <button
                     type="button"
@@ -315,8 +322,8 @@ export default function DemandeProduitsPage() {
                     <Trash2 size={16} />
                   </button>
 
-                  <div className="flex items-stretch gap-2.5 pr-9">
-                    <div className="aspect-square w-20 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card sm:w-24">
+                  <div className="flex min-h-[104px] items-stretch gap-2.5 pr-9">
+                    <div className="h-[104px] w-[104px] shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card">
                       {l.photo_url ? (
                         <img src={l.photo_url} alt={l.name} className="h-full w-full object-cover" />
                       ) : (
@@ -326,7 +333,16 @@ export default function DemandeProduitsPage() {
                       )}
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col">
-                      <p className="truncate pr-1 text-[15px] font-semibold leading-tight text-foreground">{l.name}</p>
+                      <p
+                        className="overflow-hidden pr-1 text-[14px] font-semibold leading-tight text-foreground sm:text-[15px]"
+                        style={{
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                        }}
+                      >
+                        {l.name}
+                      </p>
                       <p className="mt-0.5 text-xs font-medium text-primary">
                         {unitPriceLabel(l.price_pph) ?? "Prix unitaire indisponible"}
                       </p>
@@ -371,7 +387,7 @@ export default function DemandeProduitsPage() {
                           }
                           placeholder="Commentaire sur ce produit (optionnel)"
                           className={cn(
-                            "w-full rounded-lg border border-primary/45 bg-primary/[0.06] px-2.5 py-2 text-xs placeholder:text-muted-foreground",
+                            "w-full touch-pan-x rounded-lg border border-primary/45 bg-primary/[0.06] px-2.5 py-2 text-sm placeholder:text-muted-foreground",
                             fieldFocus
                           )}
                         />
