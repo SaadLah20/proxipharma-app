@@ -563,7 +563,7 @@ export default function PharmacienDemandeDetailPage() {
 
   const setAvailableQty = (row: ItemRow, raw: string) => {
     const status = draft[row.id]?.availability_status ?? "available";
-    if (status === "market_shortage") return;
+    if (status === "market_shortage" || status === "to_order") return;
     const digits = raw.replace(/[^\d]/g, "");
     const max = draftStockCeilingForRow(row);
     if (digits === "") {
@@ -590,7 +590,7 @@ export default function PharmacienDemandeDetailPage() {
 
   const nudgeAvailableQty = (row: ItemRow, delta: number) => {
     const status = draft[row.id]?.availability_status ?? "available";
-    if (status === "market_shortage") return;
+    if (status === "market_shortage" || status === "to_order") return;
     const max = draftStockCeilingForRow(row);
     const current = Number(draft[row.id]?.available_qty ?? "0");
     const next = Math.min(
@@ -1266,9 +1266,16 @@ export default function PharmacienDemandeDetailPage() {
       </section>
 
       {patientNote ? (
-        <section className="rounded-lg border border-amber-200/60 bg-amber-50/40 px-2.5 py-1.5 shadow-sm">
-          <h2 className="text-[10px] font-bold uppercase tracking-wide text-amber-950">Message du client</h2>
-          <p className="mt-0.5 max-h-20 overflow-auto whitespace-pre-wrap text-[11px] leading-snug text-amber-950/90">{patientNote}</p>
+        <section className="rounded-xl border border-amber-400/85 bg-gradient-to-br from-amber-100 via-amber-50 to-orange-50/90 px-3 py-2.5 shadow-md ring-1 ring-amber-900/15 sm:px-3.5 sm:py-3">
+          <h2 className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-950/92 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm ring-1 ring-amber-800/80">
+              <MessageCircle className="size-3 shrink-0 text-amber-100" strokeWidth={2.5} aria-hidden />
+              Message du client
+            </span>
+          </h2>
+          <p className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap rounded-lg border border-amber-300/50 bg-white/95 px-2.5 py-2 text-[11.5px] font-medium leading-snug text-foreground shadow-inner sm:text-xs">
+            {patientNote}
+          </p>
         </section>
       ) : null}
 
@@ -1384,6 +1391,8 @@ export default function PharmacienDemandeDetailPage() {
                 f.availability_status === "market_shortage" ||
                 f.availability_status === "to_order" ||
                 (Number.isFinite(stockParsedQty) && stockParsedQty >= stockCeiling);
+              const stockStepperDisabled =
+                !canEditThisRow || f.availability_status === "market_shortage" || f.availability_status === "to_order";
               return (
                 <li
                   key={row.id}
@@ -1534,37 +1543,58 @@ export default function PharmacienDemandeDetailPage() {
                         </div>
                       ) : null}
                       <div className="mt-1.5 space-y-1.5 rounded-xl border border-sky-200/45 bg-sky-50/35 px-2 py-1.5 sm:mt-2 sm:px-2.5 sm:py-2">
-                        <div className="flex flex-wrap items-start justify-between gap-2 gap-y-2">
-                          <div className="min-w-0 flex-1 text-[10px] leading-snug">
-                            {row.client_comment?.trim() ? (
-                              <p className="text-sky-950">
+                        {row.client_comment?.trim() ? (
+                          <>
+                            <div className="flex flex-wrap items-start justify-between gap-2 gap-y-2">
+                              <p className="min-w-0 flex-1 text-[10px] leading-snug text-sky-950">
                                 <span className="font-bold text-sky-900">Patient · </span>
                                 {row.client_comment.trim()}
                               </p>
-                            ) : (
-                              <p className="text-muted-foreground italic">
-                                {canEditThisRow
-                                  ? "Pas de commentaire patient sur cette ligne — ajoutez une note officine (bouton ci-contre)."
-                                  : "Pas de commentaire patient sur cette ligne."}
+                              {canEditThisRow ? (
+                                <PharmacistLineReactControl
+                                  lineId={row.id}
+                                  pharmacistReply={f.pharmacist_comment}
+                                  disabled={false}
+                                  onReplyChange={(text) => setField(row.id, "pharmacist_comment", text)}
+                                />
+                              ) : null}
+                            </div>
+                            {(canEditThisRow ? f.pharmacist_comment : row.pharmacist_comment)?.trim() ? (
+                              <p className="rounded-lg border border-emerald-200/70 bg-emerald-50/50 px-2 py-1 text-[10px] leading-snug text-emerald-950">
+                                <span className="font-bold text-emerald-900">Réponse officine · </span>
+                                {(canEditThisRow ? f.pharmacist_comment : row.pharmacist_comment)?.trim()}
                               </p>
-                            )}
-                          </div>
-                          {canEditThisRow ? (
-                            <PharmacistLineReactControl
-                              lineId={row.id}
-                              patientComment={row.client_comment}
-                              pharmacistReply={f.pharmacist_comment}
-                              disabled={false}
-                              onReplyChange={(text) => setField(row.id, "pharmacist_comment", text)}
+                            ) : null}
+                          </>
+                        ) : canEditThisRow ? (
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-semibold text-sky-950">Note visible pour cette ligne</span>
+                            <span className="text-[9px] leading-snug text-muted-foreground">
+                              Ce que vous saisissez sera associé au produit dans la réponse (ex. précision délai, consigne, ou «&nbsp;C&apos;est
+                              noté&nbsp;»).
+                            </span>
+                            <textarea
+                              rows={3}
+                              maxLength={2000}
+                              value={f.pharmacist_comment}
+                              onChange={(e) =>
+                                setField(row.id, "pharmacist_comment", e.target.value.slice(0, 2000))
+                              }
+                              placeholder="Ex. Disponible dès demain matin · Nous vous rappellerons pour la commande …"
+                              className="mt-0.5 w-full resize-y rounded-lg border border-sky-200/80 bg-white px-2 py-1.5 text-[11px] leading-snug text-foreground shadow-sm placeholder:text-muted-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/35"
                             />
-                          ) : null}
-                        </div>
-                        {(canEditThisRow ? f.pharmacist_comment : row.pharmacist_comment)?.trim() ? (
-                          <p className="rounded-lg border border-emerald-200/70 bg-emerald-50/50 px-2 py-1 text-[10px] leading-snug text-emerald-950">
-                            <span className="font-bold text-emerald-900">Réponse officine · </span>
-                            {(canEditThisRow ? f.pharmacist_comment : row.pharmacist_comment)?.trim()}
-                          </p>
-                        ) : null}
+                          </label>
+                        ) : (
+                          <>
+                            <p className="text-[10px] italic text-muted-foreground">Pas de commentaire patient sur cette ligne.</p>
+                            {row.pharmacist_comment?.trim() ? (
+                              <p className="rounded-lg border border-emerald-200/70 bg-emerald-50/50 px-2 py-1 text-[10px] leading-snug text-emerald-950">
+                                <span className="font-bold text-emerald-900">Note officine · </span>
+                                {row.pharmacist_comment.trim()}
+                              </p>
+                            ) : null}
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1629,7 +1659,7 @@ export default function PharmacienDemandeDetailPage() {
                           <div className="flex h-9 items-center overflow-hidden rounded-xl border border-input bg-background shadow-sm">
                             <button
                               type="button"
-                              disabled={!canEditThisRow}
+                              disabled={stockStepperDisabled}
                               onClick={() => nudgeAvailableQty(row, -1)}
                               className="h-full w-8 border-r border-input text-sm font-bold text-muted-foreground disabled:opacity-50"
                               aria-label="Diminuer la quantité"
@@ -1645,7 +1675,8 @@ export default function PharmacienDemandeDetailPage() {
                               onChange={(e) => setAvailableQty(row, e.target.value)}
                               className={clsx(
                                 "h-full w-full min-w-[2rem] border-0 bg-transparent px-1 text-center text-[12px] font-semibold tabular-nums focus:outline-none",
-                                f.availability_status === "market_shortage" && "bg-muted text-muted-foreground"
+                                f.availability_status === "market_shortage" && "bg-muted text-muted-foreground",
+                                f.availability_status === "to_order" && "cursor-not-allowed bg-muted/50 text-muted-foreground"
                               )}
                             />
                             <button
@@ -1674,9 +1705,17 @@ export default function PharmacienDemandeDetailPage() {
                           />
                         </label>
                       </div>
+                      {canEditThisRow && f.availability_status === "to_order" ? (
+                        <p className="rounded-lg border border-amber-200/80 bg-amber-50/80 px-2 py-1.5 text-[9px] leading-snug text-amber-950">
+                          <strong>À commander</strong> · la quantité reste forcément{" "}
+                          <strong className="tabular-nums">{row.requested_qty}</strong> (demande client) — aucune modification du stock n&apos;est
+                          possible ici.
+                        </p>
+                      ) : null}
                       {canEditThisRow &&
                       f.availability_status !== "market_shortage" &&
-                      f.availability_status !== "unavailable" ? (
+                      f.availability_status !== "unavailable" &&
+                      f.availability_status !== "to_order" ? (
                         <p className="text-[9px] leading-snug text-muted-foreground">
                           Stock · max.&nbsp;
                           <strong className="text-foreground">{stockCeiling}</strong>
