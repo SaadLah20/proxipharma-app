@@ -177,11 +177,6 @@ export default function DemandeDetailPage() {
     return () => window.clearTimeout(tid);
   }, [loadDetail]);
 
-  useEffect(() => {
-    if (!request) return;
-    void loadHistory();
-  }, [request?.id, loadHistory]);
-
   const loadHistory = useCallback(async () => {
     if (!id) return;
     setHistoryBusy(true);
@@ -196,6 +191,11 @@ export default function DemandeDetailPage() {
     }
     setHistoryBusy(false);
   }, [id]);
+
+  useEffect(() => {
+    if (!request) return;
+    void loadHistory();
+  }, [request?.id, loadHistory]);
 
   if (loading) {
     return (
