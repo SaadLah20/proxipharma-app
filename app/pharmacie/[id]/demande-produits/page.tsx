@@ -311,19 +311,18 @@ export default function DemandeProduitsPage() {
               {lines.map((l) => (
                 <li
                   key={l.product_id}
-                  className="relative rounded-xl border border-border/70 bg-muted/20 p-2"
+                  className="rounded-xl border border-border/70 bg-muted/20 p-2"
                 >
-                  <button
-                    type="button"
-                    aria-label="Retirer"
-                    className="absolute right-2 top-2 rounded-lg p-1.5 text-destructive hover:bg-destructive/10"
-                    onClick={() => removeLine(l.product_id)}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-
-                  <div className="flex min-h-[104px] items-stretch gap-2.5 pr-9">
-                    <div className="h-[104px] w-[104px] shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card">
+                  <div className="flex min-h-[96px] items-stretch gap-2.5">
+                    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card">
+                      <button
+                        type="button"
+                        aria-label="Retirer"
+                        className="absolute right-1 top-1 z-10 rounded-md bg-background/90 p-1 text-destructive shadow-sm hover:bg-destructive/10"
+                        onClick={() => removeLine(l.product_id)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
                       {l.photo_url ? (
                         <img src={l.photo_url} alt={l.name} className="h-full w-full object-cover" />
                       ) : (
@@ -334,7 +333,7 @@ export default function DemandeProduitsPage() {
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col">
                       <p
-                        className="overflow-hidden pr-1 text-[14px] font-semibold leading-tight text-foreground sm:text-[15px]"
+                        className="overflow-hidden pr-1 text-[13px] font-semibold leading-tight text-foreground sm:text-[15px]"
                         style={{
                           display: "-webkit-box",
                           WebkitLineClamp: 2,
@@ -372,28 +371,28 @@ export default function DemandeProduitsPage() {
                           </span>
                         </span>
                       </div>
-                      <label className="mt-2 block">
-                        <input
-                          type="text"
-                          value={l.client_comment ?? ""}
-                          onChange={(e) =>
-                            setLines((prev) =>
-                              prev.map((row) =>
-                                row.product_id === l.product_id
-                                  ? { ...row, client_comment: e.target.value.slice(0, 500) }
-                                  : row
-                              )
-                            )
-                          }
-                          placeholder="Commentaire sur ce produit (optionnel)"
-                          className={cn(
-                            "w-full touch-pan-x rounded-lg border border-primary/45 bg-primary/[0.06] px-2.5 py-2 text-sm placeholder:text-muted-foreground",
-                            fieldFocus
-                          )}
-                        />
-                      </label>
                     </div>
                   </div>
+                  <label className="mt-2 block">
+                    <input
+                      type="text"
+                      value={l.client_comment ?? ""}
+                      onChange={(e) =>
+                        setLines((prev) =>
+                          prev.map((row) =>
+                            row.product_id === l.product_id
+                              ? { ...row, client_comment: e.target.value.slice(0, 500) }
+                              : row
+                          )
+                        )
+                      }
+                      placeholder="Commentaire sur ce produit (optionnel)"
+                      className={cn(
+                        "w-full touch-pan-x rounded-lg border border-primary/45 bg-primary/[0.06] px-3 py-2 text-sm placeholder:text-muted-foreground",
+                        fieldFocus
+                      )}
+                    />
+                  </label>
                 </li>
               ))}
             </ul>
