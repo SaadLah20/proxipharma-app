@@ -42,6 +42,7 @@ import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
 import { pphLabel } from "@/lib/product-price";
 import { CompactCard, CompactCardBody, CompactCardHeader, PageShell } from "@/components/ui/compact-shell";
+import { InfoHint } from "@/components/ui/info-hint";
 import { bucketPatientValidatedLinesThreeWays } from "@/lib/patient-confirmed-line-buckets";
 import {
   stringifyPharmaConfirmAudit,
@@ -1977,6 +1978,31 @@ export default function PharmacienDemandeDetailPage() {
         </div>
       </section>
 
+      {respondedFrozenView && isProduct ? (
+        <section className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-sky-200/80 bg-sky-50/65 px-2.5 py-1.5 text-[10px] leading-snug text-sky-950 shadow-sm sm:text-[11px]">
+          <span className="font-bold uppercase tracking-wide">Réponse publiée&nbsp;:</span>
+          <span>
+            Le{" "}
+            <span className="font-semibold tabular-nums">
+              {request.responded_at ? formatDateTimeShort24hFr(request.responded_at) : "—"}
+            </span>
+          </span>
+          <span className="text-sky-700/45" aria-hidden>
+            ·
+          </span>
+          <span>
+            Dernière MAJ&nbsp;:{" "}
+            <span className="font-semibold tabular-nums">{formatDateTimeShort24hFr(request.updated_at)}</span>
+          </span>
+          <InfoHint label="Aide — réponse publiée">
+            <p>
+              C&apos;est la vision actuelle pour le patient. Vous pouvez ajuster votre réaction aux commentaires de ligne sans
+              réouvrir toute la fiche ; pour le reste (prix, dispo, alternatives), utilisez «&nbsp;Modifier la réponse&nbsp;».
+            </p>
+          </InfoHint>
+        </section>
+      ) : null}
+
       {patientNote ? (
         <section className="rounded-xl border-2 border-amber-400/90 bg-gradient-to-br from-amber-100 via-amber-50 to-orange-50/90 px-3 py-3 shadow-md ring-1 ring-amber-900/20 sm:px-3.5 sm:py-3.5">
           <h2 className="flex flex-wrap items-center gap-2">
@@ -2014,22 +2040,6 @@ export default function PharmacienDemandeDetailPage() {
             <p className="mt-2 text-[11px] text-muted-foreground">Aucune ligne produit.</p>
           ) : (
             <>
-              {respondedFrozenView ? (
-                <section className="rounded-2xl border border-sky-200/85 bg-gradient-to-br from-sky-50 via-white to-indigo-50/30 px-3 py-2.5 shadow-sm">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-sky-950">Réponse publiée</p>
-                  <p className="mt-1 text-[11px] leading-snug text-sky-950/85">
-                    C&apos;est la vision actuelle pour le patient. Vous pouvez ajuster votre réaction aux commentaires de ligne sans
-                    réouvrir toute la fiche ; pour le reste (prix, dispo, alternatives), utilisez « Modifier la réponse ».
-                  </p>
-                  {request.responded_at ? (
-                    <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <CalendarClock className="size-3 shrink-0" aria-hidden />
-                      <span>Envoyée le {formatDateTimeShort24hFr(request.responded_at)}</span>
-                    </p>
-                  ) : null}
-                </section>
-              ) : null}
-
               {respondedFrozenView && initialGlobalComment.trim() ? (
                 <section className="rounded-xl border border-violet-200/70 bg-violet-50/40 px-3 py-2 shadow-sm">
                   <p className="text-[9px] font-bold uppercase tracking-wide text-violet-950">Commentaire général envoyé</p>
@@ -2168,7 +2178,7 @@ export default function PharmacienDemandeDetailPage() {
                 canEditThisRow ? f.pharmacist_comment?.trim() ?? "" : row.pharmacist_comment?.trim() ?? ""
               );
               const showLineReactControl =
-                patientLineCc.length > 0 && !lineLockedTrace && (canEditThisRow || respondedFrozenView);
+                patientLineCc.length > 0 && !lineLockedTrace && canEditThisRow;
               const showCommentBand =
                 patientLineCc.length > 0 || canEditThisRow || (!canEditThisRow && pharmaNotePreview.length > 0);
               const availabilityOptions =

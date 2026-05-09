@@ -34,7 +34,7 @@ export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "repondues",
     label: "À confirmer",
-    hint: "Réponse officine : confirmez ou refusez sous 24 h.",
+    hint: "Répondue - à valider : confirmez ou refusez sous 24 h.",
     statuses: ["responded"],
   },
   {

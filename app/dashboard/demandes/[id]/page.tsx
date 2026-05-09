@@ -60,6 +60,7 @@ function normalizeAlternatives(raw: AltEmbed | AltEmbed[] | null | undefined): A
 type RequestDetail = {
   id: string;
   created_at: string;
+  updated_at: string;
   status: string;
   request_type: string;
   pharmacy_id: string;
@@ -113,6 +114,7 @@ export default function DemandeDetailPage() {
   const [followUpBusy, setFollowUpBusy] = useState(false);
   const [followUpErr, setFollowUpErr] = useState("");
   const [supplyAmendments, setSupplyAmendments] = useState<{ id: string; created_at: string; amendments: unknown }[]>([]);
+  const [pharmacistGlobalComment, setPharmacistGlobalComment] = useState("");
 
   const loadDetail = useCallback(
     async (silent?: boolean) => {
@@ -144,7 +146,7 @@ export default function DemandeDetailPage() {
       const { data: reqRow, error: reqErr } = await supabase
         .from("requests")
         .select(
-          "id,created_at,status,request_type,pharmacy_id,submitted_at,responded_at,confirmed_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,pharmacies(nom,ville,adresse,telephone,public_ref,contact_email),product_requests(patient_note)"
+          "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,confirmed_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,pharmacies(nom,ville,adresse,telephone,public_ref,contact_email),product_requests(patient_note)"
         )
         .eq("id", id)
         .eq("patient_id", user.id)
@@ -164,7 +166,7 @@ export default function DemandeDetailPage() {
 
       setRequest(reqRow as RequestDetail);
 
-      const [itemsResult, amendmentsResult] = await Promise.all([
+      const [itemsResult, amendmentsResult, phGlobalRes] = await Promise.all([
         supabase
           .from("request_items")
           .select(
@@ -178,7 +180,17 @@ export default function DemandeDetailPage() {
           .eq("request_id", id)
           .order("created_at", { ascending: false })
           .limit(40),
+        supabase
+          .from("request_comments")
+          .select("comment_text")
+          .eq("request_id", id)
+          .eq("author_role", "pharmacien")
+          .eq("is_internal", false)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ]);
+      setPharmacistGlobalComment(((phGlobalRes.data?.comment_text ?? "") as string).trim());
 
       const itemsErr = itemsResult.error;
       const itemsData = itemsResult.data;
@@ -617,6 +629,7 @@ export default function DemandeDetailPage() {
                 ].join(":")
               ),
               supplyAmendments.map((a) => a.id).join(","),
+              pharmacistGlobalComment,
             ].join("|")
           }
           requestId={request.id}
@@ -641,6 +654,7 @@ export default function DemandeDetailPage() {
           onReload={async () => {
             await loadDetail(true);
           }}
+          pharmacistGlobalComment={pharmacistGlobalComment}
         />
         </section>
       ) : null}

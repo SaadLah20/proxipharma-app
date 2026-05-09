@@ -80,7 +80,7 @@ export function PharmacistDemandesHub() {
 
     const { data, error: re } = await supabase
       .from("requests")
-      .select("id,created_at,status,request_type,patient_id,submitted_at,responded_at,request_public_ref,request_items(counter_outcome,is_selected_by_patient,post_confirm_fulfillment)")
+      .select("id,created_at,updated_at,status,request_type,patient_id,submitted_at,responded_at,request_public_ref,request_items(counter_outcome,is_selected_by_patient,post_confirm_fulfillment)")
       .eq("pharmacy_id", staff.pharmacy_id)
       .eq("request_type", "product_request")
       .order("created_at", { ascending: false })

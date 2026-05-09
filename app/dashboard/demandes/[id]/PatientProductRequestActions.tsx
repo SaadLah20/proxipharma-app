@@ -584,6 +584,8 @@ type Props = {
   /** Référence courte (ex. PR-…) pour préremplir un courriel. */
   requestPublicRef?: string | null;
   supplyAmendmentBundles?: { id: string; created_at: string; amendments: unknown }[];
+  /** Dernier commentaire officine « message global », non interne (`request_comments`). */
+  pharmacistGlobalComment?: string | null;
 };
 
 function asSupplyAmendmentEntries(raw: unknown): SupplyAmendmentEntryJson[] {
@@ -707,44 +709,31 @@ function RespondedPatientLineChooser({
       </div>
     ) : null;
 
-  const commentsBlock = (
-    <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
+  const commentsBlock =
+    patientNote || pharmaLineNote ? (
       <div
-        className={`rounded-xl border px-2.5 py-2 ${
-          patientNote
-            ? "border-sky-200/90 bg-sky-50/90"
-            : "border-dashed border-slate-200 bg-slate-50/50"
-        }`}
+        className={`mt-2.5 grid gap-2 ${patientNote && pharmaLineNote ? "sm:grid-cols-2" : ""}`}
       >
-        <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-sky-900/90">
-          <MessageSquare className="size-3.5 shrink-0 opacity-80" aria-hidden />
-          Votre précision
-        </p>
         {patientNote ? (
-          <p className="mt-1 text-[11px] leading-snug text-sky-950">{patientNote}</p>
-        ) : (
-          <p className="mt-1 text-[10px] italic text-slate-500">Aucune précision sur ce produit.</p>
-        )}
-      </div>
-      <div
-        className={`rounded-xl border px-2.5 py-2 ${
-          pharmaLineNote
-            ? "border-emerald-200/90 bg-emerald-50/90"
-            : "border-dashed border-slate-200 bg-slate-50/50"
-        }`}
-      >
-        <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-emerald-950/90">
-          <Sparkles className="size-3.5 shrink-0 opacity-80" aria-hidden />
-          Réponse pharmacie (ligne)
-        </p>
+          <div className="rounded-xl border border-sky-200/90 bg-sky-50/90 px-2.5 py-2">
+            <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-sky-900/90">
+              <MessageSquare className="size-3.5 shrink-0 opacity-80" aria-hidden />
+              Votre précision
+            </p>
+            <p className="mt-1 text-[11px] leading-snug text-sky-950">{patientNote}</p>
+          </div>
+        ) : null}
         {pharmaLineNote ? (
-          <p className="mt-1 text-[11px] leading-snug text-emerald-950">{pharmaLineNote}</p>
-        ) : (
-          <p className="mt-1 text-[10px] italic text-slate-500">La pharmacie n’a pas laissé de commentaire sur cette ligne.</p>
-        )}
+          <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/90 px-2.5 py-2">
+            <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-emerald-950/90">
+              <Sparkles className="size-3.5 shrink-0 opacity-80" aria-hidden />
+              Réponse pharmacie (ligne)
+            </p>
+            <p className="mt-1 text-[11px] leading-snug text-emerald-950">{pharmaLineNote}</p>
+          </div>
+        ) : null}
       </div>
-    </div>
-  );
+    ) : null;
 
   const cardShell = (inner: ReactNode) => (
     <li
@@ -1234,6 +1223,7 @@ export function PatientProductRequestActions({
   pharmacyContact = null,
   requestPublicRef = null,
   supplyAmendmentBundles = [],
+  pharmacistGlobalComment = null,
 }: Props) {
   const [actionError, setActionError] = useState("");
   const [busyAction, setBusyAction] = useState<"" | "confirm" | "resubmit" | "abandon" | "visit">("");
@@ -1358,15 +1348,6 @@ export function PatientProductRequestActions({
     }
     return { count, total };
   }, [status, items, sel]);
-
-  const demandLinesResponded = useMemo(
-    () => items.filter((r) => r.line_source !== "pharmacist_proposed"),
-    [items]
-  );
-  const proposedLinesResponded = useMemo(
-    () => items.filter((r) => r.line_source === "pharmacist_proposed"),
-    [items]
-  );
 
   useEffect(() => {
     if (debouncedQuery.length < 2) {
@@ -1665,69 +1646,43 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirm ? (
-        <div className="space-y-5">
-          <div className="rounded-2xl border-2 border-emerald-200/80 bg-gradient-to-br from-emerald-50/90 via-white to-sky-50/40 p-3 shadow-sm sm:p-4">
-            <h2 className="text-[15px] font-bold leading-snug text-foreground sm:text-base">La pharmacie a répondu — à toi de confirmer</h2>
-            <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
+        <div className="space-y-3">
+          <div className="rounded-xl border border-emerald-200/75 bg-emerald-50/45 p-2.5 sm:p-3">
+            <h2 className="text-[14px] font-bold leading-snug text-foreground sm:text-[15px]">La pharmacie a répondu — à toi de confirmer</h2>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
               Pour chaque ligne, retiens le <strong className="text-foreground">principal</strong>, une{" "}
               <strong className="text-foreground">alternative</strong>, ou{" "}
               <strong className="text-foreground">aucune option</strong>. Les quantités ne peuvent pas dépasser celles indiquées par
               l&apos;officine, mais tu peux les baisser.
             </p>
-            <ul className="mt-3 grid gap-1.5 text-[10px] leading-snug text-muted-foreground sm:grid-cols-2 sm:text-[11px]">
+            <ul className="mt-2 grid gap-1 text-[10px] leading-snug text-muted-foreground sm:grid-cols-2 sm:text-[11px]">
               <li className="flex items-center gap-2">
                 <span className="inline-block size-2 shrink-0 rounded-full bg-emerald-500" aria-hidden />
                 <span>
-                  <strong className="text-emerald-950">Principal / ta liste</strong> — produits demandés au départ.
+                  <strong className="text-emerald-950">Ta liste</strong> — ordre identique à celui de la pharmacie.
                 </span>
               </li>
               <li className="flex items-center gap-2">
-                <span className="inline-block size-2 shrink-0 rounded-full bg-teal-500" aria-hidden />
-                <span>
-                  <strong className="text-teal-950">Alternatives</strong> — choix proposés à la place ou en complément du principal.
-                </span>
-              </li>
-              <li className="flex items-center gap-2 sm:col-span-2">
                 <span className="inline-block size-2 shrink-0 rounded-full bg-violet-500" aria-hidden />
                 <span>
-                  <strong className="text-violet-950">Proposé par la pharmacie</strong> — ajout hors de ta liste d&apos;origine.
+                  <strong className="text-violet-950">Proposé officine</strong> — repéré sur la carte violette.
                 </span>
               </li>
             </ul>
           </div>
 
-          {demandLinesResponded.length > 0 ? (
-            <section className="space-y-2.5">
-              <h3 className="flex items-center gap-2 px-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-950">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-sm" aria-hidden />
-                Ta liste et les alternatives
-              </h3>
-              <ul className="space-y-4">
-                {demandLinesResponded.map((row) => (
-                  <RespondedPatientLineChooser
-                    key={row.id}
-                    row={row}
-                    selState={sel[row.id] ?? { branch: null, qty: 1 }}
-                    setLineBranch={setLineBranch}
-                    setLineQty={setLineQty}
-                    togglePrincipalOnlyLine={togglePrincipalOnlyLine}
-                  />
-                ))}
-              </ul>
-            </section>
+          {pharmacistGlobalComment?.trim() ? (
+            <div className="rounded-xl border border-emerald-200/85 bg-emerald-50/70 px-2.5 py-2 ring-1 ring-emerald-100/50">
+              <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-950">Message de la pharmacie</p>
+              <p className="mt-1 whitespace-pre-wrap text-[11px] leading-snug text-emerald-950">{pharmacistGlobalComment.trim()}</p>
+            </div>
           ) : null}
 
-          {proposedLinesResponded.length > 0 ? (
-            <section className="space-y-2.5">
-              <h3 className="flex items-center gap-2 px-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-violet-950">
-                <span className="h-2 w-2 rounded-full bg-violet-500 shadow-sm" aria-hidden />
-                Suggestions de l&apos;officine
-              </h3>
-              <p className="px-0.5 text-[10px] leading-snug text-muted-foreground sm:text-[11px]">
-                Produits ajoutés par ta pharmacie. Tu décides comme pour le reste : retenir (avec une quantité autorisée) ou ne pas prendre cette ligne.
-              </p>
-              <ul className="space-y-4">
-                {proposedLinesResponded.map((row) => (
+          {items.length > 0 ? (
+            <section className="space-y-3">
+              <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Produits</h3>
+              <ul className="space-y-3">
+                {items.map((row) => (
                   <RespondedPatientLineChooser
                     key={row.id}
                     row={row}
@@ -1763,11 +1718,20 @@ export function PatientProductRequestActions({
           );
 
           return (
-            <div className="space-y-7">
-              <div className="overflow-hidden rounded-2xl border border-sky-300/70 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/40 p-3 shadow-md ring-1 ring-sky-200/40 sm:p-4">
-                <h2 className="text-[15px] font-bold leading-snug text-sky-950 sm:text-base">{introTitle}</h2>
-                <p className="mt-2 text-[11px] leading-relaxed text-sky-950/88 sm:text-xs">{introBody}</p>
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-xl border border-sky-200/80 bg-sky-50/50 p-2.5 sm:p-3">
+                <h2 className="text-[14px] font-bold leading-snug text-sky-950 sm:text-[15px]">{introTitle}</h2>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-sky-950/88">{introBody}</p>
               </div>
+
+              {pharmacistGlobalComment?.trim() ? (
+                <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/65 px-2.5 py-2">
+                  <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-950">Message de la pharmacie</p>
+                  <p className="mt-1 whitespace-pre-wrap text-[11px] leading-snug text-emerald-950">
+                    {pharmacistGlobalComment.trim()}
+                  </p>
+                </div>
+              ) : null}
 
               {sortedBundles.length > 0 ? (
                 <section className="space-y-2 rounded-xl border border-violet-200/85 bg-violet-50/45 p-3 shadow-sm ring-1 ring-violet-200/35">
