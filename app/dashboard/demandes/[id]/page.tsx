@@ -166,7 +166,13 @@ export default function DemandeDetailPage() {
 
       setRequest(reqRow as RequestDetail);
 
-      const [itemsResult, amendmentsResult, phGlobalRes] = await Promise.all([
+      type ReqRowMinimal = RequestDetail & { request_type?: string; status?: string };
+      const r = reqRow as ReqRowMinimal;
+      const needStatusHistory =
+        r.request_type === "product_request" &&
+        ["confirmed", "processing", "treated"].includes(String(r.status));
+
+      const [itemsResult, amendmentsResult, phGlobalRes, histResult] = await Promise.all([
         supabase
           .from("request_items")
           .select(
@@ -189,8 +195,29 @@ export default function DemandeDetailPage() {
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
+        needStatusHistory
+          ? supabase
+              .from("request_status_history")
+              .select("id,created_at,old_status,new_status,reason")
+              .eq("request_id", id)
+              .order("created_at", { ascending: false })
+              .limit(30)
+          : Promise.resolve({ data: null, error: null } as const),
       ]);
       setPharmacistGlobalComment(((phGlobalRes.data?.comment_text ?? "") as string).trim());
+      if (needStatusHistory && !histResult.error && Array.isArray(histResult.data)) {
+        setHistoryRows(
+          histResult.data as {
+            id: string;
+            created_at: string;
+            old_status: string | null;
+            new_status: string;
+            reason: string | null;
+          }[]
+        );
+      } else if (!needStatusHistory) {
+        setHistoryRows([]);
+      }
 
       const itemsErr = itemsResult.error;
       const itemsData = itemsResult.data;
@@ -630,6 +657,10 @@ export default function DemandeDetailPage() {
               ),
               supplyAmendments.map((a) => a.id).join(","),
               pharmacistGlobalComment,
+              request.submitted_at ?? "",
+              request.responded_at ?? "",
+              request.confirmed_at ?? "",
+              historyRows.map((h) => `${h.id}:${h.created_at}:${h.reason ?? ""}`).join(";"),
             ].join("|")
           }
           requestId={request.id}
@@ -655,6 +686,13 @@ export default function DemandeDetailPage() {
             await loadDetail(true);
           }}
           pharmacistGlobalComment={pharmacistGlobalComment}
+          requestTimelineMeta={{
+            created_at: request.created_at,
+            submitted_at: request.submitted_at,
+            responded_at: request.responded_at,
+            confirmed_at: request.confirmed_at,
+          }}
+          dossierHistoryRows={historyRows}
         />
         </section>
       ) : null}
