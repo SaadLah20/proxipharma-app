@@ -10,6 +10,8 @@ export type PatientLineLike = {
   unit_price: number | null;
   expected_availability_date: string | null;
   pharmacist_comment: string | null;
+  /** Note patient ligne (demande initiale / précision). */
+  client_comment?: string | null;
   line_source?: string | null;
   pharmacist_proposal_reason?: string | null;
   patient_chosen_alternative_id?: string | null;
