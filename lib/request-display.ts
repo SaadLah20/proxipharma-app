@@ -3,7 +3,7 @@ export const requestStatusFr: Record<string, string> = {
   draft: "Brouillon",
   submitted: "Envoyée",
   in_review: "En cours de traitement",
-  responded: "Réponse reçue — à valider",
+  responded: "À confirmer sous 24 h (réponse officine)",
   confirmed: "Validée",
   processing: "En préparation officine",
   treated: "Traitée",
@@ -24,6 +24,7 @@ export function requestStatusShortFr(status: string): string {
 /** Côté officine : `confirmed` = validé par le patient ; l’étape « en préparation » peut être virtuelle ou réelle (`processing`). */
 export function requestStatusShortFrPharmacien(status: string): string {
   if (status === "confirmed") return "Validée client";
+  if (status === "responded") return "Réponse envoyée · attente client";
   return requestStatusShortFr(status);
 }
 
@@ -42,8 +43,8 @@ export const patientDashboardSections: {
   },
   {
     id: "response_waiting",
-    title: "Réponse reçue",
-    description: "À valider ou annuler avant expiration (24 h).",
+    title: "À confirmer",
+    description: "Réponse de l’officine à confirmer ou à refuser avant expiration (24 h).",
     statuses: ["responded"],
   },
   {

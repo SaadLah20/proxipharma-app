@@ -36,6 +36,7 @@ import {
   pharmacistRequestIsClosedSuccess,
   pharmacistRequestIsHardStopped,
   requestStatusFr,
+  requestStatusShortFrPharmacien,
 } from "@/lib/request-display";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
@@ -1828,7 +1829,7 @@ export default function PharmacienDemandeDetailPage() {
       (i.counter_outcome ?? "unset") === "picked_up"
   ).length;
 
-  const statusLabelFull = requestStatusFr[request.status] ?? request.status;
+  const statusLabelHeader = requestStatusShortFrPharmacien(request.status);
 
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-2 sm:space-y-3">
@@ -1836,40 +1837,39 @@ export default function PharmacienDemandeDetailPage() {
         ← Retour aux demandes de produits
       </Link>
 
-      <header className="rounded-2xl border-2 border-emerald-200/85 bg-gradient-to-br from-emerald-50/80 via-white to-white p-3 shadow-sm ring-1 ring-emerald-900/[0.06] sm:p-3.5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1 space-y-2">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-950/85">Demande de produits</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-xs font-semibold text-foreground">{displayRequestPublicRef(request)}</span>
-              {isProduct ? (
-                <span className="rounded-md border border-emerald-200/90 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-950">
-                  {displayRows.length} ligne{displayRows.length !== 1 ? "s" : ""}
-                </span>
-              ) : null}
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Reçue / mise à jour :{" "}
-              <span className="font-semibold tabular-nums text-foreground">
-                {formatDateTimeShort24hFr(request.submitted_at ?? request.created_at)}
+      <header className="rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/40 via-white to-white px-2.5 py-2 shadow-sm sm:px-3 sm:py-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] sm:gap-x-3">
+            <span className="shrink-0 font-bold uppercase tracking-wide text-emerald-900/80">Demande prod.</span>
+            <span className="font-mono text-[11px] font-semibold text-foreground">
+              {displayRequestPublicRef(request)}
+            </span>
+            {isProduct ? (
+              <span className="shrink-0 rounded border border-emerald-200/90 bg-emerald-50/90 px-1.5 py-px text-[10px] font-semibold text-emerald-950">
+                {displayRows.length} l.
               </span>
-            </p>
+            ) : null}
+            <span className="hidden h-3.5 w-px shrink-0 bg-border/80 sm:block" aria-hidden />
+            <span className="min-w-0 text-muted-foreground">
+              Reçue <span className="font-semibold tabular-nums text-foreground">{formatDateTimeShort24hFr(request.submitted_at ?? request.created_at)}</span>
+            </span>
           </div>
-          <div className="flex w-full shrink-0 flex-col items-stretch gap-1 sm:w-auto sm:items-end">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Statut</span>
+          <div className="flex w-full shrink-0 items-center justify-end gap-2 border-t border-emerald-100/90 pt-2 sm:w-auto sm:border-0 sm:pt-0">
+            <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Statut</span>
             <span
               className={clsx(
-                "inline-flex justify-center rounded-full border-2 px-3 py-2 text-center text-sm font-bold leading-tight shadow-sm sm:min-w-[10.5rem]",
+                "inline-flex max-w-full justify-center truncate rounded-full border px-2.5 py-1 text-center text-[11px] font-bold leading-tight sm:max-w-[14rem]",
                 ["submitted", "in_review"].includes(request.status)
-                  ? "border-amber-400/90 bg-amber-100 text-amber-950"
+                  ? "border-amber-300/95 bg-amber-50 text-amber-950"
                   : request.status === "responded"
-                    ? "border-sky-400/85 bg-sky-100 text-sky-950"
+                    ? "border-sky-300/95 bg-sky-50 text-sky-950"
                     : ["confirmed", "processing", "treated"].includes(request.status)
-                      ? "border-teal-500/85 bg-teal-100 text-teal-950"
-                      : "border-border bg-muted/40 text-foreground"
+                      ? "border-teal-400/85 bg-teal-50 text-teal-950"
+                      : "border-border bg-muted/35 text-foreground"
               )}
+              title={requestStatusFr[request.status] ?? request.status}
             >
-              {statusLabelFull}
+              {statusLabelHeader}
             </span>
           </div>
         </div>
@@ -1888,95 +1888,92 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      <section className="rounded-2xl border-2 border-emerald-100 bg-gradient-to-br from-white via-white to-emerald-50/30 shadow-[0_2px_14px_rgba(16,185,129,0.08)] ring-1 ring-black/[0.04]">
-        <div className="h-1 w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" aria-hidden />
-        <div className="space-y-3 px-2.5 py-2.5 sm:px-3.5 sm:py-3">
-          <div className="flex gap-3">
-            <span
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600/95 text-white shadow-inner"
-              title="Client"
-              aria-hidden
-            >
-              <User className="size-5" strokeWidth={2} />
-            </span>
-            <div className="min-w-0 flex-1 space-y-2">
-              <div>
-                <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Nom du client</p>
-                <p className="break-words text-sm font-bold leading-snug text-foreground sm:text-[15px]">
-                  {patientHeadingName(patientProfile, request.patient_id)}
-                </p>
-              </div>
-              <dl className="grid gap-2 text-[11px] sm:grid-cols-2 sm:gap-x-4">
-                <div className="min-w-0 space-y-0.5">
-                  <dt className="font-semibold uppercase tracking-wide text-muted-foreground">Réf. commande</dt>
-                  <dd className="break-all font-mono font-semibold text-emerald-950">{displayRequestPublicRef(request)}</dd>
-                </div>
-                <div className="min-w-0 space-y-0.5">
-                  <dt className="font-semibold uppercase tracking-wide text-muted-foreground">Réf. client</dt>
-                  <dd className="break-all font-mono font-semibold text-foreground">
-                    {patientProfile?.patient_ref?.trim() || `— (patient #${formatShortId(request.patient_id)})`}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-          </div>
-          {(patientPhone || patientEmail) && (
-            <div className="border-t border-emerald-100/90 pt-3">
-              <button
-                type="button"
-                aria-expanded={patientContactOpen}
-                onClick={() => setPatientContactOpen((v) => !v)}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300/90 bg-white px-3 py-2 text-xs font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-50 sm:w-auto"
-              >
-                <Phone className="size-4 shrink-0 opacity-90" aria-hidden />
-                Contacter
-                <ChevronDown
-                  className={clsx("size-4 shrink-0 text-emerald-800/80 transition-transform", patientContactOpen && "rotate-180")}
-                  aria-hidden
-                />
-              </button>
-              {patientContactOpen ? (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {patientPhone ? (
-                    <>
-                      <a
-                        href={telHref(patientPhone)}
-                        className="inline-flex size-10 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
-                        title={`Appeler ${patientPhone}`}
-                      >
-                        <Phone className="size-4" aria-hidden />
-                      </a>
-                      <a
-                        href={whatsappHref(patientPhone)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex size-10 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
-                        title="WhatsApp"
-                      >
-                        <MessageCircle className="size-4" aria-hidden />
-                      </a>
-                      <a
-                        href={smsHref(patientPhone)}
-                        className="inline-flex size-10 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
-                        title="SMS"
-                      >
-                        <MessageSquare className="size-4" aria-hidden />
-                      </a>
-                    </>
-                  ) : null}
-                  {patientEmail ? (
-                    <a
-                      href={`mailto:${patientEmail}`}
-                      className="inline-flex size-10 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
-                      title={patientEmail}
-                    >
-                      <Mail className="size-4" aria-hidden />
-                    </a>
-                  ) : null}
-                </div>
+      <section className="rounded-xl border border-emerald-200/75 bg-card px-2.5 py-2 shadow-sm sm:px-3 sm:py-2">
+        <div className="flex gap-2 sm:items-center sm:gap-2.5">
+          <span
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm"
+            title="Client"
+            aria-hidden
+          >
+            <User className="size-4" strokeWidth={2} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-start justify-between gap-2 gap-y-1">
+              <p className="min-w-[40%] flex-1 break-words text-[12px] font-bold leading-snug text-foreground sm:text-[13px]">
+                {patientHeadingName(patientProfile, request.patient_id)}
+              </p>
+              {patientPhone || patientEmail ? (
+                <button
+                  type="button"
+                  aria-expanded={patientContactOpen}
+                  onClick={() => setPatientContactOpen((v) => !v)}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-300/90 bg-emerald-50/60 px-2 py-1 text-[10px] font-semibold text-emerald-950 transition hover:bg-emerald-100/70"
+                >
+                  <Phone className="size-3.5 shrink-0 opacity-90" aria-hidden />
+                  Contacter
+                  <ChevronDown
+                    className={clsx("size-3.5 shrink-0 text-emerald-800/80 transition-transform", patientContactOpen && "rotate-180")}
+                    aria-hidden
+                  />
+                </button>
               ) : null}
             </div>
-          )}
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0 text-[10px] text-muted-foreground">
+              <span className="min-w-0">
+                <span className="mr-1 font-semibold uppercase tracking-wide text-muted-foreground/95">Réf. commande</span>
+                <span className="break-all font-mono font-semibold text-emerald-950">{displayRequestPublicRef(request)}</span>
+              </span>
+              <span className="text-muted-foreground/35" aria-hidden>
+                ·
+              </span>
+              <span className="min-w-0">
+                <span className="mr-1 font-semibold uppercase tracking-wide text-muted-foreground/95">Réf. client</span>
+                <span className="break-all font-mono font-semibold text-foreground">
+                  {patientProfile?.patient_ref?.trim() || `#${formatShortId(request.patient_id)}`}
+                </span>
+              </span>
+            </div>
+            {(patientPhone || patientEmail) && patientContactOpen ? (
+              <div className="mt-1.5 flex flex-wrap gap-1 border-t border-emerald-100/80 pt-1.5">
+                {patientPhone ? (
+                  <>
+                    <a
+                      href={telHref(patientPhone)}
+                      className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+                      title={`Appeler ${patientPhone}`}
+                    >
+                      <Phone className="size-[15px]" aria-hidden />
+                    </a>
+                    <a
+                      href={whatsappHref(patientPhone)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+                      title="WhatsApp"
+                    >
+                      <MessageCircle className="size-[15px]" aria-hidden />
+                    </a>
+                    <a
+                      href={smsHref(patientPhone)}
+                      className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+                      title="SMS"
+                    >
+                      <MessageSquare className="size-[15px]" aria-hidden />
+                    </a>
+                  </>
+                ) : null}
+                {patientEmail ? (
+                  <a
+                    href={`mailto:${patientEmail}`}
+                    className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+                    title={patientEmail}
+                  >
+                    <Mail className="size-[15px]" aria-hidden />
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
       </section>
 
@@ -2242,7 +2239,14 @@ export default function PharmacienDemandeDetailPage() {
                           <span className="rounded-md bg-rose-100 px-1.5 py-px text-[9px] font-semibold text-rose-900 ring-1 ring-rose-200/80">
                             Non distribué
                           </span>
-                        ) : ["responded", "confirmed", "processing", "treated", "completed"].includes(request.status) ? (
+                        ) : [
+                            "confirmed",
+                            "processing",
+                            "treated",
+                            "completed",
+                            "partially_collected",
+                            "fully_collected",
+                          ].includes(request.status) ? (
                           selected ? (
                             <span className="rounded-md bg-emerald-100 px-1.5 py-px text-[9px] font-semibold text-emerald-900">
                               Retenu
