@@ -236,5 +236,6 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
 function postConfirmFulfillmentShortFr(v: string | null | undefined): string {
   if (v === "reserved") return "Réservation en officine";
   if (v === "ordered") return "Commande fournisseur";
+  if (v === "arrived_reserved") return "Reçu en officine · prêt au comptoir";
   return "À préciser";
 }

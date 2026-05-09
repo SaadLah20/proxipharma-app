@@ -229,7 +229,10 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
   const nOrdered = lines.filter(
     (l) => l.is_selected_by_patient === true && (l.post_confirm_fulfillment ?? "unset") === "ordered"
   ).length;
-  const hasFulfillmentProgress = nReserved + nOrdered > 0;
+  const nArrived = lines.filter(
+    (l) => l.is_selected_by_patient === true && (l.post_confirm_fulfillment ?? "unset") === "arrived_reserved"
+  ).length;
+  const hasFulfillmentProgress = nReserved + nOrdered + nArrived > 0;
   const statusForCard =
     row.status === "processing"
       ? "processing"
@@ -270,7 +273,8 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
             </div>
             {statusForCard === "in_progress_virtual" ? (
               <p className="text-[10px] font-medium leading-snug text-muted-foreground">
-                Réservation / commande : {nReserved} réservé(s), {nOrdered} commandé(s).
+                Réservation / commande : {nReserved} réservé(s), {nOrdered} commandé(s)
+                {nArrived > 0 ? `, ${nArrived} reçu(s) en officine` : ""}.
               </p>
             ) : null}
           </div>
