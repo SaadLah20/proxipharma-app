@@ -126,6 +126,26 @@ export function validatedProductLabel(row: PatientLineLike): string {
   return oneProd(alt?.products)?.name ?? oneProd(row.products)?.name ?? "Produit";
 }
 
+/** Prix unitaire sur la branche retenue à la validation (principal ou alternative choisie). */
+export function validatedBranchUnitPriceMad(row: PatientLineLike): number | null {
+  const chosenId = row.patient_chosen_alternative_id ?? null;
+  if (!chosenId) {
+    const u = row.unit_price;
+    if (u == null) return null;
+    const n = Number(u);
+    return Number.isFinite(n) ? n : null;
+  }
+  const alt = altRowsOf(row).find((a) => a.id === chosenId);
+  const u = alt?.unit_price ?? null;
+  if (u == null) return null;
+  const n = Number(u);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function validatedQtyForPatientLine(row: PatientLineLike): number {
+  return row.selected_qty ?? row.requested_qty;
+}
+
 export function patientConfirmedLinesNotInBuckets<T extends PatientLineLike>(
   items: T[],
   b: PatientConfirmedBuckets<T>

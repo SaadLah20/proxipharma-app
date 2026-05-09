@@ -138,12 +138,12 @@ Cas de rendu attendus:
 
 Sans nouvelle validation patient obligatoire pour les ajustements officine courants :
 
-- **Référence figée** : ce que le patient a validé reste lisible via **`selected_qty`**, **`patient_chosen_alternative_id`** (principal vs alternative) — encart UI **« Ce que vous avez validé »** : **qté · dispo · prix · état** (parité visuelle avec « Suivi officine »).
+- **Référence figée** : ce que le patient a validé reste lisible en base via **`selected_qty`**, **`patient_chosen_alternative_id`** (principal vs alternative). **UI (écran actions patient `PatientProductRequestActions`, statuts `confirmed` / `processing` / `treated`)** : **cartes compactes** (photo, titre retenu, qté, synthèse disponibilité) **groupées** (à réserver en officine · à commander · cas limites · écart après validation) ; **lignes non retenues** en **section repliable fermée par défaut** (trace) ; **Historique** par ligne → **modal** avec chronologie (**`lib/build-patient-line-timeline-fr.ts`** : origine, réponse officine, validation, audits `audit_v1` filtrés produit, amendements ciblés `request_item_id`, situation actuelle). Le **détail lecture seule** hors ce bloc (statuts sans actions, ex. **clôturé**) peut encore reprendre la **liste complète** dans **`page.tsx`**.
 - **Suivi courant** : encart **« Suivi officine »** avec **mêmes champs** (qté, dispo, prix, état). Tant qu'**aucun `counter_outcome` n'est posé** sur la ligne (i.e. la pharmacie n'a pas commencé l'exécution comptoir), l'encart affiche un placeholder **« En cours · la pharmacie n'a pas encore commencé… »** (pas de données techniques exposées). Dès qu'un résultat comptoir est saisi, le bloc bascule en mode complet ; message si **quantité suivie ≠ quantité validée**.
 - **Statuts dossier après validation (DB)** : en plus de **`confirmed`**, le workflow produit utilise **`processing`** (préparation officine enregistrée côté système) et **`treated`** (la pharmacie déclare la préparation terminée ; le suivi actif est le **comptoir** jusqu'à **`completed`**). Transitions typiques : premier lot d'ajustements structurés avec canal patient ou première saisie **`reserved`/`ordered`** depuis **`confirmed`** peut faire passer en **`processing`** ; RPC **`pharmacist_mark_request_treated`** passe en **`treated`** lorsque chaque ligne **retenue et non écartée** est cohérente (**`reserved`** sur voie officine disponible / partiel, **`ordered`** sur voie à commander).
 - **Après validation — réservation / commande (sans comptoir)** : chaque ligne peut porter **`post_confirm_fulfillment`** (`unset` / `reserved` / `ordered`) — saisie pharmacien en **`confirmed`**, **`processing`** ou **`treated`**. Les **hubs** et les **cartes liste** affichent **`processing`** ou **`treated`** quand le statut DB l'est ; le statut virtuel **`in_progress_virtual`** (« **En préparation** ») subsiste tant que le dossier reste **`confirmed`** avec **au moins une ligne** **`reserved`** ou **`ordered`** mais sans encore **`processing`** en base (rétrocompatibilité avec l'ancre **`post_confirm_fulfillment`** seule).
 - **Écart après validation (traçabilité)** : **`request_items.withdrawn_after_confirm`** — ligne encore **retenue** côté patient mais **écartée** du lot actif avec accord tracé ; bloc UI dédié côté patient et pharmacien ; pas de **`post_confirm_fulfillment`** sur ces lignes.
-- **Journal des changements structurés** : table **`request_supply_amendments`** (JSON **`amendments`**, canal de confirmation obligatoire par entrée côté RPC) ; RPC **`pharmacist_record_supply_amendments`** ; le patient voit la liste sur le détail demande. Les ajustements de **qté / dispo / prix / commentaire / date** ou **retrait / réintégration** après validation déclenchent ce journal lorsque l'enregistrement pharmacien détecte un diff ; le lot est associé au **canal + motif optionnel** saisis dans l'UI pharmacien pour ce save.
+- **Journal des changements structurés** : table **`request_supply_amendments`** (JSON **`amendments`**, canal de confirmation obligatoire par entrée côté RPC) ; RPC **`pharmacist_record_supply_amendments`**. Les ajustements de **qté / dispo / prix / commentaire / date** ou **retrait / réintégration** après validation déclenchent ce journal lorsque l'enregistrement pharmacien détecte un diff ; le lot est associé au **canal + motif optionnel** saisis dans l'UI pharmacien pour ce save. Côté patient, les entrées liées à une ligne (**`request_item_id`**) sont intégrées au **modal Historique produit** ; la **liste violet multi-lots** n’est plus l’élément principal du corps de page sur cet écran.
 - **Lignes décochées** (`is_selected_by_patient = false` après réponse patient) : **aucun bloc** Validé / Suivi (juste la mention « Vous n'avez pas retenu cette ligne »).
 - **Historique patient** : lors d'un enregistrement d'ajustements après validation, `request_status_history.reason` peut porter un payload **`audit_v1:`** (JSON) expliquant **par produit** les changements (interprété en français dans l'UI) — voir `lib/patient-request-history-audit.ts`. Chaque entrée d'historique affiche désormais **auteur** (Vous / La pharmacie / Système, cf. `historyActorLabel`) **et date** (`formatDateTimeShort24hFr`).
 - **Règles officine (UI post-validation)** : la quantité **préparation** est **plafonnée** par la quantité validée tant que la ligne n'est pas marquée **récupérée** (`picked_up`) ; en repassant de **récupéré** à un autre état comptoir, la quantité brouillon est **réalignée** sur la quantité validée avant nouvel enregistrement. Lignes **`cancelled_at_counter`** : **lecture seule** côté pharmacien (traçabilité), avec choix du **motif** (`client_request` / `pharmacy_unable`) et **détail libre** facultatif. Compteur **Annulés** sur les cartes patient : toutes les lignes **`cancelled_at_counter`**, y compris si **`is_selected_by_patient`** repasse à false après action officine. **Comptoir / clôture** : les lignes **`withdrawn_after_confirm`** ne bloquent pas la clôture dossier (hors périmètre retrait actif).
@@ -166,9 +166,9 @@ Sans nouvelle validation patient obligatoire pour les ajustements officine coura
 |-------|----------------------------------------|--------------|-----------------|
 | 1 | **Demande envoyée** (`submitted` / `in_review`) | Page détail + hub — **déjà affinée** | Page détail + hub — **à clôturer** pour ce jalon |
 | 2 | **Demande répondue** (`responded`) | À affiner | À affiner |
-| 3 | **Validée** (`confirmed` sans entrée en **`processing`** ni virtuel **`in_progress_virtual`** uniquement via lignes) | Affinée (cartes 3 blocs + contact officine) | Affinée (synthèse alignée patient, réservé/commandé) |
-| 4 | **En préparation officine** (`processing` en DB, ou `confirmed` + `in_progress_virtual` si réservé/commandé sans migration statut) | Affinée (même vue validée + journal amendements + passage) | Affinée (enregistrement traçabilité, déclaration traitée si règles OK) |
-| 5 | **Traitée** (`treated`) — suivi retrait comptoir jusqu'à **`completed`** | Affinée | Affinée |
+| 3 | **Validée** (`confirmed` sans entrée en **`processing`** ni virtuel **`in_progress_virtual`** uniquement via lignes) | Affinée (**focus produits validés** : cartes courtes groupées + historique ligne + lignes non retenues repliable ; contact / passage / abandon) | Affinée (synthèse alignée patient, réservé/commandé) |
+| 4 | **En préparation officine** (`processing` en DB, ou `confirmed` + `in_progress_virtual` si réservé/commandé sans migration statut) | Affinée (même logique compacte que validée ; pas de liste amendements « pleine page ») | Affinée (enregistrement traçabilité, déclaration traitée si règles OK) |
+| 5 | **Traitée** (`treated`) — suivi retrait comptoir jusqu'à **`completed`** | Affinée (idem) | Affinée |
 
 **Statuts « autres » — dossiers figés (règle transverse)**
 
@@ -317,6 +317,24 @@ Statuts retenus v1:
 - `partially_collected` / `fully_collected` (conserves en enum; hors flux officiel depuis migration 20260502 au profit de `completed` + suivi ligne a ligne au comptoir)
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
+
+### Session 2026-05-09 — UI patient demandes produits : hubs/liste compactes + répondue + focus validée + historique ligne
+
+**Objectif** : alléger les écrans **mobile** ; après validation patient, **priorité visuelle aux lignes retenues** ; traçabilité **par produit** en modal sans surcharger la page.
+
+**Infra SQL** : **aucune** nouvelle migration sur ce lot.
+
+**Next.js / lib** :
+- **`lib/build-patient-line-timeline-fr.ts`** (nouveau) + **`lib/patient-confirmed-line-buckets.ts`** (`client_comment` optionnel sur `PatientLineLike`).
+- **`app/dashboard/demandes/[id]/PatientProductRequestActions.tsx`** : `confirmed` / `processing` / `treated` → cartes courtes **`PatientValidatedCompactLineCard`**, repliable lignes non retenues, **`PatientLineHistoryModal`** ; props **`requestTimelineMeta`**, **`dossierHistoryRows`**.
+- **`app/dashboard/demandes/[id]/page.tsx`** : charge **`request_status_history`** (30) en parallèle du détail quand dossier **`confirmed|processing|treated`** ; transmet timelines + **key** élargie.
+- **Lot précédent même axe** : **`components/requests/demande-hub-ui.tsx`** (cartes liste), **`patient-demandes-hub.tsx`** / **`pharmacist-demandes-hub.tsx`** (`updated_at`), **`lib/request-display.ts`** / **`demandes-hub-buckets.ts`**, **`app/dashboard/pharmacien/demandes/[id]/page.tsx`** (**Réagir** désactivé en vue **répondue** figée sans **Modifier**), message global patient via **`request_comments`**.
+
+**Contrôle local** : `npx tsc --noEmit` OK sur l’atelier.
+
+**Commits de référence (branche `fix/rls-recursion`)** : `4e2a095` (hubs/répondue/global/timeline infra), `3adc506` (focus validée + modal + chargement histoire dossier).
+
+---
 
 ### Session 2026-05-08 (workflow traitement) — `processing` / `treated`, amendements, hubs
 
@@ -1019,6 +1037,10 @@ Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre 
 ### 13.9) Phrase de reprise après **§4.6** roadmap (jalons répondue / validée / en traitement + dossiers figés)
 
 **« On reprend ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §0.1, **§4.6**, dernier §10, §11 et §12 — jalon en cours précisé dans le message suivant (répondue, validée, en traitement, ou fermeture page pharmacien demande envoyée). Pas de nouvelles actions UI sur dossiers figés §4.6 (cancelled/abandoned/expired/completed) sauf cohérence lecture seule. »**
+
+### 13.10) Phrase de reprise (recommandée après **2026-05-09** — hubs compacts + validée compacte + `build-patient-line-timeline-fr`)
+
+**« On reprend ProxiPharma. Lis **`CONTEXTE.md` §6** (workflow demande après validation), **`CAHIER_DES_CHARGES.md` §0.1, §4.4 et §4.6, dernier §10 Journal, §11 si besoin, §12 ; branche **`fix/rls-recursion`**. Rappel fichiers **`lib/build-patient-line-timeline-fr.ts`**, **`PatientProductRequestActions.tsx`**, **`app/dashboard/demandes/[id]/page.tsx`**, **`demande-hub-ui.tsx`**. Je te dis ensuite quoi faire. »**
 
 ### Template pour prochaines sessions
 - Date:

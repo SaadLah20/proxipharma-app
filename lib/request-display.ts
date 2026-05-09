@@ -260,6 +260,11 @@ export function counterOutcomePatientLabel(
  */
 export function historyActorLabel(role: "patient" | "pharmacien", reason: string | null | undefined): string {
   const r = (reason ?? "").trim();
+  /** Ajustements structurés après validation (`pharma_adjust_confirmed`, etc.) */
+  if (r.startsWith("audit_v1:")) {
+    if (role === "patient") return "La pharmacie";
+    return "Vous (pharmacie)";
+  }
   const isPatient =
     r.startsWith("patient_") ||
     r.startsWith("audit_v1:patient_");

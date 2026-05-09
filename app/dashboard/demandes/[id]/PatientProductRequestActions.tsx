@@ -32,7 +32,9 @@ import {
   bucketPatientValidatedLinesThreeWays,
   effectiveAvailabilityForPatientLine,
   effectiveEtaForPatientLine,
+  validatedBranchUnitPriceMad,
   validatedProductLabel,
+  validatedQtyForPatientLine,
 } from "@/lib/patient-confirmed-line-buckets";
 import { unitPriceLabel } from "@/lib/product-price";
 import { supabase } from "@/lib/supabase";
@@ -156,65 +158,87 @@ function PatientPharmacyQuickContact({
   const loc = [pharmacy.nom, pharmacy.ville?.trim()].filter(Boolean).join(" · ");
 
   return (
-    <section className="rounded-2xl border border-emerald-300/60 bg-gradient-to-br from-emerald-50/85 via-white to-teal-50/40 p-3 shadow-sm ring-1 ring-emerald-200/45 sm:p-3.5">
-      <h3 className="text-[11px] font-bold uppercase tracking-wide text-emerald-950">Contacter l&apos;officine</h3>
-      <p className="mt-1.5 text-[11px] leading-relaxed text-emerald-950/88">
-        Pour un ajustement ponctuel sur un produit déjà validé, passez par la pharmacie&nbsp;: l&apos;accueil ou vos habitudes de
-        contact restent le canal le plus fiable.
+    <section className="rounded-xl border border-emerald-300/60 bg-gradient-to-br from-emerald-50/85 via-white to-teal-50/40 p-2 shadow-sm ring-1 ring-emerald-200/45">
+      <h3 className="text-[10px] font-bold uppercase tracking-wide text-emerald-950">Contacter l&apos;officine</h3>
+      <p className="mt-1 text-[10px] leading-snug text-emerald-950/88">
+        Pour un ajustement sur un produit déjà validé, contactez directement la pharmacie.
       </p>
       {loc ? (
-        <p className="mt-1.5 text-[12px] font-semibold leading-snug text-emerald-950">{loc}</p>
+        <p className="mt-1 text-[11px] font-semibold leading-snug text-emerald-950">{loc}</p>
       ) : null}
       {(telOk || mailOk) ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {telOk ? (
             <>
               <a
                 href={telHrefPatient(telRaw)}
-                className="inline-flex size-11 items-center justify-center rounded-xl border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
+                className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
                 title="Appeler"
                 aria-label="Appeler la pharmacie"
               >
-                <Phone className="size-5 shrink-0" strokeWidth={2} aria-hidden />
+                <Phone className="size-4 shrink-0" strokeWidth={2} aria-hidden />
               </a>
               <a
                 href={smsHrefPatient(telRaw)}
-                className="inline-flex size-11 items-center justify-center rounded-xl border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
+                className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
                 title="SMS"
                 aria-label="Envoyer un SMS"
               >
-                <MessageSquare className="size-5 shrink-0" strokeWidth={2} aria-hidden />
+                <MessageSquare className="size-4 shrink-0" strokeWidth={2} aria-hidden />
               </a>
               <a
                 href={whatsappHrefPatient(telRaw)}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex size-11 items-center justify-center rounded-xl border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
+                className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
                 title="WhatsApp"
                 aria-label="Discuter sur WhatsApp"
               >
-                <MessageCircle className="size-5 shrink-0" strokeWidth={2} aria-hidden />
+                <MessageCircle className="size-4 shrink-0" strokeWidth={2} aria-hidden />
               </a>
             </>
           ) : null}
           {mailOk ? (
             <a
               href={mailHref}
-              className="inline-flex size-11 items-center justify-center rounded-xl border border-sky-400/70 bg-white text-sky-900 shadow-sm transition hover:bg-sky-50"
+              className="inline-flex size-9 items-center justify-center rounded-lg border border-sky-400/70 bg-white text-sky-900 shadow-sm transition hover:bg-sky-50"
               title="Courriel"
               aria-label="Écrire à la pharmacie"
             >
-              <Mail className="size-5 shrink-0" strokeWidth={2} aria-hidden />
+              <Mail className="size-4 shrink-0" strokeWidth={2} aria-hidden />
             </a>
           ) : null}
         </div>
       ) : (
-        <p className="mt-2 text-[10px] leading-snug text-emerald-900/80">
-          Numéro ou e-mail de contact non communiqué sur le dossier&nbsp;: rapprochez-vous de l&apos;officine ou des coordonnées figurant sur vos échanges habituels.
+        <p className="mt-1.5 text-[9px] leading-snug text-emerald-900/80">
+          Coordonnées non renseignées sur le dossier — rapprochez-vous de l&apos;officine.
         </p>
       )}
     </section>
   );
+}
+
+function monetaryTotalsForRetainedLines(rows: ActionItemRow[]): { count: number; sumKnown: number; missingPrice: boolean } {
+  let sumKnown = 0;
+  let missingPrice = false;
+  let count = 0;
+  for (const row of rows) {
+    if (!row.is_selected_by_patient || row.withdrawn_after_confirm) continue;
+    count += 1;
+    const unit = validatedBranchUnitPriceMad(row);
+    const qty = validatedQtyForPatientLine(row);
+    if (unit == null) missingPrice = true;
+    else sumKnown += unit * qty;
+  }
+  return { count, sumKnown, missingPrice };
+}
+
+/** Libellé court sur une ligne (mobile). */
+function compactTotalMadLabel(t: { sumKnown: number; missingPrice: boolean; empty: boolean }): string {
+  if (t.empty) return "—";
+  if (t.missingPrice && t.sumKnown === 0) return "Total —";
+  if (t.missingPrice) return `Total · ${t.sumKnown.toFixed(2)} MAD · partiel`;
+  return `Total · ${t.sumKnown.toFixed(2)} MAD`;
 }
 
 function PatientLineHistoryModal({
@@ -252,44 +276,44 @@ function PatientLineHistoryModal({
     <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true">
       <button type="button" className="absolute inset-0 bg-black/50" aria-label="Fermer" onClick={onClose} />
       <div className="relative z-10 flex max-h-[min(90dvh,34rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-2xl">
-        <div className="flex items-start justify-between gap-2 border-b border-border px-3 py-2.5">
+        <div className="flex items-start justify-between gap-2 border-b border-border px-2.5 py-2">
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Historique produit</p>
-            <p className="truncate text-[13px] font-semibold">{title}</p>
+            <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Historique produit</p>
+            <p className="truncate text-[12px] font-semibold leading-tight">{title}</p>
           </div>
-          <button type="button" onClick={onClose} className="shrink-0 rounded-lg p-1.5 text-foreground hover:bg-muted" aria-label="Fermer">
-            <X className="size-5" />
+          <button type="button" onClick={onClose} className="shrink-0 rounded-lg p-1 text-foreground hover:bg-muted" aria-label="Fermer">
+            <X className="size-4" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto px-3 py-3">
+        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto px-2.5 py-2">
           {blocks.length === 0 ? (
-            <p className="text-[13px] leading-snug text-muted-foreground">
+            <p className="text-[12px] leading-snug text-muted-foreground">
               Impossible d&apos;afficher la chronologie (dates dossier ou ligne manquantes). Les informations générales restent disponibles plus
               bas sur cette page (historique du dossier).
             </p>
           ) : (
-          <ol className="relative ms-2.5 space-y-3 border-s border-border/90 ps-4">
+          <ol className="relative ms-2 space-y-2 border-s border-border/90 ps-3">
             {blocks.map((b) => (
               <li key={b.id} className="relative">
                 <span
-                  className={`absolute -start-[21px] top-3 size-2.5 rounded-full border bg-background shadow-sm ${
-                    b.isCurrent ? "border-emerald-500 ring-2 ring-emerald-200/80" : "border-muted-foreground/40"
+                  className={`absolute -start-[17px] top-2 size-2 rounded-full border bg-background shadow-sm ${
+                    b.isCurrent ? "border-emerald-500 ring-1 ring-emerald-200/80" : "border-muted-foreground/40"
                   }`}
                   aria-hidden
                 />
                 <div
-                  className={`rounded-lg border px-2.5 py-2 ${
+                  className={`rounded-md border px-2 py-1.5 ${
                     b.isCurrent ? "border-emerald-200/80 bg-emerald-50/55" : "border-border/80 bg-muted/20"
                   }`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-0.5">
-                    <p className="text-[12px] font-semibold leading-snug">{b.title}</p>
-                    <time className="shrink-0 text-[10px] tabular-nums text-muted-foreground" dateTime={b.atIso ?? undefined}>
+                    <p className="text-[11px] font-semibold leading-snug">{b.title}</p>
+                    <time className="shrink-0 text-[9px] tabular-nums text-muted-foreground" dateTime={b.atIso ?? undefined}>
                       {b.atLabel}
                     </time>
                   </div>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">{b.actorLabel}</p>
-                  <p className="mt-1.5 whitespace-pre-wrap text-[11px] leading-snug text-foreground">{b.body}</p>
+                  <p className="mt-0.5 text-[9px] text-muted-foreground">{b.actorLabel}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-[10px] leading-snug text-foreground">{b.body}</p>
                 </div>
               </li>
             ))}
@@ -315,7 +339,9 @@ function PatientValidatedCompactLineCard({
   const altList = normalizeAlternatives(row.request_item_alternatives);
   const chosenAlt = altList.find((a) => a.id === row.patient_chosen_alternative_id);
   const validatedName = validatedProductLabel(row);
-  const validatedQty = row.selected_qty ?? row.requested_qty;
+  const validatedQty = validatedQtyForPatientLine(row);
+  const unitMad = validatedBranchUnitPriceMad(row);
+  const lineTotalMad = unitMad != null ? unitMad * validatedQty : null;
   const thumbUrl = chosenAlt ? one(chosenAlt.products)?.photo_url ?? null : prod?.photo_url ?? null;
   const eff = effectiveAvailabilityForPatientLine(row);
   const eta = effectiveEtaForPatientLine(row);
@@ -341,35 +367,54 @@ function PatientValidatedCompactLineCard({
           : "border-border/85 hover:border-muted-foreground/35";
 
   return (
-    <li className={`flex gap-2.5 rounded-lg border bg-card p-2 shadow-sm transition ${ring}`}>
-      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/20">
+    <li className={`flex gap-2 rounded-md border bg-card p-1.5 shadow-sm transition ${ring}`}>
+      <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded border border-border/70 bg-muted/20">
         {thumbUrl ? (
           <img src={thumbUrl} alt="" className="size-full object-cover" />
         ) : (
           <div className="flex size-full items-center justify-center">
-            <Package className="size-5 text-muted-foreground" aria-hidden />
+            <Package className="size-4 text-muted-foreground" aria-hidden />
           </div>
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 text-[13px] font-semibold leading-tight">{validatedName}</p>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">
-          Qté <span className="tabular-nums font-medium text-foreground">{validatedQty}</span>
+        <p className="line-clamp-2 text-[12px] font-semibold leading-tight">{validatedName}</p>
+        <p className="mt-0.5 line-clamp-2 text-[9px] leading-snug text-muted-foreground">
+          <span className="tabular-nums font-medium text-foreground">Qté {validatedQty}</span>
           {tier === "retire_apres_validation" ? (
-            <span className="ms-2 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-950">
+            <span className="ms-1 rounded bg-amber-100 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-950">
               Écart
             </span>
           ) : null}
+          <span className="text-border" aria-hidden>
+            {" "}
+            ·{" "}
+          </span>
+          <span className="text-foreground">{availSentence}</span>
         </p>
-        <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-foreground">{availSentence}</p>
-        <button
-          type="button"
-          onClick={onOpenHistory}
-          className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-primary/35 bg-primary/5 px-2 py-1 text-[10px] font-semibold text-primary hover:bg-primary/10"
-        >
-          <History className="size-3.5 shrink-0" aria-hidden />
-          Historique
-        </button>
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <p className="text-[9px] leading-tight text-muted-foreground">
+            <span className="text-foreground/90">Prix unit. </span>
+            <span className="tabular-nums font-semibold text-foreground">
+              {unitMad != null ? `${unitMad.toFixed(2)} MAD` : "—"}
+            </span>
+            <span className="mx-1 text-border" aria-hidden>
+              ·
+            </span>
+            <span className="text-foreground/90">Total </span>
+            <span className="tabular-nums font-semibold text-primary">
+              {lineTotalMad != null ? `${lineTotalMad.toFixed(2)} MAD` : "—"}
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={onOpenHistory}
+            className="inline-flex shrink-0 items-center gap-0.5 rounded border border-primary/35 bg-primary/5 px-1.5 py-0.5 text-[9px] font-semibold text-primary hover:bg-primary/10"
+          >
+            <History className="size-3 shrink-0" aria-hidden />
+            Historique
+          </button>
+        </div>
       </div>
     </li>
   );
@@ -1088,45 +1133,44 @@ function PatientConfirmReviewLineCard({ line }: { line: PatientConfirmPreviewLin
   const priceAccent = isOrder ? "text-teal-700" : "text-emerald-700";
 
   return (
-    <li className={`rounded-xl p-2.5 sm:p-3 ${cardShell}`}>
-      <div className="flex gap-2.5">
+    <li className={`rounded-lg p-2 ${cardShell}`}>
+      <div className="flex gap-2">
         {thumb}
         <div className="min-w-0 flex-1">
           <p
-            className={`text-[13px] font-semibold leading-tight sm:text-sm ${titleTone}`}
+            className={`text-[12px] font-semibold leading-tight ${titleTone}`}
             style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
           >
             {line.productName}
           </p>
-          <p className={`mt-0.5 text-[10px] leading-snug ${metaTone}`}>{line.choiceDetail}</p>
-          <p className={`mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] ${qtyTone}`}>
+          <p className={`mt-0.5 text-[9px] leading-snug ${metaTone}`}>{line.choiceDetail}</p>
+          <p className={`mt-1 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[10px] ${qtyTone}`}>
             <span>
-              Quantité · <strong className="tabular-nums">{line.qty}</strong>
+              Qté <strong className="tabular-nums">{line.qty}</strong>
             </span>
             <span className={isOrder ? "text-teal-500/80" : "text-emerald-500/80"}>·</span>
             <span>
-              Prix unitaire ·{" "}
+              PU{" "}
               <strong className={`tabular-nums ${priceAccent}`}>
                 {line.unitPriceMad != null && Number.isFinite(line.unitPriceMad)
                   ? `${line.unitPriceMad.toFixed(2)} MAD`
-                  : "non communiqué"}
+                  : "—"}
               </strong>
             </span>
           </p>
           {line.bucket === "order" && line.etaLabel ? (
-            <p className="mt-1 rounded-md border border-teal-200/70 bg-teal-100/50 px-2 py-1 text-[10px] font-medium text-teal-950">
-              Disponibilité communiquée · {line.etaLabel}
+            <p className="mt-0.5 rounded border border-teal-200/70 bg-teal-100/50 px-1.5 py-0.5 text-[9px] font-medium text-teal-950">
+              Dispo · {line.etaLabel}
             </p>
           ) : null}
           <p
-            className={`mt-1.5 rounded-lg border px-2 py-1.5 text-right text-[11px] font-semibold ${
+            className={`mt-1 rounded border px-1.5 py-1 text-right text-[10px] font-semibold ${
               isOrder
                 ? "border-teal-200/80 bg-teal-100/45 text-teal-950"
                 : "border-emerald-200/80 bg-emerald-100/45 text-emerald-950"
             }`}
           >
-            Total ligne ·{" "}
-            <span className="tabular-nums">{line.lineTotalMad != null ? `${line.lineTotalMad.toFixed(2)} MAD` : "—"}</span>
+            Total · <span className="tabular-nums">{line.lineTotalMad != null ? `${line.lineTotalMad.toFixed(2)} MAD` : "—"}</span>
           </p>
         </div>
       </div>
@@ -1554,6 +1598,8 @@ export function PatientProductRequestActions({
     await onReload();
   };
 
+  const totalsRetained = useMemo(() => monetaryTotalsForRetainedLines(items), [items]);
+
   const allowed =
     status === "submitted" ||
     status === "in_review" ||
@@ -1582,7 +1628,7 @@ export function PatientProductRequestActions({
 
   return (
     <section
-      className={`mt-3 rounded-lg border border-border/90 bg-muted/15 p-2.5 sm:p-3 ${showResubmit ? "pb-20" : ""} ${showConfirm ? "pb-28" : ""}`}
+      className={`mt-2 rounded-lg border border-border/90 bg-muted/15 p-2 sm:p-2.5 ${showResubmit ? "pb-20" : ""} ${showConfirm ? "pb-28" : ""}`}
     >
       {actionError ? (
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
@@ -1643,50 +1689,60 @@ export function PatientProductRequestActions({
 
       {showConfirmedCards ? (
         (() => {
-          const introTitle =
-            status === "treated"
-              ? "Traitée · suivi retrait"
-              : status === "processing"
-                ? "En préparation en officine"
-                : "Commande validée";
-          const introBody =
-            status === "treated"
-              ? "Produits que vous avez validés : cartes courtes. Le détail (origine, alternatives, ajustements, comptoir) est dans l’historique de chaque ligne."
-              : status === "processing"
-                ? "Même principe : vous voyez d’abord ce que vous avez retenu, groupé par type de mise à disposition. Les mises à jour confirmées après validation sont dans l’historique produit."
-                : "Ci-dessous : uniquement ce que vous avez validé dans cette demande ; le reste est repliable pour la trace.";
           const { dispoOfficine, aCommander, horsPerimetre, retireesApresValidation } =
             bucketPatientValidatedLinesThreeWays(items);
           const dispoRetenues = dispoOfficine.filter((r) => r.is_selected_by_patient);
           const aCommanderRetenues = aCommander.filter((r) => r.is_selected_by_patient);
           const horsPerimetreRetenues = horsPerimetre.filter((r) => r.is_selected_by_patient);
           const lignesNonRetenues = items.filter((r) => !r.is_selected_by_patient);
+          const subtotalDispo = monetaryTotalsForRetainedLines(dispoRetenues);
+          const subtotalCommande = monetaryTotalsForRetainedLines(aCommanderRetenues);
+          const totalGrandLabel = compactTotalMadLabel({
+            sumKnown: totalsRetained.sumKnown,
+            missingPrice: totalsRetained.missingPrice,
+            empty: totalsRetained.count < 1,
+          });
 
           return (
-            <div className="space-y-4">
-              <div className="rounded-lg border border-sky-200/75 bg-sky-50/45 px-2.5 py-2">
-                <h2 className="text-[14px] font-bold leading-snug text-sky-950">{introTitle}</h2>
-                <p className="mt-1 text-[11px] leading-snug text-sky-950/85">{introBody}</p>
-              </div>
-
+            <div className="space-y-2">
               {pharmacistGlobalComment?.trim() ? (
-                <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/65 px-2.5 py-2">
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-950">Message de la pharmacie</p>
-                  <p className="mt-1 whitespace-pre-wrap text-[11px] leading-snug text-emerald-950">
+                <div className="rounded-md border border-emerald-200/80 bg-emerald-50/65 px-2 py-1.5">
+                  <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-950">Message de la pharmacie</p>
+                  <p className="mt-0.5 whitespace-pre-wrap text-[10px] leading-snug text-emerald-950">
                     {pharmacistGlobalComment.trim()}
                   </p>
                 </div>
               ) : null}
 
+              <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto rounded-md border border-primary/20 bg-primary/[0.06] px-2 py-1.5">
+                <p className="shrink-0 text-[10px] font-semibold text-foreground">
+                  <span className="tabular-nums">{totalsRetained.count}</span>{" "}
+                  {totalsRetained.count > 1 ? "produits retenus" : "produit retenu"}
+                </p>
+                <p className="shrink-0 text-[10px] font-semibold tabular-nums text-primary whitespace-nowrap">
+                  {totalGrandLabel}
+                </p>
+              </div>
+
+              <div className="rounded-xl border-2 border-slate-200/80 bg-gradient-to-b from-slate-50/70 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-200/50">
               {dispoRetenues.length > 0 ? (
-                <section className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-emerald-950">
-                    <Package className="size-4 shrink-0 text-emerald-700" aria-hidden />
-                    <h3 className="text-[11px] font-bold uppercase tracking-wide">
-                      À réserver en officine (validé · {dispoRetenues.length})
-                    </h3>
+                <section className="space-y-1.5">
+                  <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto text-emerald-950">
+                    <div className="flex min-w-0 items-center gap-1">
+                      <Package className="size-3.5 shrink-0 text-emerald-700" aria-hidden />
+                      <h3 className="text-[10px] font-bold uppercase tracking-wide">
+                        À réserver (validé · {dispoRetenues.length})
+                      </h3>
+                    </div>
+                    <p className="shrink-0 text-[10px] font-semibold tabular-nums text-emerald-800 whitespace-nowrap">
+                      {compactTotalMadLabel({
+                        sumKnown: subtotalDispo.sumKnown,
+                        missingPrice: subtotalDispo.missingPrice,
+                        empty: subtotalDispo.count < 1,
+                      })}
+                    </p>
                   </div>
-                  <ul className="space-y-2">
+                  <ul className="space-y-1.5">
                     {dispoRetenues.map((row) => (
                       <PatientValidatedCompactLineCard
                         key={row.id}
@@ -1700,14 +1756,23 @@ export function PatientProductRequestActions({
               ) : null}
 
               {aCommanderRetenues.length > 0 ? (
-                <section className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-teal-950">
-                    <ShoppingCart className="size-4 shrink-0 text-teal-800" aria-hidden />
-                    <h3 className="text-[11px] font-bold uppercase tracking-wide">
-                      À commander (validé · {aCommanderRetenues.length})
-                    </h3>
+                <section className="mt-2 space-y-1.5">
+                  <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto text-teal-950">
+                    <div className="flex min-w-0 items-center gap-1">
+                      <ShoppingCart className="size-3.5 shrink-0 text-teal-800" aria-hidden />
+                      <h3 className="text-[10px] font-bold uppercase tracking-wide">
+                        À commander (validé · {aCommanderRetenues.length})
+                      </h3>
+                    </div>
+                    <p className="shrink-0 text-[10px] font-semibold tabular-nums text-teal-900 whitespace-nowrap">
+                      {compactTotalMadLabel({
+                        sumKnown: subtotalCommande.sumKnown,
+                        missingPrice: subtotalCommande.missingPrice,
+                        empty: subtotalCommande.count < 1,
+                      })}
+                    </p>
                   </div>
-                  <ul className="space-y-2">
+                  <ul className="space-y-1.5">
                     {aCommanderRetenues.map((row) => (
                       <PatientValidatedCompactLineCard
                         key={row.id}
@@ -1721,16 +1786,15 @@ export function PatientProductRequestActions({
               ) : null}
 
               {horsPerimetreRetenues.length > 0 ? (
-                <section className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-amber-950">
-                    <Layers className="size-4 shrink-0 text-amber-800" aria-hidden />
-                    <h3 className="text-[11px] font-bold uppercase tracking-wide">Point d&apos;attention (validé hors bloc principal)</h3>
+                <section className="mt-2 space-y-1">
+                  <div className="flex items-center gap-1 text-amber-950">
+                    <Layers className="size-3.5 shrink-0 text-amber-800" aria-hidden />
+                    <h3 className="text-[10px] font-bold uppercase tracking-wide">Point d&apos;attention (hors bloc principal)</h3>
                   </div>
-                  <p className="text-[10px] leading-snug text-muted-foreground">
-                    Ligne encore marquée retenue côté système mais classée hors « réserve/commande » usuelle — vérifiez avec l&apos;officine
-                    ou l&apos;historique.
+                  <p className="text-[9px] leading-snug text-muted-foreground">
+                    À confirmer avec l&apos;officine si besoin.
                   </p>
-                  <ul className="space-y-2">
+                  <ul className="space-y-1.5">
                     {horsPerimetreRetenues.map((row) => (
                       <PatientValidatedCompactLineCard
                         key={row.id}
@@ -1744,17 +1808,17 @@ export function PatientProductRequestActions({
               ) : null}
 
               {retireesApresValidation.length > 0 ? (
-                <section className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-amber-950">
-                    <Layers className="size-4 shrink-0 text-amber-900" aria-hidden />
-                    <h3 className="text-[11px] font-bold uppercase tracking-wide">
+                <section className="mt-2 space-y-1">
+                  <div className="flex items-center gap-1 text-amber-950">
+                    <Layers className="size-3.5 shrink-0 text-amber-900" aria-hidden />
+                    <h3 className="text-[10px] font-bold uppercase tracking-wide">
                       Écart après validation ({retireesApresValidation.length})
                     </h3>
                   </div>
-                  <p className="text-[10px] leading-snug text-muted-foreground">
-                    Retraits convenus après votre validation ; pas de préparation active sur ces lignes — trace dossier uniquement.
+                  <p className="text-[9px] leading-snug text-muted-foreground">
+                    Retrait convenu avec la pharmacie — trace uniquement.
                   </p>
-                  <ul className="space-y-2">
+                  <ul className="space-y-1.5">
                     {retireesApresValidation.map((row) => (
                       <PatientValidatedCompactLineCard
                         key={row.id}
@@ -1766,16 +1830,15 @@ export function PatientProductRequestActions({
                   </ul>
                 </section>
               ) : null}
+              </div>
 
               {lignesNonRetenues.length > 0 ? (
-                <details className="group rounded-lg border border-border/80 bg-muted/10">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[11px] font-semibold [&::-webkit-details-marker]:hidden">
-                    <span>
-                      Lignes non retenues · traçabilité ({lignesNonRetenues.length}) — généralement pliées
-                    </span>
-                    <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+                <details className="group rounded-md border border-border/80 bg-muted/10">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2 py-1.5 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
+                    <span>Lignes non retenues ({lignesNonRetenues.length})</span>
+                    <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
                   </summary>
-                  <ul className="space-y-1.5 border-t border-border/60 px-2 py-2">
+                  <ul className="space-y-1 border-t border-border/60 px-2 py-1.5">
                     {lignesNonRetenues.map((row) => (
                       <PatientTraceNotRetainedRow
                         key={row.id}
@@ -1936,7 +1999,7 @@ export function PatientProductRequestActions({
         </div>
       ) : null}
 
-      <div className="mt-3 space-y-2 rounded-md border border-border/70 bg-card p-2 sm:p-2.5">
+      <div className="mt-2 space-y-1.5 rounded-md border border-border/70 bg-card p-1.5 sm:p-2">
         {showResubmit ? (
           <div className="rounded-md border border-border/70 bg-background p-2.5">
             <label className="block text-xs font-medium text-gray-700">
@@ -1972,8 +2035,8 @@ export function PatientProductRequestActions({
         ) : null}
 
         {showVisitFields ? (
-          <div className="rounded-md border border-primary/20 bg-primary/5 p-2">
-            <label className="block text-[11px] font-medium text-foreground">
+          <div className="rounded-md border border-primary/20 bg-primary/5 p-1.5">
+            <label className="block text-[10px] font-medium text-foreground">
               Date de passage {showConfirm ? <span className="text-destructive">*</span> : null}
               <input
                 type="date"
@@ -1981,13 +2044,13 @@ export function PatientProductRequestActions({
                 max={visitWin.maxYmd}
                 value={resolvedVisitDate}
                 onChange={(e) => setVisitDate(e.target.value)}
-                className="mt-0.5 block w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+                className="mt-0.5 block w-full rounded border border-input bg-background px-1.5 py-1 text-[11px]"
                 required={showConfirm}
               />
             </label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <label className="block text-[11px] font-medium text-foreground">
-                Heure (optionnel · 0–23)
+            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+              <label className="block text-[10px] font-medium text-foreground">
+                Heure (0–23)
                 <input
                   type="number"
                   min={0}
@@ -1996,11 +2059,11 @@ export function PatientProductRequestActions({
                   placeholder="—"
                   value={visitHour}
                   onChange={(e) => setVisitHour(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                  className="mt-0.5 block w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs tabular-nums"
+                  className="mt-0.5 block w-full rounded border border-input bg-background px-1.5 py-1 text-[11px] tabular-nums"
                 />
               </label>
-              <label className="block text-[11px] font-medium text-foreground">
-                Minutes (optionnel · 0–59)
+              <label className="block text-[10px] font-medium text-foreground">
+                Minutes (0–59)
                 <input
                   type="number"
                   min={0}
@@ -2009,16 +2072,16 @@ export function PatientProductRequestActions({
                   placeholder="—"
                   value={visitMinute}
                   onChange={(e) => setVisitMinute(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                  className="mt-0.5 block w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs tabular-nums"
+                  className="mt-0.5 block w-full rounded border border-input bg-background px-1.5 py-1 text-[11px] tabular-nums"
                 />
               </label>
             </div>
             {visitTimeFr ? (
-              <span className="mt-1 block text-[10px] text-muted-foreground">Heure enregistrée : {visitTimeFr}</span>
+              <span className="mt-0.5 block text-[9px] text-muted-foreground">Enregistré : {visitTimeFr}</span>
             ) : null}
             {showConfirmedCards ? (
-              <p className="mt-2 text-[10px] leading-snug text-primary/90">
-                Vous pouvez changer la date ou l&apos;heure prévues ; la pharmacie les verra sur la demande.
+              <p className="mt-1 text-[9px] leading-snug text-primary/90">
+                La pharmacie voit les changements sur la demande.
               </p>
             ) : null}
           </div>
@@ -2029,7 +2092,7 @@ export function PatientProductRequestActions({
             type="button"
             disabled={busyAction !== ""}
             onClick={() => void runUpdateVisit()}
-            className="w-full rounded-md border border-primary/30 bg-primary/10 py-2 text-xs font-semibold text-primary disabled:opacity-50 sm:text-sm"
+            className="w-full rounded border border-primary/30 bg-primary/10 py-1.5 text-[11px] font-semibold text-primary disabled:opacity-50"
           >
             {busyAction === "visit" ? "Mise à jour…" : "Mettre à jour ma date de passage"}
           </button>
@@ -2037,25 +2100,24 @@ export function PatientProductRequestActions({
 
         {showConfirmedCards ? (
           pharmacyContact ? (
-            <div className="mt-4">
+            <div className="mt-2">
               <PatientPharmacyQuickContact pharmacy={pharmacyContact} requestRef={dossierRefLabel} />
             </div>
           ) : (
-            <section className="mt-4 rounded-2xl border border-emerald-200/65 bg-muted/25 px-3 py-2.5 text-[11px] leading-snug text-muted-foreground">
-              Une modification après validation passe par votre pharmacie&nbsp;: téléphone ou accueil de l&apos;officine concernée par
-              cette demande.
+            <section className="mt-2 rounded-xl border border-emerald-200/65 bg-muted/25 px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
+              Après validation, les changements passent par votre pharmacie.
             </section>
           )
         ) : null}
 
         {showAbandonAfterResponse ? (
           <>
-            <label className="block text-xs font-medium text-gray-700">
+            <label className="block text-[10px] font-medium text-gray-700">
               Motif d’annulation
               <select
                 value={abandonCode}
                 onChange={(e) => setAbandonCode(e.target.value as PatientCancelReasonCode)}
-                className="mt-1 block w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900"
+                className="mt-0.5 block w-full rounded-md border bg-white px-2 py-1.5 text-xs text-gray-900"
               >
                 {PATIENT_CANCEL_REASON_CODES.map((c) => (
                   <option key={c} value={c}>
@@ -2070,14 +2132,14 @@ export function PatientProductRequestActions({
                 rows={2}
                 onChange={(e) => setAbandonDetail(e.target.value)}
                 placeholder="Précisez votre motif"
-                className="w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900"
+                className="w-full rounded-md border bg-white px-2 py-1.5 text-xs text-gray-900"
               />
             ) : null}
             <button
               type="button"
               disabled={busyAction !== "" || (abandonCode === "other" && abandonDetail.trim().length < 8)}
               onClick={() => void runAbandon()}
-              className="w-full rounded-lg border border-red-400 bg-white py-2 text-sm font-semibold text-red-950 disabled:opacity-50"
+              className="w-full rounded-md border border-red-400 bg-white py-1.5 text-xs font-semibold text-red-950 disabled:opacity-50"
             >
               {busyAction === "abandon" ? "Annulation…" : "Annuler la demande"}
             </button>
