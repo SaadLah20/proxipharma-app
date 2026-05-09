@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -22,12 +22,19 @@ import {
 import { PharmacistLineReactControl } from "@/components/pharmacist/pharmacist-line-react-control";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import { supabase } from "@/lib/supabase";
-import { formatDateShortFr, formatDateTimeShort24hFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
+import {
+  formatDateShortFr,
+  formatDateTimeShort24hFr,
+  formatDateShortCasablancaWithTime24hFr,
+  formatPlannedVisitFr,
+} from "@/lib/datetime-fr";
 import {
   PHARMACIST_AVAILABILITY_OPTIONS,
   PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS,
+  PHARMACIST_SUPPLY_POST_CONFIRM_AVAILABILITY_OPTIONS,
   inferAvailabilityStatusFromQty,
 } from "@/lib/pharmacist-availability";
+import { SUPPLY_AMEND_CHANNEL_OPTIONS } from "@/lib/supply-amendment-channels";
 import {
   availabilityStatusFr,
   counterOutcomeFr,
@@ -36,21 +43,39 @@ import {
   pharmacistRequestIsClosedSuccess,
   pharmacistRequestIsHardStopped,
   requestStatusFr,
-  requestStatusShortFrPharmacien,
 } from "@/lib/request-display";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
 import { pphLabel } from "@/lib/product-price";
 import { CompactCard, CompactCardBody, CompactCardHeader, PageShell } from "@/components/ui/compact-shell";
 import { InfoHint } from "@/components/ui/info-hint";
-import { bucketPatientValidatedLinesThreeWays } from "@/lib/patient-confirmed-line-buckets";
+import {
+  bucketPatientValidatedLinesThreeWays,
+  effectiveAvailabilityForPatientLine,
+  effectiveEtaForPatientLine,
+  validatedBranchUnitPriceMad,
+  validatedProductLabel,
+  validatedQtyForPatientLine,
+  type PatientLineLike,
+} from "@/lib/patient-confirmed-line-buckets";
+import { buildPatientLineTimelineFr } from "@/lib/build-patient-line-timeline-fr";
+import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
+import { PharmacistSupplyCompactLine } from "@/components/pharmacist/pharmacist-supply-compact-line";
 import {
   stringifyPharmaConfirmAudit,
   type PharmaConfirmAdjustmentAudit,
   type PharmaConfirmAdjustmentLine,
 } from "@/lib/patient-request-history-audit";
-import { SUPPLY_AMEND_CHANNEL_OPTIONS, type SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
-import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
+import { type SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
+import {
+  dispatchRequestDetailRefresh,
+  REQUEST_DETAIL_REFRESH_EVENT,
+  type RequestDetailRefreshDetail,
+} from "@/lib/request-detail-refresh-bus";
+import {
+  PharmacistSupplyAmendmentConfirmModal,
+  type SupplyConfirmBlock,
+} from "@/components/pharmacist/pharmacist-supply-amendment-confirm-modal";
 
 type RequestRow = {
   id: string;
@@ -61,6 +86,7 @@ type RequestRow = {
   created_at: string;
   submitted_at: string | null;
   responded_at: string | null;
+  confirmed_at: string | null;
   updated_at: string;
   patient_planned_visit_date: string | null;
   patient_planned_visit_time: string | null;
@@ -114,6 +140,13 @@ type ItemDraft = {
   pharmacist_comment: string;
   expected_availability_date: string;
   withdrawn_after_confirm: boolean;
+  /** Quantité retenue avec le patient (lignes sélectionnées, après validation). */
+  selected_qty_str: string;
+  /** Brouillon jusqu’à « Enregistrer les modifications ». */
+  fulfillment_draft: "unset" | "reserved" | "ordered";
+  counter_outcome_draft: string;
+  counter_cancel_reason_draft: string | null;
+  counter_cancel_detail_draft: string | null;
 };
 
 type Draft = Record<string, ItemDraft>;
@@ -173,6 +206,59 @@ function effectiveAvailForPharmaRow(row: ItemRow): string | null {
   return row.availability_status ?? null;
 }
 
+function clampFulfillmentDraftToInferred(
+  fd: "unset" | "reserved" | "ordered",
+  inferredAvail: string
+): "unset" | "reserved" | "ordered" {
+  let x = fd;
+  if (x === "reserved" && !["available", "partially_available"].includes(inferredAvail)) x = "unset";
+  if (x === "ordered" && inferredAvail !== "to_order") x = "unset";
+  return x;
+}
+
+function fulfillmentDraftFromRow(row: ItemRow): "unset" | "reserved" | "ordered" {
+  const p = row.post_confirm_fulfillment ?? "unset";
+  if (p === "reserved") return "reserved";
+  if (p === "ordered" || p === "arrived_reserved") return "ordered";
+  return "unset";
+}
+
+function effectiveAvailSupplyDraft(row: ItemRow, f: ItemDraft): string | null {
+  const chosen = row.patient_chosen_alternative_id ?? null;
+  if (chosen) return effectiveAvailForPharmaRow(row);
+  return inferAvailabilityStatusFromQty({
+    status: f.availability_status,
+    availableQty: Number(f.available_qty || "0"),
+    requestedQty: row.requested_qty,
+    isProposedLine: row.line_source === "pharmacist_proposed",
+  });
+}
+
+function effectiveEtaSupplyDraft(row: ItemRow, f: ItemDraft): string | null {
+  const chosen = row.patient_chosen_alternative_id ?? null;
+  if (chosen) {
+    const alts = normalizeAlts(row.request_item_alternatives);
+    const a = alts.find((x) => x.id === chosen);
+    return a?.expected_availability_date?.trim() || row.expected_availability_date?.trim() || null;
+  }
+  if (effectiveAvailSupplyDraft(row, f) === "to_order") {
+    const d = f.expected_availability_date?.trim();
+    return d && d.length > 0 ? d : null;
+  }
+  return row.expected_availability_date?.trim() || null;
+}
+
+function virtualizeItemsForSupplyBuckets(rows: ItemRow[], d: Draft): ItemRow[] {
+  return rows.map((row) => {
+    const f = d[row.id];
+    if (!f) return row;
+    if (row.patient_chosen_alternative_id) return row;
+    const inf = effectiveAvailSupplyDraft(row, f);
+    if (inf === row.availability_status) return row;
+    return { ...row, availability_status: inf };
+  });
+}
+
 function nextAltRank(existing: AltRowDb[]): number | null {
   const used = new Set(existing.map((a) => a.rank));
   for (let r = 1; r <= 3; r += 1) {
@@ -198,6 +284,28 @@ function newLocalProposedId() {
 
 function newLocalAltId() {
   return `${LOCAL_ALT_ID_PREFIX}${crypto.randomUUID()}`;
+}
+
+function buildPharmacistSupplySections(rows: ItemRow[]): { title: string; rows: ItemRow[] }[] {
+  const b = bucketPatientValidatedLinesThreeWays(rows);
+  const sections: { title: string; rows: ItemRow[] }[] = [
+    { title: `À réserver (validé · ${b.dispoOfficine.length})`, rows: b.dispoOfficine },
+    { title: `À commander (validé · ${b.aCommander.length})`, rows: b.aCommander },
+    { title: `Hors bloc principal (${b.horsPerimetre.length})`, rows: b.horsPerimetre },
+    { title: `Écart après validation (${b.retireesApresValidation.length})`, rows: b.retireesApresValidation },
+  ];
+  return sections.filter((s) => s.rows.length > 0);
+}
+
+function flattenPharmacistSupplyListEntries(rows: ItemRow[]): { header: string | null; row: ItemRow }[] {
+  const secs = buildPharmacistSupplySections(rows);
+  const out: { header: string | null; row: ItemRow }[] = [];
+  for (const s of secs) {
+    s.rows.forEach((row, i) => {
+      out.push({ header: i === 0 ? s.title : null, row });
+    });
+  }
+  return out;
 }
 
 type PendingAlternativeEntry = {
@@ -251,11 +359,11 @@ function counterOutcomeLabelPharmacien(outcome: string, cancelReason: string | n
   }
   switch (outcome) {
     case "unset":
-      return "À traiter";
+      return "En attente";
     case "picked_up":
-      return "Remis au client";
+      return "Récupéré";
     case "deferred_next_visit":
-      return "Plus tard";
+      return "En attente";
     default:
       return counterOutcomeFr[outcome] ?? outcome;
   }
@@ -282,6 +390,29 @@ function decodeCounterSelectKey(key: string): { outcome: string; cancelReason: s
     return { outcome: "cancelled_at_counter", cancelReason: key.slice("cancelled_at_counter:".length) };
   }
   return { outcome: key, cancelReason: null };
+}
+
+/** Comptoir figé en base (ne plus modifier via le brouillon). */
+function counterOutcomeFrozenInDb(row: ItemRow): boolean {
+  const co = row.counter_outcome ?? "unset";
+  return co === "picked_up" || co === "cancelled_at_counter";
+}
+
+/** Sélecteur comptoir : seulement en attente / récupéré (legacy « plus tard » → en attente). */
+function counterSelectKeyNormalized(row: ItemRow, f: ItemDraft): "picked_up" | "unset" {
+  if (counterOutcomeFrozenInDb(row)) {
+    return row.counter_outcome === "picked_up" ? "picked_up" : "unset";
+  }
+  const raw = f.counter_outcome_draft ?? row.counter_outcome ?? "unset";
+  if (raw === "picked_up") return "picked_up";
+  return "unset";
+}
+
+function normalizeCounterOutcomeForPersist(row: ItemRow, f: ItemDraft): { outcome: string; cancelReason: null; cancelDetail: null } | null {
+  if (counterOutcomeFrozenInDb(row)) return null;
+  const raw = f.counter_outcome_draft ?? row.counter_outcome ?? "unset";
+  const outcome = raw === "picked_up" ? "picked_up" : "unset";
+  return { outcome, cancelReason: null, cancelDetail: null };
 }
 
 /** Plafond technique saisie stock pour les lignes proposées par l’officine (pas de lien avec la « quantité demandée » initiale). */
@@ -352,6 +483,7 @@ function buildItemDraftFromRow(row: ItemRow): ItemDraft {
   let availNum = row.available_qty != null ? Number(row.available_qty) : Number(row.requested_qty);
   if (!Number.isFinite(availNum)) availNum = reqCap;
   availNum = Math.max(0, Math.min(reqCap, Math.floor(availNum)));
+  const selBase = Math.min(10, Math.max(1, Number(row.selected_qty ?? row.requested_qty) || 1));
   return {
     availability_status: draftStatus,
     available_qty: String(availNum),
@@ -360,6 +492,11 @@ function buildItemDraftFromRow(row: ItemRow): ItemDraft {
     pharmacist_comment: row.pharmacist_comment ?? "",
     expected_availability_date: row.expected_availability_date ?? "",
     withdrawn_after_confirm: Boolean(row.withdrawn_after_confirm),
+    selected_qty_str: String(selBase),
+    fulfillment_draft: fulfillmentDraftFromRow(row),
+    counter_outcome_draft: row.counter_outcome ?? "unset",
+    counter_cancel_reason_draft: row.counter_cancel_reason ?? null,
+    counter_cancel_detail_draft: row.counter_cancel_detail ?? null,
   };
 }
 
@@ -369,18 +506,18 @@ function buildSupplyStructuralAmends(items: ItemRow[], draft: Draft): SupplyAmen
     const f = draft[row.id];
     if (!f) continue;
     const nm = one(row.products)?.name ?? "Produit";
-    const wasW = Boolean(row.withdrawn_after_confirm);
-    const dw = Boolean(f.withdrawn_after_confirm);
-    if (wasW !== dw) {
-      out.push({
-        kind: "withdraw_after_confirm",
-        request_item_id: row.id,
-        summary: dw ? `${nm} retiré avec accord patient` : `${nm} réintégré`,
-        detail: dw ? `${nm} : ligne retirée après validation.` : `${nm} : ligne réintégrée.`,
-      });
-      if (dw) continue;
-    } else if (dw) {
+    if (Boolean(f.withdrawn_after_confirm)) {
       continue;
+    }
+    const draftSel = Math.min(10, Math.max(1, Number(f.selected_qty_str) || 1));
+    const rowSel = Math.min(10, Math.max(1, Number(row.selected_qty ?? row.requested_qty) || 1));
+    if (row.is_selected_by_patient && draftSel !== rowSel) {
+      out.push({
+        kind: "validated_qty_change",
+        request_item_id: row.id,
+        summary: `${nm} — quantité validée ${rowSel} → ${draftSel}`,
+        detail: `${nm} : quantité retenue avec le patient ${rowSel} → ${draftSel}.`,
+      });
     }
     let payload: ReturnType<typeof buildItemUpdatePayload>;
     try {
@@ -598,11 +735,25 @@ export default function PharmacienDemandeDetailPage() {
   const [altHits, setAltHits] = useState<ProductCatalogHit[]>([]);
   const [altBusyRow, setAltBusyRow] = useState<string | null>(null);
   const [counterBusyId, setCounterBusyId] = useState<string | null>(null);
-  const [fulfillmentBusyId, setFulfillmentBusyId] = useState<string | null>(null);
   const [completeBusy, setCompleteBusy] = useState(false);
   const [declareTreatedBusy, setDeclareTreatedBusy] = useState(false);
-  const [supplyClientChannel, setSupplyClientChannel] = useState("phone_call");
-  const [supplyClientMotive, setSupplyClientMotive] = useState("");
+  const [supplyConfirmOpen, setSupplyConfirmOpen] = useState(false);
+  const [supplyConfirmBusy, setSupplyConfirmBusy] = useState(false);
+  const [supplyConfirmBlocks, setSupplyConfirmBlocks] = useState<SupplyConfirmBlock[]>([]);
+  const [supplyConfirmPending, setSupplyConfirmPending] = useState<
+    | { kind: "unlock_modify"; rowId: string }
+    | { kind: "add_line"; pick: ProductCatalogHit; reason: string; qty: number }
+    | null
+  >(null);
+  const [lineModifyConsent, setLineModifyConsent] = useState<Record<string, { channel: string; motive: string }>>({});
+  const [supplyMenuRowId, setSupplyMenuRowId] = useState<string | null>(null);
+  const [pharmaHistoryRowId, setPharmaHistoryRowId] = useState<string | null>(null);
+  const [supplyAmendmentBundles, setSupplyAmendmentBundles] = useState<
+    { id: string; created_at: string; amendments: unknown }[]
+  >([]);
+  const [dossierHistoryTimeline, setDossierHistoryTimeline] = useState<
+    { created_at: string; old_status: string | null; new_status: string; reason: string | null }[]
+  >([]);
   const [patientProfile, setPatientProfile] = useState<PatientBrief | null>(null);
   /** Affiche téléphone / e-mail sous un bouton « Contacter » (noms longs, en-tête aéré). */
   const [patientContactOpen, setPatientContactOpen] = useState(false);
@@ -696,7 +847,7 @@ export default function PharmacienDemandeDetailPage() {
     const { data: reqRow, error: reqErr } = await supabase
       .from("requests")
       .select(
-        "id,status,request_type,pharmacy_id,patient_id,created_at,submitted_at,responded_at,updated_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,product_requests(patient_note)"
+        "id,status,request_type,pharmacy_id,patient_id,created_at,submitted_at,responded_at,confirmed_at,updated_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,product_requests(patient_note)"
       )
       .eq("id", id)
       .maybeSingle();
@@ -794,11 +945,34 @@ export default function PharmacienDemandeDetailPage() {
 
     setItems(list);
 
+    const [{ data: amendRows }, { data: dossierHist }] = await Promise.all([
+      supabase.from("request_supply_amendments").select("id,created_at,amendments").eq("request_id", id).order("created_at", { ascending: true }),
+      supabase
+        .from("request_status_history")
+        .select("created_at,old_status,new_status,reason")
+        .eq("request_id", id)
+        .order("created_at", { ascending: true })
+        .limit(120),
+    ]);
+    setSupplyAmendmentBundles((amendRows as { id: string; created_at: string; amendments: unknown }[]) ?? []);
+    setDossierHistoryTimeline(
+      (dossierHist as { created_at: string; old_status: string | null; new_status: string; reason: string | null }[]) ?? []
+    );
+
     /** Ne pas réécraser le brouillon des lignes encore présentes (ex. après insert ligne proposée + reload). */
     setDraft((prev) => {
       const next: Draft = {};
       for (const row of list) {
-        next[row.id] = prev[row.id] ?? buildItemDraftFromRow(row);
+        const built = buildItemDraftFromRow(row);
+        const p = prev[row.id];
+        next[row.id] = p
+          ? {
+              ...built,
+              ...p,
+              withdrawn_after_confirm: built.withdrawn_after_confirm,
+              selected_qty_str: built.selected_qty_str,
+            }
+          : built;
       }
       return next;
     });
@@ -889,6 +1063,14 @@ export default function PharmacienDemandeDetailPage() {
     }));
   };
 
+  const patchItemDraft = useCallback((itemId: string, patch: Partial<ItemDraft>) => {
+    setDraft((prev) => {
+      const cur = prev[itemId];
+      if (!cur) return prev;
+      return { ...prev, [itemId]: { ...cur, ...patch } };
+    });
+  }, []);
+
   /** Ligne validée : quantité préparation ≤ choix patient tant que pas « récupéré » ; sinon plafonné à 10. */
   const maxPreparationQtyForRow = useCallback(
     (row: ItemRow): number => {
@@ -931,12 +1113,21 @@ export default function PharmacienDemandeDetailPage() {
         qty = isProp ? 1 : Math.min(cap, row.requested_qty);
       }
       const minQty = isProp ? 1 : 0;
+      const nextAvail = String(Math.max(minQty, Math.min(cap, qty)));
+      const inferred = inferAvailabilityStatusFromQty({
+        status: nextStatus,
+        availableQty: Number(nextAvail),
+        requestedQty: row.requested_qty,
+        isProposedLine: isProp,
+      });
+      const fulfillment_draft = clampFulfillmentDraftToInferred(current.fulfillment_draft, inferred);
       return {
         ...prev,
         [row.id]: {
           ...current,
           availability_status: nextStatus,
-          available_qty: String(Math.max(minQty, Math.min(cap, qty))),
+          available_qty: nextAvail,
+          fulfillment_draft,
         },
       };
     });
@@ -960,14 +1151,21 @@ export default function PharmacienDemandeDetailPage() {
       requestedQty: row.requested_qty,
       isProposedLine: row.line_source === "pharmacist_proposed",
     });
-    setDraft((prev) => ({
-      ...prev,
-      [row.id]: {
-        ...prev[row.id],
-        available_qty: String(nextQty),
-        availability_status: status === "to_order" ? "to_order" : inferred,
-      },
-    }));
+    setDraft((prev) => {
+      const cur = prev[row.id];
+      if (!cur) return prev;
+      const nextStatus = status === "to_order" ? "to_order" : inferred;
+      const fulfillment_draft = clampFulfillmentDraftToInferred(cur.fulfillment_draft, nextStatus);
+      return {
+        ...prev,
+        [row.id]: {
+          ...cur,
+          available_qty: String(nextQty),
+          availability_status: nextStatus,
+          fulfillment_draft,
+        },
+      };
+    });
   };
 
   const nudgeAvailableQty = (row: ItemRow, delta: number) => {
@@ -987,14 +1185,21 @@ export default function PharmacienDemandeDetailPage() {
       requestedQty: row.requested_qty,
       isProposedLine: row.line_source === "pharmacist_proposed",
     });
-    setDraft((prev) => ({
-      ...prev,
-      [row.id]: {
-        ...prev[row.id],
-        available_qty: String(next),
-        availability_status: status === "to_order" ? "to_order" : inferred,
-      },
-    }));
+    setDraft((prev) => {
+      const cur = prev[row.id];
+      if (!cur) return prev;
+      const nextStatus = status === "to_order" ? "to_order" : inferred;
+      const fulfillment_draft = clampFulfillmentDraftToInferred(cur.fulfillment_draft, nextStatus);
+      return {
+        ...prev,
+        [row.id]: {
+          ...cur,
+          available_qty: String(next),
+          availability_status: nextStatus,
+          fulfillment_draft,
+        },
+      };
+    });
   };
 
   const resetAltPicker = () => {
@@ -1065,6 +1270,20 @@ export default function PharmacienDemandeDetailPage() {
       resetPropForm();
       return;
     }
+    if (request && ["confirmed", "processing", "treated"].includes(request.status)) {
+      setSupplyConfirmBlocks([
+        {
+          key: "add-line",
+          title: `Ajouter « ${pick.name} »`,
+          subtitle: `${qty} unité(s) · Motif : ${reason}`,
+        },
+      ]);
+      setSupplyConfirmPending({ kind: "add_line", pick, reason, qty });
+      setSupplyConfirmOpen(true);
+      setPropOpen(false);
+      resetPropForm();
+      return;
+    }
     setPropBusy(true);
     const { error: insErr } = await supabase.from("request_items").insert({
       request_id: id,
@@ -1090,6 +1309,7 @@ export default function PharmacienDemandeDetailPage() {
     }
     setPropOpen(false);
     resetPropForm();
+    dispatchRequestDetailRefresh(id);
     await load();
   };
 
@@ -1408,28 +1628,14 @@ export default function PharmacienDemandeDetailPage() {
     [id, request, respondedEditMode, items, load]
   );
 
-  const savePostConfirmFulfillment = async (requestItemId: string, value: "unset" | "reserved" | "ordered") => {
-    setFulfillmentBusyId(requestItemId);
-    setError("");
-    const { error: rpcErr } = await supabase.rpc("pharmacist_set_post_confirm_fulfillment", {
-      p_request_item_id: requestItemId,
-      p_fulfillment: value,
-    });
-    setFulfillmentBusyId(null);
-    if (rpcErr) {
-      setError(rpcErr.message);
-      return;
-    }
-    await load();
-  };
-
   const declarationTreatedEligible = useMemo(() => {
     if (!request?.status || !["confirmed", "processing"].includes(request.status)) return false;
     for (const i of items) {
       if (!i.is_selected_by_patient) continue;
-      if (i.withdrawn_after_confirm) continue;
-      const eff = effectiveAvailForPharmaRow(i);
-      const pcf = i.post_confirm_fulfillment ?? "unset";
+      const f = draft[i.id];
+      if (!f || f.withdrawn_after_confirm) continue;
+      const eff = effectiveAvailSupplyDraft(i, f);
+      const pcf = f.fulfillment_draft;
       if (eff === "available" || eff === "partially_available") {
         if (pcf !== "reserved") return false;
       } else if (eff === "to_order") {
@@ -1439,7 +1645,7 @@ export default function PharmacienDemandeDetailPage() {
       }
     }
     return true;
-  }, [request, items]);
+  }, [request, items, draft]);
 
   const runDeclareRequestTreated = async () => {
     if (!id) return;
@@ -1453,15 +1659,15 @@ export default function PharmacienDemandeDetailPage() {
       setError(rpcErr.message);
       return;
     }
+    dispatchRequestDetailRefresh(id);
     await load();
   };
 
-  const saveConfirmedAdjustments = async () => {
-    if (!request || !["confirmed", "processing", "treated"].includes(request.status)) return;
+  const saveConfirmedAdjustmentsCore = async (structuralEnriched: SupplyAmendmentEntryJson[] | null) => {
+    if (!request || !["confirmed", "processing", "treated"].includes(request.status) || !id) return;
     setBusy(true);
     setError("");
     try {
-      const structuralBefore = buildSupplyStructuralAmends(items, draft);
       for (const row of items) {
         const f = draft[row.id];
         if (!f?.availability_status) throw new Error("Choisis une disponibilité pour chaque ligne.");
@@ -1475,13 +1681,17 @@ export default function PharmacienDemandeDetailPage() {
         if (!isProp && qtyPrep > row.requested_qty) {
           throw new Error(`« ${nm} » : la quantité en stock ne peut pas dépasser la quantité demandée (${row.requested_qty}).`);
         }
-        const maxQ = maxPreparationQtyForRow(row);
-        const co = row.counter_outcome ?? "unset";
+        const coNorm = counterSelectKeyNormalized(row, f);
+        const draftSel = Math.min(10, Math.max(1, Number(f.selected_qty_str) || 1));
+        const maxQ =
+          !isProp && row.is_selected_by_patient && !f.withdrawn_after_confirm && coNorm !== "picked_up"
+            ? draftSel
+            : maxPreparationQtyForRow(row);
         if (
           !isProp &&
           row.is_selected_by_patient &&
           !f.withdrawn_after_confirm &&
-          co !== "picked_up" &&
+          coNorm !== "picked_up" &&
           qtyPrep > maxQ
         ) {
           throw new Error(
@@ -1490,20 +1700,46 @@ export default function PharmacienDemandeDetailPage() {
         }
         const payload = buildItemUpdatePayload(f, row);
         const inf = payload.availability_status;
-        let pcf: string = row.post_confirm_fulfillment ?? "unset";
+        let pcf: "unset" | "reserved" | "ordered" = f.fulfillment_draft;
         if (f.withdrawn_after_confirm) {
           pcf = "unset";
         } else {
-          if (pcf === "reserved" && !["available", "partially_available"].includes(inf)) pcf = "unset";
-          if (pcf === "ordered" && inf !== "to_order") pcf = "unset";
+          pcf = clampFulfillmentDraftToInferred(pcf, inf);
         }
-        const { error: up } = await supabase.from("request_items").update({
-          ...payload,
-          post_confirm_fulfillment: pcf,
-          withdrawn_after_confirm: Boolean(f.withdrawn_after_confirm),
-        })
-        .eq("id", row.id);
+        const pcfDb = pcf === "unset" ? null : pcf;
+        const { error: up } = await supabase
+          .from("request_items")
+          .update({
+            ...payload,
+            post_confirm_fulfillment: pcfDb,
+            withdrawn_after_confirm: Boolean(f.withdrawn_after_confirm),
+            selected_qty: row.is_selected_by_patient && !f.withdrawn_after_confirm ? draftSel : row.selected_qty,
+          })
+          .eq("id", row.id);
         if (up) throw new Error(up.message);
+      }
+
+      for (const row of items) {
+        const f = draft[row.id];
+        if (!f) continue;
+        const normalized = normalizeCounterOutcomeForPersist(row, f);
+        if (normalized === null) continue;
+        const nextCo = normalized.outcome;
+        const nextReason = normalized.cancelReason;
+        const nextDetail = normalized.cancelDetail;
+        const curCo = row.counter_outcome ?? "unset";
+        const curReason = row.counter_cancel_reason ?? null;
+        const curDetail = row.counter_cancel_detail ?? null;
+        if (nextCo === curCo && (nextReason ?? null) === (curReason ?? null) && (nextDetail ?? null) === (curDetail ?? null)) {
+          continue;
+        }
+        const { error: rpcCo } = await supabase.rpc("pharmacist_set_item_counter_outcome", {
+          p_request_item_id: row.id,
+          p_outcome: nextCo,
+          p_cancel_reason: nextReason,
+          p_cancel_detail: nextDetail,
+        });
+        if (rpcCo) throw new Error(rpcCo.message);
       }
 
       const audit = buildPharmaConfirmAdjustmentAudit(items, draft);
@@ -1511,25 +1747,159 @@ export default function PharmacienDemandeDetailPage() {
       const { error: h } = await logHistory(id, request.status, request.status, histReason);
       if (h) throw new Error(h.message);
 
-      if (structuralBefore.length > 0) {
-        const enriched = structuralBefore.map((a) => ({
-          ...a,
-          client_confirmation_channel: supplyClientChannel.trim().length >= 2 ? supplyClientChannel.trim() : "autre",
-          client_motive: supplyClientMotive.trim() === "" ? null : supplyClientMotive.trim(),
-        }));
+      const withdrawAmends: SupplyAmendmentEntryJson[] = [];
+      for (const row of items) {
+        const f = draft[row.id];
+        if (!f || !row.is_selected_by_patient) continue;
+        const was = Boolean(row.withdrawn_after_confirm);
+        const next = Boolean(f.withdrawn_after_confirm);
+        if (was === next) continue;
+        const nm = one(row.products)?.name ?? "Produit";
+        const fill = lineModifyConsent[row.id];
+        if (!fill?.channel?.trim()) {
+          throw new Error(`Accord patient requis pour écarter ou réintégrer « ${nm} ».`);
+        }
+        withdrawAmends.push({
+          kind: next ? "withdraw_after_confirm" : "reintegrate_after_confirm",
+          request_item_id: row.id,
+          summary: next ? `${nm} retiré avec accord patient` : `${nm} réintégré`,
+          detail: next ? `${nm} : ligne retirée après validation.` : `${nm} : ligne réintégrée.`,
+          client_confirmation_channel: fill.channel.trim(),
+          client_motive: fill.motive.trim() === "" ? null : fill.motive.trim(),
+        });
+      }
+
+      const allAmends = [...(structuralEnriched ?? []), ...withdrawAmends];
+      if (allAmends.length > 0) {
         const { error: rpcA } = await supabase.rpc("pharmacist_record_supply_amendments", {
           p_request_id: id,
-          p_amendments: enriched,
+          p_amendments: allAmends,
         });
         if (rpcA) throw new Error(rpcA.message);
       }
 
       await persistGlobalCommentIfChanged();
+      dispatchRequestDetailRefresh(id);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Une erreur est survenue.");
+      throw e;
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
+  };
+
+  const startSaveConfirmedAdjustments = () => {
+    if (!request || !["confirmed", "processing", "treated"].includes(request.status)) return;
+    const structuralBefore = buildSupplyStructuralAmends(items, draft);
+    const rowIds = new Set<string>();
+    for (const e of structuralBefore) {
+      if (e.request_item_id) rowIds.add(e.request_item_id);
+    }
+    const withdrawTransitionIds = items.filter((row) => {
+      const fd = draft[row.id];
+      if (!fd || !row.is_selected_by_patient) return false;
+      return Boolean(row.withdrawn_after_confirm) !== Boolean(fd.withdrawn_after_confirm);
+    }).map((r) => r.id);
+    for (const wid of withdrawTransitionIds) rowIds.add(wid);
+    for (const rid of rowIds) {
+      const c = lineModifyConsent[rid];
+      if (!c?.channel?.trim()) {
+        setError(
+          "Pour chaque ligne concernée, indiquez le canal d’accord (menu ⋮ → Modifier ou Écarter / Réintégrer), puis enregistrez."
+        );
+        return;
+      }
+    }
+    void (async () => {
+      try {
+        const enriched: SupplyAmendmentEntryJson[] | null =
+          structuralBefore.length > 0
+            ? structuralBefore.map((a) => {
+                const rid = a.request_item_id ?? "";
+                const fill = rid ? lineModifyConsent[rid] : undefined;
+                return {
+                  ...a,
+                  client_confirmation_channel: (fill?.channel ?? "autre").trim(),
+                  client_motive: (fill?.motive ?? "").trim() === "" ? null : (fill?.motive ?? "").trim(),
+                };
+              })
+            : null;
+        await saveConfirmedAdjustmentsCore(enriched);
+        if (rowIds.size > 0) {
+          setLineModifyConsent((prev) => {
+            const next = { ...prev };
+            for (const rid of rowIds) delete next[rid];
+            return next;
+          });
+        }
+      } catch {
+        /* setError dans saveConfirmedAdjustmentsCore */
+      }
+    })();
+  };
+
+  const applySupplyModalConfirm = async (fills: { channel: string; motive: string }[]) => {
+    const pending = supplyConfirmPending;
+    if (!pending || !id) return;
+    setSupplyConfirmBusy(true);
+    setError("");
+    try {
+      if (pending.kind === "unlock_modify") {
+        const fill = fills[0];
+        if (!fill?.channel?.trim()) throw new Error("Indiquez le canal utilisé.");
+        setLineModifyConsent((prev) => ({
+          ...prev,
+          [pending.rowId]: { channel: fill.channel.trim(), motive: (fill.motive ?? "").trim() },
+        }));
+      } else if (pending.kind === "add_line") {
+        const fill = fills[0];
+        if (!fill) throw new Error("Confirmation incomplète.");
+        const { pick, reason, qty } = pending;
+        const { data: insRow, error: insErr } = await supabase
+          .from("request_items")
+          .insert({
+            request_id: id,
+            product_id: pick.id,
+            requested_qty: qty,
+            line_source: "pharmacist_proposed",
+            pharmacist_proposal_reason: reason,
+            is_selected_by_patient: true,
+            selected_qty: qty,
+            counter_outcome: "unset",
+          })
+          .select("id")
+          .maybeSingle();
+        if (insErr) throw new Error(insErr.message);
+        const newId = (insRow as { id?: string } | null)?.id;
+        if (!newId) throw new Error("Insertion sans identifiant retourné.");
+        const amendments: SupplyAmendmentEntryJson[] = [
+          {
+            kind: "line_added_after_confirm",
+            request_item_id: newId,
+            summary: `${pick.name} ajouté avec accord patient`,
+            detail: `${pick.name} : proposition officine après validation (${qty} unité(s)).`,
+            client_confirmation_channel: fill.channel.trim(),
+            client_motive: fill.motive.trim() === "" ? null : fill.motive.trim(),
+          },
+        ];
+        const { error: rpcA } = await supabase.rpc("pharmacist_record_supply_amendments", {
+          p_request_id: id,
+          p_amendments: amendments,
+        });
+        if (rpcA) throw new Error(rpcA.message);
+        await logHistory(id, request?.status ?? null, request?.status ?? "confirmed", "counter_product_added");
+        setPropOpen(false);
+        resetPropForm();
+        dispatchRequestDetailRefresh(id);
+        await load();
+      }
+      setSupplyConfirmOpen(false);
+      setSupplyConfirmPending(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Une erreur est survenue.");
+    }
+    setSupplyConfirmBusy(false);
   };
 
   const saveRespondedAdjustments = async () => {
@@ -1736,7 +2106,15 @@ export default function PharmacienDemandeDetailPage() {
   }, [id]);
 
   const runCompleteAfterCounter = async () => {
-    if (!id) return;
+    if (!id || !request) return;
+    const selectedLines = items.filter((i) => i.is_selected_by_patient);
+    const tracked = selectedLines.filter((i) => !i.withdrawn_after_confirm);
+    const pendingPickup = tracked.filter((i) => (i.counter_outcome ?? "unset") !== "picked_up").length;
+    const msg =
+      pendingPickup > 0
+        ? `Clôturer ce dossier ? ${pendingPickup} produit(s) retenu(s) ne sont pas encore enregistrés comme récupérés au comptoir.`
+        : "Confirmer la clôture du dossier ?";
+    if (!globalThis.confirm(msg)) return;
     setCompleteBusy(true);
     setError("");
     const { error: rpcErr } = await supabase.rpc("pharmacist_complete_request_after_counter", {
@@ -1764,6 +2142,46 @@ export default function PharmacienDemandeDetailPage() {
       request.status === "treated");
   const isProduct = request?.request_type === "product_request";
 
+  const lineEntriesForList = useMemo(() => {
+    if (request && ["confirmed", "processing", "treated"].includes(request.status)) {
+      const virt = virtualizeItemsForSupplyBuckets(displayRows, draft);
+      const flat = flattenPharmacistSupplyListEntries(virt);
+      if (flat.length > 0) return flat;
+    }
+    return displayRows.map((row) => ({ header: null as string | null, row }));
+  }, [request, displayRows, draft]);
+
+  const pharmaHistoryBlocks = useMemo(() => {
+    if (!pharmaHistoryRowId || !request) return [];
+    const row = items.find((i) => i.id === pharmaHistoryRowId);
+    if (!row) return [];
+    return buildPatientLineTimelineFr({
+      row: row as PatientLineLike,
+      requestCreatedAt: request.created_at,
+      requestSubmittedAt: request.submitted_at,
+      requestRespondedAt: request.responded_at,
+      requestConfirmedAt: request.confirmed_at ?? null,
+      supplyBundles: supplyAmendmentBundles,
+      dossierHistory: dossierHistoryTimeline,
+    });
+  }, [pharmaHistoryRowId, request, items, supplyAmendmentBundles, dossierHistoryTimeline]);
+
+  const hardStopMotif = useMemo(() => {
+    if (!request || !pharmacistRequestIsHardStopped(request.status)) return null;
+    for (let i = dossierHistoryTimeline.length - 1; i >= 0; i--) {
+      const h = dossierHistoryTimeline[i];
+      if (h.new_status === request.status && h.reason?.trim()) return h.reason.trim();
+    }
+    return null;
+  }, [request, dossierHistoryTimeline]);
+
+  const closedSuccessPickupCount = useMemo(() => {
+    if (!request || !pharmacistRequestIsClosedSuccess(request.status)) return null;
+    return items.filter(
+      (i) => i.is_selected_by_patient && !i.withdrawn_after_confirm && (i.counter_outcome ?? "unset") === "picked_up"
+    ).length;
+  }, [request, items]);
+
   const resetDraftFromRows = useCallback(() => {
     setDraft(() => {
       const next: Draft = {};
@@ -1775,6 +2193,7 @@ export default function PharmacienDemandeDetailPage() {
   }, [items]);
 
   let canCompleteCounter = false;
+  let counterClosurePendingTracked = 0;
   if (
     request &&
     isProduct &&
@@ -1782,12 +2201,9 @@ export default function PharmacienDemandeDetailPage() {
   ) {
     const selectedLines = items.filter((i) => i.is_selected_by_patient);
     const tracked = selectedLines.filter((i) => !i.withdrawn_after_confirm);
-    const blockingSelected = tracked.filter(
-      (i) =>
-        String(i.counter_outcome ?? "unset") === "unset" ||
-        String(i.counter_outcome ?? "unset") === "deferred_next_visit"
-    );
-    canCompleteCounter = tracked.length > 0 && blockingSelected.length === 0;
+    const pickedPersisted = tracked.filter((i) => (i.counter_outcome ?? "unset") === "picked_up").length;
+    counterClosurePendingTracked = tracked.filter((i) => (i.counter_outcome ?? "unset") !== "picked_up").length;
+    canCompleteCounter = tracked.length > 0 && pickedPersisted >= 1;
   }
 
   if (loading) {
@@ -1830,69 +2246,104 @@ export default function PharmacienDemandeDetailPage() {
       (i.counter_outcome ?? "unset") === "picked_up"
   ).length;
 
-  const statusLabelHeader = requestStatusShortFrPharmacien(request.status);
+  const showPassageInPharmaHeader =
+    request.status === "confirmed" ||
+    request.status === "processing" ||
+    request.status === "treated" ||
+    request.status === "completed" ||
+    request.status === "partially_collected" ||
+    request.status === "fully_collected";
 
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-2 sm:space-y-3">
-      <Link href="/dashboard/pharmacien/demandes" className="inline-block text-xs font-medium text-emerald-900 underline">
+      <Link href="/dashboard/pharmacien/demandes" className="inline-block text-xs font-medium text-sky-800 underline">
         ← Retour aux demandes de produits
       </Link>
 
-      <header className="rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/40 via-white to-white px-2.5 py-2 shadow-sm sm:px-3 sm:py-2">
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] sm:gap-x-3">
-            <span className="shrink-0 font-bold uppercase tracking-wide text-emerald-900/80">Demande prod.</span>
+      <header className="mt-2 rounded-xl border-2 border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 px-2.5 py-1.5 shadow-md shadow-sky-900/[0.06] ring-1 ring-sky-200/55 sm:px-3">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:gap-x-2">
+            <span className="shrink-0 font-bold uppercase tracking-wide text-sky-950/85">Demande prod.</span>
             <span className="font-mono text-[11px] font-semibold text-foreground">
               {displayRequestPublicRef(request)}
             </span>
             {isProduct ? (
-              <span className="shrink-0 rounded border border-emerald-200/90 bg-emerald-50/90 px-1.5 py-px text-[10px] font-semibold text-emerald-950">
-                {displayRows.length} l.
+              <span className="shrink-0 rounded-full border border-sky-200/90 bg-white/90 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-sky-950">
+                {displayRows.length} ligne{displayRows.length > 1 ? "s" : ""}
               </span>
             ) : null}
-            <span className="hidden h-3.5 w-px shrink-0 bg-border/80 sm:block" aria-hidden />
-            <span className="min-w-0 text-muted-foreground">
-              Reçue <span className="font-semibold tabular-nums text-foreground">{formatDateTimeShort24hFr(request.submitted_at ?? request.created_at)}</span>
+            <span className="text-muted-foreground" aria-hidden>
+              ·
             </span>
+            <span className="text-muted-foreground">
+              Envoyée{" "}
+              <span className="font-semibold tabular-nums text-foreground">
+                {formatDateShortCasablancaWithTime24hFr(request.submitted_at ?? request.created_at)}
+              </span>
+            </span>
+            {showPassageInPharmaHeader ? (
+              <>
+                <span className="text-muted-foreground" aria-hidden>
+                  ·
+                </span>
+                <span className="text-muted-foreground">
+                  Passage{" "}
+                  <span className="font-semibold text-foreground">
+                    {request.patient_planned_visit_date
+                      ? formatPlannedVisitFr(request.patient_planned_visit_date, request.patient_planned_visit_time)
+                      : "À définir"}
+                  </span>
+                </span>
+              </>
+            ) : null}
           </div>
-          <div className="flex w-full shrink-0 items-center justify-end gap-2 border-t border-emerald-100/90 pt-2 sm:w-auto sm:border-0 sm:pt-0">
+          <div className="flex shrink-0 items-center gap-1.5 sm:ms-auto">
             <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Statut</span>
             <span
               className={clsx(
-                "inline-flex max-w-full justify-center truncate rounded-full border px-2.5 py-1 text-center text-[11px] font-bold leading-tight sm:max-w-[14rem]",
+                "inline-flex max-w-[min(100%,16rem)] justify-center truncate rounded-full border px-2 py-0.5 text-center text-[10px] font-bold leading-tight shadow-sm sm:max-w-[14rem]",
                 ["submitted", "in_review"].includes(request.status)
-                  ? "border-amber-300/95 bg-amber-50 text-amber-950"
+                  ? "border-sky-400/85 bg-sky-100 text-sky-950 ring-1 ring-sky-200/80"
                   : request.status === "responded"
-                    ? "border-sky-300/95 bg-sky-50 text-sky-950"
-                    : ["confirmed", "processing", "treated"].includes(request.status)
-                      ? "border-teal-400/85 bg-teal-50 text-teal-950"
-                      : "border-border bg-muted/35 text-foreground"
+                    ? "border-amber-300/95 bg-amber-50 text-amber-950"
+                    : ["confirmed", "processing", "treated", "completed", "in_progress_virtual"].includes(request.status)
+                      ? "border-teal-400/80 bg-teal-50 text-teal-950"
+                      : "border-primary/35 bg-primary/10 text-primary"
               )}
-              title={requestStatusFr[request.status] ?? request.status}
+              title={(requestStatusFr[request.status] ?? request.status) + ""}
             >
-              {statusLabelHeader}
+              {requestStatusFr[request.status] ?? request.status}
             </span>
           </div>
         </div>
       </header>
 
-      {(pharmacistRequestIsHardStopped(request.status) || pharmacistRequestIsClosedSuccess(request.status)) && isProduct ? (
-        <section className="rounded-xl border border-border bg-muted/25 px-3 py-2.5 text-[11px] text-muted-foreground">
-          <p className="font-semibold text-foreground">
-            {pharmacistRequestIsHardStopped(request.status) ? "Sans suite" : "Dossier terminé"}
+      {pharmacistRequestIsHardStopped(request.status) && isProduct ? (
+        <section className="rounded-xl border border-slate-300/90 bg-slate-50 px-3 py-2.5 text-[11px] text-slate-800">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-700">Motif (sans suite)</p>
+          <p className="mt-1 whitespace-pre-wrap break-words leading-snug">
+            {hardStopMotif ?? "Aucun détail enregistré dans l’historique pour ce statut."}
           </p>
-          <p className="mt-0.5 leading-snug">
-            {pharmacistRequestIsHardStopped(request.status)
-              ? "Lecture seule."
-              : "Clôturé — lecture seule."}
-          </p>
+          <p className="mt-2 text-[10px] text-muted-foreground">Lecture seule — état figé tel qu’avant l’interruption.</p>
         </section>
       ) : null}
 
-      <section className="rounded-xl border border-emerald-200/75 bg-card px-2.5 py-2 shadow-sm sm:px-3 sm:py-2">
-        <div className="flex gap-2 sm:items-center sm:gap-2.5">
+      {pharmacistRequestIsClosedSuccess(request.status) && isProduct ? (
+        <section className="rounded-xl border border-emerald-300/80 bg-emerald-50/90 px-3 py-2.5 text-[11px] text-emerald-950">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-900">Clôture comptoir</p>
+          <p className="mt-1 font-semibold tabular-nums text-emerald-950">
+            Produits récupérés (lignes retenues)&nbsp;: {closedSuccessPickupCount ?? 0}
+          </p>
+          <p className="mt-1 text-[10px] text-emerald-900/85">Lecture seule.</p>
+        </section>
+      ) : null}
+
+      <section className="rounded-xl border border-emerald-300/60 bg-gradient-to-br from-emerald-50/85 via-white to-teal-50/40 p-2 shadow-sm ring-1 ring-emerald-200/45">
+        <h3 className="text-[10px] font-bold uppercase tracking-wide text-emerald-950">Client</h3>
+        <p className="mt-1 text-[10px] leading-snug text-emerald-950/88">Coordonnées et référence patient.</p>
+        <div className="mt-2 flex gap-2 sm:items-center sm:gap-2.5">
           <span
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm"
             title="Client"
             aria-hidden
           >
@@ -1900,7 +2351,7 @@ export default function PharmacienDemandeDetailPage() {
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-start justify-between gap-2 gap-y-1">
-              <p className="min-w-[40%] flex-1 break-words text-[12px] font-bold leading-snug text-foreground sm:text-[13px]">
+              <p className="min-w-[40%] flex-1 break-words text-[12px] font-bold leading-snug text-emerald-950 sm:text-[13px]">
                 {patientHeadingName(patientProfile, request.patient_id)}
               </p>
               {patientPhone || patientEmail ? (
@@ -1908,7 +2359,7 @@ export default function PharmacienDemandeDetailPage() {
                   type="button"
                   aria-expanded={patientContactOpen}
                   onClick={() => setPatientContactOpen((v) => !v)}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-300/90 bg-emerald-50/60 px-2 py-1 text-[10px] font-semibold text-emerald-950 transition hover:bg-emerald-100/70"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-400/70 bg-white px-2 py-1 text-[10px] font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-50"
                 >
                   <Phone className="size-3.5 shrink-0 opacity-90" aria-hidden />
                   Contacter
@@ -1919,57 +2370,48 @@ export default function PharmacienDemandeDetailPage() {
                 </button>
               ) : null}
             </div>
-            <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0 text-[10px] text-muted-foreground">
-              <span className="min-w-0">
-                <span className="mr-1 font-semibold uppercase tracking-wide text-muted-foreground/95">Réf. commande</span>
-                <span className="break-all font-mono font-semibold text-emerald-950">{displayRequestPublicRef(request)}</span>
+            <p className="mt-1 text-[10px] text-emerald-950/90">
+              <span className="font-semibold uppercase tracking-wide text-emerald-950/80">Réf. client </span>
+              <span className="break-all font-mono font-semibold text-emerald-950">
+                {patientProfile?.patient_ref?.trim() || `#${formatShortId(request.patient_id)}`}
               </span>
-              <span className="text-muted-foreground/35" aria-hidden>
-                ·
-              </span>
-              <span className="min-w-0">
-                <span className="mr-1 font-semibold uppercase tracking-wide text-muted-foreground/95">Réf. client</span>
-                <span className="break-all font-mono font-semibold text-foreground">
-                  {patientProfile?.patient_ref?.trim() || `#${formatShortId(request.patient_id)}`}
-                </span>
-              </span>
-            </div>
+            </p>
             {(patientPhone || patientEmail) && patientContactOpen ? (
-              <div className="mt-1.5 flex flex-wrap gap-1 border-t border-emerald-100/80 pt-1.5">
+              <div className="mt-1.5 flex flex-wrap gap-1 border-t border-emerald-200/80 pt-1.5">
                 {patientPhone ? (
                   <>
                     <a
                       href={telHref(patientPhone)}
-                      className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+                      className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
                       title={`Appeler ${patientPhone}`}
                     >
-                      <Phone className="size-[15px]" aria-hidden />
+                      <Phone className="size-4" aria-hidden />
+                    </a>
+                    <a
+                      href={smsHref(patientPhone)}
+                      className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
+                      title="SMS"
+                    >
+                      <MessageSquare className="size-4" aria-hidden />
                     </a>
                     <a
                       href={whatsappHref(patientPhone)}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+                      className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
                       title="WhatsApp"
                     >
-                      <MessageCircle className="size-[15px]" aria-hidden />
-                    </a>
-                    <a
-                      href={smsHref(patientPhone)}
-                      className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
-                      title="SMS"
-                    >
-                      <MessageSquare className="size-[15px]" aria-hidden />
+                      <MessageCircle className="size-4" aria-hidden />
                     </a>
                   </>
                 ) : null}
                 {patientEmail ? (
                   <a
                     href={`mailto:${patientEmail}`}
-                    className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+                    className="inline-flex size-9 items-center justify-center rounded-lg border border-sky-400/70 bg-white text-sky-900 shadow-sm transition hover:bg-sky-50"
                     title={patientEmail}
                   >
-                    <Mail className="size-[15px]" aria-hidden />
+                    <Mail className="size-4" aria-hidden />
                   </a>
                 ) : null}
               </div>
@@ -2017,15 +2459,6 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      {request.patient_planned_visit_date ? (
-        <section className="rounded-xl border border-teal-200/60 bg-teal-50/40 px-3 py-2.5 shadow-sm">
-          <h2 className="text-[10px] font-bold uppercase tracking-wide text-teal-950">Passage prévu</h2>
-          <p className="mt-1 text-xs font-semibold text-teal-950">
-            {formatPlannedVisitFr(request.patient_planned_visit_date, request.patient_planned_visit_time)}
-          </p>
-        </section>
-      ) : null}
-
       {error ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{error}</p>
       ) : null}
@@ -2047,43 +2480,6 @@ export default function PharmacienDemandeDetailPage() {
                 </section>
               ) : null}
 
-              {canManageSupply ? (
-                (() => {
-                  const { dispoOfficine, aCommander, horsPerimetre, retireesApresValidation } =
-                    bucketPatientValidatedLinesThreeWays(items);
-                  const chip =
-                    "inline-flex items-center rounded-md border border-muted-foreground/15 bg-muted/25 px-1.5 py-px tabular-nums text-muted-foreground";
-                  const hasAnything =
-                    dispoOfficine.length + aCommander.length + horsPerimetre.length + retireesApresValidation.length > 0;
-                  if (!hasAnything) return null;
-                  return (
-                    <section className="mb-3 space-y-2 rounded-xl border border-sky-300/65 bg-muted/35 p-3 text-[11px] shadow-inner sm:p-3.5">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Synthèse côté client</p>
-                        <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
-                          Même regroupement que le patient après validation&nbsp;: officine disponible · commandes · autres · écarts après
-                          validation.
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 text-[10px]">
-                        <span className={chip}>
-                          Officine <strong className="ml-1 text-foreground">{dispoOfficine.length}</strong>
-                        </span>
-                        <span className={chip}>
-                          Commandés <strong className="ml-1 text-foreground">{aCommander.length}</strong>
-                        </span>
-                        <span className={chip}>
-                          Hors bloc <strong className="ml-1 text-foreground">{horsPerimetre.length}</strong>
-                        </span>
-                        <span className={chip}>
-                          Écart <strong className="ml-1 text-foreground">{retireesApresValidation.length}</strong>
-                        </span>
-                      </div>
-                    </section>
-                  );
-                })()
-              ) : null}
-
               <div className="flex flex-wrap items-end justify-between gap-1.5 sm:gap-2">
             <div>
               <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground sm:text-xs">Produits</h2>
@@ -2102,7 +2498,7 @@ export default function PharmacienDemandeDetailPage() {
             <span className="text-[10px] text-muted-foreground">{displayRows.length} article(s)</span>
           </div>
           <ul className="mt-2 space-y-2 sm:space-y-3">
-            {displayRows.map((row) => {
+            {lineEntriesForList.map(({ header, row }) => {
               const prod = one(row.products);
               const linePph = pphLabel(prod?.price_pph);
               const f = draft[row.id];
@@ -2185,18 +2581,451 @@ export default function PharmacienDemandeDetailPage() {
                 row.line_source === "pharmacist_proposed"
                   ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
                   : PHARMACIST_AVAILABILITY_OPTIONS;
+
+              if (canManageSupply) {
+                const pl = row as PatientLineLike;
+                const validatedName = validatedProductLabel(pl);
+                const validatedQty = validatedQtyForPatientLine(pl);
+                const effSupply = effectiveAvailSupplyDraft(row, f);
+                const etaSupply = effectiveEtaSupplyDraft(row, f);
+                let availSentence = "";
+                if (!selected) availSentence = "Non retenu";
+                else if (effSupply === "to_order") {
+                  availSentence = `À commander${etaSupply ? ` · dispo indicative ${formatDateShortFr(etaSupply)}` : ""}`;
+                } else if (effSupply) availSentence = availabilityStatusFr[effSupply] ?? effSupply;
+                else availSentence = "—";
+
+                const branchPrice = validatedBranchUnitPriceMad(pl);
+                const lineTot = branchPrice != null ? branchPrice * validatedQty : null;
+                const unitLabel = branchPrice != null ? `${branchPrice.toFixed(2)} MAD` : "—";
+                const totalLabel = lineTot != null ? `${lineTot.toFixed(2)} MAD` : "—";
+                const altProdThumb = chosenAltRow ? one(chosenAltRow.products) : null;
+                const thumbUrl = altProdThumb?.photo_url ?? prod?.photo_url ?? null;
+                const hasConsent = Boolean(lineModifyConsent[row.id]?.channel?.trim());
+                const consent = lineModifyConsent[row.id];
+                const ring =
+                  effSupply === "to_order"
+                    ? "border-teal-200/85"
+                    : withdrawnDraft || row.withdrawn_after_confirm
+                      ? "border-amber-300/80"
+                      : "border-emerald-200/80";
+                const lineCounterLocked = (row.counter_outcome ?? "unset") === "picked_up";
+                const canMarkReservedSupply =
+                  selected &&
+                  !withdrawnDraft &&
+                  !lineLockedTrace &&
+                  !lineCounterLocked &&
+                  (effSupply === "available" || effSupply === "partially_available");
+                const canMarkOrderedSupply =
+                  selected &&
+                  !withdrawnDraft &&
+                  !lineLockedTrace &&
+                  !lineCounterLocked &&
+                  effSupply === "to_order";
+                const supplyAvailabilityOptions = isProposedLine
+                  ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
+                  : PHARMACIST_SUPPLY_POST_CONFIRM_AVAILABILITY_OPTIONS;
+
+                const consentChannelBlock = (
+                  <div className="space-y-1.5 rounded-md border border-sky-200/80 bg-sky-50/55 p-2">
+                    <p className="text-[8px] font-bold uppercase tracking-wide text-sky-950">
+                      Accord patient (enregistré avec la ligne)
+                    </p>
+                    <label className="block text-[9px] font-semibold text-muted-foreground">
+                      Canal
+                      <select
+                        className="mt-0.5 h-8 w-full rounded-md border border-input bg-background px-2 text-[11px] font-medium shadow-sm"
+                        value={consent?.channel ?? "phone_call"}
+                        onChange={(e) =>
+                          setLineModifyConsent((p) => ({
+                            ...p,
+                            [row.id]: {
+                              channel: e.target.value,
+                              motive: p[row.id]?.motive ?? "",
+                            },
+                          }))
+                        }
+                      >
+                        {SUPPLY_AMEND_CHANNEL_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block text-[9px] font-semibold text-muted-foreground">
+                      Description (optionnelle)
+                      <textarea
+                        rows={2}
+                        value={consent?.motive ?? ""}
+                        onChange={(e) =>
+                          setLineModifyConsent((p) => ({
+                            ...p,
+                            [row.id]: {
+                              channel: p[row.id]?.channel ?? "phone_call",
+                              motive: e.target.value.slice(0, 1000),
+                            },
+                          }))
+                        }
+                        className="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] shadow-sm"
+                      />
+                    </label>
+                  </div>
+                );
+
+                const modifyFieldsBlock = (
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-end gap-1.5 sm:gap-2">
+                      <div className="flex min-w-[9.5rem] flex-1 flex-col gap-0.5">
+                        <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                          Disponibilité
+                        </span>
+                        <PharmacienAvailabilityDropdown
+                          rowId={row.id}
+                          disabled={!canEditThisRow || !hasConsent}
+                          menuOpen={availabilityMenuRowId === row.id}
+                          onOpenChange={(open) =>
+                            setAvailabilityMenuRowId((cur) => (open ? row.id : cur === row.id ? null : cur))
+                          }
+                          draftStatus={f.availability_status}
+                          requestedQty={row.requested_qty}
+                          availableQtyStr={f.available_qty}
+                          isProposedLine={isProposedLine}
+                          options={supplyAvailabilityOptions}
+                          onPick={(v) => setAvailabilityStatus(row, v)}
+                        />
+                      </div>
+                      <label className="flex w-[5.5rem] flex-col gap-0.5">
+                        <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Stock</span>
+                        <div className="flex h-9 items-center overflow-hidden rounded-xl border border-input bg-background shadow-sm">
+                          <button
+                            type="button"
+                            disabled={stockMinusDisabled || !hasConsent}
+                            onClick={() => nudgeAvailableQty(row, -1)}
+                            className="h-full w-8 border-r border-input text-sm font-bold text-muted-foreground disabled:opacity-50"
+                            aria-label="Diminuer la quantité"
+                          >
+                            −
+                          </button>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            disabled={
+                              !canEditThisRow ||
+                              !hasConsent ||
+                              f.availability_status === "market_shortage" ||
+                              f.availability_status === "to_order"
+                            }
+                            value={f.available_qty}
+                            onChange={(e) => setAvailableQty(row, e.target.value)}
+                            className={clsx(
+                              "h-full w-full min-w-[2rem] border-0 bg-transparent px-1 text-center text-[12px] font-semibold tabular-nums focus:outline-none",
+                              f.availability_status === "market_shortage" && "bg-muted text-muted-foreground",
+                              f.availability_status === "to_order" && "cursor-not-allowed bg-muted/50 text-muted-foreground"
+                            )}
+                          />
+                          <button
+                            type="button"
+                            disabled={stockPlusDisabled || !hasConsent}
+                            onClick={() => nudgeAvailableQty(row, 1)}
+                            className="h-full w-8 border-l border-input text-sm font-bold text-muted-foreground disabled:opacity-50"
+                            aria-label="Augmenter la quantité"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </label>
+                      <label className="flex min-w-[5rem] flex-1 flex-col gap-0.5 sm:max-w-[7rem]">
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                          Prix <span className="normal-case opacity-70">MAD</span>
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="—"
+                          disabled
+                          value={f.unit_price}
+                          title={linePph ? `PPH catalogue : ${linePph}` : undefined}
+                          className="h-9 w-full rounded-xl border border-dashed border-border bg-muted/30 px-2 text-[12px] font-semibold tabular-nums opacity-80"
+                        />
+                      </label>
+                    </div>
+                    {canEditThisRow && hasConsent && effectiveAvailSupplyDraft(row, f) === "to_order" ? (
+                      <label className="flex max-w-sm flex-col gap-0">
+                        <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Date prévision commande
+                        </span>
+                        <input
+                          type="date"
+                          disabled={!canEditThisRow}
+                          value={f.expected_availability_date}
+                          onChange={(e) => setField(row.id, "expected_availability_date", e.target.value)}
+                          className="h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] shadow-sm disabled:opacity-60 sm:w-auto sm:min-w-[9rem]"
+                        />
+                      </label>
+                    ) : null}
+                    {canManageSupply && selected && !lineLockedTrace && !withdrawnDraft ? (
+                      <div className="flex flex-wrap items-center gap-2 rounded-md border border-sky-300/80 bg-sky-50/90 px-1.5 py-1 text-[10px] text-sky-950">
+                        <span className="text-[8px] font-bold uppercase tracking-wide text-sky-900/90">
+                          Qté validée (patient)
+                        </span>
+                        <div className="inline-flex items-center gap-1 rounded-md border border-sky-400/60 bg-white px-0.5 py-0.5">
+                          <button
+                            type="button"
+                            disabled={!canEditThisRow || !hasConsent || busy}
+                            className="size-7 rounded border border-sky-200 bg-sky-50 text-sm font-bold text-sky-950 hover:bg-sky-100 disabled:opacity-40"
+                            aria-label="Diminuer la quantité validée"
+                            onClick={() => {
+                              const cap = Math.min(10, Math.max(1, row.requested_qty));
+                              const cur = Math.min(cap, Math.max(1, Number(f.selected_qty_str) || 1));
+                              setField(row.id, "selected_qty_str", String(Math.max(1, cur - 1)));
+                            }}
+                          >
+                            −
+                          </button>
+                          <span className="min-w-[1.5rem] text-center text-[11px] font-bold tabular-nums">
+                            {Math.min(
+                              Math.min(10, Math.max(1, row.requested_qty)),
+                              Math.max(1, Number(f.selected_qty_str) || 1)
+                            )}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={!canEditThisRow || !hasConsent || busy}
+                            className="size-7 rounded border border-sky-200 bg-sky-50 text-sm font-bold text-sky-950 hover:bg-sky-100 disabled:opacity-40"
+                            aria-label="Augmenter la quantité validée"
+                            onClick={() => {
+                              const cap = Math.min(10, Math.max(1, row.requested_qty));
+                              const cur = Math.min(cap, Math.max(1, Number(f.selected_qty_str) || 1));
+                              setField(row.id, "selected_qty_str", String(Math.min(cap, cur + 1)));
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="text-[9px] leading-tight text-sky-900/85">
+                          Max {Math.min(10, Math.max(1, row.requested_qty))}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+
+                const expandedEditor = (
+                  <div className="space-y-1.5">
+                    {withdrawnDraft ? (
+                      <div className="space-y-1.5 rounded-md border border-amber-300/85 bg-amber-50/90 p-2">
+                        <p className="text-[9px] font-bold uppercase tracking-wide text-amber-950">Produit retiré (écart)</p>
+                        <p className="text-[10px] leading-snug text-amber-950/90">
+                          Canal et description (comme pour une modification). Rien n’est enregistré tant que vous n’avez pas
+                          cliqué sur « Enregistrer les modifications ».
+                        </p>
+                        {consentChannelBlock}
+                        <button
+                          type="button"
+                          disabled={busy || supplyConfirmBusy}
+                          className="w-full rounded-md border border-amber-500/80 bg-white px-2 py-1.5 text-[10px] font-semibold text-amber-950 hover:bg-amber-100/80 disabled:opacity-45"
+                          onClick={() => {
+                            patchItemDraft(row.id, buildItemDraftFromRow(row));
+                            setLineModifyConsent((p) => {
+                              const n = { ...p };
+                              delete n[row.id];
+                              return n;
+                            });
+                            setAvailabilityMenuRowId((cur) => (cur === row.id ? null : cur));
+                            setSupplyMenuRowId(null);
+                          }}
+                        >
+                          Annuler l’écart (rétablir la ligne telle qu’avant)
+                        </button>
+                      </div>
+                    ) : null}
+                    {!withdrawnDraft && hasConsent ? (
+                      <div className="space-y-1.5">
+                        {consentChannelBlock}
+                        <button
+                          type="button"
+                          disabled={busy || supplyConfirmBusy}
+                          className="w-full rounded-md border border-sky-400/80 bg-white px-2 py-1.5 text-[10px] font-semibold text-sky-950 hover:bg-sky-100/80 disabled:opacity-45"
+                          onClick={() => {
+                            patchItemDraft(row.id, buildItemDraftFromRow(row));
+                            setLineModifyConsent((p) => {
+                              const n = { ...p };
+                              delete n[row.id];
+                              return n;
+                            });
+                            setAvailabilityMenuRowId((cur) => (cur === row.id ? null : cur));
+                            setSupplyMenuRowId(null);
+                          }}
+                        >
+                          Annuler les modifications sur cette ligne
+                        </button>
+                        {modifyFieldsBlock}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+
+                const counterSelectInteractive =
+                  selected &&
+                  showInlineCounter &&
+                  !lineLockedTrace &&
+                  !lineCounterLocked &&
+                  request.status !== "completed";
+
+                const treatedCounterSlot =
+                  showInlineCounter && request.status !== "completed" ? (
+                    <div className="border-t border-slate-100 bg-slate-50/25 px-2 py-2">
+                      {!selected ? (
+                        <p className="text-[10px] text-muted-foreground">
+                          Patient n&apos;ayant pas retenu cette ligne après votre réponse. État au comptoir :{" "}
+                          <strong className="text-foreground">
+                            {counterOutcomeLabelPharmacien(co, row.counter_cancel_reason)}
+                          </strong>
+                        </p>
+                      ) : lineLockedTrace ? (
+                        <p className="text-[10px] text-muted-foreground">
+                          <span className="font-semibold text-foreground">Comptoir : </span>
+                          {counterOutcomeLabelPharmacien(co, row.counter_cancel_reason)}
+                        </p>
+                      ) : lineCounterLocked ? (
+                        <p className="text-[10px] text-muted-foreground">
+                          <span className="font-semibold text-foreground">Comptoir : </span>
+                          Récupéré — plus modifiable.
+                        </p>
+                      ) : (
+                        <div className="flex max-w-[320px] flex-col gap-1">
+                          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Résultat comptoir (enregistrement global)
+                          </p>
+                          <label className="flex flex-col gap-0.5 text-[10px] font-normal text-muted-foreground">
+                            <span className="text-[9px] font-semibold uppercase tracking-wide">État</span>
+                            <select
+                              value={counterSelectKeyNormalized(row, f)}
+                              disabled={!counterSelectInteractive || busy}
+                              onChange={(e) => {
+                                const v = e.target.value as "unset" | "picked_up";
+                                patchItemDraft(row.id, {
+                                  counter_outcome_draft: v,
+                                  counter_cancel_reason_draft: null,
+                                  counter_cancel_detail_draft: null,
+                                });
+                              }}
+                              className="h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <option value="unset">En attente</option>
+                              <option value="picked_up">Récupéré</option>
+                            </select>
+                          </label>
+                          <p className="text-[9px] leading-snug text-muted-foreground">
+                            Pour retirer une ligne du dossier validé, utilisez « Écarter la ligne » dans le menu ⋮.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : null;
+
+                return (
+                  <Fragment key={row.id}>
+                    <PharmacistSupplyCompactLine
+                      header={header}
+                      validatedName={validatedName}
+                      validatedQty={validatedQty}
+                      availSentence={availSentence}
+                      unitLabel={unitLabel}
+                      totalLabel={totalLabel}
+                      thumbUrl={thumbUrl}
+                      ringClass={ring}
+                      selected={selected}
+                      lineLockedTrace={lineLockedTrace}
+                      withdrawn={withdrawnDraft}
+                      effAvailRow={effSupply}
+                      canMarkReserved={canMarkReservedSupply}
+                      canMarkOrdered={canMarkOrderedSupply}
+                      fulfillmentDraft={f.fulfillment_draft}
+                      onToggleReserved={() =>
+                        patchItemDraft(row.id, {
+                          fulfillment_draft: f.fulfillment_draft === "reserved" ? "unset" : "reserved",
+                        })
+                      }
+                      onToggleOrdered={() =>
+                        patchItemDraft(row.id, {
+                          fulfillment_draft: f.fulfillment_draft === "ordered" ? "unset" : "ordered",
+                        })
+                      }
+                      hasModifyConsent={hasConsent}
+                      busy={busy}
+                      supplyConfirmBusy={supplyConfirmBusy}
+                      lineCounterLocked={lineCounterLocked}
+                      showExpandedEditor={
+                        selected &&
+                        !lineLockedTrace &&
+                        !lineCounterLocked &&
+                        request.status !== "completed" &&
+                        (withdrawnDraft || hasConsent)
+                      }
+                      expandedEditor={expandedEditor}
+                      treatedCounterSlot={treatedCounterSlot}
+                      menuOpen={supplyMenuRowId === row.id}
+                      onMenuOpenChange={(open) => setSupplyMenuRowId(open ? row.id : null)}
+                      onMenuModify={() => {
+                        if (withdrawnDraft) {
+                          setError("Annulez d’abord l’écart sur cette ligne (bouton dans le bloc orange), puis modifiez.");
+                          setSupplyMenuRowId(null);
+                          return;
+                        }
+                        setSupplyConfirmBlocks([
+                          {
+                            key: `unlock-${row.id}`,
+                            title: `Accord patient · ${validatedName}`,
+                            subtitle: "Canal obligatoire ; précision optionnelle.",
+                          },
+                        ]);
+                        setSupplyConfirmPending({ kind: "unlock_modify", rowId: row.id });
+                        setSupplyConfirmOpen(true);
+                      }}
+                      onMenuWithdraw={() => {
+                        setError("");
+                        patchItemDraft(row.id, {
+                          withdrawn_after_confirm: true,
+                          fulfillment_draft: "unset",
+                        });
+                        setLineModifyConsent((p) => ({
+                          ...p,
+                          [row.id]: p[row.id] ?? { channel: "phone_call", motive: "" },
+                        }));
+                        setSupplyMenuRowId(null);
+                      }}
+                      onMenuHistory={() => setPharmaHistoryRowId(row.id)}
+                      withdrawDisabled={f.fulfillment_draft === "reserved" || lineCounterLocked}
+                      withdrawDisabledReason={
+                        lineCounterLocked
+                          ? "Ligne déjà enregistrée comme récupérée."
+                          : "Retirez d’abord le statut « réservé »."
+                      }
+                    />
+                  </Fragment>
+                );
+              }
+
               return (
-                <li
-                  key={row.id}
-                  className={clsx(
-                    "overflow-visible rounded-2xl border bg-white",
-                    isProposedLine
-                      ? "border-violet-400/80 bg-gradient-to-br from-violet-50/90 via-fuchsia-50/[0.35] to-white shadow-[0_4px_22px_rgba(109,40,217,0.13)] ring-1 ring-violet-300/45"
-                      : "border-slate-200/70 shadow-[0_2px_10px_rgba(15,23,42,0.045)] ring-1 ring-slate-900/[0.025]",
-                    availUi.accentClass,
-                    isProposedLine ? "border-l-[4px] border-l-violet-500" : "border-l-[3px]"
-                  )}
-                >
+                <Fragment key={row.id}>
+                  {header ? (
+                    <li className="list-none pt-2 first:pt-0 sm:pt-2.5">
+                      <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{header}</div>
+                    </li>
+                  ) : null}
+                  <li
+                    className={clsx(
+                      "overflow-visible rounded-2xl border bg-white",
+                      isProposedLine
+                        ? "border-violet-400/80 bg-gradient-to-br from-violet-50/90 via-fuchsia-50/[0.35] to-white shadow-[0_4px_22px_rgba(109,40,217,0.13)] ring-1 ring-violet-300/45"
+                        : "border-slate-200/70 shadow-[0_2px_10px_rgba(15,23,42,0.045)] ring-1 ring-slate-900/[0.025]",
+                      availUi.accentClass,
+                      isProposedLine ? "border-l-[4px] border-l-violet-500" : "border-l-[3px]"
+                    )}
+                  >
                   <div
                     className={clsx(
                       "flex gap-2 border-b px-2.5 py-1.5 sm:gap-2.5 sm:px-3 sm:py-2",
@@ -2308,64 +3137,98 @@ export default function PharmacienDemandeDetailPage() {
                         </div>
                       ) : null}
                       {canManageSupply && selected && !lineLockedTrace && request.status !== "completed" ? (
-                        <label className="flex cursor-pointer items-start gap-2 rounded-md border border-amber-400/85 bg-amber-50/80 px-1.5 py-1 text-[10px] text-amber-950 shadow-sm ring-1 ring-amber-200/55">
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 size-4 shrink-0 accent-amber-700"
-                            checked={withdrawnDraft}
-                            disabled={!canEditThisRow}
-                            onChange={(e) =>
-                              setDraft((prev) => ({
-                                ...prev,
-                                [row.id]: { ...prev[row.id]!, withdrawn_after_confirm: e.target.checked },
-                              }))
-                            }
-                          />
-                          <span>
-                            Écarter après validation&nbsp;: la ligne sort de la liste active avec accord préalable&nbsp;; elle reste
-                            visible pour votre dossier.
-                          </span>
-                        </label>
+                        <div className="flex flex-wrap gap-1.5 rounded-md border border-amber-400/85 bg-amber-50/80 px-1.5 py-1 text-[10px] text-amber-950 shadow-sm ring-1 ring-amber-200/55">
+                          {!row.withdrawn_after_confirm ? (
+                            <button
+                              type="button"
+                              disabled={!canEditThisRow || busy || supplyConfirmBusy}
+                              onClick={() => {
+                                setError("");
+                                patchItemDraft(row.id, {
+                                  withdrawn_after_confirm: true,
+                                  fulfillment_draft: "unset",
+                                });
+                                setLineModifyConsent((p) => ({
+                                  ...p,
+                                  [row.id]: p[row.id] ?? { channel: "phone_call", motive: "" },
+                                }));
+                              }}
+                              className="rounded-md border border-amber-600/90 bg-white px-2 py-1 text-[10px] font-semibold text-amber-950 shadow-sm hover:bg-amber-100/90 disabled:opacity-50"
+                            >
+                              Écarter (accord patient)…
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={!canEditThisRow || busy || supplyConfirmBusy}
+                              onClick={() => {
+                                setError("");
+                                const d = buildItemDraftFromRow({ ...row, withdrawn_after_confirm: false });
+                                patchItemDraft(row.id, d);
+                                setLineModifyConsent((p) => ({
+                                  ...p,
+                                  [row.id]: p[row.id] ?? { channel: "phone_call", motive: "" },
+                                }));
+                              }}
+                              className="rounded-md border border-amber-600/90 bg-white px-2 py-1 text-[10px] font-semibold text-amber-950 shadow-sm hover:bg-amber-100/90 disabled:opacity-50"
+                            >
+                              Réintégrer (accord patient)…
+                            </button>
+                          )}
+                        </div>
                       ) : null}
                       {canManageSupply && selected && !lineLockedTrace && withdrawnDraft ? (
                         <div className="rounded-md border border-amber-500/85 bg-gradient-to-br from-amber-100/95 to-orange-50/80 px-1.5 py-1 text-[10px] text-amber-950 shadow-sm ring-1 ring-amber-300/50">
                           <strong className="font-semibold">Ligne écartée</strong> après validation&nbsp;: aucun statut réservé / commandé
-                          ne s’applique ici. Enregistrez pour tracer le canal de confirmation utilisé avec le patient.
+                          ne s’applique ici.
                         </div>
                       ) : null}
-                      {canManageSupply && selected && !lineLockedTrace && !withdrawnDraft ? (
-                        <div className="rounded-md border border-indigo-200/80 bg-indigo-50/90 px-1.5 py-1 text-[10px] text-indigo-950">
-                          <p className="text-[8px] font-bold uppercase tracking-wide text-indigo-900/90">
-                            Préparation (vue patient)
-                          </p>
-                          <label className="mt-0.5 flex max-w-xs flex-col gap-0">
-                            <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              Statut patient
-                            </span>
-                            <select
-                              className="h-7 rounded-md border border-input bg-background px-1.5 text-[11px] font-medium text-foreground shadow-sm"
-                              value={row.post_confirm_fulfillment ?? "unset"}
-                              disabled={fulfillmentBusyId === row.id}
-                              onChange={(e) =>
-                                void savePostConfirmFulfillment(row.id, e.target.value as "unset" | "reserved" | "ordered")
-                              }
+                      {canManageSupply &&
+                      selected &&
+                      !lineLockedTrace &&
+                      request.status !== "completed" &&
+                      !row.withdrawn_after_confirm ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-2 rounded-md border border-sky-300/80 bg-sky-50/90 px-1.5 py-1 text-[10px] text-sky-950">
+                          <span className="text-[8px] font-bold uppercase tracking-wide text-sky-900/90">
+                            Qté validée (patient)
+                          </span>
+                          <div className="inline-flex items-center gap-1 rounded-md border border-sky-400/60 bg-white px-0.5 py-0.5">
+                            <button
+                              type="button"
+                              disabled={!canEditThisRow || busy}
+                              className="size-7 rounded border border-sky-200 bg-sky-50 text-sm font-bold text-sky-950 hover:bg-sky-100 disabled:opacity-40"
+                              aria-label="Diminuer la quantité validée"
+                              onClick={() => {
+                                const cap = Math.min(10, Math.max(1, row.requested_qty));
+                                const cur = Math.min(cap, Math.max(1, Number(f.selected_qty_str) || 1));
+                                setField(row.id, "selected_qty_str", String(Math.max(1, cur - 1)));
+                              }}
                             >
-                              <option value="unset">À préciser</option>
-                              <option value="reserved" disabled={!canMarkReserved}>
-                                Réservé en officine
-                              </option>
-                              <option value="ordered" disabled={!canMarkOrdered}>
-                                Commandé
-                              </option>
-                            </select>
-                          </label>
-                          <p className="mt-0.5 text-[9px] leading-tight text-indigo-900/88">
-                            {effAvailRow === "available" || effAvailRow === "partially_available"
-                              ? "« Réservé » quand prêt au comptoir."
-                              : effAvailRow === "to_order"
-                                ? "« Commandé » + date prévue sur la ligne."
-                                : "Statuts réservé/commandé non disponibles ici."}
-                          </p>
+                              −
+                            </button>
+                            <span className="min-w-[1.5rem] text-center text-[11px] font-bold tabular-nums">
+                              {Math.min(
+                                Math.min(10, Math.max(1, row.requested_qty)),
+                                Math.max(1, Number(f.selected_qty_str) || 1)
+                              )}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={!canEditThisRow || busy}
+                              className="size-7 rounded border border-sky-200 bg-sky-50 text-sm font-bold text-sky-950 hover:bg-sky-100 disabled:opacity-40"
+                              aria-label="Augmenter la quantité validée"
+                              onClick={() => {
+                                const cap = Math.min(10, Math.max(1, row.requested_qty));
+                                const cur = Math.min(cap, Math.max(1, Number(f.selected_qty_str) || 1));
+                                setField(row.id, "selected_qty_str", String(Math.min(cap, cur + 1)));
+                              }}
+                            >
+                              +
+                            </button>
+                          </div>
+                          <span className="text-[9px] leading-tight text-sky-900/85">
+                            Max {Math.min(10, Math.max(1, row.requested_qty))} · inclus dans «&nbsp;Enregistrer avec traçabilité&nbsp;»
+                          </span>
                         </div>
                       ) : null}
                     </div>
@@ -2792,68 +3655,54 @@ export default function PharmacienDemandeDetailPage() {
 
                   {showInlineCounter ? (
                     <div className="border-t border-slate-100 bg-slate-50/25 px-3 py-2">
-                        {!selected ? (
-                          <p className="text-[10px] text-muted-foreground">
-                            Patient n&apos;ayant pas retenu cette ligne après votre réponse. État au comptoir :{" "}
-                            <strong className="text-foreground">
-                              {counterOutcomeLabelPharmacien(co, row.counter_cancel_reason)}
-                            </strong>
+                      {!selected ? (
+                        <p className="text-[10px] text-muted-foreground">
+                          Patient n&apos;ayant pas retenu cette ligne après votre réponse. État au comptoir :{" "}
+                          <strong className="text-foreground">
+                            {counterOutcomeLabelPharmacien(co, row.counter_cancel_reason)}
+                          </strong>
+                        </p>
+                      ) : co === "cancelled_at_counter" ? (
+                        <p className="text-[10px] text-muted-foreground">
+                          <span className="font-semibold text-foreground">Comptoir : </span>
+                          {counterOutcomeLabelPharmacien(co, row.counter_cancel_reason)}
+                        </p>
+                      ) : (row.counter_outcome ?? "unset") === "picked_up" ? (
+                        <p className="text-[10px] text-muted-foreground">
+                          <span className="font-semibold text-foreground">Comptoir : </span>
+                          Récupéré — plus modifiable.
+                        </p>
+                      ) : (
+                        <div className="flex max-w-[320px] flex-col gap-1">
+                          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Résultat comptoir
                           </p>
-                        ) : (
-                          <div className="flex max-w-[320px] flex-col gap-1">
-                            <label className="flex flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              Résultat
-                              <select
-                                value={counterSelectKeyFromRow(row)}
-                                disabled={outcomeSelectDisabled}
-                                onChange={(e) => {
-                                  const decoded = decodeCounterSelectKey(e.target.value);
-                                  void saveCounterOutcome(
-                                    row.id,
-                                    decoded.outcome,
-                                    decoded.cancelReason,
-                                    decoded.outcome === "cancelled_at_counter" ? row.counter_cancel_detail : null
-                                  );
-                                }}
-                            className={`h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] ${
-                                  request.status === "completed" ? "cursor-not-allowed opacity-60" : ""
-                                }`}
-                              >
-                                <option value="unset">À traiter</option>
-                                <option value="picked_up">Remis au client</option>
-                                <option value="deferred_next_visit">Plus tard</option>
-                                <option value="cancelled_at_counter:client_request">Annulé à la demande du client</option>
-                                <option value="cancelled_at_counter:pharmacy_unable">Annulé par la pharmacie</option>
-                              </select>
-                            </label>
-                            {co === "cancelled_at_counter" ? (
-                              <label className="flex flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                Détail (optionnel)
-                                <input
-                                  type="text"
-                                  defaultValue={row.counter_cancel_detail ?? ""}
-                                  disabled={outcomeSelectDisabled}
-                                  placeholder="Ex. appel téléphonique du 7 mai"
-                                  onBlur={(e) => {
-                                    const next = e.target.value.trim().slice(0, 1000);
-                                    if ((row.counter_cancel_detail ?? "") === next) return;
-                                    void saveCounterOutcome(
-                                      row.id,
-                                      "cancelled_at_counter",
-                                      row.counter_cancel_reason ?? "client_request",
-                                      next || null
-                                    );
-                                  }}
-                                  className="h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] normal-case"
-                                />
-                              </label>
-                            ) : null}
-                            {counterBusyId === row.id ? <span className="text-[10px] text-muted-foreground">Enregistrement…</span> : null}
-                          </div>
-                        )}
-                      </div>
-                    ) : null}
-                </li>
+                          <label className="flex flex-col gap-0.5 text-[10px] font-normal text-muted-foreground">
+                            <span className="text-[9px] font-semibold uppercase tracking-wide">État</span>
+                            <select
+                              value={counterSelectKeyNormalized(row, draft[row.id] ?? buildItemDraftFromRow(row))}
+                              disabled={outcomeSelectDisabled}
+                              onChange={(e) => {
+                                const v = e.target.value as "unset" | "picked_up";
+                                void saveCounterOutcome(row.id, v, null, null);
+                              }}
+                              className={`h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] ${
+                                request.status === "completed" ? "cursor-not-allowed opacity-60" : ""
+                              }`}
+                            >
+                              <option value="unset">En attente</option>
+                              <option value="picked_up">Récupéré</option>
+                            </select>
+                          </label>
+                          {counterBusyId === row.id ? (
+                            <span className="text-[10px] text-muted-foreground">Enregistrement…</span>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                  </li>
+                </Fragment>
               );
             })}
           </ul>
@@ -3044,38 +3893,14 @@ export default function PharmacienDemandeDetailPage() {
               ) : null}
               {canManageSupply ? (
                 <div className="space-y-2 rounded-xl border border-sky-400/85 bg-gradient-to-br from-sky-50 via-white to-white p-3 shadow-sm ring-1 ring-sky-400/55 sm:p-3.5">
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Canal utilisé lorsque cette sauvegarde modifie le dossier (obligatoire si changement hors « réservé / commandé »
-                      uniquement)
-                    </label>
-                    <select
-                      value={supplyClientChannel}
-                      onChange={(e) => setSupplyClientChannel(e.target.value)}
-                      className="h-9 max-w-xs rounded-lg border border-sky-200 bg-background px-2 text-[12px] font-medium text-foreground shadow-sm sm:text-[11px]"
-                    >
-                      {SUPPLY_AMEND_CHANNEL_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                    <textarea
-                      value={supplyClientMotive}
-                      onChange={(e) => setSupplyClientMotive(e.target.value.slice(0, 500))}
-                      rows={2}
-                      placeholder="Précision commune à ce lot (optionnel)."
-                      className="w-full max-w-xl rounded-lg border border-sky-200 bg-background px-2 py-1.5 text-[11px] shadow-sm placeholder:text-muted-foreground sm:text-[10px]"
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
                     <button
                       type="button"
                       disabled={busy}
-                      onClick={() => void saveConfirmedAdjustments()}
-                      className="inline-flex h-11 min-w-[220px] flex-1 items-center justify-center rounded-xl border border-sky-700/80 bg-sky-950 px-4 text-[13px] font-bold text-white shadow-md transition hover:bg-sky-900 disabled:opacity-50 sm:flex-none sm:text-sm"
+                      onClick={() => startSaveConfirmedAdjustments()}
+                      className="inline-flex h-11 min-h-11 min-w-0 flex-1 items-center justify-center rounded-xl border border-sky-700/80 bg-sky-950 px-4 text-[13px] font-bold text-white shadow-md transition hover:bg-sky-900 disabled:opacity-50 sm:min-w-[220px] sm:text-sm"
                     >
-                      {busy ? "Enregistrement…" : "Enregistrer avec traçabilité"}
+                      {busy ? "Enregistrement…" : "Enregistrer les modifications"}
                     </button>
                     {(request.status === "confirmed" || request.status === "processing") &&
                     declarationTreatedEligible &&
@@ -3084,15 +3909,17 @@ export default function PharmacienDemandeDetailPage() {
                         type="button"
                         disabled={declareTreatedBusy}
                         onClick={() => void runDeclareRequestTreated()}
-                        className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-cyan-500/95 bg-white px-4 text-[13px] font-semibold text-cyan-950 shadow-sm transition hover:bg-cyan-50 disabled:opacity-50 sm:flex-none sm:text-sm"
+                        title="Déclare la demande prête côté officine (le dossier reste lisible de la même façon)"
+                        className="inline-flex h-11 min-h-11 shrink-0 items-center justify-center rounded-xl border border-cyan-500/95 bg-white px-5 text-center text-sm font-semibold leading-tight text-cyan-950 shadow-sm transition hover:bg-cyan-50 disabled:opacity-50 sm:max-w-[220px] sm:text-[13px]"
                       >
-                        {declareTreatedBusy ? "Déclaration…" : "Déclarer la demande traitée"}
+                        {declareTreatedBusy ? (
+                          "Déclaration…"
+                        ) : (
+                          <span className="block whitespace-nowrap">Demande prête · 100&nbsp;%</span>
+                        )}
                       </button>
                     ) : null}
                   </div>
-                  <p className="text-[10px] leading-snug text-muted-foreground">
-                    « Déclarer traitée » reste désactivée tant que chaque ligne retenue vivante nécessite un « réservé » ou « commandé » conforme aux voies officine/commande&nbsp;; les lignes écartées seules ne bloquent pas.
-                  </p>
                 </div>
               ) : null}
             </section>
@@ -3125,7 +3952,11 @@ export default function PharmacienDemandeDetailPage() {
               </button>
               {!canCompleteCounter ? (
                 <p className="mt-2 text-[11px] text-amber-900">
-                  Avant clôture, chaque ligne retenue doit recevoir un résultat comptoir.
+                  Enregistrez au moins une ligne retenue comme « Récupéré » au comptoir pour activer la clôture.
+                </p>
+              ) : counterClosurePendingTracked > 0 ? (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  {counterClosurePendingTracked} ligne(s) encore en attente au comptoir — la confirmation vous le rappellera.
                 </p>
               ) : null}
             </section>
@@ -3219,6 +4050,38 @@ export default function PharmacienDemandeDetailPage() {
           )}
         </>
       )}
+      <PharmacistSupplyAmendmentConfirmModal
+        open={supplyConfirmOpen}
+        onClose={() => {
+          if (supplyConfirmBusy) return;
+          setSupplyConfirmOpen(false);
+          setSupplyConfirmPending(null);
+        }}
+        heading={
+          supplyConfirmPending?.kind === "unlock_modify"
+            ? "Autoriser la modification de la ligne"
+            : "Ajouter un produit après validation"
+        }
+        intro={
+          supplyConfirmPending?.kind === "unlock_modify"
+            ? "Le canal et la précision optionnelle sont enregistrés pour le patient."
+            : "Indiquez comment le patient a donné son accord."
+        }
+        blocks={supplyConfirmBlocks}
+        confirmLabel={supplyConfirmPending?.kind === "add_line" ? "Valider et enregistrer" : "Valider"}
+        busy={supplyConfirmBusy}
+        onConfirm={(fills) => void applySupplyModalConfirm(fills)}
+      />
+      <LineHistoryModalFr
+        open={pharmaHistoryRowId != null}
+        title={
+          pharmaHistoryRowId
+            ? validatedProductLabel(items.find((i) => i.id === pharmaHistoryRowId) as PatientLineLike)
+            : ""
+        }
+        blocks={pharmaHistoryBlocks}
+        onClose={() => setPharmaHistoryRowId(null)}
+      />
     </PageShell>
   );
 }

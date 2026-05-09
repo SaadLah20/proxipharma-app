@@ -43,6 +43,9 @@ import {
   buildPatientLineTimelineFr,
   type PatientLineTimelineBlockFr,
 } from "@/lib/build-patient-line-timeline-fr";
+import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
+import { patientLineSuiviModel } from "@/lib/patient-line-suivi-fr";
+import { isRequestItemAddedAfterPatientConfirmation } from "@/lib/supply-line-post-confirm";
 
 type ProdBrief = { name: string; price_pph?: number | null; photo_url?: string | null };
 
@@ -241,86 +244,22 @@ function compactTotalMadLabel(t: { sumKnown: number; missingPrice: boolean; empt
   return `Total · ${t.sumKnown.toFixed(2)} MAD`;
 }
 
-function PatientLineHistoryModal({
-  open,
-  title,
-  blocks,
-  onClose,
+function PatientLineSuiviStrip({
+  row,
+  bundles,
 }: {
-  open: boolean;
-  title: string;
-  blocks: PatientLineTimelineBlockFr[];
-  onClose: () => void;
+  row: ActionItemRow;
+  bundles: { id: string; created_at: string; amendments: unknown }[];
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
+  const m = patientLineSuiviModel(row, bundles);
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true">
-      <button type="button" className="absolute inset-0 bg-black/50" aria-label="Fermer" onClick={onClose} />
-      <div className="relative z-10 flex max-h-[min(90dvh,34rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-2xl">
-        <div className="flex items-start justify-between gap-2 border-b border-border px-2.5 py-2">
-          <div className="min-w-0 flex-1">
-            <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Historique produit</p>
-            <p className="truncate text-[12px] font-semibold leading-tight">{title}</p>
-          </div>
-          <button type="button" onClick={onClose} className="shrink-0 rounded-lg p-1 text-foreground hover:bg-muted" aria-label="Fermer">
-            <X className="size-4" />
-          </button>
-        </div>
-        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto px-2.5 py-2">
-          {blocks.length === 0 ? (
-            <p className="text-[12px] leading-snug text-muted-foreground">
-              Impossible d&apos;afficher la chronologie (dates dossier ou ligne manquantes). Les informations générales restent disponibles plus
-              bas sur cette page (historique du dossier).
-            </p>
-          ) : (
-          <ol className="relative ms-2 space-y-2 border-s border-border/90 ps-3">
-            {blocks.map((b) => (
-              <li key={b.id} className="relative">
-                <span
-                  className={`absolute -start-[17px] top-2 size-2 rounded-full border bg-background shadow-sm ${
-                    b.isCurrent ? "border-emerald-500 ring-1 ring-emerald-200/80" : "border-muted-foreground/40"
-                  }`}
-                  aria-hidden
-                />
-                <div
-                  className={`rounded-md border px-2 py-1.5 ${
-                    b.isCurrent ? "border-emerald-200/80 bg-emerald-50/55" : "border-border/80 bg-muted/20"
-                  }`}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-0.5">
-                    <p className="text-[11px] font-semibold leading-snug">{b.title}</p>
-                    <time className="shrink-0 text-[9px] tabular-nums text-muted-foreground" dateTime={b.atIso ?? undefined}>
-                      {b.atLabel}
-                    </time>
-                  </div>
-                  <p className="mt-0.5 text-[9px] text-muted-foreground">{b.actorLabel}</p>
-                  <p className="mt-1 whitespace-pre-wrap text-[10px] leading-snug text-foreground">{b.body}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-          )}
-        </div>
-      </div>
+    <div className="border-t border-slate-200/90 bg-slate-50/95 px-2 py-1.5 text-[9px] leading-snug text-slate-800">
+      <p>
+        <span className="font-bold text-slate-900">Suivi · </span>
+        {m.etat}
+      </p>
+      {m.modif ? <p className="mt-0.5 text-slate-700">{m.modif}</p> : null}
+      {m.ajout ? <p className="mt-0.5 text-violet-900/90">{m.ajout}</p> : null}
     </div>
   );
 }
@@ -330,10 +269,14 @@ function PatientValidatedCompactLineCard({
   row,
   tier,
   onOpenHistory,
+  suivi,
+  supplyAmendmentBundles = [],
 }: {
   row: ActionItemRow;
   tier: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation";
   onOpenHistory: () => void;
+  suivi?: ReactNode;
+  supplyAmendmentBundles?: { id: string; created_at: string; amendments: unknown }[];
 }) {
   const prod = one(row.products);
   const altList = normalizeAlternatives(row.request_item_alternatives);
@@ -366,9 +309,18 @@ function PatientValidatedCompactLineCard({
           ? "border-amber-300/85 hover:border-amber-400"
           : "border-border/85 hover:border-muted-foreground/35";
 
+  const withdrawnGrey = tier === "retire_apres_validation";
+  const showAjoutOfficineBadge =
+    row.line_source === "pharmacist_proposed" &&
+    isRequestItemAddedAfterPatientConfirmation(row.id, supplyAmendmentBundles);
   return (
-    <li className={`flex items-stretch gap-2 rounded-md border bg-card p-1.5 shadow-sm transition ${ring}`}>
-      <div className="relative aspect-square min-h-11 shrink-0 self-stretch overflow-hidden rounded border border-border/70 bg-muted/20">
+    <li
+      className={`overflow-hidden rounded-md border bg-card shadow-sm transition ${ring} ${
+        withdrawnGrey ? "opacity-[0.72] saturate-[0.65]" : ""
+      }`}
+    >
+      <div className="flex items-stretch gap-2 p-1.5">
+        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded border border-border/70 bg-muted/20">
         {thumbUrl ? (
           <img src={thumbUrl} alt="" className="size-full object-cover" />
         ) : (
@@ -382,6 +334,11 @@ function PatientValidatedCompactLineCard({
           <p className="line-clamp-2 text-[11px] font-semibold leading-snug text-foreground">{validatedName}</p>
           <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
             <span className="tabular-nums font-medium text-foreground">Qté {validatedQty}</span>
+            {showAjoutOfficineBadge ? (
+              <span className="ms-1 rounded bg-violet-100 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-violet-950">
+                Ajout officine
+              </span>
+            ) : null}
             {tier === "retire_apres_validation" ? (
               <span className="ms-1 rounded bg-amber-100 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-950">
                 Écart
@@ -402,7 +359,9 @@ function PatientValidatedCompactLineCard({
               ·
             </span>
             <span className="text-foreground/90">Total </span>
-            <span className="tabular-nums font-semibold text-primary">
+            <span
+              className={`tabular-nums font-semibold text-primary ${withdrawnGrey ? "line-through decoration-muted-foreground/70" : ""}`}
+            >
               {lineTotalMad != null ? `${lineTotalMad.toFixed(2)} MAD` : "—"}
             </span>
           </p>
@@ -418,7 +377,9 @@ function PatientValidatedCompactLineCard({
             <History className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
           </button>
         </div>
+        </div>
       </div>
+      {suivi}
     </li>
   );
 }
@@ -439,7 +400,7 @@ function PatientTraceNotRetainedRow({
     ) : null;
   return (
     <li className="flex items-stretch gap-2 rounded-md border border-border/70 bg-muted/15 px-2 py-1.5">
-      <div className="relative aspect-square min-h-10 shrink-0 self-stretch overflow-hidden rounded border border-border/60 bg-card">
+      <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded border border-border/60 bg-card">
         {prod?.photo_url ? (
           <img src={prod.photo_url} alt="" className="size-full object-cover" />
         ) : (
@@ -1711,6 +1672,7 @@ export function PatientProductRequestActions({
             missingPrice: totalsRetained.missingPrice,
             empty: totalsRetained.count < 1,
           });
+          const showLineSuivi = status === "confirmed" || status === "processing";
 
           return (
             <div className="space-y-2">
@@ -1757,7 +1719,13 @@ export function PatientProductRequestActions({
                         key={row.id}
                         row={row}
                         tier="dispo_officine"
+                        supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        suivi={
+                          showLineSuivi ? (
+                            <PatientLineSuiviStrip row={row} bundles={supplyAmendmentBundles} />
+                          ) : undefined
+                        }
                       />
                     ))}
                   </ul>
@@ -1787,7 +1755,13 @@ export function PatientProductRequestActions({
                         key={row.id}
                         row={row}
                         tier="commande"
+                        supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        suivi={
+                          showLineSuivi ? (
+                            <PatientLineSuiviStrip row={row} bundles={supplyAmendmentBundles} />
+                          ) : undefined
+                        }
                       />
                     ))}
                   </ul>
@@ -1809,7 +1783,13 @@ export function PatientProductRequestActions({
                         key={row.id}
                         row={row}
                         tier="hors_perimetre"
+                        supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        suivi={
+                          showLineSuivi ? (
+                            <PatientLineSuiviStrip row={row} bundles={supplyAmendmentBundles} />
+                          ) : undefined
+                        }
                       />
                     ))}
                   </ul>
@@ -1833,7 +1813,13 @@ export function PatientProductRequestActions({
                         key={row.id}
                         row={row}
                         tier="retire_apres_validation"
+                        supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        suivi={
+                          showLineSuivi ? (
+                            <PatientLineSuiviStrip row={row} bundles={supplyAmendmentBundles} />
+                          ) : undefined
+                        }
                       />
                     ))}
                   </ul>
@@ -2335,7 +2321,7 @@ export function PatientProductRequestActions({
         </div>
       ) : null}
 
-      <PatientLineHistoryModal
+      <LineHistoryModalFr
         open={historyModalItemId !== null}
         title={historyModalRow ? validatedProductLabel(historyModalRow) : ""}
         blocks={historyModalBlocks}

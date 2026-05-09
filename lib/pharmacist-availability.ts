@@ -21,6 +21,12 @@ export const PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS: { value: string; label: s
   { value: "to_order", label: "À commander" },
 ];
 
+/** Après validation patient : pas d’indispo / rupture, seulement ajustement vers « à commander » ou dispo. */
+export const PHARMACIST_SUPPLY_POST_CONFIRM_AVAILABILITY_OPTIONS: { value: string; label: string }[] = [
+  { value: "available", label: "Disponible" },
+  { value: "to_order", label: "À commander" },
+];
+
 /**
  * Dérive automatiquement « partially_available » lorsque le pharmacien renseigne
  * un statut « available » avec une quantité < quantité demandée.
