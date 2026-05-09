@@ -1,14 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { flushSync } from "react-dom";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal, flushSync } from "react-dom";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import {
   CalendarClock,
   ChevronDown,
-  Hash,
   Layers,
   Mail,
   MessageCircle,
@@ -458,6 +457,9 @@ function PharmacienAvailabilityDropdown({
   options: readonly { value: string; label: string }[];
   onPick: (value: string) => void;
 }) {
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const [menuRect, setMenuRect] = useState<{ top: number; left: number; width: number } | null>(null);
+
   const qty = Number(availableQtyStr || "0");
   const q = Number.isFinite(qty) ? qty : 0;
   const inferred = inferAvailabilityStatusFromQty({
@@ -469,8 +471,38 @@ function PharmacienAvailabilityDropdown({
   const ui = availabilityStatusUi(inferred);
   const CurIcon = ui.Icon;
 
+  useLayoutEffect(() => {
+    if (!menuOpen || !anchorRef.current) {
+      setMenuRect(null);
+      return undefined;
+    }
+    const sync = () => {
+      const el = anchorRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const vw = typeof window !== "undefined" ? window.innerWidth : 400;
+      const width = Math.max(r.width, 200);
+      let left = r.left;
+      if (left + width > vw - 8) {
+        left = Math.max(8, vw - width - 8);
+      }
+      setMenuRect({
+        top: r.bottom + 4,
+        left,
+        width,
+      });
+    };
+    sync();
+    window.addEventListener("scroll", sync, true);
+    window.addEventListener("resize", sync);
+    return () => {
+      window.removeEventListener("scroll", sync, true);
+      window.removeEventListener("resize", sync);
+    };
+  }, [menuOpen]);
+
   return (
-    <div className="relative min-w-[8.5rem] flex-1" data-pharma-avail-anchor={rowId}>
+    <div ref={anchorRef} className="relative min-w-[8.5rem] flex-1" data-pharma-avail-anchor={rowId}>
       <button
         type="button"
         disabled={disabled}
@@ -489,47 +521,59 @@ function PharmacienAvailabilityDropdown({
         <span className="min-w-0 flex-1 truncate">{ui.label}</span>
         <ChevronDown className={clsx("size-4 shrink-0 text-muted-foreground transition-transform", menuOpen && "rotate-180")} />
       </button>
-      {menuOpen ? (
-        <ul
-          role="listbox"
-          aria-label="Disponibilité"
-          className="absolute left-0 right-0 z-50 mt-1 max-h-[14rem] space-y-0.5 overflow-auto rounded-xl border border-border/90 bg-card py-1 shadow-lg ring-1 ring-black/[0.06]"
-        >
-          {options.map((o) => {
-            const inferredOpt = inferAvailabilityStatusFromQty({
-              status: o.value,
-              availableQty: q,
-              requestedQty,
-              isProposedLine,
-            });
-            const oUi = availabilityStatusUi(inferredOpt);
-            const OIcon = oUi.Icon;
-            const selected = draftStatus === o.value;
-            return (
-              <li key={o.value} role="none">
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={selected}
-                  className={clsx(
-                    "flex w-full items-center gap-2 px-2.5 py-2 text-left text-[11px] font-medium transition",
-                    selected
-                      ? "bg-primary/12 text-primary"
-                      : "text-foreground hover:bg-muted/65"
-                  )}
-                  onClick={() => {
-                    onPick(o.value);
-                    onOpenChange(false);
-                  }}
-                >
-                  <OIcon className="size-3.5 shrink-0 opacity-90" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate">{o.label}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
+      {menuOpen && menuRect && typeof document !== "undefined"
+        ? createPortal(
+            <ul
+              role="listbox"
+              aria-label="Disponibilité"
+              data-pharma-avail-menu={rowId}
+              style={{
+                position: "fixed",
+                top: menuRect.top,
+                left: menuRect.left,
+                width: menuRect.width,
+                zIndex: 10050,
+                maxHeight: "min(14rem, 55vh)",
+              }}
+              className="space-y-0.5 overflow-auto rounded-xl border border-border/90 bg-card py-1 shadow-xl ring-1 ring-black/[0.08]"
+            >
+              {options.map((o) => {
+                const inferredOpt = inferAvailabilityStatusFromQty({
+                  status: o.value,
+                  availableQty: q,
+                  requestedQty,
+                  isProposedLine,
+                });
+                const oUi = availabilityStatusUi(inferredOpt);
+                const OIcon = oUi.Icon;
+                const selected = draftStatus === o.value;
+                return (
+                  <li key={o.value} role="none">
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={selected}
+                      className={clsx(
+                        "flex w-full items-center gap-2 px-2.5 py-2 text-left text-[11px] font-medium transition",
+                        selected
+                          ? "bg-primary/12 text-primary"
+                          : "text-foreground hover:bg-muted/65"
+                      )}
+                      onClick={() => {
+                        onPick(o.value);
+                        onOpenChange(false);
+                      }}
+                    >
+                      <OIcon className="size-3.5 shrink-0 opacity-90" aria-hidden />
+                      <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
@@ -558,6 +602,8 @@ export default function PharmacienDemandeDetailPage() {
   const [supplyClientChannel, setSupplyClientChannel] = useState("phone_call");
   const [supplyClientMotive, setSupplyClientMotive] = useState("");
   const [patientProfile, setPatientProfile] = useState<PatientBrief | null>(null);
+  /** Affiche téléphone / e-mail sous un bouton « Contacter » (noms longs, en-tête aéré). */
+  const [patientContactOpen, setPatientContactOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelBusy, setCancelBusy] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -617,6 +663,7 @@ export default function PharmacienDemandeDetailPage() {
     if (!id) return;
     setError("");
     setPatientProfile(null);
+    setPatientContactOpen(false);
     const { data: auth } = await supabase.auth.getSession();
     const user = auth.session?.user;
     if (!user) {
@@ -799,10 +846,12 @@ export default function PharmacienDemandeDetailPage() {
   useEffect(() => {
     if (availabilityMenuRowId === null) return undefined;
     const onDocMouseDown = (e: MouseEvent) => {
-      const root = document.querySelector(`[data-pharma-avail-anchor="${availabilityMenuRowId}"]`);
-      if (root instanceof HTMLElement && !root.contains(e.target as Node)) {
-        setAvailabilityMenuRowId(null);
-      }
+      const t = e.target as Node;
+      const anchor = document.querySelector(`[data-pharma-avail-anchor="${availabilityMenuRowId}"]`);
+      const menu = document.querySelector(`[data-pharma-avail-menu="${availabilityMenuRowId}"]`);
+      if (anchor instanceof HTMLElement && anchor.contains(t)) return;
+      if (menu instanceof HTMLElement && menu.contains(t)) return;
+      setAvailabilityMenuRowId(null);
     };
     document.addEventListener("mousedown", onDocMouseDown);
     return () => document.removeEventListener("mousedown", onDocMouseDown);
@@ -1752,7 +1801,7 @@ export default function PharmacienDemandeDetailPage() {
       <PageShell maxWidthClass="max-w-5xl">
         <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</p>
         <Link href="/dashboard/pharmacien/demandes" className="mt-3 inline-block text-xs font-medium text-emerald-900 underline">
-          Demandes pharmacie
+          Demandes de produits
         </Link>
       </PageShell>
     );
@@ -1779,27 +1828,52 @@ export default function PharmacienDemandeDetailPage() {
       (i.counter_outcome ?? "unset") === "picked_up"
   ).length;
 
+  const statusLabelFull = requestStatusFr[request.status] ?? request.status;
+
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-2 sm:space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link href="/dashboard/pharmacien/demandes" className="text-xs font-medium text-emerald-900 underline">
-          ← Demandes de produits
-        </Link>
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
-          <span className="font-mono text-[10px] font-semibold text-foreground">{displayRequestPublicRef(request)}</span>
-          <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-            {formatDateTimeShort24hFr(request.submitted_at ?? request.created_at)}
-          </span>
-          <span className="rounded-full border border-border/80 bg-muted/50 px-2 py-0.5 text-[10px] font-semibold text-foreground">
-            {requestStatusFr[request.status] ?? request.status}
-          </span>
-          {isProduct ? (
-            <span className="rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-900">
-              {displayRows.length} ligne{displayRows.length !== 1 ? "s" : ""}
+      <Link href="/dashboard/pharmacien/demandes" className="inline-block text-xs font-medium text-emerald-900 underline">
+        ← Retour aux demandes de produits
+      </Link>
+
+      <header className="rounded-2xl border-2 border-emerald-200/85 bg-gradient-to-br from-emerald-50/80 via-white to-white p-3 shadow-sm ring-1 ring-emerald-900/[0.06] sm:p-3.5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-950/85">Demande de produits</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs font-semibold text-foreground">{displayRequestPublicRef(request)}</span>
+              {isProduct ? (
+                <span className="rounded-md border border-emerald-200/90 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-950">
+                  {displayRows.length} ligne{displayRows.length !== 1 ? "s" : ""}
+                </span>
+              ) : null}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Reçue / mise à jour :{" "}
+              <span className="font-semibold tabular-nums text-foreground">
+                {formatDateTimeShort24hFr(request.submitted_at ?? request.created_at)}
+              </span>
+            </p>
+          </div>
+          <div className="flex w-full shrink-0 flex-col items-stretch gap-1 sm:w-auto sm:items-end">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Statut</span>
+            <span
+              className={clsx(
+                "inline-flex justify-center rounded-full border-2 px-3 py-2 text-center text-sm font-bold leading-tight shadow-sm sm:min-w-[10.5rem]",
+                ["submitted", "in_review"].includes(request.status)
+                  ? "border-amber-400/90 bg-amber-100 text-amber-950"
+                  : request.status === "responded"
+                    ? "border-sky-400/85 bg-sky-100 text-sky-950"
+                    : ["confirmed", "processing", "treated"].includes(request.status)
+                      ? "border-teal-500/85 bg-teal-100 text-teal-950"
+                      : "border-border bg-muted/40 text-foreground"
+              )}
+            >
+              {statusLabelFull}
             </span>
-          ) : null}
+          </div>
         </div>
-      </div>
+      </header>
 
       {(pharmacistRequestIsHardStopped(request.status) || pharmacistRequestIsClosedSuccess(request.status)) && isProduct ? (
         <section className="rounded-xl border border-border bg-muted/25 px-3 py-2.5 text-[11px] text-muted-foreground">
@@ -1814,10 +1888,10 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      <section className="overflow-hidden rounded-2xl border-2 border-emerald-100 bg-gradient-to-br from-white via-white to-emerald-50/30 shadow-[0_2px_14px_rgba(16,185,129,0.08)] ring-1 ring-black/[0.04]">
+      <section className="rounded-2xl border-2 border-emerald-100 bg-gradient-to-br from-white via-white to-emerald-50/30 shadow-[0_2px_14px_rgba(16,185,129,0.08)] ring-1 ring-black/[0.04]">
         <div className="h-1 w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" aria-hidden />
-        <div className="flex flex-wrap items-start justify-between gap-2 px-2.5 py-2 sm:gap-3 sm:px-3.5 sm:py-2.5">
-          <div className="flex min-w-0 flex-1 gap-3">
+        <div className="space-y-3 px-2.5 py-2.5 sm:px-3.5 sm:py-3">
+          <div className="flex gap-3">
             <span
               className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600/95 text-white shadow-inner"
               title="Client"
@@ -1825,60 +1899,84 @@ export default function PharmacienDemandeDetailPage() {
             >
               <User className="size-5" strokeWidth={2} />
             </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold leading-tight text-foreground sm:text-base">
-                {patientHeadingName(patientProfile, request.patient_id)}
-              </p>
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
-                <span className="inline-flex items-center gap-0.5 font-mono font-semibold text-foreground">
-                  <Hash className="size-3 opacity-70" aria-hidden />
-                  {patientProfile?.patient_ref?.trim() || `#${formatShortId(request.patient_id)}`}
-                </span>
-                <span className="text-muted-foreground/50" aria-hidden>
-                  ·
-                </span>
-                <span className="font-mono text-[10px] font-medium text-emerald-900/90">{displayRequestPublicRef(request)}</span>
+            <div className="min-w-0 flex-1 space-y-2">
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Nom du client</p>
+                <p className="break-words text-sm font-bold leading-snug text-foreground sm:text-[15px]">
+                  {patientHeadingName(patientProfile, request.patient_id)}
+                </p>
               </div>
+              <dl className="grid gap-2 text-[11px] sm:grid-cols-2 sm:gap-x-4">
+                <div className="min-w-0 space-y-0.5">
+                  <dt className="font-semibold uppercase tracking-wide text-muted-foreground">Réf. commande</dt>
+                  <dd className="break-all font-mono font-semibold text-emerald-950">{displayRequestPublicRef(request)}</dd>
+                </div>
+                <div className="min-w-0 space-y-0.5">
+                  <dt className="font-semibold uppercase tracking-wide text-muted-foreground">Réf. client</dt>
+                  <dd className="break-all font-mono font-semibold text-foreground">
+                    {patientProfile?.patient_ref?.trim() || `— (patient #${formatShortId(request.patient_id)})`}
+                  </dd>
+                </div>
+              </dl>
             </div>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-            {patientPhone ? (
-              <>
-                <a
-                  href={telHref(patientPhone)}
-                  className="inline-flex size-9 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
-                  title={`Appeler ${patientPhone}`}
-                >
-                  <Phone className="size-4" aria-hidden />
-                </a>
-                <a
-                  href={whatsappHref(patientPhone)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex size-9 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
-                  title="WhatsApp"
-                >
-                  <MessageCircle className="size-4" aria-hidden />
-                </a>
-                <a
-                  href={smsHref(patientPhone)}
-                  className="inline-flex size-9 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
-                  title="SMS"
-                >
-                  <MessageSquare className="size-4" aria-hidden />
-                </a>
-              </>
-            ) : null}
-            {patientEmail ? (
-              <a
-                href={`mailto:${patientEmail}`}
-                className="inline-flex size-9 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
-                title={patientEmail}
+          {(patientPhone || patientEmail) && (
+            <div className="border-t border-emerald-100/90 pt-3">
+              <button
+                type="button"
+                aria-expanded={patientContactOpen}
+                onClick={() => setPatientContactOpen((v) => !v)}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300/90 bg-white px-3 py-2 text-xs font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-50 sm:w-auto"
               >
-                <Mail className="size-4" aria-hidden />
-              </a>
-            ) : null}
-          </div>
+                <Phone className="size-4 shrink-0 opacity-90" aria-hidden />
+                Contacter
+                <ChevronDown
+                  className={clsx("size-4 shrink-0 text-emerald-800/80 transition-transform", patientContactOpen && "rotate-180")}
+                  aria-hidden
+                />
+              </button>
+              {patientContactOpen ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {patientPhone ? (
+                    <>
+                      <a
+                        href={telHref(patientPhone)}
+                        className="inline-flex size-10 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+                        title={`Appeler ${patientPhone}`}
+                      >
+                        <Phone className="size-4" aria-hidden />
+                      </a>
+                      <a
+                        href={whatsappHref(patientPhone)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex size-10 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+                        title="WhatsApp"
+                      >
+                        <MessageCircle className="size-4" aria-hidden />
+                      </a>
+                      <a
+                        href={smsHref(patientPhone)}
+                        className="inline-flex size-10 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+                        title="SMS"
+                      >
+                        <MessageSquare className="size-4" aria-hidden />
+                      </a>
+                    </>
+                  ) : null}
+                  {patientEmail ? (
+                    <a
+                      href={`mailto:${patientEmail}`}
+                      className="inline-flex size-10 items-center justify-center rounded-xl border border-emerald-200/80 bg-white text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+                      title={patientEmail}
+                    >
+                      <Mail className="size-4" aria-hidden />
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
       </section>
 
@@ -2084,7 +2182,7 @@ export default function PharmacienDemandeDetailPage() {
                 <li
                   key={row.id}
                   className={clsx(
-                    "overflow-hidden rounded-2xl border bg-white",
+                    "overflow-visible rounded-2xl border bg-white",
                     isProposedLine
                       ? "border-violet-400/80 bg-gradient-to-br from-violet-50/90 via-fuchsia-50/[0.35] to-white shadow-[0_4px_22px_rgba(109,40,217,0.13)] ring-1 ring-violet-300/45"
                       : "border-slate-200/70 shadow-[0_2px_10px_rgba(15,23,42,0.045)] ring-1 ring-slate-900/[0.025]",
@@ -2132,12 +2230,14 @@ export default function PharmacienDemandeDetailPage() {
                           <AvailIcon className="size-3 shrink-0" aria-hidden />
                           <span className="truncate">{availUi.label}</span>
                         </span>
-                        <span className="inline-flex items-center gap-0.5 whitespace-nowrap">
-                          <Package className="size-3 text-muted-foreground/80" aria-hidden />
-                          <span>
-                            Demandé <strong className="text-foreground">{row.requested_qty}</strong>
+                        {!isProposedLine ? (
+                          <span className="inline-flex items-center gap-0.5 whitespace-nowrap">
+                            <Package className="size-3 text-muted-foreground/80" aria-hidden />
+                            <span>
+                              Demandé <strong className="text-foreground">{row.requested_qty}</strong>
+                            </span>
                           </span>
-                        </span>
+                        ) : null}
                         {lineLockedTrace ? (
                           <span className="rounded-md bg-rose-100 px-1.5 py-px text-[9px] font-semibold text-rose-900 ring-1 ring-rose-200/80">
                             Non distribué
@@ -2860,7 +2960,7 @@ export default function PharmacienDemandeDetailPage() {
                   value={globalComment}
                   onChange={(e) => setGlobalComment(e.target.value.slice(0, 1200))}
                   placeholder="Message global (optionnel), visible avec la réponse"
-                  className="mt-2 min-h-[5.5rem] w-full rounded-xl border-2 border-violet-200/70 bg-background px-3 py-2.5 text-[13px] leading-relaxed shadow-inner placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 sm:min-h-0 sm:text-xs sm:leading-normal"
+                  className="mt-2 min-h-[5.5rem] w-full rounded-xl border-2 border-violet-200/70 bg-background px-3 py-2.5 text-[13px] leading-relaxed shadow-inner placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 sm:min-h-0 sm:text-xs sm:leading-normal"
                 />
               </label>
             </section>

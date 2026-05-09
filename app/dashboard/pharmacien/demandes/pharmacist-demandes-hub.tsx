@@ -230,7 +230,7 @@ export function PharmacistDemandesHub() {
       </Link>
       <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">Demandes de produits</h1>
       <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">
-        Tableau de bord et liste comme côté patient — traiter les dossiers depuis votre officine.
+        Demandes de produits : tableau de bord et liste — traiter les dossiers depuis votre officine.
       </p>
 
       <div className="mt-1">

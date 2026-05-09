@@ -47,8 +47,10 @@ export function DemandeStatDashboard({
     <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06] p-3 shadow-sm sm:p-3.5">
       <div className="mb-3 flex flex-col gap-1 px-0.5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wide text-foreground">Vue rapide des demandes</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">Touchez un bloc pour ouvrir la liste filtrée</p>
+          <h2 className="text-xs font-bold uppercase tracking-wide text-foreground">Vue rapide · demandes de produits</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Touchez un bloc pour ouvrir la liste filtrée (demandes de produits)
+          </p>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">

@@ -614,11 +614,14 @@ type RespondedChooserProps = {
 
 /** Même résumé qté + dispo que la ligne ait des alternatives ou non. */
 function RespondedProductQtyStatusLine({ row }: { row: ActionItemRow }) {
+  const isProposedLine = row.line_source === "pharmacist_proposed";
   return (
     <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-      <span>
-        Demandé · <strong className="tabular-nums text-foreground">{row.requested_qty}</strong>
-      </span>
+      {!isProposedLine ? (
+        <span>
+          Demandé · <strong className="tabular-nums text-foreground">{row.requested_qty}</strong>
+        </span>
+      ) : null}
       {row.availability_status ? (
         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-800">
           {availabilityStatusFr[row.availability_status] ?? row.availability_status}
@@ -842,8 +845,17 @@ function RespondedPatientLineChooser({
           <p className="text-[10px] font-bold uppercase tracking-wide">Choisis quoi récupérer</p>
         </div>
         <p className="mb-3 text-[10px] leading-snug text-teal-900/85">
-          <strong className="text-teal-950">Principal</strong> = produit demandé. <strong className="text-teal-950">Alternatives</strong>{" "}
-          = équivalences proposées par ta pharmacie. Tu peux aussi ne garder aucune option pour cette ligne.
+          {isProposedLine ? (
+            <>
+              <strong className="text-teal-950">Proposition officine</strong> = produit suggéré par ta pharmacie (rien n’avait été
+              demandé sur cette ligne). <strong className="text-teal-950">Alternatives</strong> = autres équivalences proposées.
+            </>
+          ) : (
+            <>
+              <strong className="text-teal-950">Principal</strong> = produit demandé. <strong className="text-teal-950">Alternatives</strong>{" "}
+              = équivalences proposées par ta pharmacie. Tu peux aussi ne garder aucune option pour cette ligne.
+            </>
+          )}
         </p>
 
         <fieldset className="space-y-2 border-0 p-0">
@@ -885,10 +897,18 @@ function RespondedPatientLineChooser({
               />
               <span className="min-w-0 flex-1 space-y-1">
                 <span className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-foreground">Produit principal</span>
-                  <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
-                    Demandé
+                  <span className="text-sm font-semibold text-foreground">
+                    {isProposedLine ? "Produit proposé par la pharmacie" : "Produit principal"}
                   </span>
+                  {isProposedLine ? (
+                    <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                      Proposé
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                      Demandé
+                    </span>
+                  )}
                 </span>
                 <span className="flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
                   {row.unit_price != null ? (
