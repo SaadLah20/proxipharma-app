@@ -367,33 +367,33 @@ function PatientValidatedCompactLineCard({
           : "border-border/85 hover:border-muted-foreground/35";
 
   return (
-    <li className={`flex gap-2 rounded-md border bg-card p-1.5 shadow-sm transition ${ring}`}>
-      <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded border border-border/70 bg-muted/20">
+    <li className={`flex items-stretch gap-2 rounded-md border bg-card p-1.5 shadow-sm transition ${ring}`}>
+      <div className="relative aspect-square min-h-11 shrink-0 self-stretch overflow-hidden rounded border border-border/70 bg-muted/20">
         {thumbUrl ? (
           <img src={thumbUrl} alt="" className="size-full object-cover" />
         ) : (
           <div className="flex size-full items-center justify-center">
-            <Package className="size-4 text-muted-foreground" aria-hidden />
+            <Package className="size-5 text-muted-foreground" aria-hidden />
           </div>
         )}
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 text-[12px] font-semibold leading-tight">{validatedName}</p>
-        <p className="mt-0.5 line-clamp-2 text-[9px] leading-snug text-muted-foreground">
-          <span className="tabular-nums font-medium text-foreground">Qté {validatedQty}</span>
-          {tier === "retire_apres_validation" ? (
-            <span className="ms-1 rounded bg-amber-100 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-950">
-              Écart
+      <div className="flex min-w-0 flex-1 items-stretch gap-1">
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-[11px] font-semibold leading-snug text-foreground">{validatedName}</p>
+          <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+            <span className="tabular-nums font-medium text-foreground">Qté {validatedQty}</span>
+            {tier === "retire_apres_validation" ? (
+              <span className="ms-1 rounded bg-amber-100 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-950">
+                Écart
+              </span>
+            ) : null}
+            <span className="text-border" aria-hidden>
+              {" "}
+              ·{" "}
             </span>
-          ) : null}
-          <span className="text-border" aria-hidden>
-            {" "}
-            ·{" "}
-          </span>
-          <span className="text-foreground">{availSentence}</span>
-        </p>
-        <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-          <p className="text-[9px] leading-tight text-muted-foreground">
+            <span className="text-foreground">{availSentence}</span>
+          </p>
+          <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
             <span className="text-foreground/90">Prix unit. </span>
             <span className="tabular-nums font-semibold text-foreground">
               {unitMad != null ? `${unitMad.toFixed(2)} MAD` : "—"}
@@ -406,13 +406,16 @@ function PatientValidatedCompactLineCard({
               {lineTotalMad != null ? `${lineTotalMad.toFixed(2)} MAD` : "—"}
             </span>
           </p>
+        </div>
+        <div className="flex shrink-0 flex-col justify-end pb-px">
           <button
             type="button"
             onClick={onOpenHistory}
-            className="inline-flex shrink-0 items-center gap-0.5 rounded border border-primary/35 bg-primary/5 px-1.5 py-0.5 text-[9px] font-semibold text-primary hover:bg-primary/10"
+            className="inline-flex size-7 items-center justify-center rounded-md border border-primary/35 bg-primary/5 text-primary hover:bg-primary/10"
+            aria-label="Historique de cette ligne"
+            title="Historique"
           >
-            <History className="size-3 shrink-0" aria-hidden />
-            Historique
+            <History className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
           </button>
         </div>
       </div>
@@ -435,31 +438,37 @@ function PatientTraceNotRetainedRow({
       <span className="text-violet-800">{requestItemLineSourceFr.pharmacist_proposed}</span>
     ) : null;
   return (
-    <li className="flex items-start gap-2 rounded-md border border-border/70 bg-muted/15 px-2 py-1.5 text-[11px]">
-      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded border border-border/60 bg-card">
+    <li className="flex items-stretch gap-2 rounded-md border border-border/70 bg-muted/15 px-2 py-1.5">
+      <div className="relative aspect-square min-h-10 shrink-0 self-stretch overflow-hidden rounded border border-border/60 bg-card">
         {prod?.photo_url ? (
           <img src={prod.photo_url} alt="" className="size-full object-cover" />
         ) : (
           <div className="flex size-full items-center justify-center">
-            <Package className="size-4 text-muted-foreground" aria-hidden />
+            <Package className="size-5 text-muted-foreground" aria-hidden />
           </div>
         )}
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 font-medium leading-snug">{name}</p>
-        <p className="text-[10px] text-muted-foreground">
-          Demandé ×{row.requested_qty}
-          {eff ? ` · ${availabilityStatusFr[eff] ?? eff}` : null}
-          {lineKind ? <span className="mx-1">·</span> : null}
-          {lineKind}
-        </p>
-        <button
-          type="button"
-          onClick={onOpenHistory}
-          className="mt-0.5 text-[10px] font-semibold text-primary underline-offset-2 hover:underline"
-        >
-          Historique
-        </button>
+      <div className="flex min-w-0 flex-1 items-stretch gap-1">
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-[10px] font-medium leading-snug">{name}</p>
+          <p className="text-[10px] leading-snug text-muted-foreground">
+            Demandé ×{row.requested_qty}
+            {eff ? ` · ${availabilityStatusFr[eff] ?? eff}` : null}
+            {lineKind ? <span className="mx-1">·</span> : null}
+            {lineKind}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-col justify-end pb-px">
+          <button
+            type="button"
+            onClick={onOpenHistory}
+            className="inline-flex size-7 items-center justify-center rounded-md border border-primary/35 bg-primary/5 text-primary hover:bg-primary/10"
+            aria-label="Historique de cette ligne"
+            title="Historique"
+          >
+            <History className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+          </button>
+        </div>
       </div>
     </li>
   );
