@@ -33,8 +33,8 @@ export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   },
   {
     key: "repondues",
-    label: "Répondues",
-    hint: "À valider sous 24 h, sinon la demande expire.",
+    label: "À confirmer",
+    hint: "Réponse officine : confirmez ou refusez sous 24 h.",
     statuses: ["responded"],
   },
   {
@@ -91,8 +91,8 @@ export const PHARMACIST_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   },
   {
     key: "repondues",
-    label: "Répondues",
-    hint: "Le client a 24 h pour répondre, sinon expiration.",
+    label: "Attente client",
+    hint: "Réponse envoyée : le client doit confirmer sous 24 h.",
     statuses: ["responded"],
   },
   {

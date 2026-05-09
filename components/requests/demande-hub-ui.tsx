@@ -332,20 +332,29 @@ function patientDisplayName(row: PharmacistRequestRow): string {
   return `Patient #${formatShortId(row.patient_id)}`;
 }
 
+const PHARMACIST_LINE_STATS_AFTER_PATIENT_CONFIRM = new Set([
+  "confirmed",
+  "processing",
+  "treated",
+  "completed",
+  "partially_collected",
+  "fully_collected",
+]);
+
 export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
   const when = row.submitted_at ?? row.created_at;
   const name = patientDisplayName(row);
   const phone = row.patient_whatsapp?.trim();
   const lines = Array.isArray(row.request_items) ? row.request_items : [];
-  const selectedCount = lines.filter((l) => l.is_selected_by_patient ?? true).length;
+  const selectedCount = lines.filter((l) => l.is_selected_by_patient === true).length;
   const pendingCounter = lines.filter(
-    (l) => (l.is_selected_by_patient ?? true) && (l.counter_outcome ?? "unset") === "unset"
+    (l) => l.is_selected_by_patient === true && (l.counter_outcome ?? "unset") === "unset"
   ).length;
   const nReserved = lines.filter(
-    (l) => (l.is_selected_by_patient ?? true) && (l.post_confirm_fulfillment ?? "unset") === "reserved"
+    (l) => l.is_selected_by_patient === true && (l.post_confirm_fulfillment ?? "unset") === "reserved"
   ).length;
   const nOrdered = lines.filter(
-    (l) => (l.is_selected_by_patient ?? true) && (l.post_confirm_fulfillment ?? "unset") === "ordered"
+    (l) => l.is_selected_by_patient === true && (l.post_confirm_fulfillment ?? "unset") === "ordered"
   ).length;
   const hasFulfillmentProgress = nReserved + nOrdered > 0;
   const statusForCard =
@@ -358,6 +367,11 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
           : row.status;
   /** Cartes « demandes envoyées » : uniquement le nombre de lignes (pas comptoir / récupération). */
   const isSentAwaitingPharmacyAction = row.status === "submitted" || row.status === "in_review";
+  const awaitingPatientConfirmation = row.status === "responded";
+  const showLineRetentionStats =
+    PHARMACIST_LINE_STATS_AFTER_PATIENT_CONFIRM.has(row.status) || row.status === "abandoned";
+  const useFlexMetricLayout =
+    isSentAwaitingPharmacyAction || awaitingPatientConfirmation || !showLineRetentionStats;
 
   return (
     <div className="overflow-hidden rounded-2xl border-2 border-emerald-100 bg-gradient-to-br from-white via-white to-emerald-50/35 shadow-[0_2px_10px_rgba(16,185,129,0.08)] transition hover:border-emerald-300 hover:shadow-[0_6px_18px_rgba(16,185,129,0.16)]">
@@ -399,20 +413,32 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
 
         <div className="mt-2.5">
           <CollapsibleDetails
-            title={isSentAwaitingPharmacyAction ? "Contenu envoyé par le patient" : "Lignes, comptoir et préparation"}
+            title={
+              isSentAwaitingPharmacyAction
+                ? "Contenu envoyé par le patient"
+                : awaitingPatientConfirmation
+                  ? "Ligne(s) de la proposition"
+                  : "Lignes, comptoir et préparation"
+            }
             variant="muted"
             defaultOpen={isSentAwaitingPharmacyAction}
           >
             <div
               className={clsx(
                 "gap-1.5 text-[10px] text-muted-foreground",
-                isSentAwaitingPharmacyAction ? "flex flex-wrap" : "grid grid-cols-3"
+                useFlexMetricLayout ? "flex flex-wrap items-center" : "grid grid-cols-3"
               )}
             >
               <span className="rounded-md border border-border bg-card px-1.5 py-1 shadow-sm">
                 Lignes <strong className="text-foreground">{lines.length}</strong>
               </span>
-              {!isSentAwaitingPharmacyAction ? (
+              {!isSentAwaitingPharmacyAction && awaitingPatientConfirmation ? (
+                <span className="max-w-[20rem] rounded-md border border-amber-200/80 bg-amber-50/80 px-1.5 py-1 font-medium leading-snug text-amber-950 shadow-sm dark:bg-amber-950/35 dark:text-amber-100">
+                  En attente de la validation client&nbsp;: les lignes «&nbsp;retenues&nbsp;» ne s&apos;affichent qu&apos;après
+                  confirmation.
+                </span>
+              ) : null}
+              {showLineRetentionStats ? (
                 <>
                   <span className="rounded-md border border-border bg-card px-1.5 py-1 shadow-sm">
                     Retenues <strong className="text-foreground">{selectedCount}</strong>
