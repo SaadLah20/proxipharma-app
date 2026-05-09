@@ -318,21 +318,24 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
-### Session 2026-05-09 — UI patient demandes produits : hubs/liste compactes + répondue + focus validée + historique ligne
+### Session 2026-05-09 — patient compact après validation + pharmacien supply brouillon + comptoir simplifié + notifs + SQL `20260509_*`
 
-**Objectif** : alléger les écrans **mobile** ; après validation patient, **priorité visuelle aux lignes retenues** ; traçabilité **par produit** en modal sans surcharger la page.
+**Objectif** : parité mobile ; après **`confirmed`**, vue patient **lignes retenues** en cartes courtes + historique par produit ; côté officine, **une seule vague d’enregistrement** (brouillon jusqu’à **Enregistrer les modifications**), **écarter** avec canal/description dans le panneau (sans modal dédié), **comptoir** réduit à **en attente / récupéré**, **clôture** possible dès **au moins une** ligne retenue **récupérée** (confirmation si d’autres lignes en attente) ; **notifs pharmacien** sans auto-notification de l’acteur.
 
-**Infra SQL** : **aucune** nouvelle migration sur ce lot.
+**SQL — migrations** :
+- **`supabase/migrations/20260509_001_arrived_reserved_fulfillment.sql`** — ajustements RPC / fulfillment alignés avec le flux « reçu → disponible » (voir fichier pour le détail).
+- **`supabase/migrations/20260509_002_pharmacist_notifications_exclude_actor.sql`** — **`_emit_in_app_notifications_for_status_history`** : insert pharmacien **exclut** `recipient_id = changed_by` (jobs avec `changed_by` null → tous les pharmaciens notifiés).
 
-**Next.js / lib** :
-- **`lib/build-patient-line-timeline-fr.ts`** (nouveau) + **`lib/patient-confirmed-line-buckets.ts`** (`client_comment` optionnel sur `PatientLineLike`).
-- **`app/dashboard/demandes/[id]/PatientProductRequestActions.tsx`** : `confirmed` / `processing` / `treated` → cartes courtes **`PatientValidatedCompactLineCard`**, repliable lignes non retenues, **`PatientLineHistoryModal`** ; props **`requestTimelineMeta`**, **`dossierHistoryRows`**.
-- **`app/dashboard/demandes/[id]/page.tsx`** : charge **`request_status_history`** (30) en parallèle du détail quand dossier **`confirmed|processing|treated`** ; transmet timelines + **key** élargie.
-- **Lot précédent même axe** : **`components/requests/demande-hub-ui.tsx`** (cartes liste), **`patient-demandes-hub.tsx`** / **`pharmacist-demandes-hub.tsx`** (`updated_at`), **`lib/request-display.ts`** / **`demandes-hub-buckets.ts`**, **`app/dashboard/pharmacien/demandes/[id]/page.tsx`** (**Réagir** désactivé en vue **répondue** figée sans **Modifier**), message global patient via **`request_comments`**.
+**Next.js / lib (extrait)** :
+- **Patient** : **`lib/build-patient-line-timeline-fr.ts`**, **`PatientProductRequestActions.tsx`**, **`app/dashboard/demandes/[id]/page.tsx`** ; **`lib/supply-line-post-confirm.ts`** + badge **Ajout officine** conditionnel ; vignettes **11×11** sur cartes validées.
+- **Pharmacien** : **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**, **`components/pharmacist/pharmacist-supply-compact-line.tsx`**, **`pharmacist-supply-amendment-confirm-modal.tsx`**, **`components/requests/line-history-modal-fr.tsx`**, **`lib/patient-line-suivi-fr.ts`**, **`lib/patient-pharma-change-notice-fr.ts`**, **`lib/pharmacist-availability.ts`** (post-confirm), etc.
+- **Hubs / répondue** : **`demande-hub-ui.tsx`**, refs antérieures (`updated_at`, **Répondue - à valider**, répondue figée).
 
-**Contrôle local** : `npx tsc --noEmit` OK sur l’atelier.
+**Contrôle** : `npx tsc --noEmit` OK.
 
-**Commits de référence (branche `fix/rls-recursion`)** : `4e2a095` (hubs/répondue/global/timeline infra), `3adc506` (focus validée + modal + chargement histoire dossier).
+**À appliquer côté Supabase** : **`20260509_001`** puis **`20260509_002`** (après **`20260508_002`** déjà requis pour `processing` / `treated`).
+
+**Git (branche `fix/rls-recursion`)** : commit groupé **`33c68ef`** (et commits antérieurs du 2026-05-09 pour hubs/timeline si besoin — voir `git log`).
 
 ---
 
@@ -879,13 +882,16 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260507_003_pharmacist_cancel_request.sql` (**RPC `pharmacist_cancel_request`** : annulation totale par la pharmacie avec motif obligatoire)
   - `supabase/migrations/20260507_004_in_app_notifications_reasoning.sql` (notifs : mise à jour vs nouvelle demande, motif annulation pharmacien, pharmacien notifié sur **`expired`**)
   - `supabase/migrations/20260507_005_post_confirm_fulfillment_visit_rpc.sql` (**`post_confirm_fulfillment`** par ligne après **`confirmed`**, RPC passage patient **`patient_update_planned_visit_after_confirmation`**, RPC **`pharmacist_set_post_confirm_fulfillment`**, ajustements notifs associés)
+  - `supabase/migrations/20260508_002_processing_treated_supply_workflow.sql` (statuts **`processing`** / **`treated`**, **`withdrawn_after_confirm`**, **`request_supply_amendments`**, RPC amendements / traitée / comptoir / annulation, notifs étendues)
+  - `supabase/migrations/20260509_001_arrived_reserved_fulfillment.sql` (fulfillment / RPC — alignement reçu-disponible, voir fichier)
+  - `supabase/migrations/20260509_002_pharmacist_notifications_exclude_actor.sql` (notif pharmacien : pas de destinataire = **`changed_by`**)
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
 - A la **`responded` -> `confirmed`**, le patient peut choisir pour chaque ligne le **produit principal** ou **une alternative** proposee (`patient_chosen_alternative_id`), ou **rien** pour la ligne.
 - **Référentiel catalogue** : affichage **PPH** (`products.price_pph`) partout où le catalogue est lu sur les parcours produits lorsque renseigné ; **prix de réponse** pharmacien distingué (« Prix pharmacie » / champ `request_items.unit_price`).
 - Le client peut **modifier et renvoyer** une demande produit **avant réponse** (`submitted`|`in_review`) ou **après réponse** (`responded` uniquement pour ce flux ; en **`confirmed`** le renvoi liste est retiré côté UI — abandon possible) via RPC `patient_resubmit_product_request_after_response` → retour **`submitted`**, reset préparation pharma.
-- Le **retrait reel** au comptoir est porte par le **pharmacien**: colonne par ligne `request_items.counter_outcome` (`unset`, `picked_up`, `cancelled_at_counter`, `deferred_next_visit`) + cloture dossier via `pharmacist_complete_request_after_counter` lorsque tout est bon (plus aucune ligne encore `unset` ou `deferred_next_visit` parmi les lignes **selectionnees** par le client).
+- Le **retrait reel** au comptoir est porte par le **pharmacien**: colonne par ligne `request_items.counter_outcome` (en UI post-validé **saisie brouillon** limitée à **`unset`** / **`picked_up`** pour les lignes non figées ; valeurs legacy **`deferred_next_visit`** / **`cancelled_at_counter`** restent en base et sont affichées en lecture seule ou normalisées à l’enregistrement). **Clôture** dossier : **`pharmacist_complete_request_after_counter`** accessible dès qu’**au moins une** ligne retenue (non écartée) est **`picked_up`**, avec **confirmation** si d’autres lignes retenues ne le sont pas encore.
 - **Après réponse** : l’app ne renseigne plus **`expires_at` +7 j** sur publication (pilote) ; l’**abandon auto 24 h** sur statut **`responded`** non confirmé est porté par le batch SQL `abandon_unconfirmed_responded_requests()` (à cron). Les **`request_items`** sont limités à **qté 1–10** et **un seul `product_id` par demande**.
 - Les statuts enum `partially_collected` / `fully_collected` restent en base mais le flux officiel livre passe par **`completed`**; `patient_mark_collected` nest plus callable par le JWT patient (obsolete).
 
@@ -1038,9 +1044,9 @@ Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre 
 
 **« On reprend ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §0.1, **§4.6**, dernier §10, §11 et §12 — jalon en cours précisé dans le message suivant (répondue, validée, en traitement, ou fermeture page pharmacien demande envoyée). Pas de nouvelles actions UI sur dossiers figés §4.6 (cancelled/abandoned/expired/completed) sauf cohérence lecture seule. »**
 
-### 13.10) Phrase de reprise (recommandée après **2026-05-09** — hubs compacts + validée compacte + `build-patient-line-timeline-fr`)
+### 13.10) Phrase de reprise (recommandée après **2026-05-09** — patient compact + pharmacien supply brouillon + `20260509_*`)
 
-**« On reprend ProxiPharma. Lis **`CONTEXTE.md` §6** (workflow demande après validation), **`CAHIER_DES_CHARGES.md` §0.1, §4.4 et §4.6, dernier §10 Journal, §11 si besoin, §12 ; branche **`fix/rls-recursion`**. Rappel fichiers **`lib/build-patient-line-timeline-fr.ts`**, **`PatientProductRequestActions.tsx`**, **`app/dashboard/demandes/[id]/page.tsx`**, **`demande-hub-ui.tsx`**. Je te dis ensuite quoi faire. »**
+**« On reprend ProxiPharma. Lis **`CONTEXTE.md` §6**, **`CAHIER_DES_CHARGES.md` §0.1, §4.4, §4.6, **dernier §10 Journal**, §11 (migrations jusqu’à **`20260509_002`**), §12 ; branche **`fix/rls-recursion`**. Vérifie sur Supabase **`20260509_001`** et **`20260509_002`** si pas encore appliqués. Fichiers clés : **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**, **`components/pharmacist/pharmacist-supply-compact-line.tsx`**, **`PatientProductRequestActions.tsx`**, **`lib/build-patient-line-timeline-fr.ts`**, **`lib/supply-line-post-confirm.ts`**. Je te dis ensuite quoi faire. »**
 
 ### Template pour prochaines sessions
 - Date:
