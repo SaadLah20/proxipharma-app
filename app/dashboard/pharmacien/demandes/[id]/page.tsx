@@ -2178,7 +2178,7 @@ export default function PharmacienDemandeDetailPage() {
                 canEditThisRow ? f.pharmacist_comment?.trim() ?? "" : row.pharmacist_comment?.trim() ?? ""
               );
               const showLineReactControl =
-                patientLineCc.length > 0 && !lineLockedTrace && (canEditThisRow || respondedFrozenView);
+                patientLineCc.length > 0 && !lineLockedTrace && canEditThisRow;
               const showCommentBand =
                 patientLineCc.length > 0 || canEditThisRow || (!canEditThisRow && pharmaNotePreview.length > 0);
               const availabilityOptions =
