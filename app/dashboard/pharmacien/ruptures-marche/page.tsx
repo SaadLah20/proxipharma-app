@@ -109,7 +109,7 @@ export default function PharmacienRupturesMarchePage() {
           <p className="text-sm text-gray-600">{pharmacyNom}</p>
         </div>
         <Link href="/dashboard/pharmacien/demandes" className="text-sm text-emerald-800 underline">
-          ← Demandes pharmacie
+          ← Demandes de produits
         </Link>
       </div>
 

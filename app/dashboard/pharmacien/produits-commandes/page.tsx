@@ -50,7 +50,7 @@ export default function PharmacienProduitsCommandesPage() {
         pour les préparations en cours.
       </div>
       <Link href="/dashboard/pharmacien/demandes" className="inline-block text-sm font-medium text-emerald-800 underline">
-        Ouvrir les demandes
+        Ouvrir les demandes de produits
       </Link>
     </PageShell>
   );

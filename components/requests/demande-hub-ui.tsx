@@ -290,7 +290,7 @@ export function PatientDemandeCard({
             href={`/dashboard/demandes/${row.id}`}
             className="mt-2.5 block text-[11px] font-semibold text-primary hover:underline"
           >
-            Voir le détail de la demande →
+            Voir la demande de produits →
           </Link>
         </div>
       </div>
@@ -373,7 +373,7 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
                 {(name.slice(0, 2) || "?").toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold leading-tight text-foreground">{name}</p>
+                <p className="break-words text-sm font-semibold leading-snug text-foreground">{name}</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">{formatDateTimeShort24hFr(when)}</p>
                 {phone ? (
                   <p className="mt-0.5 truncate text-[11px] font-medium text-emerald-800/90 dark:text-emerald-300/90">{phone}</p>
@@ -435,7 +435,7 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
           href={`/dashboard/pharmacien/demandes/${row.id}`}
           className="mt-2.5 block text-[11px] font-semibold text-primary hover:underline"
         >
-          Ouvrir la demande →
+          Ouvrir la demande de produits →
         </Link>
       </div>
     </div>

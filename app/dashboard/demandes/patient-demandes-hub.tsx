@@ -198,7 +198,9 @@ export function PatientDemandesHub() {
             ← Annuaire
           </Link>
           <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">Mes demandes de produits</h1>
-          <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">Suivi de vos demandes auprès des pharmacies.</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">
+            Suivi de vos demandes de produits auprès des pharmacies.
+          </p>
         </div>
         <Link
           href="/dashboard/notifications"

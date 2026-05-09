@@ -49,7 +49,7 @@ export default function PharmacienPricingPage() {
         Outil de tarification connecté au catalogue et aux politiques d’officine — non branché pour l’instant.
       </div>
       <Link href="/dashboard/pharmacien/demandes" className="inline-block text-sm font-medium text-emerald-800 underline">
-        Retour aux demandes
+        Retour aux demandes de produits
       </Link>
     </PageShell>
   );

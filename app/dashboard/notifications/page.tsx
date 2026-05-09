@@ -100,7 +100,7 @@ export default function NotificationsPage() {
             ← Annuaire
           </Link>
           <h1 className="mt-2 text-lg font-bold text-foreground">Notifications</h1>
-          <p className="text-xs text-muted-foreground">Historique des alertes liées à vos demandes.</p>
+          <p className="text-xs text-muted-foreground">Historique des alertes liées à vos demandes de produits.</p>
         </div>
       </div>
 

@@ -425,8 +425,8 @@ export default function DemandeProduitsPage() {
         ) : null}
 
         <p className="mt-6 text-center text-sm leading-relaxed text-muted-foreground">
-          En validant, votre liste est transmise à la pharmacie. Vous pourrez suivre la réponse depuis{" "}
-          <span className="font-medium text-foreground">Mes demandes</span>.
+          En validant, votre liste est transmise à la pharmacie. Vous pourrez suivre la réponse depuis vos{" "}
+          <span className="font-medium text-foreground">demandes de produits</span>.
         </p>
 
         <Button
