@@ -65,3 +65,46 @@ export function patientHistoryAuditDetailLines(audit: PharmaConfirmAdjustmentAud
     return parts.join(" ");
   });
 }
+
+/** Libellés courts pour les codes techniques stockés dans `request_status_history.reason`. */
+const PATIENT_HISTORY_TECH_REASON_FR: Record<string, string> = {
+  patient_confirm_after_response: "Vous avez validé votre choix et enregistré votre passage en pharmacie.",
+  publication_disponibilites: "La pharmacie a publié sa réponse (disponibilités et prix).",
+  pharmacien_ui: "Action enregistrée depuis l’espace pharmacien.",
+  patient_planned_visit_updated: "Votre date ou heure de passage a été mise à jour.",
+  pharmacist_response_updated: "La pharmacie a mis à jour sa réponse sur la demande.",
+  auto_abandon_24h_after_response: "La demande a expiré : pas de validation de votre part dans les 24 h.",
+  request_created_with_status: "Demande créée et transmise.",
+  patient_abandon_request: "Vous avez annulé la demande.",
+  patient_resubmit_product_request_after_response: "Vous avez renvoyé une liste de produits mise à jour.",
+  pharmacist_ui_confirm_close: "La pharmacie a clôturé le dossier depuis son espace.",
+};
+
+/**
+ * Texte lisible pour une entrée d’historique dossier (patient).
+ * — blocs structurés `audit_v1:` ;
+ * — motifs techniques connus ;
+ * — sinon texte libre tel quel.
+ */
+export function patientDossierHistoryDetailParagraphsFr(reason: string | null | undefined): string[] {
+  const audit = tryParsePatientHistoryAudit(reason);
+  if (audit) return patientHistoryAuditDetailLines(audit);
+  const r = (reason ?? "").trim();
+  if (!r) return [];
+  if (r.startsWith("pharmacist_cancel|")) {
+    const motif = r.slice("pharmacist_cancel|".length).trim();
+    return [motif ? `La pharmacie a annulé la demande. Précision : ${motif}.` : "La pharmacie a annulé la demande."];
+  }
+  if (r.startsWith("request_event:")) {
+    const key = r.slice("request_event:".length).trim().toLowerCase();
+    const mapped = PATIENT_HISTORY_TECH_REASON_FR[key];
+    if (mapped) return [mapped];
+    return ["Événement enregistré sur le dossier."];
+  }
+  if (/^[a-z][a-z0-9_]*$/i.test(r) && r.length < 120) {
+    const mapped = PATIENT_HISTORY_TECH_REASON_FR[r.toLowerCase()];
+    if (mapped) return [mapped];
+    return ["Mise à jour enregistrée sur le dossier."];
+  }
+  return [r];
+}

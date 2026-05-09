@@ -9,6 +9,7 @@ import {
   tryParsePatientHistoryAudit,
   patientHistoryAuditDetailLines,
   patientHistoryAuditTitle,
+  patientDossierHistoryDetailParagraphsFr,
 } from "@/lib/patient-request-history-audit";
 import type { SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
 import { summarizeSupplyAmendmentEntry } from "@/lib/supply-amendment-channels";
@@ -184,7 +185,7 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
 
   /** Ajustements post-validation (JSON amendements avec request_item_id) */
   for (const am of amendList) {
-    push(am.created_at, "Mise à jour après validation confirmée avec vous", summarizeSupplyAmendmentEntry(am.entry), "La pharmacie");
+    push(am.created_at, "Ajustement après votre validation", summarizeSupplyAmendmentEntry(am.entry), "La pharmacie");
   }
 
   /** Entrées d’historique statut dossier hors audit (filtre léger si la raison cite le nom produit ou l’uuid — rare). */
@@ -193,8 +194,10 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
     const r = `${h.reason ?? ""}`.toLowerCase();
     if (!r) continue;
     if (!r.includes(row.id.toLowerCase()) && !r.includes(validatedProductLabel(row).toLowerCase())) continue;
-    const body = `${h.old_status ? `${requestStatusFr[h.old_status] ?? h.old_status} → ` : ""}${requestStatusFr[h.new_status] ?? h.new_status}${h.reason ? `\nMotif ou détail dossier : ${h.reason}` : ""}`;
-    push(h.created_at, "Journal du dossier (lien ligne)", body, "Système / officine");
+    const statusLine = `${h.old_status ? `De « ${requestStatusFr[h.old_status] ?? h.old_status} » à ` : ""}« ${requestStatusFr[h.new_status] ?? h.new_status} »`;
+    const detail = patientDossierHistoryDetailParagraphsFr(h.reason).filter(Boolean).join("\n");
+    const body = detail ? `${statusLine}\n${detail}` : statusLine;
+    push(h.created_at, "Événement dossier lié à cette ligne", body, "Système / officine");
   }
 
   /** État actuel */
@@ -225,7 +228,7 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
     input.requestConfirmedAt ??
     input.requestRespondedAt ??
     t0;
-  push(lastTs ?? null, "Situation actuelle (aperçu)", curParts.join("\n"), "Synthèse dossier", true);
+  push(lastTs ?? null, "Aujourd’hui sur cette ligne", curParts.join("\n"), "Synthèse", true);
 
   return blocks;
 }
