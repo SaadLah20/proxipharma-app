@@ -18,7 +18,6 @@ import {
   ShoppingCart,
   Sparkles,
   Trash2,
-  X,
 } from "lucide-react";
 import { formatDateShortFr, formatPlannedVisitFr, formatTime24hFr } from "@/lib/datetime-fr";
 import {

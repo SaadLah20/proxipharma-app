@@ -51,8 +51,6 @@ import { CompactCard, CompactCardBody, CompactCardHeader, PageShell } from "@/co
 import { InfoHint } from "@/components/ui/info-hint";
 import {
   bucketPatientValidatedLinesThreeWays,
-  effectiveAvailabilityForPatientLine,
-  effectiveEtaForPatientLine,
   validatedBranchUnitPriceMad,
   validatedProductLabel,
   validatedQtyForPatientLine,
@@ -367,29 +365,6 @@ function counterOutcomeLabelPharmacien(outcome: string, cancelReason: string | n
     default:
       return counterOutcomeFr[outcome] ?? outcome;
   }
-}
-
-/** Valeur composite encodée dans le <select> côté pharmacien. */
-type CounterSelectKey =
-  | "unset"
-  | "picked_up"
-  | "deferred_next_visit"
-  | "cancelled_at_counter:client_request"
-  | "cancelled_at_counter:pharmacy_unable";
-
-function counterSelectKeyFromRow(row: { counter_outcome: string; counter_cancel_reason: string | null }): CounterSelectKey {
-  if (row.counter_outcome !== "cancelled_at_counter") {
-    return row.counter_outcome as CounterSelectKey;
-  }
-  if (row.counter_cancel_reason === "pharmacy_unable") return "cancelled_at_counter:pharmacy_unable";
-  return "cancelled_at_counter:client_request";
-}
-
-function decodeCounterSelectKey(key: string): { outcome: string; cancelReason: string | null } {
-  if (key.startsWith("cancelled_at_counter:")) {
-    return { outcome: "cancelled_at_counter", cancelReason: key.slice("cancelled_at_counter:".length) };
-  }
-  return { outcome: key, cancelReason: null };
 }
 
 /** Comptoir figé en base (ne plus modifier via le brouillon). */
@@ -2166,21 +2141,24 @@ export default function PharmacienDemandeDetailPage() {
     });
   }, [pharmaHistoryRowId, request, items, supplyAmendmentBundles, dossierHistoryTimeline]);
 
-  const hardStopMotif = useMemo(() => {
-    if (!request || !pharmacistRequestIsHardStopped(request.status)) return null;
+  let hardStopMotif: string | null = null;
+  if (request && pharmacistRequestIsHardStopped(request.status)) {
     for (let i = dossierHistoryTimeline.length - 1; i >= 0; i--) {
       const h = dossierHistoryTimeline[i];
-      if (h.new_status === request.status && h.reason?.trim()) return h.reason.trim();
+      if (h.new_status === request.status && h.reason?.trim()) {
+        hardStopMotif = h.reason.trim();
+        break;
+      }
     }
-    return null;
-  }, [request, dossierHistoryTimeline]);
+  }
 
-  const closedSuccessPickupCount = useMemo(() => {
-    if (!request || !pharmacistRequestIsClosedSuccess(request.status)) return null;
-    return items.filter(
-      (i) => i.is_selected_by_patient && !i.withdrawn_after_confirm && (i.counter_outcome ?? "unset") === "picked_up"
-    ).length;
-  }, [request, items]);
+  const closedSuccessPickupCount =
+    request && pharmacistRequestIsClosedSuccess(request.status)
+      ? items.filter(
+          (i) =>
+            i.is_selected_by_patient && !i.withdrawn_after_confirm && (i.counter_outcome ?? "unset") === "picked_up"
+        ).length
+      : null;
 
   const resetDraftFromRows = useCallback(() => {
     setDraft(() => {
@@ -2510,20 +2488,7 @@ export default function PharmacienDemandeDetailPage() {
               const rowAlts = normalizeAlts(row.request_item_alternatives);
               const chosenAltId = row.patient_chosen_alternative_id ?? null;
               const chosenAltRow = chosenAltId ? rowAlts.find((a) => a.id === chosenAltId) : null;
-              const effAvailRow = effectiveAvailForPharmaRow(row);
               const withdrawnDraft = Boolean(f.withdrawn_after_confirm);
-              const canMarkReserved =
-                Boolean(canManageSupply) &&
-                selected &&
-                !withdrawnDraft &&
-                !lineLockedTrace &&
-                (effAvailRow === "available" || effAvailRow === "partially_available");
-              const canMarkOrdered =
-                Boolean(canManageSupply) &&
-                selected &&
-                !withdrawnDraft &&
-                !lineLockedTrace &&
-                effAvailRow === "to_order";
               const showPatientConfirmedChoice =
                 selected &&
                 (request.status === "confirmed" ||

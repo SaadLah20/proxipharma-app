@@ -15,16 +15,7 @@ export type SupplyConfirmBlock = {
 
 type FillRow = { channel: SupplyAmendClientChannelSlug; motive: string };
 
-export function PharmacistSupplyAmendmentConfirmModal({
-  open,
-  onClose,
-  heading,
-  intro,
-  blocks,
-  confirmLabel,
-  busy,
-  onConfirm,
-}: {
+type ModalProps = {
   open: boolean;
   onClose: () => void;
   heading: string;
@@ -33,34 +24,36 @@ export function PharmacistSupplyAmendmentConfirmModal({
   confirmLabel: string;
   busy: boolean;
   onConfirm: (fills: FillRow[]) => void;
-}) {
-  const [fills, setFills] = useState<FillRow[]>([]);
+};
 
-  const blockSig = blocks.map((x) => x.key).join("|");
-  useEffect(() => {
-    if (!open) return;
-    setFills(blocks.map(() => ({ channel: "phone_call", motive: "" })));
-  }, [open, blockSig]);
+function PharmacistSupplyAmendmentConfirmModalInner({
+  onClose,
+  heading,
+  intro,
+  blocks,
+  confirmLabel,
+  busy,
+  onConfirm,
+}: Omit<ModalProps, "open">) {
+  const [fills, setFills] = useState<FillRow[]>(() =>
+    blocks.map(() => ({ channel: "phone_call", motive: "" }))
+  );
 
   useEffect(() => {
-    if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [open]);
+  }, []);
 
   useEffect(() => {
-    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !busy) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, busy, onClose]);
-
-  if (!open) return null;
+  }, [busy, onClose]);
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true">
@@ -152,4 +145,10 @@ export function PharmacistSupplyAmendmentConfirmModal({
       </div>
     </div>
   );
+}
+
+export function PharmacistSupplyAmendmentConfirmModal({ open, blocks, ...rest }: ModalProps) {
+  const blockSig = blocks.map((x) => x.key).join("|");
+  if (!open) return null;
+  return <PharmacistSupplyAmendmentConfirmModalInner key={blockSig} blocks={blocks} {...rest} />;
 }
