@@ -45,6 +45,7 @@ import {
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { patientLineSuiviModel } from "@/lib/patient-line-suivi-fr";
 import { isRequestItemAddedAfterPatientConfirmation } from "@/lib/supply-line-post-confirm";
+import { isPatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
 
 type ProdBrief = { name: string; price_pph?: number | null; photo_url?: string | null };
 
@@ -431,6 +432,182 @@ function PatientTraceNotRetainedRow({
         </div>
       </div>
     </li>
+  );
+}
+
+/** Archives (annulé, expiré, etc.) : mêmes cartes compactes que le dossier validé, sans actions ni suivi temps réel. */
+function ReadonlyArchivedProductBucketsView({
+  items,
+  supplyAmendmentBundles,
+  pharmacistGlobalComment,
+  onOpenLineHistory,
+}: {
+  items: ActionItemRow[];
+  supplyAmendmentBundles: { id: string; created_at: string; amendments: unknown }[];
+  pharmacistGlobalComment: string | null | undefined;
+  onOpenLineHistory: (itemId: string) => void;
+}) {
+  const totalsRetained = useMemo(() => monetaryTotalsForRetainedLines(items), [items]);
+  const { dispoOfficine, aCommander, horsPerimetre, retireesApresValidation } =
+    bucketPatientValidatedLinesThreeWays(items);
+  const dispoRetenues = dispoOfficine.filter((r) => r.is_selected_by_patient);
+  const aCommanderRetenues = aCommander.filter((r) => r.is_selected_by_patient);
+  const horsPerimetreRetenues = horsPerimetre.filter((r) => r.is_selected_by_patient);
+  const lignesNonRetenues = items.filter((r) => !r.is_selected_by_patient);
+  const subtotalDispo = monetaryTotalsForRetainedLines(dispoRetenues);
+  const subtotalCommande = monetaryTotalsForRetainedLines(aCommanderRetenues);
+  const totalGrandLabel = compactTotalMadLabel({
+    sumKnown: totalsRetained.sumKnown,
+    missingPrice: totalsRetained.missingPrice,
+    empty: totalsRetained.count < 1,
+  });
+
+  return (
+    <div className="space-y-2">
+      <div className="rounded-md border border-muted-foreground/25 bg-muted/20 px-2 py-1.5">
+        <p className="text-[10px] font-semibold leading-snug text-foreground">Lecture seule</p>
+        <p className="mt-0.5 text-[9px] leading-snug text-muted-foreground">
+          Produits tels qu’au moment de la clôture du dossier (référence). Historique par ligne via le bouton horloge.
+        </p>
+      </div>
+
+      {pharmacistGlobalComment?.trim() ? (
+        <div className="rounded-md border border-emerald-200/80 bg-emerald-50/65 px-2 py-1.5">
+          <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-950">Message de la pharmacie</p>
+          <p className="mt-0.5 whitespace-pre-wrap text-[10px] leading-snug text-emerald-950">
+            {pharmacistGlobalComment.trim()}
+          </p>
+        </div>
+      ) : null}
+
+      <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto rounded-md border border-primary/20 bg-primary/[0.06] px-2 py-1.5">
+        <p className="shrink-0 text-[10px] font-semibold text-foreground">
+          <span className="tabular-nums">{totalsRetained.count}</span>{" "}
+          {totalsRetained.count > 1 ? "produits retenus" : "produit retenu"}
+        </p>
+        <p className="shrink-0 text-[10px] font-semibold tabular-nums text-primary whitespace-nowrap">{totalGrandLabel}</p>
+      </div>
+
+      <div className="rounded-xl border-2 border-slate-200/80 bg-gradient-to-b from-slate-50/70 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-200/50">
+        {dispoRetenues.length > 0 ? (
+          <section className="space-y-1.5">
+            <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto text-emerald-950">
+              <div className="flex min-w-0 items-center gap-1">
+                <Package className="size-3.5 shrink-0 text-emerald-700" aria-hidden />
+                <h3 className="text-[10px] font-bold uppercase tracking-wide">
+                  À réserver (validé · {dispoRetenues.length})
+                </h3>
+              </div>
+              <p className="shrink-0 text-[10px] font-semibold tabular-nums text-emerald-800 whitespace-nowrap">
+                {compactTotalMadLabel({
+                  sumKnown: subtotalDispo.sumKnown,
+                  missingPrice: subtotalDispo.missingPrice,
+                  empty: subtotalDispo.count < 1,
+                })}
+              </p>
+            </div>
+            <ul className="space-y-1.5">
+              {dispoRetenues.map((row) => (
+                <PatientValidatedCompactLineCard
+                  key={row.id}
+                  row={row}
+                  tier="dispo_officine"
+                  supplyAmendmentBundles={supplyAmendmentBundles}
+                  onOpenHistory={() => onOpenLineHistory(row.id)}
+                />
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {aCommanderRetenues.length > 0 ? (
+          <section className="mt-2 space-y-1.5">
+            <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto text-teal-950">
+              <div className="flex min-w-0 items-center gap-1">
+                <ShoppingCart className="size-3.5 shrink-0 text-teal-800" aria-hidden />
+                <h3 className="text-[10px] font-bold uppercase tracking-wide">
+                  À commander (validé · {aCommanderRetenues.length})
+                </h3>
+              </div>
+              <p className="shrink-0 text-[10px] font-semibold tabular-nums text-teal-900 whitespace-nowrap">
+                {compactTotalMadLabel({
+                  sumKnown: subtotalCommande.sumKnown,
+                  missingPrice: subtotalCommande.missingPrice,
+                  empty: subtotalCommande.count < 1,
+                })}
+              </p>
+            </div>
+            <ul className="space-y-1.5">
+              {aCommanderRetenues.map((row) => (
+                <PatientValidatedCompactLineCard
+                  key={row.id}
+                  row={row}
+                  tier="commande"
+                  supplyAmendmentBundles={supplyAmendmentBundles}
+                  onOpenHistory={() => onOpenLineHistory(row.id)}
+                />
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {horsPerimetreRetenues.length > 0 ? (
+          <section className="mt-2 space-y-1">
+            <div className="flex items-center gap-1 text-amber-950">
+              <Layers className="size-3.5 shrink-0 text-amber-800" aria-hidden />
+              <h3 className="text-[10px] font-bold uppercase tracking-wide">Point d&apos;attention (hors bloc principal)</h3>
+            </div>
+            <ul className="space-y-1.5">
+              {horsPerimetreRetenues.map((row) => (
+                <PatientValidatedCompactLineCard
+                  key={row.id}
+                  row={row}
+                  tier="hors_perimetre"
+                  supplyAmendmentBundles={supplyAmendmentBundles}
+                  onOpenHistory={() => onOpenLineHistory(row.id)}
+                />
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {retireesApresValidation.length > 0 ? (
+          <section className="mt-2 space-y-1">
+            <div className="flex items-center gap-1 text-amber-950">
+              <Layers className="size-3.5 shrink-0 text-amber-900" aria-hidden />
+              <h3 className="text-[10px] font-bold uppercase tracking-wide">
+                Écart après validation ({retireesApresValidation.length})
+              </h3>
+            </div>
+            <ul className="space-y-1.5">
+              {retireesApresValidation.map((row) => (
+                <PatientValidatedCompactLineCard
+                  key={row.id}
+                  row={row}
+                  tier="retire_apres_validation"
+                  supplyAmendmentBundles={supplyAmendmentBundles}
+                  onOpenHistory={() => onOpenLineHistory(row.id)}
+                />
+              ))}
+            </ul>
+          </section>
+        ) : null}
+      </div>
+
+      {lignesNonRetenues.length > 0 ? (
+        <details className="group rounded-md border border-border/80 bg-muted/10">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2 py-1.5 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
+            <span>Lignes non retenues ({lignesNonRetenues.length})</span>
+            <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+          </summary>
+          <ul className="space-y-1 border-t border-border/60 px-2 py-1.5">
+            {lignesNonRetenues.map((row) => (
+              <PatientTraceNotRetainedRow key={row.id} row={row} onOpenHistory={() => onOpenLineHistory(row.id)} />
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </div>
   );
 }
 
@@ -1569,14 +1746,36 @@ export function PatientProductRequestActions({
 
   const totalsRetained = useMemo(() => monetaryTotalsForRetainedLines(items), [items]);
 
-  const allowed =
+  const interactiveAllowed =
     status === "submitted" ||
     status === "in_review" ||
     status === "responded" ||
     status === "confirmed" ||
     status === "processing" ||
     status === "treated";
-  if (!allowed) return null;
+  const readOnlyArchive = isPatientProductArchiveStatus(status);
+  if (!interactiveAllowed && !readOnlyArchive) return null;
+
+  if (readOnlyArchive) {
+    return (
+      <>
+        <section className="mt-2 rounded-lg border border-border/90 bg-muted/15 p-2 sm:p-2.5">
+          <ReadonlyArchivedProductBucketsView
+            items={items}
+            supplyAmendmentBundles={supplyAmendmentBundles}
+            pharmacistGlobalComment={pharmacistGlobalComment}
+            onOpenLineHistory={(itemId) => setHistoryModalItemId(itemId)}
+          />
+        </section>
+        <LineHistoryModalFr
+          open={historyModalItemId !== null}
+          title={historyModalRow ? validatedProductLabel(historyModalRow) : ""}
+          blocks={historyModalBlocks}
+          onClose={() => setHistoryModalItemId(null)}
+        />
+      </>
+    );
+  }
 
   const showConfirm = status === "responded";
   const showResubmit = status === "submitted" || status === "in_review";
