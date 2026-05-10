@@ -214,6 +214,13 @@ function clampFulfillmentDraftToInferred(
   return x;
 }
 
+/** Même logique que l’UI supply : branche patient (alternative choisie → dispo en base sur l’alt, pas la ligne principale). */
+function inferredAvailabilityForPostConfirmClamp(row: ItemRow, payloadInferred: string): string {
+  if (!row.patient_chosen_alternative_id) return payloadInferred;
+  const eff = effectiveAvailForPharmaRow(row);
+  return eff != null && eff !== "" ? eff : payloadInferred;
+}
+
 function fulfillmentDraftFromRow(row: ItemRow): "unset" | "reserved" | "ordered" {
   const p = row.post_confirm_fulfillment ?? "unset";
   if (p === "reserved") return "reserved";
@@ -1674,7 +1681,7 @@ export default function PharmacienDemandeDetailPage() {
           );
         }
         const payload = buildItemUpdatePayload(f, row);
-        const inf = payload.availability_status;
+        const inf = inferredAvailabilityForPostConfirmClamp(row, payload.availability_status);
         let pcf: "unset" | "reserved" | "ordered" = f.fulfillment_draft;
         if (f.withdrawn_after_confirm) {
           pcf = "unset";
