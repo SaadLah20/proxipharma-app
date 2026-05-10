@@ -1229,7 +1229,7 @@ export default function PharmacienDemandeDetailPage() {
         is_selected_by_patient: true,
         selected_qty: qty,
         patient_chosen_alternative_id: null,
-        post_confirm_fulfillment: null,
+        post_confirm_fulfillment: "unset",
         withdrawn_after_confirm: false,
         updated_at: new Date().toISOString(),
         products: {
@@ -1681,7 +1681,8 @@ export default function PharmacienDemandeDetailPage() {
         } else {
           pcf = clampFulfillmentDraftToInferred(pcf, inf);
         }
-        const pcfDb = pcf === "unset" ? null : pcf;
+        /* Colonne DB NOT NULL (enum, défaut 'unset') : ne jamais envoyer null. */
+        const pcfDb: "unset" | "reserved" | "ordered" = pcf;
         const { error: up } = await supabase
           .from("request_items")
           .update({
