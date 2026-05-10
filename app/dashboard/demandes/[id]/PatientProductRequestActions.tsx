@@ -258,6 +258,7 @@ function PatientLineSuiviStrip({
         <span className="font-bold text-slate-900">Suivi · </span>
         {m.etat}
       </p>
+      {m.comptoir ? <p className="mt-0.5 font-medium text-slate-800">{m.comptoir}</p> : null}
       {m.modif ? <p className="mt-0.5 text-slate-700">{m.modif}</p> : null}
       {m.ajout ? <p className="mt-0.5 text-violet-900/90">{m.ajout}</p> : null}
     </div>
@@ -1870,7 +1871,7 @@ export function PatientProductRequestActions({
             missingPrice: totalsRetained.missingPrice,
             empty: totalsRetained.count < 1,
           });
-          const showLineSuivi = status === "confirmed" || status === "processing";
+          const showLineSuivi = status === "confirmed" || status === "processing" || status === "treated";
 
           return (
             <div className="space-y-2">
