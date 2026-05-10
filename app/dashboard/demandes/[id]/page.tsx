@@ -7,18 +7,11 @@ import { useParams, useRouter } from "next/navigation";
 import { PageShell } from "@/components/ui/compact-shell";
 import {
   formatDateShortCasablancaWithTime24hFr,
-  formatDateShortFr,
   formatDateTimeShort24hFr,
   formatPlannedVisitFr,
 } from "@/lib/datetime-fr";
 import { supabase } from "@/lib/supabase";
-import {
-  availabilityStatusFr,
-  counterOutcomePatientLabel,
-  historyActorLabel,
-  requestItemLineSourceFr,
-  requestStatusFr,
-} from "@/lib/request-display";
+import { historyActorLabel, requestStatusFr } from "@/lib/request-display";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
 import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
@@ -28,7 +21,10 @@ import {
   PatientProductRequestActions,
   type PatientPharmacyContactInfo,
 } from "./PatientProductRequestActions";
-import { unitPriceLabel } from "@/lib/product-price";
+import {
+  PatientRequestOutcomeBanner,
+  isPatientProductArchiveStatus,
+} from "@/components/requests/patient-request-outcome-banner";
 
 type PharmacyEmbed = {
   nom: string;
@@ -52,11 +48,6 @@ type AltEmbed = {
   expected_availability_date: string | null;
   products: ProdEmbed | ProdEmbed[] | null;
 };
-
-function normalizeAlternatives(raw: AltEmbed | AltEmbed[] | null | undefined): AltEmbed[] {
-  if (!raw) return [];
-  return Array.isArray(raw) ? [...raw].sort((a, b) => a.rank - b.rank) : [raw];
-}
 
 type RequestDetail = {
   id: string;
@@ -169,9 +160,10 @@ export default function DemandeDetailPage() {
 
       type ReqRowMinimal = RequestDetail & { request_type?: string; status?: string };
       const r = reqRow as ReqRowMinimal;
+      const st = String(r.status);
       const needStatusHistory =
         r.request_type === "product_request" &&
-        ["confirmed", "processing", "treated"].includes(String(r.status));
+        (["confirmed", "processing", "treated"].includes(st) || isPatientProductArchiveStatus(st));
 
       const [itemsResult, amendmentsResult, phGlobalRes, histResult] = await Promise.all([
         supabase
@@ -299,13 +291,16 @@ export default function DemandeDetailPage() {
       request.status === "confirmed" ||
       request.status === "processing" ||
       request.status === "treated");
+  const showArchivedProductReadonly =
+    request.request_type === "product_request" && isPatientProductArchiveStatus(request.status);
   const showPlannedVisitBlock =
-    request.status === "confirmed" ||
-    request.status === "processing" ||
-    request.status === "treated" ||
-    request.status === "completed" ||
-    request.status === "partially_collected" ||
-    request.status === "fully_collected";
+    !["cancelled", "abandoned", "expired"].includes(request.status) &&
+    (request.status === "confirmed" ||
+      request.status === "processing" ||
+      request.status === "treated" ||
+      request.status === "completed" ||
+      request.status === "partially_collected" ||
+      request.status === "fully_collected");
 
   return (
     <PageShell className="space-y-3">
@@ -359,9 +354,17 @@ export default function DemandeDetailPage() {
                   ? "border-sky-400/85 bg-sky-100 text-sky-950 ring-1 ring-sky-200/80"
                   : request.status === "responded"
                     ? "border-amber-300/95 bg-amber-50 text-amber-950"
-                    : ["confirmed", "processing", "treated", "completed", "in_progress_virtual"].includes(request.status)
+                    : ["confirmed", "processing", "treated", "completed", "partially_collected", "fully_collected", "in_progress_virtual"].includes(
+                          request.status
+                        )
                       ? "border-teal-400/80 bg-teal-50 text-teal-950"
-                      : "border-primary/35 bg-primary/10 text-primary"
+                      : request.status === "cancelled"
+                        ? "border-rose-300/90 bg-rose-50 text-rose-950"
+                        : request.status === "abandoned"
+                          ? "border-orange-300/85 bg-orange-50 text-orange-950"
+                          : request.status === "expired"
+                            ? "border-amber-300/90 bg-amber-50 text-amber-950"
+                            : "border-primary/35 bg-primary/10 text-primary"
               )}
               title={(requestStatusFr[request.status] ?? request.status) + ""}
             >
@@ -371,279 +374,48 @@ export default function DemandeDetailPage() {
         </div>
       </header>
 
-      {request.request_type === "product_request" && request.status === "expired" ? (
-        <section className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-3 shadow-sm">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-amber-950">Demande expirée</h2>
-          <p className="mt-1 text-[11px] leading-snug text-amber-950/90">
-            Vous n&apos;avez pas validé la réponse de la pharmacie dans les 24 h. Vous pouvez créer une nouvelle demande avec les
-            mêmes produits que vous aviez demandés au départ, les ajuster si besoin, puis les renvoyer à la pharmacie.
-          </p>
-          {followUpErr ? (
-            <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">
-              {followUpErr}
-            </p>
+      {showArchivedProductReadonly ? (
+        <PatientRequestOutcomeBanner status={request.status} historyRows={historyRows}>
+          {request.status === "expired" ? (
+            <>
+              {followUpErr ? (
+                <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">
+                  {followUpErr}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                disabled={followUpBusy}
+                onClick={() => {
+                  void (async () => {
+                    setFollowUpErr("");
+                    setFollowUpBusy(true);
+                    const { data, error: rpcErr } = await supabase.rpc("patient_create_followup_from_expired_product_request", {
+                      p_expired_request_id: request.id,
+                    });
+                    setFollowUpBusy(false);
+                    if (rpcErr) {
+                      setFollowUpErr(rpcErr.message);
+                      return;
+                    }
+                    const newId = typeof data === "string" ? data : Array.isArray(data) ? data[0] : null;
+                    if (!newId || typeof newId !== "string") {
+                      setFollowUpErr("Réponse inattendue du serveur.");
+                      return;
+                    }
+                    router.push(`/dashboard/demandes/${newId}`);
+                  })();
+                }}
+                className="w-full rounded-lg bg-amber-700 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-800 disabled:opacity-50"
+              >
+                {followUpBusy ? "Création…" : "Ajuster et renvoyer une nouvelle demande"}
+              </button>
+            </>
           ) : null}
-          <button
-            type="button"
-            disabled={followUpBusy}
-            onClick={() => {
-              void (async () => {
-                setFollowUpErr("");
-                setFollowUpBusy(true);
-                const { data, error: rpcErr } = await supabase.rpc("patient_create_followup_from_expired_product_request", {
-                  p_expired_request_id: request.id,
-                });
-                setFollowUpBusy(false);
-                if (rpcErr) {
-                  setFollowUpErr(rpcErr.message);
-                  return;
-                }
-                const newId = typeof data === "string" ? data : Array.isArray(data) ? data[0] : null;
-                if (!newId || typeof newId !== "string") {
-                  setFollowUpErr("Réponse inattendue du serveur.");
-                  return;
-                }
-                router.push(`/dashboard/demandes/${newId}`);
-              })();
-            }}
-            className="mt-3 w-full rounded-lg bg-amber-700 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-800 disabled:opacity-50"
-          >
-            {followUpBusy ? "Création…" : "Ajuster et renvoyer une nouvelle demande"}
-          </button>
-        </section>
+        </PatientRequestOutcomeBanner>
       ) : null}
 
-      {items.length > 0 && !hasBottomActions ? (
-        <section className="space-y-2">
-            <ul className="space-y-2.5">
-              {items.map((row) => {
-                const prod = one(row.products);
-                const altList = normalizeAlternatives(row.request_item_alternatives);
-                const linePph = unitPriceLabel(prod?.price_pph);
-                const postConfirmPatientView = [
-                  "confirmed",
-                  "processing",
-                  "treated",
-                  "completed",
-                  "partially_collected",
-                  "fully_collected",
-                ].includes(request.status);
-                const chosenAltForValidated = altList.find((a) => a.id === row.patient_chosen_alternative_id);
-                const validatedProductName = chosenAltForValidated
-                  ? one(chosenAltForValidated.products)?.name ?? "Alternative"
-                  : prod?.name ?? "Produit";
-                const validatedQtyBaseline = row.selected_qty ?? row.requested_qty;
-                return (
-                  <li key={row.id} className="rounded-xl border-2 border-slate-100 bg-white p-2.5 text-[11px] leading-snug shadow-sm sm:text-xs">
-                    <div className="flex flex-wrap items-start justify-between gap-1">
-                      <p className="font-semibold text-foreground">{prod?.name ?? "Produit"}</p>
-                      {linePph ? <span className="shrink-0 text-[10px] font-medium text-teal-800">{linePph}</span> : null}
-                    </div>
-                    {row.line_source === "pharmacist_proposed" &&
-                    !(postConfirmPatientView && row.is_selected_by_patient) ? (
-                      <p className="mt-1 rounded bg-violet-100/80 px-1.5 py-0.5 text-[10px] font-semibold text-violet-950">
-                        {requestItemLineSourceFr.pharmacist_proposed}
-                        {row.pharmacist_proposal_reason ? ` — ${row.pharmacist_proposal_reason}` : ""}
-                      </p>
-                    ) : null}
-                    {row.client_comment ? (
-                      <p className="mt-1 text-[10px] text-sky-950/90">
-                        <span className="font-medium">Ta note :</span> {row.client_comment}
-                      </p>
-                    ) : null}
-                    <p className="mt-0.5 text-muted-foreground">
-                      {row.line_source === "pharmacist_proposed" ? (
-                        <>
-                          Quantité proposée{" "}
-                          <strong className="tabular-nums text-foreground">{row.requested_qty}</strong>
-                        </>
-                      ) : (
-                        <>
-                          Demandé <strong className="text-foreground">{row.requested_qty}</strong>
-                        </>
-                      )}
-                      {row.selected_qty != null ? (
-                        <>
-                          {" "}
-                          · sélect. <strong className="text-foreground">{row.selected_qty}</strong>
-                          {!row.is_selected_by_patient ? <span className="text-muted-foreground"> (décoché)</span> : null}
-                        </>
-                      ) : null}
-                    </p>
-                    {postConfirmPatientView && !row.is_selected_by_patient ? (
-                      <p className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] leading-snug text-slate-700">
-                        Vous n&apos;avez pas retenu cette ligne lors de votre validation. Aucun suivi pharmacie pour ce produit.
-                      </p>
-                    ) : null}
-                    {postConfirmPatientView && row.is_selected_by_patient ? (
-                      (() => {
-                        const counterTouched = (row.counter_outcome ?? "unset") !== "unset";
-                        const validatedDispo = chosenAltForValidated?.availability_status ?? row.availability_status;
-                        const validatedPrice = chosenAltForValidated?.unit_price ?? row.unit_price;
-                        const validatedEta =
-                          chosenAltForValidated?.expected_availability_date ?? row.expected_availability_date;
-                        const isPharmaProposed = row.line_source === "pharmacist_proposed";
-                        return (
-                          <>
-                            {isPharmaProposed ? (
-                              <div className="mt-2 rounded-lg border border-violet-300/80 bg-violet-50 px-2 py-2 text-[11px] leading-snug text-violet-950">
-                                <p className="font-bold text-violet-950">Produit proposé par la pharmacie</p>
-                                {row.pharmacist_proposal_reason?.trim() ? (
-                                  <p className="mt-1">
-                                    <span className="font-semibold">Motif : </span>
-                                    {row.pharmacist_proposal_reason.trim()}
-                                  </p>
-                                ) : null}
-                                <p className="mt-1 text-[10px] text-violet-900/90">
-                                  Ajouté par l&apos;officine ; vous l&apos;avez accepté lors de votre validation.
-                                </p>
-                              </div>
-                            ) : null}
-                            <div className="mt-2 rounded-lg border border-emerald-300/70 bg-emerald-50 px-2 py-1.5">
-                              <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900">
-                                {isPharmaProposed ? "Ce que vous avez accepté (ajout pharmacie)" : "Ce que vous avez validé"}
-                              </p>
-                              <p className="mt-0.5 text-xs font-semibold leading-snug text-emerald-950">
-                                {validatedProductName}
-                              </p>
-                              <p className="mt-0.5 text-[11px] leading-snug text-emerald-900/90">
-                                Qté validée · <strong className="tabular-nums">{validatedQtyBaseline}</strong>
-                                {validatedDispo ? (
-                                  <>
-                                    {" "}
-                                    · Dispo · <strong>{availabilityStatusFr[validatedDispo] ?? validatedDispo}</strong>
-                                  </>
-                                ) : null}
-                                {validatedPrice != null ? (
-                                  <>
-                                    {" "}
-                                    · Prix ·{" "}
-                                    <strong className="tabular-nums">{Number(validatedPrice).toFixed(2)} MAD</strong>
-                                  </>
-                                ) : null}{" "}
-                                · État · <strong>Pas encore récupéré</strong>
-                              </p>
-                              {chosenAltForValidated ? (
-                                <p className="mt-1 text-[10px] text-emerald-900/80">
-                                  Alternative retenue par rapport au produit initialement demandé.
-                                </p>
-                              ) : altList.length > 0 ? (
-                                <p className="mt-1 text-[10px] text-emerald-900/80">Produit principal retenu.</p>
-                              ) : null}
-                            </div>
-                            <div className="mt-2 rounded-lg border border-slate-300/80 bg-slate-50 px-2 py-1.5">
-                              <p className="text-[9px] font-bold uppercase tracking-wide text-slate-700">Suivi officine</p>
-                              {!counterTouched ? (
-                                <p className="mt-0.5 text-[11px] leading-snug text-slate-700">
-                                  <strong className="text-slate-900">En cours</strong> · la pharmacie n&apos;a pas encore indiqué si le
-                                  produit est prêt ou remis. Le détail apparaît dès la première mise à jour.
-                                </p>
-                              ) : (
-                                <>
-                                  <p className="mt-0.5 text-xs font-semibold leading-snug text-slate-950">
-                                    {validatedProductName}
-                                  </p>
-                                  <p className="mt-0.5 text-[11px] leading-snug text-slate-800">
-                                    Qté suivie ·{" "}
-                                    <strong className="tabular-nums">{row.available_qty ?? "—"}</strong>
-                                    {row.availability_status ? (
-                                      <>
-                                        {" "}
-                                        · Dispo ·{" "}
-                                        <strong>
-                                          {availabilityStatusFr[row.availability_status] ?? row.availability_status}
-                                        </strong>
-                                      </>
-                                    ) : null}
-                                    {validatedPrice != null ? (
-                                      <>
-                                        {" "}
-                                        · Prix ·{" "}
-                                        <strong className="tabular-nums">{Number(validatedPrice).toFixed(2)} MAD</strong>
-                                      </>
-                                    ) : null}
-                                    {row.availability_status === "to_order" && validatedEta ? (
-                                      <> · Disponible le {formatDateShortFr(validatedEta)}</>
-                                    ) : null}
-                                  </p>
-                                  <div className="mt-1.5 text-[11px]">
-                                    <span className="font-medium text-foreground">
-                                      {counterOutcomePatientLabel(row.counter_outcome, row.counter_cancel_reason)}
-                                    </span>
-                                    {row.counter_cancel_detail ? (
-                                      <span className="ml-1 text-[10px] text-muted-foreground">
-                                        — {row.counter_cancel_detail}
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                  {row.available_qty != null &&
-                                  Number(row.available_qty) !== Number(validatedQtyBaseline) ? (
-                                    <p className="mt-1 text-[10px] leading-snug text-amber-900">
-                                      Peut différer de votre validation sans nouvelle validation de votre part. Consultez
-                                      l&apos;historique du dossier pour le détail des changements.
-                                    </p>
-                                  ) : null}
-                                </>
-                              )}
-                            </div>
-                          </>
-                        );
-                      })()
-                    ) : row.availability_status ? (
-                      <p className="mt-1 text-primary">
-                        <span className="font-medium">{availabilityStatusFr[row.availability_status] ?? row.availability_status}</span>
-                        {row.unit_price != null ? ` · ${Number(row.unit_price).toFixed(2)} MAD` : ""}
-                      </p>
-                    ) : (
-                      <p className="mt-1 text-muted-foreground">En attente réponse pharmacien</p>
-                    )}
-                    {row.pharmacist_comment ? (
-                      <p className="mt-1 rounded border border-border/50 bg-background/80 px-1.5 py-0.5 text-[11px]">{row.pharmacist_comment}</p>
-                    ) : null}
-                    {altList.length > 0 ? (
-                      <div className="mt-1.5 rounded border border-dashed border-amber-300/60 bg-amber-50/50 px-1.5 py-1">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-amber-900/90">Alternatives</p>
-                        <ul className="mt-1 space-y-1">
-                          {altList.map((alt) => {
-                            const altProd = one(alt.products);
-                            const altPph = unitPriceLabel(altProd?.price_pph);
-                            return (
-                              <li key={alt.id} className="rounded bg-card/90 px-1.5 py-1 text-[10px] sm:text-[11px]">
-                                <span className="font-medium">{altProd?.name ?? "Alt."}</span>
-                                {altPph ? <span className="ml-1 text-teal-800">{altPph}</span> : null}
-                                {alt.availability_status ? (
-                                  <span className="ml-1 text-primary">
-                                    {availabilityStatusFr[alt.availability_status] ?? alt.availability_status}
-                                    {alt.unit_price != null ? ` · ${Number(alt.unit_price).toFixed(2)} MAD` : ""}
-                                  </span>
-                                ) : null}
-                                {alt.pharmacist_comment ? <span className="mt-0.5 block text-muted-foreground">{alt.pharmacist_comment}</span> : null}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    ) : null}
-                    {!postConfirmPatientView && row.counter_outcome !== "unset" ? (
-                      <p className="mt-1 text-muted-foreground">
-                        <span className="font-medium text-foreground">
-                          {counterOutcomePatientLabel(row.counter_outcome, row.counter_cancel_reason)}
-                        </span>
-                        {row.counter_cancel_detail ? (
-                          <span className="ml-1 text-[10px] text-muted-foreground">— {row.counter_cancel_detail}</span>
-                        ) : null}
-                      </p>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-        </section>
-      ) : request.request_type === "product_request" && !hasBottomActions ? (
-        <p className="text-center text-xs text-muted-foreground">Aucune ligne pour cette demande.</p>
-      ) : null}
-
-      {hasBottomActions ? (
+      {hasBottomActions || (showArchivedProductReadonly && items.length > 0) ? (
         <section className="pb-2">
         <PatientProductRequestActions
           key={
@@ -708,6 +480,8 @@ export default function DemandeDetailPage() {
           dossierHistoryRows={historyRows}
         />
         </section>
+      ) : request.request_type === "product_request" && showArchivedProductReadonly && items.length === 0 ? (
+        <p className="text-center text-xs text-muted-foreground">Aucune ligne pour cette demande.</p>
       ) : null}
 
       {request.request_type === "product_request" && (request.status === "submitted" || request.status === "in_review") ? (

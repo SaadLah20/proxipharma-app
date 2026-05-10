@@ -4,6 +4,7 @@ import {
   type PatientLineLike,
 } from "@/lib/patient-confirmed-line-buckets";
 import { formatDateShortFr, formatDateTimeShort24hFr } from "@/lib/datetime-fr";
+import { counterOutcomePatientLabel } from "@/lib/request-display";
 import type { SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
 import { supplyAmendChannelLabel } from "@/lib/supply-amendment-channels";
 import { isRequestItemAddedAfterPatientConfirmation } from "@/lib/supply-line-post-confirm";
@@ -14,7 +15,15 @@ export type PatientLineSuiviModel = {
   modif: string | null;
   /** Mention ajout officine */
   ajout: string | null;
+  /** Retrait comptoir (lignes retenues actives) */
+  comptoir: string | null;
 };
+
+function comptoirSuiviLine(row: PatientLineLike): string | null {
+  if (!row.is_selected_by_patient || row.withdrawn_after_confirm) return null;
+  const co = row.counter_outcome ?? "unset";
+  return `Comptoir · ${counterOutcomePatientLabel(co, row.counter_cancel_reason)}`;
+}
 
 function latestAmendmentLineForRow(
   row: PatientLineLike,
@@ -66,6 +75,7 @@ export function patientLineSuiviModel(
       etat: "Écart après validation (hors commande active)",
       modif,
       ajout,
+      comptoir: null,
     };
   }
 
@@ -77,8 +87,11 @@ export function patientLineSuiviModel(
   if (eff === "available" || eff === "partially_available") {
     etat = pcf === "reserved" ? "Réservé à la pharmacie" : "En attente de réservation à la pharmacie";
   } else if (eff === "to_order") {
-    if (pcf === "ordered") etat = "Commandé";
-    else {
+    if (pcf === "arrived_reserved") {
+      etat = "Reçu en officine · prêt au comptoir";
+    } else if (pcf === "ordered") {
+      etat = "Commandé";
+    } else {
       etat =
         eta != null
           ? `En attente (commande) · dispo indicative ${formatDateShortFr(eta)}`
@@ -88,5 +101,5 @@ export function patientLineSuiviModel(
     etat = "Suivi avec l’officine";
   }
 
-  return { etat, modif, ajout };
+  return { etat, modif, ajout, comptoir: comptoirSuiviLine(row) };
 }
