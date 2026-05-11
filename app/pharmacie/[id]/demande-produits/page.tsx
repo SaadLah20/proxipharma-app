@@ -236,7 +236,7 @@ export default function DemandeProduitsPage() {
           Retour à la pharmacie
         </Link>
 
-        <div className="rounded-2xl border-2 border-slate-200 bg-white p-4 shadow-md sm:p-5">
+        <div className="rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-md sm:p-4">
           <div className="flex items-start gap-3">
             <span
               className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-900"
@@ -245,7 +245,7 @@ export default function DemandeProduitsPage() {
               <Package className="size-6" strokeWidth={2.25} />
             </span>
             <div className="min-w-0 pt-0.5">
-              <h1 className="text-[1.35rem] font-bold leading-snug tracking-tight text-slate-950 sm:text-2xl">
+              <h1 className="text-[1.15rem] font-bold leading-snug tracking-tight text-slate-950 sm:text-xl">
                 Demande de produits pour{" "}
                 <span className="text-sky-900">{pharmacyName.trim() ? pharmacyName : "cette pharmacie"}</span>
               </h1>
@@ -253,9 +253,9 @@ export default function DemandeProduitsPage() {
           </div>
         </div>
 
-        <section className="mt-5 rounded-2xl border-2 border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <label className="block text-base font-semibold text-slate-900">Recherche de produits</label>
-          <p className="mt-1.5 text-sm leading-relaxed text-slate-600">2 lettres minimum pour lancer la recherche.</p>
+        <section className="mt-4 rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+          <label className="block text-base font-semibold text-slate-900">Recherche de produit</label>
+          <p className="mt-1 text-sm leading-relaxed text-slate-600">2 lettres minimum.</p>
           <div className="relative mt-3">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-500"
@@ -313,10 +313,10 @@ export default function DemandeProduitsPage() {
           ) : null}
         </section>
 
-        <section className="mt-4 rounded-2xl border-2 border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <h2 className="text-base font-semibold text-slate-900">Produits ajoutés</h2>
+        <section className="mt-4 rounded-2xl border-l-4 border-sky-700 bg-sky-50/40 p-4 shadow-sm ring-1 ring-sky-200/50 sm:p-5">
+          <h2 className="text-base font-semibold text-sky-950">Ajouter un produit</h2>
           {lines.length === 0 ? (
-            <p className="mt-3 text-base leading-relaxed text-slate-600">Aucun produit pour l’instant.</p>
+            <p className="mt-3 text-base leading-relaxed text-slate-700">Ajoutez un produit pour continuer.</p>
           ) : (
             <ul className="mt-4 space-y-4">
               {lines.map((l) => (
@@ -355,10 +355,11 @@ export default function DemandeProduitsPage() {
                       </p>
                       <div className="mt-1.5 flex items-baseline justify-between gap-3 border-b border-slate-200/90 pb-2">
                         <span className="text-sm text-slate-600">
-                          Prix en DH{" "}
+                          PU{" "}
                           <strong className="tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
                         </span>
                         <span className="shrink-0 text-sm font-bold tabular-nums text-sky-900">
+                          Tot{" "}
                           {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
                         </span>
                       </div>
@@ -533,14 +534,29 @@ export default function DemandeProduitsPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-slate-900">{l.name}</p>
-                      <p className="mt-0.5 text-[11px] text-slate-600">
-                        Qté <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
-                        <span className="mx-1 text-slate-300">·</span>
-                        {formatPriceDh(l.price_pph)} ×{l.qty} ={" "}
-                        <span className="font-semibold tabular-nums text-sky-900">
-                          {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
-                        </span>
-                      </p>
+                      <div className="mt-0.5">
+                        <p className="text-[11px] text-slate-600">
+                          Qté <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
+                        </p>
+                        <div className="mt-0.5 flex items-baseline justify-between gap-3">
+                          <span className="text-[11px] text-slate-600">
+                            PU{" "}
+                            <strong className="tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
+                          </span>
+                          <span className="text-[11px] font-bold tabular-nums text-sky-900">
+                            Tot{" "}
+                            {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
+                          </span>
+                        </div>
+                        {l.client_comment?.trim() ? (
+                          <div className="mt-1 rounded-md border border-slate-200 bg-white px-2 py-1.5">
+                            <p className="text-[10px] font-semibold text-slate-700">Votre commentaire</p>
+                            <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-[11px] leading-snug text-slate-800">
+                              {l.client_comment.trim()}
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </li>
                 ))}

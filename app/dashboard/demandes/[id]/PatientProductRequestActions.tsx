@@ -1319,7 +1319,7 @@ function PatientConfirmReviewLineCard({ line }: { line: PatientConfirmPreviewLin
                 : "border-emerald-200/80 bg-emerald-100/45 text-emerald-950"
             }`}
           >
-            Total · <span className="tabular-nums">{line.lineTotalMad != null ? `${line.lineTotalMad.toFixed(2)} MAD` : "—"}</span>
+            Tot · <span className="tabular-nums">{line.lineTotalMad != null ? `${line.lineTotalMad.toFixed(2)} MAD` : "—"}</span>
           </p>
         </div>
       </div>
@@ -2143,9 +2143,11 @@ export function PatientProductRequestActions({
                     </p>
                     <div className="mt-1.5 flex items-baseline justify-between gap-3 border-b border-slate-200/90 pb-2">
                       <span className="text-sm text-slate-600">
-                        Prix en DH <strong className="tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
+                        PU{" "}
+                        <strong className="tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
                       </span>
                       <span className="shrink-0 text-sm font-bold tabular-nums text-sky-900">
+                        Tot{" "}
                         {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
                       </span>
                     </div>
@@ -2211,7 +2213,7 @@ export function PatientProductRequestActions({
                       <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-1.5 text-[11px] font-medium text-slate-500 transition hover:text-slate-800 [&::-webkit-details-marker]:hidden">
                         <span className="flex min-w-0 items-center gap-2">
                           <span className="h-px w-8 shrink-0 bg-slate-300" aria-hidden />
-                          <span className="truncate">Commentaire patient</span>
+                          <span className="truncate">Votre commentaire</span>
                         </span>
                         <ChevronDown className="size-3.5 shrink-0 text-slate-400 transition group-open:rotate-180" aria-hidden />
                       </summary>
@@ -2614,14 +2616,29 @@ export function PatientProductRequestActions({
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-slate-900">{l.name}</p>
-                      <p className="mt-0.5 text-[11px] text-slate-600">
-                        Qté <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
-                        <span className="mx-1 text-slate-300">·</span>
-                        {formatPriceDh(l.price_pph)} ×{l.qty} ={" "}
-                        <span className="font-semibold tabular-nums text-sky-900">
-                          {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
-                        </span>
-                      </p>
+                      <div className="mt-0.5">
+                        <p className="text-[11px] text-slate-600">
+                          Qté <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
+                        </p>
+                        <div className="mt-0.5 flex items-baseline justify-between gap-3">
+                          <span className="text-[11px] text-slate-600">
+                            PU{" "}
+                            <strong className="tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
+                          </span>
+                          <span className="text-[11px] font-bold tabular-nums text-sky-900">
+                            Tot{" "}
+                            {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
+                          </span>
+                        </div>
+                        {l.client_comment?.trim() ? (
+                          <div className="mt-1 rounded-md border border-slate-200 bg-white px-2 py-1.5">
+                            <p className="text-[10px] font-semibold text-slate-700">Votre commentaire</p>
+                            <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-[11px] leading-snug text-slate-800">
+                              {l.client_comment.trim()}
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </li>
                 ))}
