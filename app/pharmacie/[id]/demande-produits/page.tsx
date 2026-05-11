@@ -8,6 +8,7 @@ import { unitPriceLabel } from "@/lib/product-price";
 import { supabase } from "@/lib/supabase";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PATIENT_GENERAL_NOTE_MAX, PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 
 type ProductLite = {
   id: string;
@@ -158,9 +159,10 @@ export default function DemandeProduitsPage() {
       return;
     }
 
+    const noteTrim = note.trim().slice(0, PATIENT_GENERAL_NOTE_MAX);
     const { error: prErr } = await supabase.from("product_requests").insert({
       request_id: reqRow.id,
-      patient_note: note.trim() || null,
+      patient_note: noteTrim.length > 0 ? noteTrim : null,
     });
 
     if (prErr) {
@@ -177,7 +179,7 @@ export default function DemandeProduitsPage() {
           product_id: l.product_id,
           requested_qty: l.qty,
           line_source: "patient_request" as const,
-          client_comment: cc && cc.length > 0 ? cc.slice(0, 500) : null,
+          client_comment: cc && cc.length > 0 ? cc.slice(0, PATIENT_PRODUCT_LINE_COMMENT_MAX) : null,
         };
       })
     );
@@ -207,45 +209,41 @@ export default function DemandeProduitsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background p-4 pb-28 sm:p-5 sm:pb-32">
+    <main className="min-h-screen touch-pan-y bg-slate-50 p-4 pb-32 text-slate-900 antialiased sm:p-5 sm:pb-36">
       <div className="mx-auto max-w-lg">
         <Link
           href={`/pharmacie/${pharmacyId}`}
-          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "mb-4 -ml-2 h-auto px-2 text-sm font-semibold text-primary")}
+          className={cn(
+            buttonVariants({ variant: "ghost", size: "sm" }),
+            "mb-3 -ml-2 h-auto px-2 text-base font-semibold text-sky-900 underline-offset-2 hover:underline"
+          )}
         >
           Retour à la pharmacie
         </Link>
 
-        <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06] p-4 shadow-sm sm:p-5">
+        <div className="rounded-2xl border-2 border-slate-200 bg-white p-4 shadow-md sm:p-5">
           <div className="flex items-start gap-3">
             <span
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary"
+              className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-900"
               aria-hidden
             >
-              <Package className="size-5" strokeWidth={2.25} />
+              <Package className="size-6" strokeWidth={2.25} />
             </span>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Demande de produits</h1>
-              {pharmacyName ? (
-                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                  Pour <span className="font-semibold text-foreground">{pharmacyName}</span>
-                </p>
-              ) : null}
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Ajoutez les produits souhaités, puis envoyez : l&apos;officine pourra vous répondre depuis la plateforme.
-              </p>
+            <div className="min-w-0 pt-0.5">
+              <h1 className="text-[1.35rem] font-bold leading-snug tracking-tight text-slate-950 sm:text-2xl">
+                Demande de produits pour{" "}
+                <span className="text-sky-900">{pharmacyName.trim() ? pharmacyName : "cette pharmacie"}</span>
+              </h1>
             </div>
           </div>
         </div>
 
-        <section className="mt-5 rounded-2xl border border-primary/20 bg-primary/[0.06] p-4 text-card-foreground shadow-sm">
-          <label className="block text-sm font-semibold text-foreground">Recherche de produits</label>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Commencez à taper le nom du produit (2 caractères minimum).
-          </p>
-          <div className="relative mt-2">
+        <section className="mt-5 rounded-2xl border-2 border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <label className="block text-base font-semibold text-slate-900">Recherche de produits</label>
+          <p className="mt-1.5 text-sm leading-relaxed text-slate-600">2 lettres minimum pour lancer la recherche.</p>
+          <div className="relative mt-3">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-500"
               aria-hidden
             />
             <input
@@ -254,7 +252,7 @@ export default function DemandeProduitsPage() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Ex: Doliprane, Smecta..."
               className={cn(
-                "w-full rounded-xl border border-input bg-background py-2.5 pl-9 pr-3 text-sm shadow-sm placeholder:text-muted-foreground",
+                "touch-pan-y w-full rounded-xl border-2 border-slate-300 bg-white py-3 pl-11 pr-3 text-base leading-normal shadow-sm placeholder:text-slate-400",
                 fieldFocus
               )}
             />
@@ -300,16 +298,16 @@ export default function DemandeProduitsPage() {
           ) : null}
         </section>
 
-        <section className="mt-4 rounded-2xl border border-border/90 bg-card p-4 text-card-foreground shadow-sm">
-          <h2 className="text-sm font-semibold text-foreground">Produits ajoutés</h2>
+        <section className="mt-4 rounded-2xl border-2 border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <h2 className="text-base font-semibold text-slate-900">Produits ajoutés</h2>
           {lines.length === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">Aucun produit pour l’instant.</p>
+            <p className="mt-3 text-base leading-relaxed text-slate-600">Aucun produit pour l’instant.</p>
           ) : (
-            <ul className="mt-3 space-y-3">
+            <ul className="mt-4 space-y-4">
               {lines.map((l) => (
                 <li
                   key={l.product_id}
-                  className="rounded-xl border border-border/70 bg-muted/20 p-2"
+                  className="rounded-xl border-2 border-slate-200 bg-slate-50/80 p-3"
                 >
                   <div className="flex min-h-[96px] items-stretch gap-2.5">
                     <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card">
@@ -371,25 +369,30 @@ export default function DemandeProduitsPage() {
                       </div>
                     </div>
                   </div>
-                  <label className="mt-2 block">
+                  <label className="mt-3 block">
+                    <span className="mb-1 block text-sm font-medium text-slate-800">Commentaire sur ce produit (facultatif)</span>
                     <input
                       type="text"
                       value={l.client_comment ?? ""}
+                      maxLength={PATIENT_PRODUCT_LINE_COMMENT_MAX}
                       onChange={(e) =>
                         setLines((prev) =>
                           prev.map((row) =>
                             row.product_id === l.product_id
-                              ? { ...row, client_comment: e.target.value.slice(0, 500) }
+                              ? { ...row, client_comment: e.target.value.slice(0, PATIENT_PRODUCT_LINE_COMMENT_MAX) }
                               : row
                           )
                         )
                       }
-                      placeholder="Commentaire sur ce produit (optionnel)"
+                      placeholder="Ex. dosage, marque souhaitée…"
                       className={cn(
-                        "w-full touch-pan-x rounded-lg border border-primary/45 bg-primary/[0.06] px-3 py-2 text-sm placeholder:text-muted-foreground",
+                        "touch-pan-y w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-2.5 text-base leading-normal placeholder:text-slate-400",
                         fieldFocus
                       )}
                     />
+                    <span className="mt-1 block text-right text-xs text-slate-500 tabular-nums">
+                      {(l.client_comment ?? "").length}/{PATIENT_PRODUCT_LINE_COMMENT_MAX}
+                    </span>
                   </label>
                 </li>
               ))}
@@ -397,18 +400,22 @@ export default function DemandeProduitsPage() {
           )}
         </section>
 
-        <section className="mt-4 rounded-2xl border border-border/90 bg-card p-4 text-card-foreground shadow-sm">
-          <label className="block text-sm font-medium text-foreground">Message pour la pharmacie (optionnel)</label>
+        <section className="mt-4 rounded-2xl border-l-4 border-sky-700 bg-sky-50/90 p-4 shadow-md ring-1 ring-sky-200/60 sm:p-5">
+          <label className="block text-base font-semibold text-slate-900">Message général pour la pharmacie (facultatif)</label>
           <textarea
             value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={3}
+            onChange={(e) => setNote(e.target.value.slice(0, PATIENT_GENERAL_NOTE_MAX))}
+            rows={4}
+            maxLength={PATIENT_GENERAL_NOTE_MAX}
             className={cn(
-              "mt-2 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm shadow-sm placeholder:text-muted-foreground",
+              "touch-pan-y mt-3 w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-3 text-base leading-relaxed shadow-inner placeholder:text-slate-400",
               fieldFocus
             )}
-            placeholder="Précisions, créneau de retrait..."
+            placeholder="Votre texte apparaîtra tel quel pour l’officine."
           />
+          <p className="mt-1.5 text-right text-sm text-slate-600 tabular-nums">
+            {note.length}/{PATIENT_GENERAL_NOTE_MAX}
+          </p>
         </section>
 
         {feedback ? (
@@ -424,16 +431,15 @@ export default function DemandeProduitsPage() {
           </div>
         ) : null}
 
-        <p className="mt-6 text-center text-sm leading-relaxed text-muted-foreground">
-          En validant, votre liste est transmise à la pharmacie. Vous pourrez suivre la réponse depuis vos{" "}
-          <span className="font-medium text-foreground">demandes de produits</span>.
+        <p className="mt-5 text-center text-base leading-relaxed text-slate-700">
+          Après envoi, suivez la réponse dans <span className="font-semibold text-slate-900">Mes demandes de produits</span>.
         </p>
 
         <Button
           type="button"
           size="lg"
           disabled={submitLoading || lines.length === 0}
-          className="mt-3 h-11 w-full text-sm"
+          className="mt-4 h-12 w-full text-base font-semibold shadow-md"
           onClick={() => void submit()}
         >
           {submitLoading ? "Envoi…" : "Envoyer la demande"}
@@ -441,21 +447,23 @@ export default function DemandeProduitsPage() {
 
         <Link
           href="/dashboard/demandes"
-          className={cn(buttonVariants({ variant: "outline", size: "lg" }), "mt-3 flex h-11 w-full items-center justify-center text-sm")}
+          className={cn(
+            buttonVariants({ variant: "outline", size: "lg" }),
+            "mt-3 flex h-12 w-full items-center justify-center text-base font-semibold"
+          )}
         >
           Mes demandes de produits
         </Link>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
-        <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
-          <p className="text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">{lines.length}</span>{" "}
-            {lines.length > 1 ? "produits" : "produit"} ajoutés
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
+        <div className="mx-auto flex max-w-lg flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 sm:px-5">
+          <p className="text-base text-slate-700">
+            <span className="font-bold tabular-nums text-slate-950">{lines.length}</span>{" "}
+            <span className="font-medium">{lines.length > 1 ? "produits" : "produit"}</span>
           </p>
-          <p className="text-xs text-muted-foreground">
-            Total indicatif{" "}
-            <span className="font-semibold text-foreground">{totalAmount.toFixed(2)} MAD</span>
+          <p className="text-lg font-bold tracking-tight text-slate-950">
+            TOTAL: <span className="tabular-nums text-sky-900">{totalAmount.toFixed(2)} MAD</span>
           </p>
         </div>
       </div>

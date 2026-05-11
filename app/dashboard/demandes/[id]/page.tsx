@@ -303,7 +303,7 @@ export default function DemandeDetailPage() {
       request.status === "fully_collected");
 
   return (
-    <PageShell className="space-y-3">
+    <PageShell className="space-y-3 bg-slate-50">
       <Link href="/dashboard/demandes" className="inline-block text-xs font-medium text-sky-800 underline">
         ← Retour aux demandes de produits
       </Link>

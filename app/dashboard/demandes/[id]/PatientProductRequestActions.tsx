@@ -46,6 +46,7 @@ import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr"
 import { patientLineSuiviModel } from "@/lib/patient-line-suivi-fr";
 import { isRequestItemAddedAfterPatientConfirmation } from "@/lib/supply-line-post-confirm";
 import { isPatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
+import { PATIENT_GENERAL_NOTE_MAX, PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 
 type ProdBrief = { name: string; price_pph?: number | null; photo_url?: string | null };
 
@@ -1247,9 +1248,9 @@ function formatBlockSubtotalLabel(lines: PatientConfirmPreviewLine[]): string {
 function formatGrandTotalLabel(all: PatientConfirmPreviewLine[]): string {
   const { sumKnown, missingUnitPrice } = blockMonetarySummary(all);
   if (all.length === 0) return "";
-  if (missingUnitPrice && sumKnown === 0) return "Total estimé — impossible à calculer sans prix unitaire";
-  if (missingUnitPrice) return `Total connu (indicatif) · ${sumKnown.toFixed(2)} MAD · certaines lignes sans prix`;
-  return `Total estimé · ${sumKnown.toFixed(2)} MAD`;
+  if (missingUnitPrice && sumKnown === 0) return "TOTAL: — (prix incomplet)";
+  if (missingUnitPrice) return `TOTAL: ${sumKnown.toFixed(2)} MAD (partiel)`;
+  return `TOTAL: ${sumKnown.toFixed(2)} MAD`;
 }
 
 function PatientConfirmReviewLineCard({ line }: { line: PatientConfirmPreviewLine }) {
@@ -1641,7 +1642,7 @@ export function PatientProductRequestActions({
       setActionError(error.message);
       return;
     }
-    const trimmedNote = confirmPatientNote.trim();
+    const trimmedNote = confirmPatientNote.trim().slice(0, PATIENT_GENERAL_NOTE_MAX);
     const { error: noteErr } = await supabase
       .from("product_requests")
       .update({ patient_note: trimmedNote === "" ? null : trimmedNote })
@@ -1674,7 +1675,7 @@ export function PatientProductRequestActions({
     }
 
     const p_items = lines.map((l) => {
-      const cc = l.client_comment.trim().slice(0, 500);
+      const cc = l.client_comment.trim().slice(0, PATIENT_PRODUCT_LINE_COMMENT_MAX);
       return {
         product_id: l.product_id,
         requested_qty: l.qty,
@@ -1684,7 +1685,8 @@ export function PatientProductRequestActions({
     setBusyAction("resubmit");
     const { error } = await supabase.rpc("patient_resubmit_product_request_after_response", {
       p_request_id: requestId,
-      p_patient_note: noteDraft.trim() === "" ? null : noteDraft.trim(),
+      p_patient_note:
+        noteDraft.trim() === "" ? null : noteDraft.trim().slice(0, PATIENT_GENERAL_NOTE_MAX),
       p_items,
     });
     setBusyAction("");
@@ -1797,7 +1799,7 @@ export function PatientProductRequestActions({
 
   return (
     <section
-      className={`mt-2 rounded-lg border border-border/90 bg-muted/15 p-2 sm:p-2.5 ${showResubmit ? "pb-20" : ""} ${showConfirm ? "pb-28" : ""}`}
+      className={`touch-pan-y mt-2 rounded-xl border-2 border-slate-200 bg-slate-50/95 p-3 sm:p-4 ${showResubmit ? "pb-28" : ""} ${showConfirm ? "pb-32" : ""}`}
     >
       {actionError ? (
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
@@ -2049,17 +2051,17 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showResubmit && editMode ? (
-        <div className="mt-2 rounded-2xl border border-primary/20 bg-primary/[0.06] p-3 shadow-sm">
-          <label className="block text-sm font-semibold text-foreground">Recherche de produits</label>
-          <p className="mt-1 text-xs text-muted-foreground">Commencez à taper le nom du produit (2 caractères minimum).</p>
+        <div className="mt-2 rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+          <label className="block text-base font-semibold text-slate-900">Recherche de produits</label>
+          <p className="mt-1 text-sm text-slate-600">2 lettres minimum.</p>
           <div className="relative mt-2">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-500" />
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Ex: Doliprane, Smecta..."
-              className="w-full rounded-xl border border-input bg-background py-2.5 pl-9 pr-3 text-sm shadow-sm placeholder:text-muted-foreground"
+              className="touch-pan-y w-full rounded-xl border-2 border-slate-300 bg-white py-3 pl-11 pr-3 text-base shadow-sm placeholder:text-slate-400"
             />
           </div>
           {visibleHits.length > 0 ? (
@@ -2103,7 +2105,7 @@ export function PatientProductRequestActions({
         <div className="mt-2">
           <ul className="space-y-3">
             {lines.map((l, idx) => (
-              <li key={`${l.product_id}-${idx}`} className="rounded-xl border border-border/70 bg-muted/20 p-2">
+              <li key={`${l.product_id}-${idx}`} className="rounded-xl border-2 border-slate-200 bg-white p-3 shadow-sm">
                 <div className="flex min-h-[96px] items-stretch gap-2.5">
                   <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card">
                     {editMode ? (
@@ -2173,57 +2175,84 @@ export function PatientProductRequestActions({
                     </div>
                   </div>
                 </div>
-                <label className="mt-2 block">
-                  <input
-                    type="text"
-                    disabled={!editMode}
-                    value={l.client_comment}
-                    onChange={(e) =>
-                      setLines((prev) =>
-                        prev.map((row, i) => (i === idx ? { ...row, client_comment: e.target.value.slice(0, 500) } : row))
-                      )
-                    }
-                    placeholder="Commentaire sur ce produit (optionnel)"
-                    className="w-full touch-pan-x rounded-lg border border-primary/45 bg-primary/[0.06] px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-70"
-                  />
-                </label>
+                {editMode || l.client_comment.trim().length > 0 ? (
+                  editMode ? (
+                    <label className="mt-3 block">
+                      <span className="mb-1 block text-sm font-medium text-slate-800">Commentaire sur ce produit</span>
+                      <input
+                        type="text"
+                        value={l.client_comment}
+                        maxLength={PATIENT_PRODUCT_LINE_COMMENT_MAX}
+                        onChange={(e) =>
+                          setLines((prev) =>
+                            prev.map((row, i) =>
+                              i === idx
+                                ? { ...row, client_comment: e.target.value.slice(0, PATIENT_PRODUCT_LINE_COMMENT_MAX) }
+                                : row
+                            )
+                          )
+                        }
+                        placeholder="Ex. dosage, précision…"
+                        className="touch-pan-y w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-2.5 text-base leading-normal text-slate-900 placeholder:text-slate-400"
+                      />
+                      <span className="mt-1 block text-right text-xs text-slate-600 tabular-nums">
+                        {l.client_comment.length}/{PATIENT_PRODUCT_LINE_COMMENT_MAX}
+                      </span>
+                    </label>
+                  ) : (
+                    <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Votre commentaire</p>
+                      <p className="mt-1 whitespace-pre-wrap text-base leading-relaxed text-slate-900">{l.client_comment.trim()}</p>
+                    </div>
+                  )
+                ) : null}
               </li>
             ))}
           </ul>
         </div>
       ) : null}
 
-      <div className="mt-2 space-y-1.5 rounded-md border border-border/70 bg-card p-1.5 sm:p-2">
+      <div className="mt-2 space-y-2">
         {showResubmit ? (
-          <div className="rounded-md border border-border/70 bg-background p-2.5">
-            <label className="block text-xs font-medium text-gray-700">
-              Message pour la pharmacie (optionnel)
-              <textarea
-                value={noteDraft}
-                disabled={!editMode}
-                onChange={(e) => setNoteDraft(e.target.value)}
-                rows={2}
-                placeholder="Précisions, créneau de retrait..."
-                className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs disabled:bg-muted"
-              />
-            </label>
-          </div>
+          editMode || noteDraft.trim().length > 0 ? (
+            <div className="rounded-xl border-l-4 border-sky-700 bg-sky-50/95 p-3 shadow-sm ring-1 ring-sky-200/50 sm:p-4">
+              <label className="block text-sm font-semibold text-slate-900">Message général pour la pharmacie (facultatif)</label>
+              {editMode ? (
+                <>
+                  <textarea
+                    value={noteDraft}
+                    onChange={(e) => setNoteDraft(e.target.value.slice(0, PATIENT_GENERAL_NOTE_MAX))}
+                    rows={5}
+                    maxLength={PATIENT_GENERAL_NOTE_MAX}
+                    placeholder="Allergies, urgence, préférences…"
+                    className="touch-pan-y mt-2 w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-3 text-base leading-relaxed text-slate-900 placeholder:text-slate-400"
+                  />
+                  <p className="mt-1.5 text-right text-sm text-slate-600 tabular-nums">
+                    {noteDraft.length}/{PATIENT_GENERAL_NOTE_MAX}
+                  </p>
+                </>
+              ) : (
+                <div className="mt-2 min-h-[6rem] whitespace-pre-wrap rounded-lg border border-slate-200 bg-white px-3 py-3 text-base leading-relaxed text-slate-900">
+                  {noteDraft.trim()}
+                </div>
+              )}
+            </div>
+          ) : null
         ) : null}
 
         {showConfirm ? (
-          <div className="rounded-xl border border-sky-200/80 bg-sky-50/35 p-2.5 sm:p-3">
-            <label className="block text-xs font-semibold text-foreground">
-              Message général pour la pharmacie (optionnel)
-              <textarea
-                value={confirmPatientNote}
-                onChange={(e) => setConfirmPatientNote(e.target.value.slice(0, 2000))}
-                rows={3}
-                placeholder="Précisions complémentaires, horaires, questions… seront enregistrées avec ta validation."
-                className="mt-1 w-full resize-y rounded-xl border border-sky-200/90 bg-background px-3 py-2 text-xs shadow-sm placeholder:text-muted-foreground/70 sm:text-sm"
-              />
-            </label>
-            <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
-              Tu peux reprendre ou adapter le message précédent ; cette version remplace celui attaché à la demande après validation.
+          <div className="rounded-xl border-l-4 border-sky-700 bg-sky-50/95 p-3 shadow-sm ring-1 ring-sky-200/50 sm:p-4">
+            <label className="block text-sm font-semibold text-slate-900">Message général pour la pharmacie (facultatif)</label>
+            <textarea
+              value={confirmPatientNote}
+              onChange={(e) => setConfirmPatientNote(e.target.value.slice(0, PATIENT_GENERAL_NOTE_MAX))}
+              rows={4}
+              maxLength={PATIENT_GENERAL_NOTE_MAX}
+              placeholder="Sera enregistré avec votre validation."
+              className="touch-pan-y mt-2 w-full resize-y rounded-lg border-2 border-slate-300 bg-white px-3 py-3 text-base leading-relaxed text-slate-900 placeholder:text-slate-400"
+            />
+            <p className="mt-1.5 text-right text-sm text-slate-600 tabular-nums">
+              {confirmPatientNote.length}/{PATIENT_GENERAL_NOTE_MAX}
             </p>
           </div>
         ) : null}
@@ -2373,30 +2402,30 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showResubmit ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
-          <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
-            <p className="text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">{lines.length}</span>{" "}
-              {lines.length > 1 ? "produits" : "produit"} ajoutés
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
+          <div className="mx-auto flex max-w-lg flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 sm:px-5">
+            <p className="text-base text-slate-700">
+              <span className="font-bold tabular-nums text-slate-950">{lines.length}</span>{" "}
+              <span className="font-medium">{lines.length > 1 ? "produits" : "produit"}</span>
             </p>
-            <p className="text-xs text-muted-foreground">
-              Total indicatif <span className="font-semibold text-foreground">{resubmitTotal.toFixed(2)} MAD</span>
+            <p className="text-lg font-bold tracking-tight text-slate-950">
+              TOTAL: <span className="tabular-nums text-sky-900">{resubmitTotal.toFixed(2)} MAD</span>
             </p>
           </div>
         </div>
       ) : null}
 
       {showConfirm ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-background/95 px-4 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] backdrop-blur supports-[backdrop-filter]:bg-background/90">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
           <div className="mx-auto flex max-w-lg flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="min-w-0 text-[11px] text-muted-foreground sm:text-xs">
-              <p>
-                <span className="font-semibold text-foreground">{confirmSelectionSummary.count}</span>{" "}
+            <div className="min-w-0 text-sm text-slate-700 sm:text-base">
+              <p className="font-medium">
+                <span className="font-bold tabular-nums text-slate-950">{confirmSelectionSummary.count}</span>{" "}
                 {confirmSelectionSummary.count > 1 ? "lignes retenues" : "ligne retenue"}
               </p>
-              <p className="mt-0.5">
-                Total indicatif{" "}
-                <span className="font-semibold tabular-nums text-foreground">
+              <p className="mt-1 text-lg font-bold text-slate-950">
+                TOTAL:{" "}
+                <span className="tabular-nums text-sky-900">
                   {confirmSelectionSummary.total > 0 ? `${confirmSelectionSummary.total.toFixed(2)} MAD` : "—"}
                 </span>
               </p>
@@ -2405,7 +2434,7 @@ export function PatientProductRequestActions({
               type="button"
               disabled={busyAction !== "" || visitWin.missingEtaOnToOrder}
               onClick={openConfirmReview}
-              className="w-full shrink-0 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-95 disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
+              className="w-full shrink-0 rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
             >
               Valider ma demande
             </button>
@@ -2489,8 +2518,8 @@ export function PatientProductRequestActions({
                     Les montants reflètent uniquement les prix unitaires communiqués par la pharmacie. Une ligne sans prix n&apos;entre pas dans le total.
                   </p>
                 ) : (
-                  <p className="mt-1.5 text-[10px] leading-snug text-violet-900/75">
-                    Total indicatif (TTC selon officine au moment du retrait).
+                  <p className="mt-1.5 text-sm leading-snug text-slate-700">
+                    Montants basés sur les prix indiqués par la pharmacie.
                   </p>
                 )}
               </div>
