@@ -30,5 +30,6 @@ export function formatPriceDh(value: number | string | null | undefined): string
   if (value == null || value === "") return "—";
   const n = typeof value === "string" ? Number(value) : value;
   if (Number.isNaN(n) || n < 0) return "—";
-  return `${n.toFixed(2)} DH`;
+  // Espace insécable : évite le retour à la ligne entre le montant et « DH » sur mobile.
+  return `${n.toFixed(2)}\u00A0DH`;
 }

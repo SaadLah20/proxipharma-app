@@ -254,7 +254,7 @@ export default function DemandeProduitsPage() {
         </div>
 
         <section className="mt-4 rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-          <label className="block text-base font-semibold text-slate-900">Recherche de produit</label>
+          <label className="block text-base font-semibold text-slate-900">Ajouter un produit</label>
           <p className="mt-1 text-sm leading-relaxed text-slate-600">2 lettres minimum.</p>
           <div className="relative mt-3">
             <Search
@@ -314,7 +314,7 @@ export default function DemandeProduitsPage() {
         </section>
 
         <section className="mt-4 rounded-2xl border-l-4 border-sky-700 bg-sky-50/40 p-4 shadow-sm ring-1 ring-sky-200/50 sm:p-5">
-          <h2 className="text-base font-semibold text-sky-950">Ajouter un produit</h2>
+          <h2 className="text-base font-semibold text-sky-950">Produits ajoutés</h2>
           {lines.length === 0 ? (
             <p className="mt-3 text-base leading-relaxed text-slate-700">Ajoutez un produit pour continuer.</p>
           ) : (
@@ -353,13 +353,15 @@ export default function DemandeProduitsPage() {
                       >
                         {l.name}
                       </p>
-                      <div className="mt-1.5 flex items-baseline justify-between gap-3 border-b border-slate-200/90 pb-2">
-                        <span className="text-sm text-slate-600">
-                          PU{" "}
-                          <strong className="tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
+                      <div className="mt-1.5 flex flex-nowrap items-baseline justify-between gap-2 border-b border-slate-200/90 pb-2">
+                        <span className="min-w-0 shrink text-[13px] text-slate-600 sm:text-sm">
+                          <span className="font-semibold text-slate-500">PU</span>{" "}
+                          <strong className="whitespace-nowrap tabular-nums text-slate-900">
+                            {formatPriceDh(l.price_pph)}
+                          </strong>
                         </span>
-                        <span className="shrink-0 text-sm font-bold tabular-nums text-sky-900">
-                          Tot{" "}
+                        <span className="shrink-0 whitespace-nowrap text-sm font-bold tabular-nums text-sky-900">
+                          <span className="font-semibold text-sky-800/90">Tot</span>{" "}
                           {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
                         </span>
                       </div>
@@ -538,13 +540,15 @@ export default function DemandeProduitsPage() {
                         <p className="text-[11px] text-slate-600">
                           Qté <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
                         </p>
-                        <div className="mt-0.5 flex items-baseline justify-between gap-3">
-                          <span className="text-[11px] text-slate-600">
-                            PU{" "}
-                            <strong className="tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
+                        <div className="mt-0.5 flex flex-nowrap items-baseline justify-between gap-2">
+                          <span className="min-w-0 shrink text-[11px] text-slate-600">
+                            <span className="font-semibold text-slate-500">PU</span>{" "}
+                            <strong className="whitespace-nowrap tabular-nums text-slate-900">
+                              {formatPriceDh(l.price_pph)}
+                            </strong>
                           </span>
-                          <span className="text-[11px] font-bold tabular-nums text-sky-900">
-                            Tot{" "}
+                          <span className="shrink-0 whitespace-nowrap text-[11px] font-bold tabular-nums text-sky-900">
+                            <span className="font-semibold text-sky-800/90">Tot</span>{" "}
                             {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
                           </span>
                         </div>
