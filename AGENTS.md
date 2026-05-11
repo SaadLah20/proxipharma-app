@@ -14,4 +14,4 @@ Après validation patient : statuts DB **`processing`** (préparation officine) 
 
 **UI pharmacien post-validé** — **`app/dashboard/pharmacien/demandes/[id]/page.tsx`** + **`components/pharmacist/pharmacist-supply-compact-line.tsx`** : brouillon (réservé/commandé, écart, comptoir **en attente / récupéré**) validé par **Enregistrer les modifications** ; pas d’auto-save comptoir sur cette vue compacte ; migrations **`20260509_001`** / **`20260509_002`** si infra à jour.
 
-**Ne pas réécrire tout le détail produit** sans relire **`CONTEXTE.md` §6** et **`CAHIER_DES_CHARGES.md` §4.4 + dernier §10 Journal + §13.10** (phrase de reprise type).
+**Ne pas réécrire tout le détail produit** sans relire **`CONTEXTE.md` §6** et **`CAHIER_DES_CHARGES.md` §4.4 + dernier §10 Journal + §13.10** (phrase de reprise type). Pour une **ouverture sans tâche** (aucune implémentation avant consigne explicite) : **`CAHIER_DES_CHARGES.md` §13.11**.
