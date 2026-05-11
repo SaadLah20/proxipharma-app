@@ -1,6 +1,7 @@
 -- Seed demo products with Unsplash photos.
 -- Inserted columns: `name`, `photo_url` (BDD), `product_type` (NOT NULL).
--- Idempotent by exact match on `name`.
+-- Idempotent by exact match on `name` (INSERT seulement si le nom n’existe pas).
+-- Si le catalogue avait déjà ces noms sans photo : appliquer aussi `20260511_003_products_photo_url_backfill_by_name.sql`.
 
 insert into public.products (name, photo_url, product_type)
 select
