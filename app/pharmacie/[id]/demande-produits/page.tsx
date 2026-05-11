@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Minus, Plus, Trash2, Package, Search, X } from "lucide-react";
-import { formatPriceDh } from "@/lib/product-price";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
@@ -34,6 +33,39 @@ type CartLine = {
   /** Commentaire optionnel par ligne (Q11, max 500 côté BDD) */
   client_comment?: string;
 };
+
+/** Montant + « DH » compact (suffixe plus petit, pas de coupure PU / nombre). */
+function PriceDhInline({
+  value,
+  amountClassName,
+  suffixClassName,
+}: {
+  value: number | string | null | undefined;
+  amountClassName?: string;
+  suffixClassName?: string;
+}) {
+  if (value == null || value === "") {
+    return <span className={amountClassName}>—</span>;
+  }
+  const n = typeof value === "string" ? Number(value) : value;
+  if (Number.isNaN(n) || n < 0) {
+    return <span className={amountClassName}>—</span>;
+  }
+  return (
+    <span className="inline-flex items-baseline whitespace-nowrap">
+      <span className={cn("tabular-nums", amountClassName)}>{n.toFixed(2)}</span>
+      <span
+        className={cn(
+          "translate-y-[0.02em] text-[0.62em] font-semibold uppercase leading-none tracking-tight text-slate-500",
+          suffixClassName
+        )}
+      >
+        {"\u00A0"}
+        DH
+      </span>
+    </span>
+  );
+}
 
 export default function DemandeProduitsPage() {
   const params = useParams();
@@ -314,7 +346,7 @@ export default function DemandeProduitsPage() {
                         {p.name}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-sky-900 sm:text-sm">
-                        {formatPriceDh(p.price_pph)}
+                        <PriceDhInline value={p.price_pph} amountClassName="font-semibold text-sky-900" />
                       </p>
                     </div>
                   </button>
@@ -366,16 +398,24 @@ export default function DemandeProduitsPage() {
                       >
                         {l.name}
                       </p>
-                      <div className="mt-1.5 flex flex-nowrap items-baseline justify-between gap-2 border-b border-slate-200/90 pb-2">
-                        <span className="min-w-0 shrink text-[13px] text-slate-600 sm:text-sm">
-                          <span className="font-semibold text-slate-500">PU</span>{" "}
-                          <strong className="whitespace-nowrap tabular-nums text-slate-900">
-                            {formatPriceDh(l.price_pph)}
+                      <div className="mt-1.5 flex flex-nowrap items-baseline justify-between gap-1.5 border-b border-slate-200/90 pb-2">
+                        <span className="inline-flex min-w-0 shrink-0 items-baseline gap-0.5 text-[13px] text-slate-600 sm:text-sm">
+                          <span className="shrink-0 font-semibold text-slate-500">PU</span>
+                          <strong className="font-semibold text-slate-900">
+                            <PriceDhInline value={l.price_pph} />
                           </strong>
                         </span>
-                        <span className="shrink-0 whitespace-nowrap text-sm font-bold tabular-nums text-sky-900">
-                          <span className="font-semibold text-sky-800/90">Tot</span>{" "}
-                          {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
+                        <span className="inline-flex shrink-0 items-baseline gap-0.5 text-sm font-bold text-sky-900">
+                          <span className="shrink-0 font-semibold text-sky-800/90">Tot</span>
+                          {l.price_pph != null ? (
+                            <PriceDhInline
+                              value={l.price_pph * l.qty}
+                              amountClassName="font-bold text-sky-900"
+                              suffixClassName="text-sky-800/90"
+                            />
+                          ) : (
+                            <span className="tabular-nums">—</span>
+                          )}
                         </span>
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -496,8 +536,11 @@ export default function DemandeProduitsPage() {
             <span className="font-bold tabular-nums text-slate-950">{lines.length}</span>{" "}
             <span className="font-medium">{lines.length > 1 ? "produits" : "produit"}</span>
           </p>
-          <p className="text-lg font-bold tracking-tight text-slate-950">
-            TOTAL: <span className="tabular-nums text-sky-900">{formatPriceDh(totalAmount)}</span>
+          <p className="inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-x-1 text-lg font-bold tracking-tight text-slate-950">
+            <span className="shrink-0">TOTAL:</span>
+            <span className="text-sky-900">
+              <PriceDhInline value={totalAmount} amountClassName="font-bold text-lg text-sky-900" suffixClassName="font-bold text-sky-800" />
+            </span>
           </p>
         </div>
       </div>
@@ -556,16 +599,24 @@ export default function DemandeProduitsPage() {
                         <p className="text-[11px] text-slate-600">
                           Qté <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
                         </p>
-                        <div className="mt-0.5 flex flex-nowrap items-baseline justify-between gap-2">
-                          <span className="min-w-0 shrink text-[11px] text-slate-600">
-                            <span className="font-semibold text-slate-500">PU</span>{" "}
-                            <strong className="whitespace-nowrap tabular-nums text-slate-900">
-                              {formatPriceDh(l.price_pph)}
+                        <div className="mt-0.5 flex flex-nowrap items-baseline justify-between gap-1.5">
+                          <span className="inline-flex shrink-0 items-baseline gap-0.5 text-[11px] text-slate-600">
+                            <span className="font-semibold text-slate-500">PU</span>
+                            <strong className="font-semibold text-slate-900">
+                              <PriceDhInline value={l.price_pph} amountClassName="text-[11px]" suffixClassName="text-[9px]" />
                             </strong>
                           </span>
-                          <span className="shrink-0 whitespace-nowrap text-[11px] font-bold tabular-nums text-sky-900">
-                            <span className="font-semibold text-sky-800/90">Tot</span>{" "}
-                            {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
+                          <span className="inline-flex shrink-0 items-baseline gap-0.5 text-[11px] font-bold text-sky-900">
+                            <span className="font-semibold text-sky-800/90">Tot</span>
+                            {l.price_pph != null ? (
+                              <PriceDhInline
+                                value={l.price_pph * l.qty}
+                                amountClassName="text-[11px] font-bold"
+                                suffixClassName="text-[9px] font-bold text-sky-800/90"
+                              />
+                            ) : (
+                              <span className="tabular-nums">—</span>
+                            )}
                           </span>
                         </div>
                         {l.client_comment?.trim() ? (
@@ -591,7 +642,9 @@ export default function DemandeProduitsPage() {
             <div className="border-t border-slate-200 bg-slate-50 px-3 py-2.5 sm:px-4">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-bold text-slate-800">TOTAL</span>
-                <span className="text-lg font-bold tabular-nums text-sky-900">{formatPriceDh(totalAmount)}</span>
+                <span className="text-lg font-bold text-sky-900">
+                  <PriceDhInline value={totalAmount} amountClassName="text-lg font-bold" suffixClassName="text-[0.65em] font-bold text-sky-800" />
+                </span>
               </div>
               <div className="mt-2 flex gap-2">
                 <Button
