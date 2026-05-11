@@ -37,6 +37,12 @@ import {
   validatedQtyForPatientLine,
 } from "@/lib/patient-confirmed-line-buckets";
 import { formatPriceDh, unitPriceLabel } from "@/lib/product-price";
+import {
+  PRODUCT_CATALOG_SEARCH_LIMIT,
+  PRODUCT_CATALOG_SEARCH_MIN_CHARS,
+  productNameOrLaboratoryIlikeOr,
+  sanitizeProductSearchQuery,
+} from "@/lib/product-catalog-search";
 import { supabase } from "@/lib/supabase";
 import { one } from "@/lib/embed";
 import {
@@ -1459,7 +1465,7 @@ export function PatientProductRequestActions({
     });
   }, [historyModalRow, requestTimelineMeta, supplyAmendmentBundles, dossierHistoryRows]);
 
-  const visibleHits = debouncedQuery.length < 2 ? [] : hits;
+  const visibleHits = debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS ? [] : hits;
   const resubmitTotal = useMemo(
     () => lines.reduce((sum, l) => sum + (l.price_pph ?? 0) * l.qty, 0),
     [lines]
@@ -1487,18 +1493,23 @@ export function PatientProductRequestActions({
   }, [status, items, sel]);
 
   useEffect(() => {
-    if (debouncedQuery.length < 2) {
+    if (debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
       return;
     }
     const t = setTimeout(() => {
       void (async () => {
+        const sanitized = sanitizeProductSearchQuery(debouncedQuery);
+        if (sanitized.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
+          setHits([]);
+          return;
+        }
         const { data, error } = await supabase
           .from("products")
           .select("id,name,product_type,laboratory,photo_url,price_pph")
           .eq("is_active", true)
-          .ilike("name", `%${debouncedQuery}%`)
+          .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
-          .limit(10);
+          .limit(PRODUCT_CATALOG_SEARCH_LIMIT);
         if (error || !Array.isArray(data)) {
           setHits([]);
           return;
@@ -2060,7 +2071,9 @@ export function PatientProductRequestActions({
       {showResubmit && editMode ? (
         <div className="mt-2 rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-sm sm:p-4">
           <label className="block text-base font-semibold text-slate-900">Ajouter un produit</label>
-          <p className="mt-1 text-sm text-slate-600">Tapez au moins 2 lettres pour chercher dans le catalogue.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Au moins 2 caractères : recherche par nom ou laboratoire dans le catalogue.
+          </p>
           <div className="relative mt-2">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-500" />
             <input
