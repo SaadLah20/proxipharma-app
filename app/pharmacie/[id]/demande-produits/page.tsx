@@ -365,25 +365,28 @@ export default function DemandeProduitsPage() {
                           {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
                         </span>
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <button
-                          type="button"
-                          aria-label="Diminuer"
-                          className="rounded-lg border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50"
-                          onClick={() => setQty(l.product_id, l.qty - 1)}
-                        >
-                          <Minus size={16} />
-                        </button>
-                        <span className="w-8 text-center text-sm font-semibold tabular-nums">{l.qty}</span>
-                        <button
-                          type="button"
-                          aria-label="Augmenter"
-                          disabled={l.qty >= 10}
-                          className="rounded-lg border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
-                          onClick={() => setQty(l.product_id, l.qty + 1)}
-                        >
-                          <Plus size={16} />
-                        </button>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-slate-600">Qté</span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <button
+                            type="button"
+                            aria-label="Diminuer"
+                            className="rounded-lg border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50"
+                            onClick={() => setQty(l.product_id, l.qty - 1)}
+                          >
+                            <Minus size={16} />
+                          </button>
+                          <span className="w-8 text-center text-sm font-semibold tabular-nums">{l.qty}</span>
+                          <button
+                            type="button"
+                            aria-label="Augmenter"
+                            disabled={l.qty >= 10}
+                            className="rounded-lg border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
+                            onClick={() => setQty(l.product_id, l.qty + 1)}
+                          >
+                            <Plus size={16} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -2157,30 +2157,33 @@ export function PatientProductRequestActions({
                         {l.pharmacist_proposal_reason ? ` — ${l.pharmacist_proposal_reason}` : ""}
                       </p>
                     ) : null}
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <button
-                        type="button"
-                        aria-label="Diminuer"
-                        disabled={!editMode || l.qty <= 1}
-                        className="rounded-lg border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
-                        onClick={() =>
-                          setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.max(1, row.qty - 1) } : row)))
-                        }
-                      >
-                        <Minus size={16} />
-                      </button>
-                      <span className="w-8 text-center text-sm font-semibold tabular-nums">{l.qty}</span>
-                      <button
-                        type="button"
-                        aria-label="Augmenter"
-                        disabled={!editMode || l.qty >= 10}
-                        className="rounded-lg border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
-                        onClick={() =>
-                          setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.min(10, row.qty + 1) } : row)))
-                        }
-                      >
-                        <Plus size={16} />
-                      </button>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium text-slate-600">Qté</span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          aria-label="Diminuer"
+                          disabled={!editMode || l.qty <= 1}
+                          className="rounded-lg border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
+                          onClick={() =>
+                            setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.max(1, row.qty - 1) } : row)))
+                          }
+                        >
+                          <Minus size={16} />
+                        </button>
+                        <span className="w-8 text-center text-sm font-semibold tabular-nums">{l.qty}</span>
+                        <button
+                          type="button"
+                          aria-label="Augmenter"
+                          disabled={!editMode || l.qty >= 10}
+                          className="rounded-lg border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
+                          onClick={() =>
+                            setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.min(10, row.qty + 1) } : row)))
+                          }
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
