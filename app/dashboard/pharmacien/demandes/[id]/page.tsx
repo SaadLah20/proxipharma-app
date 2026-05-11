@@ -47,6 +47,12 @@ import {
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
 import { pphLabel } from "@/lib/product-price";
+import {
+  PRODUCT_CATALOG_SEARCH_LIMIT,
+  PRODUCT_CATALOG_SEARCH_MIN_CHARS,
+  productNameOrLaboratoryIlikeOr,
+  sanitizeProductSearchQuery,
+} from "@/lib/product-catalog-search";
 import { CompactCard, CompactCardBody, CompactCardHeader, PageShell } from "@/components/ui/compact-shell";
 import { InfoHint } from "@/components/ui/info-hint";
 import {
@@ -979,18 +985,23 @@ export default function PharmacienDemandeDetailPage() {
   }, [id, load]);
 
   useEffect(() => {
-    if (altDebounced.length < 2 || !altPickerOpenFor) {
+    if (altDebounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS || !altPickerOpenFor) {
       return;
     }
     const t = window.setTimeout(() => {
       void (async () => {
+        const sanitized = sanitizeProductSearchQuery(altDebounced);
+        if (sanitized.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
+          setAltHits([]);
+          return;
+        }
         const { data, error } = await supabase
           .from("products")
           .select("id,name,product_type,laboratory,photo_url,price_pph")
           .eq("is_active", true)
-          .ilike("name", `%${altDebounced}%`)
+          .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
-          .limit(12);
+          .limit(PRODUCT_CATALOG_SEARCH_LIMIT);
         if (error || !Array.isArray(data)) {
           setAltHits([]);
           return;
@@ -1016,18 +1027,23 @@ export default function PharmacienDemandeDetailPage() {
   }, [availabilityMenuRowId]);
 
   useEffect(() => {
-    if (propDebounced.length < 2 || !propOpen) {
+    if (propDebounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS || !propOpen) {
       return;
     }
     const t = window.setTimeout(() => {
       void (async () => {
+        const sanitized = sanitizeProductSearchQuery(propDebounced);
+        if (sanitized.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
+          setPropHits([]);
+          return;
+        }
         const { data, error } = await supabase
           .from("products")
           .select("id,name,product_type,laboratory,photo_url,price_pph")
           .eq("is_active", true)
-          .ilike("name", `%${propDebounced}%`)
+          .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
-          .limit(12);
+          .limit(PRODUCT_CATALOG_SEARCH_LIMIT);
         if (error || !Array.isArray(data)) {
           setPropHits([]);
           return;
