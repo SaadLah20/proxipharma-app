@@ -2141,13 +2141,13 @@ export function PatientProductRequestActions({
                     >
                       {l.name}
                     </p>
-                    <div className="mt-1.5 flex items-baseline justify-between gap-3 border-b border-slate-200/90 pb-2">
-                      <span className="text-sm text-slate-600">
-                        PU{" "}
-                        <strong className="tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
+                    <div className="mt-1.5 flex flex-nowrap items-baseline justify-between gap-2 border-b border-slate-200/90 pb-2">
+                      <span className="min-w-0 shrink text-[13px] text-slate-600 sm:text-sm">
+                        <span className="font-semibold text-slate-500">PU</span>{" "}
+                        <strong className="whitespace-nowrap tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
                       </span>
-                      <span className="shrink-0 text-sm font-bold tabular-nums text-sky-900">
-                        Tot{" "}
+                      <span className="shrink-0 whitespace-nowrap text-sm font-bold tabular-nums text-sky-900">
+                        <span className="font-semibold text-sky-800/90">Tot</span>{" "}
                         {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
                       </span>
                     </div>
@@ -2620,13 +2620,15 @@ export function PatientProductRequestActions({
                         <p className="text-[11px] text-slate-600">
                           Qté <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
                         </p>
-                        <div className="mt-0.5 flex items-baseline justify-between gap-3">
-                          <span className="text-[11px] text-slate-600">
-                            PU{" "}
-                            <strong className="tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
+                        <div className="mt-0.5 flex flex-nowrap items-baseline justify-between gap-2">
+                          <span className="min-w-0 shrink text-[11px] text-slate-600">
+                            <span className="font-semibold text-slate-500">PU</span>{" "}
+                            <strong className="whitespace-nowrap tabular-nums text-slate-900">
+                              {formatPriceDh(l.price_pph)}
+                            </strong>
                           </span>
-                          <span className="text-[11px] font-bold tabular-nums text-sky-900">
-                            Tot{" "}
+                          <span className="shrink-0 whitespace-nowrap text-[11px] font-bold tabular-nums text-sky-900">
+                            <span className="font-semibold text-sky-800/90">Tot</span>{" "}
                             {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
                           </span>
                         </div>
