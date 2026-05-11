@@ -18,6 +18,7 @@ import {
   ShoppingCart,
   Sparkles,
   Trash2,
+  X,
 } from "lucide-react";
 import { formatDateShortFr, formatPlannedVisitFr, formatTime24hFr } from "@/lib/datetime-fr";
 import {
@@ -35,7 +36,7 @@ import {
   validatedProductLabel,
   validatedQtyForPatientLine,
 } from "@/lib/patient-confirmed-line-buckets";
-import { unitPriceLabel } from "@/lib/product-price";
+import { formatPriceDh, unitPriceLabel } from "@/lib/product-price";
 import { supabase } from "@/lib/supabase";
 import { one } from "@/lib/embed";
 import {
@@ -1374,6 +1375,7 @@ export function PatientProductRequestActions({
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<ProductHit[]>([]);
   const [editMode, setEditMode] = useState(false);
+  const [resubmitConfirmOpen, setResubmitConfirmOpen] = useState(false);
 
   /** Restaure le brouillon resubmit à l'état initial (sortie du mode édition sans renvoi). */
   const resetResubmitDraft = () => {
@@ -1654,25 +1656,19 @@ export function PatientProductRequestActions({
     await onReload();
   };
 
-  const runResubmit = async () => {
-    setActionError("");
-    if (lines.length === 0) {
-      setActionError("Ajoute au moins un produit à la liste.");
-      return;
-    }
-
+  const validateResubmitLines = (): string | null => {
+    if (lines.length === 0) return "Ajoute au moins un produit à la liste.";
     const seen = new Set<string>();
     for (const l of lines) {
-      if (seen.has(l.product_id)) {
-        setActionError("Chaque produit ne peut apparaître qu’une seule fois dans ta liste.");
-        return;
-      }
+      if (seen.has(l.product_id)) return "Chaque produit ne peut apparaître qu’une seule fois dans ta liste.";
       seen.add(l.product_id);
-      if (l.qty < 1 || l.qty > 10) {
-        setActionError("Les quantités doivent être entre 1 et 10 pour chaque produit.");
-        return;
-      }
+      if (l.qty < 1 || l.qty > 10) return "Les quantités doivent être entre 1 et 10 pour chaque produit.";
     }
+    return null;
+  };
+
+  const executeResubmit = async () => {
+    setActionError("");
 
     const p_items = lines.map((l) => {
       const cc = l.client_comment.trim().slice(0, PATIENT_PRODUCT_LINE_COMMENT_MAX);
@@ -1694,7 +1690,18 @@ export function PatientProductRequestActions({
       setActionError(error.message);
       return;
     }
+    setResubmitConfirmOpen(false);
     await onReload();
+  };
+
+  const openResubmitConfirm = () => {
+    const err = validateResubmitLines();
+    if (err) {
+      setActionError(err);
+      return;
+    }
+    setActionError("");
+    setResubmitConfirmOpen(true);
   };
 
   const runAbandon = async () => {
@@ -2052,8 +2059,8 @@ export function PatientProductRequestActions({
 
       {showResubmit && editMode ? (
         <div className="mt-2 rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-          <label className="block text-base font-semibold text-slate-900">Recherche de produits</label>
-          <p className="mt-1 text-sm text-slate-600">2 lettres minimum.</p>
+          <label className="block text-base font-semibold text-slate-900">Ajouter un produit</label>
+          <p className="mt-1 text-sm text-slate-600">Tapez au moins 2 lettres pour chercher dans le catalogue.</p>
           <div className="relative mt-2">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-500" />
             <input
@@ -2087,9 +2094,7 @@ export function PatientProductRequestActions({
                       >
                         {h.name}
                       </p>
-                      <p className="mt-1 text-xs font-semibold text-primary sm:text-sm">
-                        {unitPriceLabel(h.price_pph) ?? "Prix indisponible"}
-                      </p>
+                      <p className="mt-1 text-xs font-semibold text-sky-900 sm:text-sm">{formatPriceDh(h.price_pph)}</p>
                     </div>
                   </button>
                 </li>
@@ -2105,9 +2110,12 @@ export function PatientProductRequestActions({
         <div className="mt-2">
           <ul className="space-y-3">
             {lines.map((l, idx) => (
-              <li key={`${l.product_id}-${idx}`} className="rounded-xl border-2 border-slate-200 bg-white p-3 shadow-sm">
+              <li
+                key={`${l.product_id}-${idx}`}
+                className="rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-slate-50/50 p-3 shadow-sm ring-1 ring-slate-100/90"
+              >
                 <div className="flex min-h-[96px] items-stretch gap-2.5">
-                  <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card">
+                  <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner">
                     {editMode ? (
                       <button
                         type="button"
@@ -2128,14 +2136,19 @@ export function PatientProductRequestActions({
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col">
                     <p
-                      className="overflow-hidden pr-1 text-[13px] font-semibold leading-tight text-foreground sm:text-[15px]"
+                      className="overflow-hidden pr-1 text-[14px] font-semibold leading-snug text-slate-950 sm:text-[15px]"
                       style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
                     >
                       {l.name}
                     </p>
-                    <p className="mt-0.5 text-xs font-medium text-primary">
-                      {unitPriceLabel(l.price_pph) ?? "Prix unitaire indisponible"}
-                    </p>
+                    <div className="mt-1.5 flex items-baseline justify-between gap-3 border-b border-slate-200/90 pb-2">
+                      <span className="text-sm text-slate-600">
+                        Prix en DH <strong className="tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
+                      </span>
+                      <span className="shrink-0 text-sm font-bold tabular-nums text-sky-900">
+                        {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
+                      </span>
+                    </div>
                     {l.line_source === "pharmacist_proposed" ? (
                       <p className="mt-1 text-[10px] font-medium text-violet-900">
                         {requestItemLineSourceFr.pharmacist_proposed}
@@ -2147,7 +2160,7 @@ export function PatientProductRequestActions({
                         type="button"
                         aria-label="Diminuer"
                         disabled={!editMode || l.qty <= 1}
-                        className="rounded-lg border border-border bg-card p-1.5 text-foreground hover:bg-muted/60 disabled:opacity-40"
+                        className="rounded-lg border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
                         onClick={() =>
                           setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.max(1, row.qty - 1) } : row)))
                         }
@@ -2159,19 +2172,13 @@ export function PatientProductRequestActions({
                         type="button"
                         aria-label="Augmenter"
                         disabled={!editMode || l.qty >= 10}
-                        className="rounded-lg border border-border bg-card p-1.5 text-foreground hover:bg-muted/60 disabled:opacity-40"
+                        className="rounded-lg border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
                         onClick={() =>
                           setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.min(10, row.qty + 1) } : row)))
                         }
                       >
                         <Plus size={16} />
                       </button>
-                      <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                        Total{" "}
-                        <span className="inline-block rounded bg-background px-1.5 py-0.5 font-semibold text-foreground">
-                          {l.price_pph != null ? `${(l.price_pph * l.qty).toFixed(2)} MAD` : "-"}
-                        </span>
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -2193,17 +2200,25 @@ export function PatientProductRequestActions({
                           )
                         }
                         placeholder="Ex. dosage, précision…"
-                        className="touch-pan-y w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-2.5 text-base leading-normal text-slate-900 placeholder:text-slate-400"
+                        className="w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-2 text-sm leading-normal text-slate-900 placeholder:text-slate-400 [touch-action:pan-x_pan-y]"
                       />
-                      <span className="mt-1 block text-right text-xs text-slate-600 tabular-nums">
+                      <span className="mt-0.5 block text-right text-[9px] text-slate-400 tabular-nums">
                         {l.client_comment.length}/{PATIENT_PRODUCT_LINE_COMMENT_MAX}
                       </span>
                     </label>
                   ) : (
-                    <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Votre commentaire</p>
-                      <p className="mt-1 whitespace-pre-wrap text-base leading-relaxed text-slate-900">{l.client_comment.trim()}</p>
-                    </div>
+                    <details className="group mt-2 border-t border-slate-200/90 pt-0.5">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-1.5 text-[11px] font-medium text-slate-500 transition hover:text-slate-800 [&::-webkit-details-marker]:hidden">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="h-px w-8 shrink-0 bg-slate-300" aria-hidden />
+                          <span className="truncate">Commentaire patient</span>
+                        </span>
+                        <ChevronDown className="size-3.5 shrink-0 text-slate-400 transition group-open:rotate-180" aria-hidden />
+                      </summary>
+                      <div className="rounded-md border border-slate-200/80 bg-slate-50/95 px-2.5 py-2 text-[13px] leading-snug text-slate-800">
+                        {l.client_comment.trim()}
+                      </div>
+                    </details>
                   )
                 ) : null}
               </li>
@@ -2225,7 +2240,7 @@ export function PatientProductRequestActions({
                     rows={5}
                     maxLength={PATIENT_GENERAL_NOTE_MAX}
                     placeholder="Allergies, urgence, préférences…"
-                    className="touch-pan-y mt-2 w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-3 text-base leading-relaxed text-slate-900 placeholder:text-slate-400"
+                    className="mt-2 w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-3 text-base leading-relaxed text-slate-900 placeholder:text-slate-400 [touch-action:pan-x_pan-y]"
                   />
                   <p className="mt-1.5 text-right text-sm text-slate-600 tabular-nums">
                     {noteDraft.length}/{PATIENT_GENERAL_NOTE_MAX}
@@ -2249,7 +2264,7 @@ export function PatientProductRequestActions({
               rows={4}
               maxLength={PATIENT_GENERAL_NOTE_MAX}
               placeholder="Sera enregistré avec votre validation."
-              className="touch-pan-y mt-2 w-full resize-y rounded-lg border-2 border-slate-300 bg-white px-3 py-3 text-base leading-relaxed text-slate-900 placeholder:text-slate-400"
+              className="mt-2 w-full resize-y rounded-lg border-2 border-slate-300 bg-white px-3 py-3 text-base leading-relaxed text-slate-900 placeholder:text-slate-400 [touch-action:pan-x_pan-y]"
             />
             <p className="mt-1.5 text-right text-sm text-slate-600 tabular-nums">
               {confirmPatientNote.length}/{PATIENT_GENERAL_NOTE_MAX}
@@ -2392,7 +2407,7 @@ export function PatientProductRequestActions({
             <button
               type="button"
               disabled={busyAction !== "" || lines.length === 0}
-              onClick={() => void runResubmit()}
+              onClick={() => openResubmitConfirm()}
               className="w-full rounded-lg border border-amber-600 bg-amber-100/80 py-2.5 text-sm font-semibold text-amber-950 shadow-sm disabled:opacity-50"
             >
               {busyAction === "resubmit" ? "Envoi…" : "Mettre à jour et renvoyer"}
@@ -2409,7 +2424,7 @@ export function PatientProductRequestActions({
               <span className="font-medium">{lines.length > 1 ? "produits" : "produit"}</span>
             </p>
             <p className="text-lg font-bold tracking-tight text-slate-950">
-              TOTAL: <span className="tabular-nums text-sky-900">{resubmitTotal.toFixed(2)} MAD</span>
+              TOTAL: <span className="tabular-nums text-sky-900">{formatPriceDh(resubmitTotal)}</span>
             </p>
           </div>
         </div>
@@ -2542,6 +2557,106 @@ export function PatientProductRequestActions({
                   className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-95 disabled:opacity-50 sm:order-2 sm:w-auto sm:min-w-[200px]"
                 >
                   {busyAction === "confirm" ? "Enregistrement…" : "Confirmer définitivement"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showResubmit && resubmitConfirmOpen ? (
+        <div className="fixed inset-0 z-[55] flex items-end justify-center p-3 sm:items-center">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            aria-label="Fermer"
+            disabled={busyAction === "resubmit"}
+            onClick={() => busyAction !== "resubmit" && setResubmitConfirmOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="resubmit-confirm-title"
+            className="relative z-10 flex max-h-[min(88dvh,560px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border-2 border-slate-200 bg-white shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-2 border-b border-slate-200 px-3 py-2.5 sm:px-4">
+              <h2 id="resubmit-confirm-title" className="text-base font-bold leading-tight text-slate-900 sm:text-lg">
+                {"Confirmer le renvoi de la liste"}
+              </h2>
+              <button
+                type="button"
+                disabled={busyAction === "resubmit"}
+                className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-40"
+                onClick={() => setResubmitConfirmOpen(false)}
+                aria-label="Fermer"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 sm:px-4">
+              <p className="text-xs leading-snug text-slate-600">
+                {lines.length} produit{lines.length > 1 ? "s" : ""} — les photos viennent du catalogue si disponibles.
+              </p>
+              <ul className="mt-2 space-y-2">
+                {lines.map((l, idx) => (
+                  <li
+                    key={`${l.product_id}-${idx}`}
+                    className="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50/80 px-2 py-1.5"
+                  >
+                    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white">
+                      {l.photo_url ? (
+                        <img src={l.photo_url} alt="" className="size-full object-cover" />
+                      ) : (
+                        <div className="flex size-full items-center justify-center">
+                          <Package className="size-5 text-slate-400" aria-hidden />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-slate-900">{l.name}</p>
+                      <p className="mt-0.5 text-[11px] text-slate-600">
+                        Qté <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
+                        <span className="mx-1 text-slate-300">·</span>
+                        {formatPriceDh(l.price_pph)} ×{l.qty} ={" "}
+                        <span className="font-semibold tabular-nums text-sky-900">
+                          {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
+                        </span>
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {noteDraft.trim() ? (
+                <p className="mt-2 rounded-md border border-sky-200/80 bg-sky-50/80 px-2 py-1.5 text-[11px] text-slate-800">
+                  <span className="font-semibold">Message : </span>
+                  <span className="whitespace-pre-wrap">
+                    {noteDraft.trim().slice(0, 200)}
+                    {noteDraft.trim().length > 200 ? "…" : ""}
+                  </span>
+                </p>
+              ) : null}
+            </div>
+            <div className="border-t border-slate-200 bg-slate-50 px-3 py-2.5 sm:px-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-bold text-slate-800">TOTAL</span>
+                <span className="text-lg font-bold tabular-nums text-sky-900">{formatPriceDh(resubmitTotal)}</span>
+              </div>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  disabled={busyAction === "resubmit"}
+                  onClick={() => setResubmitConfirmOpen(false)}
+                  className="h-10 flex-1 rounded-xl border-2 border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  disabled={busyAction === "resubmit"}
+                  onClick={() => void executeResubmit()}
+                  className="h-10 flex-1 rounded-xl bg-amber-600 text-sm font-semibold text-white shadow-md hover:bg-amber-700 disabled:opacity-50"
+                >
+                  {busyAction === "resubmit" ? "Envoi…" : "Confirmer le renvoi"}
                 </button>
               </div>
             </div>

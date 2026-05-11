@@ -24,3 +24,11 @@ export function unitPriceLabel(pricePph: number | string | null | undefined): st
   const mad = formatPphMad(pricePph);
   return mad ? `Prix unitaire ${mad}` : null;
 }
+
+/** Montant indicatif en dirhams (UI patient : libellé court « … DH »). */
+export function formatPriceDh(value: number | string | null | undefined): string {
+  if (value == null || value === "") return "—";
+  const n = typeof value === "string" ? Number(value) : value;
+  if (Number.isNaN(n) || n < 0) return "—";
+  return `${n.toFixed(2)} DH`;
+}
