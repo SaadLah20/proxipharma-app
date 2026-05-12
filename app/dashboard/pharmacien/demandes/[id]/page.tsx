@@ -21,9 +21,10 @@ import {
   User,
 } from "lucide-react";
 import {
-  lineConversationChipButtonClass,
+  lineConversationStripButtonClass,
+  lineConversationStripLabel,
   lineConversationVisual,
-  PharmacistLineConversationPopover,
+  PharmacistLineConversationModal,
 } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import { supabase } from "@/lib/supabase";
@@ -444,9 +445,9 @@ function clampRequestItemQty(n: number): number {
   return Math.min(10, Math.max(1, Math.floor(Number.isFinite(n) ? n : 1)));
 }
 
-/** Quantité affichée / stock alternative : peut dépasser la quantité demandée sur la ligne (plafond technique). */
+/** Quantité alternative en réponse : même plafond que le dossier patient (1–10). */
 function clampAlternativeAvailableQty(n: number): number {
-  return Math.min(PHARMACIST_PROPOSED_STOCK_CEILING, Math.max(1, Math.floor(Number.isFinite(n) ? n : 1)));
+  return clampRequestItemQty(n);
 }
 
 function publishConfirmModalGroup(inferred: string): "ready" | "order" | "blocked" {
@@ -958,8 +959,8 @@ export default function PharmacienDemandeDetailPage() {
   const [respondedEditMode, setRespondedEditMode] = useState(false);
   /** Mise à jour immédiate du commentaire officine sur une ligne (vue « réponse publiée »). */
   const [replyPersistBusyRowId, setReplyPersistBusyRowId] = useState<string | null>(null);
-  /** Ancrage capturé au clic (pas de lecture de ref pendant le render). */
-  const [lineConvo, setLineConvo] = useState<{ rowId: string; anchorEl: HTMLDivElement } | null>(null);
+  /** Modal échanges patient / officine sur une ligne (id `request_items`). */
+  const [lineConvoRowId, setLineConvoRowId] = useState<string | null>(null);
   /** Lignes proposées / alternatives encore non écrites en base tant que réponse pas publiée ou enregistrée (hors `confirmed`). */
   const [pendingProposalRows, setPendingProposalRows] = useState<ItemRow[]>([]);
   const [pendingAlternatives, setPendingAlternatives] = useState<PendingAlternativeEntry[]>([]);
@@ -2454,6 +2455,11 @@ export default function PharmacienDemandeDetailPage() {
     return displayRows.map((row) => ({ header: null as string | null, row }));
   }, [request, displayRows, draft]);
 
+  const lineConvoEffectiveRowId = useMemo(() => {
+    if (!lineConvoRowId) return null;
+    return lineEntriesForList.some((e) => e.row.id === lineConvoRowId) ? lineConvoRowId : null;
+  }, [lineConvoRowId, lineEntriesForList]);
+
   const publishConfirmGroups = useMemo(() => {
     const all: PublishConfirmRowMeta[] = [];
     for (const r of displayRows) {
@@ -2873,6 +2879,7 @@ export default function PharmacienDemandeDetailPage() {
                 stockStepperDisabled ||
                 (Number.isFinite(stockParsedQty) && stockParsedQty <= minStockFloor);
               const patientLineCc = row.client_comment?.trim() ?? "";
+              const lineConvoVisual = lineConversationVisual(patientLineCc, f.pharmacist_comment ?? "");
               const availabilityOptions = isProposedLine
                 ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
                 : PHARMACIST_AVAILABILITY_OPTIONS;
@@ -3345,7 +3352,6 @@ export default function PharmacienDemandeDetailPage() {
                         </button>
                       ) : null}
                       <div
-                        data-pharmacist-line-convo-anchor=""
                         className={clsx(
                           "relative h-[4.75rem] w-full overflow-hidden rounded-xl border bg-white shadow-sm sm:h-[5.125rem]",
                           isProposedLine ? "border-violet-200/80 ring-1 ring-violet-200/35" : "border-slate-200/75"
@@ -3361,39 +3367,6 @@ export default function PharmacienDemandeDetailPage() {
                             />
                           </div>
                         )}
-                        <div className="pointer-events-none absolute inset-0 flex items-start justify-end p-0.5">
-                          <div className="pointer-events-auto">
-                            <button
-                              type="button"
-                              className={lineConversationChipButtonClass(
-                                lineConversationVisual(patientLineCc, f.pharmacist_comment ?? ""),
-                                { open: lineConvo?.rowId === row.id, disabled: busy }
-                              )}
-                              aria-label="Message patient et note officine"
-                              title="Message patient / note officine"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setLineConvo((prev) => {
-                                  if (prev?.rowId === row.id) return null;
-                                  const anchor = (e.currentTarget as HTMLElement).closest<HTMLDivElement>(
-                                    "[data-pharmacist-line-convo-anchor]"
-                                  );
-                                  if (!anchor) return prev;
-                                  return { rowId: row.id, anchorEl: anchor };
-                                });
-                              }}
-                            >
-                              <MessageCircle className="size-[15px]" strokeWidth={2.2} aria-hidden />
-                              {lineConversationVisual(patientLineCc, f.pharmacist_comment ?? "") === "patient_only" &&
-                              ((canEditThisRow && showLineAndPublishEdits) || (respondedFrozenView && !lineLockedTrace)) ? (
-                                <span
-                                  className="absolute -right-0.5 -top-0.5 flex size-[9px] items-center justify-center rounded-full bg-amber-500 ring-2 ring-white"
-                                  aria-hidden
-                                />
-                              ) : null}
-                            </button>
-                          </div>
-                        </div>
                       </div>
                     </div>
                     <div className="min-w-0 flex-1 space-y-1">
@@ -3455,6 +3428,35 @@ export default function PharmacienDemandeDetailPage() {
                             </span>
                           )
                         ) : null}
+                      </div>
+                      <div className="mt-1 flex w-full min-w-0 items-center justify-end border-t border-dotted border-border/55 pt-1.5">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className={lineConversationStripButtonClass(lineConvoVisual, {
+                            open: lineConvoEffectiveRowId === row.id,
+                            disabled: busy,
+                          })}
+                          aria-label={`Échanges produit · ${lineConversationStripLabel(lineConvoVisual)}`}
+                          title="Ouvrir les messages patient et note officine"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setLineConvoRowId((cur) => (cur === row.id ? null : row.id));
+                          }}
+                        >
+                          <MessageCircle className="size-3.5 shrink-0 opacity-90" strokeWidth={2.2} aria-hidden />
+                          <span className="max-w-[11rem] truncate text-[9px] font-medium leading-tight sm:max-w-[14rem]">
+                            {lineConversationStripLabel(lineConvoVisual)}
+                          </span>
+                          {lineConvoVisual === "patient_only" &&
+                          ((canEditThisRow && showLineAndPublishEdits) || (respondedFrozenView && !lineLockedTrace)) ? (
+                            <span
+                              className="absolute -right-0.5 -top-0.5 flex size-2 rounded-full bg-amber-500 ring-2 ring-white"
+                              aria-hidden
+                            />
+                          ) : null}
+                        </button>
                       </div>
                       {isProposedLine ? (
                         <p className="rounded-md border border-violet-300/80 bg-gradient-to-br from-violet-200/55 to-violet-100/40 px-2 py-1 text-[10px] leading-snug text-violet-950 shadow-sm ring-1 ring-violet-300/35">
@@ -3592,27 +3594,6 @@ export default function PharmacienDemandeDetailPage() {
                       ) : null}
                     </div>
                   </div>
-
-                  {lineConvo?.rowId === row.id ? (
-                    <PharmacistLineConversationPopover
-                      lineId={row.id}
-                      anchorEl={lineConvo.anchorEl}
-                      open
-                      onOpenChange={(o) => {
-                        if (!o) setLineConvo(null);
-                      }}
-                      patientText={patientLineCc}
-                      pharmacistDraft={f.pharmacist_comment}
-                      onPharmacistDraftChange={(text) => setField(row.id, "pharmacist_comment", text)}
-                      allowEdit={canEditThisRow && showLineAndPublishEdits}
-                      showPersistButton={respondedFrozenView && !lineLockedTrace}
-                      persistBusy={replyPersistBusyRowId === row.id}
-                      onPersist={async () => {
-                        await saveFrozenPharmacistLineReaction(row.id, f.pharmacist_comment);
-                        setLineConvo(null);
-                      }}
-                    />
-                  ) : null}
 
                   {lineLockedTrace ? (
                     <div className="space-y-1.5 border-t border-rose-200/50 bg-rose-50/20 px-2 py-1.5 text-[10px] leading-snug text-foreground">
@@ -3851,7 +3832,7 @@ export default function PharmacienDemandeDetailPage() {
                     </div>
 
                     {canEditThisRow && rowAlts.length < 3 && altPickerOpenFor === row.id ? (
-                      <div className="mt-2 flex min-h-0 max-h-[min(70vh,22rem)] flex-col gap-2 rounded-xl border-2 border-teal-400/55 bg-white p-2.5 shadow-md ring-2 ring-teal-200/35">
+                      <div className="mt-2 flex max-h-[min(70vh,20rem)] min-h-0 flex-col gap-2 overflow-hidden overscroll-y-contain rounded-xl border-2 border-teal-400/55 bg-white p-2.5 shadow-md ring-2 ring-teal-200/35">
                         <div className="flex shrink-0 items-center justify-between gap-2">
                           <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-950">
                             <Search className="size-3.5 shrink-0 text-teal-600" aria-hidden />
@@ -3879,7 +3860,7 @@ export default function PharmacienDemandeDetailPage() {
                           />
                         </div>
                         {altVisibleHits.length > 0 ? (
-                          <ul className="h-[min(50vh,18rem)] shrink-0 touch-pan-y space-y-0.5 overflow-y-auto overscroll-y-contain rounded-xl border border-border/70 bg-card p-1 shadow-inner ring-1 ring-teal-200/35 [-webkit-overflow-scrolling:touch]">
+                          <ul className="min-h-0 flex-1 touch-pan-y space-y-0.5 overflow-y-auto overscroll-contain rounded-xl border border-border/70 bg-card p-1 shadow-inner ring-1 ring-teal-200/35 [-webkit-overflow-scrolling:touch]">
                             {altVisibleHits.map((h) => (
                               <li key={h.id}>
                                 <button
@@ -4027,14 +4008,14 @@ export default function PharmacienDemandeDetailPage() {
                                               onClick={() => {
                                                 if (isLocalAltId(alt.id)) {
                                                   const cur = clampAlternativeAvailableQty(Number(alt.available_qty ?? 1));
-                                                  patchPendingAlternativeQty(alt.id, String(Math.min(PHARMACIST_PROPOSED_STOCK_CEILING, cur + 1)));
+                                                  patchPendingAlternativeQty(alt.id, String(clampAlternativeAvailableQty(cur + 1)));
                                                 } else {
                                                   const cur = clampAlternativeAvailableQty(
                                                     Number(altQtyDrafts[alt.id] ?? alt.available_qty ?? row.requested_qty)
                                                   );
                                                   setAltQtyDrafts((d) => ({
                                                     ...d,
-                                                    [alt.id]: String(Math.min(PHARMACIST_PROPOSED_STOCK_CEILING, cur + 1)),
+                                                    [alt.id]: String(clampAlternativeAvailableQty(cur + 1)),
                                                   }));
                                                 }
                                               }}
@@ -4043,7 +4024,7 @@ export default function PharmacienDemandeDetailPage() {
                                             </button>
                                           </div>
                                           <span className="text-[8px] text-teal-800/80 tabular-nums">
-                                            max {PHARMACIST_PROPOSED_STOCK_CEILING.toLocaleString("fr-FR")}
+                                            max 10
                                           </span>
                                         </div>
                                       ) : (
@@ -4151,7 +4132,7 @@ export default function PharmacienDemandeDetailPage() {
                 />
               </button>
               {propOpen ? (
-                <div className="mt-2 flex min-h-0 max-h-[min(70vh,24rem)] flex-col gap-2">
+                <div className="mt-2 flex max-h-[min(70vh,22rem)] min-h-0 flex-col gap-2 overflow-hidden overscroll-y-contain">
                   <label className="block shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Motif
                     <textarea
@@ -4205,7 +4186,7 @@ export default function PharmacienDemandeDetailPage() {
                     />
                   </div>
                   {propVisibleHits.length > 0 ? (
-                    <ul className="h-[min(50vh,18rem)] shrink-0 touch-pan-y space-y-0.5 overflow-y-auto overscroll-y-contain rounded-md border border-border/60 bg-muted/20 p-1 [-webkit-overflow-scrolling:touch]">
+                    <ul className="min-h-0 flex-1 touch-pan-y space-y-0.5 overflow-y-auto overscroll-contain rounded-md border border-border/60 bg-muted/20 p-1 [-webkit-overflow-scrolling:touch]">
                       {propVisibleHits.map((h) => (
                         <li key={h.id}>
                           <button
@@ -4486,6 +4467,39 @@ export default function PharmacienDemandeDetailPage() {
           )}
         </>
       )}
+      {lineConvoEffectiveRowId
+        ? (() => {
+            const entry = lineEntriesForList.find((e) => e.row.id === lineConvoEffectiveRowId);
+            if (!entry) return null;
+            const row = entry.row;
+            const fd = draft[row.id];
+            if (!fd) return null;
+            const co = row.counter_outcome ?? "unset";
+            const lineLockedTrace = co === "cancelled_at_counter";
+            const canEditThisRow = showLineAndPublishEdits && !lineLockedTrace;
+            const patientLineCcModal = row.client_comment?.trim() ?? "";
+            return (
+              <PharmacistLineConversationModal
+                key={row.id}
+                lineId={row.id}
+                open
+                onOpenChange={(o) => {
+                  if (!o) setLineConvoRowId(null);
+                }}
+                patientText={patientLineCcModal}
+                pharmacistDraft={fd.pharmacist_comment}
+                onPharmacistDraftChange={(text) => setField(row.id, "pharmacist_comment", text)}
+                allowEdit={canEditThisRow && showLineAndPublishEdits}
+                showPersistButton={respondedFrozenView && !lineLockedTrace}
+                persistBusy={replyPersistBusyRowId === row.id}
+                onPersist={async () => {
+                  await saveFrozenPharmacistLineReaction(row.id, fd.pharmacist_comment);
+                  setLineConvoRowId(null);
+                }}
+              />
+            );
+          })()
+        : null}
       {publishConfirmOpen ? (
         <div
           className="fixed inset-0 z-[10060] flex items-end justify-center overflow-y-auto bg-black/45 p-3 backdrop-blur-[1px] sm:items-center"
