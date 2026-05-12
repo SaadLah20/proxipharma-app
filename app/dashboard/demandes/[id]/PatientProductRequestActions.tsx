@@ -52,7 +52,6 @@ import {
   type PatientLineTimelineBlockFr,
 } from "@/lib/build-patient-line-timeline-fr";
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
-import { patientLineSuiviModel } from "@/lib/patient-line-suivi-fr";
 import { isRequestItemAddedAfterPatientConfirmation } from "@/lib/supply-line-post-confirm";
 import { isPatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
 import { PATIENT_GENERAL_NOTE_MAX, PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
@@ -267,39 +266,16 @@ function compactTotalMadLabel(t: { sumKnown: number; missingPrice: boolean; empt
   return `Total · ${t.sumKnown.toFixed(2)} MAD`;
 }
 
-function PatientLineSuiviStrip({
-  row,
-  bundles,
-}: {
-  row: ActionItemRow;
-  bundles: { id: string; created_at: string; amendments: unknown }[];
-}) {
-  const m = patientLineSuiviModel(row, bundles);
-  return (
-    <div className="border-t border-slate-200/90 bg-slate-50/95 px-2 py-1.5 text-[9px] leading-snug text-slate-800">
-      <p>
-        <span className="font-bold text-slate-900">Suivi · </span>
-        {m.etat}
-      </p>
-      {m.comptoir ? <p className="mt-0.5 font-medium text-slate-800">{m.comptoir}</p> : null}
-      {m.modif ? <p className="mt-0.5 text-slate-700">{m.modif}</p> : null}
-      {m.ajout ? <p className="mt-0.5 text-violet-900/90">{m.ajout}</p> : null}
-    </div>
-  );
-}
-
 /** Cartes condensées : produits validés après confirmation (pas de détail jusqu’à l’historique). */
 function PatientValidatedCompactLineCard({
   row,
   tier,
   onOpenHistory,
-  suivi,
   supplyAmendmentBundles = [],
 }: {
   row: ActionItemRow;
   tier: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation";
   onOpenHistory: () => void;
-  suivi?: ReactNode;
   supplyAmendmentBundles?: { id: string; created_at: string; amendments: unknown }[];
 }) {
   const prod = one(row.products);
@@ -339,24 +315,24 @@ function PatientValidatedCompactLineCard({
     isRequestItemAddedAfterPatientConfirmation(row.id, supplyAmendmentBundles);
   return (
     <li
-      className={`overflow-hidden rounded-md border bg-card shadow-sm transition ${ring} ${
+      className={`overflow-hidden rounded-lg border bg-card shadow-md transition ${ring} ${
         withdrawnGrey ? "opacity-[0.72] saturate-[0.65]" : ""
       }`}
     >
-      <div className="flex items-stretch gap-2 p-1.5">
-        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded border border-border/70 bg-muted/20">
+      <div className="flex items-stretch gap-2.5 p-2.5 sm:gap-3 sm:p-3">
+        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/20 sm:h-[3.75rem] sm:w-[3.75rem]">
         {thumbUrl ? (
           <img src={thumbUrl} alt="" className="size-full object-cover" />
         ) : (
           <div className="flex size-full items-center justify-center">
-            <Package className="size-5 text-muted-foreground" aria-hidden />
+            <Package className="size-6 text-muted-foreground sm:size-7" aria-hidden />
           </div>
         )}
       </div>
-      <div className="flex min-w-0 flex-1 items-stretch gap-1">
+      <div className="flex min-w-0 flex-1 items-stretch gap-1.5">
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 text-[11px] font-semibold leading-snug text-foreground">{validatedName}</p>
-          <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+          <p className="line-clamp-2 text-[12px] font-semibold leading-snug text-foreground sm:text-[13px]">{validatedName}</p>
+          <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
             <span className="tabular-nums font-medium text-foreground">Qté {validatedQty}</span>
             {showAjoutOfficineBadge ? (
               <span className="ms-1 rounded bg-violet-100 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-violet-950">
@@ -374,7 +350,7 @@ function PatientValidatedCompactLineCard({
             </span>
             <span className="text-foreground">{availSentence}</span>
           </p>
-          <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
             <span className="text-foreground/90">Prix unit. </span>
             <span className="tabular-nums font-semibold text-foreground">
               {unitMad != null ? `${unitMad.toFixed(2)} MAD` : "—"}
@@ -394,16 +370,15 @@ function PatientValidatedCompactLineCard({
           <button
             type="button"
             onClick={onOpenHistory}
-            className="inline-flex size-7 items-center justify-center rounded-md border border-primary/35 bg-primary/5 text-primary hover:bg-primary/10"
+            className="inline-flex size-8 items-center justify-center rounded-md border border-primary/35 bg-primary/5 text-primary hover:bg-primary/10 sm:size-9"
             aria-label="Historique de cette ligne"
             title="Historique"
           >
-            <History className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+            <History className="size-4 shrink-0 sm:size-[1.125rem]" strokeWidth={2} aria-hidden />
           </button>
         </div>
         </div>
       </div>
-      {suivi}
     </li>
   );
 }
@@ -2134,10 +2109,25 @@ export function PatientProductRequestActions({
             missingPrice: totalsRetained.missingPrice,
             empty: totalsRetained.count < 1,
           });
-          const showLineSuivi = status === "confirmed" || status === "treated";
 
           return (
             <div className="space-y-2">
+              {status === "confirmed" ? (
+                <div
+                  role="status"
+                  className="flex items-start gap-2 rounded-lg border border-sky-200/90 bg-gradient-to-r from-sky-50/95 via-white to-teal-50/40 px-2.5 py-2 shadow-sm ring-1 ring-sky-200/45"
+                >
+                  <Package className="mt-0.5 size-4 shrink-0 text-sky-700" strokeWidth={2} aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold leading-snug text-sky-950">Préparation en cours</p>
+                    <p className="mt-0.5 text-[10px] leading-snug text-sky-900/88">
+                      Ta pharmacie prépare ta commande (mise de côté et commandes fournisseur selon les produits). Les
+                      mises à jour restent visibles sur cette page.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
               {pharmacistGlobalComment?.trim() ? (
                 <div className="rounded-md border border-emerald-200/80 bg-emerald-50/65 px-2 py-1.5">
                   <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-950">Message de la pharmacie</p>
@@ -2157,9 +2147,9 @@ export function PatientProductRequestActions({
                 </p>
               </div>
 
-              <div className="rounded-xl border-2 border-slate-200/80 bg-gradient-to-b from-slate-50/70 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-200/50">
+              <div className="rounded-xl border-2 border-slate-200/80 bg-gradient-to-b from-slate-50/70 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-200/50 sm:p-3">
               {dispoRetenues.length > 0 ? (
-                <section className="space-y-1.5">
+                <section className="space-y-2">
                   <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto text-emerald-950">
                     <div className="flex min-w-0 items-center gap-1">
                       <Package className="size-3.5 shrink-0 text-emerald-700" aria-hidden />
@@ -2175,7 +2165,7 @@ export function PatientProductRequestActions({
                       })}
                     </p>
                   </div>
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-2">
                     {dispoRetenues.map((row) => (
                       <PatientValidatedCompactLineCard
                         key={row.id}
@@ -2183,11 +2173,6 @@ export function PatientProductRequestActions({
                         tier="dispo_officine"
                         supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
-                        suivi={
-                          showLineSuivi ? (
-                            <PatientLineSuiviStrip row={row} bundles={supplyAmendmentBundles} />
-                          ) : undefined
-                        }
                       />
                     ))}
                   </ul>
@@ -2195,7 +2180,7 @@ export function PatientProductRequestActions({
               ) : null}
 
               {aCommanderRetenues.length > 0 ? (
-                <section className="mt-2 space-y-1.5">
+                <section className="mt-2 space-y-2">
                   <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto text-teal-950">
                     <div className="flex min-w-0 items-center gap-1">
                       <ShoppingCart className="size-3.5 shrink-0 text-teal-800" aria-hidden />
@@ -2211,7 +2196,7 @@ export function PatientProductRequestActions({
                       })}
                     </p>
                   </div>
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-2">
                     {aCommanderRetenues.map((row) => (
                       <PatientValidatedCompactLineCard
                         key={row.id}
@@ -2219,11 +2204,6 @@ export function PatientProductRequestActions({
                         tier="commande"
                         supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
-                        suivi={
-                          showLineSuivi ? (
-                            <PatientLineSuiviStrip row={row} bundles={supplyAmendmentBundles} />
-                          ) : undefined
-                        }
                       />
                     ))}
                   </ul>
@@ -2239,7 +2219,7 @@ export function PatientProductRequestActions({
                   <p className="text-[9px] leading-snug text-muted-foreground">
                     À confirmer avec l&apos;officine si besoin.
                   </p>
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-2">
                     {horsPerimetreRetenues.map((row) => (
                       <PatientValidatedCompactLineCard
                         key={row.id}
@@ -2247,11 +2227,6 @@ export function PatientProductRequestActions({
                         tier="hors_perimetre"
                         supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
-                        suivi={
-                          showLineSuivi ? (
-                            <PatientLineSuiviStrip row={row} bundles={supplyAmendmentBundles} />
-                          ) : undefined
-                        }
                       />
                     ))}
                   </ul>
@@ -2269,7 +2244,7 @@ export function PatientProductRequestActions({
                   <p className="text-[9px] leading-snug text-muted-foreground">
                     Retrait convenu avec la pharmacie — trace uniquement.
                   </p>
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-2">
                     {retireesApresValidation.map((row) => (
                       <PatientValidatedCompactLineCard
                         key={row.id}
@@ -2277,11 +2252,6 @@ export function PatientProductRequestActions({
                         tier="retire_apres_validation"
                         supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
-                        suivi={
-                          showLineSuivi ? (
-                            <PatientLineSuiviStrip row={row} bundles={supplyAmendmentBundles} />
-                          ) : undefined
-                        }
                       />
                     ))}
                   </ul>
