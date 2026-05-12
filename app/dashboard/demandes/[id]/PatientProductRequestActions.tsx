@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   ChevronDown,
@@ -16,10 +16,10 @@ import {
   Plus,
   Search,
   ShoppingCart,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
+import { clsx } from "clsx";
 import { formatDateShortFr, formatPlannedVisitFr, formatTime24hFr } from "@/lib/datetime-fr";
 import {
   PATIENT_CANCEL_REASON_CODES,
@@ -54,6 +54,12 @@ import { patientLineSuiviModel } from "@/lib/patient-line-suivi-fr";
 import { isRequestItemAddedAfterPatientConfirmation } from "@/lib/supply-line-post-confirm";
 import { isPatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
 import { PATIENT_GENERAL_NOTE_MAX, PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
+import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
+import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
+import {
+  lineConversationChipButtonClass,
+  lineConversationVisual,
+} from "@/components/pharmacist/pharmacist-line-conversation-chip";
 
 type ProdBrief = { name: string; price_pph?: number | null; photo_url?: string | null };
 
@@ -745,24 +751,123 @@ type RespondedChooserProps = {
 /** Même résumé qté + dispo que la ligne ait des alternatives ou non. */
 function RespondedProductQtyStatusLine({ row }: { row: ActionItemRow }) {
   const isProposedLine = row.line_source === "pharmacist_proposed";
+  let inferredKey = row.availability_status ?? "available";
+  try {
+    inferredKey = inferAvailabilityStatusFromQty({
+      status: row.availability_status ?? "available",
+      availableQty: Number(row.available_qty ?? 0),
+      requestedQty: row.requested_qty,
+      isProposedLine,
+    });
+  } catch {
+    inferredKey = row.availability_status ?? "available";
+  }
+  const availUi = availabilityStatusUi(inferredKey);
+  const AvailIcon = availUi.Icon;
   return (
-    <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
       {!isProposedLine ? (
-        <span>
-          Demandé · <strong className="tabular-nums text-foreground">{row.requested_qty}</strong>
+        <span className="inline-flex items-center gap-0.5">
+          Demandé <strong className="tabular-nums text-foreground">{row.requested_qty}</strong>
         </span>
       ) : null}
-      {row.availability_status ? (
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-800">
-          {availabilityStatusFr[row.availability_status] ?? row.availability_status}
-        </span>
-      ) : null}
+      <span
+        className={clsx(
+          "inline-flex max-w-full items-center gap-1 rounded-full px-1.5 py-px text-[9px] font-semibold ring-1",
+          availUi.badgeClass
+        )}
+        title={availUi.label}
+      >
+        <AvailIcon className="size-2.5 shrink-0" aria-hidden />
+        <span className="truncate">{availUi.label}</span>
+      </span>
       {row.availability_status === "to_order" && row.expected_availability_date ? (
-        <span className="text-[10px]">
-          Réception indicative · {formatDateShortFr(row.expected_availability_date)}
+        <span className="text-[9px] text-muted-foreground">
+          Réception · {formatDateShortFr(row.expected_availability_date)}
         </span>
       ) : null}
     </p>
+  );
+}
+
+/** Pastille + mini-fenêtre (lecture seule) pour précision patient / note officine sur la ligne. */
+function PatientRespondedLineConvoBubble({
+  patientNote,
+  pharmaLineNote,
+}: {
+  patientNote: string;
+  pharmaLineNote: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const p = patientNote.trim();
+  const ph = pharmaLineNote.trim();
+  const hasAny = Boolean(p || ph);
+
+  useEffect(() => {
+    if (!open || !hasAny) return undefined;
+    const close = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (panelRef.current?.contains(t)) return;
+      if ((t as HTMLElement).closest?.("[data-patient-convo-chip]")) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open, hasAny]);
+
+  if (!hasAny) return null;
+
+  const visual = lineConversationVisual(patientNote, pharmaLineNote);
+
+  return (
+    <div className="pointer-events-none absolute inset-0 flex items-start justify-end p-0.5">
+      <div className="pointer-events-auto relative">
+        <button
+          type="button"
+          data-patient-convo-chip
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          title="Messages sur ce produit"
+          className={lineConversationChipButtonClass(visual, { open, disabled: false })}
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen((o) => !o);
+          }}
+        >
+          <MessageCircle className="size-[15px]" strokeWidth={2.2} aria-hidden />
+          {visual === "patient_only" ? (
+            <span
+              className="absolute -right-0.5 -top-0.5 flex size-[9px] rounded-full bg-sky-500 ring-2 ring-white"
+              aria-hidden
+            />
+          ) : null}
+        </button>
+        {open ? (
+          <div
+            ref={panelRef}
+            role="dialog"
+            aria-label="Échanges sur la ligne"
+            className="absolute right-0 top-[calc(100%+4px)] z-30 w-[min(18rem,calc(100vw-2.5rem))] overflow-hidden rounded-xl border border-border/90 bg-card py-2 shadow-2xl ring-1 ring-black/10"
+          >
+            <div className="max-h-[min(50vh,16rem)] overflow-y-auto overscroll-y-contain px-2.5 py-1.5 text-[11px] [-webkit-overflow-scrolling:touch]">
+              {p ? (
+                <div className="rounded-lg border border-sky-200/80 bg-sky-50/90 px-2 py-1.5">
+                  <p className="text-[8px] font-bold uppercase tracking-wide text-sky-900">Vous</p>
+                  <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-sky-950">{p}</p>
+                </div>
+              ) : null}
+              {ph ? (
+                <div className={clsx("rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2 py-1.5", p ? "mt-2" : "")}>
+                  <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-900">Pharmacie</p>
+                  <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-emerald-950">{ph}</p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -783,26 +888,27 @@ function RespondedPatientLineChooser({
   const isProposedLine = row.line_source === "pharmacist_proposed";
   const maxBranch = maxQtyForBranch(row, currentBranch, altList);
 
-  const patientNote = row.client_comment?.trim();
-  const pharmaLineNote = row.pharmacist_comment?.trim();
+  const patientNote = row.client_comment?.trim() ?? "";
+  const pharmaLineNote = row.pharmacist_comment?.trim() ?? "";
 
   const thumb = (
-    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
+    <div className="relative h-[4.75rem] w-[4.75rem] shrink-0 overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm sm:h-20 sm:w-20">
       {prod?.photo_url ? (
         <img src={prod.photo_url} alt="" className="h-full w-full object-cover" />
       ) : (
         <div className="flex h-full w-full items-center justify-center">
-          <Package className="size-7 text-muted-foreground" aria-hidden />
+          <Package className="size-6 text-muted-foreground sm:size-7" aria-hidden />
         </div>
       )}
+      <PatientRespondedLineConvoBubble patientNote={patientNote} pharmaLineNote={pharmaLineNote} />
     </div>
   );
 
   const qtyStepper =
     currentBranch !== null && maxBranch > 0 ? (
-      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background/80 px-2.5 py-2">
-        <span className="text-[11px] text-muted-foreground">
-          Quantité <span className="tabular-nums">(max. {maxBranch})</span>
+      <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background/80 px-2 py-1.5">
+        <span className="text-[10px] text-muted-foreground">
+          Qté <span className="tabular-nums">(max {maxBranch})</span>
         </span>
         <button
           type="button"
@@ -837,72 +943,44 @@ function RespondedPatientLineChooser({
       </div>
     ) : null;
 
-  const commentsBlock =
-    patientNote || pharmaLineNote ? (
-      <div
-        className={`mt-2.5 grid gap-2 ${patientNote && pharmaLineNote ? "sm:grid-cols-2" : ""}`}
-      >
-        {patientNote ? (
-          <div className="rounded-xl border border-sky-200/90 bg-sky-50/90 px-2.5 py-2">
-            <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-sky-900/90">
-              <MessageSquare className="size-3.5 shrink-0 opacity-80" aria-hidden />
-              Votre précision
-            </p>
-            <p className="mt-1 text-[11px] leading-snug text-sky-950">{patientNote}</p>
-          </div>
-        ) : null}
-        {pharmaLineNote ? (
-          <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/90 px-2.5 py-2">
-            <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-emerald-950/90">
-              <Sparkles className="size-3.5 shrink-0 opacity-80" aria-hidden />
-              Réponse pharmacie (ligne)
-            </p>
-            <p className="mt-1 text-[11px] leading-snug text-emerald-950">{pharmaLineNote}</p>
-          </div>
-        ) : null}
-      </div>
-    ) : null;
-
   const cardShell = (inner: ReactNode) => (
     <li
-      className={`overflow-hidden rounded-2xl border-2 bg-white shadow-md ring-1 ring-black/[0.04] ${
+      className={clsx(
+        "overflow-hidden rounded-2xl border-2 bg-white shadow-md ring-1 ring-black/[0.04]",
         isProposedLine ? "border-violet-200/90" : "border-emerald-200/70"
-      }`}
+      )}
     >
       {isProposedLine ? (
-        <div className="border-b border-violet-200/80 bg-gradient-to-r from-violet-50 to-white px-3 py-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-violet-800">
+        <div className="border-b border-violet-200/80 bg-gradient-to-r from-violet-50 to-white px-2.5 py-1.5">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-violet-800">
             {requestItemLineSourceFr.pharmacist_proposed}
           </p>
           {row.pharmacist_proposal_reason?.trim() ? (
-            <p className="mt-1 text-[11px] leading-snug text-violet-950">
-              <span className="font-semibold">Motif : </span>
+            <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-violet-950">
+              <span className="font-semibold">Motif · </span>
               {row.pharmacist_proposal_reason.trim()}
             </p>
           ) : (
-            <p className="mt-1 text-[11px] italic text-violet-800/80">Motif non renseigné par l’officine.</p>
+            <p className="mt-0.5 text-[10px] italic text-violet-800/80">Motif non renseigné.</p>
           )}
         </div>
       ) : (
-        <div className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50/80 to-white px-3 py-2">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-900">Votre demande initiale</p>
-          <p className="mt-0.5 text-[10px] text-emerald-900/70">
-            Origine : <strong>{requestItemLineSourceFr.patient_request}</strong>
-          </p>
+        <div className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50/80 to-white px-2.5 py-1.5">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900">Ta demande</p>
         </div>
       )}
-      <div className="p-3">{inner}</div>
+      <div className="p-2.5 sm:p-3">{inner}</div>
     </li>
   );
 
   if (!hasAlts) {
     return cardShell(
       <>
-        <div className="flex min-h-[96px] items-stretch gap-3">
+        <div className="flex gap-2.5">
           {thumb}
           <div className="min-w-0 flex-1">
             <p
-              className="overflow-hidden pr-1 text-[13px] font-semibold leading-tight text-foreground sm:text-[15px]"
+              className="overflow-hidden pr-1 text-[13px] font-semibold leading-tight text-foreground sm:text-[14px]"
               style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
             >
               {prod?.name ?? "Produit"}
@@ -911,8 +989,7 @@ function RespondedPatientLineChooser({
             <RespondedProductQtyStatusLine row={row} />
           </div>
         </div>
-        {commentsBlock}
-        <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border-2 border-slate-200 bg-slate-50/40 px-3 py-2.5 transition hover:border-emerald-200">
+        <label className="mt-2 flex cursor-pointer items-start gap-2.5 rounded-xl border-2 border-slate-200 bg-slate-50/40 px-2.5 py-2 transition hover:border-emerald-200">
           <input
             type="checkbox"
             className="mt-1 rounded border-primary"
@@ -920,17 +997,14 @@ function RespondedPatientLineChooser({
             disabled={capPrincipal === 0}
             onChange={(e) => togglePrincipalOnlyLine(row.id, e.target.checked)}
           />
-          <span className="text-sm leading-snug">
+          <span className="text-[13px] leading-snug">
             <span className="font-semibold text-foreground">Je retiens cette ligne</span>
-            <span className="mt-0.5 block text-[11px] text-muted-foreground">
-              Une seule option possible — quantité réglable jusqu’à la limite communiquée par la pharmacie.
-            </span>
+            <span className="mt-0.5 block text-[10px] text-muted-foreground">Jusqu’au max indiqué par la pharmacie.</span>
           </span>
         </label>
         {capPrincipal === 0 ? (
-          <p className="mt-2 rounded-lg border border-amber-200/80 bg-amber-50 px-2.5 py-2 text-[11px] leading-snug text-amber-950">
-            Aucune quantité disponible sur ce produit pour l’instant. Tu peux ne pas retenir cette ligne ou repasser après un échange avec
-            l’officine.
+          <p className="mt-1.5 rounded-lg border border-amber-200/80 bg-amber-50 px-2 py-1.5 text-[10px] leading-snug text-amber-950">
+            Aucune quantité dispo pour l’instant — tu peux ne pas retenir cette ligne ou contacter l’officine.
           </p>
         ) : null}
         {qtyStepper}
@@ -940,62 +1014,57 @@ function RespondedPatientLineChooser({
 
   return cardShell(
     <>
-      <div className="flex min-h-[96px] items-stretch gap-3">
+      <div className="flex gap-2.5">
         {thumb}
         <div className="min-w-0 flex-1">
           <p
-            className="overflow-hidden pr-1 text-[13px] font-semibold leading-tight text-foreground sm:text-[15px]"
+            className="overflow-hidden pr-1 text-[13px] font-semibold leading-tight text-foreground sm:text-[14px]"
             style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
           >
             {prod?.name ?? "Produit"}
           </p>
-          {prodUnitPrice ? <p className="mt-0.5 text-xs font-medium text-primary">{prodUnitPrice}</p> : null}
+          {prodUnitPrice ? <p className="mt-0.5 text-[11px] font-medium text-primary">{prodUnitPrice}</p> : null}
           <RespondedProductQtyStatusLine row={row} />
         </div>
       </div>
 
-      {commentsBlock}
-
-      <div className="mt-4 rounded-xl border border-teal-200/70 bg-gradient-to-b from-teal-50/50 to-background p-2.5">
-        <div className="mb-2 flex items-center gap-2 text-teal-950">
-          <Layers className="size-4 shrink-0 opacity-90" aria-hidden />
-          <p className="text-[10px] font-bold uppercase tracking-wide">Choisis quoi récupérer</p>
+      <div className="mt-3 rounded-xl border border-teal-200/70 bg-gradient-to-b from-teal-50/50 to-background p-2">
+        <div className="flex items-center justify-between gap-2 text-teal-950">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <Layers className="size-3.5 shrink-0 opacity-90" aria-hidden />
+            <p className="truncate text-[9px] font-bold uppercase tracking-wide">Ton choix</p>
+          </div>
+          <details className="shrink-0 text-[9px] text-teal-900">
+            <summary className="cursor-pointer font-semibold underline decoration-teal-400/80 underline-offset-2">
+              Aide
+            </summary>
+            <p className="mt-1 max-w-[14rem] rounded-md bg-white/80 px-1.5 py-1 leading-snug ring-1 ring-teal-200/50">
+              Une option : principal{isProposedLine ? " / proposition" : ""}, alternative ou aucune.
+            </p>
+          </details>
         </div>
-        <p className="mb-3 text-[10px] leading-snug text-teal-900/85">
-          {isProposedLine ? (
-            <>
-              <strong className="text-teal-950">Proposition officine</strong> = produit suggéré par ta pharmacie (rien n’avait été
-              demandé sur cette ligne). <strong className="text-teal-950">Alternatives</strong> = autres équivalences proposées.
-            </>
-          ) : (
-            <>
-              <strong className="text-teal-950">Principal</strong> = produit demandé. <strong className="text-teal-950">Alternatives</strong>{" "}
-              = équivalences proposées par ta pharmacie. Tu peux aussi ne garder aucune option pour cette ligne.
-            </>
-          )}
-        </p>
 
-        <fieldset className="space-y-2 border-0 p-0">
+        <fieldset className="mt-2 space-y-1.5 border-0 p-0">
           <legend className="sr-only">Choix pour {prod?.name ?? "Produit"}</legend>
 
           <label
-            className={`flex cursor-pointer flex-col rounded-xl border-2 px-3 py-2.5 transition ${
+            className={`flex cursor-pointer flex-col rounded-xl border-2 px-2.5 py-2 transition ${
               currentBranch === null
                 ? "border-slate-500 bg-slate-100/60 shadow-sm ring-2 ring-slate-300/30"
                 : "border-slate-200 bg-white hover:border-slate-300"
             }`}
           >
-            <span className="flex items-start gap-2.5">
-              <input type="radio" name={radioName} className="mt-1 shrink-0" checked={currentBranch === null} onChange={() => setLineBranch(row.id, null)} />
+            <span className="flex items-start gap-2">
+              <input type="radio" name={radioName} className="mt-0.5 shrink-0" checked={currentBranch === null} onChange={() => setLineBranch(row.id, null)} />
               <span>
-                <span className="text-sm font-semibold text-foreground">Ne pas retenir cette ligne</span>
-                <span className="mt-0.5 block text-[11px] text-muted-foreground">Aucun des produits ci-dessous ne m’intéresse.</span>
+                <span className="text-[13px] font-semibold text-foreground">Ne pas retenir</span>
+                <span className="mt-0.5 block text-[10px] text-muted-foreground">Aucune option ci-dessous.</span>
               </span>
             </span>
           </label>
 
           <label
-            className={`flex cursor-pointer flex-col rounded-xl border-2 px-3 py-2.5 transition ${
+            className={`flex cursor-pointer flex-col rounded-xl border-2 px-2.5 py-2 transition ${
               currentBranch === "principal"
                 ? "border-emerald-500 bg-emerald-50/80 shadow-sm ring-1 ring-emerald-200"
                 : capPrincipal === 0
@@ -1003,41 +1072,41 @@ function RespondedPatientLineChooser({
                   : "border-emerald-200/80 bg-white hover:border-emerald-300"
             }`}
           >
-            <span className="flex items-start gap-2.5">
+            <span className="flex items-start gap-2">
               <input
                 type="radio"
                 name={radioName}
-                className="mt-1 shrink-0"
+                className="mt-0.5 shrink-0"
                 checked={currentBranch === "principal"}
                 disabled={capPrincipal === 0}
                 onChange={() => setLineBranch(row.id, "principal")}
               />
-              <span className="min-w-0 flex-1 space-y-1">
-                <span className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-foreground">
-                    {isProposedLine ? "Produit proposé par la pharmacie" : "Produit principal"}
+              <span className="min-w-0 flex-1 space-y-0.5">
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[13px] font-semibold text-foreground">
+                    {isProposedLine ? "Proposition officine" : "Principal"}
                   </span>
                   {isProposedLine ? (
-                    <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                    <span className="rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
                       Proposé
                     </span>
                   ) : (
-                    <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                    <span className="rounded-full bg-emerald-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
                       Demandé
                     </span>
                   )}
                 </span>
-                <span className="flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
+                <span className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground">
                   {row.unit_price != null ? (
                     <span>
-                      Prix <strong className="tabular-nums text-foreground">{Number(row.unit_price).toFixed(2)}</strong> MAD
+                      <strong className="tabular-nums text-foreground">{Number(row.unit_price).toFixed(2)}</strong> MAD
                     </span>
                   ) : null}
                   {row.availability_status ? (
                     <span>{availabilityStatusFr[row.availability_status] ?? row.availability_status}</span>
                   ) : null}
                   {row.availability_status === "to_order" && row.expected_availability_date ? (
-                    <span>Disponible le {formatDateShortFr(row.expected_availability_date)}</span>
+                    <span>→ {formatDateShortFr(row.expected_availability_date)}</span>
                   ) : null}
                 </span>
               </span>
@@ -1052,7 +1121,7 @@ function RespondedPatientLineChooser({
             return (
               <label
                 key={alt.id}
-                className={`flex cursor-pointer flex-col rounded-xl border-2 px-3 py-2.5 transition ${
+                className={`flex cursor-pointer flex-col rounded-xl border-2 px-2.5 py-2 transition ${
                   currentBranch === alt.id
                     ? "border-teal-500 bg-teal-50/80 shadow-sm ring-1 ring-teal-200"
                     : disabled
@@ -1060,40 +1129,40 @@ function RespondedPatientLineChooser({
                       : "border-teal-200/70 bg-white hover:border-teal-400"
                 }`}
               >
-                <span className="flex items-start gap-2.5">
+                <span className="flex items-start gap-2">
                   <input
                     type="radio"
                     name={radioName}
-                    className="mt-1 shrink-0"
+                    className="mt-0.5 shrink-0"
                     checked={currentBranch === alt.id}
                     disabled={disabled}
                     onChange={() => setLineBranch(row.id, alt.id)}
                   />
-                  <span className="min-w-0 flex-1 space-y-1">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold text-foreground">{altProd?.name ?? "Alternative"}</span>
-                      <span className="rounded-full bg-teal-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
-                        Alternative
+                  <span className="min-w-0 flex-1 space-y-0.5">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[13px] font-semibold text-foreground">{altProd?.name ?? "Alternative"}</span>
+                      <span className="rounded-full bg-teal-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                        Alt.
                       </span>
                     </span>
-                    <span className="flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
+                    <span className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground">
                       {alt.unit_price != null ? (
                         <span>
-                          Prix <strong className="tabular-nums text-foreground">{Number(alt.unit_price).toFixed(2)}</strong> MAD
+                          <strong className="tabular-nums text-foreground">{Number(alt.unit_price).toFixed(2)}</strong> MAD
                         </span>
                       ) : null}
                       {alt.availability_status ? (
                         <span>{availabilityStatusFr[alt.availability_status] ?? alt.availability_status}</span>
                       ) : null}
                       {alt.availability_status === "to_order" && alt.expected_availability_date ? (
-                        <span>Disponible le {formatDateShortFr(alt.expected_availability_date)}</span>
+                        <span>→ {formatDateShortFr(alt.expected_availability_date)}</span>
                       ) : null}
                     </span>
                     {altComment ? (
-                      <p className="rounded-lg border border-teal-200/60 bg-white/70 px-2 py-1.5 text-[10px] leading-snug text-teal-950">
-                        <span className="font-semibold text-teal-900">Note officine : </span>
-                        {altComment}
-                      </p>
+                      <details className="rounded-md border border-teal-200/50 bg-white/70 text-[9px] text-teal-950">
+                        <summary className="cursor-pointer px-1.5 py-1 font-semibold">Note officine</summary>
+                        <p className="border-t border-teal-100/80 px-1.5 py-1 leading-snug">{altComment}</p>
+                      </details>
                     ) : null}
                   </span>
                 </span>
@@ -1823,49 +1892,52 @@ export function PatientProductRequestActions({
 
   return (
     <section
-      className={`touch-pan-y mt-2 rounded-xl border-2 border-slate-200 bg-slate-50/95 p-3 sm:p-4 ${showResubmit ? "pb-28" : ""} ${showConfirm ? "pb-32" : ""}`}
+      className={`touch-pan-y mt-2 rounded-xl border-2 border-slate-200 bg-slate-50/95 p-2.5 sm:p-3 ${showResubmit ? "pb-28" : ""} ${showConfirm ? "pb-28" : ""}`}
     >
       {actionError ? (
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
       ) : null}
 
       {showConfirm ? (
-        <div className="space-y-3">
-          <div className="rounded-xl border border-emerald-200/75 bg-emerald-50/45 p-2.5 sm:p-3">
-            <h2 className="text-[14px] font-bold leading-snug text-foreground sm:text-[15px]">La pharmacie a répondu — à toi de confirmer</h2>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-              Pour chaque ligne, retiens le <strong className="text-foreground">principal</strong>, une{" "}
-              <strong className="text-foreground">alternative</strong>, ou{" "}
-              <strong className="text-foreground">aucune option</strong>. Les quantités ne peuvent pas dépasser celles indiquées par
-              l&apos;officine, mais tu peux les baisser.
+        <div className="space-y-2.5">
+          <div className="rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/90 via-white to-teal-50/30 px-2.5 py-2 shadow-sm ring-1 ring-emerald-200/40">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-[13px] font-bold leading-tight text-emerald-950 sm:text-sm">Répondue — à valider</h2>
+              <span className="shrink-0 rounded-full border border-amber-300/80 bg-amber-50 px-2 py-px text-[8px] font-bold uppercase tracking-wide text-amber-950">
+                Action
+              </span>
+            </div>
+            <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
+              Un choix par produit, puis date de passage et validation.
             </p>
-            <ul className="mt-2 grid gap-1 text-[10px] leading-snug text-muted-foreground sm:grid-cols-2 sm:text-[11px]">
-              <li className="flex items-center gap-2">
-                <span className="inline-block size-2 shrink-0 rounded-full bg-emerald-500" aria-hidden />
-                <span>
-                  <strong className="text-emerald-950">Ta liste</strong> — ordre identique à celui de la pharmacie.
-                </span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="inline-block size-2 shrink-0 rounded-full bg-violet-500" aria-hidden />
-                <span>
-                  <strong className="text-violet-950">Proposé officine</strong> — repéré sur la carte violette.
-                </span>
-              </li>
-            </ul>
+            <details className="mt-1.5 text-[9px] text-emerald-900/90">
+              <summary className="cursor-pointer font-semibold text-emerald-950 underline decoration-emerald-400/70 underline-offset-2">
+                Légende
+              </summary>
+              <ul className="mt-1 space-y-0.5 border-t border-emerald-200/50 pt-1.5 ps-3 leading-snug">
+                <li>
+                  <span className="font-semibold text-violet-800">Violet</span> — proposé par l&apos;officine.
+                </li>
+                <li>
+                  <span className="font-semibold text-emerald-800">Vert</span> — ta demande d&apos;origine.
+                </li>
+              </ul>
+            </details>
           </div>
 
           {pharmacistGlobalComment?.trim() ? (
-            <div className="rounded-xl border border-emerald-200/85 bg-emerald-50/70 px-2.5 py-2 ring-1 ring-emerald-100/50">
-              <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-950">Message de la pharmacie</p>
-              <p className="mt-1 whitespace-pre-wrap text-[11px] leading-snug text-emerald-950">{pharmacistGlobalComment.trim()}</p>
+            <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/70 px-2 py-1.5 ring-1 ring-emerald-100/40">
+              <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-950">Message pharmacie</p>
+              <p className="mt-0.5 line-clamp-4 whitespace-pre-wrap text-[10px] leading-snug text-emerald-950">
+                {pharmacistGlobalComment.trim()}
+              </p>
             </div>
           ) : null}
 
           {items.length > 0 ? (
-            <section className="space-y-3">
-              <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Produits</h3>
-              <ul className="space-y-3">
+            <section className="space-y-2">
+              <h3 className="px-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Produits</h3>
+              <ul className="space-y-2">
                 {items.map((row) => (
                   <RespondedPatientLineChooser
                     key={row.id}
@@ -2280,17 +2352,18 @@ export function PatientProductRequestActions({
         ) : null}
 
         {showConfirm ? (
-          <div className="rounded-xl border-l-4 border-sky-700 bg-sky-50/95 p-3 shadow-sm ring-1 ring-sky-200/50 sm:p-4">
-            <label className="block text-sm font-semibold text-slate-900">Message général pour la pharmacie (facultatif)</label>
+          <div className="rounded-lg border-l-4 border-sky-600 bg-sky-50/90 p-2 shadow-sm ring-1 ring-sky-200/45 sm:p-2.5">
+            <label className="block text-[10px] font-bold uppercase tracking-wide text-sky-950">Message pour la pharmacie</label>
+            <p className="mt-0.5 text-[9px] text-sky-900/80">Optionnel · enregistré avec ta validation.</p>
             <textarea
               value={confirmPatientNote}
               onChange={(e) => setConfirmPatientNote(e.target.value.slice(0, PATIENT_GENERAL_NOTE_MAX))}
-              rows={4}
+              rows={2}
               maxLength={PATIENT_GENERAL_NOTE_MAX}
-              placeholder="Sera enregistré avec votre validation."
-              className="mt-2 w-full resize-y rounded-lg border-2 border-slate-300 bg-white px-3 py-3 text-base leading-relaxed text-slate-900 placeholder:text-slate-400 [touch-action:pan-x_pan-y]"
+              placeholder="Ex. précision sur le passage…"
+              className="mt-1.5 w-full resize-y rounded-lg border border-sky-300/80 bg-white px-2 py-1.5 text-[12px] leading-snug text-foreground placeholder:text-muted-foreground/70 [touch-action:manipulation]"
             />
-            <p className="mt-1.5 text-right text-sm text-slate-600 tabular-nums">
+            <p className="mt-0.5 text-right text-[9px] text-sky-800/90 tabular-nums">
               {confirmPatientNote.length}/{PATIENT_GENERAL_NOTE_MAX}
             </p>
           </div>
@@ -2482,10 +2555,10 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirm && confirmReviewOpen && confirmReviewSnap ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/45 p-2 sm:items-center sm:p-4">
           <button
             type="button"
-            className="absolute inset-0 bg-black/45"
+            className="fixed inset-0 cursor-default"
             aria-label="Fermer le récapitulatif"
             onClick={() => {
               if (busyAction !== "confirm") closeConfirmReview();
@@ -2495,32 +2568,28 @@ export function PatientProductRequestActions({
             role="dialog"
             aria-modal="true"
             aria-labelledby="confirm-review-title"
-            className="relative z-10 flex max-h-[min(92vh,760px)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-sky-200/80 bg-gradient-to-b from-sky-50/50 via-card to-muted/15 shadow-xl sm:rounded-2xl"
+            className="relative z-10 flex max-h-[min(92dvh,34rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-emerald-200/85 bg-card shadow-2xl ring-1 ring-emerald-900/10"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="shrink-0 border-b border-sky-200/65 bg-gradient-to-r from-sky-100/50 via-teal-50/30 to-transparent px-4 py-3">
-              <h2 id="confirm-review-title" className="text-base font-semibold text-sky-950 sm:text-lg">
-                Récapitulatif avant validation
+            <div className="shrink-0 border-b border-emerald-200/60 bg-gradient-to-r from-emerald-50/80 via-white to-teal-50/30 px-3 py-2.5">
+              <h2 id="confirm-review-title" className="text-center text-sm font-bold text-emerald-950 sm:text-base">
+                Confirmer ta sélection
               </h2>
-              <p className="mt-1 text-[11px] leading-snug text-sky-900/80 sm:text-xs">
-                Vérifiez les lignes ci-dessous. Rien n&apos;est envoyé à la pharmacie tant que vous n&apos;avez pas confirmé.
-              </p>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-white/70 to-muted/25 px-3 py-3 sm:px-4">
-              <div className="rounded-xl border border-primary/25 bg-primary/5 px-3 py-2">
-                <p className="text-[9px] font-bold uppercase tracking-wide text-primary/95">Passage en officine retenu</p>
-                <p className="mt-1 text-[12px] font-medium text-foreground">{confirmReviewSnap.visitSummaryFr}</p>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-gradient-to-b from-white/80 to-muted/20 px-2.5 py-2.5 sm:px-3 [-webkit-overflow-scrolling:touch]">
+              <div className="rounded-lg border border-primary/20 bg-primary/5 px-2 py-1.5">
+                <p className="text-[8px] font-bold uppercase tracking-wide text-primary/95">Passage</p>
+                <p className="mt-0.5 text-[11px] font-medium leading-snug text-foreground">{confirmReviewSnap.visitSummaryFr}</p>
               </div>
 
               {confirmReserveLines.length > 0 ? (
-                <div className="mt-4">
-                  <div className="mb-2 flex items-center gap-2 rounded-lg border border-emerald-200/80 bg-emerald-50/70 px-2.5 py-2">
-                    <Package className="size-4 shrink-0 text-emerald-900" aria-hidden />
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-950">
-                      Produits disponibles à réserver
-                    </p>
+                <div className="mt-3">
+                  <div className="mb-1.5 flex items-center gap-1.5 rounded-md border border-emerald-200/80 bg-emerald-50/70 px-2 py-1">
+                    <Package className="size-3.5 shrink-0 text-emerald-900" aria-hidden />
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-950">À réserver</p>
                   </div>
-                  <ul className="space-y-2">
+                  <ul className="space-y-1.5">
                     {confirmReserveLines.map((line) => (
                       <PatientConfirmReviewLineCard key={line.rowId} line={line} />
                     ))}
@@ -2532,12 +2601,12 @@ export function PatientProductRequestActions({
               ) : null}
 
               {confirmOrderLines.length > 0 ? (
-                <div className="mt-4">
-                  <div className="mb-2 flex items-center gap-2 rounded-lg border border-teal-200/85 bg-teal-50/70 px-2.5 py-2">
-                    <ShoppingCart className="size-4 shrink-0 text-teal-950" aria-hidden />
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-teal-950">Produits à commander</p>
+                <div className="mt-3">
+                  <div className="mb-1.5 flex items-center gap-1.5 rounded-md border border-teal-200/85 bg-teal-50/70 px-2 py-1">
+                    <ShoppingCart className="size-3.5 shrink-0 text-teal-950" aria-hidden />
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-teal-950">À commander</p>
                   </div>
-                  <ul className="space-y-2">
+                  <ul className="space-y-1.5">
                     {confirmOrderLines.map((line) => (
                       <PatientConfirmReviewLineCard key={line.rowId} line={line} />
                     ))}
@@ -2548,37 +2617,31 @@ export function PatientProductRequestActions({
                 </div>
               ) : null}
 
-              <div className="mt-4 rounded-xl border-2 border-violet-200/70 bg-gradient-to-br from-violet-50/90 via-background to-teal-50/40 px-3 py-2.5 shadow-inner ring-1 ring-violet-200/35">
-                <p className="text-[11px] font-semibold tabular-nums text-violet-950 sm:text-xs">
+              <div className="mt-3 rounded-lg border border-violet-200/70 bg-violet-50/40 px-2 py-1.5 ring-1 ring-violet-200/30">
+                <p className="text-[10px] font-semibold tabular-nums text-violet-950 sm:text-[11px]">
                   {formatGrandTotalLabel(confirmAllPreviewLines)}
                 </p>
                 {blockMonetarySummary(confirmAllPreviewLines).missingUnitPrice ? (
-                  <p className="mt-1.5 text-[10px] leading-snug text-violet-900/80">
-                    Les montants reflètent uniquement les prix unitaires communiqués par la pharmacie. Une ligne sans prix n&apos;entre pas dans le total.
-                  </p>
-                ) : (
-                  <p className="mt-1.5 text-sm leading-snug text-slate-700">
-                    Montants basés sur les prix indiqués par la pharmacie.
-                  </p>
-                )}
+                  <p className="mt-0.5 text-[9px] leading-snug text-violet-900/85">Total partiel : certains prix unitaires manquent.</p>
+                ) : null}
               </div>
             </div>
 
-            <div className="shrink-0 border-t border-border/80 bg-background/95 px-3 py-3 backdrop-blur sm:px-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
+            <div className="shrink-0 border-t border-border/70 bg-background/95 px-2.5 py-2 backdrop-blur sm:px-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-2">
                 <button
                   type="button"
                   disabled={busyAction === "confirm"}
                   onClick={closeConfirmReview}
-                  className="w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted/60 disabled:opacity-50 sm:order-1 sm:w-auto"
+                  className="w-full rounded-xl border border-border bg-card px-3 py-2 text-[12px] font-semibold text-foreground shadow-sm transition hover:bg-muted/60 disabled:opacity-50 sm:order-1 sm:w-auto"
                 >
-                  Annuler
+                  Retour
                 </button>
                 <button
                   type="button"
                   disabled={busyAction === "confirm"}
                   onClick={() => void performConfirmAfterReview()}
-                  className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-95 disabled:opacity-50 sm:order-2 sm:w-auto sm:min-w-[200px]"
+                  className="w-full rounded-xl bg-primary px-3 py-2 text-[12px] font-semibold text-primary-foreground shadow-sm transition hover:opacity-95 disabled:opacity-50 sm:order-2 sm:w-auto sm:min-w-[180px]"
                 >
                   {busyAction === "confirm" ? "Enregistrement…" : "Confirmer définitivement"}
                 </button>
