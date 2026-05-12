@@ -13,7 +13,9 @@ export type SupplyConfirmBlock = {
   subtitle?: string;
 };
 
-type FillRow = { channel: SupplyAmendClientChannelSlug; motive: string };
+export type SupplyConfirmModalVariant = "full" | "channel_instant" | "motive_only";
+
+type FillRow = { channel: string; motive: string };
 
 type ModalProps = {
   open: boolean;
@@ -23,8 +25,12 @@ type ModalProps = {
   blocks: SupplyConfirmBlock[];
   confirmLabel: string;
   busy: boolean;
-  onConfirm: (fills: FillRow[]) => void;
+  onConfirm: (fills: FillRow[]) => void | Promise<void>;
+  /** full = canal + précision + bouton confirmer ; channel_instant = choix canal applique tout de suite ; motive_only = retrait proposition (motif seul). */
+  variant?: SupplyConfirmModalVariant;
 };
+
+const CHANNEL_PLACEHOLDER = "";
 
 function PharmacistSupplyAmendmentConfirmModalInner({
   onClose,
@@ -34,9 +40,10 @@ function PharmacistSupplyAmendmentConfirmModalInner({
   confirmLabel,
   busy,
   onConfirm,
+  variant = "full",
 }: Omit<ModalProps, "open">) {
   const [fills, setFills] = useState<FillRow[]>(() =>
-    blocks.map(() => ({ channel: "phone_call", motive: "" }))
+    blocks.map(() => ({ channel: CHANNEL_PLACEHOLDER, motive: "" }))
   );
 
   useEffect(() => {
@@ -54,6 +61,27 @@ function PharmacistSupplyAmendmentConfirmModalInner({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [busy, onClose]);
+
+  const channelOptions =
+    variant === "channel_instant" || variant === "full"
+      ? [{ value: CHANNEL_PLACEHOLDER, label: "Choisir le canal…" }, ...SUPPLY_AMEND_CHANNEL_OPTIONS]
+      : SUPPLY_AMEND_CHANNEL_OPTIONS;
+
+  const confirmDisabled =
+    busy ||
+    fills.length !== blocks.length ||
+    (variant === "full" && fills.some((x) => !x.channel || x.channel.trim() === "")) ||
+    (variant === "motive_only" && !(fills[0]?.motive ?? "").trim());
+
+  const applyInstantChannel = async (idx: number, channelRaw: string) => {
+    if (busy || variant !== "channel_instant") return;
+    const ch = channelRaw.trim();
+    if (!ch) return;
+    await onConfirm(
+      fills.map((row, j) => (j === idx ? { ...row, channel: ch as SupplyAmendClientChannelSlug } : row))
+    );
+    onClose();
+  };
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true">
@@ -81,74 +109,119 @@ function PharmacistSupplyAmendmentConfirmModalInner({
               {b.subtitle ? (
                 <p className="mt-0.5 text-[10px] leading-snug text-sky-900/85">{b.subtitle}</p>
               ) : null}
-              <label className="mt-2 block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
-                Canal utilisé
-                <select
-                  className="mt-0.5 h-9 w-full rounded-lg border border-input bg-background px-2 text-[12px] font-medium shadow-sm"
-                  disabled={busy}
-                  value={fills[i]?.channel ?? "phone_call"}
-                  onChange={(e) => {
-                    const v = e.target.value as SupplyAmendClientChannelSlug;
-                    setFills((prev) => {
-                      const next = [...prev];
-                      next[i] = { ...next[i], channel: v };
-                      return next;
-                    });
-                  }}
-                >
-                  {SUPPLY_AMEND_CHANNEL_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="mt-2 block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
-                Précision (optionnel)
-                <textarea
-                  rows={2}
-                  disabled={busy}
-                  value={fills[i]?.motive ?? ""}
-                  onChange={(e) => {
-                    const t = e.target.value.slice(0, 500);
-                    setFills((prev) => {
-                      const next = [...prev];
-                      next[i] = { ...next[i], motive: t };
-                      return next;
-                    });
-                  }}
-                  placeholder="Ex. accord exprimé par le patient…"
-                  className="mt-0.5 w-full resize-y rounded-lg border border-input bg-background px-2 py-1.5 text-[11px] shadow-sm placeholder:text-muted-foreground"
-                />
-              </label>
+              {variant !== "motive_only" ? (
+                <label className="mt-2 block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Canal utilisé
+                  <select
+                    className="mt-0.5 h-9 w-full rounded-lg border border-input bg-background px-2 text-[12px] font-medium shadow-sm"
+                    disabled={busy}
+                    value={fills[i]?.channel ?? CHANNEL_PLACEHOLDER}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (variant === "channel_instant") {
+                        void applyInstantChannel(i, v);
+                        return;
+                      }
+                      setFills((prev) => {
+                        const next = [...prev];
+                        next[i] = { ...next[i], channel: v };
+                        return next;
+                      });
+                    }}
+                  >
+                    {channelOptions.map((o) => (
+                      <option key={o.value || "__empty"} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {variant !== "motive_only" ? (
+                <label className="mt-2 block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Précision (optionnel)
+                  <textarea
+                    rows={2}
+                    disabled={busy}
+                    value={fills[i]?.motive ?? ""}
+                    onChange={(e) => {
+                      const t = e.target.value.slice(0, 500);
+                      setFills((prev) => {
+                        const next = [...prev];
+                        next[i] = { ...next[i], motive: t };
+                        return next;
+                      });
+                    }}
+                    placeholder="Ex. accord exprimé par le patient…"
+                    className="mt-0.5 w-full resize-y rounded-lg border border-input bg-background px-2 py-1.5 text-[11px] shadow-sm placeholder:text-muted-foreground"
+                  />
+                </label>
+              ) : (
+                <label className="mt-2 block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Motif du retrait
+                  <textarea
+                    rows={3}
+                    disabled={busy}
+                    value={fills[0]?.motive ?? ""}
+                    onChange={(e) => {
+                      const t = e.target.value.slice(0, 500);
+                      setFills((prev) => {
+                        const next = [...prev];
+                        next[0] = { ...next[0], motive: t };
+                        return next;
+                      });
+                    }}
+                    placeholder="Précisez le contexte (visible côté patient dans le journal des amendements)."
+                    className="mt-0.5 w-full resize-y rounded-lg border border-input bg-background px-2 py-1.5 text-[11px] shadow-sm placeholder:text-muted-foreground"
+                  />
+                </label>
+              )}
             </div>
           ))}
         </div>
-        <div className="flex flex-col gap-2 border-t border-border bg-muted/15 px-3 py-2.5 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onClose}
-            className="h-10 rounded-lg border border-border bg-background px-4 text-[12px] font-semibold text-foreground shadow-sm hover:bg-muted/50 disabled:opacity-50"
-          >
-            Annuler
-          </button>
-          <button
-            type="button"
-            disabled={busy || fills.length !== blocks.length}
-            onClick={() => onConfirm(fills)}
-            className="h-10 rounded-lg border border-sky-800 bg-sky-950 px-4 text-[12px] font-bold text-white shadow-sm hover:bg-sky-900 disabled:opacity-50"
-          >
-            {busy ? "Enregistrement…" : confirmLabel}
-          </button>
-        </div>
+        {variant !== "channel_instant" ? (
+          <div className="flex flex-col gap-2 border-t border-border bg-muted/15 px-3 py-2.5 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onClose}
+              className="h-10 rounded-lg border border-border bg-background px-4 text-[12px] font-semibold text-foreground shadow-sm hover:bg-muted/50 disabled:opacity-50"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              disabled={confirmDisabled}
+              onClick={() => void onConfirm(fills)}
+              className="h-10 rounded-lg border border-sky-800 bg-sky-950 px-4 text-[12px] font-bold text-white shadow-sm hover:bg-sky-900 disabled:opacity-50"
+            >
+              {busy ? "Enregistrement…" : confirmLabel}
+            </button>
+          </div>
+        ) : (
+          <div className="border-t border-border bg-muted/15 px-3 py-2.5">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onClose}
+              className="h-10 w-full rounded-lg border border-border bg-background px-4 text-[12px] font-semibold text-foreground shadow-sm hover:bg-muted/50 disabled:opacity-50 sm:w-auto"
+            >
+              Annuler
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-export function PharmacistSupplyAmendmentConfirmModal({ open, blocks, ...rest }: ModalProps) {
+export function PharmacistSupplyAmendmentConfirmModal({
+  open,
+  blocks,
+  variant = "full",
+  ...rest
+}: ModalProps) {
   const blockSig = blocks.map((x) => x.key).join("|");
   if (!open) return null;
-  return <PharmacistSupplyAmendmentConfirmModalInner key={blockSig} blocks={blocks} {...rest} />;
+  return <PharmacistSupplyAmendmentConfirmModalInner key={`${blockSig}|${variant}`} blocks={blocks} variant={variant} {...rest} />;
 }
