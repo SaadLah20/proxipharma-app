@@ -3148,22 +3148,38 @@ export default function PharmacienDemandeDetailPage() {
                         : "border-slate-100/90 bg-slate-50/25"
                     )}
                   >
-                    <div
-                      className={clsx(
-                        "relative h-[4.75rem] w-[4.75rem] shrink-0 overflow-hidden rounded-xl border bg-white shadow-sm sm:h-[5.125rem] sm:w-[5.125rem]",
-                        isProposedLine ? "border-violet-200/80 ring-1 ring-violet-200/35" : "border-slate-200/75"
-                      )}
-                    >
-                      {prod?.photo_url ? (
-                        <img src={prod.photo_url} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                          <Package
-                            className={clsx("size-8 sm:size-9", isProposedLine ? "text-violet-400/90" : "text-slate-400")}
-                            aria-hidden
-                          />
-                        </div>
-                      )}
+                    <div className="flex w-[4.75rem] shrink-0 flex-col items-stretch gap-1 sm:w-[5.125rem]">
+                      {canEditThisRow && !isProposedLine && !patientLineCc ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPharmaLineNoteOpen((m) => ({
+                              ...m,
+                              [row.id]: !m[row.id],
+                            }))
+                          }
+                          className="w-full rounded-md border border-emerald-300/80 bg-emerald-50/90 px-0.5 py-0.5 text-[8px] font-semibold leading-tight text-emerald-950 shadow-sm transition hover:bg-emerald-100/90 sm:text-[9px]"
+                        >
+                          {pharmaLineNoteOpen[row.id] ? "Masquer note" : "Note officine"}
+                        </button>
+                      ) : null}
+                      <div
+                        className={clsx(
+                          "relative h-[4.75rem] w-full overflow-hidden rounded-xl border bg-white shadow-sm sm:h-[5.125rem]",
+                          isProposedLine ? "border-violet-200/80 ring-1 ring-violet-200/35" : "border-slate-200/75"
+                        )}
+                      >
+                        {prod?.photo_url ? (
+                          <img src={prod.photo_url} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                            <Package
+                              className={clsx("size-8 sm:size-9", isProposedLine ? "text-violet-400/90" : "text-slate-400")}
+                              aria-hidden
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-start justify-between gap-2">
@@ -3450,22 +3466,6 @@ export default function PharmacienDemandeDetailPage() {
                     </div>
                   ) : showLineAndPublishEdits ? (
                     <div className="space-y-1.5 px-2 py-2 sm:space-y-2 sm:px-3 sm:py-2.5">
-                      {canEditThisRow && !isProposedLine && !patientLineCc ? (
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setPharmaLineNoteOpen((m) => ({
-                                ...m,
-                                [row.id]: !m[row.id],
-                              }))
-                            }
-                            className="rounded-md border border-emerald-200/80 bg-emerald-50/80 px-2 py-1 text-[9px] font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-100/80"
-                          >
-                            {pharmaLineNoteOpen[row.id] ? "Masquer note officine" : "Note officine (optionnel)"}
-                          </button>
-                        </div>
-                      ) : null}
                       {canEditThisRow && !isProposedLine && !patientLineCc && pharmaLineNoteOpen[row.id] ? (
                         <textarea
                           aria-label="Note pour le patient, visible avec votre réponse (optionnel)"
@@ -3626,7 +3626,7 @@ export default function PharmacienDemandeDetailPage() {
                     </div>
                   )}
 
-                  <div className="mx-2 mb-2 mt-1.5 overflow-hidden rounded-xl border border-teal-200/55 border-l-[3px] border-l-teal-500/65 bg-gradient-to-br from-teal-50/50 via-cyan-50/25 to-transparent pl-2.5 pr-2 pb-1.5 pt-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] sm:mx-3 sm:mt-2 sm:pl-3 sm:pb-2 sm:pt-2">
+                  <div className="mx-2 mb-2 mt-1.5 rounded-xl border border-teal-200/55 border-l-[3px] border-l-teal-500/65 bg-gradient-to-br from-teal-50/50 via-cyan-50/25 to-transparent pl-2.5 pr-2 pb-1.5 pt-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] sm:mx-3 sm:mt-2 sm:pl-3 sm:pb-2 sm:pt-2">
                     <div className="flex min-w-0 items-center gap-1.5">
                       <button
                         type="button"
@@ -3668,8 +3668,8 @@ export default function PharmacienDemandeDetailPage() {
                     </div>
 
                     {canEditThisRow && rowAlts.length < 3 && altPickerOpenFor === row.id ? (
-                      <div className="mt-2 rounded-xl border-2 border-teal-400/55 bg-white p-2.5 shadow-md ring-2 ring-teal-200/35">
-                        <div className="flex items-center justify-between gap-2">
+                      <div className="mt-2 flex max-h-[min(70vh,22rem)] flex-col gap-2 rounded-xl border-2 border-teal-400/55 bg-white p-2.5 shadow-md ring-2 ring-teal-200/35">
+                        <div className="flex shrink-0 items-center justify-between gap-2">
                           <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-950">
                             <Search className="size-3.5 shrink-0 text-teal-600" aria-hidden />
                             Catalogue alternatives
@@ -3682,7 +3682,7 @@ export default function PharmacienDemandeDetailPage() {
                             Fermer
                           </button>
                         </div>
-                        <div className="relative mt-2">
+                        <div className="relative shrink-0">
                           <Search
                             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-teal-600/90"
                             aria-hidden
@@ -3696,7 +3696,7 @@ export default function PharmacienDemandeDetailPage() {
                           />
                         </div>
                         {altVisibleHits.length > 0 ? (
-                          <ul className="mt-1 max-h-[11rem] space-y-0.5 overflow-auto rounded-xl border border-border/70 bg-card p-1 shadow-inner ring-1 ring-teal-200/35">
+                          <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain rounded-xl border border-border/70 bg-card p-1 shadow-inner ring-1 ring-teal-200/35 [max-height:min(50vh,18rem)] [-webkit-overflow-scrolling:touch]">
                             {altVisibleHits.map((h) => (
                               <li key={h.id}>
                                 <button
@@ -3945,7 +3945,7 @@ export default function PharmacienDemandeDetailPage() {
           </ul>
 
           {showLineAndPublishEdits ? (
-            <section className="mt-2 rounded-xl border border-violet-300/70 bg-gradient-to-br from-violet-50/80 via-fuchsia-50/35 to-white px-2 py-1.5 shadow-sm ring-1 ring-violet-300/35 sm:px-2.5 sm:py-2">
+            <section className="mt-2 flex min-h-0 flex-col rounded-xl border border-violet-300/70 bg-gradient-to-br from-violet-50/80 via-fuchsia-50/35 to-white px-2 py-1.5 shadow-sm ring-1 ring-violet-300/35 sm:px-2.5 sm:py-2">
               <button
                 type="button"
                 aria-expanded={propOpen}
@@ -3969,8 +3969,8 @@ export default function PharmacienDemandeDetailPage() {
                 />
               </button>
               {propOpen ? (
-                <div className="mt-2 space-y-1.5">
-                  <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <div className="mt-2 flex max-h-[min(70vh,24rem)] flex-col gap-2">
+                  <label className="block shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Motif
                     <textarea
                       rows={2}
@@ -3980,7 +3980,7 @@ export default function PharmacienDemandeDetailPage() {
                       className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
                     />
                   </label>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <label className="block shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Quantité
                     <div className="mt-1 flex h-8 w-32 items-center overflow-hidden rounded-md border border-input bg-background">
                       <button
@@ -4009,7 +4009,7 @@ export default function PharmacienDemandeDetailPage() {
                       </button>
                     </div>
                   </label>
-                  <div className="relative">
+                  <div className="relative shrink-0">
                     <Search
                       className="pointer-events-none absolute left-3 top-1/2 size-[1.125rem] -translate-y-1/2 text-violet-600"
                       aria-hidden
@@ -4023,7 +4023,7 @@ export default function PharmacienDemandeDetailPage() {
                     />
                   </div>
                   {propVisibleHits.length > 0 ? (
-                    <ul className="max-h-36 space-y-0.5 overflow-auto rounded-md border border-border/60 bg-muted/20 p-1">
+                    <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain rounded-md border border-border/60 bg-muted/20 p-1 [max-height:min(50vh,18rem)] [-webkit-overflow-scrolling:touch]">
                       {propVisibleHits.map((h) => (
                         <li key={h.id}>
                           <button
@@ -4306,7 +4306,7 @@ export default function PharmacienDemandeDetailPage() {
       )}
       {publishConfirmOpen ? (
         <div
-          className="fixed inset-0 z-[10060] flex items-end justify-center bg-black/45 p-3 backdrop-blur-[1px] sm:items-center"
+          className="fixed inset-0 z-[10060] flex items-end justify-center overflow-y-auto bg-black/45 p-3 backdrop-blur-[1px] sm:items-center"
           role="dialog"
           aria-modal="true"
           aria-labelledby="publish-confirm-title"
@@ -4315,32 +4315,156 @@ export default function PharmacienDemandeDetailPage() {
           }}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-emerald-200/90 bg-card p-4 shadow-2xl ring-1 ring-emerald-900/10 sm:p-5"
+            className="flex max-h-[min(92vh,36rem)] w-full max-w-lg flex-col rounded-2xl border border-emerald-200/90 bg-card p-4 shadow-2xl ring-1 ring-emerald-900/10 sm:max-w-xl sm:p-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id="publish-confirm-title" className="text-sm font-bold text-emerald-950">
+            <h2 id="publish-confirm-title" className="shrink-0 text-sm font-bold text-emerald-950">
               Confirmer l&apos;envoi au patient
             </h2>
-            <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
-              La réponse sera visible immédiatement sur l&apos;espace patient. Vérifiez disponibilités, quantités, alternatives et dates
+            <p className="mt-2 shrink-0 text-[11px] leading-snug text-muted-foreground">
+              Récapitulatif de ce qui sera visible : chaque ligne, quantités, prix, alternatives et propositions. Vérifiez les dates
               « à commander » avant validation.
             </p>
-            <ul className="mt-3 max-h-36 space-y-1 overflow-y-auto rounded-lg border border-border/60 bg-muted/15 p-2 text-[11px]">
-              {displayRows.map((r) => {
-                const p = one(r.products)?.name ?? "Produit";
-                const fd = draft[r.id];
-                const st = fd?.availability_status ?? "—";
-                return (
-                  <li key={r.id} className="flex justify-between gap-2 tabular-nums">
-                    <span className="min-w-0 truncate font-medium text-foreground">{p}</span>
-                    <span className="shrink-0 text-muted-foreground">
-                      {availabilityStatusFr[st] ?? st} · {fd?.available_qty ?? "—"}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            {globalComment.trim() ? (
+              <div className="mt-3 shrink-0 rounded-lg border border-violet-200/70 bg-violet-50/50 px-2.5 py-2">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-violet-950">Message général</p>
+                <p className="mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap text-[11px] leading-snug text-violet-950/95">
+                  {globalComment.trim()}
+                </p>
+              </div>
+            ) : null}
+            <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
+              <ul className="space-y-2.5 text-[11px]">
+                {displayRows.map((r) => {
+                  const fd = draft[r.id];
+                  if (!fd) return null;
+                  const prodName = one(r.products)?.name ?? "Produit";
+                  const proposed = isPharmacistProposedRow(r);
+                  let inferredKey = fd.availability_status;
+                  try {
+                    inferredKey = inferAvailabilityStatusFromQty({
+                      status: fd.availability_status,
+                      availableQty: Number(fd.available_qty || "0"),
+                      requestedQty: r.requested_qty,
+                      isProposedLine: proposed,
+                    });
+                  } catch {
+                    inferredKey = fd.availability_status;
+                  }
+                  const availLabel = availabilityStatusFr[inferredKey] ?? inferredKey;
+                  const priceMad =
+                    fd.unit_price.trim() !== ""
+                      ? `${Number(fd.unit_price.replace(",", ".")).toFixed(2)} MAD`
+                      : pphLabel(one(r.products)?.price_pph) ?? "—";
+                  const note = fd.pharmacist_comment?.trim() ?? "";
+                  const eta =
+                    fd.availability_status === "to_order" && fd.expected_availability_date.trim()
+                      ? formatDateShortFr(fd.expected_availability_date.trim())
+                      : null;
+                  const alts = normalizeAlts(r.request_item_alternatives);
+                  return (
+                    <li
+                      key={r.id}
+                      className={clsx(
+                        "rounded-xl border px-2.5 py-2 shadow-sm",
+                        proposed ? "border-violet-300/80 bg-violet-50/40" : "border-border/80 bg-muted/20"
+                      )}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold leading-snug text-foreground">{prodName}</p>
+                          {proposed ? (
+                            <p className="mt-1 text-[10px] leading-snug text-violet-900/90">
+                              <span className="font-bold text-violet-950">Proposition officine</span>
+                              {r.pharmacist_proposal_reason?.trim() ? (
+                                <>
+                                  {" "}
+                                  · <span className="italic">{r.pharmacist_proposal_reason.trim()}</span>
+                                </>
+                              ) : null}
+                            </p>
+                          ) : (
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">
+                              Ligne demandée · qté patient <strong className="text-foreground">{r.requested_qty}</strong>
+                            </p>
+                          )}
+                        </div>
+                        <span className="shrink-0 rounded-md bg-background/90 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground ring-1 ring-border/60">
+                          {availLabel}
+                        </span>
+                      </div>
+                      <dl className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] tabular-nums text-muted-foreground sm:grid-cols-3">
+                        <div>
+                          <dt className="font-bold text-foreground/80">Qté / stock</dt>
+                          <dd className="font-semibold text-foreground">{fd.available_qty || "—"}</dd>
+                        </div>
+                        <div>
+                          <dt className="font-bold text-foreground/80">Prix</dt>
+                          <dd className="font-semibold text-foreground">{priceMad}</dd>
+                        </div>
+                        {eta ? (
+                          <div className="col-span-2 sm:col-span-1">
+                            <dt className="font-bold text-teal-900/90">Réception prévue</dt>
+                            <dd className="font-semibold text-teal-950">{eta}</dd>
+                          </div>
+                        ) : null}
+                      </dl>
+                      {note ? (
+                        <p className="mt-2 rounded-md border border-emerald-200/70 bg-emerald-50/60 px-2 py-1 text-[10px] leading-snug text-emerald-950">
+                          <span className="font-bold">Note officine · </span>
+                          {note}
+                        </p>
+                      ) : null}
+                      {alts.length > 0 ? (
+                        <div className="mt-2 border-t border-teal-200/50 pt-2">
+                          <p className="text-[9px] font-bold uppercase tracking-wide text-teal-900">Alternatives ({alts.length})</p>
+                          <ul className="mt-1 space-y-1">
+                            {alts.map((alt) => {
+                              const an = one(alt.products)?.name ?? "Alternative";
+                              const aq = isLocalAltId(alt.id)
+                                ? clampRequestItemQty(Number(alt.available_qty ?? 1))
+                                : clampRequestItemQty(
+                                    Number(altQtyDrafts[alt.id] ?? alt.available_qty ?? r.requested_qty)
+                                  );
+                              const ast = alt.availability_status ?? "—";
+                              const alab = availabilityStatusFr[ast] ?? ast;
+                              const aeta =
+                                ast === "to_order" && alt.expected_availability_date?.trim()
+                                  ? formatDateShortFr(alt.expected_availability_date.trim())
+                                  : null;
+                              const ap =
+                                alt.unit_price != null && !Number.isNaN(Number(alt.unit_price))
+                                  ? `${Number(alt.unit_price).toFixed(2)} MAD`
+                                  : pphLabel(one(alt.products)?.price_pph) ?? "—";
+                              return (
+                                <li
+                                  key={alt.id}
+                                  className="rounded-lg border border-teal-200/60 bg-white/80 px-2 py-1 text-[10px] text-teal-950"
+                                >
+                                  <span className="font-semibold">{an}</span>
+                                  <span className="mt-0.5 block text-[9px] text-teal-800/90">
+                                    {alab} · qté <strong>{aq}</strong>
+                                    {aeta ? (
+                                      <>
+                                        {" "}
+                                        · réception <strong>{aeta}</strong>
+                                      </>
+                                    ) : null}
+                                    {" · "}
+                                    {ap}
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+            <div className="mt-4 flex shrink-0 flex-col-reverse gap-2 border-t border-border/50 pt-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 disabled={busy}
