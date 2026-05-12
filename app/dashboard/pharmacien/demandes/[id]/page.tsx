@@ -689,6 +689,75 @@ function buildItemDraftFromRow(row: ItemRow): ItemDraft {
   };
 }
 
+type RespondedEditSnapshot = {
+  draft: Draft;
+  globalComment: string;
+  altQtyDrafts: Record<string, string>;
+  pendingProposalIds: string;
+  pendingAlternativesJson: string;
+};
+
+function takeRespondedEditSnapshot(
+  draft: Draft,
+  globalComment: string,
+  altQtyDrafts: Record<string, string>,
+  pendingProposalRows: ItemRow[],
+  pendingAlternatives: PendingAlternativeEntry[]
+): RespondedEditSnapshot {
+  return {
+    draft: JSON.parse(JSON.stringify(draft)) as Draft,
+    globalComment,
+    altQtyDrafts: { ...altQtyDrafts },
+    pendingProposalIds: pendingProposalRows.map((r) => r.id).join(","),
+    pendingAlternativesJson: JSON.stringify(pendingAlternatives),
+  };
+}
+
+function diffRespondedSnapshots(
+  baseline: RespondedEditSnapshot,
+  displayRows: ItemRow[],
+  draft: Draft,
+  globalComment: string,
+  altQtyDrafts: Record<string, string>,
+  pendingProposalRows: ItemRow[],
+  pendingAlternatives: PendingAlternativeEntry[]
+): string[] {
+  const lines: string[] = [];
+  if (baseline.globalComment.trim() !== globalComment.trim()) {
+    lines.push("Commentaire général pour le patient");
+  }
+  const pendIds = pendingProposalRows.map((r) => r.id).join(",");
+  if (baseline.pendingProposalIds !== pendIds) {
+    lines.push("Propositions officine (ajout ou retrait avant enregistrement)");
+  }
+  const pendAlt = JSON.stringify(pendingAlternatives);
+  if (baseline.pendingAlternativesJson !== pendAlt) {
+    lines.push("Alternatives encore en brouillon (hors enregistrement précédent)");
+  }
+  const altKeys = new Set([...Object.keys(baseline.altQtyDrafts), ...Object.keys(altQtyDrafts)]);
+  for (const k of altKeys) {
+    if ((baseline.altQtyDrafts[k] ?? "") !== (altQtyDrafts[k] ?? "")) {
+      lines.push("Quantités sur une ou plusieurs alternatives");
+      break;
+    }
+  }
+  for (const row of displayRows) {
+    if (isLocalProposedItemId(row.id)) continue;
+    const a = baseline.draft[row.id];
+    const b = draft[row.id];
+    if (!a || !b) continue;
+    const bits: string[] = [];
+    const nm = one(row.products)?.name ?? "Produit";
+    if (a.availability_status !== b.availability_status) bits.push("disponibilité");
+    if (a.available_qty !== b.available_qty) bits.push("stock");
+    if (a.pharmacist_comment !== b.pharmacist_comment) bits.push("message / note de ligne");
+    if (a.expected_availability_date !== b.expected_availability_date) bits.push("date prévue");
+    if (a.selected_qty_str !== b.selected_qty_str) bits.push("quantité validée (patient)");
+    if (bits.length) lines.push(`${nm} — ${bits.join(", ")}`);
+  }
+  return lines;
+}
+
 function buildSupplyStructuralAmends(items: ItemRow[], draft: Draft): SupplyAmendmentEntryJson[] {
   const out: SupplyAmendmentEntryJson[] = [];
   for (const row of items) {
@@ -957,8 +1026,10 @@ export default function PharmacienDemandeDetailPage() {
   const [initialGlobalComment, setInitialGlobalComment] = useState("");
   /** Après publication (`responded`), affichage figé jusqu'à « Modifier ». */
   const [respondedEditMode, setRespondedEditMode] = useState(false);
-  /** Mise à jour immédiate du commentaire officine sur une ligne (vue « réponse publiée »). */
-  const [replyPersistBusyRowId, setReplyPersistBusyRowId] = useState<string | null>(null);
+  const [respondedSaveConfirmOpen, setRespondedSaveConfirmOpen] = useState(false);
+  const [respondedSaveDiffLines, setRespondedSaveDiffLines] = useState<string[]>([]);
+  const respondedEditBaselineRef = useRef<RespondedEditSnapshot | null>(null);
+  const prevRespondedEditMode = useRef(false);
   /** Modal échanges patient / officine sur une ligne (id `request_items`). */
   const [lineConvoRowId, setLineConvoRowId] = useState<string | null>(null);
   /** Lignes proposées / alternatives encore non écrites en base tant que réponse pas publiée ou enregistrée (hors `confirmed`). */
@@ -966,8 +1037,6 @@ export default function PharmacienDemandeDetailPage() {
   const [pendingAlternatives, setPendingAlternatives] = useState<PendingAlternativeEntry[]>([]);
   /** Saisie quantité alternative (id alternative locale ou UUID). */
   const [altQtyDrafts, setAltQtyDrafts] = useState<Record<string, string>>({});
-  /** Note officine par ligne : affichage sans commentaire client (toggle au-dessus de la dispo). */
-  const [pharmaLineNoteOpen, setPharmaLineNoteOpen] = useState<Record<string, boolean>>({});
   const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
 
   const altDebounced = useMemo(() => altQuery.trim(), [altQuery]);
@@ -1914,27 +1983,6 @@ export default function PharmacienDemandeDetailPage() {
     setInitialGlobalComment(next);
   };
 
-  const saveFrozenPharmacistLineReaction = useCallback(
-    async (rowId: string, raw: string) => {
-      if (!id || !request || request.status !== "responded" || respondedEditMode) return;
-      if (!items.some((r) => r.id === rowId)) return;
-      const next = raw.trim().length === 0 ? null : raw.trim().slice(0, 1000);
-      setReplyPersistBusyRowId(rowId);
-      setError("");
-      const { error: upErr } = await supabase
-        .from("request_items")
-        .update({ pharmacist_comment: next })
-        .eq("id", rowId);
-      setReplyPersistBusyRowId(null);
-      if (upErr) {
-        setError(upErr.message);
-        return;
-      }
-      await load();
-    },
-    [id, request, respondedEditMode, items, load]
-  );
-
   const declarationTreatedEligible = useMemo(() => {
     if (!request?.status || !["confirmed", "processing"].includes(request.status)) return false;
     for (const i of items) {
@@ -2237,6 +2285,8 @@ export default function PharmacienDemandeDetailPage() {
       if (h) throw new Error(h.message);
       await persistGlobalCommentIfChanged();
       setRespondedEditMode(false);
+      setRespondedSaveConfirmOpen(false);
+      setRespondedSaveDiffLines([]);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Une erreur est survenue.");
@@ -2460,6 +2510,22 @@ export default function PharmacienDemandeDetailPage() {
     return lineEntriesForList.some((e) => e.row.id === lineConvoRowId) ? lineConvoRowId : null;
   }, [lineConvoRowId, lineEntriesForList]);
 
+  useLayoutEffect(() => {
+    if (respondedEditMode && request?.status === "responded" && !prevRespondedEditMode.current) {
+      respondedEditBaselineRef.current = takeRespondedEditSnapshot(
+        draft,
+        globalComment,
+        altQtyDrafts,
+        pendingProposalRows,
+        pendingAlternatives
+      );
+    }
+    if (!respondedEditMode) {
+      respondedEditBaselineRef.current = null;
+    }
+    prevRespondedEditMode.current = respondedEditMode;
+  }, [respondedEditMode, request?.status, draft, globalComment, altQtyDrafts, pendingProposalRows, pendingAlternatives]);
+
   const publishConfirmGroups = useMemo(() => {
     const all: PublishConfirmRowMeta[] = [];
     for (const r of displayRows) {
@@ -2581,7 +2647,13 @@ export default function PharmacienDemandeDetailPage() {
     request.status === "fully_collected";
 
   return (
-    <PageShell maxWidthClass="max-w-3xl" className="space-y-2 sm:space-y-3">
+    <PageShell
+      maxWidthClass="max-w-3xl"
+      className={clsx(
+        "space-y-2 sm:space-y-3",
+        canManageResponded && respondedEditMode && request?.status === "responded" && "pb-28 sm:pb-24"
+      )}
+    >
       <Link href="/dashboard/pharmacien/demandes" className="inline-block text-xs font-medium text-sky-800 underline">
         ← Retour aux demandes de produits
       </Link>
@@ -2741,6 +2813,18 @@ export default function PharmacienDemandeDetailPage() {
         </div>
       </section>
 
+      {respondedEditMode && request?.status === "responded" && isProduct ? (
+        <section
+          id="pharma-demande-mode-edition"
+          className="sticky top-0 z-20 rounded-xl border-2 border-amber-400/90 bg-gradient-to-r from-amber-50 via-orange-50/80 to-amber-50/90 px-3 py-2 shadow-md ring-1 ring-amber-300/50"
+        >
+          <p className="text-center text-[11px] font-bold uppercase tracking-wide text-amber-950">Mode modification</p>
+          <p className="mt-0.5 text-center text-[10px] leading-snug text-amber-900/90">
+            Les changements ne sont visibles par le patient qu&apos;après «&nbsp;Enregistrer&nbsp;» et confirmation.
+          </p>
+        </section>
+      ) : null}
+
       {respondedFrozenView && isProduct ? (
         <section className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-sky-200/80 bg-sky-50/65 px-2.5 py-1.5 text-[10px] leading-snug text-sky-950 shadow-sm sm:text-[11px]">
           <span className="font-bold uppercase tracking-wide">Réponse publiée&nbsp;:</span>
@@ -2759,8 +2843,8 @@ export default function PharmacienDemandeDetailPage() {
           </span>
           <InfoHint label="Aide — réponse publiée">
             <p>
-              C&apos;est la vision actuelle pour le patient. Vous pouvez ajuster votre réaction aux commentaires de ligne sans
-              réouvrir toute la fiche ; pour le reste (prix, dispo, alternatives), utilisez «&nbsp;Modifier la réponse&nbsp;».
+              C&apos;est la vision actuelle pour le patient. Pour modifier prix, disponibilités, alternatives ou messages de
+              ligne, utilisez «&nbsp;Modifier la réponse&nbsp;», puis enregistrez depuis le bandeau en bas de l&apos;écran.
             </p>
           </InfoHint>
         </section>
@@ -3337,20 +3421,6 @@ export default function PharmacienDemandeDetailPage() {
                     )}
                   >
                     <div className="flex w-[4.75rem] shrink-0 flex-col items-stretch gap-1 sm:w-[5.125rem]">
-                      {canEditThisRow && !isProposedLine && !patientLineCc ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPharmaLineNoteOpen((m) => ({
-                              ...m,
-                              [row.id]: !m[row.id],
-                            }))
-                          }
-                          className="w-full rounded-md border border-emerald-300/80 bg-emerald-50/90 px-0.5 py-0.5 text-[8px] font-semibold leading-tight text-emerald-950 shadow-sm transition hover:bg-emerald-100/90 sm:text-[9px]"
-                        >
-                          {pharmaLineNoteOpen[row.id] ? "Masquer note" : "Note officine"}
-                        </button>
-                      ) : null}
                       <div
                         className={clsx(
                           "relative h-[4.75rem] w-full overflow-hidden rounded-xl border bg-white shadow-sm sm:h-[5.125rem]",
@@ -3630,16 +3700,6 @@ export default function PharmacienDemandeDetailPage() {
                     </div>
                   ) : showLineAndPublishEdits ? (
                     <div className="space-y-1.5 px-2 py-2 sm:space-y-2 sm:px-3 sm:py-2.5">
-                      {canEditThisRow && !isProposedLine && !patientLineCc && pharmaLineNoteOpen[row.id] ? (
-                        <textarea
-                          aria-label="Note pour le patient, visible avec votre réponse (optionnel)"
-                          rows={2}
-                          value={f.pharmacist_comment}
-                          onChange={(e) => setField(row.id, "pharmacist_comment", e.target.value.slice(0, 1000))}
-                          placeholder="Note optionnelle, visible avec votre réponse"
-                          className="w-full resize-y touch-manipulation rounded-xl border-2 border-emerald-200/70 bg-emerald-50/30 px-3 py-2 text-[13px] leading-snug placeholder:text-muted-foreground/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 sm:text-sm"
-                        />
-                      ) : null}
                       <div className="flex flex-wrap items-end gap-1.5 sm:gap-2">
                         <div className="flex min-w-[9.5rem] flex-1 flex-col gap-0.5">
                           <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -3832,7 +3892,7 @@ export default function PharmacienDemandeDetailPage() {
                     </div>
 
                     {canEditThisRow && rowAlts.length < 3 && altPickerOpenFor === row.id ? (
-                      <div className="mt-2 flex max-h-[min(70vh,20rem)] min-h-0 flex-col gap-2 overflow-hidden overscroll-y-contain rounded-xl border-2 border-teal-400/55 bg-white p-2.5 shadow-md ring-2 ring-teal-200/35">
+                      <div className="mt-2 flex max-h-[min(52svh,20rem)] min-h-0 flex-col gap-2 overflow-hidden overscroll-y-contain rounded-xl border-2 border-teal-400/55 bg-white p-2.5 shadow-md ring-2 ring-teal-200/35">
                         <div className="flex shrink-0 items-center justify-between gap-2">
                           <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-950">
                             <Search className="size-3.5 shrink-0 text-teal-600" aria-hidden />
@@ -4132,7 +4192,7 @@ export default function PharmacienDemandeDetailPage() {
                 />
               </button>
               {propOpen ? (
-                <div className="mt-2 flex max-h-[min(70vh,22rem)] min-h-0 flex-col gap-2 overflow-hidden overscroll-y-contain">
+                <div className="mt-2 flex max-h-[min(52svh,22rem)] min-h-0 flex-col gap-2 overflow-hidden overscroll-y-contain">
                   <label className="block shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Motif
                     <textarea
@@ -4253,6 +4313,10 @@ export default function PharmacienDemandeDetailPage() {
                   setPendingProposalRows([]);
                   setPendingAlternatives([]);
                   setRespondedEditMode(true);
+                  setError("");
+                  window.setTimeout(() => {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }, 0);
                 }}
                 className="inline-flex h-10 min-h-11 w-full touch-manipulation items-center justify-center gap-2 rounded-md border border-amber-400/90 bg-white px-3 text-xs font-semibold text-amber-950 shadow-sm transition hover:bg-amber-50/90 sm:min-h-10 sm:text-sm"
               >
@@ -4279,34 +4343,6 @@ export default function PharmacienDemandeDetailPage() {
                 >
                   Envoyer la réponse au patient…
                 </button>
-              ) : null}
-              {canManageResponded && respondedEditMode ? (
-                <div className="rounded-xl border border-amber-400/90 bg-gradient-to-br from-amber-50 via-orange-50/50 to-background p-2.5 shadow-sm ring-1 ring-amber-300/40 sm:p-3">
-                  <div className="flex flex-col gap-2">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void saveRespondedAdjustments()}
-                      className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-amber-600 bg-amber-100/95 px-4 py-2.5 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-200/80 disabled:opacity-50"
-                    >
-                      {busy ? "Enregistrement…" : "Enregistrer les changements"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => {
-                        resetDraftFromRows();
-                        setGlobalComment(initialGlobalComment);
-                        setRespondedEditMode(false);
-                        setPendingProposalRows([]);
-                        setPendingAlternatives([]);
-                      }}
-                      className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-amber-400/90 bg-white px-4 py-2.5 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-50/90 disabled:opacity-50"
-                    >
-                      Annuler les modifications
-                    </button>
-                  </div>
-                </div>
               ) : null}
               {canManageSupply ? (
                 <div className="space-y-2 rounded-xl border border-sky-400/85 bg-gradient-to-br from-sky-50 via-white to-white p-3 shadow-sm ring-1 ring-sky-400/55 sm:p-3.5">
@@ -4490,12 +4526,8 @@ export default function PharmacienDemandeDetailPage() {
                 pharmacistDraft={fd.pharmacist_comment}
                 onPharmacistDraftChange={(text) => setField(row.id, "pharmacist_comment", text)}
                 allowEdit={canEditThisRow && showLineAndPublishEdits}
-                showPersistButton={respondedFrozenView && !lineLockedTrace}
-                persistBusy={replyPersistBusyRowId === row.id}
-                onPersist={async () => {
-                  await saveFrozenPharmacistLineReaction(row.id, fd.pharmacist_comment);
-                  setLineConvoRowId(null);
-                }}
+                showPersistButton={false}
+                persistBusy={false}
               />
             );
           })()
@@ -4589,6 +4621,116 @@ export default function PharmacienDemandeDetailPage() {
           </div>
         </div>
       ) : null}
+      {canManageResponded && respondedEditMode ? (
+        <div className="fixed inset-x-0 bottom-0 z-[10040] border-t border-amber-400/80 bg-background/95 px-3 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] shadow-[0_-6px_28px_rgba(15,23,42,0.12)] backdrop-blur-md sm:px-4">
+          <div className="mx-auto flex max-w-3xl flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                resetDraftFromRows();
+                setGlobalComment(initialGlobalComment);
+                setRespondedEditMode(false);
+                setPendingProposalRows([]);
+                setPendingAlternatives([]);
+                setError("");
+              }}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-amber-400/90 bg-white px-4 py-2.5 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-50/90 disabled:opacity-50 sm:order-1 sm:w-auto sm:min-w-[9rem]"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                const b = respondedEditBaselineRef.current;
+                if (!b) {
+                  setError("Réouvrez « Modifier la réponse » puis réessayez.");
+                  return;
+                }
+                setError("");
+                const diffs = diffRespondedSnapshots(
+                  b,
+                  displayRows,
+                  draft,
+                  globalComment,
+                  altQtyDrafts,
+                  pendingProposalRows,
+                  pendingAlternatives
+                );
+                setRespondedSaveDiffLines(diffs);
+                setRespondedSaveConfirmOpen(true);
+              }}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-amber-600 bg-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-amber-700 disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
+            >
+              Enregistrer
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {respondedSaveConfirmOpen ? (
+        <div
+          className="fixed inset-0 z-[10058] flex items-end justify-center overflow-y-auto bg-black/45 p-3 backdrop-blur-[1px] sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="responded-save-confirm-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !busy) {
+              setRespondedSaveConfirmOpen(false);
+              setRespondedSaveDiffLines([]);
+            }
+          }}
+        >
+          <div
+            className="flex max-h-[min(88vh,28rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-amber-200/90 bg-card p-4 shadow-2xl ring-1 ring-amber-900/10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="responded-save-confirm-title" className="text-center text-sm font-bold text-amber-950">
+              Confirmer les modifications
+            </h2>
+            <p className="mt-2 text-center text-[11px] leading-snug text-muted-foreground">
+              Vérifiez le résumé ci-dessous avant d&apos;appliquer les changements visibles par le patient.
+            </p>
+            <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-y-contain rounded-lg border border-amber-200/60 bg-amber-50/40 px-2.5 py-2">
+              {respondedSaveDiffLines.length === 0 ? (
+                <p className="text-center text-[11px] font-medium text-amber-900/90">Aucune modification détectée.</p>
+              ) : (
+                <ul className="space-y-1.5 text-[11px] leading-snug text-amber-950">
+                  {respondedSaveDiffLines.map((line, i) => (
+                    <li key={`${i}-${line.slice(0, 24)}`} className="flex gap-2 rounded-md border border-amber-200/50 bg-white/90 px-2 py-1.5">
+                      <span className="mt-0.5 size-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden />
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="mt-4 flex flex-col-reverse gap-2 border-t border-border/50 pt-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setRespondedSaveConfirmOpen(false);
+                  setRespondedSaveDiffLines([]);
+                }}
+                className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-border bg-background px-4 text-xs font-semibold text-foreground shadow-sm transition hover:bg-muted/50 disabled:opacity-50 sm:w-auto"
+              >
+                Retour
+              </button>
+              <button
+                type="button"
+                disabled={busy || respondedSaveDiffLines.length === 0}
+                onClick={() => void saveRespondedAdjustments()}
+                className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-amber-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-amber-700 disabled:opacity-50 sm:w-auto"
+              >
+                {busy ? "Enregistrement…" : "Confirmer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <PharmacistSupplyAmendmentConfirmModal
         open={supplyConfirmOpen}
         onClose={() => {
