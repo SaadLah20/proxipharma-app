@@ -112,6 +112,9 @@ function maxQtyPrincipal(row: ActionItemRow): number {
   if (isMarketShortage(row.availability_status)) return 0;
   if (row.availability_status === "unavailable") return 0;
   let cap = row.requested_qty;
+  if (row.line_source === "pharmacist_proposed") {
+    cap = Math.max(cap, Number(row.available_qty ?? cap));
+  }
   if (row.available_qty != null) cap = Math.min(cap, row.available_qty);
   return Math.max(0, cap);
 }
@@ -120,6 +123,9 @@ function maxQtyAlt(row: ActionItemRow, alt: ActionItemAltRow): number {
   if (isMarketShortage(alt.availability_status)) return 0;
   if (alt.availability_status === "unavailable") return 0;
   let cap = row.requested_qty;
+  if (row.line_source === "pharmacist_proposed") {
+    cap = Math.max(cap, Number(row.available_qty ?? cap));
+  }
   if (alt.available_qty != null) cap = Math.min(cap, alt.available_qty);
   return Math.max(0, cap);
 }

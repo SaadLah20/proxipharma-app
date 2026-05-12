@@ -17,6 +17,7 @@ import {
   Phone,
   Plus,
   Search,
+  Trash2,
   User,
 } from "lucide-react";
 import { PharmacistLineReactControl } from "@/components/pharmacist/pharmacist-line-react-control";
@@ -241,7 +242,7 @@ function effectiveAvailSupplyDraft(row: ItemRow, f: ItemDraft): string | null {
     status: f.availability_status,
     availableQty: Number(f.available_qty || "0"),
     requestedQty: row.requested_qty,
-    isProposedLine: row.line_source === "pharmacist_proposed",
+    isProposedLine: row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id),
   });
 }
 
@@ -408,7 +409,7 @@ const PHARMACIST_PROPOSED_STOCK_CEILING = 9999;
 
 function buildItemUpdatePayload(f: ItemDraft, row: ItemRow) {
   const availQty = Number(f.available_qty);
-  const isProposed = row.line_source === "pharmacist_proposed";
+  const isProposed = row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
   if (Number.isNaN(availQty) || availQty < 0) {
     throw new Error("Quantité disponible invalide sur une ligne.");
   }
@@ -431,6 +432,27 @@ function buildItemUpdatePayload(f: ItemDraft, row: ItemRow) {
     unit_price: price,
     pharmacist_comment: f.pharmacist_comment.trim() || null,
     expected_availability_date: f.expected_availability_date.trim() !== "" ? f.expected_availability_date : null,
+  };
+}
+
+/** CHECK BDD `request_items.requested_qty` (1–10) — aligné saisie officine / patient. */
+function clampRequestItemQty(n: number): number {
+  return Math.min(10, Math.max(1, Math.floor(Number.isFinite(n) ? n : 1)));
+}
+
+function isPharmacistProposedRow(row: ItemRow): boolean {
+  return row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
+}
+
+/** Mise à jour ligne : payload dispo/prix + pour proposition officine, `requested_qty` / `selected_qty` = qté offerte (sinon le patient plafonne à l’ancienne valeur). */
+function buildRequestItemUpdatePayloadForPharmacistSave(f: ItemDraft, row: ItemRow) {
+  const base = buildItemUpdatePayload(f, row);
+  if (!isPharmacistProposedRow(row)) return base;
+  const n = clampRequestItemQty(Number(f.available_qty));
+  return {
+    ...base,
+    requested_qty: n,
+    selected_qty: n,
   };
 }
 
@@ -463,6 +485,7 @@ function buildPharmaConfirmAdjustmentAudit(items: ItemRow[], draft: Draft): Phar
 /** État du formulaire officine depuis une ligne base (chargement ou nouvelle ligne). */
 function buildItemDraftFromRow(row: ItemRow): ItemDraft {
   const catalogPph = one(row.products)?.price_pph;
+  const isProp = row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
   /* `partially_available` est dérivé automatiquement (qté < demandée). On affiche le brouillon en `available` :
      il sera réinféré au save si la quantité reste < demandée. */
   const rawStatus = row.availability_status ?? "available";
@@ -470,7 +493,11 @@ function buildItemDraftFromRow(row: ItemRow): ItemDraft {
   const reqCap = Math.max(0, Math.floor(Number(row.requested_qty)) || 0);
   let availNum = row.available_qty != null ? Number(row.available_qty) : Number(row.requested_qty);
   if (!Number.isFinite(availNum)) availNum = reqCap;
-  availNum = Math.max(0, Math.min(reqCap, Math.floor(availNum)));
+  if (isProp) {
+    availNum = Math.max(1, Math.floor(availNum));
+  } else {
+    availNum = Math.max(0, Math.min(reqCap, Math.floor(availNum)));
+  }
   const selBase = Math.min(10, Math.max(1, Number(row.selected_qty ?? row.requested_qty) || 1));
   return {
     availability_status: draftStatus,
@@ -761,6 +788,11 @@ export default function PharmacienDemandeDetailPage() {
   /** Lignes proposées / alternatives encore non écrites en base tant que réponse pas publiée ou enregistrée (hors `confirmed`). */
   const [pendingProposalRows, setPendingProposalRows] = useState<ItemRow[]>([]);
   const [pendingAlternatives, setPendingAlternatives] = useState<PendingAlternativeEntry[]>([]);
+  /** Saisie quantité alternative (id alternative locale ou UUID). */
+  const [altQtyDrafts, setAltQtyDrafts] = useState<Record<string, string>>({});
+  /** Note officine par ligne : affichage sans commentaire client (toggle au-dessus de la dispo). */
+  const [pharmaLineNoteOpen, setPharmaLineNoteOpen] = useState<Record<string, boolean>>({});
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
 
   const altDebounced = useMemo(() => altQuery.trim(), [altQuery]);
   const altVisibleHits = altDebounced.length < 2 ? [] : altHits;
@@ -932,6 +964,7 @@ export default function PharmacienDemandeDetailPage() {
     }
 
     setItems(list);
+    setAltQtyDrafts({});
 
     const [{ data: amendRows }, { data: dossierHist }] = await Promise.all([
       supabase.from("request_supply_amendments").select("id,created_at,amendments").eq("request_id", id).order("created_at", { ascending: true }),
@@ -1096,7 +1129,7 @@ export default function PharmacienDemandeDetailPage() {
   );
 
   const setAvailabilityStatus = (row: ItemRow, nextStatus: string) => {
-    const isProp = row.line_source === "pharmacist_proposed";
+    const isProp = row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
     setDraft((prev) => {
       const current = prev[row.id];
       if (!current) return prev;
@@ -1133,10 +1166,34 @@ export default function PharmacienDemandeDetailPage() {
 
   const setAvailableQty = (row: ItemRow, raw: string) => {
     const status = draft[row.id]?.availability_status ?? "available";
-    if (status === "market_shortage" || status === "to_order") return;
-    const isProp = row.line_source === "pharmacist_proposed";
-    const digits = raw.replace(/[^\d]/g, "");
+    if (status === "market_shortage") return;
+    const isProp = row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
     const max = draftStockCeilingForRow(row);
+    if (status === "to_order") {
+      const digits = raw.replace(/[^\d]/g, "");
+      if (digits === "") {
+        setField(row.id, "available_qty", "");
+        return;
+      }
+      const n = Math.min(max, Math.max(1, Number(digits)));
+      const nextQty = Number.isFinite(n) ? n : 1;
+      setDraft((prev) => {
+        const cur = prev[row.id];
+        if (!cur) return prev;
+        const fulfillment_draft = clampFulfillmentDraftToInferred(cur.fulfillment_draft, "to_order");
+        return {
+          ...prev,
+          [row.id]: {
+            ...cur,
+            available_qty: String(nextQty),
+            availability_status: "to_order",
+            fulfillment_draft,
+          },
+        };
+      });
+      return;
+    }
+    const digits = raw.replace(/[^\d]/g, "");
     if (digits === "") {
       setField(row.id, "available_qty", "");
       return;
@@ -1147,12 +1204,12 @@ export default function PharmacienDemandeDetailPage() {
       status: "available",
       availableQty: nextQty,
       requestedQty: row.requested_qty,
-      isProposedLine: row.line_source === "pharmacist_proposed",
+      isProposedLine: isProp,
     });
     setDraft((prev) => {
       const cur = prev[row.id];
       if (!cur) return prev;
-      const nextStatus = status === "to_order" ? "to_order" : inferred;
+      const nextStatus = inferred;
       const fulfillment_draft = clampFulfillmentDraftToInferred(cur.fulfillment_draft, nextStatus);
       return {
         ...prev,
@@ -1168,9 +1225,28 @@ export default function PharmacienDemandeDetailPage() {
 
   const nudgeAvailableQty = (row: ItemRow, delta: number) => {
     const status = draft[row.id]?.availability_status ?? "available";
-    if (status === "market_shortage" || status === "to_order") return;
-    const isProp = row.line_source === "pharmacist_proposed";
+    if (status === "market_shortage") return;
+    const isProp = row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
     const max = draftStockCeilingForRow(row);
+    if (status === "to_order") {
+      const current = Number(draft[row.id]?.available_qty ?? "0");
+      const next = Math.min(max, Math.max(1, Number.isFinite(current) ? current + delta : delta > 0 ? 1 : 1));
+      setDraft((prev) => {
+        const cur = prev[row.id];
+        if (!cur) return prev;
+        const fulfillment_draft = clampFulfillmentDraftToInferred(cur.fulfillment_draft, "to_order");
+        return {
+          ...prev,
+          [row.id]: {
+            ...cur,
+            available_qty: String(next),
+            availability_status: "to_order",
+            fulfillment_draft,
+          },
+        };
+      });
+      return;
+    }
     const current = Number(draft[row.id]?.available_qty ?? "0");
     const floor = isProp ? 1 : 0;
     const next = Math.min(
@@ -1181,12 +1257,12 @@ export default function PharmacienDemandeDetailPage() {
       status: "available",
       availableQty: next,
       requestedQty: row.requested_qty,
-      isProposedLine: row.line_source === "pharmacist_proposed",
+      isProposedLine: isProp,
     });
     setDraft((prev) => {
       const cur = prev[row.id];
       if (!cur) return prev;
-      const nextStatus = status === "to_order" ? "to_order" : inferred;
+      const nextStatus = inferred;
       const fulfillment_draft = clampFulfillmentDraftToInferred(cur.fulfillment_draft, nextStatus);
       return {
         ...prev,
@@ -1209,6 +1285,63 @@ export default function PharmacienDemandeDetailPage() {
   const isAltOpen = (rowId: string) => altRowsOpen[rowId] ?? false;
   const toggleAltOpen = (rowId: string) =>
     setAltRowsOpen((prev) => ({ ...prev, [rowId]: !(prev[rowId] ?? false) }));
+
+  const persistAlternativeQtyUpdates = useCallback(async (rows: ItemRow[], drafts: Record<string, string>) => {
+    for (const row of rows) {
+      if (isLocalProposedItemId(row.id)) continue;
+      const alts = normalizeAlts(row.request_item_alternatives);
+      for (const alt of alts) {
+        if (isLocalAltId(alt.id)) continue;
+        const fallback = clampRequestItemQty(Number(alt.available_qty ?? row.requested_qty));
+        const raw = drafts[alt.id];
+        const next =
+          raw !== undefined && String(raw).trim() !== ""
+            ? clampRequestItemQty(Number(String(raw).replace(/[^\d]/g, "")))
+            : fallback;
+        if (next === Number(alt.available_qty)) continue;
+        const { error } = await supabase
+          .from("request_item_alternatives")
+          .update({ available_qty: next })
+          .eq("id", alt.id);
+        if (error) throw new Error(error.message);
+      }
+    }
+  }, []);
+
+  const patchPendingAlternativeQty = (localAltId: string, raw: string) => {
+    const digits = raw.replace(/[^\d]/g, "");
+    const n = clampRequestItemQty(Number(digits || "1"));
+    setPendingAlternatives((prev) => prev.map((a) => (a.localAltId === localAltId ? { ...a, available_qty: n } : a)));
+  };
+
+  const removePharmacistProposedLine = async (row: ItemRow) => {
+    if (!isPharmacistProposedRow(row)) return;
+    setError("");
+    if (isLocalProposedItemId(row.id)) {
+      setPendingProposalRows((prev) => prev.filter((r) => r.id !== row.id));
+      setDraft((prev) => {
+        const n = { ...prev };
+        delete n[row.id];
+        return n;
+      });
+      setPendingAlternatives((prev) => prev.filter((a) => a.parentItemId !== row.id));
+      return;
+    }
+    if (!id) return;
+    setBusy(true);
+    const { error } = await supabase
+      .from("request_items")
+      .delete()
+      .eq("id", row.id)
+      .eq("line_source", "pharmacist_proposed");
+    setBusy(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    dispatchRequestDetailRefresh(id);
+    await load();
+  };
 
   const resetPropForm = () => {
     setPropQuery("");
@@ -1494,7 +1627,7 @@ export default function PharmacienDemandeDetailPage() {
         status: f.availability_status,
         availableQty: availQty,
         requestedQty: row.requested_qty,
-        isProposedLine: row.line_source === "pharmacist_proposed",
+        isProposedLine: row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id),
       });
 
       const { data: inserted, error: insErr } = await supabase
@@ -1502,11 +1635,11 @@ export default function PharmacienDemandeDetailPage() {
         .insert({
           request_id: id,
           product_id: row.product_id,
-          requested_qty: row.requested_qty,
+          requested_qty: clampRequestItemQty(availQty),
           line_source: "pharmacist_proposed",
           pharmacist_proposal_reason: row.pharmacist_proposal_reason,
           is_selected_by_patient: true,
-          selected_qty: row.requested_qty,
+          selected_qty: clampRequestItemQty(availQty),
           counter_outcome: "unset",
           availability_status: inferredStatus,
           available_qty: availQty,
@@ -1908,6 +2041,7 @@ export default function PharmacienDemandeDetailPage() {
     const draftSnap = draft;
     const proposalSnap = [...pendingProposalRows];
     const altSnap = [...pendingAlternatives];
+    const altDraftSnap = { ...altQtyDrafts };
     try {
       for (const row of displayRows) {
         if (isLocalProposedItemId(row.id)) continue;
@@ -1915,10 +2049,11 @@ export default function PharmacienDemandeDetailPage() {
         if (!f?.availability_status) throw new Error("Choisis une disponibilité pour chaque ligne.");
         const { error: up } = await supabase
           .from("request_items")
-          .update(buildItemUpdatePayload(f, row))
+          .update(buildRequestItemUpdatePayloadForPharmacistSave(f, row))
           .eq("id", row.id);
         if (up) throw new Error(up.message);
       }
+      await persistAlternativeQtyUpdates(displayRows, altDraftSnap);
       await flushDeferredOfficineAdds(draftSnap, proposalSnap, altSnap);
       setPendingProposalRows([]);
       setPendingAlternatives([]);
@@ -1980,6 +2115,8 @@ export default function PharmacienDemandeDetailPage() {
     const draftSnap = draft;
     const proposalSnap = [...pendingProposalRows];
     const altSnap = [...pendingAlternatives];
+    const altDraftSnap = { ...altQtyDrafts };
+    const rowsForPublish = [...displayRows];
 
     try {
       if (currentStatus === "submitted") {
@@ -2001,33 +2138,25 @@ export default function PharmacienDemandeDetailPage() {
       for (const row of displayRows) {
         if (isLocalProposedItemId(row.id)) continue;
         const f = draftSnap[row.id]!;
-        const availQty = Number(f.available_qty);
-        const price =
-          f.unit_price.trim() === "" ? null : Number(f.unit_price.replace(",", "."));
-        if (f.unit_price.trim() !== "" && (price == null || Number.isNaN(price) || price < 0)) {
-          throw new Error("Prix unitaire invalide.");
+        if (f.unit_price.trim() !== "") {
+          const price = Number(f.unit_price.replace(",", "."));
+          if (price == null || Number.isNaN(price) || price < 0) {
+            throw new Error("Prix unitaire invalide.");
+          }
         }
-        const inferredStatus = inferAvailabilityStatusFromQty({
-          status: f.availability_status,
-          availableQty: availQty,
-          requestedQty: row.requested_qty,
-          isProposedLine: row.line_source === "pharmacist_proposed",
-        });
+        let payload: ReturnType<typeof buildRequestItemUpdatePayloadForPharmacistSave>;
+        try {
+          payload = buildRequestItemUpdatePayloadForPharmacistSave(f, row);
+        } catch (e) {
+          throw new Error(e instanceof Error ? e.message : "Données ligne invalides.");
+        }
 
-        const { error: up } = await supabase
-          .from("request_items")
-          .update({
-            availability_status: inferredStatus,
-            available_qty: availQty,
-            unit_price: price,
-            pharmacist_comment: f.pharmacist_comment.trim() || null,
-            expected_availability_date:
-              f.expected_availability_date.trim() !== "" ? f.expected_availability_date : null,
-          })
-          .eq("id", row.id);
+        const { error: up } = await supabase.from("request_items").update(payload).eq("id", row.id);
 
         if (up) throw new Error(up.message);
       }
+
+      await persistAlternativeQtyUpdates(rowsForPublish, altDraftSnap);
 
       await flushDeferredOfficineAdds(draftSnap, proposalSnap, altSnap);
       setPendingProposalRows([]);
@@ -2340,20 +2469,18 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      <section className="rounded-xl border border-emerald-300/60 bg-gradient-to-br from-emerald-50/85 via-white to-teal-50/40 p-2 shadow-sm ring-1 ring-emerald-200/45">
-        <h3 className="text-[10px] font-bold uppercase tracking-wide text-emerald-950">Client</h3>
-        <p className="mt-1 text-[10px] leading-snug text-emerald-950/88">Coordonnées et référence patient.</p>
-        <div className="mt-2 flex gap-2 sm:items-center sm:gap-2.5">
+      <section className="rounded-xl border border-emerald-300/60 bg-gradient-to-br from-emerald-50/85 via-white to-teal-50/40 px-2 py-1.5 shadow-sm ring-1 ring-emerald-200/45 sm:px-2.5">
+        <div className="flex gap-2 sm:items-center sm:gap-2.5">
           <span
-            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm"
+            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm sm:size-8"
             title="Client"
             aria-hidden
           >
-            <User className="size-4" strokeWidth={2} />
+            <User className="size-3.5 sm:size-4" strokeWidth={2} />
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-start justify-between gap-2 gap-y-1">
-              <p className="min-w-[40%] flex-1 break-words text-[12px] font-bold leading-snug text-emerald-950 sm:text-[13px]">
+              <p className="min-w-[40%] flex-1 break-words text-[11px] font-bold leading-snug text-emerald-950 sm:text-[12px]">
                 {patientHeadingName(patientProfile, request.patient_id)}
               </p>
               {patientPhone || patientEmail ? (
@@ -2361,22 +2488,19 @@ export default function PharmacienDemandeDetailPage() {
                   type="button"
                   aria-expanded={patientContactOpen}
                   onClick={() => setPatientContactOpen((v) => !v)}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-400/70 bg-white px-2 py-1 text-[10px] font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-50"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-400/70 bg-white px-1.5 py-0.5 text-[9px] font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-50 sm:px-2 sm:py-1 sm:text-[10px]"
                 >
-                  <Phone className="size-3.5 shrink-0 opacity-90" aria-hidden />
+                  <Phone className="size-3 shrink-0 opacity-90" aria-hidden />
                   Contacter
                   <ChevronDown
-                    className={clsx("size-3.5 shrink-0 text-emerald-800/80 transition-transform", patientContactOpen && "rotate-180")}
+                    className={clsx("size-3 shrink-0 text-emerald-800/80 transition-transform", patientContactOpen && "rotate-180")}
                     aria-hidden
                   />
                 </button>
               ) : null}
             </div>
-            <p className="mt-1 text-[10px] text-emerald-950/90">
-              <span className="font-semibold uppercase tracking-wide text-emerald-950/80">Réf. client </span>
-              <span className="break-all font-mono font-semibold text-emerald-950">
-                {patientProfile?.patient_ref?.trim() || `#${formatShortId(request.patient_id)}`}
-              </span>
+            <p className="mt-0.5 break-all font-mono text-[9px] font-semibold tabular-nums text-emerald-950/90 sm:text-[10px]">
+              {patientProfile?.patient_ref?.trim() || `#${formatShortId(request.patient_id)}`}
             </p>
             {(patientPhone || patientEmail) && patientContactOpen ? (
               <div className="mt-1.5 flex flex-wrap gap-1 border-t border-emerald-200/80 pt-1.5">
@@ -2448,17 +2572,20 @@ export default function PharmacienDemandeDetailPage() {
       ) : null}
 
       {patientNote ? (
-        <section className="rounded-xl border-2 border-amber-400/90 bg-gradient-to-br from-amber-100 via-amber-50 to-orange-50/90 px-3 py-3 shadow-md ring-1 ring-amber-900/20 sm:px-3.5 sm:py-3.5">
-          <h2 className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-950/92 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm ring-1 ring-amber-800/80">
-              <MessageCircle className="size-3 shrink-0 text-amber-100" strokeWidth={2.5} aria-hidden />
+        <details className="group rounded-xl border border-amber-300/70 bg-gradient-to-br from-amber-50/90 to-orange-50/50 shadow-sm ring-1 ring-amber-200/40 open:shadow-md">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2 py-1.5 text-[10px] font-bold text-amber-950 marker:content-none sm:px-2.5 sm:py-2 [&::-webkit-details-marker]:hidden">
+            <span className="inline-flex items-center gap-1.5">
+              <MessageCircle className="size-3 shrink-0 text-amber-800" strokeWidth={2.5} aria-hidden />
               Message du client
             </span>
-          </h2>
-          <p className="mt-3 min-h-[4.75rem] max-h-[min(55vh,20rem)] overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-amber-300/55 bg-white px-3 py-3 text-[13px] font-normal leading-relaxed text-foreground shadow-inner sm:text-xs sm:leading-snug">
-            {patientNote}
-          </p>
-        </section>
+            <ChevronDown className="size-4 shrink-0 text-amber-800 transition-transform group-open:rotate-180" aria-hidden />
+          </summary>
+          <div className="border-t border-amber-200/60 px-2 pb-2 pt-1 sm:px-2.5 sm:pb-2.5">
+            <p className="max-h-[min(55vh,20rem)] min-h-[4.5rem] overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-amber-200/55 bg-white px-2.5 py-2 text-[13px] font-normal leading-relaxed text-foreground shadow-inner sm:text-xs sm:leading-snug">
+              {patientNote}
+            </p>
+          </div>
+        </details>
       ) : null}
 
       {error ? (
@@ -2534,7 +2661,7 @@ export default function PharmacienDemandeDetailPage() {
                 status: f.availability_status,
                 availableQty: Number.isFinite(draftAvailQty) ? draftAvailQty : 0,
                 requestedQty: row.requested_qty,
-                isProposedLine: row.line_source === "pharmacist_proposed",
+                isProposedLine: isPharmacistProposedRow(row),
               });
               const statusForBadge =
                 lineLockedTrace || respondedFrozenView || !canEditThisRow
@@ -2542,34 +2669,32 @@ export default function PharmacienDemandeDetailPage() {
                   : draftInferredStatus;
               const availUi = availabilityStatusUi(statusForBadge);
               const AvailIcon = availUi.Icon;
-              const isProposedLine = row.line_source === "pharmacist_proposed";
+              const isProposedLine = isPharmacistProposedRow(row);
               const stockCeiling = draftStockCeilingForRow(row);
               const stockParsedQty = Number(f.available_qty);
               const stockPlusDisabled =
                 !canEditThisRow ||
                 withdrawnDraft ||
                 f.availability_status === "market_shortage" ||
-                f.availability_status === "to_order" ||
-                (!isProposedLine && Number.isFinite(stockParsedQty) && stockParsedQty >= stockCeiling);
+                (Number.isFinite(stockParsedQty) && stockParsedQty >= stockCeiling);
               const stockStepperDisabled =
-                !canEditThisRow ||
-                withdrawnDraft ||
-                f.availability_status === "market_shortage" ||
-                f.availability_status === "to_order";
+                !canEditThisRow || withdrawnDraft || f.availability_status === "market_shortage";
+              const minStockFloor = f.availability_status === "to_order" ? 1 : isProposedLine ? 1 : 0;
               const stockMinusDisabled =
-                stockStepperDisabled || (isProposedLine && Number.isFinite(stockParsedQty) && stockParsedQty <= 1);
+                stockStepperDisabled ||
+                (Number.isFinite(stockParsedQty) && stockParsedQty <= minStockFloor);
               const patientLineCc = row.client_comment?.trim() ?? "";
               const pharmaNotePreview = (
                 canEditThisRow ? f.pharmacist_comment?.trim() ?? "" : row.pharmacist_comment?.trim() ?? ""
               );
               const showLineReactControl =
                 patientLineCc.length > 0 && !lineLockedTrace && canEditThisRow;
-              const showCommentBand =
-                patientLineCc.length > 0 || canEditThisRow || (!canEditThisRow && pharmaNotePreview.length > 0);
-              const availabilityOptions =
-                row.line_source === "pharmacist_proposed"
-                  ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
-                  : PHARMACIST_AVAILABILITY_OPTIONS;
+              const showPatientCommentBlock = patientLineCc.length > 0;
+              const showFrozenPharmaNote = !canEditThisRow && pharmaNotePreview.length > 0;
+              const showCommentBand = showPatientCommentBlock || showFrozenPharmaNote;
+              const availabilityOptions = isProposedLine
+                ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
+                : PHARMACIST_AVAILABILITY_OPTIONS;
 
               if (canManageSupply) {
                 const pl = row as PatientLineLike;
@@ -2703,15 +2828,15 @@ export default function PharmacienDemandeDetailPage() {
                             disabled={
                               !canEditThisRow ||
                               !hasConsent ||
-                              f.availability_status === "market_shortage" ||
-                              f.availability_status === "to_order"
+                              f.availability_status === "market_shortage"
                             }
                             value={f.available_qty}
                             onChange={(e) => setAvailableQty(row, e.target.value)}
                             className={clsx(
                               "h-full w-full min-w-[2rem] border-0 bg-transparent px-1 text-center text-[12px] font-semibold tabular-nums focus:outline-none",
                               f.availability_status === "market_shortage" && "bg-muted text-muted-foreground",
-                              f.availability_status === "to_order" && "cursor-not-allowed bg-muted/50 text-muted-foreground"
+                              f.availability_status === "to_order" &&
+                                "bg-teal-50/90 font-bold text-teal-950 ring-1 ring-teal-200/80"
                             )}
                           />
                           <button
@@ -3007,7 +3132,7 @@ export default function PharmacienDemandeDetailPage() {
                   ) : null}
                   <li
                     className={clsx(
-                      "overflow-visible rounded-2xl border bg-white",
+                      "overflow-visible rounded-2xl border bg-white shadow-md",
                       isProposedLine
                         ? "border-violet-400/80 bg-gradient-to-br from-violet-50/90 via-fuchsia-50/[0.35] to-white shadow-[0_4px_22px_rgba(109,40,217,0.13)] ring-1 ring-violet-300/45"
                         : "border-slate-200/70 shadow-[0_2px_10px_rgba(15,23,42,0.045)] ring-1 ring-slate-900/[0.025]",
@@ -3041,9 +3166,23 @@ export default function PharmacienDemandeDetailPage() {
                       )}
                     </div>
                     <div className="min-w-0 flex-1 space-y-1">
-                      <p className="break-words text-[13px] font-bold leading-snug text-foreground sm:text-sm">
-                        {prod?.name ?? "Produit"}
-                      </p>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="min-w-0 flex-1 break-words text-[13px] font-bold leading-snug text-foreground sm:text-sm">
+                          {prod?.name ?? "Produit"}
+                        </p>
+                        {canEditThisRow && isProposedLine ? (
+                          <button
+                            type="button"
+                            title="Retirer cette proposition"
+                            aria-label="Retirer cette proposition"
+                            disabled={busy}
+                            onClick={() => void removePharmacistProposedLine(row)}
+                            className="shrink-0 rounded-lg border border-rose-200/90 bg-rose-50/90 p-1.5 text-rose-800 shadow-sm transition hover:bg-rose-100 disabled:opacity-50"
+                          >
+                            <Trash2 className="size-4" strokeWidth={2} aria-hidden />
+                          </button>
+                        ) : null}
+                      </div>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
                         <span
                           className={clsx(
@@ -3230,7 +3369,7 @@ export default function PharmacienDemandeDetailPage() {
                         isProposedLine ? "border-violet-200/40 bg-white/40" : "border-slate-100/90 bg-muted/10"
                       )}
                     >
-                      {patientLineCc ? (
+                      {showPatientCommentBlock ? (
                         <div className="space-y-2 rounded-xl border border-sky-300/55 bg-gradient-to-br from-sky-50/90 to-white px-2.5 py-2 shadow-sm sm:px-3">
                           <div className="flex flex-col gap-2">
                             <p className="min-w-0 text-[11px] leading-snug text-sky-950">
@@ -3267,16 +3406,7 @@ export default function PharmacienDemandeDetailPage() {
                             </p>
                           ) : null}
                         </div>
-                      ) : canEditThisRow ? (
-                        <textarea
-                          aria-label="Note pour le patient, visible avec votre réponse (optionnel)"
-                          rows={2}
-                          value={f.pharmacist_comment}
-                          onChange={(e) => setField(row.id, "pharmacist_comment", e.target.value.slice(0, 1000))}
-                          placeholder="Note optionnelle, visible avec votre réponse"
-                          className="w-full resize-y touch-manipulation rounded-xl border-2 border-emerald-200/70 bg-emerald-50/30 px-3 py-2 text-[13px] leading-snug placeholder:text-muted-foreground/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 sm:text-sm"
-                        />
-                      ) : pharmaNotePreview ? (
+                      ) : showFrozenPharmaNote ? (
                         <p className="rounded-lg border border-border/70 bg-muted/25 px-2.5 py-1.5 text-[10px] leading-snug text-muted-foreground">
                           <span className="font-semibold text-foreground">Note officine · </span>
                           {pharmaNotePreview}
@@ -3320,6 +3450,32 @@ export default function PharmacienDemandeDetailPage() {
                     </div>
                   ) : showLineAndPublishEdits ? (
                     <div className="space-y-1.5 px-2 py-2 sm:space-y-2 sm:px-3 sm:py-2.5">
+                      {canEditThisRow && !isProposedLine && !patientLineCc ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPharmaLineNoteOpen((m) => ({
+                                ...m,
+                                [row.id]: !m[row.id],
+                              }))
+                            }
+                            className="rounded-md border border-emerald-200/80 bg-emerald-50/80 px-2 py-1 text-[9px] font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-100/80"
+                          >
+                            {pharmaLineNoteOpen[row.id] ? "Masquer note officine" : "Note officine (optionnel)"}
+                          </button>
+                        </div>
+                      ) : null}
+                      {canEditThisRow && !isProposedLine && !patientLineCc && pharmaLineNoteOpen[row.id] ? (
+                        <textarea
+                          aria-label="Note pour le patient, visible avec votre réponse (optionnel)"
+                          rows={2}
+                          value={f.pharmacist_comment}
+                          onChange={(e) => setField(row.id, "pharmacist_comment", e.target.value.slice(0, 1000))}
+                          placeholder="Note optionnelle, visible avec votre réponse"
+                          className="w-full resize-y touch-manipulation rounded-xl border-2 border-emerald-200/70 bg-emerald-50/30 px-3 py-2 text-[13px] leading-snug placeholder:text-muted-foreground/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 sm:text-sm"
+                        />
+                      ) : null}
                       <div className="flex flex-wrap items-end gap-1.5 sm:gap-2">
                         <div className="flex min-w-[9.5rem] flex-1 flex-col gap-0.5">
                           <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -3337,7 +3493,7 @@ export default function PharmacienDemandeDetailPage() {
                             draftStatus={f.availability_status}
                             requestedQty={row.requested_qty}
                             availableQtyStr={f.available_qty}
-                            isProposedLine={row.line_source === "pharmacist_proposed"}
+                            isProposedLine={isProposedLine}
                             options={availabilityOptions}
                             onPick={(v) => setAvailabilityStatus(row, v)}
                           />
@@ -3358,13 +3514,14 @@ export default function PharmacienDemandeDetailPage() {
                               type="text"
                               inputMode="numeric"
                               pattern="[0-9]*"
-                              disabled={!canEditThisRow || f.availability_status === "market_shortage" || f.availability_status === "to_order"}
+                              disabled={!canEditThisRow || f.availability_status === "market_shortage"}
                               value={f.available_qty}
                               onChange={(e) => setAvailableQty(row, e.target.value)}
                               className={clsx(
                                 "h-full w-full min-w-[2rem] border-0 bg-transparent px-1 text-center text-[12px] font-semibold tabular-nums focus:outline-none",
                                 f.availability_status === "market_shortage" && "bg-muted text-muted-foreground",
-                                f.availability_status === "to_order" && "cursor-not-allowed bg-muted/50 text-muted-foreground"
+                                f.availability_status === "to_order" &&
+                                  "bg-teal-50/90 font-bold text-teal-950 ring-1 ring-teal-200/80"
                               )}
                             />
                             <button
@@ -3393,28 +3550,15 @@ export default function PharmacienDemandeDetailPage() {
                           />
                         </label>
                       </div>
-                      {canEditThisRow && f.availability_status === "to_order" ? (
-                        <p className="rounded-lg border border-amber-200/80 bg-amber-50/80 px-2 py-1.5 text-[9px] leading-snug text-amber-950">
-                          <strong>À commander</strong> ·{" "}
-                          {isProposedLine ? (
-                            <>
-                              quantité pour cette ligne : <strong className="tabular-nums">{f.available_qty || row.requested_qty}</strong> (min. 1) —
-                              le stock ne peut pas être modifié en « À commander » ; repassez en « Disponible » pour ajuster.
-                            </>
-                          ) : (
-                            <>
-                              la quantité reste forcément{" "}
-                              <strong className="tabular-nums">{row.requested_qty}</strong> (demande client) — aucune modification du stock n&apos;est
-                              possible ici.
-                            </>
-                          )}
-                        </p>
-                      ) : null}
                       {canEditThisRow &&
                       f.availability_status !== "market_shortage" &&
-                      f.availability_status !== "unavailable" &&
-                      f.availability_status !== "to_order"
-                        ? isProposedLine ? (
+                      f.availability_status !== "unavailable"
+                        ? f.availability_status === "to_order" ? (
+                          <p className="text-[9px] leading-snug text-teal-900/90">
+                            <strong>À commander</strong> · quantité pour cette ligne :{" "}
+                            <strong className="tabular-nums">{f.available_qty}</strong> (min. 1, max. {stockCeiling}).
+                          </p>
+                        ) : isProposedLine ? (
                           <p className="text-[9px] leading-snug text-violet-900/90">
                             <strong>Proposition officine</strong> · stock minimum <strong>1</strong>, sans plafond lié à la quantité initialement
                             indiquée sur la ligne.
@@ -3441,16 +3585,16 @@ export default function PharmacienDemandeDetailPage() {
                       : null}
 
                       {f.availability_status === "to_order" ? (
-                        <label className="flex max-w-sm flex-col gap-0">
-                          <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Date prévision commande
+                        <label className="flex max-w-md flex-col gap-1 rounded-xl border-2 border-teal-400/70 bg-gradient-to-br from-teal-50/90 to-white p-2 shadow-sm ring-1 ring-teal-200/50">
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-teal-950">
+                            Date de réception prévue (obligatoire pour le patient)
                           </span>
                           <input
                             type="date"
                             disabled={!canEditThisRow}
                             value={f.expected_availability_date}
                             onChange={(e) => setField(row.id, "expected_availability_date", e.target.value)}
-                            className="h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] shadow-sm disabled:opacity-60 sm:w-auto sm:min-w-[9rem]"
+                            className="h-10 w-full rounded-lg border-2 border-teal-300/80 bg-white px-2 text-[13px] font-semibold tabular-nums shadow-inner disabled:opacity-60 sm:min-w-[11rem]"
                           />
                         </label>
                       ) : null}
@@ -3559,12 +3703,23 @@ export default function PharmacienDemandeDetailPage() {
                                   type="button"
                                   disabled={altBusyRow === row.id}
                                   onClick={() => void insertAlternative(row, h)}
-                                  className="flex w-full flex-col rounded-lg px-2.5 py-2 text-left text-[11px] transition hover:bg-muted/65 active:bg-muted/80 disabled:opacity-50"
+                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] transition hover:bg-muted/65 active:bg-muted/80 disabled:opacity-50"
                                 >
-                                  <span className="font-semibold leading-tight text-foreground">{h.name}</span>
-                                  {pphLabel(h.price_pph) ? (
-                                    <span className="mt-0.5 text-[10px] font-semibold text-primary">{pphLabel(h.price_pph)}</span>
-                                  ) : null}
+                                  <div className="relative size-11 shrink-0 overflow-hidden rounded-lg border border-teal-200/60 bg-teal-50/50">
+                                    {h.photo_url ? (
+                                      <img src={h.photo_url} alt="" className="h-full w-full object-cover" />
+                                    ) : (
+                                      <div className="flex h-full w-full items-center justify-center text-teal-600/70">
+                                        <Package className="size-5" aria-hidden />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block font-semibold leading-tight text-foreground">{h.name}</span>
+                                    {pphLabel(h.price_pph) ? (
+                                      <span className="mt-0.5 block text-[10px] font-semibold text-primary">{pphLabel(h.price_pph)}</span>
+                                    ) : null}
+                                  </span>
                                 </button>
                               </li>
                             ))}
@@ -3618,9 +3773,102 @@ export default function PharmacienDemandeDetailPage() {
                                     <div className="min-w-0 flex-1">
                                       <p className="truncate font-semibold text-teal-950">{altName}</p>
                                       <p className="mt-0.5 text-[10px] text-teal-800/85">
-                                        #{alt.rank} · Qté {row.requested_qty}
+                                        #{alt.rank}
                                         {altPph ? <span className="text-teal-700"> · {altPph}</span> : null}
                                       </p>
+                                      {canEditThisRow && showLineAndPublishEdits ? (
+                                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                                          <span className="text-[9px] font-bold uppercase tracking-wide text-teal-900/90">
+                                            Qté
+                                          </span>
+                                          <div className="inline-flex h-7 items-center overflow-hidden rounded-lg border border-teal-300/70 bg-white shadow-sm">
+                                            <button
+                                              type="button"
+                                              disabled={altBusyRow === alt.id}
+                                              className="h-full w-6 border-r border-teal-200/80 text-xs font-bold text-teal-900 disabled:opacity-40"
+                                              aria-label="Diminuer la quantité alternative"
+                                              onClick={() => {
+                                                const maxQ = draftStockCeilingForRow(row);
+                                                if (isLocalAltId(alt.id)) {
+                                                  const cur = clampRequestItemQty(Number(alt.available_qty ?? 1));
+                                                  patchPendingAlternativeQty(alt.id, String(Math.max(1, cur - 1)));
+                                                } else {
+                                                  const cur = clampRequestItemQty(
+                                                    Number(altQtyDrafts[alt.id] ?? alt.available_qty ?? row.requested_qty)
+                                                  );
+                                                  setAltQtyDrafts((d) => ({ ...d, [alt.id]: String(Math.max(1, cur - 1)) }));
+                                                }
+                                              }}
+                                            >
+                                              −
+                                            </button>
+                                            <input
+                                              type="text"
+                                              inputMode="numeric"
+                                              disabled={altBusyRow === alt.id}
+                                              className="h-full w-9 border-0 bg-transparent px-0.5 text-center text-[11px] font-bold tabular-nums text-teal-950 focus:outline-none"
+                                              value={
+                                                isLocalAltId(alt.id)
+                                                  ? String(alt.available_qty ?? 1)
+                                                  : altQtyDrafts[alt.id] ?? String(alt.available_qty ?? row.requested_qty)
+                                              }
+                                              onChange={(e) => {
+                                                const v = e.target.value.replace(/[^\d]/g, "");
+                                                if (isLocalAltId(alt.id)) {
+                                                  patchPendingAlternativeQty(alt.id, v);
+                                                } else {
+                                                  setAltQtyDrafts((d) => ({ ...d, [alt.id]: v }));
+                                                }
+                                              }}
+                                              onBlur={() => {
+                                                if (isLocalAltId(alt.id)) {
+                                                  patchPendingAlternativeQty(
+                                                    alt.id,
+                                                    String(clampRequestItemQty(Number(alt.available_qty ?? 1)))
+                                                  );
+                                                  return;
+                                                }
+                                                const maxQ = draftStockCeilingForRow(row);
+                                                const n = clampRequestItemQty(
+                                                  Number(altQtyDrafts[alt.id] ?? alt.available_qty ?? row.requested_qty)
+                                                );
+                                                setAltQtyDrafts((d) => ({
+                                                  ...d,
+                                                  [alt.id]: String(Math.min(maxQ, Math.max(1, n))),
+                                                }));
+                                              }}
+                                            />
+                                            <button
+                                              type="button"
+                                              disabled={altBusyRow === alt.id}
+                                              className="h-full w-6 border-l border-teal-200/80 text-xs font-bold text-teal-900 disabled:opacity-40"
+                                              aria-label="Augmenter la quantité alternative"
+                                              onClick={() => {
+                                                const maxQ = draftStockCeilingForRow(row);
+                                                if (isLocalAltId(alt.id)) {
+                                                  const cur = clampRequestItemQty(Number(alt.available_qty ?? 1));
+                                                  patchPendingAlternativeQty(alt.id, String(Math.min(maxQ, cur + 1)));
+                                                } else {
+                                                  const cur = clampRequestItemQty(
+                                                    Number(altQtyDrafts[alt.id] ?? alt.available_qty ?? row.requested_qty)
+                                                  );
+                                                  setAltQtyDrafts((d) => ({
+                                                    ...d,
+                                                    [alt.id]: String(Math.min(maxQ, cur + 1)),
+                                                  }));
+                                                }
+                                              }}
+                                            >
+                                              +
+                                            </button>
+                                          </div>
+                                          <span className="text-[8px] text-teal-800/80">max {draftStockCeilingForRow(row)}</span>
+                                        </div>
+                                      ) : (
+                                        <p className="mt-0.5 text-[10px] text-teal-800/85">
+                                          Qté <strong className="tabular-nums">{alt.available_qty ?? row.requested_qty}</strong>
+                                        </p>
+                                      )}
                                     </div>
                                   </div>
                                   {canEditThisRow ? (
@@ -3782,12 +4030,23 @@ export default function PharmacienDemandeDetailPage() {
                             type="button"
                             disabled={propBusy}
                             onClick={() => void insertPharmacistProposedLine(h)}
-                            className="flex w-full flex-col rounded-md px-2 py-1.5 text-left text-sm hover:bg-card disabled:opacity-50"
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-card disabled:opacity-50"
                           >
-                            <span className="font-medium text-foreground">{h.name}</span>
-                            {pphLabel(h.price_pph) ? (
-                              <span className="text-[11px] font-medium text-teal-800">{pphLabel(h.price_pph)}</span>
-                            ) : null}
+                            <div className="relative size-11 shrink-0 overflow-hidden rounded-lg border border-violet-200/60 bg-violet-50/50">
+                              {h.photo_url ? (
+                                <img src={h.photo_url} alt="" className="h-full w-full object-cover" />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-violet-500/80">
+                                  <Package className="size-5" aria-hidden />
+                                </div>
+                              )}
+                            </div>
+                            <span className="min-w-0 flex-1">
+                              <span className="block font-medium text-foreground">{h.name}</span>
+                              {pphLabel(h.price_pph) ? (
+                                <span className="mt-0.5 block text-[11px] font-medium text-teal-800">{pphLabel(h.price_pph)}</span>
+                              ) : null}
+                            </span>
                           </button>
                         </li>
                       ))}
@@ -3801,21 +4060,24 @@ export default function PharmacienDemandeDetailPage() {
           ) : null}
 
           {showLineAndPublishEdits ? (
-            <section className="mt-2 rounded-xl border-2 border-violet-200/60 bg-gradient-to-br from-violet-50/40 via-card to-card px-3 py-2 shadow-sm sm:px-3 sm:py-2">
-              <label className="block text-[9px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[10px]">
-                <span className="inline-flex items-center gap-1">
-                  <MessageSquare className="size-3 text-violet-600" aria-hidden />
+            <details className="group mt-2 rounded-xl border border-violet-200/60 bg-gradient-to-br from-violet-50/40 via-card to-card shadow-sm open:shadow-md sm:mt-2">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2 py-2 text-[10px] font-bold text-violet-950 marker:content-none sm:px-3 [&::-webkit-details-marker]:hidden">
+                <span className="inline-flex items-center gap-1.5">
+                  <MessageSquare className="size-3.5 text-violet-600" aria-hidden />
                   Commentaire général pour le patient
                 </span>
+                <ChevronDown className="size-4 shrink-0 text-violet-700 transition-transform group-open:rotate-180" aria-hidden />
+              </summary>
+              <div className="border-t border-violet-100/80 px-2 pb-2 pt-1 sm:px-3 sm:pb-3">
                 <textarea
                   rows={3}
                   value={globalComment}
                   onChange={(e) => setGlobalComment(e.target.value.slice(0, 1200))}
                   placeholder="Message global (optionnel), visible avec la réponse"
-                  className="mt-2 min-h-[5.5rem] w-full rounded-xl border-2 border-violet-200/70 bg-background px-3 py-2.5 text-[13px] leading-relaxed shadow-inner placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 sm:min-h-0 sm:text-xs sm:leading-normal"
+                  className="min-h-[5.5rem] w-full rounded-xl border-2 border-violet-200/70 bg-background px-3 py-2.5 text-[13px] leading-relaxed shadow-inner placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 sm:min-h-[4.5rem] sm:text-xs sm:leading-normal"
                 />
-              </label>
-            </section>
+              </div>
+            </details>
           ) : null}
 
           {respondedFrozenView ? (
@@ -3846,10 +4108,13 @@ export default function PharmacienDemandeDetailPage() {
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => void publishResponse()}
+                  onClick={() => {
+                    setError("");
+                    setPublishConfirmOpen(true);
+                  }}
                   className="inline-flex min-h-[3.25rem] w-full items-center justify-center rounded-2xl bg-emerald-700 px-6 py-3 text-base font-bold tracking-tight text-white shadow-lg ring-2 ring-emerald-900/15 transition hover:bg-emerald-800 hover:shadow-xl disabled:opacity-50 sm:min-h-[3.5rem] sm:text-[1.05rem]"
                 >
-                  {busy ? "Publication…" : "Envoyer la réponse au patient"}
+                  Envoyer la réponse au patient…
                 </button>
               ) : null}
               {canManageResponded && respondedEditMode ? (
@@ -4039,6 +4304,66 @@ export default function PharmacienDemandeDetailPage() {
           )}
         </>
       )}
+      {publishConfirmOpen ? (
+        <div
+          className="fixed inset-0 z-[10060] flex items-end justify-center bg-black/45 p-3 backdrop-blur-[1px] sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="publish-confirm-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !busy) setPublishConfirmOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-emerald-200/90 bg-card p-4 shadow-2xl ring-1 ring-emerald-900/10 sm:p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="publish-confirm-title" className="text-sm font-bold text-emerald-950">
+              Confirmer l&apos;envoi au patient
+            </h2>
+            <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+              La réponse sera visible immédiatement sur l&apos;espace patient. Vérifiez disponibilités, quantités, alternatives et dates
+              « à commander » avant validation.
+            </p>
+            <ul className="mt-3 max-h-36 space-y-1 overflow-y-auto rounded-lg border border-border/60 bg-muted/15 p-2 text-[11px]">
+              {displayRows.map((r) => {
+                const p = one(r.products)?.name ?? "Produit";
+                const fd = draft[r.id];
+                const st = fd?.availability_status ?? "—";
+                return (
+                  <li key={r.id} className="flex justify-between gap-2 tabular-nums">
+                    <span className="min-w-0 truncate font-medium text-foreground">{p}</span>
+                    <span className="shrink-0 text-muted-foreground">
+                      {availabilityStatusFr[st] ?? st} · {fd?.available_qty ?? "—"}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setPublishConfirmOpen(false)}
+                className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-border bg-background px-4 text-xs font-semibold text-foreground shadow-sm transition hover:bg-muted/50 disabled:opacity-50 sm:w-auto"
+              >
+                Retour
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setPublishConfirmOpen(false);
+                  void publishResponse();
+                }}
+                className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-emerald-700 px-4 text-xs font-bold text-white shadow-md transition hover:bg-emerald-800 disabled:opacity-50 sm:w-auto"
+              >
+                {busy ? "Publication…" : "Confirmer et envoyer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <PharmacistSupplyAmendmentConfirmModal
         open={supplyConfirmOpen}
         onClose={() => {

@@ -318,6 +318,22 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-11 — saisie demande produits (pharmacie), catalogue démo, reset SQL tests
+
+**Objectif** : UX page **`/pharmacie/[id]/demande-produits`** (titres sections, **Qté**, prix **PU/Tot** sans retour à la ligne via composant **`PriceDhInline`**), recherche catalogue (**nom ou laboratoire**, limite 48) partagée **`lib/product-catalog-search.ts`** (patient saisie / édition demande / vue pharmacien alternatives-proposition) ; enrichissement BDD démo (**photos** sur libellés exacts seed MAROC **`20260503_003`**, **~55** produits **`seed_ma_catalog_v2`**) ; script reset demandes (**`supabase/scripts/clear-all-requests.sql`**) : null **`patient_chosen_alternative_id`** avant **`DELETE requests`**.
+
+**SQL — migrations** (à appliquer dans l’ordre sur Supabase si pas encore jouées) :
+- **`20260511_001_pharmacist_in_app_notif_trim_body.sql`**
+- **`20260511_002_seed_products_unsplash_photo_urls.sql`** (insert noms courts + photo ; idempotent)
+- **`20260511_003_products_photo_url_backfill_by_name.sql`** (update photo sur ces noms courts si `photo_url` vide)
+- **`20260512_001_ma_catalog_photos_and_extended_products.sql`** (update photo **noms longs** catalogue MAROC + insert extension **`seed_ma_catalog_v2`**)
+
+**Next.js / lib** : **`app/pharmacie/[id]/demande-produits/page.tsx`**, **`PatientProductRequestActions.tsx`**, **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**, **`next.config.ts`** (`images.remotePatterns` Unsplash si besoin).
+
+**Git** : branche **`fix/rls-recursion`** — voir `git log` pour les commits du lot.
+
+---
+
 ### Session 2026-05-09 — patient compact après validation + pharmacien supply brouillon + comptoir simplifié + notifs + SQL `20260509_*`
 
 **Objectif** : parité mobile ; après **`confirmed`**, vue patient **lignes retenues** en cartes courtes + historique par produit ; côté officine, **une seule vague d’enregistrement** (brouillon jusqu’à **Enregistrer les modifications**), **écarter** avec canal/description dans le panneau (sans modal dédié), **comptoir** réduit à **en attente / récupéré**, **clôture** possible dès **au moins une** ligne retenue **récupérée** (confirmation si d’autres lignes en attente) ; **notifs pharmacien** sans auto-notification de l’acteur.
@@ -885,6 +901,9 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260508_002_processing_treated_supply_workflow.sql` (statuts **`processing`** / **`treated`**, **`withdrawn_after_confirm`**, **`request_supply_amendments`**, RPC amendements / traitée / comptoir / annulation, notifs étendues)
   - `supabase/migrations/20260509_001_arrived_reserved_fulfillment.sql` (fulfillment / RPC — alignement reçu-disponible, voir fichier)
   - `supabase/migrations/20260509_002_pharmacist_notifications_exclude_actor.sql` (notif pharmacien : pas de destinataire = **`changed_by`**)
+  - `supabase/migrations/20260511_001_pharmacist_in_app_notif_trim_body.sql` (corps notif in-app pharmacien allégé)
+  - `supabase/migrations/20260511_002_seed_products_unsplash_photo_urls.sql` + `20260511_003_products_photo_url_backfill_by_name.sql` (photos Unsplash noms **courts** ; le **003** ne couvre pas les libellés longs du seed MAROC — voir **`20260512_001`**)
+  - `supabase/migrations/20260512_001_ma_catalog_photos_and_extended_products.sql` (photos sur noms **exact** `20260503_003` + catalogue démo **`seed_ma_catalog_v2`**)
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -1047,6 +1066,12 @@ Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre 
 ### 13.10) Phrase de reprise (recommandée après **2026-05-09** — patient compact + pharmacien supply brouillon + `20260509_*`)
 
 **« On reprend ProxiPharma. Lis **`CONTEXTE.md` §6**, **`CAHIER_DES_CHARGES.md` §0.1, §4.4, §4.6, **dernier §10 Journal**, §11 (migrations jusqu’à **`20260509_002`**), §12 ; branche **`fix/rls-recursion`**. Vérifie sur Supabase **`20260509_001`** et **`20260509_002`** si pas encore appliqués. Fichiers clés : **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**, **`components/pharmacist/pharmacist-supply-compact-line.tsx`**, **`PatientProductRequestActions.tsx`**, **`lib/build-patient-line-timeline-fr.ts`**, **`lib/supply-line-post-confirm.ts`**. Je te dis ensuite quoi faire. »**
+
+### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
+
+À utiliser quand tu veux **recharger le contexte** dans une nouvelle conversation **sans** lancer de correctif, migration ou refacto : l’agent **lit** puis **attend** ta tâche.
+
+**« ProxiPharma — reprise de contexte uniquement. Lis `CONTEXTE.md` §6 et `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 (liste migrations) et §13.11. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement de code tant que je n’ai pas donné une consigne de travail explicite. Réponds par un bref récap de ce que tu as relu, puis attends ma précision. »**
 
 ### Template pour prochaines sessions
 - Date:
