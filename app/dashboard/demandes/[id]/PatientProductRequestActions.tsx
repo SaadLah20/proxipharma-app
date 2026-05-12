@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   ChevronDown,
   History,
   Layers,
+  Calendar,
   Mail,
   MessageCircle,
   MessageSquare,
@@ -57,7 +59,8 @@ import { PATIENT_GENERAL_NOTE_MAX, PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/li
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import {
-  lineConversationChipButtonClass,
+  lineConversationStripButtonClass,
+  lineConversationStripLabel,
   lineConversationVisual,
 } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 
@@ -790,8 +793,8 @@ function RespondedProductQtyStatusLine({ row }: { row: ActionItemRow }) {
   );
 }
 
-/** Pastille + mini-fenêtre (lecture seule) pour précision patient / note officine sur la ligne. */
-function PatientRespondedLineConvoBubble({
+/** Bandeau + modal lecture seule (échanges patient / pharmacie sur la ligne). */
+function PatientRespondedLineConvoStripReadOnly({
   patientNote,
   pharmaLineNote,
 }: {
@@ -799,75 +802,88 @@ function PatientRespondedLineConvoBubble({
   pharmaLineNote: string;
 }) {
   const [open, setOpen] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const p = patientNote.trim();
-  const ph = pharmaLineNote.trim();
-  const hasAny = Boolean(p || ph);
-
-  useEffect(() => {
-    if (!open || !hasAny) return undefined;
-    const close = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (panelRef.current?.contains(t)) return;
-      if ((t as HTMLElement).closest?.("[data-patient-convo-chip]")) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open, hasAny]);
-
-  if (!hasAny) return null;
-
   const visual = lineConversationVisual(patientNote, pharmaLineNote);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
   return (
-    <div className="pointer-events-none absolute inset-0 flex items-start justify-end p-0.5">
-      <div className="pointer-events-auto relative">
+    <>
+      <div className="mt-1.5 flex w-full min-w-0 justify-end border-t border-dotted border-border/55 pt-1.5">
         <button
           type="button"
-          data-patient-convo-chip
-          aria-expanded={open}
-          aria-haspopup="dialog"
-          title="Messages sur ce produit"
-          className={lineConversationChipButtonClass(visual, { open, disabled: false })}
+          className={lineConversationStripButtonClass(visual, { open, disabled: false })}
+          aria-label={`Échanges sur ce produit · ${lineConversationStripLabel(visual)}`}
+          title="Voir les messages (lecture seule)"
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
             setOpen((o) => !o);
           }}
         >
-          <MessageCircle className="size-[15px]" strokeWidth={2.2} aria-hidden />
-          {visual === "patient_only" ? (
-            <span
-              className="absolute -right-0.5 -top-0.5 flex size-[9px] rounded-full bg-sky-500 ring-2 ring-white"
-              aria-hidden
-            />
-          ) : null}
+          <MessageCircle className="size-3.5 shrink-0 opacity-90" strokeWidth={2.2} aria-hidden />
+          <span className="max-w-[11rem] truncate text-[9px] font-medium leading-tight sm:max-w-[14rem]">
+            {lineConversationStripLabel(visual)}
+          </span>
         </button>
-        {open ? (
-          <div
-            ref={panelRef}
-            role="dialog"
-            aria-label="Échanges sur la ligne"
-            className="absolute right-0 top-[calc(100%+4px)] z-30 w-[min(18rem,calc(100vw-2.5rem))] overflow-hidden rounded-xl border border-border/90 bg-card py-2 shadow-2xl ring-1 ring-black/10"
-          >
-            <div className="max-h-[min(50vh,16rem)] overflow-y-auto overscroll-y-contain px-2.5 py-1.5 text-[11px] [-webkit-overflow-scrolling:touch]">
-              {p ? (
-                <div className="rounded-lg border border-sky-200/80 bg-sky-50/90 px-2 py-1.5">
-                  <p className="text-[8px] font-bold uppercase tracking-wide text-sky-900">Vous</p>
-                  <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-sky-950">{p}</p>
-                </div>
-              ) : null}
-              {ph ? (
-                <div className={clsx("rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2 py-1.5", p ? "mt-2" : "")}>
-                  <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-900">Pharmacie</p>
-                  <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-emerald-950">{ph}</p>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
       </div>
-    </div>
+      {open && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-3 backdrop-blur-[1px] sm:items-center"
+              role="presentation"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setOpen(false);
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Échanges sur la ligne"
+                className="max-h-[min(80vh,22rem)] w-full max-w-md overflow-hidden rounded-2xl border border-border/90 bg-card shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
+                  <p className="text-[11px] font-bold text-foreground">Sur ce produit</p>
+                  <button
+                    type="button"
+                    className="rounded-lg p-1 text-muted-foreground hover:bg-muted/60"
+                    aria-label="Fermer"
+                    onClick={() => setOpen(false)}
+                  >
+                    <X className="size-4" aria-hidden />
+                  </button>
+                </div>
+                <div className="max-h-[min(65vh,18rem)] space-y-2 overflow-y-auto overscroll-y-contain px-3 py-2.5 text-[11px] [-webkit-overflow-scrolling:touch]">
+                  {patientNote.trim() ? (
+                    <div className="rounded-lg border border-sky-200/80 bg-sky-50/90 px-2.5 py-2">
+                      <p className="text-[8px] font-bold uppercase tracking-wide text-sky-900">Vous</p>
+                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-sky-950">{patientNote.trim()}</p>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] italic text-muted-foreground">Aucun commentaire de votre part sur ce produit.</p>
+                  )}
+                  {pharmaLineNote.trim() ? (
+                    <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-2">
+                      <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-900">Pharmacie</p>
+                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-emerald-950">{pharmaLineNote.trim()}</p>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] italic text-muted-foreground">Aucune note de la pharmacie sur ce produit.</p>
+                  )}
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+    </>
   );
 }
 
@@ -900,7 +916,6 @@ function RespondedPatientLineChooser({
           <Package className="size-6 text-muted-foreground sm:size-7" aria-hidden />
         </div>
       )}
-      <PatientRespondedLineConvoBubble patientNote={patientNote} pharmaLineNote={pharmaLineNote} />
     </div>
   );
 
@@ -987,6 +1002,7 @@ function RespondedPatientLineChooser({
             </p>
             {prodUnitPrice ? <p className="mt-0.5 text-xs font-medium text-primary">{prodUnitPrice}</p> : null}
             <RespondedProductQtyStatusLine row={row} />
+            <PatientRespondedLineConvoStripReadOnly patientNote={patientNote} pharmaLineNote={pharmaLineNote} />
           </div>
         </div>
         <label className="mt-2 flex cursor-pointer items-start gap-2.5 rounded-xl border-2 border-slate-200 bg-slate-50/40 px-2.5 py-2 transition hover:border-emerald-200">
@@ -1025,6 +1041,7 @@ function RespondedPatientLineChooser({
           </p>
           {prodUnitPrice ? <p className="mt-0.5 text-[11px] font-medium text-primary">{prodUnitPrice}</p> : null}
           <RespondedProductQtyStatusLine row={row} />
+          <PatientRespondedLineConvoStripReadOnly patientNote={patientNote} pharmaLineNote={pharmaLineNote} />
         </div>
       </div>
 
@@ -1203,9 +1220,16 @@ type PatientConfirmPreviewLine = {
   photoUrl: string | null;
 };
 
+type PatientConfirmSkippedLine = {
+  rowId: string;
+  productName: string;
+  isProposed: boolean;
+};
+
 type PatientConfirmReviewSnapshot = {
   rpcPayload: PatientConfirmRpcRow[];
   preview: PatientConfirmPreviewLine[];
+  skippedLines: PatientConfirmSkippedLine[];
   plannedVisitDate: string;
   plannedVisitTimePg: string | null;
   visitSummaryFr: string;
@@ -1285,6 +1309,27 @@ function buildPatientConfirmSelection(
   });
 
   return { rpcPayload, preview };
+}
+
+function buildNonRetainedConfirmLines(
+  items: ActionItemRow[],
+  sel: Record<string, LineSelState>
+): PatientConfirmSkippedLine[] {
+  const out: PatientConfirmSkippedLine[] = [];
+  for (const row of items) {
+    const alts = normalizeAlternatives(row.request_item_alternatives);
+    const st = sel[row.id] ?? ({ branch: null, qty: 1 } satisfies LineSelState);
+    const cap = maxQtyForBranch(row, st.branch, alts);
+    const on = st.branch !== null && cap > 0;
+    if (!on) {
+      out.push({
+        rowId: row.id,
+        productName: one(row.products)?.name ?? "Produit",
+        isProposed: row.line_source === "pharmacist_proposed",
+      });
+    }
+  }
+  return out;
 }
 
 function validatePatientConfirmBeforeReview(
@@ -1447,6 +1492,8 @@ export function PatientProductRequestActions({
 
   /** Note générale à l’étape « pharmacie a répondu » (persistée avec la validation). */
   const [confirmPatientNote, setConfirmPatientNote] = useState(() => initialPatientNote ?? "");
+  const [confirmPatientNoteEditing, setConfirmPatientNoteEditing] = useState(false);
+  const [confirmPatientNoteBackup, setConfirmPatientNoteBackup] = useState("");
 
   /** Resubmit draft — idem */
   const [noteDraft, setNoteDraft] = useState(() => initialPatientNote ?? "");
@@ -1682,9 +1729,11 @@ export function PatientProductRequestActions({
     }
     setActionError("");
     const timePg = htmlTimeToPg(visitTimeComposed);
+    const skippedLines = buildNonRetainedConfirmLines(items, sel);
     setConfirmReviewSnap({
       rpcPayload: built.rpcPayload,
       preview: built.preview,
+      skippedLines,
       plannedVisitDate: resolvedVisitDate,
       plannedVisitTimePg: timePg,
       visitSummaryFr: formatPlannedVisitFr(resolvedVisitDate, timePg ?? null),
@@ -1889,6 +1938,7 @@ export function PatientProductRequestActions({
     confirmReviewSnap?.preview.filter((l) => l.bucket === "reserve") ?? [];
   const confirmOrderLines = confirmReviewSnap?.preview.filter((l) => l.bucket === "order") ?? [];
   const confirmAllPreviewLines = confirmReviewSnap?.preview ?? [];
+  const confirmSkippedLines = confirmReviewSnap?.skippedLines ?? [];
 
   return (
     <section
@@ -1926,13 +1976,75 @@ export function PatientProductRequestActions({
           </div>
 
           {pharmacistGlobalComment?.trim() ? (
-            <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/70 px-2 py-1.5 ring-1 ring-emerald-100/40">
-              <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-950">Message pharmacie</p>
-              <p className="mt-0.5 line-clamp-4 whitespace-pre-wrap text-[10px] leading-snug text-emerald-950">
+            <div className="rounded-xl border-2 border-emerald-300/70 bg-gradient-to-br from-emerald-50/95 via-white to-teal-50/30 px-3 py-3 shadow-md ring-1 ring-emerald-200/50 sm:px-3.5 sm:py-3.5">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-950">Message de la pharmacie</p>
+                <MessageSquare className="size-4 shrink-0 text-emerald-700/85" aria-hidden />
+              </div>
+              <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-emerald-950 sm:text-[14px]">
                 {pharmacistGlobalComment.trim()}
               </p>
             </div>
-          ) : null}
+          ) : (
+            <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 px-3 py-2.5 text-[12px] italic text-emerald-900/80">
+              La pharmacie n&apos;a pas laissé de message général sur cette réponse.
+            </div>
+          )}
+
+          <div className="rounded-xl border-2 border-sky-200/85 bg-gradient-to-br from-sky-50/90 to-white px-3 py-2.5 shadow-md ring-1 ring-sky-200/45 sm:px-3.5 sm:py-3">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-sky-950">Ton message pour la pharmacie</p>
+                <p className="mt-0.5 text-[9px] leading-snug text-sky-900/80">Optionnel · enregistré seulement quand tu valides la demande.</p>
+              </div>
+              {confirmPatientNoteEditing ? (
+                <button
+                  type="button"
+                  className="shrink-0 rounded-lg border border-sky-400/80 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-sky-950 shadow-sm transition hover:bg-sky-100/80"
+                  onClick={() => {
+                    setConfirmPatientNote(confirmPatientNoteBackup);
+                    setConfirmPatientNoteEditing(false);
+                  }}
+                >
+                  Annuler
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="shrink-0 rounded-lg border border-sky-600 bg-sky-700 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-sky-800"
+                  onClick={() => {
+                    setConfirmPatientNoteBackup(confirmPatientNote);
+                    setConfirmPatientNoteEditing(true);
+                  }}
+                >
+                  Écrire un nouveau message
+                </button>
+              )}
+            </div>
+            {confirmPatientNoteEditing ? (
+              <>
+                <textarea
+                  value={confirmPatientNote}
+                  onChange={(e) => setConfirmPatientNote(e.target.value.slice(0, PATIENT_GENERAL_NOTE_MAX))}
+                  rows={4}
+                  maxLength={PATIENT_GENERAL_NOTE_MAX}
+                  placeholder="Ex. précision sur le passage…"
+                  className="mt-2 w-full resize-y rounded-lg border-2 border-sky-300/80 bg-white px-3 py-2.5 text-[14px] leading-relaxed text-foreground placeholder:text-muted-foreground/70 [touch-action:manipulation]"
+                />
+                <p className="mt-1 text-right text-[10px] text-sky-800/90 tabular-nums">
+                  {confirmPatientNote.length}/{PATIENT_GENERAL_NOTE_MAX}
+                </p>
+              </>
+            ) : (
+              <div className="mt-2 min-h-[5rem] whitespace-pre-wrap rounded-lg border border-sky-200/80 bg-white/95 px-3 py-2.5 text-[13px] leading-relaxed text-foreground sm:text-sm">
+                {confirmPatientNote.trim() ? (
+                  confirmPatientNote.trim()
+                ) : (
+                  <span className="text-muted-foreground italic">Aucun message pour l&apos;instant.</span>
+                )}
+              </div>
+            )}
+          </div>
 
           {items.length > 0 ? (
             <section className="space-y-2">
@@ -2351,40 +2463,35 @@ export function PatientProductRequestActions({
           ) : null
         ) : null}
 
-        {showConfirm ? (
-          <div className="rounded-lg border-l-4 border-sky-600 bg-sky-50/90 p-2 shadow-sm ring-1 ring-sky-200/45 sm:p-2.5">
-            <label className="block text-[10px] font-bold uppercase tracking-wide text-sky-950">Message pour la pharmacie</label>
-            <p className="mt-0.5 text-[9px] text-sky-900/80">Optionnel · enregistré avec ta validation.</p>
-            <textarea
-              value={confirmPatientNote}
-              onChange={(e) => setConfirmPatientNote(e.target.value.slice(0, PATIENT_GENERAL_NOTE_MAX))}
-              rows={2}
-              maxLength={PATIENT_GENERAL_NOTE_MAX}
-              placeholder="Ex. précision sur le passage…"
-              className="mt-1.5 w-full resize-y rounded-lg border border-sky-300/80 bg-white px-2 py-1.5 text-[12px] leading-snug text-foreground placeholder:text-muted-foreground/70 [touch-action:manipulation]"
-            />
-            <p className="mt-0.5 text-right text-[9px] text-sky-800/90 tabular-nums">
-              {confirmPatientNote.length}/{PATIENT_GENERAL_NOTE_MAX}
-            </p>
-          </div>
-        ) : null}
-
         {showVisitFields ? (
-          <div className="rounded-md border border-primary/20 bg-primary/5 p-1.5">
-            <label className="block text-[10px] font-medium text-foreground">
-              Date de passage {showConfirm ? <span className="text-destructive">*</span> : null}
+          <div className="rounded-xl border-2 border-primary/35 bg-gradient-to-br from-primary/[0.12] via-background to-primary/[0.06] p-2.5 shadow-md ring-1 ring-primary/25 sm:p-3">
+            <div className="flex items-center gap-2">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary shadow-sm ring-1 ring-primary/20">
+                <Calendar className="size-4" strokeWidth={2} aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-foreground">
+                  Date de passage {showConfirm ? <span className="text-destructive">*</span> : null}
+                </p>
+                <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+                  Indique quand tu prévois de passer à l&apos;officine.
+                </p>
+              </div>
+            </div>
+            <label className="mt-2.5 block text-[11px] font-semibold text-foreground">
+              <span className="sr-only">Date</span>
               <input
                 type="date"
                 min={visitWin.minYmd}
                 max={visitWin.maxYmd}
                 value={resolvedVisitDate}
                 onChange={(e) => setVisitDate(e.target.value)}
-                className="mt-0.5 block w-full rounded border border-input bg-background px-1.5 py-1 text-[11px]"
+                className="mt-1 block w-full rounded-lg border-2 border-input bg-background px-2 py-2 text-[13px] font-semibold tabular-nums shadow-inner"
                 required={showConfirm}
               />
             </label>
-            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-              <label className="block text-[10px] font-medium text-foreground">
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <label className="block text-[10px] font-semibold text-foreground">
                 Heure (0–23)
                 <input
                   type="number"
@@ -2394,10 +2501,10 @@ export function PatientProductRequestActions({
                   placeholder="—"
                   value={visitHour}
                   onChange={(e) => setVisitHour(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                  className="mt-0.5 block w-full rounded border border-input bg-background px-1.5 py-1 text-[11px] tabular-nums"
+                  className="mt-1 block w-full rounded-lg border-2 border-input bg-background px-2 py-1.5 text-[12px] font-semibold tabular-nums shadow-inner"
                 />
               </label>
-              <label className="block text-[10px] font-medium text-foreground">
+              <label className="block text-[10px] font-semibold text-foreground">
                 Minutes (0–59)
                 <input
                   type="number"
@@ -2407,16 +2514,20 @@ export function PatientProductRequestActions({
                   placeholder="—"
                   value={visitMinute}
                   onChange={(e) => setVisitMinute(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                  className="mt-0.5 block w-full rounded border border-input bg-background px-1.5 py-1 text-[11px] tabular-nums"
+                  className="mt-1 block w-full rounded-lg border-2 border-input bg-background px-2 py-1.5 text-[12px] font-semibold tabular-nums shadow-inner"
                 />
               </label>
             </div>
             {visitTimeFr ? (
-              <span className="mt-0.5 block text-[9px] text-muted-foreground">Enregistré : {visitTimeFr}</span>
+              <span className="mt-2 block text-[10px] font-medium text-muted-foreground">Enregistré : {visitTimeFr}</span>
             ) : null}
             {showConfirmedCards ? (
-              <p className="mt-1 text-[9px] leading-snug text-primary/90">
+              <p className="mt-2 text-[10px] leading-snug text-primary/90">
                 La pharmacie voit les changements sur la demande.
+              </p>
+            ) : showConfirm ? (
+              <p className="mt-2 text-[10px] leading-snug text-sky-900/85">
+                Ces informations seront transmises avec ta validation.
               </p>
             ) : null}
           </div>
@@ -2433,14 +2544,16 @@ export function PatientProductRequestActions({
           </button>
         ) : null}
 
-        {showConfirmedCards ? (
+        {(showConfirm || showConfirmedCards) ? (
           pharmacyContact ? (
             <div className="mt-2">
               <PatientPharmacyQuickContact pharmacy={pharmacyContact} requestRef={dossierRefLabel} />
             </div>
           ) : (
             <section className="mt-2 rounded-xl border border-emerald-200/65 bg-muted/25 px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
-              Après validation, les changements passent par votre pharmacie.
+              {showConfirmedCards
+                ? "Après validation, les changements passent par votre pharmacie."
+                : "Les coordonnées de l’officine seront affichées ici lorsqu’elles sont disponibles."}
             </section>
           )
         ) : null}
@@ -2614,6 +2727,29 @@ export function PatientProductRequestActions({
                   <p className="mt-2 text-right text-[11px] leading-snug font-medium text-teal-900/88">
                     {formatBlockSubtotalLabel(confirmOrderLines)}
                   </p>
+                </div>
+              ) : null}
+
+              {confirmSkippedLines.length > 0 ? (
+                <div className="mt-3 rounded-lg border border-slate-200/90 bg-slate-50/90 px-2 py-2 ring-1 ring-slate-200/50">
+                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-700">Non retenus (information)</p>
+                  <ul className="mt-1.5 space-y-1">
+                    {confirmSkippedLines.map((s) => (
+                      <li
+                        key={s.rowId}
+                        className="flex flex-wrap items-baseline justify-between gap-2 rounded-md border border-slate-200/70 bg-white/90 px-2 py-1 text-[10px] text-slate-800"
+                      >
+                        <span className="min-w-0 font-medium leading-snug">{s.productName}</span>
+                        {s.isProposed ? (
+                          <span className="shrink-0 rounded bg-violet-100 px-1 py-px text-[8px] font-semibold uppercase text-violet-900">
+                            Proposition
+                          </span>
+                        ) : (
+                          <span className="shrink-0 text-[9px] text-muted-foreground">Ta demande</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ) : null}
 
