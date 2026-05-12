@@ -107,29 +107,7 @@ export function PatientDemandesHub() {
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], "fr"));
   }, [rows]);
 
-  const rowsWithDashboardStatus = useMemo(
-    () =>
-      rows.map((r) => {
-        if (r.status === "treated") {
-          return { ...r, status_for_dashboard: r.status };
-        }
-        const rawItems = (r.request_items ?? []) as Array<{
-          post_confirm_fulfillment?: string | null;
-          is_selected_by_patient?: boolean | null;
-        }>;
-        const hasExecutionProgress =
-          r.status === "confirmed" &&
-          rawItems.some((it) => {
-            const p = it.post_confirm_fulfillment ?? "unset";
-            return p === "reserved" || p === "ordered";
-          });
-        return {
-          ...r,
-          status_for_dashboard: hasExecutionProgress ? "in_progress_virtual" : r.status,
-        };
-      }),
-    [rows]
-  );
+  const rowsWithDashboardStatus = useMemo(() => rows.map((r) => ({ ...r, status_for_dashboard: r.status })), [rows]);
 
   const filteredSorted = useMemo(() => {
     let list = rowsWithDashboardStatus;

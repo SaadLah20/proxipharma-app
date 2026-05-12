@@ -45,6 +45,8 @@ function kindPatientShortFr(kind: string | undefined): string | null {
       return "Quantité validée ajustée";
     case "line_added_after_confirm":
       return "Produit ajouté par la pharmacie (avec votre accord)";
+    case "line_removed_after_confirm":
+      return "Produit retiré par la pharmacie après validation";
     case "line_adjust_supply":
       return "Ajustement de la ligne";
     default:

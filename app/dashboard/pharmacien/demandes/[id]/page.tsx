@@ -68,7 +68,7 @@ import {
   validatedQtyForPatientLine,
   type PatientLineLike,
 } from "@/lib/patient-confirmed-line-buckets";
-import { buildPatientLineTimelineFr } from "@/lib/build-patient-line-timeline-fr";
+import { amendmentsForPatientLine, buildPatientLineTimelineFr } from "@/lib/build-patient-line-timeline-fr";
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { PharmacistSupplyCompactLine } from "@/components/pharmacist/pharmacist-supply-compact-line";
 import {
@@ -76,7 +76,7 @@ import {
   type PharmaConfirmAdjustmentAudit,
   type PharmaConfirmAdjustmentLine,
 } from "@/lib/patient-request-history-audit";
-import { type SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
+import { summarizeSupplyAmendmentEntry, type SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
 import {
   dispatchRequestDetailRefresh,
   REQUEST_DETAIL_REFRESH_EVENT,
@@ -1001,6 +1001,7 @@ export default function PharmacienDemandeDetailPage() {
   const [supplyConfirmPending, setSupplyConfirmPending] = useState<
     | { kind: "unlock_modify"; rowId: string }
     | { kind: "add_line"; pick: ProductCatalogHit; reason: string; qty: number }
+    | { kind: "remove_proposed_line"; row: ItemRow }
     | null
   >(null);
   const [lineModifyConsent, setLineModifyConsent] = useState<Record<string, { channel: string; motive: string }>>({});
@@ -1572,7 +1573,20 @@ export default function PharmacienDemandeDetailPage() {
       setPendingAlternatives((prev) => prev.filter((a) => a.parentItemId !== row.id));
       return;
     }
-    if (!id) return;
+    if (!id || !request) return;
+    if (["confirmed", "treated"].includes(request.status)) {
+      const nm = one(row.products)?.name ?? "Produit";
+      setSupplyConfirmBlocks([
+        {
+          key: `rm-prop-${row.id}`,
+          title: "Retirer la proposition officine",
+          subtitle: `${nm} — journalisation pour le patient (canal d’accord obligatoire).`,
+        },
+      ]);
+      setSupplyConfirmPending({ kind: "remove_proposed_line", row });
+      setSupplyConfirmOpen(true);
+      return;
+    }
     setBusy(true);
     const { error } = await supabase
       .from("request_items")
@@ -1990,11 +2004,12 @@ export default function PharmacienDemandeDetailPage() {
       const f = draft[i.id];
       if (!f || f.withdrawn_after_confirm) continue;
       const eff = effectiveAvailSupplyDraft(i, f);
-      const pcf = f.fulfillment_draft;
+      const persistedPcf = i.post_confirm_fulfillment ?? "unset";
+      const draftPcf = f.fulfillment_draft;
       if (eff === "available" || eff === "partially_available") {
-        if (pcf !== "reserved") return false;
+        if (draftPcf !== "reserved") return false;
       } else if (eff === "to_order") {
-        if (pcf !== "ordered") return false;
+        if (draftPcf !== "ordered" && persistedPcf !== "arrived_reserved") return false;
       } else {
         return false;
       }
@@ -2249,6 +2264,35 @@ export default function PharmacienDemandeDetailPage() {
         resetPropForm();
         dispatchRequestDetailRefresh(id);
         await load();
+      } else if (pending.kind === "remove_proposed_line") {
+        const fill = fills[0];
+        if (!fill?.channel?.trim()) throw new Error("Indiquez le canal utilisé.");
+        const row = pending.row;
+        const nm = one(row.products)?.name ?? "Produit";
+        const amendments: SupplyAmendmentEntryJson[] = [
+          {
+            kind: "line_removed_after_confirm",
+            request_item_id: row.id,
+            summary: `${nm} retiré après validation (proposition officine)`,
+            detail: `${nm} : proposition officine retirée du dossier validé.`,
+            client_confirmation_channel: fill.channel.trim(),
+            client_motive: fill.motive.trim() === "" ? null : fill.motive.trim(),
+          },
+        ];
+        const { error: rpcA } = await supabase.rpc("pharmacist_record_supply_amendments", {
+          p_request_id: id,
+          p_amendments: amendments,
+        });
+        if (rpcA) throw new Error(rpcA.message);
+        const { error: delErr } = await supabase
+          .from("request_items")
+          .delete()
+          .eq("id", row.id)
+          .eq("line_source", "pharmacist_proposed");
+        if (delErr) throw new Error(delErr.message);
+        await logHistory(id, request?.status ?? null, request?.status ?? "confirmed", "pharmacist_proposed_line_removed");
+        dispatchRequestDetailRefresh(id);
+        await load();
       }
       setSupplyConfirmOpen(false);
       setSupplyConfirmPending(null);
@@ -2461,6 +2505,7 @@ export default function PharmacienDemandeDetailPage() {
 
   const runCompleteAfterCounter = async () => {
     if (!id || !request) return;
+    if (request.status !== "treated") return;
     const selectedLines = items.filter((i) => i.is_selected_by_patient);
     const tracked = selectedLines.filter((i) => !i.withdrawn_after_confirm);
     const pendingPickup = tracked.filter((i) => (i.counter_outcome ?? "unset") !== "picked_up").length;
@@ -2554,6 +2599,19 @@ export default function PharmacienDemandeDetailPage() {
     });
   }, [pharmaHistoryRowId, request, items, supplyAmendmentBundles, dossierHistoryTimeline]);
 
+  const supplyAmendmentTraceLinesByItemId = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const row of items) {
+      const list = amendmentsForPatientLine(row as PatientLineLike, supplyAmendmentBundles);
+      if (list.length === 0) continue;
+      map[row.id] = list.map(
+        ({ created_at, entry }) =>
+          `${formatDateTimeShort24hFr(created_at)} · ${summarizeSupplyAmendmentEntry(entry)}`
+      );
+    }
+    return map;
+  }, [items, supplyAmendmentBundles]);
+
   let hardStopMotif: string | null = null;
   if (request && pharmacistRequestIsHardStopped(request.status)) {
     for (let i = dossierHistoryTimeline.length - 1; i >= 0; i--) {
@@ -2585,11 +2643,7 @@ export default function PharmacienDemandeDetailPage() {
 
   let canCompleteCounter = false;
   let counterClosurePendingTracked = 0;
-  if (
-    request &&
-    isProduct &&
-    (request.status === "confirmed" || request.status === "treated")
-  ) {
+  if (request && isProduct && request.status === "treated") {
     const selectedLines = items.filter((i) => i.is_selected_by_patient);
     const tracked = selectedLines.filter((i) => !i.withdrawn_after_confirm);
     const pickedPersisted = tracked.filter((i) => (i.counter_outcome ?? "unset") === "picked_up").length;
@@ -2644,12 +2698,20 @@ export default function PharmacienDemandeDetailPage() {
     request.status === "partially_collected" ||
     request.status === "fully_collected";
 
+  const showDeclareTreatedSticky =
+    isProduct &&
+    request.status === "confirmed" &&
+    !respondedFrozenView &&
+    declarationTreatedEligible &&
+    canManageSupply;
+
   return (
     <PageShell
       maxWidthClass="max-w-3xl"
       className={clsx(
         "space-y-2 sm:space-y-3",
-        canManageResponded && respondedEditMode && request?.status === "responded" && "pb-28 sm:pb-24"
+        canManageResponded && respondedEditMode && request?.status === "responded" && "pb-28 sm:pb-24",
+        showDeclareTreatedSticky && "pb-24 sm:pb-[5.5rem]"
       )}
     >
       <Link href="/dashboard/pharmacien/demandes" className="inline-block text-xs font-medium text-sky-800 underline">
@@ -2702,7 +2764,7 @@ export default function PharmacienDemandeDetailPage() {
                   ? "border-sky-400/85 bg-sky-100 text-sky-950 ring-1 ring-sky-200/80"
                   : request.status === "responded"
                     ? "border-amber-300/95 bg-amber-50 text-amber-950"
-                    : ["confirmed", "treated", "completed", "in_progress_virtual"].includes(request.status)
+                    : ["confirmed", "treated", "completed"].includes(request.status)
                       ? "border-teal-400/80 bg-teal-50 text-teal-950"
                       : "border-primary/35 bg-primary/10 text-primary"
               )}
@@ -2892,12 +2954,16 @@ export default function PharmacienDemandeDetailPage() {
               {["confirmed", "treated", "completed"].includes(request.status) ? (
                 <div className="mt-1 flex flex-wrap gap-1 text-[9px] text-muted-foreground">
                   <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">Sél. {selectedLinesCount}</span>
-                  <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">
-                    Attente comptoir {pendingCounterCount}
-                  </span>
-                  <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">
-                    Récp. {pickedUpCount}
-                  </span>
+                  {request.status === "treated" || request.status === "completed" ? (
+                    <>
+                      <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">
+                        Attente comptoir {pendingCounterCount}
+                      </span>
+                      <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">
+                        Récp. {pickedUpCount}
+                      </span>
+                    </>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -2922,10 +2988,7 @@ export default function PharmacienDemandeDetailPage() {
                 (request.status === "confirmed" ||
                   request.status === "treated" ||
                   request.status === "completed");
-              const showInlineCounter =
-                request.status === "completed" ||
-                request.status === "treated" ||
-                request.status === "confirmed";
+              const showInlineCounter = request.status === "completed" || request.status === "treated";
               const outcomeSelectDisabled =
                 request.status === "completed" ||
                 counterBusyId === row.id ||
@@ -3349,6 +3412,7 @@ export default function PharmacienDemandeDetailPage() {
                       }
                       expandedEditor={expandedEditor}
                       treatedCounterSlot={treatedCounterSlot}
+                      amendmentTraceLines={supplyAmendmentTraceLinesByItemId[row.id]}
                       menuOpen={supplyMenuRowId === row.id}
                       onMenuOpenChange={(open) => setSupplyMenuRowId(open ? row.id : null)}
                       onMenuModify={() => {
@@ -4370,23 +4434,6 @@ export default function PharmacienDemandeDetailPage() {
                     >
                       {busy ? "Enregistrement…" : "Enregistrer les modifications"}
                     </button>
-                    {request.status === "confirmed" &&
-                    declarationTreatedEligible &&
-                    request.request_type === "product_request" ? (
-                      <button
-                        type="button"
-                        disabled={declareTreatedBusy}
-                        onClick={() => void runDeclareRequestTreated()}
-                        title="Enregistrez d’abord les lignes si besoin, puis validez : le patient passe au suivi comptoir."
-                        className="inline-flex h-11 min-h-11 shrink-0 items-center justify-center rounded-xl border border-cyan-500/95 bg-white px-5 text-center text-sm font-semibold leading-tight text-cyan-950 shadow-sm transition hover:bg-cyan-50 disabled:opacity-50 sm:max-w-[220px] sm:text-[13px]"
-                      >
-                        {declareTreatedBusy ? (
-                          "Validation…"
-                        ) : (
-                          <span className="block whitespace-nowrap">Préparation terminée — comptoir</span>
-                        )}
-                      </button>
-                    ) : null}
                   </div>
                 </div>
               ) : null}
@@ -4394,7 +4441,7 @@ export default function PharmacienDemandeDetailPage() {
           ) : !respondedFrozenView ? (
             <p className="mt-3 rounded-md border border-border bg-muted/30 p-2 text-[11px] text-muted-foreground">
               {request.status === "confirmed"
-                ? "Passage dossier après validation : réservations / commandes sur chaque ligne retenue, puis « Préparation terminée » pour activer le comptoir."
+                ? "Réservations et commandes sur chaque ligne retenue : enregistrez, puis déclarez la demande traitée (bouton en bas d’écran) pour ouvrir le suivi comptoir."
                 : request.status === "treated"
                   ? "Déclarez les retraits au comptoir puis clôturer quand tous les événements du comptoir sont renseignés."
                   : request.status === "completed"
@@ -4403,8 +4450,7 @@ export default function PharmacienDemandeDetailPage() {
             </p>
           ) : null}
 
-          {(request.status === "confirmed" || request.status === "treated") &&
-          items.length > 0 ? (
+          {(request.status === "treated" || request.status === "completed") && items.length > 0 ? (
             <section className="mt-2">
               <button
                 type="button"
@@ -4746,6 +4792,25 @@ export default function PharmacienDemandeDetailPage() {
         </div>
       ) : null}
 
+      {showDeclareTreatedSticky ? (
+        <div className="fixed inset-x-0 bottom-0 z-[10050] border-t border-cyan-500/35 bg-background/95 px-3 py-2.5 shadow-[0_-6px_28px_rgba(15,23,42,0.12)] backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          <div className="mx-auto flex max-w-3xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <p className="text-center text-[11px] leading-snug text-muted-foreground sm:flex-1 sm:text-left">
+              Toutes les lignes retenues sont à jour (réservé / commandé selon le cas). Déclarez la demande traitée pour
+              activer le suivi au comptoir côté patient.
+            </p>
+            <button
+              type="button"
+              disabled={declareTreatedBusy}
+              onClick={() => void runDeclareRequestTreated()}
+              className="inline-flex h-11 w-full shrink-0 items-center justify-center rounded-xl bg-cyan-600 px-5 text-sm font-bold text-white shadow-md transition hover:bg-cyan-700 disabled:opacity-50 sm:w-auto sm:min-w-[200px]"
+            >
+              {declareTreatedBusy ? "En cours…" : "Déclarer la demande traitée"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <PharmacistSupplyAmendmentConfirmModal
         open={supplyConfirmOpen}
         onClose={() => {
@@ -4756,15 +4821,25 @@ export default function PharmacienDemandeDetailPage() {
         heading={
           supplyConfirmPending?.kind === "unlock_modify"
             ? "Autoriser la modification de la ligne"
-            : "Ajouter un produit après validation"
+            : supplyConfirmPending?.kind === "remove_proposed_line"
+              ? "Retirer la proposition officine"
+              : "Ajouter un produit après validation"
         }
         intro={
           supplyConfirmPending?.kind === "unlock_modify"
             ? "Le canal et la précision optionnelle sont enregistrés pour le patient."
-            : "Indiquez comment le patient a donné son accord."
+            : supplyConfirmPending?.kind === "remove_proposed_line"
+              ? "Le retrait est journalisé pour le patient avec le canal d’accord."
+              : "Indiquez comment le patient a donné son accord."
         }
         blocks={supplyConfirmBlocks}
-        confirmLabel={supplyConfirmPending?.kind === "add_line" ? "Valider et enregistrer" : "Valider"}
+        confirmLabel={
+          supplyConfirmPending?.kind === "add_line"
+            ? "Valider et enregistrer"
+            : supplyConfirmPending?.kind === "remove_proposed_line"
+              ? "Enregistrer et retirer"
+              : "Valider"
+        }
         busy={supplyConfirmBusy}
         onConfirm={(fills) => void applySupplyModalConfirm(fills)}
       />

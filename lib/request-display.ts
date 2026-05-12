@@ -8,7 +8,7 @@ export const requestStatusFr: Record<string, string> = {
   /** @deprecated Ancien statut DB ; conservé pour l’historique. */
   processing: "En préparation officine (historique)",
   treated: "Traitée",
-  in_progress_virtual: "En préparation",
+  in_progress_virtual: "Suivi résa. / commande (affichage historique)",
   completed: "Clôturée",
   cancelled: "Annulée",
   abandoned: "Abandonnée",
@@ -22,7 +22,7 @@ export function requestStatusShortFr(status: string): string {
   return requestStatusFr[status] ?? status;
 }
 
-/** Côté officine : `confirmed` = validé par le patient ; suivi réservation/commande via `in_progress_virtual` jusqu’à `treated`. */
+/** Côté officine : `confirmed` = validé par le patient jusqu’à déclaration `treated` ; le statut virtuel `in_progress_virtual` n’est plus utilisé dans les hubs. */
 export function requestStatusShortFrPharmacien(status: string): string {
   if (status === "confirmed") return "Validée client";
   if (status === "responded") return "Répondue - attente client";
@@ -51,14 +51,9 @@ export const patientDashboardSections: {
   {
     id: "confirmed",
     title: "Confirmée",
-    description: "Tu as validé ; la pharmacie n’a pas encore déclaré la préparation terminée (suivi comptoir).",
+    description:
+      "Tu as validé ; la pharmacie enregistre réservations et commandes sur les lignes retenues, puis déclare le dossier traité avant le suivi comptoir.",
     statuses: ["confirmed"],
-  },
-  {
-    id: "supply_processing",
-    title: "En traitement officine",
-    description: "Réservation ou commande en cours après ta validation (avant ouverture du comptoir).",
-    statuses: ["in_progress_virtual"],
   },
   {
     id: "treated_pickup",
@@ -114,14 +109,9 @@ export const pharmacistDashboardSections: {
   {
     id: "confirmed",
     title: "Validée client",
-    description: "Aucune saisie « réservé / commandé » sur les lignes retenues, ou préparation pas encore validée pour le comptoir.",
+    description:
+      "Dossier validé côté patient : saisie réservé / commandé et ajustements jusqu’à déclaration « traitée » par votre officine.",
     statuses: ["confirmed"],
-  },
-  {
-    id: "supply_processing_ph",
-    title: "Suivi résa. / commande",
-    description: "Réservations, commandes ou ajustements après validation ; dossier encore au statut « validé client ».",
-    statuses: ["in_progress_virtual"],
   },
   {
     id: "treated_pickup_ph",
@@ -195,7 +185,7 @@ export function requestStatusBadgeClass(status: string): string {
     case "treated":
       return "bg-cyan-100 text-cyan-950 ring-1 ring-cyan-200/80";
     case "in_progress_virtual":
-      return "bg-indigo-100 text-indigo-950 ring-1 ring-indigo-200/80";
+      return "bg-violet-100 text-violet-950 ring-1 ring-violet-200/80";
     case "completed":
     case "partially_collected":
     case "fully_collected":

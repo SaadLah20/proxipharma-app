@@ -131,12 +131,7 @@ export function PatientDemandeCard({
   const items = (Array.isArray(itemsRaw) ? itemsRaw : []) as PatientRequestItemRow[];
   const summary = summarizeRequestForPatientCard(items.length ? items : null, row.status);
   const refVisuel = displayRequestPublicRef(row);
-  const cardStatus =
-    row.status === "treated"
-      ? "treated"
-      : row.status === "confirmed" && summary.hasExecutionProgress
-        ? "in_progress_virtual"
-        : row.status;
+  const cardStatus = row.status;
 
   if (variant === "list") {
     return (
@@ -231,12 +226,7 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
     (l) => l.is_selected_by_patient === true && (l.post_confirm_fulfillment ?? "unset") === "arrived_reserved"
   ).length;
   const hasFulfillmentProgress = nReserved + nOrdered + nArrived > 0;
-  const statusForCard =
-    row.status === "treated"
-      ? "treated"
-      : hasFulfillmentProgress && row.status === "confirmed"
-        ? "in_progress_virtual"
-        : row.status;
+  const statusForCard = row.status;
   const cref = row.patient_ref?.trim();
 
   return (
@@ -267,7 +257,7 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
               </span>
               <RequestStatusBadge status={statusForCard} role="pharmacien" />
             </div>
-            {statusForCard === "in_progress_virtual" ? (
+            {hasFulfillmentProgress && row.status === "confirmed" ? (
               <p className="text-[10px] font-medium leading-snug text-muted-foreground">
                 Réservation / commande : {nReserved} réservé(s), {nOrdered} commandé(s)
                 {nArrived > 0 ? `, ${nArrived} reçu(s) en officine` : ""}.
