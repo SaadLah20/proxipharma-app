@@ -468,11 +468,7 @@ type PublishConfirmRowMeta = {
   alts: AltRowDb[];
 };
 
-function buildPublishConfirmRowMeta(
-  r: ItemRow,
-  fd: ItemDraft,
-  altQtyDrafts: Record<string, string>
-): PublishConfirmRowMeta {
+function buildPublishConfirmRowMeta(r: ItemRow, fd: ItemDraft): PublishConfirmRowMeta {
   const proposed = isPharmacistProposedRow(r);
   let inferredKey = fd.availability_status;
   try {
@@ -962,8 +958,8 @@ export default function PharmacienDemandeDetailPage() {
   const [respondedEditMode, setRespondedEditMode] = useState(false);
   /** Mise à jour immédiate du commentaire officine sur une ligne (vue « réponse publiée »). */
   const [replyPersistBusyRowId, setReplyPersistBusyRowId] = useState<string | null>(null);
-  const [lineConvoOpenId, setLineConvoOpenId] = useState<string | null>(null);
-  const lineConvoAnchorRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  /** Ancrage capturé au clic (pas de lecture de ref pendant le render). */
+  const [lineConvo, setLineConvo] = useState<{ rowId: string; anchorEl: HTMLDivElement } | null>(null);
   /** Lignes proposées / alternatives encore non écrites en base tant que réponse pas publiée ou enregistrée (hors `confirmed`). */
   const [pendingProposalRows, setPendingProposalRows] = useState<ItemRow[]>([]);
   const [pendingAlternatives, setPendingAlternatives] = useState<PendingAlternativeEntry[]>([]);
@@ -2463,14 +2459,14 @@ export default function PharmacienDemandeDetailPage() {
     for (const r of displayRows) {
       const fd = draft[r.id];
       if (!fd) continue;
-      all.push(buildPublishConfirmRowMeta(r, fd, altQtyDrafts));
+      all.push(buildPublishConfirmRowMeta(r, fd));
     }
     return {
       ready: all.filter((m) => publishConfirmModalGroup(m.inferredKey) === "ready"),
       order: all.filter((m) => publishConfirmModalGroup(m.inferredKey) === "order"),
       blocked: all.filter((m) => publishConfirmModalGroup(m.inferredKey) === "blocked"),
     };
-  }, [displayRows, draft, altQtyDrafts]);
+  }, [displayRows, draft]);
 
   const pharmaHistoryBlocks = useMemo(() => {
     if (!pharmaHistoryRowId || !request) return [];
@@ -3349,10 +3345,7 @@ export default function PharmacienDemandeDetailPage() {
                         </button>
                       ) : null}
                       <div
-                        ref={(el) => {
-                          if (el) lineConvoAnchorRefs.current.set(row.id, el);
-                          else lineConvoAnchorRefs.current.delete(row.id);
-                        }}
+                        data-pharmacist-line-convo-anchor=""
                         className={clsx(
                           "relative h-[4.75rem] w-full overflow-hidden rounded-xl border bg-white shadow-sm sm:h-[5.125rem]",
                           isProposedLine ? "border-violet-200/80 ring-1 ring-violet-200/35" : "border-slate-200/75"
@@ -3374,13 +3367,20 @@ export default function PharmacienDemandeDetailPage() {
                               type="button"
                               className={lineConversationChipButtonClass(
                                 lineConversationVisual(patientLineCc, f.pharmacist_comment ?? ""),
-                                { open: lineConvoOpenId === row.id, disabled: busy }
+                                { open: lineConvo?.rowId === row.id, disabled: busy }
                               )}
                               aria-label="Message patient et note officine"
                               title="Message patient / note officine"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setLineConvoOpenId((cur) => (cur === row.id ? null : row.id));
+                                setLineConvo((prev) => {
+                                  if (prev?.rowId === row.id) return null;
+                                  const anchor = (e.currentTarget as HTMLElement).closest<HTMLDivElement>(
+                                    "[data-pharmacist-line-convo-anchor]"
+                                  );
+                                  if (!anchor) return prev;
+                                  return { rowId: row.id, anchorEl: anchor };
+                                });
                               }}
                             >
                               <MessageCircle className="size-[15px]" strokeWidth={2.2} aria-hidden />
@@ -3593,12 +3593,14 @@ export default function PharmacienDemandeDetailPage() {
                     </div>
                   </div>
 
-                  {lineConvoOpenId === row.id ? (
+                  {lineConvo?.rowId === row.id ? (
                     <PharmacistLineConversationPopover
                       lineId={row.id}
-                      anchorEl={lineConvoAnchorRefs.current.get(row.id) ?? null}
+                      anchorEl={lineConvo.anchorEl}
                       open
-                      onOpenChange={(o) => setLineConvoOpenId(o ? row.id : null)}
+                      onOpenChange={(o) => {
+                        if (!o) setLineConvo(null);
+                      }}
                       patientText={patientLineCc}
                       pharmacistDraft={f.pharmacist_comment}
                       onPharmacistDraftChange={(text) => setField(row.id, "pharmacist_comment", text)}
@@ -3607,7 +3609,7 @@ export default function PharmacienDemandeDetailPage() {
                       persistBusy={replyPersistBusyRowId === row.id}
                       onPersist={async () => {
                         await saveFrozenPharmacistLineReaction(row.id, f.pharmacist_comment);
-                        setLineConvoOpenId(null);
+                        setLineConvo(null);
                       }}
                     />
                   ) : null}

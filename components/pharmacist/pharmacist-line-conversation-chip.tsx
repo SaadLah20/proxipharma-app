@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { clsx } from "clsx";
 import { X } from "lucide-react";
@@ -35,6 +35,21 @@ export function lineConversationChipButtonClass(
   return clsx(base, ring, opts.open && "ring-offset-2 ring-offset-background", opts.disabled && "opacity-40");
 }
 
+function computePopoverBox(anchor: HTMLElement) {
+  const r = anchor.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.visualViewport?.height ?? window.innerHeight;
+  const width = Math.min(22 * 16, Math.max(17 * 16, vw - 20));
+  let left = r.right - width;
+  left = Math.max(10, Math.min(left, vw - width - 10));
+  let top = r.bottom + 8;
+  const maxH = Math.min(vh * 0.72, 22 * 16);
+  if (top + maxH > vh - 8) {
+    top = Math.max(8, r.top - maxH - 8);
+  }
+  return { top, left, width, maxH };
+}
+
 type PopoverProps = {
   lineId: string;
   anchorEl: HTMLElement | null;
@@ -64,43 +79,29 @@ export function PharmacistLineConversationPopover({
 }: PopoverProps) {
   const uid = useId();
   const popoverRef = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState({ top: 0, left: 0, width: 300, maxH: 360 });
+  const [layoutTick, setLayoutTick] = useState(0);
 
-  const reposition = useCallback(() => {
-    if (!open || !anchorEl) return;
-    const r = anchorEl.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.visualViewport?.height ?? window.innerHeight;
-    const width = Math.min(22 * 16, Math.max(17 * 16, vw - 20));
-    let left = r.right - width;
-    left = Math.max(10, Math.min(left, vw - width - 10));
-    let top = r.bottom + 8;
-    const maxH = Math.min(vh * 0.72, 22 * 16);
-    if (top + maxH > vh - 8) {
-      top = Math.max(8, r.top - maxH - 8);
-    }
-    setBox({ top, left, width, maxH });
-  }, [open, anchorEl]);
-
-  useLayoutEffect(() => {
-    reposition();
-  }, [reposition, open, anchorEl]);
+  const box = useMemo(() => {
+    void layoutTick;
+    if (!open || !anchorEl) return { top: 0, left: 0, width: 300, maxH: 360 };
+    return computePopoverBox(anchorEl);
+  }, [open, anchorEl, layoutTick]);
 
   useEffect(() => {
-    if (!open) return undefined;
-    const onWin = () => reposition();
-    window.addEventListener("resize", onWin);
-    window.addEventListener("scroll", onWin, true);
+    if (!open || !anchorEl) return undefined;
+    const bump = () => setLayoutTick((t) => t + 1);
+    window.addEventListener("resize", bump);
+    window.addEventListener("scroll", bump, true);
     const vv = window.visualViewport;
-    vv?.addEventListener("resize", onWin);
-    vv?.addEventListener("scroll", onWin);
+    vv?.addEventListener("resize", bump);
+    vv?.addEventListener("scroll", bump);
     return () => {
-      window.removeEventListener("resize", onWin);
-      window.removeEventListener("scroll", onWin, true);
-      vv?.removeEventListener("resize", onWin);
-      vv?.removeEventListener("scroll", onWin);
+      window.removeEventListener("resize", bump);
+      window.removeEventListener("scroll", bump, true);
+      vv?.removeEventListener("resize", bump);
+      vv?.removeEventListener("scroll", bump);
     };
-  }, [open, reposition]);
+  }, [open, anchorEl]);
 
   useEffect(() => {
     if (!open) return undefined;
