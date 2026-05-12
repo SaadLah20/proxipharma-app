@@ -21,6 +21,7 @@ export function PharmacistSupplyCompactLine({
   canMarkReserved,
   canMarkOrdered,
   fulfillmentDraft,
+  fulfillmentActionsBusy,
   onToggleReserved,
   onToggleOrdered,
   hasModifyConsent,
@@ -36,6 +37,8 @@ export function PharmacistSupplyCompactLine({
   onMenuModify,
   onMenuWithdraw,
   onMenuHistory,
+  onMenuReintegrateToReserve,
+  horsBlocPrincipalMenu,
   withdrawDisabled,
   withdrawDisabledReason,
 }: {
@@ -54,6 +57,8 @@ export function PharmacistSupplyCompactLine({
   canMarkReserved: boolean;
   canMarkOrdered: boolean;
   fulfillmentDraft: "unset" | "reserved" | "ordered";
+  /** Enregistrement RPC réservé / commandé en cours sur cette ligne. */
+  fulfillmentActionsBusy?: boolean;
   onToggleReserved: () => void;
   onToggleOrdered: () => void;
   hasModifyConsent: boolean;
@@ -71,6 +76,9 @@ export function PharmacistSupplyCompactLine({
   onMenuModify: () => void;
   onMenuWithdraw: () => void;
   onMenuHistory: () => void;
+  /** Menu réduit : historique + réintégration vers le bloc « À réserver » (lignes hors périmètre). */
+  onMenuReintegrateToReserve?: () => void;
+  horsBlocPrincipalMenu?: boolean;
   withdrawDisabled: boolean;
   withdrawDisabledReason?: string | null;
 }) {
@@ -78,6 +86,8 @@ export function PharmacistSupplyCompactLine({
     "inline-flex min-h-8 items-center justify-center rounded-md border px-2 text-[10px] font-semibold shadow-sm transition disabled:opacity-45";
   const pillActive = "border-emerald-600 bg-emerald-600 text-white";
   const pillIdle = "border-border bg-background text-foreground hover:bg-muted/50";
+
+  const menuHorsBloc = Boolean(horsBlocPrincipalMenu && onMenuReintegrateToReserve);
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -143,7 +153,9 @@ export function PharmacistSupplyCompactLine({
               <button
                 ref={anchorRef}
                 type="button"
-                disabled={busy || supplyConfirmBusy || lineLockedTrace}
+                disabled={
+                  busy || supplyConfirmBusy || fulfillmentActionsBusy || (!menuHorsBloc && lineLockedTrace)
+                }
                 aria-expanded={menuOpen}
                 aria-haspopup="menu"
                 aria-label="Actions ligne"
@@ -160,53 +172,88 @@ export function PharmacistSupplyCompactLine({
                       style={{ top: menuPos.top, left: menuPos.left }}
                       role="menu"
                     >
-                      {selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
+                      {menuHorsBloc ? (
+                        <>
+                          <li role="none">
+                            <button
+                              type="button"
+                              role="menuitem"
+                              disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+                              className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
+                              onClick={() => {
+                                onMenuOpenChange(false);
+                                onMenuHistory();
+                              }}
+                            >
+                              Historique produit
+                            </button>
+                          </li>
                         <li role="none">
                           <button
                             type="button"
                             role="menuitem"
-                            disabled={busy || supplyConfirmBusy}
+                            disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
                             className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
                             onClick={() => {
                               onMenuOpenChange(false);
-                              onMenuModify();
+                              onMenuReintegrateToReserve?.();
                             }}
                           >
-                            {hasModifyConsent ? "Modifier la ligne…" : "Modifier (accord patient)…"}
+                            Réintégrer à « À réserver »…
                           </button>
                         </li>
-                      ) : null}
-                      {selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
-                        <li role="none">
-                          <button
-                            type="button"
-                            role="menuitem"
-                            disabled={busy || supplyConfirmBusy || withdrawDisabled}
-                            title={withdrawDisabled ? withdrawDisabledReason ?? undefined : undefined}
-                            className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
-                            onClick={() => {
-                              onMenuOpenChange(false);
-                              onMenuWithdraw();
-                            }}
-                          >
-                            Écarter la ligne…
-                          </button>
-                        </li>
-                      ) : null}
-                      <li role="none">
-                        <button
-                          type="button"
-                          role="menuitem"
-                          disabled={busy || supplyConfirmBusy}
-                          className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
-                          onClick={() => {
-                            onMenuOpenChange(false);
-                            onMenuHistory();
-                          }}
-                        >
-                          Historique produit
-                        </button>
-                      </li>
+                        </>
+                      ) : (
+                        <>
+                          {selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
+                            <li role="none">
+                              <button
+                                type="button"
+                                role="menuitem"
+                                disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+                                className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
+                                onClick={() => {
+                                  onMenuOpenChange(false);
+                                  onMenuModify();
+                                }}
+                              >
+                                {hasModifyConsent ? "Modifier la ligne…" : "Modifier (accord patient)…"}
+                              </button>
+                            </li>
+                          ) : null}
+                          {selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
+                            <li role="none">
+                              <button
+                                type="button"
+                                role="menuitem"
+                                disabled={busy || supplyConfirmBusy || withdrawDisabled}
+                                title={withdrawDisabled ? withdrawDisabledReason ?? undefined : undefined}
+                                className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
+                                onClick={() => {
+                                  onMenuOpenChange(false);
+                                  onMenuWithdraw();
+                                }}
+                              >
+                                Écarter la ligne…
+                              </button>
+                            </li>
+                          ) : null}
+                          <li role="none">
+                            <button
+                              type="button"
+                              role="menuitem"
+                              disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+                              className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
+                              onClick={() => {
+                                onMenuOpenChange(false);
+                                onMenuHistory();
+                              }}
+                            >
+                              Historique produit
+                            </button>
+                          </li>
+                        </>
+                      )}
                     </ul>,
                     document.body
                   )
@@ -237,7 +284,7 @@ export function PharmacistSupplyCompactLine({
                 {(effAvailRow === "available" || effAvailRow === "partially_available") && canMarkReserved ? (
                   <button
                     type="button"
-                    disabled={busy || supplyConfirmBusy || lineCounterLocked}
+                    disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy}
                     onClick={onToggleReserved}
                     className={clsx(pill, fulfillmentDraft === "reserved" ? pillActive : pillIdle)}
                   >
@@ -247,7 +294,7 @@ export function PharmacistSupplyCompactLine({
                 {effAvailRow === "to_order" && canMarkOrdered ? (
                   <button
                     type="button"
-                    disabled={busy || supplyConfirmBusy || lineCounterLocked}
+                    disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy}
                     onClick={onToggleOrdered}
                     className={clsx(pill, fulfillmentDraft === "ordered" ? pillActive : pillIdle)}
                   >
