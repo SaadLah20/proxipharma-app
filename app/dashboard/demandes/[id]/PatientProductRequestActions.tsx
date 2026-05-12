@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -1494,6 +1494,8 @@ export function PatientProductRequestActions({
   const [confirmPatientNote, setConfirmPatientNote] = useState(() => initialPatientNote ?? "");
   const [confirmPatientNoteEditing, setConfirmPatientNoteEditing] = useState(false);
   const [confirmPatientNoteBackup, setConfirmPatientNoteBackup] = useState("");
+  const confirmPatientNoteTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const patientReplyDetailsRef = useRef<HTMLDetailsElement>(null);
 
   /** Resubmit draft — idem */
   const [noteDraft, setNoteDraft] = useState(() => initialPatientNote ?? "");
@@ -1742,6 +1744,14 @@ export function PatientProductRequestActions({
   }, [items, sel, visitWin, resolvedVisitDate, visitDate, visitTimeComposed]);
 
   useEffect(() => {
+    if (!confirmPatientNoteEditing) return;
+    const id = window.requestAnimationFrame(() => {
+      confirmPatientNoteTextareaRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [confirmPatientNoteEditing]);
+
+  useEffect(() => {
     if (!confirmReviewOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeConfirmReview();
@@ -1975,76 +1985,120 @@ export function PatientProductRequestActions({
             </details>
           </div>
 
-          {pharmacistGlobalComment?.trim() ? (
-            <div className="rounded-xl border-2 border-emerald-300/70 bg-gradient-to-br from-emerald-50/95 via-white to-teal-50/30 px-3 py-3 shadow-md ring-1 ring-emerald-200/50 sm:px-3.5 sm:py-3.5">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-950">Message de la pharmacie</p>
-                <MessageSquare className="size-4 shrink-0 text-emerald-700/85" aria-hidden />
-              </div>
-              <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-emerald-950 sm:text-[14px]">
-                {pharmacistGlobalComment.trim()}
-              </p>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 px-3 py-2.5 text-[12px] italic text-emerald-900/80">
-              La pharmacie n&apos;a pas laissé de message général sur cette réponse.
-            </div>
-          )}
-
-          <div className="rounded-xl border-2 border-sky-200/85 bg-gradient-to-br from-sky-50/90 to-white px-3 py-2.5 shadow-md ring-1 ring-sky-200/45 sm:px-3.5 sm:py-3">
-            <div className="flex flex-wrap items-end justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-sky-950">Ton message pour la pharmacie</p>
-                <p className="mt-0.5 text-[9px] leading-snug text-sky-900/80">Optionnel · enregistré seulement quand tu valides la demande.</p>
-              </div>
-              {confirmPatientNoteEditing ? (
-                <button
-                  type="button"
-                  className="shrink-0 rounded-lg border border-sky-400/80 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-sky-950 shadow-sm transition hover:bg-sky-100/80"
-                  onClick={() => {
-                    setConfirmPatientNote(confirmPatientNoteBackup);
-                    setConfirmPatientNoteEditing(false);
-                  }}
-                >
-                  Annuler
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="shrink-0 rounded-lg border border-sky-600 bg-sky-700 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-sky-800"
-                  onClick={() => {
-                    setConfirmPatientNoteBackup(confirmPatientNote);
-                    setConfirmPatientNoteEditing(true);
-                  }}
-                >
-                  Écrire un nouveau message
-                </button>
-              )}
-            </div>
-            {confirmPatientNoteEditing ? (
+          {(() => {
+            const hasPharmaGlobal = Boolean(pharmacistGlobalComment?.trim());
+            const hasPatientMsg = Boolean(confirmPatientNote.trim());
+            return (
               <>
-                <textarea
-                  value={confirmPatientNote}
-                  onChange={(e) => setConfirmPatientNote(e.target.value.slice(0, PATIENT_GENERAL_NOTE_MAX))}
-                  rows={4}
-                  maxLength={PATIENT_GENERAL_NOTE_MAX}
-                  placeholder="Ex. précision sur le passage…"
-                  className="mt-2 w-full resize-y rounded-lg border-2 border-sky-300/80 bg-white px-3 py-2.5 text-[14px] leading-relaxed text-foreground placeholder:text-muted-foreground/70 [touch-action:manipulation]"
-                />
-                <p className="mt-1 text-right text-[10px] text-sky-800/90 tabular-nums">
-                  {confirmPatientNote.length}/{PATIENT_GENERAL_NOTE_MAX}
-                </p>
+                <details className="group rounded-xl border-2 border-emerald-300/70 bg-gradient-to-br from-emerald-50/95 via-white to-teal-50/30 shadow-md ring-1 ring-emerald-200/50 sm:rounded-xl">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 marker:content-none sm:px-3.5 [&::-webkit-details-marker]:hidden">
+                    <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-950">Message de la pharmacie</span>
+                      <span className="text-[9px] font-semibold text-emerald-800/90">
+                        {hasPharmaGlobal ? "· message présent" : "· vide"}
+                      </span>
+                    </span>
+                    <ChevronDown
+                      className="size-4 shrink-0 text-emerald-700 transition-transform group-open:rotate-180"
+                      aria-hidden
+                    />
+                  </summary>
+                  <div className="border-t border-emerald-200/60 px-3 pb-3 pt-2 sm:px-3.5">
+                    {hasPharmaGlobal ? (
+                      <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-emerald-950 sm:text-[14px]">
+                        {pharmacistGlobalComment!.trim()}
+                      </p>
+                    ) : (
+                      <p className="text-[12px] italic leading-relaxed text-emerald-900/75">
+                        La pharmacie n&apos;a pas laissé de message général sur cette réponse.
+                      </p>
+                    )}
+                  </div>
+                </details>
+
+                <details
+                  ref={patientReplyDetailsRef}
+                  className="group rounded-xl border-2 border-sky-200/85 bg-gradient-to-br from-sky-50/90 to-white shadow-md ring-1 ring-sky-200/45 sm:rounded-xl"
+                >
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 marker:content-none sm:px-3.5 [&::-webkit-details-marker]:hidden">
+                    <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-sky-950">Ton message pour la pharmacie</span>
+                      <span className="text-[9px] font-semibold text-sky-800/90">
+                        {confirmPatientNoteEditing
+                          ? "· saisie en cours"
+                          : hasPatientMsg
+                            ? "· message présent"
+                            : "· vide"}
+                      </span>
+                    </span>
+                    <ChevronDown
+                      className="size-4 shrink-0 text-sky-700 transition-transform group-open:rotate-180"
+                      aria-hidden
+                    />
+                  </summary>
+                  <div className="border-t border-sky-200/70 px-3 pb-3 pt-2 sm:px-3.5">
+                    <p className="text-[9px] leading-snug text-sky-900/80">
+                      Optionnel · enregistré seulement quand tu valides la demande.
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-end justify-end gap-2">
+                      {confirmPatientNoteEditing ? (
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-lg border border-sky-400/80 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-sky-950 shadow-sm transition hover:bg-sky-100/80"
+                          onClick={() => {
+                            setConfirmPatientNote(confirmPatientNoteBackup);
+                            setConfirmPatientNoteEditing(false);
+                          }}
+                        >
+                          Annuler
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-lg border border-sky-600 bg-sky-700 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-sky-800"
+                          onClick={() => {
+                            setConfirmPatientNoteBackup(confirmPatientNote);
+                            setConfirmPatientNote("");
+                            setConfirmPatientNoteEditing(true);
+                            const el = patientReplyDetailsRef.current;
+                            if (el) el.open = true;
+                          }}
+                        >
+                          Écrire un nouveau message
+                        </button>
+                      )}
+                    </div>
+                    {confirmPatientNoteEditing ? (
+                      <>
+                        <textarea
+                          ref={confirmPatientNoteTextareaRef}
+                          value={confirmPatientNote}
+                          onChange={(e) => setConfirmPatientNote(e.target.value.slice(0, PATIENT_GENERAL_NOTE_MAX))}
+                          rows={4}
+                          maxLength={PATIENT_GENERAL_NOTE_MAX}
+                          placeholder="Ex. précision sur le passage…"
+                          className="mt-2 w-full resize-y rounded-lg border-2 border-sky-300/80 bg-white px-3 py-2.5 text-[14px] leading-relaxed text-foreground placeholder:text-muted-foreground/70 [touch-action:manipulation]"
+                          autoCapitalize="sentences"
+                          enterKeyHint="done"
+                        />
+                        <p className="mt-1 text-right text-[10px] text-sky-800/90 tabular-nums">
+                          {confirmPatientNote.length}/{PATIENT_GENERAL_NOTE_MAX}
+                        </p>
+                      </>
+                    ) : (
+                      <div className="mt-2 min-h-[4rem] whitespace-pre-wrap rounded-lg border border-sky-200/80 bg-white/95 px-3 py-2.5 text-[13px] leading-relaxed text-foreground sm:text-sm">
+                        {hasPatientMsg ? (
+                          confirmPatientNote.trim()
+                        ) : (
+                          <span className="text-muted-foreground italic">Aucun message pour l&apos;instant.</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </details>
               </>
-            ) : (
-              <div className="mt-2 min-h-[5rem] whitespace-pre-wrap rounded-lg border border-sky-200/80 bg-white/95 px-3 py-2.5 text-[13px] leading-relaxed text-foreground sm:text-sm">
-                {confirmPatientNote.trim() ? (
-                  confirmPatientNote.trim()
-                ) : (
-                  <span className="text-muted-foreground italic">Aucun message pour l&apos;instant.</span>
-                )}
-              </div>
-            )}
-          </div>
+            );
+          })()}
 
           {items.length > 0 ? (
             <section className="space-y-2">
