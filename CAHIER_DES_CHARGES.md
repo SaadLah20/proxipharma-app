@@ -334,6 +334,16 @@ Statuts retenus v1:
 
 ---
 
+### Session 2026-05-12 — pharmacien supply `treated`, modal canal instantané, réintégrations, notif patient
+
+**Objectif** : dossier **`treated`** — pastilles **réservé / commandé / reçu officine** masquées sur la vue compacte ; **comptoir** via pastille **Marquer récupéré** / **Repasser en attente** (RPC immédiat, plus de bloc dupliqué « résultat comptoir » sur la carte compacte) ; **figeage** réservé à **`cancelled_at_counter`** (plus de blocage sur seul **`picked_up`**) ; **Modifier** : modal **`PharmacistSupplyAmendmentConfirmModal`** en **`channel_instant`** (canal sans valeur par défaut, application au clic) ; **réintégrer** (menu ⋮ **Historique** + **Réintégrer**) pour **hors bloc**, **ligne non retenue** et **ligne écartée** (`reintegrate_unselected` / `reintegrate_withdrawn`) ; **retrait proposition officine** : **`motive_only`** (motif seul, canal stocké **`autre`** côté amendement) ; **prix** + **date indicative commande** plus visibles sur la ligne compacte ; **patient** : libellés **« Écartés après validation »** / badge **« Écarté après validation »** ; **enregistrement** : date indicative **obligatoire** si dispo **à commander** sur **`confirmed`/`treated`**.
+
+**SQL** : **`supabase/migrations/20260513_001_patient_notif_treated_counter_updates.sql`** — fonction **`_in_app_notification_patient`** : sur statut **`treated`**, raisons journal **`counter_outcome%`** ou **`pharmacist_adjustments_after_confirmation`** → titre **« Mise à jour sur votre dossier »** (évite le titre « prêt pour le comptoir » sur simple mise à jour comptoir).
+
+**Next.js** : **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**, **`components/pharmacist/pharmacist-supply-compact-line.tsx`**, **`components/pharmacist/pharmacist-supply-amendment-confirm-modal.tsx`**, **`app/dashboard/demandes/[id]/PatientProductRequestActions.tsx`**.
+
+---
+
 ### Session 2026-05-09 — patient compact après validation + pharmacien supply brouillon + comptoir simplifié + notifs + SQL `20260509_*`
 
 **Objectif** : parité mobile ; après **`confirmed`**, vue patient **lignes retenues** en cartes courtes + historique par produit ; côté officine, **une seule vague d’enregistrement** (brouillon jusqu’à **Enregistrer les modifications**), **écarter** avec canal/description dans le panneau (sans modal dédié), **comptoir** réduit à **en attente / récupéré**, **clôture** possible dès **au moins une** ligne retenue **récupérée** (confirmation si d’autres lignes en attente) ; **notifs pharmacien** sans auto-notification de l’acteur.
@@ -904,13 +914,15 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260511_001_pharmacist_in_app_notif_trim_body.sql` (corps notif in-app pharmacien allégé)
   - `supabase/migrations/20260511_002_seed_products_unsplash_photo_urls.sql` + `20260511_003_products_photo_url_backfill_by_name.sql` (photos Unsplash noms **courts** ; le **003** ne couvre pas les libellés longs du seed MAROC — voir **`20260512_001`**)
   - `supabase/migrations/20260512_001_ma_catalog_photos_and_extended_products.sql` (photos sur noms **exact** `20260503_003` + catalogue démo **`seed_ma_catalog_v2`**)
+  - `supabase/migrations/20260512_002_remove_request_processing_status.sql` (suppression statut intermédiaire **`processing`** côté app / alignements RPC — voir fichier)
+  - `supabase/migrations/20260513_001_patient_notif_treated_counter_updates.sql` (notif patient **`treated`** : titre **« Mise à jour sur votre dossier »** pour journal comptoir / ajustements supply)
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
 - A la **`responded` -> `confirmed`**, le patient peut choisir pour chaque ligne le **produit principal** ou **une alternative** proposee (`patient_chosen_alternative_id`), ou **rien** pour la ligne.
 - **Référentiel catalogue** : affichage **PPH** (`products.price_pph`) partout où le catalogue est lu sur les parcours produits lorsque renseigné ; **prix de réponse** pharmacien distingué (« Prix pharmacie » / champ `request_items.unit_price`).
 - Le client peut **modifier et renvoyer** une demande produit **avant réponse** (`submitted`|`in_review`) ou **après réponse** (`responded` uniquement pour ce flux ; en **`confirmed`** le renvoi liste est retiré côté UI — abandon possible) via RPC `patient_resubmit_product_request_after_response` → retour **`submitted`**, reset préparation pharma.
-- Le **retrait reel** au comptoir est porte par le **pharmacien**: colonne par ligne `request_items.counter_outcome` (en UI post-validé **saisie brouillon** limitée à **`unset`** / **`picked_up`** pour les lignes non figées ; valeurs legacy **`deferred_next_visit`** / **`cancelled_at_counter`** restent en base et sont affichées en lecture seule ou normalisées à l’enregistrement). **Clôture** dossier : **`pharmacist_complete_request_after_counter`** accessible dès qu’**au moins une** ligne retenue (non écartée) est **`picked_up`**, avec **confirmation** si d’autres lignes retenues ne le sont pas encore.
+- Le **retrait reel** au comptoir est porte par le **pharmacien**: colonne par ligne `request_items.counter_outcome` (UI post-validé : **`unset`** / **`picked_up`** modifiables tant que la ligne n’est pas **`cancelled_at_counter`** ; valeurs legacy **`deferred_next_visit`** / **`cancelled_at_counter`** en base ; annulation définitive **`cancelled_at_counter`** en lecture seule côté saisie). Sur dossier **`treated`**, la vue compacte pharmacien met l’accent sur la pastille comptoir (sans refaire passer par réservé/commandé). **Clôture** dossier : **`pharmacist_complete_request_after_counter`** accessible dès qu’**au moins une** ligne retenue (non écartée) est **`picked_up`**, avec **confirmation** si d’autres lignes retenues ne le sont pas encore.
 - **Après réponse** : l’app ne renseigne plus **`expires_at` +7 j** sur publication (pilote) ; l’**abandon auto 24 h** sur statut **`responded`** non confirmé est porté par le batch SQL `abandon_unconfirmed_responded_requests()` (à cron). Les **`request_items`** sont limités à **qté 1–10** et **un seul `product_id` par demande**.
 - Les statuts enum `partially_collected` / `fully_collected` restent en base mais le flux officiel livre passe par **`completed`**; `patient_mark_collected` nest plus callable par le JWT patient (obsolete).
 
@@ -1063,9 +1075,9 @@ Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre 
 
 **« On reprend ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §0.1, **§4.6**, dernier §10, §11 et §12 — jalon en cours précisé dans le message suivant (répondue, validée, en traitement, ou fermeture page pharmacien demande envoyée). Pas de nouvelles actions UI sur dossiers figés §4.6 (cancelled/abandoned/expired/completed) sauf cohérence lecture seule. »**
 
-### 13.10) Phrase de reprise (recommandée après **2026-05-09** — patient compact + pharmacien supply brouillon + `20260509_*`)
+### 13.10) Phrase de reprise (recommandée après **2026-05-12** — supply `treated`, modal canal, notif `20260513_001`)
 
-**« On reprend ProxiPharma. Lis **`CONTEXTE.md` §6**, **`CAHIER_DES_CHARGES.md` §0.1, §4.4, §4.6, **dernier §10 Journal**, §11 (migrations jusqu’à **`20260509_002`**), §12 ; branche **`fix/rls-recursion`**. Vérifie sur Supabase **`20260509_001`** et **`20260509_002`** si pas encore appliqués. Fichiers clés : **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**, **`components/pharmacist/pharmacist-supply-compact-line.tsx`**, **`PatientProductRequestActions.tsx`**, **`lib/build-patient-line-timeline-fr.ts`**, **`lib/supply-line-post-confirm.ts`**. Je te dis ensuite quoi faire. »**
+**« On reprend ProxiPharma. Lis **`CONTEXTE.md` §6**, **`CAHIER_DES_CHARGES.md` §0.1, §4.4, §4.6, **dernier §10 Journal**, §11 (migrations jusqu’à **`20260513_001`**, dont **`20260512_002`**), §12 ; branche **`fix/rls-recursion`**. Vérifie sur Supabase **`20260513_001`** (et **`20260512_002`** si pas encore appliqués). Fichiers clés : **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**, **`components/pharmacist/pharmacist-supply-compact-line.tsx`**, **`components/pharmacist/pharmacist-supply-amendment-confirm-modal.tsx`**, **`PatientProductRequestActions.tsx`**, **`lib/build-patient-line-timeline-fr.ts`**, **`lib/supply-line-post-confirm.ts`**. Je te dis ensuite quoi faire. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 

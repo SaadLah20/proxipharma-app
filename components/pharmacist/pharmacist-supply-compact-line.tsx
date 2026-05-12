@@ -28,6 +28,7 @@ export function PharmacistSupplyCompactLine({
   canShowArrivedReservedPill,
   canMarkPickedUpCounterSupply,
   onMarkPickedUpCounter,
+  counterPickupPillLabel = "Marquer récupéré (comptoir)",
   counterOutcomeBusy,
   hasModifyConsent,
   busy,
@@ -35,7 +36,7 @@ export function PharmacistSupplyCompactLine({
   lineCounterLocked,
   showExpandedEditor,
   expandedEditor,
-  treatedCounterSlot,
+  hideFulfillmentPills,
   amendmentTraceLines,
   menuOpen,
   onMenuOpenChange,
@@ -43,7 +44,7 @@ export function PharmacistSupplyCompactLine({
   onMenuWithdraw,
   onMenuHistory,
   onMenuReintegrateToReserve,
-  horsBlocPrincipalMenu,
+  reintegrateTwoItemMenu,
   withdrawDisabled,
   withdrawDisabledReason,
 }: {
@@ -69,18 +70,21 @@ export function PharmacistSupplyCompactLine({
   /** Commandé → reçu en officine, ou reçu → repasser commandé (RPC). */
   onToggleArrivedReserved: () => void;
   canShowArrivedReservedPill: boolean;
-  /** Dossier traité : pastille « récupéré comptoir » (réservé, ou commande déjà reçue). */
+  /** Dossier traité : pastille comptoir (marquer récupéré / repasser en attente). */
   canMarkPickedUpCounterSupply: boolean;
   onMarkPickedUpCounter: () => void;
+  /** Libellé de la pastille comptoir (ex. déjà récupéré → repasser en attente). */
+  counterPickupPillLabel?: string;
   counterOutcomeBusy?: boolean;
   hasModifyConsent: boolean;
   busy: boolean;
   supplyConfirmBusy: boolean;
-  /** Ligne enregistrée « récupérée » : plus d’édition ni d’écarts. */
+  /** Annulation définitive au comptoir : menu et écarts bloqués. */
   lineCounterLocked: boolean;
   showExpandedEditor: boolean;
   expandedEditor: ReactNode;
-  treatedCounterSlot: ReactNode | null;
+  /** Dossier traité : masquer réservé / commandé / reçu officine (seul le comptoir reste côté pastilles). */
+  hideFulfillmentPills?: boolean;
   /** Jalons `request_supply_amendments` liés à cette ligne (aperçu pour l’officine). */
   amendmentTraceLines?: string[] | undefined;
   menuOpen: boolean;
@@ -90,7 +94,8 @@ export function PharmacistSupplyCompactLine({
   onMenuHistory: () => void;
   /** Menu réduit : historique + réintégration vers le bloc « À réserver » (lignes hors périmètre). */
   onMenuReintegrateToReserve?: () => void;
-  horsBlocPrincipalMenu?: boolean;
+  /** Menu réduit : historique + réintégration (hors bloc, non retenu, ou après écart). */
+  reintegrateTwoItemMenu?: boolean;
   withdrawDisabled: boolean;
   withdrawDisabledReason?: string | null;
 }) {
@@ -99,7 +104,7 @@ export function PharmacistSupplyCompactLine({
   const pillActive = "border-emerald-600 bg-emerald-600 text-white";
   const pillIdle = "border-border bg-background text-foreground hover:bg-muted/50";
 
-  const menuHorsBloc = Boolean(horsBlocPrincipalMenu && onMenuReintegrateToReserve);
+  const menuReintegratePair = Boolean(reintegrateTwoItemMenu && onMenuReintegrateToReserve);
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -166,7 +171,10 @@ export function PharmacistSupplyCompactLine({
                 ref={anchorRef}
                 type="button"
                 disabled={
-                  busy || supplyConfirmBusy || fulfillmentActionsBusy || (!menuHorsBloc && lineLockedTrace)
+                  busy ||
+                  supplyConfirmBusy ||
+                  fulfillmentActionsBusy ||
+                  (lineLockedTrace && !menuReintegratePair)
                 }
                 aria-expanded={menuOpen}
                 aria-haspopup="menu"
@@ -184,7 +192,7 @@ export function PharmacistSupplyCompactLine({
                       style={{ top: menuPos.top, left: menuPos.left }}
                       role="menu"
                     >
-                      {menuHorsBloc ? (
+                      {menuReintegratePair ? (
                         <>
                           <li role="none">
                             <button
@@ -281,17 +289,17 @@ export function PharmacistSupplyCompactLine({
               </span>
               <span className="text-foreground">{availSentence}</span>
             </p>
-            <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+            <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
               <span className="text-foreground/90">Prix unit. </span>
-              <span className="tabular-nums font-semibold text-foreground">{unitLabel}</span>
+              <span className="tabular-nums font-bold text-foreground">{unitLabel}</span>
               <span className="mx-1 text-border" aria-hidden>
                 ·
               </span>
               <span className="text-foreground/90">Total </span>
-              <span className="tabular-nums font-semibold text-primary">{totalLabel}</span>
+              <span className="tabular-nums font-bold text-primary">{totalLabel}</span>
             </p>
 
-            {selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
+            {selected && !lineLockedTrace && !withdrawn && !lineCounterLocked && !hideFulfillmentPills ? (
               <div className="mt-1 flex flex-wrap gap-1">
                 {(effAvailRow === "available" || effAvailRow === "partially_available") && canMarkReserved ? (
                   <button
@@ -333,19 +341,21 @@ export function PharmacistSupplyCompactLine({
                     {fulfillmentDraft === "arrived_reserved" ? "Reçu en officine" : "Marquer reçu en officine"}
                   </button>
                 ) : null}
-                {canMarkPickedUpCounterSupply ? (
-                  <button
-                    type="button"
-                    disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
-                    onClick={onMarkPickedUpCounter}
-                    className={clsx(
-                      pill,
-                      "border-violet-500/70 bg-violet-50 text-violet-950 hover:bg-violet-100/90"
-                    )}
-                  >
-                    Marquer récupéré (comptoir)
-                  </button>
-                ) : null}
+              </div>
+            ) : null}
+            {canMarkPickedUpCounterSupply && selected && !lineLockedTrace && !withdrawn ? (
+              <div className="mt-1 flex flex-wrap gap-1">
+                <button
+                  type="button"
+                  disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy || counterOutcomeBusy}
+                  onClick={onMarkPickedUpCounter}
+                  className={clsx(
+                    pill,
+                    "border-violet-500/70 bg-violet-50 text-violet-950 hover:bg-violet-100/90"
+                  )}
+                >
+                  {counterPickupPillLabel}
+                </button>
               </div>
             ) : null}
             {amendmentTraceLines && amendmentTraceLines.length > 0 ? (
@@ -363,7 +373,6 @@ export function PharmacistSupplyCompactLine({
           </div>
         </div>
         {showExpandedEditor ? <div className="border-t border-border/80 bg-muted/15 px-2 py-1.5">{expandedEditor}</div> : null}
-        {treatedCounterSlot ? <div className="border-t border-border/80 px-2 py-1.5">{treatedCounterSlot}</div> : null}
       </li>
     </Fragment>
   );
