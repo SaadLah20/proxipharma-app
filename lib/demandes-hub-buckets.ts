@@ -7,7 +7,6 @@ export type DemandeStatBucketKey =
   | "envoyees"
   | "repondues"
   | "validees_traitees"
-  | "en_preparation"
   | "traitee_retrait"
   | "cloturees"
   | "abandonnees"
@@ -23,7 +22,7 @@ export type DemandeStatBucket = {
   statuses: readonly string[];
 };
 
-/** Patient : « Validée par vous » sans réservation/commande sur les lignes ; « En préparation officine » = statut dérivé `in_progress_virtual` (voir `status_for_dashboard`). */
+/** Patient : après validation le dossier reste `confirmed` jusqu’à « traitée » ; réservation/commande ne change plus de bloc tableau de bord. */
 export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "envoyees",
@@ -40,14 +39,8 @@ export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "validees_traitees",
     label: "Validée par vous",
-    hint: "Vous avez validé ; aucune réservation/commande enregistrée sur les lignes retenues (ou attente validation préparation).",
+    hint: "Vous avez validé ; la pharmacie suit réservations / commandes sur les lignes retenues jusqu’à déclaration « traitée ».",
     statuses: ["confirmed"],
-  },
-  {
-    key: "en_preparation",
-    label: "En préparation officine",
-    hint: "Réservation / commande en cours sur au moins une ligne retenue ; le dossier reste « validé » jusqu’à ouverture du comptoir.",
-    statuses: ["in_progress_virtual"],
   },
   {
     key: "traitee_retrait",
@@ -81,7 +74,7 @@ export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   },
 ];
 
-/** Pharmacien : « Validée par le client » sans réservation/commande sur les lignes ; puis suivi résa./commande avant « Traitée · comptoir ». */
+/** Pharmacien : « Validée par le client » couvre toute la phase `confirmed` ; « Traitée » ouvre le suivi comptoir. */
 export const PHARMACIST_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "envoyees",
@@ -98,14 +91,8 @@ export const PHARMACIST_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "validees_traitees",
     label: "Validée par le client",
-    hint: "Validé côté client sans réservation/commande sur les lignes retenues (ou avant validation « préparation terminée »).",
+    hint: "Dossier au statut validé client : saisie réservé / commandé, ajustements, jusqu’à déclaration « traitée ».",
     statuses: ["confirmed"],
-  },
-  {
-    key: "en_preparation",
-    label: "Résa. / commande",
-    hint: "Réservations, commandes ou ajustements après validation ; statut dossier encore « validé client ».",
-    statuses: ["in_progress_virtual"],
   },
   {
     key: "traitee_retrait",
@@ -140,6 +127,10 @@ export const PHARMACIST_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
 
 export function bucketForStatusParam(param: string | null, buckets: DemandeStatBucket[] = PATIENT_DASHBOARD_BUCKETS): DemandeStatBucket | null {
   if (!param) return null;
+  /** Ancre URL historique : fusionné dans « validée » après retrait du statut virtuel `in_progress_virtual`. */
+  if (param === "en_preparation") {
+    return buckets.find((b) => b.key === "validees_traitees") ?? null;
+  }
   return buckets.find((b) => b.key === param) ?? null;
 }
 
