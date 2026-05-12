@@ -24,6 +24,11 @@ export function PharmacistSupplyCompactLine({
   fulfillmentActionsBusy,
   onToggleReserved,
   onToggleOrdered,
+  onToggleArrivedReserved,
+  canShowArrivedReservedPill,
+  canMarkPickedUpCounterSupply,
+  onMarkPickedUpCounter,
+  counterOutcomeBusy,
   hasModifyConsent,
   busy,
   supplyConfirmBusy,
@@ -56,11 +61,18 @@ export function PharmacistSupplyCompactLine({
   effAvailRow: string | null;
   canMarkReserved: boolean;
   canMarkOrdered: boolean;
-  fulfillmentDraft: "unset" | "reserved" | "ordered";
+  fulfillmentDraft: "unset" | "reserved" | "ordered" | "arrived_reserved";
   /** Enregistrement RPC réservé / commandé en cours sur cette ligne. */
   fulfillmentActionsBusy?: boolean;
   onToggleReserved: () => void;
   onToggleOrdered: () => void;
+  /** Commandé → reçu en officine, ou reçu → repasser commandé (RPC). */
+  onToggleArrivedReserved: () => void;
+  canShowArrivedReservedPill: boolean;
+  /** Dossier traité : pastille « récupéré comptoir » (réservé, ou commande déjà reçue). */
+  canMarkPickedUpCounterSupply: boolean;
+  onMarkPickedUpCounter: () => void;
+  counterOutcomeBusy?: boolean;
   hasModifyConsent: boolean;
   busy: boolean;
   supplyConfirmBusy: boolean;
@@ -284,7 +296,7 @@ export function PharmacistSupplyCompactLine({
                 {(effAvailRow === "available" || effAvailRow === "partially_available") && canMarkReserved ? (
                   <button
                     type="button"
-                    disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy}
+                    disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
                     onClick={onToggleReserved}
                     className={clsx(pill, fulfillmentDraft === "reserved" ? pillActive : pillIdle)}
                   >
@@ -294,11 +306,44 @@ export function PharmacistSupplyCompactLine({
                 {effAvailRow === "to_order" && canMarkOrdered ? (
                   <button
                     type="button"
-                    disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy}
+                    disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
                     onClick={onToggleOrdered}
-                    className={clsx(pill, fulfillmentDraft === "ordered" ? pillActive : pillIdle)}
+                    className={clsx(
+                      pill,
+                      fulfillmentDraft === "ordered" || fulfillmentDraft === "arrived_reserved"
+                        ? pillActive
+                        : pillIdle
+                    )}
                   >
-                    {fulfillmentDraft === "ordered" ? "Commandé" : "Marquer commandé"}
+                    {fulfillmentDraft === "unset" ? "Marquer commandé" : "Commandé"}
+                  </button>
+                ) : null}
+                {effAvailRow === "to_order" && canShowArrivedReservedPill ? (
+                  <button
+                    type="button"
+                    disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
+                    onClick={onToggleArrivedReserved}
+                    className={clsx(
+                      pill,
+                      fulfillmentDraft === "arrived_reserved"
+                        ? "border-teal-700 bg-teal-600 text-white"
+                        : "border-teal-400/80 bg-background text-teal-950 hover:bg-teal-50/80"
+                    )}
+                  >
+                    {fulfillmentDraft === "arrived_reserved" ? "Reçu en officine" : "Marquer reçu en officine"}
+                  </button>
+                ) : null}
+                {canMarkPickedUpCounterSupply ? (
+                  <button
+                    type="button"
+                    disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
+                    onClick={onMarkPickedUpCounter}
+                    className={clsx(
+                      pill,
+                      "border-violet-500/70 bg-violet-50 text-violet-950 hover:bg-violet-100/90"
+                    )}
+                  >
+                    Marquer récupéré (comptoir)
                   </button>
                 ) : null}
               </div>

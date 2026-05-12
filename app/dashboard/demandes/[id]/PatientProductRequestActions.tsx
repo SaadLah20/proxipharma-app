@@ -266,17 +266,55 @@ function compactTotalMadLabel(t: { sumKnown: number; missingPrice: boolean; empt
   return `Total · ${t.sumKnown.toFixed(2)} MAD`;
 }
 
+/** Ligne de statut sous la carte produit (dossier traité côté patient). */
+function patientTreatedSupplyStatusLine(row: ActionItemRow): string {
+  if (!row.is_selected_by_patient) {
+    return "Non retenu à la validation — pas de suivi réservation / commande.";
+  }
+  if (row.withdrawn_after_confirm) {
+    return "Écart après validation : ce produit n’est plus suivi comme commande active.";
+  }
+  const eff = effectiveAvailabilityForPatientLine(row);
+  const pcf = row.post_confirm_fulfillment ?? "unset";
+  const co = row.counter_outcome ?? "unset";
+  const picked = co === "picked_up";
+
+  if (eff === "available" || eff === "partially_available") {
+    if (pcf === "reserved") {
+      return picked
+        ? "Suivi : produit réservé à la pharmacie et indiqué comme récupéré au comptoir."
+        : "Suivi : produit réservé à la pharmacie — en attente de ton passage au comptoir.";
+    }
+    return "Suivi : la pharmacie n’a pas encore indiqué la mise de côté (réservé).";
+  }
+  if (eff === "to_order") {
+    if (pcf === "arrived_reserved") {
+      return picked
+        ? "Suivi : commande reçue à l’officine puis récupérée au comptoir."
+        : "Suivi : commande reçue à l’officine — en attente de ton passage au comptoir.";
+    }
+    if (pcf === "ordered") {
+      return "Suivi : produit commandé auprès du fournisseur — pas encore reçu en officine.";
+    }
+    return "Suivi : commande en cours de traitement par la pharmacie (pas encore indiquée comme commandée).";
+  }
+  return "Suivi : statut à préciser avec ta pharmacie.";
+}
+
 /** Cartes condensées : produits validés après confirmation (pas de détail jusqu’à l’historique). */
 function PatientValidatedCompactLineCard({
   row,
   tier,
   onOpenHistory,
   supplyAmendmentBundles = [],
+  treatedSupplyStatusLine,
 }: {
   row: ActionItemRow;
   tier: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation";
   onOpenHistory: () => void;
   supplyAmendmentBundles?: { id: string; created_at: string; amendments: unknown }[];
+  /** Dossier `treated` : texte court réservation / commande / réception / comptoir. */
+  treatedSupplyStatusLine?: string | null;
 }) {
   const prod = one(row.products);
   const altList = normalizeAlternatives(row.request_item_alternatives);
@@ -379,6 +417,11 @@ function PatientValidatedCompactLineCard({
         </div>
         </div>
       </div>
+      {treatedSupplyStatusLine != null && treatedSupplyStatusLine.trim() !== "" ? (
+        <div className="border-t border-slate-200/85 bg-slate-50/90 px-2.5 py-1.5 sm:px-3">
+          <p className="text-[10px] font-semibold leading-snug text-slate-800">{treatedSupplyStatusLine}</p>
+        </div>
+      ) : null}
     </li>
   );
 }
@@ -2173,6 +2216,7 @@ export function PatientProductRequestActions({
                         tier="dispo_officine"
                         supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />
                     ))}
                   </ul>
@@ -2204,6 +2248,7 @@ export function PatientProductRequestActions({
                         tier="commande"
                         supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />
                     ))}
                   </ul>
@@ -2227,6 +2272,7 @@ export function PatientProductRequestActions({
                         tier="hors_perimetre"
                         supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />
                     ))}
                   </ul>
@@ -2252,6 +2298,7 @@ export function PatientProductRequestActions({
                         tier="retire_apres_validation"
                         supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />
                     ))}
                   </ul>

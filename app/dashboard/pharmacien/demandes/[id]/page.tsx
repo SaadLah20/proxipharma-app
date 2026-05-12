@@ -152,8 +152,8 @@ type ItemDraft = {
   withdrawn_after_confirm: boolean;
   /** Quantité retenue avec le patient (lignes sélectionnées, après validation). */
   selected_qty_str: string;
-  /** Brouillon jusqu’à « Enregistrer les modifications ». */
-  fulfillment_draft: "unset" | "reserved" | "ordered";
+  /** Brouillon jusqu’à « Enregistrer les modifications » (aligné sur `post_confirm_fulfillment`). */
+  fulfillment_draft: "unset" | "reserved" | "ordered" | "arrived_reserved";
   counter_outcome_draft: string;
   counter_cancel_reason_draft: string | null;
   counter_cancel_detail_draft: string | null;
@@ -217,12 +217,12 @@ function effectiveAvailForPharmaRow(row: ItemRow): string | null {
 }
 
 function clampFulfillmentDraftToInferred(
-  fd: "unset" | "reserved" | "ordered",
+  fd: "unset" | "reserved" | "ordered" | "arrived_reserved",
   inferredAvail: string
-): "unset" | "reserved" | "ordered" {
+): "unset" | "reserved" | "ordered" | "arrived_reserved" {
   let x = fd;
   if (x === "reserved" && !["available", "partially_available"].includes(inferredAvail)) x = "unset";
-  if (x === "ordered" && inferredAvail !== "to_order") x = "unset";
+  if ((x === "ordered" || x === "arrived_reserved") && inferredAvail !== "to_order") x = "unset";
   return x;
 }
 
@@ -233,10 +233,11 @@ function inferredAvailabilityForPostConfirmClamp(row: ItemRow, payloadInferred: 
   return eff != null && eff !== "" ? eff : payloadInferred;
 }
 
-function fulfillmentDraftFromRow(row: ItemRow): "unset" | "reserved" | "ordered" {
+function fulfillmentDraftFromRow(row: ItemRow): "unset" | "reserved" | "ordered" | "arrived_reserved" {
   const p = row.post_confirm_fulfillment ?? "unset";
   if (p === "reserved") return "reserved";
-  if (p === "ordered" || p === "arrived_reserved") return "ordered";
+  if (p === "arrived_reserved") return "arrived_reserved";
+  if (p === "ordered") return "ordered";
   return "unset";
 }
 
@@ -1402,7 +1403,7 @@ export default function PharmacienDemandeDetailPage() {
   }, [id, router]);
 
   const persistPostConfirmFulfillmentForRow = useCallback(
-    async (rowSnap: ItemRow, pcf: "unset" | "reserved" | "ordered") => {
+    async (rowSnap: ItemRow, pcf: "unset" | "reserved" | "ordered" | "arrived_reserved") => {
       if (!id) return;
       const baselineDraft = buildItemDraftFromRow(rowSnap);
       const eff = effectiveAvailSupplyDraft(rowSnap, baselineDraft);
@@ -2155,12 +2156,13 @@ export default function PharmacienDemandeDetailPage() {
       const baseline = Math.min(10, Math.max(1, Number(rowSnap.selected_qty ?? rowSnap.requested_qty) || 1));
       setField(requestItemId, "available_qty", String(baseline));
     }
-    if (request?.status === "confirmed") {
+    const st = request?.status;
+    if (st === "confirmed" || st === "treated") {
       const reasonStr =
         outcome === "cancelled_at_counter" && cancelReason
           ? `counter_outcome:cancelled_at_counter:${cancelReason}`
           : `counter_outcome:${outcome}`;
-      const { error: h } = await logHistory(id, "confirmed", "confirmed", reasonStr);
+      const { error: h } = await logHistory(id, st, st, reasonStr);
       if (h) {
         setError(h.message);
         return;
@@ -2196,7 +2198,12 @@ export default function PharmacienDemandeDetailPage() {
       if (eff === "available" || eff === "partially_available") {
         if (draftPcf !== "reserved") return false;
       } else if (eff === "to_order") {
-        if (draftPcf !== "ordered" && persistedPcf !== "arrived_reserved") return false;
+        const ok =
+          draftPcf === "ordered" ||
+          draftPcf === "arrived_reserved" ||
+          persistedPcf === "ordered" ||
+          persistedPcf === "arrived_reserved";
+        if (!ok) return false;
       } else {
         return false;
       }
@@ -2257,14 +2264,14 @@ export default function PharmacienDemandeDetailPage() {
         }
         const payload = buildItemUpdatePayload(f, row);
         const inf = inferredAvailabilityForPostConfirmClamp(row, payload.availability_status);
-        let pcf: "unset" | "reserved" | "ordered" = f.fulfillment_draft;
+        let pcf: "unset" | "reserved" | "ordered" | "arrived_reserved" = f.fulfillment_draft;
         if (f.withdrawn_after_confirm) {
           pcf = "unset";
         } else {
           pcf = clampFulfillmentDraftToInferred(pcf, inf);
         }
         /* Colonne DB NOT NULL (enum, défaut 'unset') : ne jamais envoyer null. */
-        const pcfDb: "unset" | "reserved" | "ordered" = pcf;
+        const pcfDb: "unset" | "reserved" | "ordered" | "arrived_reserved" = pcf;
         const { error: up } = await supabase
           .from("request_items")
           .update({
@@ -3402,6 +3409,22 @@ export default function PharmacienDemandeDetailPage() {
                   !lineLockedTrace &&
                   !lineCounterLocked &&
                   effSupply === "to_order";
+                const canShowArrivedReservedPill =
+                  selected &&
+                  !withdrawnDraft &&
+                  !lineLockedTrace &&
+                  !lineCounterLocked &&
+                  effSupply === "to_order" &&
+                  (f.fulfillment_draft === "ordered" || f.fulfillment_draft === "arrived_reserved");
+                const canMarkPickedUpCounterSupply =
+                  request.status === "treated" &&
+                  selected &&
+                  !withdrawnDraft &&
+                  !lineLockedTrace &&
+                  !lineCounterLocked &&
+                  (((effSupply === "available" || effSupply === "partially_available") &&
+                    f.fulfillment_draft === "reserved") ||
+                    (effSupply === "to_order" && f.fulfillment_draft === "arrived_reserved"));
                 const supplyAvailabilityOptions = isProposedLine
                   ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
                   : PHARMACIST_SUPPLY_POST_CONFIRM_AVAILABILITY_OPTIONS;
@@ -3736,9 +3759,29 @@ export default function PharmacienDemandeDetailPage() {
                         const rowSnap = items.find((i) => i.id === row.id) ?? row;
                         const fd = draft[row.id];
                         if (!fd) return;
+                        if (fd.fulfillment_draft === "arrived_reserved") {
+                          void persistPostConfirmFulfillmentForRow(rowSnap, "ordered");
+                          return;
+                        }
                         const next = fd.fulfillment_draft === "ordered" ? "unset" : "ordered";
                         void persistPostConfirmFulfillmentForRow(rowSnap, next);
                       }}
+                      onToggleArrivedReserved={() => {
+                        const rowSnap = items.find((i) => i.id === row.id) ?? row;
+                        const fd = draft[row.id];
+                        if (!fd) return;
+                        if (fd.fulfillment_draft === "arrived_reserved") {
+                          void persistPostConfirmFulfillmentForRow(rowSnap, "ordered");
+                        } else if (fd.fulfillment_draft === "ordered") {
+                          void persistPostConfirmFulfillmentForRow(rowSnap, "arrived_reserved");
+                        }
+                      }}
+                      canShowArrivedReservedPill={canShowArrivedReservedPill}
+                      canMarkPickedUpCounterSupply={canMarkPickedUpCounterSupply}
+                      onMarkPickedUpCounter={() => {
+                        void saveCounterOutcome(row.id, "picked_up");
+                      }}
+                      counterOutcomeBusy={counterBusyId === row.id}
                       hasModifyConsent={hasConsent}
                       busy={busy}
                       supplyConfirmBusy={supplyConfirmBusy}
@@ -3804,7 +3847,11 @@ export default function PharmacienDemandeDetailPage() {
                             }
                           : undefined
                       }
-                      withdrawDisabled={f.fulfillment_draft === "reserved" || lineCounterLocked}
+                      withdrawDisabled={
+                        f.fulfillment_draft === "reserved" ||
+                          f.fulfillment_draft === "arrived_reserved" ||
+                          lineCounterLocked
+                      }
                       withdrawDisabledReason={
                         lineCounterLocked
                           ? "Ligne déjà enregistrée comme récupérée."
