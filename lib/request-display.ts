@@ -5,7 +5,8 @@ export const requestStatusFr: Record<string, string> = {
   in_review: "En cours de traitement",
   responded: "Répondue - à valider",
   confirmed: "Validée",
-  processing: "En préparation officine",
+  /** @deprecated Ancien statut DB ; conservé pour l’historique. */
+  processing: "En préparation officine (historique)",
   treated: "Traitée",
   in_progress_virtual: "En préparation",
   completed: "Clôturée",
@@ -21,7 +22,7 @@ export function requestStatusShortFr(status: string): string {
   return requestStatusFr[status] ?? status;
 }
 
-/** Côté officine : `confirmed` = validé par le patient ; l’étape « en préparation » peut être virtuelle ou réelle (`processing`). */
+/** Côté officine : `confirmed` = validé par le patient ; suivi réservation/commande via `in_progress_virtual` jusqu’à `treated`. */
 export function requestStatusShortFrPharmacien(status: string): string {
   if (status === "confirmed") return "Validée client";
   if (status === "responded") return "Répondue - attente client";
@@ -50,14 +51,14 @@ export const patientDashboardSections: {
   {
     id: "confirmed",
     title: "Confirmée",
-    description: "Tu as validé ; la pharmacie n’a pas encore enregistré l’entrée officine préparation.",
+    description: "Tu as validé ; la pharmacie n’a pas encore déclaré la préparation terminée (suivi comptoir).",
     statuses: ["confirmed"],
   },
   {
     id: "supply_processing",
-    title: "En préparation",
-    description: "La pharmacie met à jour la commande après ta validation.",
-    statuses: ["processing", "in_progress_virtual"],
+    title: "En traitement officine",
+    description: "Réservation ou commande en cours après ta validation (avant ouverture du comptoir).",
+    statuses: ["in_progress_virtual"],
   },
   {
     id: "treated_pickup",
@@ -113,14 +114,14 @@ export const pharmacistDashboardSections: {
   {
     id: "confirmed",
     title: "Validée client",
-    description: "Aucune saisie « réservé / commandé » ou dossier officine pas encore entré en préparation.",
+    description: "Aucune saisie « réservé / commandé » sur les lignes retenues, ou préparation pas encore validée pour le comptoir.",
     statuses: ["confirmed"],
   },
   {
     id: "supply_processing_ph",
-    title: "Préparation",
-    description: "Réservations / commandes ou ajustements en cours après validation.",
-    statuses: ["processing", "in_progress_virtual"],
+    title: "Suivi résa. / commande",
+    description: "Réservations, commandes ou ajustements après validation ; dossier encore au statut « validé client ».",
+    statuses: ["in_progress_virtual"],
   },
   {
     id: "treated_pickup_ph",

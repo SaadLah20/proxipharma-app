@@ -132,13 +132,11 @@ export function PatientDemandeCard({
   const summary = summarizeRequestForPatientCard(items.length ? items : null, row.status);
   const refVisuel = displayRequestPublicRef(row);
   const cardStatus =
-    row.status === "processing"
-      ? "processing"
-      : row.status === "treated"
-        ? "treated"
-        : row.status === "confirmed" && summary.hasExecutionProgress
-          ? "in_progress_virtual"
-          : row.status;
+    row.status === "treated"
+      ? "treated"
+      : row.status === "confirmed" && summary.hasExecutionProgress
+        ? "in_progress_virtual"
+        : row.status;
 
   if (variant === "list") {
     return (
@@ -234,13 +232,11 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
   ).length;
   const hasFulfillmentProgress = nReserved + nOrdered + nArrived > 0;
   const statusForCard =
-    row.status === "processing"
-      ? "processing"
-      : row.status === "treated"
-        ? "treated"
-        : hasFulfillmentProgress && row.status === "confirmed"
-          ? "in_progress_virtual"
-          : row.status;
+    row.status === "treated"
+      ? "treated"
+      : hasFulfillmentProgress && row.status === "confirmed"
+        ? "in_progress_virtual"
+        : row.status;
   const cref = row.patient_ref?.trim();
 
   return (

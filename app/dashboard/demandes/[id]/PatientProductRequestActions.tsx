@@ -1524,7 +1524,7 @@ export function PatientProductRequestActions({
       let branch: LineBranch = null;
       let capPositive = false;
 
-      if (status === "confirmed" || status === "processing" || status === "treated") {
+      if (status === "confirmed" || status === "treated") {
         if (!row.is_selected_by_patient) {
           branch = null;
           capPositive = false;
@@ -1906,7 +1906,6 @@ export function PatientProductRequestActions({
     status === "in_review" ||
     status === "responded" ||
     status === "confirmed" ||
-    status === "processing" ||
     status === "treated";
   const readOnlyArchive = isPatientProductArchiveStatus(status);
   if (!interactiveAllowed && !readOnlyArchive) return null;
@@ -1935,8 +1934,8 @@ export function PatientProductRequestActions({
   const showConfirm = status === "responded";
   const showResubmit = status === "submitted" || status === "in_review";
   const showAbandonAfterResponse =
-    status === "responded" || status === "confirmed" || status === "processing" || status === "treated";
-  const showConfirmedCards = status === "confirmed" || status === "processing" || status === "treated";
+    status === "responded" || status === "confirmed" || status === "treated";
+  const showConfirmedCards = status === "confirmed" || status === "treated";
   /** Date/heure de passage : à la validation (responded) et pour modifier après coup. */
   const showVisitFields = showConfirm || showConfirmedCards;
 
@@ -2135,7 +2134,7 @@ export function PatientProductRequestActions({
             missingPrice: totalsRetained.missingPrice,
             empty: totalsRetained.count < 1,
           });
-          const showLineSuivi = status === "confirmed" || status === "processing" || status === "treated";
+          const showLineSuivi = status === "confirmed" || status === "treated";
 
           return (
             <div className="space-y-2">
