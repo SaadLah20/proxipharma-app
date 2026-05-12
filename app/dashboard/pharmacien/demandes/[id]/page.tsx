@@ -4283,24 +4283,44 @@ export default function PharmacienDemandeDetailPage() {
           ) : null}
 
           {showLineAndPublishEdits ? (
-            <details className="group mt-2 rounded-xl border border-violet-200/60 bg-gradient-to-br from-violet-50/40 via-card to-card shadow-sm open:shadow-md sm:mt-2">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2 py-2 text-[10px] font-bold text-violet-950 marker:content-none sm:px-3 [&::-webkit-details-marker]:hidden">
-                <span className="inline-flex items-center gap-1.5">
-                  <MessageSquare className="size-3.5 text-violet-600" aria-hidden />
-                  Commentaire général pour le patient
-                </span>
-                <ChevronDown className="size-4 shrink-0 text-violet-700 transition-transform group-open:rotate-180" aria-hidden />
-              </summary>
-              <div className="border-t border-violet-100/80 px-2 pb-2 pt-1 sm:px-3 sm:pb-3">
-                <textarea
-                  rows={3}
-                  value={globalComment}
-                  onChange={(e) => setGlobalComment(e.target.value.slice(0, 1200))}
-                  placeholder="Message global (optionnel), visible avec la réponse"
-                  className="min-h-[5.5rem] w-full rounded-xl border-2 border-violet-200/70 bg-background px-3 py-2.5 text-[13px] leading-relaxed shadow-inner placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 sm:min-h-[4.5rem] sm:text-xs sm:leading-normal"
-                />
+            canManageResponded && respondedEditMode ? (
+              <div className="mt-2 rounded-xl border border-violet-200/60 bg-gradient-to-br from-violet-50/40 via-card to-card shadow-md sm:mt-2">
+                <div className="flex items-center justify-between gap-2 px-2 py-2 text-[10px] font-bold text-violet-950 sm:px-3">
+                  <span className="inline-flex items-center gap-1.5">
+                    <MessageSquare className="size-3.5 text-violet-600" aria-hidden />
+                    Commentaire général pour le patient
+                  </span>
+                </div>
+                <div className="border-t border-violet-100/80 px-2 pb-2 pt-1 sm:px-3 sm:pb-3">
+                  <textarea
+                    rows={3}
+                    value={globalComment}
+                    onChange={(e) => setGlobalComment(e.target.value.slice(0, 1200))}
+                    placeholder="Message global (optionnel), visible avec la réponse"
+                    className="min-h-[5.5rem] w-full rounded-xl border-2 border-violet-200/70 bg-background px-3 py-2.5 text-[13px] leading-relaxed shadow-inner placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 sm:min-h-[4.5rem] sm:text-xs sm:leading-normal"
+                  />
+                </div>
               </div>
-            </details>
+            ) : (
+              <details className="group mt-2 rounded-xl border border-violet-200/60 bg-gradient-to-br from-violet-50/40 via-card to-card shadow-sm open:shadow-md sm:mt-2">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2 py-2 text-[10px] font-bold text-violet-950 marker:content-none sm:px-3 [&::-webkit-details-marker]:hidden">
+                  <span className="inline-flex items-center gap-1.5">
+                    <MessageSquare className="size-3.5 text-violet-600" aria-hidden />
+                    Commentaire général pour le patient
+                  </span>
+                  <ChevronDown className="size-4 shrink-0 text-violet-700 transition-transform group-open:rotate-180" aria-hidden />
+                </summary>
+                <div className="border-t border-violet-100/80 px-2 pb-2 pt-1 sm:px-3 sm:pb-3">
+                  <textarea
+                    rows={3}
+                    value={globalComment}
+                    onChange={(e) => setGlobalComment(e.target.value.slice(0, 1200))}
+                    placeholder="Message global (optionnel), visible avec la réponse"
+                    className="min-h-[5.5rem] w-full rounded-xl border-2 border-violet-200/70 bg-background px-3 py-2.5 text-[13px] leading-relaxed shadow-inner placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 sm:min-h-[4.5rem] sm:text-xs sm:leading-normal"
+                  />
+                </div>
+              </details>
+            )
           ) : null}
 
           {respondedFrozenView ? (
@@ -4420,7 +4440,8 @@ export default function PharmacienDemandeDetailPage() {
             request.status === "responded" ||
             request.status === "confirmed" ||
             request.status === "processing" ||
-            request.status === "treated") ? (
+            request.status === "treated") &&
+          !(canManageResponded && respondedEditMode) ? (
             <CompactCard className="mt-3 border-rose-200/60 bg-rose-50/[0.35] shadow-sm">
               <CompactCardHeader title="Annuler cette demande" className="border-rose-200/50 bg-rose-100/40" />
               <CompactCardBody className="space-y-2 px-3 py-2.5 text-xs sm:px-3.5">
