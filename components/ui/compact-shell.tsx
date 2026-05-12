@@ -15,7 +15,7 @@ export function PageShell({
   return (
     <main
       className={clsx(
-        "touch-pan-y mx-auto min-h-screen px-3 pb-12 pt-4 sm:px-5 sm:pb-16 sm:pt-5",
+        "mx-auto min-h-screen px-3 pb-12 pt-4 sm:px-5 sm:pb-16 sm:pt-5",
         maxWidthClass,
         className
       )}
