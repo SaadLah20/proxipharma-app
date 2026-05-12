@@ -2838,30 +2838,17 @@ export default function PharmacienDemandeDetailPage() {
     return new Set(horsPerimetre.map((r) => r.id));
   }, [request, displayRows, draft]);
 
-  const supplyStructuralDirty = useMemo(
-    () =>
-      computeSupplyStructuralDirty(
-        request,
-        items,
-        draft,
-        globalComment,
-        initialGlobalComment,
-        pendingProposalRows,
-        pendingAlternatives,
-        altQtyDrafts,
-        lineModifyConsent
-      ),
-    [
-      request,
-      items,
-      draft,
-      globalComment,
-      initialGlobalComment,
-      pendingProposalRows,
-      pendingAlternatives,
-      altQtyDrafts,
-      lineModifyConsent,
-    ]
+  /* useMemo retiré : évite react-hooks/preserve-manual-memoization sur ce bloc (React Compiler). */
+  const supplyStructuralDirty = computeSupplyStructuralDirty(
+    request,
+    items,
+    draft,
+    globalComment,
+    initialGlobalComment,
+    pendingProposalRows,
+    pendingAlternatives,
+    altQtyDrafts,
+    lineModifyConsent
   );
 
   const supplyFooterTotals = useMemo(() => {
