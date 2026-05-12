@@ -147,7 +147,7 @@ export function PharmacistDemandesHub() {
   const rowsWithDashboardStatus = useMemo(
     () =>
       rows.map((r) => {
-        if (r.status === "processing" || r.status === "treated") {
+        if (r.status === "treated") {
           return { ...r, status_for_dashboard: r.status };
         }
         const rawItems = ((r as unknown as { request_items?: Array<{ post_confirm_fulfillment?: string | null; is_selected_by_patient?: boolean | null }> }).request_items ??

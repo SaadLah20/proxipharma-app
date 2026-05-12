@@ -163,7 +163,7 @@ export default function DemandeDetailPage() {
       const st = String(r.status);
       const needStatusHistory =
         r.request_type === "product_request" &&
-        (["confirmed", "processing", "treated"].includes(st) || isPatientProductArchiveStatus(st));
+        (["confirmed", "treated"].includes(st) || isPatientProductArchiveStatus(st));
 
       const [itemsResult, amendmentsResult, phGlobalRes, histResult] = await Promise.all([
         supabase
@@ -289,14 +289,12 @@ export default function DemandeDetailPage() {
       request.status === "in_review" ||
       request.status === "responded" ||
       request.status === "confirmed" ||
-      request.status === "processing" ||
       request.status === "treated");
   const showArchivedProductReadonly =
     request.request_type === "product_request" && isPatientProductArchiveStatus(request.status);
   const showPlannedVisitBlock =
     !["cancelled", "abandoned", "expired"].includes(request.status) &&
     (request.status === "confirmed" ||
-      request.status === "processing" ||
       request.status === "treated" ||
       request.status === "completed" ||
       request.status === "partially_collected" ||
@@ -354,7 +352,7 @@ export default function DemandeDetailPage() {
                   ? "border-sky-400/85 bg-sky-100 text-sky-950 ring-1 ring-sky-200/80"
                   : request.status === "responded"
                     ? "border-amber-300/95 bg-amber-50 text-amber-950"
-                    : ["confirmed", "processing", "treated", "completed", "partially_collected", "fully_collected", "in_progress_virtual"].includes(
+                    : ["confirmed", "treated", "completed", "partially_collected", "fully_collected", "in_progress_virtual"].includes(
                           request.status
                         )
                       ? "border-teal-400/80 bg-teal-50 text-teal-950"

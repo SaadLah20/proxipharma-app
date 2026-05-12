@@ -23,7 +23,7 @@ export type DemandeStatBucket = {
   statuses: readonly string[];
 };
 
-/** Patient : « Validée par vous » tant que la pharmacie n’a pas commencé la préparation ; « En traitement » une fois l’officine active (voir `status_for_dashboard`). */
+/** Patient : « Validée par vous » sans réservation/commande sur les lignes ; « En préparation officine » = statut dérivé `in_progress_virtual` (voir `status_for_dashboard`). */
 export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "envoyees",
@@ -40,14 +40,14 @@ export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "validees_traitees",
     label: "Validée par vous",
-    hint: "Vous avez validé ; la pharmacie ne vous a pas encore déclaré en préparation active sur le dossier.",
+    hint: "Vous avez validé ; aucune réservation/commande enregistrée sur les lignes retenues (ou attente validation préparation).",
     statuses: ["confirmed"],
   },
   {
     key: "en_preparation",
     label: "En préparation officine",
-    hint: "Réservation / commande ou ajustements après validation.",
-    statuses: ["in_progress_virtual", "processing"],
+    hint: "Réservation / commande en cours sur au moins une ligne retenue ; le dossier reste « validé » jusqu’à ouverture du comptoir.",
+    statuses: ["in_progress_virtual"],
   },
   {
     key: "traitee_retrait",
@@ -81,7 +81,7 @@ export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   },
 ];
 
-/** Pharmacien : « Validée par le client » tant que vous n’avez pas commencé la préparation ; « En traitement » après première action (réservé / commandé). */
+/** Pharmacien : « Validée par le client » sans réservation/commande sur les lignes ; puis suivi résa./commande avant « Traitée · comptoir ». */
 export const PHARMACIST_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "envoyees",
@@ -98,14 +98,14 @@ export const PHARMACIST_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "validees_traitees",
     label: "Validée par le client",
-    hint: "Le dossier figure encore tout juste validé côté client (pas encore votre entrée officine préparation).",
+    hint: "Validé côté client sans réservation/commande sur les lignes retenues (ou avant validation « préparation terminée »).",
     statuses: ["confirmed"],
   },
   {
     key: "en_preparation",
-    label: "En préparation",
-    hint: "Réservations, commandes ou ajustements en cours après validation client.",
-    statuses: ["in_progress_virtual", "processing"],
+    label: "Résa. / commande",
+    hint: "Réservations, commandes ou ajustements après validation ; statut dossier encore « validé client ».",
+    statuses: ["in_progress_virtual"],
   },
   {
     key: "traitee_retrait",
