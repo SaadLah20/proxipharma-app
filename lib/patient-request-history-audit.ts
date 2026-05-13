@@ -73,6 +73,11 @@ const PATIENT_HISTORY_TECH_REASON_FR: Record<string, string> = {
   pharmacien_ui: "Mise à jour enregistrée par la pharmacie.",
   patient_planned_visit_updated: "Votre date ou heure de passage a été modifiée.",
   pharmacist_response_updated: "La pharmacie a mis à jour sa réponse.",
+  auto_expire_after_response_silence:
+    "Sans validation de votre part dans le délai prévu, la demande a expiré.",
+  auto_expire_24h_after_response:
+    "Sans validation de votre part dans le délai prévu, la demande a expiré.",
+  expire_overdue_requests: "La date limite du dossier est dépassée : la demande a expiré.",
   auto_abandon_24h_after_response: "Sans validation de votre part, la demande a été fermée automatiquement.",
   request_created_with_status: "Demande créée et envoyée.",
   patient_abandon_request: "Vous avez abandonné la demande.",
