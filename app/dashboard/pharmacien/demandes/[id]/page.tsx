@@ -387,9 +387,10 @@ function counterOutcomeLabelPharmacien(outcome: string, cancelReason: string | n
   }
 }
 
-/** Comptoir figé en base : seulement annulation définitive au comptoir. */
+/** Comptoir figé en base (ne plus modifier via le brouillon). */
 function counterOutcomeFrozenInDb(row: ItemRow): boolean {
-  return (row.counter_outcome ?? "unset") === "cancelled_at_counter";
+  const co = row.counter_outcome ?? "unset";
+  return co === "picked_up" || co === "cancelled_at_counter";
 }
 
 /** Sélecteur comptoir : seulement en attente / récupéré (legacy « plus tard » → en attente). */
@@ -1154,8 +1155,6 @@ export default function PharmacienDemandeDetailPage() {
     | { kind: "add_line"; pick: ProductCatalogHit; reason: string; qty: number }
     | { kind: "remove_proposed_line"; row: ItemRow }
     | { kind: "reintegrate_hors_bloc"; rowId: string }
-    | { kind: "reintegrate_unselected"; rowId: string }
-    | { kind: "reintegrate_withdrawn"; rowId: string }
     | null
   >(null);
   const [lineModifyConsent, setLineModifyConsent] = useState<Record<string, { channel: string; motive: string }>>({});
@@ -1769,7 +1768,7 @@ export default function PharmacienDemandeDetailPage() {
         {
           key: `rm-prop-${row.id}`,
           title: "Retirer la proposition officine",
-          subtitle: `${nm} — indiquez le motif (journal patient).`,
+          subtitle: `${nm} — journalisation pour le patient (canal d’accord obligatoire).`,
         },
       ]);
       setSupplyConfirmPending({ kind: "remove_proposed_line", row });
@@ -2246,14 +2245,6 @@ export default function PharmacienDemandeDetailPage() {
         if (!isProp && qtyPrep > row.requested_qty) {
           throw new Error(`« ${nm} » : la quantité en stock ne peut pas dépasser la quantité demandée (${row.requested_qty}).`);
         }
-        const effSave = effectiveAvailSupplyDraft(row, f);
-        if (
-          ["confirmed", "treated"].includes(request.status) &&
-          effSave === "to_order" &&
-          !f.expected_availability_date?.trim()
-        ) {
-          throw new Error(`« ${nm} » : indiquez la date indicative de réception pour les produits à commander.`);
-        }
         const coNorm = counterSelectKeyNormalized(row, f);
         const draftSel = Math.min(10, Math.max(1, Number(f.selected_qty_str) || 1));
         const maxQ =
@@ -2516,8 +2507,7 @@ export default function PharmacienDemandeDetailPage() {
         await load();
       } else if (pending.kind === "remove_proposed_line") {
         const fill = fills[0];
-        const motive = (fill?.motive ?? "").trim();
-        if (motive.length < 2) throw new Error("Indiquez un motif de retrait (au moins 2 caractères).");
+        if (!fill?.channel?.trim()) throw new Error("Indiquez le canal utilisé.");
         const row = pending.row;
         const nm = one(row.products)?.name ?? "Produit";
         const amendments: SupplyAmendmentEntryJson[] = [
@@ -2525,9 +2515,9 @@ export default function PharmacienDemandeDetailPage() {
             kind: "line_removed_after_confirm",
             request_item_id: row.id,
             summary: `${nm} retiré après validation (proposition officine)`,
-            detail: `${nm} : proposition officine retirée — ${motive}`,
-            client_confirmation_channel: "autre",
-            client_motive: motive,
+            detail: `${nm} : proposition officine retirée du dossier validé.`,
+            client_confirmation_channel: fill.channel.trim(),
+            client_motive: fill.motive.trim() === "" ? null : fill.motive.trim(),
           },
         ];
         const { error: rpcA } = await supabase.rpc("pharmacist_record_supply_amendments", {
@@ -2590,117 +2580,6 @@ export default function PharmacienDemandeDetailPage() {
         const { error: upErr } = await supabase.from("request_items").update(updates).eq("id", row.id);
         if (upErr) throw new Error(upErr.message);
         await logHistory(id, request?.status ?? null, request?.status ?? "confirmed", "pharmacist_reintegrate_hors_bloc_reserve");
-        dispatchRequestDetailRefresh(id);
-        await load();
-      } else if (pending.kind === "reintegrate_unselected") {
-        const fill = fills[0];
-        if (!fill?.channel?.trim()) throw new Error("Indiquez le canal utilisé.");
-        const row = items.find((i) => i.id === pending.rowId);
-        if (!row) throw new Error("Ligne introuvable.");
-        const nm = validatedProductLabel(row as PatientLineLike);
-        const qty = Math.min(10, Math.max(1, Number(row.requested_qty) || 1));
-        const catalogPph = one(row.products)?.price_pph;
-        const unitNum =
-          row.unit_price != null && Number.isFinite(Number(row.unit_price))
-            ? Number(row.unit_price)
-            : catalogPph != null && Number.isFinite(Number(catalogPph))
-              ? Number(catalogPph)
-              : null;
-        const amendments: SupplyAmendmentEntryJson[] = [
-          {
-            kind: "line_brought_to_reserve_after_validation",
-            request_item_id: row.id,
-            summary: `${nm} replacé sur la liste « À réserver » (dispo · qté ${qty})`,
-            detail: `${nm} : réintégration d’une ligne non retenue par le patient — disponible officine, quantité alignée sur la demande initiale.`,
-            client_confirmation_channel: fill.channel.trim(),
-            client_motive: fill.motive.trim() === "" ? null : fill.motive.trim(),
-          },
-        ];
-        const { error: rpcA } = await supabase.rpc("pharmacist_record_supply_amendments", {
-          p_request_id: id,
-          p_amendments: amendments,
-        });
-        if (rpcA) throw new Error(rpcA.message);
-        const updates: Record<string, unknown> = {
-          is_selected_by_patient: true,
-          patient_chosen_alternative_id: null,
-          availability_status: "available",
-          available_qty: qty,
-          selected_qty: qty,
-          post_confirm_fulfillment: "unset",
-          withdrawn_after_confirm: false,
-          counter_outcome: "unset",
-          counter_cancel_reason: null,
-          counter_cancel_detail: null,
-          expected_availability_date: null,
-        };
-        if (unitNum != null) updates.unit_price = unitNum;
-        const { error: upErr } = await supabase.from("request_items").update(updates).eq("id", row.id);
-        if (upErr) throw new Error(upErr.message);
-        await logHistory(id, request?.status ?? null, request?.status ?? "confirmed", "pharmacist_reintegrate_unselected_reserve");
-        setLineModifyConsent((prev) => ({
-          ...prev,
-          [row.id]: { channel: fill.channel.trim(), motive: (fill.motive ?? "").trim() },
-        }));
-        dispatchRequestDetailRefresh(id);
-        await load();
-      } else if (pending.kind === "reintegrate_withdrawn") {
-        const fill = fills[0];
-        if (!fill?.channel?.trim()) throw new Error("Indiquez le canal utilisé.");
-        const row = items.find((i) => i.id === pending.rowId);
-        if (!row) throw new Error("Ligne introuvable.");
-        const nm = validatedProductLabel(row as PatientLineLike);
-        const qty = Math.min(10, Math.max(1, Number(row.requested_qty) || 1));
-        const catalogPph = one(row.products)?.price_pph;
-        const unitNum =
-          row.unit_price != null && Number.isFinite(Number(row.unit_price))
-            ? Number(row.unit_price)
-            : catalogPph != null && Number.isFinite(Number(catalogPph))
-              ? Number(catalogPph)
-              : null;
-        const amendments: SupplyAmendmentEntryJson[] = [
-          {
-            kind: "reintegrate_after_confirm",
-            request_item_id: row.id,
-            summary: `${nm} réintégré après écart`,
-            detail: `${nm} : ligne réintégrée au dossier validé (disponible officine · qté ${qty}).`,
-            client_confirmation_channel: fill.channel.trim(),
-            client_motive: fill.motive.trim() === "" ? null : fill.motive.trim(),
-          },
-        ];
-        const { error: rpcA } = await supabase.rpc("pharmacist_record_supply_amendments", {
-          p_request_id: id,
-          p_amendments: amendments,
-        });
-        if (rpcA) throw new Error(rpcA.message);
-        const updates: Record<string, unknown> = {
-          is_selected_by_patient: true,
-          patient_chosen_alternative_id: null,
-          availability_status: "available",
-          available_qty: qty,
-          selected_qty: qty,
-          post_confirm_fulfillment: "unset",
-          withdrawn_after_confirm: false,
-          counter_outcome: "unset",
-          counter_cancel_reason: null,
-          counter_cancel_detail: null,
-          expected_availability_date: null,
-        };
-        if (unitNum != null) updates.unit_price = unitNum;
-        const { error: upErr } = await supabase.from("request_items").update(updates).eq("id", row.id);
-        if (upErr) throw new Error(upErr.message);
-        await logHistory(id, request?.status ?? null, request?.status ?? "confirmed", "pharmacist_reintegrate_after_ecart");
-        setLineModifyConsent((prev) => ({
-          ...prev,
-          [row.id]: { channel: fill.channel.trim(), motive: (fill.motive ?? "").trim() },
-        }));
-        patchItemDraft(row.id, {
-          withdrawn_after_confirm: false,
-          fulfillment_draft: "unset",
-          counter_outcome_draft: "unset",
-          counter_cancel_reason_draft: null,
-          counter_cancel_detail_draft: null,
-        });
         dispatchRequestDetailRefresh(id);
         await load();
       }
@@ -3517,24 +3396,20 @@ export default function PharmacienDemandeDetailPage() {
                     : withdrawnDraft || row.withdrawn_after_confirm
                       ? "border-amber-300/80"
                       : "border-emerald-200/80";
-                const hideFulfillmentSupplyPills = request.status === "treated";
-                const lineCounterLocked = lineLockedTrace;
+                const lineCounterLocked = (row.counter_outcome ?? "unset") === "picked_up";
                 const canMarkReservedSupply =
-                  !hideFulfillmentSupplyPills &&
                   selected &&
                   !withdrawnDraft &&
                   !lineLockedTrace &&
                   !lineCounterLocked &&
                   (effSupply === "available" || effSupply === "partially_available");
                 const canMarkOrderedSupply =
-                  !hideFulfillmentSupplyPills &&
                   selected &&
                   !withdrawnDraft &&
                   !lineLockedTrace &&
                   !lineCounterLocked &&
                   effSupply === "to_order";
                 const canShowArrivedReservedPill =
-                  !hideFulfillmentSupplyPills &&
                   selected &&
                   !withdrawnDraft &&
                   !lineLockedTrace &&
@@ -3542,16 +3417,14 @@ export default function PharmacienDemandeDetailPage() {
                   effSupply === "to_order" &&
                   (f.fulfillment_draft === "ordered" || f.fulfillment_draft === "arrived_reserved");
                 const canMarkPickedUpCounterSupply =
-                  request.status === "treated" && selected && !withdrawnDraft && !lineLockedTrace;
-                const counterCoLive = f.counter_outcome_draft ?? row.counter_outcome ?? "unset";
-                const counterPickupPillLabel =
-                  counterCoLive === "picked_up" ? "Repasser en attente (comptoir)" : "Marquer récupéré (comptoir)";
-                const showReintegrateTwoItemMenu =
+                  request.status === "treated" &&
+                  selected &&
+                  !withdrawnDraft &&
                   !lineLockedTrace &&
-                  request.status !== "completed" &&
-                  (horsBlocPrincipalRowIds.has(row.id) ||
-                    !row.is_selected_by_patient ||
-                    Boolean(row.withdrawn_after_confirm));
+                  !lineCounterLocked &&
+                  (((effSupply === "available" || effSupply === "partially_available") &&
+                    f.fulfillment_draft === "reserved") ||
+                    (effSupply === "to_order" && f.fulfillment_draft === "arrived_reserved"));
                 const supplyAvailabilityOptions = isProposedLine
                   ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
                   : PHARMACIST_SUPPLY_POST_CONFIRM_AVAILABILITY_OPTIONS;
@@ -3565,7 +3438,7 @@ export default function PharmacienDemandeDetailPage() {
                       Canal
                       <select
                         className="mt-0.5 h-8 w-full rounded-md border border-input bg-background px-2 text-[11px] font-medium shadow-sm"
-                        value={consent?.channel?.trim() ? consent.channel : ""}
+                        value={consent?.channel ?? "phone_call"}
                         onChange={(e) =>
                           setLineModifyConsent((p) => ({
                             ...p,
@@ -3576,9 +3449,6 @@ export default function PharmacienDemandeDetailPage() {
                           }))
                         }
                       >
-                        <option value="" disabled>
-                          Choisir le canal…
-                        </option>
                         {SUPPLY_AMEND_CHANNEL_OPTIONS.map((o) => (
                           <option key={o.value} value={o.value}>
                             {o.label}
@@ -3595,7 +3465,7 @@ export default function PharmacienDemandeDetailPage() {
                           setLineModifyConsent((p) => ({
                             ...p,
                             [row.id]: {
-                              channel: p[row.id]?.channel?.trim() ? p[row.id]!.channel : "",
+                              channel: p[row.id]?.channel ?? "phone_call",
                               motive: e.target.value.slice(0, 1000),
                             },
                           }))
@@ -3680,25 +3550,23 @@ export default function PharmacienDemandeDetailPage() {
                           disabled
                           value={f.unit_price}
                           title={linePph ? `PPH catalogue : ${linePph}` : undefined}
-                          className="h-9 w-full rounded-xl border border-emerald-400/50 bg-emerald-50/35 px-2 text-[13px] font-bold tabular-nums text-foreground ring-1 ring-emerald-200/70"
+                          className="h-9 w-full rounded-xl border border-dashed border-border bg-muted/30 px-2 text-[12px] font-semibold tabular-nums opacity-80"
                         />
                       </label>
                     </div>
                     {canEditThisRow && hasConsent && effectiveAvailSupplyDraft(row, f) === "to_order" ? (
-                      <div className="max-w-sm rounded-lg border-2 border-teal-400/75 bg-gradient-to-br from-teal-50 via-teal-50/90 to-cyan-50/50 p-2 shadow-sm ring-1 ring-teal-200/80">
-                        <label className="flex flex-col gap-1">
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-teal-950">
-                            Date indicative de réception (commande)
-                          </span>
-                          <input
-                            type="date"
-                            disabled={!canEditThisRow}
-                            value={f.expected_availability_date}
-                            onChange={(e) => setField(row.id, "expected_availability_date", e.target.value)}
-                            className="h-9 w-full rounded-md border-2 border-teal-500/60 bg-white px-2 text-[12px] font-bold text-teal-950 shadow-inner disabled:opacity-60 sm:w-auto sm:min-w-[10.5rem]"
-                          />
-                        </label>
-                      </div>
+                      <label className="flex max-w-sm flex-col gap-0">
+                        <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Date prévision commande
+                        </span>
+                        <input
+                          type="date"
+                          disabled={!canEditThisRow}
+                          value={f.expected_availability_date}
+                          onChange={(e) => setField(row.id, "expected_availability_date", e.target.value)}
+                          className="h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] shadow-sm disabled:opacity-60 sm:w-auto sm:min-w-[9rem]"
+                        />
+                      </label>
                     ) : null}
                     {canManageSupply && selected && !lineLockedTrace && !withdrawnDraft ? (
                       <div className="flex flex-wrap items-center gap-2 rounded-md border border-sky-300/80 bg-sky-50/90 px-1.5 py-1 text-[10px] text-sky-950">
@@ -3802,6 +3670,65 @@ export default function PharmacienDemandeDetailPage() {
                   </div>
                 );
 
+                const counterSelectInteractive =
+                  selected &&
+                  showInlineCounter &&
+                  !lineLockedTrace &&
+                  !lineCounterLocked &&
+                  request.status !== "completed";
+
+                const treatedCounterSlot =
+                  showInlineCounter && request.status !== "completed" ? (
+                    <div className="border-t border-slate-100 bg-slate-50/25 px-2 py-2">
+                      {!selected ? (
+                        <p className="text-[10px] text-muted-foreground">
+                          Patient n&apos;ayant pas retenu cette ligne après votre réponse. État au comptoir :{" "}
+                          <strong className="text-foreground">
+                            {counterOutcomeLabelPharmacien(co, row.counter_cancel_reason)}
+                          </strong>
+                        </p>
+                      ) : lineLockedTrace ? (
+                        <p className="text-[10px] text-muted-foreground">
+                          <span className="font-semibold text-foreground">Comptoir : </span>
+                          {counterOutcomeLabelPharmacien(co, row.counter_cancel_reason)}
+                        </p>
+                      ) : lineCounterLocked ? (
+                        <p className="text-[10px] text-muted-foreground">
+                          <span className="font-semibold text-foreground">Comptoir : </span>
+                          Récupéré — plus modifiable.
+                        </p>
+                      ) : (
+                        <div className="flex max-w-[320px] flex-col gap-1">
+                          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Résultat comptoir (enregistrement global)
+                          </p>
+                          <label className="flex flex-col gap-0.5 text-[10px] font-normal text-muted-foreground">
+                            <span className="text-[9px] font-semibold uppercase tracking-wide">État</span>
+                            <select
+                              value={counterSelectKeyNormalized(row, f)}
+                              disabled={!counterSelectInteractive || busy}
+                              onChange={(e) => {
+                                const v = e.target.value as "unset" | "picked_up";
+                                patchItemDraft(row.id, {
+                                  counter_outcome_draft: v,
+                                  counter_cancel_reason_draft: null,
+                                  counter_cancel_detail_draft: null,
+                                });
+                              }}
+                              className="h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <option value="unset">En attente</option>
+                              <option value="picked_up">Récupéré</option>
+                            </select>
+                          </label>
+                          <p className="text-[9px] leading-snug text-muted-foreground">
+                            Pour retirer une ligne du dossier validé, utilisez « Écarter la ligne » dans le menu ⋮.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : null;
+
                 return (
                   <Fragment key={row.id}>
                     <PharmacistSupplyCompactLine
@@ -3851,9 +3778,8 @@ export default function PharmacienDemandeDetailPage() {
                       }}
                       canShowArrivedReservedPill={canShowArrivedReservedPill}
                       canMarkPickedUpCounterSupply={canMarkPickedUpCounterSupply}
-                      counterPickupPillLabel={counterPickupPillLabel}
                       onMarkPickedUpCounter={() => {
-                        void saveCounterOutcome(row.id, counterCoLive === "picked_up" ? "unset" : "picked_up");
+                        void saveCounterOutcome(row.id, "picked_up");
                       }}
                       counterOutcomeBusy={counterBusyId === row.id}
                       hasModifyConsent={hasConsent}
@@ -3861,10 +3787,14 @@ export default function PharmacienDemandeDetailPage() {
                       supplyConfirmBusy={supplyConfirmBusy}
                       lineCounterLocked={lineCounterLocked}
                       showExpandedEditor={
-                        selected && !lineLockedTrace && request.status !== "completed" && (withdrawnDraft || hasConsent)
+                        selected &&
+                        !lineLockedTrace &&
+                        !lineCounterLocked &&
+                        request.status !== "completed" &&
+                        (withdrawnDraft || hasConsent)
                       }
                       expandedEditor={expandedEditor}
-                      hideFulfillmentPills={hideFulfillmentSupplyPills}
+                      treatedCounterSlot={treatedCounterSlot}
                       amendmentTraceLines={supplyAmendmentTraceLinesByItemId[row.id]}
                       menuOpen={supplyMenuRowId === row.id}
                       onMenuOpenChange={(open) => setSupplyMenuRowId(open ? row.id : null)}
@@ -3874,25 +3804,11 @@ export default function PharmacienDemandeDetailPage() {
                           setSupplyMenuRowId(null);
                           return;
                         }
-                        if (row.withdrawn_after_confirm) {
-                          if (!id || !request) return;
-                          setSupplyConfirmBlocks([
-                            {
-                              key: `rein-w-mod-${row.id}`,
-                              title: `Réintégrer · ${validatedName}`,
-                              subtitle: "Choisissez le canal d’accord patient (application immédiate au clic).",
-                            },
-                          ]);
-                          setSupplyConfirmPending({ kind: "reintegrate_withdrawn", rowId: row.id });
-                          setSupplyConfirmOpen(true);
-                          setSupplyMenuRowId(null);
-                          return;
-                        }
                         setSupplyConfirmBlocks([
                           {
                             key: `unlock-${row.id}`,
                             title: `Accord patient · ${validatedName}`,
-                            subtitle: "Choisissez le canal (application immédiate) ; précision optionnelle ensuite dans la ligne.",
+                            subtitle: "Canal obligatoire ; précision optionnelle.",
                           },
                         ]);
                         setSupplyConfirmPending({ kind: "unlock_modify", rowId: row.id });
@@ -3906,53 +3822,41 @@ export default function PharmacienDemandeDetailPage() {
                         });
                         setLineModifyConsent((p) => ({
                           ...p,
-                          [row.id]: p[row.id] ?? { channel: "", motive: "" },
+                          [row.id]: p[row.id] ?? { channel: "phone_call", motive: "" },
                         }));
                         setSupplyMenuRowId(null);
                       }}
                       onMenuHistory={() => setPharmaHistoryRowId(row.id)}
-                      reintegrateTwoItemMenu={showReintegrateTwoItemMenu}
+                      horsBlocPrincipalMenu={horsBlocPrincipalRowIds.has(row.id) && !lineLockedTrace}
                       onMenuReintegrateToReserve={
-                        showReintegrateTwoItemMenu
+                        horsBlocPrincipalRowIds.has(row.id) && !lineLockedTrace
                           ? () => {
                               if (!id || !request) return;
                               const nm = validatedProductLabel(row as PatientLineLike);
                               const q = Math.min(10, Math.max(1, Number(row.requested_qty) || 1));
-                              if (row.withdrawn_after_confirm) {
-                                setSupplyConfirmBlocks([
-                                  {
-                                    key: `rein-w-${row.id}`,
-                                    title: "Réintégrer après écart",
-                                    subtitle: `${nm} — choisissez le canal d’accord patient (application immédiate).`,
-                                  },
-                                ]);
-                                setSupplyConfirmPending({ kind: "reintegrate_withdrawn", rowId: row.id });
-                              } else if (!row.is_selected_by_patient) {
-                                setSupplyConfirmBlocks([
-                                  {
-                                    key: `rein-u-${row.id}`,
-                                    title: "Réintégrer une ligne non retenue",
-                                    subtitle: `${nm} — disponible officine · qté ${q}. Choisissez le canal d’accord patient.`,
-                                  },
-                                ]);
-                                setSupplyConfirmPending({ kind: "reintegrate_unselected", rowId: row.id });
-                              } else {
-                                setSupplyConfirmBlocks([
-                                  {
-                                    key: `rein-${row.id}`,
-                                    title: "Réintégrer le produit",
-                                    subtitle: `${nm} — disponible officine · qté ${q}. Choisissez le canal d’accord patient.`,
-                                  },
-                                ]);
-                                setSupplyConfirmPending({ kind: "reintegrate_hors_bloc", rowId: row.id });
-                              }
+                              setSupplyConfirmBlocks([
+                                {
+                                  key: `rein-${row.id}`,
+                                  title: "Réintégrer le produit",
+                                  subtitle: `${nm} — disponible officine · qté ${q}. Indiquez le canal d’accord patient.`,
+                                },
+                              ]);
+                              setSupplyConfirmPending({ kind: "reintegrate_hors_bloc", rowId: row.id });
                               setSupplyConfirmOpen(true);
                               setSupplyMenuRowId(null);
                             }
                           : undefined
                       }
-                      withdrawDisabled={f.fulfillment_draft === "reserved" || f.fulfillment_draft === "arrived_reserved"}
-                      withdrawDisabledReason={"Retirez d’abord le statut « réservé » ou « reçu en officine »."}
+                      withdrawDisabled={
+                        f.fulfillment_draft === "reserved" ||
+                          f.fulfillment_draft === "arrived_reserved" ||
+                          lineCounterLocked
+                      }
+                      withdrawDisabledReason={
+                        lineCounterLocked
+                          ? "Ligne déjà enregistrée comme récupérée."
+                          : "Retirez d’abord le statut « réservé »."
+                      }
                     />
                   </Fragment>
                 );
@@ -4689,6 +4593,11 @@ export default function PharmacienDemandeDetailPage() {
                           <span className="font-semibold text-foreground">Comptoir : </span>
                           {counterOutcomeLabelPharmacien(co, row.counter_cancel_reason)}
                         </p>
+                      ) : (row.counter_outcome ?? "unset") === "picked_up" ? (
+                        <p className="text-[10px] text-muted-foreground">
+                          <span className="font-semibold text-foreground">Comptoir : </span>
+                          Récupéré — plus modifiable.
+                        </p>
                       ) : (
                         <div className="flex max-w-[320px] flex-col gap-1">
                           <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -5420,41 +5329,24 @@ export default function PharmacienDemandeDetailPage() {
               ? "Retirer la proposition officine"
               : supplyConfirmPending?.kind === "reintegrate_hors_bloc"
                 ? "Réintégrer à la liste « À réserver »"
-                : supplyConfirmPending?.kind === "reintegrate_unselected"
-                  ? "Réintégrer une ligne non retenue"
-                  : supplyConfirmPending?.kind === "reintegrate_withdrawn"
-                    ? "Réintégrer après écart"
-                    : "Ajouter un produit après validation"
+                : "Ajouter un produit après validation"
         }
         intro={
           supplyConfirmPending?.kind === "unlock_modify"
-            ? "Choisissez le canal : l’accord est enregistré tout de suite, puis vous pourrez ajuster la ligne."
+            ? "Le canal et la précision optionnelle sont enregistrés pour le patient."
             : supplyConfirmPending?.kind === "remove_proposed_line"
-              ? "Indiquez le motif du retrait (visible côté patient)."
-              : supplyConfirmPending?.kind === "reintegrate_hors_bloc" ||
-                  supplyConfirmPending?.kind === "reintegrate_unselected" ||
-                  supplyConfirmPending?.kind === "reintegrate_withdrawn"
-                ? "Choisissez le canal d’accord : l’action s’applique immédiatement au clic."
+              ? "Le retrait est journalisé pour le patient avec le canal d’accord."
+              : supplyConfirmPending?.kind === "reintegrate_hors_bloc"
+                ? "La ligne repasse en disponible officine, quantité initiale, sélectionnée pour le suivi ; le canal est enregistré pour le patient."
                 : "Indiquez comment le patient a donné son accord."
         }
         blocks={supplyConfirmBlocks}
-        variant={
-          supplyConfirmPending?.kind === "remove_proposed_line"
-            ? "motive_only"
-            : supplyConfirmPending?.kind === "add_line"
-              ? "full"
-              : supplyConfirmPending
-                ? "channel_instant"
-                : "full"
-        }
         confirmLabel={
           supplyConfirmPending?.kind === "add_line"
             ? "Valider et enregistrer"
             : supplyConfirmPending?.kind === "remove_proposed_line"
               ? "Enregistrer et retirer"
-              : supplyConfirmPending?.kind === "reintegrate_hors_bloc" ||
-                  supplyConfirmPending?.kind === "reintegrate_unselected" ||
-                  supplyConfirmPending?.kind === "reintegrate_withdrawn"
+              : supplyConfirmPending?.kind === "reintegrate_hors_bloc"
                 ? "Confirmer la réintégration"
                 : "Valider"
         }
