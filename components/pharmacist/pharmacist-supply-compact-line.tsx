@@ -41,9 +41,9 @@ export function PharmacistSupplyCompactLine({
   onMenuOpenChange,
   onMenuModify,
   onMenuWithdraw,
+  onMenuReintegrate,
   onMenuHistory,
-  onMenuReintegrateToReserve,
-  horsBlocPrincipalMenu,
+  showAjoutOfficineBadge,
   withdrawDisabled,
   withdrawDisabledReason,
 }: {
@@ -87,10 +87,10 @@ export function PharmacistSupplyCompactLine({
   onMenuOpenChange: (open: boolean) => void;
   onMenuModify: () => void;
   onMenuWithdraw: () => void;
+  onMenuReintegrate?: () => void;
   onMenuHistory: () => void;
-  /** Menu réduit : historique + réintégration vers le bloc « À réserver » (lignes hors périmètre). */
-  onMenuReintegrateToReserve?: () => void;
-  horsBlocPrincipalMenu?: boolean;
+  /** Proposition officine (aligné badge patient). */
+  showAjoutOfficineBadge?: boolean;
   withdrawDisabled: boolean;
   withdrawDisabledReason?: string | null;
 }) {
@@ -98,8 +98,6 @@ export function PharmacistSupplyCompactLine({
     "inline-flex min-h-8 items-center justify-center rounded-md border px-2 text-[10px] font-semibold shadow-sm transition disabled:opacity-45";
   const pillActive = "border-emerald-600 bg-emerald-600 text-white";
   const pillIdle = "border-border bg-background text-foreground hover:bg-muted/50";
-
-  const menuHorsBloc = Boolean(horsBlocPrincipalMenu && onMenuReintegrateToReserve);
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -165,9 +163,7 @@ export function PharmacistSupplyCompactLine({
               <button
                 ref={anchorRef}
                 type="button"
-                disabled={
-                  busy || supplyConfirmBusy || fulfillmentActionsBusy || (!menuHorsBloc && lineLockedTrace)
-                }
+                disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy || lineLockedTrace}
                 aria-expanded={menuOpen}
                 aria-haspopup="menu"
                 aria-label="Actions ligne"
@@ -180,26 +176,11 @@ export function PharmacistSupplyCompactLine({
                 ? createPortal(
                     <ul
                       data-pharma-supply-menu
-                      className="fixed z-[85] min-w-[11rem] overflow-hidden rounded-lg border border-border bg-card py-0.5 text-[11px] shadow-lg"
+                      className="fixed z-[120] min-w-[11rem] overflow-hidden rounded-lg border border-border bg-card py-0.5 text-[11px] shadow-lg"
                       style={{ top: menuPos.top, left: menuPos.left }}
                       role="menu"
                     >
-                      {menuHorsBloc ? (
-                        <>
-                          <li role="none">
-                            <button
-                              type="button"
-                              role="menuitem"
-                              disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
-                              className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
-                              onClick={() => {
-                                onMenuOpenChange(false);
-                                onMenuHistory();
-                              }}
-                            >
-                              Historique produit
-                            </button>
-                          </li>
+                      {selected && !lineLockedTrace && withdrawn && !lineCounterLocked && onMenuReintegrate ? (
                         <li role="none">
                           <button
                             type="button"
@@ -208,71 +189,74 @@ export function PharmacistSupplyCompactLine({
                             className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
                             onClick={() => {
                               onMenuOpenChange(false);
-                              onMenuReintegrateToReserve?.();
+                              onMenuReintegrate();
                             }}
                           >
-                            Réintégrer à « À réserver »…
+                            Réintégrer la ligne…
                           </button>
                         </li>
-                        </>
-                      ) : (
-                        <>
-                          {selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
-                            <li role="none">
-                              <button
-                                type="button"
-                                role="menuitem"
-                                disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
-                                className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
-                                onClick={() => {
-                                  onMenuOpenChange(false);
-                                  onMenuModify();
-                                }}
-                              >
-                                {hasModifyConsent ? "Modifier la ligne…" : "Modifier (accord patient)…"}
-                              </button>
-                            </li>
-                          ) : null}
-                          {selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
-                            <li role="none">
-                              <button
-                                type="button"
-                                role="menuitem"
-                                disabled={busy || supplyConfirmBusy || withdrawDisabled}
-                                title={withdrawDisabled ? withdrawDisabledReason ?? undefined : undefined}
-                                className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
-                                onClick={() => {
-                                  onMenuOpenChange(false);
-                                  onMenuWithdraw();
-                                }}
-                              >
-                                Écarter la ligne…
-                              </button>
-                            </li>
-                          ) : null}
-                          <li role="none">
-                            <button
-                              type="button"
-                              role="menuitem"
-                              disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
-                              className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
-                              onClick={() => {
-                                onMenuOpenChange(false);
-                                onMenuHistory();
-                              }}
-                            >
-                              Historique produit
-                            </button>
-                          </li>
-                        </>
-                      )}
+                      ) : null}
+                      {selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
+                        <li role="none">
+                          <button
+                            type="button"
+                            role="menuitem"
+                            disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+                            className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
+                            onClick={() => {
+                              onMenuOpenChange(false);
+                              onMenuModify();
+                            }}
+                          >
+                            {hasModifyConsent ? "Modifier la ligne…" : "Modifier (accord patient)…"}
+                          </button>
+                        </li>
+                      ) : null}
+                      {selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
+                        <li role="none">
+                          <button
+                            type="button"
+                            role="menuitem"
+                            disabled={busy || supplyConfirmBusy || withdrawDisabled}
+                            title={withdrawDisabled ? withdrawDisabledReason ?? undefined : undefined}
+                            className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
+                            onClick={() => {
+                              onMenuOpenChange(false);
+                              onMenuWithdraw();
+                            }}
+                          >
+                            Écarter la ligne…
+                          </button>
+                        </li>
+                      ) : null}
+                      <li role="none">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+                          className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
+                          onClick={() => {
+                            onMenuOpenChange(false);
+                            onMenuHistory();
+                          }}
+                        >
+                          Historique produit
+                        </button>
+                      </li>
                     </ul>,
                     document.body
                   )
                 : null}
             </div>
 
-            <p className="line-clamp-2 text-[11px] font-semibold leading-snug text-foreground">{validatedName}</p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <p className="line-clamp-2 min-w-0 flex-1 text-[11px] font-semibold leading-snug text-foreground">{validatedName}</p>
+              {showAjoutOfficineBadge ? (
+                <span className="shrink-0 rounded-md border border-violet-400/70 bg-violet-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-violet-900 shadow-sm">
+                  Ajout officine
+                </span>
+              ) : null}
+            </div>
             <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
               <span className="tabular-nums font-medium text-foreground">Qté {validatedQty}</span>
               <span className="text-border" aria-hidden>
