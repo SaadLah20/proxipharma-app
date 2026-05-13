@@ -272,7 +272,7 @@ function patientTreatedSupplyStatusLine(row: ActionItemRow): string {
     return "Non retenu à la validation — pas de suivi réservation / commande.";
   }
   if (row.withdrawn_after_confirm) {
-    return "Écarté après validation : ce produit n’est plus suivi comme commande active.";
+    return "Écart après validation : ce produit n’est plus suivi comme commande active.";
   }
   const eff = effectiveAvailabilityForPatientLine(row);
   const pcf = row.post_confirm_fulfillment ?? "unset";
@@ -379,7 +379,7 @@ function PatientValidatedCompactLineCard({
             ) : null}
             {tier === "retire_apres_validation" ? (
               <span className="ms-1 rounded bg-amber-100 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-950">
-                Écarté après validation
+                Écart
               </span>
             ) : null}
             <span className="text-border" aria-hidden>
@@ -618,7 +618,7 @@ function ReadonlyArchivedProductBucketsView({
             <div className="flex items-center gap-1 text-amber-950">
               <Layers className="size-3.5 shrink-0 text-amber-900" aria-hidden />
               <h3 className="text-[10px] font-bold uppercase tracking-wide">
-                Écartés après validation ({retireesApresValidation.length})
+                Écart après validation ({retireesApresValidation.length})
               </h3>
             </div>
             <ul className="space-y-1.5">
@@ -2284,7 +2284,7 @@ export function PatientProductRequestActions({
                   <div className="flex items-center gap-1 text-amber-950">
                     <Layers className="size-3.5 shrink-0 text-amber-900" aria-hidden />
                     <h3 className="text-[10px] font-bold uppercase tracking-wide">
-                      Écartés après validation ({retireesApresValidation.length})
+                      Écart après validation ({retireesApresValidation.length})
                     </h3>
                   </div>
                   <p className="text-[9px] leading-snug text-muted-foreground">
