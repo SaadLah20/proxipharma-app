@@ -36,7 +36,10 @@ export function PharmacistSupplyCompactLine({
   showExpandedEditor,
   expandedEditor,
   treatedCounterSlot,
-  amendmentTraceLines,
+  /** Bouton ouvrant les échanges patient / officine sur la ligne (demande validée). */
+  lineConversationSlot,
+  /** Libellés courts post-validation (détail dans Historique produit). */
+  postConfirmAmendmentBadges,
   menuOpen,
   onMenuOpenChange,
   onMenuModify,
@@ -80,8 +83,8 @@ export function PharmacistSupplyCompactLine({
   showExpandedEditor: boolean;
   expandedEditor: ReactNode;
   treatedCounterSlot: ReactNode | null;
-  /** Jalons `request_supply_amendments` liés à cette ligne (aperçu pour l’officine). */
-  amendmentTraceLines?: string[] | undefined;
+  lineConversationSlot?: ReactNode;
+  postConfirmAmendmentBadges?: string[] | undefined;
   menuOpen: boolean;
   onMenuOpenChange: (open: boolean) => void;
   onMenuModify: () => void;
@@ -314,16 +317,17 @@ export function PharmacistSupplyCompactLine({
                 ) : null}
               </div>
             ) : null}
-            {amendmentTraceLines && amendmentTraceLines.length > 0 ? (
-              <div className="mt-1.5 rounded-md border border-slate-200/90 bg-slate-50/95 px-2 py-1.5">
-                <p className="text-[9px] font-bold uppercase tracking-wide text-slate-600">Historique des changements (patient)</p>
-                <ul className="mt-0.5 max-h-24 space-y-0.5 overflow-y-auto">
-                  {amendmentTraceLines.map((t, i) => (
-                    <li key={`${i}-${t.slice(0, 24)}`} className="text-[9px] leading-snug text-slate-800">
-                      {t}
-                    </li>
-                  ))}
-                </ul>
+            {lineConversationSlot != null || (postConfirmAmendmentBadges && postConfirmAmendmentBadges.length > 0) ? (
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-1.5">
+                {lineConversationSlot}
+                {postConfirmAmendmentBadges?.map((label) => (
+                  <span
+                    key={label}
+                    className="inline-flex max-w-full items-center rounded-md border border-slate-300/80 bg-slate-100/90 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
+                  >
+                    {label}
+                  </span>
+                ))}
               </div>
             ) : null}
           </div>

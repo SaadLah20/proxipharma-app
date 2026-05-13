@@ -36,9 +36,13 @@ export function LineHistoryModalFr({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-[10070] flex items-end justify-center pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center sm:p-4 sm:pb-4"
+      role="dialog"
+      aria-modal="true"
+    >
       <button type="button" className="absolute inset-0 bg-black/50" aria-label="Fermer" onClick={onClose} />
-      <div className="relative z-10 flex max-h-[min(90dvh,34rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-2xl">
+      <div className="relative z-10 flex max-h-[min(calc(100dvh-5.5rem),34rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:max-h-[min(90dvh,34rem)] sm:rounded-2xl">
         <div className="flex items-start justify-between gap-2 border-b border-border px-2.5 py-2">
           <div className="min-w-0 flex-1">
             <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Historique produit</p>
@@ -48,7 +52,7 @@ export function LineHistoryModalFr({
             <X className="size-4" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto px-2.5 py-2">
+        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-2.5 py-2 pb-6">
           {blocks.length === 0 ? (
             <p className="text-[12px] leading-snug text-muted-foreground">
               Impossible d&apos;afficher la chronologie. Consultez l&apos;historique du dossier sur la page.

@@ -68,7 +68,7 @@ import {
   validatedQtyForPatientLine,
   type PatientLineLike,
 } from "@/lib/patient-confirmed-line-buckets";
-import { amendmentsForPatientLine, buildPatientLineTimelineFr } from "@/lib/build-patient-line-timeline-fr";
+import { buildPatientLineTimelineFr, postConfirmSupplyAmendmentBadgeLabelsFr } from "@/lib/build-patient-line-timeline-fr";
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { PharmacistSupplyCompactLine } from "@/components/pharmacist/pharmacist-supply-compact-line";
 import {
@@ -76,7 +76,7 @@ import {
   type PharmaConfirmAdjustmentAudit,
   type PharmaConfirmAdjustmentLine,
 } from "@/lib/patient-request-history-audit";
-import { summarizeSupplyAmendmentEntry, type SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
+import { type SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
 import {
   dispatchRequestDetailRefresh,
   REQUEST_DETAIL_REFRESH_EVENT,
@@ -3132,15 +3132,11 @@ export default function PharmacienDemandeDetailPage() {
     });
   }, [pharmaHistoryRowId, request, items, supplyAmendmentBundles, dossierHistoryTimeline]);
 
-  const supplyAmendmentTraceLinesByItemId = useMemo(() => {
+  const supplyAmendmentBadgeLabelsByItemId = useMemo(() => {
     const map: Record<string, string[]> = {};
     for (const row of items) {
-      const list = amendmentsForPatientLine(row as PatientLineLike, supplyAmendmentBundles);
-      if (list.length === 0) continue;
-      map[row.id] = list.map(
-        ({ created_at, entry }) =>
-          `${formatDateTimeShort24hFr(created_at)} · ${summarizeSupplyAmendmentEntry(entry)}`
-      );
+      const labels = postConfirmSupplyAmendmentBadgeLabelsFr(row as PatientLineLike, supplyAmendmentBundles);
+      if (labels.length > 0) map[row.id] = labels;
     }
     return map;
   }, [items, supplyAmendmentBundles]);
@@ -3936,6 +3932,28 @@ export default function PharmacienDemandeDetailPage() {
                     </div>
                   ) : null;
 
+                const lineConvoCompactSlot = (
+                  <button
+                    type="button"
+                    disabled={busy || supplyConfirmBusy || fulfillmentRpcBusyId === row.id}
+                    onClick={() => {
+                      setSupplyMenuRowId(null);
+                      setLineConvoRowId(row.id);
+                    }}
+                    className={lineConversationStripButtonClass(lineConvoVisual, {
+                      open: lineConvoRowId === row.id,
+                      disabled: busy || supplyConfirmBusy,
+                    })}
+                    aria-label={`Échanges produit · ${lineConversationStripLabel(lineConvoVisual)}`}
+                    title="Notes patient et officine"
+                  >
+                    <MessageCircle className="size-3 shrink-0 opacity-90" strokeWidth={2.2} aria-hidden />
+                    <span className="max-w-[10rem] truncate text-[9px] font-medium leading-tight sm:max-w-[12rem]">
+                      {lineConversationStripLabel(lineConvoVisual)}
+                    </span>
+                  </button>
+                );
+
                 return (
                   <Fragment key={row.id}>
                     <PharmacistSupplyCompactLine
@@ -4002,7 +4020,8 @@ export default function PharmacienDemandeDetailPage() {
                       }
                       expandedEditor={expandedEditor}
                       treatedCounterSlot={treatedCounterSlot}
-                      amendmentTraceLines={supplyAmendmentTraceLinesByItemId[row.id]}
+                      lineConversationSlot={lineConvoCompactSlot}
+                      postConfirmAmendmentBadges={supplyAmendmentBadgeLabelsByItemId[row.id]}
                       menuOpen={supplyMenuRowId === row.id}
                       onMenuOpenChange={(open) => setSupplyMenuRowId(open ? row.id : null)}
                       onMenuModify={() => {
