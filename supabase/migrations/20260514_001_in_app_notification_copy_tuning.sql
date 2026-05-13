@@ -1,4 +1,24 @@
 -- Libellés in-app patient : formulations plus simples (traité, abandonné) + en-tête « Dossier » au lieu de « Nature ».
+--
+-- Anciennes migrations ont pu laisser deux surcharges (5 args vs 6 args) : CREATE OR REPLACE
+-- et COMMENT sans signature échouent alors (42725). On retire explicitement les deux formes.
+
+DROP FUNCTION IF EXISTS public._in_app_notification_patient(
+  public.request_status_enum,
+  text,
+  text,
+  text,
+  text
+);
+
+DROP FUNCTION IF EXISTS public._in_app_notification_patient(
+  public.request_status_enum,
+  text,
+  text,
+  text,
+  text,
+  text
+);
 
 CREATE OR REPLACE FUNCTION public._in_app_notification_patient(
   p_status public.request_status_enum,
@@ -94,5 +114,12 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public._in_app_notification_patient IS
+COMMENT ON FUNCTION public._in_app_notification_patient(
+  public.request_status_enum,
+  text,
+  text,
+  text,
+  text,
+  text
+) IS
   'Titres/corps notification patient (mai 2026) : libellés simplifiés, dossier traité = passage comptoir.';
