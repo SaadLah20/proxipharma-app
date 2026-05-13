@@ -463,7 +463,7 @@ function buildItemUpdatePayload(f: ItemDraft, row: ItemRow) {
   };
 }
 
-/** CHECK BDD `request_items.requested_qty` (1–10) — aligné saisie officine / patient. */
+/** Plafond saisie patient / ligne « réponse » classique (hors stock proposition officine, voir `PHARMACIST_PROPOSED_STOCK_CEILING`). */
 function clampRequestItemQty(n: number): number {
   return Math.min(10, Math.max(1, Math.floor(Number.isFinite(n) ? n : 1)));
 }
@@ -2118,17 +2118,21 @@ export default function PharmacienDemandeDetailPage() {
       if (!f?.availability_status) {
         throw new Error("Choisis une disponibilité pour chaque ligne (propositions officine).");
       }
-      const availQty = Number(f.available_qty);
-      if (Number.isNaN(availQty) || availQty < 1) {
+      const availQtyRaw = Number(f.available_qty);
+      if (Number.isNaN(availQtyRaw) || availQtyRaw < 1) {
         throw new Error("Pour chaque proposition officine, la quantité en stock doit être au moins 1.");
       }
+      const qtyLine = Math.min(
+        PHARMACIST_PROPOSED_STOCK_CEILING,
+        Math.max(1, Math.floor(availQtyRaw))
+      );
       const price = f.unit_price.trim() === "" ? null : Number(f.unit_price.replace(",", "."));
       if (f.unit_price.trim() !== "" && (price == null || Number.isNaN(price) || price < 0)) {
         throw new Error("Prix unitaire invalide.");
       }
       const inferredStatus = inferAvailabilityStatusFromQty({
         status: f.availability_status,
-        availableQty: availQty,
+        availableQty: qtyLine,
         requestedQty: row.requested_qty,
         isProposedLine: row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id),
       });
@@ -2138,14 +2142,14 @@ export default function PharmacienDemandeDetailPage() {
         .insert({
           request_id: id,
           product_id: row.product_id,
-          requested_qty: clampRequestItemQty(availQty),
+          requested_qty: qtyLine,
           line_source: "pharmacist_proposed",
           pharmacist_proposal_reason: row.pharmacist_proposal_reason,
           is_selected_by_patient: true,
-          selected_qty: clampRequestItemQty(availQty),
+          selected_qty: qtyLine,
           counter_outcome: "unset",
           availability_status: inferredStatus,
-          available_qty: availQty,
+          available_qty: qtyLine,
           unit_price: price,
           pharmacist_comment: f.pharmacist_comment.trim() || null,
           expected_availability_date:
@@ -2171,7 +2175,7 @@ export default function PharmacienDemandeDetailPage() {
             kind: "line_added_after_confirm",
             request_item_id: inserted.id,
             summary: `${nm} ajouté avec accord patient`,
-            detail: `${nm} : proposition officine après validation (${availQty} unité(s)).`,
+            detail: `${nm} : proposition officine après validation (${qtyLine} unité(s)).`,
             client_confirmation_channel: fill.channel.trim(),
             client_motive: fill.motive.trim() === "" ? null : fill.motive.trim(),
           },
@@ -2332,7 +2336,6 @@ export default function PharmacienDemandeDetailPage() {
         if (isProp && qtyPrep < 1 && !f.withdrawn_after_confirm) {
           throw new Error(`« ${nm} » (proposition officine) : quantité en stock minimale 1.`);
         }
-        const coNorm = counterSelectKeyNormalized(row, f);
         const draftSel = Math.min(999, Math.max(1, Number(f.selected_qty_str) || 1));
         const payload = buildItemUpdatePayload(f, row);
         const inf = inferredAvailabilityForPostConfirmClamp(row, payload.availability_status);
