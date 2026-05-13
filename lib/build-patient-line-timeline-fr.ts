@@ -65,6 +65,46 @@ export function amendmentsForPatientLine(row: PatientLineLike, bundles: { id: st
   return out.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 }
 
+/** Libellés courts sur la carte produit (détail complet dans « Historique produit »). Ordre chronologique des types rencontrés. */
+export function postConfirmSupplyAmendmentBadgeLabelsFr(
+  row: PatientLineLike,
+  bundles: { id: string; created_at: string; amendments: unknown }[]
+): string[] {
+  const list = amendmentsForPatientLine(row, bundles);
+  const labelForKind = (kind: string | undefined): string | null => {
+    switch (kind) {
+      case "line_adjust_supply":
+        return "Modifié après validation";
+      case "line_added_after_confirm":
+        return "Ajouté après modification";
+      case "line_removed_after_confirm":
+        return "Retiré après validation";
+      case "withdraw_after_confirm":
+        return "Écart après validation";
+      case "reintegrate_after_confirm":
+      case "reintegrate":
+        return "Réintégré après validation";
+      case "line_brought_to_reserve_after_validation":
+        return "Replacé sur à réserver";
+      case "validated_qty_change":
+        return "Quantité ajustée";
+      default:
+        return kind ? "Mise à jour" : null;
+    }
+  };
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const { entry } of list) {
+    const k = (entry.kind ?? "").trim();
+    if (!k || seen.has(k)) continue;
+    const lab = labelForKind(k);
+    if (!lab) continue;
+    seen.add(k);
+    out.push(lab);
+  }
+  return out;
+}
+
 export type PatientLineTimelineInputs = {
   row: PatientLineLike;
   requestCreatedAt: string;

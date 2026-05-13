@@ -34,6 +34,7 @@ import {
   bucketPatientValidatedLinesThreeWays,
   effectiveAvailabilityForPatientLine,
   effectiveEtaForPatientLine,
+  type PatientLineLike,
   validatedBranchUnitPriceMad,
   validatedProductLabel,
   validatedQtyForPatientLine,
@@ -49,6 +50,7 @@ import { supabase } from "@/lib/supabase";
 import { one } from "@/lib/embed";
 import {
   buildPatientLineTimelineFr,
+  postConfirmSupplyAmendmentBadgeLabelsFr,
   type PatientLineTimelineBlockFr,
 } from "@/lib/build-patient-line-timeline-fr";
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
@@ -306,12 +308,15 @@ function PatientValidatedCompactLineCard({
   tier,
   onOpenHistory,
   treatedSupplyStatusLine,
+  postConfirmBadges,
 }: {
   row: ActionItemRow;
   tier: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation";
   onOpenHistory: () => void;
   /** Dossier `treated` : texte court réservation / commande / réception / comptoir. */
   treatedSupplyStatusLine?: string | null;
+  /** Jalons post-validation (détail dans Historique produit). */
+  postConfirmBadges?: string[];
 }) {
   const prod = one(row.products);
   const altList = normalizeAlternatives(row.request_item_alternatives);
@@ -419,6 +424,26 @@ function PatientValidatedCompactLineCard({
           </div>
         </div>
       </div>
+      {postConfirmBadges && postConfirmBadges.length > 0 ? (
+        <div className="border-t border-border/55 px-2.5 pt-1.5 sm:px-3">
+          <div className="flex flex-wrap gap-1">
+            {postConfirmBadges.map((label) => (
+              <span
+                key={label}
+                className="inline-flex max-w-full rounded-md border border-slate-300/80 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <div className="px-2 pb-1 sm:px-2.5">
+        <PatientRespondedLineConvoStripReadOnly
+          patientNote={row.client_comment ?? ""}
+          pharmaLineNote={row.pharmacist_comment ?? ""}
+        />
+      </div>
       {treatedSupplyStatusLine != null && treatedSupplyStatusLine.trim() !== "" ? (
         <div className="border-t border-slate-200/85 bg-slate-50/90 px-2.5 py-1.5 sm:px-3">
           <p className="text-[10px] font-semibold leading-snug text-slate-800">{treatedSupplyStatusLine}</p>
@@ -431,9 +456,11 @@ function PatientValidatedCompactLineCard({
 function PatientTraceNotRetainedRow({
   row,
   onOpenHistory,
+  postConfirmBadges,
 }: {
   row: ActionItemRow;
   onOpenHistory: () => void;
+  postConfirmBadges?: string[];
 }) {
   const prod = one(row.products);
   const name = prod?.name ?? "Produit";
@@ -443,7 +470,8 @@ function PatientTraceNotRetainedRow({
       <span className="text-violet-800">{requestItemLineSourceFr.pharmacist_proposed}</span>
     ) : null;
   return (
-    <li className="flex items-start gap-2 rounded-md border border-border/70 bg-muted/15 px-2 py-1.5">
+    <li className="flex flex-col gap-1 rounded-md border border-border/70 bg-muted/15 px-2 py-1.5">
+      <div className="flex items-start gap-2">
       <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded border border-border/60 bg-card">
         {prod?.photo_url ? (
           <img src={prod.photo_url} alt="" className="size-full object-cover" />
@@ -485,6 +513,23 @@ function PatientTraceNotRetainedRow({
           ) : null}
         </p>
       </div>
+      </div>
+      {postConfirmBadges && postConfirmBadges.length > 0 ? (
+        <div className="flex flex-wrap gap-1 border-t border-border/50 pt-1">
+          {postConfirmBadges.map((label) => (
+            <span
+              key={label}
+              className="inline-flex max-w-full rounded-md border border-slate-300/80 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <PatientRespondedLineConvoStripReadOnly
+        patientNote={row.client_comment ?? ""}
+        pharmaLineNote={row.pharmacist_comment ?? ""}
+      />
     </li>
   );
 }
@@ -494,10 +539,12 @@ function ReadonlyArchivedProductBucketsView({
   items,
   pharmacistGlobalComment,
   onOpenLineHistory,
+  linePostConfirmBadgesById,
 }: {
   items: ActionItemRow[];
   pharmacistGlobalComment: string | null | undefined;
   onOpenLineHistory: (itemId: string) => void;
+  linePostConfirmBadgesById: Record<string, string[]>;
 }) {
   const totalsRetained = useMemo(() => monetaryTotalsForRetainedLines(items), [items]);
   const { dispoOfficine, aCommander, horsPerimetre, retireesApresValidation } =
@@ -565,6 +612,7 @@ function ReadonlyArchivedProductBucketsView({
                   row={row}
                   tier="dispo_officine"
                   onOpenHistory={() => onOpenLineHistory(row.id)}
+                  postConfirmBadges={linePostConfirmBadgesById[row.id]}
                 />
               ))}
             </ul>
@@ -595,6 +643,7 @@ function ReadonlyArchivedProductBucketsView({
                   row={row}
                   tier="commande"
                   onOpenHistory={() => onOpenLineHistory(row.id)}
+                  postConfirmBadges={linePostConfirmBadgesById[row.id]}
                 />
               ))}
             </ul>
@@ -617,6 +666,7 @@ function ReadonlyArchivedProductBucketsView({
                   row={row}
                   tier="hors_perimetre"
                   onOpenHistory={() => onOpenLineHistory(row.id)}
+                  postConfirmBadges={linePostConfirmBadgesById[row.id]}
                 />
               ))}
             </ul>
@@ -638,6 +688,7 @@ function ReadonlyArchivedProductBucketsView({
                   row={row}
                   tier="retire_apres_validation"
                   onOpenHistory={() => onOpenLineHistory(row.id)}
+                  postConfirmBadges={linePostConfirmBadgesById[row.id]}
                 />
               ))}
             </ul>
@@ -654,7 +705,12 @@ function ReadonlyArchivedProductBucketsView({
           </summary>
           <ul className="space-y-1 border-t border-border/60 px-2 py-1.5">
             {lignesNonRetenues.map((row) => (
-              <PatientTraceNotRetainedRow key={row.id} row={row} onOpenHistory={() => onOpenLineHistory(row.id)} />
+              <PatientTraceNotRetainedRow
+                key={row.id}
+                row={row}
+                onOpenHistory={() => onOpenLineHistory(row.id)}
+                postConfirmBadges={linePostConfirmBadgesById[row.id]}
+              />
             ))}
           </ul>
         </details>
@@ -1510,6 +1566,15 @@ export function PatientProductRequestActions({
     [items, status]
   );
 
+  const linePostConfirmBadgesById = useMemo(() => {
+    const m: Record<string, string[]> = {};
+    for (const row of items) {
+      const labels = postConfirmSupplyAmendmentBadgeLabelsFr(row as unknown as PatientLineLike, supplyAmendmentBundles);
+      if (labels.length > 0) m[row.id] = labels;
+    }
+    return m;
+  }, [items, supplyAmendmentBundles]);
+
   /** Confirmation responded -> confirmed — reset via parent `key` when server rows change */
   const [sel, setSel] = useState(() => computeSelFromItems(items));
 
@@ -1946,6 +2011,7 @@ export function PatientProductRequestActions({
             items={items}
             pharmacistGlobalComment={pharmacistGlobalComment}
             onOpenLineHistory={(itemId) => setHistoryModalItemId(itemId)}
+            linePostConfirmBadgesById={linePostConfirmBadgesById}
           />
         </section>
         <LineHistoryModalFr
@@ -2224,6 +2290,7 @@ export function PatientProductRequestActions({
                         row={row}
                         tier="dispo_officine"
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        postConfirmBadges={linePostConfirmBadgesById[row.id]}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />
                     ))}
@@ -2255,6 +2322,7 @@ export function PatientProductRequestActions({
                         row={row}
                         tier="commande"
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        postConfirmBadges={linePostConfirmBadgesById[row.id]}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />
                     ))}
@@ -2281,6 +2349,7 @@ export function PatientProductRequestActions({
                         row={row}
                         tier="hors_perimetre"
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        postConfirmBadges={linePostConfirmBadgesById[row.id]}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />
                     ))}
@@ -2306,6 +2375,7 @@ export function PatientProductRequestActions({
                         row={row}
                         tier="retire_apres_validation"
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        postConfirmBadges={linePostConfirmBadgesById[row.id]}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />
                     ))}
@@ -2327,6 +2397,7 @@ export function PatientProductRequestActions({
                         key={row.id}
                         row={row}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        postConfirmBadges={linePostConfirmBadgesById[row.id]}
                       />
                     ))}
                   </ul>
