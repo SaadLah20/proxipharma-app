@@ -41,8 +41,8 @@ export function tryParsePatientHistoryAudit(reason: string | null | undefined): 
 
 /** Titre carte historique patient. */
 export function patientHistoryAuditTitle(audit: PharmaConfirmAdjustmentAudit): string {
-  if (audit.lines.length === 0) return "Mise à jour du dossier";
-  return "Préparation pharmacie mise à jour";
+  if (audit.lines.length === 0) return "Mise à jour sur votre commande";
+  return "La pharmacie a ajusté votre commande validée";
 }
 
 /** Détail lisible patient (une entrée par ligne modifiée). */
@@ -51,16 +51,16 @@ export function patientHistoryAuditDetailLines(audit: PharmaConfirmAdjustmentAud
     const parts: string[] = [];
     const qtyChanged = L.oldAvailQty !== L.newAvailQty;
     const availChanged = (L.oldAvailabilityStatus ?? "").trim() !== (L.newAvailabilityStatus ?? "").trim();
-    parts.push(`${L.productName} — votre validation : ${L.validatedQty} unité(s).`);
+    parts.push(`${L.productName} — quantité retenue à la validation : ${L.validatedQty} unité(s).`);
     if (qtyChanged) {
       parts.push(
-        `Quantité suivie au comptoir/préparation : ${L.oldAvailQty ?? "?"} → ${L.newAvailQty}${L.newAvailQty > L.validatedQty ? " — la pharmacie a augmenté cette quantité (ex. rupture puis solution)." : ""}${L.newAvailQty < L.validatedQty ? " — la pharmacie propose moins pour cette ligne." : ""}`
+        `Quantité suivie par la pharmacie : ${L.oldAvailQty ?? "?"} → ${L.newAvailQty}${L.newAvailQty > L.validatedQty ? " (la pharmacie propose plus, par exemple après une rupture puis une solution)." : ""}${L.newAvailQty < L.validatedQty ? " (la pharmacie propose moins sur cette ligne.)" : ""}`
       );
     }
     if (availChanged) {
       const ol = L.oldAvailLabelFr ?? L.oldAvailabilityStatus ?? "—";
       const nl = L.newAvailLabelFr ?? L.newAvailabilityStatus ?? "—";
-      parts.push(`Disponibilité indiquée : ${ol} → ${nl}.`);
+      parts.push(`Disponibilité communiquée : ${ol} → ${nl}.`);
     }
     return parts.join(" ");
   });
@@ -69,15 +69,15 @@ export function patientHistoryAuditDetailLines(audit: PharmaConfirmAdjustmentAud
 /** Libellés courts pour les codes techniques stockés dans `request_status_history.reason`. */
 const PATIENT_HISTORY_TECH_REASON_FR: Record<string, string> = {
   patient_confirm_after_response: "Vous avez validé votre choix et enregistré votre passage en pharmacie.",
-  publication_disponibilites: "La pharmacie a publié sa réponse (disponibilités et prix).",
-  pharmacien_ui: "Action enregistrée depuis l’espace pharmacien.",
-  patient_planned_visit_updated: "Votre date ou heure de passage a été mise à jour.",
-  pharmacist_response_updated: "La pharmacie a mis à jour sa réponse sur la demande.",
-  auto_abandon_24h_after_response: "La demande a expiré : pas de validation de votre part dans les 24 h.",
-  request_created_with_status: "Demande créée et transmise.",
-  patient_abandon_request: "Vous avez annulé la demande.",
+  publication_disponibilites: "La pharmacie a publié sa réponse (prix et disponibilités).",
+  pharmacien_ui: "Mise à jour enregistrée par la pharmacie.",
+  patient_planned_visit_updated: "Votre date ou heure de passage a été modifiée.",
+  pharmacist_response_updated: "La pharmacie a mis à jour sa réponse.",
+  auto_abandon_24h_after_response: "Sans validation de votre part, la demande a été fermée automatiquement.",
+  request_created_with_status: "Demande créée et envoyée.",
+  patient_abandon_request: "Vous avez abandonné la demande.",
   patient_resubmit_product_request_after_response: "Vous avez renvoyé une liste de produits mise à jour.",
-  pharmacist_ui_confirm_close: "La pharmacie a clôturé le dossier depuis son espace.",
+  pharmacist_ui_confirm_close: "La pharmacie a clôturé le dossier après le passage au comptoir.",
 };
 
 /**
