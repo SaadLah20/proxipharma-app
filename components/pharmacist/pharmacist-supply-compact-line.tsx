@@ -41,7 +41,6 @@ export function PharmacistSupplyCompactLine({
   onMenuOpenChange,
   onMenuModify,
   onMenuWithdraw,
-  onMenuReintegrate,
   onMenuHistory,
   showAjoutOfficineBadge,
   withdrawDisabled,
@@ -87,7 +86,6 @@ export function PharmacistSupplyCompactLine({
   onMenuOpenChange: (open: boolean) => void;
   onMenuModify: () => void;
   onMenuWithdraw: () => void;
-  onMenuReintegrate?: () => void;
   onMenuHistory: () => void;
   /** Proposition officine (aligné badge patient). */
   showAjoutOfficineBadge?: boolean;
@@ -163,7 +161,7 @@ export function PharmacistSupplyCompactLine({
               <button
                 ref={anchorRef}
                 type="button"
-                disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy || lineLockedTrace}
+                disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
                 aria-expanded={menuOpen}
                 aria-haspopup="menu"
                 aria-label="Actions ligne"
@@ -176,26 +174,10 @@ export function PharmacistSupplyCompactLine({
                 ? createPortal(
                     <ul
                       data-pharma-supply-menu
-                      className="fixed z-[120] min-w-[11rem] overflow-hidden rounded-lg border border-border bg-card py-0.5 text-[11px] shadow-lg"
+                      className="fixed z-[10120] min-w-[11rem] overflow-hidden rounded-lg border border-border bg-card py-0.5 text-[11px] shadow-lg"
                       style={{ top: menuPos.top, left: menuPos.left }}
                       role="menu"
                     >
-                      {selected && !lineLockedTrace && withdrawn && !lineCounterLocked && onMenuReintegrate ? (
-                        <li role="none">
-                          <button
-                            type="button"
-                            role="menuitem"
-                            disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
-                            className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
-                            onClick={() => {
-                              onMenuOpenChange(false);
-                              onMenuReintegrate();
-                            }}
-                          >
-                            Réintégrer la ligne…
-                          </button>
-                        </li>
-                      ) : null}
                       {selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
                         <li role="none">
                           <button
