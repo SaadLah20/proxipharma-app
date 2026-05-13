@@ -327,16 +327,14 @@ function PatientValidatedCompactLineCard({
   const eff = effectiveAvailabilityForPatientLine(row);
   const eta = effectiveEtaForPatientLine(row);
 
-  let availSentence: string;
-  if (!row.is_selected_by_patient) {
-    availSentence = "Non retenu lors de votre validation.";
-  } else if (eff) {
-    availSentence =
-      `${availabilityStatusFr[eff] ?? eff}` +
-      (eff === "to_order" && eta ? ` · dispo indicative ${formatDateShortFr(eta)}` : "");
-  } else {
-    availSentence = "Dispo communiquée par la pharmacie à l’historique.";
-  }
+  /** Statut seul sur une ligne ; date « à commander » sur une ligne dédiée (évite les coupures sur mobile). */
+  const availStatusOnly =
+    !row.is_selected_by_patient
+      ? "Non retenu lors de votre validation."
+      : eff
+        ? (availabilityStatusFr[eff] ?? eff)
+        : "Dispo communiquée par la pharmacie à l’historique.";
+  const showReceptionEstimateLine = Boolean(row.is_selected_by_patient && eff === "to_order" && eta);
 
   const ring =
     tier === "dispo_officine"
@@ -357,64 +355,73 @@ function PatientValidatedCompactLineCard({
         withdrawnGrey ? "opacity-[0.72] saturate-[0.65]" : ""
       }`}
     >
-      <div className="flex items-stretch gap-2.5 p-2.5 sm:gap-3 sm:p-3">
+      <div className="flex items-start gap-2 p-2 sm:gap-2.5 sm:p-2.5">
         <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/20 sm:h-[3.75rem] sm:w-[3.75rem]">
-        {thumbUrl ? (
-          <img src={thumbUrl} alt="" className="size-full object-cover" />
-        ) : (
-          <div className="flex size-full items-center justify-center">
-            <Package className="size-6 text-muted-foreground sm:size-7" aria-hidden />
-          </div>
-        )}
-      </div>
-      <div className="flex min-w-0 flex-1 items-stretch gap-1.5">
-        <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 text-[12px] font-semibold leading-snug text-foreground sm:text-[13px]">{validatedName}</p>
-          <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
-            <span className="tabular-nums font-medium text-foreground">Qté {validatedQty}</span>
-            {showAjoutOfficineBadge ? (
-              <span className="ms-1 rounded bg-violet-100 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-violet-950">
-                Ajout officine
-              </span>
-            ) : null}
-            {tier === "retire_apres_validation" ? (
-              <span className="ms-1 rounded bg-amber-100 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-950">
-                Écart
-              </span>
-            ) : null}
-            <span className="text-border" aria-hidden>
-              {" "}
-              ·{" "}
-            </span>
-            <span className="text-foreground">{availSentence}</span>
-          </p>
-          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-            <span className="text-foreground/90">Prix unit. </span>
-            <span className="tabular-nums font-semibold text-foreground">
-              {unitMad != null ? `${unitMad.toFixed(2)} MAD` : "—"}
-            </span>
-            <span className="mx-1 text-border" aria-hidden>
-              ·
-            </span>
-            <span className="text-foreground/90">Total </span>
-            <span
-              className={`tabular-nums font-semibold text-primary ${withdrawnGrey ? "line-through decoration-muted-foreground/70" : ""}`}
-            >
-              {lineTotalMad != null ? `${lineTotalMad.toFixed(2)} MAD` : "—"}
-            </span>
-          </p>
+          {thumbUrl ? (
+            <img src={thumbUrl} alt="" className="size-full object-cover" />
+          ) : (
+            <div className="flex size-full items-center justify-center">
+              <Package className="size-6 text-muted-foreground sm:size-7" aria-hidden />
+            </div>
+          )}
         </div>
-        <div className="flex shrink-0 flex-col justify-end pb-px">
+        <div className="relative min-w-0 flex-1">
           <button
             type="button"
             onClick={onOpenHistory}
-            className="inline-flex size-8 items-center justify-center rounded-md border border-primary/35 bg-primary/5 text-primary hover:bg-primary/10 sm:size-9"
+            className="absolute right-0 top-0 z-10 inline-flex size-8 touch-manipulation items-center justify-center rounded-md border border-primary/35 bg-card/95 text-primary shadow-sm backdrop-blur-[2px] hover:bg-primary/10 sm:size-9"
             aria-label="Historique de cette ligne"
             title="Historique"
           >
             <History className="size-4 shrink-0 sm:size-[1.125rem]" strokeWidth={2} aria-hidden />
           </button>
-        </div>
+
+          <p className="line-clamp-2 pr-10 text-[12px] font-semibold leading-snug text-foreground sm:pr-11 sm:text-[13px]">
+            {validatedName}
+          </p>
+
+          <div className="mt-1.5 space-y-1 pr-10 sm:pr-11">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-snug text-muted-foreground">
+              <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground/90">Qté</span>
+              <span className="tabular-nums font-semibold text-foreground">{validatedQty}</span>
+              {showAjoutOfficineBadge ? (
+                <span className="rounded bg-violet-100 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-violet-950">
+                  Ajout officine
+                </span>
+              ) : null}
+              {tier === "retire_apres_validation" ? (
+                <span className="rounded bg-amber-100 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-950">
+                  Écart
+                </span>
+              ) : null}
+            </div>
+            <div className="text-[11px] leading-snug">
+              <span className="block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Statut</span>
+              <span className="text-foreground">{availStatusOnly}</span>
+            </div>
+            {showReceptionEstimateLine && eta ? (
+              <div className="text-[10px] leading-snug text-muted-foreground">
+                <span className="block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Réception estimée</span>
+                <span className="tabular-nums whitespace-nowrap text-foreground/90">{formatDateShortFr(eta)}</span>
+              </div>
+            ) : null}
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 border-t border-border/40 pt-1.5 text-[11px] leading-tight">
+              <div className="min-w-0">
+                <span className="block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Prix unit.</span>
+                <span className="tabular-nums font-semibold text-foreground">
+                  {unitMad != null ? `${unitMad.toFixed(2)} MAD` : "—"}
+                </span>
+              </div>
+              <div className="min-w-0 text-end sm:text-start">
+                <span className="block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Total</span>
+                <span
+                  className={`tabular-nums font-semibold text-primary ${withdrawnGrey ? "line-through decoration-muted-foreground/70" : ""}`}
+                >
+                  {lineTotalMad != null ? `${lineTotalMad.toFixed(2)} MAD` : "—"}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       {treatedSupplyStatusLine != null && treatedSupplyStatusLine.trim() !== "" ? (
@@ -441,7 +448,7 @@ function PatientTraceNotRetainedRow({
       <span className="text-violet-800">{requestItemLineSourceFr.pharmacist_proposed}</span>
     ) : null;
   return (
-    <li className="flex items-stretch gap-2 rounded-md border border-border/70 bg-muted/15 px-2 py-1.5">
+    <li className="flex items-start gap-2 rounded-md border border-border/70 bg-muted/15 px-2 py-1.5">
       <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded border border-border/60 bg-card">
         {prod?.photo_url ? (
           <img src={prod.photo_url} alt="" className="size-full object-cover" />
@@ -451,27 +458,37 @@ function PatientTraceNotRetainedRow({
           </div>
         )}
       </div>
-      <div className="flex min-w-0 flex-1 items-stretch gap-1">
-        <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 text-[10px] font-medium leading-snug">{name}</p>
-          <p className="text-[10px] leading-snug text-muted-foreground">
-            Demandé ×{row.requested_qty}
-            {eff ? ` · ${availabilityStatusFr[eff] ?? eff}` : null}
-            {lineKind ? <span className="mx-1">·</span> : null}
-            {lineKind}
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-col justify-end pb-px">
-          <button
-            type="button"
-            onClick={onOpenHistory}
-            className="inline-flex size-7 items-center justify-center rounded-md border border-primary/35 bg-primary/5 text-primary hover:bg-primary/10"
-            aria-label="Historique de cette ligne"
-            title="Historique"
-          >
-            <History className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
-          </button>
-        </div>
+      <div className="relative min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={onOpenHistory}
+          className="absolute right-0 top-0 z-10 inline-flex size-7 touch-manipulation items-center justify-center rounded-md border border-primary/35 bg-card/95 text-primary shadow-sm backdrop-blur-[2px] hover:bg-primary/10"
+          aria-label="Historique de cette ligne"
+          title="Historique"
+        >
+          <History className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+        </button>
+        <p className="line-clamp-2 pr-9 text-[10px] font-medium leading-snug">{name}</p>
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 pr-9 text-[10px] leading-snug text-muted-foreground">
+          <span className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground/90">Demandé</span>
+          <span className="tabular-nums font-semibold text-foreground">×{row.requested_qty}</span>
+          {eff ? (
+            <>
+              <span className="text-border" aria-hidden>
+                ·
+              </span>
+              <span>{availabilityStatusFr[eff] ?? eff}</span>
+            </>
+          ) : null}
+          {lineKind ? (
+            <>
+              <span className="text-border" aria-hidden>
+                ·
+              </span>
+              {lineKind}
+            </>
+          ) : null}
+        </p>
       </div>
     </li>
   );
