@@ -17,6 +17,51 @@ export const requestStatusFr: Record<string, string> = {
   fully_collected: "Clôturée",
 };
 
+/** Titre lisible pour une ligne d’historique dossier (patient). */
+export function requestHistoryPatientHeadline(oldStatus: string | null, newStatus: string): string {
+  const o = oldStatus;
+  const n = newStatus;
+  if (!o) {
+    if (n === "submitted") return "Demande envoyée à la pharmacie.";
+    if (n === "in_review") return "La pharmacie traite votre demande.";
+    return `Étape enregistrée : ${requestStatusFr[n] ?? n}.`;
+  }
+  if (o === "submitted" && n === "in_review") return "La pharmacie ouvre le dossier.";
+  if (o === "in_review" && n === "responded") return "La pharmacie a répondu : à valider de votre côté.";
+  if (o === "responded" && n === "confirmed") return "Vous avez validé la proposition et votre passage.";
+  if (o === "responded" && n === "expired") return "Délai dépassé sans validation de votre part.";
+  if (o === "responded" && n === "abandoned") return "Vous avez abandonné cette demande.";
+  if (o === "confirmed" && n === "treated") return "La pharmacie a terminé la préparation ; passage au comptoir possible.";
+  if (o === "confirmed" && n === "processing") return "La pharmacie suit la préparation (étape intermédiaire).";
+  if (o === "processing" && n === "treated") return "Préparation terminée côté officine.";
+  if (o === "treated" && n === "completed") return "Dossier clôturé après les retraits au comptoir.";
+  if (o === "treated" && n === "partially_collected") return "Clôture enregistrée (retrait partiel).";
+  if (o === "treated" && n === "fully_collected") return "Clôture enregistrée (tout récupéré).";
+  if (n === "cancelled") return "La demande a été annulée.";
+  if (n === "abandoned") return "La demande a été abandonnée.";
+  if (n === "expired") return "La demande a expiré.";
+  return `Évolution du dossier : ${requestStatusFr[o] ?? o} → ${requestStatusFr[n] ?? n}.`;
+}
+
+/** Titre lisible pour une ligne d’historique dossier (pharmacien). */
+export function requestHistoryPharmacistHeadline(oldStatus: string | null, newStatus: string): string {
+  const o = oldStatus;
+  const n = newStatus;
+  if (!o) {
+    if (n === "submitted") return "Nouvelle demande reçue.";
+    return `État : ${requestStatusFr[n] ?? n}.`;
+  }
+  if (o === "submitted" && n === "in_review") return "Prise en charge interne.";
+  if (o === "in_review" && n === "responded") return "Réponse publiée au patient.";
+  if (o === "responded" && n === "confirmed") return "Le patient a validé la sélection.";
+  if (o === "confirmed" && n === "treated") return "Dossier déclaré prêt (comptoir).";
+  if (o === "treated" && n === "completed") return "Dossier clôturé après comptoir.";
+  if (n === "cancelled") return "Demande annulée.";
+  if (n === "abandoned") return "Demande abandonnée par le patient.";
+  if (n === "expired") return "Demande expirée côté patient.";
+  return `${requestStatusFr[o] ?? o} → ${requestStatusFr[n] ?? n}`;
+}
+
 /** Libellé court pour badges (même vocabulaire, `in_review` = envoyée). */
 export function requestStatusShortFr(status: string): string {
   return requestStatusFr[status] ?? status;

@@ -74,18 +74,18 @@ export function postConfirmSupplyAmendmentBadgeLabelsFr(
   const labelForKind = (kind: string | undefined): string | null => {
     switch (kind) {
       case "line_adjust_supply":
-        return "Modifié après validation";
+        return "Modifié après votre accord";
       case "line_added_after_confirm":
-        return "Ajouté après modification";
+        return "Ajouté par la pharmacie";
       case "line_removed_after_confirm":
-        return "Retiré après validation";
+        return "Retiré par la pharmacie";
       case "withdraw_after_confirm":
-        return "Écart après validation";
+        return "Retiré de la commande active";
       case "reintegrate_after_confirm":
       case "reintegrate":
-        return "Réintégré après validation";
+        return "Réintégré";
       case "line_brought_to_reserve_after_validation":
-        return "Replacé sur à réserver";
+        return "Replacé en « à réserver »";
       case "validated_qty_change":
         return "Quantité ajustée";
       default:
@@ -150,41 +150,36 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
   const pname = principalName(row);
   if (row.line_source === "pharmacist_proposed") {
     originParts.push(
-      `Ligne issue d’une proposition pharmacie (« ${row.pharmacist_proposal_reason?.trim() || "motif indicatif officine"} »).`
+      `Produit proposé par la pharmacie (« ${row.pharmacist_proposal_reason?.trim() || "précision à lire sur la ligne"} »).`
     );
-    originParts.push(`Produit proposé : ${pname} · qté ${row.requested_qty}.`);
+    originParts.push(`Référence : ${pname} · ${row.requested_qty} unité(s).`);
   } else {
-    originParts.push(`Produit demandé : ${pname} · qté demandée ${row.requested_qty}.`);
+    originParts.push(`Produit demandé : ${pname} · ${row.requested_qty} unité(s).`);
   }
   if (row.client_comment?.trim()) {
     originParts.push(`Votre précision : ${row.client_comment.trim()}`);
   }
-  push(t0, "Votre demande transmise", originParts.join("\n"), "Vous");
+  push(t0, "Demande envoyée", originParts.join("\n"), "Vous");
 
   /** Réponse officine (instantanée réponse dossier). */
   if (input.requestRespondedAt) {
     const rp: string[] = [];
-    rp.push(`Disponibilité sur le principal : ${row.availability_status ? availabilityStatusFr[row.availability_status] ?? row.availability_status : "—"}`);
-    if (row.unit_price != null) rp.push(`Prix communiqué (principal) : ${Number(row.unit_price).toFixed(2)} MAD`);
+    rp.push(
+      `Sur le produit principal : ${row.availability_status ? availabilityStatusFr[row.availability_status] ?? row.availability_status : "—"}`
+    );
+    if (row.unit_price != null) rp.push(`Prix indiqué sur le principal : ${Number(row.unit_price).toFixed(2)} MAD`);
     if (row.expected_availability_date && row.availability_status === "to_order") {
-      rp.push(`Réception indiquée (principal) : ${formatDateShortFr(row.expected_availability_date)}`);
+      rp.push(`Indication de réception : ${formatDateShortFr(row.expected_availability_date)}`);
     }
     if (row.pharmacist_comment?.trim()) {
-      rp.push(`Note officine (ligne) : ${row.pharmacist_comment.trim()}`);
+      rp.push(`Message de la pharmacie sur cette ligne : ${row.pharmacist_comment.trim()}`);
     }
     const altRaw = row.request_item_alternatives;
     const alts = !altRaw ? [] : Array.isArray(altRaw) ? [...altRaw] : [altRaw];
     if (Array.isArray(alts) && alts.length > 0) {
-      rp.push(`Alternatives proposées : ${alts.length} · détail disponible lors de votre choix lors de la validation.`);
-      for (const a of alts) {
-        const an = oneProdAlt((a as { products?: unknown }).products)?.name ?? "Alternative";
-        const st = (a as { availability_status?: string | null }).availability_status;
-        rp.push(
-          `• ${an}${st ? ` — ${availabilityStatusFr[st] ?? st}` : ""}`
-        );
-      }
+      rp.push(`Des options alternatives vous sont aussi proposées sur la page de validation (${alts.length}).`);
     }
-    push(input.requestRespondedAt, "Réponse officine publiée", rp.join("\n"), "La pharmacie");
+    push(input.requestRespondedAt, "La pharmacie a répondu", rp.join("\n"), "La pharmacie");
   }
 
   /** Validation patient */
@@ -199,15 +194,15 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
     const qty = row.selected_qty ?? row.requested_qty;
     push(
       input.requestConfirmedAt,
-      "Vous validez cette ligne sur la commande",
-      `${choiceTxt}\nQuantité validée : ${qty}.`,
+      "Vous avez validé cette ligne",
+      `${choiceTxt}\nQuantité retenue : ${qty}.`,
       "Vous"
     );
   } else if (input.requestConfirmedAt && !row.is_selected_by_patient) {
     push(
       input.requestConfirmedAt,
       "Ligne non retenue lors de votre validation",
-      `Aucune commande/pharmacie préparation sur ce produit pour ce dossier — trace conservée à titre informatif.`,
+      `Ce produit ne fait pas partie de votre commande validée (trace conservée).`,
       "Vous"
     );
   }
@@ -225,7 +220,7 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
 
   /** Ajustements post-validation (JSON amendements avec request_item_id) */
   for (const am of amendList) {
-    push(am.created_at, "Ajustement après votre validation", summarizeSupplyAmendmentEntry(am.entry), "La pharmacie");
+    push(am.created_at, "Changement après votre accord", summarizeSupplyAmendmentEntry(am.entry), "La pharmacie");
   }
 
   /** Entrées d’historique statut dossier hors audit (filtre léger si la raison cite le nom produit ou l’uuid — rare). */
@@ -234,48 +229,48 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
     const r = `${h.reason ?? ""}`.toLowerCase();
     if (!r) continue;
     if (!r.includes(row.id.toLowerCase()) && !r.includes(validatedProductLabel(row).toLowerCase())) continue;
-    const statusLine = `${h.old_status ? `De « ${requestStatusFr[h.old_status] ?? h.old_status} » à ` : ""}« ${requestStatusFr[h.new_status] ?? h.new_status} »`;
+    const statusLine = `${h.old_status ? `Étape précédente : ${requestStatusFr[h.old_status] ?? h.old_status} → ` : ""}${requestStatusFr[h.new_status] ?? h.new_status}`;
     const detail = patientDossierHistoryDetailParagraphsFr(h.reason).filter(Boolean).join("\n");
-    const body = detail ? `${statusLine}\n${detail}` : statusLine;
-    push(h.created_at, "Événement dossier lié à cette ligne", body, "Système / officine");
+    const body = detail.trim() !== "" ? detail : statusLine;
+    push(h.created_at, "Mise à jour du dossier", body, "La pharmacie");
   }
 
   /** État actuel */
   const eff = effectiveAvailabilityForPatientLine(row);
   const eta = effectiveEtaForPatientLine(row);
   const curParts: string[] = [];
-  curParts.push(`Produit suivi · ${validatedProductLabel(row)}`);
+  curParts.push(`Produit : ${validatedProductLabel(row)}`);
   if (row.is_selected_by_patient) {
-    curParts.push(`Qté validée : ${row.selected_qty ?? row.requested_qty}`);
-    curParts.push(`Disponibilité (branche retenue) : ${eff ? availabilityStatusFr[eff] ?? eff : "—"}`);
-    if (eff === "to_order" && eta) curParts.push(`Date de disponibilité indiquée : ${formatDateShortFr(eta)}`);
-    curParts.push(`Préparation (indicatif) : ${postConfirmFulfillmentShortFr(row.post_confirm_fulfillment)}`);
+    curParts.push(`Quantité retenue : ${row.selected_qty ?? row.requested_qty}`);
+    curParts.push(`Disponibilité affichée : ${eff ? availabilityStatusFr[eff] ?? eff : "—"}`);
+    if (eff === "to_order" && eta) curParts.push(`Indication de disponibilité : ${formatDateShortFr(eta)}`);
+    curParts.push(`Préparation : ${postConfirmFulfillmentShortFr(row.post_confirm_fulfillment)}`);
     if ((row.counter_outcome ?? "unset") !== "unset") {
       curParts.push(
         `Suivi comptoir : ${counterOutcomePatientLabel(row.counter_outcome, row.counter_cancel_reason ?? null)}${row.counter_cancel_detail ? ` — ${row.counter_cancel_detail}` : ""}`
       );
     } else {
-      curParts.push("Comptoir : pas encore indiqué sur cette ligne.");
+      curParts.push("Comptoir : en attente de passage ou pas encore indiqué.");
     }
     if (row.withdrawn_after_confirm) {
-      curParts.push("Ligne écartée après votre validation (accord officine communiqué) — aucun suivi de retrait actif.");
+      curParts.push("Ligne retirée de la commande active après votre accord avec la pharmacie.");
     }
   } else {
-    curParts.push("Ligne hors périmètre de votre commande validée (non retenue).");
+    curParts.push("Produit non retenu lors de votre validation.");
   }
   const lastTs =
     amendList.slice(-1)[0]?.created_at ??
     input.requestConfirmedAt ??
     input.requestRespondedAt ??
     t0;
-  push(lastTs ?? null, "Aujourd’hui sur cette ligne", curParts.join("\n"), "Synthèse", true);
+  push(lastTs ?? null, "Situation actuelle", curParts.join("\n"), "Résumé", true);
 
   return blocks;
 }
 
 function postConfirmFulfillmentShortFr(v: string | null | undefined): string {
-  if (v === "reserved") return "Réservation en officine";
-  if (v === "ordered") return "Commande fournisseur";
-  if (v === "arrived_reserved") return "Reçu en officine · prêt au comptoir";
+  if (v === "reserved") return "Réservé en pharmacie";
+  if (v === "ordered") return "Commande fournisseur lancée";
+  if (v === "arrived_reserved") return "Reçu en pharmacie, prêt à retirer";
   return "À préciser";
 }

@@ -24,10 +24,10 @@ import {
 import { clsx } from "clsx";
 import { formatDateShortFr, formatPlannedVisitFr, formatTime24hFr } from "@/lib/datetime-fr";
 import {
-  PATIENT_CANCEL_REASON_CODES,
-  PATIENT_CANCEL_REASON_LABELS,
-  type PatientCancelReasonCode,
-} from "@/lib/patient-flow-reasons";
+  RequestExitConfirmModalFr,
+  type RequestExitModalMode,
+} from "@/components/requests/request-exit-confirm-modal-fr";
+import type { PatientCancelReasonCode } from "@/lib/patient-flow-reasons";
 import { availabilityStatusFr, requestItemLineSourceFr } from "@/lib/request-display";
 import { plannedVisitWindow } from "@/lib/planned-visit";
 import {
@@ -1650,8 +1650,8 @@ export function PatientProductRequestActions({
   const [busyAction, setBusyAction] = useState<"" | "confirm" | "resubmit" | "abandon" | "visit">("");
   const [confirmReviewOpen, setConfirmReviewOpen] = useState(false);
   const [confirmReviewSnap, setConfirmReviewSnap] = useState<PatientConfirmReviewSnapshot | null>(null);
-  const [abandonCode, setAbandonCode] = useState<PatientCancelReasonCode>("no_longer_needed");
-  const [abandonDetail, setAbandonDetail] = useState("");
+  const [exitModalOpen, setExitModalOpen] = useState(false);
+  const [exitModalMode, setExitModalMode] = useState<RequestExitModalMode>("patient_abandon");
 
   /** Lignes `pharmacist_proposed` masquées tant que statut submitted / in_review — elles sont un brouillon coté officine. */
   const itemsFilteredPending = useMemo(
@@ -2035,29 +2035,40 @@ export function PatientProductRequestActions({
     setResubmitConfirmOpen(true);
   };
 
-  const runAbandon = async () => {
-    const other = abandonDetail.trim();
-    if (abandonCode === "other" && other.length < 8) {
-      setActionError("Pour « Autre », précise en au moins 8 caractères.");
-      return;
-    }
-
-    if (!globalThis.confirm("Annuler cette demande ? Le pharmacien verra cette décision dans l’historique.")) {
-      return;
-    }
+  const handlePatientExitConfirm = async (p: {
+    kind: "patient";
+    code: PatientCancelReasonCode;
+    other: string | null;
+  }) => {
     setActionError("");
     setBusyAction("abandon");
-    const { error } = await supabase.rpc("patient_abandon_request", {
-      p_request_id: requestId,
-      p_reason_code: abandonCode,
-      p_reason_other: abandonCode === "other" ? other : null,
-    });
-    setBusyAction("");
-    if (error) {
-      setActionError(error.message);
-      return;
+    try {
+      if (exitModalMode === "patient_before_response") {
+        const { error } = await supabase.rpc("patient_cancel_product_request_before_response", {
+          p_request_id: requestId,
+          p_reason_code: p.code,
+          p_reason_other: p.other,
+        });
+        if (error) {
+          setActionError(error.message);
+          return;
+        }
+      } else {
+        const { error } = await supabase.rpc("patient_abandon_request", {
+          p_request_id: requestId,
+          p_reason_code: p.code,
+          p_reason_other: p.other,
+        });
+        if (error) {
+          setActionError(error.message);
+          return;
+        }
+      }
+      setExitModalOpen(false);
+      await onReload();
+    } finally {
+      setBusyAction("");
     }
-    await onReload();
   };
 
   const runUpdateVisit = async () => {
@@ -2119,8 +2130,14 @@ export function PatientProductRequestActions({
 
   const showConfirm = status === "responded";
   const showResubmit = status === "submitted" || status === "in_review";
-  const showAbandonAfterResponse =
-    status === "responded" || status === "confirmed" || status === "treated";
+  const showPatientExitCTA =
+    status === "submitted" ||
+    status === "in_review" ||
+    status === "responded" ||
+    status === "confirmed" ||
+    status === "treated";
+  const patientExitPrimaryLabel =
+    status === "submitted" || status === "in_review" ? "Annuler la demande" : "Abandonner la demande";
   const showConfirmedCards = status === "confirmed" || status === "treated";
   /** Date/heure de passage : à la validation (responded) et pour modifier après coup. */
   const showVisitFields = showConfirm || showConfirmedCards;
@@ -2820,40 +2837,40 @@ export function PatientProductRequestActions({
           )
         ) : null}
 
-        {showAbandonAfterResponse ? (
-          <>
-            <label className="block text-[10px] font-medium text-gray-700">
-              Motif d’annulation
-              <select
-                value={abandonCode}
-                onChange={(e) => setAbandonCode(e.target.value as PatientCancelReasonCode)}
-                className="mt-0.5 block w-full rounded-md border bg-white px-2 py-1.5 text-xs text-gray-900"
-              >
-                {PATIENT_CANCEL_REASON_CODES.map((c) => (
-                  <option key={c} value={c}>
-                    {PATIENT_CANCEL_REASON_LABELS[c]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {abandonCode === "other" ? (
-              <textarea
-                value={abandonDetail}
-                rows={2}
-                onChange={(e) => setAbandonDetail(e.target.value)}
-                placeholder="Précisez votre motif"
-                className="w-full rounded-md border bg-white px-2 py-1.5 text-xs text-gray-900"
-              />
-            ) : null}
+        {showPatientExitCTA ? (
+          <div
+            className={clsx(
+              "mt-4 border-t border-rose-200/50 pt-3",
+              showResubmit && "mb-20",
+              showConfirm && "mb-24"
+            )}
+          >
             <button
               type="button"
-              disabled={busyAction !== "" || (abandonCode === "other" && abandonDetail.trim().length < 8)}
-              onClick={() => void runAbandon()}
-              className="w-full rounded-md border border-red-400 bg-white py-1.5 text-xs font-semibold text-red-950 disabled:opacity-50"
+              disabled={busyAction !== ""}
+              onClick={() => {
+                setExitModalMode(
+                  status === "submitted" || status === "in_review"
+                    ? "patient_before_response"
+                    : "patient_abandon"
+                );
+                setExitModalOpen(true);
+              }}
+              className="mx-auto flex min-h-[2.75rem] min-w-[min(100%,14rem)] max-w-md items-center justify-center rounded-lg border border-rose-300/70 bg-rose-50/80 px-4 py-2.5 text-sm font-semibold text-rose-950 shadow-sm hover:bg-rose-100/90 disabled:opacity-50"
             >
-              {busyAction === "abandon" ? "Annulation…" : "Annuler la demande"}
+              {patientExitPrimaryLabel}
             </button>
-          </>
+            <RequestExitConfirmModalFr
+              open={exitModalOpen}
+              mode={exitModalMode}
+              busy={busyAction === "abandon"}
+              onClose={() => {
+                if (busyAction === "abandon") return;
+                setExitModalOpen(false);
+              }}
+              onConfirmPatient={handlePatientExitConfirm}
+            />
+          </div>
         ) : null}
       </div>
 

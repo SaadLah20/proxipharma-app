@@ -11,12 +11,11 @@ import {
   formatPlannedVisitFr,
 } from "@/lib/datetime-fr";
 import { supabase } from "@/lib/supabase";
-import { historyActorLabel, requestStatusFr } from "@/lib/request-display";
+import { historyActorLabel, requestHistoryPatientHeadline, requestStatusFr } from "@/lib/request-display";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
 import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
 import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
-import { PatientCancelBeforeResponse } from "./PatientCancelBeforeResponse";
 import {
   PatientProductRequestActions,
   type PatientPharmacyContactInfo,
@@ -482,15 +481,6 @@ export default function DemandeDetailPage() {
         <p className="text-center text-xs text-muted-foreground">Aucune ligne pour cette demande.</p>
       ) : null}
 
-      {request.request_type === "product_request" && (request.status === "submitted" || request.status === "in_review") ? (
-        <PatientCancelBeforeResponse
-          requestId={request.id}
-          onDone={async () => {
-            await loadDetail(true);
-          }}
-        />
-      ) : null}
-
       <section className="rounded-lg border border-border/70 bg-card p-2 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Historique du dossier</h2>
@@ -514,9 +504,7 @@ export default function DemandeDetailPage() {
                 return (
                   <li key={h.id} className="rounded-md border border-border/60 bg-muted/15 px-2 py-1 text-[11px]">
                     <p className="font-semibold leading-snug text-foreground">
-                      {h.old_status
-                        ? `De « ${requestStatusFr[h.old_status] ?? h.old_status} » à « ${requestStatusFr[h.new_status] ?? h.new_status} »`
-                        : `État enregistré : « ${requestStatusFr[h.new_status] ?? h.new_status} »`}
+                      {requestHistoryPatientHeadline(h.old_status, h.new_status)}
                     </p>
                     {detailParas.length > 0
                       ? detailParas.map((para, i) => (

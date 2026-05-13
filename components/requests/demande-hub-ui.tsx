@@ -13,6 +13,26 @@ import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import { summarizeRequestForPatientCard, type PatientRequestItemRow } from "@/lib/patient-request-list-summary";
 import { one } from "@/lib/embed";
 import { clsx } from "clsx";
+
+function demandeCardShell(status: string, role: "patient" | "pharmacien"): string {
+  const closed = ["completed", "cancelled", "abandoned", "expired", "partially_collected", "fully_collected", "draft"];
+  if (closed.includes(status)) {
+    return "rounded-xl border border-border/80 bg-card shadow-md ring-1 ring-border/50 transition hover:shadow-lg hover:ring-border/70";
+  }
+  if (status === "responded") {
+    return "rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/40 via-card to-card shadow-md ring-1 ring-amber-200/45 transition hover:shadow-lg hover:ring-amber-300/50";
+  }
+  if (status === "confirmed") {
+    return role === "patient"
+      ? "rounded-xl border border-emerald-200/85 bg-gradient-to-br from-emerald-50/45 via-card to-card shadow-md ring-1 ring-emerald-200/50 transition hover:shadow-lg hover:ring-emerald-300/55"
+      : "rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/40 via-card to-card shadow-md ring-1 ring-emerald-200/45 transition hover:shadow-lg";
+  }
+  if (status === "treated") {
+    return "rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/35 via-card to-card shadow-md ring-1 ring-violet-200/45 transition hover:shadow-lg hover:ring-violet-300/50";
+  }
+  return "rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50/40 via-card to-card shadow-md ring-1 ring-sky-200/45 transition hover:shadow-lg hover:ring-sky-300/50";
+}
+
 export type HubTab = "dashboard" | "list";
 
 type PharmEmbed =
@@ -135,7 +155,7 @@ export function PatientDemandeCard({
 
   if (variant === "list") {
     return (
-      <div className="rounded-lg border border-border/90 bg-card shadow-sm transition hover:border-primary/30 hover:shadow-md">
+      <div className={clsx(demandeCardShell(cardStatus, "patient"), "transition hover:-translate-y-px")}>
         <Link href={`/dashboard/demandes/${row.id}`} className="group block p-2.5 sm:p-3">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1 space-y-1">
@@ -177,7 +197,7 @@ export function PatientDemandeCard({
   }
 
   return (
-    <div className="rounded-lg border border-border/90 bg-card shadow-sm transition hover:border-sky-500/40 hover:shadow-md">
+    <div className={clsx(demandeCardShell(cardStatus, "patient"), "transition hover:-translate-y-px")}>
       <Link href={`/dashboard/demandes/${row.id}`} className="group block p-2.5 sm:p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
@@ -230,7 +250,7 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
   const cref = row.patient_ref?.trim();
 
   return (
-    <div className="rounded-lg border border-border/90 bg-card shadow-sm transition hover:border-primary/30 hover:shadow-md">
+    <div className={clsx(demandeCardShell(statusForCard, "pharmacien"), "transition hover:-translate-y-px")}>
       <Link href={`/dashboard/pharmacien/demandes/${row.id}`} className="group block p-2.5 sm:p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1 space-y-1">
@@ -257,10 +277,10 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
               </span>
               <RequestStatusBadge status={statusForCard} role="pharmacien" />
             </div>
-            {hasFulfillmentProgress && row.status === "confirmed" ? (
+            {hasFulfillmentProgress && (row.status === "confirmed" || row.status === "treated") ? (
               <p className="text-[10px] font-medium leading-snug text-muted-foreground">
                 Réservation / commande : {nReserved} réservé(s), {nOrdered} commandé(s)
-                {nArrived > 0 ? `, ${nArrived} reçu(s) en officine` : ""}.
+                {nArrived > 0 ? `, ${nArrived} reçu(s) en pharmacie` : ""}.
               </p>
             ) : null}
           </div>

@@ -26,6 +26,7 @@ import {
   lineConversationVisual,
   PharmacistLineConversationModal,
 } from "@/components/pharmacist/pharmacist-line-conversation-chip";
+import { RequestExitConfirmModalFr } from "@/components/requests/request-exit-confirm-modal-fr";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import { supabase } from "@/lib/supabase";
 import {
@@ -48,8 +49,10 @@ import {
   historyActorLabel,
   pharmacistRequestIsClosedSuccess,
   pharmacistRequestIsHardStopped,
+  requestHistoryPharmacistHeadline,
   requestStatusFr,
 } from "@/lib/request-display";
+import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
 import { pphLabel } from "@/lib/product-price";
@@ -1251,7 +1254,7 @@ export default function PharmacienDemandeDetailPage() {
   const [patientProfile, setPatientProfile] = useState<PatientBrief | null>(null);
   /** Affiche téléphone / e-mail sous un bouton « Contacter » (noms longs, en-tête aéré). */
   const [patientContactOpen, setPatientContactOpen] = useState(false);
-  const [cancelReason, setCancelReason] = useState("");
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyBusy, setHistoryBusy] = useState(false);
@@ -2949,28 +2952,25 @@ export default function PharmacienDemandeDetailPage() {
     }
   };
 
-  const runPharmacistCancelRequest = async () => {
+  const runPharmacistCancelRequest = async (motif: string) => {
     if (!id) return;
-    const motif = cancelReason.trim();
-    if (motif.length < 5) {
+    const m = motif.trim();
+    if (m.length < 5) {
       setError("Précisez un motif d'annulation d'au moins 5 caractères.");
-      return;
-    }
-    if (!globalThis.confirm("Annuler définitivement cette demande ? Le patient sera notifié.")) {
       return;
     }
     setCancelBusy(true);
     setError("");
     const { error: rpcErr } = await supabase.rpc("pharmacist_cancel_request", {
       p_request_id: id,
-      p_reason_text: motif,
+      p_reason_text: m,
     });
     setCancelBusy(false);
     if (rpcErr) {
       setError(rpcErr.message);
       return;
     }
-    setCancelReason("");
+    setCancelModalOpen(false);
     await load();
   };
 
@@ -5043,32 +5043,28 @@ export default function PharmacienDemandeDetailPage() {
             request.status === "confirmed" ||
             request.status === "treated") &&
           !(canManageResponded && respondedEditMode) ? (
-            <CompactCard className="mt-3 border-rose-200/60 bg-rose-50/[0.35] shadow-sm">
-              <CompactCardHeader title="Annuler cette demande" className="border-rose-200/50 bg-rose-100/40" />
-              <CompactCardBody className="space-y-2 px-3 py-2.5 text-xs sm:px-3.5">
-                <p className="text-[11px] text-rose-950/80">
-                  Annulation définitive par la pharmacie avec motif (obligatoire, ≥ 5 caractères). Le patient sera notifié.
-                </p>
-                <label className="block text-[11px] font-medium text-rose-950">
-                  Motif visible dans l&apos;historique
-                  <textarea
-                    rows={3}
-                    value={cancelReason}
-                    onChange={(e) => setCancelReason(e.target.value.slice(0, 1000))}
-                    placeholder="Ex. demande dupliquée, erreur de saisie, indisponibilité prolongée…"
-                    className="mt-1 w-full rounded-lg border border-rose-200/60 bg-background px-2 py-1.5 text-xs shadow-sm"
-                  />
-                </label>
-                <button
-                  type="button"
-                  disabled={cancelBusy || cancelReason.trim().length < 5}
-                  onClick={() => void runPharmacistCancelRequest()}
-                  className="w-full rounded-lg border border-rose-400/60 bg-background py-2.5 text-xs font-semibold text-rose-700 shadow-sm transition hover:bg-rose-50 disabled:opacity-50"
-                >
-                  {cancelBusy ? "Annulation…" : "Annuler définitivement cette demande"}
-                </button>
-              </CompactCardBody>
-            </CompactCard>
+            <div className="mt-6 border-t border-rose-200/50 pt-4">
+              <button
+                type="button"
+                disabled={cancelBusy}
+                onClick={() => setCancelModalOpen(true)}
+                className="mx-auto flex min-h-[2.75rem] min-w-[min(100%,14rem)] max-w-md items-center justify-center rounded-lg border border-rose-300/70 bg-rose-50/80 px-4 py-2.5 text-sm font-semibold text-rose-950 shadow-sm hover:bg-rose-100/90 disabled:opacity-50"
+              >
+                Annuler la demande
+              </button>
+              <RequestExitConfirmModalFr
+                open={cancelModalOpen}
+                mode="pharmacist_cancel"
+                busy={cancelBusy}
+                onClose={() => {
+                  if (cancelBusy) return;
+                  setCancelModalOpen(false);
+                }}
+                onConfirmPharmacist={async (p) => {
+                  await runPharmacistCancelRequest(p.motif);
+                }}
+              />
+            </div>
           ) : null}
 
           <section className="mt-3 rounded-lg border border-border/70 bg-card p-2.5 shadow-sm">
@@ -5093,17 +5089,23 @@ export default function PharmacienDemandeDetailPage() {
                   <p className="text-xs text-muted-foreground">Aucun événement.</p>
                 ) : (
                   <ul className="space-y-1.5">
-                    {historyRows.map((h) => (
+                    {historyRows.map((h) => {
+                      const detailParas = patientDossierHistoryDetailParagraphsFr(h.reason);
+                      return (
                       <li key={h.id} className="rounded-lg border border-border/60 bg-muted/15 px-2 py-1.5 text-xs">
                         <p className="font-medium text-foreground">
-                          {h.old_status ? `${requestStatusFr[h.old_status] ?? h.old_status} → ` : ""}
-                          {requestStatusFr[h.new_status] ?? h.new_status}
+                          {requestHistoryPharmacistHeadline(h.old_status, h.new_status)}
                         </p>
-                        {h.reason ? (
-                          <p className="mt-0.5 break-words text-[11px] text-muted-foreground">
-                            <span className="font-medium text-foreground">Motif/contexte : </span>
-                            {h.reason}
-                          </p>
+                        {detailParas.length > 0 ? (
+                          <div className="mt-0.5 space-y-0.5">
+                            {detailParas.map((para, i) => (
+                              <p key={i} className="break-words text-[11px] leading-snug text-muted-foreground">
+                                {para}
+                              </p>
+                            ))}
+                          </div>
+                        ) : h.reason && h.reason.trim().length > 0 && !h.reason.startsWith("audit_v1:") ? (
+                          <p className="mt-0.5 break-words text-[11px] leading-snug text-muted-foreground">{h.reason}</p>
                         ) : null}
                         <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
                           <span>
@@ -5115,7 +5117,7 @@ export default function PharmacienDemandeDetailPage() {
                           </time>
                         </p>
                       </li>
-                    ))}
+                    ); })}
                   </ul>
                 )}
               </div>
