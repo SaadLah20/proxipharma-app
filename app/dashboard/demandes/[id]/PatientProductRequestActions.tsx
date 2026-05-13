@@ -305,13 +305,11 @@ function PatientValidatedCompactLineCard({
   row,
   tier,
   onOpenHistory,
-  supplyAmendmentBundles = [],
   treatedSupplyStatusLine,
 }: {
   row: ActionItemRow;
   tier: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation";
   onOpenHistory: () => void;
-  supplyAmendmentBundles?: { id: string; created_at: string; amendments: unknown }[];
   /** Dossier `treated` : texte court réservation / commande / réception / comptoir. */
   treatedSupplyStatusLine?: string | null;
 }) {
@@ -494,12 +492,10 @@ function PatientTraceNotRetainedRow({
 /** Archives (annulé, expiré, etc.) : mêmes cartes compactes que le dossier validé, sans actions ni suivi temps réel. */
 function ReadonlyArchivedProductBucketsView({
   items,
-  supplyAmendmentBundles,
   pharmacistGlobalComment,
   onOpenLineHistory,
 }: {
   items: ActionItemRow[];
-  supplyAmendmentBundles: { id: string; created_at: string; amendments: unknown }[];
   pharmacistGlobalComment: string | null | undefined;
   onOpenLineHistory: (itemId: string) => void;
 }) {
@@ -568,7 +564,6 @@ function ReadonlyArchivedProductBucketsView({
                   key={row.id}
                   row={row}
                   tier="dispo_officine"
-                  supplyAmendmentBundles={supplyAmendmentBundles}
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                 />
               ))}
@@ -599,7 +594,6 @@ function ReadonlyArchivedProductBucketsView({
                   key={row.id}
                   row={row}
                   tier="commande"
-                  supplyAmendmentBundles={supplyAmendmentBundles}
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                 />
               ))}
@@ -622,7 +616,6 @@ function ReadonlyArchivedProductBucketsView({
                   key={row.id}
                   row={row}
                   tier="hors_perimetre"
-                  supplyAmendmentBundles={supplyAmendmentBundles}
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                 />
               ))}
@@ -644,7 +637,6 @@ function ReadonlyArchivedProductBucketsView({
                   key={row.id}
                   row={row}
                   tier="retire_apres_validation"
-                  supplyAmendmentBundles={supplyAmendmentBundles}
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                 />
               ))}
@@ -1952,7 +1944,6 @@ export function PatientProductRequestActions({
         <section className="mt-2 rounded-lg border border-border/90 bg-muted/15 p-2 sm:p-2.5">
           <ReadonlyArchivedProductBucketsView
             items={items}
-            supplyAmendmentBundles={supplyAmendmentBundles}
             pharmacistGlobalComment={pharmacistGlobalComment}
             onOpenLineHistory={(itemId) => setHistoryModalItemId(itemId)}
           />
@@ -2232,7 +2223,6 @@ export function PatientProductRequestActions({
                         key={row.id}
                         row={row}
                         tier="dispo_officine"
-                        supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />
@@ -2264,7 +2254,6 @@ export function PatientProductRequestActions({
                         key={row.id}
                         row={row}
                         tier="commande"
-                        supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />
@@ -2291,7 +2280,6 @@ export function PatientProductRequestActions({
                         key={row.id}
                         row={row}
                         tier="hors_perimetre"
-                        supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />
@@ -2317,7 +2305,6 @@ export function PatientProductRequestActions({
                         key={row.id}
                         row={row}
                         tier="retire_apres_validation"
-                        supplyAmendmentBundles={supplyAmendmentBundles}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />

@@ -7,7 +7,7 @@ import { formatDateShortFr, formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import { counterOutcomePatientLabel } from "@/lib/request-display";
 import type { SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
 import { supplyAmendChannelLabel } from "@/lib/supply-amendment-channels";
-import { isRequestItemAddedAfterPatientConfirmation } from "@/lib/supply-line-post-confirm";
+import { isPatientAjoutOfficineLine } from "@/lib/supply-line-post-confirm";
 
 export type PatientLineSuiviModel = {
   etat: string;
@@ -65,10 +65,9 @@ export function patientLineSuiviModel(
   bundles: { created_at: string; amendments: unknown }[]
 ): PatientLineSuiviModel {
   const modif = latestAmendmentLineForRow(row, bundles);
-  const ajout =
-    row.line_source === "pharmacist_proposed" && isRequestItemAddedAfterPatientConfirmation(row.id, bundles)
-      ? "Produit ajouté par la pharmacie après votre validation."
-      : null;
+  const ajout = isPatientAjoutOfficineLine(row)
+    ? "Proposition par la pharmacie (ajout officine)."
+    : null;
 
   if (row.withdrawn_after_confirm) {
     return {
