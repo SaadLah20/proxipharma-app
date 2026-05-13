@@ -95,6 +95,24 @@ export function patientDossierHistoryDetailParagraphsFr(reason: string | null | 
     const motif = r.slice("pharmacist_cancel|".length).trim();
     return [motif ? `La pharmacie a annulé la demande. Précision : ${motif}.` : "La pharmacie a annulé la demande."];
   }
+  if (r.startsWith("counter_outcome:")) {
+    const rest = r.slice("counter_outcome:".length).trim();
+    if (rest === "picked_up") {
+      return ["Produit enregistré comme retiré au comptoir."];
+    }
+    if (rest === "unset") {
+      return ["Suivi comptoir remis en attente sur cette ligne."];
+    }
+    if (rest.startsWith("cancelled_at_counter")) {
+      const tail = rest.slice("cancelled_at_counter".length).replace(/^:/, "").trim();
+      return [
+        tail
+          ? `Annulation au comptoir enregistrée. Motif : ${tail}.`
+          : "Annulation au comptoir enregistrée sur cette ligne.",
+      ];
+    }
+    return ["Mise à jour du suivi comptoir pour cette ligne."];
+  }
   if (r.startsWith("request_event:")) {
     const key = r.slice("request_event:".length).trim().toLowerCase();
     const mapped = PATIENT_HISTORY_TECH_REASON_FR[key];
