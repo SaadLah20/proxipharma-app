@@ -302,12 +302,96 @@ function patientTreatedSupplyStatusLine(row: ActionItemRow): string {
   return "Suivi : statut à préciser avec ta pharmacie.";
 }
 
-/** Cartes condensées : produits validés après confirmation (pas de détail jusqu’à l’historique). */
+/** Jalons compacts pour une ligne retenue (dossier traité côté patient). */
+function PatientTreatedLineSuiviStrip({ row }: { row: ActionItemRow }) {
+  if (!row.is_selected_by_patient || row.withdrawn_after_confirm) return null;
+  const eff = effectiveAvailabilityForPatientLine(row);
+  const pcf = row.post_confirm_fulfillment ?? "unset";
+  const picked = (row.counter_outcome ?? "unset") === "picked_up";
+
+  const chip = (label: string, variant: "done" | "current" | "todo") => {
+    const base =
+      "inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide leading-tight";
+    if (variant === "done") {
+      return (
+        <span className={`${base} border-emerald-400/80 bg-emerald-100/90 text-emerald-950`} aria-current="false">
+          {label}
+        </span>
+      );
+    }
+    if (variant === "current") {
+      return (
+        <span
+          className={`${base} border-primary/50 bg-primary/12 text-primary ring-1 ring-primary/25`}
+          aria-current="step"
+        >
+          {label}
+        </span>
+      );
+    }
+    return (
+      <span className={`${base} border-border/70 bg-muted/25 text-muted-foreground`} aria-current="false">
+        {label}
+      </span>
+    );
+  };
+
+  const sep = <span className="text-[9px] font-semibold text-muted-foreground/80" aria-hidden>→</span>;
+
+  if (eff === "available" || eff === "partially_available") {
+    const reserved = pcf === "reserved";
+    const s0 = reserved ? "done" : "current";
+    const s1 = picked ? "done" : reserved ? "current" : "todo";
+    const s2 = picked ? "done" : "todo";
+    return (
+      <div className="space-y-1">
+        <p className="text-[8px] font-bold uppercase tracking-wide text-slate-700">Suivi</p>
+        <div className="flex flex-wrap items-center gap-1">
+          {chip("Réservé", s0)}
+          {sep}
+          {chip("En attente de passage", s1)}
+          {sep}
+          {chip("Récupéré", s2)}
+        </div>
+      </div>
+    );
+  }
+
+  if (eff === "to_order") {
+    const arrived = pcf === "arrived_reserved";
+    const ordered = pcf === "ordered" || arrived;
+    const sCmd = ordered ? "done" : "current";
+    const sRecv = arrived ? "done" : ordered ? "current" : "todo";
+    const sPass = picked ? "done" : arrived ? "current" : "todo";
+    const sPick = picked ? "done" : "todo";
+    return (
+      <div className="space-y-1">
+        <p className="text-[8px] font-bold uppercase tracking-wide text-slate-700">Suivi</p>
+        <div className="flex flex-wrap items-center gap-1">
+          {chip("Commandé", sCmd)}
+          {sep}
+          {chip("Reçu à la pharmacie", sRecv)}
+          {sep}
+          {chip("En attente de passage", sPass)}
+          {sep}
+          {chip("Récupéré", sPick)}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <p className="text-[10px] font-semibold leading-snug text-slate-800">{patientTreatedSupplyStatusLine(row)}</p>
+  );
+}
+
+/** Cartes condensées : produits validés après confirmation (pas de détail jusqu'à l'historique). */
 function PatientValidatedCompactLineCard({
   row,
   tier,
   onOpenHistory,
   treatedSupplyStatusLine,
+  requestStatusForCard = null,
   postConfirmBadges,
 }: {
   row: ActionItemRow;
@@ -315,6 +399,8 @@ function PatientValidatedCompactLineCard({
   onOpenHistory: () => void;
   /** Dossier `treated` : texte court réservation / commande / réception / comptoir. */
   treatedSupplyStatusLine?: string | null;
+  /** Quand `treated`, affiche le bandeau jalons à la place du paragraphe pour les lignes suivies. */
+  requestStatusForCard?: string | null;
   /** Jalons post-validation (détail dans Historique produit). */
   postConfirmBadges?: string[];
 }) {
@@ -444,7 +530,14 @@ function PatientValidatedCompactLineCard({
           pharmaLineNote={row.pharmacist_comment ?? ""}
         />
       </div>
-      {treatedSupplyStatusLine != null && treatedSupplyStatusLine.trim() !== "" ? (
+      {requestStatusForCard === "treated" &&
+      row.is_selected_by_patient &&
+      tier !== "retire_apres_validation" &&
+      !row.withdrawn_after_confirm ? (
+        <div className="border-t border-slate-200/85 bg-slate-50/90 px-2.5 py-1.5 sm:px-3">
+          <PatientTreatedLineSuiviStrip row={row} />
+        </div>
+      ) : treatedSupplyStatusLine != null && treatedSupplyStatusLine.trim() !== "" ? (
         <div className="border-t border-slate-200/85 bg-slate-50/90 px-2.5 py-1.5 sm:px-3">
           <p className="text-[10px] font-semibold leading-snug text-slate-800">{treatedSupplyStatusLine}</p>
         </div>
@@ -2244,6 +2337,21 @@ export function PatientProductRequestActions({
                     </p>
                   </div>
                 </div>
+              ) : status === "treated" ? (
+                <div
+                  role="status"
+                  className="flex items-start gap-2 rounded-lg border border-emerald-200/90 bg-gradient-to-r from-emerald-50/95 via-white to-violet-50/40 px-2.5 py-2 shadow-sm ring-1 ring-emerald-200/45"
+                >
+                  <Package className="mt-0.5 size-4 shrink-0 text-emerald-700" strokeWidth={2} aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold leading-snug text-emerald-950">Commande traitée — passage comptoir</p>
+                    <p className="mt-0.5 text-[10px] leading-snug text-emerald-950/90">
+                      Tu peux passer à l&apos;officine pour retirer les produits réservés et ceux commandés déjà reçus.
+                      Le suivi par produit est indiqué sur chaque carte. Tu peux mettre à jour ta date de passage plus bas
+                      sur cette page ; la pharmacie voit le changement.
+                    </p>
+                  </div>
+                </div>
               ) : null}
 
               {pharmacistGlobalComment?.trim() ? (
@@ -2291,6 +2399,7 @@ export function PatientProductRequestActions({
                         tier="dispo_officine"
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
                         postConfirmBadges={linePostConfirmBadgesById[row.id]}
+                        requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />
                     ))}
@@ -2323,6 +2432,7 @@ export function PatientProductRequestActions({
                         tier="commande"
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
                         postConfirmBadges={linePostConfirmBadgesById[row.id]}
+                        requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />
                     ))}
@@ -2350,6 +2460,7 @@ export function PatientProductRequestActions({
                         tier="hors_perimetre"
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
                         postConfirmBadges={linePostConfirmBadgesById[row.id]}
+                        requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />
                     ))}
@@ -2376,6 +2487,7 @@ export function PatientProductRequestActions({
                         tier="retire_apres_validation"
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
                         postConfirmBadges={linePostConfirmBadgesById[row.id]}
+                        requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                       />
                     ))}

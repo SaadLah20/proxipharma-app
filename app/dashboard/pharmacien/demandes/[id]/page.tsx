@@ -1912,7 +1912,7 @@ export default function PharmacienDemandeDetailPage() {
         is_selected_by_patient: true,
         selected_qty: qty,
         patient_chosen_alternative_id: null,
-        post_confirm_fulfillment: "unset",
+        post_confirm_fulfillment: request?.status === "treated" ? "reserved" : "unset",
         withdrawn_after_confirm: false,
         updated_at: new Date().toISOString(),
         products: {
@@ -2164,6 +2164,15 @@ export default function PharmacienDemandeDetailPage() {
         isProposedLine: row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id),
       });
 
+      const insertPcfTreated =
+        opts?.recordAddsAfterConfirm && request?.status === "treated"
+          ? inferredStatus === "available" || inferredStatus === "partially_available"
+            ? ("reserved" as const)
+            : inferredStatus === "to_order"
+              ? ("arrived_reserved" as const)
+              : null
+          : null;
+
       const { data: inserted, error: insErr } = await supabase
         .from("request_items")
         .insert({
@@ -2181,6 +2190,7 @@ export default function PharmacienDemandeDetailPage() {
           pharmacist_comment: f.pharmacist_comment.trim() || null,
           expected_availability_date:
             f.expected_availability_date.trim() !== "" ? f.expected_availability_date : null,
+          ...(insertPcfTreated != null ? { post_confirm_fulfillment: insertPcfTreated } : {}),
         })
         .select("id")
         .single();
@@ -2698,7 +2708,7 @@ export default function PharmacienDemandeDetailPage() {
           is_selected_by_patient: true,
           selected_qty: qty,
           patient_chosen_alternative_id: null,
-          post_confirm_fulfillment: "unset",
+          post_confirm_fulfillment: request?.status === "treated" ? "reserved" : "unset",
           withdrawn_after_confirm: false,
           updated_at: new Date().toISOString(),
           products: {
@@ -3188,7 +3198,7 @@ export default function PharmacienDemandeDetailPage() {
     const tracked = selectedLines.filter((i) => !i.withdrawn_after_confirm);
     const pickedPersisted = tracked.filter((i) => (i.counter_outcome ?? "unset") === "picked_up").length;
     counterClosurePendingTracked = tracked.filter((i) => (i.counter_outcome ?? "unset") !== "picked_up").length;
-    canCompleteCounter = tracked.length > 0 && pickedPersisted >= 1;
+    canCompleteCounter = tracked.length > 0 && pickedPersisted === tracked.length;
   }
 
   if (loading) {
@@ -3628,18 +3638,21 @@ export default function PharmacienDemandeDetailPage() {
                       : "border-emerald-200/80";
                 const lineCounterLocked = (row.counter_outcome ?? "unset") === "picked_up";
                 const canMarkReservedSupply =
+                  request.status !== "treated" &&
                   selected &&
                   !withdrawnDraft &&
                   !lineLockedTrace &&
                   !lineCounterLocked &&
                   (effSupply === "available" || effSupply === "partially_available");
                 const canMarkOrderedSupply =
+                  request.status !== "treated" &&
                   selected &&
                   !withdrawnDraft &&
                   !lineLockedTrace &&
                   !lineCounterLocked &&
                   effSupply === "to_order";
                 const canShowArrivedReservedPill =
+                  request.status !== "treated" &&
                   selected &&
                   !withdrawnDraft &&
                   !lineLockedTrace &&
@@ -3650,11 +3663,7 @@ export default function PharmacienDemandeDetailPage() {
                   request.status === "treated" &&
                   selected &&
                   !withdrawnDraft &&
-                  !lineLockedTrace &&
-                  !lineCounterLocked &&
-                  (((effSupply === "available" || effSupply === "partially_available") &&
-                    f.fulfillment_draft === "reserved") ||
-                    (effSupply === "to_order" && f.fulfillment_draft === "arrived_reserved"));
+                  !lineLockedTrace;
                 const supplyAvailabilityOptions = isProposedLine
                   ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
                   : PHARMACIST_SUPPLY_POST_CONFIRM_AVAILABILITY_OPTIONS;
@@ -3881,7 +3890,7 @@ export default function PharmacienDemandeDetailPage() {
                   request.status !== "completed";
 
                 const treatedCounterSlot =
-                  showInlineCounter && request.status !== "completed" ? (
+                  showInlineCounter && request.status !== "completed" && request.status !== "treated" ? (
                     <div className="border-t border-slate-100 bg-slate-50/25 px-2 py-2">
                       {!selected ? (
                         <p className="text-[10px] text-muted-foreground">
@@ -4003,8 +4012,10 @@ export default function PharmacienDemandeDetailPage() {
                       }}
                       canShowArrivedReservedPill={canShowArrivedReservedPill}
                       canMarkPickedUpCounterSupply={canMarkPickedUpCounterSupply}
+                      counterPickupActive={(row.counter_outcome ?? "unset") === "picked_up"}
                       onMarkPickedUpCounter={() => {
-                        void saveCounterOutcome(row.id, "picked_up");
+                        const co = row.counter_outcome ?? "unset";
+                        void saveCounterOutcome(row.id, co === "picked_up" ? "unset" : "picked_up");
                       }}
                       counterOutcomeBusy={counterBusyId === row.id}
                       hasModifyConsent={hasConsent}
@@ -4995,7 +5006,7 @@ export default function PharmacienDemandeDetailPage() {
               {request.status === "confirmed"
                 ? "Réservations et commandes : enregistrement immédiat au clic sur les pastilles. Utilisez « Enregistrer les modifications » pour les changements de ligne, écarts, ajouts ou le commentaire général, puis déclarez la demande traitée (pied de page) pour le comptoir."
                 : request.status === "treated"
-                  ? "Déclarez les retraits au comptoir puis clôturer quand tous les événements du comptoir sont renseignés."
+                  ? "Dossier traité : pastille « Récupéré » enregistrement immédiat comme pour réservé / commandé. Marquez chaque ligne retenue puis clôturez lorsque tout est retiré au comptoir. Les autres changements passent par « Enregistrer les modifications »."
                   : request.status === "completed"
                     ? "Dossier clôturé côté comptoir ; les lignes restent lisibles sans modification."
                     : `Statut : ${requestStatusFr[request.status] ?? request.status}.`}
@@ -5016,13 +5027,11 @@ export default function PharmacienDemandeDetailPage() {
               >
                 {completeBusy ? "Clôture…" : "Clôturer le dossier (comptoir OK)"}
               </button>
-              {!canCompleteCounter ? (
+              {!canCompleteCounter && request.status === "treated" ? (
                 <p className="mt-2 text-[11px] text-amber-900">
-                  Enregistrez au moins une ligne retenue comme « Récupéré » au comptoir pour activer la clôture.
-                </p>
-              ) : counterClosurePendingTracked > 0 ? (
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  {counterClosurePendingTracked} ligne(s) encore en attente au comptoir — la confirmation vous le rappellera.
+                  {counterClosurePendingTracked > 0
+                    ? "Marquez « Récupéré » pour chaque ligne retenue encore en attente au comptoir avant de clôturer."
+                    : "Aucune ligne retenue active au comptoir pour le moment — la clôture s’active quand toutes les lignes suivies sont récupérées."}
                 </p>
               ) : null}
             </section>
