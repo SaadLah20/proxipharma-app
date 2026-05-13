@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+import { clsx } from "clsx";
 import { X } from "lucide-react";
 import { SUPPLY_AMEND_CHANNEL_OPTIONS, type SupplyAmendClientChannelSlug } from "@/lib/supply-amendment-channels";
 
@@ -22,8 +23,6 @@ type ModalProps = {
   confirmLabel: string;
   busy: boolean;
   onConfirm: (fills: SupplyModalFillRow[]) => void;
-  /** Dès qu’un canal est choisi par ligne, enregistre et ferme (sans bouton principal). */
-  instantChannelApply?: boolean;
 };
 
 const noOpSubscribe = () => () => {};
@@ -40,7 +39,6 @@ function PharmacistSupplyAmendmentConfirmModalInner({
   confirmLabel,
   busy,
   onConfirm,
-  instantChannelApply = true,
 }: Omit<ModalProps, "open">) {
   const [fills, setFills] = useState<SupplyModalFillRow[]>(() => blocks.map(() => ({ channel: "", motive: "" })));
   const clientMounted = useClientMounted();
@@ -66,13 +64,6 @@ function PharmacistSupplyAmendmentConfirmModalInner({
     blocks.length === 0 ||
     fills.length !== blocks.length ||
     fills.some((row, i) => !row || !blocks[i] || !row.channel?.trim());
-
-  const tryInstantApply = (next: SupplyModalFillRow[]) => {
-    if (!instantChannelApply || busy) return;
-    if (next.length !== blocks.length) return;
-    if (next.some((row, i) => !row || !blocks[i] || !row.channel?.trim())) return;
-    void onConfirm(next);
-  };
 
   const shell = (
     <div
@@ -112,18 +103,24 @@ function PharmacistSupplyAmendmentConfirmModalInner({
                 <label className="mt-2 block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
                   Canal utilisé
                   <select
-                    className="mt-0.5 h-9 w-full rounded-lg border border-input bg-background px-2 text-[12px] font-medium shadow-sm"
+                    className={clsx(
+                      "mt-0.5 h-9 w-full rounded-lg border border-input bg-background px-2 text-[12px] font-medium shadow-sm",
+                      fills[i]?.channel?.trim() ? "text-foreground" : "text-muted-foreground"
+                    )}
                     disabled={busy}
                     value={fills[i]?.channel ?? ""}
                     onChange={(e) => {
                       const v = e.target.value as SupplyAmendClientChannelSlug | "";
-                      const next = [...fills];
-                      next[i] = { ...next[i], channel: v };
-                      setFills(next);
-                      if (v) tryInstantApply(next);
+                      setFills((prev) => {
+                        const next = [...prev];
+                        next[i] = { ...next[i], channel: v };
+                        return next;
+                      });
                     }}
                   >
-                    {!instantChannelApply ? <option value="">Choisir le canal…</option> : null}
+                    <option value="" disabled className="text-muted-foreground">
+                      Choisir un canal…
+                    </option>
                     {SUPPLY_AMEND_CHANNEL_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.label}
@@ -160,18 +157,16 @@ function PharmacistSupplyAmendmentConfirmModalInner({
             onClick={onClose}
             className="h-10 rounded-lg border border-border bg-background px-4 text-[12px] font-semibold text-foreground shadow-sm hover:bg-muted/50 disabled:opacity-50"
           >
-            {instantChannelApply ? "Fermer" : "Annuler"}
+            Annuler
           </button>
-          {!instantChannelApply ? (
-            <button
-              type="button"
-              disabled={confirmDisabled}
-              onClick={() => onConfirm(fills)}
-              className="h-10 rounded-lg border border-sky-800 bg-sky-950 px-4 text-[12px] font-bold text-white shadow-sm hover:bg-sky-900 disabled:opacity-50"
-            >
-              {busy ? "Enregistrement…" : confirmLabel}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            disabled={confirmDisabled}
+            onClick={() => onConfirm(fills)}
+            className="h-10 rounded-lg border border-sky-800 bg-sky-950 px-4 text-[12px] font-bold text-white shadow-sm hover:bg-sky-900 disabled:opacity-50"
+          >
+            {busy ? "Enregistrement…" : confirmLabel}
+          </button>
         </div>
       </div>
     </div>
