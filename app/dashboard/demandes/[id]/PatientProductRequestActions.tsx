@@ -52,7 +52,6 @@ import {
   type PatientLineTimelineBlockFr,
 } from "@/lib/build-patient-line-timeline-fr";
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
-import { isRequestItemAddedAfterPatientConfirmation } from "@/lib/supply-line-post-confirm";
 import { isPatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
 import { PATIENT_GENERAL_NOTE_MAX, PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
@@ -346,9 +345,7 @@ function PatientValidatedCompactLineCard({
           : "border-border/85 hover:border-muted-foreground/35";
 
   const withdrawnGrey = tier === "retire_apres_validation";
-  const showAjoutOfficineBadge =
-    row.line_source === "pharmacist_proposed" &&
-    isRequestItemAddedAfterPatientConfirmation(row.id, supplyAmendmentBundles);
+  const showAjoutOfficineBadge = row.line_source === "pharmacist_proposed";
   return (
     <li
       className={`overflow-hidden rounded-lg border bg-card shadow-md transition ${ring} ${

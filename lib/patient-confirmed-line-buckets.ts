@@ -131,9 +131,14 @@ export function validatedBranchUnitPriceMad(row: PatientLineLike): number | null
   const chosenId = row.patient_chosen_alternative_id ?? null;
   if (!chosenId) {
     const u = row.unit_price;
-    if (u == null) return null;
-    const n = Number(u);
-    return Number.isFinite(n) ? n : null;
+    if (u != null) {
+      const n = Number(u);
+      if (Number.isFinite(n)) return n;
+    }
+    const pph = oneProd(row.products)?.price_pph;
+    if (pph == null || pph === "") return null;
+    const pn = Number(pph);
+    return Number.isFinite(pn) ? pn : null;
   }
   const alt = altRowsOf(row).find((a) => a.id === chosenId);
   const u = alt?.unit_price ?? null;

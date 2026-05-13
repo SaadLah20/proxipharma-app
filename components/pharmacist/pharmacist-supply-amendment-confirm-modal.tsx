@@ -1,12 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import {
-  SUPPLY_AMEND_CHANNEL_OPTIONS,
-  type SupplyAmendClientChannelSlug,
-} from "@/lib/supply-amendment-channels";
+import { SUPPLY_AMEND_CHANNEL_OPTIONS, type SupplyAmendClientChannelSlug } from "@/lib/supply-amendment-channels";
 
 export type SupplyConfirmBlock = {
   key: string;
@@ -14,7 +11,7 @@ export type SupplyConfirmBlock = {
   subtitle?: string;
 };
 
-type FillRow = { channel: SupplyAmendClientChannelSlug; motive: string };
+export type SupplyModalFillRow = { channel: string; motive: string };
 
 type ModalProps = {
   open: boolean;
@@ -24,8 +21,14 @@ type ModalProps = {
   blocks: SupplyConfirmBlock[];
   confirmLabel: string;
   busy: boolean;
-  onConfirm: (fills: FillRow[]) => void;
+  onConfirm: (fills: SupplyModalFillRow[]) => void;
 };
+
+const noOpSubscribe = () => () => {};
+
+function useClientMounted() {
+  return useSyncExternalStore(noOpSubscribe, () => true, () => false);
+}
 
 function PharmacistSupplyAmendmentConfirmModalInner({
   onClose,
@@ -36,24 +39,8 @@ function PharmacistSupplyAmendmentConfirmModalInner({
   busy,
   onConfirm,
 }: Omit<ModalProps, "open">) {
-  const blocksKey = useMemo(() => blocks.map((b) => b.key).join("|"), [blocks]);
-  const [fills, setFills] = useState<FillRow[]>(() =>
-    blocks.map(() => ({ channel: "phone_call", motive: "" }))
-  );
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    setFills((prev) =>
-      blocks.map((_, i) => ({
-        channel: (prev[i]?.channel as SupplyAmendClientChannelSlug) ?? "phone_call",
-        motive: prev[i]?.motive ?? "",
-      }))
-    );
-  }, [blocksKey]);
+  const [fills, setFills] = useState<SupplyModalFillRow[]>(() => blocks.map(() => ({ channel: "", motive: "" })));
+  const clientMounted = useClientMounted();
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -75,10 +62,14 @@ function PharmacistSupplyAmendmentConfirmModalInner({
     busy ||
     blocks.length === 0 ||
     fills.length !== blocks.length ||
-    fills.some((row, i) => !row || !blocks[i]);
+    fills.some((row, i) => !row || !blocks[i] || !row.channel?.trim());
 
   const shell = (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-[10060] flex items-end justify-center pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+    >
       <button type="button" className="absolute inset-0 bg-black/50" aria-label="Fermer" onClick={() => !busy && onClose()} />
       <div className="relative z-10 flex max-h-[min(92dvh,40rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-2xl">
         <div className="shrink-0 flex items-start justify-between gap-2 border-b border-border px-3 py-2.5">
@@ -113,9 +104,9 @@ function PharmacistSupplyAmendmentConfirmModalInner({
                   <select
                     className="mt-0.5 h-9 w-full rounded-lg border border-input bg-background px-2 text-[12px] font-medium shadow-sm"
                     disabled={busy}
-                    value={fills[i]?.channel ?? "phone_call"}
+                    value={fills[i]?.channel ?? ""}
                     onChange={(e) => {
-                      const v = e.target.value as SupplyAmendClientChannelSlug;
+                      const v = e.target.value as SupplyAmendClientChannelSlug | "";
                       setFills((prev) => {
                         const next = [...prev];
                         next[i] = { ...next[i], channel: v };
@@ -123,6 +114,7 @@ function PharmacistSupplyAmendmentConfirmModalInner({
                       });
                     }}
                   >
+                    <option value="">Choisir le canal…</option>
                     {SUPPLY_AMEND_CHANNEL_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.label}
@@ -152,7 +144,7 @@ function PharmacistSupplyAmendmentConfirmModalInner({
             ))
           )}
         </div>
-        <div className="shrink-0 flex flex-col gap-2 border-t border-border bg-muted/15 px-3 py-2.5 sm:flex-row sm:justify-end">
+        <div className="shrink-0 flex flex-col gap-2 border-t border-border bg-muted/15 px-3 py-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end">
           <button
             type="button"
             disabled={busy}
@@ -174,7 +166,7 @@ function PharmacistSupplyAmendmentConfirmModalInner({
     </div>
   );
 
-  if (!mounted) return null;
+  if (!clientMounted) return null;
   return createPortal(shell, document.body);
 }
 
