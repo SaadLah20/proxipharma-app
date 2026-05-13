@@ -42,7 +42,6 @@ export function PharmacistSupplyCompactLine({
   onMenuModify,
   onMenuWithdraw,
   onMenuHistory,
-  onMenuReintegrateToReserve,
   horsBlocPrincipalMenu,
   withdrawDisabled,
   withdrawDisabledReason,
@@ -88,8 +87,6 @@ export function PharmacistSupplyCompactLine({
   onMenuModify: () => void;
   onMenuWithdraw: () => void;
   onMenuHistory: () => void;
-  /** Menu réduit : historique + réintégration vers le bloc « À réserver » (lignes hors périmètre). */
-  onMenuReintegrateToReserve?: () => void;
   horsBlocPrincipalMenu?: boolean;
   withdrawDisabled: boolean;
   withdrawDisabledReason?: string | null;
@@ -99,7 +96,7 @@ export function PharmacistSupplyCompactLine({
   const pillActive = "border-emerald-600 bg-emerald-600 text-white";
   const pillIdle = "border-border bg-background text-foreground hover:bg-muted/50";
 
-  const menuHorsBloc = Boolean(horsBlocPrincipalMenu && onMenuReintegrateToReserve);
+  const menuHorsBloc = Boolean(horsBlocPrincipalMenu);
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -185,21 +182,6 @@ export function PharmacistSupplyCompactLine({
                       role="menu"
                     >
                       {menuHorsBloc ? (
-                        <>
-                          <li role="none">
-                            <button
-                              type="button"
-                              role="menuitem"
-                              disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
-                              className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
-                              onClick={() => {
-                                onMenuOpenChange(false);
-                                onMenuHistory();
-                              }}
-                            >
-                              Historique produit
-                            </button>
-                          </li>
                         <li role="none">
                           <button
                             type="button"
@@ -208,13 +190,12 @@ export function PharmacistSupplyCompactLine({
                             className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
                             onClick={() => {
                               onMenuOpenChange(false);
-                              onMenuReintegrateToReserve?.();
+                              onMenuHistory();
                             }}
                           >
-                            Réintégrer à « À réserver »…
+                            Historique produit
                           </button>
                         </li>
-                        </>
                       ) : (
                         <>
                           {selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (

@@ -40,7 +40,7 @@ import {
   PHARMACIST_SUPPLY_POST_CONFIRM_AVAILABILITY_OPTIONS,
   inferAvailabilityStatusFromQty,
 } from "@/lib/pharmacist-availability";
-import { SUPPLY_AMEND_CHANNEL_OPTIONS } from "@/lib/supply-amendment-channels";
+import { SUPPLY_AMEND_CHANNEL_OPTIONS, supplyAmendChannelLabel } from "@/lib/supply-amendment-channels";
 import {
   availabilityStatusFr,
   counterOutcomeFr,
@@ -160,6 +160,15 @@ type ItemDraft = {
 };
 
 type Draft = Record<string, ItemDraft>;
+
+function rowsWithEffectiveWithdrawnForSupply(rows: ItemRow[], d: Draft): ItemRow[] {
+  return rows.map((row) => {
+    const f = d[row.id];
+    const effective = Boolean(row.withdrawn_after_confirm) || Boolean(f?.withdrawn_after_confirm);
+    if (effective === Boolean(row.withdrawn_after_confirm)) return row;
+    return { ...row, withdrawn_after_confirm: effective };
+  });
+}
 
 type ProductCatalogHit = {
   id: string;
@@ -325,6 +334,13 @@ function flattenPharmacistSupplyListEntries(rows: ItemRow[]): { header: string |
   }
   return out;
 }
+
+const PHARMACIST_SUPPLY_SURFACE_MAIN =
+  "rounded-xl border-2 border-emerald-200/65 bg-gradient-to-b from-emerald-50/35 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-emerald-200/45 sm:p-2.5";
+const PHARMACIST_SUPPLY_SURFACE_SECOND =
+  "rounded-xl border-2 border-amber-200/70 bg-gradient-to-b from-amber-50/45 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-amber-200/45 sm:p-2.5";
+const PHARMACIST_SUPPLY_SURFACE_NEUTRAL =
+  "rounded-xl border-2 border-slate-200/80 bg-gradient-to-b from-slate-50/70 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-200/50 sm:p-2.5";
 
 type PendingAlternativeEntry = {
   localAltId: string;
@@ -2831,7 +2847,8 @@ export default function PharmacienDemandeDetailPage() {
 
   const lineEntriesForList = useMemo(() => {
     if (request && ["confirmed", "treated"].includes(request.status)) {
-      const virt = virtualizeItemsForSupplyBuckets(displayRows, draft);
+      const eff = rowsWithEffectiveWithdrawnForSupply(displayRows, draft);
+      const virt = virtualizeItemsForSupplyBuckets(eff, draft);
       const flat = flattenPharmacistSupplyListEntries(virt);
       if (flat.length > 0) return flat;
     }
@@ -2840,10 +2857,33 @@ export default function PharmacienDemandeDetailPage() {
 
   const horsBlocPrincipalRowIds = useMemo(() => {
     if (!request || !["confirmed", "treated"].includes(request.status)) return new Set<string>();
-    const virt = virtualizeItemsForSupplyBuckets(displayRows, draft);
+    const eff = rowsWithEffectiveWithdrawnForSupply(displayRows, draft);
+    const virt = virtualizeItemsForSupplyBuckets(eff, draft);
     const { horsPerimetre } = bucketPatientValidatedLinesThreeWays(virt);
     return new Set(horsPerimetre.map((r) => r.id));
   }, [request, displayRows, draft]);
+
+  const pharmacistSupplySurfaceGroups = useMemo(() => {
+    type Entry = (typeof lineEntriesForList)[number];
+    type Surface = "principal" | "secondary" | "neutral";
+    if (!request || !["confirmed", "treated"].includes(request.status)) {
+      return [{ surface: "neutral" as const, entries: lineEntriesForList as Entry[] }];
+    }
+    const groups: { surface: Surface; entries: Entry[] }[] = [];
+    for (const e of lineEntriesForList) {
+      if (e.header) {
+        const h = e.header.toLowerCase();
+        const surface: Surface =
+          h.includes("écart") || h.includes("hors bloc") || h.includes("hors périmètre") ? "secondary" : "principal";
+        groups.push({ surface, entries: [e] });
+      } else if (groups.length > 0) {
+        groups[groups.length - 1].entries.push(e);
+      } else {
+        groups.push({ surface: "principal", entries: [e] });
+      }
+    }
+    return groups.length > 0 ? groups : [{ surface: "neutral" as const, entries: lineEntriesForList as Entry[] }];
+  }, [request, lineEntriesForList]);
 
   /* useMemo retiré : évite react-hooks/preserve-manual-memoization sur ce bloc (React Compiler). */
   const supplyStructuralDirty = computeSupplyStructuralDirty(
@@ -3008,19 +3048,25 @@ export default function PharmacienDemandeDetailPage() {
 
   const patientPhone = patientProfile?.whatsapp?.trim();
   const patientEmail = patientProfile?.email?.trim();
-  const selectedLinesCount = items.filter((i) => i.is_selected_by_patient).length;
-  const pendingCounterCount = items.filter(
-    (i) =>
-      i.is_selected_by_patient &&
-      !i.withdrawn_after_confirm &&
-      (i.counter_outcome ?? "unset") === "unset"
-  ).length;
-  const pickedUpCount = items.filter(
-    (i) =>
-      i.is_selected_by_patient &&
-      !i.withdrawn_after_confirm &&
-      (i.counter_outcome ?? "unset") === "picked_up"
-  ).length;
+  let selectedLinesActiveCount = 0;
+  let pendingCounterCount = 0;
+  let pickedUpCount = 0;
+  for (const row of displayRows) {
+    if (!row.is_selected_by_patient) continue;
+    const fd = draft[row.id];
+    const withdrawn = Boolean(row.withdrawn_after_confirm) || Boolean(fd?.withdrawn_after_confirm);
+    if (withdrawn) continue;
+    selectedLinesActiveCount += 1;
+  }
+  for (const i of items) {
+    if (!i.is_selected_by_patient) continue;
+    const fd = draft[i.id];
+    const withdrawn = Boolean(i.withdrawn_after_confirm) || Boolean(fd?.withdrawn_after_confirm);
+    if (withdrawn) continue;
+    const co = i.counter_outcome ?? "unset";
+    if (co === "unset") pendingCounterCount += 1;
+    else if (co === "picked_up") pickedUpCount += 1;
+  }
 
   const showPassageInPharmaHeader =
     request.status === "confirmed" ||
@@ -3295,7 +3341,7 @@ export default function PharmacienDemandeDetailPage() {
               <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground sm:text-xs">Produits</h2>
               {["confirmed", "treated", "completed"].includes(request.status) ? (
                 <div className="mt-1 flex flex-wrap gap-1 text-[9px] text-muted-foreground">
-                  <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">Sél. {selectedLinesCount}</span>
+                  <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">Sél. {selectedLinesActiveCount}</span>
                   {request.status === "treated" || request.status === "completed" ? (
                     <>
                       <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">
@@ -3311,8 +3357,20 @@ export default function PharmacienDemandeDetailPage() {
             </div>
             <span className="text-[10px] text-muted-foreground">{displayRows.length} article(s)</span>
           </div>
-          <ul className="mt-2 space-y-2 sm:space-y-3">
-            {lineEntriesForList.map(({ header, row }) => {
+          <div className="mt-2 space-y-3 sm:space-y-4">
+            {pharmacistSupplySurfaceGroups.map((group, gi) => (
+              <div
+                key={gi}
+                className={
+                  group.surface === "principal"
+                    ? PHARMACIST_SUPPLY_SURFACE_MAIN
+                    : group.surface === "secondary"
+                      ? PHARMACIST_SUPPLY_SURFACE_SECOND
+                      : PHARMACIST_SUPPLY_SURFACE_NEUTRAL
+                }
+              >
+                <ul className="space-y-2 sm:space-y-3">
+                  {group.entries.map(({ header, row }) => {
               const prod = one(row.products);
               const linePph = pphLabel(prod?.price_pph);
               const f = draft[row.id];
@@ -3618,17 +3676,25 @@ export default function PharmacienDemandeDetailPage() {
                 const expandedEditor = (
                   <div className="space-y-1.5">
                     {withdrawnDraft ? (
-                      <div className="space-y-1.5 rounded-md border border-amber-300/85 bg-amber-50/90 p-2">
-                        <p className="text-[9px] font-bold uppercase tracking-wide text-amber-950">Produit retiré (écart)</p>
-                        <p className="text-[10px] leading-snug text-amber-950/90">
-                          Canal et description (comme pour une modification). L’écart n’est pas enregistré tant que vous n’avez pas
-                          cliqué sur « Enregistrer les modifications » (les pastilles Réservé / Commandé, elles, s’enregistrent tout de suite).
-                        </p>
-                        {consentChannelBlock}
+                      <div className="space-y-1.5 rounded-md border border-border/70 bg-muted/20 px-2 py-1.5">
+                        {!row.withdrawn_after_confirm ? (
+                          <>
+                            <p className="text-[10px] leading-snug text-muted-foreground">
+                              Écart en brouillon — sera journalisé avec le dossier (« Enregistrer les modifications »).
+                            </p>
+                            {consentChannelBlock}
+                          </>
+                        ) : consent?.motive?.trim() || (consent?.channel && consent.channel !== "phone_call") ? (
+                          <p className="text-[10px] leading-snug text-muted-foreground">
+                            <span className="font-medium text-foreground">Accord :</span>{" "}
+                            {supplyAmendChannelLabel(consent?.channel)}
+                            {consent?.motive?.trim() ? ` — ${consent.motive.trim()}` : null}
+                          </p>
+                        ) : null}
                         <button
                           type="button"
                           disabled={busy || supplyConfirmBusy}
-                          className="w-full rounded-md border border-amber-500/80 bg-white px-2 py-1.5 text-[10px] font-semibold text-amber-950 hover:bg-amber-100/80 disabled:opacity-45"
+                          className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-[10px] font-semibold text-foreground hover:bg-muted/60 disabled:opacity-45"
                           onClick={() => {
                             patchItemDraft(row.id, buildItemDraftFromRow(row));
                             setLineModifyConsent((p) => {
@@ -3800,19 +3866,22 @@ export default function PharmacienDemandeDetailPage() {
                       onMenuOpenChange={(open) => setSupplyMenuRowId(open ? row.id : null)}
                       onMenuModify={() => {
                         if (withdrawnDraft) {
-                          setError("Annulez d’abord l’écart sur cette ligne (bouton dans le bloc orange), puis modifiez.");
+                          setError("Annulez d’abord l’écart sur cette ligne (bouton « Annuler l’écart »), puis modifiez.");
                           setSupplyMenuRowId(null);
                           return;
                         }
-                        setSupplyConfirmBlocks([
-                          {
-                            key: `unlock-${row.id}`,
-                            title: `Accord patient · ${validatedName}`,
-                            subtitle: "Canal obligatoire ; précision optionnelle.",
-                          },
-                        ]);
-                        setSupplyConfirmPending({ kind: "unlock_modify", rowId: row.id });
-                        setSupplyConfirmOpen(true);
+                        flushSync(() => {
+                          setSupplyConfirmBlocks([
+                            {
+                              key: `unlock-${row.id}`,
+                              title: `Accord patient · ${validatedName}`,
+                              subtitle: "Canal obligatoire ; précision optionnelle.",
+                            },
+                          ]);
+                          setSupplyConfirmPending({ kind: "unlock_modify", rowId: row.id });
+                          setSupplyConfirmOpen(true);
+                        });
+                        setSupplyMenuRowId(null);
                       }}
                       onMenuWithdraw={() => {
                         setError("");
@@ -3828,34 +3897,9 @@ export default function PharmacienDemandeDetailPage() {
                       }}
                       onMenuHistory={() => setPharmaHistoryRowId(row.id)}
                       horsBlocPrincipalMenu={horsBlocPrincipalRowIds.has(row.id) && !lineLockedTrace}
-                      onMenuReintegrateToReserve={
-                        horsBlocPrincipalRowIds.has(row.id) && !lineLockedTrace
-                          ? () => {
-                              if (!id || !request) return;
-                              const nm = validatedProductLabel(row as PatientLineLike);
-                              const q = Math.min(10, Math.max(1, Number(row.requested_qty) || 1));
-                              setSupplyConfirmBlocks([
-                                {
-                                  key: `rein-${row.id}`,
-                                  title: "Réintégrer le produit",
-                                  subtitle: `${nm} — disponible officine · qté ${q}. Indiquez le canal d’accord patient.`,
-                                },
-                              ]);
-                              setSupplyConfirmPending({ kind: "reintegrate_hors_bloc", rowId: row.id });
-                              setSupplyConfirmOpen(true);
-                              setSupplyMenuRowId(null);
-                            }
-                          : undefined
-                      }
-                      withdrawDisabled={
-                        f.fulfillment_draft === "reserved" ||
-                          f.fulfillment_draft === "arrived_reserved" ||
-                          lineCounterLocked
-                      }
+                      withdrawDisabled={lineCounterLocked}
                       withdrawDisabledReason={
-                        lineCounterLocked
-                          ? "Ligne déjà enregistrée comme récupérée."
-                          : "Retirez d’abord le statut « réservé »."
+                        lineCounterLocked ? "Ligne déjà enregistrée comme récupérée." : null
                       }
                     />
                   </Fragment>
@@ -4075,10 +4119,9 @@ export default function PharmacienDemandeDetailPage() {
                         </div>
                       ) : null}
                       {canManageSupply && selected && !lineLockedTrace && withdrawnDraft ? (
-                        <div className="rounded-md border border-amber-500/85 bg-gradient-to-br from-amber-100/95 to-orange-50/80 px-1.5 py-1 text-[10px] text-amber-950 shadow-sm ring-1 ring-amber-300/50">
-                          <strong className="font-semibold">Ligne écartée</strong> après validation&nbsp;: aucun statut réservé / commandé
-                          ne s’applique ici.
-                        </div>
+                        <p className="mt-1 rounded-md border border-border/80 bg-muted/25 px-1.5 py-1 text-[10px] leading-snug text-muted-foreground">
+                          Ligne écartée — pastilles réservé / commandé désactivées pour cette ligne.
+                        </p>
                       ) : null}
                       {canManageSupply &&
                       selected &&
@@ -4631,7 +4674,10 @@ export default function PharmacienDemandeDetailPage() {
                 </Fragment>
               );
             })}
-          </ul>
+                </ul>
+              </div>
+            ))}
+          </div>
 
           {showLineAndPublishEdits ? (
             <section className="mt-2 flex min-h-0 flex-col rounded-xl border border-violet-300/70 bg-gradient-to-br from-violet-50/80 via-fuchsia-50/35 to-white px-2 py-1.5 shadow-sm ring-1 ring-violet-300/35 sm:px-2.5 sm:py-2">

@@ -547,7 +547,7 @@ function ReadonlyArchivedProductBucketsView({
         <p className="shrink-0 text-[10px] font-semibold tabular-nums text-primary whitespace-nowrap">{totalGrandLabel}</p>
       </div>
 
-      <div className="rounded-xl border-2 border-slate-200/80 bg-gradient-to-b from-slate-50/70 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-200/50">
+      <div className="rounded-xl border-2 border-emerald-200/70 bg-gradient-to-b from-emerald-50/30 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-emerald-200/45">
         {dispoRetenues.length > 0 ? (
           <section className="space-y-1.5">
             <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto text-emerald-950">
@@ -609,7 +609,10 @@ function ReadonlyArchivedProductBucketsView({
             </ul>
           </section>
         ) : null}
+      </div>
 
+      {horsPerimetreRetenues.length > 0 || retireesApresValidation.length > 0 ? (
+        <div className="mt-2 rounded-xl border-2 border-amber-200/75 bg-gradient-to-b from-amber-50/35 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-amber-200/50">
         {horsPerimetreRetenues.length > 0 ? (
           <section className="mt-2 space-y-1">
             <div className="flex items-center gap-1 text-amber-950">
@@ -651,7 +654,8 @@ function ReadonlyArchivedProductBucketsView({
             </ul>
           </section>
         ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {lignesNonRetenues.length > 0 ? (
         <details className="group rounded-md border border-border/80 bg-muted/10">
@@ -2207,7 +2211,7 @@ export function PatientProductRequestActions({
                 </p>
               </div>
 
-              <div className="rounded-xl border-2 border-slate-200/80 bg-gradient-to-b from-slate-50/70 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-200/50 sm:p-3">
+              <div className="rounded-xl border-2 border-emerald-200/70 bg-gradient-to-b from-emerald-50/30 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-emerald-200/45 sm:p-3">
               {dispoRetenues.length > 0 ? (
                 <section className="space-y-2">
                   <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto text-emerald-950">
@@ -2271,7 +2275,10 @@ export function PatientProductRequestActions({
                   </ul>
                 </section>
               ) : null}
+              </div>
 
+              {horsPerimetreRetenues.length > 0 || retireesApresValidation.length > 0 ? (
+                <div className="mt-2 rounded-xl border-2 border-amber-200/75 bg-gradient-to-b from-amber-50/35 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-amber-200/50 sm:p-3">
               {horsPerimetreRetenues.length > 0 ? (
                 <section className="mt-2 space-y-1">
                   <div className="flex items-center gap-1 text-amber-950">
@@ -2321,7 +2328,8 @@ export function PatientProductRequestActions({
                   </ul>
                 </section>
               ) : null}
-              </div>
+                </div>
+              ) : null}
 
               {lignesNonRetenues.length > 0 ? (
                 <details className="group rounded-md border border-border/80 bg-muted/10">
