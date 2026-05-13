@@ -1488,7 +1488,8 @@ export default function PharmacienDemandeDetailPage() {
     async (rowSnap: ItemRow, pcf: "unset" | "reserved" | "ordered" | "arrived_reserved") => {
       if (!id) return;
       const baselineDraft = buildItemDraftFromRow(rowSnap, request?.status ?? null);
-      const eff = effectiveAvailSupplyDraft(rowSnap, baselineDraft);
+      const liveDraft = draft[rowSnap.id] ?? baselineDraft;
+      const eff = effectiveAvailSupplyDraft(rowSnap, liveDraft);
       const inferred = eff ?? "";
       const next = clampFulfillmentDraftToInferred(pcf, inferred);
       if (next !== pcf) {
@@ -1496,6 +1497,15 @@ export default function PharmacienDemandeDetailPage() {
           "« Réservé » ou « Commandé » ne correspond pas à la disponibilité actuelle en base pour cette ligne. Enregistrez d’abord les changements de disponibilité (ou la date prévue pour commande) si besoin."
         );
         return;
+      }
+      if (next === "ordered" && inferred === "to_order") {
+        const eta = effectiveEtaSupplyDraft(rowSnap, liveDraft);
+        if (!eta || !eta.trim()) {
+          setError(
+            "Indiquez la date prévisionnelle de réception (« à commander ») avant de marquer la ligne comme commandée."
+          );
+          return;
+        }
       }
       setFulfillmentRpcBusyId(rowSnap.id);
       setError("");
@@ -1513,7 +1523,7 @@ export default function PharmacienDemandeDetailPage() {
         setFulfillmentRpcBusyId(null);
       }
     },
-    [id, load, request?.status]
+    [id, load, request?.status, draft]
   );
 
   useEffect(() => {
@@ -2168,12 +2178,22 @@ export default function PharmacienDemandeDetailPage() {
         isProposedLine: row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id),
       });
 
+      if (
+        opts?.recordAddsAfterConfirm &&
+        inferredStatus === "to_order" &&
+        (f.expected_availability_date ?? "").trim() === ""
+      ) {
+        throw new Error(
+          "Pour chaque ajout « à commander », indiquez la date prévisionnelle de réception avant d’enregistrer le dossier."
+        );
+      }
+
       const insertPcfTreated =
         opts?.recordAddsAfterConfirm && request?.status === "treated"
           ? inferredStatus === "available" || inferredStatus === "partially_available"
             ? ("reserved" as const)
             : inferredStatus === "to_order"
-              ? ("arrived_reserved" as const)
+              ? ("ordered" as const)
               : null
           : null;
 
@@ -2278,6 +2298,19 @@ export default function PharmacienDemandeDetailPage() {
       setError(rpcErr.message);
       return;
     }
+    setDraft((prev) => {
+      const cur = prev[requestItemId];
+      if (!cur) return prev;
+      return {
+        ...prev,
+        [requestItemId]: {
+          ...cur,
+          counter_outcome_draft: outcome,
+          counter_cancel_reason_draft: outcome === "cancelled_at_counter" ? cancelReason : null,
+          counter_cancel_detail_draft: outcome === "cancelled_at_counter" ? cancelDetail : null,
+        },
+      };
+    });
     if (shouldResetPrepQtyAfterDropPickup && rowSnap) {
       const baseline = Math.min(
         PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX,
@@ -2327,6 +2360,8 @@ export default function PharmacienDemandeDetailPage() {
       if (eff === "available" || eff === "partially_available") {
         if (draftPcf !== "reserved") return false;
       } else if (eff === "to_order") {
+        const eta = effectiveEtaSupplyDraft(i, f);
+        if (!eta || !eta.trim()) return false;
         const ok =
           draftPcf === "ordered" ||
           draftPcf === "arrived_reserved" ||
@@ -2380,6 +2415,14 @@ export default function PharmacienDemandeDetailPage() {
         const draftSel = Math.min(999, Math.max(1, Number(f.selected_qty_str) || 1));
         const payload = buildItemUpdatePayload(f, row);
         const inf = inferredAvailabilityForPostConfirmClamp(row, payload.availability_status);
+        if (!f.withdrawn_after_confirm && inf === "to_order") {
+          const eta = effectiveEtaSupplyDraft(row, f);
+          if (!eta || !eta.trim()) {
+            throw new Error(
+              `« ${nm} » : renseignez la date prévisionnelle de réception pour toute ligne « à commander » avant d’enregistrer.`
+            );
+          }
+        }
         let pcf: "unset" | "reserved" | "ordered" | "arrived_reserved" = f.fulfillment_draft;
         if (f.withdrawn_after_confirm) {
           pcf = "unset";
@@ -3653,7 +3696,6 @@ export default function PharmacienDemandeDetailPage() {
                   !lineCounterLocked &&
                   effSupply === "to_order";
                 const canShowArrivedReservedPill =
-                  request.status !== "treated" &&
                   selected &&
                   !withdrawnDraft &&
                   !lineLockedTrace &&
