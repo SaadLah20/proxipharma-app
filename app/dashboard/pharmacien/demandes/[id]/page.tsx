@@ -220,17 +220,6 @@ function normalizeAlts(raw: ItemRow["request_item_alternatives"]): AltRowDb[] {
   return [...list].sort((a, b) => a.rank - b.rank);
 }
 
-/** Branche retenue par le patient après réponse (principal ou alternative choisie). */
-function effectiveAvailForPharmaRow(row: ItemRow): string | null {
-  const alts = normalizeAlts(row.request_item_alternatives);
-  const chosen = row.patient_chosen_alternative_id ?? null;
-  if (chosen) {
-    const a = alts.find((x) => x.id === chosen);
-    return a?.availability_status ?? row.availability_status ?? null;
-  }
-  return row.availability_status ?? null;
-}
-
 function clampFulfillmentDraftToInferred(
   fd: "unset" | "reserved" | "ordered" | "arrived_reserved",
   inferredAvail: string
@@ -241,11 +230,9 @@ function clampFulfillmentDraftToInferred(
   return x;
 }
 
-/** Même logique que l’UI supply : branche patient (alternative choisie → dispo en base sur l’alt, pas la ligne principale). */
-function inferredAvailabilityForPostConfirmClamp(row: ItemRow, payloadInferred: string): string {
-  if (!row.patient_chosen_alternative_id) return payloadInferred;
-  const eff = effectiveAvailForPharmaRow(row);
-  return eff != null && eff !== "" ? eff : payloadInferred;
+/** Disponibilité dérivée du brouillon en cours d’enregistrement (alignée sur `buildItemUpdatePayload`). */
+function inferredAvailabilityForPostConfirmClamp(_row: ItemRow, payloadInferred: string): string {
+  return payloadInferred;
 }
 
 function fulfillmentDraftFromRow(row: ItemRow): "unset" | "reserved" | "ordered" | "arrived_reserved" {
@@ -257,8 +244,6 @@ function fulfillmentDraftFromRow(row: ItemRow): "unset" | "reserved" | "ordered"
 }
 
 function effectiveAvailSupplyDraft(row: ItemRow, f: ItemDraft): string | null {
-  const chosen = row.patient_chosen_alternative_id ?? null;
-  if (chosen) return effectiveAvailForPharmaRow(row);
   return inferAvailabilityStatusFromQty({
     status: f.availability_status,
     availableQty: Number(f.available_qty || "0"),
@@ -268,15 +253,15 @@ function effectiveAvailSupplyDraft(row: ItemRow, f: ItemDraft): string | null {
 }
 
 function effectiveEtaSupplyDraft(row: ItemRow, f: ItemDraft): string | null {
+  if (effectiveAvailSupplyDraft(row, f) === "to_order") {
+    const d = f.expected_availability_date?.trim();
+    return d && d.length > 0 ? d : null;
+  }
   const chosen = row.patient_chosen_alternative_id ?? null;
   if (chosen) {
     const alts = normalizeAlts(row.request_item_alternatives);
     const a = alts.find((x) => x.id === chosen);
     return a?.expected_availability_date?.trim() || row.expected_availability_date?.trim() || null;
-  }
-  if (effectiveAvailSupplyDraft(row, f) === "to_order") {
-    const d = f.expected_availability_date?.trim();
-    return d && d.length > 0 ? d : null;
   }
   return row.expected_availability_date?.trim() || null;
 }
@@ -285,7 +270,6 @@ function virtualizeItemsForSupplyBuckets(rows: ItemRow[], d: Draft): ItemRow[] {
   return rows.map((row) => {
     const f = d[row.id];
     if (!f) return row;
-    if (row.patient_chosen_alternative_id) return row;
     const inf = effectiveAvailSupplyDraft(row, f);
     if (inf === row.availability_status) return row;
     return { ...row, availability_status: inf };
