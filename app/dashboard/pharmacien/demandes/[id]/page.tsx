@@ -62,7 +62,7 @@ import {
   productNameOrLaboratoryIlikeOr,
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
-import { CompactCard, CompactCardBody, CompactCardHeader, PageShell } from "@/components/ui/compact-shell";
+import { PageShell } from "@/components/ui/compact-shell";
 import { InfoHint } from "@/components/ui/info-hint";
 import {
   bucketPatientValidatedLinesThreeWays,
@@ -1255,6 +1255,7 @@ export default function PharmacienDemandeDetailPage() {
   /** Affiche téléphone / e-mail sous un bouton « Contacter » (noms longs, en-tête aéré). */
   const [patientContactOpen, setPatientContactOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelModalNonce, setCancelModalNonce] = useState(0);
   const [cancelBusy, setCancelBusy] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyBusy, setHistoryBusy] = useState(false);
@@ -5047,12 +5048,16 @@ export default function PharmacienDemandeDetailPage() {
               <button
                 type="button"
                 disabled={cancelBusy}
-                onClick={() => setCancelModalOpen(true)}
+                onClick={() => {
+                  setCancelModalNonce((n) => n + 1);
+                  setCancelModalOpen(true);
+                }}
                 className="mx-auto flex min-h-[2.75rem] min-w-[min(100%,14rem)] max-w-md items-center justify-center rounded-lg border border-rose-300/70 bg-rose-50/80 px-4 py-2.5 text-sm font-semibold text-rose-950 shadow-sm hover:bg-rose-100/90 disabled:opacity-50"
               >
                 Annuler la demande
               </button>
               <RequestExitConfirmModalFr
+                key={cancelModalNonce}
                 open={cancelModalOpen}
                 mode="pharmacist_cancel"
                 busy={cancelBusy}

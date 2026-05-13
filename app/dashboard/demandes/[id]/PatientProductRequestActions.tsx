@@ -1651,6 +1651,7 @@ export function PatientProductRequestActions({
   const [confirmReviewOpen, setConfirmReviewOpen] = useState(false);
   const [confirmReviewSnap, setConfirmReviewSnap] = useState<PatientConfirmReviewSnapshot | null>(null);
   const [exitModalOpen, setExitModalOpen] = useState(false);
+  const [exitModalNonce, setExitModalNonce] = useState(0);
   const [exitModalMode, setExitModalMode] = useState<RequestExitModalMode>("patient_abandon");
 
   /** Lignes `pharmacist_proposed` masquées tant que statut submitted / in_review — elles sont un brouillon coté officine. */
@@ -2849,6 +2850,7 @@ export function PatientProductRequestActions({
               type="button"
               disabled={busyAction !== ""}
               onClick={() => {
+                setExitModalNonce((n) => n + 1);
                 setExitModalMode(
                   status === "submitted" || status === "in_review"
                     ? "patient_before_response"
@@ -2861,6 +2863,7 @@ export function PatientProductRequestActions({
               {patientExitPrimaryLabel}
             </button>
             <RequestExitConfirmModalFr
+              key={exitModalNonce}
               open={exitModalOpen}
               mode={exitModalMode}
               busy={busyAction === "abandon"}

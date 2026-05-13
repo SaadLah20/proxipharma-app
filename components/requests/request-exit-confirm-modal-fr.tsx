@@ -35,14 +35,6 @@ export function RequestExitConfirmModalFr({
 
   useEffect(() => {
     if (!open) return;
-    setStep(1);
-    setCode("no_longer_needed");
-    setDetail("");
-    setPharmaMotif("");
-  }, [open, mode]);
-
-  useEffect(() => {
-    if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
