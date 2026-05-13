@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { useParams, useRouter } from "next/navigation";
@@ -23,6 +24,7 @@ import {
 import {
   PatientRequestOutcomeBanner,
   isPatientProductArchiveStatus,
+  type PatientOutcomeDetailContext,
 } from "@/components/requests/patient-request-outcome-banner";
 
 type PharmacyEmbed = {
@@ -261,6 +263,27 @@ export default function DemandeDetailPage() {
     setHistoryBusy(false);
   }, [id]);
 
+  const archivedOutcomeDetail = useMemo((): PatientOutcomeDetailContext | null => {
+    if (!request || request.request_type !== "product_request" || !isPatientProductArchiveStatus(request.status)) {
+      return null;
+    }
+    const ph = one(request.pharmacies);
+    const pharmacyLine =
+      ph?.nom?.trim() != null && ph.nom.trim() !== ""
+        ? `${ph.nom.trim()}${ph.ville?.trim() ? ` · ${ph.ville.trim()}` : ""}`
+        : null;
+    const noteVal = one(request.product_requests)?.patient_note ?? null;
+    const retainedCount = items.filter((i) => i.is_selected_by_patient).length;
+    return {
+      pharmacyLine,
+      retainedCount,
+      totalLines: items.length,
+      hasPharmacistMessage: Boolean(pharmacistGlobalComment?.trim()),
+      hasPatientNote: Boolean(noteVal?.trim()),
+      lastUpdatedLabel: formatDateShortCasablancaWithTime24hFr(request.updated_at),
+    };
+  }, [request, items, pharmacistGlobalComment]);
+
   if (loading) {
     return (
       <PageShell>
@@ -291,6 +314,7 @@ export default function DemandeDetailPage() {
       request.status === "treated");
   const showArchivedProductReadonly =
     request.request_type === "product_request" && isPatientProductArchiveStatus(request.status);
+
   const showPlannedVisitBlock =
     !["cancelled", "abandoned", "expired"].includes(request.status) &&
     (request.status === "confirmed" ||
@@ -372,7 +396,11 @@ export default function DemandeDetailPage() {
       </header>
 
       {showArchivedProductReadonly ? (
-        <PatientRequestOutcomeBanner status={request.status} historyRows={historyRows}>
+        <PatientRequestOutcomeBanner
+          status={request.status}
+          historyRows={historyRows}
+          detailContext={archivedOutcomeDetail}
+        >
           {request.status === "expired" ? (
             <>
               {followUpErr ? (
@@ -481,54 +509,69 @@ export default function DemandeDetailPage() {
         <p className="text-center text-xs text-muted-foreground">Aucune ligne pour cette demande.</p>
       ) : null}
 
-      <section className="rounded-lg border border-border/70 bg-card p-2 shadow-sm">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Historique du dossier</h2>
-          <button
-            type="button"
-            onClick={() => void loadHistory()}
-            className="inline-flex h-7 items-center justify-center rounded border border-border px-2 text-[10px] font-semibold text-foreground hover:bg-muted/40"
-          >
-            Rafraîchir
-          </button>
+      <details className="group rounded-xl border border-border/80 bg-card shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 marker:content-none [&::-webkit-details-marker]:hidden sm:px-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Historique du dossier</span>
+            <span className="text-[11px] font-medium text-foreground">
+              {historyRows.length === 0
+                ? "Aucun événement chargé"
+                : `${historyRows.length} événement${historyRows.length > 1 ? "s" : ""} — ouvrir pour le détail`}
+            </span>
+          </div>
+          <ChevronDown
+            className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+            aria-hidden
+          />
+        </summary>
+        <div className="border-t border-border/70 px-2.5 pb-2.5 pt-1.5 sm:px-3">
+          <div className="mb-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => void loadHistory()}
+              className="inline-flex h-7 items-center justify-center rounded-md border border-border bg-background px-2 text-[10px] font-semibold text-foreground shadow-sm hover:bg-muted/40"
+            >
+              Rafraîchir
+            </button>
+          </div>
+          <div className="space-y-1">
+            {historyBusy ? (
+              <p className="text-[11px] text-muted-foreground">Chargement…</p>
+            ) : historyRows.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">Aucun événement disponible.</p>
+            ) : (
+              <ul className="space-y-1">
+                {historyRows.map((h) => {
+                  const detailParas = patientDossierHistoryDetailParagraphsFr(h.reason);
+                  return (
+                    <li key={h.id} className="rounded-md border border-border/60 bg-muted/15 px-2 py-1 text-[11px]">
+                      <p className="font-semibold leading-snug text-foreground">
+                        {requestHistoryPatientHeadline(h.old_status, h.new_status)}
+                      </p>
+                      {detailParas.length > 0
+                        ? detailParas.map((para, i) => (
+                            <p key={i} className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+                              {para}
+                            </p>
+                          ))
+                        : null}
+                      <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9px] text-muted-foreground">
+                        <span>
+                          <strong className="font-medium text-foreground">{historyActorLabel("patient", h.reason)}</strong>
+                        </span>
+                        <span aria-hidden>·</span>
+                        <time dateTime={h.created_at} className="tabular-nums">
+                          {formatDateTimeShort24hFr(h.created_at)}
+                        </time>
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         </div>
-        <div className="mt-1.5 space-y-1">
-          {historyBusy ? (
-            <p className="text-[11px] text-muted-foreground">Chargement…</p>
-          ) : historyRows.length === 0 ? (
-            <p className="text-[11px] text-muted-foreground">Aucun événement disponible.</p>
-          ) : (
-            <ul className="space-y-1">
-              {historyRows.map((h) => {
-                const detailParas = patientDossierHistoryDetailParagraphsFr(h.reason);
-                return (
-                  <li key={h.id} className="rounded-md border border-border/60 bg-muted/15 px-2 py-1 text-[11px]">
-                    <p className="font-semibold leading-snug text-foreground">
-                      {requestHistoryPatientHeadline(h.old_status, h.new_status)}
-                    </p>
-                    {detailParas.length > 0
-                      ? detailParas.map((para, i) => (
-                          <p key={i} className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
-                            {para}
-                          </p>
-                        ))
-                      : null}
-                    <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9px] text-muted-foreground">
-                      <span>
-                        <strong className="font-medium text-foreground">{historyActorLabel("patient", h.reason)}</strong>
-                      </span>
-                      <span aria-hidden>·</span>
-                      <time dateTime={h.created_at} className="tabular-nums">
-                        {formatDateTimeShort24hFr(h.created_at)}
-                      </time>
-                    </p>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </section>
+      </details>
     </PageShell>
   );
 }

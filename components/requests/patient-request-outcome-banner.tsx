@@ -29,6 +29,16 @@ export type OutcomeHistoryRow = {
   reason: string | null;
 };
 
+/** Résumé structuré pour le bandeau dossier terminé (lecture seule). */
+export type PatientOutcomeDetailContext = {
+  pharmacyLine: string | null;
+  retainedCount: number;
+  totalLines: number;
+  hasPharmacistMessage: boolean;
+  hasPatientNote: boolean;
+  lastUpdatedLabel: string | null;
+};
+
 /**
  * Bloc mis en avant en tête de fiche patient pour dossiers produits terminés
  * (annulé, abandonné, expiré, clôturé).
@@ -36,10 +46,13 @@ export type OutcomeHistoryRow = {
 export function PatientRequestOutcomeBanner({
   status,
   historyRows,
+  detailContext,
   children,
 }: {
   status: string;
   historyRows: OutcomeHistoryRow[];
+  /** Infos disponibles à l’écran (officine, lignes, messages) — optionnel. */
+  detailContext?: PatientOutcomeDetailContext | null;
   children?: ReactNode;
 }) {
   if (!isPatientProductArchiveStatus(status)) return null;
@@ -74,13 +87,29 @@ export function PatientRequestOutcomeBanner({
               accent: "text-amber-950/90",
               kicker: "Expiration",
             }
-          : {
-              border: "border-emerald-300/85",
-              bg: "bg-gradient-to-br from-emerald-50/92 via-white to-teal-50/35",
-              title: "text-emerald-950",
-              accent: "text-emerald-950/90",
-              kicker: "Clôture",
-            };
+          : status === "partially_collected"
+            ? {
+                border: "border-teal-300/80",
+                bg: "bg-gradient-to-br from-teal-50/90 via-white to-cyan-50/35",
+                title: "text-teal-950",
+                accent: "text-teal-950/90",
+                kicker: "Retrait partiel",
+              }
+            : status === "fully_collected"
+              ? {
+                  border: "border-emerald-300/85",
+                  bg: "bg-gradient-to-br from-emerald-50/92 via-white to-teal-50/40",
+                  title: "text-emerald-950",
+                  accent: "text-emerald-950/90",
+                  kicker: "Tout retiré",
+                }
+              : {
+                  border: "border-emerald-300/85",
+                  bg: "bg-gradient-to-br from-emerald-50/92 via-white to-teal-50/35",
+                  title: "text-emerald-950",
+                  accent: "text-emerald-950/90",
+                  kicker: "Clôture",
+                };
 
   return (
     <section
@@ -92,6 +121,63 @@ export function PatientRequestOutcomeBanner({
     >
       <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">État du dossier · {theme.kicker}</p>
       <h2 className={clsx("mt-1 text-sm font-bold leading-snug sm:text-base", theme.title)}>{statLabel}</h2>
+
+      {detailContext ? (
+        <div
+          className={clsx(
+            "mt-2.5 rounded-lg border border-black/[0.06] bg-white/55 px-2.5 py-2 shadow-sm ring-1 ring-black/[0.03] backdrop-blur-[1px] sm:px-3",
+            theme.accent
+          )}
+        >
+          <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Résumé</p>
+          <ul className="mt-1.5 space-y-1 text-[11px] leading-snug">
+            {detailContext.pharmacyLine ? (
+              <li>
+                <span className="font-semibold text-foreground">Officine : </span>
+                {detailContext.pharmacyLine}
+              </li>
+            ) : null}
+            <li>
+              <span className="font-semibold text-foreground">Lignes : </span>
+              {detailContext.retainedCount} produit{detailContext.retainedCount !== 1 ? "s" : ""} retenu
+              {detailContext.retainedCount !== 1 ? "s" : ""}
+              {detailContext.totalLines !== detailContext.retainedCount ? (
+                <span className="text-muted-foreground">
+                  {" "}
+                  · {detailContext.totalLines - detailContext.retainedCount} autre
+                  {detailContext.totalLines - detailContext.retainedCount > 1 ? "s" : ""} non retenu
+                  {detailContext.totalLines - detailContext.retainedCount > 1 ? "s" : ""}
+                </span>
+              ) : null}
+            </li>
+            {detailContext.hasPharmacistMessage ? (
+              <li className="text-muted-foreground">Un message global de la pharmacie est conservé sur la fiche.</li>
+            ) : null}
+            {detailContext.hasPatientNote ? (
+              <li className="text-muted-foreground">Votre note générale à l’envoi est conservée dans l’historique.</li>
+            ) : null}
+            {detailContext.lastUpdatedLabel ? (
+              <li className="tabular-nums text-muted-foreground">
+                Dernière mise à jour enregistrée :{" "}
+                <span className="font-medium text-foreground">{detailContext.lastUpdatedLabel}</span>
+              </li>
+            ) : null}
+          </ul>
+          <p className={clsx("mt-2 border-t border-black/[0.05] pt-2 text-[10px] leading-snug text-muted-foreground")}>
+            {status === "cancelled"
+              ? "La pharmacie a mis fin au dossier. Conservez cette page comme trace ; le détail des produits est en lecture seule."
+              : status === "abandoned"
+                ? "Vous avez mis fin au parcours sur ProxiPharma pour ce dossier. Les échanges restent consultables ci-dessous."
+                : status === "expired"
+                  ? "Sans validation de votre part dans le délai prévu, le dossier s’est fermé automatiquement."
+                  : status === "partially_collected"
+                    ? "Une partie des produits retenus a été retirée au comptoir ; le reste figure comme non retiré dans l’archive."
+                    : status === "fully_collected"
+                      ? "Tous les produits retenus ont été enregistrés comme retirés au comptoir."
+                      : "Le dossier est clos côté officine. Les montants et libellés reflètent l’état au moment de la clôture."}
+          </p>
+        </div>
+      ) : null}
 
       {status === "expired" && paras.length === 0 ? (
         <p className={clsx("mt-2 text-[11px] leading-snug", theme.accent)}>
