@@ -318,6 +318,22 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-13 — supply post-validé (alt. choisie), notifs comptoir, expiration `responded`
+
+**Contexte** : développement continu ; préférence équipe : **en dev, une solution simple + base vidée** vaut mieux qu’un long contournement SQL uniquement pour préserver des données de test obsolètes (demander **`scripts/clear-all-requests.mjs`** / **`supabase/scripts/clear-all-requests.sql`** ou reset Supabase si besoin).
+
+**UI — pharmacien post-`confirmed` / `treated`** : **`app/dashboard/pharmacien/demandes/[id]/page.tsx`** — pour une ligne avec **alternative choisie**, la dispo / date « à commander » et le clamp **`post_confirm_fulfillment`** suivent le **brouillon** (`effectiveAvailSupplyDraft`, `effectiveEtaSupplyDraft`, `inferredAvailabilityForPostConfirmClamp`) comme le payload d’enregistrement, et **`virtualizeItemsForSupplyBuckets`** n’exclut plus ces lignes.
+
+**SQL — migrations** :
+- **`20260515_001_no_in_app_notif_counter_picked_up.sql`** — entrée d’historique `counter_outcome:picked_up` : **aucune** ligne dans **`app_notifications`** (trigger **`_emit_in_app_notifications_for_status_history`**).
+- **`20260516_001_expire_overdue_responded_at_pilot_30m.sql`** — **`expire_overdue_requests(interval)`** : expiration des **`responded`** dont **`responded_at`** est hors délai (défaut **30 minutes** pour tests ; repasser à **`interval '24 hours'`** ou argument cron en prod stable) + passe **`expires_at`** héritée ; **`abandon_unconfirmed_responded_requests()`** = alias qui appelle **`expire_overdue_requests()`** (un seul batch à planifier côté cron **`service_role`**).
+
+**Lib** : **`lib/patient-request-history-audit.ts`** — libellés FR pour **`auto_expire_after_response_silence`**, **`auto_expire_24h_after_response`**, **`expire_overdue_requests`**.
+
+**Git** : branche **`fix/validated-supply-ecart-ui-modal`** (et alignements **`AGENTS.md`**) ; voir `git log` pour les commits du lot.
+
+---
+
 ### Session 2026-05-11 — saisie demande produits (pharmacie), catalogue démo, reset SQL tests
 
 **Objectif** : UX page **`/pharmacie/[id]/demande-produits`** (titres sections, **Qté**, prix **PU/Tot** sans retour à la ligne via composant **`PriceDhInline`**), recherche catalogue (**nom ou laboratoire**, limite 48) partagée **`lib/product-catalog-search.ts`** (patient saisie / édition demande / vue pharmacien alternatives-proposition) ; enrichissement BDD démo (**photos** sur libellés exacts seed MAROC **`20260503_003`**, **~55** produits **`seed_ma_catalog_v2`**) ; script reset demandes (**`supabase/scripts/clear-all-requests.sql`**) : null **`patient_chosen_alternative_id`** avant **`DELETE requests`**.
@@ -904,6 +920,10 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260511_001_pharmacist_in_app_notif_trim_body.sql` (corps notif in-app pharmacien allégé)
   - `supabase/migrations/20260511_002_seed_products_unsplash_photo_urls.sql` + `20260511_003_products_photo_url_backfill_by_name.sql` (photos Unsplash noms **courts** ; le **003** ne couvre pas les libellés longs du seed MAROC — voir **`20260512_001`**)
   - `supabase/migrations/20260512_001_ma_catalog_photos_and_extended_products.sql` (photos sur noms **exact** `20260503_003` + catalogue démo **`seed_ma_catalog_v2`**)
+  - `supabase/migrations/20260512_002_remove_request_processing_status.sql` (retrait statut **`processing`** au profit de **`confirmed`** + **`treated`** ; RPC / triggers / notifs alignés — détail dans le fichier)
+  - `supabase/migrations/20260514_001_in_app_notification_copy_tuning.sql` (libellés in-app patient ; `DROP FUNCTION` des deux surcharges **`_in_app_notification_patient`** avant `CREATE` si besoin)
+  - `supabase/migrations/20260515_001_no_in_app_notif_counter_picked_up.sql` (pas de notif in-app pour **`counter_outcome:picked_up`**)
+  - `supabase/migrations/20260516_001_expire_overdue_responded_at_pilot_30m.sql` (**`expire_overdue_requests(interval)`** : silence depuis **`responded_at`** + **`expires_at`** ; défaut **30 min** pilote ; **`abandon_unconfirmed_responded_requests`** → alias)
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -911,7 +931,7 @@ Regles fonctionnelles retenues (alignement dernier atelier):
 - **Référentiel catalogue** : affichage **PPH** (`products.price_pph`) partout où le catalogue est lu sur les parcours produits lorsque renseigné ; **prix de réponse** pharmacien distingué (« Prix pharmacie » / champ `request_items.unit_price`).
 - Le client peut **modifier et renvoyer** une demande produit **avant réponse** (`submitted`|`in_review`) ou **après réponse** (`responded` uniquement pour ce flux ; en **`confirmed`** le renvoi liste est retiré côté UI — abandon possible) via RPC `patient_resubmit_product_request_after_response` → retour **`submitted`**, reset préparation pharma.
 - Le **retrait reel** au comptoir est porte par le **pharmacien**: colonne par ligne `request_items.counter_outcome` (en UI post-validé **saisie brouillon** limitée à **`unset`** / **`picked_up`** pour les lignes non figées ; valeurs legacy **`deferred_next_visit`** / **`cancelled_at_counter`** restent en base et sont affichées en lecture seule ou normalisées à l’enregistrement). **Clôture** dossier : **`pharmacist_complete_request_after_counter`** accessible dès qu’**au moins une** ligne retenue (non écartée) est **`picked_up`**, avec **confirmation** si d’autres lignes retenues ne le sont pas encore.
-- **Après réponse** : l’app ne renseigne plus **`expires_at` +7 j** sur publication (pilote) ; l’**abandon auto 24 h** sur statut **`responded`** non confirmé est porté par le batch SQL `abandon_unconfirmed_responded_requests()` (à cron). Les **`request_items`** sont limités à **qté 1–10** et **un seul `product_id` par demande**.
+- **Après réponse** : l’app ne renseigne plus **`expires_at` +7 j** sur publication (pilote). L’expiration **`responded`** sans validation patient repose sur **`expire_overdue_requests()`** ( **`service_role`** , cron ) : comparaison **`responded_at`** vs **`now()`** ( **`timestamptz`** , OK Maroc ) ; délai pilote **30 min** par défaut dans **`20260516_001`** ( repasser à **24 h** ou passer l’intervalle en argument cron en prod ) ; **`expires_at`** non nul reste pris en charge en seconde passe. **`abandon_unconfirmed_responded_requests()`** appelle la même implémentation. Les **`request_items`** sont limités à **qté 1–10** et **un seul `product_id` par demande**.
 - Les statuts enum `partially_collected` / `fully_collected` restent en base mais le flux officiel livre passe par **`completed`**; `patient_mark_collected` nest plus callable par le JWT patient (obsolete).
 
 Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-05-03**, **2026-05-05**, **2026-05-06** et **lot plateforme / codes publics 2026-05-05**):
@@ -928,7 +948,7 @@ Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-
 - Auth **`/auth`** + **`lib/post-auth-redirect.ts`**
 - **`lib/patient-request-history-audit.ts`** — sérialisation / lecture **`audit_v1:`** dans `request_status_history.reason` pour l’historique patient après ajustements **`confirmed`**.
 - **`scripts/clear-all-requests.mjs`** — reset complet des demandes + compteurs ref publique (tests ; clé **`SUPABASE_SERVICE_ROLE_KEY`**).
-- Travail incrémental sur branche **`fix/rls-recursion`** ; derniers lots : plateforme + codes **`20260505_007`**, puis post-**`confirmed`** + audit + resets (**voir dernier bloc §10** et `git log`).
+- Travail incrémental sur branche **`fix/rls-recursion`** ou lots **`fix/validated-supply-ecart-ui-modal`** ; derniers lots : plateforme + codes **`20260505_007`**, puis post-**`confirmed`** + audit + resets + expiration/notifs (**voir dernier bloc §10** et `git log`).
 
 Etat fonctionnel teste / a valider sur Supabase:
 - Les 3 types de demandes sont inserables (tel qu avant)
@@ -944,7 +964,7 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 
 **Jalon 0 — Arbitrages & doc (court)**  
 - Remplir **Q4** (grille envoyée / en traitement pharma / répondue / validée patient / traitée-comptoir / annulée / abandonnée / cloturée ↔ valeurs enum actuelles).  
-- Arbitrer **expiration** : renoncer au **+7 j** piloté par `expires_at` **ou** le garder pour un usage interne uniquement ; implémenter l’**abandon 24 h** après `responded` si toujours d’actualité (**Q6** vs **Q38**).  
+- **Expiration après `responded`** : **implémenté** — **`expire_overdue_requests(interval)`** + cron **`service_role`** (**`20260516_001`** ; défaut **30 min** pilote, viser **24 h** en prod ou argument explicite au cron). **`expires_at` +7 j** reste optionnel côté legacy ; **`abandon_unconfirmed_responded_requests()`** = alias.  
 - **Q33** : confirmer si le modèle actuel (`deferred_next_visit` + clôture) suffit pour « plusieurs passages » ou si des statuts supplémentaires sont requis.
 
 **Jalon 1 — BDD / migrations (avant UI dépendante)**  
@@ -965,10 +985,10 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 2. **`PatientProductRequestActions` + détail patient** : radios principal/alternative ✓ ; date passage ✓ ; notes par ligne au renvoi ✓ (**Q11**) ; reste récap dense **Q28**, totaux **Q23** si besoin au-delà de PPH + lignes réponse pharma.  
 3. **Pharmacien** : motif sur **lignes proposées par l’officine** ✓ (**Q20**), mention **« Mis à jour … »** sur ligne ✓ (**Q32**, `updated_at` affiché) ; reste affinages ETA « à commander » / **Q18**.  
 4. **Post‑`confirmed`** : **livré** (§4.4 + §4.5, sessions **2026-05-06** et **2026-05-07**) — deux niveaux lecture patient (validé vs préparation) à **parité de champs** (qté / dispo / prix / état), placeholder **« En cours »** tant que la pharmacie n'a pas touché au comptoir, règles qté officine avant récupération, alternatives indicatif vs retenu, lignes fermées lecture seule, historique **`audit_v1`** + auteur/date, **annulation globale par la pharmacie avec motif** (RPC `pharmacist_cancel_request`), **annulation patient ↔ statuts** (cancelled / abandoned / expired), **« partiellement disponible » dérivé**, lignes **proposées** restreintes à `Disponible` / `À commander`, heure de passage en **saisie texte 24 h**, **resubmit mobile** avec +/− + bouton « Annuler les modifications ». Reste : raffinement **Q31** / **Q18** libellés et champs métier si besoin.  
-5. **Tâches planifiées** : job **abandon 24 h** ✓ (**`abandon_unconfirmed_responded_requests`**, à brancher cron) ; **`expires_at` +7 j** désactivé côté app à la publication ✓ ; **Q34 in-app MVP** ✓ (dashboards + hubs).  
+5. **Tâches planifiées** : job **`expire_overdue_requests()`** ( et alias **`abandon_unconfirmed_responded_requests()`** ) ✓ — **`responded_at`** + option **`expires_at`** ; **cron `service_role`** obligatoire ; délai pilote **30 min** en **`20260516_001`** ; **`expires_at` +7 j** désactivé côté app à la publication ✓ ; **Q34 in-app MVP** ✓ (dashboards + hubs).  
 6. **Espace Admin** minimal issu du jalon BDD §9.
 
-**Écart principal avec le déjà livré** : flux **`responded` → `confirmed`** inclut désormais **alternative + passage + validation serveur associée**. **Motifs annulation**, **anti-doublon / plafond qté**, **`market_shortages`** auto, **abandon 24 h** (RPC prêt), **commentaires ligne patient (Q11)**, **propositions pharmacien (Q20)** et **notifications in-app MVP (Q34)** sont en place (migrations **`20260504_001`** + **`20260504_002`**). **Q35** : file **`notification_external_queue`** + préférences + UI opt-in (**`20260505_001`**) ; **envoi réel** email/SMS/WA via worker + prestataires **reste à brancher**. Restent notamment **expiration vs abandon 24 h** (arbitrage ops), **admin pilote**, **micro-UX** (récap Q28/Q23, libellés « comptoir »).
+**Écart principal avec le déjà livré** : flux **`responded` → `confirmed`** inclut désormais **alternative + passage + validation serveur associée**. **Motifs annulation**, **anti-doublon / plafond qté**, **`market_shortages`** auto, **expiration après silence sur `responded`** (**`expire_overdue_requests(interval)`** + cron **`service_role`** ; pilote **30 min** en **`20260516_001`**), **commentaires ligne patient (Q11)**, **propositions pharmacien (Q20)** et **notifications in-app MVP (Q34)** sont en place (migrations **`20260504_001`** + **`20260504_002`**). **Q35** : file **`notification_external_queue`** + préférences + UI opt-in (**`20260505_001`**) ; **envoi réel** email/SMS/WA via worker + prestataires **reste à brancher**. Restent notamment **réglage délai prod (24 h)** et **cron** sur Supabase, **admin pilote**, **micro-UX** (récap Q28/Q23, libellés « comptoir »).
 
 **Questions sans réponse explicite (atelier)** : **Q4**, **Q33** uniquement. *(Q36 réponse implicite : « décide‑toi » → jalon 2 pour listes pharma « à commander / prêt / relance », aligné notifications **Q37**.)*
 
@@ -984,8 +1004,8 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 | **Alternatives** jusqu a 3 / ligne coté pharma UI saisie + affichage patient detail | Pharma + affichage patient **OK** — **choix patient (0 ou 1 / groupe)** **fait** (voir migration `20260503_001`) |
 | **Comptoir** `counter_outcome` ligne + bouton cloture **`pharmacist_complete_request_after_counter`** côté UI pharma ou magasin préparation | **Fait** (`/dashboard/pharmacien/demandes/[id]` section dédiée) |
 | **Date de passage** patient à la validation | **Fait** (`20260503_004`, RPC 4 params, UI **`PatientProductRequestActions`**) |
-| **Auto expiration** cron supabase **`expire_overdue_requests()`** | Conservé pour jeux `expires_at` historiques ; **non alimenté** sur nouvelles publications (`expires_at` null, pilote Q38) |
-| **Abandon automatique** 24 h après **`responded`** | **RPC prêt** : **`abandon_unconfirmed_responded_requests()`** — brancher cron service_role |
+| **Auto expiration** cron supabase **`expire_overdue_requests(interval)`** | **`responded`** + **`responded_at`** hors délai ( défaut **30 min** pilote dans **`20260516_001`** ; viser **24 h** en prod ) + passe **`expires_at`** ; **`abandon_unconfirmed_responded_requests()`** = alias ; **cron `service_role`** requis |
+| **Abandon automatique** 24 h après **`responded`** | **Remplacé** par le même batch **`expire_overdue_requests()`** ( statut cible **`expired`** , pas **`abandoned`** ) |
 | **Ordonnance / consultation**: traitement pharmacien meme espace | Hors perimetre ecran actuel |
 | **`market_shortages`** insert auto quand pharma choisit **market_shortage** dispo ligne | **Fait** (trigger `20260503_005`) + **UI liste / retrait pharmacien** (`/dashboard/pharmacien/ruptures-marche`) |
 | **Notifications Q34–Q35** | **Q34 MVP fait** ; **Q35** schéma + enqueue + opt-in UI (**`20260505_001`**) ; **livraison messages** (API prestataires + worker) à brancher |
@@ -1066,6 +1086,10 @@ Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre 
 ### 13.10) Phrase de reprise (recommandée après **2026-05-09** — patient compact + pharmacien supply brouillon + `20260509_*`)
 
 **« On reprend ProxiPharma. Lis **`CONTEXTE.md` §6**, **`CAHIER_DES_CHARGES.md` §0.1, §4.4, §4.6, **dernier §10 Journal**, §11 (migrations jusqu’à **`20260509_002`**), §12 ; branche **`fix/rls-recursion`**. Vérifie sur Supabase **`20260509_001`** et **`20260509_002`** si pas encore appliqués. Fichiers clés : **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**, **`components/pharmacist/pharmacist-supply-compact-line.tsx`**, **`PatientProductRequestActions.tsx`**, **`lib/build-patient-line-timeline-fr.ts`**, **`lib/supply-line-post-confirm.ts`**. Je te dis ensuite quoi faire. »**
+
+### 13.12) Phrase de reprise (recommandée après **2026-05-13** — supply alt. choisie, notifs comptoir, expiration `responded`)
+
+**« On reprend ProxiPharma. Lis **`CONTEXTE.md` §6**, **`CAHIER_DES_CHARGES.md` §0.1, **§10 Journal (session 2026-05-13)**, §11 (migrations jusqu’à **`20260516_001`**), §4.4 + §4.6, §12. Sur Supabase : appliquer dans l’ordre **`20260512_002`**, **`20260514_001`**, **`20260515_001`**, **`20260516_001`** si pas déjà faits ; planifier le cron **`service_role`** sur **`expire_overdue_requests()`** (délai pilote **30 min** tant que la migration **`20260516_001`** est telle quelle). Fichiers clés post-validé : **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**, **`lib/patient-request-history-audit.ts`**. En développement, si une évolution est plus simple avec une **base vidée**, le demander plutôt que d’accumuler des contournements. Je te dis ensuite quoi faire. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 
