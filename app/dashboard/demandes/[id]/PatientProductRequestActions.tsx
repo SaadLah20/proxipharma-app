@@ -54,7 +54,8 @@ import {
   type PatientLineTimelineBlockFr,
 } from "@/lib/build-patient-line-timeline-fr";
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
-import { isPatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
+import { isPatientProductArchiveStatus, type PatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
+import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { PATIENT_GENERAL_NOTE_MAX, PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
@@ -393,6 +394,7 @@ function PatientValidatedCompactLineCard({
   treatedSupplyStatusLine,
   requestStatusForCard = null,
   postConfirmBadges,
+  onPhotoPreview,
 }: {
   row: ActionItemRow;
   tier: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation";
@@ -403,6 +405,8 @@ function PatientValidatedCompactLineCard({
   requestStatusForCard?: string | null;
   /** Jalons post-validation (détail dans Historique produit). */
   postConfirmBadges?: string[];
+  /** Agrandissement photo plein écran (patient). */
+  onPhotoPreview?: (url: string, title: string) => void;
 }) {
   const prod = one(row.products);
   const altList = normalizeAlternatives(row.request_item_alternatives);
@@ -444,7 +448,18 @@ function PatientValidatedCompactLineCard({
       <div className="flex items-start gap-2 p-2 sm:gap-2.5 sm:p-2.5">
         <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/20 sm:h-[3.75rem] sm:w-[3.75rem]">
           {thumbUrl ? (
-            <img src={thumbUrl} alt="" className="size-full object-cover" />
+            onPhotoPreview ? (
+              <button
+                type="button"
+                className="relative size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                onClick={() => onPhotoPreview(thumbUrl, validatedName)}
+                aria-label={`Agrandir la photo · ${validatedName}`}
+              >
+                <img src={thumbUrl} alt="" className="pointer-events-none size-full object-cover" />
+              </button>
+            ) : (
+              <img src={thumbUrl} alt="" className="size-full object-cover" />
+            )
           ) : (
             <div className="flex size-full items-center justify-center">
               <Package className="size-6 text-muted-foreground sm:size-7" aria-hidden />
@@ -550,10 +565,12 @@ function PatientTraceNotRetainedRow({
   row,
   onOpenHistory,
   postConfirmBadges,
+  onPhotoPreview,
 }: {
   row: ActionItemRow;
   onOpenHistory: () => void;
   postConfirmBadges?: string[];
+  onPhotoPreview?: (url: string, title: string) => void;
 }) {
   const prod = one(row.products);
   const name = prod?.name ?? "Produit";
@@ -567,7 +584,18 @@ function PatientTraceNotRetainedRow({
       <div className="flex items-start gap-2">
       <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded border border-border/60 bg-card">
         {prod?.photo_url ? (
-          <img src={prod.photo_url} alt="" className="size-full object-cover" />
+          onPhotoPreview ? (
+            <button
+              type="button"
+              className="relative size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              onClick={() => onPhotoPreview(prod.photo_url!, name)}
+              aria-label={`Agrandir la photo · ${name}`}
+            >
+              <img src={prod.photo_url} alt="" className="pointer-events-none size-full object-cover" />
+            </button>
+          ) : (
+            <img src={prod.photo_url} alt="" className="size-full object-cover" />
+          )
         ) : (
           <div className="flex size-full items-center justify-center">
             <Package className="size-5 text-muted-foreground" aria-hidden />
@@ -627,18 +655,71 @@ function PatientTraceNotRetainedRow({
   );
 }
 
+function archiveReadonlyIntroCopy(status: PatientProductArchiveStatus): { ring: string; gradient: string; title: string; lede: string } {
+  switch (status) {
+    case "cancelled":
+      return {
+        ring: "border-rose-200/90 ring-1 ring-rose-200/45",
+        gradient: "from-rose-50/80 via-white to-rose-50/20",
+        title: "Archive — dossier annulé",
+        lede: "Référence figée. Touchez une photo pour l’agrandir ; l’icône horloge ouvre l’historique détaillé du produit.",
+      };
+    case "abandoned":
+      return {
+        ring: "border-orange-200/90 ring-1 ring-orange-200/45",
+        gradient: "from-orange-50/75 via-white to-amber-50/25",
+        title: "Archive — dossier abandonné",
+        lede: "Plus d’actions possibles sur ProxiPharma. Les lignes et messages restent consultables en lecture seule.",
+      };
+    case "expired":
+      return {
+        ring: "border-amber-200/90 ring-1 ring-amber-200/45",
+        gradient: "from-amber-50/85 via-white to-amber-50/25",
+        title: "Archive — délai dépassé",
+        lede: "La réponse n’a pas été validée à temps. Vous pouvez lancer une nouvelle demande depuis le bouton en tête de page si proposé.",
+      };
+    case "partially_collected":
+      return {
+        ring: "border-teal-200/90 ring-1 ring-teal-200/45",
+        gradient: "from-teal-50/70 via-white to-cyan-50/20",
+        title: "Archive — retraits partiels",
+        lede: "Certaines lignes retenues ont été retirées au comptoir ; les autres restent visibles pour votre trace.",
+      };
+    case "fully_collected":
+      return {
+        ring: "border-emerald-200/90 ring-1 ring-emerald-200/45",
+        gradient: "from-emerald-50/75 via-white to-teal-50/25",
+        title: "Archive — tout retiré",
+        lede: "Toutes les lignes retenues ont été enregistrées comme retirées en officine.",
+      };
+    case "completed":
+    default:
+      return {
+        ring: "border-slate-200/90 ring-1 ring-slate-200/40",
+        gradient: "from-slate-50/80 via-white to-slate-50/15",
+        title: "Archive — dossier clôturé",
+        lede: "Vue figée au moment de la clôture. Photos zoomables ; jalons et échanges conservés sur chaque ligne.",
+      };
+  }
+}
+
 /** Archives (annulé, expiré, etc.) : mêmes cartes compactes que le dossier validé, sans actions ni suivi temps réel. */
 function ReadonlyArchivedProductBucketsView({
   items,
   pharmacistGlobalComment,
   onOpenLineHistory,
   linePostConfirmBadgesById,
+  archiveStatus,
+  onPhotoPreview,
 }: {
   items: ActionItemRow[];
   pharmacistGlobalComment: string | null | undefined;
   onOpenLineHistory: (itemId: string) => void;
   linePostConfirmBadgesById: Record<string, string[]>;
+  archiveStatus: PatientProductArchiveStatus;
+  onPhotoPreview: (url: string, title: string) => void;
 }) {
+  const intro = archiveReadonlyIntroCopy(archiveStatus);
   const totalsRetained = useMemo(() => monetaryTotalsForRetainedLines(items), [items]);
   const { dispoOfficine, aCommander, horsPerimetre, retireesApresValidation } =
     bucketPatientValidatedLinesThreeWays(items);
@@ -656,11 +737,12 @@ function ReadonlyArchivedProductBucketsView({
 
   return (
     <div className="space-y-2">
-      <div className="rounded-md border border-muted-foreground/25 bg-muted/20 px-2 py-1.5">
-        <p className="text-[10px] font-semibold leading-snug text-foreground">Lecture seule</p>
-        <p className="mt-0.5 text-[9px] leading-snug text-muted-foreground">
-          Produits tels qu’au moment de la clôture du dossier (référence). Historique par ligne via le bouton horloge.
-        </p>
+      <div
+        className={`rounded-xl border-2 bg-gradient-to-br px-2.5 py-2 shadow-sm sm:px-3 ${intro.ring} ${intro.gradient}`}
+      >
+        <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Lecture seule</p>
+        <p className="mt-0.5 text-[11px] font-bold leading-snug text-foreground">{intro.title}</p>
+        <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{intro.lede}</p>
       </div>
 
       {pharmacistGlobalComment?.trim() ? (
@@ -706,6 +788,7 @@ function ReadonlyArchivedProductBucketsView({
                   tier="dispo_officine"
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                   postConfirmBadges={linePostConfirmBadgesById[row.id]}
+                  onPhotoPreview={onPhotoPreview}
                 />
               ))}
             </ul>
@@ -737,6 +820,7 @@ function ReadonlyArchivedProductBucketsView({
                   tier="commande"
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                   postConfirmBadges={linePostConfirmBadgesById[row.id]}
+                  onPhotoPreview={onPhotoPreview}
                 />
               ))}
             </ul>
@@ -760,6 +844,7 @@ function ReadonlyArchivedProductBucketsView({
                   tier="hors_perimetre"
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                   postConfirmBadges={linePostConfirmBadgesById[row.id]}
+                  onPhotoPreview={onPhotoPreview}
                 />
               ))}
             </ul>
@@ -782,6 +867,7 @@ function ReadonlyArchivedProductBucketsView({
                   tier="retire_apres_validation"
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                   postConfirmBadges={linePostConfirmBadgesById[row.id]}
+                  onPhotoPreview={onPhotoPreview}
                 />
               ))}
             </ul>
@@ -803,6 +889,7 @@ function ReadonlyArchivedProductBucketsView({
                 row={row}
                 onOpenHistory={() => onOpenLineHistory(row.id)}
                 postConfirmBadges={linePostConfirmBadgesById[row.id]}
+                onPhotoPreview={onPhotoPreview}
               />
             ))}
           </ul>
@@ -926,6 +1013,7 @@ type RespondedChooserProps = {
   setLineBranch: (itemId: string, branch: LineBranch) => void;
   setLineQty: (itemId: string, qty: number) => void;
   togglePrincipalOnlyLine: (itemId: string, on: boolean) => void;
+  onPhotoPreview?: (url: string, title: string) => void;
 };
 
 /** Même résumé qté + dispo que la ligne ait des alternatives ou non. */
@@ -1070,6 +1158,7 @@ function RespondedPatientLineChooser({
   setLineBranch,
   setLineQty,
   togglePrincipalOnlyLine,
+  onPhotoPreview,
 }: RespondedChooserProps) {
   const prod = one(row.products);
   const prodUnitPrice = unitPriceLabel(prod?.price_pph);
@@ -1087,7 +1176,18 @@ function RespondedPatientLineChooser({
   const thumb = (
     <div className="relative h-[4.75rem] w-[4.75rem] shrink-0 overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm sm:h-20 sm:w-20">
       {prod?.photo_url ? (
-        <img src={prod.photo_url} alt="" className="h-full w-full object-cover" />
+        onPhotoPreview ? (
+          <button
+            type="button"
+            className="relative size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            onClick={() => onPhotoPreview(prod.photo_url!, prod?.name ?? "Produit")}
+            aria-label={`Agrandir la photo · ${prod?.name ?? "Produit"}`}
+          >
+            <img src={prod.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
+          </button>
+        ) : (
+          <img src={prod.photo_url} alt="" className="h-full w-full object-cover" />
+        )
       ) : (
         <div className="flex h-full w-full items-center justify-center">
           <Package className="size-6 text-muted-foreground sm:size-7" aria-hidden />
@@ -1557,7 +1657,13 @@ function formatGrandTotalLabel(all: PatientConfirmPreviewLine[]): string {
   return `TOTAL: ${sumKnown.toFixed(2)} MAD`;
 }
 
-function PatientConfirmReviewLineCard({ line }: { line: PatientConfirmPreviewLine }) {
+function PatientConfirmReviewLineCard({
+  line,
+  onPhotoPreview,
+}: {
+  line: PatientConfirmPreviewLine;
+  onPhotoPreview?: (url: string, title: string) => void;
+}) {
   const isOrder = line.bucket === "order";
   const thumbRing = isOrder ? "border-teal-300/70 ring-1 ring-teal-300/35" : "border-emerald-300/65 ring-1 ring-emerald-300/35";
   const thumb = (
@@ -1565,7 +1671,18 @@ function PatientConfirmReviewLineCard({ line }: { line: PatientConfirmPreviewLin
       className={`relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl border bg-white shadow-inner ${thumbRing}`}
     >
       {line.photoUrl ? (
-        <img src={line.photoUrl} alt="" className="h-full w-full object-cover" />
+        onPhotoPreview ? (
+          <button
+            type="button"
+            className="relative size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            onClick={() => onPhotoPreview(line.photoUrl!, line.productName)}
+            aria-label={`Agrandir la photo · ${line.productName}`}
+          >
+            <img src={line.photoUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
+          </button>
+        ) : (
+          <img src={line.photoUrl} alt="" className="h-full w-full object-cover" />
+        )
       ) : (
         <div
           className={`flex h-full w-full items-center justify-center ${isOrder ? "bg-teal-50/90" : "bg-emerald-50/90"}`}
@@ -1653,6 +1770,11 @@ export function PatientProductRequestActions({
   const [exitModalOpen, setExitModalOpen] = useState(false);
   const [exitModalNonce, setExitModalNonce] = useState(0);
   const [exitModalMode, setExitModalMode] = useState<RequestExitModalMode>("patient_abandon");
+  const [productPhotoPreview, setProductPhotoPreview] = useState<{ url: string; title: string } | null>(null);
+  const openProductPhotoPreview = useCallback((url: string, title: string) => {
+    if (!url.trim()) return;
+    setProductPhotoPreview({ url: url.trim(), title: title.trim() || "Produit" });
+  }, []);
 
   /** Lignes `pharmacist_proposed` masquées tant que statut submitted / in_review — elles sont un brouillon coté officine. */
   const itemsFilteredPending = useMemo(
@@ -2106,6 +2228,14 @@ export function PatientProductRequestActions({
     status === "confirmed" ||
     status === "treated";
   const readOnlyArchive = isPatientProductArchiveStatus(status);
+  const productPhotoPreviewModal = (
+    <PatientProductPhotoPreviewModal
+      open={productPhotoPreview !== null}
+      imageUrl={productPhotoPreview?.url ?? null}
+      title={productPhotoPreview?.title ?? ""}
+      onClose={() => setProductPhotoPreview(null)}
+    />
+  );
   if (!interactiveAllowed && !readOnlyArchive) return null;
 
   if (readOnlyArchive) {
@@ -2117,6 +2247,8 @@ export function PatientProductRequestActions({
             pharmacistGlobalComment={pharmacistGlobalComment}
             onOpenLineHistory={(itemId) => setHistoryModalItemId(itemId)}
             linePostConfirmBadgesById={linePostConfirmBadgesById}
+            archiveStatus={status}
+            onPhotoPreview={openProductPhotoPreview}
           />
         </section>
         <LineHistoryModalFr
@@ -2125,6 +2257,7 @@ export function PatientProductRequestActions({
           blocks={historyModalBlocks}
           onClose={() => setHistoryModalItemId(null)}
         />
+        {productPhotoPreviewModal}
       </>
     );
   }
@@ -2315,6 +2448,7 @@ export function PatientProductRequestActions({
                     setLineBranch={setLineBranch}
                     setLineQty={setLineQty}
                     togglePrincipalOnlyLine={togglePrincipalOnlyLine}
+                    onPhotoPreview={openProductPhotoPreview}
                   />
                 ))}
               </ul>
@@ -2419,6 +2553,7 @@ export function PatientProductRequestActions({
                         postConfirmBadges={linePostConfirmBadgesById[row.id]}
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
+                        onPhotoPreview={openProductPhotoPreview}
                       />
                     ))}
                   </ul>
@@ -2452,6 +2587,7 @@ export function PatientProductRequestActions({
                         postConfirmBadges={linePostConfirmBadgesById[row.id]}
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
+                        onPhotoPreview={openProductPhotoPreview}
                       />
                     ))}
                   </ul>
@@ -2480,6 +2616,7 @@ export function PatientProductRequestActions({
                         postConfirmBadges={linePostConfirmBadgesById[row.id]}
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
+                        onPhotoPreview={openProductPhotoPreview}
                       />
                     ))}
                   </ul>
@@ -2507,6 +2644,7 @@ export function PatientProductRequestActions({
                         postConfirmBadges={linePostConfirmBadgesById[row.id]}
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
+                        onPhotoPreview={openProductPhotoPreview}
                       />
                     ))}
                   </ul>
@@ -2528,6 +2666,7 @@ export function PatientProductRequestActions({
                         row={row}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
                         postConfirmBadges={linePostConfirmBadgesById[row.id]}
+                        onPhotoPreview={openProductPhotoPreview}
                       />
                     ))}
                   </ul>
@@ -2610,7 +2749,14 @@ export function PatientProductRequestActions({
                       </button>
                     ) : null}
                     {l.photo_url ? (
-                      <img src={l.photo_url} alt={l.name} className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                        onClick={() => openProductPhotoPreview(l.photo_url!, l.name)}
+                        aria-label={`Agrandir la photo · ${l.name}`}
+                      >
+                        <img src={l.photo_url} alt={l.name} className="pointer-events-none h-full w-full object-cover" />
+                      </button>
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">
                         <Package className="size-7 text-muted-foreground" aria-hidden />
@@ -2986,7 +3132,11 @@ export function PatientProductRequestActions({
                   </div>
                   <ul className="space-y-1.5">
                     {confirmReserveLines.map((line) => (
-                      <PatientConfirmReviewLineCard key={line.rowId} line={line} />
+                      <PatientConfirmReviewLineCard
+                        key={line.rowId}
+                        line={line}
+                        onPhotoPreview={openProductPhotoPreview}
+                      />
                     ))}
                   </ul>
                   <p className="mt-2 text-right text-[11px] leading-snug font-medium text-emerald-900/85">
@@ -3003,7 +3153,11 @@ export function PatientProductRequestActions({
                   </div>
                   <ul className="space-y-1.5">
                     {confirmOrderLines.map((line) => (
-                      <PatientConfirmReviewLineCard key={line.rowId} line={line} />
+                      <PatientConfirmReviewLineCard
+                        key={line.rowId}
+                        line={line}
+                        onPhotoPreview={openProductPhotoPreview}
+                      />
                     ))}
                   </ul>
                   <p className="mt-2 text-right text-[11px] leading-snug font-medium text-teal-900/88">
@@ -3110,7 +3264,14 @@ export function PatientProductRequestActions({
                   >
                     <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white">
                       {l.photo_url ? (
-                        <img src={l.photo_url} alt="" className="size-full object-cover" />
+                        <button
+                          type="button"
+                          className="relative size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                          onClick={() => openProductPhotoPreview(l.photo_url!, l.name)}
+                          aria-label={`Agrandir la photo · ${l.name}`}
+                        >
+                          <img src={l.photo_url} alt="" className="pointer-events-none size-full object-cover" />
+                        </button>
                       ) : (
                         <div className="flex size-full items-center justify-center">
                           <Package className="size-5 text-slate-400" aria-hidden />
@@ -3192,6 +3353,7 @@ export function PatientProductRequestActions({
         blocks={historyModalBlocks}
         onClose={() => setHistoryModalItemId(null)}
       />
+      {productPhotoPreviewModal}
     </section>
   );
 }
