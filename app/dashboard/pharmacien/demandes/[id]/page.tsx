@@ -47,6 +47,7 @@ import {
   counterOutcomeFr,
   formatShortId,
   historyActorLabel,
+  pharmacistProposedProductBadgeFr,
   pharmacistRequestIsClosedSuccess,
   pharmacistRequestIsHardStopped,
   requestHistoryPharmacistHeadline,
@@ -293,11 +294,11 @@ function flattenPharmacistSupplyListEntries(rows: ItemRow[]): { header: string |
 }
 
 const PHARMACIST_SUPPLY_SURFACE_MAIN =
-  "rounded-xl border-2 border-emerald-200/65 bg-gradient-to-b from-emerald-50/35 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-emerald-200/45 sm:p-2.5";
+  "rounded-lg border border-emerald-300/70 bg-gradient-to-b from-emerald-50/40 via-white to-white p-1.5 shadow-sm ring-1 ring-emerald-200/50 sm:p-2";
 const PHARMACIST_SUPPLY_SURFACE_SECOND =
-  "rounded-xl border-2 border-teal-200/70 bg-gradient-to-b from-teal-50/40 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-teal-200/45 sm:p-2.5";
+  "rounded-lg border border-teal-300/70 bg-gradient-to-b from-teal-50/35 via-white to-white p-1.5 shadow-sm ring-1 ring-teal-200/50 sm:p-2";
 const PHARMACIST_SUPPLY_SURFACE_NEUTRAL =
-  "rounded-xl border-2 border-slate-200/80 bg-gradient-to-b from-slate-50/70 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-200/50 sm:p-2.5";
+  "rounded-lg border border-slate-200/85 bg-gradient-to-b from-slate-50/55 via-white to-white p-1.5 shadow-sm ring-1 ring-slate-200/55 sm:p-2";
 
 type PendingAlternativeEntry = {
   localAltId: string;
@@ -564,15 +565,19 @@ function PublishConfirmLineLi({
         <div className="min-w-0 flex-1">
           <p className="font-semibold leading-snug text-foreground">{prodName}</p>
           {proposed ? (
-            <p className="mt-1 text-[10px] leading-snug text-violet-900/90">
-              <span className="font-bold text-violet-950">Proposition officine</span>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="shrink-0 rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                {pharmacistProposedProductBadgeFr}
+              </span>
               {r.pharmacist_proposal_reason?.trim() ? (
-                <>
-                  {" "}
-                  · <span className="italic">{r.pharmacist_proposal_reason.trim()}</span>
-                </>
-              ) : null}
-            </p>
+                <p className="min-w-0 flex-1 text-[10px] leading-snug text-violet-900/90">
+                  <span className="font-semibold text-violet-950">Motif · </span>
+                  <span className="italic">{r.pharmacist_proposal_reason.trim()}</span>
+                </p>
+              ) : (
+                <span className="text-[10px] italic text-violet-800/85">Aucun motif renseigné.</span>
+              )}
+            </div>
           ) : (
             <p className="mt-0.5 text-[10px] text-muted-foreground">
               Ligne demandée · qté patient <strong className="text-foreground">{r.requested_qty}</strong>
@@ -1009,7 +1014,7 @@ function buildConfirmedSupplySaveSummaryLines(
 
   for (const row of pendingProposalRows) {
     const nm = one(row.products)?.name ?? "Produit";
-    lines.push(`Proposition officine à créer : « ${nm} » (${row.requested_qty ?? 1} unité(s)).`);
+    lines.push(`${pharmacistProposedProductBadgeFr} à créer : « ${nm} » (${row.requested_qty ?? 1} unité(s)).`);
   }
 
   for (const pe of pendingAlternatives) {
@@ -3622,19 +3627,19 @@ export default function PharmacienDemandeDetailPage() {
             </div>
             <span className="text-[10px] text-muted-foreground">{displayRows.length} article(s)</span>
           </div>
-          <div className="mt-2 space-y-2 sm:space-y-3">
+          <div className="mt-2 flex flex-col gap-3">
             {pharmacistSupplySurfaceGroups.map((group, gi) => (
               <div
                 key={gi}
-                className={
+                className={clsx(
                   group.surface === "principal"
                     ? PHARMACIST_SUPPLY_SURFACE_MAIN
                     : group.surface === "secondary"
                       ? PHARMACIST_SUPPLY_SURFACE_SECOND
                       : PHARMACIST_SUPPLY_SURFACE_NEUTRAL
-                }
+                )}
               >
-                <ul className="space-y-2 sm:space-y-3">
+                <ul className="flex flex-col gap-2">
                   {group.entries.map(({ header, row }) => {
               const prod = one(row.products);
               const linePph = pphLabel(prod?.price_pph);
@@ -3796,8 +3801,8 @@ export default function PharmacienDemandeDetailPage() {
 
                 const modifyFieldsBlock = (
                   <div className="space-y-1.5">
-                    <div className="flex flex-wrap items-end gap-1.5 sm:gap-2">
-                      <div className="flex min-w-[9.5rem] flex-1 flex-col gap-0.5">
+                    <div className="-mx-0.5 flex max-w-full flex-nowrap items-end gap-1 overflow-x-auto overscroll-x-contain pb-0.5 [-webkit-overflow-scrolling:touch] sm:mx-0 sm:flex-wrap sm:gap-2 sm:overflow-visible sm:pb-0">
+                      <div className="flex min-w-[8.75rem] shrink-0 flex-col gap-0.5 sm:min-w-[9.5rem] sm:flex-1">
                         <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
                           Disponibilité
                         </span>
@@ -3816,7 +3821,7 @@ export default function PharmacienDemandeDetailPage() {
                           onPick={(v) => setAvailabilityStatus(row, v)}
                         />
                       </div>
-                      <label className="flex w-[5.5rem] flex-col gap-0.5">
+                      <label className="flex w-[5.25rem] shrink-0 flex-col gap-0.5 sm:w-[5.5rem]">
                         <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Qté</span>
                         <div className="flex h-9 items-center overflow-hidden rounded-xl border border-input bg-background shadow-sm">
                           <button
@@ -3857,8 +3862,8 @@ export default function PharmacienDemandeDetailPage() {
                           </button>
                         </div>
                       </label>
-                      <label className="flex min-w-[5rem] flex-1 flex-col gap-0.5 sm:max-w-[7rem]">
-                        <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                      <label className="flex w-[4.85rem] shrink-0 flex-col gap-0.5 sm:min-w-[5rem] sm:w-auto sm:max-w-[7rem] sm:flex-1">
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
                           Prix <span className="normal-case opacity-70">MAD</span>
                         </span>
                         <input
@@ -4030,13 +4035,13 @@ export default function PharmacienDemandeDetailPage() {
                         open: lineConvoRowId === row.id,
                         disabled: busy || supplyConfirmBusy,
                       }),
-                      "min-w-0 w-full max-w-none flex-1 justify-start"
+                      "relative min-w-0 max-sm:h-8 max-sm:min-h-8 max-sm:min-w-8 max-sm:justify-center max-sm:px-1.5 max-sm:py-0 sm:w-full sm:max-w-none sm:flex-1 sm:justify-start"
                     )}
                     aria-label={`Échanges produit · ${lineConversationStripLabel(lineConvoVisual)}`}
                     title="Notes patient et officine"
                   >
                     <MessageCircle className="size-3 shrink-0 opacity-90" strokeWidth={2.2} aria-hidden />
-                    <span className="max-w-[10rem] truncate text-[9px] font-medium leading-tight sm:max-w-[12rem]">
+                    <span className="hidden max-w-[10rem] truncate text-[9px] font-medium leading-tight sm:inline sm:max-w-[12rem]">
                       {lineConversationStripLabel(lineConvoVisual)}
                     </span>
                   </button>
@@ -4163,32 +4168,32 @@ export default function PharmacienDemandeDetailPage() {
               return (
                 <Fragment key={row.id}>
                   {header ? (
-                    <li className="list-none pt-2 first:pt-0 sm:pt-2.5">
+                    <li className="list-none pt-1.5 first:pt-0 sm:pt-2">
                       <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{header}</div>
                     </li>
                   ) : null}
                   <li
                     className={clsx(
-                      "list-none overflow-visible rounded-xl border-2 bg-card shadow-sm ring-1",
+                      "list-none overflow-visible rounded-lg border bg-card shadow-sm ring-1 ring-black/[0.04]",
                       isProposedLine
                         ? "border-violet-300/80 bg-gradient-to-b from-violet-50/70 via-white to-white ring-violet-200/50"
-                        : "border-slate-200/80 bg-gradient-to-b from-white to-slate-50/40 ring-slate-200/50",
+                        : "border-slate-200/85 bg-gradient-to-b from-white to-slate-50/40 ring-slate-200/50",
                       availUi.accentClass,
-                      isProposedLine ? "border-l-[4px] border-l-violet-500" : "border-l-[3px] border-l-sky-400/60"
+                      isProposedLine ? "border-l-[3px] border-l-violet-500" : "border-l-[3px] border-l-sky-400/55"
                     )}
                   >
                   <div
                     className={clsx(
-                      "flex gap-2 border-b px-2.5 py-2 sm:gap-2.5 sm:px-3",
+                      "flex gap-2 border-b px-2 py-1.5 sm:gap-2 sm:px-2.5 sm:py-2",
                       isProposedLine
                         ? "border-violet-200/50 bg-gradient-to-r from-violet-50/50 via-white to-transparent"
                         : "border-slate-100/90 bg-white/90"
                     )}
                   >
-                    <div className="flex w-[4.75rem] shrink-0 flex-col items-stretch gap-1 sm:w-[5.125rem]">
+                    <div className="flex w-[4.25rem] shrink-0 flex-col items-stretch gap-0.5 sm:w-[4.75rem]">
                       <div
                         className={clsx(
-                          "relative h-20 w-full overflow-hidden rounded-lg border bg-white shadow-inner sm:h-20",
+                          "relative h-[4.25rem] w-full overflow-hidden rounded-md border bg-white shadow-inner sm:h-[4.5rem]",
                           isProposedLine ? "border-violet-200/80 ring-1 ring-violet-200/35" : "border-slate-200/75"
                         )}
                       >
@@ -4197,30 +4202,69 @@ export default function PharmacienDemandeDetailPage() {
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                             <Package
-                              className={clsx("size-8 sm:size-9", isProposedLine ? "text-violet-400/90" : "text-slate-400")}
+                              className={clsx("size-7 sm:size-8", isProposedLine ? "text-violet-400/90" : "text-slate-400")}
                               aria-hidden
                             />
                           </div>
                         )}
                       </div>
                     </div>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="min-w-0 flex-1 break-words text-[13px] font-bold leading-snug text-foreground sm:text-sm">
-                          {prod?.name ?? "Produit"}
-                        </p>
-                        {canEditThisRow && isProposedLine ? (
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex items-start justify-between gap-1.5 sm:gap-2">
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                          <p className="min-w-0 flex-1 break-words text-[13px] font-bold leading-snug text-foreground sm:text-sm">
+                            {prod?.name ?? "Produit"}
+                          </p>
+                          {isProposedLine ? (
+                            <span className="shrink-0 rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                              {pharmacistProposedProductBadgeFr}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex shrink-0 items-start gap-1">
                           <button
                             type="button"
-                            title="Retirer cette proposition"
-                            aria-label="Retirer cette proposition"
                             disabled={busy}
-                            onClick={() => void removePharmacistProposedLine(row)}
-                            className="shrink-0 rounded-lg border border-rose-200/90 bg-rose-50/90 p-1.5 text-rose-800 shadow-sm transition hover:bg-rose-100 disabled:opacity-50"
+                            className={clsx(
+                              lineConversationStripButtonClass(lineConvoVisual, {
+                                open: lineConvoEffectiveRowId === row.id,
+                                disabled: busy,
+                              }),
+                              "relative max-sm:h-8 max-sm:min-h-8 max-sm:min-w-8 max-sm:justify-center max-sm:px-1.5 max-sm:py-0"
+                            )}
+                            aria-label={`Échanges produit · ${lineConversationStripLabel(lineConvoVisual)}`}
+                            title="Ouvrir les messages patient et note officine"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setLineConvoRowId((cur) => (cur === row.id ? null : row.id));
+                            }}
                           >
-                            <Trash2 className="size-4" strokeWidth={2} aria-hidden />
+                            <MessageCircle className="size-3.5 shrink-0 opacity-90 sm:size-3.5" strokeWidth={2.2} aria-hidden />
+                            <span className="hidden max-w-[11rem] truncate text-[9px] font-medium leading-tight sm:inline sm:max-w-[14rem]">
+                              {lineConversationStripLabel(lineConvoVisual)}
+                            </span>
+                            {lineConvoVisual === "patient_only" &&
+                            ((canEditThisRow && showLineAndPublishEdits) || (respondedFrozenView && !lineLockedTrace)) ? (
+                              <span
+                                className="absolute -right-0.5 -top-0.5 flex size-2 rounded-full bg-amber-500 ring-2 ring-white"
+                                aria-hidden
+                              />
+                            ) : null}
                           </button>
-                        ) : null}
+                          {canEditThisRow && isProposedLine ? (
+                            <button
+                              type="button"
+                              title="Retirer cette proposition"
+                              aria-label="Retirer cette proposition"
+                              disabled={busy}
+                              onClick={() => void removePharmacistProposedLine(row)}
+                              className="shrink-0 rounded-lg border border-rose-200/90 bg-rose-50/90 p-1.5 text-rose-800 shadow-sm transition hover:bg-rose-100 disabled:opacity-50"
+                            >
+                              <Trash2 className="size-4" strokeWidth={2} aria-hidden />
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
                         <span
@@ -4262,38 +4306,6 @@ export default function PharmacienDemandeDetailPage() {
                             </span>
                           )
                         ) : null}
-                      </div>
-                      <div className="mt-1 flex w-full min-w-0 items-stretch justify-stretch border-t border-dotted border-border/55 pt-1.5">
-                        <button
-                          type="button"
-                          disabled={busy}
-                          className={clsx(
-                            lineConversationStripButtonClass(lineConvoVisual, {
-                              open: lineConvoEffectiveRowId === row.id,
-                              disabled: busy,
-                            }),
-                            "min-w-0 w-full max-w-none flex-1 justify-start"
-                          )}
-                          aria-label={`Échanges produit · ${lineConversationStripLabel(lineConvoVisual)}`}
-                          title="Ouvrir les messages patient et note officine"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setLineConvoRowId((cur) => (cur === row.id ? null : row.id));
-                          }}
-                        >
-                          <MessageCircle className="size-3.5 shrink-0 opacity-90" strokeWidth={2.2} aria-hidden />
-                          <span className="max-w-[11rem] truncate text-[9px] font-medium leading-tight sm:max-w-[14rem]">
-                            {lineConversationStripLabel(lineConvoVisual)}
-                          </span>
-                          {lineConvoVisual === "patient_only" &&
-                          ((canEditThisRow && showLineAndPublishEdits) || (respondedFrozenView && !lineLockedTrace)) ? (
-                            <span
-                              className="absolute -right-0.5 -top-0.5 flex size-2 rounded-full bg-amber-500 ring-2 ring-white"
-                              aria-hidden
-                            />
-                          ) : null}
-                        </button>
                       </div>
                       {isProposedLine ? (
                         <p className="rounded-md border border-violet-300/80 bg-gradient-to-br from-violet-200/55 to-violet-100/40 px-2 py-1 text-[10px] leading-snug text-violet-950 shadow-sm ring-1 ring-violet-300/35">
@@ -4406,9 +4418,9 @@ export default function PharmacienDemandeDetailPage() {
                       ) : null}
                     </div>
                   ) : showLineAndPublishEdits ? (
-                    <div className="space-y-1.5 px-2 py-2 sm:space-y-2 sm:px-3 sm:py-2.5">
-                      <div className="flex flex-wrap items-end gap-1.5 sm:gap-2">
-                        <div className="flex min-w-[9.5rem] flex-1 flex-col gap-0.5">
+                    <div className="space-y-1.5 border-t border-dotted border-border/55 px-2 py-2 sm:space-y-2 sm:px-3 sm:py-2.5">
+                      <div className="-mx-0.5 flex max-w-full flex-nowrap items-end gap-1 overflow-x-auto overscroll-x-contain pb-0.5 [-webkit-overflow-scrolling:touch] sm:mx-0 sm:flex-wrap sm:gap-2 sm:overflow-visible sm:pb-0">
+                        <div className="flex min-w-[8.75rem] shrink-0 flex-col gap-0.5 sm:min-w-[9.5rem] sm:flex-1">
                           <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
                             Disponibilité
                           </span>
@@ -4429,7 +4441,7 @@ export default function PharmacienDemandeDetailPage() {
                             onPick={(v) => setAvailabilityStatus(row, v)}
                           />
                         </div>
-                        <label className="flex w-[5.5rem] flex-col gap-0.5">
+                        <label className="flex w-[5.25rem] shrink-0 flex-col gap-0.5 sm:w-[5.5rem]">
                           <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Qté</span>
                           <div className="flex h-9 items-center overflow-hidden rounded-xl border border-input bg-background shadow-sm">
                             <button
@@ -4466,8 +4478,8 @@ export default function PharmacienDemandeDetailPage() {
                             </button>
                           </div>
                         </label>
-                        <label className="flex min-w-[5rem] flex-1 flex-col gap-0.5 sm:max-w-[7rem]">
-                          <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                        <label className="flex w-[4.85rem] shrink-0 flex-col gap-0.5 sm:min-w-[5rem] sm:w-auto sm:max-w-[7rem] sm:flex-1">
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
                             Prix <span className="normal-case opacity-70">MAD</span>
                           </span>
                           <input
@@ -4491,7 +4503,8 @@ export default function PharmacienDemandeDetailPage() {
                           </p>
                         ) : isProposedLine ? (
                           <p className="text-[9px] leading-snug text-violet-900/90">
-                            <strong>Proposition officine</strong> · stock minimum <strong>1</strong>, sans plafond lié à la quantité initialement
+                            <span className="font-semibold text-violet-950">{pharmacistProposedProductBadgeFr} · </span>
+                            stock minimum <strong>1</strong>, sans plafond lié à la quantité initialement
                             indiquée sur la ligne.
                           </p>
                         ) : (
@@ -4538,12 +4551,12 @@ export default function PharmacienDemandeDetailPage() {
                           : "Lecture seule · dossier non modifiable"}
                       </p>
                       <div className="mt-1.5 flex flex-wrap gap-2">
-                        <span className="inline-flex items-center gap-1 rounded-xl border border-border/70 bg-background px-2 py-1 text-[11px] font-medium shadow-sm tabular-nums">
-                          <Package className="size-3.5 text-muted-foreground" aria-hidden />
-                          Qté&nbsp;
+                        <span className="inline-flex items-baseline gap-1 whitespace-nowrap rounded-xl border border-border/70 bg-background px-2 py-1 text-[11px] font-medium shadow-sm tabular-nums">
+                          <Package className="size-3.5 shrink-0 self-center text-muted-foreground" aria-hidden />
+                          <span className="text-muted-foreground">Qté</span>
                           <strong>{row.available_qty != null ? row.available_qty : "—"}</strong>
                         </span>
-                        <span className="inline-flex items-center gap-1 rounded-xl border border-border/70 bg-background px-2 py-1 text-[11px] font-medium shadow-sm tabular-nums">
+                        <span className="inline-flex items-baseline gap-1 whitespace-nowrap rounded-xl border border-border/70 bg-background px-2 py-1 text-[11px] font-medium shadow-sm tabular-nums">
                           <span className="text-[10px] text-muted-foreground">MAD</span>
                           <strong>{row.unit_price != null ? Number(row.unit_price).toFixed(2) : "—"}</strong>
                         </span>

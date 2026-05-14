@@ -33,25 +33,34 @@ export function DemandeStatDashboard({
   rows,
   buckets,
   basePath,
+  density = "default",
 }: {
   rows: Row[];
   buckets: DemandeStatBucket[];
   basePath: "/dashboard/demandes" | "/dashboard/pharmacien/demandes";
+  /** `compact` : tuiles plus basses (vue pharmacien dense). */
+  density?: "default" | "compact";
 }) {
   const router = useRouter();
   const max = Math.max(1, ...buckets.map((b) => countInBucket(rows, b)));
+  const compact = density === "compact";
 
   return (
-    <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06] p-3 shadow-sm sm:p-3.5">
-      <div className="mb-3 flex flex-col gap-1 px-0.5 sm:flex-row sm:items-end sm:justify-between">
+    <div
+      className={clsx(
+        "rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06] shadow-sm sm:shadow-sm",
+        compact ? "p-2.5 sm:p-3" : "p-3 sm:p-3.5"
+      )}
+    >
+      <div className={clsx("flex flex-col gap-0.5 px-0.5 sm:flex-row sm:items-end sm:justify-between", compact ? "mb-2" : "mb-3")}>
         <div>
           <h2 className="text-xs font-bold uppercase tracking-wide text-foreground">Vue rapide · demandes de produits</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
+          <p className={clsx("text-muted-foreground", compact ? "mt-px text-[10px] leading-snug" : "mt-0.5 text-xs")}>
             Touchez un bloc pour ouvrir la liste filtrée (demandes de produits)
           </p>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+      <div className={clsx("grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4", compact ? "gap-1.5" : "gap-2")}>
       {buckets.map((b) => {
         const n = countInBucket(rows, b);
         const pct = Math.round((n / max) * 100);
@@ -67,20 +76,38 @@ export function DemandeStatDashboard({
               router.replace(`${basePath}?${next.toString()}`, { scroll: false });
             }}
             className={clsx(
-              "flex min-h-[118px] flex-col rounded-xl border border-border/90 bg-card p-2.5 text-left shadow-sm transition",
+              "flex flex-col rounded-lg border border-border/90 bg-card text-left shadow-sm ring-1 ring-black/[0.03] transition",
+              compact ? "min-h-[5.5rem] p-2" : "min-h-[118px] rounded-xl p-2.5",
               "hover:border-primary/35 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             )}
           >
-            <div className="flex items-start justify-between gap-1.5">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary" aria-hidden>
-                <Icon className="size-4" strokeWidth={2.25} />
+            <div className="flex items-start justify-between gap-1">
+              <span
+                className={clsx(
+                  "flex shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary",
+                  compact ? "size-7" : "size-8"
+                )}
+                aria-hidden
+              >
+                <Icon className={compact ? "size-3.5" : "size-4"} strokeWidth={2.25} />
               </span>
-              <span className="text-2xl font-bold tabular-nums text-foreground">{n}</span>
+              <span className={clsx("font-bold tabular-nums text-foreground", compact ? "text-xl" : "text-2xl")}>{n}</span>
             </div>
-            <p className="mt-2 text-[11px] font-semibold leading-snug text-foreground">{b.label}</p>
-            <p className="text-[10px] font-medium text-primary/90">Filtrer →</p>
-            {b.hint ? <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">{b.hint}</p> : null}
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <p className={clsx("font-semibold leading-snug text-foreground", compact ? "mt-1 text-[10px]" : "mt-2 text-[11px]")}>
+              {b.label}
+            </p>
+            <p className={clsx("font-medium text-primary/90", compact ? "text-[9px]" : "text-[10px]")}>Filtrer →</p>
+            {b.hint ? (
+              <p
+                className={clsx(
+                  "line-clamp-2 leading-snug text-muted-foreground",
+                  compact ? "mt-px text-[9px]" : "mt-0.5 text-[10px]"
+                )}
+              >
+                {b.hint}
+              </p>
+            ) : null}
+            <div className={clsx("w-full overflow-hidden rounded-full bg-muted", compact ? "mt-1 h-1" : "mt-2 h-1.5")}>
               <div
                 className="h-full rounded-full bg-primary/60 transition-[width]"
                 style={{ width: `${pct}%` }}

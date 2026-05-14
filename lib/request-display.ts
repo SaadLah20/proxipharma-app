@@ -258,6 +258,9 @@ export const requestItemLineSourceFr: Record<string, string> = {
   pharmacist_proposed: "Proposé par la pharmacie",
 };
 
+/** Badge cartes produit — ligne hors liste patient (écrans pharmacien, aligné patient « Ajout officine »). */
+export const pharmacistProposedProductBadgeFr = "Ajout officine";
+
 export function formatShortId(id: string) {
   return id.replace(/-/g, "").slice(0, 8);
 }

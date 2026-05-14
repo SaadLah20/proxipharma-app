@@ -250,13 +250,18 @@ export function PharmacistDemandesHub() {
             </div>
           ) : (
             <div className="mt-4">
-              <DemandeStatDashboard rows={rowsWithDashboardStatus} buckets={PHARMACIST_DASHBOARD_BUCKETS} basePath="/dashboard/pharmacien/demandes" />
+              <DemandeStatDashboard
+                rows={rowsWithDashboardStatus}
+                buckets={PHARMACIST_DASHBOARD_BUCKETS}
+                basePath="/dashboard/pharmacien/demandes"
+                density="compact"
+              />
             </div>
           )}
         </>
       ) : (
-        <div className="mt-4 space-y-4">
-          <section className="rounded-xl border-2 border-emerald-100 bg-emerald-50/40 p-3 shadow-sm">
+        <div className="mt-4 flex flex-col gap-3">
+          <section className="rounded-lg border border-emerald-200/80 bg-emerald-50/35 p-2.5 shadow-sm ring-1 ring-emerald-200/40">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h2 className="text-xs font-bold uppercase tracking-wide text-emerald-950">Filtres et recherche</h2>
@@ -339,9 +344,9 @@ export function PharmacistDemandesHub() {
                   : "Aucun résultat."}
             </p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="flex flex-col gap-3">
               {filteredSorted.map((r) => (
-                <li key={r.id}>
+                <li key={r.id} className="list-none">
                   <PharmacistDemandeCard row={r} conversationUnread={unreadById[r.id] === true} />
                 </li>
               ))}
