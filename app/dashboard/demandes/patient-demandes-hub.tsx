@@ -85,7 +85,7 @@ export function PatientDemandesHub() {
     } else if (Array.isArray(data)) {
       setRows(data as unknown as PatientRequestRow[]);
       const ids = (data as unknown as { id: string }[]).map((r) => r.id);
-      let unreadMap: Record<string, boolean> = {};
+      const unreadMap: Record<string, boolean> = {};
       if (ids.length > 0) {
         const { data: flagData, error: unreadErr } = await supabase.rpc("request_conversation_unread_flags", {
           p_request_ids: ids,

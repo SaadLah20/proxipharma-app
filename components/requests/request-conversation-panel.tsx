@@ -60,8 +60,12 @@ export function RequestConversationPanel({
 
   useEffect(() => {
     if (!open) return;
-    void load();
-    void markRead();
+    // Hors du tick de l'effet : évite react-hooks/set-state-in-effect (load() met loading à jour tout de suite).
+    const id = window.setTimeout(() => {
+      void load();
+      void markRead();
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [open, load, markRead]);
 
   useEffect(() => {
