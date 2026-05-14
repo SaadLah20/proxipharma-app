@@ -13,7 +13,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { PATIENT_GENERAL_NOTE_MAX, PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
+import { PATIENT_PRODUCT_LINE_COMMENT_MAX, REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
 
 type ProductLite = {
   id: string;
@@ -207,10 +207,9 @@ export default function DemandeProduitsPage() {
       return;
     }
 
-    const noteTrim = note.trim().slice(0, PATIENT_GENERAL_NOTE_MAX);
     const { error: prErr } = await supabase.from("product_requests").insert({
       request_id: reqRow.id,
-      patient_note: noteTrim.length > 0 ? noteTrim : null,
+      patient_note: null,
     });
 
     if (prErr) {
@@ -232,12 +231,35 @@ export default function DemandeProduitsPage() {
       })
     );
 
-    setSubmitLoading(false);
     if (itemsErr) {
+      setSubmitLoading(false);
       setFeedback({ type: "err", text: itemsErr.message });
       return;
     }
 
+    const convTrim = note.trim().slice(0, REQUEST_CONVERSATION_MESSAGE_MAX);
+    if (convTrim.length > 0) {
+      const { error: convErr } = await supabase.from("request_comments").insert({
+        request_id: reqRow.id,
+        author_id: userData.user.id,
+        author_role: "patient",
+        comment_text: convTrim,
+        is_internal: false,
+      });
+      if (convErr) {
+        setSubmitLoading(false);
+        setFeedback({
+          type: "err",
+          text:
+            "Ta demande a bien été créée, mais le premier message n’a pas pu être enregistré. Ouvre « Conversation » sur le dossier pour le renvoyer.",
+        });
+        router.push(`/dashboard/demandes/${reqRow.id}`);
+        return;
+      }
+      void supabase.rpc("mark_request_conversation_read", { p_request_id: reqRow.id });
+    }
+
+    setSubmitLoading(false);
     router.push(`/dashboard/demandes/${reqRow.id}`);
   };
 
@@ -475,20 +497,23 @@ export default function DemandeProduitsPage() {
         </section>
 
         <section className="mt-4 rounded-2xl border-l-4 border-sky-700 bg-sky-50/90 p-4 shadow-md ring-1 ring-sky-200/60 sm:p-5">
-          <label className="block text-base font-semibold text-slate-900">Message général pour la pharmacie (facultatif)</label>
+          <label className="block text-base font-semibold text-slate-900">Premier message pour la pharmacie (facultatif)</label>
+          <p className="mt-1 text-sm leading-relaxed text-slate-600">
+            Il apparaîtra dans la conversation du dossier (bouton « Conversation » après envoi).
+          </p>
           <textarea
             value={note}
-            onChange={(e) => setNote(e.target.value.slice(0, PATIENT_GENERAL_NOTE_MAX))}
+            onChange={(e) => setNote(e.target.value.slice(0, REQUEST_CONVERSATION_MESSAGE_MAX))}
             rows={4}
-            maxLength={PATIENT_GENERAL_NOTE_MAX}
+            maxLength={REQUEST_CONVERSATION_MESSAGE_MAX}
             className={cn(
               "mt-3 w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-3 text-base leading-relaxed shadow-inner placeholder:text-slate-400 [touch-action:pan-x_pan-y]",
               fieldFocus
             )}
-            placeholder="Votre texte apparaîtra tel quel pour l’officine."
+            placeholder="Ex. précisions utiles pour l’officine…"
           />
           <p className="mt-1 text-right text-[10px] text-slate-500 tabular-nums">
-            {note.length}/{PATIENT_GENERAL_NOTE_MAX}
+            {note.length}/{REQUEST_CONVERSATION_MESSAGE_MAX}
           </p>
         </section>
 
