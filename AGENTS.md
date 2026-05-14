@@ -18,6 +18,8 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **Développement** : le pilote est **toujours en dev** — si une correction est nettement plus simple en **réinitialisant les données** (script reset demandes / base de test), **demander explicitement** une vidage plutôt que d’empiler migrations ou branches SQL uniquement pour préserver des jeux obsolètes.
 
+**Auth locale (SMS / Supabase)** : tester **`/auth`** dans **Chrome ou Edge** (fenêtre système), **pas** le navigateur intégré / Simple Browser de l’IDE — stockage, cookies et requêtes vers **`*.supabase.co`** y sont souvent incomplets ; si ça marche dans Chrome, le flux est en général correct.
+
 **Expiration `responded`** : cron Supabase **`service_role`** sur **`expire_overdue_requests()`** (optionnellement `expire_overdue_requests(interval '24 hours')` en prod) ; **`abandon_unconfirmed_responded_requests()`** est un **alias** (même lot **`20260516_001`**). Défaut actuel en dépôt : **30 minutes** après **`responded_at`** pour tests (pas un bug fuseau Maroc : **`timestamptz`**).
 
 **Notifications in-app** : marquage comptoir **`counter_outcome:picked_up`** → **aucune** insertion **`app_notifications`** (**`20260515_001`**). Libellés patient : **`20260514_001`** (surcharges **`_in_app_notification_patient`**).

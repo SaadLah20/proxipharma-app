@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { PageShell } from "@/components/ui/compact-shell";
 import { ExternalNotificationPrefs } from "@/components/notifications/external-notification-prefs";
 import { supabase } from "@/lib/supabase";
@@ -20,6 +21,9 @@ export default function PatientParametresPage() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState("");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoverySaving, setRecoverySaving] = useState(false);
+  const [recoveryMessage, setRecoveryMessage] = useState("");
 
   const load = useCallback(async () => {
     setError("");
@@ -29,6 +33,9 @@ export default function PatientParametresPage() {
       router.replace("/auth?redirect=/dashboard/patient/parametres");
       return;
     }
+
+    const { data: userData } = await supabase.auth.getUser();
+    const u = userData.user;
 
     const { data: profileData, error: pe } = await supabase
       .from("profiles")
@@ -47,7 +54,11 @@ export default function PatientParametresPage() {
       return;
     }
 
-    setProfile(profileData as Profile);
+    const p = profileData as Profile;
+    setProfile(p);
+    const authEm = u?.email?.trim() ?? "";
+    const profileEm = p.email?.trim() ?? "";
+    setRecoveryEmail((authEm || profileEm).trim());
     setLoading(false);
   }, [router]);
 
@@ -59,6 +70,49 @@ export default function PatientParametresPage() {
   const logout = async () => {
     await supabase.auth.signOut();
     router.push("/");
+  };
+
+  const saveRecoveryEmail = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!profile?.id) return;
+    setRecoveryMessage("");
+    const next = recoveryEmail.trim().toLowerCase();
+    if (!next || !next.includes("@")) {
+      setRecoveryMessage("Saisissez une adresse e-mail valide.");
+      return;
+    }
+    setRecoverySaving(true);
+    const { data: before } = await supabase.auth.getUser();
+    const prev = before.user?.email?.trim().toLowerCase() ?? "";
+    if (prev === next) {
+      const { error: pe } = await supabase.from("profiles").update({ email: next }).eq("id", profile.id);
+      setRecoverySaving(false);
+      if (pe) {
+        setRecoveryMessage(pe.message);
+        return;
+      }
+      setRecoveryMessage("E-mail déjà associé à votre compte. Profil synchronisé.");
+      return;
+    }
+
+    const { error: ue } = await supabase.auth.updateUser({ email: next });
+    if (ue) {
+      setRecoverySaving(false);
+      setRecoveryMessage(ue.message);
+      return;
+    }
+
+    const { error: pe } = await supabase.from("profiles").update({ email: next }).eq("id", profile.id);
+    setRecoverySaving(false);
+    if (pe) {
+      setRecoveryMessage(`E-mail mis à jour côté authentification. Erreur profil : ${pe.message}`);
+      return;
+    }
+
+    setRecoveryMessage(
+      "E-mail enregistré. Si votre projet Supabase exige la confirmation, ouvrez le lien reçu dans votre boîte pour finaliser."
+    );
+    void load();
   };
 
   if (loading) {
@@ -106,8 +160,44 @@ export default function PatientParametresPage() {
             <dd className="text-foreground">{profile?.whatsapp?.trim() || "—"}</dd>
           </div>
         </dl>
-        <p className="mt-3 text-[11px] text-muted-foreground">
-          Pour modifier l’e-mail ou le mot de passe, utilisez les outils prévus côté authentification (évolution prévue).
+      </section>
+
+      <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-foreground">E-mail (optionnel)</h2>
+        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+          Utile pour réinitialiser un mot de passe si vous utilisez aussi la connexion par e-mail, ou pour les
+          notifications par mail. Les comptes créés uniquement par SMS peuvent l’ajouter plus tard.
+        </p>
+        <form className="mt-3 space-y-2" onSubmit={(ev) => void saveRecoveryEmail(ev)}>
+          <input
+            type="email"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            placeholder="vous@exemple.com"
+            value={recoveryEmail}
+            onChange={(e) => setRecoveryEmail(e.target.value)}
+            autoComplete="email"
+          />
+          <button
+            type="submit"
+            disabled={recoverySaving}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          >
+            {recoverySaving ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+                Enregistrement…
+              </>
+            ) : (
+              "Enregistrer l’e-mail"
+            )}
+          </button>
+        </form>
+        {recoveryMessage ? (
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{recoveryMessage}</p>
+        ) : null}
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Mot de passe : page <span className="font-mono text-foreground">/auth</span> → onglet E-mail → « Mot de passe
+          oublié ? » (uniquement si vous avez un e-mail sur le compte).
         </p>
       </section>
 
