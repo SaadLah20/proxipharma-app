@@ -243,39 +243,6 @@ function fulfillmentDraftFromRow(row: ItemRow): "unset" | "reserved" | "ordered"
   return "unset";
 }
 
-function effectiveAvailSupplyDraft(row: ItemRow, f: ItemDraft): string | null {
-  return inferAvailabilityStatusFromQty({
-    status: f.availability_status,
-    availableQty: Number(f.available_qty || "0"),
-    requestedQty: row.requested_qty,
-    isProposedLine: row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id),
-  });
-}
-
-function effectiveEtaSupplyDraft(row: ItemRow, f: ItemDraft): string | null {
-  if (effectiveAvailSupplyDraft(row, f) === "to_order") {
-    const d = f.expected_availability_date?.trim();
-    return d && d.length > 0 ? d : null;
-  }
-  const chosen = row.patient_chosen_alternative_id ?? null;
-  if (chosen) {
-    const alts = normalizeAlts(row.request_item_alternatives);
-    const a = alts.find((x) => x.id === chosen);
-    return a?.expected_availability_date?.trim() || row.expected_availability_date?.trim() || null;
-  }
-  return row.expected_availability_date?.trim() || null;
-}
-
-function virtualizeItemsForSupplyBuckets(rows: ItemRow[], d: Draft): ItemRow[] {
-  return rows.map((row) => {
-    const f = d[row.id];
-    if (!f) return row;
-    const inf = effectiveAvailSupplyDraft(row, f);
-    if (inf === row.availability_status) return row;
-    return { ...row, availability_status: inf };
-  });
-}
-
 function nextAltRank(existing: AltRowDb[]): number | null {
   const used = new Set(existing.map((a) => a.rank));
   for (let r = 1; r <= 3; r += 1) {
@@ -422,6 +389,73 @@ const PHARMACIST_PROPOSED_STOCK_CEILING = 9999;
 /** Après validation dossier : quantité validée / stock saisissable sur les lignes retenues (hors « récupéré »). */
 const PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX = 999;
 
+function validatedLineReferenceQty(row: ItemRow): number {
+  return Math.min(
+    PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX,
+    Math.max(1, Math.floor(Number(row.selected_qty ?? row.requested_qty) || 1))
+  );
+}
+
+function inferRequestedQtyForAvailability(row: ItemRow): number {
+  return row.patient_chosen_alternative_id ? validatedLineReferenceQty(row) : row.requested_qty;
+}
+
+/** Disponibilité effective pour réservé / commandé / pastilles (alignée RPC `pharmacist_set_post_confirm_fulfillment` : branche alternative si choisie). */
+function effectiveAvailSupplyDraft(row: ItemRow, f: ItemDraft): string | null {
+  const isProposedLine = row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
+  const chosenId = row.patient_chosen_alternative_id ?? null;
+  const chosenAlt = chosenId ? normalizeAlts(row.request_item_alternatives).find((a) => a.id === chosenId) : undefined;
+  const rq = inferRequestedQtyForAvailability(row);
+
+  let status = f.availability_status;
+  let availQty = Number(f.available_qty || "0");
+
+  if (
+    chosenAlt &&
+    status === row.availability_status &&
+    row.availability_status &&
+    ["unavailable", "market_shortage"].includes(String(row.availability_status))
+  ) {
+    const altSt = chosenAlt.availability_status ?? "";
+    if (altSt === "partially_available" || altSt === "available" || altSt === "to_order") {
+      status = altSt === "partially_available" ? "available" : altSt;
+      const aq = Number(chosenAlt.available_qty ?? 0);
+      availQty = Number.isFinite(aq) ? aq : 0;
+    }
+  }
+
+  return inferAvailabilityStatusFromQty({
+    status,
+    availableQty: availQty,
+    requestedQty: rq,
+    isProposedLine,
+  });
+}
+
+function effectiveEtaSupplyDraft(row: ItemRow, f: ItemDraft): string | null {
+  if (effectiveAvailSupplyDraft(row, f) === "to_order") {
+    const d = f.expected_availability_date?.trim();
+    return d && d.length > 0 ? d : null;
+  }
+  const chosen = row.patient_chosen_alternative_id ?? null;
+  if (chosen) {
+    const alts = normalizeAlts(row.request_item_alternatives);
+    const a = alts.find((x) => x.id === chosen);
+    return a?.expected_availability_date?.trim() || row.expected_availability_date?.trim() || null;
+  }
+  return row.expected_availability_date?.trim() || null;
+}
+
+function virtualizeItemsForSupplyBuckets(rows: ItemRow[], d: Draft): ItemRow[] {
+  return rows.map((row) => {
+    const f = d[row.id];
+    if (!f) return row;
+    const inf = effectiveAvailSupplyDraft(row, f);
+    if (inf === row.availability_status) return row;
+    return { ...row, availability_status: inf };
+  });
+}
+
 function buildItemUpdatePayload(f: ItemDraft, row: ItemRow) {
   const availQty = Number(f.available_qty);
   const isProposed = row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
@@ -438,7 +472,7 @@ function buildItemUpdatePayload(f: ItemDraft, row: ItemRow) {
   const inferred = inferAvailabilityStatusFromQty({
     status: f.availability_status,
     availableQty: availQty,
-    requestedQty: row.requested_qty,
+    requestedQty: inferRequestedQtyForAvailability(row),
     isProposedLine: isProposed,
   });
   return {
@@ -486,7 +520,7 @@ function buildPublishConfirmRowMeta(r: ItemRow, fd: ItemDraft): PublishConfirmRo
     inferredKey = inferAvailabilityStatusFromQty({
       status: fd.availability_status,
       availableQty: Number(fd.available_qty || "0"),
-      requestedQty: r.requested_qty,
+      requestedQty: inferRequestedQtyForAvailability(r),
       isProposedLine: proposed,
     });
   } catch {
@@ -640,11 +674,12 @@ function draftPatchPostConfirmSupplyUnlock(
 
   const qRaw = Number(d.available_qty || "0");
   const q = Number.isFinite(qRaw) ? Math.floor(qRaw) : 0;
-  const rq = Math.max(1, Math.floor(Number(row.requested_qty)) || 1);
+  const refQty = inferRequestedQtyForAvailability(row);
+  const rq = Math.max(1, Math.floor(refQty) || 1);
   const inferred = inferAvailabilityStatusFromQty({
     status: d.availability_status,
     availableQty: q,
-    requestedQty: row.requested_qty,
+    requestedQty: refQty,
     isProposedLine: false,
   });
 
@@ -711,28 +746,66 @@ function buildItemDraftFromRow(row: ItemRow, requestStatus?: string | null): Ite
   const isProp = row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
   const postConfirmSupply =
     requestStatus != null && ["confirmed", "treated"].includes(requestStatus) && row.is_selected_by_patient;
+  const chosenId = row.patient_chosen_alternative_id ?? null;
+  const chosenAlt = chosenId ? normalizeAlts(row.request_item_alternatives).find((a) => a.id === chosenId) : undefined;
+  const useChosenBranchForDraft = Boolean(postConfirmSupply && chosenAlt && !isProp);
+
   /* `partially_available` est dérivé automatiquement (qté < demandée). On affiche le brouillon en `available` :
      il sera réinféré au save si la quantité reste < demandée. */
-  const rawStatus = row.availability_status ?? "available";
+  const rawStatus = useChosenBranchForDraft
+    ? (chosenAlt!.availability_status ?? "available")
+    : (row.availability_status ?? "available");
   const draftStatus = rawStatus === "partially_available" ? "available" : rawStatus;
   const reqCap = Math.max(0, Math.floor(Number(row.requested_qty)) || 0);
-  let availNum = row.available_qty != null ? Number(row.available_qty) : Number(row.requested_qty);
-  if (!Number.isFinite(availNum)) availNum = reqCap;
-  if (isProp) {
-    availNum = Math.max(1, Math.floor(availNum));
-  } else {
-    const availCap = postConfirmSupply ? PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX : reqCap;
-    availNum = Math.max(0, Math.min(availCap, Math.floor(availNum)));
-  }
   const selCap = postConfirmSupply && !isProp ? PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX : 10;
   const selBase = Math.min(selCap, Math.max(1, Number(row.selected_qty ?? row.requested_qty) || 1));
+
+  let availNum: number;
+  if (useChosenBranchForDraft) {
+    const cap = PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX;
+    let fromAlt =
+      chosenAlt!.available_qty != null ? Number(chosenAlt!.available_qty) : selBase;
+    if (!Number.isFinite(fromAlt)) fromAlt = selBase;
+    availNum = Math.max(0, Math.min(cap, Math.floor(fromAlt)));
+  } else {
+    availNum = row.available_qty != null ? Number(row.available_qty) : Number(row.requested_qty);
+    if (!Number.isFinite(availNum)) availNum = reqCap;
+    if (isProp) {
+      availNum = Math.max(1, Math.floor(availNum));
+    } else {
+      const availCap = postConfirmSupply ? PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX : reqCap;
+      availNum = Math.max(0, Math.min(availCap, Math.floor(availNum)));
+    }
+  }
+
+  const unitPriceStr = useChosenBranchForDraft
+    ? chosenAlt!.unit_price != null
+      ? String(chosenAlt!.unit_price)
+      : row.unit_price != null
+        ? String(row.unit_price)
+        : catalogPph != null
+          ? String(catalogPph)
+          : ""
+    : row.unit_price != null
+      ? String(row.unit_price)
+      : catalogPph != null
+        ? String(catalogPph)
+        : "";
+
+  const expectedDateStr = useChosenBranchForDraft
+    ? chosenAlt!.expected_availability_date ?? row.expected_availability_date ?? ""
+    : row.expected_availability_date ?? "";
+
+  const pharmacistCommentStr = useChosenBranchForDraft
+    ? chosenAlt!.pharmacist_comment ?? row.pharmacist_comment ?? ""
+    : row.pharmacist_comment ?? "";
+
   return {
     availability_status: draftStatus,
     available_qty: String(availNum),
-    unit_price:
-      row.unit_price != null ? String(row.unit_price) : catalogPph != null ? String(catalogPph) : "",
-    pharmacist_comment: row.pharmacist_comment ?? "",
-    expected_availability_date: row.expected_availability_date ?? "",
+    unit_price: unitPriceStr,
+    pharmacist_comment: pharmacistCommentStr,
+    expected_availability_date: expectedDateStr,
     withdrawn_after_confirm: Boolean(row.withdrawn_after_confirm),
     selected_qty_str: String(selBase),
     fulfillment_draft: fulfillmentDraftFromRow(row),
@@ -1618,6 +1691,7 @@ export default function PharmacienDemandeDetailPage() {
 
   const setAvailabilityStatus = (row: ItemRow, nextStatus: string) => {
     const isProp = row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
+    const refR = inferRequestedQtyForAvailability(row);
     setDraft((prev) => {
       const current = prev[row.id];
       if (!current) return prev;
@@ -1626,17 +1700,17 @@ export default function PharmacienDemandeDetailPage() {
       if (nextStatus === "market_shortage" || nextStatus === "unavailable") qty = 0;
       const cap = draftStockCeilingForRow(row);
       if (nextStatus === "to_order") {
-        qty = isProp ? Math.max(1, qty || Number(row.requested_qty) || 1) : Math.min(cap, row.requested_qty);
+        qty = isProp ? Math.max(1, qty || Number(row.requested_qty) || 1) : Math.min(cap, refR);
       }
       if (nextStatus === "available" && qty <= 0) {
-        qty = isProp ? 1 : Math.min(cap, row.requested_qty);
+        qty = isProp ? 1 : Math.min(cap, refR);
       }
       const minQty = isProp ? 1 : 0;
       const nextAvail = String(Math.max(minQty, Math.min(cap, qty)));
       const inferred = inferAvailabilityStatusFromQty({
         status: nextStatus,
         availableQty: Number(nextAvail),
-        requestedQty: row.requested_qty,
+        requestedQty: refR,
         isProposedLine: isProp,
       });
       const fulfillment_draft = clampFulfillmentDraftToInferred(current.fulfillment_draft, inferred);
@@ -1691,7 +1765,7 @@ export default function PharmacienDemandeDetailPage() {
     const inferred = inferAvailabilityStatusFromQty({
       status: "available",
       availableQty: nextQty,
-      requestedQty: row.requested_qty,
+      requestedQty: inferRequestedQtyForAvailability(row),
       isProposedLine: isProp,
     });
     setDraft((prev) => {
@@ -1744,7 +1818,7 @@ export default function PharmacienDemandeDetailPage() {
     const inferred = inferAvailabilityStatusFromQty({
       status: "available",
       availableQty: next,
-      requestedQty: row.requested_qty,
+      requestedQty: inferRequestedQtyForAvailability(row),
       isProposedLine: isProp,
     });
     setDraft((prev) => {
@@ -2386,6 +2460,22 @@ export default function PharmacienDemandeDetailPage() {
           })
           .eq("id", row.id);
         if (up) throw new Error(up.message);
+
+        const chosenPatchId = row.patient_chosen_alternative_id;
+        if (chosenPatchId && !f.withdrawn_after_confirm) {
+          const { error: altUpd } = await supabase
+            .from("request_item_alternatives")
+            .update({
+              availability_status: payload.availability_status,
+              available_qty: payload.available_qty,
+              unit_price: payload.unit_price,
+              pharmacist_comment: payload.pharmacist_comment,
+              expected_availability_date: payload.expected_availability_date,
+            })
+            .eq("id", chosenPatchId)
+            .eq("request_item_id", row.id);
+          if (altUpd) throw new Error(altUpd.message);
+        }
       }
 
       for (const row of rows) {
@@ -3573,7 +3663,7 @@ export default function PharmacienDemandeDetailPage() {
               const draftInferredStatus = inferAvailabilityStatusFromQty({
                 status: f.availability_status,
                 availableQty: Number.isFinite(draftAvailQty) ? draftAvailQty : 0,
-                requestedQty: row.requested_qty,
+                requestedQty: inferRequestedQtyForAvailability(row),
                 isProposedLine: isPharmacistProposedRow(row),
               });
               const statusForBadge =
@@ -3719,7 +3809,7 @@ export default function PharmacienDemandeDetailPage() {
                             setAvailabilityMenuRowId((cur) => (open ? row.id : cur === row.id ? null : cur))
                           }
                           draftStatus={f.availability_status}
-                          requestedQty={row.requested_qty}
+                          requestedQty={inferRequestedQtyForAvailability(row)}
                           availableQtyStr={f.available_qty}
                           isProposedLine={isProposedLine}
                           options={supplyAvailabilityOptions}
@@ -4332,7 +4422,7 @@ export default function PharmacienDemandeDetailPage() {
                               )
                             }
                             draftStatus={f.availability_status}
-                            requestedQty={row.requested_qty}
+                            requestedQty={inferRequestedQtyForAvailability(row)}
                             availableQtyStr={f.available_qty}
                             isProposedLine={isProposedLine}
                             options={availabilityOptions}
