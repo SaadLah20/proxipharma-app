@@ -533,27 +533,32 @@ function PatientValidatedCompactLineCard({
               ) : null}
             </div>
             {row.is_selected_by_patient && eff === "to_order" && eta ? <RespondedReceptionBadgeFr dateYmd={eta} /> : null}
-          </div>
-        </div>
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-2 border-t border-slate-200/80 pt-2 text-[13px] font-medium leading-none tabular-nums text-slate-800 sm:text-sm">
-          <div className="min-w-0 justify-self-start truncate">
-            <span className="text-slate-500">PU</span>{" "}
-            <strong className="font-semibold text-slate-900">{formatPriceDh(unitMad)}</strong>
-          </div>
-          <div className="flex shrink-0 justify-center justify-self-center">
-            <span className="text-slate-500">Qté</span>{" "}
-            <strong className="font-semibold text-slate-900">{validatedQty}</strong>
-          </div>
-          <div className="min-w-0 justify-self-end truncate text-end">
-            <span className="text-slate-500">Total</span>{" "}
-            <strong
-              className={clsx(
-                "font-semibold text-sky-900",
-                withdrawnGrey && "line-through decoration-muted-foreground/70"
-              )}
-            >
-              {formatPriceDh(lineTotalMad)}
-            </strong>
+            <PatientRespondedLineConvoStripReadOnly
+              patientNote={row.client_comment ?? ""}
+              pharmaLineNote={row.pharmacist_comment ?? ""}
+              layout="embedded"
+            />
+            <div className="grid grid-cols-3 items-baseline gap-x-2 pt-1.5 text-[12px] font-medium leading-none tabular-nums text-slate-800 sm:text-[13px]">
+              <div className="min-w-0 justify-self-start text-start">
+                <span className="text-slate-500">PU</span>{" "}
+                <strong className="font-semibold text-slate-900">{formatPriceDh(unitMad)}</strong>
+              </div>
+              <div className="min-w-0 justify-self-center text-center">
+                <span className="text-slate-500">Qté</span>{" "}
+                <strong className="font-semibold text-slate-900">{validatedQty}</strong>
+              </div>
+              <div className="min-w-0 justify-self-end text-end">
+                <span className="text-slate-500">Total</span>{" "}
+                <strong
+                  className={clsx(
+                    "font-semibold text-sky-900",
+                    withdrawnGrey && "line-through decoration-muted-foreground/70"
+                  )}
+                >
+                  {formatPriceDh(lineTotalMad)}
+                </strong>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -571,12 +576,6 @@ function PatientValidatedCompactLineCard({
           </div>
         </div>
       ) : null}
-      <div className="mt-2 border-t border-dotted border-border/60 pt-2">
-        <PatientRespondedLineConvoStripReadOnly
-          patientNote={row.client_comment ?? ""}
-          pharmaLineNote={row.pharmacist_comment ?? ""}
-        />
-      </div>
       {requestStatusForCard === "treated" &&
       row.is_selected_by_patient &&
       tier !== "retire_apres_validation" &&
@@ -1015,7 +1014,7 @@ function PatientSentLineNotesModalFr({
 
   const noteCls =
     !c && !p
-      ? "text-muted-foreground"
+      ? "text-sky-700"
       : c && p
         ? "text-violet-700"
         : c
@@ -1035,7 +1034,20 @@ function PatientSentLineNotesModalFr({
     <>
       <button
         type="button"
-        className="flex min-h-[2.5rem] w-full max-w-full items-center gap-1.5 rounded-md border border-slate-200/90 bg-white/90 px-2 py-2 text-left text-[9px] font-semibold leading-snug text-slate-700 shadow-sm hover:bg-slate-50"
+        className={clsx(
+          "flex min-h-[2.5rem] w-full max-w-full cursor-pointer items-center gap-1.5 rounded-lg border-2 px-2 py-2 text-left text-[9px] font-semibold leading-snug shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/45 focus-visible:ring-offset-1",
+          !c && !p &&
+            "border-sky-400/80 bg-gradient-to-r from-sky-50 to-sky-50/40 text-sky-950 hover:border-sky-500 hover:from-sky-100 hover:to-sky-50 active:scale-[0.99]",
+          c &&
+            p &&
+            "border-violet-400/80 bg-gradient-to-r from-violet-50 to-violet-50/40 text-violet-950 hover:border-violet-500 hover:from-violet-100 hover:to-violet-50/50 active:scale-[0.99]",
+          c &&
+            !p &&
+            "border-sky-400/80 bg-gradient-to-r from-sky-50 to-sky-50/40 text-sky-950 hover:border-sky-500 hover:from-sky-100 hover:to-sky-50 active:scale-[0.99]",
+          !c &&
+            p &&
+            "border-emerald-400/80 bg-gradient-to-r from-emerald-50 to-emerald-50/40 text-emerald-950 hover:border-emerald-500 hover:from-emerald-100 hover:to-emerald-50 active:scale-[0.99]"
+        )}
         onClick={() => setOpen(true)}
       >
         <StickyNote className={clsx("size-4 shrink-0 self-center", noteCls)} strokeWidth={2} aria-hidden />
@@ -1329,9 +1341,12 @@ function RespondedReceptionBadgeFr({ dateYmd, className }: { dateYmd: string; cl
 function PatientRespondedLineConvoStripReadOnly({
   patientNote,
   pharmaLineNote,
+  layout = "footer",
 }: {
   patientNote: string;
   pharmaLineNote: string;
+  /** `embedded` : sous la dispo, pleine largeur, sans ligne du haut (carte compacte validée/traitée). */
+  layout?: "footer" | "embedded";
 }) {
   const [open, setOpen] = useState(false);
   const visual = lineConversationVisual(patientNote, pharmaLineNote);
@@ -1345,12 +1360,20 @@ function PatientRespondedLineConvoStripReadOnly({
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
+  const wrapCls =
+    layout === "embedded"
+      ? "mt-1.5 flex w-full min-w-0 justify-stretch pt-0"
+      : "mt-1.5 flex w-full min-w-0 justify-end border-t border-dotted border-border/55 pt-1.5";
+
   return (
     <>
-      <div className="mt-1.5 flex w-full min-w-0 justify-end border-t border-dotted border-border/55 pt-1.5">
+      <div className={wrapCls}>
         <button
           type="button"
-          className={lineConversationStripButtonClass(visual, { open, disabled: false })}
+          className={clsx(
+            lineConversationStripButtonClass(visual, { open, disabled: false }),
+            layout === "embedded" && "w-full max-w-none justify-start"
+          )}
           aria-label={`Échanges sur ce produit · ${lineConversationStripLabel(visual)}`}
           title="Voir les messages (lecture seule)"
           onClick={(e) => {
@@ -1469,7 +1492,7 @@ function RespondedPatientLineChooser({
   const qtyRowGrid =
     currentBranch !== null && maxBranch > 0 ? (
       <div
-        className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-x-2 border-t border-slate-200/80 pt-2 text-[13px] font-medium leading-none tabular-nums text-slate-800 sm:text-sm"
+        className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-x-3.5 gap-y-1 border-t border-slate-200/80 pt-2 text-[12px] font-medium leading-none tabular-nums text-slate-800 sm:gap-x-4 sm:text-[13px]"
         title={`Quantité max autorisée : ${maxBranch}`}
       >
         <div className="min-w-0 justify-self-start truncate">
@@ -1482,7 +1505,7 @@ function RespondedPatientLineChooser({
             <span className="text-slate-400">PU —</span>
           )}
         </div>
-        <div className="flex shrink-0 items-center justify-center gap-1 justify-self-center">
+        <div className="flex shrink-0 items-center justify-center gap-1.5 justify-self-center">
           <span className="shrink-0 text-slate-500">Qté</span>
           <button
             type="button"
@@ -1491,7 +1514,7 @@ function RespondedPatientLineChooser({
             className="rounded-md border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
             onClick={() => setLineQty(row.id, selState.qty - 1)}
           >
-            <Minus size={16} />
+            <Minus size={15} />
           </button>
           <span className="min-w-[1.5rem] text-center font-semibold text-slate-900">{selState.qty}</span>
           <button
@@ -1501,7 +1524,7 @@ function RespondedPatientLineChooser({
             className="rounded-md border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
             onClick={() => setLineQty(row.id, selState.qty + 1)}
           >
-            <Plus size={16} />
+            <Plus size={15} />
           </button>
         </div>
         <div className="min-w-0 justify-self-end truncate text-end">
@@ -1514,7 +1537,7 @@ function RespondedPatientLineChooser({
     ) : null;
 
   const cardShell = (inner: ReactNode) => (
-    <li className="rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-slate-50/50 px-2.5 py-2 shadow-sm ring-1 ring-slate-100/90 sm:px-3">
+    <li className="rounded-2xl border-[3px] border-slate-400/70 bg-gradient-to-b from-white to-slate-50/50 px-2.5 py-2.5 shadow-md ring-2 ring-slate-200/50 sm:px-3.5">
       {isProposedLine ? (
         <div className="mb-2 rounded-md border border-violet-200/90 bg-violet-50/70 px-2 py-1.5">
           <p className="text-[9px] font-bold uppercase tracking-wide text-violet-800">
@@ -1575,21 +1598,11 @@ function RespondedPatientLineChooser({
 
   return cardShell(
     <>
-      <div className="flex flex-col gap-1.5 border-b border-slate-200/80 pb-2">
-        <p className="text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]">{prod?.name ?? "Produit"}</p>
-        <RespondedProductQtyStatusLine row={row} />
-        <PatientSentLineNotesModalFr
-          productName={prod?.name ?? "Produit"}
-          client={row.client_comment ?? ""}
-          pharmacist={row.pharmacist_comment ?? ""}
-        />
-      </div>
-
       <div className="rounded-xl border-2 border-slate-300/70 bg-slate-100/45 p-2 ring-1 ring-slate-200/50">
         <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
           <div className="flex min-w-0 items-center gap-1.5">
             <Layers className="size-3.5 shrink-0 text-slate-600" aria-hidden />
-            <p className="truncate text-[9px] font-bold uppercase tracking-wide text-slate-700">Options pour ce produit</p>
+            <p className="truncate text-[9px] font-bold uppercase tracking-wide text-slate-700">Choix pour cette ligne</p>
           </div>
           <details className="shrink-0 text-[9px] text-slate-700">
             <summary className="cursor-pointer font-semibold underline decoration-slate-400 underline-offset-2">Aide</summary>
@@ -1628,8 +1641,12 @@ function RespondedPatientLineChooser({
               "flex cursor-pointer gap-2 rounded-xl border-2 p-2 transition",
               capPrincipal === 0 && "cursor-not-allowed opacity-40",
               currentBranch === "principal"
-                ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200/80 shadow-md"
-                : "border-slate-200 bg-white",
+                ? isProposedLine
+                  ? "border-violet-500 bg-violet-50 ring-2 ring-violet-200/80 shadow-md"
+                  : "border-sky-500 bg-sky-50 ring-2 ring-sky-200/80 shadow-md"
+                : isProposedLine
+                  ? "border-violet-200/90 bg-gradient-to-br from-violet-50/50 to-white"
+                  : "border-sky-200/90 bg-gradient-to-br from-sky-50/55 via-white to-white",
               currentBranch !== null && currentBranch !== "principal" && "opacity-45 saturate-[0.65]",
               currentBranch === null && "bg-slate-50/90 opacity-55"
             )}
@@ -1637,15 +1654,20 @@ function RespondedPatientLineChooser({
             <input
               type="radio"
               name={radioName}
-              className="shrink-0 self-center"
+              className="shrink-0 self-start pt-2"
               checked={currentBranch === "principal"}
               disabled={capPrincipal === 0}
               onChange={() => setLineBranch(row.id, "principal")}
             />
             {thumb}
-            <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-              <span className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[13px] font-semibold leading-tight text-foreground">
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span
+                  className={clsx(
+                    "rounded-md px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
+                    isProposedLine ? "bg-violet-700" : "bg-sky-700"
+                  )}
+                >
                   {isProposedLine ? "Proposition officine" : "Principal"}
                 </span>
                 {isProposedLine ? (
@@ -1653,27 +1675,23 @@ function RespondedPatientLineChooser({
                     Proposé
                   </span>
                 ) : (
-                  <span className="rounded-full bg-emerald-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                    Demandé
+                  <span className="rounded-full bg-sky-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                    Ta demande
                   </span>
                 )}
-              </span>
-              <p className="text-[12px] font-semibold leading-snug text-slate-900">{prod?.name ?? "Produit"}</p>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
-                {row.unit_price != null ? (
-                  <span>
-                    PU <strong className="tabular-nums text-foreground">{formatPriceDh(Number(row.unit_price))}</strong>
-                  </span>
-                ) : null}
-                {row.availability_status ? (
-                  <span className="rounded-full bg-slate-200/80 px-1.5 py-px text-[9px] font-semibold text-slate-800">
-                    {availabilityStatusFr[row.availability_status] ?? row.availability_status}
-                  </span>
-                ) : null}
               </div>
-              {row.availability_status === "to_order" && row.expected_availability_date ? (
-                <RespondedReceptionBadgeFr dateYmd={row.expected_availability_date} />
-              ) : null}
+              <p
+                className="text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
+                style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}
+              >
+                {prod?.name ?? "Produit"}
+              </p>
+              <RespondedProductQtyStatusLine row={row} />
+              <PatientSentLineNotesModalFr
+                productName={prod?.name ?? "Produit"}
+                client={row.client_comment ?? ""}
+                pharmacist={row.pharmacist_comment ?? ""}
+              />
             </div>
           </label>
 
@@ -1692,7 +1710,7 @@ function RespondedPatientLineChooser({
                   disabled && "cursor-not-allowed opacity-40",
                   altSelected
                     ? "border-teal-500 bg-teal-50 ring-2 ring-teal-200/80 shadow-md"
-                    : "border-slate-200 bg-white",
+                    : "border-teal-100/85 bg-gradient-to-br from-teal-50/35 to-white",
                   !disabled && currentBranch !== null && currentBranch !== alt.id && "opacity-45 saturate-[0.65]",
                   !disabled && currentBranch === null && "bg-slate-50/90 opacity-55"
                 )}
@@ -1726,11 +1744,8 @@ function RespondedPatientLineChooser({
                   )}
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-                  <span className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[13px] font-semibold leading-tight text-foreground">{altProd?.name ?? "Alternative"}</span>
-                    <span className="rounded-full bg-teal-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                      Alt.
-                    </span>
+                  <span className="text-[13px] font-semibold leading-tight text-foreground">
+                    {altProd?.name ?? "Alternative"}
                   </span>
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
                     {alt.unit_price != null ? (
@@ -1743,6 +1758,9 @@ function RespondedPatientLineChooser({
                         {availabilityStatusFr[alt.availability_status] ?? alt.availability_status}
                       </span>
                     ) : null}
+                    <span className="rounded-full bg-teal-600 px-1.5 py-0.5 text-[7px] font-bold uppercase leading-tight tracking-wide text-white sm:px-2 sm:text-[8px]">
+                      ALTERNATIVE
+                    </span>
                   </div>
                   {alt.availability_status === "to_order" && alt.expected_availability_date ? (
                     <RespondedReceptionBadgeFr dateYmd={alt.expected_availability_date} />
@@ -2630,7 +2648,7 @@ export function PatientProductRequestActions({
           {items.length > 0 ? (
             <section className="space-y-2">
               <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Produits</h3>
-              <ul className="space-y-2">
+              <ul className="space-y-4">
                 {items.map((row) => (
                   <RespondedPatientLineChooser
                     key={row.id}
@@ -2839,19 +2857,31 @@ export function PatientProductRequestActions({
             <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto">
               {visibleHits.map((h) => (
                 <li key={h.id}>
-                  <button
-                    type="button"
-                    onClick={() => addProduct(h)}
-                    className="flex h-20 w-full items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-2.5 py-2 text-left transition hover:bg-muted/35"
-                  >
-                    <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card">
+                  <div className="flex h-20 w-full items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-2.5 py-2 transition hover:bg-muted/35">
+                    <button
+                      type="button"
+                      disabled={!h.photo_url}
+                      className={clsx(
+                        "flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card transition",
+                        h.photo_url ? "cursor-zoom-in hover:ring-2 hover:ring-sky-400/50" : "cursor-default opacity-80"
+                      )}
+                      aria-label={h.photo_url ? `Agrandir la photo · ${h.name}` : "Pas de photo catalogue"}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        if (h.photo_url) openProductPhotoPreview(h.photo_url, h.name);
+                      }}
+                    >
                       {h.photo_url ? (
-                        <img src={h.photo_url} alt={h.name} className="h-full w-full object-cover" />
+                        <img src={h.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
                       ) : (
                         <Package className="size-5 text-muted-foreground" aria-hidden />
                       )}
-                    </div>
-                    <div className="min-w-0 flex flex-1 flex-col justify-center">
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addProduct(h)}
+                      className="flex min-h-[5rem] min-w-0 flex-1 flex-col justify-center text-left"
+                    >
                       <p
                         className="overflow-hidden pr-1 text-[14px] font-semibold leading-tight text-foreground sm:text-[15px]"
                         style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
@@ -2859,8 +2889,8 @@ export function PatientProductRequestActions({
                         {h.name}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-sky-900 sm:text-sm">{formatPriceDh(h.price_pph)}</p>
-                    </div>
-                  </button>
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -2919,7 +2949,7 @@ export function PatientProductRequestActions({
                       <PatientSentLineNotesModalFr productName={l.name} client={l.client_comment} pharmacist={l.pharmacist_comment ?? ""} />
                     </div>
                   </div>
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-2 border-t border-slate-200/80 pt-2 text-[13px] font-medium leading-none tabular-nums text-slate-800 sm:text-sm">
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-3.5 gap-y-1 border-t border-slate-200/80 pt-2 text-[12px] font-medium leading-none tabular-nums text-slate-800 sm:gap-x-4 sm:text-[13px]">
                     <div className="min-w-0 justify-self-start truncate">
                       <span className="text-slate-500">PU</span>{" "}
                       <strong className="font-semibold text-slate-900">{formatPriceDh(l.price_pph)}</strong>
@@ -2936,7 +2966,7 @@ export function PatientProductRequestActions({
                             setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.max(1, row.qty - 1) } : row)))
                           }
                         >
-                          <Minus size={16} />
+                          <Minus size={15} />
                         </button>
                         <span className="min-w-[1.5rem] text-center font-semibold text-slate-900">{l.qty}</span>
                         <button
@@ -2948,7 +2978,7 @@ export function PatientProductRequestActions({
                             setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.min(10, row.qty + 1) } : row)))
                           }
                         >
-                          <Plus size={16} />
+                          <Plus size={15} />
                         </button>
                       </div>
                     </div>
@@ -3075,6 +3105,13 @@ export function PatientProductRequestActions({
           )
         ) : null}
 
+        {showConfirm || showConfirmedCards ? (
+          <p className="mt-3 rounded-lg border border-sky-200/70 bg-white/90 px-2.5 py-2 text-[10px] leading-snug text-sky-950 shadow-sm">
+            Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
+            <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
+          </p>
+        ) : null}
+
         {showPatientExitCTA ? (
           <div
             className={clsx(
@@ -3112,13 +3149,6 @@ export function PatientProductRequestActions({
               onConfirmPatient={handlePatientExitConfirm}
             />
           </div>
-        ) : null}
-
-        {showConfirm || showConfirmedCards ? (
-          <p className="rounded-lg border border-sky-200/70 bg-white/90 px-2.5 py-2 text-[10px] leading-snug text-sky-950 shadow-sm">
-            Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
-            <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
-          </p>
         ) : null}
       </div>
 
