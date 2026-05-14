@@ -12,6 +12,7 @@ import {
 } from "@/lib/product-catalog-search";
 import { supabase } from "@/lib/supabase";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { cn } from "@/lib/utils";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX, REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
 
@@ -82,6 +83,7 @@ export default function DemandeProduitsPage() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<{ url: string; title: string } | null>(null);
 
   useEffect(() => {
     const gate = async () => {
@@ -344,19 +346,31 @@ export default function DemandeProduitsPage() {
             <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto">
               {visibleHits.map((p) => (
                 <li key={p.id}>
-                  <button
-                    type="button"
-                    onClick={() => addProduct(p)}
-                    className="flex h-20 w-full items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-2.5 py-2 text-left transition hover:bg-muted/35"
-                  >
-                    <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card">
+                  <div className="flex h-20 w-full items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-2.5 py-2 transition hover:bg-muted/35">
+                    <button
+                      type="button"
+                      disabled={!p.photo_url}
+                      className={cn(
+                        "flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card transition",
+                        p.photo_url ? "cursor-zoom-in hover:ring-2 hover:ring-sky-400/50" : "cursor-default opacity-80"
+                      )}
+                      aria-label={p.photo_url ? `Agrandir la photo · ${p.name}` : "Pas de photo catalogue"}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        if (p.photo_url) setPhotoPreview({ url: p.photo_url, title: p.name });
+                      }}
+                    >
                       {p.photo_url ? (
-                        <img src={p.photo_url} alt={p.name} className="h-full w-full object-cover" />
+                        <img src={p.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
                       ) : (
                         <Package className="size-5 text-muted-foreground" aria-hidden />
                       )}
-                    </div>
-                    <div className="min-w-0 flex flex-1 flex-col justify-center">
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addProduct(p)}
+                      className="flex min-h-[5rem] min-w-0 flex-1 flex-col justify-center text-left"
+                    >
                       <p
                         className="overflow-hidden pr-1 text-[14px] font-semibold leading-tight text-foreground sm:text-[15px]"
                         style={{
@@ -370,8 +384,8 @@ export default function DemandeProduitsPage() {
                       <p className="mt-1 text-xs font-semibold text-sky-900 sm:text-sm">
                         <PriceDhInline value={p.price_pph} amountClassName="font-semibold text-sky-900" />
                       </p>
-                    </div>
-                  </button>
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -402,7 +416,14 @@ export default function DemandeProduitsPage() {
                         <Trash2 size={15} />
                       </button>
                       {l.photo_url ? (
-                        <img src={l.photo_url} alt={l.name} className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                          aria-label={`Agrandir la photo · ${l.name}`}
+                          onClick={() => setPhotoPreview({ url: l.photo_url!, title: l.name })}
+                        >
+                          <img src={l.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
+                        </button>
                       ) : (
                         <div className="flex h-full w-full items-center justify-center">
                           <Package className="size-7 text-muted-foreground" aria-hidden />
@@ -420,14 +441,14 @@ export default function DemandeProduitsPage() {
                       >
                         {l.name}
                       </p>
-                      <div className="mt-1.5 flex flex-nowrap items-baseline justify-between gap-1.5 border-b border-slate-200/90 pb-2">
-                        <span className="inline-flex min-w-0 shrink-0 items-baseline gap-0.5 text-[13px] text-slate-600 sm:text-sm">
+                      <div className="mt-1.5 flex flex-nowrap items-baseline justify-between gap-2 border-b border-slate-200/90 pb-2">
+                        <span className="inline-flex min-w-0 shrink-0 items-baseline gap-0.5 text-[12px] text-slate-600 sm:text-[13px]">
                           <span className="shrink-0 font-semibold text-slate-500">PU</span>
                           <strong className="font-semibold text-slate-900">
                             <PriceDhInline value={l.price_pph} />
                           </strong>
                         </span>
-                        <span className="inline-flex shrink-0 items-baseline gap-0.5 text-sm font-bold text-sky-900">
+                        <span className="inline-flex shrink-0 items-baseline gap-0.5 text-[13px] font-bold text-sky-900 sm:text-sm">
                           <span className="shrink-0 font-semibold text-sky-800/90">Tot</span>
                           {l.price_pph != null ? (
                             <PriceDhInline
@@ -611,7 +632,14 @@ export default function DemandeProduitsPage() {
                   >
                     <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white">
                       {l.photo_url ? (
-                        <img src={l.photo_url} alt="" className="size-full object-cover" />
+                        <button
+                          type="button"
+                          className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                          aria-label={`Agrandir la photo · ${l.name}`}
+                          onClick={() => setPhotoPreview({ url: l.photo_url!, title: l.name })}
+                        >
+                          <img src={l.photo_url} alt="" className="pointer-events-none size-full object-cover" />
+                        </button>
                       ) : (
                         <div className="flex size-full items-center justify-center">
                           <Package className="size-5 text-slate-400" aria-hidden />
@@ -624,9 +652,9 @@ export default function DemandeProduitsPage() {
                         <p className="text-[11px] text-slate-600">
                           Qté <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
                         </p>
-                        <div className="mt-0.5 flex flex-nowrap items-baseline justify-between gap-1.5">
-                          <span className="inline-flex shrink-0 items-baseline gap-0.5 text-[11px] text-slate-600">
-                            <span className="font-semibold text-slate-500">PU</span>
+                        <div className="mt-0.5 flex flex-nowrap items-baseline justify-between gap-2">
+                          <span className="inline-flex min-w-0 shrink items-baseline gap-0.5 text-[11px] text-slate-600">
+                            <span className="shrink-0 font-semibold text-slate-500">PU</span>
                             <strong className="font-semibold text-slate-900">
                               <PriceDhInline value={l.price_pph} amountClassName="text-[11px]" suffixClassName="text-[9px]" />
                             </strong>
@@ -694,6 +722,13 @@ export default function DemandeProduitsPage() {
           </div>
         </div>
       ) : null}
+
+      <PatientProductPhotoPreviewModal
+        open={photoPreview != null}
+        imageUrl={photoPreview?.url ?? null}
+        title={photoPreview?.title ?? ""}
+        onClose={() => setPhotoPreview(null)}
+      />
     </main>
   );
 }

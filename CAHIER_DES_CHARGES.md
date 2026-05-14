@@ -318,6 +318,23 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-14 — patient détail demande produits : parcours **envoyée / répondue / validée / traitée** (UI)
+
+**Contexte** : alignement UX écran patient **`/dashboard/demandes/[id]`** ; **aucune nouvelle migration**.
+
+**`PatientProductRequestActions.tsx` + `app/dashboard/demandes/[id]/page.tsx`** :
+- Récap **`PatientSentEnvoyeeSummaryCard`** étendu à **`confirmed` / `treated`** (pastille **`requestStatusFr`** + texte d’aide dans la carte ciel, comme **envoyée** / **répondue**) ; suppression des bandeaux dupliqués sous le récap ; **`hideMainRequestHeader`** aussi pour **`confirmed` / `treated`**.
+- **`responded`** : choix **alternatives** (radios, panneau unique), badge **Réception** ambre (**`RespondedReceptionBadgeFr`**) sur les lignes **à commander** (y compris ligne résumé qté/dispo), pied **Valider ma demande** (compteur + total une ligne), hint **Conversation** en bas ; statut d’action conservé **dans** le récap (pas de seconde carte « Action »).
+- **`submitted` / `in_review`** : titre de section **Produits** ; pied fixe resubmit (ligne compteur + montant alignés **`formatPriceDh`**).
+- **`confirmed` / `treated`** : même section **Produits** ; pied fixe **produits retenus + total** + **Mettre à jour ma date de passage** ; bouton **désactivé** tant que date/heure inchangées vs serveur (**`visitPassageDirty`**) ; resync formulaire passage quand **`initialPlannedVisitDate` / `initialPlannedVisitTime`** changent (**réinitialisation en rendu**, pas d’**`useEffect`** + **`setState`** — conformité **`react-hooks/set-state-in-effect`** / ESLint CI).
+- **`PatientValidatedCompactLineCard`** : gabarit proche liste **envoyée** (`rounded-xl border-2`, vignette **20×20**, grille **PU / Qté / Total**, pastille dispo **`availabilityStatusUi`**, réception **`RespondedReceptionBadgeFr`** si **à commander**).
+
+**Lint** : `npm run lint` — **0 erreur** (warnings **`@next/next/no-img-element`** existants sur d’autres fichiers inchangés).
+
+**Git** : branche **`fix/validated-supply-ecart-ui-modal`**.
+
+---
+
 ### Session 2026-05-13 — supply post-validé (alt. choisie), notifs comptoir, expiration `responded`
 
 **Contexte** : développement continu ; préférence équipe : **en dev, une solution simple + base vidée** vaut mieux qu’un long contournement SQL uniquement pour préserver des données de test obsolètes (demander **`scripts/clear-all-requests.mjs`** / **`supabase/scripts/clear-all-requests.sql`** ou reset Supabase si besoin).
@@ -1090,6 +1107,10 @@ Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre 
 ### 13.12) Phrase de reprise (recommandée après **2026-05-13** — supply alt. choisie, notifs comptoir, expiration `responded`)
 
 **« On reprend ProxiPharma. Lis **`CONTEXTE.md` §6**, **`CAHIER_DES_CHARGES.md` §0.1, **§10 Journal (session 2026-05-13)**, §11 (migrations jusqu’à **`20260516_001`**), §4.4 + §4.6, §12. Sur Supabase : appliquer dans l’ordre **`20260512_002`**, **`20260514_001`**, **`20260515_001`**, **`20260516_001`** si pas déjà faits ; planifier le cron **`service_role`** sur **`expire_overdue_requests()`** (délai pilote **30 min** tant que la migration **`20260516_001`** est telle quelle). Fichiers clés post-validé : **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**, **`lib/patient-request-history-audit.ts`**. En développement, si une évolution est plus simple avec une **base vidée**, le demander plutôt que d’accumuler des contournements. Je te dis ensuite quoi faire. »**
+
+### 13.13) Phrase de reprise (recommandée après **2026-05-14** — détail patient demande produits : responded / validée / traitée)
+
+**« On reprend ProxiPharma. Lis **`CONTEXTE.md` §6**, **`CAHIER_DES_CHARGES.md` §0.1, **§10 Journal (session 2026-05-14)**, §4.4 + §4.6, §11 (migrations jusqu’à **`20260516_001`**), §12. Branche **`fix/validated-supply-ecart-ui-modal`**. Fichiers clés patient : **`app/dashboard/demandes/[id]/PatientProductRequestActions.tsx`**, **`app/dashboard/demandes/[id]/page.tsx`** — récap carte ciel, pieds fixes, **`visitPassageDirty`**, cartes **`PatientValidatedCompactLineCard`** ; pas de migration sur ce lot. ESLint : éviter **`setState` dans un `useEffect`** pour resynchroniser le passage (pattern **réinit. en rendu** si les props **`initialPlannedVisit*`** changent). Je te dis ensuite quoi faire. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 

@@ -112,8 +112,8 @@ export function RequestConversationFabDock({
     const dx = e.clientX - s.startX;
     const dy = e.clientY - s.startY;
     if (!s.dragging) {
-      // Seuil un peu plus large : évite d’interpréter un tap comme un micro-glissement.
-      if (dx * dx + dy * dy < 100) return;
+      // Seuil ~15px : un tap au-dessus d’éléments cliquables ne doit pas être lu comme un glissement.
+      if (dx * dx + dy * dy < 225) return;
       s.dragging = true;
     }
     const w = fabRef.current?.offsetWidth ?? 48;
@@ -135,7 +135,6 @@ export function RequestConversationFabDock({
     } catch {
       /* déjà relâché */
     }
-    // Toujours consommer le clic souris synthétique suivant (évite double action / ouverture ratée).
     suppressClickRef.current = true;
     if (wasDrag) {
       const el = fabRef.current;
@@ -183,7 +182,7 @@ export function RequestConversationFabDock({
     <div
       ref={fabRef}
       style={style}
-      className="pointer-events-auto fixed z-[10050] flex size-12 items-center justify-center"
+      className="pointer-events-auto fixed z-[10060] isolate flex size-12 items-center justify-center"
     >
       <button
         type="button"
