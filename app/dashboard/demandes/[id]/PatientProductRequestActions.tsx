@@ -1022,10 +1022,10 @@ function PatientSentLineNotesModalFr({
     <>
       <button
         type="button"
-        className="mt-1 flex w-full max-w-full items-center gap-1 rounded-md border border-slate-200/90 bg-white/90 px-1.5 py-0.5 text-left text-[8px] font-semibold leading-tight text-slate-700 shadow-sm hover:bg-slate-50"
+        className="mt-1 flex min-h-[2.5rem] w-full max-w-full items-center gap-1.5 rounded-md border border-slate-200/90 bg-white/90 px-2 py-2 text-left text-[9px] font-semibold leading-snug text-slate-700 shadow-sm hover:bg-slate-50"
         onClick={() => setOpen(true)}
       >
-        <StickyNote className={clsx("size-3 shrink-0", noteCls)} strokeWidth={2} aria-hidden />
+        <StickyNote className={clsx("size-4 shrink-0 self-center", noteCls)} strokeWidth={2} aria-hidden />
         <span className="min-w-0 leading-tight">{label}</span>
       </button>
       {open && typeof document !== "undefined"
@@ -2847,45 +2847,51 @@ export function PatientProductRequestActions({
                 className="rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-slate-50/50 px-2.5 py-2 shadow-sm ring-1 ring-slate-100/90 sm:px-3"
               >
                 <div className="flex items-stretch gap-2">
-                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner">
-                    {editMode ? (
-                      <button
-                        type="button"
-                        aria-label="Retirer"
-                        className="absolute right-1 top-1 z-10 rounded-md bg-background/90 p-1 text-destructive shadow-sm hover:bg-destructive/10"
-                        onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
+                  <div className="flex w-20 shrink-0 flex-col">
+                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner">
+                      {editMode ? (
+                        <button
+                          type="button"
+                          aria-label="Retirer"
+                          className="absolute right-1 top-1 z-10 rounded-md bg-background/90 p-1 text-destructive shadow-sm hover:bg-destructive/10"
+                          onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      ) : null}
+                      {l.photo_url ? (
+                        <button
+                          type="button"
+                          className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                          onClick={() => openProductPhotoPreview(l.photo_url!, l.name)}
+                          aria-label={`Agrandir la photo · ${l.name}`}
+                        >
+                          <img src={l.photo_url} alt={l.name} className="pointer-events-none h-full w-full object-cover" />
+                        </button>
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <Package className="size-6 text-muted-foreground" aria-hidden />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-h-1 flex-1" aria-hidden />
+                    <div className="pt-0.5 text-center">
+                      <p
+                        className="whitespace-nowrap text-[9px] font-medium leading-none text-slate-700"
+                        title={l.price_pph != null ? `PU ${formatPriceDh(l.price_pph)}` : undefined}
                       >
-                        <Trash2 size={15} />
-                      </button>
-                    ) : null}
-                    {l.photo_url ? (
-                      <button
-                        type="button"
-                        className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-                        onClick={() => openProductPhotoPreview(l.photo_url!, l.name)}
-                        aria-label={`Agrandir la photo · ${l.name}`}
-                      >
-                        <img src={l.photo_url} alt={l.name} className="pointer-events-none h-full w-full object-cover" />
-                      </button>
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <Package className="size-6 text-muted-foreground" aria-hidden />
-                      </div>
-                    )}
+                        <span className="font-semibold text-slate-500">PU</span>{" "}
+                        <strong className="tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex min-w-0 flex-1 flex-col">
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                     <p
                       className="overflow-hidden pr-1 text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
                       style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
                     >
                       {l.name}
                     </p>
-                    <div className="mt-1 border-b border-slate-200/90 pb-1">
-                      <span className="text-[11px] font-medium leading-none text-slate-700">
-                        <span className="font-semibold text-slate-500">PU</span>{" "}
-                        <strong className="whitespace-nowrap tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
-                      </span>
-                    </div>
                     {l.line_source === "pharmacist_proposed" ? (
                       <p className="mt-0.5 text-[9px] font-medium leading-snug text-violet-900">
                         {requestItemLineSourceFr.pharmacist_proposed}
@@ -2893,7 +2899,8 @@ export function PatientProductRequestActions({
                       </p>
                     ) : null}
                     <PatientSentLineNotesModalFr productName={l.name} client={l.client_comment} pharmacist={l.pharmacist_comment ?? ""} />
-                    <div className="mt-1.5 flex flex-nowrap items-center justify-between gap-2">
+                    <div className="min-h-0 flex-1" aria-hidden />
+                    <div className="mt-1 flex flex-nowrap items-center justify-between gap-2 border-t border-slate-200/80 pt-1.5">
                       <div className="flex min-w-0 shrink items-center gap-1.5">
                         <span className="shrink-0 text-[11px] font-medium text-slate-600">Qté</span>
                         <div className="flex items-center gap-1">
@@ -3104,9 +3111,12 @@ export function PatientProductRequestActions({
                 <span className="font-bold tabular-nums text-slate-950">{lines.length}</span>{" "}
                 produit{lines.length > 1 ? "s" : ""}
               </p>
-              <p className="text-[10px] font-medium tabular-nums text-muted-foreground" title="Total indicatif (catalogue)">
-                Total ≈ <span className="text-slate-600">{formatPriceDh(resubmitTotal)}</span>
-              </p>
+              <div className="text-right">
+                <p className="text-[10px] font-medium text-muted-foreground">Total indicatif (catalogue)</p>
+                <p className="mt-0.5 text-lg font-bold tabular-nums text-sky-900 sm:text-xl">
+                  {formatPriceDh(resubmitTotal)}
+                </p>
+              </div>
             </div>
             {!editMode ? (
               <div className="flex flex-col gap-2">
