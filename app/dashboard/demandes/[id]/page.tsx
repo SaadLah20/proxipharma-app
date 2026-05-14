@@ -323,7 +323,8 @@ export default function DemandeDetailPage() {
       request.status === "fully_collected");
 
   const hideMainRequestHeader =
-    request.request_type === "product_request" && ["submitted", "in_review"].includes(request.status);
+    request.request_type === "product_request" &&
+    ["submitted", "in_review", "responded"].includes(request.status);
 
   return (
     <PageShell
