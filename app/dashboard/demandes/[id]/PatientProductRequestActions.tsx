@@ -2093,12 +2093,15 @@ export function PatientProductRequestActions({
   const [visitHour, setVisitHour] = useState(() => splitVisitHm(initialPlannedVisitTime).h);
   const [visitMinute, setVisitMinute] = useState(() => splitVisitHm(initialPlannedVisitTime).m);
 
-  useEffect(() => {
+  const visitSyncKey = `${initialPlannedVisitDate ?? ""}|${initialPlannedVisitTime ?? ""}`;
+  const [prevVisitSyncKey, setPrevVisitSyncKey] = useState(visitSyncKey);
+  if (visitSyncKey !== prevVisitSyncKey) {
+    setPrevVisitSyncKey(visitSyncKey);
     setVisitDate(initialPlannedVisitDate ?? "");
     const hm = splitVisitHm(initialPlannedVisitTime);
     setVisitHour(hm.h);
     setVisitMinute(hm.m);
-  }, [initialPlannedVisitDate, initialPlannedVisitTime]);
+  }
 
   const [lines, setLines] = useState<ResubmitLine[]>(() =>
     computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status))
