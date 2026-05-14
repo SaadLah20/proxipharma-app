@@ -13,7 +13,6 @@ export function PharmacistSupplyCompactLine({
   unitLabel,
   totalLabel,
   thumbUrl,
-  ringClass,
   selected,
   lineLockedTrace,
   withdrawn,
@@ -57,7 +56,6 @@ export function PharmacistSupplyCompactLine({
   unitLabel: string;
   totalLabel: string;
   thumbUrl: string | null;
-  ringClass: string;
   selected: boolean;
   lineLockedTrace: boolean;
   withdrawn: boolean;
@@ -102,6 +100,14 @@ export function PharmacistSupplyCompactLine({
     "inline-flex min-h-8 items-center justify-center rounded-md border px-2 text-[10px] font-semibold shadow-sm transition disabled:opacity-45";
   const pillActive = "border-emerald-600 bg-emerald-600 text-white";
   const pillIdle = "border-border bg-background text-foreground hover:bg-muted/50";
+
+  const cardShell = withdrawn
+    ? "rounded-xl border-2 border-amber-200/90 bg-gradient-to-b from-white to-amber-50/35 shadow-sm ring-1 ring-amber-100/85"
+    : !selected
+      ? "rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-slate-50/50 shadow-sm ring-1 ring-slate-100/90"
+      : effAvailRow === "to_order"
+        ? "rounded-xl border-2 border-teal-200 bg-gradient-to-b from-white to-teal-50/40 shadow-sm ring-1 ring-teal-100/90"
+        : "rounded-xl border-2 border-emerald-200 bg-gradient-to-b from-white to-emerald-50/40 shadow-sm ring-1 ring-emerald-100/90";
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -151,19 +157,16 @@ export function PharmacistSupplyCompactLine({
           <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{header}</div>
         </li>
       ) : null}
-      <li className={clsx("list-none overflow-hidden rounded-md border bg-card shadow-sm", ringClass, withdrawn && "opacity-[0.85]")}>
-        <div className="relative flex items-start gap-2 p-1.5">
-          <div className="h-11 w-11 shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/20">
-            {thumbUrl ? (
-              <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center">
-                <Package className="size-5 text-muted-foreground" aria-hidden />
-              </div>
-            )}
-          </div>
-          <div className="min-w-0 flex-1 pe-8">
-            <div className="absolute end-1.5 top-1.5 z-10">
+      <li
+        className={clsx(
+          "list-none overflow-hidden px-2.5 py-2 sm:px-3",
+          cardShell,
+          withdrawn && "opacity-[0.82] saturate-[0.72]"
+        )}
+      >
+        <div className="relative flex flex-col gap-2">
+          <div className="relative flex items-start gap-2">
+            <div className="pointer-events-none absolute end-1 top-1 z-10">
               <button
                 ref={anchorRef}
                 type="button"
@@ -172,7 +175,7 @@ export function PharmacistSupplyCompactLine({
                 aria-haspopup="menu"
                 aria-label="Actions ligne"
                 onClick={() => onMenuOpenChange(!menuOpen)}
-                className="inline-flex size-8 items-center justify-center rounded-md border border-border/80 bg-background/95 text-foreground shadow-sm hover:bg-muted/80 disabled:opacity-40"
+                className="pointer-events-auto inline-flex size-8 items-center justify-center rounded-lg border border-slate-300/90 bg-white/95 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
               >
                 <MoreVertical className="size-4" strokeWidth={2} aria-hidden />
               </button>
@@ -237,112 +240,131 @@ export function PharmacistSupplyCompactLine({
                 : null}
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <p className="line-clamp-2 min-w-0 flex-1 text-[11px] font-semibold leading-snug text-foreground">{validatedName}</p>
-              {showAjoutOfficineBadge ? (
-                <span className="shrink-0 rounded-md border border-violet-400/70 bg-violet-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-violet-900 shadow-sm">
-                  Ajout officine
-                </span>
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner">
+              {thumbUrl ? (
+                <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <Package className="size-6 text-muted-foreground" aria-hidden />
+                </div>
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1 pe-10">
+              <div className="flex flex-wrap items-start gap-1.5">
+                <p
+                  className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
+                  style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
+                >
+                  {validatedName}
+                </p>
+                {showAjoutOfficineBadge ? (
+                  <span className="shrink-0 rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                    Ajout officine
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-slate-700">{availSentence}</p>
+
+              {lineConversationSlot != null || (postConfirmAmendmentBadges && postConfirmAmendmentBadges.length > 0) ? (
+                <div className="mt-1.5 flex w-full min-w-0 flex-wrap items-center gap-1.5 border-t border-border/50 pt-1.5">
+                  {lineConversationSlot}
+                  {postConfirmAmendmentBadges?.map((label) => (
+                    <span
+                      key={label}
+                      className="inline-flex max-w-full items-center rounded-md border border-slate-300/80 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </div>
               ) : null}
             </div>
-            <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
-              <span className="tabular-nums font-medium text-foreground">Qté {validatedQty}</span>
-              <span className="text-border" aria-hidden>
-                {" "}
-                ·{" "}
-              </span>
-              <span className="text-foreground">{availSentence}</span>
-            </p>
-            <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
-              <span className="text-foreground/90">Prix unit. </span>
-              <span className="tabular-nums font-semibold text-foreground">{unitLabel}</span>
-              <span className="mx-1 text-border" aria-hidden>
-                ·
-              </span>
-              <span className="text-foreground/90">Total </span>
-              <span className="tabular-nums font-semibold text-primary">{totalLabel}</span>
-            </p>
-
-            {selected && !lineLockedTrace && !withdrawn ? (
-              <div className="mt-1 flex flex-wrap gap-1">
-                {!lineCounterLocked ? (
-                  <>
-                    {(effAvailRow === "available" || effAvailRow === "partially_available") && canMarkReserved ? (
-                      <button
-                        type="button"
-                        disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
-                        onClick={onToggleReserved}
-                        className={clsx(pill, fulfillmentDraft === "reserved" ? pillActive : pillIdle)}
-                      >
-                        {fulfillmentDraft === "reserved" ? "Réservé" : "Marquer réservé"}
-                      </button>
-                    ) : null}
-                    {effAvailRow === "to_order" && canMarkOrdered ? (
-                      <button
-                        type="button"
-                        disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
-                        onClick={onToggleOrdered}
-                        className={clsx(
-                          pill,
-                          fulfillmentDraft === "ordered" || fulfillmentDraft === "arrived_reserved"
-                            ? pillActive
-                            : pillIdle
-                        )}
-                      >
-                        {fulfillmentDraft === "unset" ? "Marquer commandé" : "Commandé"}
-                      </button>
-                    ) : null}
-                    {effAvailRow === "to_order" && canShowArrivedReservedPill ? (
-                      <button
-                        type="button"
-                        disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
-                        onClick={onToggleArrivedReserved}
-                        className={clsx(
-                          pill,
-                          fulfillmentDraft === "arrived_reserved"
-                            ? "border-teal-700 bg-teal-600 text-white"
-                            : "border-teal-400/80 bg-background text-teal-950 hover:bg-teal-50/80"
-                        )}
-                      >
-                        {fulfillmentDraft === "arrived_reserved" ? "Reçu en officine" : "Marquer reçu en officine"}
-                      </button>
-                    ) : null}
-                  </>
-                ) : null}
-                {canMarkPickedUpCounterSupply ? (
-                  <button
-                    type="button"
-                    disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy || counterOutcomeBusy}
-                    onClick={onMarkPickedUpCounter}
-                    className={clsx(
-                      pill,
-                      counterPickupActive
-                        ? pillActive
-                        : "border-violet-500/70 bg-violet-50 text-violet-950 hover:bg-violet-100/90"
-                    )}
-                  >
-                    {counterPickupActive ? "Récupéré" : "Marquer récupéré"}
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-            {lineConversationSlot != null || (postConfirmAmendmentBadges && postConfirmAmendmentBadges.length > 0) ? (
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-1.5">
-                {lineConversationSlot}
-                {postConfirmAmendmentBadges?.map((label) => (
-                  <span
-                    key={label}
-                    className="inline-flex max-w-full items-center rounded-md border border-slate-300/80 bg-slate-100/90 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
-                  >
-                    {label}
-                  </span>
-                ))}
-              </div>
-            ) : null}
           </div>
+
+          <div className="grid grid-cols-[5rem_1fr_auto] items-baseline gap-x-2 border-t border-border/45 pt-1.5 text-[12px] font-medium leading-none tabular-nums text-slate-800 sm:text-[13px]">
+            <div className="min-w-0 text-start">
+              <span className="text-slate-500">PU</span>{" "}
+              <strong className="font-semibold text-slate-900">{unitLabel}</strong>
+            </div>
+            <div className="flex min-w-0 justify-center text-center">
+              <span className="text-slate-500">Qté</span>{" "}
+              <strong className="font-semibold text-slate-900">{validatedQty}</strong>
+            </div>
+            <div className="min-w-0 text-end">
+              <span className="inline-flex flex-nowrap items-baseline justify-end gap-x-1 whitespace-nowrap">
+                <span className="text-slate-500">Total</span>
+                <strong className={clsx("font-semibold text-sky-900", withdrawn && "line-through decoration-muted-foreground/70")}>
+                  {totalLabel}
+                </strong>
+              </span>
+            </div>
+          </div>
+
+          {selected && !lineLockedTrace && !withdrawn ? (
+            <div className="flex flex-wrap gap-1">
+              {!lineCounterLocked ? (
+                <>
+                  {(effAvailRow === "available" || effAvailRow === "partially_available") && canMarkReserved ? (
+                    <button
+                      type="button"
+                      disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
+                      onClick={onToggleReserved}
+                      className={clsx(pill, fulfillmentDraft === "reserved" ? pillActive : pillIdle)}
+                    >
+                      {fulfillmentDraft === "reserved" ? "Réservé" : "Marquer réservé"}
+                    </button>
+                  ) : null}
+                  {effAvailRow === "to_order" && canMarkOrdered ? (
+                    <button
+                      type="button"
+                      disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
+                      onClick={onToggleOrdered}
+                      className={clsx(
+                        pill,
+                        fulfillmentDraft === "ordered" || fulfillmentDraft === "arrived_reserved" ? pillActive : pillIdle
+                      )}
+                    >
+                      {fulfillmentDraft === "unset" ? "Marquer commandé" : "Commandé"}
+                    </button>
+                  ) : null}
+                  {effAvailRow === "to_order" && canShowArrivedReservedPill ? (
+                    <button
+                      type="button"
+                      disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
+                      onClick={onToggleArrivedReserved}
+                      className={clsx(
+                        pill,
+                        fulfillmentDraft === "arrived_reserved"
+                          ? "border-teal-700 bg-teal-600 text-white"
+                          : "border-teal-400/80 bg-background text-teal-950 hover:bg-teal-50/80"
+                      )}
+                    >
+                      {fulfillmentDraft === "arrived_reserved" ? "Reçu en officine" : "Marquer reçu en officine"}
+                    </button>
+                  ) : null}
+                </>
+              ) : null}
+              {canMarkPickedUpCounterSupply ? (
+                <button
+                  type="button"
+                  disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy || counterOutcomeBusy}
+                  onClick={onMarkPickedUpCounter}
+                  className={clsx(
+                    pill,
+                    counterPickupActive
+                      ? pillActive
+                      : "border-violet-500/70 bg-violet-50 text-violet-950 hover:bg-violet-100/90"
+                  )}
+                >
+                  {counterPickupActive ? "Récupéré" : "Marquer récupéré"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
-        {showExpandedEditor ? <div className="border-t border-border/80 bg-muted/15 px-2 py-1.5">{expandedEditor}</div> : null}
-        {treatedCounterSlot ? <div className="border-t border-border/80 px-2 py-1.5">{treatedCounterSlot}</div> : null}
+        {showExpandedEditor ? <div className="border-t border-border/60 bg-slate-50/40 px-2 py-1.5 sm:px-2.5">{expandedEditor}</div> : null}
+        {treatedCounterSlot ? <div className="border-t border-border/60 bg-slate-50/35 px-2 py-1.5 sm:px-2.5">{treatedCounterSlot}</div> : null}
       </li>
     </Fragment>
   );
