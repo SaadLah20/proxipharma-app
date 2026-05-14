@@ -54,6 +54,8 @@ export function requestHistoryPharmacistHeadline(oldStatus: string | null, newSt
   if (o === "submitted" && n === "in_review") return "Prise en charge interne.";
   if (o === "in_review" && n === "responded") return "Réponse publiée au patient.";
   if (o === "responded" && n === "confirmed") return "Le patient a validé la sélection.";
+  if (o === "responded" && n === "expired") return "Délai dépassé : expirée faute de validation du patient.";
+  if (o === "responded" && n === "abandoned") return "Abandon enregistré côté patient après votre réponse.";
   if (o === "confirmed" && n === "treated") return "Dossier déclaré prêt (comptoir).";
   if (o === "treated" && n === "completed") return "Dossier clôturé après comptoir.";
   if (n === "cancelled") return "Demande annulée.";

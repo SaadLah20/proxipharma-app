@@ -114,6 +114,8 @@ export type PatientLineTimelineInputs = {
   supplyBundles: { id: string; created_at: string; amendments: unknown }[];
   /** `request_status_history` côté patient (filtre audit produit automatique). */
   dossierHistory?: { created_at: string; old_status: string | null; new_status: string; reason: string | null }[];
+  /** Par défaut libellés patient ; passer `pharmacistDossierHistoryDetailParagraphsFr` pour l’officine. */
+  dossierHistoryDetailParagraphs?: (reason: string | null | undefined) => string[];
 };
 
 /** Chronologie du plus ancien (haut) au plus récent (bas). Dernier bloc = situation actuelle. */
@@ -123,6 +125,7 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
   const histAsc = [...(input.dossierHistory ?? [])].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
+  const historyParas = input.dossierHistoryDetailParagraphs ?? patientDossierHistoryDetailParagraphsFr;
   const blocks: PatientLineTimelineBlockFr[] = [];
   let idx = 0;
   const push = (
@@ -230,7 +233,7 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
     if (!r) continue;
     if (!r.includes(row.id.toLowerCase()) && !r.includes(validatedProductLabel(row).toLowerCase())) continue;
     const statusLine = `${h.old_status ? `Étape précédente : ${requestStatusFr[h.old_status] ?? h.old_status} → ` : ""}${requestStatusFr[h.new_status] ?? h.new_status}`;
-    const detail = patientDossierHistoryDetailParagraphsFr(h.reason).filter(Boolean).join("\n");
+    const detail = historyParas(h.reason).filter(Boolean).join("\n");
     const body = detail.trim() !== "" ? detail : statusLine;
     push(h.created_at, "Mise à jour du dossier", body, "La pharmacie");
   }

@@ -51,12 +51,19 @@ import {
   pharmacistRequestIsClosedSuccess,
   pharmacistRequestIsHardStopped,
   requestHistoryPharmacistHeadline,
+  requestStatusBadgeClass,
   requestStatusFr,
 } from "@/lib/request-display";
-import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
+import {
+  pharmacistDossierHistoryDetailParagraphsFr,
+  pharmacistHardStopMotifSummaryFr,
+  stringifyPharmaConfirmAudit,
+  type PharmaConfirmAdjustmentAudit,
+  type PharmaConfirmAdjustmentLine,
+} from "@/lib/patient-request-history-audit";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
-import { pphLabel } from "@/lib/product-price";
+import { formatPphMad, pphLabel } from "@/lib/product-price";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
@@ -76,11 +83,6 @@ import { buildPatientLineTimelineFr, postConfirmSupplyAmendmentBadgeLabelsFr } f
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 import { PharmacistSupplyCompactLine } from "@/components/pharmacist/pharmacist-supply-compact-line";
-import {
-  stringifyPharmaConfirmAudit,
-  type PharmaConfirmAdjustmentAudit,
-  type PharmaConfirmAdjustmentLine,
-} from "@/lib/patient-request-history-audit";
 import { type SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
 import {
   dispatchRequestDetailRefresh,
@@ -699,12 +701,39 @@ function draftPatchPostConfirmSupplyUnlock(
   };
 }
 
-/** Même produit déjà sur « À réserver » ou « À commander » (retenu, non écarté) : blocage ajout officine en doublon. */
-function productBlocksValidatedReserveOrOrderAdd(productId: string, rows: ItemRow[], draft: Draft): boolean {
-  const eff = rowsWithEffectiveWithdrawnForSupply(rows, draft);
-  const virt = virtualizeItemsForSupplyBuckets(eff, draft);
-  const { dispoOfficine, aCommander } = bucketPatientValidatedLinesThreeWays(virt);
-  return [...dispoOfficine, ...aCommander].some((r) => r.product_id === productId);
+function effectiveWithdrawnAfterConfirm(row: ItemRow, draft: Draft): boolean {
+  const fd = draft[row.id];
+  return Boolean(row.withdrawn_after_confirm) || Boolean(fd?.withdrawn_after_confirm);
+}
+
+/**
+ * Blocage « ajout officine » : même `product_id` que la réponse.
+ * Hors `confirmed` / `treated` : toute ligne principale ou alternative compte.
+ * Sur dossier validé / traité : seulement si le produit apparaît encore sur une ligne **retenue** et **non écartée**
+ * (ou comme alternative sous une telle ligne).
+ */
+function pharmacistProposedProductIdBlocked(
+  productId: string,
+  rows: ItemRow[],
+  draft: Draft,
+  requestStatus: string | null
+): boolean {
+  const onlyActiveRetained = requestStatus != null && ["confirmed", "treated"].includes(requestStatus);
+
+  for (const row of rows) {
+    if (row.product_id === productId) {
+      if (!onlyActiveRetained) return true;
+      if (row.is_selected_by_patient && !effectiveWithdrawnAfterConfirm(row, draft)) return true;
+    } else {
+      for (const alt of normalizeAlts(row.request_item_alternatives)) {
+        if (alt.product_id !== productId) continue;
+        if (!onlyActiveRetained) return true;
+        if (row.is_selected_by_patient && !effectiveWithdrawnAfterConfirm(row, draft)) return true;
+        break;
+      }
+    }
+  }
+  return false;
 }
 
 /** Mise à jour ligne : payload dispo/prix + pour proposition officine, `requested_qty` / `selected_qty` = qté offerte (sinon le patient plafonne à l’ancienne valeur). */
@@ -1939,8 +1968,12 @@ export default function PharmacienDemandeDetailPage() {
       return;
     }
     const qty = Math.min(PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX, Math.max(1, parseInt(propQty, 10) || 1));
-    if (productBlocksValidatedReserveOrOrderAdd(pick.id, displayRows, draft)) {
-      setError("Ce produit figure déjà parmi les lignes validées (à réserver ou à commander). Retirez-le ou écartez-le avant d’ajouter une proposition.");
+    if (pharmacistProposedProductIdBlocked(pick.id, displayRows, draft, request?.status ?? null)) {
+      setError(
+        request && ["confirmed", "treated"].includes(request.status)
+          ? "Ce produit est déjà sur une ligne encore retenue et non écartée, ou en alternative sur une telle ligne. Écartez ou retirez l’autre occurrence, ou choisissez une autre référence."
+          : "Ce produit figure déjà sur la réponse (ligne principale ou alternative). Choisis un autre produit."
+      );
       return;
     }
     if (deferPersistOfficineAdditions) {
@@ -2771,6 +2804,13 @@ export default function PharmacienDemandeDetailPage() {
         const fill = fills[0];
         if (!fill?.channel?.trim()) throw new Error("Indiquez le canal utilisé.");
         const { pick, reason, qty } = pending;
+        if (pharmacistProposedProductIdBlocked(pick.id, displayRows, draft, request?.status ?? null)) {
+          throw new Error(
+            request && ["confirmed", "treated"].includes(request.status)
+              ? "Ce produit est déjà sur une ligne encore retenue et non écartée, ou en alternative sur une telle ligne. Écartez ou retirez l’autre occurrence, ou choisissez une autre référence."
+              : "Ce produit figure déjà sur la réponse (ligne principale ou alternative). Choisis un autre produit."
+          );
+        }
         const syntheticId = newLocalProposedId();
         scrollToEditorRowId = syntheticId;
         const syntheticRow: ItemRow = {
@@ -3209,6 +3249,7 @@ export default function PharmacienDemandeDetailPage() {
       requestConfirmedAt: request.confirmed_at ?? null,
       supplyBundles: supplyAmendmentBundles,
       dossierHistory: dossierHistoryTimeline,
+      dossierHistoryDetailParagraphs: pharmacistDossierHistoryDetailParagraphsFr,
     });
   }, [pharmaHistoryRowId, request, items, supplyAmendmentBundles, dossierHistoryTimeline]);
 
@@ -3231,6 +3272,8 @@ export default function PharmacienDemandeDetailPage() {
       }
     }
   }
+
+  const hardStopSummaryFr = pharmacistHardStopMotifSummaryFr(hardStopMotif);
 
   const closedSuccessPickupCount =
     request && pharmacistRequestIsClosedSuccess(request.status)
@@ -3411,13 +3454,7 @@ export default function PharmacienDemandeDetailPage() {
             <span
               className={clsx(
                 "inline-flex max-w-[min(100%,16rem)] justify-center truncate rounded-full border px-2 py-0.5 text-center text-[10px] font-bold leading-tight shadow-sm sm:max-w-[14rem]",
-                ["submitted", "in_review"].includes(request.status)
-                  ? "border-sky-400/85 bg-sky-100 text-sky-950 ring-1 ring-sky-200/80"
-                  : request.status === "responded"
-                    ? "border-amber-300/95 bg-amber-50 text-amber-950"
-                    : ["confirmed", "treated", "completed"].includes(request.status)
-                      ? "border-teal-400/80 bg-teal-50 text-teal-950"
-                      : "border-primary/35 bg-primary/10 text-primary"
+                requestStatusBadgeClass(request.status)
               )}
               title={(requestStatusFr[request.status] ?? request.status) + ""}
             >
@@ -3428,22 +3465,40 @@ export default function PharmacienDemandeDetailPage() {
       </header>
 
       {pharmacistRequestIsHardStopped(request.status) && isProduct ? (
-        <section className="rounded-xl border border-slate-300/90 bg-slate-50 px-3 py-2.5 text-[11px] text-slate-800">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-700">Motif (sans suite)</p>
-          <p className="mt-1 whitespace-pre-wrap break-words leading-snug">
-            {hardStopMotif ?? "Aucun détail enregistré dans l’historique pour ce statut."}
+        <section
+          className={clsx(
+            "rounded-lg border px-3 py-2 shadow-sm",
+            request.status === "cancelled" && "border-rose-200/90 bg-rose-50/55 text-rose-950",
+            request.status === "abandoned" && "border-orange-200/90 bg-orange-50/55 text-orange-950",
+            request.status === "expired" && "border-amber-200/90 bg-amber-50/55 text-amber-950"
+          )}
+        >
+          <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+            {request.status === "cancelled"
+              ? "Annulée"
+              : request.status === "abandoned"
+                ? "Sans suite"
+                : "Expirée"}{" "}
+            · dossier fermé
           </p>
-          <p className="mt-2 text-[10px] text-muted-foreground">Lecture seule — état figé tel qu’avant l’interruption.</p>
+          <p className="mt-0.5 text-[13px] font-semibold leading-snug">
+            {requestStatusFr[request.status] ?? request.status}
+          </p>
+          {hardStopSummaryFr ? (
+            <p className="mt-1.5 text-[11px] leading-snug text-foreground/90">{hardStopSummaryFr}</p>
+          ) : (
+            <p className="mt-1.5 text-[11px] text-muted-foreground">Aucun motif complémentaire enregistré.</p>
+          )}
         </section>
       ) : null}
 
       {pharmacistRequestIsClosedSuccess(request.status) && isProduct ? (
-        <section className="rounded-xl border border-emerald-300/80 bg-emerald-50/90 px-3 py-2.5 text-[11px] text-emerald-950">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-900">Clôture comptoir</p>
-          <p className="mt-1 font-semibold tabular-nums text-emerald-950">
-            Produits récupérés (lignes retenues)&nbsp;: {closedSuccessPickupCount ?? 0}
+        <section className="rounded-lg border border-emerald-200/85 bg-emerald-50/65 px-3 py-2 text-[11px] text-emerald-950 shadow-sm">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900/75">Clôture</p>
+          <p className="mt-0.5 font-semibold tabular-nums">
+            {closedSuccessPickupCount ?? 0} ligne{(closedSuccessPickupCount ?? 0) !== 1 ? "s" : ""} retirée
+            {(closedSuccessPickupCount ?? 0) !== 1 ? "s" : ""} au comptoir (retenues).
           </p>
-          <p className="mt-1 text-[10px] text-emerald-900/85">Lecture seule.</p>
         </section>
       ) : null}
 
@@ -3645,6 +3700,10 @@ export default function PharmacienDemandeDetailPage() {
               const linePph = pphLabel(prod?.price_pph);
               const f = draft[row.id];
               if (!f) return null;
+              const draftIndicativePuMad =
+                f.unit_price.trim() !== ""
+                  ? `${Number(f.unit_price.replace(",", ".")).toFixed(2)}\u00A0MAD`
+                  : formatPphMad(prod?.price_pph) ?? "—";
               const co = row.counter_outcome ?? "unset";
               const selected = Boolean(row.is_selected_by_patient);
               const lineLockedTrace = co === "cancelled_at_counter";
@@ -3801,8 +3860,8 @@ export default function PharmacienDemandeDetailPage() {
 
                 const modifyFieldsBlock = (
                   <div className="space-y-1.5">
-                    <div className="-mx-0.5 flex max-w-full flex-nowrap items-end gap-1 overflow-x-auto overscroll-x-contain pb-0.5 [-webkit-overflow-scrolling:touch] sm:mx-0 sm:flex-wrap sm:gap-2 sm:overflow-visible sm:pb-0">
-                      <div className="flex min-w-[8.75rem] shrink-0 flex-col gap-0.5 sm:min-w-[9.5rem] sm:flex-1">
+                    <div className="flex flex-wrap items-end gap-1.5 sm:gap-2">
+                      <div className="flex min-w-[9.5rem] flex-1 flex-col gap-0.5">
                         <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
                           Disponibilité
                         </span>
@@ -3821,7 +3880,7 @@ export default function PharmacienDemandeDetailPage() {
                           onPick={(v) => setAvailabilityStatus(row, v)}
                         />
                       </div>
-                      <label className="flex w-[5.25rem] shrink-0 flex-col gap-0.5 sm:w-[5.5rem]">
+                      <label className="flex w-[5.5rem] flex-col gap-0.5">
                         <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Qté</span>
                         <div className="flex h-9 items-center overflow-hidden rounded-xl border border-input bg-background shadow-sm">
                           <button
@@ -3862,20 +3921,17 @@ export default function PharmacienDemandeDetailPage() {
                           </button>
                         </div>
                       </label>
-                      <label className="flex w-[4.85rem] shrink-0 flex-col gap-0.5 sm:min-w-[5rem] sm:w-auto sm:max-w-[7rem] sm:flex-1">
-                        <span className="inline-flex items-center gap-1 whitespace-nowrap text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
-                          Prix <span className="normal-case opacity-70">MAD</span>
+                      <div className="flex min-w-[5.25rem] flex-col justify-end gap-0.5 text-end sm:min-w-[6rem]">
+                        <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                          PU indicatif
                         </span>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="—"
-                          disabled
-                          value={f.unit_price}
-                          title={linePph ? `PPH catalogue : ${linePph}` : undefined}
-                          className="h-9 w-full rounded-xl border border-dashed border-border bg-muted/30 px-2 text-[12px] font-semibold tabular-nums opacity-80"
-                        />
-                      </label>
+                        <p
+                          className="whitespace-nowrap py-2 text-[12px] font-semibold tabular-nums text-foreground"
+                          title={linePph ? `Catalogue : ${linePph}` : undefined}
+                        >
+                          {draftIndicativePuMad}
+                        </p>
+                      </div>
                     </div>
                     {canEditThisRow && hasConsent && effectiveAvailSupplyDraft(row, f) === "to_order" ? (
                       <label className="flex max-w-sm flex-col gap-0">
@@ -4035,13 +4091,13 @@ export default function PharmacienDemandeDetailPage() {
                         open: lineConvoRowId === row.id,
                         disabled: busy || supplyConfirmBusy,
                       }),
-                      "relative min-w-0 max-sm:h-8 max-sm:min-h-8 max-sm:min-w-8 max-sm:justify-center max-sm:px-1.5 max-sm:py-0 sm:w-full sm:max-w-none sm:flex-1 sm:justify-start"
+                      "min-w-0 w-full max-w-none flex-1 justify-start"
                     )}
                     aria-label={`Échanges produit · ${lineConversationStripLabel(lineConvoVisual)}`}
                     title="Notes patient et officine"
                   >
                     <MessageCircle className="size-3 shrink-0 opacity-90" strokeWidth={2.2} aria-hidden />
-                    <span className="hidden max-w-[10rem] truncate text-[9px] font-medium leading-tight sm:inline sm:max-w-[12rem]">
+                    <span className="max-w-[10rem] truncate text-[9px] font-medium leading-tight sm:max-w-[12rem]">
                       {lineConversationStripLabel(lineConvoVisual)}
                     </span>
                   </button>
@@ -4210,7 +4266,7 @@ export default function PharmacienDemandeDetailPage() {
                       </div>
                     </div>
                     <div className="min-w-0 flex-1 space-y-0.5">
-                      <div className="flex items-start justify-between gap-1.5 sm:gap-2">
+                      <div className="flex items-start justify-between gap-2">
                         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
                           <p className="min-w-0 flex-1 break-words text-[13px] font-bold leading-snug text-foreground sm:text-sm">
                             {prod?.name ?? "Produit"}
@@ -4221,50 +4277,18 @@ export default function PharmacienDemandeDetailPage() {
                             </span>
                           ) : null}
                         </div>
-                        <div className="flex shrink-0 items-start gap-1">
+                        {canEditThisRow && isProposedLine ? (
                           <button
                             type="button"
+                            title="Retirer cette proposition"
+                            aria-label="Retirer cette proposition"
                             disabled={busy}
-                            className={clsx(
-                              lineConversationStripButtonClass(lineConvoVisual, {
-                                open: lineConvoEffectiveRowId === row.id,
-                                disabled: busy,
-                              }),
-                              "relative max-sm:h-8 max-sm:min-h-8 max-sm:min-w-8 max-sm:justify-center max-sm:px-1.5 max-sm:py-0"
-                            )}
-                            aria-label={`Échanges produit · ${lineConversationStripLabel(lineConvoVisual)}`}
-                            title="Ouvrir les messages patient et note officine"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setLineConvoRowId((cur) => (cur === row.id ? null : row.id));
-                            }}
+                            onClick={() => void removePharmacistProposedLine(row)}
+                            className="shrink-0 rounded-lg border border-rose-200/90 bg-rose-50/90 p-1.5 text-rose-800 shadow-sm transition hover:bg-rose-100 disabled:opacity-50"
                           >
-                            <MessageCircle className="size-3.5 shrink-0 opacity-90 sm:size-3.5" strokeWidth={2.2} aria-hidden />
-                            <span className="hidden max-w-[11rem] truncate text-[9px] font-medium leading-tight sm:inline sm:max-w-[14rem]">
-                              {lineConversationStripLabel(lineConvoVisual)}
-                            </span>
-                            {lineConvoVisual === "patient_only" &&
-                            ((canEditThisRow && showLineAndPublishEdits) || (respondedFrozenView && !lineLockedTrace)) ? (
-                              <span
-                                className="absolute -right-0.5 -top-0.5 flex size-2 rounded-full bg-amber-500 ring-2 ring-white"
-                                aria-hidden
-                              />
-                            ) : null}
+                            <Trash2 className="size-4" strokeWidth={2} aria-hidden />
                           </button>
-                          {canEditThisRow && isProposedLine ? (
-                            <button
-                              type="button"
-                              title="Retirer cette proposition"
-                              aria-label="Retirer cette proposition"
-                              disabled={busy}
-                              onClick={() => void removePharmacistProposedLine(row)}
-                              className="shrink-0 rounded-lg border border-rose-200/90 bg-rose-50/90 p-1.5 text-rose-800 shadow-sm transition hover:bg-rose-100 disabled:opacity-50"
-                            >
-                              <Trash2 className="size-4" strokeWidth={2} aria-hidden />
-                            </button>
-                          ) : null}
-                        </div>
+                        ) : null}
                       </div>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
                         <span
@@ -4306,6 +4330,49 @@ export default function PharmacienDemandeDetailPage() {
                             </span>
                           )
                         ) : null}
+                      </div>
+                      <div className="mt-1 flex min-w-0 items-stretch gap-2 border-t border-dotted border-border/55 pt-1.5">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className={clsx(
+                            lineConversationStripButtonClass(lineConvoVisual, {
+                              open: lineConvoEffectiveRowId === row.id,
+                              disabled: busy,
+                            }),
+                            "relative min-h-9 min-w-0 flex-1 justify-start"
+                          )}
+                          aria-label={`Échanges produit · ${lineConversationStripLabel(lineConvoVisual)}`}
+                          title="Ouvrir les messages patient et note officine"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setLineConvoRowId((cur) => (cur === row.id ? null : row.id));
+                          }}
+                        >
+                          <MessageCircle className="size-3.5 shrink-0 opacity-90" strokeWidth={2.2} aria-hidden />
+                          <span className="min-w-0 flex-1 text-left text-[9px] font-medium leading-snug">
+                            {lineConversationStripLabel(lineConvoVisual)}
+                          </span>
+                          {lineConvoVisual === "patient_only" &&
+                          ((canEditThisRow && showLineAndPublishEdits) || (respondedFrozenView && !lineLockedTrace)) ? (
+                            <span
+                              className="absolute -right-0.5 -top-0.5 flex size-2 rounded-full bg-amber-500 ring-2 ring-white"
+                              aria-hidden
+                            />
+                          ) : null}
+                        </button>
+                        <div
+                          className="flex shrink-0 flex-col justify-center self-stretch border-l border-border/45 pl-2 text-end"
+                          title={linePph ? `PPH catalogue : ${linePph}` : undefined}
+                        >
+                          <span className="text-[8px] font-bold uppercase leading-none tracking-wide text-muted-foreground">
+                            PU indicatif
+                          </span>
+                          <span className="mt-0.5 whitespace-nowrap text-[11px] font-semibold tabular-nums leading-none text-foreground sm:text-[12px]">
+                            {draftIndicativePuMad}
+                          </span>
+                        </div>
                       </div>
                       {isProposedLine ? (
                         <p className="rounded-md border border-violet-300/80 bg-gradient-to-br from-violet-200/55 to-violet-100/40 px-2 py-1 text-[10px] leading-snug text-violet-950 shadow-sm ring-1 ring-violet-300/35">
@@ -4418,9 +4485,9 @@ export default function PharmacienDemandeDetailPage() {
                       ) : null}
                     </div>
                   ) : showLineAndPublishEdits ? (
-                    <div className="space-y-1.5 border-t border-dotted border-border/55 px-2 py-2 sm:space-y-2 sm:px-3 sm:py-2.5">
-                      <div className="-mx-0.5 flex max-w-full flex-nowrap items-end gap-1 overflow-x-auto overscroll-x-contain pb-0.5 [-webkit-overflow-scrolling:touch] sm:mx-0 sm:flex-wrap sm:gap-2 sm:overflow-visible sm:pb-0">
-                        <div className="flex min-w-[8.75rem] shrink-0 flex-col gap-0.5 sm:min-w-[9.5rem] sm:flex-1">
+                    <div className="space-y-1.5 border-t border-border/55 px-2 py-2 sm:space-y-2 sm:px-3 sm:py-2.5">
+                      <div className="flex flex-wrap items-end gap-1.5 sm:gap-2">
+                        <div className="flex min-w-[9.5rem] flex-1 flex-col gap-0.5">
                           <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
                             Disponibilité
                           </span>
@@ -4441,7 +4508,7 @@ export default function PharmacienDemandeDetailPage() {
                             onPick={(v) => setAvailabilityStatus(row, v)}
                           />
                         </div>
-                        <label className="flex w-[5.25rem] shrink-0 flex-col gap-0.5 sm:w-[5.5rem]">
+                        <label className="flex w-[5.5rem] flex-col gap-0.5">
                           <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Qté</span>
                           <div className="flex h-9 items-center overflow-hidden rounded-xl border border-input bg-background shadow-sm">
                             <button
@@ -4477,20 +4544,6 @@ export default function PharmacienDemandeDetailPage() {
                               +
                             </button>
                           </div>
-                        </label>
-                        <label className="flex w-[4.85rem] shrink-0 flex-col gap-0.5 sm:min-w-[5rem] sm:w-auto sm:max-w-[7rem] sm:flex-1">
-                          <span className="inline-flex items-center gap-1 whitespace-nowrap text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
-                            Prix <span className="normal-case opacity-70">MAD</span>
-                          </span>
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="—"
-                            disabled
-                            value={f.unit_price}
-                            title={linePph ? `PPH catalogue : ${linePph}` : undefined}
-                            className="h-9 w-full rounded-xl border border-dashed border-border bg-muted/30 px-2 text-[12px] font-semibold tabular-nums opacity-80"
-                          />
                         </label>
                       </div>
                       {canEditThisRow &&
@@ -5116,7 +5169,7 @@ export default function PharmacienDemandeDetailPage() {
             </div>
           ) : null}
 
-          <section className="mt-3 rounded-lg border border-border/70 bg-card p-2.5 shadow-sm">
+          <section className="mt-3 rounded-lg border border-border/60 bg-muted/15 p-2 shadow-sm">
             <button
               type="button"
               onClick={() => {
@@ -5126,9 +5179,9 @@ export default function PharmacienDemandeDetailPage() {
                   void loadHistory();
                 }
               }}
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-border px-3 text-xs font-semibold text-foreground hover:bg-muted/40"
+              className="inline-flex h-9 w-full items-center justify-center rounded-md border border-border/80 bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted/50 sm:w-auto"
             >
-              {historyOpen ? "Masquer l'historique" : "Voir l'historique"}
+              {historyOpen ? "Masquer l'historique" : "Voir l'historique du dossier"}
             </button>
             {historyOpen ? (
               <div className="mt-2 space-y-1.5">
@@ -5139,9 +5192,9 @@ export default function PharmacienDemandeDetailPage() {
                 ) : (
                   <ul className="space-y-1.5">
                     {historyRows.map((h) => {
-                      const detailParas = patientDossierHistoryDetailParagraphsFr(h.reason);
+                      const detailParas = pharmacistDossierHistoryDetailParagraphsFr(h.reason);
                       return (
-                      <li key={h.id} className="rounded-lg border border-border/60 bg-muted/15 px-2 py-1.5 text-xs">
+                      <li key={h.id} className="rounded-md border border-border/50 bg-background/80 px-2 py-1.5 text-xs">
                         <p className="font-medium text-foreground">
                           {requestHistoryPharmacistHeadline(h.old_status, h.new_status)}
                         </p>
@@ -5154,7 +5207,9 @@ export default function PharmacienDemandeDetailPage() {
                             ))}
                           </div>
                         ) : h.reason && h.reason.trim().length > 0 && !h.reason.startsWith("audit_v1:") ? (
-                          <p className="mt-0.5 break-words text-[11px] leading-snug text-muted-foreground">{h.reason}</p>
+                          <p className="mt-0.5 break-words text-[11px] leading-snug text-muted-foreground">
+                            {pharmacistHardStopMotifSummaryFr(h.reason) ?? h.reason}
+                          </p>
                         ) : null}
                         <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
                           <span>
