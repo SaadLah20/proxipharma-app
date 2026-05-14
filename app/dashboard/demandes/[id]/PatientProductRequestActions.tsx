@@ -1022,7 +1022,7 @@ function PatientSentLineNotesModalFr({
     <>
       <button
         type="button"
-        className="mt-1 flex min-h-[2.5rem] w-full max-w-full items-center gap-1.5 rounded-md border border-slate-200/90 bg-white/90 px-2 py-2 text-left text-[9px] font-semibold leading-snug text-slate-700 shadow-sm hover:bg-slate-50"
+        className="flex min-h-[2.5rem] w-full max-w-full items-center gap-1.5 rounded-md border border-slate-200/90 bg-white/90 px-2 py-2 text-left text-[9px] font-semibold leading-snug text-slate-700 shadow-sm hover:bg-slate-50"
         onClick={() => setOpen(true)}
       >
         <StickyNote className={clsx("size-4 shrink-0 self-center", noteCls)} strokeWidth={2} aria-hidden />
@@ -2846,8 +2846,8 @@ export function PatientProductRequestActions({
                 key={`${l.product_id}-${idx}`}
                 className="rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-slate-50/50 px-2.5 py-2 shadow-sm ring-1 ring-slate-100/90 sm:px-3"
               >
-                <div className="flex items-stretch gap-2">
-                  <div className="flex w-20 shrink-0 flex-col">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-start gap-2">
                     <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner">
                       {editMode ? (
                         <button
@@ -2874,67 +2874,60 @@ export function PatientProductRequestActions({
                         </div>
                       )}
                     </div>
-                    <div className="min-h-1 flex-1" aria-hidden />
-                    <div className="pt-0.5 text-center">
+                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                       <p
-                        className="whitespace-nowrap text-[9px] font-medium leading-none text-slate-700"
-                        title={l.price_pph != null ? `PU ${formatPriceDh(l.price_pph)}` : undefined}
+                        className="overflow-hidden pr-0.5 text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
+                        style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
                       >
-                        <span className="font-semibold text-slate-500">PU</span>{" "}
-                        <strong className="tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
+                        {l.name}
                       </p>
+                      {l.line_source === "pharmacist_proposed" ? (
+                        <p className="text-[9px] font-medium leading-snug text-violet-900">
+                          {requestItemLineSourceFr.pharmacist_proposed}
+                          {l.pharmacist_proposal_reason ? ` — ${l.pharmacist_proposal_reason}` : ""}
+                        </p>
+                      ) : null}
+                      <PatientSentLineNotesModalFr productName={l.name} client={l.client_comment} pharmacist={l.pharmacist_comment ?? ""} />
                     </div>
                   </div>
-                  <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                    <p
-                      className="overflow-hidden pr-1 text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
-                      style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
-                    >
-                      {l.name}
-                    </p>
-                    {l.line_source === "pharmacist_proposed" ? (
-                      <p className="mt-0.5 text-[9px] font-medium leading-snug text-violet-900">
-                        {requestItemLineSourceFr.pharmacist_proposed}
-                        {l.pharmacist_proposal_reason ? ` — ${l.pharmacist_proposal_reason}` : ""}
-                      </p>
-                    ) : null}
-                    <PatientSentLineNotesModalFr productName={l.name} client={l.client_comment} pharmacist={l.pharmacist_comment ?? ""} />
-                    <div className="min-h-0 flex-1" aria-hidden />
-                    <div className="mt-1 flex flex-nowrap items-center justify-between gap-2 border-t border-slate-200/80 pt-1.5">
-                      <div className="flex min-w-0 shrink items-center gap-1.5">
-                        <span className="shrink-0 text-[11px] font-medium text-slate-600">Qté</span>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            aria-label="Diminuer"
-                            disabled={!editMode || l.qty <= 1}
-                            className="rounded-md border border-slate-300 bg-white p-1 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
-                            onClick={() =>
-                              setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.max(1, row.qty - 1) } : row)))
-                            }
-                          >
-                            <Minus size={14} />
-                          </button>
-                          <span className="min-w-[1.5rem] text-center text-[11px] font-semibold tabular-nums leading-none">{l.qty}</span>
-                          <button
-                            type="button"
-                            aria-label="Augmenter"
-                            disabled={!editMode || l.qty >= 10}
-                            className="rounded-md border border-slate-300 bg-white p-1 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
-                            onClick={() =>
-                              setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.min(10, row.qty + 1) } : row)))
-                            }
-                          >
-                            <Plus size={14} />
-                          </button>
-                        </div>
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-2 border-t border-slate-200/80 pt-2 text-[13px] font-medium leading-none tabular-nums text-slate-800 sm:text-sm">
+                    <div className="min-w-0 justify-self-start truncate">
+                      <span className="text-slate-500">PU</span>{" "}
+                      <strong className="font-semibold text-slate-900">{formatPriceDh(l.price_pph)}</strong>
+                    </div>
+                    <div className="flex shrink-0 items-center justify-center gap-1.5 justify-self-center">
+                      <span className="shrink-0 text-slate-500">Qté</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          aria-label="Diminuer"
+                          disabled={!editMode || l.qty <= 1}
+                          className="rounded-md border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
+                          onClick={() =>
+                            setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.max(1, row.qty - 1) } : row)))
+                          }
+                        >
+                          <Minus size={16} />
+                        </button>
+                        <span className="min-w-[1.5rem] text-center font-semibold text-slate-900">{l.qty}</span>
+                        <button
+                          type="button"
+                          aria-label="Augmenter"
+                          disabled={!editMode || l.qty >= 10}
+                          className="rounded-md border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
+                          onClick={() =>
+                            setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.min(10, row.qty + 1) } : row)))
+                          }
+                        >
+                          <Plus size={16} />
+                        </button>
                       </div>
-                      <p className="shrink-0 text-right text-[11px] font-medium leading-none tabular-nums text-slate-700">
-                        <span className="font-normal text-slate-500">Total</span>{" "}
-                        <span className="font-semibold text-sky-900">
-                          {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
-                        </span>
-                      </p>
+                    </div>
+                    <div className="min-w-0 justify-self-end truncate text-end">
+                      <span className="text-slate-500">Total</span>{" "}
+                      <strong className="font-semibold text-sky-900">
+                        {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
+                      </strong>
                     </div>
                   </div>
                 </div>
