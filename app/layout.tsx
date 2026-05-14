@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import "./globals.css";
@@ -16,6 +16,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ProxiPharma",
   description: "Annuaire et services pharmacies au Maroc",
+};
+
+/** Autorise le zoom navigateur (accessibilité) — évite un viewport figé type maximum-scale=1. */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 export default function RootLayout({

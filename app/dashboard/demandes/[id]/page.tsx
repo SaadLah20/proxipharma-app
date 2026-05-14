@@ -322,24 +322,21 @@ export default function DemandeDetailPage() {
       request.status === "partially_collected" ||
       request.status === "fully_collected");
 
-  const slimPatientProductHeader =
+  const hideMainRequestHeader =
     request.request_type === "product_request" && ["submitted", "in_review"].includes(request.status);
 
   return (
-    <PageShell className="space-y-3 bg-slate-50">
+    <PageShell
+      className={clsx(
+        "space-y-3 bg-slate-50",
+        hideMainRequestHeader && "pb-56"
+      )}
+    >
       <Link href="/dashboard/demandes" className="inline-block text-xs font-medium text-sky-800 underline">
         ← Retour aux demandes de produits
       </Link>
 
-      {slimPatientProductHeader ? (
-        <header className="mt-1 flex flex-wrap items-center gap-2 rounded-md border border-sky-200/70 bg-sky-50/40 px-2 py-1.5 text-[10px] text-sky-950 shadow-sm">
-          <span className="font-bold uppercase tracking-wide text-sky-900/90">Demande prod.</span>
-          <span className="font-mono font-semibold text-foreground">{displayRequestPublicRef(request)}</span>
-          <span className="rounded-full border border-sky-300/80 bg-white/90 px-1.5 py-px text-[9px] font-bold tabular-nums">
-            {items.length} ligne{items.length > 1 ? "s" : ""}
-          </span>
-        </header>
-      ) : (
+      {!hideMainRequestHeader ? (
         <header className="mt-2 rounded-xl border-2 border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 px-2.5 py-1.5 shadow-md shadow-sky-900/[0.06] ring-1 ring-sky-200/55 sm:px-3">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:gap-x-2">
@@ -405,7 +402,7 @@ export default function DemandeDetailPage() {
           </div>
         </div>
       </header>
-      )}
+      ) : null}
 
       {showArchivedProductReadonly ? (
         <PatientRequestOutcomeBanner
@@ -524,7 +521,7 @@ export default function DemandeDetailPage() {
         <p className="text-center text-xs text-muted-foreground">Aucune ligne pour cette demande.</p>
       ) : null}
 
-      <details className="group rounded-xl border border-border/80 bg-card shadow-sm">
+      <details className="group scroll-mb-44 rounded-xl border border-border/80 bg-card shadow-sm">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 marker:content-none [&::-webkit-details-marker]:hidden sm:px-3">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Historique du dossier</span>
