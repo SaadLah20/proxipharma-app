@@ -438,114 +438,127 @@ function PatientValidatedCompactLineCard({
   const eff = effectiveAvailabilityForPatientLine(row);
   const eta = effectiveEtaForPatientLine(row);
 
-  /** Statut seul sur une ligne ; date « à commander » sur une ligne dédiée (évite les coupures sur mobile). */
   const availStatusOnly =
     !row.is_selected_by_patient
       ? "Non retenu lors de votre validation."
       : eff
         ? (availabilityStatusFr[eff] ?? eff)
         : "Dispo communiquée par la pharmacie à l’historique.";
-  const showReceptionEstimateLine = Boolean(row.is_selected_by_patient && eff === "to_order" && eta);
 
-  const ring =
+  const availUi = row.is_selected_by_patient && eff ? availabilityStatusUi(eff) : null;
+  const AvailIcon = availUi?.Icon;
+
+  const shell =
     tier === "dispo_officine"
-      ? "border-emerald-200/80 hover:border-emerald-300"
+      ? "rounded-xl border-2 border-emerald-200 bg-gradient-to-b from-white to-emerald-50/40 px-2.5 py-2 shadow-sm ring-1 ring-emerald-100/90 sm:px-3"
       : tier === "commande"
-        ? "border-teal-200/85 hover:border-teal-300"
+        ? "rounded-xl border-2 border-teal-200 bg-gradient-to-b from-white to-teal-50/40 px-2.5 py-2 shadow-sm ring-1 ring-teal-100/90 sm:px-3"
         : tier === "retire_apres_validation"
-          ? "border-amber-300/85 hover:border-amber-400"
-          : "border-border/85 hover:border-muted-foreground/35";
+          ? "rounded-xl border-2 border-amber-200/90 bg-gradient-to-b from-white to-amber-50/35 px-2.5 py-2 shadow-sm ring-1 ring-amber-100/85 sm:px-3"
+          : "rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-slate-50/50 px-2.5 py-2 shadow-sm ring-1 ring-slate-100/90 sm:px-3";
 
   const withdrawnGrey = tier === "retire_apres_validation";
   const showAjoutOfficineBadge = row.line_source === "pharmacist_proposed";
   return (
     <li
-      className={`overflow-hidden rounded-lg border bg-card shadow-md transition ${ring} ${
-        withdrawnGrey ? "opacity-[0.72] saturate-[0.65]" : ""
-      }`}
+      className={clsx(
+        shell,
+        withdrawnGrey && "opacity-[0.72] saturate-[0.65]"
+      )}
     >
-      <div className="flex items-start gap-2 p-2 sm:gap-2.5 sm:p-2.5">
-        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/20 sm:h-[3.75rem] sm:w-[3.75rem]">
-          {thumbUrl ? (
-            onPhotoPreview ? (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-start gap-2">
+          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner">
+            {thumbUrl ? (
+              onPhotoPreview ? (
+                <button
+                  type="button"
+                  className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                  onClick={() => onPhotoPreview(thumbUrl, validatedName)}
+                  aria-label={`Agrandir la photo · ${validatedName}`}
+                >
+                  <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
+                </button>
+              ) : (
+                <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
+              )
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <Package className="size-6 text-muted-foreground" aria-hidden />
+              </div>
+            )}
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <div className="flex items-start justify-between gap-2">
+              <p
+                className="min-w-0 flex-1 overflow-hidden text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
+                style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
+              >
+                {validatedName}
+              </p>
               <button
                 type="button"
-                className="relative size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                onClick={() => onPhotoPreview(thumbUrl, validatedName)}
-                aria-label={`Agrandir la photo · ${validatedName}`}
+                onClick={onOpenHistory}
+                className="shrink-0 rounded-lg border border-slate-300 bg-white p-1.5 text-slate-700 shadow-sm hover:bg-slate-50"
+                aria-label="Historique de cette ligne"
+                title="Historique"
               >
-                <img src={thumbUrl} alt="" className="pointer-events-none size-full object-cover" />
+                <History className="size-4 shrink-0" strokeWidth={2} aria-hidden />
               </button>
-            ) : (
-              <img src={thumbUrl} alt="" className="size-full object-cover" />
-            )
-          ) : (
-            <div className="flex size-full items-center justify-center">
-              <Package className="size-6 text-muted-foreground sm:size-7" aria-hidden />
             </div>
-          )}
-        </div>
-        <div className="relative min-w-0 flex-1">
-          <button
-            type="button"
-            onClick={onOpenHistory}
-            className="absolute right-0 top-0 z-10 inline-flex size-8 touch-manipulation items-center justify-center rounded-md border border-primary/35 bg-card/95 text-primary shadow-sm backdrop-blur-[2px] hover:bg-primary/10 sm:size-9"
-            aria-label="Historique de cette ligne"
-            title="Historique"
-          >
-            <History className="size-4 shrink-0 sm:size-[1.125rem]" strokeWidth={2} aria-hidden />
-          </button>
-
-          <p className="line-clamp-2 pr-10 text-[12px] font-semibold leading-snug text-foreground sm:pr-11 sm:text-[13px]">
-            {validatedName}
-          </p>
-
-          <div className="mt-1.5 space-y-1 pr-10 sm:pr-11">
-            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-snug text-muted-foreground">
-              <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground/90">Qté</span>
-              <span className="tabular-nums font-semibold text-foreground">{validatedQty}</span>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
+              {availUi && AvailIcon ? (
+                <span
+                  className={clsx(
+                    "inline-flex max-w-full items-center gap-1 rounded-full px-1.5 py-px text-[9px] font-semibold ring-1",
+                    availUi.badgeClass
+                  )}
+                  title={availUi.label}
+                >
+                  <AvailIcon className="size-2.5 shrink-0" aria-hidden />
+                  <span className="truncate">{availUi.label}</span>
+                </span>
+              ) : (
+                <span className="text-[10px] leading-snug text-foreground/90">{availStatusOnly}</span>
+              )}
               {showAjoutOfficineBadge ? (
-                <span className="rounded bg-violet-100 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-violet-950">
+                <span className="rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
                   Ajout officine
                 </span>
               ) : null}
               {tier === "retire_apres_validation" ? (
-                <span className="rounded bg-amber-100 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-950">
+                <span className="rounded-full bg-amber-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
                   Écart
                 </span>
               ) : null}
             </div>
-            <div className="text-[11px] leading-snug">
-              <span className="block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Statut</span>
-              <span className="text-foreground">{availStatusOnly}</span>
-            </div>
-            {showReceptionEstimateLine && eta ? (
-              <div className="text-[10px] leading-snug text-muted-foreground">
-                <span className="block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Réception estimée</span>
-                <span className="tabular-nums whitespace-nowrap text-foreground/90">{formatDateShortFr(eta)}</span>
-              </div>
-            ) : null}
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 border-t border-border/40 pt-1.5 text-[11px] leading-tight">
-              <div className="min-w-0">
-                <span className="block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Prix unit.</span>
-                <span className="tabular-nums font-semibold text-foreground">
-                  {unitMad != null ? `${unitMad.toFixed(2)} MAD` : "—"}
-                </span>
-              </div>
-              <div className="min-w-0 text-end sm:text-start">
-                <span className="block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Total</span>
-                <span
-                  className={`tabular-nums font-semibold text-primary ${withdrawnGrey ? "line-through decoration-muted-foreground/70" : ""}`}
-                >
-                  {lineTotalMad != null ? `${lineTotalMad.toFixed(2)} MAD` : "—"}
-                </span>
-              </div>
-            </div>
+            {row.is_selected_by_patient && eff === "to_order" && eta ? <RespondedReceptionBadgeFr dateYmd={eta} /> : null}
+          </div>
+        </div>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-2 border-t border-slate-200/80 pt-2 text-[13px] font-medium leading-none tabular-nums text-slate-800 sm:text-sm">
+          <div className="min-w-0 justify-self-start truncate">
+            <span className="text-slate-500">PU</span>{" "}
+            <strong className="font-semibold text-slate-900">{formatPriceDh(unitMad)}</strong>
+          </div>
+          <div className="flex shrink-0 justify-center justify-self-center">
+            <span className="text-slate-500">Qté</span>{" "}
+            <strong className="font-semibold text-slate-900">{validatedQty}</strong>
+          </div>
+          <div className="min-w-0 justify-self-end truncate text-end">
+            <span className="text-slate-500">Total</span>{" "}
+            <strong
+              className={clsx(
+                "font-semibold text-sky-900",
+                withdrawnGrey && "line-through decoration-muted-foreground/70"
+              )}
+            >
+              {formatPriceDh(lineTotalMad)}
+            </strong>
           </div>
         </div>
       </div>
       {postConfirmBadges && postConfirmBadges.length > 0 ? (
-        <div className="border-t border-border/55 px-2.5 pt-1.5 sm:px-3">
+        <div className="mt-2 border-t border-border/55 pt-2">
           <div className="flex flex-wrap gap-1">
             {postConfirmBadges.map((label) => (
               <span
@@ -558,7 +571,7 @@ function PatientValidatedCompactLineCard({
           </div>
         </div>
       ) : null}
-      <div className="px-2 pb-1 sm:px-2.5">
+      <div className="mt-2 border-t border-dotted border-border/60 pt-2">
         <PatientRespondedLineConvoStripReadOnly
           patientNote={row.client_comment ?? ""}
           pharmaLineNote={row.pharmacist_comment ?? ""}
@@ -568,11 +581,11 @@ function PatientValidatedCompactLineCard({
       row.is_selected_by_patient &&
       tier !== "retire_apres_validation" &&
       !row.withdrawn_after_confirm ? (
-        <div className="border-t border-slate-200/85 bg-slate-50/90 px-2.5 py-1.5 sm:px-3">
+        <div className="mt-2 border-t border-slate-200/85 bg-slate-50/90 px-2 py-2 sm:px-2.5">
           <PatientTreatedLineSuiviStrip row={row} />
         </div>
       ) : treatedSupplyStatusLine != null && treatedSupplyStatusLine.trim() !== "" ? (
-        <div className="border-t border-slate-200/85 bg-slate-50/90 px-2.5 py-1.5 sm:px-3">
+        <div className="mt-2 border-t border-slate-200/85 bg-slate-50/90 px-2 py-2 sm:px-2.5">
           <p className="text-[10px] font-semibold leading-snug text-slate-800">{treatedSupplyStatusLine}</p>
         </div>
       ) : null}
@@ -1121,9 +1134,13 @@ function PatientSentEnvoyeeSummaryCard({
   const statusHint =
     status === "responded"
       ? "Un choix par produit, puis date de passage et validation."
-      : status === "in_review"
-        ? "Un pharmacien examine votre liste. Vous serez averti dès que la réponse (disponibilités, alternatives le cas échéant) sera prête."
-        : "Votre liste est en file d’attente : un pharmacien la traitera et vous répondra avec les disponibilités et les éventuelles alternatives.";
+      : status === "confirmed"
+        ? "Ta pharmacie prépare ta commande (mise de côté et commandes fournisseur selon les produits). Les mises à jour restent visibles sur cette page."
+        : status === "treated"
+          ? "Tu peux passer à l’officine pour retirer les produits réservés et ceux commandés déjà reçus. Le suivi par produit est indiqué sur chaque carte. Tu peux mettre à jour ta date de passage plus bas sur cette page ; la pharmacie voit le changement."
+          : status === "in_review"
+            ? "Un pharmacien examine votre liste. Vous serez averti dès que la réponse (disponibilités, alternatives le cas échéant) sera prête."
+            : "Votre liste est en file d’attente : un pharmacien la traitera et vous répondra avec les disponibilités et les éventuelles alternatives.";
   return (
     <div className="mb-2 rounded-lg border-2 border-sky-500/35 bg-gradient-to-br from-sky-500/12 via-white to-teal-50/30 px-2 py-2 text-[10px] leading-snug shadow-sm ring-1 ring-sky-400/35 sm:px-2.5">
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1 border-b border-sky-200/70 pb-1.5">
@@ -2076,6 +2093,13 @@ export function PatientProductRequestActions({
   const [visitHour, setVisitHour] = useState(() => splitVisitHm(initialPlannedVisitTime).h);
   const [visitMinute, setVisitMinute] = useState(() => splitVisitHm(initialPlannedVisitTime).m);
 
+  useEffect(() => {
+    setVisitDate(initialPlannedVisitDate ?? "");
+    const hm = splitVisitHm(initialPlannedVisitTime);
+    setVisitHour(hm.h);
+    setVisitMinute(hm.m);
+  }, [initialPlannedVisitDate, initialPlannedVisitTime]);
+
   const [lines, setLines] = useState<ResubmitLine[]>(() =>
     computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status))
   );
@@ -2146,6 +2170,28 @@ export function PatientProductRequestActions({
     const mi = Math.min(59, Math.max(0, Number.parseInt(m, 10) || 0));
     return `${String(hi).padStart(2, "0")}:${String(mi).padStart(2, "0")}`;
   }, [visitHour, visitMinute]);
+
+  const baselineResolvedVisitDate = useMemo(() => {
+    const raw = (initialPlannedVisitDate ?? "").trim();
+    if (raw !== "") return clampVisitYmd(raw, visitWin.minYmd, visitWin.maxYmd);
+    return visitWin.minYmd;
+  }, [initialPlannedVisitDate, visitWin.minYmd, visitWin.maxYmd]);
+
+  const baselineVisitTimeComposed = useMemo(() => {
+    const { h, m } = splitVisitHm(initialPlannedVisitTime);
+    const hci = h.trim();
+    const mci = m.trim();
+    if (hci === "" && mci === "") return "";
+    const hi = Math.min(23, Math.max(0, Number.parseInt(hci, 10) || 0));
+    const mi = Math.min(59, Math.max(0, Number.parseInt(mci, 10) || 0));
+    return `${String(hi).padStart(2, "0")}:${String(mi).padStart(2, "0")}`;
+  }, [initialPlannedVisitTime]);
+
+  const visitPassageDirty = useMemo(
+    () =>
+      resolvedVisitDate !== baselineResolvedVisitDate || visitTimeComposed !== baselineVisitTimeComposed,
+    [resolvedVisitDate, baselineResolvedVisitDate, visitTimeComposed, baselineVisitTimeComposed]
+  );
 
   const historyModalRow = useMemo(
     () => (historyModalItemId ? items.find((r) => r.id === historyModalItemId) ?? null : null),
@@ -2470,6 +2516,15 @@ export function PatientProductRequestActions({
   };
 
   const totalsRetained = useMemo(() => monetaryTotalsForRetainedLines(items), [items]);
+  const totalRetainedGrandLabel = useMemo(
+    () =>
+      compactTotalMadLabel({
+        sumKnown: totalsRetained.sumKnown,
+        missingPrice: totalsRetained.missingPrice,
+        empty: totalsRetained.count < 1,
+      }),
+    [totalsRetained]
+  );
 
   const resubmitBaseline = useMemo(
     () => computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status)),
@@ -2546,13 +2601,16 @@ export function PatientProductRequestActions({
 
   return (
     <section
-      className={`touch-pan-y mt-2 rounded-xl border-2 border-slate-200 bg-slate-50/95 p-2.5 sm:p-3 ${showResubmit ? "pb-40" : ""} ${showConfirm ? "pb-40" : ""}`}
+      className={clsx(
+        "touch-pan-y mt-2 rounded-xl border-2 border-slate-200 bg-slate-50/95 p-2.5 sm:p-3",
+        (showResubmit || showConfirm || showConfirmedCards) && "pb-40"
+      )}
     >
       {actionError ? (
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
       ) : null}
 
-      {(showResubmit || showConfirm) && pharmacyId ? (
+      {(showResubmit || showConfirm || showConfirmedCards) && pharmacyId ? (
         <PatientSentEnvoyeeSummaryCard
           pharmacyContact={pharmacyContact}
           pharmacyId={pharmacyId}
@@ -2597,55 +2655,11 @@ export function PatientProductRequestActions({
           const lignesNonRetenues = items.filter((r) => !r.is_selected_by_patient);
           const subtotalDispo = monetaryTotalsForRetainedLines(dispoRetenues);
           const subtotalCommande = monetaryTotalsForRetainedLines(aCommanderRetenues);
-          const totalGrandLabel = compactTotalMadLabel({
-            sumKnown: totalsRetained.sumKnown,
-            missingPrice: totalsRetained.missingPrice,
-            empty: totalsRetained.count < 1,
-          });
 
           return (
-            <div className="space-y-2">
-              {status === "confirmed" ? (
-                <div
-                  role="status"
-                  className="flex items-start gap-2 rounded-lg border border-sky-200/90 bg-gradient-to-r from-sky-50/95 via-white to-teal-50/40 px-2.5 py-2 shadow-sm ring-1 ring-sky-200/45"
-                >
-                  <Package className="mt-0.5 size-4 shrink-0 text-sky-700" strokeWidth={2} aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-bold leading-snug text-sky-950">Préparation en cours</p>
-                    <p className="mt-0.5 text-[10px] leading-snug text-sky-900/88">
-                      Ta pharmacie prépare ta commande (mise de côté et commandes fournisseur selon les produits). Les
-                      mises à jour restent visibles sur cette page.
-                    </p>
-                  </div>
-                </div>
-              ) : status === "treated" ? (
-                <div
-                  role="status"
-                  className="flex items-start gap-2 rounded-lg border border-emerald-200/90 bg-gradient-to-r from-emerald-50/95 via-white to-violet-50/40 px-2.5 py-2 shadow-sm ring-1 ring-emerald-200/45"
-                >
-                  <Package className="mt-0.5 size-4 shrink-0 text-emerald-700" strokeWidth={2} aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-bold leading-snug text-emerald-950">Commande traitée — passage comptoir</p>
-                    <p className="mt-0.5 text-[10px] leading-snug text-emerald-950/90">
-                      Tu peux passer à l&apos;officine pour retirer les produits réservés et ceux commandés déjà reçus.
-                      Le suivi par produit est indiqué sur chaque carte. Tu peux mettre à jour ta date de passage plus bas
-                      sur cette page ; la pharmacie voit le changement.
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto rounded-md border border-primary/20 bg-primary/[0.06] px-2 py-1.5">
-                <p className="shrink-0 text-[10px] font-semibold text-foreground">
-                  <span className="tabular-nums">{totalsRetained.count}</span>{" "}
-                  {totalsRetained.count > 1 ? "produits retenus" : "produit retenu"}
-                </p>
-                <p className="shrink-0 text-[10px] font-semibold tabular-nums text-primary whitespace-nowrap">
-                  {totalGrandLabel}
-                </p>
-              </div>
-
+            <section className="space-y-2">
+              <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Produits</h3>
+              <div className="space-y-2">
               <div className="rounded-xl border-2 border-emerald-200/70 bg-gradient-to-b from-emerald-50/30 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-emerald-200/45 sm:p-3">
               {dispoRetenues.length > 0 ? (
                 <section className="space-y-2">
@@ -2793,13 +2807,17 @@ export function PatientProductRequestActions({
                   </ul>
                 </details>
               ) : null}
-            </div>
+              </div>
+            </section>
           );
         })()
       ) : null}
 
-      {showResubmit && editMode ? (
-        <div className="mt-2 rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+      {showResubmit ? (
+        <section className="mt-2 space-y-2">
+          <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Produits</h3>
+          {editMode ? (
+        <div className="rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-sm sm:p-4">
           <label className="block text-base font-semibold text-slate-900">Ajouter un produit</label>
           <p className="mt-1 text-sm text-slate-600">
             Au moins 2 caractères : recherche par nom ou laboratoire dans le catalogue.
@@ -2847,10 +2865,7 @@ export function PatientProductRequestActions({
             <p className="mt-2 text-xs text-muted-foreground">Aucun résultat.</p>
           ) : null}
         </div>
-      ) : null}
-
-      {showResubmit ? (
-        <div className="mt-2">
+          ) : null}
           <ul className="space-y-2">
             {lines.map((l, idx) => (
               <li
@@ -2969,7 +2984,7 @@ export function PatientProductRequestActions({
               </li>
             ))}
           </ul>
-        </div>
+        </section>
       ) : null}
 
       <div className="mt-2 space-y-2">
@@ -3043,17 +3058,6 @@ export function PatientProductRequestActions({
           </div>
         ) : null}
 
-        {showConfirmedCards ? (
-          <button
-            type="button"
-            disabled={busyAction !== ""}
-            onClick={() => void runUpdateVisit()}
-            className="w-full rounded border border-primary/30 bg-primary/10 py-1.5 text-[11px] font-semibold text-primary disabled:opacity-50"
-          >
-            {busyAction === "visit" ? "Mise à jour…" : "Mettre à jour ma date de passage"}
-          </button>
-        ) : null}
-
         {(showConfirm || showConfirmedCards) ? (
           pharmacyContact ? (
             <div className="mt-2">
@@ -3073,7 +3077,8 @@ export function PatientProductRequestActions({
             className={clsx(
               "mt-4 border-t border-rose-200/50 pt-3",
               showResubmit && "mb-20",
-              showConfirm && "mb-24"
+              showConfirm && "mb-24",
+              showConfirmedCards && "mb-32"
             )}
           >
             <button
@@ -3106,7 +3111,7 @@ export function PatientProductRequestActions({
           </div>
         ) : null}
 
-        {showConfirm ? (
+        {showConfirm || showConfirmedCards ? (
           <p className="rounded-lg border border-sky-200/70 bg-white/90 px-2.5 py-2 text-[10px] leading-snug text-sky-950 shadow-sm">
             Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
             <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
@@ -3115,18 +3120,16 @@ export function PatientProductRequestActions({
       </div>
 
       {showResubmit ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 py-2.5 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
-          <div className="mx-auto flex max-w-lg flex-col gap-2 px-4 sm:px-5">
-            <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
-              <p className="text-sm font-medium text-slate-700">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
+          <div className="mx-auto flex max-w-lg flex-col gap-2.5">
+            <div className="flex flex-nowrap items-center justify-between gap-3">
+              <p className="min-w-0 shrink text-sm font-medium text-slate-700 sm:text-base">
                 <span className="font-bold tabular-nums text-slate-950">{lines.length}</span>{" "}
                 produit{lines.length > 1 ? "s" : ""}
               </p>
-              <div className="text-right">
-                <p className="text-[10px] font-medium text-muted-foreground">Total indicatif (catalogue)</p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums text-sky-900 sm:text-xl">
-                  {formatPriceDh(resubmitTotal)}
-                </p>
+              <div className="shrink-0 text-right">
+                <p className="sr-only">Total indicatif, prix catalogue pharmacie</p>
+                <p className="text-lg font-bold tabular-nums text-sky-900 sm:text-xl">{formatPriceDh(resubmitTotal)}</p>
               </div>
             </div>
             {!editMode ? (
@@ -3200,6 +3203,30 @@ export function PatientProductRequestActions({
               className="w-full shrink-0 rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50 sm:ms-auto sm:w-auto sm:min-w-[220px]"
             >
               Valider ma demande
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showConfirmedCards ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
+          <div className="mx-auto flex max-w-lg flex-col gap-2.5">
+            <div className="flex flex-nowrap items-center justify-between gap-3">
+              <p className="min-w-0 shrink text-sm font-medium text-slate-700 sm:text-base">
+                <span className="font-bold tabular-nums text-slate-950">{totalsRetained.count}</span>{" "}
+                {totalsRetained.count > 1 ? "produits retenus" : "produit retenu"}
+              </p>
+              <p className="shrink-0 whitespace-nowrap text-lg font-bold tabular-nums text-sky-900 sm:text-xl">
+                {totalRetainedGrandLabel}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={busyAction !== "" || !visitPassageDirty}
+              onClick={() => void runUpdateVisit()}
+              className="w-full shrink-0 rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50 sm:ms-auto sm:w-auto sm:min-w-[220px]"
+            >
+              {busyAction === "visit" ? "Mise à jour…" : "Mettre à jour ma date de passage"}
             </button>
           </div>
         </div>
