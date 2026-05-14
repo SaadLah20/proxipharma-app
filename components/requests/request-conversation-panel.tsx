@@ -112,11 +112,12 @@ export function RequestConversationFabDock({
     const dx = e.clientX - s.startX;
     const dy = e.clientY - s.startY;
     if (!s.dragging) {
-      if (dx * dx + dy * dy < 36) return;
+      // Seuil un peu plus large : évite d’interpréter un tap comme un micro-glissement.
+      if (dx * dx + dy * dy < 100) return;
       s.dragging = true;
     }
-    const w = fabRef.current?.offsetWidth ?? 40;
-    const h = fabRef.current?.offsetHeight ?? 40;
+    const w = fabRef.current?.offsetWidth ?? 48;
+    const h = fabRef.current?.offsetHeight ?? 48;
     setInset({
       right: clamp(s.startRight - dx, 8, window.innerWidth - w - 8),
       bottom: clamp(s.startBottom - dy, 8, window.innerHeight - h - 8),
@@ -134,8 +135,9 @@ export function RequestConversationFabDock({
     } catch {
       /* déjà relâché */
     }
+    // Toujours consommer le clic souris synthétique suivant (évite double action / ouverture ratée).
+    suppressClickRef.current = true;
     if (wasDrag) {
-      suppressClickRef.current = true;
       const el = fabRef.current;
       if (el) {
         const rect = el.getBoundingClientRect();
@@ -146,6 +148,8 @@ export function RequestConversationFabDock({
         setInset(pos);
         writeFabInset(pos);
       }
+    } else {
+      onOpen();
     }
   };
 
@@ -165,6 +169,7 @@ export function RequestConversationFabDock({
       e.stopPropagation();
       return;
     }
+    // Clavier / lecteur d’écran (pas de séquence pointer sur le bouton).
     onOpen();
   };
 
@@ -178,12 +183,12 @@ export function RequestConversationFabDock({
     <div
       ref={fabRef}
       style={style}
-      className="pointer-events-auto fixed z-[10050] flex size-10 items-center justify-center"
+      className="pointer-events-auto fixed z-[10050] flex size-12 items-center justify-center"
     >
       <button
         type="button"
         className={cn(
-          "relative flex size-10 touch-none select-none items-center justify-center rounded-full border transition active:scale-[0.97]",
+          "relative flex size-12 touch-none select-none items-center justify-center rounded-full border transition active:scale-[0.97]",
           toneRing
         )}
         title={
@@ -198,7 +203,7 @@ export function RequestConversationFabDock({
         onPointerCancel={onPointerCancel}
         onClick={onClick}
       >
-        <MessagesSquare className="size-[1.05rem] shrink-0" strokeWidth={2.25} aria-hidden />
+        <MessagesSquare className="size-[1.35rem] shrink-0" strokeWidth={2.25} aria-hidden />
         {hasUnread ? (
           <span className="absolute end-0.5 top-0.5 size-2 rounded-full bg-destructive shadow-sm ring-2 ring-card" aria-hidden />
         ) : null}

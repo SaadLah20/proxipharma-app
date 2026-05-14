@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { createPortal } from "react-dom";
 import {
   ChevronDown,
@@ -18,17 +19,18 @@ import {
   Plus,
   Search,
   ShoppingCart,
+  StickyNote,
   Trash2,
   X,
 } from "lucide-react";
 import { clsx } from "clsx";
-import { formatDateShortFr, formatPlannedVisitFr, formatTime24hFr } from "@/lib/datetime-fr";
+import { formatDateShortFr, formatDateTimeShort24hFr, formatPlannedVisitFr, formatTime24hFr } from "@/lib/datetime-fr";
 import {
   RequestExitConfirmModalFr,
   type RequestExitModalMode,
 } from "@/components/requests/request-exit-confirm-modal-fr";
 import type { PatientCancelReasonCode } from "@/lib/patient-flow-reasons";
-import { availabilityStatusFr, requestItemLineSourceFr } from "@/lib/request-display";
+import { availabilityStatusFr, requestItemLineSourceFr, requestStatusFr } from "@/lib/request-display";
 import { plannedVisitWindow } from "@/lib/planned-visit";
 import {
   bucketPatientValidatedLinesThreeWays,
@@ -918,6 +920,7 @@ type ResubmitLine = {
   qty: number;
   price_pph?: number | null;
   client_comment: string;
+  pharmacist_comment?: string | null;
   line_source?: string | null;
   pharmacist_proposal_reason?: string | null;
 };
@@ -936,9 +939,138 @@ function computeResubmitLinesFromItems(items: ActionItemRow[]): ResubmitLine[] {
     qty: Math.min(10, Math.max(1, row.requested_qty)),
     price_pph: one(row.products)?.price_pph ?? null,
     client_comment: row.client_comment ?? "",
+    pharmacist_comment: row.pharmacist_comment ?? "",
     line_source: row.line_source ?? null,
     pharmacist_proposal_reason: row.pharmacist_proposal_reason ?? null,
   }));
+}
+
+function resubmitLinesSignature(ls: ResubmitLine[]): string {
+  return ls
+    .map((l) =>
+      [
+        l.product_id,
+        String(l.qty),
+        l.client_comment.trim(),
+        (l.pharmacist_comment ?? "").trim(),
+        l.line_source ?? "",
+        l.pharmacist_proposal_reason ?? "",
+      ].join(":")
+    )
+    .join(">");
+}
+
+function PatientSentLineNoteGlyph({ client, pharmacist }: { client: string; pharmacist: string }) {
+  const c = client.trim().length > 0;
+  const p = pharmacist.trim().length > 0;
+  let title = "Aucune note sur ce produit.";
+  let cls = "text-muted-foreground/55";
+  if (c && p) {
+    title = "Note patient et note pharmacien sur cette ligne.";
+    cls = "text-violet-700";
+  } else if (c) {
+    title = "Vous avez laissé un commentaire sur cette ligne.";
+    cls = "text-sky-700";
+  } else if (p) {
+    title = "Commentaire pharmacien sur cette ligne.";
+    cls = "text-emerald-800";
+  }
+  return (
+    <span className="inline-flex shrink-0 items-center" title={title}>
+      <StickyNote className={clsx("size-4", cls)} strokeWidth={2} aria-hidden />
+      <span className="sr-only">{title}</span>
+    </span>
+  );
+}
+
+function PatientSentEnvoyeeSummaryCard({
+  pharmacyContact,
+  pharmacyId,
+  dossierRefLabel,
+  lineCount,
+  status,
+  createdAt,
+  updatedAt,
+}: {
+  pharmacyContact: PatientPharmacyContactInfo | null;
+  pharmacyId: string;
+  dossierRefLabel: string;
+  lineCount: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}) {
+  const ph = pharmacyContact;
+  const titleLine =
+    ph?.nom?.trim() != null && ph.nom.trim() !== ""
+      ? `${ph.nom.trim()}${ph.ville?.trim() ? ` · ${ph.ville.trim()}` : ""}`
+      : "Officine";
+  const phRef = ph?.public_ref?.trim();
+  const statusHint =
+    status === "in_review"
+      ? "Un pharmacien examine votre liste. Vous serez averti dès que la réponse (disponibilités, prix catalogue, alternatives le cas échéant) sera prête."
+      : "Votre liste est en file d’attente : un pharmacien la traitera et vous répondra avec les disponibilités, les prix (PU) et les éventuelles alternatives.";
+  return (
+    <div className="mb-2 rounded-lg border-2 border-sky-500/35 bg-gradient-to-br from-sky-500/12 via-white to-teal-50/30 px-2 py-2 text-[10px] leading-snug shadow-sm ring-1 ring-sky-400/35 sm:px-2.5">
+      <div className="flex flex-wrap items-start gap-x-2 gap-y-1 border-b border-sky-200/70 pb-1.5">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="text-[11px] font-bold leading-tight text-sky-950">{titleLine}</p>
+          <p className="text-[9px] text-sky-900/90">
+            {phRef ? <span className="font-mono font-semibold text-foreground">Off. {phRef}</span> : null}
+            {phRef ? <span aria-hidden> · </span> : null}
+            <span className="font-mono font-semibold text-foreground">Dem. {dossierRefLabel}</span>
+          </p>
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9px] text-sky-900/85">
+            <span className="rounded border border-sky-300/60 bg-white/90 px-1 py-px font-semibold uppercase tracking-wide text-sky-900">
+              Horaires
+            </span>
+            <Link href={`/pharmacie/${pharmacyId}`} className="font-semibold text-sky-800 underline underline-offset-2">
+              Voir fiche & horaires
+            </Link>
+          </p>
+        </div>
+        {ph ? (
+          <details className="group relative shrink-0">
+            <summary className="flex cursor-pointer list-none items-center gap-1 rounded-md border border-sky-400/70 bg-white/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-sky-950 shadow-sm marker:content-none hover:bg-sky-50 [&::-webkit-details-marker]:hidden">
+              Contacter
+              <ChevronDown className="size-3 text-sky-700 transition group-open:rotate-180" aria-hidden />
+            </summary>
+            <div className="absolute right-0 z-[60] mt-1 min-w-[12rem] max-w-[min(100vw-2rem,18rem)] rounded-lg border border-sky-200 bg-card p-2 shadow-lg ring-1 ring-sky-200/60">
+              <PatientPharmacyQuickContact pharmacy={ph} requestRef={dossierRefLabel} />
+            </div>
+          </details>
+        ) : null}
+      </div>
+      <p className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 border-b border-sky-200/60 pb-1.5 text-[9px] text-sky-950/88">
+        <span className="font-bold uppercase tracking-wide text-sky-900/90">Demande</span>
+        <span>Demande de produits</span>
+        <span aria-hidden>·</span>
+        <span className="tabular-nums font-semibold">
+          {lineCount} ligne{lineCount > 1 ? "s" : ""}
+        </span>
+        <span aria-hidden>·</span>
+        <span>
+          Créée{" "}
+          <span className="font-medium tabular-nums text-foreground">
+            {createdAt ? formatDateTimeShort24hFr(createdAt) : "—"}
+          </span>
+        </span>
+        <span aria-hidden>·</span>
+        <span>
+          MAJ{" "}
+          <span className="font-medium tabular-nums text-foreground">
+            {updatedAt ? formatDateTimeShort24hFr(updatedAt) : "—"}
+          </span>
+        </span>
+      </p>
+      <div className="mt-1.5 flex flex-wrap items-start gap-2">
+        <span className="shrink-0 rounded-full border border-amber-300/90 bg-amber-50 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-amber-950">
+          {requestStatusFr[status] ?? status}
+        </span>
+        <p className="min-w-0 flex-1 text-[9px] leading-snug text-sky-950/90">{statusHint}</p>
+      </div>
+    </div>
+  );
 }
 
 type ProductHit = {
@@ -955,6 +1087,7 @@ export type PatientPharmacyContactInfo = {
   ville?: string | null;
   telephone?: string | null;
   contact_email?: string | null;
+  public_ref?: string | null;
 };
 
 type Props = {
@@ -978,6 +1111,9 @@ type Props = {
   };
   /** `request_status_history` (filtre audit par produit dans le modal). */
   dossierHistoryRows?: { id: string; created_at: string; old_status: string | null; new_status: string; reason: string | null }[];
+  /** Pour lien annuaire + récap « envoyées ». */
+  pharmacyId?: string | null;
+  requestUpdatedAt?: string | null;
 };
 
 function clampVisitYmd(ymd: string, minY: string, maxY: string): string {
@@ -1745,6 +1881,8 @@ export function PatientProductRequestActions({
   supplyAmendmentBundles = [],
   requestTimelineMeta = undefined,
   dossierHistoryRows = [],
+  pharmacyId = null,
+  requestUpdatedAt = null,
 }: Props) {
   const [actionError, setActionError] = useState("");
   const [historyModalItemId, setHistoryModalItemId] = useState<string | null>(null);
@@ -2178,6 +2316,15 @@ export function PatientProductRequestActions({
 
   const totalsRetained = useMemo(() => monetaryTotalsForRetainedLines(items), [items]);
 
+  const resubmitBaseline = useMemo(
+    () => computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status)),
+    [items, status]
+  );
+  const resubmitDirty = useMemo(() => {
+    if (status !== "submitted" && status !== "in_review") return false;
+    return resubmitLinesSignature(lines) !== resubmitLinesSignature(resubmitBaseline);
+  }, [status, lines, resubmitBaseline]);
+
   const interactiveAllowed =
     status === "submitted" ||
     status === "in_review" ||
@@ -2244,10 +2391,22 @@ export function PatientProductRequestActions({
 
   return (
     <section
-      className={`touch-pan-y mt-2 rounded-xl border-2 border-slate-200 bg-slate-50/95 p-2.5 sm:p-3 ${showResubmit ? "pb-28" : ""} ${showConfirm ? "pb-28" : ""}`}
+      className={`touch-pan-y mt-2 rounded-xl border-2 border-slate-200 bg-slate-50/95 p-2.5 sm:p-3 ${showResubmit ? "pb-40" : ""} ${showConfirm ? "pb-28" : ""}`}
     >
       {actionError ? (
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
+      ) : null}
+
+      {showResubmit && pharmacyId ? (
+        <PatientSentEnvoyeeSummaryCard
+          pharmacyContact={pharmacyContact}
+          pharmacyId={pharmacyId}
+          dossierRefLabel={dossierRefLabel}
+          lineCount={lines.length}
+          status={status}
+          createdAt={requestTimelineMeta?.created_at ?? ""}
+          updatedAt={requestUpdatedAt ?? requestTimelineMeta?.created_at ?? ""}
+        />
       ) : null}
 
       {showConfirm ? (
@@ -2607,14 +2766,16 @@ export function PatientProductRequestActions({
                     >
                       {l.name}
                     </p>
-                    <div className="mt-1.5 flex flex-nowrap items-baseline justify-between gap-2 border-b border-slate-200/90 pb-2">
-                      <span className="min-w-0 shrink text-[13px] text-slate-600 sm:text-sm">
+                    <div className="mt-1.5 flex flex-nowrap items-baseline justify-between gap-2 border-b border-slate-200/90 pb-1.5">
+                      <span className="min-w-0 shrink text-[12px] font-medium leading-tight text-slate-700">
                         <span className="font-semibold text-slate-500">PU</span>{" "}
                         <strong className="whitespace-nowrap tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
                       </span>
-                      <span className="shrink-0 whitespace-nowrap text-sm font-bold tabular-nums text-sky-900">
-                        <span className="font-semibold text-sky-800/90">Tot</span>{" "}
-                        {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
+                      <span className="inline-flex shrink-0 items-center gap-1.5">
+                        <PatientSentLineNoteGlyph client={l.client_comment} pharmacist={l.pharmacist_comment ?? ""} />
+                        <span className="text-[9px] font-medium tabular-nums text-muted-foreground" title="Total indicatif">
+                          ≈ {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
+                        </span>
                       </span>
                     </div>
                     {l.line_source === "pharmacist_proposed" ? (
@@ -2834,46 +2995,62 @@ export function PatientProductRequestActions({
       </div>
 
       {showResubmit ? (
-        <div className="mt-3 space-y-2 rounded-md border border-amber-200/80 bg-amber-50/50 p-2.5 shadow-sm sm:p-3">
-          <button
-            type="button"
-            onClick={() => {
-              if (editMode) {
-                resetResubmitDraft();
-                setEditMode(false);
-              } else {
-                setEditMode(true);
-              }
-            }}
-            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-amber-400/90 bg-white px-3 text-xs font-semibold text-amber-950 shadow-sm hover:bg-amber-50/90"
-          >
-            <Pencil size={15} />
-            {editMode ? "Annuler les modifications" : "Modifier"}
-          </button>
-
-          {editMode ? (
-            <button
-              type="button"
-              disabled={busyAction !== "" || lines.length === 0}
-              onClick={() => openResubmitConfirm()}
-              className="w-full rounded-lg border border-amber-600 bg-amber-100/80 py-2.5 text-sm font-semibold text-amber-950 shadow-sm disabled:opacity-50"
-            >
-              {busyAction === "resubmit" ? "Envoi…" : "Mettre à jour et renvoyer"}
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      {showResubmit ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
-          <div className="mx-auto flex max-w-lg flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 sm:px-5">
-            <p className="text-base text-slate-700">
-              <span className="font-bold tabular-nums text-slate-950">{lines.length}</span>{" "}
-              <span className="font-medium">{lines.length > 1 ? "produits" : "produit"}</span>
-            </p>
-            <p className="text-lg font-bold tracking-tight text-slate-950">
-              TOTAL: <span className="tabular-nums text-sky-900">{formatPriceDh(resubmitTotal)}</span>
-            </p>
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 py-2.5 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
+          <div className="mx-auto flex max-w-lg flex-col gap-2 px-4 sm:px-5">
+            <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
+              <p className="text-sm font-medium text-slate-700">
+                <span className="font-bold tabular-nums text-slate-950">{lines.length}</span>{" "}
+                produit{lines.length > 1 ? "s" : ""}
+              </p>
+              <p className="text-[10px] font-medium tabular-nums text-muted-foreground" title="Total indicatif (catalogue)">
+                Total ≈ <span className="text-slate-600">{formatPriceDh(resubmitTotal)}</span>
+              </p>
+            </div>
+            {!editMode ? (
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={busyAction !== ""}
+                  onClick={() => setEditMode(true)}
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-amber-500/80 bg-amber-50 px-3 text-sm font-semibold text-amber-950 shadow-sm hover:bg-amber-100/90 disabled:opacity-50"
+                >
+                  <Pencil size={16} aria-hidden />
+                  Modifier
+                </button>
+                {resubmitDirty ? (
+                  <button
+                    type="button"
+                    disabled={busyAction !== "" || lines.length === 0}
+                    onClick={() => openResubmitConfirm()}
+                    className="h-9 w-full rounded-md border border-amber-600 bg-amber-600/95 text-xs font-semibold text-white shadow-sm hover:bg-amber-700 disabled:opacity-50"
+                  >
+                    {busyAction === "resubmit" ? "Envoi…" : "Renvoyer à la pharmacie"}
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={busyAction !== ""}
+                  onClick={() => {
+                    resetResubmitDraft();
+                    setEditMode(false);
+                  }}
+                  className="h-10 flex-1 rounded-lg border-2 border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  disabled={busyAction !== ""}
+                  onClick={() => setEditMode(false)}
+                  className="h-10 flex-1 rounded-lg border border-sky-600 bg-sky-700 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:opacity-50"
+                >
+                  Enregistrer les modifications
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ) : null}

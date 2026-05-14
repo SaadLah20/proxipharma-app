@@ -322,13 +322,25 @@ export default function DemandeDetailPage() {
       request.status === "partially_collected" ||
       request.status === "fully_collected");
 
+  const slimPatientProductHeader =
+    request.request_type === "product_request" && ["submitted", "in_review"].includes(request.status);
+
   return (
     <PageShell className="space-y-3 bg-slate-50">
       <Link href="/dashboard/demandes" className="inline-block text-xs font-medium text-sky-800 underline">
         ← Retour aux demandes de produits
       </Link>
 
-      <header className="mt-2 rounded-xl border-2 border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 px-2.5 py-1.5 shadow-md shadow-sky-900/[0.06] ring-1 ring-sky-200/55 sm:px-3">
+      {slimPatientProductHeader ? (
+        <header className="mt-1 flex flex-wrap items-center gap-2 rounded-md border border-sky-200/70 bg-sky-50/40 px-2 py-1.5 text-[10px] text-sky-950 shadow-sm">
+          <span className="font-bold uppercase tracking-wide text-sky-900/90">Demande prod.</span>
+          <span className="font-mono font-semibold text-foreground">{displayRequestPublicRef(request)}</span>
+          <span className="rounded-full border border-sky-300/80 bg-white/90 px-1.5 py-px text-[9px] font-bold tabular-nums">
+            {items.length} ligne{items.length > 1 ? "s" : ""}
+          </span>
+        </header>
+      ) : (
+        <header className="mt-2 rounded-xl border-2 border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 px-2.5 py-1.5 shadow-md shadow-sky-900/[0.06] ring-1 ring-sky-200/55 sm:px-3">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:gap-x-2">
             <span className="shrink-0 font-bold uppercase tracking-wide text-sky-950/85">Demande prod.</span>
@@ -393,6 +405,7 @@ export default function DemandeDetailPage() {
           </div>
         </div>
       </header>
+      )}
 
       {showArchivedProductReadonly ? (
         <PatientRequestOutcomeBanner
@@ -449,6 +462,7 @@ export default function DemandeDetailPage() {
               request.patient_planned_visit_time ?? "",
               one(request.pharmacies)?.telephone ?? "",
               one(request.pharmacies)?.contact_email ?? "",
+              one(request.pharmacies)?.public_ref ?? "",
               ...items.map((i) =>
                 [
                   i.id,
@@ -460,6 +474,7 @@ export default function DemandeDetailPage() {
                   i.post_confirm_fulfillment ?? "",
                   i.withdrawn_after_confirm ? "1" : "0",
                   i.client_comment ?? "",
+                  i.pharmacist_comment ?? "",
                   i.line_source ?? "",
                 ].join(":")
               ),
@@ -468,6 +483,7 @@ export default function DemandeDetailPage() {
               request.submitted_at ?? "",
               request.responded_at ?? "",
               request.confirmed_at ?? "",
+              request.updated_at ?? "",
               historyRows.map((h) => `${h.id}:${h.created_at}:${h.reason ?? ""}`).join(";"),
             ].join("|")
           }
@@ -486,6 +502,7 @@ export default function DemandeDetailPage() {
               ville: ph.ville,
               telephone: ph.telephone,
               contact_email: ph.contact_email ?? null,
+              public_ref: ph.public_ref ?? null,
             };
             return c;
           })()}
@@ -499,6 +516,8 @@ export default function DemandeDetailPage() {
             confirmed_at: request.confirmed_at,
           }}
           dossierHistoryRows={historyRows}
+          pharmacyId={request.pharmacy_id}
+          requestUpdatedAt={request.updated_at}
         />
         </section>
       ) : request.request_type === "product_request" && showArchivedProductReadonly && items.length === 0 ? (
