@@ -78,16 +78,20 @@ function AuthForm({ initialLogin }: { initialLogin: boolean }) {
     void checkSession();
   }, [router, safeRedirect]);
 
-  useEffect(() => {
-    if (authMethod === "phone") {
-      setPhoneSmsStep("collect");
-      setOtp("");
-      setSmsNewPassword("");
-      setSmsNewPassword2("");
-      setSmsOptionalEmail("");
-      setMessage("");
-    }
-  }, [authMethod]);
+  const switchToPhoneTab = () => {
+    setAuthMethod("phone");
+    setPhoneSmsStep("collect");
+    setOtp("");
+    setSmsNewPassword("");
+    setSmsNewPassword2("");
+    setSmsOptionalEmail("");
+    setMessage("");
+  };
+
+  const switchToEmailTab = () => {
+    setAuthMethod("email");
+    setMessage("");
+  };
 
   const goSmsFlow = () => {
     setPhoneMode("sms");
@@ -462,7 +466,7 @@ function AuthForm({ initialLogin }: { initialLogin: boolean }) {
               "flex-1 rounded-lg py-2 text-center text-xs font-semibold sm:text-sm",
               authMethod === "phone" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             )}
-            onClick={() => setAuthMethod("phone")}
+            onClick={() => switchToPhoneTab()}
           >
             Téléphone
           </button>
@@ -472,7 +476,7 @@ function AuthForm({ initialLogin }: { initialLogin: boolean }) {
               "flex-1 rounded-lg py-2 text-center text-xs font-semibold sm:text-sm",
               authMethod === "email" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             )}
-            onClick={() => setAuthMethod("email")}
+            onClick={() => switchToEmailTab()}
           >
             E-mail
           </button>
