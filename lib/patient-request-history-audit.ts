@@ -1,3 +1,5 @@
+import { isPatientCancelReasonCode, PATIENT_CANCEL_REASON_LABELS } from "@/lib/patient-flow-reasons";
+
 /** Préfixe stocké dans `request_status_history.reason` pour événements structurés côté patient. */
 export const HISTORY_AUDIT_V1_PREFIX = "audit_v1:";
 
@@ -85,6 +87,38 @@ const PATIENT_HISTORY_TECH_REASON_FR: Record<string, string> = {
   pharmacist_ui_confirm_close: "La pharmacie a clôturé le dossier après le passage au comptoir.",
 };
 
+/** Libellés `request_event:*` / codes courts — vue officine (historique & résumés). */
+const PHARMACIST_HISTORY_TECH_REASON_FR: Record<string, string> = {
+  patient_confirm_after_response: "Le patient a validé son choix et enregistré son passage.",
+  publication_disponibilites: "Réponse publiée (prix et disponibilités).",
+  pharmacien_ui: "Mise à jour enregistrée.",
+  patient_planned_visit_updated: "Date ou heure de passage modifiée par le patient.",
+  pharmacist_response_updated: "Réponse pharmacie mise à jour.",
+  auto_expire_after_response_silence:
+    "Sans validation du patient dans le délai prévu, la demande a expiré.",
+  auto_expire_24h_after_response:
+    "Sans validation du patient dans le délai prévu, la demande a expiré.",
+  expire_overdue_requests: "Délai du dossier dépassé : la demande a expiré.",
+  auto_abandon_24h_after_response:
+    "Fermeture automatique : pas de validation du patient dans le délai prévu.",
+  request_created_with_status: "Demande créée.",
+  patient_abandon_request: "Le patient a abandonné la demande.",
+  patient_resubmit_product_request_after_response: "Le patient a renvoyé une liste de produits mise à jour.",
+  pharmacist_ui_confirm_close: "Dossier clôturé après passage au comptoir.",
+};
+
+/** Corps après le préfixe `patient_abandon|` (ex. `no_longer_needed|détail`). */
+export function formatPatientAbandonReasonForPharmacistFr(rest: string): string {
+  const segs = rest.split("|").map((s) => s.trim());
+  const code = segs[0] ?? "";
+  const detail = segs.slice(1).filter(Boolean).join(" ").trim();
+  const label =
+    isPatientCancelReasonCode(code) ? PATIENT_CANCEL_REASON_LABELS[code] : code ? code.replace(/_/g, " ") : "";
+  const head = label ? `Abandon côté patient · ${label}` : "Abandon côté patient.";
+  if (detail) return `${head} Précision : ${detail}.`;
+  return `${head}`;
+}
+
 /**
  * Texte lisible pour une entrée d’historique dossier (patient).
  * — blocs structurés `audit_v1:` ;
@@ -96,6 +130,17 @@ export function patientDossierHistoryDetailParagraphsFr(reason: string | null | 
   if (audit) return patientHistoryAuditDetailLines(audit);
   const r = (reason ?? "").trim();
   if (!r) return [];
+  if (r.startsWith("patient_abandon|")) {
+    const rest = r.slice("patient_abandon|".length);
+    const segs = rest.split("|").map((s) => s.trim());
+    const code = segs[0] ?? "";
+    const detail = segs.slice(1).filter(Boolean).join(" ").trim();
+    const label =
+      isPatientCancelReasonCode(code) ? PATIENT_CANCEL_REASON_LABELS[code] : code ? code.replace(/_/g, " ") : "";
+    const head = label ? `Abandon enregistré · ${label}` : "Abandon enregistré.";
+    if (detail) return [`${head} Précision : ${detail}.`];
+    return [head];
+  }
   if (r.startsWith("pharmacist_cancel|")) {
     const motif = r.slice("pharmacist_cancel|".length).trim();
     return [motif ? `La pharmacie a annulé la demande. Précision : ${motif}.` : "La pharmacie a annulé la demande."];
@@ -130,4 +175,67 @@ export function patientDossierHistoryDetailParagraphsFr(reason: string | null | 
     return ["Mise à jour enregistrée sur le dossier."];
   }
   return [r];
+}
+
+/**
+ * Texte lisible pour une entrée d’historique dossier (pharmacien) — pas de tutoiement « votre part »
+ * pour les expirations ; codes `patient_abandon|…` traduits.
+ */
+export function pharmacistDossierHistoryDetailParagraphsFr(reason: string | null | undefined): string[] {
+  const audit = tryParsePatientHistoryAudit(reason);
+  if (audit) return patientHistoryAuditDetailLines(audit);
+  const r = (reason ?? "").trim();
+  if (!r) return [];
+  if (r.startsWith("patient_abandon|")) {
+    return [formatPatientAbandonReasonForPharmacistFr(r.slice("patient_abandon|".length))];
+  }
+  if (r.startsWith("pharmacist_cancel|")) {
+    const motif = r.slice("pharmacist_cancel|".length).trim();
+    return [motif ? `Annulation officine enregistrée. Précision : ${motif}.` : "Annulation officine enregistrée."];
+  }
+  if (r.startsWith("counter_outcome:")) {
+    const rest = r.slice("counter_outcome:".length).trim();
+    if (rest === "picked_up") {
+      return ["Produit enregistré comme retiré au comptoir."];
+    }
+    if (rest === "unset") {
+      return ["Suivi comptoir remis en attente sur cette ligne."];
+    }
+    if (rest.startsWith("cancelled_at_counter")) {
+      const tail = rest.slice("cancelled_at_counter".length).replace(/^:/, "").trim();
+      return [
+        tail
+          ? `Annulation au comptoir enregistrée. Motif : ${tail}.`
+          : "Annulation au comptoir enregistrée sur cette ligne.",
+      ];
+    }
+    return ["Mise à jour du suivi comptoir pour cette ligne."];
+  }
+  if (r.startsWith("request_event:")) {
+    const key = r.slice("request_event:".length).trim().toLowerCase();
+    const mapped = PHARMACIST_HISTORY_TECH_REASON_FR[key];
+    if (mapped) return [mapped];
+    return ["Événement enregistré sur le dossier."];
+  }
+  if (/^[a-z][a-z0-9_]*$/i.test(r) && r.length < 120) {
+    const mapped = PHARMACIST_HISTORY_TECH_REASON_FR[r.toLowerCase()];
+    if (mapped) return [mapped];
+    return ["Mise à jour enregistrée sur le dossier."];
+  }
+  return [r];
+}
+
+/** Résumé court pour bannière « sans suite » (motif brut issu de l’historique). */
+export function pharmacistHardStopMotifSummaryFr(raw: string | null | undefined): string | null {
+  const t = (raw ?? "").trim();
+  if (!t) return null;
+  if (t.startsWith("patient_abandon|")) {
+    return formatPatientAbandonReasonForPharmacistFr(t.slice("patient_abandon|".length));
+  }
+  const paras = pharmacistDossierHistoryDetailParagraphsFr(t);
+  if (paras.length > 0 && paras.some((p) => p.trim().length > 0)) {
+    return paras.filter(Boolean).join(" ");
+  }
+  if (t.length > 280) return `${t.slice(0, 276)}…`;
+  return t;
 }

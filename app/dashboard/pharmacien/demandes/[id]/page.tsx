@@ -47,15 +47,23 @@ import {
   counterOutcomeFr,
   formatShortId,
   historyActorLabel,
+  pharmacistProposedProductBadgeFr,
   pharmacistRequestIsClosedSuccess,
   pharmacistRequestIsHardStopped,
   requestHistoryPharmacistHeadline,
+  requestStatusBadgeClass,
   requestStatusFr,
 } from "@/lib/request-display";
-import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
+import {
+  pharmacistDossierHistoryDetailParagraphsFr,
+  pharmacistHardStopMotifSummaryFr,
+  stringifyPharmaConfirmAudit,
+  type PharmaConfirmAdjustmentAudit,
+  type PharmaConfirmAdjustmentLine,
+} from "@/lib/patient-request-history-audit";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
-import { pphLabel } from "@/lib/product-price";
+import { formatPphMad, pphLabel } from "@/lib/product-price";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
@@ -75,11 +83,6 @@ import { buildPatientLineTimelineFr, postConfirmSupplyAmendmentBadgeLabelsFr } f
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 import { PharmacistSupplyCompactLine } from "@/components/pharmacist/pharmacist-supply-compact-line";
-import {
-  stringifyPharmaConfirmAudit,
-  type PharmaConfirmAdjustmentAudit,
-  type PharmaConfirmAdjustmentLine,
-} from "@/lib/patient-request-history-audit";
 import { type SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
 import {
   dispatchRequestDetailRefresh,
@@ -293,11 +296,11 @@ function flattenPharmacistSupplyListEntries(rows: ItemRow[]): { header: string |
 }
 
 const PHARMACIST_SUPPLY_SURFACE_MAIN =
-  "rounded-xl border-2 border-emerald-200/65 bg-gradient-to-b from-emerald-50/35 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-emerald-200/45 sm:p-2.5";
+  "rounded-lg border border-emerald-300/70 bg-gradient-to-b from-emerald-50/40 via-white to-white p-1.5 shadow-sm ring-1 ring-emerald-200/50 sm:p-2";
 const PHARMACIST_SUPPLY_SURFACE_SECOND =
-  "rounded-xl border-2 border-teal-200/70 bg-gradient-to-b from-teal-50/40 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-teal-200/45 sm:p-2.5";
+  "rounded-lg border border-teal-300/70 bg-gradient-to-b from-teal-50/35 via-white to-white p-1.5 shadow-sm ring-1 ring-teal-200/50 sm:p-2";
 const PHARMACIST_SUPPLY_SURFACE_NEUTRAL =
-  "rounded-xl border-2 border-slate-200/80 bg-gradient-to-b from-slate-50/70 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-200/50 sm:p-2.5";
+  "rounded-lg border border-slate-200/85 bg-gradient-to-b from-slate-50/55 via-white to-white p-1.5 shadow-sm ring-1 ring-slate-200/55 sm:p-2";
 
 type PendingAlternativeEntry = {
   localAltId: string;
@@ -564,15 +567,19 @@ function PublishConfirmLineLi({
         <div className="min-w-0 flex-1">
           <p className="font-semibold leading-snug text-foreground">{prodName}</p>
           {proposed ? (
-            <p className="mt-1 text-[10px] leading-snug text-violet-900/90">
-              <span className="font-bold text-violet-950">Proposition officine</span>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="shrink-0 rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                {pharmacistProposedProductBadgeFr}
+              </span>
               {r.pharmacist_proposal_reason?.trim() ? (
-                <>
-                  {" "}
-                  · <span className="italic">{r.pharmacist_proposal_reason.trim()}</span>
-                </>
-              ) : null}
-            </p>
+                <p className="min-w-0 flex-1 text-[10px] leading-snug text-violet-900/90">
+                  <span className="font-semibold text-violet-950">Motif · </span>
+                  <span className="italic">{r.pharmacist_proposal_reason.trim()}</span>
+                </p>
+              ) : (
+                <span className="text-[10px] italic text-violet-800/85">Aucun motif renseigné.</span>
+              )}
+            </div>
           ) : (
             <p className="mt-0.5 text-[10px] text-muted-foreground">
               Ligne demandée · qté patient <strong className="text-foreground">{r.requested_qty}</strong>
@@ -694,12 +701,39 @@ function draftPatchPostConfirmSupplyUnlock(
   };
 }
 
-/** Même produit déjà sur « À réserver » ou « À commander » (retenu, non écarté) : blocage ajout officine en doublon. */
-function productBlocksValidatedReserveOrOrderAdd(productId: string, rows: ItemRow[], draft: Draft): boolean {
-  const eff = rowsWithEffectiveWithdrawnForSupply(rows, draft);
-  const virt = virtualizeItemsForSupplyBuckets(eff, draft);
-  const { dispoOfficine, aCommander } = bucketPatientValidatedLinesThreeWays(virt);
-  return [...dispoOfficine, ...aCommander].some((r) => r.product_id === productId);
+function effectiveWithdrawnAfterConfirm(row: ItemRow, draft: Draft): boolean {
+  const fd = draft[row.id];
+  return Boolean(row.withdrawn_after_confirm) || Boolean(fd?.withdrawn_after_confirm);
+}
+
+/**
+ * Blocage « ajout officine » : même `product_id` que la réponse.
+ * Hors `confirmed` / `treated` : toute ligne principale ou alternative compte.
+ * Sur dossier validé / traité : seulement si le produit apparaît encore sur une ligne **retenue** et **non écartée**
+ * (ou comme alternative sous une telle ligne).
+ */
+function pharmacistProposedProductIdBlocked(
+  productId: string,
+  rows: ItemRow[],
+  draft: Draft,
+  requestStatus: string | null
+): boolean {
+  const onlyActiveRetained = requestStatus != null && ["confirmed", "treated"].includes(requestStatus);
+
+  for (const row of rows) {
+    if (row.product_id === productId) {
+      if (!onlyActiveRetained) return true;
+      if (row.is_selected_by_patient && !effectiveWithdrawnAfterConfirm(row, draft)) return true;
+    } else {
+      for (const alt of normalizeAlts(row.request_item_alternatives)) {
+        if (alt.product_id !== productId) continue;
+        if (!onlyActiveRetained) return true;
+        if (row.is_selected_by_patient && !effectiveWithdrawnAfterConfirm(row, draft)) return true;
+        break;
+      }
+    }
+  }
+  return false;
 }
 
 /** Mise à jour ligne : payload dispo/prix + pour proposition officine, `requested_qty` / `selected_qty` = qté offerte (sinon le patient plafonne à l’ancienne valeur). */
@@ -1009,7 +1043,7 @@ function buildConfirmedSupplySaveSummaryLines(
 
   for (const row of pendingProposalRows) {
     const nm = one(row.products)?.name ?? "Produit";
-    lines.push(`Proposition officine à créer : « ${nm} » (${row.requested_qty ?? 1} unité(s)).`);
+    lines.push(`${pharmacistProposedProductBadgeFr} à créer : « ${nm} » (${row.requested_qty ?? 1} unité(s)).`);
   }
 
   for (const pe of pendingAlternatives) {
@@ -1934,8 +1968,12 @@ export default function PharmacienDemandeDetailPage() {
       return;
     }
     const qty = Math.min(PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX, Math.max(1, parseInt(propQty, 10) || 1));
-    if (productBlocksValidatedReserveOrOrderAdd(pick.id, displayRows, draft)) {
-      setError("Ce produit figure déjà parmi les lignes validées (à réserver ou à commander). Retirez-le ou écartez-le avant d’ajouter une proposition.");
+    if (pharmacistProposedProductIdBlocked(pick.id, displayRows, draft, request?.status ?? null)) {
+      setError(
+        request && ["confirmed", "treated"].includes(request.status)
+          ? "Ce produit est déjà sur une ligne encore retenue et non écartée, ou en alternative sur une telle ligne. Écartez ou retirez l’autre occurrence, ou choisissez une autre référence."
+          : "Ce produit figure déjà sur la réponse (ligne principale ou alternative). Choisis un autre produit."
+      );
       return;
     }
     if (deferPersistOfficineAdditions) {
@@ -2766,6 +2804,13 @@ export default function PharmacienDemandeDetailPage() {
         const fill = fills[0];
         if (!fill?.channel?.trim()) throw new Error("Indiquez le canal utilisé.");
         const { pick, reason, qty } = pending;
+        if (pharmacistProposedProductIdBlocked(pick.id, displayRows, draft, request?.status ?? null)) {
+          throw new Error(
+            request && ["confirmed", "treated"].includes(request.status)
+              ? "Ce produit est déjà sur une ligne encore retenue et non écartée, ou en alternative sur une telle ligne. Écartez ou retirez l’autre occurrence, ou choisissez une autre référence."
+              : "Ce produit figure déjà sur la réponse (ligne principale ou alternative). Choisis un autre produit."
+          );
+        }
         const syntheticId = newLocalProposedId();
         scrollToEditorRowId = syntheticId;
         const syntheticRow: ItemRow = {
@@ -3204,6 +3249,7 @@ export default function PharmacienDemandeDetailPage() {
       requestConfirmedAt: request.confirmed_at ?? null,
       supplyBundles: supplyAmendmentBundles,
       dossierHistory: dossierHistoryTimeline,
+      dossierHistoryDetailParagraphs: pharmacistDossierHistoryDetailParagraphsFr,
     });
   }, [pharmaHistoryRowId, request, items, supplyAmendmentBundles, dossierHistoryTimeline]);
 
@@ -3226,6 +3272,8 @@ export default function PharmacienDemandeDetailPage() {
       }
     }
   }
+
+  const hardStopSummaryFr = pharmacistHardStopMotifSummaryFr(hardStopMotif);
 
   const closedSuccessPickupCount =
     request && pharmacistRequestIsClosedSuccess(request.status)
@@ -3406,13 +3454,7 @@ export default function PharmacienDemandeDetailPage() {
             <span
               className={clsx(
                 "inline-flex max-w-[min(100%,16rem)] justify-center truncate rounded-full border px-2 py-0.5 text-center text-[10px] font-bold leading-tight shadow-sm sm:max-w-[14rem]",
-                ["submitted", "in_review"].includes(request.status)
-                  ? "border-sky-400/85 bg-sky-100 text-sky-950 ring-1 ring-sky-200/80"
-                  : request.status === "responded"
-                    ? "border-amber-300/95 bg-amber-50 text-amber-950"
-                    : ["confirmed", "treated", "completed"].includes(request.status)
-                      ? "border-teal-400/80 bg-teal-50 text-teal-950"
-                      : "border-primary/35 bg-primary/10 text-primary"
+                requestStatusBadgeClass(request.status)
               )}
               title={(requestStatusFr[request.status] ?? request.status) + ""}
             >
@@ -3423,22 +3465,40 @@ export default function PharmacienDemandeDetailPage() {
       </header>
 
       {pharmacistRequestIsHardStopped(request.status) && isProduct ? (
-        <section className="rounded-xl border border-slate-300/90 bg-slate-50 px-3 py-2.5 text-[11px] text-slate-800">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-700">Motif (sans suite)</p>
-          <p className="mt-1 whitespace-pre-wrap break-words leading-snug">
-            {hardStopMotif ?? "Aucun détail enregistré dans l’historique pour ce statut."}
+        <section
+          className={clsx(
+            "rounded-lg border px-3 py-2 shadow-sm",
+            request.status === "cancelled" && "border-rose-200/90 bg-rose-50/55 text-rose-950",
+            request.status === "abandoned" && "border-orange-200/90 bg-orange-50/55 text-orange-950",
+            request.status === "expired" && "border-amber-200/90 bg-amber-50/55 text-amber-950"
+          )}
+        >
+          <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+            {request.status === "cancelled"
+              ? "Annulée"
+              : request.status === "abandoned"
+                ? "Sans suite"
+                : "Expirée"}{" "}
+            · dossier fermé
           </p>
-          <p className="mt-2 text-[10px] text-muted-foreground">Lecture seule — état figé tel qu’avant l’interruption.</p>
+          <p className="mt-0.5 text-[13px] font-semibold leading-snug">
+            {requestStatusFr[request.status] ?? request.status}
+          </p>
+          {hardStopSummaryFr ? (
+            <p className="mt-1.5 text-[11px] leading-snug text-foreground/90">{hardStopSummaryFr}</p>
+          ) : (
+            <p className="mt-1.5 text-[11px] text-muted-foreground">Aucun motif complémentaire enregistré.</p>
+          )}
         </section>
       ) : null}
 
       {pharmacistRequestIsClosedSuccess(request.status) && isProduct ? (
-        <section className="rounded-xl border border-emerald-300/80 bg-emerald-50/90 px-3 py-2.5 text-[11px] text-emerald-950">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-900">Clôture comptoir</p>
-          <p className="mt-1 font-semibold tabular-nums text-emerald-950">
-            Produits récupérés (lignes retenues)&nbsp;: {closedSuccessPickupCount ?? 0}
+        <section className="rounded-lg border border-emerald-200/85 bg-emerald-50/65 px-3 py-2 text-[11px] text-emerald-950 shadow-sm">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900/75">Clôture</p>
+          <p className="mt-0.5 font-semibold tabular-nums">
+            {closedSuccessPickupCount ?? 0} ligne{(closedSuccessPickupCount ?? 0) !== 1 ? "s" : ""} retirée
+            {(closedSuccessPickupCount ?? 0) !== 1 ? "s" : ""} au comptoir (retenues).
           </p>
-          <p className="mt-1 text-[10px] text-emerald-900/85">Lecture seule.</p>
         </section>
       ) : null}
 
@@ -3622,24 +3682,28 @@ export default function PharmacienDemandeDetailPage() {
             </div>
             <span className="text-[10px] text-muted-foreground">{displayRows.length} article(s)</span>
           </div>
-          <div className="mt-2 space-y-2 sm:space-y-3">
+          <div className="mt-2 flex flex-col gap-3">
             {pharmacistSupplySurfaceGroups.map((group, gi) => (
               <div
                 key={gi}
-                className={
+                className={clsx(
                   group.surface === "principal"
                     ? PHARMACIST_SUPPLY_SURFACE_MAIN
                     : group.surface === "secondary"
                       ? PHARMACIST_SUPPLY_SURFACE_SECOND
                       : PHARMACIST_SUPPLY_SURFACE_NEUTRAL
-                }
+                )}
               >
-                <ul className="space-y-2 sm:space-y-3">
+                <ul className="flex flex-col gap-2">
                   {group.entries.map(({ header, row }) => {
               const prod = one(row.products);
               const linePph = pphLabel(prod?.price_pph);
               const f = draft[row.id];
               if (!f) return null;
+              const draftIndicativePuMad =
+                f.unit_price.trim() !== ""
+                  ? `${Number(f.unit_price.replace(",", ".")).toFixed(2)}\u00A0MAD`
+                  : formatPphMad(prod?.price_pph) ?? "—";
               const co = row.counter_outcome ?? "unset";
               const selected = Boolean(row.is_selected_by_patient);
               const lineLockedTrace = co === "cancelled_at_counter";
@@ -3857,20 +3921,17 @@ export default function PharmacienDemandeDetailPage() {
                           </button>
                         </div>
                       </label>
-                      <label className="flex min-w-[5rem] flex-1 flex-col gap-0.5 sm:max-w-[7rem]">
-                        <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
-                          Prix <span className="normal-case opacity-70">MAD</span>
+                      <div className="flex min-w-[5.25rem] flex-col justify-end gap-0.5 text-end sm:min-w-[6rem]">
+                        <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                          PU indicatif
                         </span>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="—"
-                          disabled
-                          value={f.unit_price}
-                          title={linePph ? `PPH catalogue : ${linePph}` : undefined}
-                          className="h-9 w-full rounded-xl border border-dashed border-border bg-muted/30 px-2 text-[12px] font-semibold tabular-nums opacity-80"
-                        />
-                      </label>
+                        <p
+                          className="whitespace-nowrap py-2 text-[12px] font-semibold tabular-nums text-foreground"
+                          title={linePph ? `Catalogue : ${linePph}` : undefined}
+                        >
+                          {draftIndicativePuMad}
+                        </p>
+                      </div>
                     </div>
                     {canEditThisRow && hasConsent && effectiveAvailSupplyDraft(row, f) === "to_order" ? (
                       <label className="flex max-w-sm flex-col gap-0">
@@ -4163,32 +4224,32 @@ export default function PharmacienDemandeDetailPage() {
               return (
                 <Fragment key={row.id}>
                   {header ? (
-                    <li className="list-none pt-2 first:pt-0 sm:pt-2.5">
+                    <li className="list-none pt-1.5 first:pt-0 sm:pt-2">
                       <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{header}</div>
                     </li>
                   ) : null}
                   <li
                     className={clsx(
-                      "list-none overflow-visible rounded-xl border-2 bg-card shadow-sm ring-1",
+                      "list-none overflow-visible rounded-lg border bg-card shadow-sm ring-1 ring-black/[0.04]",
                       isProposedLine
                         ? "border-violet-300/80 bg-gradient-to-b from-violet-50/70 via-white to-white ring-violet-200/50"
-                        : "border-slate-200/80 bg-gradient-to-b from-white to-slate-50/40 ring-slate-200/50",
+                        : "border-slate-200/85 bg-gradient-to-b from-white to-slate-50/40 ring-slate-200/50",
                       availUi.accentClass,
-                      isProposedLine ? "border-l-[4px] border-l-violet-500" : "border-l-[3px] border-l-sky-400/60"
+                      isProposedLine ? "border-l-[3px] border-l-violet-500" : "border-l-[3px] border-l-sky-400/55"
                     )}
                   >
                   <div
                     className={clsx(
-                      "flex gap-2 border-b px-2.5 py-2 sm:gap-2.5 sm:px-3",
+                      "flex gap-2 border-b px-2 py-1.5 sm:gap-2 sm:px-2.5 sm:py-2",
                       isProposedLine
                         ? "border-violet-200/50 bg-gradient-to-r from-violet-50/50 via-white to-transparent"
                         : "border-slate-100/90 bg-white/90"
                     )}
                   >
-                    <div className="flex w-[4.75rem] shrink-0 flex-col items-stretch gap-1 sm:w-[5.125rem]">
+                    <div className="flex w-[4.25rem] shrink-0 flex-col items-stretch gap-0.5 sm:w-[4.75rem]">
                       <div
                         className={clsx(
-                          "relative h-20 w-full overflow-hidden rounded-lg border bg-white shadow-inner sm:h-20",
+                          "relative h-[4.25rem] w-full overflow-hidden rounded-md border bg-white shadow-inner sm:h-[4.5rem]",
                           isProposedLine ? "border-violet-200/80 ring-1 ring-violet-200/35" : "border-slate-200/75"
                         )}
                       >
@@ -4197,18 +4258,25 @@ export default function PharmacienDemandeDetailPage() {
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                             <Package
-                              className={clsx("size-8 sm:size-9", isProposedLine ? "text-violet-400/90" : "text-slate-400")}
+                              className={clsx("size-7 sm:size-8", isProposedLine ? "text-violet-400/90" : "text-slate-400")}
                               aria-hidden
                             />
                           </div>
                         )}
                       </div>
                     </div>
-                    <div className="min-w-0 flex-1 space-y-1">
+                    <div className="min-w-0 flex-1 space-y-0.5">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="min-w-0 flex-1 break-words text-[13px] font-bold leading-snug text-foreground sm:text-sm">
-                          {prod?.name ?? "Produit"}
-                        </p>
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                          <p className="min-w-0 flex-1 break-words text-[13px] font-bold leading-snug text-foreground sm:text-sm">
+                            {prod?.name ?? "Produit"}
+                          </p>
+                          {isProposedLine ? (
+                            <span className="shrink-0 rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                              {pharmacistProposedProductBadgeFr}
+                            </span>
+                          ) : null}
+                        </div>
                         {canEditThisRow && isProposedLine ? (
                           <button
                             type="button"
@@ -4263,7 +4331,7 @@ export default function PharmacienDemandeDetailPage() {
                           )
                         ) : null}
                       </div>
-                      <div className="mt-1 flex w-full min-w-0 items-stretch justify-stretch border-t border-dotted border-border/55 pt-1.5">
+                      <div className="mt-1 flex min-w-0 items-stretch gap-2 border-t border-dotted border-border/55 pt-1.5">
                         <button
                           type="button"
                           disabled={busy}
@@ -4272,7 +4340,7 @@ export default function PharmacienDemandeDetailPage() {
                               open: lineConvoEffectiveRowId === row.id,
                               disabled: busy,
                             }),
-                            "min-w-0 w-full max-w-none flex-1 justify-start"
+                            "relative min-h-9 min-w-0 flex-1 justify-start"
                           )}
                           aria-label={`Échanges produit · ${lineConversationStripLabel(lineConvoVisual)}`}
                           title="Ouvrir les messages patient et note officine"
@@ -4283,7 +4351,7 @@ export default function PharmacienDemandeDetailPage() {
                           }}
                         >
                           <MessageCircle className="size-3.5 shrink-0 opacity-90" strokeWidth={2.2} aria-hidden />
-                          <span className="max-w-[11rem] truncate text-[9px] font-medium leading-tight sm:max-w-[14rem]">
+                          <span className="min-w-0 flex-1 text-left text-[9px] font-medium leading-snug">
                             {lineConversationStripLabel(lineConvoVisual)}
                           </span>
                           {lineConvoVisual === "patient_only" &&
@@ -4294,6 +4362,17 @@ export default function PharmacienDemandeDetailPage() {
                             />
                           ) : null}
                         </button>
+                        <div
+                          className="flex shrink-0 flex-col justify-center self-stretch border-l border-border/45 pl-2 text-end"
+                          title={linePph ? `PPH catalogue : ${linePph}` : undefined}
+                        >
+                          <span className="text-[8px] font-bold uppercase leading-none tracking-wide text-muted-foreground">
+                            PU indicatif
+                          </span>
+                          <span className="mt-0.5 whitespace-nowrap text-[11px] font-semibold tabular-nums leading-none text-foreground sm:text-[12px]">
+                            {draftIndicativePuMad}
+                          </span>
+                        </div>
                       </div>
                       {isProposedLine ? (
                         <p className="rounded-md border border-violet-300/80 bg-gradient-to-br from-violet-200/55 to-violet-100/40 px-2 py-1 text-[10px] leading-snug text-violet-950 shadow-sm ring-1 ring-violet-300/35">
@@ -4406,7 +4485,7 @@ export default function PharmacienDemandeDetailPage() {
                       ) : null}
                     </div>
                   ) : showLineAndPublishEdits ? (
-                    <div className="space-y-1.5 px-2 py-2 sm:space-y-2 sm:px-3 sm:py-2.5">
+                    <div className="space-y-1.5 border-t border-border/55 px-2 py-2 sm:space-y-2 sm:px-3 sm:py-2.5">
                       <div className="flex flex-wrap items-end gap-1.5 sm:gap-2">
                         <div className="flex min-w-[9.5rem] flex-1 flex-col gap-0.5">
                           <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -4466,20 +4545,6 @@ export default function PharmacienDemandeDetailPage() {
                             </button>
                           </div>
                         </label>
-                        <label className="flex min-w-[5rem] flex-1 flex-col gap-0.5 sm:max-w-[7rem]">
-                          <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
-                            Prix <span className="normal-case opacity-70">MAD</span>
-                          </span>
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="—"
-                            disabled
-                            value={f.unit_price}
-                            title={linePph ? `PPH catalogue : ${linePph}` : undefined}
-                            className="h-9 w-full rounded-xl border border-dashed border-border bg-muted/30 px-2 text-[12px] font-semibold tabular-nums opacity-80"
-                          />
-                        </label>
                       </div>
                       {canEditThisRow &&
                       f.availability_status !== "market_shortage" &&
@@ -4491,7 +4556,8 @@ export default function PharmacienDemandeDetailPage() {
                           </p>
                         ) : isProposedLine ? (
                           <p className="text-[9px] leading-snug text-violet-900/90">
-                            <strong>Proposition officine</strong> · stock minimum <strong>1</strong>, sans plafond lié à la quantité initialement
+                            <span className="font-semibold text-violet-950">{pharmacistProposedProductBadgeFr} · </span>
+                            stock minimum <strong>1</strong>, sans plafond lié à la quantité initialement
                             indiquée sur la ligne.
                           </p>
                         ) : (
@@ -4538,12 +4604,12 @@ export default function PharmacienDemandeDetailPage() {
                           : "Lecture seule · dossier non modifiable"}
                       </p>
                       <div className="mt-1.5 flex flex-wrap gap-2">
-                        <span className="inline-flex items-center gap-1 rounded-xl border border-border/70 bg-background px-2 py-1 text-[11px] font-medium shadow-sm tabular-nums">
-                          <Package className="size-3.5 text-muted-foreground" aria-hidden />
-                          Qté&nbsp;
+                        <span className="inline-flex items-baseline gap-1 whitespace-nowrap rounded-xl border border-border/70 bg-background px-2 py-1 text-[11px] font-medium shadow-sm tabular-nums">
+                          <Package className="size-3.5 shrink-0 self-center text-muted-foreground" aria-hidden />
+                          <span className="text-muted-foreground">Qté</span>
                           <strong>{row.available_qty != null ? row.available_qty : "—"}</strong>
                         </span>
-                        <span className="inline-flex items-center gap-1 rounded-xl border border-border/70 bg-background px-2 py-1 text-[11px] font-medium shadow-sm tabular-nums">
+                        <span className="inline-flex items-baseline gap-1 whitespace-nowrap rounded-xl border border-border/70 bg-background px-2 py-1 text-[11px] font-medium shadow-sm tabular-nums">
                           <span className="text-[10px] text-muted-foreground">MAD</span>
                           <strong>{row.unit_price != null ? Number(row.unit_price).toFixed(2) : "—"}</strong>
                         </span>
@@ -5103,7 +5169,7 @@ export default function PharmacienDemandeDetailPage() {
             </div>
           ) : null}
 
-          <section className="mt-3 rounded-lg border border-border/70 bg-card p-2.5 shadow-sm">
+          <section className="mt-3 rounded-lg border border-border/60 bg-muted/15 p-2 shadow-sm">
             <button
               type="button"
               onClick={() => {
@@ -5113,9 +5179,9 @@ export default function PharmacienDemandeDetailPage() {
                   void loadHistory();
                 }
               }}
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-border px-3 text-xs font-semibold text-foreground hover:bg-muted/40"
+              className="inline-flex h-9 w-full items-center justify-center rounded-md border border-border/80 bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted/50 sm:w-auto"
             >
-              {historyOpen ? "Masquer l'historique" : "Voir l'historique"}
+              {historyOpen ? "Masquer l'historique" : "Voir l'historique du dossier"}
             </button>
             {historyOpen ? (
               <div className="mt-2 space-y-1.5">
@@ -5126,9 +5192,9 @@ export default function PharmacienDemandeDetailPage() {
                 ) : (
                   <ul className="space-y-1.5">
                     {historyRows.map((h) => {
-                      const detailParas = patientDossierHistoryDetailParagraphsFr(h.reason);
+                      const detailParas = pharmacistDossierHistoryDetailParagraphsFr(h.reason);
                       return (
-                      <li key={h.id} className="rounded-lg border border-border/60 bg-muted/15 px-2 py-1.5 text-xs">
+                      <li key={h.id} className="rounded-md border border-border/50 bg-background/80 px-2 py-1.5 text-xs">
                         <p className="font-medium text-foreground">
                           {requestHistoryPharmacistHeadline(h.old_status, h.new_status)}
                         </p>
@@ -5141,7 +5207,9 @@ export default function PharmacienDemandeDetailPage() {
                             ))}
                           </div>
                         ) : h.reason && h.reason.trim().length > 0 && !h.reason.startsWith("audit_v1:") ? (
-                          <p className="mt-0.5 break-words text-[11px] leading-snug text-muted-foreground">{h.reason}</p>
+                          <p className="mt-0.5 break-words text-[11px] leading-snug text-muted-foreground">
+                            {pharmacistHardStopMotifSummaryFr(h.reason) ?? h.reason}
+                          </p>
                         ) : null}
                         <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
                           <span>

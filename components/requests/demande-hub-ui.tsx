@@ -16,21 +16,30 @@ import { clsx } from "clsx";
 
 function demandeCardShell(status: string, role: "patient" | "pharmacien"): string {
   const closed = ["completed", "cancelled", "abandoned", "expired", "partially_collected", "fully_collected", "draft"];
+  const pharma = role === "pharmacien";
   if (closed.includes(status)) {
-    return "rounded-xl border border-border/80 bg-card shadow-md ring-1 ring-border/50 transition hover:shadow-lg hover:ring-border/70";
+    return pharma
+      ? "rounded-lg border border-border/90 bg-card shadow-sm ring-1 ring-border/60 transition hover:border-border hover:shadow-md"
+      : "rounded-xl border border-border/80 bg-card shadow-md ring-1 ring-border/50 transition hover:shadow-lg hover:ring-border/70";
   }
   if (status === "responded") {
-    return "rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/40 via-card to-card shadow-md ring-1 ring-amber-200/45 transition hover:shadow-lg hover:ring-amber-300/50";
+    return pharma
+      ? "rounded-lg border border-amber-300/75 bg-gradient-to-br from-amber-50/50 via-card to-card shadow-sm ring-1 ring-amber-200/55 transition hover:border-amber-400/80 hover:shadow-md"
+      : "rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/40 via-card to-card shadow-md ring-1 ring-amber-200/45 transition hover:shadow-lg hover:ring-amber-300/50";
   }
   if (status === "confirmed") {
     return role === "patient"
       ? "rounded-xl border border-emerald-200/85 bg-gradient-to-br from-emerald-50/45 via-card to-card shadow-md ring-1 ring-emerald-200/50 transition hover:shadow-lg hover:ring-emerald-300/55"
-      : "rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/40 via-card to-card shadow-md ring-1 ring-emerald-200/45 transition hover:shadow-lg";
+      : "rounded-lg border border-emerald-300/70 bg-gradient-to-br from-emerald-50/45 via-card to-card shadow-sm ring-1 ring-emerald-200/55 transition hover:border-emerald-400/65 hover:shadow-md";
   }
   if (status === "treated") {
-    return "rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/35 via-card to-card shadow-md ring-1 ring-violet-200/45 transition hover:shadow-lg hover:ring-violet-300/50";
+    return pharma
+      ? "rounded-lg border border-violet-300/70 bg-gradient-to-br from-violet-50/40 via-card to-card shadow-sm ring-1 ring-violet-200/55 transition hover:border-violet-400/65 hover:shadow-md"
+      : "rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/35 via-card to-card shadow-md ring-1 ring-violet-200/45 transition hover:shadow-lg hover:ring-violet-300/50";
   }
-  return "rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50/40 via-card to-card shadow-md ring-1 ring-sky-200/45 transition hover:shadow-lg hover:ring-sky-300/50";
+  return pharma
+    ? "rounded-lg border border-sky-300/70 bg-gradient-to-br from-sky-50/45 via-card to-card shadow-sm ring-1 ring-sky-200/55 transition hover:border-sky-400/65 hover:shadow-md"
+    : "rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50/40 via-card to-card shadow-md ring-1 ring-sky-200/45 transition hover:shadow-lg hover:ring-sky-300/50";
 }
 
 export type HubTab = "dashboard" | "list";
@@ -277,13 +286,13 @@ export function PharmacistDemandeCard({
     <div className={clsx(demandeCardShell(statusForCard, "pharmacien"), "transition hover:-translate-y-px")}>
       <Link
         href={`/dashboard/pharmacien/demandes/${row.id}`}
-        className="group block p-2.5 sm:p-3"
+        className="group block px-2 py-2 sm:px-2.5 sm:py-2"
         aria-label={conversationUnread ? `${name} — conversation non lue` : undefined}
       >
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1 space-y-1">
-            <p className="truncate text-[13px] font-semibold leading-tight text-foreground sm:text-sm">{name}</p>
-            <div className="flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[10px]">
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <p className="truncate text-[12px] font-semibold leading-tight text-foreground sm:text-[13px]">{name}</p>
+            <div className="flex flex-wrap gap-x-2 gap-y-px font-mono text-[10px] leading-tight">
               <span className="font-medium text-foreground">{displayRequestPublicRef(row)}</span>
               {cref ? (
                 <span className="text-muted-foreground">
@@ -291,28 +300,28 @@ export function PharmacistDemandeCard({
                 </span>
               ) : null}
             </div>
-            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] tabular-nums leading-snug text-muted-foreground">
-              <span>
-                Création <span className="font-medium text-foreground">{formatDateTimeShort24hFr(when)}</span>
+            <p className="text-[10px] tabular-nums leading-snug text-muted-foreground">
+              Création <span className="font-medium text-foreground">{formatDateTimeShort24hFr(when)}</span>
+              <span className="text-border" aria-hidden>
+                {" "}
+                ·{" "}
               </span>
-              <span>
-                MAJ <span className="font-medium text-foreground">{formatDateTimeShort24hFr(maj)}</span>
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-              <span className="rounded-md bg-muted/80 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+              MAJ <span className="font-medium text-foreground">{formatDateTimeShort24hFr(maj)}</span>
+            </p>
+            <div className="flex flex-wrap items-center gap-1 pt-0.5">
+              <span className="rounded border border-border/60 bg-muted/70 px-1.5 py-px text-[10px] font-medium text-foreground">
                 {lines.length} ligne{lines.length === 1 ? "" : "s"}
               </span>
               <RequestStatusBadge status={statusForCard} role="pharmacien" />
             </div>
             {hasFulfillmentProgress && (row.status === "confirmed" || row.status === "treated") ? (
-              <p className="text-[10px] font-medium leading-snug text-muted-foreground">
-                Réservation / commande : {nReserved} réservé(s), {nOrdered} commandé(s)
-                {nArrived > 0 ? `, ${nArrived} reçu(s) en pharmacie` : ""}.
+              <p className="text-[9px] font-medium leading-snug text-muted-foreground">
+                Rés. {nReserved} · Cmd. {nOrdered}
+                {nArrived > 0 ? ` · Reçu ${nArrived}` : ""}
               </p>
             ) : null}
           </div>
-          <span className="relative flex shrink-0 items-center gap-1 pt-0.5" aria-hidden>
+          <span className="relative flex shrink-0 items-center gap-1 self-center" aria-hidden>
             {conversationUnread ? (
               <span className="size-2 shrink-0 rounded-full bg-rose-600 shadow-sm ring-2 ring-white" title="Conversation non lue" />
             ) : null}

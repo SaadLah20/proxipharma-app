@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { clsx } from "clsx";
 import { MoreVertical, Package } from "lucide-react";
+import { pharmacistProposedProductBadgeFr } from "@/lib/request-display";
 
 export function PharmacistSupplyCompactLine({
   header,
@@ -102,12 +103,12 @@ export function PharmacistSupplyCompactLine({
   const pillIdle = "border-border bg-background text-foreground hover:bg-muted/50";
 
   const cardShell = withdrawn
-    ? "rounded-xl border-2 border-amber-200/90 bg-gradient-to-b from-white to-amber-50/35 shadow-sm ring-1 ring-amber-100/85"
+    ? "rounded-lg border border-amber-300/80 bg-gradient-to-b from-white to-amber-50/35 shadow-sm ring-1 ring-amber-100/70"
     : !selected
-      ? "rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-slate-50/50 shadow-sm ring-1 ring-slate-100/90"
+      ? "rounded-lg border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/50 shadow-sm ring-1 ring-slate-100/80"
       : effAvailRow === "to_order"
-        ? "rounded-xl border-2 border-teal-200 bg-gradient-to-b from-white to-teal-50/40 shadow-sm ring-1 ring-teal-100/90"
-        : "rounded-xl border-2 border-emerald-200 bg-gradient-to-b from-white to-emerald-50/40 shadow-sm ring-1 ring-emerald-100/90";
+        ? "rounded-lg border border-teal-300/75 bg-gradient-to-b from-white to-teal-50/40 shadow-sm ring-1 ring-teal-100/80"
+        : "rounded-lg border border-emerald-300/75 bg-gradient-to-b from-white to-emerald-50/40 shadow-sm ring-1 ring-emerald-100/80";
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -153,19 +154,19 @@ export function PharmacistSupplyCompactLine({
   return (
     <Fragment>
       {header ? (
-        <li className="list-none pt-2 first:pt-0 sm:pt-2.5">
+        <li className="list-none pt-1.5 first:pt-0 sm:pt-2">
           <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{header}</div>
         </li>
       ) : null}
       <li
         className={clsx(
-          "list-none overflow-hidden px-2.5 py-2 sm:px-3",
+          "list-none overflow-hidden px-2 py-1.5 sm:px-2.5 sm:py-2",
           cardShell,
           withdrawn && "opacity-[0.82] saturate-[0.72]"
         )}
       >
-        <div className="relative flex flex-col gap-2">
-          <div className="relative flex items-start gap-2">
+        <div className="relative flex flex-col gap-1.5">
+          <div className="relative flex items-start gap-1.5">
             <div className="pointer-events-none absolute end-1 top-1 z-10">
               <button
                 ref={anchorRef}
@@ -240,7 +241,7 @@ export function PharmacistSupplyCompactLine({
                 : null}
             </div>
 
-            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner">
+            <div className="relative h-[4.25rem] w-[4.25rem] shrink-0 overflow-hidden rounded-md border border-slate-200 bg-card shadow-inner sm:h-[4.5rem] sm:w-[4.5rem]">
               {thumbUrl ? (
                 <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
               ) : (
@@ -259,9 +260,9 @@ export function PharmacistSupplyCompactLine({
                   {validatedName}
                 </p>
                 {showAjoutOfficineBadge ? (
-                  <span className="shrink-0 rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                    Ajout officine
-                  </span>
+                <span className="shrink-0 rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                  {pharmacistProposedProductBadgeFr}
+                </span>
                 ) : null}
               </div>
               <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-slate-700">{availSentence}</p>
@@ -282,17 +283,19 @@ export function PharmacistSupplyCompactLine({
             </div>
           </div>
 
-          <div className="grid grid-cols-[5rem_1fr_auto] items-baseline gap-x-2 border-t border-border/45 pt-1.5 text-[12px] font-medium leading-none tabular-nums text-slate-800 sm:text-[13px]">
-            <div className="min-w-0 text-start">
+          <div className="flex min-w-0 flex-nowrap items-baseline justify-between gap-x-2 border-t border-border/45 pt-1.5 text-[12px] font-medium tabular-nums text-slate-800 sm:text-[13px]">
+            <div className="min-w-0 shrink-0 whitespace-nowrap text-start">
               <span className="text-slate-500">PU</span>{" "}
               <strong className="font-semibold text-slate-900">{unitLabel}</strong>
             </div>
-            <div className="flex min-w-0 justify-center text-center">
-              <span className="text-slate-500">Qté</span>{" "}
-              <strong className="font-semibold text-slate-900">{validatedQty}</strong>
+            <div className="min-w-0 flex-1 text-center">
+              <span className="inline-flex items-baseline justify-center gap-1">
+                <span className="text-slate-500">Qté</span>
+                <strong className="font-semibold text-slate-900">{validatedQty}</strong>
+              </span>
             </div>
-            <div className="min-w-0 text-end">
-              <span className="inline-flex flex-nowrap items-baseline justify-end gap-x-1 whitespace-nowrap">
+            <div className="min-w-0 shrink-0 whitespace-nowrap text-end">
+              <span className="inline-flex items-baseline justify-end gap-1">
                 <span className="text-slate-500">Total</span>
                 <strong className={clsx("font-semibold text-sky-900", withdrawn && "line-through decoration-muted-foreground/70")}>
                   {totalLabel}
