@@ -139,10 +139,13 @@ export function RequestStatusBadge({
 export function PatientDemandeCard({
   row,
   variant = "default",
+  conversationUnread = false,
 }: {
   row: PatientRequestRow;
   /** `list` : liste compacte (réf · pharmacie · dates · lignes · statut). */
   variant?: "default" | "list";
+  /** Message(s) conversation d’autrui non lus pour l’utilisateur courant. */
+  conversationUnread?: boolean;
 }) {
   const ph = one(row.pharmacies);
   const when = row.submitted_at ?? row.created_at;
@@ -156,7 +159,13 @@ export function PatientDemandeCard({
   if (variant === "list") {
     return (
       <div className={clsx(demandeCardShell(cardStatus, "patient"), "transition hover:-translate-y-px")}>
-        <Link href={`/dashboard/demandes/${row.id}`} className="group block p-2.5 sm:p-3">
+        <Link
+          href={`/dashboard/demandes/${row.id}`}
+          className="group block p-2.5 sm:p-3"
+          aria-label={
+            conversationUnread ? `${ph?.nom ?? "Pharmacie"} — conversation non lue` : undefined
+          }
+        >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -184,11 +193,13 @@ export function PatientDemandeCard({
                 <RequestStatusBadge status={cardStatus} role="patient" />
               </div>
             </div>
-            <span
-              className="shrink-0 pt-0.5 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary"
-              aria-hidden
-            >
-              →
+            <span className="relative flex shrink-0 items-center gap-1 pt-0.5" aria-hidden>
+              {conversationUnread ? (
+                <span className="size-2 shrink-0 rounded-full bg-sky-600 shadow-sm ring-2 ring-white" title="Conversation non lue" />
+              ) : null}
+              <span className="text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary">
+                →
+              </span>
             </span>
           </div>
         </Link>
@@ -198,7 +209,11 @@ export function PatientDemandeCard({
 
   return (
     <div className={clsx(demandeCardShell(cardStatus, "patient"), "transition hover:-translate-y-px")}>
-      <Link href={`/dashboard/demandes/${row.id}`} className="group block p-2.5 sm:p-3">
+      <Link
+        href={`/dashboard/demandes/${row.id}`}
+        className="group block p-2.5 sm:p-3"
+        aria-label={conversationUnread ? "Demande — conversation non lue" : undefined}
+      >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] text-muted-foreground">
@@ -216,8 +231,11 @@ export function PatientDemandeCard({
               <RequestStatusBadge status={cardStatus} role="patient" />
             </div>
           </div>
-          <span className="shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-sky-700" aria-hidden>
-            →
+          <span className="relative flex shrink-0 items-center gap-1" aria-hidden>
+            {conversationUnread ? (
+              <span className="size-2 shrink-0 rounded-full bg-sky-600 shadow-sm ring-2 ring-white" title="Conversation non lue" />
+            ) : null}
+            <span className="text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-sky-700">→</span>
           </span>
         </div>
       </Link>
@@ -231,7 +249,13 @@ function patientDisplayName(row: PharmacistRequestRow): string {
   return `Patient #${formatShortId(row.patient_id)}`;
 }
 
-export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
+export function PharmacistDemandeCard({
+  row,
+  conversationUnread = false,
+}: {
+  row: PharmacistRequestRow;
+  conversationUnread?: boolean;
+}) {
   const when = row.submitted_at ?? row.created_at;
   const maj = row.updated_at?.trim() ? row.updated_at : row.created_at;
   const name = patientDisplayName(row);
@@ -251,7 +275,11 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
 
   return (
     <div className={clsx(demandeCardShell(statusForCard, "pharmacien"), "transition hover:-translate-y-px")}>
-      <Link href={`/dashboard/pharmacien/demandes/${row.id}`} className="group block p-2.5 sm:p-3">
+      <Link
+        href={`/dashboard/pharmacien/demandes/${row.id}`}
+        className="group block p-2.5 sm:p-3"
+        aria-label={conversationUnread ? `${name} — conversation non lue` : undefined}
+      >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1 space-y-1">
             <p className="truncate text-[13px] font-semibold leading-tight text-foreground sm:text-sm">{name}</p>
@@ -284,11 +312,11 @@ export function PharmacistDemandeCard({ row }: { row: PharmacistRequestRow }) {
               </p>
             ) : null}
           </div>
-          <span
-            className="shrink-0 pt-0.5 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary"
-            aria-hidden
-          >
-            →
+          <span className="relative flex shrink-0 items-center gap-1 pt-0.5" aria-hidden>
+            {conversationUnread ? (
+              <span className="size-2 shrink-0 rounded-full bg-rose-600 shadow-sm ring-2 ring-white" title="Conversation non lue" />
+            ) : null}
+            <span className="text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary">→</span>
           </span>
         </div>
       </Link>

@@ -34,8 +34,8 @@ export type PatientOutcomeDetailContext = {
   pharmacyLine: string | null;
   retainedCount: number;
   totalLines: number;
-  hasPharmacistMessage: boolean;
-  hasPatientNote: boolean;
+  /** Au moins un message dans le fil conversation (hors interne). */
+  hasConversationMessages: boolean;
   lastUpdatedLabel: string | null;
 };
 
@@ -150,11 +150,8 @@ export function PatientRequestOutcomeBanner({
                 </span>
               ) : null}
             </li>
-            {detailContext.hasPharmacistMessage ? (
-              <li className="text-muted-foreground">Un message global de la pharmacie est conservé sur la fiche.</li>
-            ) : null}
-            {detailContext.hasPatientNote ? (
-              <li className="text-muted-foreground">Votre note générale à l’envoi est conservée dans l’historique.</li>
+            {detailContext.hasConversationMessages ? (
+              <li className="text-muted-foreground">Des messages d&apos;échange patient / officine sont conservés (conversation).</li>
             ) : null}
             {detailContext.lastUpdatedLabel ? (
               <li className="tabular-nums text-muted-foreground">

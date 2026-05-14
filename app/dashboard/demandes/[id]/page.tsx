@@ -26,6 +26,7 @@ import {
   isPatientProductArchiveStatus,
   type PatientOutcomeDetailContext,
 } from "@/components/requests/patient-request-outcome-banner";
+import { RequestConversationFab, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 
 type PharmacyEmbed = {
   nom: string;
@@ -35,21 +36,6 @@ type PharmacyEmbed = {
   public_ref?: string | null;
   contact_email?: string | null;
 };
-type ProductRequestEmbed = { patient_note: string | null };
-
-type ProdEmbed = { name: string; price_pph?: number | null; photo_url?: string | null };
-
-type AltEmbed = {
-  id: string;
-  rank: number;
-  availability_status: string | null;
-  available_qty: number | null;
-  unit_price: number | null;
-  pharmacist_comment: string | null;
-  expected_availability_date: string | null;
-  products: ProdEmbed | ProdEmbed[] | null;
-};
-
 type RequestDetail = {
   id: string;
   created_at: string;
@@ -64,7 +50,19 @@ type RequestDetail = {
   patient_planned_visit_time: string | null;
   request_public_ref?: string | null;
   pharmacies: PharmacyEmbed | PharmacyEmbed[] | null;
-  product_requests: ProductRequestEmbed | ProductRequestEmbed[] | null;
+};
+
+type ProdEmbed = { name: string; price_pph?: number | null; photo_url?: string | null };
+
+type AltEmbed = {
+  id: string;
+  rank: number;
+  availability_status: string | null;
+  available_qty: number | null;
+  unit_price: number | null;
+  pharmacist_comment: string | null;
+  expected_availability_date: string | null;
+  products: ProdEmbed | ProdEmbed[] | null;
 };
 
 type RequestItemRow = {
@@ -107,7 +105,10 @@ export default function DemandeDetailPage() {
   const [followUpBusy, setFollowUpBusy] = useState(false);
   const [followUpErr, setFollowUpErr] = useState("");
   const [supplyAmendments, setSupplyAmendments] = useState<{ id: string; created_at: string; amendments: unknown }[]>([]);
-  const [pharmacistGlobalComment, setPharmacistGlobalComment] = useState("");
+  const [conversationOpen, setConversationOpen] = useState(false);
+  const [conversationUnread, setConversationUnread] = useState(false);
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+  const [conversationMessageCount, setConversationMessageCount] = useState(0);
 
   const loadDetail = useCallback(
     async (silent?: boolean) => {
@@ -136,10 +137,12 @@ export default function DemandeDetailPage() {
         return;
       }
 
+      setSessionUserId(user.id);
+
       const { data: reqRow, error: reqErr } = await supabase
         .from("requests")
         .select(
-          "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,confirmed_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,pharmacies(nom,ville,adresse,telephone,public_ref,contact_email),product_requests(patient_note)"
+          "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,confirmed_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,pharmacies(nom,ville,adresse,telephone,public_ref,contact_email)"
         )
         .eq("id", id)
         .eq("patient_id", user.id)
@@ -166,7 +169,7 @@ export default function DemandeDetailPage() {
         r.request_type === "product_request" &&
         (["confirmed", "treated"].includes(st) || isPatientProductArchiveStatus(st));
 
-      const [itemsResult, amendmentsResult, phGlobalRes, histResult] = await Promise.all([
+      const [itemsResult, amendmentsResult, convUnreadRes, convCountRes, histResult] = await Promise.all([
         supabase
           .from("request_items")
           .select(
@@ -180,15 +183,13 @@ export default function DemandeDetailPage() {
           .eq("request_id", id)
           .order("created_at", { ascending: false })
           .limit(40),
+        supabase.rpc("request_conversation_unread_flags", { p_request_ids: [id] }),
         supabase
           .from("request_comments")
-          .select("comment_text")
+          .select("id", { count: "exact", head: true })
           .eq("request_id", id)
-          .eq("author_role", "pharmacien")
           .eq("is_internal", false)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+          .is("deleted_at", null),
         needStatusHistory
           ? supabase
               .from("request_status_history")
@@ -198,7 +199,9 @@ export default function DemandeDetailPage() {
               .limit(30)
           : Promise.resolve({ data: null, error: null } as const),
       ]);
-      setPharmacistGlobalComment(((phGlobalRes.data?.comment_text ?? "") as string).trim());
+      const unreadRow = (convUnreadRes.data as { request_id: string; has_unread: boolean }[] | null)?.find((x) => x.request_id === id);
+      setConversationUnread(Boolean(unreadRow?.has_unread));
+      setConversationMessageCount(convCountRes.count ?? 0);
       if (needStatusHistory && !histResult.error && Array.isArray(histResult.data)) {
         setHistoryRows(
           histResult.data as {
@@ -272,17 +275,15 @@ export default function DemandeDetailPage() {
       ph?.nom?.trim() != null && ph.nom.trim() !== ""
         ? `${ph.nom.trim()}${ph.ville?.trim() ? ` · ${ph.ville.trim()}` : ""}`
         : null;
-    const noteVal = one(request.product_requests)?.patient_note ?? null;
     const retainedCount = items.filter((i) => i.is_selected_by_patient).length;
     return {
       pharmacyLine,
       retainedCount,
       totalLines: items.length,
-      hasPharmacistMessage: Boolean(pharmacistGlobalComment?.trim()),
-      hasPatientNote: Boolean(noteVal?.trim()),
+      hasConversationMessages: conversationMessageCount > 0,
       lastUpdatedLabel: formatDateShortCasablancaWithTime24hFr(request.updated_at),
     };
-  }, [request, items, pharmacistGlobalComment]);
+  }, [request, items, conversationMessageCount]);
 
   if (loading) {
     return (
@@ -303,8 +304,6 @@ export default function DemandeDetailPage() {
     );
   }
 
-  const productReq = one(request.product_requests);
-  const note = productReq?.patient_note ?? null;
   const hasBottomActions =
     request.request_type === "product_request" &&
     (request.status === "submitted" ||
@@ -446,7 +445,6 @@ export default function DemandeDetailPage() {
           key={
             [
               request.status,
-              note ?? "",
               request.patient_planned_visit_date ?? "",
               request.patient_planned_visit_time ?? "",
               one(request.pharmacies)?.telephone ?? "",
@@ -466,7 +464,7 @@ export default function DemandeDetailPage() {
                 ].join(":")
               ),
               supplyAmendments.map((a) => a.id).join(","),
-              pharmacistGlobalComment,
+              String(conversationMessageCount),
               request.submitted_at ?? "",
               request.responded_at ?? "",
               request.confirmed_at ?? "",
@@ -477,7 +475,6 @@ export default function DemandeDetailPage() {
           status={request.status}
           items={items}
           supplyAmendmentBundles={supplyAmendments}
-          initialPatientNote={note}
           initialPlannedVisitDate={request.patient_planned_visit_date}
           initialPlannedVisitTime={request.patient_planned_visit_time}
           requestPublicRef={displayRequestPublicRef(request)}
@@ -495,7 +492,6 @@ export default function DemandeDetailPage() {
           onReload={async () => {
             await loadDetail(true);
           }}
-          pharmacistGlobalComment={pharmacistGlobalComment}
           requestTimelineMeta={{
             created_at: request.created_at,
             submitted_at: request.submitted_at,
@@ -572,6 +568,23 @@ export default function DemandeDetailPage() {
           </div>
         </div>
       </details>
+      {request.request_type === "product_request" && sessionUserId ? (
+        <>
+          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[10050] flex justify-end p-3 pb-[max(5rem,env(safe-area-inset-bottom))] sm:p-4 sm:pb-[max(5.5rem,env(safe-area-inset-bottom))]">
+            <div className="pointer-events-auto">
+              <RequestConversationFab hasUnread={conversationUnread} onClick={() => setConversationOpen(true)} />
+            </div>
+          </div>
+          <RequestConversationPanel
+            requestId={request.id}
+            viewerRole="patient"
+            currentUserId={sessionUserId}
+            open={conversationOpen}
+            onClose={() => setConversationOpen(false)}
+            onMarkedRead={() => setConversationUnread(false)}
+          />
+        </>
+      ) : null}
     </PageShell>
   );
 }

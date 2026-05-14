@@ -73,6 +73,7 @@ import {
 } from "@/lib/patient-confirmed-line-buckets";
 import { buildPatientLineTimelineFr, postConfirmSupplyAmendmentBadgeLabelsFr } from "@/lib/build-patient-line-timeline-fr";
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
+import { RequestConversationFab, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 import { PharmacistSupplyCompactLine } from "@/components/pharmacist/pharmacist-supply-compact-line";
 import {
   stringifyPharmaConfirmAudit,
@@ -104,7 +105,6 @@ type RequestRow = {
   patient_planned_visit_date: string | null;
   patient_planned_visit_time: string | null;
   request_public_ref?: string | null;
-  product_requests: { patient_note: string | null } | { patient_note: string | null }[] | null;
 };
 
 type ProdEmbedDb = { name: string; price_pph?: number | null; photo_url?: string | null };
@@ -772,14 +772,11 @@ function computeSupplyStructuralDirty(
   request: { status: string } | null,
   items: ItemRow[],
   draft: Draft,
-  globalComment: string,
-  initialGlobalComment: string,
   pendingProposalRows: ItemRow[],
   pendingAlternatives: PendingAlternativeEntry[],
   altQtyDrafts: Record<string, string>
 ): boolean {
   if (!request || !["confirmed", "treated"].includes(request.status)) return false;
-  if (globalComment.trim() !== initialGlobalComment.trim()) return true;
   if (pendingProposalRows.length > 0) return true;
   if (pendingAlternatives.length > 0) return true;
   for (const row of items) {
@@ -813,7 +810,6 @@ function computeSupplyStructuralDirty(
 
 type RespondedEditSnapshot = {
   draft: Draft;
-  globalComment: string;
   altQtyDrafts: Record<string, string>;
   pendingProposalIds: string;
   pendingAlternativesJson: string;
@@ -821,14 +817,12 @@ type RespondedEditSnapshot = {
 
 function takeRespondedEditSnapshot(
   draft: Draft,
-  globalComment: string,
   altQtyDrafts: Record<string, string>,
   pendingProposalRows: ItemRow[],
   pendingAlternatives: PendingAlternativeEntry[]
 ): RespondedEditSnapshot {
   return {
     draft: JSON.parse(JSON.stringify(draft)) as Draft,
-    globalComment,
     altQtyDrafts: { ...altQtyDrafts },
     pendingProposalIds: pendingProposalRows.map((r) => r.id).join(","),
     pendingAlternativesJson: JSON.stringify(pendingAlternatives),
@@ -839,15 +833,11 @@ function diffRespondedSnapshots(
   baseline: RespondedEditSnapshot,
   displayRows: ItemRow[],
   draft: Draft,
-  globalComment: string,
   altQtyDrafts: Record<string, string>,
   pendingProposalRows: ItemRow[],
   pendingAlternatives: PendingAlternativeEntry[]
 ): string[] {
   const lines: string[] = [];
-  if (baseline.globalComment.trim() !== globalComment.trim()) {
-    lines.push("Commentaire général pour le patient");
-  }
   const pendIds = pendingProposalRows.map((r) => r.id).join(",");
   if (baseline.pendingProposalIds !== pendIds) {
     lines.push("Propositions officine (ajout ou retrait avant enregistrement)");
@@ -934,8 +924,6 @@ function buildSupplyStructuralAmends(items: ItemRow[], draft: Draft): SupplyAmen
 function buildConfirmedSupplySaveSummaryLines(
   items: ItemRow[],
   draft: Draft,
-  globalComment: string,
-  initialGlobalComment: string,
   pendingProposalRows: ItemRow[],
   pendingAlternatives: PendingAlternativeEntry[],
   altQtyDrafts: Record<string, string>,
@@ -945,12 +933,6 @@ function buildConfirmedSupplySaveSummaryLines(
   consentRowIdFilter?: Set<string> | null
 ): string[] {
   const lines: string[] = [];
-
-  if (globalComment.trim() !== initialGlobalComment.trim()) {
-    lines.push(
-      "Commentaire général patient : le texte sera publié au journal patient lors de l’enregistrement (si non vide)."
-    );
-  }
 
   for (const row of pendingProposalRows) {
     const nm = one(row.products)?.name ?? "Produit";
@@ -1246,8 +1228,9 @@ export default function PharmacienDemandeDetailPage() {
   const [historyRows, setHistoryRows] = useState<
     { id: string; created_at: string; old_status: string | null; new_status: string; reason: string | null }[]
   >([]);
-  const [globalComment, setGlobalComment] = useState("");
-  const [initialGlobalComment, setInitialGlobalComment] = useState("");
+  const [conversationOpen, setConversationOpen] = useState(false);
+  const [conversationUnread, setConversationUnread] = useState(false);
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   /** Après publication (`responded`), affichage figé jusqu'à « Modifier ». */
   const [respondedEditMode, setRespondedEditMode] = useState(false);
   const [respondedSaveConfirmOpen, setRespondedSaveConfirmOpen] = useState(false);
@@ -1322,6 +1305,8 @@ export default function PharmacienDemandeDetailPage() {
       return;
     }
 
+    setSessionUserId(user.id);
+
     const { data: staff } = await supabase
       .from("pharmacy_staff")
       .select("pharmacy_id")
@@ -1338,7 +1323,7 @@ export default function PharmacienDemandeDetailPage() {
     const { data: reqRow, error: reqErr } = await supabase
       .from("requests")
       .select(
-        "id,status,request_type,pharmacy_id,patient_id,created_at,submitted_at,responded_at,confirmed_at,updated_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,product_requests(patient_note)"
+        "id,status,request_type,pharmacy_id,patient_id,created_at,submitted_at,responded_at,confirmed_at,updated_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref"
       )
       .eq("id", id)
       .maybeSingle();
@@ -1376,18 +1361,9 @@ export default function PharmacienDemandeDetailPage() {
       }
     }
 
-    const { data: lastComment } = await supabase
-      .from("request_comments")
-      .select("comment_text")
-      .eq("request_id", id)
-      .eq("author_role", "pharmacien")
-      .eq("is_internal", false)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const latest = (lastComment?.comment_text ?? "").trim();
-    setGlobalComment(latest);
-    setInitialGlobalComment(latest);
+    const { data: unreadRpc } = await supabase.rpc("request_conversation_unread_flags", { p_request_ids: [id] });
+    const unreadRow = (unreadRpc as { request_id: string; has_unread: boolean }[] | null)?.find((x) => x.request_id === id);
+    setConversationUnread(Boolean(unreadRow?.has_unread));
 
     const { data: itemsData, error: itemsErr } = await supabase
       .from("request_items")
@@ -2317,21 +2293,6 @@ export default function PharmacienDemandeDetailPage() {
     await load();
   };
 
-  const persistGlobalCommentIfChanged = async () => {
-    const next = globalComment.trim();
-    if (next.length === 0 || next === initialGlobalComment) return;
-    const { data: authData } = await supabase.auth.getUser();
-    const { error: cErr } = await supabase.from("request_comments").insert({
-      request_id: id,
-      author_id: authData.user?.id ?? null,
-      author_role: "pharmacien",
-      comment_text: next,
-      is_internal: false,
-    });
-    if (cErr) throw new Error(cErr.message);
-    setInitialGlobalComment(next);
-  };
-
   const declarationTreatedEligible = useMemo(() => {
     if (!request?.status || request.status !== "confirmed") return false;
     for (const i of items) {
@@ -2491,7 +2452,6 @@ export default function PharmacienDemandeDetailPage() {
         if (rpcA) throw new Error(rpcA.message);
       }
 
-      await persistGlobalCommentIfChanged();
       dispatchRequestDetailRefresh(id);
       await load();
     } catch (e) {
@@ -2558,8 +2518,6 @@ export default function PharmacienDemandeDetailPage() {
     const summaryLines = buildConfirmedSupplySaveSummaryLines(
       items,
       draft,
-      globalComment,
-      initialGlobalComment,
       pendingProposalRows,
       pendingAlternatives,
       altQtyDrafts,
@@ -2844,7 +2802,6 @@ export default function PharmacienDemandeDetailPage() {
       setPendingAlternatives([]);
       const { error: h } = await logHistory(id, "responded", "responded", "pharmacist_response_updated");
       if (h) throw new Error(h.message);
-      await persistGlobalCommentIfChanged();
       setRespondedEditMode(false);
       setRespondedSaveConfirmOpen(false);
       setRespondedSaveDiffLines([]);
@@ -2968,8 +2925,6 @@ export default function PharmacienDemandeDetailPage() {
         "publication_disponibilites"
       );
       if (h2) throw new Error(h2.message);
-      await persistGlobalCommentIfChanged();
-
       setError("");
       setRespondedEditMode(false);
       await load();
@@ -3091,8 +3046,6 @@ export default function PharmacienDemandeDetailPage() {
     request,
     items,
     draft,
-    globalComment,
-    initialGlobalComment,
     pendingProposalRows,
     pendingAlternatives,
     altQtyDrafts
@@ -3127,19 +3080,13 @@ export default function PharmacienDemandeDetailPage() {
 
   useLayoutEffect(() => {
     if (respondedEditMode && request?.status === "responded" && !prevRespondedEditMode.current) {
-      respondedEditBaselineRef.current = takeRespondedEditSnapshot(
-        draft,
-        globalComment,
-        altQtyDrafts,
-        pendingProposalRows,
-        pendingAlternatives
-      );
+      respondedEditBaselineRef.current = takeRespondedEditSnapshot(draft, altQtyDrafts, pendingProposalRows, pendingAlternatives);
     }
     if (!respondedEditMode) {
       respondedEditBaselineRef.current = null;
     }
     prevRespondedEditMode.current = respondedEditMode;
-  }, [respondedEditMode, request?.status, draft, globalComment, altQtyDrafts, pendingProposalRows, pendingAlternatives]);
+  }, [respondedEditMode, request?.status, draft, altQtyDrafts, pendingProposalRows, pendingAlternatives]);
 
   const publishConfirmGroups = useMemo(() => {
     const all: PublishConfirmRowMeta[] = [];
@@ -3215,9 +3162,8 @@ export default function PharmacienDemandeDetailPage() {
     setPendingAlternatives([]);
     setAltQtyDrafts({});
     setLineModifyConsent({});
-    setGlobalComment(initialGlobalComment);
     setError("");
-  }, [resetDraftFromRows, initialGlobalComment]);
+  }, [resetDraftFromRows]);
 
   let canCompleteCounter = false;
   let counterClosurePendingTracked = 0;
@@ -3249,9 +3195,6 @@ export default function PharmacienDemandeDetailPage() {
   }
 
   if (!request) return null;
-
-  const pr = one(request.product_requests);
-  const patientNote = pr?.patient_note;
 
   const patientPhone = patientProfile?.whatsapp?.trim();
   const patientEmail = patientProfile?.email?.trim();
@@ -3508,23 +3451,6 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      {patientNote ? (
-        <details className="group rounded-xl border border-amber-300/70 bg-gradient-to-br from-amber-50/90 to-orange-50/50 shadow-sm ring-1 ring-amber-200/40 open:shadow-md">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2 py-1.5 text-[10px] font-bold text-amber-950 marker:content-none sm:px-2.5 sm:py-2 [&::-webkit-details-marker]:hidden">
-            <span className="inline-flex items-center gap-1.5">
-              <MessageCircle className="size-3 shrink-0 text-amber-800" strokeWidth={2.5} aria-hidden />
-              Message du client
-            </span>
-            <ChevronDown className="size-4 shrink-0 text-amber-800 transition-transform group-open:rotate-180" aria-hidden />
-          </summary>
-          <div className="border-t border-amber-200/60 px-2 pb-2 pt-1 sm:px-2.5 sm:pb-2.5">
-            <p className="max-h-[min(55vh,20rem)] min-h-[4.5rem] overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-amber-200/55 bg-white px-2.5 py-2 text-[13px] font-normal leading-relaxed text-foreground shadow-inner sm:text-xs sm:leading-snug">
-              {patientNote}
-            </p>
-          </div>
-        </details>
-      ) : null}
-
       {error ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{error}</p>
       ) : null}
@@ -3539,13 +3465,6 @@ export default function PharmacienDemandeDetailPage() {
             <p className="mt-2 text-[11px] text-muted-foreground">Aucune ligne produit.</p>
           ) : (
             <>
-              {respondedFrozenView && initialGlobalComment.trim() ? (
-                <section className="rounded-xl border border-violet-200/70 bg-violet-50/40 px-3 py-2 shadow-sm">
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-violet-950">Commentaire général envoyé</p>
-                  <p className="mt-0.5 whitespace-pre-wrap text-[11px] leading-snug text-violet-950/90">{initialGlobalComment}</p>
-                </section>
-              ) : null}
-
               <div className="flex flex-wrap items-end justify-between gap-1.5 sm:gap-2">
             <div>
               <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground sm:text-xs">Produits</h2>
@@ -4938,54 +4857,12 @@ export default function PharmacienDemandeDetailPage() {
             </section>
           ) : null}
 
-          {showLineAndPublishEdits ? (
-            canManageResponded && respondedEditMode ? (
-              <div className="mt-2 rounded-xl border border-violet-200/60 bg-gradient-to-br from-violet-50/40 via-card to-card shadow-md sm:mt-2">
-                <div className="flex items-center justify-between gap-2 px-2 py-2 text-[10px] font-bold text-violet-950 sm:px-3">
-                  <span className="inline-flex items-center gap-1.5">
-                    <MessageSquare className="size-3.5 text-violet-600" aria-hidden />
-                    Commentaire général pour le patient
-                  </span>
-                </div>
-                <div className="border-t border-violet-100/80 px-2 pb-2 pt-1 sm:px-3 sm:pb-3">
-                  <textarea
-                    rows={3}
-                    value={globalComment}
-                    onChange={(e) => setGlobalComment(e.target.value.slice(0, 1200))}
-                    placeholder="Message global (optionnel), visible avec la réponse"
-                    className="min-h-[5.5rem] w-full rounded-xl border-2 border-violet-200/70 bg-background px-3 py-2.5 text-[13px] leading-relaxed shadow-inner placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 sm:min-h-[4.5rem] sm:text-xs sm:leading-normal"
-                  />
-                </div>
-              </div>
-            ) : (
-              <details className="group mt-2 rounded-xl border border-violet-200/60 bg-gradient-to-br from-violet-50/40 via-card to-card shadow-sm open:shadow-md sm:mt-2">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2 py-2 text-[10px] font-bold text-violet-950 marker:content-none sm:px-3 [&::-webkit-details-marker]:hidden">
-                  <span className="inline-flex items-center gap-1.5">
-                    <MessageSquare className="size-3.5 text-violet-600" aria-hidden />
-                    Commentaire général pour le patient
-                  </span>
-                  <ChevronDown className="size-4 shrink-0 text-violet-700 transition-transform group-open:rotate-180" aria-hidden />
-                </summary>
-                <div className="border-t border-violet-100/80 px-2 pb-2 pt-1 sm:px-3 sm:pb-3">
-                  <textarea
-                    rows={3}
-                    value={globalComment}
-                    onChange={(e) => setGlobalComment(e.target.value.slice(0, 1200))}
-                    placeholder="Message global (optionnel), visible avec la réponse"
-                    className="min-h-[5.5rem] w-full rounded-xl border-2 border-violet-200/70 bg-background px-3 py-2.5 text-[13px] leading-relaxed shadow-inner placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 sm:min-h-[4.5rem] sm:text-xs sm:leading-normal"
-                  />
-                </div>
-              </details>
-            )
-          ) : null}
-
           {respondedFrozenView ? (
             <section className="mt-3 space-y-2 rounded-xl border border-amber-200/85 bg-amber-50/50 p-2.5 shadow-sm sm:mt-4 sm:p-3">
               <button
                 type="button"
                 onClick={() => {
                   resetDraftFromRows();
-                  setGlobalComment(initialGlobalComment);
                   setPendingProposalRows([]);
                   setPendingAlternatives([]);
                   setRespondedEditMode(true);
@@ -5023,15 +4900,14 @@ export default function PharmacienDemandeDetailPage() {
               {canManageSupply ? (
                 <p className="rounded-xl border border-sky-400/60 bg-sky-50/80 px-3 py-2 text-[11px] leading-snug text-sky-950 shadow-sm ring-1 ring-sky-300/40">
                   Réservé / commandé : enregistrement immédiat au clic sur les pastilles. Les autres changements (lignes,
-                  écarts, ajouts officine, commentaire global) passent par la barre fixe en bas : Annuler ou Enregistrer les
-                  modifications.
+                  écarts, ajouts officine) passent par la barre fixe en bas : Annuler ou Enregistrer les modifications.
                 </p>
               ) : null}
             </section>
           ) : !respondedFrozenView ? (
             <p className="mt-3 rounded-md border border-border bg-muted/30 p-2 text-[11px] text-muted-foreground">
               {request.status === "confirmed"
-                ? "Réservations et commandes : enregistrement immédiat au clic sur les pastilles. Utilisez « Enregistrer les modifications » pour les changements de ligne, écarts, ajouts ou le commentaire général, puis déclarez la demande traitée (pied de page) pour le comptoir."
+                ? "Réservations et commandes : enregistrement immédiat au clic sur les pastilles. Utilisez « Enregistrer les modifications » pour les changements de ligne, écarts ou ajouts officine, puis déclarez la demande traitée (pied de page) pour le comptoir."
                 : request.status === "treated"
                   ? "Dossier traité : pastille « Récupéré » enregistrement immédiat comme pour réservé / commandé. Marquez chaque ligne retenue puis clôturez lorsque tout est retiré au comptoir. Les autres changements passent par « Enregistrer les modifications »."
                   : request.status === "completed"
@@ -5204,14 +5080,6 @@ export default function PharmacienDemandeDetailPage() {
             <h2 id="publish-confirm-title" className="shrink-0 text-center text-sm font-bold text-emerald-950">
               Confirmer l&apos;envoi au patient
             </h2>
-            {globalComment.trim() ? (
-              <div className="mt-3 shrink-0 rounded-lg border border-violet-200/70 bg-violet-50/50 px-2.5 py-2">
-                <p className="text-[9px] font-bold uppercase tracking-wide text-violet-950">Message général</p>
-                <p className="mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap text-[11px] leading-snug text-violet-950/95">
-                  {globalComment.trim()}
-                </p>
-              </div>
-            ) : null}
             <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
               <div className="space-y-4 text-[11px]">
                 {publishConfirmGroups.ready.length > 0 ? (
@@ -5284,7 +5152,6 @@ export default function PharmacienDemandeDetailPage() {
               disabled={busy}
               onClick={() => {
                 resetDraftFromRows();
-                setGlobalComment(initialGlobalComment);
                 setRespondedEditMode(false);
                 setPendingProposalRows([]);
                 setPendingAlternatives([]);
@@ -5304,15 +5171,7 @@ export default function PharmacienDemandeDetailPage() {
                   return;
                 }
                 setError("");
-                const diffs = diffRespondedSnapshots(
-                  b,
-                  displayRows,
-                  draft,
-                  globalComment,
-                  altQtyDrafts,
-                  pendingProposalRows,
-                  pendingAlternatives
-                );
+                const diffs = diffRespondedSnapshots(b, displayRows, draft, altQtyDrafts, pendingProposalRows, pendingAlternatives);
                 setRespondedSaveDiffLines(diffs);
                 setRespondedSaveConfirmOpen(true);
               }}
@@ -5568,6 +5427,23 @@ export default function PharmacienDemandeDetailPage() {
         blocks={pharmaHistoryBlocks}
         onClose={() => setPharmaHistoryRowId(null)}
       />
+      {isProduct && sessionUserId ? (
+        <>
+          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[10050] flex justify-end p-3 pb-[max(5rem,env(safe-area-inset-bottom))] sm:p-4 sm:pb-[max(5.5rem,env(safe-area-inset-bottom))]">
+            <div className="pointer-events-auto">
+              <RequestConversationFab hasUnread={conversationUnread} onClick={() => setConversationOpen(true)} />
+            </div>
+          </div>
+          <RequestConversationPanel
+            requestId={id}
+            viewerRole="pharmacien"
+            currentUserId={sessionUserId}
+            open={conversationOpen}
+            onClose={() => setConversationOpen(false)}
+            onMarkedRead={() => setConversationUnread(false)}
+          />
+        </>
+      ) : null}
     </PageShell>
   );
 }

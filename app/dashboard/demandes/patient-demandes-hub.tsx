@@ -43,6 +43,7 @@ export function PatientDemandesHub() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [rows, setRows] = useState<PatientRequestRow[]>([]);
+  const [unreadById, setUnreadById] = useState<Record<string, boolean>>({});
   const [pharmacyFilter, setPharmacyFilter] = useState("");
   const [refQuery, setRefQuery] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
@@ -80,8 +81,24 @@ export function PatientDemandesHub() {
 
     if (re) {
       setError(re.message);
+      setUnreadById({});
     } else if (Array.isArray(data)) {
       setRows(data as unknown as PatientRequestRow[]);
+      const ids = (data as unknown as { id: string }[]).map((r) => r.id);
+      let unreadMap: Record<string, boolean> = {};
+      if (ids.length > 0) {
+        const { data: flagData, error: unreadErr } = await supabase.rpc("request_conversation_unread_flags", {
+          p_request_ids: ids,
+        });
+        if (!unreadErr && Array.isArray(flagData)) {
+          for (const fr of flagData as { request_id: string; has_unread: boolean }[]) {
+            if (fr.request_id) unreadMap[fr.request_id] = fr.has_unread === true;
+          }
+        }
+      }
+      setUnreadById(unreadMap);
+    } else {
+      setUnreadById({});
     }
 
     setLoading(false);
@@ -303,7 +320,7 @@ export function PatientDemandesHub() {
             <ul className="space-y-2">
               {filteredSorted.map((r) => (
                 <li key={r.id}>
-                  <PatientDemandeCard row={r} variant="list" />
+                  <PatientDemandeCard row={r} variant="list" conversationUnread={unreadById[r.id] === true} />
                 </li>
               ))}
             </ul>

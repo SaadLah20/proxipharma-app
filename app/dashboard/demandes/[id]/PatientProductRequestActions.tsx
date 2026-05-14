@@ -56,7 +56,7 @@ import {
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { isPatientProductArchiveStatus, type PatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
-import { PATIENT_GENERAL_NOTE_MAX, PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
+import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import {
@@ -706,14 +706,12 @@ function archiveReadonlyIntroCopy(status: PatientProductArchiveStatus): { ring: 
 /** Archives (annulé, expiré, etc.) : mêmes cartes compactes que le dossier validé, sans actions ni suivi temps réel. */
 function ReadonlyArchivedProductBucketsView({
   items,
-  pharmacistGlobalComment,
   onOpenLineHistory,
   linePostConfirmBadgesById,
   archiveStatus,
   onPhotoPreview,
 }: {
   items: ActionItemRow[];
-  pharmacistGlobalComment: string | null | undefined;
   onOpenLineHistory: (itemId: string) => void;
   linePostConfirmBadgesById: Record<string, string[]>;
   archiveStatus: PatientProductArchiveStatus;
@@ -744,15 +742,6 @@ function ReadonlyArchivedProductBucketsView({
         <p className="mt-0.5 text-[11px] font-bold leading-snug text-foreground">{intro.title}</p>
         <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{intro.lede}</p>
       </div>
-
-      {pharmacistGlobalComment?.trim() ? (
-        <div className="rounded-md border border-emerald-200/80 bg-emerald-50/65 px-2 py-1.5">
-          <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-950">Message de la pharmacie</p>
-          <p className="mt-0.5 whitespace-pre-wrap text-[10px] leading-snug text-emerald-950">
-            {pharmacistGlobalComment.trim()}
-          </p>
-        </div>
-      ) : null}
 
       <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto rounded-md border border-primary/20 bg-primary/[0.06] px-2 py-1.5">
         <p className="shrink-0 text-[10px] font-semibold text-foreground">
@@ -972,7 +961,6 @@ type Props = {
   requestId: string;
   status: string;
   items: ActionItemRow[];
-  initialPatientNote: string | null;
   initialPlannedVisitDate?: string | null;
   initialPlannedVisitTime?: string | null;
   onReload: () => Promise<void>;
@@ -981,8 +969,6 @@ type Props = {
   /** Référence courte (ex. PR-…) pour préremplir un courriel. */
   requestPublicRef?: string | null;
   supplyAmendmentBundles?: { id: string; created_at: string; amendments: unknown }[];
-  /** Dernier commentaire officine « message global », non interne (`request_comments`). */
-  pharmacistGlobalComment?: string | null;
   /** Dates dossier pour la timeline produit après validation */
   requestTimelineMeta?: {
     created_at: string;
@@ -1751,14 +1737,12 @@ export function PatientProductRequestActions({
   requestId,
   status,
   items,
-  initialPatientNote,
   initialPlannedVisitDate,
   initialPlannedVisitTime,
   onReload,
   pharmacyContact = null,
   requestPublicRef = null,
   supplyAmendmentBundles = [],
-  pharmacistGlobalComment = null,
   requestTimelineMeta = undefined,
   dossierHistoryRows = [],
 }: Props) {
@@ -1799,15 +1783,6 @@ export function PatientProductRequestActions({
   const [visitHour, setVisitHour] = useState(() => splitVisitHm(initialPlannedVisitTime).h);
   const [visitMinute, setVisitMinute] = useState(() => splitVisitHm(initialPlannedVisitTime).m);
 
-  /** Note générale à l’étape « pharmacie a répondu » (persistée avec la validation). */
-  const [confirmPatientNote, setConfirmPatientNote] = useState(() => initialPatientNote ?? "");
-  const [confirmPatientNoteEditing, setConfirmPatientNoteEditing] = useState(false);
-  const [confirmPatientNoteBackup, setConfirmPatientNoteBackup] = useState("");
-  const confirmPatientNoteTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const patientReplyDetailsRef = useRef<HTMLDetailsElement>(null);
-
-  /** Resubmit draft — idem */
-  const [noteDraft, setNoteDraft] = useState(() => initialPatientNote ?? "");
   const [lines, setLines] = useState<ResubmitLine[]>(() =>
     computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status))
   );
@@ -1819,7 +1794,6 @@ export function PatientProductRequestActions({
   /** Restaure le brouillon resubmit à l'état initial (sortie du mode édition sans renvoi). */
   const resetResubmitDraft = () => {
     setLines(computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status)));
-    setNoteDraft(initialPatientNote ?? "");
     setQuery("");
     setHits([]);
     setActionError("");
@@ -2053,14 +2027,6 @@ export function PatientProductRequestActions({
   }, [items, sel, visitWin, resolvedVisitDate, visitDate, visitTimeComposed]);
 
   useEffect(() => {
-    if (!confirmPatientNoteEditing) return;
-    const id = window.requestAnimationFrame(() => {
-      confirmPatientNoteTextareaRef.current?.focus();
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [confirmPatientNoteEditing]);
-
-  useEffect(() => {
     if (!confirmReviewOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeConfirmReview();
@@ -2098,14 +2064,6 @@ export function PatientProductRequestActions({
       setActionError(error.message);
       return;
     }
-    const trimmedNote = confirmPatientNote.trim().slice(0, PATIENT_GENERAL_NOTE_MAX);
-    const { error: noteErr } = await supabase
-      .from("product_requests")
-      .update({ patient_note: trimmedNote === "" ? null : trimmedNote })
-      .eq("request_id", requestId);
-    if (noteErr) {
-      console.error("patient_note after confirm:", noteErr);
-    }
     closeConfirmReview();
     await onReload();
   };
@@ -2135,8 +2093,7 @@ export function PatientProductRequestActions({
     setBusyAction("resubmit");
     const { error } = await supabase.rpc("patient_resubmit_product_request_after_response", {
       p_request_id: requestId,
-      p_patient_note:
-        noteDraft.trim() === "" ? null : noteDraft.trim().slice(0, PATIENT_GENERAL_NOTE_MAX),
+      p_patient_note: null,
       p_items,
     });
     setBusyAction("");
@@ -2244,7 +2201,6 @@ export function PatientProductRequestActions({
         <section className="mt-2 rounded-lg border border-border/90 bg-muted/15 p-2 sm:p-2.5">
           <ReadonlyArchivedProductBucketsView
             items={items}
-            pharmacistGlobalComment={pharmacistGlobalComment}
             onOpenLineHistory={(itemId) => setHistoryModalItemId(itemId)}
             linePostConfirmBadgesById={linePostConfirmBadgesById}
             archiveStatus={status}
@@ -2321,120 +2277,10 @@ export function PatientProductRequestActions({
             </details>
           </div>
 
-          {(() => {
-            const hasPharmaGlobal = Boolean(pharmacistGlobalComment?.trim());
-            const hasPatientMsg = Boolean(confirmPatientNote.trim());
-            return (
-              <>
-                <details className="group rounded-xl border-2 border-emerald-300/70 bg-gradient-to-br from-emerald-50/95 via-white to-teal-50/30 shadow-md ring-1 ring-emerald-200/50 sm:rounded-xl">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 marker:content-none sm:px-3.5 [&::-webkit-details-marker]:hidden">
-                    <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-950">Message de la pharmacie</span>
-                      <span className="text-[9px] font-semibold text-emerald-800/90">
-                        {hasPharmaGlobal ? "· message présent" : "· vide"}
-                      </span>
-                    </span>
-                    <ChevronDown
-                      className="size-4 shrink-0 text-emerald-700 transition-transform group-open:rotate-180"
-                      aria-hidden
-                    />
-                  </summary>
-                  <div className="border-t border-emerald-200/60 px-3 pb-3 pt-2 sm:px-3.5">
-                    {hasPharmaGlobal ? (
-                      <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-emerald-950 sm:text-[14px]">
-                        {pharmacistGlobalComment!.trim()}
-                      </p>
-                    ) : (
-                      <p className="text-[12px] italic leading-relaxed text-emerald-900/75">
-                        La pharmacie n&apos;a pas laissé de message général sur cette réponse.
-                      </p>
-                    )}
-                  </div>
-                </details>
-
-                <details
-                  ref={patientReplyDetailsRef}
-                  className="group rounded-xl border-2 border-sky-200/85 bg-gradient-to-br from-sky-50/90 to-white shadow-md ring-1 ring-sky-200/45 sm:rounded-xl"
-                >
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 marker:content-none sm:px-3.5 [&::-webkit-details-marker]:hidden">
-                    <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-sky-950">Ton message pour la pharmacie</span>
-                      <span className="text-[9px] font-semibold text-sky-800/90">
-                        {confirmPatientNoteEditing
-                          ? "· saisie en cours"
-                          : hasPatientMsg
-                            ? "· message présent"
-                            : "· vide"}
-                      </span>
-                    </span>
-                    <ChevronDown
-                      className="size-4 shrink-0 text-sky-700 transition-transform group-open:rotate-180"
-                      aria-hidden
-                    />
-                  </summary>
-                  <div className="border-t border-sky-200/70 px-3 pb-3 pt-2 sm:px-3.5">
-                    <p className="text-[9px] leading-snug text-sky-900/80">
-                      Optionnel · enregistré seulement quand tu valides la demande.
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-end justify-end gap-2">
-                      {confirmPatientNoteEditing ? (
-                        <button
-                          type="button"
-                          className="shrink-0 rounded-lg border border-sky-400/80 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-sky-950 shadow-sm transition hover:bg-sky-100/80"
-                          onClick={() => {
-                            setConfirmPatientNote(confirmPatientNoteBackup);
-                            setConfirmPatientNoteEditing(false);
-                          }}
-                        >
-                          Annuler
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="shrink-0 rounded-lg border border-sky-600 bg-sky-700 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-sky-800"
-                          onClick={() => {
-                            setConfirmPatientNoteBackup(confirmPatientNote);
-                            setConfirmPatientNote("");
-                            setConfirmPatientNoteEditing(true);
-                            const el = patientReplyDetailsRef.current;
-                            if (el) el.open = true;
-                          }}
-                        >
-                          Écrire un nouveau message
-                        </button>
-                      )}
-                    </div>
-                    {confirmPatientNoteEditing ? (
-                      <>
-                        <textarea
-                          ref={confirmPatientNoteTextareaRef}
-                          value={confirmPatientNote}
-                          onChange={(e) => setConfirmPatientNote(e.target.value.slice(0, PATIENT_GENERAL_NOTE_MAX))}
-                          rows={4}
-                          maxLength={PATIENT_GENERAL_NOTE_MAX}
-                          placeholder="Ex. précision sur le passage…"
-                          className="mt-2 w-full resize-y rounded-lg border-2 border-sky-300/80 bg-white px-3 py-2.5 text-[14px] leading-relaxed text-foreground placeholder:text-muted-foreground/70 [touch-action:manipulation]"
-                          autoCapitalize="sentences"
-                          enterKeyHint="done"
-                        />
-                        <p className="mt-1 text-right text-[10px] text-sky-800/90 tabular-nums">
-                          {confirmPatientNote.length}/{PATIENT_GENERAL_NOTE_MAX}
-                        </p>
-                      </>
-                    ) : (
-                      <div className="mt-2 min-h-[4rem] whitespace-pre-wrap rounded-lg border border-sky-200/80 bg-white/95 px-3 py-2.5 text-[13px] leading-relaxed text-foreground sm:text-sm">
-                        {hasPatientMsg ? (
-                          confirmPatientNote.trim()
-                        ) : (
-                          <span className="text-muted-foreground italic">Aucun message pour l&apos;instant.</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </details>
-              </>
-            );
-          })()}
+          <p className="rounded-lg border border-sky-200/80 bg-sky-50/70 px-2.5 py-2 text-[10px] leading-snug text-sky-950">
+            Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
+            <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
+          </p>
 
           {items.length > 0 ? (
             <section className="space-y-2">
@@ -2503,15 +2349,6 @@ export function PatientProductRequestActions({
                       sur cette page ; la pharmacie voit le changement.
                     </p>
                   </div>
-                </div>
-              ) : null}
-
-              {pharmacistGlobalComment?.trim() ? (
-                <div className="rounded-md border border-emerald-200/80 bg-emerald-50/65 px-2 py-1.5">
-                  <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-950">Message de la pharmacie</p>
-                  <p className="mt-0.5 whitespace-pre-wrap text-[10px] leading-snug text-emerald-950">
-                    {pharmacistGlobalComment.trim()}
-                  </p>
                 </div>
               ) : null}
 
@@ -2862,33 +2699,6 @@ export function PatientProductRequestActions({
       ) : null}
 
       <div className="mt-2 space-y-2">
-        {showResubmit ? (
-          editMode || noteDraft.trim().length > 0 ? (
-            <div className="rounded-xl border-l-4 border-sky-700 bg-sky-50/95 p-3 shadow-sm ring-1 ring-sky-200/50 sm:p-4">
-              <label className="block text-sm font-semibold text-slate-900">Message général pour la pharmacie (facultatif)</label>
-              {editMode ? (
-                <>
-                  <textarea
-                    value={noteDraft}
-                    onChange={(e) => setNoteDraft(e.target.value.slice(0, PATIENT_GENERAL_NOTE_MAX))}
-                    rows={5}
-                    maxLength={PATIENT_GENERAL_NOTE_MAX}
-                    placeholder="Allergies, urgence, préférences…"
-                    className="mt-2 w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-3 text-base leading-relaxed text-slate-900 placeholder:text-slate-400 [touch-action:pan-x_pan-y]"
-                  />
-                  <p className="mt-1.5 text-right text-sm text-slate-600 tabular-nums">
-                    {noteDraft.length}/{PATIENT_GENERAL_NOTE_MAX}
-                  </p>
-                </>
-              ) : (
-                <div className="mt-2 min-h-[6rem] whitespace-pre-wrap rounded-lg border border-slate-200 bg-white px-3 py-3 text-base leading-relaxed text-slate-900">
-                  {noteDraft.trim()}
-                </div>
-              )}
-            </div>
-          ) : null
-        ) : null}
-
         {showVisitFields ? (
           <div className="rounded-xl border-2 border-primary/35 bg-gradient-to-br from-primary/[0.12] via-background to-primary/[0.06] p-2.5 shadow-md ring-1 ring-primary/25 sm:p-3">
             <div className="flex items-center gap-2">
@@ -3309,15 +3119,6 @@ export function PatientProductRequestActions({
                   </li>
                 ))}
               </ul>
-              {noteDraft.trim() ? (
-                <p className="mt-2 rounded-md border border-sky-200/80 bg-sky-50/80 px-2 py-1.5 text-[11px] text-slate-800">
-                  <span className="font-semibold">Message : </span>
-                  <span className="whitespace-pre-wrap">
-                    {noteDraft.trim().slice(0, 200)}
-                    {noteDraft.trim().length > 200 ? "…" : ""}
-                  </span>
-                </p>
-              ) : null}
             </div>
             <div className="border-t border-slate-200 bg-slate-50 px-3 py-2.5 sm:px-4">
               <div className="flex items-center justify-between gap-2">
