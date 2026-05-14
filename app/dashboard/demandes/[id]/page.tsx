@@ -45,6 +45,8 @@ type RequestDetail = {
   pharmacy_id: string;
   submitted_at: string | null;
   responded_at: string | null;
+  /** Pour diagnostic expiration `responded` (cron SQL `expire_overdue_requests`). */
+  expires_at?: string | null;
   confirmed_at: string | null;
   patient_planned_visit_date: string | null;
   patient_planned_visit_time: string | null;
@@ -142,7 +144,7 @@ export default function DemandeDetailPage() {
       const { data: reqRow, error: reqErr } = await supabase
         .from("requests")
         .select(
-          "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,confirmed_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,pharmacies(nom,ville,adresse,telephone,public_ref,contact_email)"
+          "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,expires_at,confirmed_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,pharmacies(nom,ville,adresse,telephone,public_ref,contact_email)"
         )
         .eq("id", id)
         .eq("patient_id", user.id)

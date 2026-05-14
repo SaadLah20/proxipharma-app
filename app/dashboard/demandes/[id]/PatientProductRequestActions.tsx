@@ -538,27 +538,29 @@ function PatientValidatedCompactLineCard({
               pharmaLineNote={row.pharmacist_comment ?? ""}
               layout="embedded"
             />
-            <div className="grid grid-cols-3 items-baseline gap-x-2 pt-1.5 text-[12px] font-medium leading-none tabular-nums text-slate-800 sm:text-[13px]">
-              <div className="min-w-0 justify-self-start text-start">
-                <span className="text-slate-500">PU</span>{" "}
-                <strong className="font-semibold text-slate-900">{formatPriceDh(unitMad)}</strong>
-              </div>
-              <div className="min-w-0 justify-self-center text-center">
-                <span className="text-slate-500">Qté</span>{" "}
-                <strong className="font-semibold text-slate-900">{validatedQty}</strong>
-              </div>
-              <div className="min-w-0 justify-self-end text-end">
-                <span className="text-slate-500">Total</span>{" "}
-                <strong
-                  className={clsx(
-                    "font-semibold text-sky-900",
-                    withdrawnGrey && "line-through decoration-muted-foreground/70"
-                  )}
-                >
-                  {formatPriceDh(lineTotalMad)}
-                </strong>
-              </div>
-            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-[5rem_1fr_auto] items-baseline gap-x-2 pt-1.5 text-[12px] font-medium leading-none tabular-nums text-slate-800 sm:text-[13px]">
+          <div className="min-w-0 text-start">
+            <span className="text-slate-500">PU</span>{" "}
+            <strong className="font-semibold text-slate-900">{formatPriceDh(unitMad)}</strong>
+          </div>
+          <div className="flex min-w-0 justify-center text-center">
+            <span className="text-slate-500">Qté</span>{" "}
+            <strong className="font-semibold text-slate-900">{validatedQty}</strong>
+          </div>
+          <div className="min-w-0 text-end">
+            <span className="inline-flex flex-nowrap items-baseline justify-end gap-x-1 whitespace-nowrap">
+              <span className="text-slate-500">Total</span>
+              <strong
+                className={clsx(
+                  "font-semibold text-sky-900",
+                  withdrawnGrey && "line-through decoration-muted-foreground/70"
+                )}
+              >
+                {formatPriceDh(lineTotalMad)}
+              </strong>
+            </span>
           </div>
         </div>
       </div>
