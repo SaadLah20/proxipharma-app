@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
@@ -168,9 +168,11 @@ function whatsappHrefPatient(raw: string): string {
 function PatientPharmacyQuickContact({
   pharmacy,
   requestRef,
+  variant = "default",
 }: {
   pharmacy: PatientPharmacyContactInfo;
   requestRef: string;
+  variant?: "default" | "iconsOnly";
 }) {
   const telRaw = pharmacy.telephone?.trim() ?? "";
   const digits = telRaw.replace(/\D/g, "");
@@ -186,6 +188,62 @@ function PatientPharmacyQuickContact({
 
   const loc = [pharmacy.nom, pharmacy.ville?.trim()].filter(Boolean).join(" · ");
 
+  const iconButtons = (
+    <>
+      {telOk ? (
+        <>
+          <a
+            href={telHrefPatient(telRaw)}
+            className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
+            title="Appeler"
+            aria-label="Appeler la pharmacie"
+          >
+            <Phone className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+          </a>
+          <a
+            href={smsHrefPatient(telRaw)}
+            className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
+            title="SMS"
+            aria-label="Envoyer un SMS"
+          >
+            <MessageSquare className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+          </a>
+          <a
+            href={whatsappHrefPatient(telRaw)}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
+            title="WhatsApp"
+            aria-label="Discuter sur WhatsApp"
+          >
+            <MessageCircle className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+          </a>
+        </>
+      ) : null}
+      {mailOk ? (
+        <a
+          href={mailHref}
+          className="inline-flex size-9 items-center justify-center rounded-lg border border-sky-400/70 bg-white text-sky-900 shadow-sm transition hover:bg-sky-50"
+          title="Courriel"
+          aria-label="Écrire à la pharmacie"
+        >
+          <Mail className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+        </a>
+      ) : null}
+    </>
+  );
+
+  if (variant === "iconsOnly") {
+    if (!telOk && !mailOk) {
+      return (
+        <p className="text-[9px] leading-snug text-emerald-900/80">
+          Coordonnées non renseignées sur le dossier — rapprochez-vous de l&apos;officine.
+        </p>
+      );
+    }
+    return <div className="flex flex-wrap items-center gap-1.5">{iconButtons}</div>;
+  }
+
   return (
     <section className="rounded-xl border border-emerald-300/60 bg-gradient-to-br from-emerald-50/85 via-white to-teal-50/40 p-2 shadow-sm ring-1 ring-emerald-200/45">
       <h3 className="text-[10px] font-bold uppercase tracking-wide text-emerald-950">Contacter l&apos;officine</h3>
@@ -195,49 +253,8 @@ function PatientPharmacyQuickContact({
       {loc ? (
         <p className="mt-1 text-[11px] font-semibold leading-snug text-emerald-950">{loc}</p>
       ) : null}
-      {(telOk || mailOk) ? (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {telOk ? (
-            <>
-              <a
-                href={telHrefPatient(telRaw)}
-                className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
-                title="Appeler"
-                aria-label="Appeler la pharmacie"
-              >
-                <Phone className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-              </a>
-              <a
-                href={smsHrefPatient(telRaw)}
-                className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
-                title="SMS"
-                aria-label="Envoyer un SMS"
-              >
-                <MessageSquare className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-              </a>
-              <a
-                href={whatsappHrefPatient(telRaw)}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
-                title="WhatsApp"
-                aria-label="Discuter sur WhatsApp"
-              >
-                <MessageCircle className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-              </a>
-            </>
-          ) : null}
-          {mailOk ? (
-            <a
-              href={mailHref}
-              className="inline-flex size-9 items-center justify-center rounded-lg border border-sky-400/70 bg-white text-sky-900 shadow-sm transition hover:bg-sky-50"
-              title="Courriel"
-              aria-label="Écrire à la pharmacie"
-            >
-              <Mail className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-            </a>
-          ) : null}
-        </div>
+      {telOk || mailOk ? (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">{iconButtons}</div>
       ) : (
         <p className="mt-1.5 text-[9px] leading-snug text-emerald-900/80">
           Coordonnées non renseignées sur le dossier — rapprochez-vous de l&apos;officine.
@@ -960,26 +977,121 @@ function resubmitLinesSignature(ls: ResubmitLine[]): string {
     .join(">");
 }
 
-function PatientSentLineNoteGlyph({ client, pharmacist }: { client: string; pharmacist: string }) {
-  const c = client.trim().length > 0;
-  const p = pharmacist.trim().length > 0;
-  let title = "Aucune note sur ce produit.";
-  let cls = "text-muted-foreground/55";
-  if (c && p) {
-    title = "Note patient et note pharmacien sur cette ligne.";
-    cls = "text-violet-700";
-  } else if (c) {
-    title = "Vous avez laissé un commentaire sur cette ligne.";
-    cls = "text-sky-700";
-  } else if (p) {
-    title = "Commentaire pharmacien sur cette ligne.";
-    cls = "text-emerald-800";
-  }
+/** Bouton « Notes produit (…) » + petite fenêtre (fermeture fond ou Fermer). */
+function PatientSentLineNotesModalFr({
+  productName,
+  client,
+  pharmacist,
+}: {
+  productName: string;
+  client: string;
+  pharmacist: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const titleId = useId();
+  const c = client.trim();
+  const p = pharmacist.trim();
+
+  const label = !c && !p
+    ? "Notes produit (vide)"
+    : c && p
+      ? "Notes produit (Vous + officine)"
+      : c
+        ? "Notes produit (vous)"
+        : "Notes produit (officine)";
+
+  const noteCls =
+    !c && !p
+      ? "text-muted-foreground"
+      : c && p
+        ? "text-violet-700"
+        : c
+          ? "text-sky-700"
+          : "text-emerald-800";
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
   return (
-    <span className="inline-flex shrink-0 items-center" title={title}>
-      <StickyNote className={clsx("size-4", cls)} strokeWidth={2} aria-hidden />
-      <span className="sr-only">{title}</span>
-    </span>
+    <>
+      <button
+        type="button"
+        className="mt-1 flex w-full max-w-full items-center gap-1 rounded-md border border-slate-200/90 bg-white/90 px-1.5 py-0.5 text-left text-[8px] font-semibold leading-tight text-slate-700 shadow-sm hover:bg-slate-50"
+        onClick={() => setOpen(true)}
+      >
+        <StickyNote className={clsx("size-3 shrink-0", noteCls)} strokeWidth={2} aria-hidden />
+        <span className="min-w-0 leading-tight">{label}</span>
+      </button>
+      {open && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-3 backdrop-blur-[1px] sm:items-center"
+              role="presentation"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setOpen(false);
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
+                className="max-h-[min(80vh,20rem)] w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200/90 bg-card shadow-2xl ring-1 ring-slate-900/10"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-2 border-b border-border/60 px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <h2 id={titleId} className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                      <span className="block">Notes — produit</span>
+                      <span className="mt-1 block text-[13px] font-semibold normal-case leading-snug text-foreground">{productName}</span>
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted/60"
+                    aria-label="Fermer"
+                    onClick={() => setOpen(false)}
+                  >
+                    <X className="size-4" aria-hidden />
+                  </button>
+                </div>
+                <div className="max-h-[min(60vh,16rem)] space-y-2 overflow-y-auto overscroll-y-contain px-3 py-2.5 text-[11px] [-webkit-overflow-scrolling:touch]">
+                  {!c && !p ? (
+                    <p className="text-[11px] leading-snug text-muted-foreground">Aucune note sur ce produit.</p>
+                  ) : null}
+                  {c ? (
+                    <div className="rounded-lg border border-sky-200/80 bg-sky-50/90 px-2.5 py-2">
+                      <p className="text-[8px] font-bold uppercase tracking-wide text-sky-900">Vous</p>
+                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-sky-950">{c}</p>
+                    </div>
+                  ) : null}
+                  {p ? (
+                    <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-2">
+                      <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-900">Officine</p>
+                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-emerald-950">{p}</p>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="border-t border-border/60 px-3 py-2">
+                  <button
+                    type="button"
+                    className="h-9 w-full rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                    onClick={() => setOpen(false)}
+                  >
+                    Fermer
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+    </>
   );
 }
 
@@ -1008,18 +1120,18 @@ function PatientSentEnvoyeeSummaryCard({
   const phRef = ph?.public_ref?.trim();
   const statusHint =
     status === "in_review"
-      ? "Un pharmacien examine votre liste. Vous serez averti dès que la réponse (disponibilités, prix catalogue, alternatives le cas échéant) sera prête."
-      : "Votre liste est en file d’attente : un pharmacien la traitera et vous répondra avec les disponibilités, les prix (PU) et les éventuelles alternatives.";
+      ? "Un pharmacien examine votre liste. Vous serez averti dès que la réponse (disponibilités, alternatives le cas échéant) sera prête."
+      : "Votre liste est en file d’attente : un pharmacien la traitera et vous répondra avec les disponibilités et les éventuelles alternatives.";
   return (
     <div className="mb-2 rounded-lg border-2 border-sky-500/35 bg-gradient-to-br from-sky-500/12 via-white to-teal-50/30 px-2 py-2 text-[10px] leading-snug shadow-sm ring-1 ring-sky-400/35 sm:px-2.5">
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1 border-b border-sky-200/70 pb-1.5">
         <div className="min-w-0 flex-1 space-y-0.5">
           <p className="text-[11px] font-bold leading-tight text-sky-950">{titleLine}</p>
-          <p className="text-[9px] text-sky-900/90">
-            {phRef ? <span className="font-mono font-semibold text-foreground">Off. {phRef}</span> : null}
-            {phRef ? <span aria-hidden> · </span> : null}
-            <span className="font-mono font-semibold text-foreground">Dem. {dossierRefLabel}</span>
-          </p>
+          {phRef ? (
+            <p className="text-[9px] text-sky-900/90">
+              <span className="font-mono font-semibold text-foreground">Off. {phRef}</span>
+            </p>
+          ) : null}
           <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9px] text-sky-900/85">
             <span className="rounded border border-sky-300/60 bg-white/90 px-1 py-px font-semibold uppercase tracking-wide text-sky-900">
               Horaires
@@ -1036,13 +1148,15 @@ function PatientSentEnvoyeeSummaryCard({
               <ChevronDown className="size-3 text-sky-700 transition group-open:rotate-180" aria-hidden />
             </summary>
             <div className="absolute right-0 z-[60] mt-1 min-w-[12rem] max-w-[min(100vw-2rem,18rem)] rounded-lg border border-sky-200 bg-card p-2 shadow-lg ring-1 ring-sky-200/60">
-              <PatientPharmacyQuickContact pharmacy={ph} requestRef={dossierRefLabel} />
+              <PatientPharmacyQuickContact pharmacy={ph} requestRef={dossierRefLabel} variant="iconsOnly" />
             </div>
           </details>
         ) : null}
       </div>
       <p className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 border-b border-sky-200/60 pb-1.5 text-[9px] text-sky-950/88">
         <span className="font-bold uppercase tracking-wide text-sky-900/90">Demande</span>
+        <span className="font-mono font-semibold text-foreground">Dem. {dossierRefLabel}</span>
+        <span aria-hidden>·</span>
         <span>Demande de produits</span>
         <span aria-hidden>·</span>
         <span className="tabular-nums font-semibold">
@@ -2726,14 +2840,14 @@ export function PatientProductRequestActions({
 
       {showResubmit ? (
         <div className="mt-2">
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {lines.map((l, idx) => (
               <li
                 key={`${l.product_id}-${idx}`}
-                className="rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-slate-50/50 p-3 shadow-sm ring-1 ring-slate-100/90"
+                className="rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-slate-50/50 px-2.5 py-2 shadow-sm ring-1 ring-slate-100/90 sm:px-3"
               >
-                <div className="flex min-h-[96px] items-stretch gap-2.5">
-                  <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner">
+                <div className="flex items-stretch gap-2">
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner">
                     {editMode ? (
                       <button
                         type="button"
@@ -2755,103 +2869,91 @@ export function PatientProductRequestActions({
                       </button>
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">
-                        <Package className="size-7 text-muted-foreground" aria-hidden />
+                        <Package className="size-6 text-muted-foreground" aria-hidden />
                       </div>
                     )}
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col">
                     <p
-                      className="overflow-hidden pr-1 text-[14px] font-semibold leading-snug text-slate-950 sm:text-[15px]"
+                      className="overflow-hidden pr-1 text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
                       style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
                     >
                       {l.name}
                     </p>
-                    <div className="mt-1.5 flex flex-nowrap items-baseline justify-between gap-2 border-b border-slate-200/90 pb-1.5">
-                      <span className="min-w-0 shrink text-[12px] font-medium leading-tight text-slate-700">
+                    <div className="mt-1 border-b border-slate-200/90 pb-1">
+                      <span className="text-[11px] font-medium leading-none text-slate-700">
                         <span className="font-semibold text-slate-500">PU</span>{" "}
                         <strong className="whitespace-nowrap tabular-nums text-slate-900">{formatPriceDh(l.price_pph)}</strong>
                       </span>
-                      <span className="inline-flex shrink-0 items-center gap-1.5">
-                        <PatientSentLineNoteGlyph client={l.client_comment} pharmacist={l.pharmacist_comment ?? ""} />
-                        <span className="text-[9px] font-medium tabular-nums text-muted-foreground" title="Total indicatif">
-                          ≈ {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
-                        </span>
-                      </span>
                     </div>
                     {l.line_source === "pharmacist_proposed" ? (
-                      <p className="mt-1 text-[10px] font-medium text-violet-900">
+                      <p className="mt-0.5 text-[9px] font-medium leading-snug text-violet-900">
                         {requestItemLineSourceFr.pharmacist_proposed}
                         {l.pharmacist_proposal_reason ? ` — ${l.pharmacist_proposal_reason}` : ""}
                       </p>
                     ) : null}
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium text-slate-600">Qté</span>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <button
-                          type="button"
-                          aria-label="Diminuer"
-                          disabled={!editMode || l.qty <= 1}
-                          className="rounded-lg border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
-                          onClick={() =>
-                            setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.max(1, row.qty - 1) } : row)))
-                          }
-                        >
-                          <Minus size={16} />
-                        </button>
-                        <span className="w-8 text-center text-sm font-semibold tabular-nums">{l.qty}</span>
-                        <button
-                          type="button"
-                          aria-label="Augmenter"
-                          disabled={!editMode || l.qty >= 10}
-                          className="rounded-lg border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
-                          onClick={() =>
-                            setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.min(10, row.qty + 1) } : row)))
-                          }
-                        >
-                          <Plus size={16} />
-                        </button>
+                    <PatientSentLineNotesModalFr productName={l.name} client={l.client_comment} pharmacist={l.pharmacist_comment ?? ""} />
+                    <div className="mt-1.5 flex flex-nowrap items-center justify-between gap-2">
+                      <div className="flex min-w-0 shrink items-center gap-1.5">
+                        <span className="shrink-0 text-[11px] font-medium text-slate-600">Qté</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            aria-label="Diminuer"
+                            disabled={!editMode || l.qty <= 1}
+                            className="rounded-md border border-slate-300 bg-white p-1 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
+                            onClick={() =>
+                              setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.max(1, row.qty - 1) } : row)))
+                            }
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <span className="min-w-[1.5rem] text-center text-[11px] font-semibold tabular-nums leading-none">{l.qty}</span>
+                          <button
+                            type="button"
+                            aria-label="Augmenter"
+                            disabled={!editMode || l.qty >= 10}
+                            className="rounded-md border border-slate-300 bg-white p-1 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
+                            onClick={() =>
+                              setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.min(10, row.qty + 1) } : row)))
+                            }
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
                       </div>
+                      <p className="shrink-0 text-right text-[11px] font-medium leading-none tabular-nums text-slate-700">
+                        <span className="font-normal text-slate-500">Total</span>{" "}
+                        <span className="font-semibold text-sky-900">
+                          {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
+                        </span>
+                      </p>
                     </div>
                   </div>
                 </div>
-                {editMode || l.client_comment.trim().length > 0 ? (
-                  editMode ? (
-                    <label className="mt-3 block">
-                      <span className="mb-1 block text-sm font-medium text-slate-800">Commentaire sur ce produit</span>
-                      <input
-                        type="text"
-                        value={l.client_comment}
-                        maxLength={PATIENT_PRODUCT_LINE_COMMENT_MAX}
-                        onChange={(e) =>
-                          setLines((prev) =>
-                            prev.map((row, i) =>
-                              i === idx
-                                ? { ...row, client_comment: e.target.value.slice(0, PATIENT_PRODUCT_LINE_COMMENT_MAX) }
-                                : row
-                            )
+                {editMode ? (
+                  <label className="mt-2 block">
+                    <span className="mb-0.5 block text-xs font-medium text-slate-800">Commentaire sur ce produit</span>
+                    <input
+                      type="text"
+                      value={l.client_comment}
+                      maxLength={PATIENT_PRODUCT_LINE_COMMENT_MAX}
+                      onChange={(e) =>
+                        setLines((prev) =>
+                          prev.map((row, i) =>
+                            i === idx
+                              ? { ...row, client_comment: e.target.value.slice(0, PATIENT_PRODUCT_LINE_COMMENT_MAX) }
+                              : row
                           )
-                        }
-                        placeholder="Ex. dosage, précision…"
-                        className="w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-2 text-sm leading-normal text-slate-900 placeholder:text-slate-400 [touch-action:pan-x_pan-y]"
-                      />
-                      <span className="mt-0.5 block text-right text-[9px] text-slate-400 tabular-nums">
-                        {l.client_comment.length}/{PATIENT_PRODUCT_LINE_COMMENT_MAX}
-                      </span>
-                    </label>
-                  ) : (
-                    <details className="group mt-2 border-t border-slate-200/90 pt-0.5">
-                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-1.5 text-[11px] font-medium text-slate-500 transition hover:text-slate-800 [&::-webkit-details-marker]:hidden">
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span className="h-px w-8 shrink-0 bg-slate-300" aria-hidden />
-                          <span className="truncate">Votre commentaire</span>
-                        </span>
-                        <ChevronDown className="size-3.5 shrink-0 text-slate-400 transition group-open:rotate-180" aria-hidden />
-                      </summary>
-                      <div className="rounded-md border border-slate-200/80 bg-slate-50/95 px-2.5 py-2 text-[13px] leading-snug text-slate-800">
-                        {l.client_comment.trim()}
-                      </div>
-                    </details>
-                  )
+                        )
+                      }
+                      placeholder="Ex. dosage, précision…"
+                        className="w-full rounded-lg border-2 border-slate-300 bg-white px-2.5 py-1.5 text-sm leading-normal text-slate-900 placeholder:text-slate-400 [touch-action:pan-x_pan-y]"
+                    />
+                    <span className="mt-0.5 block text-right text-[9px] text-slate-400 tabular-nums">
+                      {l.client_comment.length}/{PATIENT_PRODUCT_LINE_COMMENT_MAX}
+                    </span>
+                  </label>
                 ) : null}
               </li>
             ))}
@@ -3011,7 +3113,10 @@ export function PatientProductRequestActions({
                 <button
                   type="button"
                   disabled={busyAction !== ""}
-                  onClick={() => setEditMode(true)}
+                  onClick={() => {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    setEditMode(true);
+                  }}
                   className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-amber-500/80 bg-amber-50 px-3 text-sm font-semibold text-amber-950 shadow-sm hover:bg-amber-100/90 disabled:opacity-50"
                 >
                   <Pencil size={16} aria-hidden />
