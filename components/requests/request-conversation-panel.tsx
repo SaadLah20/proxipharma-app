@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, MessagesSquare, Send, Trash2, X } from "lucide-react";
+import { MessagesSquare, Send, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
@@ -41,7 +41,7 @@ function writeFabInset(pos: { right: number; bottom: number }) {
   }
 }
 
-/** Bouton flottant « Messages » : style selon le rôle, pastille non lu, poignée pour déplacer (position mémorisée en session). */
+/** Petit bouton rond « Messages » : glisser pour déplacer, tap pour ouvrir ; position en session. */
 export function RequestConversationFabDock({
   hasUnread,
   onOpen,
@@ -51,13 +51,22 @@ export function RequestConversationFabDock({
   onOpen: () => void;
   tone: "patient" | "pharmacien";
 }) {
-  const dockRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ startX: number; startY: number; startRight: number; startBottom: number } | null>(null);
+  const fabRef = useRef<HTMLDivElement>(null);
+  const suppressClickRef = useRef(false);
+  const sessionRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startRight: number;
+    startBottom: number;
+    dragging: boolean;
+  } | null>(null);
+
   const [inset, setInset] = useState<{ right: number; bottom: number } | null>(() => readFabInset());
 
   useEffect(() => {
     const onResize = () => {
-      const el = dockRef.current;
+      const el = fabRef.current;
       if (!el) return;
       const w = el.offsetWidth;
       const h = el.offsetHeight;
@@ -77,60 +86,89 @@ export function RequestConversationFabDock({
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const toneWrap = tone === "pharmacien"
-    ? "border-emerald-200/90 bg-card shadow-lg ring-1 ring-emerald-200/45"
-    : "border-sky-200/90 bg-card shadow-lg ring-1 ring-sky-200/45";
+  const toneRing =
+    tone === "pharmacien"
+      ? "border-emerald-300/80 bg-card text-emerald-800 shadow-md ring-1 ring-emerald-200/50 hover:bg-emerald-50/80"
+      : "border-sky-300/80 bg-card text-sky-800 shadow-md ring-1 ring-sky-200/50 hover:bg-sky-50/80";
 
-  const toneIcon = tone === "pharmacien" ? "text-emerald-800" : "text-sky-800";
-
-  const onGripPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const el = dockRef.current;
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const el = fabRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    dragRef.current = {
+    sessionRef.current = {
+      pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
       startRight: window.innerWidth - rect.right,
       startBottom: window.innerHeight - rect.bottom,
+      dragging: false,
     };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
 
-  const onGripPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const d = dragRef.current;
-    if (!d) return;
-    const dx = e.clientX - d.startX;
-    const dy = e.clientY - d.startY;
-    const w = dockRef.current?.offsetWidth ?? 120;
-    const h = dockRef.current?.offsetHeight ?? 48;
-    const nextRight = clamp(d.startRight - dx, 8, window.innerWidth - w - 8);
-    const nextBottom = clamp(d.startBottom - dy, 8, window.innerHeight - h - 8);
-    setInset({ right: nextRight, bottom: nextBottom });
+  const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const s = sessionRef.current;
+    if (!s || e.pointerId !== s.pointerId) return;
+    const dx = e.clientX - s.startX;
+    const dy = e.clientY - s.startY;
+    if (!s.dragging) {
+      if (dx * dx + dy * dy < 36) return;
+      s.dragging = true;
+    }
+    const w = fabRef.current?.offsetWidth ?? 40;
+    const h = fabRef.current?.offsetHeight ?? 40;
+    setInset({
+      right: clamp(s.startRight - dx, 8, window.innerWidth - w - 8),
+      bottom: clamp(s.startBottom - dy, 8, window.innerHeight - h - 8),
+    });
+    if (s.dragging) e.preventDefault();
   };
 
-  const endGrip = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const s = sessionRef.current;
+    if (!s || e.pointerId !== s.pointerId) return;
+    const wasDrag = s.dragging;
+    sessionRef.current = null;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
       /* déjà relâché */
     }
-    dragRef.current = null;
-    const el = dockRef.current;
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      const pos = {
-        right: window.innerWidth - rect.right,
-        bottom: window.innerHeight - rect.bottom,
-      };
-      setInset(pos);
-      writeFabInset(pos);
+    if (wasDrag) {
+      suppressClickRef.current = true;
+      const el = fabRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const pos = {
+          right: window.innerWidth - rect.right,
+          bottom: window.innerHeight - rect.bottom,
+        };
+        setInset(pos);
+        writeFabInset(pos);
+      }
     }
   };
 
-  const defaultInset = { right: 16, bottom: 96 };
+  const onPointerCancel = (e: React.PointerEvent<HTMLButtonElement>) => {
+    sessionRef.current = null;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* */
+    }
+  };
 
+  const onClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    onOpen();
+  };
+
+  const defaultInset = { right: 16, bottom: 96 };
   const style =
     inset != null
       ? { right: inset.right, bottom: inset.bottom }
@@ -138,52 +176,33 @@ export function RequestConversationFabDock({
 
   return (
     <div
-      ref={dockRef}
-      className="pointer-events-auto fixed z-[10050] flex select-none"
+      ref={fabRef}
       style={style}
+      className="pointer-events-auto fixed z-[10050] flex size-10 items-center justify-center"
     >
-      <div
+      <button
+        type="button"
         className={cn(
-          "flex max-w-[min(100vw-1rem,20rem)] items-stretch overflow-hidden rounded-2xl border bg-card/95 backdrop-blur-sm",
-          toneWrap
+          "relative flex size-10 touch-none select-none items-center justify-center rounded-full border transition active:scale-[0.97]",
+          toneRing
         )}
+        title={
+          hasUnread
+            ? "Nouveaux messages — ouvrir (glisser pour déplacer le bouton)"
+            : "Conversation — ouvrir (glisser pour déplacer)"
+        }
+        aria-label={hasUnread ? "Conversation — nouveaux messages" : "Ouvrir la conversation"}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        onClick={onClick}
       >
-        <button
-          type="button"
-          className="flex w-8 shrink-0 touch-none cursor-grab items-center justify-center border-r border-border/60 bg-muted/25 text-muted-foreground hover:bg-muted/45 active:cursor-grabbing"
-          aria-label="Déplacer le bouton Messages"
-          title="Glisser pour déplacer"
-          onPointerDown={onGripPointerDown}
-          onPointerMove={onGripPointerMove}
-          onPointerUp={endGrip}
-          onPointerCancel={endGrip}
-        >
-          <GripVertical className="size-4 shrink-0 opacity-80" strokeWidth={2} aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={onOpen}
-          className={cn(
-            "relative flex min-w-0 flex-1 items-center gap-2 py-2.5 ps-2 pe-3 text-left transition hover:bg-muted/30 active:bg-muted/45",
-            tone === "pharmacien" ? "hover:text-emerald-950" : "hover:text-sky-950"
-          )}
-          title={hasUnread ? "Nouveaux messages — ouvrir la conversation" : "Ouvrir la conversation"}
-          aria-label={hasUnread ? "Conversation — nouveaux messages" : "Ouvrir la conversation"}
-        >
-          <span className="relative flex size-9 shrink-0 items-center justify-center rounded-xl bg-background/90 shadow-inner ring-1 ring-border/50">
-            <MessagesSquare className={cn("size-[1.15rem]", toneIcon)} strokeWidth={2.25} aria-hidden />
-            {hasUnread ? (
-              <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-destructive shadow-sm ring-2 ring-card" aria-hidden />
-            ) : null}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[11px] font-bold leading-none text-foreground">Messages</span>
-            <span className="mt-0.5 block truncate text-[9px] font-medium leading-tight text-muted-foreground">
-              {hasUnread ? "Nouveau(x) message(s)" : "Fil avec l’officine"}
-            </span>
-          </span>
-        </button>
-      </div>
+        <MessagesSquare className="size-[1.05rem] shrink-0" strokeWidth={2.25} aria-hidden />
+        {hasUnread ? (
+          <span className="absolute end-0.5 top-0.5 size-2 rounded-full bg-destructive shadow-sm ring-2 ring-card" aria-hidden />
+        ) : null}
+      </button>
     </div>
   );
 }
