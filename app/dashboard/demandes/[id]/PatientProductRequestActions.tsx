@@ -41,7 +41,7 @@ import {
   validatedProductLabel,
   validatedQtyForPatientLine,
 } from "@/lib/patient-confirmed-line-buckets";
-import { formatPriceDh, unitPriceLabel } from "@/lib/product-price";
+import { formatPriceDh } from "@/lib/product-price";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
@@ -1119,9 +1119,11 @@ function PatientSentEnvoyeeSummaryCard({
       : "Officine";
   const phRef = ph?.public_ref?.trim();
   const statusHint =
-    status === "in_review"
-      ? "Un pharmacien examine votre liste. Vous serez averti dès que la réponse (disponibilités, alternatives le cas échéant) sera prête."
-      : "Votre liste est en file d’attente : un pharmacien la traitera et vous répondra avec les disponibilités et les éventuelles alternatives.";
+    status === "responded"
+      ? "Un choix par produit, puis date de passage et validation."
+      : status === "in_review"
+        ? "Un pharmacien examine votre liste. Vous serez averti dès que la réponse (disponibilités, alternatives le cas échéant) sera prête."
+        : "Votre liste est en file d’attente : un pharmacien la traitera et vous répondra avec les disponibilités et les éventuelles alternatives.";
   return (
     <div className="mb-2 rounded-lg border-2 border-sky-500/35 bg-gradient-to-br from-sky-500/12 via-white to-teal-50/30 px-2 py-2 text-[10px] leading-snug shadow-sm ring-1 ring-sky-400/35 sm:px-2.5">
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1 border-b border-sky-200/70 pb-1.5">
@@ -1286,11 +1288,23 @@ function RespondedProductQtyStatusLine({ row }: { row: ActionItemRow }) {
         <span className="truncate">{availUi.label}</span>
       </span>
       {row.availability_status === "to_order" && row.expected_availability_date ? (
-        <span className="text-[9px] text-muted-foreground">
-          Réception · {formatDateShortFr(row.expected_availability_date)}
-        </span>
+        <RespondedReceptionBadgeFr dateYmd={row.expected_availability_date} />
       ) : null}
     </p>
+  );
+}
+
+/** Date de réception (produit à commander) — libellé très visible. */
+function RespondedReceptionBadgeFr({ dateYmd, className }: { dateYmd: string; className?: string }) {
+  return (
+    <span
+      className={clsx(
+        "inline-flex max-w-full shrink-0 items-center rounded-md border-2 border-amber-500/80 bg-amber-100 px-2 py-0.5 text-[10px] font-bold leading-tight text-amber-950 shadow-sm sm:py-1",
+        className
+      )}
+    >
+      Réception · {formatDateShortFr(dateYmd)}
+    </span>
   );
 }
 
@@ -1397,7 +1411,6 @@ function RespondedPatientLineChooser({
   onPhotoPreview,
 }: RespondedChooserProps) {
   const prod = one(row.products);
-  const prodUnitPrice = unitPriceLabel(prod?.price_pph);
   const altList = normalizeAlternatives(row.request_item_alternatives);
   const hasAlts = altList.length > 0;
   const capPrincipal = maxQtyPrincipal(row);
@@ -1406,16 +1419,20 @@ function RespondedPatientLineChooser({
   const isProposedLine = row.line_source === "pharmacist_proposed";
   const maxBranch = maxQtyForBranch(row, currentBranch, altList);
 
-  const patientNote = row.client_comment?.trim() ?? "";
-  const pharmaLineNote = row.pharmacist_comment?.trim() ?? "";
+  const unitForSelection =
+    currentBranch === "principal"
+      ? row.unit_price
+      : currentBranch !== null
+        ? altList.find((a) => a.id === currentBranch)?.unit_price ?? null
+        : null;
 
   const thumb = (
-    <div className="relative h-[4.75rem] w-[4.75rem] shrink-0 overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm sm:h-20 sm:w-20">
+    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner">
       {prod?.photo_url ? (
         onPhotoPreview ? (
           <button
             type="button"
-            className="relative size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
             onClick={() => onPhotoPreview(prod.photo_url!, prod?.name ?? "Produit")}
             aria-label={`Agrandir la photo · ${prod?.name ?? "Produit"}`}
           >
@@ -1426,99 +1443,98 @@ function RespondedPatientLineChooser({
         )
       ) : (
         <div className="flex h-full w-full items-center justify-center">
-          <Package className="size-6 text-muted-foreground sm:size-7" aria-hidden />
+          <Package className="size-6 text-muted-foreground" aria-hidden />
         </div>
       )}
     </div>
   );
 
-  const qtyStepper =
+  const qtyRowGrid =
     currentBranch !== null && maxBranch > 0 ? (
-      <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background/80 px-2 py-1.5">
-        <span className="text-[10px] text-muted-foreground">
-          Qté <span className="tabular-nums">(max {maxBranch})</span>
-        </span>
-        <button
-          type="button"
-          aria-label="Diminuer la quantité"
-          disabled={selState.qty <= 1}
-          className="rounded-lg border border-border bg-card p-1.5 text-foreground hover:bg-muted/60 disabled:opacity-40"
-          onClick={() => setLineQty(row.id, selState.qty - 1)}
-        >
-          <Minus size={16} />
-        </button>
-        <span className="min-w-[2rem] text-center text-sm font-semibold tabular-nums">{selState.qty}</span>
-        <button
-          type="button"
-          aria-label="Augmenter la quantité"
-          disabled={selState.qty >= maxBranch}
-          className="rounded-lg border border-border bg-card p-1.5 text-foreground hover:bg-muted/60 disabled:opacity-40"
-          onClick={() => setLineQty(row.id, selState.qty + 1)}
-        >
-          <Plus size={16} />
-        </button>
-        {(() => {
-          const branchPrice =
-            currentBranch === "principal"
-              ? row.unit_price
-              : altList.find((a) => a.id === currentBranch)?.unit_price ?? null;
-          return branchPrice != null ? (
-            <span className="ml-auto text-[11px] font-semibold text-foreground">
-              Total <span className="tabular-nums">{(selState.qty * Number(branchPrice)).toFixed(2)}</span> MAD
-            </span>
-          ) : null;
-        })()}
+      <div
+        className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-x-2 border-t border-slate-200/80 pt-2 text-[13px] font-medium leading-none tabular-nums text-slate-800 sm:text-sm"
+        title={`Quantité max autorisée : ${maxBranch}`}
+      >
+        <div className="min-w-0 justify-self-start truncate">
+          {unitForSelection != null ? (
+            <>
+              <span className="text-slate-500">PU</span>{" "}
+              <strong className="font-semibold text-slate-900">{formatPriceDh(Number(unitForSelection))}</strong>
+            </>
+          ) : (
+            <span className="text-slate-400">PU —</span>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center justify-center gap-1 justify-self-center">
+          <span className="shrink-0 text-slate-500">Qté</span>
+          <button
+            type="button"
+            aria-label="Diminuer la quantité"
+            disabled={selState.qty <= 1}
+            className="rounded-md border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
+            onClick={() => setLineQty(row.id, selState.qty - 1)}
+          >
+            <Minus size={16} />
+          </button>
+          <span className="min-w-[1.5rem] text-center font-semibold text-slate-900">{selState.qty}</span>
+          <button
+            type="button"
+            aria-label="Augmenter la quantité"
+            disabled={selState.qty >= maxBranch}
+            className="rounded-md border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
+            onClick={() => setLineQty(row.id, selState.qty + 1)}
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+        <div className="min-w-0 justify-self-end truncate text-end">
+          <span className="text-slate-500">Total</span>{" "}
+          <strong className="font-semibold text-sky-900">
+            {unitForSelection != null ? formatPriceDh(selState.qty * Number(unitForSelection)) : "—"}
+          </strong>
+        </div>
       </div>
     ) : null;
 
   const cardShell = (inner: ReactNode) => (
-    <li
-      className={clsx(
-        "overflow-hidden rounded-2xl border-2 bg-white shadow-md ring-1 ring-black/[0.04]",
-        isProposedLine ? "border-violet-200/90" : "border-emerald-200/70"
-      )}
-    >
+    <li className="rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-slate-50/50 px-2.5 py-2 shadow-sm ring-1 ring-slate-100/90 sm:px-3">
       {isProposedLine ? (
-        <div className="border-b border-violet-200/80 bg-gradient-to-r from-violet-50 to-white px-2.5 py-1.5">
+        <div className="mb-2 rounded-md border border-violet-200/90 bg-violet-50/70 px-2 py-1.5">
           <p className="text-[9px] font-bold uppercase tracking-wide text-violet-800">
             {requestItemLineSourceFr.pharmacist_proposed}
           </p>
           {row.pharmacist_proposal_reason?.trim() ? (
-            <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-violet-950">
-              <span className="font-semibold">Motif · </span>
-              {row.pharmacist_proposal_reason.trim()}
-            </p>
+            <p className="mt-0.5 line-clamp-2 text-[10px] font-medium leading-snug text-violet-950">{row.pharmacist_proposal_reason.trim()}</p>
           ) : (
             <p className="mt-0.5 text-[10px] italic text-violet-800/80">Motif non renseigné.</p>
           )}
         </div>
-      ) : (
-        <div className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50/80 to-white px-2.5 py-1.5">
-          <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900">Ta demande</p>
-        </div>
-      )}
-      <div className="p-2.5 sm:p-3">{inner}</div>
+      ) : null}
+      <div className="flex flex-col gap-2">{inner}</div>
     </li>
   );
 
   if (!hasAlts) {
     return cardShell(
       <>
-        <div className="flex gap-2.5">
+        <div className="flex items-start gap-2">
           {thumb}
-          <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <p
-              className="overflow-hidden pr-1 text-[13px] font-semibold leading-tight text-foreground sm:text-[14px]"
+              className="overflow-hidden pr-0.5 text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
               style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
             >
               {prod?.name ?? "Produit"}
             </p>
-            {prodUnitPrice ? <p className="mt-0.5 text-xs font-medium text-primary">{prodUnitPrice}</p> : null}
             <RespondedProductQtyStatusLine row={row} />
-            <PatientRespondedLineConvoStripReadOnly patientNote={patientNote} pharmaLineNote={pharmaLineNote} />
+            <PatientSentLineNotesModalFr
+              productName={prod?.name ?? "Produit"}
+              client={row.client_comment ?? ""}
+              pharmacist={row.pharmacist_comment ?? ""}
+            />
           </div>
         </div>
-        <label className="mt-2 flex cursor-pointer items-start gap-2.5 rounded-xl border-2 border-slate-200 bg-slate-50/40 px-2.5 py-2 transition hover:border-emerald-200">
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border-2 border-slate-200 bg-slate-50/40 px-2.5 py-2 transition hover:border-sky-200">
           <input
             type="checkbox"
             className="mt-1 rounded border-primary"
@@ -1528,119 +1544,120 @@ function RespondedPatientLineChooser({
           />
           <span className="text-[13px] leading-snug">
             <span className="font-semibold text-foreground">Je retiens cette ligne</span>
-            <span className="mt-0.5 block text-[10px] text-muted-foreground">Jusqu’au max indiqué par la pharmacie.</span>
           </span>
         </label>
         {capPrincipal === 0 ? (
-          <p className="mt-1.5 rounded-lg border border-amber-200/80 bg-amber-50 px-2 py-1.5 text-[10px] leading-snug text-amber-950">
+          <p className="rounded-lg border border-amber-200/80 bg-amber-50 px-2 py-1.5 text-[10px] leading-snug text-amber-950">
             Aucune quantité dispo pour l’instant — tu peux ne pas retenir cette ligne ou contacter l’officine.
           </p>
         ) : null}
-        {qtyStepper}
+        {qtyRowGrid}
       </>
     );
   }
 
   return cardShell(
     <>
-      <div className="flex gap-2.5">
-        {thumb}
-        <div className="min-w-0 flex-1">
-          <p
-            className="overflow-hidden pr-1 text-[13px] font-semibold leading-tight text-foreground sm:text-[14px]"
-            style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
-          >
-            {prod?.name ?? "Produit"}
-          </p>
-          {prodUnitPrice ? <p className="mt-0.5 text-[11px] font-medium text-primary">{prodUnitPrice}</p> : null}
-          <RespondedProductQtyStatusLine row={row} />
-          <PatientRespondedLineConvoStripReadOnly patientNote={patientNote} pharmaLineNote={pharmaLineNote} />
-        </div>
+      <div className="flex flex-col gap-1.5 border-b border-slate-200/80 pb-2">
+        <p className="text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]">{prod?.name ?? "Produit"}</p>
+        <RespondedProductQtyStatusLine row={row} />
+        <PatientSentLineNotesModalFr
+          productName={prod?.name ?? "Produit"}
+          client={row.client_comment ?? ""}
+          pharmacist={row.pharmacist_comment ?? ""}
+        />
       </div>
 
-      <div className="mt-3 rounded-xl border border-teal-200/70 bg-gradient-to-b from-teal-50/50 to-background p-2">
-        <div className="flex items-center justify-between gap-2 text-teal-950">
+      <div className="rounded-xl border-2 border-slate-300/70 bg-slate-100/45 p-2 ring-1 ring-slate-200/50">
+        <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
           <div className="flex min-w-0 items-center gap-1.5">
-            <Layers className="size-3.5 shrink-0 opacity-90" aria-hidden />
-            <p className="truncate text-[9px] font-bold uppercase tracking-wide">Ton choix</p>
+            <Layers className="size-3.5 shrink-0 text-slate-600" aria-hidden />
+            <p className="truncate text-[9px] font-bold uppercase tracking-wide text-slate-700">Options pour ce produit</p>
           </div>
-          <details className="shrink-0 text-[9px] text-teal-900">
-            <summary className="cursor-pointer font-semibold underline decoration-teal-400/80 underline-offset-2">
-              Aide
-            </summary>
-            <p className="mt-1 max-w-[14rem] rounded-md bg-white/80 px-1.5 py-1 leading-snug ring-1 ring-teal-200/50">
+          <details className="shrink-0 text-[9px] text-slate-700">
+            <summary className="cursor-pointer font-semibold underline decoration-slate-400 underline-offset-2">Aide</summary>
+            <p className="mt-1 max-w-[14rem] rounded-md bg-white px-1.5 py-1 leading-snug ring-1 ring-slate-200/60">
               Une option : principal{isProposedLine ? " / proposition" : ""}, alternative ou aucune.
             </p>
           </details>
         </div>
 
-        <fieldset className="mt-2 space-y-1.5 border-0 p-0">
+        <fieldset className="space-y-2 border-0 p-0">
           <legend className="sr-only">Choix pour {prod?.name ?? "Produit"}</legend>
 
           <label
-            className={`flex cursor-pointer flex-col rounded-xl border-2 px-2.5 py-2 transition ${
+            className={clsx(
+              "flex cursor-pointer items-start gap-2 rounded-xl border-2 px-2.5 py-2 transition",
               currentBranch === null
-                ? "border-slate-500 bg-slate-100/60 shadow-sm ring-2 ring-slate-300/30"
-                : "border-slate-200 bg-white hover:border-slate-300"
-            }`}
+                ? "border-slate-500 bg-slate-100/90 shadow-sm ring-2 ring-slate-300/35"
+                : "border-slate-200 bg-white/90 opacity-65"
+            )}
           >
-            <span className="flex items-start gap-2">
-              <input type="radio" name={radioName} className="mt-0.5 shrink-0" checked={currentBranch === null} onChange={() => setLineBranch(row.id, null)} />
-              <span>
-                <span className="text-[13px] font-semibold text-foreground">Ne pas retenir</span>
-                <span className="mt-0.5 block text-[10px] text-muted-foreground">Aucune option ci-dessous.</span>
-              </span>
+            <input
+              type="radio"
+              name={radioName}
+              className="mt-1 shrink-0"
+              checked={currentBranch === null}
+              onChange={() => setLineBranch(row.id, null)}
+            />
+            <span>
+              <span className="text-[13px] font-semibold text-foreground">Ne pas retenir</span>
+              <span className="mt-0.5 block text-[10px] text-muted-foreground">Aucune des options ci-dessous.</span>
             </span>
           </label>
 
           <label
-            className={`flex cursor-pointer flex-col rounded-xl border-2 px-2.5 py-2 transition ${
+            className={clsx(
+              "flex cursor-pointer gap-2 rounded-xl border-2 p-2 transition",
+              capPrincipal === 0 && "cursor-not-allowed opacity-40",
               currentBranch === "principal"
-                ? "border-emerald-500 bg-emerald-50/80 shadow-sm ring-1 ring-emerald-200"
-                : capPrincipal === 0
-                  ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60"
-                  : "border-emerald-200/80 bg-white hover:border-emerald-300"
-            }`}
+                ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200/80 shadow-md"
+                : "border-slate-200 bg-white",
+              currentBranch !== null && currentBranch !== "principal" && "opacity-45 saturate-[0.65]",
+              currentBranch === null && "bg-slate-50/90 opacity-55"
+            )}
           >
-            <span className="flex items-start gap-2">
-              <input
-                type="radio"
-                name={radioName}
-                className="mt-0.5 shrink-0"
-                checked={currentBranch === "principal"}
-                disabled={capPrincipal === 0}
-                onChange={() => setLineBranch(row.id, "principal")}
-              />
-              <span className="min-w-0 flex-1 space-y-0.5">
-                <span className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[13px] font-semibold text-foreground">
-                    {isProposedLine ? "Proposition officine" : "Principal"}
+            <input
+              type="radio"
+              name={radioName}
+              className="shrink-0 self-center"
+              checked={currentBranch === "principal"}
+              disabled={capPrincipal === 0}
+              onChange={() => setLineBranch(row.id, "principal")}
+            />
+            {thumb}
+            <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+              <span className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[13px] font-semibold leading-tight text-foreground">
+                  {isProposedLine ? "Proposition officine" : "Principal"}
+                </span>
+                {isProposedLine ? (
+                  <span className="rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                    Proposé
                   </span>
-                  {isProposedLine ? (
-                    <span className="rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                      Proposé
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-emerald-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                      Demandé
-                    </span>
-                  )}
-                </span>
-                <span className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground">
-                  {row.unit_price != null ? (
-                    <span>
-                      <strong className="tabular-nums text-foreground">{Number(row.unit_price).toFixed(2)}</strong> MAD
-                    </span>
-                  ) : null}
-                  {row.availability_status ? (
-                    <span>{availabilityStatusFr[row.availability_status] ?? row.availability_status}</span>
-                  ) : null}
-                  {row.availability_status === "to_order" && row.expected_availability_date ? (
-                    <span>→ {formatDateShortFr(row.expected_availability_date)}</span>
-                  ) : null}
-                </span>
+                ) : (
+                  <span className="rounded-full bg-emerald-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                    Demandé
+                  </span>
+                )}
               </span>
-            </span>
+              <p className="text-[12px] font-semibold leading-snug text-slate-900">{prod?.name ?? "Produit"}</p>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
+                {row.unit_price != null ? (
+                  <span>
+                    PU <strong className="tabular-nums text-foreground">{formatPriceDh(Number(row.unit_price))}</strong>
+                  </span>
+                ) : null}
+                {row.availability_status ? (
+                  <span className="rounded-full bg-slate-200/80 px-1.5 py-px text-[9px] font-semibold text-slate-800">
+                    {availabilityStatusFr[row.availability_status] ?? row.availability_status}
+                  </span>
+                ) : null}
+              </div>
+              {row.availability_status === "to_order" && row.expected_availability_date ? (
+                <RespondedReceptionBadgeFr dateYmd={row.expected_availability_date} />
+              ) : null}
+            </div>
           </label>
 
           {altList.map((alt) => {
@@ -1648,61 +1665,85 @@ function RespondedPatientLineChooser({
             const capA = maxQtyAlt(row, alt);
             const disabled = capA === 0;
             const altComment = alt.pharmacist_comment?.trim();
+            const altPhoto = altProd?.photo_url;
+            const altSelected = currentBranch === alt.id;
             return (
               <label
                 key={alt.id}
-                className={`flex cursor-pointer flex-col rounded-xl border-2 px-2.5 py-2 transition ${
-                  currentBranch === alt.id
-                    ? "border-teal-500 bg-teal-50/80 shadow-sm ring-1 ring-teal-200"
-                    : disabled
-                      ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60"
-                      : "border-teal-200/70 bg-white hover:border-teal-400"
-                }`}
+                className={clsx(
+                  "flex cursor-pointer gap-2 rounded-xl border-2 p-2 transition",
+                  disabled && "cursor-not-allowed opacity-40",
+                  altSelected
+                    ? "border-teal-500 bg-teal-50 ring-2 ring-teal-200/80 shadow-md"
+                    : "border-slate-200 bg-white",
+                  !disabled && currentBranch !== null && currentBranch !== alt.id && "opacity-45 saturate-[0.65]",
+                  !disabled && currentBranch === null && "bg-slate-50/90 opacity-55"
+                )}
               >
-                <span className="flex items-start gap-2">
-                  <input
-                    type="radio"
-                    name={radioName}
-                    className="mt-0.5 shrink-0"
-                    checked={currentBranch === alt.id}
-                    disabled={disabled}
-                    onChange={() => setLineBranch(row.id, alt.id)}
-                  />
-                  <span className="min-w-0 flex-1 space-y-0.5">
-                    <span className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[13px] font-semibold text-foreground">{altProd?.name ?? "Alternative"}</span>
-                      <span className="rounded-full bg-teal-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                        Alt.
-                      </span>
+                <input
+                  type="radio"
+                  name={radioName}
+                  className="shrink-0 self-center"
+                  checked={altSelected}
+                  disabled={disabled}
+                  onChange={() => setLineBranch(row.id, alt.id)}
+                />
+                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner sm:h-20 sm:w-20">
+                  {altPhoto ? (
+                    onPhotoPreview ? (
+                      <button
+                        type="button"
+                        className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                        onClick={() => onPhotoPreview(altPhoto, altProd?.name ?? "Alternative")}
+                        aria-label={`Agrandir la photo · ${altProd?.name ?? "Alternative"}`}
+                      >
+                        <img src={altPhoto} alt="" className="pointer-events-none h-full w-full object-cover" />
+                      </button>
+                    ) : (
+                      <img src={altPhoto} alt="" className="h-full w-full object-cover" />
+                    )
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Package className="size-6 text-muted-foreground" aria-hidden />
+                    </div>
+                  )}
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[13px] font-semibold leading-tight text-foreground">{altProd?.name ?? "Alternative"}</span>
+                    <span className="rounded-full bg-teal-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                      Alt.
                     </span>
-                    <span className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground">
-                      {alt.unit_price != null ? (
-                        <span>
-                          <strong className="tabular-nums text-foreground">{Number(alt.unit_price).toFixed(2)}</strong> MAD
-                        </span>
-                      ) : null}
-                      {alt.availability_status ? (
-                        <span>{availabilityStatusFr[alt.availability_status] ?? alt.availability_status}</span>
-                      ) : null}
-                      {alt.availability_status === "to_order" && alt.expected_availability_date ? (
-                        <span>→ {formatDateShortFr(alt.expected_availability_date)}</span>
-                      ) : null}
-                    </span>
-                    {altComment ? (
-                      <details className="rounded-md border border-teal-200/50 bg-white/70 text-[9px] text-teal-950">
-                        <summary className="cursor-pointer px-1.5 py-1 font-semibold">Note officine</summary>
-                        <p className="border-t border-teal-100/80 px-1.5 py-1 leading-snug">{altComment}</p>
-                      </details>
-                    ) : null}
                   </span>
-                </span>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
+                    {alt.unit_price != null ? (
+                      <span>
+                        PU <strong className="tabular-nums text-foreground">{formatPriceDh(Number(alt.unit_price))}</strong>
+                      </span>
+                    ) : null}
+                    {alt.availability_status ? (
+                      <span className="rounded-full bg-slate-200/80 px-1.5 py-px text-[9px] font-semibold text-slate-800">
+                        {availabilityStatusFr[alt.availability_status] ?? alt.availability_status}
+                      </span>
+                    ) : null}
+                  </div>
+                  {alt.availability_status === "to_order" && alt.expected_availability_date ? (
+                    <RespondedReceptionBadgeFr dateYmd={alt.expected_availability_date} />
+                  ) : null}
+                  {altComment ? (
+                    <details className="rounded-md border border-teal-200/50 bg-white/80 text-[9px] text-teal-950">
+                      <summary className="cursor-pointer px-1.5 py-1 font-semibold">Note officine</summary>
+                      <p className="border-t border-teal-100/80 px-1.5 py-1 leading-snug">{altComment}</p>
+                    </details>
+                  ) : null}
+                </div>
               </label>
             );
           })}
         </fieldset>
       </div>
 
-      {qtyStepper}
+      {qtyRowGrid}
     </>
   );
 }
@@ -2505,59 +2546,29 @@ export function PatientProductRequestActions({
 
   return (
     <section
-      className={`touch-pan-y mt-2 rounded-xl border-2 border-slate-200 bg-slate-50/95 p-2.5 sm:p-3 ${showResubmit ? "pb-40" : ""} ${showConfirm ? "pb-28" : ""}`}
+      className={`touch-pan-y mt-2 rounded-xl border-2 border-slate-200 bg-slate-50/95 p-2.5 sm:p-3 ${showResubmit ? "pb-40" : ""} ${showConfirm ? "pb-40" : ""}`}
     >
       {actionError ? (
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
       ) : null}
 
-      {showResubmit && pharmacyId ? (
+      {(showResubmit || showConfirm) && pharmacyId ? (
         <PatientSentEnvoyeeSummaryCard
           pharmacyContact={pharmacyContact}
           pharmacyId={pharmacyId}
           dossierRefLabel={dossierRefLabel}
-          lineCount={lines.length}
-          status={status}
+          lineCount={showResubmit ? lines.length : items.length}
+          status={showConfirm ? "responded" : status}
           createdAt={requestTimelineMeta?.created_at ?? ""}
           updatedAt={requestUpdatedAt ?? requestTimelineMeta?.created_at ?? ""}
         />
       ) : null}
 
       {showConfirm ? (
-        <div className="space-y-2.5">
-          <div className="rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/90 via-white to-teal-50/30 px-2.5 py-2 shadow-sm ring-1 ring-emerald-200/40">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-[13px] font-bold leading-tight text-emerald-950 sm:text-sm">Répondue — à valider</h2>
-              <span className="shrink-0 rounded-full border border-amber-300/80 bg-amber-50 px-2 py-px text-[8px] font-bold uppercase tracking-wide text-amber-950">
-                Action
-              </span>
-            </div>
-            <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
-              Un choix par produit, puis date de passage et validation.
-            </p>
-            <details className="mt-1.5 text-[9px] text-emerald-900/90">
-              <summary className="cursor-pointer font-semibold text-emerald-950 underline decoration-emerald-400/70 underline-offset-2">
-                Légende
-              </summary>
-              <ul className="mt-1 space-y-0.5 border-t border-emerald-200/50 pt-1.5 ps-3 leading-snug">
-                <li>
-                  <span className="font-semibold text-violet-800">Violet</span> — proposé par l&apos;officine.
-                </li>
-                <li>
-                  <span className="font-semibold text-emerald-800">Vert</span> — ta demande d&apos;origine.
-                </li>
-              </ul>
-            </details>
-          </div>
-
-          <p className="rounded-lg border border-sky-200/80 bg-sky-50/70 px-2.5 py-2 text-[10px] leading-snug text-sky-950">
-            Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
-            <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
-          </p>
-
+        <div className="space-y-2">
           {items.length > 0 ? (
             <section className="space-y-2">
-              <h3 className="px-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Produits</h3>
+              <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Produits</h3>
               <ul className="space-y-2">
                 {items.map((row) => (
                   <RespondedPatientLineChooser
@@ -3094,6 +3105,13 @@ export function PatientProductRequestActions({
             />
           </div>
         ) : null}
+
+        {showConfirm ? (
+          <p className="rounded-lg border border-sky-200/70 bg-white/90 px-2.5 py-2 text-[10px] leading-snug text-sky-950 shadow-sm">
+            Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
+            <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
+          </p>
+        ) : null}
       </div>
 
       {showResubmit ? (
@@ -3165,24 +3183,21 @@ export function PatientProductRequestActions({
 
       {showConfirm ? (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
-          <div className="mx-auto flex max-w-lg flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="min-w-0 text-sm text-slate-700 sm:text-base">
-              <p className="font-medium">
+          <div className="mx-auto flex max-w-lg flex-col gap-2.5">
+            <div className="flex flex-nowrap items-center justify-between gap-3">
+              <p className="min-w-0 shrink text-sm font-medium text-slate-700 sm:text-base">
                 <span className="font-bold tabular-nums text-slate-950">{confirmSelectionSummary.count}</span>{" "}
                 {confirmSelectionSummary.count > 1 ? "lignes retenues" : "ligne retenue"}
               </p>
-              <p className="mt-1 text-lg font-bold text-slate-950">
-                TOTAL:{" "}
-                <span className="tabular-nums text-sky-900">
-                  {confirmSelectionSummary.total > 0 ? `${confirmSelectionSummary.total.toFixed(2)} MAD` : "—"}
-                </span>
+              <p className="shrink-0 text-lg font-bold tabular-nums text-sky-900 sm:text-xl">
+                {confirmSelectionSummary.total > 0 ? `${confirmSelectionSummary.total.toFixed(2)} MAD` : "—"}
               </p>
             </div>
             <button
               type="button"
               disabled={busyAction !== "" || visitWin.missingEtaOnToOrder}
               onClick={openConfirmReview}
-              className="w-full shrink-0 rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
+              className="w-full shrink-0 rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50 sm:ms-auto sm:w-auto sm:min-w-[220px]"
             >
               Valider ma demande
             </button>
