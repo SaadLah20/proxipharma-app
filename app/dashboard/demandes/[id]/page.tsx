@@ -26,7 +26,7 @@ import {
   isPatientProductArchiveStatus,
   type PatientOutcomeDetailContext,
 } from "@/components/requests/patient-request-outcome-banner";
-import { RequestConversationFab, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
+import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 
 type PharmacyEmbed = {
   nom: string;
@@ -570,11 +570,11 @@ export default function DemandeDetailPage() {
       </details>
       {request.request_type === "product_request" && sessionUserId ? (
         <>
-          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[10050] flex justify-end p-3 pb-[max(5rem,env(safe-area-inset-bottom))] sm:p-4 sm:pb-[max(5.5rem,env(safe-area-inset-bottom))]">
-            <div className="pointer-events-auto">
-              <RequestConversationFab hasUnread={conversationUnread} onClick={() => setConversationOpen(true)} />
-            </div>
-          </div>
+          <RequestConversationFabDock
+            hasUnread={conversationUnread}
+            onOpen={() => setConversationOpen(true)}
+            tone="patient"
+          />
           <RequestConversationPanel
             requestId={request.id}
             viewerRole="patient"

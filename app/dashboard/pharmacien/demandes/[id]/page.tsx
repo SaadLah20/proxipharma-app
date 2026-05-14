@@ -73,7 +73,7 @@ import {
 } from "@/lib/patient-confirmed-line-buckets";
 import { buildPatientLineTimelineFr, postConfirmSupplyAmendmentBadgeLabelsFr } from "@/lib/build-patient-line-timeline-fr";
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
-import { RequestConversationFab, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
+import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 import { PharmacistSupplyCompactLine } from "@/components/pharmacist/pharmacist-supply-compact-line";
 import {
   stringifyPharmaConfirmAudit,
@@ -5429,11 +5429,11 @@ export default function PharmacienDemandeDetailPage() {
       />
       {isProduct && sessionUserId ? (
         <>
-          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[10050] flex justify-end p-3 pb-[max(5rem,env(safe-area-inset-bottom))] sm:p-4 sm:pb-[max(5.5rem,env(safe-area-inset-bottom))]">
-            <div className="pointer-events-auto">
-              <RequestConversationFab hasUnread={conversationUnread} onClick={() => setConversationOpen(true)} />
-            </div>
-          </div>
+          <RequestConversationFabDock
+            hasUnread={conversationUnread}
+            onOpen={() => setConversationOpen(true)}
+            tone="pharmacien"
+          />
           <RequestConversationPanel
             requestId={id}
             viewerRole="pharmacien"
