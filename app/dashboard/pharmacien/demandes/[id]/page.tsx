@@ -328,7 +328,7 @@ function flattenPharmacistSupplyListEntries(rows: ItemRow[]): { header: string |
 const PHARMACIST_SUPPLY_SURFACE_MAIN =
   "rounded-xl border-2 border-emerald-200/65 bg-gradient-to-b from-emerald-50/35 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-emerald-200/45 sm:p-2.5";
 const PHARMACIST_SUPPLY_SURFACE_SECOND =
-  "rounded-xl border-2 border-amber-200/70 bg-gradient-to-b from-amber-50/45 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-amber-200/45 sm:p-2.5";
+  "rounded-xl border-2 border-teal-200/70 bg-gradient-to-b from-teal-50/40 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-teal-200/45 sm:p-2.5";
 const PHARMACIST_SUPPLY_SURFACE_NEUTRAL =
   "rounded-xl border-2 border-slate-200/80 bg-gradient-to-b from-slate-50/70 via-white to-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-200/50 sm:p-2.5";
 
@@ -3246,11 +3246,26 @@ export default function PharmacienDemandeDetailPage() {
     bottomChromePaddingClass = "pb-24 sm:pb-28";
   }
 
+  const pharmaProductHeaderShell =
+    request && isProduct
+      ? clsx(
+          "mt-2 rounded-xl border-2 px-2.5 py-1.5 shadow-sm sm:px-3",
+          ["submitted", "in_review"].includes(request.status)
+            ? "border-sky-400/40 bg-gradient-to-br from-sky-500/12 via-white to-teal-50/25 ring-1 ring-sky-300/35"
+            : request.status === "responded"
+              ? "border-amber-400/45 bg-gradient-to-br from-amber-50/55 via-white to-orange-50/25 ring-1 ring-amber-200/50"
+              : ["confirmed", "treated", "completed", "partially_collected", "fully_collected"].includes(request.status)
+                ? "border-teal-300/50 bg-gradient-to-br from-emerald-50/45 via-white to-teal-50/30 ring-1 ring-teal-200/45"
+                : "border-slate-300/45 bg-gradient-to-b from-white to-slate-50/50 ring-1 ring-slate-200/50"
+        )
+      : "mt-2 rounded-xl border-2 border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 px-2.5 py-1.5 shadow-md shadow-sky-900/[0.06] ring-1 ring-sky-200/55 sm:px-3";
+
   return (
     <PageShell
       maxWidthClass="max-w-3xl"
       className={clsx(
         "space-y-2 sm:space-y-3",
+        isProduct && "bg-slate-50",
         canManageResponded && respondedEditMode && request?.status === "responded" && "pb-28 sm:pb-24",
         bottomChromePaddingClass
       )}
@@ -3259,7 +3274,7 @@ export default function PharmacienDemandeDetailPage() {
         ← Retour aux demandes de produits
       </Link>
 
-      <header className="mt-2 rounded-xl border-2 border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 px-2.5 py-1.5 shadow-md shadow-sky-900/[0.06] ring-1 ring-sky-200/55 sm:px-3">
+      <header className={pharmaProductHeaderShell}>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:gap-x-2">
             <span className="shrink-0 font-bold uppercase tracking-wide text-sky-950/85">Demande prod.</span>
@@ -3414,6 +3429,36 @@ export default function PharmacienDemandeDetailPage() {
         </div>
       </section>
 
+      {isProduct &&
+      request &&
+      ["submitted", "in_review"].includes(request.status) &&
+      !pharmacistRequestIsHardStopped(request.status) ? (
+        <section className="rounded-lg border-2 border-sky-400/35 bg-gradient-to-br from-sky-500/10 via-white to-teal-50/20 px-2.5 py-2 text-[10px] leading-snug text-sky-950 shadow-sm ring-1 ring-sky-300/30 sm:px-3">
+          <p className="text-[11px] font-bold leading-tight text-sky-950">File d&apos;attente → votre réponse</p>
+          <p className="mt-1 text-sky-900/92">
+            Renseignez chaque ligne (dispo, quantités, prix catalogue, alternatives si besoin). Publiez une fois prêt : le patient voit exactement cette réponse jusqu&apos;à sa validation ou une modification de votre part.
+          </p>
+        </section>
+      ) : null}
+
+      {isProduct && request?.status === "confirmed" && !pharmacistRequestIsHardStopped(request.status) ? (
+        <section className="rounded-lg border border-teal-200/85 bg-gradient-to-r from-teal-50/60 to-white px-2.5 py-2 text-[10px] leading-snug text-teal-950 shadow-sm ring-1 ring-teal-200/35 sm:px-3">
+          <p className="text-[11px] font-bold text-teal-950">Commande validée côté patient</p>
+          <p className="mt-1 text-teal-900/90">
+            Pastilles réservé / commandé / reçu : enregistrement immédiat. Pour écarts, ajouts officine ou retouches de ligne, utilisez la barre du bas puis « Enregistrer les modifications », puis passez en « traitée » pour le comptoir.
+          </p>
+        </section>
+      ) : null}
+
+      {isProduct && request?.status === "treated" && !pharmacistRequestIsHardStopped(request.status) ? (
+        <section className="rounded-lg border border-violet-200/80 bg-gradient-to-r from-violet-50/50 via-white to-teal-50/20 px-2.5 py-2 text-[10px] leading-snug text-violet-950 shadow-sm ring-1 ring-violet-200/40 sm:px-3">
+          <p className="text-[11px] font-bold text-violet-950">Retrait comptoir</p>
+          <p className="mt-1 text-violet-900/88">
+            Indiquez « Récupéré » sur chaque ligne retenue au fil des passages. Clôturez quand tout est aligné. Les autres changements passent encore par « Enregistrer les modifications ».
+          </p>
+        </section>
+      ) : null}
+
       {respondedEditMode && request?.status === "responded" && isProduct ? (
         <section
           id="pharma-demande-mode-edition"
@@ -3427,27 +3472,28 @@ export default function PharmacienDemandeDetailPage() {
       ) : null}
 
       {respondedFrozenView && isProduct ? (
-        <section className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-sky-200/80 bg-sky-50/65 px-2.5 py-1.5 text-[10px] leading-snug text-sky-950 shadow-sm sm:text-[11px]">
-          <span className="font-bold uppercase tracking-wide">Réponse publiée&nbsp;:</span>
-          <span>
-            Le{" "}
-            <span className="font-semibold tabular-nums">
-              {request.responded_at ? formatDateTimeShort24hFr(request.responded_at) : "—"}
+        <section className="rounded-lg border-2 border-amber-300/45 bg-gradient-to-br from-amber-50/80 via-white to-orange-50/25 px-2.5 py-2 text-[10px] leading-snug text-amber-950 shadow-sm ring-1 ring-amber-200/45 sm:px-3 sm:text-[11px]">
+          <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
+            <span className="shrink-0 rounded-full border border-amber-400/80 bg-white/90 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-amber-950">
+              Réponse publiée
             </span>
-          </span>
-          <span className="text-sky-700/45" aria-hidden>
-            ·
-          </span>
-          <span>
-            Dernière MAJ&nbsp;:{" "}
-            <span className="font-semibold tabular-nums">{formatDateTimeShort24hFr(request.updated_at)}</span>
-          </span>
-          <InfoHint label="Aide — réponse publiée">
-            <p>
-              C&apos;est la vision actuelle pour le patient. Pour modifier prix, disponibilités, alternatives ou messages de
-              ligne, utilisez «&nbsp;Modifier la réponse&nbsp;», puis enregistrez depuis le bandeau en bas de l&apos;écran.
+            <p className="min-w-0 flex-1 font-medium leading-snug text-amber-950/95">
+              Visible patient depuis{" "}
+              <span className="tabular-nums">{request.responded_at ? formatDateTimeShort24hFr(request.responded_at) : "—"}</span>
+              <span className="text-amber-800/70" aria-hidden>
+                {" "}
+                ·{" "}
+              </span>
+              MAJ <span className="tabular-nums">{formatDateTimeShort24hFr(request.updated_at)}</span>
+              <span className="text-amber-900/85"> — en attente du choix patient.</span>
             </p>
-          </InfoHint>
+            <InfoHint label="Aide — réponse publiée">
+              <p>
+                C&apos;est la vision actuelle pour le patient. Pour modifier prix, disponibilités, alternatives ou messages de
+                ligne, utilisez «&nbsp;Modifier la réponse&nbsp;», puis enregistrez depuis le bandeau en bas de l&apos;écran.
+              </p>
+            </InfoHint>
+          </div>
         </section>
       ) : null}
 
@@ -3486,7 +3532,7 @@ export default function PharmacienDemandeDetailPage() {
             </div>
             <span className="text-[10px] text-muted-foreground">{displayRows.length} article(s)</span>
           </div>
-          <div className="mt-2 space-y-3 sm:space-y-4">
+          <div className="mt-2 space-y-2 sm:space-y-3">
             {pharmacistSupplySurfaceGroups.map((group, gi) => (
               <div
                 key={gi}
@@ -3577,12 +3623,6 @@ export default function PharmacienDemandeDetailPage() {
                 const thumbUrl = altProdThumb?.photo_url ?? prod?.photo_url ?? null;
                 const hasConsent = Boolean(lineModifyConsent[row.id]?.channel?.trim());
                 const consent = lineModifyConsent[row.id];
-                const ring =
-                  effSupply === "to_order"
-                    ? "border-teal-200/85"
-                    : withdrawnDraft || row.withdrawn_after_confirm
-                      ? "border-amber-300/80"
-                      : "border-emerald-200/80";
                 const lineCounterLocked = (row.counter_outcome ?? "unset") === "picked_up";
                 const canMarkReservedSupply =
                   request.status !== "treated" &&
@@ -3895,10 +3935,13 @@ export default function PharmacienDemandeDetailPage() {
                       setSupplyMenuRowId(null);
                       setLineConvoRowId(row.id);
                     }}
-                    className={lineConversationStripButtonClass(lineConvoVisual, {
-                      open: lineConvoRowId === row.id,
-                      disabled: busy || supplyConfirmBusy,
-                    })}
+                    className={clsx(
+                      lineConversationStripButtonClass(lineConvoVisual, {
+                        open: lineConvoRowId === row.id,
+                        disabled: busy || supplyConfirmBusy,
+                      }),
+                      "min-w-0 w-full max-w-none flex-1 justify-start"
+                    )}
                     aria-label={`Échanges produit · ${lineConversationStripLabel(lineConvoVisual)}`}
                     title="Notes patient et officine"
                   >
@@ -3919,7 +3962,6 @@ export default function PharmacienDemandeDetailPage() {
                       unitLabel={unitLabel}
                       totalLabel={totalLabel}
                       thumbUrl={thumbUrl}
-                      ringClass={ring}
                       selected={selected}
                       lineLockedTrace={lineLockedTrace}
                       withdrawn={withdrawnDraft}
@@ -4037,26 +4079,26 @@ export default function PharmacienDemandeDetailPage() {
                   ) : null}
                   <li
                     className={clsx(
-                      "overflow-visible rounded-2xl border bg-white shadow-md",
+                      "list-none overflow-visible rounded-xl border-2 bg-card shadow-sm ring-1",
                       isProposedLine
-                        ? "border-violet-400/80 bg-gradient-to-br from-violet-50/90 via-fuchsia-50/[0.35] to-white shadow-[0_4px_22px_rgba(109,40,217,0.13)] ring-1 ring-violet-300/45"
-                        : "border-slate-200/70 shadow-[0_2px_10px_rgba(15,23,42,0.045)] ring-1 ring-slate-900/[0.025]",
+                        ? "border-violet-300/80 bg-gradient-to-b from-violet-50/70 via-white to-white ring-violet-200/50"
+                        : "border-slate-200/80 bg-gradient-to-b from-white to-slate-50/40 ring-slate-200/50",
                       availUi.accentClass,
-                      isProposedLine ? "border-l-[4px] border-l-violet-500" : "border-l-[3px]"
+                      isProposedLine ? "border-l-[4px] border-l-violet-500" : "border-l-[3px] border-l-sky-400/60"
                     )}
                   >
                   <div
                     className={clsx(
-                      "flex gap-2 border-b px-2.5 py-1.5 sm:gap-2.5 sm:px-3 sm:py-2",
+                      "flex gap-2 border-b px-2.5 py-2 sm:gap-2.5 sm:px-3",
                       isProposedLine
-                        ? "border-violet-200/55 bg-gradient-to-r from-violet-100/[0.42] via-white to-transparent"
-                        : "border-slate-100/90 bg-slate-50/25"
+                        ? "border-violet-200/50 bg-gradient-to-r from-violet-50/50 via-white to-transparent"
+                        : "border-slate-100/90 bg-white/90"
                     )}
                   >
                     <div className="flex w-[4.75rem] shrink-0 flex-col items-stretch gap-1 sm:w-[5.125rem]">
                       <div
                         className={clsx(
-                          "relative h-[4.75rem] w-full overflow-hidden rounded-xl border bg-white shadow-sm sm:h-[5.125rem]",
+                          "relative h-20 w-full overflow-hidden rounded-lg border bg-white shadow-inner sm:h-20",
                           isProposedLine ? "border-violet-200/80 ring-1 ring-violet-200/35" : "border-slate-200/75"
                         )}
                       >
@@ -4131,14 +4173,17 @@ export default function PharmacienDemandeDetailPage() {
                           )
                         ) : null}
                       </div>
-                      <div className="mt-1 flex w-full min-w-0 items-center justify-end border-t border-dotted border-border/55 pt-1.5">
+                      <div className="mt-1 flex w-full min-w-0 items-stretch justify-stretch border-t border-dotted border-border/55 pt-1.5">
                         <button
                           type="button"
                           disabled={busy}
-                          className={lineConversationStripButtonClass(lineConvoVisual, {
-                            open: lineConvoEffectiveRowId === row.id,
-                            disabled: busy,
-                          })}
+                          className={clsx(
+                            lineConversationStripButtonClass(lineConvoVisual, {
+                              open: lineConvoEffectiveRowId === row.id,
+                              disabled: busy,
+                            }),
+                            "min-w-0 w-full max-w-none flex-1 justify-start"
+                          )}
                           aria-label={`Échanges produit · ${lineConversationStripLabel(lineConvoVisual)}`}
                           title="Ouvrir les messages patient et note officine"
                           onClick={(e) => {
@@ -4897,23 +4942,17 @@ export default function PharmacienDemandeDetailPage() {
                   Envoyer la réponse au patient…
                 </button>
               ) : null}
-              {canManageSupply ? (
-                <p className="rounded-xl border border-sky-400/60 bg-sky-50/80 px-3 py-2 text-[11px] leading-snug text-sky-950 shadow-sm ring-1 ring-sky-300/40">
-                  Réservé / commandé : enregistrement immédiat au clic sur les pastilles. Les autres changements (lignes,
-                  écarts, ajouts officine) passent par la barre fixe en bas : Annuler ou Enregistrer les modifications.
-                </p>
-              ) : null}
             </section>
           ) : !respondedFrozenView ? (
-            <p className="mt-3 rounded-md border border-border bg-muted/30 p-2 text-[11px] text-muted-foreground">
-              {request.status === "confirmed"
-                ? "Réservations et commandes : enregistrement immédiat au clic sur les pastilles. Utilisez « Enregistrer les modifications » pour les changements de ligne, écarts ou ajouts officine, puis déclarez la demande traitée (pied de page) pour le comptoir."
-                : request.status === "treated"
-                  ? "Dossier traité : pastille « Récupéré » enregistrement immédiat comme pour réservé / commandé. Marquez chaque ligne retenue puis clôturez lorsque tout est retiré au comptoir. Les autres changements passent par « Enregistrer les modifications »."
-                  : request.status === "completed"
-                    ? "Dossier clôturé côté comptoir ; les lignes restent lisibles sans modification."
-                    : `Statut : ${requestStatusFr[request.status] ?? request.status}.`}
-            </p>
+            request.status === "completed" ? (
+              <p className="mt-3 rounded-md border border-border bg-muted/30 p-2 text-[11px] text-muted-foreground">
+                Dossier clôturé côté comptoir ; les lignes restent lisibles sans modification.
+              </p>
+            ) : !["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status) ? (
+              <p className="mt-3 rounded-md border border-border bg-muted/30 p-2 text-[11px] text-muted-foreground">
+                {`Statut : ${requestStatusFr[request.status] ?? request.status}.`}
+              </p>
+            ) : null
           ) : null}
 
           {(request.status === "treated" || request.status === "completed") && items.length > 0 ? (
