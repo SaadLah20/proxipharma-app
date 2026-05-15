@@ -139,3 +139,21 @@ git log --oneline -n 10
   - `APP_BASE_URL` (ex: `https://proxipharma-app.vercel.app`)
   - `CRON_SECRET`
 - Retry auto: les emails `failed` sont retentés automatiquement jusqu'à 3 tentatives max (`attempt_count < 3`).
+
+## 10) Notifications WhatsApp (Q35 — en cours, pas déployé)
+
+**État repo** : la file `notification_external_queue` et les prefs `whatsapp_enabled` existent ; **aucun** endpoint cron n’envoie encore `channel=whatsapp` (seul l’e-mail est branché, §8–9).
+
+**Prérequis infra (étape 1 — à faire avant code)** :
+1. Compte **Meta Business** + expéditeur WhatsApp via **Twilio** (Messaging → Try WhatsApp / Senders).
+2. Créer un **modèle** approuvé, catégorie **Utility** (ex. statut demande + nom pharmacie), langue **fr**.
+3. Tester l’envoi **depuis la console Twilio** vers un numéro de test sandbox (`+212…` en E.164).
+4. **Ne pas** envoyer les notifs métier via **Marketing Messages Lite (MM Lite)** : erreur **63055** (*Only marketing messages supported on MM Lite API*) → utiliser l’API WhatsApp **Cloud** / envoi template classique.
+
+**Rappels** :
+- Le numéro **SMS USA** (OTP Auth) n’est **pas** l’expéditeur WhatsApp Business.
+- Les messages ne partent **pas** depuis le WhatsApp personnel du pharmacien via l’API ; les liens `wa.me` sur la fiche officine restent le canal manuel.
+
+**Prochaine étape code (étape 2)** : variables d’environnement Twilio WhatsApp + route de test serveur, puis worker cron sur le modèle `send-external-emails`.
+
+**Auth patient** : tester `/auth` dans Chrome ; inscription `?mode=signup` ; connexion identifiant unique téléphone ou e-mail + mot de passe.

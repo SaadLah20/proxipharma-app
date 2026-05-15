@@ -318,6 +318,23 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-15 — Auth SMS + mot de passe ; démarrage WhatsApp (infra Twilio)
+
+**Auth patient** (branche **`fix/validated-supply-ecart-ui-modal`**, commits auth récents) :
+- **`/auth`** : connexion **téléphone ou e-mail** + mot de passe (`lib/auth-login-identifier.ts`).
+- **`/auth?mode=signup`** : nom, téléphone, e-mail facultatif → OTP SMS → mot de passe (`lib/phone-e164.ts`, `lib/ensure-patient-profile.ts`).
+- **`/auth/update-password`** ; **`lib/supabase.ts`** : `detectSessionInUrl`.
+- Migration **`20260521_001_profiles_email_nullable.sql`**.
+- Tests auth : **Chrome** uniquement (pas Simple Browser IDE) — voir **`AGENTS.md`**.
+
+**WhatsApp notifications** — **pas de worker** encore ; SQL Q35 déjà prêt (`notification_external_queue`, prefs).
+- **Étape 1 en cours côté fondateur** : Twilio + **Meta Business** obligatoire pour l’API ; sandbox / template ; erreur vue **63055** = ne pas passer par **MM Lite** pour messages **utilitaires** (utiliser Cloud API + templates **Utility**).
+- Rappel produit : notifs API ≠ numéro perso pharmacien ; contact manuel via **`wa.me`** sur fiche pharmacie.
+
+**À faire prochaine session** : valider envoi test template WhatsApp (hors MM Lite) → étape 2 code (`/api/cron/...` ou script test + env).
+
+---
+
 ### Session 2026-05-14 — patient détail demande produits : parcours **envoyée / répondue / validée / traitée** (UI)
 
 **Contexte** : alignement UX écran patient **`/dashboard/demandes/[id]`** ; **aucune nouvelle migration**.

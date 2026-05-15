@@ -20,6 +20,20 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **Auth locale (SMS / Supabase)** : tester **`/auth`** dans **Chrome ou Edge** (fenêtre système), **pas** le navigateur intégré / Simple Browser de l’IDE — stockage, cookies et requêtes vers **`*.supabase.co`** y sont souvent incomplets ; si ça marche dans Chrome, le flux est en général correct.
 
+**Auth patient (mai 2026)** — **`app/auth/page.tsx`** :
+- **Connexion** (`/auth`) : un champ **téléphone ou e-mail** + mot de passe (`lib/auth-login-identifier.ts`, `signInWithPassword`).
+- **Inscription** (`/auth?mode=signup`) : nom + téléphone + e-mail facultatif → **SMS OTP** → mot de passe → session (`lib/ensure-patient-profile.ts`, `lib/phone-e164.ts`).
+- E-mail récupération : **`/auth/update-password`** ; opt-in e-mail aussi dans **`app/dashboard/patient/parametres/page.tsx`**.
+- Migration **`20260521_001_profiles_email_nullable.sql`** : `profiles.email` nullable.
+- Unicité : **téléphone / e-mail** uniques côté **`auth.users`** (Supabase) ; doublons possibles dans **`profiles.whatsapp`** sur comptes **legacy** (e-mail avant SMS).
+
+**Notifications WhatsApp (en cours, pas encore de worker)** :
+- File SQL déjà en place : **`notification_external_queue`** canal **`whatsapp`**, opt-in **`notification_external_prefs.whatsapp_enabled`**, trigger sur **`app_notifications`** (`20260505_001`). Destination = **`profiles.whatsapp`** (E.164).
+- E-mail sortant : **`app/api/cron/send-external-emails`** + GitHub Actions (voir **`RUNBOOK.md` §8–9**). **Pas** d’équivalent WhatsApp dans le repo pour l’instant.
+- **Étape 1 (infra, avant code)** : Meta Business + expéditeur WhatsApp via Twilio ; test manuel **template** depuis la console ; **ne pas** utiliser **MM Lite** pour messages utilitaires (erreur Twilio **63055** → envoyer via **Cloud API**, modèles catégorie **Utility** pour statuts demande).
+- **Numéro SMS USA Twilio ≠ expéditeur WhatsApp** ; **pas** d’envoi API depuis le WhatsApp perso du pharmacien — liens **`wa.me`** OK sans Meta Business.
+- **Prochaine étape code** : variables d’env + route test d’envoi template, puis worker cron `channel=whatsapp` (sur le modèle Resend).
+
 **Expiration `responded`** : cron Supabase **`service_role`** sur **`expire_overdue_requests()`** (optionnellement `expire_overdue_requests(interval '24 hours')` en prod) ; **`abandon_unconfirmed_responded_requests()`** est un **alias** (même lot **`20260516_001`**). Défaut actuel en dépôt : **30 minutes** après **`responded_at`** pour tests (pas un bug fuseau Maroc : **`timestamptz`**).
 
 **Notifications in-app** : marquage comptoir **`counter_outcome:picked_up`** → **aucune** insertion **`app_notifications`** (**`20260515_001`**). Libellés patient : **`20260514_001`** (surcharges **`_in_app_notification_patient`**).
