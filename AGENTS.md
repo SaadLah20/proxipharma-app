@@ -29,7 +29,7 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **Notifications hors-app (e-mail + SMS)** :
 - File SQL : **`notification_external_queue`**, prefs **`notification_external_prefs`**, trigger sur **`app_notifications`** (`20260505_001`). SMS/WhatsApp : destination = **`profiles.whatsapp`** (E.164).
-- Workers : **`app/api/cron/send-external-emails`** (Resend), **`app/api/cron/send-external-sms`** (Twilio : `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` ou `TWILIO_MESSAGING_SERVICE_SID`) ; logique partagée **`lib/external-notification-queue-worker.ts`**. GitHub Actions **`send-external-emails-cron.yml`** appelle les deux (voir **`RUNBOOK.md` §9**).
+- Workers : **`app/api/cron/send-external-emails`** (Resend), **`app/api/cron/send-external-sms`** (Twilio : aligner `TWILIO_SMS_FROM` sur l’expéditeur OTP Supabase) ; **`lib/external-notification-queue-worker.ts`** (SMS : 1 tentative, pas de retry cron). Cron : e-mail planifié **`send-external-emails-cron.yml`** ; SMS **manuel** **`send-external-sms-cron.yml`** (voir **`RUNBOOK.md` §9**).
 
 **Notifications WhatsApp (en cours, pas encore de worker)** :
 - **Étape 1 (infra, avant code)** : Meta Business + expéditeur WhatsApp via Twilio ; test manuel **template** depuis la console ; **ne pas** utiliser **MM Lite** pour messages utilitaires (erreur Twilio **63055** → envoyer via **Cloud API**, modèles catégorie **Utility** pour statuts demande).
