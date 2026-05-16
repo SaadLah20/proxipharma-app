@@ -51,16 +51,17 @@ export function buildOutboundNotificationText(args: {
   const bodyLine = (args.row.body ?? "").trim();
 
   if (args.channel === "sms") {
-    const parts = [`ProxiPharma — ${subject}`];
-    if (bodyLine) parts.push(bodyLine);
-    parts.push(pharmacyLabel, requestLink);
-    let text = parts.join("\n");
-    if (text.length > 480) {
-      const budget = 480 - requestLink.length - pharmacyLabel.length - 4;
-      const head = bodyLine
-        ? `${subject}\n${bodyLine}`.slice(0, Math.max(40, budget))
-        : subject.slice(0, Math.max(40, budget));
-      text = [`ProxiPharma — ${head}`.trim(), pharmacyLabel, requestLink].join("\n");
+    // 1 segment (~160 car.) : pas d’URL — les SMS longs (5+ segments) vers le MA
+    // sont souvent marqués Delivered chez Twilio mais absents sur le téléphone.
+    const trim = (s: string, max: number) => (s.length <= max ? s : `${s.slice(0, max - 1)}…`);
+    const titleShort = trim(subject, 80);
+    const bodyShort = bodyLine ? trim(bodyLine, 50) : "";
+    const pharmaShort = trim(pharmacyLabel, 32);
+    let text = bodyShort
+      ? `ProxiPharma: ${titleShort}. ${bodyShort}. ${pharmaShort}`
+      : `ProxiPharma: ${titleShort}. ${pharmaShort}`;
+    if (text.length > 155) {
+      text = trim(`ProxiPharma: ${titleShort}. ${pharmaShort}`, 155);
     }
     return { subject, text };
   }
