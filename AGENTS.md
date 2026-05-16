@@ -32,7 +32,7 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 - Workers : **`send-external-emails`**, **`send-external-sms`**, **`/api/webhooks/dispatch-external-sms`** (principal, ~secondes) ; **`lib/external-notification-queue-worker.ts`** (SMS 1 tentative, texte court anti **Twilio 30007**, `SMS_BLOCKED_DESTINATIONS`).
 - **Destination notif SMS** : **`profiles.whatsapp`** (E.164) — pas `auth.users.phone` (legacy e-mail OK sans téléphone Auth).
 - **Vercel** : `TWILIO_*` + `TWILIO_SMS_FROM` (ex. `+19789813065`, API Messages) ; `SMS_BLOCKED_DESTINATIONS` pour numéros test invalides.
-- **Webhook Supabase** (INSERT file) = SMS **rapide**, validé pilote. Cron GitHub = filet (~5 min, schedule irrégulier). E-mail = lien complet ; **SMS pilote = sans URL** (30007 si lien long).
+- **Webhook Supabase** (INSERT file, même URL) = **e-mail + SMS rapides** (canal de la ligne insérée). Cron GitHub = filet (~5 min). E-mail = lien complet ; **SMS pilote = sans URL** (30007 si lien long).
 - Détail / reprise : **`RUNBOOK.md` §9**, **`CAHIER_DES_CHARGES.md` §10 (2026-05-16)**, phrase **§13.15**.
 
 **Notifications WhatsApp (en cours, pas encore de worker)** :

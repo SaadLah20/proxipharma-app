@@ -137,7 +137,7 @@ git log --oneline -n 10
 
 - **E-mail** : `.github/workflows/send-external-emails-cron.yml` — toutes les 5 min + manuel → e-mail puis SMS (filet de sécurité).
 - **SMS** : `.github/workflows/send-external-sms-cron.yml` — planifié **toutes les 5 min** (+ manuel) → `POST /api/cron/send-external-sms`. (GitHub ne permet pas &lt; 5 min en `schedule` ; webhook pour quelques secondes.)
-- **SMS rapide (recommandé, quelques secondes)** : Supabase → **Database Webhooks** → `POST https://<APP>/api/webhooks/dispatch-external-sms` avec en-tête `Authorization: Bearer <CRON_SECRET>`, table `notification_external_queue`, événement **INSERT**. Sans webhook, délai = cron GitHub ci-dessus.
+- **E-mail + SMS rapides (recommandé, quelques secondes)** : Supabase → **Database Webhooks** → `POST https://<APP>/api/webhooks/dispatch-external-sms` avec en-tête `Authorization: Bearer <CRON_SECRET>`, table `notification_external_queue`, événement **INSERT** (une ligne `email` + une ligne `sms` → deux appels, chaque canal traité tout de suite). Sans webhook, délai = cron GitHub (~5 min, irrégulier).
 - Secrets GitHub requis:
   - `APP_BASE_URL` (ex: `https://proxipharma-app.vercel.app`)
   - `CRON_SECRET`
@@ -167,7 +167,7 @@ git log --oneline -n 10
    - Events : **Insert**
    - URL : `https://<APP_BASE_URL>/api/webhooks/dispatch-external-sms`
    - HTTP headers : `Authorization: Bearer <CRON_SECRET>` (même secret que les crons)
-4. Tester : une notif patient avec SMS coché → SMS reçu sans lancer PowerShell.
+4. Tester : notif avec **e-mail + SMS** cochés → les deux reçus en quelques secondes (sans PowerShell / sans attendre le cron).
 
 ### Point de reprise SMS (mai 2026)
 
