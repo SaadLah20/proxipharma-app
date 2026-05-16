@@ -338,6 +338,13 @@ Statuts retenus v1:
 
 **Commits repères** : `feat(notifications): worker SMS Twilio…`, `fix(notifications): limiter facturation SMS Twilio (cron manuel)`.
 
+**Suite même jour (webhook + diagnostic 30007)** :
+- **Webhook Supabase** sur INSERT `notification_external_queue` → `/api/webhooks/dispatch-external-sms` : file traitée, `sms` → `sent` en secondes.
+- **Run manuel** GitHub *Send External Emails Cron* : e-mail + SMS reçus ; cron `schedule` GitHub **peu fiable** (lignes `pending` jusqu’au manuel).
+- Twilio **30007** (*Message filtered*) sur SMS longs avec URL → correctif **SMS courts** (`ProxiPharma - [titre] ([pharmacie])`, 1 segment) — branche `fix/validated-supply-ecart-ui-modal`, commit `fix(notifications): SMS courts anti-filtre operateur` — **à merger `main` + redeploy** avant test final livraison.
+- `SMS_BLOCKED_DESTINATIONS` + script `supabase/scripts/cancel-sms-queue-bad-destination.sql` (numéro test `212600000123`).
+- **Notifs** utilisent `profiles.whatsapp` ; **Auth.phone** vide sur comptes legacy e-mail = normal.
+
 ---
 
 ### Session 2026-05-15 — Auth SMS + mot de passe ; démarrage WhatsApp (infra Twilio)
@@ -1151,9 +1158,13 @@ Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre 
 
 **« On reprend ProxiPharma. Lis **`CONTEXTE.md` §6**, **`CAHIER_DES_CHARGES.md` §0.1, **§10 Journal (session 2026-05-14)**, §4.4 + §4.6, §11 (migrations jusqu’à **`20260516_001`**), §12. Branche **`fix/validated-supply-ecart-ui-modal`**. Fichiers clés patient : **`app/dashboard/demandes/[id]/PatientProductRequestActions.tsx`**, **`app/dashboard/demandes/[id]/page.tsx`** — récap carte ciel, pieds fixes, **`visitPassageDirty`**, cartes **`PatientValidatedCompactLineCard`** ; pas de migration sur ce lot. ESLint : éviter **`setState` dans un `useEffect`** pour resynchroniser le passage (pattern **réinit. en rendu** si les props **`initialPlannedVisit*`** changent). Je te dis ensuite quoi faire. »**
 
-### 13.14) Phrase de reprise (recommandée après **2026-05-16** — SMS hors-app bloqué, e-mail OK)
+### 13.14) Phrase de reprise (session **2026-05-16** matin — dépassée)
 
-**« On reprend ProxiPharma — priorité **notifications SMS hors-app** (Q35). Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-16)**, **`RUNBOOK.md` §9**, **`AGENTS.md` (notifications hors-app)**. État : worker SMS + cron manuel en place ; **e-mail OK** ; file `notification_external_queue` peut passer `sms`/`sent` sans SMS reçu ; **OTP inscription reçu** (aligner **`TWILIO_SMS_FROM`** Vercel sur expéditeur Supabase Auth). Ne **pas** remettre SMS sur schedule GitHub tant que Twilio n’affiche **Delivered** sur un test manuel. Workflows : réactiver **`Send External Emails Cron`** seulement ; SMS via **`Send External SMS Cron (manual)`**. Fichiers : **`lib/external-notification-queue-worker.ts`**, **`app/api/cron/send-external-sms/route.ts`**. Vérifier logs Twilio (geo Maroc, From, ~30 failed historiques). WhatsApp worker : après SMS. Je te dis ensuite quoi faire. »**
+Voir **§13.15** (webhook + 30007 + SMS courts).
+
+### 13.15) Phrase de reprise (recommandée après **2026-05-16** — webhook OK, livraison SMS 30007)
+
+**« On reprend ProxiPharma — **notifications SMS hors-app** (Q35). Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-16 + suite webhook)**, **`RUNBOOK.md` §9** (point de reprise SMS), **`AGENTS.md`**. État : **webhook Supabase** actif sur INSERT `notification_external_queue` → `/api/webhooks/dispatch-external-sms` (`Authorization: Bearer CRON_SECRET`) ; run **manuel** GitHub *Send External Emails Cron* = e-mail + SMS OK ; cron `schedule` GitHub **irrégulier** (ne pas s’y fier seul). Twilio **30007** sur SMS longs → merger **`main`** avec SMS courts (`lib/external-notification-queue-worker.ts`, format `ProxiPharma - [titre] ([pharmacie])`, 1 segment) + redeploy Vercel. Vercel : `TWILIO_SMS_FROM=+19789813065`, `SMS_BLOCKED_DESTINATIONS=+212600000123`. Notifs = **`profiles.whatsapp`** E.164, pas Auth.phone. Test : nouvelle réponse pharmacien → Twilio **Delivered**, 1 segment, pas 30007. WhatsApp worker : après SMS stable. Je te dis ensuite quoi faire. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 
