@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { displayRequestPublicRef } from "@/lib/public-ref";
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
 
 export type ExternalNotificationChannel = "email" | "sms";
@@ -9,19 +10,20 @@ export const SMS_PATIENT_EVENT_TYPES = new Set<string>([
   "request_status:treated",
 ]);
 
-const REQUEST_TYPE_LABEL_FR: Record<string, string> = {
-  product_request: "Demande de produits",
-  prescription: "Ordonnance",
-  free_consultation: "Consultation libre",
-};
-
-function requestTypeLabelFr(raw: string | null): string {
-  if (!raw) return "demande";
-  return REQUEST_TYPE_LABEL_FR[raw] ?? "demande";
-}
-
 function trimSmsSegment(s: string, max: number): string {
   return s.length <= max ? s : `${s.slice(0, max - 1)}…`;
+}
+
+/** Nom affiché SMS : évite « La pharmacie Pharmacie X ». */
+export function smsPharmacyShortName(nom: string | null): string {
+  const t = (nom ?? "Officine").trim();
+  const stripped = t.replace(/^pharmacie\s+/i, "").trim();
+  return stripped || t;
+}
+
+/** Ref dossier (D042/26) ou repli court UUID. */
+export function smsRequestRefLabel(requestPublicRef: string | null | undefined, requestId: string): string {
+  return displayRequestPublicRef({ request_public_ref: requestPublicRef, id: requestId });
 }
 
 export type QueueRow = {
@@ -39,6 +41,7 @@ export type QueueRow = {
 type RequestMeta = {
   id: string;
   request_type: string | null;
+  request_public_ref: string | null;
   pharmacies: { nom: string | null } | { nom: string | null }[] | null;
 };
 
@@ -64,6 +67,7 @@ export function buildOutboundNotificationText(args: {
   role: string | null | undefined;
   pharmacyName: string | null;
   requestType: string | null;
+  requestPublicRef?: string | null;
   channel: ExternalNotificationChannel;
 }): { subject: string; text: string } {
   const subject = args.row.title;
@@ -72,13 +76,14 @@ export function buildOutboundNotificationText(args: {
   const bodyLine = (args.row.body ?? "").trim();
 
   if (args.channel === "sms") {
-    const pharma = trimSmsSegment(pharmacyLabel, 40);
-    const demande = trimSmsSegment(requestTypeLabelFr(args.requestType), 48);
+    const pharma = trimSmsSegment(smsPharmacyShortName(pharmacyLabel), 28);
+    const ref = trimSmsSegment(smsRequestRefLabel(args.requestPublicRef, args.row.request_id), 16);
+    // ASCII sans accents : 1 segment GSM, évite « r pondu » / « trait » sur livraison MA.
     let text: string;
     if (args.row.event_type === "request_status:responded") {
-      text = `ProxiPharma: La pharmacie ${pharma} a répondu sur votre demande ${demande}`;
+      text = `ProxiPharma: ${pharma} a repondu. Dossier ${ref}.`;
     } else if (args.row.event_type === "request_status:treated") {
-      text = `ProxiPharma: La pharmacie ${pharma} a traité votre demande ${demande}`;
+      text = `ProxiPharma: ${pharma} a traite le dossier ${ref}.`;
     } else {
       text = trimSmsSegment(`ProxiPharma - ${subject}`, 155);
     }
@@ -341,7 +346,10 @@ export async function processExternalNotificationQueue(args: {
   const recipientIds = [...new Set(rows.map((r) => r.recipient_id))];
   const requestIds = [...new Set(rows.map((r) => r.request_id))];
   const roleByRecipient = new Map<string, string>();
-  const requestMetaById = new Map<string, { requestType: string | null; pharmacyName: string | null }>();
+  const requestMetaById = new Map<
+    string,
+    { requestType: string | null; requestPublicRef: string | null; pharmacyName: string | null }
+  >();
 
   if (recipientIds.length > 0) {
     const { data: profiles } = await args.supabase.from("profiles").select("id,role").in("id", recipientIds);
@@ -354,12 +362,13 @@ export async function processExternalNotificationQueue(args: {
   if (requestIds.length > 0) {
     const { data: reqRows } = await args.supabase
       .from("requests")
-      .select("id,request_type,pharmacies(nom)")
+      .select("id,request_type,request_public_ref,pharmacies(nom)")
       .in("id", requestIds);
     for (const raw of (reqRows ?? []) as unknown as RequestMeta[]) {
       const pharmacy = Array.isArray(raw.pharmacies) ? raw.pharmacies[0] : raw.pharmacies;
       requestMetaById.set(raw.id, {
         requestType: raw.request_type ?? null,
+        requestPublicRef: raw.request_public_ref ?? null,
         pharmacyName: pharmacy?.nom ?? null,
       });
     }
@@ -415,6 +424,7 @@ export async function processExternalNotificationQueue(args: {
       role,
       pharmacyName: meta?.pharmacyName ?? null,
       requestType: meta?.requestType ?? null,
+      requestPublicRef: meta?.requestPublicRef ?? null,
       channel: args.channel,
     });
 
