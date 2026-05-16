@@ -136,12 +136,13 @@ git log --oneline -n 10
 ## 9) Cron GitHub Actions (email + SMS)
 
 - **E-mail** : `.github/workflows/send-external-emails-cron.yml` — toutes les 5 min + manuel → e-mail puis SMS (filet de sécurité).
-- **SMS** : `.github/workflows/send-external-sms-cron.yml` — planifié **~toutes les 2–3 min** (deux crons GitHub décalés ; minimum officiel = 5 min par expression) + manuel → `POST /api/cron/send-external-sms`.
+- **SMS** : `.github/workflows/send-external-sms-cron.yml` — planifié **toutes les 5 min** (+ manuel) → `POST /api/cron/send-external-sms`. (GitHub ne permet pas &lt; 5 min en `schedule` ; webhook pour quelques secondes.)
 - **SMS rapide (recommandé, quelques secondes)** : Supabase → **Database Webhooks** → `POST https://<APP>/api/webhooks/dispatch-external-sms` avec en-tête `Authorization: Bearer <CRON_SECRET>`, table `notification_external_queue`, événement **INSERT**. Sans webhook, délai = cron GitHub ci-dessus.
 - Secrets GitHub requis:
   - `APP_BASE_URL` (ex: `https://proxipharma-app.vercel.app`)
   - `CRON_SECRET`
 - Variables Vercel en plus pour SMS : `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` (ou `TWILIO_MESSAGING_SERVICE_SID`)
+- Optionnel : `SMS_BLOCKED_DESTINATIONS` (ex. `+212600000123`) — le worker ignore ces numéros sans appeler Twilio
 - Retry auto : e-mail jusqu'à 3 tentatives ; **SMS : 1 seule tentative** (pas de retry cron).
 
 ### Tester les SMS (pilote)
@@ -160,7 +161,7 @@ git log --oneline -n 10
 ### SMS automatique (délai court)
 
 1. **Fusionner sur `main`** les workflows `.github/workflows/send-external-emails-cron.yml` et `send-external-sms-cron.yml`, puis déployer l’app (route webhook incluse).
-2. **Sans rien faire de plus** : SMS traités au plus tard en **~2–3 min** (cron SMS décalé) ou **5 min** (cron e-mail qui appelle aussi `/api/cron/send-external-sms`).
+2. **Sans webhook** : SMS traités au plus tard en **~5 min** (cron SMS ou cron e-mail qui appelle aussi `/api/cron/send-external-sms`). Vérifier dans Actions que le workflow n’est pas **désactivé** et qu’il y a des runs `schedule` (pas seulement manuels).
 3. **Quasi immédiat (~secondes)** — Supabase → **Database Webhooks** → Create hook :
    - Table : `notification_external_queue`
    - Events : **Insert**
