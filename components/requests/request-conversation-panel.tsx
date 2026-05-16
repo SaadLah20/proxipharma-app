@@ -88,8 +88,8 @@ export function RequestConversationFabDock({
 
   const toneRing =
     tone === "pharmacien"
-      ? "border-emerald-300/80 bg-card text-emerald-800 shadow-md ring-1 ring-emerald-200/50 hover:bg-emerald-50/80"
-      : "border-sky-300/80 bg-card text-sky-800 shadow-md ring-1 ring-sky-200/50 hover:bg-sky-50/80";
+      ? "border-emerald-400/90 bg-gradient-to-br from-emerald-50 to-white text-emerald-900 hover:bg-emerald-50/90"
+      : "border-sky-400/90 bg-gradient-to-br from-sky-50 to-white text-sky-900 hover:bg-sky-50/90";
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     const el = fabRef.current;
@@ -182,13 +182,14 @@ export function RequestConversationFabDock({
     <div
       ref={fabRef}
       style={style}
-      className="pointer-events-auto fixed z-[10060] isolate flex size-12 items-center justify-center"
+      className="pointer-events-auto fixed z-[10060] isolate flex size-14 items-center justify-center sm:size-16"
     >
       <button
         type="button"
         className={cn(
-          "relative flex size-12 touch-none select-none items-center justify-center rounded-full border transition active:scale-[0.97]",
-          toneRing
+          "relative flex size-14 touch-none select-none items-center justify-center rounded-full border-2 shadow-lg transition active:scale-[0.97] sm:size-16",
+          toneRing,
+          hasUnread && "ring-2 ring-destructive/40 ring-offset-2 ring-offset-background"
         )}
         title={
           hasUnread
@@ -202,9 +203,9 @@ export function RequestConversationFabDock({
         onPointerCancel={onPointerCancel}
         onClick={onClick}
       >
-        <MessagesSquare className="size-[1.35rem] shrink-0" strokeWidth={2.25} aria-hidden />
+        <MessagesSquare className="size-6 shrink-0 sm:size-7" strokeWidth={2.5} aria-hidden />
         {hasUnread ? (
-          <span className="absolute end-0.5 top-0.5 size-2 rounded-full bg-destructive shadow-sm ring-2 ring-card" aria-hidden />
+          <span className="absolute end-1 top-1 size-2.5 rounded-full bg-destructive shadow-sm ring-2 ring-card" aria-hidden />
         ) : null}
       </button>
     </div>
@@ -330,18 +331,37 @@ export function RequestConversationPanel({
       aria-label="Conversation sur la demande"
     >
       <button type="button" className="absolute inset-0 bg-black/50" aria-label="Fermer" onClick={onClose} />
-      <div className="relative z-10 flex max-h-[min(calc(100dvh-4rem),40rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:max-h-[min(92dvh,40rem)] sm:rounded-2xl">
-        <div className="flex items-start justify-between gap-2 border-b border-border px-3 py-2">
-          <div className="min-w-0 flex-1">
-            <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Conversation</p>
-            <p className="truncate text-[12px] font-semibold leading-tight">Échanges avec l&apos;officine</p>
+      <div className="relative z-10 flex max-h-[min(calc(100dvh-3.5rem),44rem)] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:max-h-[min(92dvh,44rem)] sm:rounded-2xl">
+        <div
+          className={cn(
+            "flex items-start justify-between gap-2 border-b border-border px-4 py-3",
+            viewerRole === "pharmacien" ? "bg-emerald-50/40" : "bg-sky-50/40"
+          )}
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <span
+              className={cn(
+                "flex size-10 shrink-0 items-center justify-center rounded-full border-2 bg-white shadow-sm",
+                viewerRole === "pharmacien"
+                  ? "border-emerald-300/85 text-emerald-800"
+                  : "border-sky-300/85 text-sky-800"
+              )}
+            >
+              <MessagesSquare className="size-5" strokeWidth={2.35} aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Conversation</p>
+              <p className="truncate text-[13px] font-semibold leading-tight">
+                {viewerRole === "pharmacien" ? "Échanges avec le patient" : "Échanges avec l'officine"}
+              </p>
+            </div>
           </div>
-          <button type="button" onClick={onClose} className="shrink-0 rounded-lg p-1 text-foreground hover:bg-muted" aria-label="Fermer">
-            <X className="size-4" />
+          <button type="button" onClick={onClose} className="shrink-0 rounded-lg p-1.5 text-foreground hover:bg-muted" aria-label="Fermer">
+            <X className="size-5" />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-3 py-2">
+        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-4 py-3">
           {loading ? (
             <p className="text-[11px] text-muted-foreground">Chargement…</p>
           ) : visibleRows.length === 0 ? (
@@ -356,7 +376,7 @@ export function RequestConversationPanel({
                 return (
                   <li
                     key={m.id}
-                    className={`rounded-lg border px-2.5 py-2 text-[11px] leading-snug ${
+                    className={`rounded-lg border px-3 py-2.5 text-[12px] leading-snug ${
                       self ? "ms-4 border-sky-200/90 bg-sky-50/80" : "me-4 border-border bg-muted/25"
                     }`}
                   >
@@ -392,7 +412,7 @@ export function RequestConversationPanel({
           )}
         </div>
 
-        <div className="border-t border-border bg-muted/20 px-3 py-2.5">
+        <div className="border-t border-border bg-muted/20 px-4 py-3">
           {err ? (
             <p className="mb-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] text-destructive">{err}</p>
           ) : null}
