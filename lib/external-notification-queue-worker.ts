@@ -3,6 +3,27 @@ import { normalizePhoneToE164 } from "@/lib/phone-e164";
 
 export type ExternalNotificationChannel = "email" | "sms";
 
+/** SMS pilote patient : réponse officine + dossier traité uniquement. */
+export const SMS_PATIENT_EVENT_TYPES = new Set([
+  "request_status:responded",
+  "request_status:treated",
+] as const);
+
+const REQUEST_TYPE_LABEL_FR: Record<string, string> = {
+  product_request: "Demande de produits",
+  prescription: "Ordonnance",
+  free_consultation: "Consultation libre",
+};
+
+function requestTypeLabelFr(raw: string | null): string {
+  if (!raw) return "demande";
+  return REQUEST_TYPE_LABEL_FR[raw] ?? "demande";
+}
+
+function trimSmsSegment(s: string, max: number): string {
+  return s.length <= max ? s : `${s.slice(0, max - 1)}…`;
+}
+
 export type QueueRow = {
   id: string;
   recipient_id: string;
@@ -51,12 +72,17 @@ export function buildOutboundNotificationText(args: {
   const bodyLine = (args.row.body ?? "").trim();
 
   if (args.channel === "sms") {
-    // 1 segment, sans URL ni corps dupliqué — limite filtrage opérateur (Twilio 30007).
-    const trim = (s: string, max: number) => (s.length <= max ? s : `${s.slice(0, max - 1)}…`);
-    const titleShort = trim(subject, 90);
-    const pharmaShort = trim(pharmacyLabel, 36);
-    const text = trim(`ProxiPharma - ${titleShort} (${pharmaShort})`, 155);
-    return { subject, text };
+    const pharma = trimSmsSegment(pharmacyLabel, 40);
+    const demande = trimSmsSegment(requestTypeLabelFr(args.requestType), 48);
+    let text: string;
+    if (args.row.event_type === "request_status:responded") {
+      text = `ProxiPharma: La pharmacie ${pharma} a répondu sur votre demande ${demande}`;
+    } else if (args.row.event_type === "request_status:treated") {
+      text = `ProxiPharma: La pharmacie ${pharma} a traité votre demande ${demande}`;
+    } else {
+      text = trimSmsSegment(`ProxiPharma - ${subject}`, 155);
+    }
+    return { subject, text: trimSmsSegment(text, 155) };
   }
 
   const requestTypeLabel = args.requestType ?? "non renseigné";
@@ -342,6 +368,32 @@ export async function processExternalNotificationQueue(args: {
   const smsBlocked = args.channel === "sms" ? loadSmsBlockedDestinations() : new Set<string>();
 
   for (const r of rows) {
+    if (args.channel === "sms" && roleByRecipient.get(r.recipient_id) !== "patient") {
+      failed++;
+      await args.supabase
+        .from("notification_external_queue")
+        .update({
+          status: "failed",
+          attempt_count: maxAttempts,
+          last_error: "skipped: SMS réservé aux patients",
+        })
+        .eq("id", r.id);
+      continue;
+    }
+
+    if (args.channel === "sms" && !SMS_PATIENT_EVENT_TYPES.has(r.event_type)) {
+      failed++;
+      await args.supabase
+        .from("notification_external_queue")
+        .update({
+          status: "failed",
+          attempt_count: maxAttempts,
+          last_error: "skipped: SMS pilote limité à répondu / traité patient",
+        })
+        .eq("id", r.id);
+      continue;
+    }
+
     if (args.channel === "sms" && isSmsDestinationBlocked(r.destination_snapshot, smsBlocked)) {
       failed++;
       await args.supabase
