@@ -15,7 +15,15 @@ const defaultPrefs: Prefs = {
   whatsapp_enabled: false,
 };
 
-export function ExternalNotificationPrefs({ userId }: { userId: string | null }) {
+export function ExternalNotificationPrefs({
+  userId,
+  variant = "patient",
+}: {
+  userId: string | null;
+  /** SMS réservé aux patients (répondu / traité). */
+  variant?: "patient" | "pharmacien";
+}) {
+  const showSms = variant === "patient";
   const [prefs, setPrefs] = useState<Prefs>(defaultPrefs);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -32,10 +40,11 @@ export function ExternalNotificationPrefs({ userId }: { userId: string | null })
       .maybeSingle();
 
     if (!error && data) {
-      setPrefs(data as Prefs);
+      const row = data as Prefs;
+      setPrefs(showSms ? row : { ...row, sms_enabled: false });
     }
     setLoaded(true);
-  }, [userId]);
+  }, [userId, showSms]);
 
   useEffect(() => {
     const tid = window.setTimeout(() => {
@@ -54,7 +63,7 @@ export function ExternalNotificationPrefs({ userId }: { userId: string | null })
       {
         user_id: userId,
         email_enabled: prefs.email_enabled,
-        sms_enabled: prefs.sms_enabled,
+        sms_enabled: showSms ? prefs.sms_enabled : false,
         whatsapp_enabled: prefs.whatsapp_enabled,
       },
       { onConflict: "user_id" }
@@ -75,10 +84,21 @@ export function ExternalNotificationPrefs({ userId }: { userId: string | null })
     <section className="mt-4 rounded-xl border border-amber-200/80 bg-amber-50/30 p-4">
       <h2 className="text-lg font-semibold text-amber-950">Alertes hors application (pilote)</h2>
       <p className="mt-1 text-xs text-amber-900/85">
-        En plus des notifications dans ProxiPharma, vous pouvez activer l&apos;envoi par e-mail ou SMS (mêmes alertes que
-        dans l&apos;app) lorsque votre profil contient une adresse e-mail ou un numéro mobile (champ WhatsApp du profil,
-        format international). WhatsApp automatique arrive plus tard ; les liens manuels sur la fiche officine restent
-        disponibles.
+        {showSms ? (
+          <>
+            En plus des notifications dans ProxiPharma, vous pouvez activer l&apos;envoi par e-mail (mêmes alertes que
+            dans l&apos;app) ou par SMS pour deux cas seulement : réponse de la pharmacie sur votre demande, et demande
+            marquée traitée — lorsque votre profil contient une adresse e-mail ou un numéro mobile (champ WhatsApp, format
+            international).
+          </>
+        ) : (
+          <>
+            En plus des notifications dans ProxiPharma, vous pouvez activer l&apos;envoi par e-mail (mêmes alertes que
+            dans l&apos;app) lorsque votre profil contient une adresse e-mail. Les SMS automatiques sont réservés aux
+            patients.
+          </>
+        )}{" "}
+        WhatsApp automatique arrive plus tard ; les liens manuels sur la fiche officine restent disponibles.
       </p>
       <div className="mt-4 space-y-2">
         <label className="flex cursor-pointer items-start gap-2 text-sm text-gray-900">
@@ -91,16 +111,18 @@ export function ExternalNotificationPrefs({ userId }: { userId: string | null })
           />
           <span>E-mail</span>
         </label>
-        <label className="flex cursor-pointer items-start gap-2 text-sm text-gray-900">
-          <input
-            type="checkbox"
-            className="mt-0.5"
-            checked={prefs.sms_enabled}
-            disabled={!loaded}
-            onChange={(e) => setPrefs((p) => ({ ...p, sms_enabled: e.target.checked }))}
-          />
-          <span>SMS</span>
-        </label>
+        {showSms ? (
+          <label className="flex cursor-pointer items-start gap-2 text-sm text-gray-900">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={prefs.sms_enabled}
+              disabled={!loaded}
+              onChange={(e) => setPrefs((p) => ({ ...p, sms_enabled: e.target.checked }))}
+            />
+            <span>SMS</span>
+          </label>
+        ) : null}
         <label className="flex cursor-pointer items-start gap-2 text-sm text-gray-900">
           <input
             type="checkbox"

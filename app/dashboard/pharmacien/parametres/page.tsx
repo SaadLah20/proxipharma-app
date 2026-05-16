@@ -118,7 +118,7 @@ export default function PharmacienParametresPage() {
         </dl>
       </section>
 
-      {profile?.id ? <ExternalNotificationPrefs userId={profile.id} /> : null}
+      {profile?.id ? <ExternalNotificationPrefs userId={profile.id} variant="pharmacien" /> : null}
 
       <button
         type="button"
