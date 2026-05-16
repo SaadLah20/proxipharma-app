@@ -29,7 +29,9 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **Notifications hors-app (e-mail + SMS)** :
 - File SQL : **`notification_external_queue`**, prefs **`notification_external_prefs`**, trigger sur **`app_notifications`** (`20260505_001`). SMS/WhatsApp : destination = **`profiles.whatsapp`** (E.164).
-- Workers : **`app/api/cron/send-external-emails`** (Resend), **`app/api/cron/send-external-sms`** (Twilio : aligner `TWILIO_SMS_FROM` sur l’expéditeur OTP Supabase) ; **`lib/external-notification-queue-worker.ts`** (SMS : 1 tentative, pas de retry cron). Cron : e-mail planifié **`send-external-emails-cron.yml`** ; SMS **manuel** **`send-external-sms-cron.yml`** (voir **`RUNBOOK.md` §9**).
+- Workers : **`app/api/cron/send-external-emails`** (Resend), **`app/api/cron/send-external-sms`** (Twilio) ; **`lib/external-notification-queue-worker.ts`** (SMS : 1 tentative, pas de retry cron). Cron : e-mail planifié **`send-external-emails-cron.yml`** ; SMS **manuel** **`send-external-sms-cron.yml`** (voir **`RUNBOOK.md` §9**).
+- **Vercel (SMS)** : `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + **`TWILIO_SMS_FROM`** (même numéro que OTP Supabase Auth). `TWILIO_MESSAGING_SERVICE_SID` **optionnel** (inutile si `FROM` est défini).
+- **Bloquant mai 2026** : notif peut être `sent` en base sans SMS reçu — aligner expéditeur + logs Twilio (geo MA) avant de réactiver envois SMS ; ne pas remettre SMS sur schedule (facturation). Détail : **`CAHIER_DES_CHARGES.md` §10 session 2026-05-16**, **`RUNBOOK.md` point de reprise SMS**.
 
 **Notifications WhatsApp (en cours, pas encore de worker)** :
 - **Étape 1 (infra, avant code)** : Meta Business + expéditeur WhatsApp via Twilio ; test manuel **template** depuis la console ; **ne pas** utiliser **MM Lite** pour messages utilitaires (erreur Twilio **63055** → envoyer via **Cloud API**, modèles catégorie **Utility** pour statuts demande).

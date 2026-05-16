@@ -157,9 +157,22 @@ git log --oneline -n 10
    `curl -X POST -H "Authorization: Bearer $CRON_SECRET" "$APP_BASE_URL/api/cron/send-external-sms"`
 9. **Résultat** : la ligne passe à `sent` + SMS reçu ; en cas d’échec, `last_error` sur la ligne et `status=failed`.
 
+### Point de reprise SMS (mai 2026 — incident facturation)
+
+**Symptôme** : `notification_external_queue.channel=sms` → `sent`, e-mail reçu, **pas de SMS** sur le mobile ; OTP `/auth` **reçu**.
+
+**Cause probable** : `TWILIO_SMS_FROM` (Vercel) ≠ expéditeur Supabase Auth ; et/ou geo Maroc / trial Twilio. Ancien cron combiné (5 min + retries) a gonflé la facture (~4 USD, nombreux `failed`) — **corrigé** : SMS = workflow manuel + 1 tentative.
+
+**Checklist prochaine session** :
+1. Twilio Console → comparer 1 log **OTP réussi** vs 1 log **notif** (From, status, error code).
+2. Supabase Auth → Phone provider → noter le numéro Twilio → même valeur dans Vercel `TWILIO_SMS_FROM` (pas besoin de `TWILIO_MESSAGING_SERVICE_SID` si `FROM` est renseigné).
+3. Twilio → Geo permissions → **Morocco** activé ; plafond billing.
+4. GitHub : workflow **`Send External Emails Cron`** actif ; **`Send External SMS Cron (manual)`** seulement pour tests.
+5. SQL : `select channel, status, last_error, provider_message_id from notification_external_queue order by created_at desc limit 10;`
+
 ## 10) Notifications WhatsApp (Q35 — en cours, pas déployé)
 
-**État repo** : la file `notification_external_queue` et les prefs `whatsapp_enabled` existent ; **aucun** endpoint cron n’envoie encore `channel=whatsapp` (seul l’e-mail est branché, §8–9).
+**État repo** : la file `notification_external_queue` et les prefs `whatsapp_enabled` existent ; **aucun** endpoint cron n’envoie encore `channel=whatsapp` (e-mail + SMS branchés, §9 ; WhatsApp après Meta/templates).
 
 **Prérequis infra (étape 1 — à faire avant code)** :
 1. Compte **Meta Business** + expéditeur WhatsApp via **Twilio** (Messaging → Try WhatsApp / Senders).

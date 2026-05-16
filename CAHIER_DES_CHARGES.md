@@ -318,6 +318,28 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-16 — Notifications hors-app : worker SMS Twilio + incident facturation
+
+**Livré (code, branche `fix/validated-supply-ecart-ui-modal` → mergé `main` en fin de session)** :
+- Worker SMS : **`app/api/cron/send-external-sms`**, logique partagée **`lib/external-notification-queue-worker.ts`** (e-mail Resend inchangé).
+- Garde-fous facturation : cron SMS **manuel uniquement** (`.github/workflows/send-external-sms-cron.yml`) ; e-mail seul sur schedule (`.github/workflows/send-external-emails-cron.yml`) ; **1 tentative** SMS, pas de retry cron.
+- UI prefs : texte « e-mail + SMS branchés » ; **`RUNBOOK.md` §9**, **`AGENTS.md`**.
+
+**Tests fondateur (non résolu livraison SMS notif)** :
+- Profil test OK : `sms_enabled`, `whatsapp` **+212…**, file `notification_external_queue` avec `channel=sms` → **`sent`** + e-mail reçu.
+- **SMS notif non reçu** sur le téléphone malgré `sent` ; OTP inscription **reçu** (même compte Twilio, autre config Supabase Auth vs `TWILIO_SMS_FROM` Vercel).
+- Incident billing Twilio : ~**4 USD**, logs **~4 delivered / ~30 failed** — cause probable : ancien workflow **toutes les 5 min** + retries (corrigé en repo ; workflow GitHub **désactivé** côté fondateur en attendant).
+
+**Blocage prochaine session (priorité)** :
+1. Vercel : **`TWILIO_ACCOUNT_SID`**, **`TWILIO_AUTH_TOKEN`**, **`TWILIO_SMS_FROM`** (= **même numéro** que Supabase Auth OTP ; **`TWILIO_MESSAGING_SERVICE_SID` non requis** si `FROM` renseigné) → redeploy.
+2. Twilio : plafond dépenses ; **Geo permissions** Maroc ; comparer log message notif vs OTP (From, code erreur).
+3. Réactiver **uniquement** `Send External Emails Cron` (schedule) ; SMS via **`Send External SMS Cron (manual)`** après 1 test **Delivered** dans Twilio.
+4. WhatsApp API : toujours **sans worker** (Meta Business + templates) — après SMS stable.
+
+**Commits repères** : `feat(notifications): worker SMS Twilio…`, `fix(notifications): limiter facturation SMS Twilio (cron manuel)`.
+
+---
+
 ### Session 2026-05-15 — Auth SMS + mot de passe ; démarrage WhatsApp (infra Twilio)
 
 **Auth patient** (branche **`fix/validated-supply-ecart-ui-modal`**, commits auth récents) :
@@ -1128,6 +1150,10 @@ Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre 
 ### 13.13) Phrase de reprise (recommandée après **2026-05-14** — détail patient demande produits : responded / validée / traitée)
 
 **« On reprend ProxiPharma. Lis **`CONTEXTE.md` §6**, **`CAHIER_DES_CHARGES.md` §0.1, **§10 Journal (session 2026-05-14)**, §4.4 + §4.6, §11 (migrations jusqu’à **`20260516_001`**), §12. Branche **`fix/validated-supply-ecart-ui-modal`**. Fichiers clés patient : **`app/dashboard/demandes/[id]/PatientProductRequestActions.tsx`**, **`app/dashboard/demandes/[id]/page.tsx`** — récap carte ciel, pieds fixes, **`visitPassageDirty`**, cartes **`PatientValidatedCompactLineCard`** ; pas de migration sur ce lot. ESLint : éviter **`setState` dans un `useEffect`** pour resynchroniser le passage (pattern **réinit. en rendu** si les props **`initialPlannedVisit*`** changent). Je te dis ensuite quoi faire. »**
+
+### 13.14) Phrase de reprise (recommandée après **2026-05-16** — SMS hors-app bloqué, e-mail OK)
+
+**« On reprend ProxiPharma — priorité **notifications SMS hors-app** (Q35). Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-16)**, **`RUNBOOK.md` §9**, **`AGENTS.md` (notifications hors-app)**. État : worker SMS + cron manuel en place ; **e-mail OK** ; file `notification_external_queue` peut passer `sms`/`sent` sans SMS reçu ; **OTP inscription reçu** (aligner **`TWILIO_SMS_FROM`** Vercel sur expéditeur Supabase Auth). Ne **pas** remettre SMS sur schedule GitHub tant que Twilio n’affiche **Delivered** sur un test manuel. Workflows : réactiver **`Send External Emails Cron`** seulement ; SMS via **`Send External SMS Cron (manual)`**. Fichiers : **`lib/external-notification-queue-worker.ts`**, **`app/api/cron/send-external-sms/route.ts`**. Vérifier logs Twilio (geo Maroc, From, ~30 failed historiques). WhatsApp worker : après SMS. Je te dis ensuite quoi faire. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 
