@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { clsx } from "clsx";
 import { X } from "lucide-react";
 
-const QUICK = "C'est noté";
+const QUICK_ACK = "OK";
 
 export type LineConvoVisual = "empty" | "patient_only" | "pharma_only" | "thread";
 
@@ -172,11 +172,11 @@ export function PharmacistLineConversationModal({
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="rounded-lg border border-emerald-300/80 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-emerald-950 shadow-sm hover:bg-emerald-50 disabled:opacity-50"
+                  className="rounded-lg border border-emerald-300/80 bg-emerald-700 px-3 py-1.5 text-[10px] font-bold text-white shadow-sm hover:bg-emerald-800 disabled:opacity-50"
                   disabled={!allowEdit && !showPersistButton}
-                  onClick={() => onPharmacistDraftChange(QUICK)}
+                  onClick={() => onPharmacistDraftChange(QUICK_ACK)}
                 >
-                  « {QUICK} »
+                  {QUICK_ACK}
                 </button>
               </div>
             </div>

@@ -9,6 +9,31 @@ export function todayLocalIsoDate(): string {
   return `${y}-${String(m).padStart(2, "0")}-${String(da).padStart(2, "0")}`;
 }
 
+/** Date ISO (YYYY-MM-DD) valide et ≥ aujourd’hui (calendrier local navigateur). */
+export function isIsoDateOnOrAfterToday(ymd: string): boolean {
+  const d = String(ymd).trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+  return d >= todayLocalIsoDate();
+}
+
+export const RECEPTION_DATE_BEFORE_TODAY_ERROR_FR =
+  "La date de réception ne peut pas être antérieure à aujourd'hui.";
+
+export function receptionDateBeforeTodayErrorFr(productLabel?: string): string {
+  return productLabel
+    ? `« ${productLabel} » : la date de réception ne peut pas être antérieure à aujourd'hui.`
+    : RECEPTION_DATE_BEFORE_TODAY_ERROR_FR;
+}
+
+/** Lève si une date de réception « à commander » est strictement avant aujourd’hui. */
+export function assertReceptionDateNotBeforeToday(ymd: string | null | undefined, productLabel?: string): void {
+  const d = (ymd ?? "").trim().slice(0, 10);
+  if (!d) return;
+  if (!isIsoDateOnOrAfterToday(d)) {
+    throw new Error(receptionDateBeforeTodayErrorFr(productLabel));
+  }
+}
+
 export function dateOnlyAddDays(isoStart: string, days: number): string {
   const [yStr, moStr, dStr] = isoStart.split("-");
   const y = Number(yStr);

@@ -84,6 +84,7 @@ import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr"
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 import { PharmacistSupplyCompactLine } from "@/components/pharmacist/pharmacist-supply-compact-line";
 import { type SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
+import { assertReceptionDateNotBeforeToday, todayLocalIsoDate } from "@/lib/planned-visit";
 import {
   dispatchRequestDetailRefresh,
   REQUEST_DETAIL_REFRESH_EVENT,
@@ -478,6 +479,9 @@ function buildItemUpdatePayload(f: ItemDraft, row: ItemRow) {
     requestedQty: inferRequestedQtyForAvailability(row),
     isProposedLine: isProposed,
   });
+  if (inferred === "to_order" && f.expected_availability_date.trim() !== "") {
+    assertReceptionDateNotBeforeToday(f.expected_availability_date, one(row.products)?.name ?? undefined);
+  }
   return {
     availability_status: inferred,
     available_qty: availQty,
@@ -1573,6 +1577,12 @@ export default function PharmacienDemandeDetailPage() {
           );
           return;
         }
+        try {
+          assertReceptionDateNotBeforeToday(eta, one(rowSnap.products)?.name ?? undefined);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Date de réception invalide.");
+          return;
+        }
       }
       setFulfillmentRpcBusyId(rowSnap.id);
       setError("");
@@ -1686,6 +1696,14 @@ export default function PharmacienDemandeDetailPage() {
       [itemId]: { ...prev[itemId], [field]: value },
     }));
   };
+
+  const setReceptionDateField = (itemId: string, raw: string) => {
+    const v = raw.trim().slice(0, 10);
+    if (v && v < todayLocalIsoDate()) return;
+    setField(itemId, "expected_availability_date", raw);
+  };
+
+  const receptionDateMinYmd = todayLocalIsoDate();
 
   const patchItemDraft = useCallback((itemId: string, patch: Partial<ItemDraft>) => {
     setDraft((prev) => {
@@ -2258,6 +2276,9 @@ export default function PharmacienDemandeDetailPage() {
         throw new Error(
           "Pour chaque ajout « à commander », indiquez la date prévisionnelle de réception avant d’enregistrer le dossier."
         );
+      }
+      if (inferredStatus === "to_order") {
+        assertReceptionDateNotBeforeToday(f.expected_availability_date, one(row.products)?.name ?? undefined);
       }
 
       const insertPcfTreated =
@@ -3940,9 +3961,10 @@ export default function PharmacienDemandeDetailPage() {
                         </span>
                         <input
                           type="date"
+                          min={receptionDateMinYmd}
                           disabled={!canEditThisRow}
                           value={f.expected_availability_date}
-                          onChange={(e) => setField(row.id, "expected_availability_date", e.target.value)}
+                          onChange={(e) => setReceptionDateField(row.id, e.target.value)}
                           className="h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] shadow-sm disabled:opacity-60 sm:w-auto sm:min-w-[9rem]"
                         />
                       </label>
@@ -4096,7 +4118,7 @@ export default function PharmacienDemandeDetailPage() {
                     aria-label={`Échanges produit · ${lineConversationStripLabel(lineConvoVisual)}`}
                     title="Notes patient et officine"
                   >
-                    <MessageCircle className="size-3 shrink-0 opacity-90" strokeWidth={2.2} aria-hidden />
+                    <MessageCircle className="size-4 shrink-0 text-teal-700" strokeWidth={2.4} aria-hidden />
                     <span className="max-w-[10rem] truncate text-[9px] font-medium leading-tight sm:max-w-[12rem]">
                       {lineConversationStripLabel(lineConvoVisual)}
                     </span>
@@ -4350,7 +4372,7 @@ export default function PharmacienDemandeDetailPage() {
                             setLineConvoRowId((cur) => (cur === row.id ? null : row.id));
                           }}
                         >
-                          <MessageCircle className="size-3.5 shrink-0 opacity-90" strokeWidth={2.2} aria-hidden />
+                          <MessageCircle className="size-4 shrink-0 text-teal-700" strokeWidth={2.4} aria-hidden />
                           <span className="min-w-0 flex-1 text-left text-[9px] font-medium leading-snug">
                             {lineConversationStripLabel(lineConvoVisual)}
                           </span>
@@ -4588,9 +4610,10 @@ export default function PharmacienDemandeDetailPage() {
                           </span>
                           <input
                             type="date"
+                            min={receptionDateMinYmd}
                             disabled={!canEditThisRow}
                             value={f.expected_availability_date}
-                            onChange={(e) => setField(row.id, "expected_availability_date", e.target.value)}
+                            onChange={(e) => setReceptionDateField(row.id, e.target.value)}
                             className="h-10 w-full rounded-lg border-2 border-teal-300/80 bg-white px-2 text-[13px] font-semibold tabular-nums shadow-inner disabled:opacity-60 sm:min-w-[11rem]"
                           />
                         </label>

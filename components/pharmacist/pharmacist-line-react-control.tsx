@@ -12,7 +12,7 @@ import { createPortal } from "react-dom";
 import { ChevronDown, MessageCircleReply } from "lucide-react";
 import { clsx } from "clsx";
 
-const QUICK = "C'est noté";
+const QUICK_ACK = "OK";
 
 type Props = {
   lineId: string;
@@ -75,7 +75,7 @@ export function PharmacistLineReactControl({
   }, [open, mode, customText, onReplyChange]);
 
   const applyQuick = useCallback(() => {
-    onReplyChange(QUICK);
+    onReplyChange(QUICK_ACK);
     setOpen(false);
     setMode("menu");
   }, [onReplyChange]);
@@ -138,10 +138,10 @@ export function PharmacistLineReactControl({
                 <div className="flex min-h-0 flex-col px-1.5">
                   <button
                     type="button"
-                    className="rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-foreground hover:bg-muted/60"
+                    className="rounded-lg bg-primary px-3 py-2.5 text-left text-sm font-semibold text-primary-foreground hover:opacity-95"
                     onClick={() => applyQuick()}
                   >
-                    « {QUICK} »
+                    {QUICK_ACK}
                   </button>
                   <button
                     type="button"
