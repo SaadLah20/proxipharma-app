@@ -1,4 +1,8 @@
-import { processExternalNotificationQueue, assertCronAuthorized } from "@/lib/external-notification-queue-worker";
+import {
+  processExternalNotificationQueue,
+  assertCronAuthorized,
+  type ExternalNotificationChannel,
+} from "@/lib/external-notification-queue-worker";
 import { createSupabaseServiceClient } from "@/lib/supabase-service";
 
 type SupabaseDbWebhookBody = {
@@ -7,40 +11,58 @@ type SupabaseDbWebhookBody = {
   record?: { channel?: string; status?: string };
 };
 
+function channelFromInsert(record: SupabaseDbWebhookBody["record"]): ExternalNotificationChannel | null {
+  if (record?.status !== "pending") return null;
+  if (record.channel === "sms" || record.channel === "email") return record.channel;
+  return null;
+}
+
 /**
- * Déclenchement rapide SMS (Supabase Database Webhook sur INSERT notification_external_queue).
+ * Déclenchement rapide e-mail + SMS (Supabase Database Webhook sur INSERT notification_external_queue).
  * POST + Authorization: Bearer CRON_SECRET
- * Ne traite que si channel=sms et status=pending sur l’événement INSERT.
+ * Traite la file du canal inséré (email ou sms). WhatsApp : pas encore.
  */
 export async function POST(req: Request) {
   const denied = assertCronAuthorized(req);
   if (denied) return denied;
 
-  let shouldRun = true;
+  let channel: ExternalNotificationChannel | null = null;
   try {
     const body = (await req.json()) as SupabaseDbWebhookBody;
     if (body.type === "INSERT" && body.table === "notification_external_queue") {
-      const rec = body.record;
-      shouldRun = rec?.channel === "sms" && rec?.status === "pending";
+      channel = channelFromInsert(body.record);
     }
   } catch {
-    /* corps vide : traiter la file (appel manuel / ping) */
+    /* corps vide : traiter e-mail puis SMS (ping manuel) */
   }
 
-  if (!shouldRun) {
-    return Response.json({ ok: true, skipped: true, reason: "not_sms_pending_insert" });
-  }
+  const supabase = createSupabaseServiceClient();
+  const requestOrigin = process.env.APP_BASE_URL ?? new URL(req.url).origin;
 
   try {
-    const supabase = createSupabaseServiceClient();
-    const requestOrigin = process.env.APP_BASE_URL ?? new URL(req.url).origin;
-    const result = await processExternalNotificationQueue({
+    if (channel) {
+      const result = await processExternalNotificationQueue({
+        supabase,
+        channel,
+        requestOrigin,
+        limit: 10,
+      });
+      return Response.json(result);
+    }
+
+    const email = await processExternalNotificationQueue({
+      supabase,
+      channel: "email",
+      requestOrigin,
+      limit: 10,
+    });
+    const sms = await processExternalNotificationQueue({
       supabase,
       channel: "sms",
       requestOrigin,
       limit: 10,
     });
-    return Response.json(result);
+    return Response.json({ ok: true, email, sms });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return Response.json({ ok: false, error: msg }, { status: 500 });

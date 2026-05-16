@@ -338,6 +338,16 @@ Statuts retenus v1:
 
 **Commits repères** : `feat(notifications): worker SMS Twilio…`, `fix(notifications): limiter facturation SMS Twilio (cron manuel)`.
 
+**Suite même jour (webhook + SMS courts)** :
+- **Webhook Supabase** sur INSERT `notification_external_queue` → `/api/webhooks/dispatch-external-sms` : **SMS reçu rapidement** sur le téléphone (quelques secondes).
+- **Run manuel** GitHub *Send External Emails Cron* : e-mail + SMS OK ; cron `schedule` GitHub **peu fiable** (lignes `pending` sans webhook / sans manuel).
+- Twilio **30007** (*Message filtered*) surtout sur **SMS longs + URL** ; format court sans lien = livraison OK au pilote.
+- Correctif repo : SMS courts (`ProxiPharma - [titre] ([pharmacie])`, ~1 segment) — merger `main` + redeploy pour figer en prod.
+- `SMS_BLOCKED_DESTINATIONS` + `supabase/scripts/cancel-sms-queue-bad-destination.sql` (numéro test `212600000123`).
+- **Notifs** = `profiles.whatsapp` (E.164) ; **Auth.phone** vide sur comptes legacy e-mail = normal.
+- **Lien dans le SMS** : possible techniquement (URL courte) mais **risque 30007** ; e-mail garde le lien complet ; voir **`RUNBOOK.md` §9**.
+- **Webhook e-mail + SMS** : même URL `/api/webhooks/dispatch-external-sms` traite les deux canaux à l’INSERT (commit `feat(notifications): webhook traite email et SMS a l'insert`) — **à merger `main` + redeploy**.
+
 ---
 
 ### Session 2026-05-15 — Auth SMS + mot de passe ; démarrage WhatsApp (infra Twilio)
@@ -1151,9 +1161,13 @@ Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre 
 
 **« On reprend ProxiPharma. Lis **`CONTEXTE.md` §6**, **`CAHIER_DES_CHARGES.md` §0.1, **§10 Journal (session 2026-05-14)**, §4.4 + §4.6, §11 (migrations jusqu’à **`20260516_001`**), §12. Branche **`fix/validated-supply-ecart-ui-modal`**. Fichiers clés patient : **`app/dashboard/demandes/[id]/PatientProductRequestActions.tsx`**, **`app/dashboard/demandes/[id]/page.tsx`** — récap carte ciel, pieds fixes, **`visitPassageDirty`**, cartes **`PatientValidatedCompactLineCard`** ; pas de migration sur ce lot. ESLint : éviter **`setState` dans un `useEffect`** pour resynchroniser le passage (pattern **réinit. en rendu** si les props **`initialPlannedVisit*`** changent). Je te dis ensuite quoi faire. »**
 
-### 13.14) Phrase de reprise (recommandée après **2026-05-16** — SMS hors-app bloqué, e-mail OK)
+### 13.14) Phrase de reprise (session **2026-05-16** matin — dépassée)
 
-**« On reprend ProxiPharma — priorité **notifications SMS hors-app** (Q35). Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-16)**, **`RUNBOOK.md` §9**, **`AGENTS.md` (notifications hors-app)**. État : worker SMS + cron manuel en place ; **e-mail OK** ; file `notification_external_queue` peut passer `sms`/`sent` sans SMS reçu ; **OTP inscription reçu** (aligner **`TWILIO_SMS_FROM`** Vercel sur expéditeur Supabase Auth). Ne **pas** remettre SMS sur schedule GitHub tant que Twilio n’affiche **Delivered** sur un test manuel. Workflows : réactiver **`Send External Emails Cron`** seulement ; SMS via **`Send External SMS Cron (manual)`**. Fichiers : **`lib/external-notification-queue-worker.ts`**, **`app/api/cron/send-external-sms/route.ts`**. Vérifier logs Twilio (geo Maroc, From, ~30 failed historiques). WhatsApp worker : après SMS. Je te dis ensuite quoi faire. »**
+Voir **§13.15** (webhook + 30007 + SMS courts).
+
+### 13.15) Phrase de reprise (recommandée après **2026-05-16** — webhook e-mail + SMS)
+
+**« On reprend ProxiPharma — **notifications hors-app** (Q35). Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-16 + suite)**, **`RUNBOOK.md` §9**, **`AGENTS.md`**. État : webhook Supabase INSERT `notification_external_queue` → `/api/webhooks/dispatch-external-sms` (`Authorization: Bearer CRON_SECRET`) — **e-mail + SMS rapides** (même URL, un appel par ligne insérée) ; validé pilote. Merger branche `fix/validated-supply-ecart-ui-modal` sur **`main`** + redeploy Vercel si pas fait (SMS courts, webhook e-mail, `SMS_BLOCKED_DESTINATIONS`). Cron GitHub = filet ~5 min seulement. Vercel : `TWILIO_SMS_FROM=+19789813065`, `RESEND_*`, `CRON_SECRET`. SMS sans URL longue (30007 si lien/texte long) ; lien complet en e-mail. Notifs = `profiles.whatsapp` E.164. WhatsApp worker : après SMS stable. Je te dis ensuite quoi faire. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 

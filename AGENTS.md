@@ -29,10 +29,11 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **Notifications hors-app (e-mail + SMS)** :
 - File SQL : **`notification_external_queue`**, prefs **`notification_external_prefs`**, trigger sur **`app_notifications`** (`20260505_001`). SMS/WhatsApp : destination = **`profiles.whatsapp`** (E.164).
-- Workers : **`app/api/cron/send-external-emails`** (Resend), **`app/api/cron/send-external-sms`** (Twilio), **`/api/webhooks/dispatch-external-sms`** (déclenchement rapide) ; **`lib/external-notification-queue-worker.ts`** (SMS : 1 tentative). Cron GitHub : e-mail + SMS **5 min** ; SMS quasi immédiat si **Database Webhook** Supabase (voir **`RUNBOOK.md` §9**).
-- **Vercel (SMS notifs)** : `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + **`TWILIO_SMS_FROM`** = **numéro Twilio acheté** (ex. `+447565507297`), API **Messages** — **pas** le libellé **Verify** des codes inscription (Supabase Auth = souvent **Twilio Verify**, expéditeur alphanumérique sans numéro visible).
-- `TWILIO_MESSAGING_SERVICE_SID` **optionnel** (inutile si `FROM` est le numéro acheté).
-- **SMS notifs (mai 2026)** : envoi manuel validé (PowerShell / cron) ; automatisation = cron GitHub + webhook Supabase optionnel. Garder plafond Twilio. Détail : **`RUNBOOK.md` §9**, **`CAHIER_DES_CHARGES.md` §10 session 2026-05-16**.
+- Workers : **`send-external-emails`**, **`send-external-sms`**, **`/api/webhooks/dispatch-external-sms`** (principal, ~secondes) ; **`lib/external-notification-queue-worker.ts`** (SMS 1 tentative, texte court anti **Twilio 30007**, `SMS_BLOCKED_DESTINATIONS`).
+- **Destination notif SMS** : **`profiles.whatsapp`** (E.164) — pas `auth.users.phone` (legacy e-mail OK sans téléphone Auth).
+- **Vercel** : `TWILIO_*` + `TWILIO_SMS_FROM` (ex. `+19789813065`, API Messages) ; `SMS_BLOCKED_DESTINATIONS` pour numéros test invalides.
+- **Webhook Supabase** (INSERT file, même URL) = **e-mail + SMS rapides** (canal de la ligne insérée). Cron GitHub = filet (~5 min). E-mail = lien complet ; **SMS pilote = sans URL** (30007 si lien long).
+- Détail / reprise : **`RUNBOOK.md` §9**, **`CAHIER_DES_CHARGES.md` §10 (2026-05-16)**, phrase **§13.15**.
 
 **Notifications WhatsApp (en cours, pas encore de worker)** :
 - **Étape 1 (infra, avant code)** : Meta Business + expéditeur WhatsApp via Twilio ; test manuel **template** depuis la console ; **ne pas** utiliser **MM Lite** pour messages utilitaires (erreur Twilio **63055** → envoyer via **Cloud API**, modèles catégorie **Utility** pour statuts demande).

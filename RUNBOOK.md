@@ -137,7 +137,7 @@ git log --oneline -n 10
 
 - **E-mail** : `.github/workflows/send-external-emails-cron.yml` — toutes les 5 min + manuel → e-mail puis SMS (filet de sécurité).
 - **SMS** : `.github/workflows/send-external-sms-cron.yml` — planifié **toutes les 5 min** (+ manuel) → `POST /api/cron/send-external-sms`. (GitHub ne permet pas &lt; 5 min en `schedule` ; webhook pour quelques secondes.)
-- **SMS rapide (recommandé, quelques secondes)** : Supabase → **Database Webhooks** → `POST https://<APP>/api/webhooks/dispatch-external-sms` avec en-tête `Authorization: Bearer <CRON_SECRET>`, table `notification_external_queue`, événement **INSERT**. Sans webhook, délai = cron GitHub ci-dessus.
+- **E-mail + SMS rapides (recommandé, quelques secondes)** : Supabase → **Database Webhooks** → `POST https://<APP>/api/webhooks/dispatch-external-sms` avec en-tête `Authorization: Bearer <CRON_SECRET>`, table `notification_external_queue`, événement **INSERT** (une ligne `email` + une ligne `sms` → deux appels, chaque canal traité tout de suite). Sans webhook, délai = cron GitHub (~5 min, irrégulier).
 - Secrets GitHub requis:
   - `APP_BASE_URL` (ex: `https://proxipharma-app.vercel.app`)
   - `CRON_SECRET`
@@ -147,7 +147,7 @@ git log --oneline -n 10
 
 ### Tester les SMS (pilote)
 
-1. **Ne pas confondre OTP et notifs** : les codes **Verify** (inscription) passent souvent par **Twilio Verify** / libellé **VERIFY** (pas le numéro `+44…` acheté). Les **notifs ProxiPharma** utilisent l’API **Messages** avec **`TWILIO_SMS_FROM`** = ton numéro acheté (ex. `+447565507297`). **WhatsApp** = encore un autre expéditeur (Meta / WhatsApp Business), normal qu’il soit différent.
+1. **Ne pas confondre OTP et notifs** : codes inscription = **Twilio Verify** (libellé **Verify** possible). **Notifs** = API **Messages** + **`TWILIO_SMS_FROM`** (ex. `+19789813065`). Si Twilio affiche **30007**, raccourcir le texte (voir point de reprise ci-dessous).
 2. **Twilio** : envoyer un SMS test depuis la console vers votre `+212…` (même compte que les OTP).
 3. **Vercel** : ajouter les variables Twilio ci-dessus + redéployer.
 4. **Facturation** : activer un plafond de dépenses Twilio ; ne lancer le workflow SMS manuel qu’après geo Maroc + test OK (les échecs sont souvent facturés).
@@ -167,21 +167,30 @@ git log --oneline -n 10
    - Events : **Insert**
    - URL : `https://<APP_BASE_URL>/api/webhooks/dispatch-external-sms`
    - HTTP headers : `Authorization: Bearer <CRON_SECRET>` (même secret que les crons)
-4. Tester : une notif patient avec SMS coché → SMS reçu sans lancer PowerShell.
+4. Tester : notif avec **e-mail + SMS** cochés → les deux reçus en quelques secondes (sans PowerShell / sans attendre le cron).
 
-### Point de reprise SMS (mai 2026 — incident facturation)
+### Point de reprise SMS (mai 2026)
 
-**Symptôme** : `notification_external_queue.channel=sms` → `sent`, e-mail reçu, **pas de SMS** sur le mobile ; OTP `/auth` **reçu**.
+**Chaîne validée** : file `notification_external_queue` → worker Vercel → Twilio Messages (`TWILIO_SMS_FROM`, ex. `+19789813065`) ; **e-mail + SMS** OK au **run manuel** GitHub (*Send External Emails Cron*) ; **webhook Supabase** (`POST /api/webhooks/dispatch-external-sms`, header `Authorization: Bearer <CRON_SECRET>`) → ligne `sms` passe à `sent` en quelques secondes.
 
-**Cause probable** : confusion **Verify (OTP)** vs **numéro acheté (notifs)** ; `TWILIO_SMS_FROM` absent ou mauvais ; geo **Maroc** non activée pour SMS internationaux ; trial Twilio. Ancien cron (5 min + retries) a gonflé la facture — **corrigé** : SMS = workflow manuel + 1 tentative.
+**Notifs SMS** : destination = **`profiles.whatsapp`** (E.164), **pas** la colonne Phone de Supabase Auth (comptes legacy e-mail peuvent avoir Auth.phone vide).
 
-**Checklist prochaine session** :
-1. Twilio Console → comparer 1 log **OTP réussi** vs 1 log **notif** (From, status, error code).
-2. Vercel → `TWILIO_SMS_FROM=+447565507297` (numéro **acheté**, pas « Verify »). Supabase OTP peut rester sur Verify — c’est **normal** que l’expéditeur diffère.
-3. Twilio → Geo permissions → **Morocco** activé ; plafond billing.
-4. GitHub : workflow **`Send External Emails Cron`** actif ; **`Send External SMS Cron (manual)`** seulement pour tests.
-5. **Test direct (sans file)** : `POST /api/cron/test-external-sms` + `Authorization: Bearer CRON_SECRET` + body `{"to":"+212...","text":"Test"}` — renvoie le JSON Twilio (`twilio_from`, `twilio_status`). Compare `twilio_from` avec l’expéditeur d’un SMS OTP dans les logs Twilio.
-6. SQL : `select channel, status, last_error, provider_message_id, payload from notification_external_queue order by created_at desc limit 10;`
+**Livraison téléphone** : avec **webhook** + SMS **courts sans URL**, réception **rapide** validée au pilote. Twilio **30007** (*Message filtered*) surtout quand le SMS est **long** et/ou contient une **URL** (souvent 5+ segments vers le MA depuis numéro US).
+
+**Lien dans le SMS (Q35)** :
+- **Oui, techniquement** (concaténer une URL dans `buildOutboundNotificationText`), mais au pilote **fort risque de filtrage** opérateur (30007) — ne pas remettre l’URL longue type `https://proxipharma-app.vercel.app/dashboard/demandes/…`.
+- **Pistes si un lien est requis** : (1) **e-mail** = lien complet (déjà en place) ; (2) SMS = texte court + « ouvrez l’app » ; (3) **URL très courte** sur votre domaine (ex. `https://proxipharma.app/r/Ab12` + redirection Next.js) ; (4) service raccourci (bit.ly, etc.) ; (5) **Twilio Link Shortening** sur un Messaging Service enregistré ; (6) après **A2P / conformité** US→MA, filtres souvent moins agressifs.
+- **Recommandation pilote** : pas de lien en SMS ; webhook + texte court. Réévaluer un lien court après plusieurs **Delivered** stables.
+
+**Cron GitHub `schedule`** : peu fiable (runs espacés ; lignes restent `pending` jusqu’au manuel). **Webhook = chemin principal** ; cron e-mail (+ appel SMS) = filet de sécurité ~5 min.
+
+**Vercel** : `SMS_BLOCKED_DESTINATIONS=+212600000123` (numéros test invalides). Script SQL : `supabase/scripts/cancel-sms-queue-bad-destination.sql`.
+
+**OTP vs notifs** : inscription = Twilio Verify (libellé **Verify** / WhatsApp +44 possible) ; notifs = API Messages + `TWILIO_SMS_FROM`.
+
+**Test** : `POST /api/cron/test-external-sms` (après deploy route sur `main`) ; logs Twilio : **Delivered** + **1 segment**, pas 30007.
+
+**Format SMS prod (pilote)** : `ProxiPharma - [titre] ([pharmacie])` — sans URL.
 
 ## 10) Notifications WhatsApp (Q35 — en cours, pas déployé)
 
