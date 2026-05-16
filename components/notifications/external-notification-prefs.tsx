@@ -75,10 +75,10 @@ export function ExternalNotificationPrefs({ userId }: { userId: string | null })
     <section className="mt-4 rounded-xl border border-amber-200/80 bg-amber-50/30 p-4">
       <h2 className="text-lg font-semibold text-amber-950">Alertes hors application (pilote)</h2>
       <p className="mt-1 text-xs text-amber-900/85">
-        En plus des notifications dans ProxiPharma, vous pouvez activer l&apos;envoi par e-mail, SMS ou WhatsApp lorsque
-        votre profil contient une adresse e-mail ou un numéro (champ WhatsApp du profil, utilisé aussi pour les SMS).
-        Les messages sont mis en file côté serveur ; la connexion à un fournisseur d&apos;envoi reste à brancher en
-        infrastructure.
+        En plus des notifications dans ProxiPharma, vous pouvez activer l&apos;envoi par e-mail ou SMS (mêmes alertes que
+        dans l&apos;app) lorsque votre profil contient une adresse e-mail ou un numéro mobile (champ WhatsApp du profil,
+        format international). WhatsApp automatique arrive plus tard ; les liens manuels sur la fiche officine restent
+        disponibles.
       </p>
       <div className="mt-4 space-y-2">
         <label className="flex cursor-pointer items-start gap-2 text-sm text-gray-900">

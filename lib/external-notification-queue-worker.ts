@@ -1,0 +1,327 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizePhoneToE164 } from "@/lib/phone-e164";
+
+export type ExternalNotificationChannel = "email" | "sms";
+
+export type QueueRow = {
+  id: string;
+  recipient_id: string;
+  destination_snapshot: string;
+  title: string;
+  body: string | null;
+  request_id: string;
+  event_type: string;
+  attempt_count: number;
+  status: "pending" | "processing" | "sent" | "failed";
+};
+
+type RequestMeta = {
+  id: string;
+  request_type: string | null;
+  pharmacies: { nom: string | null } | { nom: string | null }[] | null;
+};
+
+export type ProcessQueueResult = {
+  ok: true;
+  channel: ExternalNotificationChannel;
+  processed: number;
+  sent: number;
+  failed: number;
+  retried: number;
+};
+
+function requestPathForRole(role: string | null | undefined, requestId: string) {
+  if (role === "pharmacien") {
+    return `/dashboard/pharmacien/demandes/${requestId}`;
+  }
+  return `/dashboard/demandes/${requestId}`;
+}
+
+export function buildOutboundNotificationText(args: {
+  row: QueueRow;
+  requestOrigin: string;
+  role: string | null | undefined;
+  pharmacyName: string | null;
+  requestType: string | null;
+  channel: ExternalNotificationChannel;
+}): { subject: string; text: string } {
+  const subject = args.row.title;
+  const requestLink = `${args.requestOrigin}${requestPathForRole(args.role, args.row.request_id)}`;
+  const pharmacyLabel = args.pharmacyName ?? "Pharmacie";
+  const bodyLine = (args.row.body ?? "").trim();
+
+  if (args.channel === "sms") {
+    const parts = [`ProxiPharma — ${subject}`];
+    if (bodyLine) parts.push(bodyLine);
+    parts.push(pharmacyLabel, requestLink);
+    let text = parts.join("\n");
+    if (text.length > 480) {
+      const budget = 480 - requestLink.length - pharmacyLabel.length - 4;
+      const head = bodyLine
+        ? `${subject}\n${bodyLine}`.slice(0, Math.max(40, budget))
+        : subject.slice(0, Math.max(40, budget));
+      text = [`ProxiPharma — ${head}`.trim(), pharmacyLabel, requestLink].join("\n");
+    }
+    return { subject, text };
+  }
+
+  const requestTypeLabel = args.requestType ?? "non renseigné";
+  const text = [
+    bodyLine,
+    "",
+    `Pharmacie: ${pharmacyLabel}`,
+    `Type de demande: ${requestTypeLabel}`,
+    `Ouvrir la demande: ${requestLink}`,
+    `Demande: ${args.row.request_id}`,
+    `Type: ${args.row.event_type}`,
+  ]
+    .join("\n")
+    .trim();
+
+  return { subject, text };
+}
+
+async function sendEmailViaResend(args: { to: string; subject: string; text: string }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.EMAIL_FROM ?? "onboarding@resend.dev";
+
+  if (!apiKey) {
+    throw new Error("Missing env var: RESEND_API_KEY");
+  }
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: args.to,
+      subject: args.subject,
+      text: args.text,
+    }),
+  });
+
+  const raw = await res.text();
+  if (!res.ok) {
+    throw new Error(`Resend error ${res.status}: ${raw}`);
+  }
+
+  try {
+    return JSON.parse(raw) as { id?: string };
+  } catch {
+    return { id: undefined };
+  }
+}
+
+async function sendSmsViaTwilio(args: { to: string; text: string }) {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
+  const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
+  const from = process.env.TWILIO_SMS_FROM?.trim();
+  const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID?.trim();
+
+  if (!accountSid || !authToken) {
+    throw new Error("Missing env vars: TWILIO_ACCOUNT_SID and/or TWILIO_AUTH_TOKEN");
+  }
+  if (!from && !messagingServiceSid) {
+    throw new Error("Missing env var: TWILIO_SMS_FROM or TWILIO_MESSAGING_SERVICE_SID");
+  }
+
+  const to = normalizePhoneToE164(args.to) ?? args.to.trim();
+  if (!to.startsWith("+")) {
+    throw new Error(`Invalid SMS destination (E.164 required): ${args.to}`);
+  }
+
+  const body = new URLSearchParams();
+  body.set("To", to);
+  body.set("Body", args.text);
+  if (messagingServiceSid) {
+    body.set("MessagingServiceSid", messagingServiceSid);
+  } else {
+    body.set("From", from!);
+  }
+
+  const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+
+  const raw = await res.text();
+  if (!res.ok) {
+    throw new Error(`Twilio SMS error ${res.status}: ${raw}`);
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as { sid?: string };
+    return { id: parsed.sid };
+  } catch {
+    return { id: undefined };
+  }
+}
+
+async function dispatchOutbound(
+  channel: ExternalNotificationChannel,
+  args: { destination: string; subject: string; text: string }
+): Promise<{ id?: string }> {
+  if (channel === "email") {
+    return sendEmailViaResend({ to: args.destination, subject: args.subject, text: args.text });
+  }
+  return sendSmsViaTwilio({ to: args.destination, text: args.text });
+}
+
+export async function processExternalNotificationQueue(args: {
+  supabase: SupabaseClient;
+  channel: ExternalNotificationChannel;
+  requestOrigin: string;
+  limit?: number;
+}): Promise<ProcessQueueResult> {
+  const limit = args.limit ?? 20;
+
+  const { data: pending, error: pendingErr } = await args.supabase
+    .from("notification_external_queue")
+    .select("id,recipient_id,destination_snapshot,title,body,request_id,event_type,attempt_count,status")
+    .eq("channel", args.channel)
+    .eq("status", "pending")
+    .order("created_at", { ascending: true })
+    .limit(limit);
+
+  if (pendingErr) {
+    throw new Error(pendingErr.message);
+  }
+
+  const pendingRows = (pending ?? []) as unknown as QueueRow[];
+  const remaining = Math.max(0, limit - pendingRows.length);
+  let retryRows: QueueRow[] = [];
+
+  if (remaining > 0) {
+    const { data: failed, error: failedErr } = await args.supabase
+      .from("notification_external_queue")
+      .select("id,recipient_id,destination_snapshot,title,body,request_id,event_type,attempt_count,status")
+      .eq("channel", args.channel)
+      .eq("status", "failed")
+      .lt("attempt_count", 3)
+      .order("created_at", { ascending: true })
+      .limit(remaining);
+
+    if (failedErr) {
+      throw new Error(failedErr.message);
+    }
+    retryRows = (failed ?? []) as unknown as QueueRow[];
+  }
+
+  const rows = [...pendingRows, ...retryRows];
+  if (rows.length === 0) {
+    return { ok: true, channel: args.channel, processed: 0, sent: 0, failed: 0, retried: 0 };
+  }
+
+  const ids = rows.map((r) => r.id);
+  const { error: lockErr } = await args.supabase
+    .from("notification_external_queue")
+    .update({ status: "processing" })
+    .in("id", ids)
+    .in("status", ["pending", "failed"])
+    .lt("attempt_count", 3);
+  if (lockErr) {
+    throw new Error(lockErr.message);
+  }
+
+  let sent = 0;
+  let failed = 0;
+  const recipientIds = [...new Set(rows.map((r) => r.recipient_id))];
+  const requestIds = [...new Set(rows.map((r) => r.request_id))];
+  const roleByRecipient = new Map<string, string>();
+  const requestMetaById = new Map<string, { requestType: string | null; pharmacyName: string | null }>();
+
+  if (recipientIds.length > 0) {
+    const { data: profiles } = await args.supabase.from("profiles").select("id,role").in("id", recipientIds);
+    for (const p of profiles ?? []) {
+      const row = p as { id: string; role: string | null };
+      roleByRecipient.set(row.id, row.role ?? "patient");
+    }
+  }
+
+  if (requestIds.length > 0) {
+    const { data: reqRows } = await args.supabase
+      .from("requests")
+      .select("id,request_type,pharmacies(nom)")
+      .in("id", requestIds);
+    for (const raw of (reqRows ?? []) as unknown as RequestMeta[]) {
+      const pharmacy = Array.isArray(raw.pharmacies) ? raw.pharmacies[0] : raw.pharmacies;
+      requestMetaById.set(raw.id, {
+        requestType: raw.request_type ?? null,
+        pharmacyName: pharmacy?.nom ?? null,
+      });
+    }
+  }
+
+  for (const r of rows) {
+    const role = roleByRecipient.get(r.recipient_id);
+    const meta = requestMetaById.get(r.request_id);
+    const { subject, text } = buildOutboundNotificationText({
+      row: r,
+      requestOrigin: args.requestOrigin,
+      role,
+      pharmacyName: meta?.pharmacyName ?? null,
+      requestType: meta?.requestType ?? null,
+      channel: args.channel,
+    });
+
+    try {
+      const out = await dispatchOutbound(args.channel, {
+        destination: r.destination_snapshot,
+        subject,
+        text,
+      });
+      sent++;
+      await args.supabase
+        .from("notification_external_queue")
+        .update({
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          provider_message_id: out.id ?? null,
+          last_error: null,
+        })
+        .eq("id", r.id);
+    } catch (e) {
+      failed++;
+      const msg = e instanceof Error ? e.message : String(e);
+      await args.supabase
+        .from("notification_external_queue")
+        .update({
+          status: "failed",
+          attempt_count: (r.attempt_count ?? 0) + 1,
+          last_error: msg.slice(0, 2000),
+        })
+        .eq("id", r.id);
+    }
+  }
+
+  return {
+    ok: true,
+    channel: args.channel,
+    processed: rows.length,
+    sent,
+    failed,
+    retried: retryRows.length,
+  };
+}
+
+export function assertCronAuthorized(req: Request): Response | null {
+  const expected = process.env.CRON_SECRET;
+  const auth = req.headers.get("authorization") ?? "";
+
+  if (!expected) {
+    return Response.json({ ok: false, error: "Missing env var: CRON_SECRET" }, { status: 500 });
+  }
+
+  if (auth !== `Bearer ${expected}`) {
+    return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  return null;
+}

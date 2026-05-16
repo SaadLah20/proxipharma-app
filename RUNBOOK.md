@@ -22,6 +22,8 @@ Variables:
 - `RESEND_API_KEY` (prestataire e-mail, free tier possible)
 - `EMAIL_FROM` (ex: `ProxiPharma <onboarding@resend.dev>` en dev, puis domaine validé)
 - `APP_BASE_URL` (URL publique Vercel/custome domain, utilisée dans les liens e-mail)
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` (SMS alertes hors-app, même compte que l’auth si possible)
+- `TWILIO_SMS_FROM` (numéro expéditeur E.164, ex. `+1…`) **ou** `TWILIO_MESSAGING_SERVICE_SID`
 
 Regle:
 - Le nom doit etre exact
@@ -131,14 +133,29 @@ git log --oneline -n 10
 - **Plan Hobby Vercel** : les Cron Jobs Vercel ne permettent qu’une fréquence **minimale d’une fois par jour** (pas toutes les 2 minutes). Une entrée `vercel.json` avec `*/2 * * * *` peut **faire échouer le déploiement** ou ne jamais s’afficher comme job actif comme attendu.
 - **Référence planifiée** : GitHub Actions (voir §9).
 
-## 9) Cron GitHub Actions (email) — canal principal
+## 9) Cron GitHub Actions (email + SMS) — canaux branchés
 
-- Workflow: `.github/workflows/send-external-emails-cron.yml`
+- Workflow: `.github/workflows/send-external-emails-cron.yml` (nom affiché : *Send External Notifications Cron*)
 - Fréquence: toutes les 5 minutes (`*/5 * * * *`, limite pratique GitHub Actions) + déclenchement manuel (`workflow_dispatch`)
+- Appelle successivement :
+  - `POST /api/cron/send-external-emails` (Resend)
+  - `POST /api/cron/send-external-sms` (Twilio)
 - Secrets GitHub requis:
   - `APP_BASE_URL` (ex: `https://proxipharma-app.vercel.app`)
   - `CRON_SECRET`
-- Retry auto: les emails `failed` sont retentés automatiquement jusqu'à 3 tentatives max (`attempt_count < 3`).
+- Variables Vercel en plus pour SMS : `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` (ou `TWILIO_MESSAGING_SERVICE_SID`)
+- Retry auto: les lignes `failed` sont retentées jusqu'à 3 tentatives max (`attempt_count < 3`).
+
+### Tester les SMS (pilote)
+
+1. **Twilio** : envoyer un SMS test depuis la console vers votre `+212…` (même compte que les OTP).
+2. **Vercel** : ajouter les variables Twilio ci-dessus + redéployer.
+3. **Utilisateur test** : dans le tableau de bord → *Alertes hors application* → cocher **SMS** ; profil avec numéro E.164 (`profiles.whatsapp`, ex. `+2126…`).
+4. **Déclencher une notif** : action qui crée une `app_notification` (ex. pharmacien répond à une demande).
+5. **File** : Supabase → `notification_external_queue` → ligne `channel=sms`, `status=pending`.
+6. **Cron manuel** : GitHub Actions → *Send External Notifications Cron* → *Run workflow*, ou en local :
+   `curl -X POST -H "Authorization: Bearer $CRON_SECRET" "$APP_BASE_URL/api/cron/send-external-sms"`
+7. **Résultat** : la ligne passe à `sent` + SMS reçu ; en cas d’échec, `last_error` sur la ligne et `status=failed`.
 
 ## 10) Notifications WhatsApp (Q35 — en cours, pas déployé)
 
