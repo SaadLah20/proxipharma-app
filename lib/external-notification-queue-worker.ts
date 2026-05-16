@@ -138,6 +138,30 @@ function maxAttemptsForChannel(channel: ExternalNotificationChannel): number {
   return channel === "sms" ? 1 : 3;
 }
 
+/** Numéros à ne jamais appeler (Vercel : SMS_BLOCKED_DESTINATIONS=+212600000123,…). */
+function loadSmsBlockedDestinations(): Set<string> {
+  const blocked = new Set<string>();
+  for (const raw of (process.env.SMS_BLOCKED_DESTINATIONS ?? "").split(",")) {
+    const bit = raw.trim();
+    if (!bit) continue;
+    const e164 = normalizePhoneToE164(bit) ?? bit;
+    blocked.add(e164);
+    blocked.add(e164.replace(/\D/g, ""));
+  }
+  return blocked;
+}
+
+function isSmsDestinationBlocked(destination: string, blocked: Set<string>): boolean {
+  if (blocked.size === 0) return false;
+  const e164 = normalizePhoneToE164(destination) ?? destination.trim();
+  const digits = e164.replace(/\D/g, "");
+  if (blocked.has(e164) || blocked.has(digits)) return true;
+  for (const b of blocked) {
+    if (b.replace(/\D/g, "") === digits) return true;
+  }
+  return false;
+}
+
 type TwilioMessageResource = {
   sid?: string;
   status?: string;
@@ -321,7 +345,22 @@ export async function processExternalNotificationQueue(args: {
     }
   }
 
+  const smsBlocked = args.channel === "sms" ? loadSmsBlockedDestinations() : new Set<string>();
+
   for (const r of rows) {
+    if (args.channel === "sms" && isSmsDestinationBlocked(r.destination_snapshot, smsBlocked)) {
+      failed++;
+      await args.supabase
+        .from("notification_external_queue")
+        .update({
+          status: "failed",
+          attempt_count: maxAttempts,
+          last_error: "skipped: blocked destination (SMS_BLOCKED_DESTINATIONS)",
+        })
+        .eq("id", r.id);
+      continue;
+    }
+
     const role = roleByRecipient.get(r.recipient_id);
     const meta = requestMetaById.get(r.request_id);
     const { subject, text } = buildOutboundNotificationText({
