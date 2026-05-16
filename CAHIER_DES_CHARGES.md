@@ -346,6 +346,7 @@ Statuts retenus v1:
 - `SMS_BLOCKED_DESTINATIONS` + `supabase/scripts/cancel-sms-queue-bad-destination.sql` (numéro test `212600000123`).
 - **Notifs** = `profiles.whatsapp` (E.164) ; **Auth.phone** vide sur comptes legacy e-mail = normal.
 - **Lien dans le SMS** : possible techniquement (URL courte) mais **risque 30007** ; e-mail garde le lien complet ; voir **`RUNBOOK.md` §9**.
+- **Webhook e-mail + SMS** : même URL `/api/webhooks/dispatch-external-sms` traite les deux canaux à l’INSERT (commit `feat(notifications): webhook traite email et SMS a l'insert`) — **à merger `main` + redeploy**.
 
 ---
 
@@ -1164,9 +1165,9 @@ Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre 
 
 Voir **§13.15** (webhook + 30007 + SMS courts).
 
-### 13.15) Phrase de reprise (recommandée après **2026-05-16** — webhook + SMS reçus)
+### 13.15) Phrase de reprise (recommandée après **2026-05-16** — webhook e-mail + SMS)
 
-**« On reprend ProxiPharma — **notifications SMS hors-app** (Q35). Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-16 + suite webhook)**, **`RUNBOOK.md` §9**, **`AGENTS.md`**. État : **webhook Supabase** INSERT → `/api/webhooks/dispatch-external-sms` → **SMS reçu rapidement** ; e-mail + SMS OK au run manuel GitHub ; cron `schedule` irrégulier (filet seulement). SMS **courts sans URL** en prod (`ProxiPharma - [titre] ([pharmacie])`) — merger `main` si pas fait. Twilio **30007** si SMS long + URL. Vercel : `TWILIO_SMS_FROM=+19789813065`, `SMS_BLOCKED_DESTINATIONS=+212600000123`. Notifs = `profiles.whatsapp` E.164. Lien cliquable en SMS = option ultérieure (URL courte / redirect), pas l’URL dashboard longue. WhatsApp worker : après SMS stable. Je te dis ensuite quoi faire. »**
+**« On reprend ProxiPharma — **notifications hors-app** (Q35). Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-16 + suite)**, **`RUNBOOK.md` §9**, **`AGENTS.md`**. État : webhook Supabase INSERT `notification_external_queue` → `/api/webhooks/dispatch-external-sms` (`Authorization: Bearer CRON_SECRET`) — **e-mail + SMS rapides** (même URL, un appel par ligne insérée) ; validé pilote. Merger branche `fix/validated-supply-ecart-ui-modal` sur **`main`** + redeploy Vercel si pas fait (SMS courts, webhook e-mail, `SMS_BLOCKED_DESTINATIONS`). Cron GitHub = filet ~5 min seulement. Vercel : `TWILIO_SMS_FROM=+19789813065`, `RESEND_*`, `CRON_SECRET`. SMS sans URL longue (30007 si lien/texte long) ; lien complet en e-mail. Notifs = `profiles.whatsapp` E.164. WhatsApp worker : après SMS stable. Je te dis ensuite quoi faire. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 
