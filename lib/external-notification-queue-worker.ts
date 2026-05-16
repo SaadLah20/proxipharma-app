@@ -115,6 +115,29 @@ async function sendEmailViaResend(args: { to: string; subject: string; text: str
   }
 }
 
+/** Codes Twilio : ne pas retenter (facturation à chaque appel). */
+const TWILIO_SMS_PERMANENT_ERROR_CODES = new Set([
+  21211, 21214, 21217, 21219, 21408, 21601, 21602, 21604, 21606, 21607, 21608, 21610, 21611, 21612,
+  21614, 30032, 30034, 30035,
+]);
+
+export function twilioSmsErrorLooksPermanent(errorMessage: string): boolean {
+  const raw = errorMessage.trim();
+  try {
+    const j = JSON.parse(raw) as { code?: unknown };
+    if (typeof j.code === "number" && TWILIO_SMS_PERMANENT_ERROR_CODES.has(j.code)) return true;
+  } catch {
+    /* corps Twilio parfois embarqué dans notre message */
+  }
+  const m = raw.match(/"code"\s*:\s*(\d+)/);
+  if (m && TWILIO_SMS_PERMANENT_ERROR_CODES.has(Number(m[1]))) return true;
+  return false;
+}
+
+function maxAttemptsForChannel(channel: ExternalNotificationChannel): number {
+  return channel === "sms" ? 1 : 3;
+}
+
 async function sendSmsViaTwilio(args: { to: string; text: string }) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
   const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
@@ -181,6 +204,7 @@ export async function processExternalNotificationQueue(args: {
   limit?: number;
 }): Promise<ProcessQueueResult> {
   const limit = args.limit ?? 20;
+  const maxAttempts = maxAttemptsForChannel(args.channel);
 
   const { data: pending, error: pendingErr } = await args.supabase
     .from("notification_external_queue")
@@ -198,13 +222,13 @@ export async function processExternalNotificationQueue(args: {
   const remaining = Math.max(0, limit - pendingRows.length);
   let retryRows: QueueRow[] = [];
 
-  if (remaining > 0) {
+  if (remaining > 0 && maxAttempts > 1) {
     const { data: failed, error: failedErr } = await args.supabase
       .from("notification_external_queue")
       .select("id,recipient_id,destination_snapshot,title,body,request_id,event_type,attempt_count,status")
       .eq("channel", args.channel)
       .eq("status", "failed")
-      .lt("attempt_count", 3)
+      .lt("attempt_count", maxAttempts)
       .order("created_at", { ascending: true })
       .limit(remaining);
 
@@ -225,7 +249,7 @@ export async function processExternalNotificationQueue(args: {
     .update({ status: "processing" })
     .in("id", ids)
     .in("status", ["pending", "failed"])
-    .lt("attempt_count", 3);
+    .lt("attempt_count", maxAttempts);
   if (lockErr) {
     throw new Error(lockErr.message);
   }
@@ -290,11 +314,16 @@ export async function processExternalNotificationQueue(args: {
     } catch (e) {
       failed++;
       const msg = e instanceof Error ? e.message : String(e);
+      const prev = r.attempt_count ?? 0;
+      const bump =
+        args.channel === "sms" && twilioSmsErrorLooksPermanent(msg)
+          ? maxAttempts
+          : Math.min(maxAttempts, prev + 1);
       await args.supabase
         .from("notification_external_queue")
         .update({
           status: "failed",
-          attempt_count: (r.attempt_count ?? 0) + 1,
+          attempt_count: bump,
           last_error: msg.slice(0, 2000),
         })
         .eq("id", r.id);

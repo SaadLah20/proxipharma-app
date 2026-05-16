@@ -1,7 +1,7 @@
 # Les jobs `schedule` ne tournent que depuis la branche par défaut du dépôt (souvent `main`).
 # Tant que ce fichier n’est pas fusionné dans `main`, le cron ne se déclenchera pas automatiquement.
 # Test manuel : onglet Actions → ce workflow → « Run workflow » (workflow_dispatch).
-name: Send External Notifications Cron
+name: Send External Emails Cron
 
 on:
   schedule:
@@ -10,10 +10,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  trigger-external-notification-crons:
+  trigger-email-cron:
     runs-on: ubuntu-latest
     steps:
-      - name: Call production external notification cron endpoints
+      - name: Call production email cron endpoint
         env:
           APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -45,5 +45,4 @@ jobs:
           }
 
           call_cron "/api/cron/send-external-emails"
-          call_cron "/api/cron/send-external-sms"
 
