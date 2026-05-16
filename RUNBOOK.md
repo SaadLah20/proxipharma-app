@@ -175,7 +175,12 @@ git log --oneline -n 10
 
 **Notifs SMS** : destination = **`profiles.whatsapp`** (E.164), **pas** la colonne Phone de Supabase Auth (comptes legacy e-mail peuvent avoir Auth.phone vide).
 
-**Blocage livraison téléphone (résolu en cours)** : Twilio **30007** (*Message filtered* / Undelivered) — SMS trop longs ou avec URL. Correctif : SMS courts dans **`buildOutboundNotificationText`** (`ProxiPharma - [titre] ([pharmacie])`, ~1 segment). Merger branche avec `fix(notifications): SMS courts anti-filtre operateur` puis redeploy.
+**Livraison téléphone** : avec **webhook** + SMS **courts sans URL**, réception **rapide** validée au pilote. Twilio **30007** (*Message filtered*) surtout quand le SMS est **long** et/ou contient une **URL** (souvent 5+ segments vers le MA depuis numéro US).
+
+**Lien dans le SMS (Q35)** :
+- **Oui, techniquement** (concaténer une URL dans `buildOutboundNotificationText`), mais au pilote **fort risque de filtrage** opérateur (30007) — ne pas remettre l’URL longue type `https://proxipharma-app.vercel.app/dashboard/demandes/…`.
+- **Pistes si un lien est requis** : (1) **e-mail** = lien complet (déjà en place) ; (2) SMS = texte court + « ouvrez l’app » ; (3) **URL très courte** sur votre domaine (ex. `https://proxipharma.app/r/Ab12` + redirection Next.js) ; (4) service raccourci (bit.ly, etc.) ; (5) **Twilio Link Shortening** sur un Messaging Service enregistré ; (6) après **A2P / conformité** US→MA, filtres souvent moins agressifs.
+- **Recommandation pilote** : pas de lien en SMS ; webhook + texte court. Réévaluer un lien court après plusieurs **Delivered** stables.
 
 **Cron GitHub `schedule`** : peu fiable (runs espacés ; lignes restent `pending` jusqu’au manuel). **Webhook = chemin principal** ; cron e-mail (+ appel SMS) = filet de sécurité ~5 min.
 
@@ -184,6 +189,8 @@ git log --oneline -n 10
 **OTP vs notifs** : inscription = Twilio Verify (libellé **Verify** / WhatsApp +44 possible) ; notifs = API Messages + `TWILIO_SMS_FROM`.
 
 **Test** : `POST /api/cron/test-external-sms` (après deploy route sur `main`) ; logs Twilio : **Delivered** + **1 segment**, pas 30007.
+
+**Format SMS prod (pilote)** : `ProxiPharma - [titre] ([pharmacie])` — sans URL.
 
 ## 10) Notifications WhatsApp (Q35 — en cours, pas déployé)
 

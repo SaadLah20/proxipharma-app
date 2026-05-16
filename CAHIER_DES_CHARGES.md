@@ -338,12 +338,14 @@ Statuts retenus v1:
 
 **Commits repères** : `feat(notifications): worker SMS Twilio…`, `fix(notifications): limiter facturation SMS Twilio (cron manuel)`.
 
-**Suite même jour (webhook + diagnostic 30007)** :
-- **Webhook Supabase** sur INSERT `notification_external_queue` → `/api/webhooks/dispatch-external-sms` : file traitée, `sms` → `sent` en secondes.
-- **Run manuel** GitHub *Send External Emails Cron* : e-mail + SMS reçus ; cron `schedule` GitHub **peu fiable** (lignes `pending` jusqu’au manuel).
-- Twilio **30007** (*Message filtered*) sur SMS longs avec URL → correctif **SMS courts** (`ProxiPharma - [titre] ([pharmacie])`, 1 segment) — branche `fix/validated-supply-ecart-ui-modal`, commit `fix(notifications): SMS courts anti-filtre operateur` — **à merger `main` + redeploy** avant test final livraison.
-- `SMS_BLOCKED_DESTINATIONS` + script `supabase/scripts/cancel-sms-queue-bad-destination.sql` (numéro test `212600000123`).
-- **Notifs** utilisent `profiles.whatsapp` ; **Auth.phone** vide sur comptes legacy e-mail = normal.
+**Suite même jour (webhook + SMS courts)** :
+- **Webhook Supabase** sur INSERT `notification_external_queue` → `/api/webhooks/dispatch-external-sms` : **SMS reçu rapidement** sur le téléphone (quelques secondes).
+- **Run manuel** GitHub *Send External Emails Cron* : e-mail + SMS OK ; cron `schedule` GitHub **peu fiable** (lignes `pending` sans webhook / sans manuel).
+- Twilio **30007** (*Message filtered*) surtout sur **SMS longs + URL** ; format court sans lien = livraison OK au pilote.
+- Correctif repo : SMS courts (`ProxiPharma - [titre] ([pharmacie])`, ~1 segment) — merger `main` + redeploy pour figer en prod.
+- `SMS_BLOCKED_DESTINATIONS` + `supabase/scripts/cancel-sms-queue-bad-destination.sql` (numéro test `212600000123`).
+- **Notifs** = `profiles.whatsapp` (E.164) ; **Auth.phone** vide sur comptes legacy e-mail = normal.
+- **Lien dans le SMS** : possible techniquement (URL courte) mais **risque 30007** ; e-mail garde le lien complet ; voir **`RUNBOOK.md` §9**.
 
 ---
 
@@ -1162,9 +1164,9 @@ Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre 
 
 Voir **§13.15** (webhook + 30007 + SMS courts).
 
-### 13.15) Phrase de reprise (recommandée après **2026-05-16** — webhook OK, livraison SMS 30007)
+### 13.15) Phrase de reprise (recommandée après **2026-05-16** — webhook + SMS reçus)
 
-**« On reprend ProxiPharma — **notifications SMS hors-app** (Q35). Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-16 + suite webhook)**, **`RUNBOOK.md` §9** (point de reprise SMS), **`AGENTS.md`**. État : **webhook Supabase** actif sur INSERT `notification_external_queue` → `/api/webhooks/dispatch-external-sms` (`Authorization: Bearer CRON_SECRET`) ; run **manuel** GitHub *Send External Emails Cron* = e-mail + SMS OK ; cron `schedule` GitHub **irrégulier** (ne pas s’y fier seul). Twilio **30007** sur SMS longs → merger **`main`** avec SMS courts (`lib/external-notification-queue-worker.ts`, format `ProxiPharma - [titre] ([pharmacie])`, 1 segment) + redeploy Vercel. Vercel : `TWILIO_SMS_FROM=+19789813065`, `SMS_BLOCKED_DESTINATIONS=+212600000123`. Notifs = **`profiles.whatsapp`** E.164, pas Auth.phone. Test : nouvelle réponse pharmacien → Twilio **Delivered**, 1 segment, pas 30007. WhatsApp worker : après SMS stable. Je te dis ensuite quoi faire. »**
+**« On reprend ProxiPharma — **notifications SMS hors-app** (Q35). Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-16 + suite webhook)**, **`RUNBOOK.md` §9**, **`AGENTS.md`**. État : **webhook Supabase** INSERT → `/api/webhooks/dispatch-external-sms` → **SMS reçu rapidement** ; e-mail + SMS OK au run manuel GitHub ; cron `schedule` irrégulier (filet seulement). SMS **courts sans URL** en prod (`ProxiPharma - [titre] ([pharmacie])`) — merger `main` si pas fait. Twilio **30007** si SMS long + URL. Vercel : `TWILIO_SMS_FROM=+19789813065`, `SMS_BLOCKED_DESTINATIONS=+212600000123`. Notifs = `profiles.whatsapp` E.164. Lien cliquable en SMS = option ultérieure (URL courte / redirect), pas l’URL dashboard longue. WhatsApp worker : après SMS stable. Je te dis ensuite quoi faire. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 
