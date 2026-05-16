@@ -138,7 +138,25 @@ function maxAttemptsForChannel(channel: ExternalNotificationChannel): number {
   return channel === "sms" ? 1 : 3;
 }
 
-async function sendSmsViaTwilio(args: { to: string; text: string }) {
+type TwilioMessageResource = {
+  sid?: string;
+  status?: string;
+  error_code?: number | null;
+  error_message?: string | null;
+  from?: string | null;
+  to?: string | null;
+  messaging_service_sid?: string | null;
+};
+
+export type SmsDispatchResult = {
+  id?: string;
+  twilioStatus?: string;
+  twilioFrom?: string | null;
+  twilioMeta?: TwilioMessageResource;
+};
+
+/** Envoi SMS direct (tests / cron) — API Messages + numéro acheté (`TWILIO_SMS_FROM`), pas Twilio Verify. */
+export async function sendSmsViaTwilio(args: { to: string; text: string }): Promise<SmsDispatchResult> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
   const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
   const from = process.env.TWILIO_SMS_FROM?.trim();
@@ -159,10 +177,10 @@ async function sendSmsViaTwilio(args: { to: string; text: string }) {
   const body = new URLSearchParams();
   body.set("To", to);
   body.set("Body", args.text);
-  if (messagingServiceSid) {
-    body.set("MessagingServiceSid", messagingServiceSid);
+  if (from) {
+    body.set("From", from);
   } else {
-    body.set("From", from!);
+    body.set("MessagingServiceSid", messagingServiceSid!);
   }
 
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
@@ -179,20 +197,40 @@ async function sendSmsViaTwilio(args: { to: string; text: string }) {
     throw new Error(`Twilio SMS error ${res.status}: ${raw}`);
   }
 
+  let parsed: TwilioMessageResource = {};
   try {
-    const parsed = JSON.parse(raw) as { sid?: string };
-    return { id: parsed.sid };
+    parsed = JSON.parse(raw) as TwilioMessageResource;
   } catch {
-    return { id: undefined };
+    throw new Error(`Twilio SMS invalid JSON response: ${raw.slice(0, 500)}`);
   }
+
+  const status = (parsed.status ?? "").toLowerCase();
+  if (parsed.error_code != null && parsed.error_code !== 0) {
+    throw new Error(
+      `Twilio SMS error_code ${parsed.error_code}: ${parsed.error_message ?? "unknown"} (status=${status || "?"})`
+    );
+  }
+  if (status === "failed" || status === "undelivered") {
+    throw new Error(
+      `Twilio SMS status ${status}: ${parsed.error_message ?? "delivery failed"} (sid=${parsed.sid ?? "?"})`
+    );
+  }
+
+  return {
+    id: parsed.sid,
+    twilioStatus: parsed.status,
+    twilioFrom: parsed.from ?? (from || null),
+    twilioMeta: parsed,
+  };
 }
 
 async function dispatchOutbound(
   channel: ExternalNotificationChannel,
   args: { destination: string; subject: string; text: string }
-): Promise<{ id?: string }> {
+): Promise<SmsDispatchResult & { id?: string }> {
   if (channel === "email") {
-    return sendEmailViaResend({ to: args.destination, subject: args.subject, text: args.text });
+    const out = await sendEmailViaResend({ to: args.destination, subject: args.subject, text: args.text });
+    return { id: out.id };
   }
   return sendSmsViaTwilio({ to: args.destination, text: args.text });
 }
@@ -302,15 +340,27 @@ export async function processExternalNotificationQueue(args: {
         text,
       });
       sent++;
-      await args.supabase
-        .from("notification_external_queue")
-        .update({
-          status: "sent",
-          sent_at: new Date().toISOString(),
-          provider_message_id: out.id ?? null,
-          last_error: null,
-        })
-        .eq("id", r.id);
+      const updateRow: {
+        status: string;
+        sent_at: string;
+        provider_message_id: string | null;
+        last_error: null;
+        payload?: Record<string, unknown>;
+      } = {
+        status: "sent",
+        sent_at: new Date().toISOString(),
+        provider_message_id: out.id ?? null,
+        last_error: null,
+      };
+      if (args.channel === "sms") {
+        const smsOut = out as SmsDispatchResult;
+        updateRow.payload = {
+          twilio_status: smsOut.twilioStatus ?? null,
+          twilio_from: smsOut.twilioFrom ?? null,
+          twilio: smsOut.twilioMeta ?? null,
+        };
+      }
+      await args.supabase.from("notification_external_queue").update(updateRow).eq("id", r.id);
     } catch (e) {
       failed++;
       const msg = e instanceof Error ? e.message : String(e);
