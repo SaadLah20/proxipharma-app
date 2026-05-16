@@ -1,10 +1,10 @@
 import { createSupabaseServiceClient } from "@/lib/supabase-service";
 
-/** Défaut aligné sur `20260516_001` (pilote 30 min). Surcharge possible : `EXPIRE_RESPONDED_SILENCE=24 hours`. */
+/** Défaut 24 h (`20260523_001`). Surcharge : `EXPIRE_RESPONDED_SILENCE` (ex. `30 minutes` en test). */
 function respondedSilenceInterval(): string {
   const raw = process.env.EXPIRE_RESPONDED_SILENCE?.trim();
   if (raw) return raw;
-  return "30 minutes";
+  return "24 hours";
 }
 
 async function handleCron(req: Request) {

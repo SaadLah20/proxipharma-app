@@ -40,6 +40,6 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 - **Numéro SMS USA Twilio ≠ expéditeur WhatsApp** ; **pas** d’envoi API depuis le WhatsApp perso du pharmacien — liens **`wa.me`** OK sans Meta Business.
 - **Prochaine étape code** : variables d’env + route test d’envoi template, puis worker cron `channel=whatsapp` (sur le modèle Resend).
 
-**Expiration `responded`** : cron Supabase **`service_role`** sur **`expire_overdue_requests()`** (optionnellement `expire_overdue_requests(interval '24 hours')` en prod) ; **`abandon_unconfirmed_responded_requests()`** est un **alias** (même lot **`20260516_001`**). Défaut actuel en dépôt : **30 minutes** après **`responded_at`** pour tests (pas un bug fuseau Maroc : **`timestamptz`**).
+**Expiration `responded`** : cron **`service_role`** / **`/api/cron/expire-overdue-requests`** sur **`expire_overdue_requests()`** ; défaut **24 h** après **`responded_at`** (**`20260523_001`** ; surcharge Vercel **`EXPIRE_RESPONDED_SILENCE`**). **`abandon_unconfirmed_responded_requests()`** = alias.
 
 **Notifications in-app** : marquage comptoir **`counter_outcome:picked_up`** → **aucune** insertion **`app_notifications`** (**`20260515_001`**). Libellés patient : **`20260514_001`** (surcharges **`_in_app_notification_patient`**).
