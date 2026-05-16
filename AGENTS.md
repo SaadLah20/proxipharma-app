@@ -27,9 +27,11 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 - Migration **`20260521_001_profiles_email_nullable.sql`** : `profiles.email` nullable.
 - Unicité : **téléphone / e-mail** uniques côté **`auth.users`** (Supabase) ; doublons possibles dans **`profiles.whatsapp`** sur comptes **legacy** (e-mail avant SMS).
 
+**Notifications hors-app (e-mail + SMS)** :
+- File SQL : **`notification_external_queue`**, prefs **`notification_external_prefs`**, trigger sur **`app_notifications`** (`20260505_001`). SMS/WhatsApp : destination = **`profiles.whatsapp`** (E.164).
+- Workers : **`app/api/cron/send-external-emails`** (Resend), **`app/api/cron/send-external-sms`** (Twilio : `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` ou `TWILIO_MESSAGING_SERVICE_SID`) ; logique partagée **`lib/external-notification-queue-worker.ts`**. GitHub Actions **`send-external-emails-cron.yml`** appelle les deux (voir **`RUNBOOK.md` §9**).
+
 **Notifications WhatsApp (en cours, pas encore de worker)** :
-- File SQL déjà en place : **`notification_external_queue`** canal **`whatsapp`**, opt-in **`notification_external_prefs.whatsapp_enabled`**, trigger sur **`app_notifications`** (`20260505_001`). Destination = **`profiles.whatsapp`** (E.164).
-- E-mail sortant : **`app/api/cron/send-external-emails`** + GitHub Actions (voir **`RUNBOOK.md` §8–9**). **Pas** d’équivalent WhatsApp dans le repo pour l’instant.
 - **Étape 1 (infra, avant code)** : Meta Business + expéditeur WhatsApp via Twilio ; test manuel **template** depuis la console ; **ne pas** utiliser **MM Lite** pour messages utilitaires (erreur Twilio **63055** → envoyer via **Cloud API**, modèles catégorie **Utility** pour statuts demande).
 - **Numéro SMS USA Twilio ≠ expéditeur WhatsApp** ; **pas** d’envoi API depuis le WhatsApp perso du pharmacien — liens **`wa.me`** OK sans Meta Business.
 - **Prochaine étape code** : variables d’env + route test d’envoi template, puis worker cron `channel=whatsapp` (sur le modèle Resend).

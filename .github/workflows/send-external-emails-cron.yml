@@ -1,7 +1,7 @@
 # Les jobs `schedule` ne tournent que depuis la branche par défaut du dépôt (souvent `main`).
 # Tant que ce fichier n’est pas fusionné dans `main`, le cron ne se déclenchera pas automatiquement.
 # Test manuel : onglet Actions → ce workflow → « Run workflow » (workflow_dispatch).
-name: Send External Emails Cron
+name: Send External Notifications Cron
 
 on:
   schedule:
@@ -10,10 +10,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  trigger-email-cron-endpoint:
+  trigger-external-notification-crons:
     runs-on: ubuntu-latest
     steps:
-      - name: Call production email cron endpoint
+      - name: Call production external notification cron endpoints
         env:
           APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -28,19 +28,22 @@ jobs:
             exit 1
           fi
 
-          URL="${APP_BASE_URL%/}/api/cron/send-external-emails"
-          echo "Calling $URL"
+          call_cron() {
+            local path="$1"
+            local URL="${APP_BASE_URL%/}${path}"
+            echo "Calling $URL"
+            http_code=$(curl -sS -o response.json -w "%{http_code}" \
+              -X POST \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              "$URL")
+            echo "HTTP $http_code"
+            cat response.json
+            echo
+            if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+              exit 1
+            fi
+          }
 
-          http_code=$(curl -sS -o response.json -w "%{http_code}" \
-            -X POST \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            "$URL")
-
-          echo "HTTP $http_code"
-          cat response.json
-          echo
-
-          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
-            exit 1
-          fi
+          call_cron "/api/cron/send-external-emails"
+          call_cron "/api/cron/send-external-sms"
 

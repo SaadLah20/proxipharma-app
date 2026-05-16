@@ -10,7 +10,7 @@ async function handleCron(req: Request) {
     const requestOrigin = process.env.APP_BASE_URL ?? new URL(req.url).origin;
     const result = await processExternalNotificationQueue({
       supabase,
-      channel: "email",
+      channel: "sms",
       requestOrigin,
     });
     return Response.json(result);
