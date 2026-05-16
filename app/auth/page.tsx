@@ -8,6 +8,11 @@ import { supabase } from "@/lib/supabase";
 import { defaultPathAfterAuth } from "@/lib/post-auth-redirect";
 import { ensurePatientProfile } from "@/lib/ensure-patient-profile";
 import { parseLoginIdentifier } from "@/lib/auth-login-identifier";
+import {
+  authUserLooksLikeFreshSignup,
+  checkPhoneAvailableForSignup,
+  SIGNUP_PHONE_ALREADY_REGISTERED_FR,
+} from "@/lib/auth-signup-phone";
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -160,6 +165,18 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       return;
     }
 
+    const phoneCheck = await checkPhoneAvailableForSignup(signupPhone);
+    if (phoneCheck.error === "invalid_phone" || !phoneCheck.e164) {
+      setMessage("Numéro invalide. Utilisez le format international (ex. +212612345678 ou 0612345678).");
+      setLoading(false);
+      return;
+    }
+    if (!phoneCheck.available) {
+      setMessage(SIGNUP_PHONE_ALREADY_REGISTERED_FR);
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithOtp({
       phone: e164,
       options: {
@@ -211,6 +228,14 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     if (!user) {
       setMessage("Session introuvable après vérification. Réessayez.");
       setLoading(false);
+      return;
+    }
+
+    if (!authUserLooksLikeFreshSignup(user.created_at)) {
+      await supabase.auth.signOut();
+      setMessage(SIGNUP_PHONE_ALREADY_REGISTERED_FR);
+      setLoading(false);
+      resetSignupFlow();
       return;
     }
 
