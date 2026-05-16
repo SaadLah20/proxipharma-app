@@ -51,18 +51,11 @@ export function buildOutboundNotificationText(args: {
   const bodyLine = (args.row.body ?? "").trim();
 
   if (args.channel === "sms") {
-    // 1 segment (~160 car.) : pas d’URL — les SMS longs (5+ segments) vers le MA
-    // sont souvent marqués Delivered chez Twilio mais absents sur le téléphone.
+    // 1 segment, sans URL ni corps dupliqué — limite filtrage opérateur (Twilio 30007).
     const trim = (s: string, max: number) => (s.length <= max ? s : `${s.slice(0, max - 1)}…`);
-    const titleShort = trim(subject, 80);
-    const bodyShort = bodyLine ? trim(bodyLine, 50) : "";
-    const pharmaShort = trim(pharmacyLabel, 32);
-    let text = bodyShort
-      ? `ProxiPharma: ${titleShort}. ${bodyShort}. ${pharmaShort}`
-      : `ProxiPharma: ${titleShort}. ${pharmaShort}`;
-    if (text.length > 155) {
-      text = trim(`ProxiPharma: ${titleShort}. ${pharmaShort}`, 155);
-    }
+    const titleShort = trim(subject, 90);
+    const pharmaShort = trim(pharmacyLabel, 36);
+    const text = trim(`ProxiPharma - ${titleShort} (${pharmaShort})`, 155);
     return { subject, text };
   }
 
@@ -119,7 +112,7 @@ async function sendEmailViaResend(args: { to: string; subject: string; text: str
 /** Codes Twilio : ne pas retenter (facturation à chaque appel). */
 const TWILIO_SMS_PERMANENT_ERROR_CODES = new Set([
   21211, 21214, 21217, 21219, 21408, 21601, 21602, 21604, 21606, 21607, 21608, 21610, 21611, 21612,
-  21614, 30032, 30034, 30035,
+  21614, 30007, 30032, 30034, 30035,
 ]);
 
 export function twilioSmsErrorLooksPermanent(errorMessage: string): boolean {
