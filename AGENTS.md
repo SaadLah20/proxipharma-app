@@ -29,7 +29,7 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **Notifications hors-app (e-mail + SMS)** :
 - File SQL : **`notification_external_queue`**, prefs **`notification_external_prefs`**, trigger sur **`app_notifications`** (`20260505_001`). SMS/WhatsApp : destination = **`profiles.whatsapp`** (E.164).
-- Workers : **`app/api/cron/send-external-emails`** (Resend), **`app/api/cron/send-external-sms`** (Twilio), **`/api/webhooks/dispatch-external-sms`** (déclenchement rapide) ; **`lib/external-notification-queue-worker.ts`** (SMS : 1 tentative). Cron GitHub : e-mail **5 min** + SMS **~2–3 min** (deux schedules décalés) ; SMS quasi immédiat si **Database Webhook** Supabase (voir **`RUNBOOK.md` §9**).
+- Workers : **`app/api/cron/send-external-emails`** (Resend), **`app/api/cron/send-external-sms`** (Twilio), **`/api/webhooks/dispatch-external-sms`** (déclenchement rapide) ; **`lib/external-notification-queue-worker.ts`** (SMS : 1 tentative). Cron GitHub : e-mail + SMS **5 min** ; SMS quasi immédiat si **Database Webhook** Supabase (voir **`RUNBOOK.md` §9**).
 - **Vercel (SMS notifs)** : `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + **`TWILIO_SMS_FROM`** = **numéro Twilio acheté** (ex. `+447565507297`), API **Messages** — **pas** le libellé **Verify** des codes inscription (Supabase Auth = souvent **Twilio Verify**, expéditeur alphanumérique sans numéro visible).
 - `TWILIO_MESSAGING_SERVICE_SID` **optionnel** (inutile si `FROM` est le numéro acheté).
 - **SMS notifs (mai 2026)** : envoi manuel validé (PowerShell / cron) ; automatisation = cron GitHub + webhook Supabase optionnel. Garder plafond Twilio. Détail : **`RUNBOOK.md` §9**, **`CAHIER_DES_CHARGES.md` §10 session 2026-05-16**.

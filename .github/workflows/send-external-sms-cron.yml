@@ -1,11 +1,9 @@
-# SMS hors-app : planifié ~toutes les 2–3 min (deux crons décalés ; minimum GitHub = 5 min par expression).
-# Envoi quasi immédiat : webhook Supabase → POST /api/webhooks/dispatch-external-sms (voir RUNBOOK.md §9).
+# SMS hors-app : toutes les 5 min (minimum GitHub Actions). Plus rapide : webhook RUNBOOK §9.
 name: Send External SMS Cron
 
 on:
   schedule:
     - cron: "*/5 * * * *"
-    - cron: "2-57/5 * * * *"
   workflow_dispatch:
 
 jobs:
