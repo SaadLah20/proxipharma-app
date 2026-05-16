@@ -4,10 +4,10 @@ import { normalizePhoneToE164 } from "@/lib/phone-e164";
 export type ExternalNotificationChannel = "email" | "sms";
 
 /** SMS pilote patient : réponse officine + dossier traité uniquement. */
-export const SMS_PATIENT_EVENT_TYPES = new Set([
+export const SMS_PATIENT_EVENT_TYPES = new Set<string>([
   "request_status:responded",
   "request_status:treated",
-] as const);
+]);
 
 const REQUEST_TYPE_LABEL_FR: Record<string, string> = {
   product_request: "Demande de produits",
