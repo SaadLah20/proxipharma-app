@@ -45,4 +45,5 @@ jobs:
           }
 
           call_cron "/api/cron/send-external-emails"
+          call_cron "/api/cron/send-external-sms"
 
