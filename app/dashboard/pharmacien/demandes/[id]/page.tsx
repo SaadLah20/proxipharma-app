@@ -414,17 +414,20 @@ function effectiveAvailSupplyDraft(row: ItemRow, f: ItemDraft): string | null {
   let status = f.availability_status;
   let availQty = Number(f.available_qty || "0");
 
-  if (
-    chosenAlt &&
-    status === row.availability_status &&
-    row.availability_status &&
-    ["unavailable", "market_shortage"].includes(String(row.availability_status))
-  ) {
+  if (chosenAlt) {
     const altSt = chosenAlt.availability_status ?? "";
     if (altSt === "partially_available" || altSt === "available" || altSt === "to_order") {
-      status = altSt === "partially_available" ? "available" : altSt;
-      const aq = Number(chosenAlt.available_qty ?? 0);
-      availQty = Number.isFinite(aq) ? aq : 0;
+      const altNorm = altSt === "partially_available" ? "available" : altSt;
+      const mainSt = row.availability_status ?? "";
+      /** Brouillon encore sur la ligne principale alors que le patient a validé l’alternative. */
+      const staleMainDraft =
+        status === mainSt ||
+        Boolean(mainSt && ["unavailable", "market_shortage"].includes(String(mainSt)));
+      if (staleMainDraft) {
+        status = altNorm;
+        const aq = Number(chosenAlt.available_qty ?? 0);
+        availQty = Number.isFinite(aq) ? aq : availQty;
+      }
     }
   }
 
@@ -853,6 +856,41 @@ function buildItemDraftFromRow(row: ItemRow, requestStatus?: string | null): Ite
   };
 }
 
+/**
+ * Fusion brouillon après reload : conserve les saisies en cours, sauf disponibilité
+ * de l’alternative retenue (sinon l’ancien brouillon « réponse » masque Réservé / Commandé).
+ */
+function mergeItemDraftOnReload(
+  row: ItemRow,
+  built: ItemDraft,
+  prev: ItemDraft | undefined,
+  requestStatus: string | null | undefined
+): ItemDraft {
+  if (!prev) return built;
+  const postConfirmChosenAlt =
+    Boolean(row.patient_chosen_alternative_id) &&
+    Boolean(row.is_selected_by_patient) &&
+    requestStatus != null &&
+    ["confirmed", "treated"].includes(requestStatus);
+  const supplyFromBuilt = postConfirmChosenAlt
+    ? {
+        availability_status: built.availability_status,
+        available_qty: built.available_qty,
+        unit_price: built.unit_price,
+        expected_availability_date: built.expected_availability_date,
+        pharmacist_comment: built.pharmacist_comment,
+      }
+    : {};
+  return {
+    ...built,
+    ...prev,
+    ...supplyFromBuilt,
+    withdrawn_after_confirm: built.withdrawn_after_confirm,
+    selected_qty_str: built.selected_qty_str,
+    fulfillment_draft: built.fulfillment_draft,
+  };
+}
+
 /** Après flush des propositions locales : réassocie le brouillon aux `request_items` persistés. */
 function mergeDraftAfterLocalProposalFlush(
   freshItems: ItemRow[],
@@ -866,15 +904,7 @@ function mergeDraftAfterLocalProposalFlush(
     const localId = serverToLocal.get(row.id);
     const prev = localId ? prevDraft[localId] : prevDraft[row.id];
     const built = buildItemDraftFromRow(row, requestStatus);
-    next[row.id] = prev
-      ? {
-          ...built,
-          ...prev,
-          withdrawn_after_confirm: built.withdrawn_after_confirm,
-          selected_qty_str: built.selected_qty_str,
-          fulfillment_draft: built.fulfillment_draft,
-        }
-      : built;
+    next[row.id] = mergeItemDraftOnReload(row, built, prev, requestStatus);
   }
   return next;
 }
@@ -1539,16 +1569,7 @@ export default function PharmacienDemandeDetailPage() {
       const next: Draft = {};
       for (const row of list) {
         const built = buildItemDraftFromRow(row, r.status);
-        const p = prev[row.id];
-        next[row.id] = p
-          ? {
-              ...built,
-              ...p,
-              withdrawn_after_confirm: built.withdrawn_after_confirm,
-              selected_qty_str: built.selected_qty_str,
-              fulfillment_draft: built.fulfillment_draft,
-            }
-          : built;
+        next[row.id] = mergeItemDraftOnReload(row, built, prev[row.id], r.status);
       }
       return next;
     });
