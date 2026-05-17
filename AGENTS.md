@@ -14,6 +14,8 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **UI pharmacien post-validé** — **`app/dashboard/pharmacien/demandes/[id]/page.tsx`** + **`components/pharmacist/pharmacist-supply-compact-line.tsx`** : brouillon (réservé/commandé, écart, comptoir **en attente / récupéré**) validé par **Enregistrer les modifications** ; pas d’auto-save comptoir sur cette vue compacte ; migrations **`20260509_001`** / **`20260509_002`** si infra à jour.
 
+**UI pharmacien — note / échange par ligne** — **`components/pharmacist/pharmacist-line-conversation-chip.tsx`** (`PharmacistLineConversationModal` sur **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**) : **Confirmer la note** valide le texte saisi dans **`pharmacist_comment`** (pas de raccourci qui insère `"OK"`). Envoi patient = **publier la réponse** dossier.
+
 **Ne pas réécrire tout le détail produit** sans relire **`CONTEXTE.md` §6** et **`CAHIER_DES_CHARGES.md` §4.4 + dernier §10 Journal + §13.12** (phrase de reprise type ; §13.10 reste valable pour le lot **`20260509_*`**). Pour une **ouverture sans tâche** (aucune implémentation avant consigne explicite) : **`CAHIER_DES_CHARGES.md` §13.11**.
 
 **Développement** : le pilote est **toujours en dev** — si une correction est nettement plus simple en **réinitialisant les données** (script reset demandes / base de test), **demander explicitement** une vidage plutôt que d’empiler migrations ou branches SQL uniquement pour préserver des jeux obsolètes.
@@ -22,11 +24,11 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **Auth patient (mai 2026)** — **`app/auth/page.tsx`** :
 - **Connexion** (`/auth`) : un champ **téléphone ou e-mail** + mot de passe (`lib/auth-login-identifier.ts`, `signInWithPassword`).
-- **Inscription** (`/auth?mode=signup`) : nom + téléphone + e-mail facultatif → **SMS OTP** → mot de passe → session (`lib/ensure-patient-profile.ts`, `lib/phone-e164.ts`).
+- **Inscription** (`/auth?mode=signup`) : nom + téléphone + e-mail facultatif → **OTP** (souvent **SMS** ; au pilote peut arriver via **WhatsApp** selon config Supabase/Twilio Verify) → mot de passe → session (`lib/ensure-patient-profile.ts`, `lib/phone-e164.ts`). Numéros **pro** : SMS Verify souvent **Failed** — tester en **perso** (`+2126…`).
 - E-mail récupération : **`/auth/update-password`** ; opt-in e-mail aussi dans **`app/dashboard/patient/parametres/page.tsx`**.
 - Migration **`20260521_001_profiles_email_nullable.sql`** : `profiles.email` nullable.
 - Unicité : **téléphone / e-mail** uniques côté **`auth.users`** (Supabase) ; doublons possibles dans **`profiles.whatsapp`** sur comptes **legacy** (e-mail avant SMS).
-- **Inscription** : avant envoi OTP, **`POST /api/auth/signup-phone-check`** + **`auth_phone_user_exists`** (**`20260522_003`**) — pas de SMS si le numéro est déjà dans **`auth.users`** ; message « utilisez Connexion ».
+- **Inscription** : avant envoi OTP, **`POST /api/auth/signup-phone-check`** + **`auth_phone_user_exists`** (**`20260522_003`**) — pas de SMS si le numéro est déjà dans **`auth.users`** ; message « utilisez Connexion ». **Renvoi OTP** : `shouldCreateUser: false`. Doublons historiques même téléphone en pilote : reset demandes + suppression comptes Auth.
 
 **Notifications hors-app (e-mail + SMS)** :
 - File SQL : **`notification_external_queue`**, prefs **`notification_external_prefs`**, trigger sur **`app_notifications`** (`20260505_001`). SMS/WhatsApp : destination = **`profiles.whatsapp`** (E.164).

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
+import { appendSmsRequestLinkIfEnabled } from "@/lib/sms-request-short-link";
 
 export type ExternalNotificationChannel = "email" | "sms";
 
@@ -87,6 +88,12 @@ export function buildOutboundNotificationText(args: {
     } else {
       text = trimSmsSegment(`ProxiPharma - ${subject}`, 155);
     }
+    text = appendSmsRequestLinkIfEnabled({
+      text,
+      requestOrigin: args.requestOrigin,
+      requestId: args.row.request_id,
+      eventType: args.row.event_type,
+    });
     return { subject, text: trimSmsSegment(text, 155) };
   }
 
