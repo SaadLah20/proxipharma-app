@@ -26,6 +26,36 @@ function draftKey(pharmacyId: string, requestId?: string): string {
   return `proxipharma:demande-produits:${pharmacyId}`;
 }
 
+const catalogueReturnEditKey = (requestId: string) => `proxipharma:catalogue-return-edit:${requestId}`;
+
+/** À appeler après ajout depuis le catalogue en modification d’une demande existante. */
+export function markPatientDemandeCatalogueReturnEdit(requestId: string): void {
+  if (typeof window === "undefined" || !requestId) return;
+  try {
+    sessionStorage.setItem(catalogueReturnEditKey(requestId), "1");
+  } catch {
+    /* quota / mode privé */
+  }
+}
+
+export function peekPatientDemandeCatalogueReturnEdit(requestId: string): boolean {
+  if (typeof window === "undefined" || !requestId) return false;
+  try {
+    return sessionStorage.getItem(catalogueReturnEditKey(requestId)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function clearPatientDemandeCatalogueReturnEdit(requestId: string): void {
+  if (typeof window === "undefined" || !requestId) return;
+  try {
+    sessionStorage.removeItem(catalogueReturnEditKey(requestId));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function readPatientDemandeProduitsDraft(
   pharmacyId: string,
   requestId?: string
@@ -69,6 +99,16 @@ export function clearPatientDemandeProduitsDraft(pharmacyId: string, requestId?:
   } catch {
     /* ignore */
   }
+}
+
+/** Map brouillon → lignes édition resubmit (composant patient). */
+export function draftLineToResubmitLine(line: PatientDemandeProduitsDraftLine): PatientDemandeProduitsDraftLine & {
+  client_comment: string;
+} {
+  return {
+    ...line,
+    client_comment: line.client_comment ?? "",
+  };
 }
 
 export function mergeCatalogProductsIntoDraft(

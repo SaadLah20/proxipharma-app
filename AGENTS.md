@@ -20,6 +20,8 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **Catalogue & photos (mai 2026)** — **`lib/storage-media.ts`**, **`lib/patient-demande-produits-draft.ts`**, **`/pharmacie/[id]/demande-produits/catalogue`** ; vignettes = chemins Storage résolus en URL publique (pas `<img src="products/…">` relatif). Merge **`main`** + migrations **`20260524_*`** pour prod.
 
+**Types de demande (registre)** — **`lib/request-kinds/`** : config par type (`product_request`, `prescription`, `free_consultation`) — thème header, routes hubs, capacités, refs **D/O/C**. Workflow commun (statuts, buckets) → **`lib/request-kinds/shared-capabilities.ts`** + **`lib/demandes-hub-buckets.ts`**. UI partagée : **`components/requests/shared/`**. Produits : **`components/requests/product/patient-product-request-actions.tsx`**. **Ordonnances (phase 2 livrée)** : capture **`/pharmacie/[id]/demande-ordonnance`**, **`lib/prescription-media.ts`**, viewer + panneaux **`components/requests/prescription/`** ; workflow lignes partagé avec produits après réponse pharma ; migrations **`20260525_*`**. **Consultation libre** : `workflowEnabled: false` (phase 3).
+
 **Développement** : le pilote est **toujours en dev** — si une correction est nettement plus simple en **réinitialisant les données** (script reset demandes / base de test), **demander explicitement** une vidage plutôt que d’empiler migrations ou branches SQL uniquement pour préserver des jeux obsolètes.
 
 **Auth locale (SMS / Supabase)** : tester **`/auth`** dans **Chrome ou Edge** (fenêtre système), **pas** le navigateur intégré / Simple Browser de l’IDE — stockage, cookies et requêtes vers **`*.supabase.co`** y sont souvent incomplets ; si ça marche dans Chrome, le flux est en général correct.

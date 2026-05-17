@@ -29,12 +29,7 @@ import {
 import { RequestExitConfirmModalFr } from "@/components/requests/request-exit-confirm-modal-fr";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import { supabase } from "@/lib/supabase";
-import {
-  formatDateShortFr,
-  formatDateTimeShort24hFr,
-  formatDateShortCasablancaWithTime24hFr,
-  formatPlannedVisitFr,
-} from "@/lib/datetime-fr";
+import { formatDateShortFr, formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import {
   PHARMACIST_AVAILABILITY_OPTIONS,
   PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS,
@@ -51,7 +46,6 @@ import {
   pharmacistRequestIsClosedSuccess,
   pharmacistRequestIsHardStopped,
   requestHistoryPharmacistHeadline,
-  requestStatusBadgeClass,
   requestStatusFr,
 } from "@/lib/request-display";
 import {
@@ -61,7 +55,13 @@ import {
   type PharmaConfirmAdjustmentAudit,
   type PharmaConfirmAdjustmentLine,
 } from "@/lib/patient-request-history-audit";
-import { displayRequestPublicRef } from "@/lib/public-ref";
+import { getRequestKindConfig } from "@/lib/request-kinds/registry";
+import { sharedShowPlannedVisitBlock } from "@/lib/request-kinds/shared-capabilities";
+import { RequestDetailBackLink } from "@/components/requests/shared/request-detail-back-link";
+import { RequestKindHeader } from "@/components/requests/shared/request-kind-header";
+import { RequestTypeStubPanel } from "@/components/requests/shared/request-type-stub-panel";
+import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
+import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 import { one } from "@/lib/embed";
 import { formatPphMad, pphLabel } from "@/lib/product-price";
 import { mapRequestItemRowPhotos, mapRequestItemsPhotos, resolvePublicMediaUrl } from "@/lib/storage-media";
@@ -1373,6 +1373,8 @@ export default function PharmacienDemandeDetailPage() {
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationUnread, setConversationUnread] = useState(false);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+  const [prescriptionPaths, setPrescriptionPaths] = useState<PrescriptionPagePaths | null>(null);
+  const [prescriptionNote, setPrescriptionNote] = useState<string | null>(null);
   /** Après publication (`responded`), affichage figé jusqu'à « Modifier ». */
   const [respondedEditMode, setRespondedEditMode] = useState(false);
   const [respondedSaveConfirmOpen, setRespondedSaveConfirmOpen] = useState(false);
@@ -1406,6 +1408,7 @@ export default function PharmacienDemandeDetailPage() {
   const hideStaleServerPharmacistProposals = useMemo(
     () =>
       !!request &&
+      request.request_type === "product_request" &&
       !["confirmed", "treated"].includes(request.status) &&
       ["submitted", "in_review"].includes(request.status),
     [request]
@@ -1522,6 +1525,7 @@ export default function PharmacienDemandeDetailPage() {
     let list = (itemsData as ItemRow[]) ?? [];
     /* Nettoyer d’anciennes propositions officine encore en base alors que la demande n’a pas encore été répondue au patient. */
     if (
+      r.request_type === "product_request" &&
       ["submitted", "in_review"].includes(r.status) &&
       list.some((row) => row.line_source === "pharmacist_proposed")
     ) {
@@ -1550,6 +1554,30 @@ export default function PharmacienDemandeDetailPage() {
 
     setItems(mapRequestItemsPhotos(list));
     setAltQtyDrafts({});
+
+    if (r.request_type === "prescription") {
+      const { data: prRow, error: prErr } = await supabase
+        .from("prescription_requests")
+        .select("prescription_image_url,page_2_path,patient_note")
+        .eq("request_id", id)
+        .maybeSingle();
+      if (prErr) {
+        setError(prErr.message);
+        setLoading(false);
+        return;
+      }
+      if (prRow) {
+        const pr = prRow as { prescription_image_url: string | null; page_2_path: string | null; patient_note: string | null };
+        setPrescriptionPaths({ page1: pr.prescription_image_url, page2: pr.page_2_path });
+        setPrescriptionNote(pr.patient_note);
+      } else {
+        setPrescriptionPaths(null);
+        setPrescriptionNote(null);
+      }
+    } else {
+      setPrescriptionPaths(null);
+      setPrescriptionNote(null);
+    }
 
     const [{ data: amendRows }, { data: dossierHist }] = await Promise.all([
       supabase.from("request_supply_amendments").select("id,created_at,amendments").eq("request_id", id).order("created_at", { ascending: true }),
@@ -3010,12 +3038,16 @@ export default function PharmacienDemandeDetailPage() {
 
   const publishResponse = async () => {
     if (!request) return;
-    if (request.request_type !== "product_request") {
-      setError("Pour l’instant, seules les demandes « Produits » sont traitées ici.");
+    if (request.request_type !== "product_request" && request.request_type !== "prescription") {
+      setError("Type de demande non pris en charge sur cet écran.");
       return;
     }
     if (displayRows.length === 0) {
-      setError("Aucune ligne produit à renseigner.");
+      setError(
+        request.request_type === "prescription"
+          ? "Ajoutez au moins un produit depuis l’ordonnance (section « Proposer un produit »)."
+          : "Aucune ligne produit à renseigner."
+      );
       return;
     }
 
@@ -3203,7 +3235,9 @@ export default function PharmacienDemandeDetailPage() {
       (request.status === "responded" && respondedEditMode) ||
       request.status === "confirmed" ||
       request.status === "treated");
-  const isProduct = request?.request_type === "product_request";
+  const usesLineWorkflow =
+    request?.request_type === "product_request" || request?.request_type === "prescription";
+  const isPrescription = request?.request_type === "prescription";
 
   const lineEntriesForList = useMemo(() => {
     if (request && ["confirmed", "treated"].includes(request.status)) {
@@ -3366,7 +3400,7 @@ export default function PharmacienDemandeDetailPage() {
 
   let canCompleteCounter = false;
   let counterClosurePendingTracked = 0;
-  if (request && isProduct && request.status === "treated") {
+  if (request && usesLineWorkflow && request.status === "treated") {
     const selectedLines = items.filter((i) => i.is_selected_by_patient);
     const tracked = selectedLines.filter((i) => !i.withdrawn_after_confirm);
     const pickedPersisted = tracked.filter((i) => (i.counter_outcome ?? "unset") === "picked_up").length;
@@ -3395,6 +3429,8 @@ export default function PharmacienDemandeDetailPage() {
 
   if (!request) return null;
 
+  const kindConfig = getRequestKindConfig(request.request_type);
+
   const patientPhone = patientProfile?.whatsapp?.trim();
   const patientEmail = patientProfile?.email?.trim();
   let selectedLinesActiveCount = 0;
@@ -3417,21 +3453,14 @@ export default function PharmacienDemandeDetailPage() {
     else if (co === "picked_up") pickedUpCount += 1;
   }
 
-  const showPassageInPharmaHeader =
-    request.status === "confirmed" ||
-    request.status === "treated" ||
-    request.status === "completed" ||
-    request.status === "partially_collected" ||
-    request.status === "fully_collected";
-
   const showDeclareTreatedSticky =
-    isProduct &&
+    usesLineWorkflow &&
     request.status === "confirmed" &&
     !respondedFrozenView &&
     declarationTreatedEligible &&
     canManageSupply;
 
-  const showSupplyStatsFooter = isProduct && Boolean(canManageSupply) && displayRows.length > 0;
+  const showSupplyStatsFooter = usesLineWorkflow && Boolean(canManageSupply) && displayRows.length > 0;
   const showSupplyDirtyBar = Boolean(canManageSupply && supplyStructuralDirty);
 
   let bottomChromePaddingClass = "";
@@ -3445,87 +3474,27 @@ export default function PharmacienDemandeDetailPage() {
     bottomChromePaddingClass = "pb-24 sm:pb-28";
   }
 
-  const pharmaProductHeaderShell =
-    request && isProduct
-      ? clsx(
-          "mt-2 rounded-xl border-2 px-2.5 py-1.5 shadow-sm sm:px-3",
-          ["submitted", "in_review"].includes(request.status)
-            ? "border-sky-400/40 bg-gradient-to-br from-sky-500/12 via-white to-teal-50/25 ring-1 ring-sky-300/35"
-            : request.status === "responded"
-              ? "border-amber-400/45 bg-gradient-to-br from-amber-50/55 via-white to-orange-50/25 ring-1 ring-amber-200/50"
-              : ["confirmed", "treated", "completed", "partially_collected", "fully_collected"].includes(request.status)
-                ? "border-teal-300/50 bg-gradient-to-br from-emerald-50/45 via-white to-teal-50/30 ring-1 ring-teal-200/45"
-                : "border-slate-300/45 bg-gradient-to-b from-white to-slate-50/50 ring-1 ring-slate-200/50"
-        )
-      : "mt-2 rounded-xl border-2 border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 px-2.5 py-1.5 shadow-md shadow-sky-900/[0.06] ring-1 ring-sky-200/55 sm:px-3";
-
   return (
     <PageShell
       maxWidthClass="max-w-3xl"
       className={clsx(
         "space-y-2 sm:space-y-3",
-        isProduct && "bg-slate-50",
+        usesLineWorkflow && "bg-slate-50",
         canManageResponded && respondedEditMode && request?.status === "responded" && "pb-28 sm:pb-24",
         bottomChromePaddingClass
       )}
     >
-      <Link href="/dashboard/pharmacien/demandes" className="inline-block text-xs font-medium text-sky-800 underline">
-        ← Retour aux demandes de produits
-      </Link>
+      <RequestDetailBackLink config={kindConfig} viewerRole="pharmacien" />
 
-      <header className={pharmaProductHeaderShell}>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:gap-x-2">
-            <span className="shrink-0 font-bold uppercase tracking-wide text-sky-950/85">Demande prod.</span>
-            <span className="font-mono text-[11px] font-semibold text-foreground">
-              {displayRequestPublicRef(request)}
-            </span>
-            {isProduct ? (
-              <span className="shrink-0 rounded-full border border-sky-200/90 bg-white/90 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-sky-950">
-                {displayRows.length} ligne{displayRows.length > 1 ? "s" : ""}
-              </span>
-            ) : null}
-            <span className="text-muted-foreground" aria-hidden>
-              ·
-            </span>
-            <span className="text-muted-foreground">
-              Envoyée{" "}
-              <span className="font-semibold tabular-nums text-foreground">
-                {formatDateShortCasablancaWithTime24hFr(request.submitted_at ?? request.created_at)}
-              </span>
-            </span>
-            {showPassageInPharmaHeader ? (
-              <>
-                <span className="text-muted-foreground" aria-hidden>
-                  ·
-                </span>
-                <span className="text-muted-foreground">
-                  Passage{" "}
-                  <span className="font-semibold text-foreground">
-                    {request.patient_planned_visit_date
-                      ? formatPlannedVisitFr(request.patient_planned_visit_date, request.patient_planned_visit_time)
-                      : "À définir"}
-                  </span>
-                </span>
-              </>
-            ) : null}
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5 sm:ms-auto">
-            <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Statut</span>
-            <span
-              className={clsx(
-                "inline-flex max-w-[min(100%,16rem)] justify-center truncate rounded-full border px-2 py-0.5 text-center text-[10px] font-bold leading-tight shadow-sm sm:max-w-[14rem]",
-                requestStatusBadgeClass(request.status)
-              )}
-              title={(requestStatusFr[request.status] ?? request.status) + ""}
-            >
-              {requestStatusFr[request.status] ?? request.status}
-            </span>
-          </div>
-        </div>
-      </header>
+      <RequestKindHeader
+        config={kindConfig}
+        request={request}
+        lineCount={usesLineWorkflow ? displayRows.length : null}
+        showPlannedVisit={sharedShowPlannedVisitBlock(request.status)}
+        viewerRole="pharmacien"
+      />
 
-      {pharmacistRequestIsHardStopped(request.status) && isProduct ? (
+      {pharmacistRequestIsHardStopped(request.status) && usesLineWorkflow ? (
         <section
           className={clsx(
             "rounded-lg border px-3 py-2 shadow-sm",
@@ -3553,7 +3522,7 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      {pharmacistRequestIsClosedSuccess(request.status) && isProduct ? (
+      {pharmacistRequestIsClosedSuccess(request.status) && usesLineWorkflow ? (
         <section className="rounded-lg border border-emerald-200/85 bg-emerald-50/65 px-3 py-2 text-[11px] text-emerald-950 shadow-sm">
           <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900/75">Clôture</p>
           <p className="mt-0.5 font-semibold tabular-nums">
@@ -3640,7 +3609,7 @@ export default function PharmacienDemandeDetailPage() {
         </div>
       </section>
 
-      {isProduct &&
+      {usesLineWorkflow &&
       request &&
       ["submitted", "in_review"].includes(request.status) &&
       !pharmacistRequestIsHardStopped(request.status) ? (
@@ -3652,7 +3621,7 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      {isProduct && request?.status === "confirmed" && !pharmacistRequestIsHardStopped(request.status) ? (
+      {usesLineWorkflow && request?.status === "confirmed" && !pharmacistRequestIsHardStopped(request.status) ? (
         <section className="rounded-lg border border-teal-200/85 bg-gradient-to-r from-teal-50/60 to-white px-2.5 py-2 text-[10px] leading-snug text-teal-950 shadow-sm ring-1 ring-teal-200/35 sm:px-3">
           <p className="text-[11px] font-bold text-teal-950">Commande validée côté patient</p>
           <p className="mt-1 text-teal-900/90">
@@ -3661,7 +3630,7 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      {isProduct && request?.status === "treated" && !pharmacistRequestIsHardStopped(request.status) ? (
+      {usesLineWorkflow && request?.status === "treated" && !pharmacistRequestIsHardStopped(request.status) ? (
         <section className="rounded-lg border border-violet-200/80 bg-gradient-to-r from-violet-50/50 via-white to-teal-50/20 px-2.5 py-2 text-[10px] leading-snug text-violet-950 shadow-sm ring-1 ring-violet-200/40 sm:px-3">
           <p className="text-[11px] font-bold text-violet-950">Retrait comptoir</p>
           <p className="mt-1 text-violet-900/88">
@@ -3670,7 +3639,7 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      {respondedEditMode && request?.status === "responded" && isProduct ? (
+      {respondedEditMode && request?.status === "responded" && usesLineWorkflow ? (
         <section
           id="pharma-demande-mode-edition"
           className="sticky top-0 z-20 rounded-xl border-2 border-amber-400/90 bg-gradient-to-r from-amber-50 via-orange-50/80 to-amber-50/90 px-3 py-2 shadow-md ring-1 ring-amber-300/50"
@@ -3682,7 +3651,7 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      {respondedFrozenView && isProduct ? (
+      {respondedFrozenView && usesLineWorkflow ? (
         <section className="rounded-lg border-2 border-amber-300/45 bg-gradient-to-br from-amber-50/80 via-white to-orange-50/25 px-2.5 py-2 text-[10px] leading-snug text-amber-950 shadow-sm ring-1 ring-amber-200/45 sm:px-3 sm:text-[11px]">
           <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
             <span className="shrink-0 rounded-full border border-amber-400/80 bg-white/90 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-amber-950">
@@ -3712,16 +3681,35 @@ export default function PharmacienDemandeDetailPage() {
         <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{error}</p>
       ) : null}
 
-      {!isProduct ? (
-        <p className="mt-2 rounded-md border border-border bg-muted/30 p-2 text-[11px] text-muted-foreground">
-          Type de demande non géré dans cet écran (hors produits).
-        </p>
+      {!kindConfig.capabilities.workflowEnabled ? (
+        <RequestTypeStubPanel config={kindConfig} viewerRole="pharmacien" />
       ) : (
         <>
-          {displayRows.length === 0 ? (
+          {isPrescription && prescriptionPaths ? (
+            <div className="mb-3 space-y-2 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-start lg:gap-3">
+              <PrescriptionImageViewer paths={prescriptionPaths} className="lg:sticky lg:top-2" />
+              <div className="space-y-2">
+                {prescriptionNote?.trim() ? (
+                  <p className="rounded-lg border border-amber-200/70 bg-amber-50/40 px-2.5 py-2 text-[11px] leading-snug text-amber-950">
+                    <span className="font-semibold">Message patient : </span>
+                    {prescriptionNote.trim()}
+                  </p>
+                ) : null}
+                {displayRows.length === 0 && showLineAndPublishEdits ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Saisissez les produits lus sur l’ordonnance via « Proposer un produit » ci-dessous, puis publiez la réponse.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {displayRows.length === 0 && !isPrescription ? (
             <p className="mt-2 text-[11px] text-muted-foreground">Aucune ligne produit.</p>
           ) : (
             <>
+              {displayRows.length > 0 ? (
+              <>
               <div className="flex flex-wrap items-end justify-between gap-1.5 sm:gap-2">
             <div>
               <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground sm:text-xs">Produits</h2>
@@ -5013,6 +5001,8 @@ export default function PharmacienDemandeDetailPage() {
               </div>
             ))}
           </div>
+              </>
+              ) : null}
 
           {showLineAndPublishEdits ? (
             <section className="mt-2 flex min-h-0 flex-col rounded-xl border border-violet-300/70 bg-gradient-to-br from-violet-50/80 via-fuchsia-50/35 to-white px-2 py-1.5 shadow-sm ring-1 ring-violet-300/35 sm:px-2.5 sm:py-2">
@@ -5023,7 +5013,12 @@ export default function PharmacienDemandeDetailPage() {
                   const next = !propOpen;
                   setPropOpen(next);
                   setError("");
-                  if (next) resetPropForm();
+                  if (next) {
+                    resetPropForm();
+                    if (request?.request_type === "prescription") {
+                      setPropReason("Saisie depuis ordonnance");
+                    }
+                  }
                 }}
                 className="flex w-full min-h-11 items-start justify-between gap-2 rounded-lg bg-white/90 px-2 py-2 text-left ring-1 ring-violet-200/55 shadow-sm transition hover:bg-violet-50/60 sm:min-h-0 sm:items-center sm:px-2.5"
               >
@@ -5695,7 +5690,7 @@ export default function PharmacienDemandeDetailPage() {
         blocks={pharmaHistoryBlocks}
         onClose={() => setPharmaHistoryRowId(null)}
       />
-      {isProduct && sessionUserId ? (
+      {usesLineWorkflow && sessionUserId ? (
         <>
           <RequestConversationFabDock
             hasUnread={conversationUnread}

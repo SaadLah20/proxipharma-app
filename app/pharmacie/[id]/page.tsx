@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { MessageCircle, Phone, ShoppingBag } from "lucide-react";
+import { FileText, MessageCircle, Phone, ShoppingBag } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 
@@ -150,15 +150,24 @@ export default function PharmacieFichePage() {
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
                 Services en ligne
               </h2>
-              <Link
-                href={`/pharmacie/${pharmacy.id}/demande-produits`}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-blue-200 bg-blue-600/5 py-4 text-base font-semibold text-blue-900 transition hover:bg-blue-600/10"
-              >
-                <ShoppingBag size={22} strokeWidth={2} />
-                Demander des produits
-              </Link>
+              <div className="flex flex-col gap-3">
+                <Link
+                  href={`/pharmacie/${pharmacy.id}/demande-produits`}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-blue-200 bg-blue-600/5 py-4 text-base font-semibold text-blue-900 transition hover:bg-blue-600/10"
+                >
+                  <ShoppingBag size={22} strokeWidth={2} />
+                  Demander des produits
+                </Link>
+                <Link
+                  href={`/pharmacie/${pharmacy.id}/demande-ordonnance`}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-amber-200 bg-amber-600/5 py-4 text-base font-semibold text-amber-950 transition hover:bg-amber-600/10"
+                >
+                  <FileText size={22} strokeWidth={2} />
+                  Envoyer une ordonnance
+                </Link>
+              </div>
               <p className="mt-2 text-xs text-gray-500">
-                Recherche dans la base produits, quantités, envoi à la pharmacie (Sprint 2).
+                Produits via le catalogue, ou photo d’ordonnance (jusqu’à 2 pages) pour saisie par la pharmacie.
               </p>
             </section>
           </article>

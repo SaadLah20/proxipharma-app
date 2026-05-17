@@ -6,14 +6,15 @@ import Link from "next/link";
 import { clsx } from "clsx";
 import { useParams, useRouter } from "next/navigation";
 import { PageShell } from "@/components/ui/compact-shell";
-import {
-  formatDateShortCasablancaWithTime24hFr,
-  formatDateTimeShort24hFr,
-  formatPlannedVisitFr,
-} from "@/lib/datetime-fr";
+import { formatDateShortCasablancaWithTime24hFr, formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import { supabase } from "@/lib/supabase";
 import { historyActorLabel, requestHistoryPatientHeadline, requestStatusFr } from "@/lib/request-display";
 import { displayRequestPublicRef } from "@/lib/public-ref";
+import { getRequestKindConfig } from "@/lib/request-kinds/registry";
+import { sharedShowPlannedVisitBlock } from "@/lib/request-kinds/shared-capabilities";
+import { RequestDetailBackLink } from "@/components/requests/shared/request-detail-back-link";
+import { RequestKindHeader } from "@/components/requests/shared/request-kind-header";
+import { RequestTypeStubPanel } from "@/components/requests/shared/request-type-stub-panel";
 import { one } from "@/lib/embed";
 import { mapRequestItemsPhotos } from "@/lib/storage-media";
 import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
@@ -21,13 +22,15 @@ import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-h
 import {
   PatientProductRequestActions,
   type PatientPharmacyContactInfo,
-} from "./PatientProductRequestActions";
+} from "@/components/requests/product/patient-product-request-actions";
 import {
   PatientRequestOutcomeBanner,
   isPatientProductArchiveStatus,
   type PatientOutcomeDetailContext,
 } from "@/components/requests/patient-request-outcome-banner";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
+import { PatientPrescriptionRequestPanel } from "@/components/requests/prescription/patient-prescription-request-panel";
+import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 
 type PharmacyEmbed = {
   nom: string;
@@ -112,6 +115,8 @@ export default function DemandeDetailPage() {
   const [conversationUnread, setConversationUnread] = useState(false);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const [conversationMessageCount, setConversationMessageCount] = useState(0);
+  const [prescriptionPaths, setPrescriptionPaths] = useState<PrescriptionPagePaths | null>(null);
+  const [prescriptionNote, setPrescriptionNote] = useState<string | null>(null);
 
   const loadDetail = useCallback(
     async (silent?: boolean) => {
@@ -172,7 +177,9 @@ export default function DemandeDetailPage() {
         r.request_type === "product_request" &&
         (["confirmed", "treated"].includes(st) || isPatientProductArchiveStatus(st));
 
-      const [itemsResult, amendmentsResult, convUnreadRes, convCountRes, histResult] = await Promise.all([
+      const isPrescription = (reqRow as RequestDetail).request_type === "prescription";
+
+      const [itemsResult, amendmentsResult, convUnreadRes, convCountRes, histResult, prescriptionResult] = await Promise.all([
         supabase
           .from("request_items")
           .select(
@@ -200,6 +207,13 @@ export default function DemandeDetailPage() {
               .eq("request_id", id)
               .order("created_at", { ascending: false })
               .limit(30)
+          : Promise.resolve({ data: null, error: null } as const),
+        isPrescription
+          ? supabase
+              .from("prescription_requests")
+              .select("prescription_image_url,page_2_path,patient_note")
+              .eq("request_id", id)
+              .maybeSingle()
           : Promise.resolve({ data: null, error: null } as const),
       ]);
       const unreadRow = (convUnreadRes.data as { request_id: string; has_unread: boolean }[] | null)?.find((x) => x.request_id === id);
@@ -230,6 +244,22 @@ export default function DemandeDetailPage() {
         setSupplyAmendments(amendmentsResult.data as { id: string; created_at: string; amendments: unknown }[]);
       } else {
         setSupplyAmendments([]);
+      }
+
+      if (isPrescription && prescriptionResult.data) {
+        const pr = prescriptionResult.data as {
+          prescription_image_url: string | null;
+          page_2_path: string | null;
+          patient_note: string | null;
+        };
+        setPrescriptionPaths({
+          page1: pr.prescription_image_url,
+          page2: pr.page_2_path,
+        });
+        setPrescriptionNote(pr.patient_note);
+      } else {
+        setPrescriptionPaths(null);
+        setPrescriptionNote(null);
       }
 
       setLoading(false);
@@ -301,33 +331,32 @@ export default function DemandeDetailPage() {
       <PageShell>
         <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error || "Erreur."}</p>
         <Link href="/dashboard/demandes" className="mt-3 inline-block text-xs font-medium text-sky-800 underline">
-          Mes demandes de produits
+          Mes demandes
         </Link>
       </PageShell>
     );
   }
 
+  const usesLineWorkflow =
+    request.request_type === "product_request" || request.request_type === "prescription";
+  const activeLineStatuses = ["submitted", "in_review", "responded", "confirmed", "treated"] as const;
   const hasBottomActions =
-    request.request_type === "product_request" &&
-    (request.status === "submitted" ||
-      request.status === "in_review" ||
-      request.status === "responded" ||
-      request.status === "confirmed" ||
-      request.status === "treated");
+    request.request_type === "product_request" && activeLineStatuses.includes(request.status as (typeof activeLineStatuses)[number])
+      ? true
+      : request.request_type === "prescription" &&
+        (["responded", "confirmed", "treated"] as string[]).includes(request.status);
+  const showPrescriptionWaitingPanel =
+    request.request_type === "prescription" &&
+    (request.status === "submitted" || request.status === "in_review") &&
+    prescriptionPaths != null;
   const showArchivedProductReadonly =
     request.request_type === "product_request" && isPatientProductArchiveStatus(request.status);
 
-  const showPlannedVisitBlock =
-    !["cancelled", "abandoned", "expired"].includes(request.status) &&
-    (request.status === "confirmed" ||
-      request.status === "treated" ||
-      request.status === "completed" ||
-      request.status === "partially_collected" ||
-      request.status === "fully_collected");
+  const kindConfig = getRequestKindConfig(request.request_type);
+  const showPlannedVisitBlock = sharedShowPlannedVisitBlock(request.status);
 
   const hideMainRequestHeader =
-    request.request_type === "product_request" &&
-    ["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status);
+    usesLineWorkflow && ["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status);
 
   return (
     <PageShell
@@ -336,76 +365,32 @@ export default function DemandeDetailPage() {
         hideMainRequestHeader && "pb-56"
       )}
     >
-      <Link href="/dashboard/demandes" className="inline-block text-xs font-medium text-sky-800 underline">
-        ← Retour aux demandes de produits
-      </Link>
+      <RequestDetailBackLink config={kindConfig} viewerRole="patient" />
 
       {!hideMainRequestHeader ? (
-        <header className="mt-2 rounded-xl border-2 border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 px-2.5 py-1.5 shadow-md shadow-sky-900/[0.06] ring-1 ring-sky-200/55 sm:px-3">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:gap-x-2">
-            <span className="shrink-0 font-bold uppercase tracking-wide text-sky-950/85">Demande prod.</span>
-            <span className="font-mono text-[11px] font-semibold text-foreground">
-              {displayRequestPublicRef(request)}
-            </span>
-            {request.request_type === "product_request" ? (
-              <span className="shrink-0 rounded-full border border-sky-200/90 bg-white/90 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-sky-950">
-                {items.length} ligne{items.length > 1 ? "s" : ""}
-              </span>
-            ) : null}
-            <span className="text-muted-foreground" aria-hidden>
-              ·
-            </span>
-            <span className="text-muted-foreground">
-              Envoyée{" "}
-              <span className="font-semibold tabular-nums text-foreground">
-                {formatDateShortCasablancaWithTime24hFr(request.submitted_at ?? request.created_at)}
-              </span>
-            </span>
-            {showPlannedVisitBlock ? (
-              <>
-                <span className="text-muted-foreground" aria-hidden>
-                  ·
-                </span>
-                <span className="text-muted-foreground">
-                  Passage{" "}
-                  <span className="font-semibold text-foreground">
-                    {request.patient_planned_visit_date
-                      ? formatPlannedVisitFr(request.patient_planned_visit_date, request.patient_planned_visit_time)
-                      : "À définir"}
-                  </span>
-                </span>
-              </>
-            ) : null}
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5 sm:ms-auto">
-            <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Statut</span>
-            <span
-              className={clsx(
-                "inline-flex max-w-[min(100%,16rem)] justify-center truncate rounded-full border px-2 py-0.5 text-center text-[10px] font-bold leading-tight shadow-sm sm:max-w-[14rem]",
-                ["submitted", "in_review"].includes(request.status)
-                  ? "border-sky-400/85 bg-sky-100 text-sky-950 ring-1 ring-sky-200/80"
-                  : request.status === "responded"
-                    ? "border-amber-300/95 bg-amber-50 text-amber-950"
-                    : ["confirmed", "treated", "completed", "partially_collected", "fully_collected", "in_progress_virtual"].includes(
-                          request.status
-                        )
-                      ? "border-teal-400/80 bg-teal-50 text-teal-950"
-                      : request.status === "cancelled"
-                        ? "border-rose-300/90 bg-rose-50 text-rose-950"
-                        : request.status === "abandoned"
-                          ? "border-orange-300/85 bg-orange-50 text-orange-950"
-                          : request.status === "expired"
-                            ? "border-amber-300/90 bg-amber-50 text-amber-950"
-                            : "border-primary/35 bg-primary/10 text-primary"
-              )}
-              title={(requestStatusFr[request.status] ?? request.status) + ""}
-            >
-              {requestStatusFr[request.status] ?? request.status}
-            </span>
-          </div>
-        </div>
-      </header>
+        <RequestKindHeader
+          config={kindConfig}
+          request={request}
+          lineCount={items.length}
+          showPlannedVisit={showPlannedVisitBlock}
+          viewerRole="patient"
+        />
+      ) : null}
+
+      {!kindConfig.capabilities.workflowEnabled ? (
+        <RequestTypeStubPanel config={kindConfig} viewerRole="patient" />
+      ) : null}
+
+      {showPrescriptionWaitingPanel ? (
+        <PatientPrescriptionRequestPanel
+          requestId={request.id}
+          status={request.status}
+          paths={prescriptionPaths}
+          patientNote={prescriptionNote}
+          onReload={async () => {
+            await loadDetail(true);
+          }}
+        />
       ) : null}
 
       {showArchivedProductReadonly ? (
@@ -588,7 +573,7 @@ export default function DemandeDetailPage() {
           </div>
         </div>
       </details>
-      {request.request_type === "product_request" && sessionUserId ? (
+      {usesLineWorkflow && sessionUserId ? (
         <>
           <RequestConversationFabDock
             hasUnread={conversationUnread}

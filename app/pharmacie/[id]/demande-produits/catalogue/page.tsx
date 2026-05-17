@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
   filterCatalogProductsLocal,
+  markPatientDemandeCatalogueReturnEdit,
   mergeCatalogProductsIntoDraft,
   readPatientDemandeProduitsDraft,
   type PatientDemandeProduitsCatalogProduct,
@@ -167,6 +168,7 @@ export default function DemandeProduitsCataloguePage() {
     const existing = readPatientDemandeProduitsDraft(pharmacyId, editRequestId);
     const merged = mergeCatalogProductsIntoDraft(existing, toAdd, resolvePublicMediaUrl);
     writePatientDemandeProduitsDraft(pharmacyId, merged, editRequestId);
+    if (editRequestId) markPatientDemandeCatalogueReturnEdit(editRequestId);
     setAdding(false);
     router.push(backHref);
   };
