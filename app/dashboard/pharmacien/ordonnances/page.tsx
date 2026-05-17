@@ -56,6 +56,7 @@ export default function PharmacienOrdonnancesPage() {
       .select("id,created_at,status,submitted_at,request_public_ref")
       .eq("pharmacy_id", staff.pharmacy_id)
       .eq("request_type", "prescription")
+      .neq("status", "draft")
       .order("created_at", { ascending: false });
     if (reqErr) {
       setError(reqErr.message);
