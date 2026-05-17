@@ -47,14 +47,42 @@ const PRESCRIPTION_PHARMACIST_BUCKET_HINTS: Partial<Record<DemandeStatBucket["ke
   annulees: "Annulation patient ou brouillon abandonné.",
 };
 
+const CONSULTATION_PATIENT_BUCKET_HINTS: Partial<Record<DemandeStatBucket["key"], string>> = {
+  envoyees: "Message envoyé — échange en cours avec la pharmacie.",
+  repondues: "Produits proposés — à valider sous 24 h.",
+  validees_traitees: "Vous avez validé ; la pharmacie prépare.",
+  traitee_retrait: "Préparation terminée ; retrait en officine.",
+  cloturees: "Consultation terminée.",
+  abandonnees: "Parcours arrêté après validation.",
+  expirees: "Sans validation dans le délai après la proposition.",
+  annulees: "Consultation annulée.",
+};
+
+const CONSULTATION_PHARMACIST_BUCKET_HINTS: Partial<Record<DemandeStatBucket["key"], string>> = {
+  envoyees: "À lire — conversation puis proposition produits.",
+  repondues: "Proposition publiée : attente validation patient (24 h).",
+  validees_traitees: "Validée — suivi lignes jusqu’à traitée.",
+  traitee_retrait: "Traitée — retrait comptoir.",
+  cloturees: "Consultation clôturée.",
+  abandonnees: "Sans suite après validation.",
+  expirees: "Pas de validation patient sous 24 h.",
+  annulees: "Annulation ou abandon.",
+};
+
 export function dashboardBucketsForKind(
   kindId: RequestKindId,
   role: "patient" | "pharmacien"
 ): DemandeStatBucket[] {
   const base = role === "patient" ? PATIENT_DASHBOARD_BUCKETS : PHARMACIST_DASHBOARD_BUCKETS;
-  if (kindId !== "prescription") return base;
-  const hints = role === "patient" ? PRESCRIPTION_PATIENT_BUCKET_HINTS : PRESCRIPTION_PHARMACIST_BUCKET_HINTS;
-  return withBucketHints(base, hints);
+  if (kindId === "prescription") {
+    const hints = role === "patient" ? PRESCRIPTION_PATIENT_BUCKET_HINTS : PRESCRIPTION_PHARMACIST_BUCKET_HINTS;
+    return withBucketHints(base, hints);
+  }
+  if (kindId === "free_consultation") {
+    const hints = role === "patient" ? CONSULTATION_PATIENT_BUCKET_HINTS : CONSULTATION_PHARMACIST_BUCKET_HINTS;
+    return withBucketHints(base, hints);
+  }
+  return base;
 }
 
 export function hubDashboardChrome(
@@ -70,6 +98,17 @@ export function hubDashboardChrome(
       : {
           title: "Vue rapide · ordonnances reçues",
           subtitle: "Touchez un bloc pour filtrer les ordonnances de l’officine",
+        };
+  }
+  if (kindId === "free_consultation") {
+    return role === "patient"
+      ? {
+          title: "Vue rapide · consultations",
+          subtitle: "Touchez un bloc pour filtrer vos consultations libres",
+        }
+      : {
+          title: "Vue rapide · consultations reçues",
+          subtitle: "Touchez un bloc pour filtrer les consultations de l’officine",
         };
   }
   return role === "patient"
@@ -88,9 +127,15 @@ export function patientArchiveIntroCopy(
   kindId: RequestKindId
 ): PatientArchiveIntroCopy {
   const ord = kindId === "prescription";
+  const cons = kindId === "free_consultation";
   switch (status) {
     case "cancelled":
-      return ord
+      return cons
+        ? {
+            title: "Archive — consultation annulée",
+            lede: "Référence figée. Message, photos et échanges restent consultables en lecture seule.",
+          }
+        : ord
         ? {
             title: "Archive — ordonnance annulée",
             lede: "Référence figée. Le scan et les échanges restent consultables en lecture seule.",
@@ -100,7 +145,12 @@ export function patientArchiveIntroCopy(
             lede: "Référence figée. Touchez une photo pour l’agrandir ; l’icône horloge ouvre l’historique détaillé du produit.",
           };
     case "abandoned":
-      return ord
+      return cons
+        ? {
+            title: "Archive — consultation sans suite",
+            lede: "Plus d’actions sur ProxiPharma. Message, photos et échanges restent consultables.",
+          }
+        : ord
         ? {
             title: "Archive — ordonnance sans suite",
             lede: "Plus d’actions sur ProxiPharma. Scan, produits saisis et messages restent consultables.",
@@ -110,7 +160,12 @@ export function patientArchiveIntroCopy(
             lede: "Plus d’actions possibles sur ProxiPharma. Les lignes et messages restent consultables en lecture seule.",
           };
     case "expired":
-      return ord
+      return cons
+        ? {
+            title: "Archive — délai dépassé",
+            lede: "La proposition n’a pas été validée à temps. Vous pouvez ouvrir une nouvelle consultation depuis l’annuaire.",
+          }
+        : ord
         ? {
             title: "Archive — délai dépassé",
             lede: "La réponse n’a pas été validée à temps. Vous pouvez envoyer une nouvelle ordonnance depuis l’annuaire (même pharmacie).",
@@ -141,7 +196,12 @@ export function patientArchiveIntroCopy(
           };
     case "completed":
     default:
-      return ord
+      return cons
+        ? {
+            title: "Archive — consultation clôturée",
+            lede: "Vue figée au moment de la clôture. Message, photos et produits proposés restent consultables.",
+          }
+        : ord
         ? {
             title: "Archive — ordonnance clôturée",
             lede: "Vue figée au moment de la clôture. Scan et produits saisis restent consultables sur chaque ligne.",

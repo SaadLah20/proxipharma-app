@@ -165,9 +165,16 @@ export default function PharmacieFichePage() {
                   <FileText size={22} strokeWidth={2} />
                   Envoyer une ordonnance
                 </Link>
+                <Link
+                  href={`/pharmacie/${pharmacy.id}/consultation-libre`}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-violet-200 bg-violet-600/5 py-4 text-base font-semibold text-violet-950 transition hover:bg-violet-600/10"
+                >
+                  <MessageCircle size={22} strokeWidth={2} />
+                  Consultation libre
+                </Link>
               </div>
               <p className="mt-2 text-xs text-gray-500">
-                Produits via le catalogue, ou photo d’ordonnance (jusqu’à 2 pages) pour saisie par la pharmacie.
+                Produits via le catalogue, ordonnance (scan), ou message + photos pour échange avec la pharmacie.
               </p>
             </section>
           </article>

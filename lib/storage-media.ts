@@ -7,6 +7,7 @@
  * | Produits               | public-assets   | products/{id}/main.{ext}          |
  * | Pharmacies             | public-assets   | pharmacies/{id}/logo|cover.{ext} |
  * | Ordonnances            | private-media   | ordonnances/{request_id}/…        |
+ * | Consultations libres     | private-media   | consultations/{request_id}/…    |
  * | Photos patient (dossier)| private-media  | patient/{request_id}/…          |
  */
 
@@ -17,6 +18,7 @@ export const STORAGE_PATH_PREFIX = {
   products: "products",
   pharmacies: "pharmacies",
   ordonnances: "ordonnances",
+  consultations: "consultations",
   patient: "patient",
 } as const;
 
@@ -36,6 +38,11 @@ export function pharmacyImageObjectPath(
 
 export function ordonnanceMediaObjectPath(requestId: string, fileId: string, ext = "webp"): string {
   return `${STORAGE_PATH_PREFIX.ordonnances}/${requestId}/${fileId}.${ext}`;
+}
+
+/** Photos consultation libre (photo1 … photo3). */
+export function consultationMediaObjectPath(requestId: string, slot: 1 | 2 | 3, ext = "webp"): string {
+  return `${STORAGE_PATH_PREFIX.consultations}/${requestId}/photo${slot}.${ext}`;
 }
 
 /** Photos patient liées à une demande (boutons, brûlures, etc.). */

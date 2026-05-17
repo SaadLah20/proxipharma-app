@@ -770,7 +770,7 @@ function ReadonlyArchivedProductBucketsView({
   requestType?: string;
 }) {
   const kindId: RequestKindId =
-    isRequestKindId(requestType) && requestType !== "free_consultation" ? requestType : "product_request";
+    isRequestKindId(requestType) ? requestType : "product_request";
   const introText = patientArchiveIntroCopy(archiveStatus, kindId);
   const introShell = archiveReadonlyIntroShell(archiveStatus);
   const totalsRetained = useMemo(() => monetaryTotalsForRetainedLines(items), [items]);

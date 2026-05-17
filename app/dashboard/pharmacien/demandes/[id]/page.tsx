@@ -64,8 +64,9 @@ import { getRequestKindWorkflowCopy } from "@/lib/request-kinds/workflow-copy";
 import { sharedShowPlannedVisitBlock } from "@/lib/request-kinds/shared-capabilities";
 import { RequestDetailBackLink } from "@/components/requests/shared/request-detail-back-link";
 import { RequestKindHeader } from "@/components/requests/shared/request-kind-header";
-import { RequestTypeStubPanel } from "@/components/requests/shared/request-type-stub-panel";
+import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
 import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
+import type { ConsultationImagePaths } from "@/lib/consultation-media";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 import { one } from "@/lib/embed";
 import { formatPphMad, pphLabel } from "@/lib/product-price";
@@ -1383,6 +1384,10 @@ export default function PharmacienDemandeDetailPage() {
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const [prescriptionPaths, setPrescriptionPaths] = useState<PrescriptionPagePaths | null>(null);
   const [prescriptionNote, setPrescriptionNote] = useState<string | null>(null);
+  const [consultationBrief, setConsultationBrief] = useState<{
+    text: string;
+    paths: ConsultationImagePaths;
+  } | null>(null);
   /** Après publication (`responded`), affichage figé jusqu'à « Modifier ». */
   const [respondedEditMode, setRespondedEditMode] = useState(false);
   const [respondedSaveConfirmOpen, setRespondedSaveConfirmOpen] = useState(false);
@@ -1582,9 +1587,38 @@ export default function PharmacienDemandeDetailPage() {
         setPrescriptionPaths(null);
         setPrescriptionNote(null);
       }
+      setConsultationBrief(null);
+    } else if (r.request_type === "free_consultation") {
+      setPrescriptionPaths(null);
+      setPrescriptionNote(null);
+      const { data: crRow, error: crErr } = await supabase
+        .from("free_consultation_requests")
+        .select("consultation_text,image_1_path,image_2_path,image_3_path")
+        .eq("request_id", id)
+        .maybeSingle();
+      if (crErr) {
+        setError(crErr.message);
+        setLoading(false);
+        return;
+      }
+      if (crRow) {
+        const cr = crRow as {
+          consultation_text: string;
+          image_1_path: string | null;
+          image_2_path: string | null;
+          image_3_path: string | null;
+        };
+        setConsultationBrief({
+          text: cr.consultation_text,
+          paths: { photo1: cr.image_1_path, photo2: cr.image_2_path, photo3: cr.image_3_path },
+        });
+      } else {
+        setConsultationBrief(null);
+      }
     } else {
       setPrescriptionPaths(null);
       setPrescriptionNote(null);
+      setConsultationBrief(null);
     }
 
     const [{ data: amendRows }, { data: dossierHist }] = await Promise.all([
@@ -3241,8 +3275,11 @@ export default function PharmacienDemandeDetailPage() {
       request.status === "confirmed" ||
       request.status === "treated");
   const usesLineWorkflow =
-    request?.request_type === "product_request" || request?.request_type === "prescription";
+    request?.request_type === "product_request" ||
+    request?.request_type === "prescription" ||
+    request?.request_type === "free_consultation";
   const isPrescription = request?.request_type === "prescription";
+  const isConsultation = request?.request_type === "free_consultation";
 
   const lineEntriesForList = useMemo(() => {
     if (request && ["confirmed", "treated"].includes(request.status)) {
@@ -3509,13 +3546,14 @@ export default function PharmacienDemandeDetailPage() {
             request.status === "cancelled" && "border-rose-200/90 bg-rose-50/55 text-rose-950",
             request.status === "abandoned" && "border-orange-200/90 bg-orange-50/55 text-orange-950",
             request.status === "expired" && "border-amber-200/90 bg-amber-50/55 text-amber-950",
-            isPrescription && "ring-1 ring-amber-200/50"
+            isPrescription && "ring-1 ring-amber-200/50",
+            isConsultation && "ring-1 ring-violet-200/50"
           )}
         >
           <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
             {pharmacistHardStopSectionCopy(
               request.status as "cancelled" | "abandoned" | "expired",
-              isPrescription ? "prescription" : "product_request"
+              isConsultation ? "free_consultation" : isPrescription ? "prescription" : "product_request"
             ).kickerSuffix}
           </p>
           <p className="mt-0.5 text-[13px] font-semibold leading-snug">
@@ -3535,19 +3573,23 @@ export default function PharmacienDemandeDetailPage() {
             "rounded-lg border px-3 py-2 text-[11px] shadow-sm",
             isPrescription
               ? "border-amber-200/85 bg-amber-50/65 text-amber-950"
-              : "border-emerald-200/85 bg-emerald-50/65 text-emerald-950"
+              : isConsultation
+                ? "border-violet-200/85 bg-violet-50/65 text-violet-950"
+                : "border-emerald-200/85 bg-emerald-50/65 text-emerald-950"
           )}
         >
           <p
             className={clsx(
               "text-[9px] font-bold uppercase tracking-wide",
-              isPrescription ? "text-amber-900/75" : "text-emerald-900/75"
+              isPrescription ? "text-amber-900/75" : isConsultation ? "text-violet-900/75" : "text-emerald-900/75"
             )}
           >
             Clôture
           </p>
           <p className="mt-0.5 text-[11px] font-medium leading-snug">
-            {pharmacistClosedSuccessIntro(isPrescription ? "prescription" : "product_request")}
+            {pharmacistClosedSuccessIntro(
+              isConsultation ? "free_consultation" : isPrescription ? "prescription" : "product_request"
+            )}
           </p>
           <p className="mt-1 font-semibold tabular-nums">
             {closedSuccessPickupCount ?? 0} ligne{(closedSuccessPickupCount ?? 0) !== 1 ? "s" : ""} retirée
@@ -3705,10 +3747,18 @@ export default function PharmacienDemandeDetailPage() {
         <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{error}</p>
       ) : null}
 
-      {!kindConfig.capabilities.workflowEnabled ? (
-        <RequestTypeStubPanel config={kindConfig} viewerRole="pharmacien" />
-      ) : (
+      {kindConfig.capabilities.workflowEnabled ? (
         <>
+          {isConsultation && consultationBrief ? (
+            <ConsultationBriefPanel
+              requestId={request.id}
+              initialText={consultationBrief.text}
+              initialPaths={consultationBrief.paths}
+              editable={false}
+              viewerRole="pharmacien"
+            />
+          ) : null}
+
           {isPrescription && request.status === "draft" ? (
             <p className="mt-2 rounded-lg border border-amber-300/80 bg-amber-50/60 p-2.5 text-[11px] leading-snug text-amber-950">
               Envoi patient incomplet (brouillon). Aucune action officine : le patient doit renvoyer l’ordonnance depuis la fiche
@@ -3737,10 +3787,13 @@ export default function PharmacienDemandeDetailPage() {
             </div>
           ) : null}
 
-          {displayRows.length === 0 && !isPrescription ? (
+          {displayRows.length === 0 && !isPrescription && !isConsultation ? (
             <p className="mt-2 text-[11px] text-muted-foreground">Aucune ligne produit.</p>
           ) : (
             <>
+              {displayRows.length === 0 && isConsultation && showLineAndPublishEdits ? (
+                <p className="mt-2 text-[11px] text-muted-foreground">{workflowCopy.pharmacistEmptyLinesHint}</p>
+              ) : null}
               {displayRows.length > 0 ? (
               <>
               <div className="flex flex-wrap items-end justify-between gap-1.5 sm:gap-2">
@@ -5051,7 +5104,10 @@ export default function PharmacienDemandeDetailPage() {
                   setError("");
                   if (next) {
                     resetPropForm();
-                    if (request?.request_type === "prescription" && workflowCopy.pharmacistProposeDefaultReason) {
+                    if (
+                      (request?.request_type === "prescription" || request?.request_type === "free_consultation") &&
+                      workflowCopy.pharmacistProposeDefaultReason
+                    ) {
                       setPropReason(workflowCopy.pharmacistProposeDefaultReason);
                     }
                   }
@@ -5334,7 +5390,7 @@ export default function PharmacienDemandeDetailPage() {
             </>
           )}
         </>
-      )}
+      ) : null}
       {lineConvoEffectiveRowId
         ? (() => {
             const entry = lineEntriesForList.find((e) => e.row.id === lineConvoEffectiveRowId);
@@ -5748,7 +5804,7 @@ export default function PharmacienDemandeDetailPage() {
           <RequestConversationFabDock
             hasUnread={conversationUnread}
             onOpen={() => setConversationOpen(true)}
-            tone="pharmacien"
+            tone={isConsultation ? "consultation" : "pharmacien"}
           />
           <RequestConversationPanel
             requestId={id}

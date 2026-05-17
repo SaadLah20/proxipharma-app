@@ -8,7 +8,7 @@ export const consultationRequestKindConfig: RequestKindConfig = {
     pharmacistHubPath: "/dashboard/pharmacien/consultations-libres",
     patientListPath: "/dashboard/patient/consultations-libres",
     pharmacistListPath: "/dashboard/pharmacien/consultations-libres",
-    patientCreatePath: null,
+    patientCreatePath: "/pharmacie/[id]/consultation-libre",
   },
   theme: {
     accent: "violet",
@@ -19,39 +19,42 @@ export const consultationRequestKindConfig: RequestKindConfig = {
       "mt-2 rounded-xl border-2 border-violet-300/45 bg-gradient-to-br from-violet-50/90 via-white to-fuchsia-50/20 px-2.5 py-1.5 shadow-md shadow-violet-900/[0.06] ring-1 ring-violet-200/55 sm:px-3",
   },
   capabilities: {
-    workflowEnabled: false,
+    workflowEnabled: true,
     patientCreatesItems: false,
     pharmacistCreatesItemsOnRespond: true,
     maxPrescriptionPages: null,
-    hasProductCatalogue: false,
+    hasProductCatalogue: true,
   },
   copy: {
     labelFr: "Consultation libre",
     patientHubTitle: "Mes consultations libres",
     pharmacistHubTitle: "Consultations libres",
-    patientNotEnabledMessage:
-      "Le suivi détaillé des consultations libres arrive bientôt. Vous pouvez consulter l’historique du dossier ci-dessous.",
-    pharmacistNotEnabledMessage:
-      "Le traitement des consultations libres dans cet écran arrive bientôt.",
+    patientNotEnabledMessage: "",
+    pharmacistNotEnabledMessage: "",
     workflow: {
-      pharmacistProposedBadge: "Ajout officine",
-      patientProposedBadge: "Ajout officine",
-      pharmacistProposeSectionTitle: "Proposer un produit",
-      pharmacistProposeSectionSubtitle: "Une ligne après la liste — motif et catalogue ci-dessous.",
-      pharmacistProposeDefaultReason: "",
-      pharmacistEmptyLinesHint: "Aucune ligne.",
-      pharmacistPublishNeedLinesError: "Aucune ligne à renseigner.",
-      pharmacistLinesSectionTitle: "Produits",
-      patientArchiveEmptyLines: "Aucune ligne pour ce dossier.",
-      patientArchiveClosedFooter: "Ce dossier est clos.",
-      timelinePharmacistProposedOrigin: "Proposition par la pharmacie",
-      patientSuiviProposedHint: "Proposition par la pharmacie.",
+      pharmacistProposedBadge: "Proposé",
+      patientProposedBadge: "Proposé par la pharmacie",
+      pharmacistProposeSectionTitle: "Produit pour le patient",
+      pharmacistProposeSectionSubtitle:
+        "Saisissez les produits après l’échange ; publiez ensuite la réponse pour lancer la validation.",
+      pharmacistProposeDefaultReason: "Proposition suite à consultation",
+      pharmacistEmptyLinesHint:
+        "Échangez via la conversation si besoin, puis saisissez les produits ci-dessous et publiez la réponse.",
+      pharmacistPublishNeedLinesError: "Ajoutez au moins un produit avant de publier la réponse.",
+      pharmacistLinesSectionTitle: "Produits proposés",
+      patientArchiveEmptyLines: "Aucun produit n’a été proposé sur cette consultation.",
+      patientArchiveClosedFooter:
+        "La consultation est close. Votre message, les photos et les produits proposés restent consultables ci-dessous.",
+      timelinePharmacistProposedOrigin: "Produit proposé après consultation",
+      patientSuiviProposedHint: "Produit proposé par la pharmacie suite à votre consultation.",
       patientSummaryKindLabel: "Consultation libre",
       patientSummaryRefShort: "Cons.",
-      patientProductsSectionTitle: "Produits",
-      patientWaitingSubmittedHint: "Demande en attente.",
-      patientWaitingInReviewHint: "Examen en cours.",
-      patientCancelWhileWaitingLabel: "Annuler",
+      patientProductsSectionTitle: "Produits proposés",
+      patientWaitingSubmittedHint:
+        "Votre message est transmis. Échangez avec la pharmacie via la conversation ; elle pourra vous proposer des produits.",
+      patientWaitingInReviewHint:
+        "La pharmacie examine votre consultation. Utilisez la conversation ; vous serez notifié dès qu’une proposition produits sera publiée.",
+      patientCancelWhileWaitingLabel: "Annuler la consultation",
     },
   },
 };
