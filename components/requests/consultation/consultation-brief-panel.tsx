@@ -1,14 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Camera, FileImage, Maximize2, Pencil, Trash2, X, ZoomIn, ZoomOut } from "lucide-react";
-import { clsx } from "clsx";
 import { supabase } from "@/lib/supabase";
 import {
   CONSULTATION_MAX_PHOTOS,
   type ConsultationImagePaths,
   compressImageFileForConsultation,
-  consultationSlotStoragePaths,
   createConsultationSignedUrl,
   pathsToAttachPayload,
   uploadConsultationPhotoBlob,
@@ -34,8 +32,14 @@ export function ConsultationBriefPanel({
   viewerRole?: "patient" | "pharmacien";
   accent?: "violet";
 }) {
-  const [text, setText] = useState(initialText);
-  const [textDraft, setTextDraft] = useState(initialText);
+  const [localText, setLocalText] = useState<string | null>(null);
+  const [prevInitialText, setPrevInitialText] = useState(initialText);
+  if (prevInitialText !== initialText) {
+    setPrevInitialText(initialText);
+    setLocalText(null);
+  }
+  const displayText = localText ?? initialText;
+  const [textDraft, setTextDraft] = useState(displayText);
   const [editingText, setEditingText] = useState(false);
   const [photos, setPhotos] = useState<PhotoSlot[]>([]);
   const [lightbox, setLightbox] = useState<{ label: string; url: string } | null>(null);
@@ -49,33 +53,34 @@ export function ConsultationBriefPanel({
       ? "rounded-xl border-2 border-violet-200/80 bg-gradient-to-br from-violet-50/70 via-white to-fuchsia-50/25 p-3 shadow-sm ring-1 ring-violet-200/45"
       : "rounded-xl border border-border bg-card p-3";
 
-  const loadSignedPreviews = useCallback(async (paths: ConsultationImagePaths) => {
-    const slots: (1 | 2 | 3)[] = [1, 2, 3];
-    const keys: (keyof ConsultationImagePaths)[] = ["photo1", "photo2", "photo3"];
-    const next: PhotoSlot[] = [];
-    const loadErrors: string[] = [];
-    for (let i = 0; i < slots.length; i++) {
-      const path = paths[keys[i]];
-      if (!path) continue;
-      const { url, error } = await createConsultationSignedUrl(path);
-      if (url) next.push({ slot: slots[i], previewUrl: url, path });
-      else if (error) loadErrors.push(error);
-    }
-    setPhotos(next);
-    if (loadErrors.length > 0) {
-      setFeedback(
-        viewerRole === "pharmacien"
-          ? "Impossible d’afficher une ou plusieurs photos (droits ou fichier manquant)."
-          : loadErrors[0]!
-      );
-    }
-  }, [viewerRole]);
-
   useEffect(() => {
-    setText(initialText);
-    setTextDraft(initialText);
-    void loadSignedPreviews(initialPaths);
-  }, [initialText, initialPaths, loadSignedPreviews]);
+    let cancelled = false;
+    void (async () => {
+      const slots: (1 | 2 | 3)[] = [1, 2, 3];
+      const keys: (keyof ConsultationImagePaths)[] = ["photo1", "photo2", "photo3"];
+      const next: PhotoSlot[] = [];
+      const loadErrors: string[] = [];
+      for (let i = 0; i < slots.length; i++) {
+        const path = initialPaths[keys[i]];
+        if (!path) continue;
+        const { url, error } = await createConsultationSignedUrl(path);
+        if (url) next.push({ slot: slots[i], previewUrl: url, path });
+        else if (error) loadErrors.push(error);
+      }
+      if (cancelled) return;
+      setPhotos(next);
+      if (loadErrors.length > 0) {
+        setFeedback(
+          viewerRole === "pharmacien"
+            ? "Impossible d’afficher une ou plusieurs photos (droits ou fichier manquant)."
+            : loadErrors[0]!
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialPaths, viewerRole]);
 
   const persistPaths = async (nextPaths: ConsultationImagePaths) => {
     const { error } = await supabase.rpc("patient_attach_consultation_images", {
@@ -111,7 +116,7 @@ export function ConsultationBriefPanel({
       setFeedback(error.message);
       return;
     }
-    setText(t);
+    setLocalText(t);
     setEditingText(false);
   };
 
@@ -177,7 +182,10 @@ export function ConsultationBriefPanel({
         {editable && !editingText ? (
           <button
             type="button"
-            onClick={() => setEditingText(true)}
+            onClick={() => {
+              setTextDraft(displayText);
+              setEditingText(true);
+            }}
             className="inline-flex shrink-0 items-center gap-1 rounded-md border border-violet-200 bg-white px-2 py-1 text-[10px] font-semibold text-violet-900 shadow-sm hover:bg-violet-50"
           >
             <Pencil className="size-3" aria-hidden />
@@ -210,7 +218,7 @@ export function ConsultationBriefPanel({
             <button
               type="button"
               onClick={() => {
-                setTextDraft(text);
+                setTextDraft(displayText);
                 setEditingText(false);
               }}
               className="rounded-md border border-border px-3 py-1.5 text-xs font-medium"
@@ -220,7 +228,7 @@ export function ConsultationBriefPanel({
           </div>
         </div>
       ) : (
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{text}</p>
+        <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{displayText}</p>
       )}
 
       <div className="mt-3">

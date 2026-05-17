@@ -32,24 +32,25 @@ export const prescriptionRequestKindConfig: RequestKindConfig = {
     patientNotEnabledMessage: "",
     pharmacistNotEnabledMessage: "",
     workflow: {
-      pharmacistProposedBadge: "Saisi ordonnance",
-      patientProposedBadge: "Saisi ordonnance",
-      pharmacistProposeSectionTitle: "Produit de l’ordonnance",
-      pharmacistProposeSectionSubtitle: "Saisie depuis le scan — motif et catalogue ci-dessous.",
+      pharmacistOrdonnanceLineBadge: "Ordonnance",
+      pharmacistProposedBadge: "Ordonnance",
+      patientProposedBadge: "Ordonnance",
+      pharmacistProposeSectionTitle: "Produit ordonnance",
+      pharmacistProposeSectionSubtitle: "Saisie depuis le scan — catalogue ci-dessous.",
       pharmacistProposeDefaultReason: "Saisie depuis ordonnance",
       pharmacistEmptyLinesHint:
-        "Saisissez les produits lus sur l’ordonnance (section « Produit de l’ordonnance »), puis publiez la réponse.",
+        "Ouvrez l’ordonnance (agrandir), utilisez le bouton + pour saisir chaque produit. Ils apparaissent dans « Produits ordonnance » ci-dessous.",
       pharmacistPublishNeedLinesError:
-        "Ajoutez au moins un produit lu sur l’ordonnance (section « Produit de l’ordonnance »).",
-      pharmacistLinesSectionTitle: "Produits de l’ordonnance",
-      patientArchiveEmptyLines: "Aucun produit n’a été saisi sur cette ordonnance.",
+        "Ajoutez au moins un produit ordonnance avant de publier la réponse.",
+      pharmacistLinesSectionTitle: "Produits ordonnance",
+      patientArchiveEmptyLines: "Aucun produit saisi sur cette ordonnance.",
       patientArchiveClosedFooter:
-        "L’ordonnance est close. Les produits saisis par la pharmacie et le scan restent consultables ci-dessous.",
+        "L’ordonnance est close. Les produits saisis et le scan restent consultables ci-dessous.",
       timelinePharmacistProposedOrigin: "Produit saisi depuis l’ordonnance",
       patientSuiviProposedHint: "Produit saisi par la pharmacie depuis votre ordonnance.",
       patientSummaryKindLabel: "Ordonnance",
       patientSummaryRefShort: "Ord.",
-      patientProductsSectionTitle: "Produits de l’ordonnance",
+      patientProductsSectionTitle: "Produits ordonnance",
       patientWaitingSubmittedHint:
         "Votre ordonnance est transmise : la pharmacie la lit et saisira les produits. Vous serez notifié dès que la réponse sera publiée.",
       patientWaitingInReviewHint:

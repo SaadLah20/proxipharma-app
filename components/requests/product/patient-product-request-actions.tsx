@@ -486,6 +486,7 @@ function PatientValidatedCompactLineCard({
 
   const withdrawnGrey = tier === "retire_apres_validation";
   const showAjoutOfficineBadge = row.line_source === "pharmacist_proposed";
+  const ordonnanceProposedBadge = pharmacistProposedBadgeLabel === "Ordonnance";
   return (
     <li
       className={clsx(
@@ -549,7 +550,12 @@ function PatientValidatedCompactLineCard({
                 <span className="text-[10px] leading-snug text-foreground/90">{availStatusOnly}</span>
               )}
               {showAjoutOfficineBadge ? (
-                <span className="rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                <span
+                  className={clsx(
+                    "rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
+                    ordonnanceProposedBadge ? "bg-amber-700" : "bg-violet-600"
+                  )}
+                >
                   {pharmacistProposedBadgeLabel}
                 </span>
               ) : null}
@@ -1384,6 +1390,8 @@ type RespondedChooserProps = {
   setLineQty: (itemId: string, qty: number) => void;
   togglePrincipalOnlyLine: (itemId: string, on: boolean) => void;
   onPhotoPreview?: (url: string, title: string) => void;
+  pharmacistProposedBadgeLabel: string;
+  requestType: string;
 };
 
 /** Même résumé qté + dispo que la ligne ait des alternatives ou non. */
@@ -1552,6 +1560,8 @@ function RespondedPatientLineChooser({
   setLineQty,
   togglePrincipalOnlyLine,
   onPhotoPreview,
+  pharmacistProposedBadgeLabel,
+  requestType,
 }: RespondedChooserProps) {
   const prod = one(row.products);
   const altList = normalizeAlternatives(row.request_item_alternatives);
@@ -1560,6 +1570,7 @@ function RespondedPatientLineChooser({
   const radioName = `line-choice-${row.id}`;
   const currentBranch = selState.branch;
   const isProposedLine = row.line_source === "pharmacist_proposed";
+  const isPrescriptionLine = requestType === "prescription" && isProposedLine;
   const maxBranch = maxQtyForBranch(row, currentBranch, altList);
 
   const unitForSelection =
@@ -1744,12 +1755,16 @@ function RespondedPatientLineChooser({
               "flex cursor-pointer gap-2 rounded-xl border-2 p-2 transition",
               capPrincipal === 0 && "cursor-not-allowed opacity-40",
               currentBranch === "principal"
-                ? isProposedLine
-                  ? "border-violet-500 bg-violet-50 ring-2 ring-violet-200/80 shadow-md"
-                  : "border-sky-500 bg-sky-50 ring-2 ring-sky-200/80 shadow-md"
-                : isProposedLine
-                  ? "border-violet-200/90 bg-gradient-to-br from-violet-50/50 to-white"
-                  : "border-sky-200/90 bg-gradient-to-br from-sky-50/55 via-white to-white",
+                ? isPrescriptionLine
+                  ? "border-amber-500 bg-amber-50 ring-2 ring-amber-200/80 shadow-md"
+                  : isProposedLine
+                    ? "border-violet-500 bg-violet-50 ring-2 ring-violet-200/80 shadow-md"
+                    : "border-sky-500 bg-sky-50 ring-2 ring-sky-200/80 shadow-md"
+                : isPrescriptionLine
+                  ? "border-amber-200/90 bg-gradient-to-br from-amber-50/50 to-white"
+                  : isProposedLine
+                    ? "border-violet-200/90 bg-gradient-to-br from-violet-50/50 to-white"
+                    : "border-sky-200/90 bg-gradient-to-br from-sky-50/55 via-white to-white",
               currentBranch !== null && currentBranch !== "principal" && "opacity-45 saturate-[0.65]",
               currentBranch === null && "bg-slate-50/90 opacity-55"
             )}
@@ -1768,20 +1783,20 @@ function RespondedPatientLineChooser({
                 <span
                   className={clsx(
                     "rounded-md px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
-                    isProposedLine ? "bg-violet-700" : "bg-sky-700"
+                    isPrescriptionLine ? "bg-amber-700" : isProposedLine ? "bg-violet-700" : "bg-sky-700"
                   )}
                 >
-                  {isProposedLine ? "Proposition officine" : "Principal"}
+                  {isPrescriptionLine ? "Ordonnance" : isProposedLine ? "Proposition officine" : "Principal"}
                 </span>
-                {isProposedLine ? (
+                {isProposedLine && !isPrescriptionLine ? (
                   <span className="rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                    Proposé
+                    {pharmacistProposedBadgeLabel}
                   </span>
-                ) : (
+                ) : !isProposedLine ? (
                   <span className="rounded-full bg-sky-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
                     Ta demande
                   </span>
-                )}
+                ) : null}
               </div>
               <p
                 className="text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
@@ -2887,6 +2902,8 @@ export function PatientProductRequestActions({
                     setLineQty={setLineQty}
                     togglePrincipalOnlyLine={togglePrincipalOnlyLine}
                     onPhotoPreview={openProductPhotoPreview}
+                    pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
+                    requestType={requestType}
                   />
                 ))}
               </ul>

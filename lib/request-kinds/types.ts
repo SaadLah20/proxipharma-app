@@ -37,6 +37,8 @@ export type RequestKindCapabilities = {
 
 /** Libellés workflow lignes produit (demande produits vs ordonnance). */
 export type RequestKindWorkflowCopy = {
+  /** Badge ligne principale ordonnance (saisie scan), distinct de « ajout officine » produit. */
+  pharmacistOrdonnanceLineBadge?: string;
   pharmacistProposedBadge: string;
   patientProposedBadge: string;
   pharmacistProposeSectionTitle: string;
