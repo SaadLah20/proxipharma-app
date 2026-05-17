@@ -46,5 +46,20 @@ export const productRequestKindConfig: RequestKindConfig = {
     pharmacistHubTitle: "Demandes de produits",
     patientNotEnabledMessage: "",
     pharmacistNotEnabledMessage: "",
+    workflow: {
+      pharmacistProposedBadge: "Ajout officine",
+      patientProposedBadge: "Ajout officine",
+      pharmacistProposeSectionTitle: "Proposer un produit",
+      pharmacistProposeSectionSubtitle: "Une ligne après la liste — motif et catalogue ci-dessous.",
+      pharmacistProposeDefaultReason: "",
+      pharmacistEmptyLinesHint: "Aucune ligne produit.",
+      pharmacistPublishNeedLinesError: "Aucune ligne produit à renseigner.",
+      pharmacistLinesSectionTitle: "Produits",
+      patientArchiveEmptyLines: "Aucune ligne pour cette demande.",
+      patientArchiveClosedFooter:
+        "Le dossier est clos côté officine. Les montants et libellés reflètent l’état au moment de la clôture.",
+      timelinePharmacistProposedOrigin: "Produit proposé par la pharmacie",
+      patientSuiviProposedHint: "Proposition par la pharmacie (ajout officine).",
+    },
   },
 };

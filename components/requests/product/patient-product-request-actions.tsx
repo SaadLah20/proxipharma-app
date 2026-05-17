@@ -32,7 +32,12 @@ import {
   type RequestExitModalMode,
 } from "@/components/requests/request-exit-confirm-modal-fr";
 import type { PatientCancelReasonCode } from "@/lib/patient-flow-reasons";
-import { availabilityStatusFr, requestItemLineSourceFr, requestStatusFr } from "@/lib/request-display";
+import {
+  availabilityStatusFr,
+  pharmacistProposedProductBadgeFr,
+  requestItemLineSourceFr,
+  requestStatusFr,
+} from "@/lib/request-display";
 import { plannedVisitWindow } from "@/lib/planned-visit";
 import {
   bucketPatientValidatedLinesThreeWays,
@@ -69,6 +74,7 @@ import {
 } from "@/lib/build-patient-line-timeline-fr";
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { isPatientProductArchiveStatus, type PatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
+import { getRequestKindWorkflowCopy } from "@/lib/request-kinds/workflow-copy";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
@@ -426,6 +432,7 @@ function PatientValidatedCompactLineCard({
   requestStatusForCard = null,
   postConfirmBadges,
   onPhotoPreview,
+  pharmacistProposedBadgeLabel = pharmacistProposedProductBadgeFr,
 }: {
   row: ActionItemRow;
   tier: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation";
@@ -438,6 +445,7 @@ function PatientValidatedCompactLineCard({
   postConfirmBadges?: string[];
   /** Agrandissement photo plein écran (patient). */
   onPhotoPreview?: (url: string, title: string) => void;
+  pharmacistProposedBadgeLabel?: string;
 }) {
   const prod = one(row.products);
   const altList = normalizeAlternatives(row.request_item_alternatives);
@@ -537,7 +545,7 @@ function PatientValidatedCompactLineCard({
               )}
               {showAjoutOfficineBadge ? (
                 <span className="rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                  Ajout officine
+                  {pharmacistProposedBadgeLabel}
                 </span>
               ) : null}
               {tier === "retire_apres_validation" ? (
@@ -757,12 +765,14 @@ function ReadonlyArchivedProductBucketsView({
   linePostConfirmBadgesById,
   archiveStatus,
   onPhotoPreview,
+  pharmacistProposedBadgeLabel,
 }: {
   items: ActionItemRow[];
   onOpenLineHistory: (itemId: string) => void;
   linePostConfirmBadgesById: Record<string, string[]>;
   archiveStatus: PatientProductArchiveStatus;
   onPhotoPreview: (url: string, title: string) => void;
+  pharmacistProposedBadgeLabel: string;
 }) {
   const intro = archiveReadonlyIntroCopy(archiveStatus);
   const totalsRetained = useMemo(() => monetaryTotalsForRetainedLines(items), [items]);
@@ -825,6 +835,7 @@ function ReadonlyArchivedProductBucketsView({
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                   postConfirmBadges={linePostConfirmBadgesById[row.id]}
                   onPhotoPreview={onPhotoPreview}
+                  pharmacistProposedBadgeLabel={pharmacistProposedBadgeLabel}
                 />
               ))}
             </ul>
@@ -857,6 +868,7 @@ function ReadonlyArchivedProductBucketsView({
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                   postConfirmBadges={linePostConfirmBadgesById[row.id]}
                   onPhotoPreview={onPhotoPreview}
+                  pharmacistProposedBadgeLabel={pharmacistProposedBadgeLabel}
                 />
               ))}
             </ul>
@@ -881,6 +893,7 @@ function ReadonlyArchivedProductBucketsView({
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                   postConfirmBadges={linePostConfirmBadgesById[row.id]}
                   onPhotoPreview={onPhotoPreview}
+                  pharmacistProposedBadgeLabel={pharmacistProposedBadgeLabel}
                 />
               ))}
             </ul>
@@ -904,6 +917,7 @@ function ReadonlyArchivedProductBucketsView({
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                   postConfirmBadges={linePostConfirmBadgesById[row.id]}
                   onPhotoPreview={onPhotoPreview}
+                  pharmacistProposedBadgeLabel={pharmacistProposedBadgeLabel}
                 />
               ))}
             </ul>
@@ -1275,6 +1289,7 @@ type Props = {
   /** Pour lien annuaire + récap « envoyées ». */
   pharmacyId?: string | null;
   requestUpdatedAt?: string | null;
+  requestType?: string;
 };
 
 function clampVisitYmd(ymd: string, minY: string, maxY: string): string {
@@ -2089,8 +2104,10 @@ export function PatientProductRequestActions({
   dossierHistoryRows = [],
   pharmacyId = null,
   requestUpdatedAt = null,
+  requestType = "product_request",
 }: Props) {
   const pathname = usePathname();
+  const workflowCopy = getRequestKindWorkflowCopy(requestType);
   const [actionError, setActionError] = useState("");
   const [historyModalItemId, setHistoryModalItemId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<"" | "confirm" | "resubmit" | "abandon" | "visit">("");
@@ -2325,8 +2342,9 @@ export function PatientProductRequestActions({
       requestConfirmedAt: requestTimelineMeta.confirmed_at,
       supplyBundles: supplyAmendmentBundles,
       dossierHistory: dossierHistoryRows,
+      pharmacistProposedOriginLabel: workflowCopy.timelinePharmacistProposedOrigin,
     });
-  }, [historyModalRow, requestTimelineMeta, supplyAmendmentBundles, dossierHistoryRows]);
+  }, [historyModalRow, requestTimelineMeta, supplyAmendmentBundles, dossierHistoryRows, workflowCopy.timelinePharmacistProposedOrigin]);
 
   const visibleHits = debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS ? [] : hits;
   const resubmitTotal = useMemo(
@@ -2687,6 +2705,7 @@ export function PatientProductRequestActions({
             linePostConfirmBadgesById={linePostConfirmBadgesById}
             archiveStatus={status}
             onPhotoPreview={openProductPhotoPreview}
+            pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
           />
         </section>
         <LineHistoryModalFr
@@ -2814,6 +2833,7 @@ export function PatientProductRequestActions({
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
+                        pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
                       />
                     ))}
                   </ul>
@@ -2848,6 +2868,7 @@ export function PatientProductRequestActions({
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
+                        pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
                       />
                     ))}
                   </ul>
@@ -2877,6 +2898,7 @@ export function PatientProductRequestActions({
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
+                        pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
                       />
                     ))}
                   </ul>
@@ -2905,6 +2927,7 @@ export function PatientProductRequestActions({
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
+                        pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
                       />
                     ))}
                   </ul>

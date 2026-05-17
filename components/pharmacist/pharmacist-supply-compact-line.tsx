@@ -47,6 +47,7 @@ export function PharmacistSupplyCompactLine({
   onMenuWithdraw,
   onMenuHistory,
   showAjoutOfficineBadge,
+  ajoutOfficineBadgeLabel,
   withdrawDisabled,
   withdrawDisabledReason,
 }: {
@@ -94,6 +95,7 @@ export function PharmacistSupplyCompactLine({
   onMenuHistory: () => void;
   /** Proposition officine (aligné badge patient). */
   showAjoutOfficineBadge?: boolean;
+  ajoutOfficineBadgeLabel?: string;
   withdrawDisabled: boolean;
   withdrawDisabledReason?: string | null;
 }) {
@@ -261,7 +263,7 @@ export function PharmacistSupplyCompactLine({
                 </p>
                 {showAjoutOfficineBadge ? (
                 <span className="shrink-0 rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                  {pharmacistProposedProductBadgeFr}
+                  {ajoutOfficineBadgeLabel ?? pharmacistProposedProductBadgeFr}
                 </span>
                 ) : null}
               </div>

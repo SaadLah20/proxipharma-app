@@ -30,6 +30,7 @@ import {
 } from "@/components/requests/patient-request-outcome-banner";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 import { PatientPrescriptionRequestPanel } from "@/components/requests/prescription/patient-prescription-request-panel";
+import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 
 type PharmacyEmbed = {
@@ -300,9 +301,8 @@ export default function DemandeDetailPage() {
   }, [id]);
 
   const archivedOutcomeDetail = useMemo((): PatientOutcomeDetailContext | null => {
-    if (!request || request.request_type !== "product_request" || !isPatientProductArchiveStatus(request.status)) {
-      return null;
-    }
+    if (!request || !isPatientProductArchiveStatus(request.status)) return null;
+    if (request.request_type !== "product_request" && request.request_type !== "prescription") return null;
     const ph = one(request.pharmacies);
     const pharmacyLine =
       ph?.nom?.trim() != null && ph.nom.trim() !== ""
@@ -315,6 +315,7 @@ export default function DemandeDetailPage() {
       totalLines: items.length,
       hasConversationMessages: conversationMessageCount > 0,
       lastUpdatedLabel: formatDateShortCasablancaWithTime24hFr(request.updated_at),
+      linesMode: request.request_type === "prescription" ? "prescription" : "product",
     };
   }, [request, items, conversationMessageCount]);
 
@@ -349,10 +350,13 @@ export default function DemandeDetailPage() {
     request.request_type === "prescription" &&
     (request.status === "submitted" || request.status === "in_review") &&
     prescriptionPaths != null;
-  const showArchivedProductReadonly =
-    request.request_type === "product_request" && isPatientProductArchiveStatus(request.status);
+  const isPrescriptionRequest = request.request_type === "prescription";
+  const showArchivedReadonly =
+    (request.request_type === "product_request" || isPrescriptionRequest) &&
+    isPatientProductArchiveStatus(request.status);
 
   const kindConfig = getRequestKindConfig(request.request_type);
+  const workflowCopy = kindConfig.copy.workflow;
   const showPlannedVisitBlock = sharedShowPlannedVisitBlock(request.status);
 
   const hideMainRequestHeader =
@@ -393,11 +397,12 @@ export default function DemandeDetailPage() {
         />
       ) : null}
 
-      {showArchivedProductReadonly ? (
+      {showArchivedReadonly ? (
         <PatientRequestOutcomeBanner
           status={request.status}
           historyRows={historyRows}
           detailContext={archivedOutcomeDetail}
+          closedFooterNote={isPrescriptionRequest ? workflowCopy.patientArchiveClosedFooter : null}
         >
           {request.status === "expired" ? (
             <>
@@ -438,7 +443,11 @@ export default function DemandeDetailPage() {
         </PatientRequestOutcomeBanner>
       ) : null}
 
-      {hasBottomActions || (showArchivedProductReadonly && items.length > 0) ? (
+      {showArchivedReadonly && isPrescriptionRequest && prescriptionPaths?.page1 ? (
+        <PrescriptionImageViewer paths={prescriptionPaths} layout="desktop-comfort" className="mt-2" />
+      ) : null}
+
+      {hasBottomActions || (showArchivedReadonly && items.length > 0) ? (
         <section className="pb-2">
         <PatientProductRequestActions
           key={
@@ -504,10 +513,13 @@ export default function DemandeDetailPage() {
           dossierHistoryRows={historyRows}
           pharmacyId={request.pharmacy_id}
           requestUpdatedAt={request.updated_at}
+          requestType={request.request_type}
         />
         </section>
-      ) : request.request_type === "product_request" && showArchivedProductReadonly && items.length === 0 ? (
-        <p className="text-center text-xs text-muted-foreground">Aucune ligne pour cette demande.</p>
+      ) : showArchivedReadonly && items.length === 0 ? (
+        <p className="text-center text-xs text-muted-foreground">
+          {isPrescriptionRequest ? workflowCopy.patientArchiveEmptyLines : workflowCopy.patientArchiveEmptyLines}
+        </p>
       ) : null}
 
       <details className="group scroll-mb-44 rounded-xl border border-border/80 bg-card shadow-sm">

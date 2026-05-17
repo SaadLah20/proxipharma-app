@@ -31,5 +31,22 @@ export const prescriptionRequestKindConfig: RequestKindConfig = {
     pharmacistHubTitle: "Ordonnances",
     patientNotEnabledMessage: "",
     pharmacistNotEnabledMessage: "",
+    workflow: {
+      pharmacistProposedBadge: "Saisi ordonnance",
+      patientProposedBadge: "Saisi ordonnance",
+      pharmacistProposeSectionTitle: "Produit de l’ordonnance",
+      pharmacistProposeSectionSubtitle: "Saisie depuis le scan — motif et catalogue ci-dessous.",
+      pharmacistProposeDefaultReason: "Saisie depuis ordonnance",
+      pharmacistEmptyLinesHint:
+        "Saisissez les produits lus sur l’ordonnance (section « Produit de l’ordonnance »), puis publiez la réponse.",
+      pharmacistPublishNeedLinesError:
+        "Ajoutez au moins un produit lu sur l’ordonnance (section « Produit de l’ordonnance »).",
+      pharmacistLinesSectionTitle: "Produits de l’ordonnance",
+      patientArchiveEmptyLines: "Aucun produit n’a été saisi sur cette ordonnance.",
+      patientArchiveClosedFooter:
+        "L’ordonnance est close. Les produits saisis par la pharmacie et le scan restent consultables ci-dessous.",
+      timelinePharmacistProposedOrigin: "Produit saisi depuis l’ordonnance",
+      patientSuiviProposedHint: "Produit saisi par la pharmacie depuis votre ordonnance.",
+    },
   },
 };

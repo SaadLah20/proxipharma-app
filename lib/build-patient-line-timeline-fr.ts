@@ -116,6 +116,8 @@ export type PatientLineTimelineInputs = {
   dossierHistory?: { created_at: string; old_status: string | null; new_status: string; reason: string | null }[];
   /** Par défaut libellés patient ; passer `pharmacistDossierHistoryDetailParagraphsFr` pour l’officine. */
   dossierHistoryDetailParagraphs?: (reason: string | null | undefined) => string[];
+  /** Ex. « Produit saisi depuis l’ordonnance » (ordonnance) vs « Produit proposé par la pharmacie ». */
+  pharmacistProposedOriginLabel?: string;
 };
 
 /** Chronologie du plus ancien (haut) au plus récent (bas). Dernier bloc = situation actuelle. */
@@ -152,8 +154,9 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
   const originParts: string[] = [];
   const pname = principalName(row);
   if (row.line_source === "pharmacist_proposed") {
+    const originLabel = input.pharmacistProposedOriginLabel ?? "Produit proposé par la pharmacie";
     originParts.push(
-      `Produit proposé par la pharmacie (« ${row.pharmacist_proposal_reason?.trim() || "précision à lire sur la ligne"} »).`
+      `${originLabel} (« ${row.pharmacist_proposal_reason?.trim() || "précision à lire sur la ligne"} »).`
     );
     originParts.push(`Référence : ${pname} · ${row.requested_qty} unité(s).`);
   } else {
