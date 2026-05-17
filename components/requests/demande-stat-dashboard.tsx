@@ -34,12 +34,16 @@ export function DemandeStatDashboard({
   buckets,
   basePath,
   density = "default",
+  dashboardTitle = "Vue rapide · demandes de produits",
+  dashboardSubtitle = "Touchez un bloc pour ouvrir la liste filtrée (demandes de produits)",
 }: {
   rows: Row[];
   buckets: DemandeStatBucket[];
-  basePath: "/dashboard/demandes" | "/dashboard/pharmacien/demandes";
+  basePath: string;
   /** `compact` : tuiles plus basses (vue pharmacien dense). */
   density?: "default" | "compact";
+  dashboardTitle?: string;
+  dashboardSubtitle?: string;
 }) {
   const router = useRouter();
   const max = Math.max(1, ...buckets.map((b) => countInBucket(rows, b)));
@@ -54,9 +58,9 @@ export function DemandeStatDashboard({
     >
       <div className={clsx("flex flex-col gap-0.5 px-0.5 sm:flex-row sm:items-end sm:justify-between", compact ? "mb-2" : "mb-3")}>
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wide text-foreground">Vue rapide · demandes de produits</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wide text-foreground">{dashboardTitle}</h2>
           <p className={clsx("text-muted-foreground", compact ? "mt-px text-[10px] leading-snug" : "mt-0.5 text-xs")}>
-            Touchez un bloc pour ouvrir la liste filtrée (demandes de produits)
+            {dashboardSubtitle}
           </p>
         </div>
       </div>

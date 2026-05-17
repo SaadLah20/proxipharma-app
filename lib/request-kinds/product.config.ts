@@ -60,6 +60,14 @@ export const productRequestKindConfig: RequestKindConfig = {
         "Le dossier est clos côté officine. Les montants et libellés reflètent l’état au moment de la clôture.",
       timelinePharmacistProposedOrigin: "Produit proposé par la pharmacie",
       patientSuiviProposedHint: "Proposition par la pharmacie (ajout officine).",
+      patientSummaryKindLabel: "Demande de produits",
+      patientSummaryRefShort: "Dem.",
+      patientProductsSectionTitle: "Produits",
+      patientWaitingSubmittedHint:
+        "Votre liste est en file d’attente : un pharmacien la traitera et vous répondra avec les disponibilités et les éventuelles alternatives.",
+      patientWaitingInReviewHint:
+        "Un pharmacien examine votre liste. Vous serez averti dès que la réponse (disponibilités, alternatives le cas échéant) sera prête.",
+      patientCancelWhileWaitingLabel: "Annuler la demande",
     },
   },
 };

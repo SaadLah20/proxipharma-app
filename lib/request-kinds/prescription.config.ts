@@ -47,6 +47,14 @@ export const prescriptionRequestKindConfig: RequestKindConfig = {
         "L’ordonnance est close. Les produits saisis par la pharmacie et le scan restent consultables ci-dessous.",
       timelinePharmacistProposedOrigin: "Produit saisi depuis l’ordonnance",
       patientSuiviProposedHint: "Produit saisi par la pharmacie depuis votre ordonnance.",
+      patientSummaryKindLabel: "Ordonnance",
+      patientSummaryRefShort: "Ord.",
+      patientProductsSectionTitle: "Produits de l’ordonnance",
+      patientWaitingSubmittedHint:
+        "Votre ordonnance est transmise : la pharmacie la lit et saisira les produits. Vous serez notifié dès que la réponse sera publiée.",
+      patientWaitingInReviewHint:
+        "Un pharmacien examine votre ordonnance et saisit les produits. Vous serez averti dès que la réponse sera prête.",
+      patientCancelWhileWaitingLabel: "Annuler l’ordonnance",
     },
   },
 };

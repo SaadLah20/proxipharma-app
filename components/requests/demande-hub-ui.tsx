@@ -11,10 +11,12 @@ import {
 } from "@/lib/request-display";
 import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import { summarizeRequestForPatientCard, type PatientRequestItemRow } from "@/lib/patient-request-list-summary";
+import { getRequestKindConfig } from "@/lib/request-kinds/registry";
+import type { RequestKindAccent } from "@/lib/request-kinds/types";
 import { one } from "@/lib/embed";
 import { clsx } from "clsx";
 
-function demandeCardShell(status: string, role: "patient" | "pharmacien"): string {
+function demandeCardShell(status: string, role: "patient" | "pharmacien", accent: RequestKindAccent = "sky"): string {
   const closed = ["completed", "cancelled", "abandoned", "expired", "partially_collected", "fully_collected", "draft"];
   const pharma = role === "pharmacien";
   if (closed.includes(status)) {
@@ -37,9 +39,39 @@ function demandeCardShell(status: string, role: "patient" | "pharmacien"): strin
       ? "rounded-lg border border-violet-300/70 bg-gradient-to-br from-violet-50/40 via-card to-card shadow-sm ring-1 ring-violet-200/55 transition hover:border-violet-400/65 hover:shadow-md"
       : "rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/35 via-card to-card shadow-md ring-1 ring-violet-200/45 transition hover:shadow-lg hover:ring-violet-300/50";
   }
+  if (accent === "amber") {
+    return pharma
+      ? "rounded-lg border border-amber-300/70 bg-gradient-to-br from-amber-50/45 via-card to-card shadow-sm ring-1 ring-amber-200/55 transition hover:border-amber-400/65 hover:shadow-md"
+      : "rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/40 via-card to-card shadow-md ring-1 ring-amber-200/45 transition hover:shadow-lg hover:ring-amber-300/50";
+  }
+  if (accent === "violet") {
+    return pharma
+      ? "rounded-lg border border-violet-300/70 bg-gradient-to-br from-violet-50/40 via-card to-card shadow-sm ring-1 ring-violet-200/55 transition hover:border-violet-400/65 hover:shadow-md"
+      : "rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/35 via-card to-card shadow-md ring-1 ring-violet-200/45 transition hover:shadow-lg hover:ring-violet-300/50";
+  }
   return pharma
     ? "rounded-lg border border-sky-300/70 bg-gradient-to-br from-sky-50/45 via-card to-card shadow-sm ring-1 ring-sky-200/55 transition hover:border-sky-400/65 hover:shadow-md"
     : "rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50/40 via-card to-card shadow-md ring-1 ring-sky-200/45 transition hover:shadow-lg hover:ring-sky-300/50";
+}
+
+function patientCardLineBadge(row: PatientRequestRow, summary: ReturnType<typeof summarizeRequestForPatientCard>): string {
+  if (row.request_type === "prescription" && ["submitted", "in_review"].includes(row.status) && summary.lineCount === 0) {
+    return "Scan envoyé";
+  }
+  if (row.request_type === "prescription" && summary.lineCount > 0) {
+    return `${summary.lineCount} produit${summary.lineCount > 1 ? "s" : ""} saisi${summary.lineCount > 1 ? "s" : ""}`;
+  }
+  return `${summary.lineCount} ligne${summary.lineCount === 1 ? "" : "s"}`;
+}
+
+function pharmacistCardLineBadge(row: PharmacistRequestRow, lineCount: number): string {
+  if (row.request_type === "prescription" && ["submitted", "in_review"].includes(row.status) && lineCount === 0) {
+    return "Scan à traiter";
+  }
+  if (row.request_type === "prescription" && lineCount > 0) {
+    return `${lineCount} produit${lineCount > 1 ? "s" : ""} saisi${lineCount > 1 ? "s" : ""}`;
+  }
+  return `${lineCount} ligne${lineCount === 1 ? "" : "s"}`;
 }
 
 export type HubTab = "dashboard" | "list";
@@ -164,10 +196,15 @@ export function PatientDemandeCard({
   const summary = summarizeRequestForPatientCard(items.length ? items : null, row.status);
   const refVisuel = displayRequestPublicRef(row);
   const cardStatus = row.status;
+  const kindConfig = getRequestKindConfig(row.request_type);
+  const cardAccent = kindConfig.theme.accent;
+  const lineBadge = patientCardLineBadge(row, summary);
+  const unreadDotClass =
+    cardAccent === "amber" ? "bg-amber-600" : cardAccent === "violet" ? "bg-violet-600" : "bg-sky-600";
 
   if (variant === "list") {
     return (
-      <div className={clsx(demandeCardShell(cardStatus, "patient"), "transition hover:-translate-y-px")}>
+      <div className={clsx(demandeCardShell(cardStatus, "patient", cardAccent), "transition hover:-translate-y-px")}>
         <Link
           href={`/dashboard/demandes/${row.id}`}
           className="group block p-2.5 sm:p-3"
@@ -197,14 +234,20 @@ export function PatientDemandeCard({
               </div>
               <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                 <span className="rounded-md bg-muted/80 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
-                  {summary.lineCount} ligne{summary.lineCount === 1 ? "" : "s"}
+                  {lineBadge}
+                </span>
+                <span className="rounded-md border border-border/70 bg-white/80 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {kindConfig.theme.headerLabelShort}
                 </span>
                 <RequestStatusBadge status={cardStatus} role="patient" />
               </div>
             </div>
             <span className="relative flex shrink-0 items-center gap-1 pt-0.5" aria-hidden>
               {conversationUnread ? (
-                <span className="size-2 shrink-0 rounded-full bg-sky-600 shadow-sm ring-2 ring-white" title="Conversation non lue" />
+                <span
+                  className={clsx("size-2 shrink-0 rounded-full shadow-sm ring-2 ring-white", unreadDotClass)}
+                  title="Conversation non lue"
+                />
               ) : null}
               <span className="text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary">
                 →
@@ -217,7 +260,7 @@ export function PatientDemandeCard({
   }
 
   return (
-    <div className={clsx(demandeCardShell(cardStatus, "patient"), "transition hover:-translate-y-px")}>
+    <div className={clsx(demandeCardShell(cardStatus, "patient", cardAccent), "transition hover:-translate-y-px")}>
       <Link
         href={`/dashboard/demandes/${row.id}`}
         className="group block p-2.5 sm:p-3"
@@ -281,9 +324,14 @@ export function PharmacistDemandeCard({
   const hasFulfillmentProgress = nReserved + nOrdered + nArrived > 0;
   const statusForCard = row.status;
   const cref = row.patient_ref?.trim();
+  const kindConfig = getRequestKindConfig(row.request_type);
+  const cardAccent = kindConfig.theme.accent;
+  const lineBadge = pharmacistCardLineBadge(row, lines.length);
+  const unreadDotClass =
+    cardAccent === "amber" ? "bg-amber-600" : cardAccent === "violet" ? "bg-violet-600" : "bg-rose-600";
 
   return (
-    <div className={clsx(demandeCardShell(statusForCard, "pharmacien"), "transition hover:-translate-y-px")}>
+    <div className={clsx(demandeCardShell(statusForCard, "pharmacien", cardAccent), "transition hover:-translate-y-px")}>
       <Link
         href={`/dashboard/pharmacien/demandes/${row.id}`}
         className="group block px-2 py-2 sm:px-2.5 sm:py-2"
@@ -310,7 +358,10 @@ export function PharmacistDemandeCard({
             </p>
             <div className="flex flex-wrap items-center gap-1 pt-0.5">
               <span className="rounded border border-border/60 bg-muted/70 px-1.5 py-px text-[10px] font-medium text-foreground">
-                {lines.length} ligne{lines.length === 1 ? "" : "s"}
+                {lineBadge}
+              </span>
+              <span className="rounded-md border border-border/70 bg-white/80 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {kindConfig.theme.headerLabelShort}
               </span>
               <RequestStatusBadge status={statusForCard} role="pharmacien" />
             </div>
@@ -323,7 +374,10 @@ export function PharmacistDemandeCard({
           </div>
           <span className="relative flex shrink-0 items-center gap-1 self-center" aria-hidden>
             {conversationUnread ? (
-              <span className="size-2 shrink-0 rounded-full bg-rose-600 shadow-sm ring-2 ring-white" title="Conversation non lue" />
+              <span
+                className={clsx("size-2 shrink-0 rounded-full shadow-sm ring-2 ring-white", unreadDotClass)}
+                title="Conversation non lue"
+              />
             ) : null}
             <span className="text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary">→</span>
           </span>

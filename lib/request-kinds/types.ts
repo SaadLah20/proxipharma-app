@@ -49,6 +49,14 @@ export type RequestKindWorkflowCopy = {
   patientArchiveClosedFooter: string;
   timelinePharmacistProposedOrigin: string;
   patientSuiviProposedHint: string;
+  /** Bandeau récap patient (ex. « Ordonnance », « Demande de produits »). */
+  patientSummaryKindLabel: string;
+  /** Préfixe court réf. dans le bandeau (ex. « Ord. », « Dem. »). */
+  patientSummaryRefShort: string;
+  patientProductsSectionTitle: string;
+  patientWaitingSubmittedHint: string;
+  patientWaitingInReviewHint: string;
+  patientCancelWhileWaitingLabel: string;
 };
 
 export type RequestKindCopy = {

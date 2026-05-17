@@ -74,7 +74,12 @@ import {
 } from "@/lib/build-patient-line-timeline-fr";
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { isPatientProductArchiveStatus, type PatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
+import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
+import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 import { getRequestKindWorkflowCopy } from "@/lib/request-kinds/workflow-copy";
+import { patientArchiveIntroCopy, patientArchiveRetainedLabel } from "@/lib/request-kinds/hub-and-terminal-copy";
+import { getRequestKindConfig, isRequestKindId } from "@/lib/request-kinds/registry";
+import type { RequestKindAccent, RequestKindId } from "@/lib/request-kinds/types";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
@@ -710,50 +715,38 @@ function PatientTraceNotRetainedRow({
   );
 }
 
-function archiveReadonlyIntroCopy(status: PatientProductArchiveStatus): { ring: string; gradient: string; title: string; lede: string } {
+function archiveReadonlyIntroShell(status: PatientProductArchiveStatus): { ring: string; gradient: string } {
   switch (status) {
     case "cancelled":
       return {
         ring: "border-rose-200/90 ring-1 ring-rose-200/45",
         gradient: "from-rose-50/80 via-white to-rose-50/20",
-        title: "Archive — dossier annulé",
-        lede: "Référence figée. Touchez une photo pour l’agrandir ; l’icône horloge ouvre l’historique détaillé du produit.",
       };
     case "abandoned":
       return {
         ring: "border-orange-200/90 ring-1 ring-orange-200/45",
         gradient: "from-orange-50/75 via-white to-amber-50/25",
-        title: "Archive — dossier abandonné",
-        lede: "Plus d’actions possibles sur ProxiPharma. Les lignes et messages restent consultables en lecture seule.",
       };
     case "expired":
       return {
         ring: "border-amber-200/90 ring-1 ring-amber-200/45",
         gradient: "from-amber-50/85 via-white to-amber-50/25",
-        title: "Archive — délai dépassé",
-        lede: "La réponse n’a pas été validée à temps. Vous pouvez lancer une nouvelle demande depuis le bouton en tête de page si proposé.",
       };
     case "partially_collected":
       return {
         ring: "border-teal-200/90 ring-1 ring-teal-200/45",
         gradient: "from-teal-50/70 via-white to-cyan-50/20",
-        title: "Archive — retraits partiels",
-        lede: "Certaines lignes retenues ont été retirées au comptoir ; les autres restent visibles pour votre trace.",
       };
     case "fully_collected":
       return {
         ring: "border-emerald-200/90 ring-1 ring-emerald-200/45",
         gradient: "from-emerald-50/75 via-white to-teal-50/25",
-        title: "Archive — tout retiré",
-        lede: "Toutes les lignes retenues ont été enregistrées comme retirées en officine.",
       };
     case "completed":
     default:
       return {
         ring: "border-slate-200/90 ring-1 ring-slate-200/40",
         gradient: "from-slate-50/80 via-white to-slate-50/15",
-        title: "Archive — dossier clôturé",
-        lede: "Vue figée au moment de la clôture. Photos zoomables ; jalons et échanges conservés sur chaque ligne.",
       };
   }
 }
@@ -766,6 +759,7 @@ function ReadonlyArchivedProductBucketsView({
   archiveStatus,
   onPhotoPreview,
   pharmacistProposedBadgeLabel,
+  requestType = "product_request",
 }: {
   items: ActionItemRow[];
   onOpenLineHistory: (itemId: string) => void;
@@ -773,8 +767,12 @@ function ReadonlyArchivedProductBucketsView({
   archiveStatus: PatientProductArchiveStatus;
   onPhotoPreview: (url: string, title: string) => void;
   pharmacistProposedBadgeLabel: string;
+  requestType?: string;
 }) {
-  const intro = archiveReadonlyIntroCopy(archiveStatus);
+  const kindId: RequestKindId =
+    isRequestKindId(requestType) && requestType !== "free_consultation" ? requestType : "product_request";
+  const introText = patientArchiveIntroCopy(archiveStatus, kindId);
+  const introShell = archiveReadonlyIntroShell(archiveStatus);
   const totalsRetained = useMemo(() => monetaryTotalsForRetainedLines(items), [items]);
   const { dispoOfficine, aCommander, horsPerimetre, retireesApresValidation } =
     bucketPatientValidatedLinesThreeWays(items);
@@ -793,17 +791,17 @@ function ReadonlyArchivedProductBucketsView({
   return (
     <div className="space-y-2">
       <div
-        className={`rounded-xl border-2 bg-gradient-to-br px-2.5 py-2 shadow-sm sm:px-3 ${intro.ring} ${intro.gradient}`}
+        className={`rounded-xl border-2 bg-gradient-to-br px-2.5 py-2 shadow-sm sm:px-3 ${introShell.ring} ${introShell.gradient}`}
       >
         <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Lecture seule</p>
-        <p className="mt-0.5 text-[11px] font-bold leading-snug text-foreground">{intro.title}</p>
-        <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{intro.lede}</p>
+        <p className="mt-0.5 text-[11px] font-bold leading-snug text-foreground">{introText.title}</p>
+        <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{introText.lede}</p>
       </div>
 
       <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto rounded-md border border-primary/20 bg-primary/[0.06] px-2 py-1.5">
         <p className="shrink-0 text-[10px] font-semibold text-foreground">
           <span className="tabular-nums">{totalsRetained.count}</span>{" "}
-          {totalsRetained.count > 1 ? "produits retenus" : "produit retenu"}
+          {patientArchiveRetainedLabel(kindId, totalsRetained.count)}
         </p>
         <p className="shrink-0 text-[10px] font-semibold tabular-nums text-primary whitespace-nowrap">{totalGrandLabel}</p>
       </div>
@@ -1150,22 +1148,67 @@ function PatientSentLineNotesModalFr({
   );
 }
 
+function summaryThemeClasses(accent: RequestKindAccent) {
+  if (accent === "amber") {
+    return {
+      shell: "mb-2 rounded-lg border-2 border-amber-500/35 bg-gradient-to-br from-amber-500/12 via-white to-orange-50/30 px-2 py-2 text-[10px] leading-snug shadow-sm ring-1 ring-amber-400/35 sm:px-2.5",
+      borderB: "border-amber-200/70",
+      borderB2: "border-amber-200/60",
+      title: "text-amber-950",
+      meta: "text-amber-900/90",
+      chip: "border-amber-300/60 text-amber-900",
+      link: "text-amber-800",
+      contactBtn: "border-amber-400/70 text-amber-950 hover:bg-amber-50",
+      contactIcon: "text-amber-700",
+      contactPanel: "border-amber-200 ring-amber-200/60",
+      metaRow: "text-amber-950/88",
+      metaLabel: "text-amber-900/90",
+      hint: "text-amber-950/90",
+    };
+  }
+  return {
+    shell: "mb-2 rounded-lg border-2 border-sky-500/35 bg-gradient-to-br from-sky-500/12 via-white to-teal-50/30 px-2 py-2 text-[10px] leading-snug shadow-sm ring-1 ring-sky-400/35 sm:px-2.5",
+    borderB: "border-sky-200/70",
+    borderB2: "border-sky-200/60",
+    title: "text-sky-950",
+    meta: "text-sky-900/90",
+    chip: "border-sky-300/60 text-sky-900",
+    link: "text-sky-800",
+    contactBtn: "border-sky-400/70 text-sky-950 hover:bg-sky-50",
+    contactIcon: "text-sky-700",
+    contactPanel: "border-sky-200 ring-sky-200/60",
+    metaRow: "text-sky-950/88",
+    metaLabel: "text-sky-900/90",
+    hint: "text-sky-950/90",
+  };
+}
+
 function PatientSentEnvoyeeSummaryCard({
   pharmacyContact,
   pharmacyId,
   dossierRefLabel,
   lineCount,
+  lineCountLabel,
   status,
   createdAt,
   updatedAt,
+  kindLabel,
+  refShort,
+  statusHint,
+  accent = "sky",
 }: {
   pharmacyContact: PatientPharmacyContactInfo | null;
   pharmacyId: string;
   dossierRefLabel: string;
   lineCount: number;
+  lineCountLabel: string;
   status: string;
   createdAt: string;
   updatedAt: string;
+  kindLabel: string;
+  refShort: string;
+  statusHint: string;
+  accent?: RequestKindAccent;
 }) {
   const ph = pharmacyContact;
   const titleLine =
@@ -1173,18 +1216,9 @@ function PatientSentEnvoyeeSummaryCard({
       ? `${ph.nom.trim()}${ph.ville?.trim() ? ` · ${ph.ville.trim()}` : ""}`
       : "Officine";
   const phRef = ph?.public_ref?.trim();
-  const statusHint =
-    status === "responded"
-      ? "Un choix par produit, puis date de passage et validation."
-      : status === "confirmed"
-        ? "Ta pharmacie prépare ta commande (mise de côté et commandes fournisseur selon les produits). Les mises à jour restent visibles sur cette page."
-        : status === "treated"
-          ? "Tu peux passer à l’officine pour retirer les produits réservés et ceux commandés déjà reçus. Le suivi par produit est indiqué sur chaque carte. Tu peux mettre à jour ta date de passage plus bas sur cette page ; la pharmacie voit le changement."
-          : status === "in_review"
-            ? "Un pharmacien examine votre liste. Vous serez averti dès que la réponse (disponibilités, alternatives le cas échéant) sera prête."
-            : "Votre liste est en file d’attente : un pharmacien la traitera et vous répondra avec les disponibilités et les éventuelles alternatives.";
+  const t = summaryThemeClasses(accent);
   return (
-    <div className="mb-2 rounded-lg border-2 border-sky-500/35 bg-gradient-to-br from-sky-500/12 via-white to-teal-50/30 px-2 py-2 text-[10px] leading-snug shadow-sm ring-1 ring-sky-400/35 sm:px-2.5">
+    <div className={t.shell}>
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1 border-b border-sky-200/70 pb-1.5">
         <div className="min-w-0 flex-1 space-y-0.5">
           <p className="text-[11px] font-bold leading-tight text-sky-950">{titleLine}</p>
@@ -1214,15 +1248,15 @@ function PatientSentEnvoyeeSummaryCard({
           </details>
         ) : null}
       </div>
-      <p className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 border-b border-sky-200/60 pb-1.5 text-[9px] text-sky-950/88">
-        <span className="font-bold uppercase tracking-wide text-sky-900/90">Demande</span>
-        <span className="font-mono font-semibold text-foreground">Dem. {dossierRefLabel}</span>
-        <span aria-hidden>·</span>
-        <span>Demande de produits</span>
-        <span aria-hidden>·</span>
-        <span className="tabular-nums font-semibold">
-          {lineCount} ligne{lineCount > 1 ? "s" : ""}
+      <p className={clsx("mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 border-b pb-1.5 text-[9px]", t.borderB2, t.metaRow)}>
+        <span className={clsx("font-bold uppercase tracking-wide", t.metaLabel)}>Dossier</span>
+        <span className="font-mono font-semibold text-foreground">
+          {refShort} {dossierRefLabel}
         </span>
+        <span aria-hidden>·</span>
+        <span>{kindLabel}</span>
+        <span aria-hidden>·</span>
+        <span className="tabular-nums font-semibold">{lineCountLabel}</span>
         <span aria-hidden>·</span>
         <span>
           Créée{" "}
@@ -1242,7 +1276,7 @@ function PatientSentEnvoyeeSummaryCard({
         <span className="shrink-0 rounded-full border border-amber-300/90 bg-amber-50 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-amber-950">
           {requestStatusFr[status] ?? status}
         </span>
-        <p className="min-w-0 flex-1 text-[9px] leading-snug text-sky-950/90">{statusHint}</p>
+        <p className={clsx("min-w-0 flex-1 text-[9px] leading-snug", t.hint)}>{statusHint}</p>
       </div>
     </div>
   );
@@ -1290,7 +1324,45 @@ type Props = {
   pharmacyId?: string | null;
   requestUpdatedAt?: string | null;
   requestType?: string;
+  prescriptionPaths?: PrescriptionPagePaths | null;
+  prescriptionNote?: string | null;
 };
+
+function buildPatientSummaryStatusHint(
+  status: string,
+  requestType: string,
+  workflow: ReturnType<typeof getRequestKindWorkflowCopy>
+): string {
+  if (status === "responded") return "Un choix par produit, puis date de passage et validation.";
+  if (status === "confirmed") {
+    return requestType === "prescription"
+      ? "La pharmacie prépare votre commande selon les produits saisis sur l’ordonnance."
+      : "Ta pharmacie prépare ta commande (mise de côté et commandes fournisseur selon les produits). Les mises à jour restent visibles sur cette page.";
+  }
+  if (status === "treated") {
+    return "Tu peux passer à l’officine pour retirer les produits réservés et ceux commandés déjà reçus. Le suivi par produit est indiqué sur chaque carte.";
+  }
+  if (status === "in_review") {
+    return requestType === "prescription"
+      ? workflow.patientWaitingInReviewHint
+      : workflow.patientWaitingInReviewHint;
+  }
+  return requestType === "prescription" ? workflow.patientWaitingSubmittedHint : workflow.patientWaitingSubmittedHint;
+}
+
+function buildPatientLineCountLabel(
+  requestType: string,
+  status: string,
+  lineCount: number
+): string {
+  if (requestType === "prescription" && ["submitted", "in_review"].includes(status)) {
+    return "Scan envoyé";
+  }
+  if (requestType === "prescription" && lineCount > 0) {
+    return `${lineCount} produit${lineCount > 1 ? "s" : ""} saisi${lineCount > 1 ? "s" : ""}`;
+  }
+  return `${lineCount} ligne${lineCount > 1 ? "s" : ""}`;
+}
 
 function clampVisitYmd(ymd: string, minY: string, maxY: string): string {
   if (ymd < minY) return minY;
@@ -2105,9 +2177,14 @@ export function PatientProductRequestActions({
   pharmacyId = null,
   requestUpdatedAt = null,
   requestType = "product_request",
+  prescriptionPaths = null,
+  prescriptionNote = null,
 }: Props) {
   const pathname = usePathname();
-  const workflowCopy = getRequestKindWorkflowCopy(requestType);
+  const kindConfig = getRequestKindConfig(requestType);
+  const workflowCopy = kindConfig.copy.workflow;
+  const accent = kindConfig.theme.accent;
+  const isPrescription = requestType === "prescription";
   const [actionError, setActionError] = useState("");
   const [historyModalItemId, setHistoryModalItemId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<"" | "confirm" | "resubmit" | "abandon" | "visit">("");
@@ -2706,6 +2783,7 @@ export function PatientProductRequestActions({
             archiveStatus={status}
             onPhotoPreview={openProductPhotoPreview}
             pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
+            requestType={requestType}
           />
         </section>
         <LineHistoryModalFr
@@ -2720,7 +2798,10 @@ export function PatientProductRequestActions({
   }
 
   const showConfirm = status === "responded";
-  const showResubmit = status === "submitted" || status === "in_review";
+  const showProductResubmit = !isPrescription && (status === "submitted" || status === "in_review");
+  const showPrescriptionWaiting =
+    isPrescription && (status === "submitted" || status === "in_review") && prescriptionPaths?.page1;
+  const showWaitingShell = showProductResubmit || showPrescriptionWaiting;
   const showPatientExitCTA =
     status === "submitted" ||
     status === "in_review" ||
@@ -2728,7 +2809,9 @@ export function PatientProductRequestActions({
     status === "confirmed" ||
     status === "treated";
   const patientExitPrimaryLabel =
-    status === "submitted" || status === "in_review" ? "Annuler la demande" : "Abandonner la demande";
+    status === "submitted" || status === "in_review"
+      ? workflowCopy.patientCancelWhileWaitingLabel
+      : "Abandonner la demande";
   const showConfirmedCards = status === "confirmed" || status === "treated";
   /** Date/heure de passage : à la validation (responded) et pour modifier après coup. */
   const showVisitFields = showConfirm || showConfirmedCards;
@@ -2747,30 +2830,53 @@ export function PatientProductRequestActions({
     <section
       className={clsx(
         "touch-pan-y mt-2 rounded-xl border-2 border-slate-200 bg-slate-50/95 p-2.5 sm:p-3",
-        (showResubmit || showConfirm || showConfirmedCards) && "pb-40"
+        (showWaitingShell || showConfirm || showConfirmedCards) && "pb-40"
       )}
     >
       {actionError ? (
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
       ) : null}
 
-      {(showResubmit || showConfirm || showConfirmedCards) && pharmacyId ? (
+      {(showWaitingShell || showConfirm || showConfirmedCards) && pharmacyId ? (
         <PatientSentEnvoyeeSummaryCard
           pharmacyContact={pharmacyContact}
           pharmacyId={pharmacyId}
           dossierRefLabel={dossierRefLabel}
-          lineCount={showResubmit ? lines.length : items.length}
+          lineCount={showProductResubmit ? lines.length : items.length}
+          lineCountLabel={buildPatientLineCountLabel(
+            requestType,
+            showConfirm ? "responded" : status,
+            showProductResubmit ? lines.length : items.length
+          )}
           status={showConfirm ? "responded" : status}
           createdAt={requestTimelineMeta?.created_at ?? ""}
           updatedAt={requestUpdatedAt ?? requestTimelineMeta?.created_at ?? ""}
+          kindLabel={workflowCopy.patientSummaryKindLabel}
+          refShort={workflowCopy.patientSummaryRefShort}
+          statusHint={buildPatientSummaryStatusHint(showConfirm ? "responded" : status, requestType, workflowCopy)}
+          accent={accent}
         />
+      ) : null}
+
+      {showPrescriptionWaiting && prescriptionPaths ? (
+        <section className="mt-2 space-y-3">
+          <PrescriptionImageViewer paths={prescriptionPaths} accent="amber" />
+          {prescriptionNote?.trim() ? (
+            <div className="rounded-xl border border-amber-200/70 bg-amber-50/40 px-3 py-2.5 text-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Votre message</p>
+              <p className="mt-1 whitespace-pre-wrap text-foreground">{prescriptionNote.trim()}</p>
+            </div>
+          ) : null}
+        </section>
       ) : null}
 
       {showConfirm ? (
         <div className="space-y-2">
           {items.length > 0 ? (
             <section className="space-y-2">
-              <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Produits</h3>
+              <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                {workflowCopy.patientProductsSectionTitle}
+              </h3>
               <ul className="space-y-4">
                 {items.map((row) => (
                   <RespondedPatientLineChooser
@@ -2802,7 +2908,9 @@ export function PatientProductRequestActions({
 
           return (
             <section className="space-y-2">
-              <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Produits</h3>
+              <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                {workflowCopy.patientProductsSectionTitle}
+              </h3>
               <div className="space-y-2">
               <div className="rounded-xl border-2 border-emerald-200/70 bg-gradient-to-b from-emerald-50/30 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-emerald-200/45 sm:p-3">
               {dispoRetenues.length > 0 ? (
@@ -2961,9 +3069,11 @@ export function PatientProductRequestActions({
         })()
       ) : null}
 
-      {showResubmit ? (
+      {showProductResubmit ? (
         <section className="mt-2 space-y-2">
-          <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Produits</h3>
+          <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+            {workflowCopy.patientProductsSectionTitle}
+          </h3>
           {editMode ? (
         <div className="rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-sm sm:p-4">
           <label className="block text-base font-semibold text-slate-900">Ajouter un produit</label>
@@ -3269,7 +3379,7 @@ export function PatientProductRequestActions({
           <div
             className={clsx(
               "mt-4 border-t border-rose-200/50 pt-3",
-              showResubmit && "mb-20",
+              showProductResubmit && "mb-20",
               showConfirm && "mb-24",
               showConfirmedCards && "mb-32"
             )}
@@ -3305,7 +3415,7 @@ export function PatientProductRequestActions({
         ) : null}
       </div>
 
-      {showResubmit ? (
+      {showProductResubmit ? (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
           <div className="mx-auto flex max-w-lg flex-col gap-2.5">
             <div className="flex flex-nowrap items-center justify-between gap-3">
@@ -3546,7 +3656,7 @@ export function PatientProductRequestActions({
         </div>
       ) : null}
 
-      {showResubmit && resubmitConfirmOpen ? (
+      {showProductResubmit && resubmitConfirmOpen ? (
         <div className="fixed inset-0 z-[55] flex items-end justify-center p-3 sm:items-center">
           <button
             type="button"

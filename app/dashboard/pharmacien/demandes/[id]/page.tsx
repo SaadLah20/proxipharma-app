@@ -55,6 +55,10 @@ import {
   type PharmaConfirmAdjustmentAudit,
   type PharmaConfirmAdjustmentLine,
 } from "@/lib/patient-request-history-audit";
+import {
+  pharmacistClosedSuccessIntro,
+  pharmacistHardStopSectionCopy,
+} from "@/lib/request-kinds/hub-and-terminal-copy";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import { getRequestKindWorkflowCopy } from "@/lib/request-kinds/workflow-copy";
 import { sharedShowPlannedVisitBlock } from "@/lib/request-kinds/shared-capabilities";
@@ -3504,16 +3508,15 @@ export default function PharmacienDemandeDetailPage() {
             "rounded-lg border px-3 py-2 shadow-sm",
             request.status === "cancelled" && "border-rose-200/90 bg-rose-50/55 text-rose-950",
             request.status === "abandoned" && "border-orange-200/90 bg-orange-50/55 text-orange-950",
-            request.status === "expired" && "border-amber-200/90 bg-amber-50/55 text-amber-950"
+            request.status === "expired" && "border-amber-200/90 bg-amber-50/55 text-amber-950",
+            isPrescription && "ring-1 ring-amber-200/50"
           )}
         >
           <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
-            {request.status === "cancelled"
-              ? "Annulée"
-              : request.status === "abandoned"
-                ? "Sans suite"
-                : "Expirée"}{" "}
-            · dossier fermé
+            {pharmacistHardStopSectionCopy(
+              request.status as "cancelled" | "abandoned" | "expired",
+              isPrescription ? "prescription" : "product_request"
+            ).kickerSuffix}
           </p>
           <p className="mt-0.5 text-[13px] font-semibold leading-snug">
             {requestStatusFr[request.status] ?? request.status}
@@ -3527,9 +3530,26 @@ export default function PharmacienDemandeDetailPage() {
       ) : null}
 
       {pharmacistRequestIsClosedSuccess(request.status) && usesLineWorkflow ? (
-        <section className="rounded-lg border border-emerald-200/85 bg-emerald-50/65 px-3 py-2 text-[11px] text-emerald-950 shadow-sm">
-          <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900/75">Clôture</p>
-          <p className="mt-0.5 font-semibold tabular-nums">
+        <section
+          className={clsx(
+            "rounded-lg border px-3 py-2 text-[11px] shadow-sm",
+            isPrescription
+              ? "border-amber-200/85 bg-amber-50/65 text-amber-950"
+              : "border-emerald-200/85 bg-emerald-50/65 text-emerald-950"
+          )}
+        >
+          <p
+            className={clsx(
+              "text-[9px] font-bold uppercase tracking-wide",
+              isPrescription ? "text-amber-900/75" : "text-emerald-900/75"
+            )}
+          >
+            Clôture
+          </p>
+          <p className="mt-0.5 text-[11px] font-medium leading-snug">
+            {pharmacistClosedSuccessIntro(isPrescription ? "prescription" : "product_request")}
+          </p>
+          <p className="mt-1 font-semibold tabular-nums">
             {closedSuccessPickupCount ?? 0} ligne{(closedSuccessPickupCount ?? 0) !== 1 ? "s" : ""} retirée
             {(closedSuccessPickupCount ?? 0) !== 1 ? "s" : ""} au comptoir (retenues).
           </p>

@@ -71,9 +71,20 @@ export function RequestKindHeader({
         ? "border-violet-200/90 text-violet-950"
         : "border-sky-200/90 text-sky-950";
 
+  function patientStatusBadgeClass(status: string): string {
+    if (config.id === "product_request") return patientProductStatusBadgeClass(status);
+    if (config.id === "prescription") {
+      if (["submitted", "in_review"].includes(status)) {
+        return "border-amber-400/85 bg-amber-100 text-amber-950 ring-1 ring-amber-200/80";
+      }
+      if (status === "responded") return "border-amber-300/95 bg-amber-50 text-amber-950";
+    }
+    return requestStatusBadgeClass(status);
+  }
+
   const statusBadgeClass =
-    viewerRole === "patient" && config.id === "product_request"
-      ? patientProductStatusBadgeClass(request.status)
+    viewerRole === "patient" && (config.id === "product_request" || config.id === "prescription")
+      ? patientStatusBadgeClass(request.status)
       : requestStatusBadgeClass(request.status);
 
   return (
