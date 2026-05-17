@@ -56,6 +56,7 @@ import {
   type PharmaConfirmAdjustmentLine,
 } from "@/lib/patient-request-history-audit";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
+import { getRequestKindWorkflowCopy } from "@/lib/request-kinds/workflow-copy";
 import { sharedShowPlannedVisitBlock } from "@/lib/request-kinds/shared-capabilities";
 import { RequestDetailBackLink } from "@/components/requests/shared/request-detail-back-link";
 import { RequestKindHeader } from "@/components/requests/shared/request-kind-header";
@@ -555,9 +556,11 @@ function buildPublishConfirmRowMeta(r: ItemRow, fd: ItemDraft): PublishConfirmRo
 function PublishConfirmLineLi({
   meta,
   altQtyDrafts,
+  proposedBadgeLabel,
 }: {
   meta: PublishConfirmRowMeta;
   altQtyDrafts: Record<string, string>;
+  proposedBadgeLabel: string;
 }) {
   const { r, fd, availUi, proposed, prodName, priceMad, note, eta, alts } = meta;
   const AvailIcon = availUi.Icon;
@@ -577,7 +580,7 @@ function PublishConfirmLineLi({
           {proposed ? (
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="shrink-0 rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                {pharmacistProposedProductBadgeFr}
+                {proposedBadgeLabel}
               </span>
               {r.pharmacist_proposal_reason?.trim() ? (
                 <p className="min-w-0 flex-1 text-[10px] leading-snug text-violet-900/90">
@@ -1071,6 +1074,7 @@ function buildConfirmedSupplySaveSummaryLines(
   altQtyDrafts: Record<string, string>,
   lineModifyConsent: Record<string, { channel: string; motive: string }>,
   requestStatus: string | null,
+  pharmacistProposedBadge: string,
   /** Si défini, seuls ces ids ont un « accord patient » listé (aligné sur les lignes réellement enregistrées). */
   consentRowIdFilter?: Set<string> | null
 ): string[] {
@@ -1078,7 +1082,7 @@ function buildConfirmedSupplySaveSummaryLines(
 
   for (const row of pendingProposalRows) {
     const nm = one(row.products)?.name ?? "Produit";
-    lines.push(`${pharmacistProposedProductBadgeFr} à créer : « ${nm} » (${row.requested_qty ?? 1} unité(s)).`);
+    lines.push(`${pharmacistProposedBadge} à créer : « ${nm} » (${row.requested_qty ?? 1} unité(s)).`);
   }
 
   for (const pe of pendingAlternatives) {
@@ -2740,6 +2744,7 @@ export default function PharmacienDemandeDetailPage() {
       altQtyDrafts,
       lineModifyConsent,
       request?.status ?? null,
+      getRequestKindWorkflowCopy(request?.request_type ?? "product_request").pharmacistProposedBadge,
       consentRowIdFilter
     );
     setSupplySaveConfirmLines(
@@ -3043,11 +3048,7 @@ export default function PharmacienDemandeDetailPage() {
       return;
     }
     if (displayRows.length === 0) {
-      setError(
-        request.request_type === "prescription"
-          ? "Ajoutez au moins un produit depuis l’ordonnance (section « Proposer un produit »)."
-          : "Aucune ligne produit à renseigner."
-      );
+      setError(getRequestKindWorkflowCopy(request.request_type).pharmacistPublishNeedLinesError);
       return;
     }
 
@@ -3345,6 +3346,7 @@ export default function PharmacienDemandeDetailPage() {
       supplyBundles: supplyAmendmentBundles,
       dossierHistory: dossierHistoryTimeline,
       dossierHistoryDetailParagraphs: pharmacistDossierHistoryDetailParagraphsFr,
+      pharmacistProposedOriginLabel: getRequestKindWorkflowCopy(request.request_type).timelinePharmacistProposedOrigin,
     });
   }, [pharmaHistoryRowId, request, items, supplyAmendmentBundles, dossierHistoryTimeline]);
 
@@ -3430,6 +3432,8 @@ export default function PharmacienDemandeDetailPage() {
   if (!request) return null;
 
   const kindConfig = getRequestKindConfig(request.request_type);
+  const workflowCopy = kindConfig.copy.workflow;
+  const proposedBadgeLabel = workflowCopy.pharmacistProposedBadge;
 
   const patientPhone = patientProfile?.whatsapp?.trim();
   const patientEmail = patientProfile?.email?.trim();
@@ -3694,7 +3698,11 @@ export default function PharmacienDemandeDetailPage() {
 
           {isPrescription && prescriptionPaths?.page1 ? (
             <div className="mb-3 space-y-2 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-start lg:gap-3">
-              <PrescriptionImageViewer paths={prescriptionPaths} className="lg:sticky lg:top-2" />
+              <PrescriptionImageViewer
+                paths={prescriptionPaths}
+                layout="desktop-comfort"
+                className="lg:sticky lg:top-2"
+              />
               <div className="space-y-2">
                 {prescriptionNote?.trim() ? (
                   <p className="rounded-lg border border-amber-200/70 bg-amber-50/40 px-2.5 py-2 text-[11px] leading-snug text-amber-950">
@@ -3703,9 +3711,7 @@ export default function PharmacienDemandeDetailPage() {
                   </p>
                 ) : null}
                 {displayRows.length === 0 && showLineAndPublishEdits ? (
-                  <p className="text-[11px] text-muted-foreground">
-                    Saisissez les produits lus sur l’ordonnance via « Proposer un produit » ci-dessous, puis publiez la réponse.
-                  </p>
+                  <p className="text-[11px] text-muted-foreground">{workflowCopy.pharmacistEmptyLinesHint}</p>
                 ) : null}
               </div>
             </div>
@@ -3719,7 +3725,9 @@ export default function PharmacienDemandeDetailPage() {
               <>
               <div className="flex flex-wrap items-end justify-between gap-1.5 sm:gap-2">
             <div>
-              <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground sm:text-xs">Produits</h2>
+              <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground sm:text-xs">
+                {workflowCopy.pharmacistLinesSectionTitle}
+              </h2>
               {["confirmed", "treated", "completed"].includes(request.status) ? (
                 <div className="mt-1 flex flex-wrap gap-1 text-[9px] text-muted-foreground">
                   <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">Sél. {selectedLinesActiveCount}</span>
@@ -4268,6 +4276,7 @@ export default function PharmacienDemandeDetailPage() {
                         setSupplyMenuRowId(null);
                       }}
                       showAjoutOfficineBadge={isPharmacistProposedRow(row)}
+                      ajoutOfficineBadgeLabel={proposedBadgeLabel}
                       onMenuHistory={() => setPharmaHistoryRowId(row.id)}
                       withdrawDisabled={lineCounterLocked}
                       withdrawDisabledReason={
@@ -4334,7 +4343,7 @@ export default function PharmacienDemandeDetailPage() {
                           </p>
                           {isProposedLine ? (
                             <span className="shrink-0 rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                              {pharmacistProposedProductBadgeFr}
+                              {proposedBadgeLabel}
                             </span>
                           ) : null}
                         </div>
@@ -4617,7 +4626,7 @@ export default function PharmacienDemandeDetailPage() {
                           </p>
                         ) : isProposedLine ? (
                           <p className="text-[9px] leading-snug text-violet-900/90">
-                            <span className="font-semibold text-violet-950">{pharmacistProposedProductBadgeFr} · </span>
+                            <span className="font-semibold text-violet-950">{proposedBadgeLabel} · </span>
                             stock minimum <strong>1</strong>, sans plafond lié à la quantité initialement
                             indiquée sur la ligne.
                           </p>
@@ -5022,17 +5031,19 @@ export default function PharmacienDemandeDetailPage() {
                   setError("");
                   if (next) {
                     resetPropForm();
-                    if (request?.request_type === "prescription") {
-                      setPropReason("Saisie depuis ordonnance");
+                    if (request?.request_type === "prescription" && workflowCopy.pharmacistProposeDefaultReason) {
+                      setPropReason(workflowCopy.pharmacistProposeDefaultReason);
                     }
                   }
                 }}
                 className="flex w-full min-h-11 items-start justify-between gap-2 rounded-lg bg-white/90 px-2 py-2 text-left ring-1 ring-violet-200/55 shadow-sm transition hover:bg-violet-50/60 sm:min-h-0 sm:items-center sm:px-2.5"
               >
                 <span className="min-w-0">
-                  <span className="block text-[10px] font-bold uppercase tracking-wide text-violet-950">Proposer un produit</span>
+                  <span className="block text-[10px] font-bold uppercase tracking-wide text-violet-950">
+                    {workflowCopy.pharmacistProposeSectionTitle}
+                  </span>
                   <span className="mt-0.5 block text-[10px] leading-snug text-violet-900/85 sm:text-[11px]">
-                    Une ligne après la liste — motif et catalogue ci-dessous.
+                    {workflowCopy.pharmacistProposeSectionSubtitle}
                   </span>
                 </span>
                 <ChevronDown
@@ -5359,7 +5370,12 @@ export default function PharmacienDemandeDetailPage() {
                     </h3>
                     <ul className="space-y-2.5">
                       {publishConfirmGroups.ready.map((meta) => (
-                        <PublishConfirmLineLi key={meta.r.id} meta={meta} altQtyDrafts={altQtyDrafts} />
+                        <PublishConfirmLineLi
+                          key={meta.r.id}
+                          meta={meta}
+                          altQtyDrafts={altQtyDrafts}
+                          proposedBadgeLabel={proposedBadgeLabel}
+                        />
                       ))}
                     </ul>
                   </section>
@@ -5371,7 +5387,12 @@ export default function PharmacienDemandeDetailPage() {
                     </h3>
                     <ul className="space-y-2.5">
                       {publishConfirmGroups.order.map((meta) => (
-                        <PublishConfirmLineLi key={meta.r.id} meta={meta} altQtyDrafts={altQtyDrafts} />
+                        <PublishConfirmLineLi
+                          key={meta.r.id}
+                          meta={meta}
+                          altQtyDrafts={altQtyDrafts}
+                          proposedBadgeLabel={proposedBadgeLabel}
+                        />
                       ))}
                     </ul>
                   </section>
@@ -5383,7 +5404,12 @@ export default function PharmacienDemandeDetailPage() {
                     </h3>
                     <ul className="space-y-2.5">
                       {publishConfirmGroups.blocked.map((meta) => (
-                        <PublishConfirmLineLi key={meta.r.id} meta={meta} altQtyDrafts={altQtyDrafts} />
+                        <PublishConfirmLineLi
+                          key={meta.r.id}
+                          meta={meta}
+                          altQtyDrafts={altQtyDrafts}
+                          proposedBadgeLabel={proposedBadgeLabel}
+                        />
                       ))}
                     </ul>
                   </section>

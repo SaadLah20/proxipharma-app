@@ -33,5 +33,19 @@ export const consultationRequestKindConfig: RequestKindConfig = {
       "Le suivi détaillé des consultations libres arrive bientôt. Vous pouvez consulter l’historique du dossier ci-dessous.",
     pharmacistNotEnabledMessage:
       "Le traitement des consultations libres dans cet écran arrive bientôt.",
+    workflow: {
+      pharmacistProposedBadge: "Ajout officine",
+      patientProposedBadge: "Ajout officine",
+      pharmacistProposeSectionTitle: "Proposer un produit",
+      pharmacistProposeSectionSubtitle: "Une ligne après la liste — motif et catalogue ci-dessous.",
+      pharmacistProposeDefaultReason: "",
+      pharmacistEmptyLinesHint: "Aucune ligne.",
+      pharmacistPublishNeedLinesError: "Aucune ligne à renseigner.",
+      pharmacistLinesSectionTitle: "Produits",
+      patientArchiveEmptyLines: "Aucune ligne pour ce dossier.",
+      patientArchiveClosedFooter: "Ce dossier est clos.",
+      timelinePharmacistProposedOrigin: "Proposition par la pharmacie",
+      patientSuiviProposedHint: "Proposition par la pharmacie.",
+    },
   },
 };

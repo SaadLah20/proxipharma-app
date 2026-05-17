@@ -35,12 +35,29 @@ export type RequestKindCapabilities = {
   hasProductCatalogue: boolean;
 };
 
+/** Libellés workflow lignes produit (demande produits vs ordonnance). */
+export type RequestKindWorkflowCopy = {
+  pharmacistProposedBadge: string;
+  patientProposedBadge: string;
+  pharmacistProposeSectionTitle: string;
+  pharmacistProposeSectionSubtitle: string;
+  pharmacistProposeDefaultReason: string;
+  pharmacistEmptyLinesHint: string;
+  pharmacistPublishNeedLinesError: string;
+  pharmacistLinesSectionTitle: string;
+  patientArchiveEmptyLines: string;
+  patientArchiveClosedFooter: string;
+  timelinePharmacistProposedOrigin: string;
+  patientSuiviProposedHint: string;
+};
+
 export type RequestKindCopy = {
   labelFr: string;
   patientHubTitle: string;
   pharmacistHubTitle: string;
   patientNotEnabledMessage: string;
   pharmacistNotEnabledMessage: string;
+  workflow: RequestKindWorkflowCopy;
 };
 
 export type RequestKindConfig = {

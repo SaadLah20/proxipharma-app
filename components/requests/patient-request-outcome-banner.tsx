@@ -37,6 +37,8 @@ export type PatientOutcomeDetailContext = {
   /** Au moins un message dans le fil conversation (hors interne). */
   hasConversationMessages: boolean;
   lastUpdatedLabel: string | null;
+  /** Libellés lignes : défaut = demande produits. */
+  linesMode?: "product" | "prescription";
 };
 
 /**
@@ -47,12 +49,15 @@ export function PatientRequestOutcomeBanner({
   status,
   historyRows,
   detailContext,
+  closedFooterNote,
   children,
 }: {
   status: string;
   historyRows: OutcomeHistoryRow[];
   /** Infos disponibles à l’écran (officine, lignes, messages) — optionnel. */
   detailContext?: PatientOutcomeDetailContext | null;
+  /** Surcharge du texte de clôture (ex. ordonnance). */
+  closedFooterNote?: string | null;
   children?: ReactNode;
 }) {
   if (!isPatientProductArchiveStatus(status)) return null;
@@ -138,17 +143,33 @@ export function PatientRequestOutcomeBanner({
               </li>
             ) : null}
             <li>
-              <span className="font-semibold text-foreground">Lignes : </span>
-              {detailContext.retainedCount} produit{detailContext.retainedCount !== 1 ? "s" : ""} retenu
-              {detailContext.retainedCount !== 1 ? "s" : ""}
-              {detailContext.totalLines !== detailContext.retainedCount ? (
-                <span className="text-muted-foreground">
-                  {" "}
-                  · {detailContext.totalLines - detailContext.retainedCount} autre
-                  {detailContext.totalLines - detailContext.retainedCount > 1 ? "s" : ""} non retenu
-                  {detailContext.totalLines - detailContext.retainedCount > 1 ? "s" : ""}
-                </span>
-              ) : null}
+              <span className="font-semibold text-foreground">
+                {detailContext.linesMode === "prescription" ? "Produits saisis : " : "Lignes : "}
+              </span>
+              {detailContext.linesMode === "prescription" ? (
+                <>
+                  {detailContext.totalLines} produit{detailContext.totalLines !== 1 ? "s" : ""} sur l’ordonnance
+                  {detailContext.retainedCount !== detailContext.totalLines ? (
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {detailContext.retainedCount} retenu{detailContext.retainedCount !== 1 ? "s" : ""} lors de votre validation
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  {detailContext.retainedCount} produit{detailContext.retainedCount !== 1 ? "s" : ""} retenu
+                  {detailContext.retainedCount !== 1 ? "s" : ""}
+                  {detailContext.totalLines !== detailContext.retainedCount ? (
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {detailContext.totalLines - detailContext.retainedCount} autre
+                      {detailContext.totalLines - detailContext.retainedCount > 1 ? "s" : ""} non retenu
+                      {detailContext.totalLines - detailContext.retainedCount > 1 ? "s" : ""}
+                    </span>
+                  ) : null}
+                </>
+              )}
             </li>
             {detailContext.hasConversationMessages ? (
               <li className="text-muted-foreground">Des messages d&apos;échange patient / officine sont conservés (conversation).</li>
@@ -171,7 +192,8 @@ export function PatientRequestOutcomeBanner({
                     ? "Une partie des produits retenus a été retirée au comptoir ; le reste figure comme non retiré dans l’archive."
                     : status === "fully_collected"
                       ? "Tous les produits retenus ont été enregistrés comme retirés au comptoir."
-                      : "Le dossier est clos côté officine. Les montants et libellés reflètent l’état au moment de la clôture."}
+                      : (closedFooterNote ??
+                        "Le dossier est clos côté officine. Les montants et libellés reflètent l’état au moment de la clôture.")}
           </p>
         </div>
       ) : null}
