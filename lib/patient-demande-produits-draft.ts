@@ -1,0 +1,107 @@
+/**
+ * Brouillon panier « demande produits » patient (sessionStorage), partagé entre
+ * la page principale et le catalogue complet.
+ */
+
+export type PatientDemandeProduitsDraftLine = {
+  product_id: string;
+  name: string;
+  photo_url: string | null;
+  qty: number;
+  price_pph?: number | null;
+  client_comment?: string;
+};
+
+export type PatientDemandeProduitsCatalogProduct = {
+  id: string;
+  name: string;
+  product_type: string;
+  laboratory: string | null;
+  photo_url: string | null;
+  price_pph?: number | null;
+};
+
+function draftKey(pharmacyId: string, requestId?: string): string {
+  if (requestId) return `proxipharma:edit-request-lines:${requestId}`;
+  return `proxipharma:demande-produits:${pharmacyId}`;
+}
+
+export function readPatientDemandeProduitsDraft(
+  pharmacyId: string,
+  requestId?: string
+): PatientDemandeProduitsDraftLine[] {
+  if (typeof window === "undefined" || !pharmacyId) return [];
+  try {
+    const raw = sessionStorage.getItem(draftKey(pharmacyId, requestId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (row): row is PatientDemandeProduitsDraftLine =>
+        row != null &&
+        typeof row === "object" &&
+        typeof (row as PatientDemandeProduitsDraftLine).product_id === "string" &&
+        typeof (row as PatientDemandeProduitsDraftLine).name === "string" &&
+        typeof (row as PatientDemandeProduitsDraftLine).qty === "number"
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function writePatientDemandeProduitsDraft(
+  pharmacyId: string,
+  lines: PatientDemandeProduitsDraftLine[],
+  requestId?: string
+): void {
+  if (typeof window === "undefined" || !pharmacyId) return;
+  try {
+    sessionStorage.setItem(draftKey(pharmacyId, requestId), JSON.stringify(lines));
+  } catch {
+    /* quota / mode privé */
+  }
+}
+
+export function clearPatientDemandeProduitsDraft(pharmacyId: string, requestId?: string): void {
+  if (typeof window === "undefined" || !pharmacyId) return;
+  try {
+    sessionStorage.removeItem(draftKey(pharmacyId, requestId));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function mergeCatalogProductsIntoDraft(
+  existing: PatientDemandeProduitsDraftLine[],
+  products: PatientDemandeProduitsCatalogProduct[],
+  resolvePhoto: (url: string | null | undefined) => string | null
+): PatientDemandeProduitsDraftLine[] {
+  const inCart = new Set(existing.map((l) => l.product_id));
+  const added: PatientDemandeProduitsDraftLine[] = [];
+  for (const p of products) {
+    if (inCart.has(p.id)) continue;
+    inCart.add(p.id);
+    added.push({
+      product_id: p.id,
+      name: p.name,
+      photo_url: resolvePhoto(p.photo_url),
+      qty: 1,
+      price_pph: p.price_pph ?? null,
+    });
+  }
+  return [...existing, ...added];
+}
+
+/** Filtre local nom / laboratoire (catalogue complet). */
+export function filterCatalogProductsLocal(
+  products: PatientDemandeProduitsCatalogProduct[],
+  query: string
+): PatientDemandeProduitsCatalogProduct[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return products;
+  return products.filter((p) => {
+    const name = p.name.toLowerCase();
+    const lab = (p.laboratory ?? "").toLowerCase();
+    return name.includes(q) || lab.includes(q);
+  });
+}

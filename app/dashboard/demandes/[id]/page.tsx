@@ -15,6 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { historyActorLabel, requestHistoryPatientHeadline, requestStatusFr } from "@/lib/request-display";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
+import { mapRequestItemsPhotos } from "@/lib/storage-media";
 import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
 import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
 import {
@@ -223,7 +224,7 @@ export default function DemandeDetailPage() {
       if (itemsErr) {
         setError(itemsErr.message);
       } else if (Array.isArray(itemsData)) {
-        setItems(itemsData as RequestItemRow[]);
+        setItems(mapRequestItemsPhotos(itemsData as RequestItemRow[]));
       }
       if (!amendmentsResult.error && Array.isArray(amendmentsResult.data)) {
         setSupplyAmendments(amendmentsResult.data as { id: string; created_at: string; amendments: unknown }[]);
