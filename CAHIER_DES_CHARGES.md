@@ -318,6 +318,26 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-24 — Catalogue patient, photos Storage, ESLint CI
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` (commits **`bbe686b`**, **`4ed2cf9`** + correctifs lint).
+
+**Infra catalogue & photos** :
+- Migrations **`20260524_001`** (buckets **`public-assets`** / **`private-media`**) · **`20260524_002`** (colonnes media pharmacies) · **`20260524_003`** (catalogue pilote ~31 produits MAROC, chemins `products/{uuid}/main.jpg`).
+- **`lib/storage-media.ts`** : **`resolvePublicMediaUrl`**, **`mapRequestItemsPhotos`** (join `products.photo_url` → URL publique Supabase).
+- Scripts : **`scripts/attach-catalog-images.mjs`**, **`scripts/reset-pilot-catalog.mjs`**, **`supabase/scripts/reset-pilot-catalog.sql`** ; doc **`catalog/LISTE_PHOTOS.md`**.
+
+**UI patient — saisie & modification** :
+- **`/pharmacie/[id]/demande-produits`** + **`/demande-produits/catalogue`** : **Voir tous les produits** (multi-sélection, filtre, produits déjà en panier / dossier grisés), brouillon **`sessionStorage`** (`lib/patient-demande-produits-draft.ts`).
+- **`PatientProductRequestActions`** : même lien catalogue en **mode modification** demande **`submitted`/`in_review`** (`?requestId=` + retour dossier) ; vignettes corrigées après envoi et sur tout le détail demande.
+- **`next.config.ts`** : domaine **`*.supabase.co`** pour images.
+
+**CI** : ESLint **`react-hooks/set-state-in-effect`** / **`preserve-manual-memoization`** — resync brouillon / lignes resubmit par **réinit. en rendu** (pattern **`visitSyncKey`**) ; panier catalogue en **`useMemo`** ; handlers catalogue sans **`useCallback`** superflu.
+
+**Prod** : merger vers **`main`** + déployer Vercel pour vignettes catalogue ; appliquer migrations **`20260524_*`** sur le projet Supabase de prod si pas déjà fait.
+
+---
+
 ### Session 2026-05-17 — Notes produit pharmacien, auth OTP, doublons Auth
 
 **Branche** : `fix/validated-supply-ecart-ui-modal` (commit **`06a4413`**).
@@ -1032,6 +1052,9 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260515_001_no_in_app_notif_counter_picked_up.sql` (pas de notif in-app pour **`counter_outcome:picked_up`**)
   - `supabase/migrations/20260516_001_expire_overdue_responded_at_pilot_30m.sql` (pilote 30 min ; corps actuel **`20260523_001`** = **24 h**)
   - `supabase/migrations/20260522_001_sms_pilot_responded_treated_patient_only.sql` · **`20260522_002`** · **`20260522_003`** · **`20260523_001_expire_responded_silence_24h.sql`**
+  - `supabase/migrations/20260524_001_storage_buckets_media.sql` (Storage **`public-assets`** / **`private-media`**, policies)
+  - `supabase/migrations/20260524_002_pharmacies_media_url_columns.sql` (`pharmacies.logo_url` / `cover_url`)
+  - `supabase/migrations/20260524_003_ma_catalog_photos_ready.sql` (MERGE catalogue pilote MAROC + chemins photo)
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -1216,9 +1239,13 @@ Voir **§13.16**.
 
 **« On reprend ProxiPharma. Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-22)**, **`RUNBOOK.md` §9**, **`AGENTS.md`**, **`CONTEXTE.md` §6**. Migrations Supabase si besoin : **`20260522_001`**–**`003`**, **`20260523_001`**. État : webhook INSERT `notification_external_queue` → `/api/webhooks/dispatch-external-sms` ; **SMS patient** seulement (**répondu** / **traité**), format ref dossier ASCII ; **e-mail** = canaux pilote habituels. Expiration **`responded`** = **24 h** (`expire_overdue_requests`). Inscription : pas d’OTP si téléphone déjà enregistré (`signup-phone-check`). Vercel : `TWILIO_*`, `RESEND_*`, `CRON_SECRET`. Admin : assignation officine ≠ `role pharmacien` automatique. Je te dis ensuite quoi faire. »**
 
-### 13.17) Phrase de reprise (recommandée — après session **2026-05-17**)
+### 13.17) Phrase de reprise (session **2026-05-17** — voir **§13.18**)
 
-**« On reprend ProxiPharma. Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-17 + 2026-05-22)**, **`AGENTS.md`**, **`CONTEXTE.md` §6**, **`RUNBOOK.md` §9**. Branche **`fix/validated-supply-ecart-ui-modal`** (commit **`06a4413`**+). Notes ligne pharmacien : **Confirmer la note** (plus de texte `"OK"`). Auth : OTP inscription possible via **WhatsApp Verify** ; tests inscription sur numéro **perso** ; renvoi OTP `shouldCreateUser: false`. Doublons Auth : reset demandes + suppression comptes Auth. Je te dis ensuite quoi faire. »**
+Voir **§13.18**.
+
+### 13.18) Phrase de reprise (recommandée — après session **2026-05-24**)
+
+**« On reprend ProxiPharma. Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-24)**, **`AGENTS.md`**, **`CONTEXTE.md` §6**, **`RUNBOOK.md` §9**. Branche **`fix/validated-supply-ecart-ui-modal`** (commits **`4ed2cf9`**+). Migrations si besoin : **`20260524_001`**–**`003`** (Storage + catalogue photos). UI : **`resolvePublicMediaUrl`** / **`mapRequestItemsPhotos`** ; page **`/pharmacie/[id]/demande-produits/catalogue`** + brouillon **`patient-demande-produits-draft`** ; **Voir tous les produits** aussi en modification demande envoyée. Prod : merge **`main`** + Vercel. ESLint : pas de **`setState` synchrone dans un `useEffect`** (resync en rendu). Je te dis ensuite quoi faire. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 

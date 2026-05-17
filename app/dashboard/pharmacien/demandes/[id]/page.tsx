@@ -64,7 +64,7 @@ import {
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
 import { formatPphMad, pphLabel } from "@/lib/product-price";
-import { resolvePublicMediaUrl } from "@/lib/storage-media";
+import { mapRequestItemRowPhotos, mapRequestItemsPhotos, resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
@@ -1548,7 +1548,7 @@ export default function PharmacienDemandeDetailPage() {
       list = (itemsDataRetry as ItemRow[]) ?? [];
     }
 
-    setItems(list);
+    setItems(mapRequestItemsPhotos(list));
     setAltQtyDrafts({});
 
     const [{ data: amendRows }, { data: dossierHist }] = await Promise.all([
@@ -2219,7 +2219,11 @@ export default function PharmacienDemandeDetailPage() {
     }
 
     setItems((prev) =>
-      prev.map((r) => (r.id === parentRow.id ? { ...r, request_item_alternatives: altRows ?? [] } : r))
+      prev.map((r) =>
+        r.id === parentRow.id
+          ? mapRequestItemRowPhotos({ ...r, request_item_alternatives: altRows ?? [] })
+          : r
+      )
     );
   };
 
@@ -2256,7 +2260,11 @@ export default function PharmacienDemandeDetailPage() {
         .order("rank", { ascending: true });
       if (!fetchErr) {
         setItems((prev) =>
-          prev.map((r) => (r.id === parentRowId ? { ...r, request_item_alternatives: altRows ?? [] } : r))
+          prev.map((r) =>
+            r.id === parentRowId
+              ? mapRequestItemRowPhotos({ ...r, request_item_alternatives: altRows ?? [] })
+              : r
+          )
         );
       }
     }
@@ -4308,7 +4316,11 @@ export default function PharmacienDemandeDetailPage() {
                         )}
                       >
                         {prod?.photo_url ? (
-                          <img src={prod.photo_url} alt="" className="h-full w-full object-cover" />
+                          <img
+                            src={resolvePublicMediaUrl(prod.photo_url) ?? prod.photo_url}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                             <Package
@@ -4815,7 +4827,11 @@ export default function PharmacienDemandeDetailPage() {
                                   <div className="flex min-w-0 flex-1 items-center gap-2">
                                     <div className="size-11 shrink-0 overflow-hidden rounded-lg border border-teal-200/50 bg-teal-50/50">
                                       {altProd?.photo_url ? (
-                                        <img src={altProd.photo_url} alt={altName} className="h-full w-full object-cover" />
+                                        <img
+                                        src={resolvePublicMediaUrl(altProd.photo_url) ?? altProd.photo_url}
+                                        alt={altName}
+                                        className="h-full w-full object-cover"
+                                      />
                                       ) : (
                                         <div className="flex h-full w-full items-center justify-center text-teal-600/70">
                                           <Layers className="size-5" aria-hidden />

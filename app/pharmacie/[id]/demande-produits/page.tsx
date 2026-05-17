@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { Minus, Plus, Trash2, Package, Search, X } from "lucide-react";
+import { useParams, usePathname, useRouter } from "next/navigation";
+import { LayoutGrid, Minus, Plus, Trash2, Package, Search, X } from "lucide-react";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
@@ -16,6 +16,12 @@ import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-p
 import { cn } from "@/lib/utils";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX, REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
+import {
+  clearPatientDemandeProduitsDraft,
+  readPatientDemandeProduitsDraft,
+  writePatientDemandeProduitsDraft,
+  type PatientDemandeProduitsDraftLine,
+} from "@/lib/patient-demande-produits-draft";
 
 type ProductLite = {
   id: string;
@@ -26,15 +32,7 @@ type ProductLite = {
   price_pph?: number | null;
 };
 
-type CartLine = {
-  product_id: string;
-  name: string;
-  photo_url: string | null;
-  qty: number;
-  price_pph?: number | null;
-  /** Commentaire optionnel par ligne (Q11, max 500 côté BDD) */
-  client_comment?: string;
-};
+type CartLine = PatientDemandeProduitsDraftLine;
 
 /** Montant + « DH » compact (suffixe plus petit, pas de coupure PU / nombre). */
 function PriceDhInline({
@@ -72,6 +70,7 @@ function PriceDhInline({
 export default function DemandeProduitsPage() {
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname();
   const pharmacyId = typeof params.id === "string" ? params.id : "";
 
   const [pharmacyName, setPharmacyName] = useState("");
@@ -106,6 +105,19 @@ export default function DemandeProduitsPage() {
     };
     void loadPh();
   }, [pharmacyId, sessionReady]);
+
+  const linesDraftKey = `${pharmacyId}|${sessionReady}|${pathname}`;
+  const [prevLinesDraftKey, setPrevLinesDraftKey] = useState("");
+  if (sessionReady && pharmacyId && pathname.endsWith("/demande-produits") && linesDraftKey !== prevLinesDraftKey) {
+    setPrevLinesDraftKey(linesDraftKey);
+    setLines(readPatientDemandeProduitsDraft(pharmacyId));
+  }
+
+  useEffect(() => {
+    if (!pharmacyId || !sessionReady) return;
+    if (!pathname.endsWith("/demande-produits")) return;
+    writePatientDemandeProduitsDraft(pharmacyId, lines);
+  }, [lines, pharmacyId, sessionReady, pathname]);
 
   const debouncedQuery = useMemo(() => query.trim(), [query]);
 
@@ -272,6 +284,7 @@ export default function DemandeProduitsPage() {
     }
 
     setSubmitLoading(false);
+    clearPatientDemandeProduitsDraft(pharmacyId);
     router.push(`/dashboard/demandes/${reqRow.id}`);
   };
 
@@ -351,6 +364,17 @@ export default function DemandeProduitsPage() {
               )}
             />
           </div>
+          <Link
+            href={`/pharmacie/${pharmacyId}/demande-produits/catalogue`}
+            onClick={() => writePatientDemandeProduitsDraft(pharmacyId, lines)}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "mt-3 flex h-11 w-full items-center justify-center gap-2 text-sm font-semibold text-sky-900"
+            )}
+          >
+            <LayoutGrid className="size-4 shrink-0" aria-hidden />
+            Voir tous les produits
+          </Link>
           {searchLoading ? <p className="mt-2 text-xs text-muted-foreground">Recherche…</p> : null}
           {visibleHits.length > 0 ? (
             <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto">

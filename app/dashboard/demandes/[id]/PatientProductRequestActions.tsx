@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
-import type { ReactNode } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   ChevronDown,
@@ -17,6 +18,7 @@ import {
   Pencil,
   Phone,
   Plus,
+  LayoutGrid,
   Search,
   ShoppingCart,
   StickyNote,
@@ -43,6 +45,12 @@ import {
 } from "@/lib/patient-confirmed-line-buckets";
 import { formatPriceDh } from "@/lib/product-price";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
+import {
+  clearPatientDemandeProduitsDraft,
+  readPatientDemandeProduitsDraft,
+  writePatientDemandeProduitsDraft,
+} from "@/lib/patient-demande-produits-draft";
+import { buttonVariants } from "@/components/ui/button";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
@@ -969,7 +977,7 @@ function computeResubmitLinesFromItems(items: ActionItemRow[]): ResubmitLine[] {
   return items.map((row) => ({
     product_id: row.product_id,
     name: one(row.products)?.name ?? "Produit",
-    photo_url: one(row.products)?.photo_url ?? null,
+    photo_url: resolvePublicMediaUrl(one(row.products)?.photo_url ?? null),
     qty: Math.min(10, Math.max(1, row.requested_qty)),
     price_pph: one(row.products)?.price_pph ?? null,
     client_comment: row.client_comment ?? "",
@@ -1705,7 +1713,7 @@ function RespondedPatientLineChooser({
             const capA = maxQtyAlt(row, alt);
             const disabled = capA === 0;
             const altComment = alt.pharmacist_comment?.trim();
-            const altPhoto = altProd?.photo_url;
+            const altPhoto = resolvePublicMediaUrl(altProd?.photo_url ?? null);
             const altSelected = currentBranch === alt.id;
             return (
               <label
@@ -1863,7 +1871,7 @@ function buildPatientConfirmSelection(
         if (effStatus === "to_order" && row.expected_availability_date) {
           eta = formatDateShortFr(row.expected_availability_date);
         }
-        photoUrl = principalProd?.photo_url ?? null;
+        photoUrl = resolvePublicMediaUrl(principalProd?.photo_url ?? null);
       } else {
         const alt = alts.find((a) => a.id === st.branch);
         const altProd = alt ? one(alt.products) : null;
@@ -1874,7 +1882,7 @@ function buildPatientConfirmSelection(
         if (effStatus === "to_order" && alt?.expected_availability_date) {
           eta = formatDateShortFr(alt.expected_availability_date);
         }
-        photoUrl = altProd?.photo_url ?? null;
+        photoUrl = resolvePublicMediaUrl(altProd?.photo_url ?? null);
       }
 
       const lineTotalMad =
@@ -2079,6 +2087,7 @@ export function PatientProductRequestActions({
   pharmacyId = null,
   requestUpdatedAt = null,
 }: Props) {
+  const pathname = usePathname();
   const [actionError, setActionError] = useState("");
   const [historyModalItemId, setHistoryModalItemId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<"" | "confirm" | "resubmit" | "abandon" | "visit">("");
@@ -2126,13 +2135,42 @@ export function PatientProductRequestActions({
     setVisitMinute(hm.m);
   }
 
-  const [lines, setLines] = useState<ResubmitLine[]>(() =>
-    computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status))
-  );
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<ProductHit[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [resubmitConfirmOpen, setResubmitConfirmOpen] = useState(false);
+
+  const serverResubmitLines = useMemo(
+    () => computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status)),
+    [items, status]
+  );
+  const linesSyncKey = editMode
+    ? "edit"
+    : serverResubmitLines.map((l) => `${l.product_id}:${l.qty}:${l.client_comment}`).join("|");
+  const [prevLinesSyncKey, setPrevLinesSyncKey] = useState(linesSyncKey);
+  const [lines, setLines] = useState<ResubmitLine[]>(serverResubmitLines);
+  if (!editMode && linesSyncKey !== prevLinesSyncKey) {
+    setPrevLinesSyncKey(linesSyncKey);
+    setLines(serverResubmitLines);
+  }
+
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    const fromCatalogue = prevPathname.includes("/demande-produits/catalogue");
+    setPrevPathname(pathname);
+    if (
+      fromCatalogue &&
+      editMode &&
+      pharmacyId &&
+      requestId &&
+      pathname.endsWith(`/dashboard/demandes/${requestId}`)
+    ) {
+      const draft = readPatientDemandeProduitsDraft(pharmacyId, requestId);
+      if (draft.length > 0) {
+        setLines(draft.map((l) => ({ ...l, client_comment: l.client_comment ?? "" })));
+      }
+    }
+  }
 
   /** Restaure le brouillon resubmit à l'état initial (sortie du mode édition sans renvoi). */
   const resetResubmitDraft = () => {
@@ -2472,6 +2510,7 @@ export function PatientProductRequestActions({
       return;
     }
     setResubmitConfirmOpen(false);
+    if (pharmacyId) clearPatientDemandeProduitsDraft(pharmacyId, requestId);
     await onReload();
   };
 
@@ -2863,6 +2902,32 @@ export function PatientProductRequestActions({
               className="touch-pan-y w-full rounded-xl border-2 border-slate-300 bg-white py-3 pl-11 pr-3 text-base shadow-sm placeholder:text-slate-400"
             />
           </div>
+          {pharmacyId ? (
+            <Link
+              href={`/pharmacie/${pharmacyId}/demande-produits/catalogue?requestId=${encodeURIComponent(requestId)}&returnTo=${encodeURIComponent(`/dashboard/demandes/${requestId}`)}`}
+              onClick={() =>
+                writePatientDemandeProduitsDraft(
+                  pharmacyId,
+                  lines.map((l) => ({
+                    product_id: l.product_id,
+                    name: l.name,
+                    photo_url: l.photo_url ?? null,
+                    qty: l.qty,
+                    price_pph: l.price_pph ?? null,
+                    client_comment: l.client_comment,
+                  })),
+                  requestId
+                )
+              }
+              className={clsx(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "mt-3 flex h-11 w-full items-center justify-center gap-2 text-sm font-semibold text-sky-900"
+              )}
+            >
+              <LayoutGrid className="size-4 shrink-0" aria-hidden />
+              Voir tous les produits
+            </Link>
+          ) : null}
           {visibleHits.length > 0 ? (
             <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto">
               {visibleHits.map((h) => (
