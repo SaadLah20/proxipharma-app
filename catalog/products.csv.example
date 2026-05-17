@@ -1,0 +1,4 @@
+# Renommer en products.csv et compléter. Séparateur : virgule (pas de virgule dans les noms).
+name,price_pph,price_ppv,product_type,laboratory,image_slug
+"Doliprane 1000 mg, 8 comprimés",38.90,49.90,medicament,SANOFI,doliprane-1000
+"Paracétamol Biopharma 500 mg, 16 cp",12.40,16.00,medicament,BIOCODEX,paracetamol-biopharma

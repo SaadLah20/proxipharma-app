@@ -15,6 +15,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { cn } from "@/lib/utils";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX, REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
+import { resolvePublicMediaUrl } from "@/lib/storage-media";
 
 type ProductLite = {
   id: string;
@@ -136,7 +137,10 @@ export default function DemandeProduitsPage() {
           setHits([]);
           return;
         }
-        setHits((data as ProductLite[]) ?? []);
+        setHits(((data as ProductLite[]) ?? []).map((p) => ({
+          ...p,
+          photo_url: resolvePublicMediaUrl(p.photo_url),
+        })));
       };
       void run();
     }, 280);
@@ -148,7 +152,13 @@ export default function DemandeProduitsPage() {
       if (prev.some((l) => l.product_id === p.id)) return prev;
       return [
         ...prev,
-        { product_id: p.id, name: p.name, photo_url: p.photo_url, qty: 1, price_pph: p.price_pph ?? null },
+        {
+          product_id: p.id,
+          name: p.name,
+          photo_url: resolvePublicMediaUrl(p.photo_url),
+          qty: 1,
+          price_pph: p.price_pph ?? null,
+        },
       ];
     });
     setQuery("");

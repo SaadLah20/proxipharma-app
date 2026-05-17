@@ -42,3 +42,7 @@ supabase/.temp/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# photos catalogue pilote (déjà dans Supabase Storage)
+/catalog/images/*
+!/catalog/images/.gitkeep
