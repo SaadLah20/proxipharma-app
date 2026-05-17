@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { clsx } from "clsx";
 import { DemandeStatDashboard } from "@/components/requests/demande-stat-dashboard";
 import {
   DemandeHubTabBar,
@@ -11,8 +12,11 @@ import {
   type PatientRequestRow,
 } from "@/components/requests/demande-hub-ui";
 import { PageShell } from "@/components/ui/compact-shell";
-import { bucketForStatusParam, PATIENT_DASHBOARD_BUCKETS } from "@/lib/demandes-hub-buckets";
+import { bucketForStatusParam } from "@/lib/demandes-hub-buckets";
 import { one } from "@/lib/embed";
+import { dashboardBucketsForKind, hubDashboardChrome } from "@/lib/request-kinds/hub-and-terminal-copy";
+import { getRequestKindConfig } from "@/lib/request-kinds/registry";
+import type { RequestKindId } from "@/lib/request-kinds/types";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { formatShortId } from "@/lib/request-display";
 import { supabase } from "@/lib/supabase";
@@ -25,19 +29,22 @@ function tabToSearch(t: HubTab): string {
   return t === "list" ? "liste" : "dashboard";
 }
 
-export function PatientDemandesHub() {
+export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
+  const kindConfig = getRequestKindConfig(kindId);
+  const hubPath = kindConfig.routes.patientHubPath;
+  const accent = kindConfig.theme.accent;
+  const refPlaceholder =
+    kindConfig.publicRefPrefix === "O" ? "Ex. O042/26" : kindConfig.publicRefPrefix === "C" ? "Ex. C042/26" : "Ex. D042/26";
+
   const router = useRouter();
   const searchParams = useSearchParams();
-
   const tab = tabFromSearch(searchParams.get("vue"));
 
   const setTab = (t: HubTab) => {
     const next = new URLSearchParams(searchParams.toString());
     next.set("vue", tabToSearch(t));
-    if (t === "dashboard") {
-      next.delete("statut");
-    }
-    router.replace(`/dashboard/demandes?${next.toString()}`, { scroll: false });
+    if (t === "dashboard") next.delete("statut");
+    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
 
   const [loading, setLoading] = useState(true);
@@ -49,15 +56,18 @@ export function PatientDemandesHub() {
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  const dashboardBuckets = useMemo(() => dashboardBucketsForKind(kindId, "patient"), [kindId]);
+  const dashboardChrome = useMemo(() => hubDashboardChrome(kindId, "patient"), [kindId]);
+
   const statutParam = searchParams.get("statut");
-  const activeBucket = bucketForStatusParam(statutParam, PATIENT_DASHBOARD_BUCKETS);
+  const activeBucket = bucketForStatusParam(statutParam, dashboardBuckets);
 
   const load = useCallback(async () => {
     setError("");
     const { data: auth } = await supabase.auth.getSession();
     const user = auth.session?.user;
     if (!user) {
-      router.replace("/auth?redirect=/dashboard/demandes");
+      router.replace(`/auth?redirect=${encodeURIComponent(hubPath)}`);
       return;
     }
 
@@ -75,7 +85,7 @@ export function PatientDemandesHub() {
           "request_items(requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient,line_source,patient_chosen_alternative_id,counter_outcome,post_confirm_fulfillment,availability_status,products(price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,unit_price))"
       )
       .eq("patient_id", user.id)
-      .eq("request_type", "product_request")
+      .eq("request_type", kindId)
       .order("created_at", { ascending: false })
       .limit(200);
 
@@ -102,12 +112,10 @@ export function PatientDemandesHub() {
     }
 
     setLoading(false);
-  }, [router]);
+  }, [router, hubPath, kindId]);
 
   useEffect(() => {
-    const tid = window.setTimeout(() => {
-      void load();
-    }, 0);
+    const tid = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(tid);
   }, [load]);
 
@@ -116,10 +124,7 @@ export function PatientDemandesHub() {
     for (const r of rows) {
       if (m.has(r.pharmacy_id)) continue;
       const ph = one(r.pharmacies);
-      m.set(
-        r.pharmacy_id,
-        ph?.nom ? `${ph.nom} (${ph.ville})` : `Pharmacie ${r.pharmacy_id.slice(0, 8)}…`
-      );
+      m.set(r.pharmacy_id, ph?.nom ? `${ph.nom} (${ph.ville})` : `Pharmacie ${r.pharmacy_id.slice(0, 8)}…`);
     }
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], "fr"));
   }, [rows]);
@@ -132,9 +137,7 @@ export function PatientDemandesHub() {
       const allow = new Set(activeBucket.statuses);
       list = list.filter((r) => allow.has((r as { status_for_dashboard?: string }).status_for_dashboard ?? r.status));
     }
-    if (pharmacyFilter) {
-      list = list.filter((r) => r.pharmacy_id === pharmacyFilter);
-    }
+    if (pharmacyFilter) list = list.filter((r) => r.pharmacy_id === pharmacyFilter);
     if (refQuery.trim().length >= 2) {
       const ph = (row: (typeof rows)[number]) => one(row.pharmacies);
       list = list.filter((r) => {
@@ -153,18 +156,32 @@ export function PatientDemandesHub() {
       const tb = new Date(b.created_at).getTime();
       return sortNewestFirst ? tb - ta : ta - tb;
     });
-  }, [rowsWithDashboardStatus, activeBucket, pharmacyFilter, refQuery, sortNewestFirst]);
+  }, [rowsWithDashboardStatus, activeBucket, pharmacyFilter, refQuery, sortNewestFirst, rows]);
 
   const setStatutFilter = (key: string) => {
     const next = new URLSearchParams(searchParams.toString());
     next.set("vue", "liste");
-    if (key === "") {
-      next.delete("statut");
-    } else {
-      next.set("statut", key);
-    }
-    router.replace(`/dashboard/demandes?${next.toString()}`, { scroll: false });
+    if (key === "") next.delete("statut");
+    else next.set("statut", key);
+    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
+
+  const linkClass =
+    accent === "amber" ? "text-amber-900 underline" : accent === "violet" ? "text-violet-900 underline" : "text-sky-800 underline";
+  const filterShell =
+    accent === "amber"
+      ? "rounded-xl border-2 border-amber-100 bg-amber-50/50 p-3 shadow-sm"
+      : accent === "violet"
+        ? "rounded-xl border-2 border-violet-100 bg-violet-50/50 p-3 shadow-sm"
+        : "rounded-xl border-2 border-sky-100 bg-sky-50/50 p-3 shadow-sm";
+  const filterTitle =
+    accent === "amber" ? "text-amber-950" : accent === "violet" ? "text-violet-950" : "text-sky-950";
+  const filterBtn =
+    accent === "amber"
+      ? "rounded-md border border-amber-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-900 shadow-sm hover:bg-amber-50"
+      : accent === "violet"
+        ? "rounded-md border border-violet-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-900 shadow-sm hover:bg-violet-50"
+        : "rounded-md border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-900 shadow-sm hover:bg-sky-50";
 
   if (loading) {
     return (
@@ -177,7 +194,7 @@ export function PatientDemandesHub() {
   if (error && rows.length === 0) {
     return (
       <PageShell maxWidthClass="max-w-3xl">
-        <Link href="/" className="text-xs font-medium text-sky-800 underline">
+        <Link href="/" className={clsx("text-xs font-medium", linkClass)}>
           ← Annuaire
         </Link>
         <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</p>
@@ -185,16 +202,23 @@ export function PatientDemandesHub() {
     );
   }
 
+  const emptyHint =
+    kindId === "prescription"
+      ? "Annuaire → pharmacie → envoyer une ordonnance."
+      : "Annuaire → pharmacie → demande de produits.";
+
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Link href="/" className="text-xs font-medium text-sky-800 underline">
+          <Link href="/" className={clsx("text-xs font-medium", linkClass)}>
             ← Annuaire
           </Link>
-          <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">Mes demandes de produits</h1>
+          <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">{kindConfig.copy.patientHubTitle}</h1>
           <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">
-            Suivi de vos demandes de produits auprès des pharmacies.
+            {kindId === "prescription"
+              ? "Suivi de vos ordonnances envoyées aux pharmacies."
+              : "Suivi de vos demandes de produits auprès des pharmacies."}
           </p>
         </div>
         <Link
@@ -209,7 +233,10 @@ export function PatientDemandesHub() {
         <DemandeHubTabBar
           tab={tab}
           onTab={setTab}
-          labels={{ dashboard: "Tableau de bord", list: "Toutes les demandes" }}
+          labels={{
+            dashboard: "Tableau de bord",
+            list: kindId === "prescription" ? "Toutes les ordonnances" : "Toutes les demandes",
+          }}
         />
       </div>
 
@@ -217,8 +244,10 @@ export function PatientDemandesHub() {
         <>
           {rows.length === 0 ? (
             <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center sm:p-8">
-              <p className="text-sm font-medium text-foreground">Aucune demande</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">Annuaire → pharmacie → demande.</p>
+              <p className="text-sm font-medium text-foreground">
+                {kindId === "prescription" ? "Aucune ordonnance" : "Aucune demande"}
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">{emptyHint}</p>
               <Link
                 href="/"
                 className="mt-4 inline-flex rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-95"
@@ -228,82 +257,86 @@ export function PatientDemandesHub() {
             </div>
           ) : (
             <div className="mt-4">
-              <DemandeStatDashboard rows={rowsWithDashboardStatus} buckets={PATIENT_DASHBOARD_BUCKETS} basePath="/dashboard/demandes" />
+              <DemandeStatDashboard
+                rows={rowsWithDashboardStatus}
+                buckets={dashboardBuckets}
+                basePath={hubPath}
+                dashboardTitle={dashboardChrome.title}
+                dashboardSubtitle={dashboardChrome.subtitle}
+              />
             </div>
           )}
         </>
       ) : (
         <div className="mt-4 space-y-4">
-          <section className="rounded-xl border-2 border-sky-100 bg-sky-50/50 p-3 shadow-sm">
+          <section className={filterShell}>
             <div className="flex items-center justify-between gap-2">
               <div>
-                <h2 className="text-xs font-bold uppercase tracking-wide text-sky-950">Filtres et recherche</h2>
-                <p className="text-[10px] text-sky-900/85">Saisissez une référence pour accès immédiat</p>
+                <h2 className={clsx("text-xs font-bold uppercase tracking-wide", filterTitle)}>Filtres et recherche</h2>
+                <p className={clsx("text-[10px]", accent === "amber" ? "text-amber-900/85" : "text-sky-900/85")}>
+                  Saisissez une référence pour accès immédiat
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setFiltersOpen((v) => !v)}
-                className="rounded-md border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-900 shadow-sm hover:bg-sky-50"
-              >
+              <button type="button" onClick={() => setFiltersOpen((v) => !v)} className={filterBtn}>
                 {filtersOpen ? "Masquer" : "Afficher"}
               </button>
             </div>
             {filtersOpen ? (
-            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 sm:items-end">
-            <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
-              Référence demande (accès direct)
-              <input
-                value={refQuery}
-                onChange={(e) => setRefQuery(e.target.value)}
-                placeholder="Ex. D042/26"
-                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/70"
-              />
-            </label>
-            <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Statut
-              <select
-                value={activeBucket?.key ?? ""}
-                onChange={(e) => setStatutFilter(e.target.value)}
-                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
-              >
-                <option value="">Tous</option>
-                {PATIENT_DASHBOARD_BUCKETS.map((b) => (
-                  <option key={b.key} value={b.key}>
-                    {b.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Pharmacie
-              <select
-                value={pharmacyFilter}
-                onChange={(e) => setPharmacyFilter(e.target.value)}
-                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
-              >
-                <option value="">Toutes</option>
-                {pharmacyOptions.map(([id, label]) => (
-                  <option key={id} value={id}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Tri date
-              <select
-                value={sortNewestFirst ? "desc" : "asc"}
-                onChange={(e) => setSortNewestFirst(e.target.value === "desc")}
-                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
-              >
-                <option value="desc">Plus récentes d’abord</option>
-                <option value="asc">Plus anciennes d’abord</option>
-              </select>
-            </label>
-          </div>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2 sm:items-end lg:grid-cols-4">
+                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
+                  Référence (accès direct)
+                  <input
+                    value={refQuery}
+                    onChange={(e) => setRefQuery(e.target.value)}
+                    placeholder={refPlaceholder}
+                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/70"
+                  />
+                </label>
+                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Statut
+                  <select
+                    value={activeBucket?.key ?? ""}
+                    onChange={(e) => setStatutFilter(e.target.value)}
+                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
+                  >
+                    <option value="">Tous</option>
+                    {dashboardBuckets.map((b) => (
+                      <option key={b.key} value={b.key}>
+                        {b.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Pharmacie
+                  <select
+                    value={pharmacyFilter}
+                    onChange={(e) => setPharmacyFilter(e.target.value)}
+                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
+                  >
+                    <option value="">Toutes</option>
+                    {pharmacyOptions.map(([id, label]) => (
+                      <option key={id} value={id}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Tri date
+                  <select
+                    value={sortNewestFirst ? "desc" : "asc"}
+                    onChange={(e) => setSortNewestFirst(e.target.value === "desc")}
+                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
+                  >
+                    <option value="desc">Plus récentes d’abord</option>
+                    <option value="asc">Plus anciennes d’abord</option>
+                  </select>
+                </label>
+              </div>
             ) : (
-              <p className="mt-2 text-[11px] text-sky-900/85">
-                Ouvrez les filtres pour rechercher rapidement une demande ou affiner la liste.
+              <p className={clsx("mt-2 text-[11px]", accent === "amber" ? "text-amber-900/85" : "text-sky-900/85")}>
+                Ouvrez les filtres pour rechercher rapidement ou affiner la liste.
               </p>
             )}
           </section>
@@ -311,9 +344,11 @@ export function PatientDemandesHub() {
           {filteredSorted.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">
               {activeBucket?.key === "envoyees"
-                ? "Aucune demande en attente de réponse pharmacie avec ces filtres."
+                ? kindId === "prescription"
+                  ? "Aucune ordonnance en attente de réponse avec ces filtres."
+                  : "Aucune demande en attente de réponse pharmacie avec ces filtres."
                 : activeBucket
-                  ? "Aucune demande ne correspond aux filtres."
+                  ? "Aucun résultat avec ces filtres."
                   : "Aucun résultat."}
             </p>
           ) : (
@@ -329,4 +364,8 @@ export function PatientDemandesHub() {
       )}
     </PageShell>
   );
+}
+
+export function PatientDemandesHub() {
+  return <PatientRequestKindHub kindId="product_request" />;
 }

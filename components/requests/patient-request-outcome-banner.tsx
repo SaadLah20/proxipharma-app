@@ -5,6 +5,9 @@ import { clsx } from "clsx";
 import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
 import { historyActorLabel, requestStatusFr } from "@/lib/request-display";
+import { patientOutcomeExpiredHint, patientOutcomeStatusFooter } from "@/lib/request-kinds/hub-and-terminal-copy";
+import { isRequestKindId } from "@/lib/request-kinds/registry";
+import type { RequestKindId } from "@/lib/request-kinds/types";
 
 export const PATIENT_PRODUCT_ARCHIVE_STATUSES = [
   "cancelled",
@@ -50,6 +53,7 @@ export function PatientRequestOutcomeBanner({
   historyRows,
   detailContext,
   closedFooterNote,
+  requestKindId = "product_request",
   children,
 }: {
   status: string;
@@ -58,9 +62,13 @@ export function PatientRequestOutcomeBanner({
   detailContext?: PatientOutcomeDetailContext | null;
   /** Surcharge du texte de clôture (ex. ordonnance). */
   closedFooterNote?: string | null;
+  requestKindId?: RequestKindId;
   children?: ReactNode;
 }) {
   if (!isPatientProductArchiveStatus(status)) return null;
+
+  const kindId: RequestKindId =
+    isRequestKindId(requestKindId) && requestKindId !== "free_consultation" ? requestKindId : "product_request";
 
   const entry = historyRows.find((h) => h.new_status === status) ?? historyRows[0] ?? null;
 
@@ -199,10 +207,7 @@ export function PatientRequestOutcomeBanner({
       ) : null}
 
       {status === "expired" && paras.length === 0 ? (
-        <p className={clsx("mt-2 text-[11px] leading-snug", theme.accent)}>
-          Vous n&apos;avez pas validé la réponse de la pharmacie dans le délai prévu. Vous pouvez créer une nouvelle demande avec les
-          mêmes produits si besoin.
-        </p>
+        <p className={clsx("mt-2 text-[11px] leading-snug", theme.accent)}>{patientOutcomeExpiredHint(kindId)}</p>
       ) : null}
 
       {paras.length > 0 ? (

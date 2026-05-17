@@ -29,7 +29,6 @@ import {
   type PatientOutcomeDetailContext,
 } from "@/components/requests/patient-request-outcome-banner";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
-import { PatientPrescriptionRequestPanel } from "@/components/requests/prescription/patient-prescription-request-panel";
 import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 
@@ -331,7 +330,10 @@ export default function DemandeDetailPage() {
     return (
       <PageShell>
         <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error || "Erreur."}</p>
-        <Link href="/dashboard/demandes" className="mt-3 inline-block text-xs font-medium text-sky-800 underline">
+        <Link
+          href={getRequestKindConfig("product_request").routes.patientHubPath}
+          className="mt-3 inline-block text-xs font-medium text-sky-800 underline"
+        >
           Mes demandes
         </Link>
       </PageShell>
@@ -342,14 +344,8 @@ export default function DemandeDetailPage() {
     request.request_type === "product_request" || request.request_type === "prescription";
   const activeLineStatuses = ["submitted", "in_review", "responded", "confirmed", "treated"] as const;
   const hasBottomActions =
-    request.request_type === "product_request" && activeLineStatuses.includes(request.status as (typeof activeLineStatuses)[number])
-      ? true
-      : request.request_type === "prescription" &&
-        (["responded", "confirmed", "treated"] as string[]).includes(request.status);
-  const showPrescriptionWaitingPanel =
-    request.request_type === "prescription" &&
-    (request.status === "submitted" || request.status === "in_review") &&
-    prescriptionPaths != null;
+    (request.request_type === "product_request" || request.request_type === "prescription") &&
+    activeLineStatuses.includes(request.status as (typeof activeLineStatuses)[number]);
   const isPrescriptionRequest = request.request_type === "prescription";
   const showArchivedReadonly =
     (request.request_type === "product_request" || isPrescriptionRequest) &&
@@ -385,26 +381,15 @@ export default function DemandeDetailPage() {
         <RequestTypeStubPanel config={kindConfig} viewerRole="patient" />
       ) : null}
 
-      {showPrescriptionWaitingPanel ? (
-        <PatientPrescriptionRequestPanel
-          requestId={request.id}
-          status={request.status}
-          paths={prescriptionPaths}
-          patientNote={prescriptionNote}
-          onReload={async () => {
-            await loadDetail(true);
-          }}
-        />
-      ) : null}
-
       {showArchivedReadonly ? (
         <PatientRequestOutcomeBanner
           status={request.status}
           historyRows={historyRows}
           detailContext={archivedOutcomeDetail}
           closedFooterNote={isPrescriptionRequest ? workflowCopy.patientArchiveClosedFooter : null}
+          requestKindId={isPrescriptionRequest ? "prescription" : "product_request"}
         >
-          {request.status === "expired" ? (
+          {request.status === "expired" && !isPrescriptionRequest ? (
             <>
               {followUpErr ? (
                 <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">
@@ -439,6 +424,13 @@ export default function DemandeDetailPage() {
                 {followUpBusy ? "Création…" : "Ajuster et renvoyer une nouvelle demande"}
               </button>
             </>
+          ) : request.status === "expired" && isPrescriptionRequest ? (
+            <Link
+              href="/"
+              className="mt-1 inline-flex w-full justify-center rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-100"
+            >
+              Annuaire — envoyer une nouvelle ordonnance
+            </Link>
           ) : null}
         </PatientRequestOutcomeBanner>
       ) : null}
@@ -514,6 +506,8 @@ export default function DemandeDetailPage() {
           pharmacyId={request.pharmacy_id}
           requestUpdatedAt={request.updated_at}
           requestType={request.request_type}
+          prescriptionPaths={isPrescriptionRequest ? prescriptionPaths : null}
+          prescriptionNote={isPrescriptionRequest ? prescriptionNote : null}
         />
         </section>
       ) : showArchivedReadonly && items.length === 0 ? (

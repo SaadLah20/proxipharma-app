@@ -46,6 +46,12 @@ export const consultationRequestKindConfig: RequestKindConfig = {
       patientArchiveClosedFooter: "Ce dossier est clos.",
       timelinePharmacistProposedOrigin: "Proposition par la pharmacie",
       patientSuiviProposedHint: "Proposition par la pharmacie.",
+      patientSummaryKindLabel: "Consultation libre",
+      patientSummaryRefShort: "Cons.",
+      patientProductsSectionTitle: "Produits",
+      patientWaitingSubmittedHint: "Demande en attente.",
+      patientWaitingInReviewHint: "Examen en cours.",
+      patientCancelWhileWaitingLabel: "Annuler",
     },
   },
 };
