@@ -205,7 +205,9 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const emptyHint =
     kindId === "prescription"
       ? "Annuaire → pharmacie → envoyer une ordonnance."
-      : "Annuaire → pharmacie → demande de produits.";
+      : kindId === "free_consultation"
+        ? "Annuaire → pharmacie → consultation libre."
+        : "Annuaire → pharmacie → demande de produits.";
 
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
@@ -218,7 +220,9 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
           <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">
             {kindId === "prescription"
               ? "Suivi de vos ordonnances envoyées aux pharmacies."
-              : "Suivi de vos demandes de produits auprès des pharmacies."}
+              : kindId === "free_consultation"
+                ? "Suivi de vos consultations libres : message, échange et proposition produits."
+                : "Suivi de vos demandes de produits auprès des pharmacies."}
           </p>
         </div>
         <Link
@@ -235,7 +239,12 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
           onTab={setTab}
           labels={{
             dashboard: "Tableau de bord",
-            list: kindId === "prescription" ? "Toutes les ordonnances" : "Toutes les demandes",
+            list:
+              kindId === "prescription"
+                ? "Toutes les ordonnances"
+                : kindId === "free_consultation"
+                  ? "Toutes les consultations"
+                  : "Toutes les demandes",
           }}
         />
       </div>
@@ -245,7 +254,11 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
           {rows.length === 0 ? (
             <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center sm:p-8">
               <p className="text-sm font-medium text-foreground">
-                {kindId === "prescription" ? "Aucune ordonnance" : "Aucune demande"}
+                {kindId === "prescription"
+                  ? "Aucune ordonnance"
+                  : kindId === "free_consultation"
+                    ? "Aucune consultation"
+                    : "Aucune demande"}
               </p>
               <p className="mt-1 text-[11px] text-muted-foreground">{emptyHint}</p>
               <Link
@@ -346,7 +359,9 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
               {activeBucket?.key === "envoyees"
                 ? kindId === "prescription"
                   ? "Aucune ordonnance en attente de réponse avec ces filtres."
-                  : "Aucune demande en attente de réponse pharmacie avec ces filtres."
+                  : kindId === "free_consultation"
+                    ? "Aucune consultation en attente de réponse avec ces filtres."
+                    : "Aucune demande en attente de réponse pharmacie avec ces filtres."
                 : activeBucket
                   ? "Aucun résultat avec ces filtres."
                   : "Aucun résultat."}

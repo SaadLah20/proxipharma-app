@@ -260,7 +260,9 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
       <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">
         {kindId === "prescription"
           ? "Ordonnances reçues : tableau de bord et liste — lire le scan et saisir les produits."
-          : "Demandes de produits : tableau de bord et liste — traiter les dossiers depuis votre officine."}
+          : kindId === "free_consultation"
+            ? "Consultations libres reçues : lire le message, échanger puis proposer des produits."
+            : "Demandes de produits : tableau de bord et liste — traiter les dossiers depuis votre officine."}
       </p>
 
       <div className="mt-1">
@@ -269,7 +271,12 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
           onTab={setTab}
           labels={{
             dashboard: "Tableau de bord",
-            list: kindId === "prescription" ? "Toutes les ordonnances" : "Toutes les demandes",
+            list:
+              kindId === "prescription"
+                ? "Toutes les ordonnances"
+                : kindId === "free_consultation"
+                  ? "Toutes les consultations"
+                  : "Toutes les demandes",
           }}
         />
       </div>
@@ -283,12 +290,18 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
           {rows.length === 0 ? (
             <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center">
               <p className="text-sm font-medium text-foreground">
-                {kindId === "prescription" ? "Aucune ordonnance" : "Aucune demande"}
+                {kindId === "prescription"
+                  ? "Aucune ordonnance"
+                  : kindId === "free_consultation"
+                    ? "Aucune consultation"
+                    : "Aucune demande"}
               </p>
               <p className="mt-1 text-[11px] text-muted-foreground">
                 {kindId === "prescription"
                   ? "Les ordonnances envoyées par vos patients apparaîtront ici."
-                  : "Les dossiers patients apparaîtront ici."}
+                  : kindId === "free_consultation"
+                    ? "Les consultations libres envoyées par vos patients apparaîtront ici."
+                    : "Les dossiers patients apparaîtront ici."}
               </p>
             </div>
           ) : (
@@ -385,11 +398,15 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
               {activeBucket?.key === "envoyees"
                 ? kindId === "prescription"
                   ? "Aucune ordonnance à traiter (scan reçu / en relecture) avec ces filtres."
-                  : "Aucune demande à prendre en charge (soumise / en relecture) avec ces filtres."
+                  : kindId === "free_consultation"
+                    ? "Aucune consultation à traiter (message reçu / en relecture) avec ces filtres."
+                    : "Aucune demande à prendre en charge (soumise / en relecture) avec ces filtres."
                 : activeBucket
                   ? kindId === "prescription"
                     ? "Aucune ordonnance ne correspond aux filtres."
-                    : "Aucune demande ne correspond aux filtres."
+                    : kindId === "free_consultation"
+                      ? "Aucune consultation ne correspond aux filtres."
+                      : "Aucune demande ne correspond aux filtres."
                   : "Aucun résultat."}
             </p>
           ) : (

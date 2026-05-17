@@ -54,11 +54,12 @@ export async function POST(req: Request) {
   const objectPath = String(body.path ?? "")
     .trim()
     .replace(/^\//, "");
-  const m = objectPath.match(/^ordonnances\/([0-9a-f-]{36})\/[^/]+$/i);
+  const m = objectPath.match(/^(ordonnances|consultations)\/([0-9a-f-]{36})\/[^/]+$/i);
   if (!m) {
     return Response.json({ error: "Chemin média invalide." }, { status: 400 });
   }
-  const requestId = m[1];
+  const requestId = m[2];
+  const folderPrefix = m[1].toLowerCase();
 
   let admin;
   try {
@@ -73,7 +74,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Accès refusé à ce fichier." }, { status: 403 });
   }
 
-  const folder = `ordonnances/${requestId}`;
+  const folder = `${folderPrefix}/${requestId}`;
   const fileName = objectPath.slice(folder.length + 1);
   const { data: listing, error: listErr } = await admin.storage.from(STORAGE_BUCKET_PRIVATE).list(folder, {
     limit: 10,

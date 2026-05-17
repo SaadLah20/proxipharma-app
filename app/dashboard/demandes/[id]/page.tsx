@@ -29,7 +29,9 @@ import {
   type PatientOutcomeDetailContext,
 } from "@/components/requests/patient-request-outcome-banner";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
+import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
 import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
+import type { ConsultationImagePaths } from "@/lib/consultation-media";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 
 type PharmacyEmbed = {
@@ -117,6 +119,10 @@ export default function DemandeDetailPage() {
   const [conversationMessageCount, setConversationMessageCount] = useState(0);
   const [prescriptionPaths, setPrescriptionPaths] = useState<PrescriptionPagePaths | null>(null);
   const [prescriptionNote, setPrescriptionNote] = useState<string | null>(null);
+  const [consultationBrief, setConsultationBrief] = useState<{
+    text: string;
+    paths: ConsultationImagePaths;
+  } | null>(null);
 
   const loadDetail = useCallback(
     async (silent?: boolean) => {
@@ -178,8 +184,13 @@ export default function DemandeDetailPage() {
         (["confirmed", "treated"].includes(st) || isPatientProductArchiveStatus(st));
 
       const isPrescription = (reqRow as RequestDetail).request_type === "prescription";
+      const isConsultation = (reqRow as RequestDetail).request_type === "free_consultation";
+      const needStatusHistoryConsult =
+        isConsultation &&
+        (["confirmed", "treated"].includes(st) || isPatientProductArchiveStatus(st));
 
-      const [itemsResult, amendmentsResult, convUnreadRes, convCountRes, histResult, prescriptionResult] = await Promise.all([
+      const [itemsResult, amendmentsResult, convUnreadRes, convCountRes, histResult, prescriptionResult, consultationResult] =
+        await Promise.all([
         supabase
           .from("request_items")
           .select(
@@ -200,7 +211,7 @@ export default function DemandeDetailPage() {
           .eq("request_id", id)
           .eq("is_internal", false)
           .is("deleted_at", null),
-        needStatusHistory
+        needStatusHistory || needStatusHistoryConsult
           ? supabase
               .from("request_status_history")
               .select("id,created_at,old_status,new_status,reason")
@@ -215,11 +226,18 @@ export default function DemandeDetailPage() {
               .eq("request_id", id)
               .maybeSingle()
           : Promise.resolve({ data: null, error: null } as const),
+        isConsultation
+          ? supabase
+              .from("free_consultation_requests")
+              .select("consultation_text,image_1_path,image_2_path,image_3_path")
+              .eq("request_id", id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null } as const),
       ]);
       const unreadRow = (convUnreadRes.data as { request_id: string; has_unread: boolean }[] | null)?.find((x) => x.request_id === id);
       setConversationUnread(Boolean(unreadRow?.has_unread));
       setConversationMessageCount(convCountRes.count ?? 0);
-      if (needStatusHistory && !histResult.error && Array.isArray(histResult.data)) {
+      if ((needStatusHistory || needStatusHistoryConsult) && !histResult.error && Array.isArray(histResult.data)) {
         setHistoryRows(
           histResult.data as {
             id: string;
@@ -229,7 +247,7 @@ export default function DemandeDetailPage() {
             reason: string | null;
           }[]
         );
-      } else if (!needStatusHistory) {
+      } else if (!needStatusHistory && !needStatusHistoryConsult) {
         setHistoryRows([]);
       }
 
@@ -260,6 +278,25 @@ export default function DemandeDetailPage() {
       } else {
         setPrescriptionPaths(null);
         setPrescriptionNote(null);
+      }
+
+      if (isConsultation && consultationResult.data) {
+        const cr = consultationResult.data as {
+          consultation_text: string;
+          image_1_path: string | null;
+          image_2_path: string | null;
+          image_3_path: string | null;
+        };
+        setConsultationBrief({
+          text: cr.consultation_text,
+          paths: {
+            photo1: cr.image_1_path,
+            photo2: cr.image_2_path,
+            photo3: cr.image_3_path,
+          },
+        });
+      } else {
+        setConsultationBrief(null);
       }
 
       setLoading(false);
@@ -301,7 +338,13 @@ export default function DemandeDetailPage() {
 
   const archivedOutcomeDetail = useMemo((): PatientOutcomeDetailContext | null => {
     if (!request || !isPatientProductArchiveStatus(request.status)) return null;
-    if (request.request_type !== "product_request" && request.request_type !== "prescription") return null;
+    if (
+      request.request_type !== "product_request" &&
+      request.request_type !== "prescription" &&
+      request.request_type !== "free_consultation"
+    ) {
+      return null;
+    }
     const ph = one(request.pharmacies);
     const pharmacyLine =
       ph?.nom?.trim() != null && ph.nom.trim() !== ""
@@ -314,7 +357,12 @@ export default function DemandeDetailPage() {
       totalLines: items.length,
       hasConversationMessages: conversationMessageCount > 0,
       lastUpdatedLabel: formatDateShortCasablancaWithTime24hFr(request.updated_at),
-      linesMode: request.request_type === "prescription" ? "prescription" : "product",
+      linesMode:
+        request.request_type === "prescription"
+          ? "prescription"
+          : request.request_type === "free_consultation"
+            ? "prescription"
+            : "product",
     };
   }, [request, items, conversationMessageCount]);
 
@@ -341,15 +389,17 @@ export default function DemandeDetailPage() {
   }
 
   const usesLineWorkflow =
-    request.request_type === "product_request" || request.request_type === "prescription";
+    request.request_type === "product_request" ||
+    request.request_type === "prescription" ||
+    request.request_type === "free_consultation";
   const activeLineStatuses = ["submitted", "in_review", "responded", "confirmed", "treated"] as const;
   const hasBottomActions =
-    (request.request_type === "product_request" || request.request_type === "prescription") &&
-    activeLineStatuses.includes(request.status as (typeof activeLineStatuses)[number]);
+    usesLineWorkflow && activeLineStatuses.includes(request.status as (typeof activeLineStatuses)[number]);
   const isPrescriptionRequest = request.request_type === "prescription";
-  const showArchivedReadonly =
-    (request.request_type === "product_request" || isPrescriptionRequest) &&
-    isPatientProductArchiveStatus(request.status);
+  const isConsultationRequest = request.request_type === "free_consultation";
+  const consultationEditable =
+    isConsultationRequest && ["submitted", "in_review"].includes(request.status) && consultationBrief != null;
+  const showArchivedReadonly = usesLineWorkflow && isPatientProductArchiveStatus(request.status);
 
   const kindConfig = getRequestKindConfig(request.request_type);
   const workflowCopy = kindConfig.copy.workflow;
@@ -377,17 +427,17 @@ export default function DemandeDetailPage() {
         />
       ) : null}
 
-      {!kindConfig.capabilities.workflowEnabled ? (
-        <RequestTypeStubPanel config={kindConfig} viewerRole="patient" />
-      ) : null}
-
       {showArchivedReadonly ? (
         <PatientRequestOutcomeBanner
           status={request.status}
           historyRows={historyRows}
           detailContext={archivedOutcomeDetail}
-          closedFooterNote={isPrescriptionRequest ? workflowCopy.patientArchiveClosedFooter : null}
-          requestKindId={isPrescriptionRequest ? "prescription" : "product_request"}
+          closedFooterNote={
+            isPrescriptionRequest || isConsultationRequest ? workflowCopy.patientArchiveClosedFooter : null
+          }
+          requestKindId={
+            isConsultationRequest ? "free_consultation" : isPrescriptionRequest ? "prescription" : "product_request"
+          }
         >
           {request.status === "expired" && !isPrescriptionRequest ? (
             <>
@@ -437,6 +487,16 @@ export default function DemandeDetailPage() {
 
       {showArchivedReadonly && isPrescriptionRequest && prescriptionPaths?.page1 ? (
         <PrescriptionImageViewer paths={prescriptionPaths} layout="desktop-comfort" className="mt-2" />
+      ) : null}
+
+      {isConsultationRequest && consultationBrief ? (
+        <ConsultationBriefPanel
+          requestId={request.id}
+          initialText={consultationBrief.text}
+          initialPaths={consultationBrief.paths}
+          editable={consultationEditable}
+          viewerRole="patient"
+        />
       ) : null}
 
       {hasBottomActions || (showArchivedReadonly && items.length > 0) ? (
@@ -584,7 +644,7 @@ export default function DemandeDetailPage() {
           <RequestConversationFabDock
             hasUnread={conversationUnread}
             onOpen={() => setConversationOpen(true)}
-            tone="patient"
+            tone={isConsultationRequest ? "consultation" : "patient"}
           />
           <RequestConversationPanel
             requestId={request.id}

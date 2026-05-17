@@ -49,7 +49,7 @@ export function RequestConversationFabDock({
 }: {
   hasUnread: boolean;
   onOpen: () => void;
-  tone: "patient" | "pharmacien";
+  tone: "patient" | "pharmacien" | "consultation";
 }) {
   const fabRef = useRef<HTMLDivElement>(null);
   const suppressClickRef = useRef(false);
@@ -89,7 +89,9 @@ export function RequestConversationFabDock({
   const toneRing =
     tone === "pharmacien"
       ? "border-emerald-400/90 bg-gradient-to-br from-emerald-50 to-white text-emerald-900 hover:bg-emerald-50/90"
-      : "border-sky-400/90 bg-gradient-to-br from-sky-50 to-white text-sky-900 hover:bg-sky-50/90";
+      : tone === "consultation"
+        ? "border-violet-400/90 bg-gradient-to-br from-violet-50 to-white text-violet-900 hover:bg-violet-50/90"
+        : "border-sky-400/90 bg-gradient-to-br from-sky-50 to-white text-sky-900 hover:bg-sky-50/90";
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     const el = fabRef.current;

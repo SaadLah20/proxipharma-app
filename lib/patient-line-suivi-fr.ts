@@ -62,11 +62,12 @@ function latestAmendmentLineForRow(
 /** Texte court pour le bandeau suivi patient (confirmé / en préparation). */
 export function patientLineSuiviModel(
   row: PatientLineLike,
-  bundles: { created_at: string; amendments: unknown }[]
+  bundles: { created_at: string; amendments: unknown }[],
+  opts?: { pharmacistProposedHint?: string }
 ): PatientLineSuiviModel {
   const modif = latestAmendmentLineForRow(row, bundles);
   const ajout = isPatientAjoutOfficineLine(row)
-    ? "Proposition par la pharmacie (ajout officine)."
+    ? (opts?.pharmacistProposedHint ?? "Proposition par la pharmacie (ajout officine).")
     : null;
 
   if (row.withdrawn_after_confirm) {

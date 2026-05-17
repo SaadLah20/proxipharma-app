@@ -55,6 +55,12 @@ function demandeCardShell(status: string, role: "patient" | "pharmacien", accent
 }
 
 function patientCardLineBadge(row: PatientRequestRow, summary: ReturnType<typeof summarizeRequestForPatientCard>): string {
+  if (row.request_type === "free_consultation" && ["submitted", "in_review"].includes(row.status) && summary.lineCount === 0) {
+    return "En discussion";
+  }
+  if (row.request_type === "free_consultation" && summary.lineCount > 0) {
+    return `${summary.lineCount} produit${summary.lineCount > 1 ? "s" : ""} proposé${summary.lineCount > 1 ? "s" : ""}`;
+  }
   if (row.request_type === "prescription" && ["submitted", "in_review"].includes(row.status) && summary.lineCount === 0) {
     return "Scan envoyé";
   }
@@ -65,6 +71,12 @@ function patientCardLineBadge(row: PatientRequestRow, summary: ReturnType<typeof
 }
 
 function pharmacistCardLineBadge(row: PharmacistRequestRow, lineCount: number): string {
+  if (row.request_type === "free_consultation" && ["submitted", "in_review"].includes(row.status) && lineCount === 0) {
+    return "À lire · discussion";
+  }
+  if (row.request_type === "free_consultation" && lineCount > 0) {
+    return `${lineCount} produit${lineCount > 1 ? "s" : ""} proposé${lineCount > 1 ? "s" : ""}`;
+  }
   if (row.request_type === "prescription" && ["submitted", "in_review"].includes(row.status) && lineCount === 0) {
     return "Scan à traiter";
   }
