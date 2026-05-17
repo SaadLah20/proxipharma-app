@@ -16,14 +16,35 @@ export function prescriptionPageStoragePaths(requestId: string): { page1: string
 
 export async function createPrescriptionSignedUrl(
   objectPath: string,
-  expiresInSeconds = 3600
+  _expiresInSeconds = 3600
 ): Promise<{ url: string | null; error: string | null }> {
   const path = objectPath.replace(/^\//, "");
-  const { data, error } = await supabase.storage
-    .from(STORAGE_BUCKET_PRIVATE)
-    .createSignedUrl(path, expiresInSeconds);
-  if (error) return { url: null, error: error.message };
-  return { url: data.signedUrl ?? null, error: null };
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) {
+    return { url: null, error: "Session expirée." };
+  }
+
+  let res: Response;
+  try {
+    res = await fetch("/api/media/private-signed-url", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ path }),
+    });
+  } catch (e) {
+    return { url: null, error: e instanceof Error ? e.message : "Réseau indisponible." };
+  }
+
+  const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+  if (!res.ok) {
+    return { url: null, error: body.error ?? `Lecture image refusée (${res.status}).` };
+  }
+  return { url: body.url ?? null, error: null };
 }
 
 export async function uploadPrescriptionPageBlob(
@@ -33,12 +54,37 @@ export async function uploadPrescriptionPageBlob(
 ): Promise<{ path: string; error: string | null }> {
   const paths = prescriptionPageStoragePaths(requestId);
   const objectPath = page === 1 ? paths.page1 : paths.page2;
-  const { error } = await supabase.storage.from(STORAGE_BUCKET_PRIVATE).upload(objectPath, blob, {
-    upsert: true,
-    contentType: "image/webp",
-  });
-  if (error) return { path: objectPath, error: error.message };
-  return { path: objectPath, error: null };
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) {
+    return { path: objectPath, error: "Session expirée. Reconnecte-toi." };
+  }
+
+  const form = new FormData();
+  form.append("request_id", requestId);
+  form.append("page", String(page));
+  form.append(
+    "file",
+    blob instanceof File ? blob : new File([blob], `page${page}.webp`, { type: "image/webp" })
+  );
+
+  let res: Response;
+  try {
+    res = await fetch("/api/patient/prescription-page", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+  } catch (e) {
+    return { path: objectPath, error: e instanceof Error ? e.message : "Réseau indisponible." };
+  }
+
+  const body = (await res.json().catch(() => ({}))) as { path?: string; error?: string };
+  if (!res.ok) {
+    return { path: objectPath, error: body.error ?? `Upload refusé (${res.status}).` };
+  }
+  return { path: body.path ?? objectPath, error: null };
 }
 
 /** Compresse une image fichier pour upload (max ~1600px, WebP). */

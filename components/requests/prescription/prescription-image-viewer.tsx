@@ -84,12 +84,22 @@ export function PrescriptionImageViewer({ paths, accent = "amber", className }: 
 }
 
 function PrescriptionImageSlot({ label, url }: { label: string; url: string | null }) {
+  const [loadErr, setLoadErr] = useState(false);
   return (
     <div className="overflow-hidden rounded-lg border border-border/70 bg-muted/20">
       <p className="border-b border-border/60 bg-muted/30 px-2 py-1 text-[10px] font-medium text-muted-foreground">{label}</p>
-      {url ? (
+      {url && !loadErr ? (
         // eslint-disable-next-line @next/next/no-img-element -- URL signée Supabase
-        <img src={url} alt={label} className="max-h-[min(52vh,420px)] w-full object-contain bg-white" />
+        <img
+          src={url}
+          alt={label}
+          className="max-h-[min(52vh,420px)] w-full object-contain bg-white"
+          onError={() => setLoadErr(true)}
+        />
+      ) : url && loadErr ? (
+        <p className="p-4 text-center text-xs text-destructive">
+          Image illisible (fichier absent ou envoi incomplet).
+        </p>
       ) : (
         <p className="p-4 text-center text-xs text-muted-foreground">Chargement de l’image…</p>
       )}
