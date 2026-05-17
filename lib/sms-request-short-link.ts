@@ -1,15 +1,22 @@
-/** Longueur du token court dans `/r/{token}` (préfixe UUID sans tirets). */
-export const SMS_REQUEST_SHORT_TOKEN_LEN = 8;
+/** Token SMS = UUID demande sans tirets (32 hex) → lookup exact en base. */
+export const SMS_REQUEST_TOKEN_HEX_LEN = 32;
 
-const TOKEN_RE = /^[0-9a-f]{8}$/i;
+const TOKEN_32_RE = /^[0-9a-f]{32}$/i;
 
-/** Préfixe stable pour lookup `requests.id::text ilike '{token}%'` */
+/** UUID compact pour `/r/{token}` */
 export function smsRequestShortToken(requestId: string): string {
-  return requestId.replace(/-/g, "").slice(0, SMS_REQUEST_SHORT_TOKEN_LEN).toLowerCase();
+  return requestId.replace(/-/g, "").toLowerCase();
 }
 
 export function isValidSmsRequestShortToken(token: string): boolean {
-  return TOKEN_RE.test(token.trim());
+  return TOKEN_32_RE.test(token.trim());
+}
+
+/** Reconstruit l’UUID canonique depuis le token SMS. */
+export function requestIdFromSmsToken(token: string): string | null {
+  const h = token.trim().toLowerCase();
+  if (!TOKEN_32_RE.test(h)) return null;
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
 }
 
 export function buildSmsRequestShortUrl(origin: string, requestId: string): string {
