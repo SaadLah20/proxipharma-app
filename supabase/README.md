@@ -9,7 +9,7 @@ Ce dossier contient le SQL versionne sous Git (**source de verite schema + RLS /
 | `20260429_001_rls_baseline.sql` | RLS profiles, pharmacies, pharmacy_staff ; helper `is_admin()` |
 | `20260430_001_products_reference.sql` | Table `products` reference (lecture large, ecriture admin) |
 | `20260430_002_requests_workflow_v1.sql` | Modele hybride demandes (`requests` + tables par type), items, alternatives, comments, historique statuts, `market_shortages` |
-| `20260501_001_patient_reaction_and_alternative_rls.sql` | RLS alternatives (ecriture pharmacien/admin) ; RPC patient `patient_confirm_*` / abandon ; **`expire_overdue_requests(interval)`** (service_role) — corps **`20260516_001`** ( **`responded_at`** + **`expires_at`** ; défaut silence **30 min** pilote) |
+| `20260501_001_patient_reaction_and_alternative_rls.sql` | RLS alternatives (ecriture pharmacien/admin) ; RPC patient `patient_confirm_*` / abandon ; **`expire_overdue_requests(interval)`** (corps final **`20260523_001`**) |
 | `20260501_002_seed_workflow_demo.sql` | Seed optionnel demo (demande responded + alternatives si donnees presentes) |
 | `20260502_001_resubmit_after_response_and_counter_pickup.sql` | Revision client liste produits apres responded/confirmed ; `counter_outcome` + statut **`completed`** ; RPC pharmacien comptoir ; RPC `patient_resubmit_*` |
 | `20260503_001_patient_chosen_alternative.sql` | `patient_chosen_alternative_id` ; RPC confirmation enrichi |
@@ -30,7 +30,12 @@ Ce dossier contient le SQL versionne sous Git (**source de verite schema + RLS /
 | `20260512_002_remove_request_processing_status.sql` | Retrait **`processing`** ; flux **`confirmed`** / **`treated`** |
 | `20260514_001_in_app_notification_copy_tuning.sql` | Libellés notifs patient ; `DROP` surcharges **`_in_app_notification_patient`** |
 | `20260515_001_no_in_app_notif_counter_picked_up.sql` | Pas de notif in-app pour **`counter_outcome:picked_up`** |
-| `20260516_001_expire_overdue_responded_at_pilot_30m.sql` | **`expire_overdue_requests(interval)`** + alias abandon ; silence **30 min** défaut (pilote) |
+| `20260516_001_expire_overdue_responded_at_pilot_30m.sql` | **`expire_overdue_requests(interval)`** + alias abandon ; silence **30 min** (pilote, remplacé par **023**) |
+| `20260521_001_profiles_email_nullable.sql` | `profiles.email` nullable (patients SMS sans e-mail) |
+| `20260522_001_sms_pilot_responded_treated_patient_only.sql` | Enqueue SMS patient : **`responded`** + **`treated`** uniquement |
+| `20260522_002_disable_pharmacist_sms.sql` | Désactive prefs SMS pharmacien + annule file SMS pharmacien |
+| `20260522_003_auth_phone_exists_signup_guard.sql` | RPC **`auth_phone_user_exists`** (inscription : téléphone déjà pris) |
+| `20260523_001_expire_responded_silence_24h.sql` | Défaut expiration **`responded`** → **24 h** (remplace 30 min) |
 
 **Ordre** : après **007**, appliquer **009** sur toute base où **007** a été jouée. En pratique **008 + 009** suffisent pour le contact patient côté pharmacien (sans policy **007**).
 

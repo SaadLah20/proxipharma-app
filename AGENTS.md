@@ -26,14 +26,16 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 - E-mail récupération : **`/auth/update-password`** ; opt-in e-mail aussi dans **`app/dashboard/patient/parametres/page.tsx`**.
 - Migration **`20260521_001_profiles_email_nullable.sql`** : `profiles.email` nullable.
 - Unicité : **téléphone / e-mail** uniques côté **`auth.users`** (Supabase) ; doublons possibles dans **`profiles.whatsapp`** sur comptes **legacy** (e-mail avant SMS).
+- **Inscription** : avant envoi OTP, **`POST /api/auth/signup-phone-check`** + **`auth_phone_user_exists`** (**`20260522_003`**) — pas de SMS si le numéro est déjà dans **`auth.users`** ; message « utilisez Connexion ».
 
 **Notifications hors-app (e-mail + SMS)** :
 - File SQL : **`notification_external_queue`**, prefs **`notification_external_prefs`**, trigger sur **`app_notifications`** (`20260505_001`). SMS/WhatsApp : destination = **`profiles.whatsapp`** (E.164).
 - Workers : **`send-external-emails`**, **`send-external-sms`**, **`/api/webhooks/dispatch-external-sms`** (principal, ~secondes) ; **`lib/external-notification-queue-worker.ts`** (SMS 1 tentative, texte court anti **Twilio 30007**, `SMS_BLOCKED_DESTINATIONS`).
+- **SMS pilote (patient uniquement)** : enqueue **`request_status:responded`** et **`request_status:treated`** seulement (**`20260522_001`**, **`20260522_002`**). Pas de SMS pharmacien (UI prefs **`variant="pharmacien"`**). Texte : `ProxiPharma: {officine} a repondu. Dossier {request_public_ref}.` / `… a traite le dossier {ref}.` — ASCII, 1 segment, ref **`D042/26`** (pas le libellé type « Demande de produits »).
 - **Destination notif SMS** : **`profiles.whatsapp`** (E.164) — pas `auth.users.phone` (legacy e-mail OK sans téléphone Auth).
 - **Vercel** : `TWILIO_*` + `TWILIO_SMS_FROM` (ex. `+19789813065`, API Messages) ; `SMS_BLOCKED_DESTINATIONS` pour numéros test invalides.
-- **Webhook Supabase** (INSERT file, même URL) = **e-mail + SMS rapides** (canal de la ligne insérée). Cron GitHub = filet (~5 min). E-mail = lien complet ; **SMS pilote = sans URL** (30007 si lien long).
-- Détail / reprise : **`RUNBOOK.md` §9**, **`CAHIER_DES_CHARGES.md` §10 (2026-05-16)**, phrase **§13.15**.
+- **Webhook Supabase** (INSERT file, même URL) = **e-mail + SMS rapides** (canal de la ligne insérée). Cron GitHub = filet (~5 min). E-mail = lien complet ; **SMS = sans URL** (30007 si lien long).
+- Détail / reprise : **`RUNBOOK.md` §9**, **`CAHIER_DES_CHARGES.md` §10 (2026-05-16 + 2026-05-22)**, phrase **§13.16**.
 
 **Notifications WhatsApp (en cours, pas encore de worker)** :
 - **Étape 1 (infra, avant code)** : Meta Business + expéditeur WhatsApp via Twilio ; test manuel **template** depuis la console ; **ne pas** utiliser **MM Lite** pour messages utilitaires (erreur Twilio **63055** → envoyer via **Cloud API**, modèles catégorie **Utility** pour statuts demande).
