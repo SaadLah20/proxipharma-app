@@ -42,6 +42,7 @@ import {
   validatedQtyForPatientLine,
 } from "@/lib/patient-confirmed-line-buckets";
 import { formatPriceDh } from "@/lib/product-price";
+import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
@@ -434,7 +435,9 @@ function PatientValidatedCompactLineCard({
   const validatedQty = validatedQtyForPatientLine(row);
   const unitMad = validatedBranchUnitPriceMad(row);
   const lineTotalMad = unitMad != null ? unitMad * validatedQty : null;
-  const thumbUrl = chosenAlt ? one(chosenAlt.products)?.photo_url ?? null : prod?.photo_url ?? null;
+  const thumbUrl = resolvePublicMediaUrl(
+    chosenAlt ? one(chosenAlt.products)?.photo_url ?? null : prod?.photo_url ?? null
+  );
   const eff = effectiveAvailabilityForPatientLine(row);
   const eta = effectiveEtaForPatientLine(row);
 
@@ -2283,7 +2286,12 @@ export function PatientProductRequestActions({
           setHits([]);
           return;
         }
-        setHits(data as ProductHit[]);
+        setHits(
+          (data as ProductHit[]).map((p) => ({
+            ...p,
+            photo_url: resolvePublicMediaUrl(p.photo_url ?? null),
+          }))
+        );
       })();
     }, 280);
     return () => clearTimeout(t);
@@ -2297,7 +2305,7 @@ export function PatientProductRequestActions({
         {
           product_id: p.id,
           name: p.name,
-          photo_url: p.photo_url ?? null,
+          photo_url: resolvePublicMediaUrl(p.photo_url ?? null),
           qty: 1,
           price_pph: p.price_pph ?? null,
           client_comment: "",

@@ -64,6 +64,7 @@ import {
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { one } from "@/lib/embed";
 import { formatPphMad, pphLabel } from "@/lib/product-price";
+import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
@@ -1663,7 +1664,12 @@ export default function PharmacienDemandeDetailPage() {
           setAltHits([]);
           return;
         }
-        setAltHits(data as ProductCatalogHit[]);
+        setAltHits(
+          (data as ProductCatalogHit[]).map((p) => ({
+            ...p,
+            photo_url: resolvePublicMediaUrl(p.photo_url ?? null),
+          }))
+        );
       })();
     }, 280);
     return () => window.clearTimeout(t);
@@ -1705,7 +1711,12 @@ export default function PharmacienDemandeDetailPage() {
           setPropHits([]);
           return;
         }
-        setPropHits(data as ProductCatalogHit[]);
+        setPropHits(
+          (data as ProductCatalogHit[]).map((p) => ({
+            ...p,
+            photo_url: resolvePublicMediaUrl(p.photo_url ?? null),
+          }))
+        );
       })();
     }, 280);
     return () => window.clearTimeout(t);
@@ -3816,7 +3827,7 @@ export default function PharmacienDemandeDetailPage() {
                 const unitLabel = branchPrice != null ? `${branchPrice.toFixed(2)} MAD` : "—";
                 const totalLabel = lineTot != null ? `${lineTot.toFixed(2)} MAD` : "—";
                 const altProdThumb = chosenAltRow ? one(chosenAltRow.products) : null;
-                const thumbUrl = altProdThumb?.photo_url ?? prod?.photo_url ?? null;
+                const thumbUrl = resolvePublicMediaUrl(altProdThumb?.photo_url ?? prod?.photo_url ?? null);
                 const hasConsent = Boolean(lineModifyConsent[row.id]?.channel?.trim());
                 const consent = lineModifyConsent[row.id];
                 const lineCounterLocked = (row.counter_outcome ?? "unset") === "picked_up";
