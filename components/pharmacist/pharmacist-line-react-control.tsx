@@ -12,11 +12,9 @@ import { createPortal } from "react-dom";
 import { ChevronDown, MessageCircleReply } from "lucide-react";
 import { clsx } from "clsx";
 
-const QUICK_ACK = "OK";
-
 type Props = {
   lineId: string;
-  /** Brouillon réponse pharmaceutique à un commentaire patient */
+  /** Brouillon note / réponse officine sur la ligne */
   pharmacistReply: string;
   disabled: boolean;
   onReplyChange: (text: string) => void;
@@ -74,11 +72,16 @@ export function PharmacistLineReactControl({
     return () => document.removeEventListener("mousedown", onDocMouseDown);
   }, [open, mode, customText, onReplyChange]);
 
-  const applyQuick = useCallback(() => {
-    onReplyChange(QUICK_ACK);
-    setOpen(false);
-    setMode("menu");
-  }, [onReplyChange]);
+  const confirmNote = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      onReplyChange(trimmed);
+      setOpen(false);
+      setMode("menu");
+    },
+    [onReplyChange]
+  );
 
   const clearReply = useCallback(() => {
     onReplyChange("");
@@ -113,7 +116,7 @@ export function PharmacistLineReactControl({
         )}
       >
         <MessageCircleReply className="size-3.5 shrink-0" aria-hidden />
-        <span className="truncate">{hasReply ? "Réaction" : "Réagir"}</span>
+        <span className="truncate">{hasReply ? "Note confirmée" : "Note produit"}</span>
         <ChevronDown className={clsx("size-3.5 shrink-0 opacity-70 transition", open && "rotate-180")} aria-hidden />
       </button>
 
@@ -136,13 +139,15 @@ export function PharmacistLineReactControl({
             >
               {mode === "menu" ? (
                 <div className="flex min-h-0 flex-col px-1.5">
-                  <button
-                    type="button"
-                    className="rounded-lg bg-primary px-3 py-2.5 text-left text-sm font-semibold text-primary-foreground hover:opacity-95"
-                    onClick={() => applyQuick()}
-                  >
-                    {QUICK_ACK}
-                  </button>
+                  {hasReply ? (
+                    <button
+                      type="button"
+                      className="rounded-lg bg-primary px-3 py-2.5 text-left text-sm font-semibold text-primary-foreground hover:opacity-95"
+                      onClick={() => confirmNote(pharmacistReply)}
+                    >
+                      Confirmer la note
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-foreground hover:bg-muted/60"
@@ -151,7 +156,7 @@ export function PharmacistLineReactControl({
                       setMode("custom");
                     }}
                   >
-                    Écrire un message…
+                    {hasReply ? "Modifier la note…" : "Écrire une note…"}
                   </button>
                   {hasReply ? (
                     <button
@@ -159,7 +164,7 @@ export function PharmacistLineReactControl({
                       className="rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-destructive hover:bg-destructive/10"
                       onClick={() => clearReply()}
                     >
-                      Retirer ma réaction
+                      Retirer la note
                     </button>
                   ) : null}
                 </div>
@@ -169,7 +174,7 @@ export function PharmacistLineReactControl({
                     rows={5}
                     value={customText}
                     onChange={(e) => setCustomText(e.target.value)}
-                    placeholder="Réponse au client…"
+                    placeholder="Note visible par le patient avec votre réponse…"
                     className="min-h-[6.5rem] w-full shrink resize-y rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 sm:min-h-[5rem]"
                     autoFocus
                   />
@@ -186,14 +191,11 @@ export function PharmacistLineReactControl({
                     </button>
                     <button
                       type="button"
-                      className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-95"
-                      onClick={() => {
-                        onReplyChange(customText.trim());
-                        setOpen(false);
-                        setMode("menu");
-                      }}
+                      className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-95 disabled:opacity-50"
+                      disabled={!customText.trim()}
+                      onClick={() => confirmNote(customText)}
                     >
-                      Appliquer
+                      Confirmer la note
                     </button>
                   </div>
                 </div>

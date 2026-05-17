@@ -5,8 +5,6 @@ import { createPortal } from "react-dom";
 import { clsx } from "clsx";
 import { X } from "lucide-react";
 
-const QUICK_ACK = "OK";
-
 export type LineConvoVisual = "empty" | "patient_only" | "pharma_only" | "thread";
 
 export function lineConversationVisual(patient: string, pharmacist: string): LineConvoVisual {
@@ -108,6 +106,15 @@ export function PharmacistLineConversationModal({
 
   if (!open || typeof document === "undefined") return null;
 
+  const noteTrimmed = pharmacistDraft.trim();
+  const canConfirmNote = allowEdit || showPersistButton;
+
+  const confirmNote = () => {
+    if (!canConfirmNote || !noteTrimmed) return;
+    onPharmacistDraftChange(noteTrimmed);
+    onOpenChange(false);
+  };
+
   return createPortal(
     <div
       className="fixed inset-0 z-[10055] flex items-end justify-center overflow-y-auto overscroll-y-contain bg-black/45 p-3 backdrop-blur-[1px] sm:items-center"
@@ -169,14 +176,17 @@ export function PharmacistLineConversationModal({
                 disabled={!allowEdit && !showPersistButton}
                 className="min-h-[5.5rem] w-full resize-y rounded-xl border border-emerald-200/80 bg-emerald-50/40 px-2.5 py-2 text-[12px] leading-snug text-foreground shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 disabled:opacity-60"
               />
-              <div className="flex flex-wrap gap-2">
+              <p className="text-[9px] leading-snug text-muted-foreground">
+                Saisissez votre note puis confirmez. Elle sera envoyée au patient avec votre réponse officine.
+              </p>
+              <div className="flex flex-wrap justify-end gap-2">
                 <button
                   type="button"
                   className="rounded-lg border border-emerald-300/80 bg-emerald-700 px-3 py-1.5 text-[10px] font-bold text-white shadow-sm hover:bg-emerald-800 disabled:opacity-50"
-                  disabled={!allowEdit && !showPersistButton}
-                  onClick={() => onPharmacistDraftChange(QUICK_ACK)}
+                  disabled={!canConfirmNote || !noteTrimmed}
+                  onClick={() => confirmNote()}
                 >
-                  {QUICK_ACK}
+                  Confirmer la note
                 </button>
               </div>
             </div>

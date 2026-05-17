@@ -312,7 +312,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       phone: phoneE164,
       options: {
         channel: "sms",
-        shouldCreateUser: true,
+        shouldCreateUser: false,
         data: {
           full_name: fullName.trim(),
           whatsapp: phoneE164,
