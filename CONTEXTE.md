@@ -61,6 +61,12 @@ Les routes **ordonnances** et **consultations libres** (patient et pharmacien) s
 ### Workflow « demande de produits » après validation patient (**`confirmed`** — mai 2026)
 Sans migration dédiée pour l’historique structuré : le patient voit ce qu’il a **validé** vs la **préparation actuelle** ; l’historique peut inclure **`audit_v1:`** dans `reason` (voir **`lib/patient-request-history-audit.ts`**, **`CAHIER_DES_CHARGES.md`** §4.4 + §4.5 et journal §10 **2026-05-06** / **2026-05-07**). Côté officine : plafonds qté, alternatives retenues vs indicatif, lignes fermées lecture seule, brouillon conservé au rechargement. Compteur **Annulés** patient : lignes **`cancelled_at_counter`**. Réinitialiser les données de test : **`scripts/clear-all-requests.mjs`** ou **`supabase/scripts/clear-all-requests.sql`**. Canvas de scénarios E2E : **`canvases/product-requests-e2e-test-plan.canvas.tsx`**.
 
+**Mise à jour 2026-05-24 — catalogue photos Storage + saisie patient** :
+- **SQL** : **`20260524_001`**–**`003`** — buckets Storage, catalogue pilote MAROC, `products.photo_url` = chemin `products/{uuid}/main.jpg`.
+- **`lib/storage-media.ts`** : URLs publiques pour vignettes ; **`mapRequestItemsPhotos`** sur détail demande patient/pharmacien.
+- **Patient** : **`demande-produits`** + **`demande-produits/catalogue`** (multi-sélection) ; **`lib/patient-demande-produits-draft.ts`** ; lien catalogue en **modification** demande **`submitted`/`in_review`**.
+- **Scripts** : **`attach-catalog-images.mjs`** (`node --use-system-ca` sous Windows si TLS) ; **`reset-pilot-catalog`**.
+
 **Mise à jour 2026-05-17 — notes ligne pharmacien + auth OTP** :
 - **Pharmacien** : **`components/pharmacist/pharmacist-line-conversation-chip.tsx`** — **Confirmer la note** (plus d’insertion `"OK"` dans **`pharmacist_comment`**) ; commit **`06a4413`**.
 - **Auth** : renvoi OTP inscription **`shouldCreateUser: false`** ; OTP peut passer par **WhatsApp Verify** ; doublons **`auth.users`** → reset pilote (demandes + suppression Auth).

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Check, ChevronLeft, LayoutGrid, Package, Search } from "lucide-react";
@@ -68,7 +68,6 @@ export default function DemandeProduitsCataloguePage() {
   const [loading, setLoading] = useState(true);
   const [filterQuery, setFilterQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [cartProductIds, setCartProductIds] = useState<Set<string>>(() => new Set());
   const [photoPreview, setPhotoPreview] = useState<{ url: string; title: string } | null>(null);
   const [adding, setAdding] = useState(false);
 
@@ -95,10 +94,10 @@ export default function DemandeProduitsCataloguePage() {
     void gate();
   }, [router, pharmacyId]);
 
-  useEffect(() => {
-    if (!sessionReady || !pharmacyId) return;
+  const cartProductIds = useMemo(() => {
+    if (!sessionReady || !pharmacyId) return new Set<string>();
     const draft = readPatientDemandeProduitsDraft(pharmacyId, editRequestId);
-    setCartProductIds(new Set(draft.map((l) => l.product_id)));
+    return new Set(draft.map((l) => l.product_id));
   }, [sessionReady, pharmacyId, editRequestId]);
 
   useEffect(() => {
@@ -139,32 +138,29 @@ export default function DemandeProduitsCataloguePage() {
     [filtered, cartProductIds]
   );
 
-  const toggleSelect = useCallback(
-    (productId: string) => {
-      if (cartProductIds.has(productId)) return;
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(productId)) next.delete(productId);
-        else next.add(productId);
-        return next;
-      });
-    },
-    [cartProductIds]
-  );
+  const toggleSelect = (productId: string) => {
+    if (cartProductIds.has(productId)) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
 
-  const selectAllVisible = useCallback(() => {
+  const selectAllVisible = () => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       for (const p of selectableFiltered) next.add(p.id);
       return next;
     });
-  }, [selectableFiltered]);
+  };
 
-  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+  const clearSelection = () => setSelectedIds(new Set());
 
   const selectedCount = selectedIds.size;
 
-  const addSelectedAndReturn = useCallback(() => {
+  const addSelectedAndReturn = () => {
     if (!pharmacyId || selectedCount === 0) return;
     setAdding(true);
     const toAdd = products.filter((p) => selectedIds.has(p.id));
@@ -173,7 +169,7 @@ export default function DemandeProduitsCataloguePage() {
     writePatientDemandeProduitsDraft(pharmacyId, merged, editRequestId);
     setAdding(false);
     router.push(backHref);
-  }, [pharmacyId, editRequestId, selectedCount, selectedIds, products, router, backHref]);
+  };
 
   if (!sessionReady) {
     return (

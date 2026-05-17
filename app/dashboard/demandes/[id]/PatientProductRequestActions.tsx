@@ -2135,13 +2135,42 @@ export function PatientProductRequestActions({
     setVisitMinute(hm.m);
   }
 
-  const [lines, setLines] = useState<ResubmitLine[]>(() =>
-    computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status))
-  );
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<ProductHit[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [resubmitConfirmOpen, setResubmitConfirmOpen] = useState(false);
+
+  const serverResubmitLines = useMemo(
+    () => computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status)),
+    [items, status]
+  );
+  const linesSyncKey = editMode
+    ? "edit"
+    : serverResubmitLines.map((l) => `${l.product_id}:${l.qty}:${l.client_comment}`).join("|");
+  const [prevLinesSyncKey, setPrevLinesSyncKey] = useState(linesSyncKey);
+  const [lines, setLines] = useState<ResubmitLine[]>(serverResubmitLines);
+  if (!editMode && linesSyncKey !== prevLinesSyncKey) {
+    setPrevLinesSyncKey(linesSyncKey);
+    setLines(serverResubmitLines);
+  }
+
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    const fromCatalogue = prevPathname.includes("/demande-produits/catalogue");
+    setPrevPathname(pathname);
+    if (
+      fromCatalogue &&
+      editMode &&
+      pharmacyId &&
+      requestId &&
+      pathname.endsWith(`/dashboard/demandes/${requestId}`)
+    ) {
+      const draft = readPatientDemandeProduitsDraft(pharmacyId, requestId);
+      if (draft.length > 0) {
+        setLines(draft.map((l) => ({ ...l, client_comment: l.client_comment ?? "" })));
+      }
+    }
+  }
 
   /** Restaure le brouillon resubmit à l'état initial (sortie du mode édition sans renvoi). */
   const resetResubmitDraft = () => {
@@ -2152,20 +2181,6 @@ export function PatientProductRequestActions({
   };
 
   const debouncedQuery = useMemo(() => query.trim(), [query]);
-
-  useEffect(() => {
-    if (!editMode || !pharmacyId || !requestId) return;
-    if (!pathname.endsWith(`/dashboard/demandes/${requestId}`)) return;
-    const draft = readPatientDemandeProduitsDraft(pharmacyId, requestId);
-    if (draft.length > 0) {
-      setLines(draft.map((l) => ({ ...l, client_comment: l.client_comment ?? "" })));
-    }
-  }, [pathname, editMode, pharmacyId, requestId]);
-
-  useEffect(() => {
-    if (editMode) return;
-    setLines(computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status)));
-  }, [items, status, editMode]);
 
   const visitWin = useMemo(() => {
     const linesPayload = itemsFilteredPending.map((row) => {

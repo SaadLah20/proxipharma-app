@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { LayoutGrid, Minus, Plus, Trash2, Package, Search, X } from "lucide-react";
@@ -72,7 +72,6 @@ export default function DemandeProduitsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const pharmacyId = typeof params.id === "string" ? params.id : "";
-  const draftHydratedRef = useRef(false);
 
   const [pharmacyName, setPharmacyName] = useState("");
   const [sessionReady, setSessionReady] = useState(false);
@@ -107,22 +106,18 @@ export default function DemandeProduitsPage() {
     void loadPh();
   }, [pharmacyId, sessionReady]);
 
+  const linesDraftKey = `${pharmacyId}|${sessionReady}|${pathname}`;
+  const [prevLinesDraftKey, setPrevLinesDraftKey] = useState("");
+  if (sessionReady && pharmacyId && pathname.endsWith("/demande-produits") && linesDraftKey !== prevLinesDraftKey) {
+    setPrevLinesDraftKey(linesDraftKey);
+    setLines(readPatientDemandeProduitsDraft(pharmacyId));
+  }
+
   useEffect(() => {
     if (!pharmacyId || !sessionReady) return;
     if (!pathname.endsWith("/demande-produits")) return;
-    const draft = readPatientDemandeProduitsDraft(pharmacyId);
-    if (!draftHydratedRef.current) {
-      draftHydratedRef.current = true;
-      if (draft.length > 0) setLines(draft);
-      return;
-    }
-    setLines(draft);
-  }, [pharmacyId, sessionReady, pathname]);
-
-  useEffect(() => {
-    if (!pharmacyId || !sessionReady || !draftHydratedRef.current) return;
     writePatientDemandeProduitsDraft(pharmacyId, lines);
-  }, [lines, pharmacyId, sessionReady]);
+  }, [lines, pharmacyId, sessionReady, pathname]);
 
   const debouncedQuery = useMemo(() => query.trim(), [query]);
 

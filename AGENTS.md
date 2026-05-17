@@ -16,7 +16,9 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **UI pharmacien — note / échange par ligne** — **`components/pharmacist/pharmacist-line-conversation-chip.tsx`** (`PharmacistLineConversationModal` sur **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**) : **Confirmer la note** valide le texte saisi dans **`pharmacist_comment`** (pas de raccourci qui insère `"OK"`). Envoi patient = **publier la réponse** dossier.
 
-**Ne pas réécrire tout le détail produit** sans relire **`CONTEXTE.md` §6** et **`CAHIER_DES_CHARGES.md` §4.4 + dernier §10 Journal + §13.12** (phrase de reprise type ; §13.10 reste valable pour le lot **`20260509_*`**). Pour une **ouverture sans tâche** (aucune implémentation avant consigne explicite) : **`CAHIER_DES_CHARGES.md` §13.11**.
+**Ne pas réécrire tout le détail produit** sans relire **`CONTEXTE.md` §6** et **`CAHIER_DES_CHARGES.md` §4.4 + dernier §10 Journal + §13.18** (phrase de reprise catalogue/photos ; §13.12 / **`20260509_*`** pour supply post-validé). Pour une **ouverture sans tâche** : **`CAHIER_DES_CHARGES.md` §13.11**.
+
+**Catalogue & photos (mai 2026)** — **`lib/storage-media.ts`**, **`lib/patient-demande-produits-draft.ts`**, **`/pharmacie/[id]/demande-produits/catalogue`** ; vignettes = chemins Storage résolus en URL publique (pas `<img src="products/…">` relatif). Merge **`main`** + migrations **`20260524_*`** pour prod.
 
 **Développement** : le pilote est **toujours en dev** — si une correction est nettement plus simple en **réinitialisant les données** (script reset demandes / base de test), **demander explicitement** une vidage plutôt que d’empiler migrations ou branches SQL uniquement pour préserver des jeux obsolètes.
 
