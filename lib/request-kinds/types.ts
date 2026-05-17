@@ -1,0 +1,53 @@
+/** Types de demande alignés sur `public.request_type_enum`. */
+export type RequestKindId = "product_request" | "prescription" | "free_consultation";
+
+export type RequestKindAccent = "sky" | "amber" | "violet";
+
+export type RequestKindRoutes = {
+  patientHubPath: string;
+  pharmacistHubPath: string;
+  patientListPath: string;
+  pharmacistListPath: string;
+  patientCreatePath: string | null;
+};
+
+export type RequestKindTheme = {
+  accent: RequestKindAccent;
+  /** Libellé court dans le bandeau (ex. « Demande prod. »). */
+  headerLabelShort: string;
+  patientBackLinkClass: string;
+  pharmacistBackLinkClass: string;
+  /** Classes Tailwind du bandeau par défaut (hors statut dynamique produit pharma). */
+  headerShellDefault: string;
+  /**
+   * Coquille du bandeau selon le statut (produits pharmacien).
+   * Si absent, `headerShellDefault` est utilisé.
+   */
+  headerShellForStatus?: (status: string) => string;
+};
+
+export type RequestKindCapabilities = {
+  /** Workflow détail patient/pharmacien activé pour ce type. */
+  workflowEnabled: boolean;
+  patientCreatesItems: boolean;
+  pharmacistCreatesItemsOnRespond: boolean;
+  maxPrescriptionPages: number | null;
+  hasProductCatalogue: boolean;
+};
+
+export type RequestKindCopy = {
+  labelFr: string;
+  patientHubTitle: string;
+  pharmacistHubTitle: string;
+  patientNotEnabledMessage: string;
+  pharmacistNotEnabledMessage: string;
+};
+
+export type RequestKindConfig = {
+  id: RequestKindId;
+  publicRefPrefix: "D" | "O" | "C";
+  routes: RequestKindRoutes;
+  theme: RequestKindTheme;
+  capabilities: RequestKindCapabilities;
+  copy: RequestKindCopy;
+};

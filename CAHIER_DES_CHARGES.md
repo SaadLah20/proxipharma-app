@@ -318,6 +318,28 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-25 — Refactor `request-kinds` (phase 1) + workflow ordonnances (phase 2)
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` (commit à pousser après cette session).
+
+**Phase 1 — architecture types de demande** :
+- **`lib/request-kinds/`** : registre `product_request` / `prescription` / `free_consultation` (thème, routes hubs, capacités, refs **D/O/C**).
+- UI partagée : **`components/requests/shared/`** (`request-kind-header`, `request-detail-back-link`, `request-type-stub-panel`).
+- Module produits extrait : **`components/requests/product/patient-product-request-actions.tsx`** (réexport depuis l’ancien chemin détail patient).
+- Détail patient/pharmacien : routage par `getRequestKindConfig` ; stub si `workflowEnabled: false` (consultation libre encore).
+
+**Phase 2 — ordonnances** :
+- Migrations **`20260525_001`** (compteurs refs **O** par type) · **`20260525_002`** (`page_2_path`, image nullable) · **`20260525_003`** (`_request_uses_product_line_workflow`) · **`20260525_004`** (RPC annulation / supply / traité élargies aux ordonnances).
+- **`lib/prescription-media.ts`** : upload/compression WebP, URLs signées Storage `ordonnances/{request_id}/…`.
+- Capture patient : **`/pharmacie/[id]/demande-ordonnance`** (1–2 photos, message optionnel) ; CTA fiche pharmacie.
+- Détail patient : panneau attente **`PatientPrescriptionRequestPanel`** (`submitted`/`in_review`) ; dès **`responded+`** → même workflow lignes que produits + messagerie.
+- Détail pharmacien : **`PrescriptionImageViewer`**, saisie 100 % officine (`pharmacist_proposed`, motif défaut « Saisie depuis ordonnance »), publication réponse + post-validé partagés.
+- Correctif brouillon catalogue : retour **`demande-produits/catalogue`** en édition ne perd plus les lignes (`lib/patient-demande-produits-draft.ts`).
+
+**Prod / QA** : appliquer **`20260525_*`** sur Supabase avant E2E ; smoke test **produits** inchangé + parcours **ordonnance** complet (envoi → saisie pharma → réponse → validation patient).
+
+---
+
 ### Session 2026-05-24 — Catalogue patient, photos Storage, ESLint CI
 
 **Branche** : `fix/validated-supply-ecart-ui-modal` (commits **`bbe686b`**, **`4ed2cf9`** + correctifs lint).
@@ -1138,7 +1160,7 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 | **Auto expiration** cron supabase **`expire_overdue_requests(interval)`** | Défaut **24 h** après **`responded_at`** (**`20260523_001`**) + passe **`expires_at`** ; alias **`abandon_unconfirmed_responded_requests()`** ; cron **`service_role`** ou **`/api/cron/expire-overdue-requests`** |
 | **SMS hors-app pilote** | Patient **`responded` / `treated`** uniquement ; ref **`request_public_ref`** ; **`20260522_001`**–**`002`** ; webhook + Twilio |
 | **Abandon automatique** 24 h après **`responded`** | **Remplacé** par le même batch **`expire_overdue_requests()`** ( statut cible **`expired`** , pas **`abandoned`** ) |
-| **Ordonnance / consultation**: traitement pharmacien meme espace | Hors perimetre ecran actuel |
+| **Ordonnance** : capture + workflow lignes (refs **O**, 1–2 pages) | **Fait** (phase 2 — session **2026-05-25**) ; consultation libre **placeholder** |
 | **`market_shortages`** insert auto quand pharma choisit **market_shortage** dispo ligne | **Fait** (trigger `20260503_005`) + **UI liste / retrait pharmacien** (`/dashboard/pharmacien/ruptures-marche`) |
 | **Notifications Q34–Q35** | **Q34 MVP fait** ; **Q35** schéma + enqueue + opt-in UI (**`20260505_001`**) ; **livraison messages** (API prestataires + worker) à brancher |
 | **PPH catalogue** sur parcours produits (`price_pph`) | **Fait** (`lib/product-price.ts` + selects + seed `20260503_003`) |
@@ -1246,6 +1268,10 @@ Voir **§13.18**.
 ### 13.18) Phrase de reprise (recommandée — après session **2026-05-24**)
 
 **« On reprend ProxiPharma. Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-24)**, **`AGENTS.md`**, **`CONTEXTE.md` §6**, **`RUNBOOK.md` §9**. Branche **`fix/validated-supply-ecart-ui-modal`** (commits **`4ed2cf9`**+). Migrations si besoin : **`20260524_001`**–**`003`** (Storage + catalogue photos). UI : **`resolvePublicMediaUrl`** / **`mapRequestItemsPhotos`** ; page **`/pharmacie/[id]/demande-produits/catalogue`** + brouillon **`patient-demande-produits-draft`** ; **Voir tous les produits** aussi en modification demande envoyée. Prod : merge **`main`** + Vercel. ESLint : pas de **`setState` synchrone dans un `useEffect`** (resync en rendu). Je te dis ensuite quoi faire. »**
+
+### 13.19) Phrase de reprise (recommandée — après session **2026-05-25** — ordonnances + registre types)
+
+**« On reprend ProxiPharma sans régression. Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-25)**, **`AGENTS.md`**, **`CONTEXTE.md` §6**. Branche **`fix/validated-supply-ecart-ui-modal`**. Sur Supabase, appliquer dans l’ordre **`20260525_001`**–**`004`** si pas déjà fait. Registre : **`lib/request-kinds/`** ; ordonnance : **`/pharmacie/[id]/demande-ordonnance`**, **`lib/prescription-media.ts`**, **`components/requests/prescription/`**. Avant tout changement : smoke test **demande produits** (catalogue + édition retour catalogue + post-validé) puis **ordonnance** (envoi 1–2 photos → saisie pharma → réponse → validation patient). Consultation libre = phase 3 (`workflowEnabled: false`). Je te dis ensuite quoi faire. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 
