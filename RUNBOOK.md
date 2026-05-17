@@ -190,7 +190,12 @@ git log --oneline -n 10
 
 **Test** : `POST /api/cron/test-external-sms` (après deploy route sur `main`) ; logs Twilio : **Delivered** + **1 segment**, pas 30007.
 
-**Format SMS prod (pilote)** : `ProxiPharma - [titre] ([pharmacie])` — sans URL.
+**Format SMS prod (pilote)** — patient, **`responded`** / **`treated`** uniquement ; sans URL ; ASCII ~1 segment :
+- Répondu : `ProxiPharma: Ennasr a repondu. Dossier D042/26.`
+- Traité : `ProxiPharma: Ennasr a traite le dossier D042/26.`
+- Nom officine : sans préfixe « La pharmacie » si le nom commence déjà par « Pharmacie » ; ref = **`requests.request_public_ref`** (sinon `#` + 8 car. UUID).
+
+**Inscription** : si le téléphone existe déjà dans **`auth.users`**, pas d’OTP à l’inscription — **`/api/auth/signup-phone-check`** (migration **`20260522_003`**).
 
 ## 10) Notifications WhatsApp (Q35 — en cours, pas déployé)
 

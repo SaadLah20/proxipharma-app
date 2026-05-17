@@ -318,6 +318,28 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-22 — SMS pilote patient, expiration 24 h, garde inscription
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` (commits **`04c69e3`** … **`92668e4`**).
+
+**Notifications hors-app (Q35)** :
+- SMS **patient uniquement**, événements **`request_status:responded`** et **`request_status:treated`** (**`20260522_001`**, worker + **`20260522_002`**).
+- Texte SMS : `ProxiPharma: {officine} a repondu. Dossier {request_public_ref}.` / `… a traite le dossier {ref}.` — ASCII, ~1 segment, ref **`D042/26`** (**`lib/external-notification-queue-worker.ts`**).
+- UI prefs : pas de case SMS côté pharmacien (**`ExternalNotificationPrefs variant="pharmacien"`**).
+- Webhook + e-mail inchangés (§ session 2026-05-16).
+
+**Expiration `responded`** :
+- Défaut **24 h** après **`responded_at`** (**`20260523_001`**) ; cron **`/api/cron/expire-overdue-requests`** aligné ; surcharge Vercel **`EXPIRE_RESPONDED_SILENCE`** si besoin de test court.
+
+**Auth inscription** :
+- Pas d’OTP si téléphone déjà dans **`auth.users`** : **`POST /api/auth/signup-phone-check`**, **`auth_phone_user_exists`** (**`20260522_003`**).
+
+**Admin / comptes** (constat pilote) :
+- Assignation **`pharmacy_staff`** depuis **`/admin`** ne met **pas** **`profiles.role = pharmacien`** — à faire manuellement ou évolution UI à prévoir.
+- Compte créé par SMS : chercher l’utilisateur dans Auth par **téléphone** ou **UUID** `profiles.id` ; e-mail facultatif peut être dans **`profiles.email`** avant confirmation **`auth.users.email`**.
+
+---
+
 ### Session 2026-05-16 — Notifications hors-app : worker SMS Twilio + incident facturation
 
 **Livré (code, branche `fix/validated-supply-ecart-ui-modal` → mergé `main` en fin de session)** :
@@ -392,7 +414,8 @@ Statuts retenus v1:
 
 **SQL — migrations** :
 - **`20260515_001_no_in_app_notif_counter_picked_up.sql`** — entrée d’historique `counter_outcome:picked_up` : **aucune** ligne dans **`app_notifications`** (trigger **`_emit_in_app_notifications_for_status_history`**).
-- **`20260516_001_expire_overdue_responded_at_pilot_30m.sql`** — **`expire_overdue_requests(interval)`** : expiration des **`responded`** dont **`responded_at`** est hors délai (défaut **30 minutes** pour tests ; repasser à **`interval '24 hours'`** ou argument cron en prod stable) + passe **`expires_at`** héritée ; **`abandon_unconfirmed_responded_requests()`** = alias qui appelle **`expire_overdue_requests()`** (un seul batch à planifier côté cron **`service_role`**).
+- **`20260516_001_expire_overdue_responded_at_pilot_30m.sql`** — **`expire_overdue_requests(interval)`** (pilote 30 min, remplacé par **`20260523_001`** = **24 h**).
+- **`20260522_001`** … **`20260523_001`** — SMS patient répondu/traité, pas de SMS pharmacien, garde inscription téléphone, expiration **24 h** (voir §10 session **2026-05-22**).
 
 **Lib** : **`lib/patient-request-history-audit.ts`** — libellés FR pour **`auto_expire_after_response_silence`**, **`auto_expire_24h_after_response`**, **`expire_overdue_requests`**.
 
@@ -989,7 +1012,8 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260512_002_remove_request_processing_status.sql` (retrait statut **`processing`** au profit de **`confirmed`** + **`treated`** ; RPC / triggers / notifs alignés — détail dans le fichier)
   - `supabase/migrations/20260514_001_in_app_notification_copy_tuning.sql` (libellés in-app patient ; `DROP FUNCTION` des deux surcharges **`_in_app_notification_patient`** avant `CREATE` si besoin)
   - `supabase/migrations/20260515_001_no_in_app_notif_counter_picked_up.sql` (pas de notif in-app pour **`counter_outcome:picked_up`**)
-  - `supabase/migrations/20260516_001_expire_overdue_responded_at_pilot_30m.sql` (**`expire_overdue_requests(interval)`** : silence depuis **`responded_at`** + **`expires_at`** ; défaut **30 min** pilote ; **`abandon_unconfirmed_responded_requests`** → alias)
+  - `supabase/migrations/20260516_001_expire_overdue_responded_at_pilot_30m.sql` (pilote 30 min ; corps actuel **`20260523_001`** = **24 h**)
+  - `supabase/migrations/20260522_001_sms_pilot_responded_treated_patient_only.sql` · **`20260522_002`** · **`20260522_003`** · **`20260523_001_expire_responded_silence_24h.sql`**
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -997,7 +1021,7 @@ Regles fonctionnelles retenues (alignement dernier atelier):
 - **Référentiel catalogue** : affichage **PPH** (`products.price_pph`) partout où le catalogue est lu sur les parcours produits lorsque renseigné ; **prix de réponse** pharmacien distingué (« Prix pharmacie » / champ `request_items.unit_price`).
 - Le client peut **modifier et renvoyer** une demande produit **avant réponse** (`submitted`|`in_review`) ou **après réponse** (`responded` uniquement pour ce flux ; en **`confirmed`** le renvoi liste est retiré côté UI — abandon possible) via RPC `patient_resubmit_product_request_after_response` → retour **`submitted`**, reset préparation pharma.
 - Le **retrait reel** au comptoir est porte par le **pharmacien**: colonne par ligne `request_items.counter_outcome` (en UI post-validé **saisie brouillon** limitée à **`unset`** / **`picked_up`** pour les lignes non figées ; valeurs legacy **`deferred_next_visit`** / **`cancelled_at_counter`** restent en base et sont affichées en lecture seule ou normalisées à l’enregistrement). **Clôture** dossier : **`pharmacist_complete_request_after_counter`** accessible dès qu’**au moins une** ligne retenue (non écartée) est **`picked_up`**, avec **confirmation** si d’autres lignes retenues ne le sont pas encore.
-- **Après réponse** : l’app ne renseigne plus **`expires_at` +7 j** sur publication (pilote). L’expiration **`responded`** sans validation patient repose sur **`expire_overdue_requests()`** ( **`service_role`** , cron ) : comparaison **`responded_at`** vs **`now()`** ( **`timestamptz`** , OK Maroc ) ; délai pilote **30 min** par défaut dans **`20260516_001`** ( repasser à **24 h** ou passer l’intervalle en argument cron en prod ) ; **`expires_at`** non nul reste pris en charge en seconde passe. **`abandon_unconfirmed_responded_requests()`** appelle la même implémentation. Les **`request_items`** sont limités à **qté 1–10** et **un seul `product_id` par demande**.
+- **Après réponse** : l’app ne renseigne plus **`expires_at` +7 j** sur publication (pilote). L’expiration **`responded`** sans validation patient repose sur **`expire_overdue_requests()`** (cron **`service_role`** ou **`/api/cron/expire-overdue-requests`**) : **`responded_at`** vs **`now()`** ; défaut **24 h** (**`20260523_001`**) ; **`expires_at`** non nul reste pris en charge en seconde passe. **`abandon_unconfirmed_responded_requests()`** = alias. Les **`request_items`** sont limités à **qté 1–10** et **un seul `product_id` par demande**.
 - Les statuts enum `partially_collected` / `fully_collected` restent en base mais le flux officiel livre passe par **`completed`**; `patient_mark_collected` nest plus callable par le JWT patient (obsolete).
 
 Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-05-03**, **2026-05-05**, **2026-05-06** et **lot plateforme / codes publics 2026-05-05**):
@@ -1030,7 +1054,7 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 
 **Jalon 0 — Arbitrages & doc (court)**  
 - Remplir **Q4** (grille envoyée / en traitement pharma / répondue / validée patient / traitée-comptoir / annulée / abandonnée / cloturée ↔ valeurs enum actuelles).  
-- **Expiration après `responded`** : **implémenté** — **`expire_overdue_requests(interval)`** + cron **`service_role`** (**`20260516_001`** ; défaut **30 min** pilote, viser **24 h** en prod ou argument explicite au cron). **`expires_at` +7 j** reste optionnel côté legacy ; **`abandon_unconfirmed_responded_requests()`** = alias.  
+- **Expiration après `responded`** : **implémenté** — défaut **24 h** (**`20260523_001`**) + cron. **`abandon_unconfirmed_responded_requests()`** = alias.  
 - **Q33** : confirmer si le modèle actuel (`deferred_next_visit` + clôture) suffit pour « plusieurs passages » ou si des statuts supplémentaires sont requis.
 
 **Jalon 1 — BDD / migrations (avant UI dépendante)**  
@@ -1051,10 +1075,10 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 2. **`PatientProductRequestActions` + détail patient** : radios principal/alternative ✓ ; date passage ✓ ; notes par ligne au renvoi ✓ (**Q11**) ; reste récap dense **Q28**, totaux **Q23** si besoin au-delà de PPH + lignes réponse pharma.  
 3. **Pharmacien** : motif sur **lignes proposées par l’officine** ✓ (**Q20**), mention **« Mis à jour … »** sur ligne ✓ (**Q32**, `updated_at` affiché) ; reste affinages ETA « à commander » / **Q18**.  
 4. **Post‑`confirmed`** : **livré** (§4.4 + §4.5, sessions **2026-05-06** et **2026-05-07**) — deux niveaux lecture patient (validé vs préparation) à **parité de champs** (qté / dispo / prix / état), placeholder **« En cours »** tant que la pharmacie n'a pas touché au comptoir, règles qté officine avant récupération, alternatives indicatif vs retenu, lignes fermées lecture seule, historique **`audit_v1`** + auteur/date, **annulation globale par la pharmacie avec motif** (RPC `pharmacist_cancel_request`), **annulation patient ↔ statuts** (cancelled / abandoned / expired), **« partiellement disponible » dérivé**, lignes **proposées** restreintes à `Disponible` / `À commander`, heure de passage en **saisie texte 24 h**, **resubmit mobile** avec +/− + bouton « Annuler les modifications ». Reste : raffinement **Q31** / **Q18** libellés et champs métier si besoin.  
-5. **Tâches planifiées** : job **`expire_overdue_requests()`** ( et alias **`abandon_unconfirmed_responded_requests()`** ) ✓ — **`responded_at`** + option **`expires_at`** ; **cron `service_role`** obligatoire ; délai pilote **30 min** en **`20260516_001`** ; **`expires_at` +7 j** désactivé côté app à la publication ✓ ; **Q34 in-app MVP** ✓ (dashboards + hubs).  
+5. **Tâches planifiées** : job **`expire_overdue_requests()`** ✓ — défaut **24 h** (**`20260523_001`**) ; cron **`service_role`** ou route Vercel ; **Q34 in-app MVP** ✓.  
 6. **Espace Admin** minimal issu du jalon BDD §9.
 
-**Écart principal avec le déjà livré** : flux **`responded` → `confirmed`** inclut désormais **alternative + passage + validation serveur associée**. **Motifs annulation**, **anti-doublon / plafond qté**, **`market_shortages`** auto, **expiration après silence sur `responded`** (**`expire_overdue_requests(interval)`** + cron **`service_role`** ; pilote **30 min** en **`20260516_001`**), **commentaires ligne patient (Q11)**, **propositions pharmacien (Q20)** et **notifications in-app MVP (Q34)** sont en place (migrations **`20260504_001`** + **`20260504_002`**). **Q35** : file **`notification_external_queue`** + préférences + UI opt-in (**`20260505_001`**) ; **envoi réel** email/SMS/WA via worker + prestataires **reste à brancher**. Restent notamment **réglage délai prod (24 h)** et **cron** sur Supabase, **admin pilote**, **micro-UX** (récap Q28/Q23, libellés « comptoir »).
+**Écart principal avec le déjà livré** : flux **`responded` → `confirmed`** inclut désormais **alternative + passage + validation serveur associée**. **Motifs annulation**, **anti-doublon / plafond qté**, **`market_shortages`** auto, **expiration `responded` 24 h** (**`20260523_001`**), **commentaires ligne patient (Q11)**, **propositions pharmacien (Q20)** et **notifications in-app MVP (Q34)** sont en place. **Q35** : e-mail + **SMS pilote patient** (répondu / traité) branchés ; **WhatsApp** worker à faire. Restent **admin** (rôle pharmacien à l’assignation), **micro-UX**, **cron** expiration sur Supabase si pas encore planifié.
 
 **Questions sans réponse explicite (atelier)** : **Q4**, **Q33** uniquement. *(Q36 réponse implicite : « décide‑toi » → jalon 2 pour listes pharma « à commander / prêt / relance », aligné notifications **Q37**.)*
 
@@ -1070,7 +1094,8 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 | **Alternatives** jusqu a 3 / ligne coté pharma UI saisie + affichage patient detail | Pharma + affichage patient **OK** — **choix patient (0 ou 1 / groupe)** **fait** (voir migration `20260503_001`) |
 | **Comptoir** `counter_outcome` ligne + bouton cloture **`pharmacist_complete_request_after_counter`** côté UI pharma ou magasin préparation | **Fait** (`/dashboard/pharmacien/demandes/[id]` section dédiée) |
 | **Date de passage** patient à la validation | **Fait** (`20260503_004`, RPC 4 params, UI **`PatientProductRequestActions`**) |
-| **Auto expiration** cron supabase **`expire_overdue_requests(interval)`** | **`responded`** + **`responded_at`** hors délai ( défaut **30 min** pilote dans **`20260516_001`** ; viser **24 h** en prod ) + passe **`expires_at`** ; **`abandon_unconfirmed_responded_requests()`** = alias ; **cron `service_role`** requis |
+| **Auto expiration** cron supabase **`expire_overdue_requests(interval)`** | Défaut **24 h** après **`responded_at`** (**`20260523_001`**) + passe **`expires_at`** ; alias **`abandon_unconfirmed_responded_requests()`** ; cron **`service_role`** ou **`/api/cron/expire-overdue-requests`** |
+| **SMS hors-app pilote** | Patient **`responded` / `treated`** uniquement ; ref **`request_public_ref`** ; **`20260522_001`**–**`002`** ; webhook + Twilio |
 | **Abandon automatique** 24 h après **`responded`** | **Remplacé** par le même batch **`expire_overdue_requests()`** ( statut cible **`expired`** , pas **`abandoned`** ) |
 | **Ordonnance / consultation**: traitement pharmacien meme espace | Hors perimetre ecran actuel |
 | **`market_shortages`** insert auto quand pharma choisit **market_shortage** dispo ligne | **Fait** (trigger `20260503_005`) + **UI liste / retrait pharmacien** (`/dashboard/pharmacien/ruptures-marche`) |
@@ -1165,9 +1190,13 @@ Si tu dois **resemer le contexte** ou **rejouer l’historique BDD**, reprendre 
 
 Voir **§13.15** (webhook + 30007 + SMS courts).
 
-### 13.15) Phrase de reprise (recommandée après **2026-05-16** — webhook e-mail + SMS)
+### 13.15) Phrase de reprise (session **2026-05-16** — dépassée pour SMS / délai)
 
-**« On reprend ProxiPharma — **notifications hors-app** (Q35). Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-16 + suite)**, **`RUNBOOK.md` §9**, **`AGENTS.md`**. État : webhook Supabase INSERT `notification_external_queue` → `/api/webhooks/dispatch-external-sms` (`Authorization: Bearer CRON_SECRET`) — **e-mail + SMS rapides** (même URL, un appel par ligne insérée) ; validé pilote. Merger branche `fix/validated-supply-ecart-ui-modal` sur **`main`** + redeploy Vercel si pas fait (SMS courts, webhook e-mail, `SMS_BLOCKED_DESTINATIONS`). Cron GitHub = filet ~5 min seulement. Vercel : `TWILIO_SMS_FROM=+19789813065`, `RESEND_*`, `CRON_SECRET`. SMS sans URL longue (30007 si lien/texte long) ; lien complet en e-mail. Notifs = `profiles.whatsapp` E.164. WhatsApp worker : après SMS stable. Je te dis ensuite quoi faire. »**
+Voir **§13.16**.
+
+### 13.16) Phrase de reprise (recommandée — SMS pilote + expiration 24 h)
+
+**« On reprend ProxiPharma. Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-22)**, **`RUNBOOK.md` §9**, **`AGENTS.md`**, **`CONTEXTE.md` §6**. Migrations Supabase si besoin : **`20260522_001`**–**`003`**, **`20260523_001`**. État : webhook INSERT `notification_external_queue` → `/api/webhooks/dispatch-external-sms` ; **SMS patient** seulement (**répondu** / **traité**), format ref dossier ASCII ; **e-mail** = canaux pilote habituels. Expiration **`responded`** = **24 h** (`expire_overdue_requests`). Inscription : pas d’OTP si téléphone déjà enregistré (`signup-phone-check`). Vercel : `TWILIO_*`, `RESEND_*`, `CRON_SECRET`. Admin : assignation officine ≠ `role pharmacien` automatique. Je te dis ensuite quoi faire. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 
