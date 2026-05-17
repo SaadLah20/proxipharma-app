@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { ordonnanceMediaObjectPath, STORAGE_BUCKET_PRIVATE } from "@/lib/storage-media";
 import { createSupabaseServiceClient } from "@/lib/supabase-service";
 import { verifyBearerUser } from "@/lib/verify-bearer-user";

@@ -1,4 +1,4 @@
-import { getBearerAccessTokenForApi } from "@/lib/supabase-access-token";
+import { supabase } from "@/lib/supabase";
 import { STORAGE_BUCKET_PRIVATE, ordonnanceMediaObjectPath } from "@/lib/storage-media";
 
 export type PrescriptionPagePaths = {
@@ -16,34 +16,14 @@ export function prescriptionPageStoragePaths(requestId: string): { page1: string
 
 export async function createPrescriptionSignedUrl(
   objectPath: string,
-  _expiresInSeconds = 3600
+  expiresInSeconds = 3600
 ): Promise<{ url: string | null; error: string | null }> {
   const path = objectPath.replace(/^\//, "");
-
-  const { token, error: tokenErr } = await getBearerAccessTokenForApi();
-  if (!token) {
-    return { url: null, error: tokenErr };
-  }
-
-  let res: Response;
-  try {
-    res = await fetch("/api/media/private-signed-url", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ path }),
-    });
-  } catch (e) {
-    return { url: null, error: e instanceof Error ? e.message : "Réseau indisponible." };
-  }
-
-  const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
-  if (!res.ok) {
-    return { url: null, error: body.error ?? `Lecture image refusée (${res.status}).` };
-  }
-  return { url: body.url ?? null, error: null };
+  const { data, error } = await supabase.storage
+    .from(STORAGE_BUCKET_PRIVATE)
+    .createSignedUrl(path, expiresInSeconds);
+  if (error) return { url: null, error: error.message };
+  return { url: data.signedUrl ?? null, error: null };
 }
 
 export async function uploadPrescriptionPageBlob(
@@ -54,35 +34,26 @@ export async function uploadPrescriptionPageBlob(
   const paths = prescriptionPageStoragePaths(requestId);
   const objectPath = page === 1 ? paths.page1 : paths.page2;
 
-  const { token, error: tokenErr } = await getBearerAccessTokenForApi();
-  if (!token) {
-    return { path: objectPath, error: tokenErr ?? "Session expirée. Reconnecte-toi." };
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !userData.user) {
+    return { path: objectPath, error: "Session expirée. Reconnectez-vous." };
   }
 
-  const form = new FormData();
-  form.append("request_id", requestId);
-  form.append("page", String(page));
-  form.append(
-    "file",
-    blob instanceof File ? blob : new File([blob], `page${page}.webp`, { type: "image/webp" })
-  );
+  const { error } = await supabase.storage.from(STORAGE_BUCKET_PRIVATE).upload(objectPath, blob, {
+    upsert: true,
+    contentType: "image/webp",
+  });
 
-  let res: Response;
-  try {
-    res = await fetch("/api/patient/prescription-page", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
-    });
-  } catch (e) {
-    return { path: objectPath, error: e instanceof Error ? e.message : "Réseau indisponible." };
+  if (error) {
+    const hint =
+      error.message.toLowerCase().includes("row-level security") ||
+      error.message.toLowerCase().includes("policy")
+        ? " Appliquez la migration SQL 20260528_001_fix_storage_path_filename_check.sql sur Supabase."
+        : "";
+    return { path: objectPath, error: `${error.message}${hint}` };
   }
 
-  const body = (await res.json().catch(() => ({}))) as { path?: string; error?: string };
-  if (!res.ok) {
-    return { path: objectPath, error: body.error ?? `Upload refusé (${res.status}).` };
-  }
-  return { path: body.path ?? objectPath, error: null };
+  return { path: objectPath, error: null };
 }
 
 /** Compresse une image fichier pour upload (max ~1600px, WebP). */
