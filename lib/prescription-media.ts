@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getBearerAccessTokenForApi } from "@/lib/supabase-access-token";
 import { STORAGE_BUCKET_PRIVATE, ordonnanceMediaObjectPath } from "@/lib/storage-media";
 
 export type PrescriptionPagePaths = {
@@ -20,10 +20,9 @@ export async function createPrescriptionSignedUrl(
 ): Promise<{ url: string | null; error: string | null }> {
   const path = objectPath.replace(/^\//, "");
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData.session?.access_token;
+  const { token, error: tokenErr } = await getBearerAccessTokenForApi();
   if (!token) {
-    return { url: null, error: "Session expirée." };
+    return { url: null, error: tokenErr };
   }
 
   let res: Response;
@@ -55,10 +54,9 @@ export async function uploadPrescriptionPageBlob(
   const paths = prescriptionPageStoragePaths(requestId);
   const objectPath = page === 1 ? paths.page1 : paths.page2;
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData.session?.access_token;
+  const { token, error: tokenErr } = await getBearerAccessTokenForApi();
   if (!token) {
-    return { path: objectPath, error: "Session expirée. Reconnecte-toi." };
+    return { path: objectPath, error: tokenErr ?? "Session expirée. Reconnecte-toi." };
   }
 
   const form = new FormData();

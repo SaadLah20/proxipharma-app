@@ -39,8 +39,8 @@ export default function DemandeOrdonnancePage() {
 
   useEffect(() => {
     const gate = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session?.user) {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data.user) {
         router.replace(`/auth?redirect=/pharmacie/${pharmacyId}/demande-ordonnance`);
         return;
       }

@@ -1,6 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
 import { ordonnanceMediaObjectPath, STORAGE_BUCKET_PRIVATE } from "@/lib/storage-media";
 import { createSupabaseServiceClient } from "@/lib/supabase-service";
+import { verifyBearerUser } from "@/lib/verify-bearer-user";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 
@@ -18,10 +18,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "Non authentifié." }, { status: 401 });
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) {
-    return Response.json({ error: "Configuration Supabase manquante." }, { status: 500 });
+  const { user, error: authErr } = await verifyBearerUser(token);
+  if (authErr || !user) {
+    return Response.json({ error: authErr ?? "Session invalide." }, { status: 401 });
   }
 
   let form: FormData;
@@ -51,17 +50,15 @@ export async function POST(req: Request) {
     return Response.json({ error: "Format non supporté." }, { status: 400 });
   }
 
-  const userClient = createClient(url, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-
-  const { data: userData, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !userData.user) {
-    return Response.json({ error: "Session invalide." }, { status: 401 });
+  let admin;
+  try {
+    admin = createSupabaseServiceClient();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return Response.json({ error: msg }, { status: 500 });
   }
 
-  const { data: reqRow, error: reqErr } = await userClient
+  const { data: reqRow, error: reqErr } = await admin
     .from("requests")
     .select("id,patient_id,request_type,status")
     .eq("id", requestId)
@@ -70,7 +67,7 @@ export async function POST(req: Request) {
   if (reqErr) {
     return Response.json({ error: reqErr.message }, { status: 500 });
   }
-  if (!reqRow || reqRow.patient_id !== userData.user.id) {
+  if (!reqRow || reqRow.patient_id !== user.id) {
     return Response.json({ error: "Demande introuvable." }, { status: 403 });
   }
   if (reqRow.request_type !== "prescription") {
@@ -83,14 +80,6 @@ export async function POST(req: Request) {
   const page = pageRaw === "2" ? 2 : 1;
   const objectPath = ordonnanceMediaObjectPath(requestId, page === 1 ? "page1" : "page2", "webp");
   const bytes = new Uint8Array(await file.arrayBuffer());
-
-  let admin;
-  try {
-    admin = createSupabaseServiceClient();
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return Response.json({ error: msg }, { status: 500 });
-  }
 
   const contentType = file.type === "image/webp" ? "image/webp" : file.type || "image/webp";
   const { error: upErr } = await admin.storage.from(STORAGE_BUCKET_PRIVATE).upload(objectPath, bytes, {

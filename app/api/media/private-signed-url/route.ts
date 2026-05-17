@@ -1,6 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
 import { STORAGE_BUCKET_PRIVATE } from "@/lib/storage-media";
 import { createSupabaseServiceClient } from "@/lib/supabase-service";
+import { verifyBearerUser } from "@/lib/verify-bearer-user";
 
 function bearerToken(req: Request): string | null {
   const h = req.headers.get("authorization") ?? req.headers.get("Authorization");
@@ -9,17 +9,37 @@ function bearerToken(req: Request): string | null {
   return t.length > 0 ? t : null;
 }
 
-/** URL signée lecture private-media (service role) après vérif. RLS via JWT utilisateur. */
+async function userMayAccessRequest(
+  admin: ReturnType<typeof createSupabaseServiceClient>,
+  userId: string,
+  requestId: string
+): Promise<boolean> {
+  const { data: reqRow, error } = await admin
+    .from("requests")
+    .select("id,patient_id,pharmacy_id")
+    .eq("id", requestId)
+    .maybeSingle();
+  if (error || !reqRow) return false;
+  if (reqRow.patient_id === userId) return true;
+  const { data: staff } = await admin
+    .from("pharmacy_staff")
+    .select("user_id")
+    .eq("pharmacy_id", reqRow.pharmacy_id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return Boolean(staff?.user_id);
+}
+
+/** URL signée lecture private-media (service role) après vérif. accès demande. */
 export async function POST(req: Request) {
   const token = bearerToken(req);
   if (!token) {
     return Response.json({ error: "Non authentifié." }, { status: 401 });
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) {
-    return Response.json({ error: "Configuration Supabase manquante." }, { status: 500 });
+  const { user, error: authErr } = await verifyBearerUser(token);
+  if (authErr || !user) {
+    return Response.json({ error: authErr ?? "Session invalide." }, { status: 401 });
   }
 
   let body: { path?: string };
@@ -38,30 +58,17 @@ export async function POST(req: Request) {
   }
   const requestId = m[1];
 
-  const userClient = createClient(url, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-
-  const { data: reqRow, error: reqErr } = await userClient
-    .from("requests")
-    .select("id")
-    .eq("id", requestId)
-    .maybeSingle();
-
-  if (reqErr) {
-    return Response.json({ error: reqErr.message }, { status: 500 });
-  }
-  if (!reqRow) {
-    return Response.json({ error: "Accès refusé à ce fichier." }, { status: 403 });
-  }
-
   let admin;
   try {
     admin = createSupabaseServiceClient();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return Response.json({ error: msg }, { status: 500 });
+  }
+
+  const allowed = await userMayAccessRequest(admin, user.id, requestId);
+  if (!allowed) {
+    return Response.json({ error: "Accès refusé à ce fichier." }, { status: 403 });
   }
 
   const folder = `ordonnances/${requestId}`;
