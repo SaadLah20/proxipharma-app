@@ -11,7 +11,7 @@ Au **demarrage** d une session :
 - **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.5** ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
-**Outils utiles (hors migration)** : pour **vider toutes les demandes** en environnement de test → `scripts/clear-all-requests.mjs` (`.env.local` avec `SUPABASE_SERVICE_ROLE_KEY`) ou SQL `supabase/scripts/clear-all-requests.sql` dans l’éditeur Supabase. Plan de tests E2E demandes produits → fichier Canvas Cursor `canvases/product-requests-e2e-test-plan.canvas.tsx` (mention §13.5).
+**Outils utiles (hors migration)** : pour **vider toutes les demandes** en environnement de test → `scripts/clear-all-requests.mjs` (`.env.local` avec `SUPABASE_SERVICE_ROLE_KEY`) ou SQL `supabase/scripts/clear-all-requests.sql` dans l’éditeur Supabase. **Doublons patient** (même téléphone, 2× `auth.users`) en pilote : reset demandes + suppression des comptes Auth puis nouvelle inscription. Plan de tests E2E demandes produits → fichier Canvas Cursor `canvases/product-requests-e2e-test-plan.canvas.tsx` (mention §13.5).
 
 A la **sortie**: demander ou accepter la mise a jour de ce cahier (Journal + Etat actuel + prompt de reprise du §12).
 
@@ -317,6 +317,24 @@ Statuts retenus v1:
 - `partially_collected` / `fully_collected` (conserves en enum; hors flux officiel depuis migration 20260502 au profit de `completed` + suivi ligne a ligne au comptoir)
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
+
+### Session 2026-05-17 — Notes produit pharmacien, auth OTP, doublons Auth
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` (commit **`06a4413`**).
+
+**UI pharmacien — note / échange par ligne** :
+- Le raccourci **OK** n’insère plus la chaîne `"OK"` dans **`request_items.pharmacist_comment`** (visible patient comme message officine).
+- Modal **`PharmacistLineConversationModal`** (`components/pharmacist/pharmacist-line-conversation-chip.tsx`) : bouton **Confirmer la note** — valide le texte saisi (désactivé si vide), ferme la fenêtre ; publication au patient toujours via **envoi de la réponse** dossier.
+- **`PharmacistLineReactControl`** aligné (libellés « Note produit » / « Confirmer la note »).
+
+**Auth patient** :
+- **Renvoi OTP** inscription : `signInWithOtp` avec **`shouldCreateUser: false`** (`app/auth/page.tsx`) pour limiter un 2ᵉ `auth.users` pendant le même parcours.
+- **Pilote** : OTP inscription peut arriver par **WhatsApp** (Twilio Verify / config Supabase Phone) et non par SMS ; numéro **pro** souvent **Failed** côté Twilio SMS Verify (MDM / filtrage opérateur) — tester avec **06/07 perso** ; notifs métier restent **SMS Messages** (`TWILIO_SMS_FROM`), pas WhatsApp worker.
+- **Doublons** constatés (même `+212…`, 2 UID) avant garde **`20260522_003`** : en pilote → supprimer comptes Auth + reset demandes (`clear-all-requests`) puis nouvelle inscription.
+
+**Infra** : pas de nouvelle migration sur ce lot.
+
+---
 
 ### Session 2026-05-22 — SMS pilote patient, expiration 24 h, garde inscription
 
@@ -1194,9 +1212,13 @@ Voir **§13.15** (webhook + 30007 + SMS courts).
 
 Voir **§13.16**.
 
-### 13.16) Phrase de reprise (recommandée — SMS pilote + expiration 24 h)
+### 13.16) Phrase de reprise (SMS pilote + expiration 24 h — voir aussi §13.17)
 
 **« On reprend ProxiPharma. Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-22)**, **`RUNBOOK.md` §9**, **`AGENTS.md`**, **`CONTEXTE.md` §6**. Migrations Supabase si besoin : **`20260522_001`**–**`003`**, **`20260523_001`**. État : webhook INSERT `notification_external_queue` → `/api/webhooks/dispatch-external-sms` ; **SMS patient** seulement (**répondu** / **traité**), format ref dossier ASCII ; **e-mail** = canaux pilote habituels. Expiration **`responded`** = **24 h** (`expire_overdue_requests`). Inscription : pas d’OTP si téléphone déjà enregistré (`signup-phone-check`). Vercel : `TWILIO_*`, `RESEND_*`, `CRON_SECRET`. Admin : assignation officine ≠ `role pharmacien` automatique. Je te dis ensuite quoi faire. »**
+
+### 13.17) Phrase de reprise (recommandée — après session **2026-05-17**)
+
+**« On reprend ProxiPharma. Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-17 + 2026-05-22)**, **`AGENTS.md`**, **`CONTEXTE.md` §6**, **`RUNBOOK.md` §9**. Branche **`fix/validated-supply-ecart-ui-modal`** (commit **`06a4413`**+). Notes ligne pharmacien : **Confirmer la note** (plus de texte `"OK"`). Auth : OTP inscription possible via **WhatsApp Verify** ; tests inscription sur numéro **perso** ; renvoi OTP `shouldCreateUser: false`. Doublons Auth : reset demandes + suppression comptes Auth. Je te dis ensuite quoi faire. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 
