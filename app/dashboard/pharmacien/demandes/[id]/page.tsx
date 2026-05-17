@@ -3685,7 +3685,14 @@ export default function PharmacienDemandeDetailPage() {
         <RequestTypeStubPanel config={kindConfig} viewerRole="pharmacien" />
       ) : (
         <>
-          {isPrescription && prescriptionPaths ? (
+          {isPrescription && request.status === "draft" ? (
+            <p className="mt-2 rounded-lg border border-amber-300/80 bg-amber-50/60 p-2.5 text-[11px] leading-snug text-amber-950">
+              Envoi patient incomplet (brouillon). Aucune action officine : le patient doit renvoyer l’ordonnance depuis la fiche
+              pharmacie. Vous pouvez ignorer cette ligne ou l’annuler si elle traîne.
+            </p>
+          ) : null}
+
+          {isPrescription && prescriptionPaths?.page1 ? (
             <div className="mb-3 space-y-2 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-start lg:gap-3">
               <PrescriptionImageViewer paths={prescriptionPaths} className="lg:sticky lg:top-2" />
               <div className="space-y-2">

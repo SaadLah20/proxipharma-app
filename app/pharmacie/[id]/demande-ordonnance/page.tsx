@@ -9,7 +9,6 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   compressImageFileForPrescription,
-  prescriptionPageStoragePaths,
   uploadPrescriptionPageBlob,
 } from "@/lib/prescription-media";
 import { REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
@@ -131,38 +130,31 @@ export default function DemandeOrdonnancePage() {
 
     setSubmitLoading(true);
 
-    const { data: reqRow, error: reqErr } = await supabase
-      .from("requests")
-      .insert({
-        patient_id: userData.user.id,
-        pharmacy_id: pharmacyId,
-        request_type: "prescription",
-        status: "draft",
-      })
-      .select("id")
-      .single();
-
-    if (reqErr || !reqRow) {
-      setSubmitLoading(false);
-      setFeedback({ type: "err", text: reqErr?.message ?? "Création impossible." });
-      return;
-    }
-
-    const requestId = reqRow.id as string;
-
-    const { error: prErr } = await supabase.from("prescription_requests").insert({
-      request_id: requestId,
-      patient_note: note.trim() || null,
-      prescription_image_url: null,
+    const noteTrim = note.trim().slice(0, REQUEST_CONVERSATION_MESSAGE_MAX);
+    const { data: requestIdRaw, error: rpcErr } = await supabase.rpc("patient_submit_prescription_request", {
+      p_pharmacy_id: pharmacyId,
+      p_patient_note: noteTrim.length > 0 ? noteTrim : null,
     });
 
-    if (prErr) {
+    if (rpcErr) {
       setSubmitLoading(false);
-      setFeedback({ type: "err", text: prErr.message });
+      setFeedback({ type: "err", text: rpcErr.message });
       return;
     }
 
-    const storagePaths = prescriptionPageStoragePaths(requestId);
+    const requestId =
+      typeof requestIdRaw === "string"
+        ? requestIdRaw
+        : Array.isArray(requestIdRaw)
+          ? (requestIdRaw[0] as string | undefined)
+          : null;
+
+    if (!requestId) {
+      setSubmitLoading(false);
+      setFeedback({ type: "err", text: "Réponse serveur inattendue." });
+      return;
+    }
+
     const up1 = await uploadPrescriptionPageBlob(requestId, 1, pages[0].file);
     if (up1.error) {
       setSubmitLoading(false);
@@ -181,43 +173,16 @@ export default function DemandeOrdonnancePage() {
       page2Path = up2.path;
     }
 
-    const { error: prUpErr } = await supabase
-      .from("prescription_requests")
-      .update({
-        prescription_image_url: up1.path,
-        page_2_path: page2Path,
-      })
-      .eq("request_id", requestId);
+    const { error: attachErr } = await supabase.rpc("patient_attach_prescription_pages", {
+      p_request_id: requestId,
+      p_page1_path: up1.path,
+      p_page2_path: page2Path,
+    });
 
-    if (prUpErr) {
+    if (attachErr) {
       setSubmitLoading(false);
-      setFeedback({ type: "err", text: prUpErr.message });
+      setFeedback({ type: "err", text: attachErr.message });
       return;
-    }
-
-    const { error: stErr } = await supabase
-      .from("requests")
-      .update({
-        status: "submitted",
-        submitted_at: new Date().toISOString(),
-      })
-      .eq("id", requestId);
-
-    if (stErr) {
-      setSubmitLoading(false);
-      setFeedback({ type: "err", text: stErr.message });
-      return;
-    }
-
-    const convTrim = note.trim().slice(0, REQUEST_CONVERSATION_MESSAGE_MAX);
-    if (convTrim.length > 0) {
-      await supabase.from("request_comments").insert({
-        request_id: requestId,
-        author_id: userData.user.id,
-        author_role: "patient",
-        comment_text: convTrim,
-        is_internal: false,
-      });
     }
 
     setSubmitLoading(false);
