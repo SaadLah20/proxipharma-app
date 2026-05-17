@@ -33,11 +33,26 @@ export async function uploadPrescriptionPageBlob(
 ): Promise<{ path: string; error: string | null }> {
   const paths = prescriptionPageStoragePaths(requestId);
   const objectPath = page === 1 ? paths.page1 : paths.page2;
+
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !userData.user) {
+    return { path: objectPath, error: "Session expirée. Reconnectez-vous." };
+  }
+
   const { error } = await supabase.storage.from(STORAGE_BUCKET_PRIVATE).upload(objectPath, blob, {
     upsert: true,
     contentType: "image/webp",
   });
-  if (error) return { path: objectPath, error: error.message };
+
+  if (error) {
+    const hint =
+      error.message.toLowerCase().includes("row-level security") ||
+      error.message.toLowerCase().includes("policy")
+        ? " Appliquez la migration SQL 20260528_001_fix_storage_path_filename_check.sql sur Supabase."
+        : "";
+    return { path: objectPath, error: `${error.message}${hint}` };
+  }
+
   return { path: objectPath, error: null };
 }
 
