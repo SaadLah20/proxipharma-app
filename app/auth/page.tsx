@@ -11,6 +11,7 @@ import { parseLoginIdentifier } from "@/lib/auth-login-identifier";
 import {
   authUserLooksLikeFreshSignup,
   checkPhoneAvailableForSignup,
+  normalizeSignupEmail,
   SIGNUP_PHONE_ALREADY_REGISTERED_FR,
 } from "@/lib/auth-signup-phone";
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
@@ -34,7 +35,8 @@ function isSuccessMessage(msg: string) {
     m.includes("réinitialisation") ||
     m.includes("vérifiez votre boîte") ||
     m.includes("mot de passe enregistré") ||
-    m.includes("redirection")
+    m.includes("redirection") ||
+    m.includes("vérifié")
   );
 }
 
@@ -54,6 +56,9 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
   const [fullName, setFullName] = useState("");
   const [signupPhone, setSignupPhone] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
+  /** OTP par e-mail si l’utilisateur a renseigné un e-mail (SMS Inwi souvent bloqué). */
+  const [signupOtpChannel, setSignupOtpChannel] = useState<"phone" | "email">("phone");
+  const [signupEmailForOtp, setSignupEmailForOtp] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPassword2, setNewPassword2] = useState("");
@@ -95,6 +100,8 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     setNewPassword("");
     setNewPassword2("");
     setPhoneE164("");
+    setSignupOtpChannel("phone");
+    setSignupEmailForOtp("");
     setMessage("");
   };
 
@@ -158,8 +165,8 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       return;
     }
 
-    const optMail = signupEmail.trim();
-    if (optMail && !optMail.includes("@")) {
+    const optMail = normalizeSignupEmail(signupEmail);
+    if (signupEmail.trim() && !optMail) {
       setMessage("E-mail facultatif invalide (laissez vide si vous n’en voulez pas).");
       setLoading(false);
       return;
@@ -174,6 +181,34 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     if (!phoneCheck.available) {
       setMessage(SIGNUP_PHONE_ALREADY_REGISTERED_FR);
       setLoading(false);
+      return;
+    }
+
+    setPhoneE164(e164);
+
+    if (optMail) {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: optMail,
+        options: {
+          shouldCreateUser: true,
+          data: {
+            full_name: fullName.trim(),
+            whatsapp: e164,
+            signup_phone: e164,
+          },
+        },
+      });
+      setLoading(false);
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+      setSignupOtpChannel("email");
+      setSignupEmailForOtp(optMail);
+      setSignupStep("otp");
+      setMessage(
+        "Code envoyé par e-mail (vérifiez les spams). Recommandé si votre opérateur bloque les SMS (ex. Inwi)."
+      );
       return;
     }
 
@@ -195,7 +230,8 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       return;
     }
 
-    setPhoneE164(e164);
+    setSignupOtpChannel("phone");
+    setSignupEmailForOtp("");
     setSignupStep("otp");
     setMessage("Code SMS envoyé. Saisissez le code reçu.");
   };
@@ -207,16 +243,27 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
 
     const code = otp.replace(/\D/g, "");
     if (code.length < 6) {
-      setMessage("Saisissez le code à 6 chiffres reçu par SMS.");
+      setMessage(
+        signupOtpChannel === "email"
+          ? "Saisissez le code à 6 chiffres reçu par e-mail."
+          : "Saisissez le code à 6 chiffres reçu par SMS."
+      );
       setLoading(false);
       return;
     }
 
-    const { data, error } = await supabase.auth.verifyOtp({
-      phone: phoneE164,
-      token: code,
-      type: "sms",
-    });
+    const { data, error } =
+      signupOtpChannel === "email"
+        ? await supabase.auth.verifyOtp({
+            email: signupEmailForOtp,
+            token: code,
+            type: "email",
+          })
+        : await supabase.auth.verifyOtp({
+            phone: phoneE164,
+            token: code,
+            type: "sms",
+          });
 
     if (error) {
       setMessage(error.message);
@@ -251,7 +298,11 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
 
     setLoading(false);
     setSignupStep("password");
-    setMessage("Numéro vérifié. Choisissez un mot de passe pour vous connecter la prochaine fois.");
+    setMessage(
+      signupOtpChannel === "email"
+        ? "E-mail vérifié. Choisissez un mot de passe pour vous connecter la prochaine fois."
+        : "Numéro vérifié. Choisissez un mot de passe pour vous connecter la prochaine fois."
+    );
   };
 
   const finishSignup = async (e: FormEvent<HTMLFormElement>) => {
@@ -270,10 +321,13 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       return;
     }
 
-    const optMail = signupEmail.trim().toLowerCase();
-    const payload: { password: string; email?: string } = { password: newPassword };
+    const optMail = normalizeSignupEmail(signupEmail);
+    const payload: { password: string; email?: string; phone?: string } = { password: newPassword };
     if (optMail) {
       payload.email = optMail;
+    }
+    if (signupOtpChannel === "email" && phoneE164) {
+      payload.phone = phoneE164;
     }
 
     const { error: ue } = await supabase.auth.updateUser(payload);
@@ -309,23 +363,27 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
   const resendSignupOtp = async () => {
     setLoading(true);
     setMessage("");
-    const { error } = await supabase.auth.signInWithOtp({
-      phone: phoneE164,
-      options: {
-        channel: "sms",
-        shouldCreateUser: false,
-        data: {
-          full_name: fullName.trim(),
-          whatsapp: phoneE164,
-        },
-      },
-    });
+    const meta = {
+      full_name: fullName.trim(),
+      whatsapp: phoneE164,
+      ...(signupOtpChannel === "email" ? { signup_phone: phoneE164 } : {}),
+    };
+    const { error } =
+      signupOtpChannel === "email"
+        ? await supabase.auth.signInWithOtp({
+            email: signupEmailForOtp,
+            options: { shouldCreateUser: false, data: meta },
+          })
+        : await supabase.auth.signInWithOtp({
+            phone: phoneE164,
+            options: { channel: "sms", shouldCreateUser: false, data: meta },
+          });
     setLoading(false);
     if (error) {
       setMessage(error.message);
       return;
     }
-    setMessage("Nouveau code envoyé par SMS.");
+    setMessage(signupOtpChannel === "email" ? "Nouveau code envoyé par e-mail." : "Nouveau code envoyé par SMS.");
   };
 
   const sendPasswordReset = async () => {
@@ -361,15 +419,19 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     ? signupStep === "form"
       ? "Créer un compte"
       : signupStep === "otp"
-        ? "Code SMS"
+        ? signupOtpChannel === "email"
+          ? "Code e-mail"
+          : "Code SMS"
         : "Choisissez un mot de passe"
     : "Connexion";
 
   const subtitle = isSignup
     ? signupStep === "form"
-      ? "Nom, numéro de téléphone et e-mail facultatif. Vous recevrez un SMS pour vérifier le numéro, puis vous choisirez un mot de passe."
+      ? "Nom et téléphone obligatoires. Si vous ajoutez un e-mail, le code de vérification part par e-mail (recommandé sur Inwi). Sinon, par SMS."
       : signupStep === "otp"
-        ? "Saisissez le code reçu par SMS."
+        ? signupOtpChannel === "email"
+          ? "Saisissez le code reçu par e-mail."
+          : "Saisissez le code reçu par SMS."
         : "Ce mot de passe servira pour vos prochaines connexions (numéro ou e-mail si vous l’avez renseigné)."
     : "Numéro de téléphone ou adresse e-mail, et votre mot de passe.";
 
@@ -496,14 +558,27 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
                   Patientez…
                 </>
               ) : (
-                "Recevoir le code par SMS"
+                "Recevoir le code de vérification"
               )}
             </Button>
           </form>
         ) : signupStep === "otp" ? (
           <form className="space-y-3" onSubmit={(ev) => void verifySignupOtp(ev)}>
             <p className="text-xs text-muted-foreground">
-              Code envoyé au <span className="font-mono font-medium text-foreground">{phoneE164}</span>
+              {signupOtpChannel === "email" ? (
+                <>
+                  Code envoyé à{" "}
+                  <span className="font-medium text-foreground">{signupEmailForOtp}</span>
+                  <span className="mt-1 block">
+                    Téléphone du compte :{" "}
+                    <span className="font-mono font-medium text-foreground">{phoneE164}</span>
+                  </span>
+                </>
+              ) : (
+                <>
+                  Code envoyé au <span className="font-mono font-medium text-foreground">{phoneE164}</span>
+                </>
+              )}
             </p>
             <input
               type="text"
@@ -535,7 +610,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
                 disabled={loading}
                 onClick={() => void resendSignupOtp()}
               >
-                Renvoyer le SMS
+                {signupOtpChannel === "email" ? "Renvoyer l’e-mail" : "Renvoyer le SMS"}
               </Button>
               <Button
                 type="button"
