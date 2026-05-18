@@ -14,7 +14,22 @@ import {
   normalizeSignupEmail,
   SIGNUP_PHONE_ALREADY_REGISTERED_FR,
 } from "@/lib/auth-signup-phone";
-import { authEmailRedirectUrl, resolveClientAppBaseUrl } from "@/lib/auth-site-url";
+import {
+  SIGNUP_META_PASSWORD_PENDING,
+  signupOtpChannelFromUser,
+  signupProfileFromUser,
+  userNeedsSignupPassword,
+} from "@/lib/auth-signup-flow";
+import {
+  AUTH_RESET_EMAIL_SENT,
+  AUTH_SIGNUP_EMAIL_RESENT,
+  AUTH_SIGNUP_EMAIL_SENT,
+  AUTH_SIGNUP_LINK_VERIFIED_PASSWORD,
+  AUTH_SIGNUP_OTP_VERIFIED_PASSWORD_EMAIL,
+  AUTH_SIGNUP_OTP_VERIFIED_PASSWORD_PHONE,
+  AUTH_SIGNUP_SMS_RESENT,
+  AUTH_SIGNUP_SMS_SENT,
+} from "@/lib/auth-messages-fr";
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -73,16 +88,64 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
   }, [router, safeRedirect]);
 
   useEffect(() => {
+    const step = searchParams.get("step");
+    const tid = window.setTimeout(() => {
+      if (step === "otp") setSignupStep("otp");
+      else if (step === "password") setSignupStep("password");
+    }, 0);
+    return () => window.clearTimeout(tid);
+  }, [searchParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        const dest = safeRedirect || (await defaultPathAfterAuth());
-        router.replace(dest);
+      const user = data.session?.user;
+      if (!user || cancelled) return;
+
+      if (userNeedsSignupPassword(user)) {
+        const profile = signupProfileFromUser(user);
+        const fromLink = searchParams.get("from") === "link";
+        window.setTimeout(() => {
+          if (cancelled) return;
+          if (profile.full_name) setFullName(profile.full_name);
+          if (profile.whatsapp) setPhoneE164(profile.whatsapp);
+          if (profile.email) {
+            setSignupEmail(profile.email);
+            setSignupEmailForOtp(profile.email);
+            setSignupOtpChannel(signupOtpChannelFromUser(user));
+          } else {
+            setSignupOtpChannel("phone");
+          }
+          setSignupStep("password");
+          if (fromLink) setMessage(AUTH_SIGNUP_LINK_VERIFIED_PASSWORD);
+        }, 0);
+        if (!isSignup) {
+          const q = new URLSearchParams(searchParams.toString());
+          q.set("mode", "signup");
+          q.set("step", "password");
+          if (fromLink) q.set("from", "link");
+          router.replace(`/auth?${q}`);
+        }
+        return;
       }
+
+      if (isSignup) return;
+
+      const dest = safeRedirect || (await defaultPathAfterAuth());
+      router.replace(dest);
     };
 
-    void checkSession();
-  }, [router, safeRedirect]);
+    const tid = window.setTimeout(() => {
+      void checkSession();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(tid);
+    };
+  }, [router, safeRedirect, isSignup, searchParams]);
 
   const switchMode = (signup: boolean) => {
     const q = new URLSearchParams(searchParams.toString());
@@ -188,19 +251,15 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     setPhoneE164(e164);
 
     if (optMail) {
-      const emailRedirectTo = authEmailRedirectUrl(
-        "/auth/callback?next=/auth%3Fmode%3Dsignup",
-        resolveClientAppBaseUrl()
-      );
       const { error } = await supabase.auth.signInWithOtp({
         email: optMail,
         options: {
           shouldCreateUser: true,
-          emailRedirectTo,
           data: {
             full_name: fullName.trim(),
             whatsapp: e164,
             signup_phone: e164,
+            [SIGNUP_META_PASSWORD_PENDING]: true,
           },
         },
       });
@@ -212,9 +271,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       setSignupOtpChannel("email");
       setSignupEmailForOtp(optMail);
       setSignupStep("otp");
-      setMessage(
-        "Code envoyé par e-mail (vérifiez les spams). Recommandé si votre opérateur bloque les SMS (ex. Inwi)."
-      );
+      setMessage(AUTH_SIGNUP_EMAIL_SENT);
       return;
     }
 
@@ -226,6 +283,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
         data: {
           full_name: fullName.trim(),
           whatsapp: e164,
+          [SIGNUP_META_PASSWORD_PENDING]: true,
         },
       },
     });
@@ -239,7 +297,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     setSignupOtpChannel("phone");
     setSignupEmailForOtp("");
     setSignupStep("otp");
-    setMessage("Code SMS envoyé. Saisissez le code reçu.");
+    setMessage(AUTH_SIGNUP_SMS_SENT);
   };
 
   const verifySignupOtp = async (e: FormEvent<HTMLFormElement>) => {
@@ -303,11 +361,15 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     }
 
     setLoading(false);
+    await supabase.auth.updateUser({
+      data: { [SIGNUP_META_PASSWORD_PENDING]: true },
+    });
+
     setSignupStep("password");
     setMessage(
       signupOtpChannel === "email"
-        ? "E-mail vérifié. Choisissez un mot de passe pour vous connecter la prochaine fois."
-        : "Numéro vérifié. Choisissez un mot de passe pour vous connecter la prochaine fois."
+        ? AUTH_SIGNUP_OTP_VERIFIED_PASSWORD_EMAIL
+        : AUTH_SIGNUP_OTP_VERIFIED_PASSWORD_PHONE
     );
   };
 
@@ -336,7 +398,10 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       payload.phone = phoneE164;
     }
 
-    const { error: ue } = await supabase.auth.updateUser(payload);
+    const { error: ue } = await supabase.auth.updateUser({
+      ...payload,
+      data: { [SIGNUP_META_PASSWORD_PENDING]: false },
+    });
     if (ue) {
       setMessage(ue.message);
       setLoading(false);
@@ -350,9 +415,13 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       return;
     }
 
+    const fromMeta = signupProfileFromUser(userData.user);
+    const resolvedName = fullName.trim() || fromMeta.full_name;
+    const resolvedPhone = phoneE164 || fromMeta.whatsapp;
+
     const { error: pe } = await ensurePatientProfile(userData.user, {
-      full_name: fullName.trim(),
-      whatsapp: phoneE164,
+      full_name: resolvedName,
+      whatsapp: resolvedPhone,
       ...(optMail ? { email: optMail } : {}),
     });
     if (pe) {
@@ -374,26 +443,29 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       whatsapp: phoneE164,
       ...(signupOtpChannel === "email" ? { signup_phone: phoneE164 } : {}),
     };
-    const emailRedirectTo = authEmailRedirectUrl(
-      "/auth/callback?next=/auth%3Fmode%3Dsignup",
-      resolveClientAppBaseUrl()
-    );
     const { error } =
       signupOtpChannel === "email"
         ? await supabase.auth.signInWithOtp({
             email: signupEmailForOtp,
-            options: { shouldCreateUser: false, emailRedirectTo, data: meta },
+            options: {
+              shouldCreateUser: false,
+              data: { ...meta, [SIGNUP_META_PASSWORD_PENDING]: true },
+            },
           })
         : await supabase.auth.signInWithOtp({
             phone: phoneE164,
-            options: { channel: "sms", shouldCreateUser: false, data: meta },
+            options: {
+              channel: "sms",
+              shouldCreateUser: false,
+              data: { ...meta, [SIGNUP_META_PASSWORD_PENDING]: true },
+            },
           });
     setLoading(false);
     if (error) {
       setMessage(error.message);
       return;
     }
-    setMessage(signupOtpChannel === "email" ? "Nouveau code envoyé par e-mail." : "Nouveau code envoyé par SMS.");
+    setMessage(signupOtpChannel === "email" ? AUTH_SIGNUP_EMAIL_RESENT : AUTH_SIGNUP_SMS_RESENT);
   };
 
   const sendPasswordReset = async () => {
@@ -421,7 +493,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       setMessage("Impossible d’envoyer la demande pour le moment. Réessayez plus tard.");
       return;
     }
-    setMessage("Si un compte existe avec cet e-mail, un lien de réinitialisation vient d’être envoyé.");
+    setMessage(AUTH_RESET_EMAIL_SENT);
     setForgotOpen(false);
   };
 
@@ -437,13 +509,13 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
 
   const subtitle = isSignup
     ? signupStep === "form"
-      ? "Nom et téléphone obligatoires. Si vous ajoutez un e-mail, le code de vérification part par e-mail (recommandé sur Inwi). Sinon, par SMS."
+      ? "Téléphone obligatoire. E-mail facultatif : si vous le renseignez, le code part par e-mail (recommandé si les SMS sont bloqués, ex. Inwi). Sinon, vérifiez SMS ou WhatsApp."
       : signupStep === "otp"
         ? signupOtpChannel === "email"
-          ? "Saisissez le code reçu par e-mail."
-          : "Saisissez le code reçu par SMS."
-        : "Ce mot de passe servira pour vos prochaines connexions (numéro ou e-mail si vous l’avez renseigné)."
-    : "Numéro de téléphone ou adresse e-mail, et votre mot de passe.";
+          ? "Saisissez le code à 6 chiffres reçu par e-mail (pas le lien)."
+          : "Saisissez le code à 6 chiffres reçu par SMS ou WhatsApp."
+        : "Définissez le mot de passe de votre compte. Vous vous connecterez ensuite avec votre numéro ou votre e-mail."
+    : "Identifiant (téléphone ou e-mail) et mot de passe.";
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-10 sm:px-6">
@@ -507,7 +579,8 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
               {forgotOpen ? (
                 <div className="rounded-xl border border-border bg-muted/30 p-3">
                   <p className="text-xs text-muted-foreground">
-                    Un lien sera envoyé à l’adresse e-mail saisie ci-dessus (identifiant de type e-mail).
+                    Un <strong className="font-medium text-foreground">lien par e-mail</strong> vous permettra de
+                    choisir un nouveau mot de passe (pas de code à 6 chiffres pour cette étape).
                   </p>
                   <Button
                     type="button"
@@ -574,22 +647,35 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           </form>
         ) : signupStep === "otp" ? (
           <form className="space-y-3" onSubmit={(ev) => void verifySignupOtp(ev)}>
-            <p className="text-xs text-muted-foreground">
+            <div className="rounded-xl border border-border/80 bg-muted/25 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
               {signupOtpChannel === "email" ? (
                 <>
-                  Code envoyé à{" "}
-                  <span className="font-medium text-foreground">{signupEmailForOtp}</span>
-                  <span className="mt-1 block">
-                    Téléphone du compte :{" "}
-                    <span className="font-mono font-medium text-foreground">{phoneE164}</span>
-                  </span>
+                  <p>
+                    Code envoyé à{" "}
+                    <span className="font-medium text-foreground">{signupEmailForOtp}</span>
+                  </p>
+                  <p className="mt-1.5">
+                    Vérifiez votre boîte e-mail (et les spams). Saisissez uniquement le{" "}
+                    <strong className="text-foreground">code à 6 chiffres</strong> — si vous ouvrez un lien par
+                    erreur, vous serez invité à choisir votre mot de passe ensuite.
+                  </p>
+                  <p className="mt-1.5 font-mono text-[11px] text-foreground/80">
+                    Tél. du compte : {phoneE164}
+                  </p>
                 </>
               ) : (
                 <>
-                  Code envoyé au <span className="font-mono font-medium text-foreground">{phoneE164}</span>
+                  <p>
+                    Code envoyé au <span className="font-mono font-medium text-foreground">{phoneE164}</span>
+                  </p>
+                  <p className="mt-1.5">
+                    Consultez vos <strong className="text-foreground">SMS</strong> ou{" "}
+                    <strong className="text-foreground">WhatsApp</strong> (selon votre opérateur), puis saisissez
+                    les 6 chiffres.
+                  </p>
                 </>
               )}
-            </p>
+            </div>
             <input
               type="text"
               inputMode="numeric"

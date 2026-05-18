@@ -47,14 +47,28 @@ Regle:
 
 En local, les liens e-mail restent souvent en `localhost` : tester l’inscription / MDP sur **l’URL de preview ou production**, ou utiliser un tunnel (ngrok) si besoin.
 
-### Inscription : code à 6 chiffres (pas magic link)
+### Inscription : code à 6 chiffres (obligatoire côté app)
 
-L’app appelle `signInWithOtp` + `verifyOtp` (`app/auth/page.tsx`). Le format de l’e-mail est défini dans **Supabase**, pas dans le code :
+L’app appelle `signInWithOtp` **sans** `emailRedirectTo` à l’inscription, puis `verifyOtp` (`app/auth/page.tsx`). Le corps de l’e-mail est défini dans **Supabase** :
 
-1. *Authentication* → *Email Templates* → modèle utilisé pour la connexion OTP (souvent **Magic Link**).
-2. Remplacer le corps par un texte qui affiche le code, par ex. : `Votre code ProxiPharma : {{ .Token }}` (6 chiffres).
-3. Ne pas s’appuyer uniquement sur `{{ .ConfirmationURL }}` si vous voulez saisir le code dans l’app.
-4. Si un lien est quand même envoyé, il doit atterrir sur `https://<domaine>/auth/callback` (grâce à `emailRedirectTo` + Site URL).
+1. *Authentication* → *Email Templates* → modèle **Magic Link** (ou *Confirm signup* selon le flux activé).
+2. Corps recommandé (code uniquement) :
+   ```
+   Votre code ProxiPharma : {{ .Token }}
+   (6 chiffres — saisissez-le dans l’application, onglet Créer un compte.)
+   ```
+3. **Ne pas** mettre `{{ .ConfirmationURL }}` comme seul contenu si vous voulez forcer le code dans l’app.
+4. Si un lien est encore présent dans le template : au clic, l’utilisateur arrive sur `/auth/callback` puis **écran mot de passe** (`signup_password_pending` dans les métadonnées), pas le tableau de bord sans MDP.
+
+### Parcours inscription (résumé)
+
+| Étape | Canal | UI |
+|--------|--------|-----|
+| 1 | Formulaire | Téléphone + e-mail facultatif |
+| 2 | OTP | Code 6 chiffres (SMS/WhatsApp ou e-mail) |
+| 3 | Mot de passe | Obligatoire avant accès à l’app |
+
+**Récupération MDP** : toujours un **lien** e-mail → `/auth/update-password` (normal).
 
 ### Récupération mot de passe et changement d’e-mail
 
