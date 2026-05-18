@@ -6,7 +6,7 @@
 2. Cocher ou compléter la section **« Reste à valider en pilote »** après chaque campagne de tests.
 3. Pour reprendre le développement : utiliser la **phrase de reprise** dans `CAHIER_DES_CHARGES.md` §13.20.
 
-**Dernière mise à jour** : 2026-05-17
+**Dernière mise à jour** : 2026-05-17 (onglets consultation + publication)
 
 ---
 
@@ -57,9 +57,10 @@
 ### B2. Parcours attendu
 
 1. Patient : `/pharmacie/[id]/consultation-libre` → envoi.
-2. Pharmacien : hub **Consultations libres** → lecture message/photos → conversation si besoin.
-3. Pharmacien : saisie produits proposés (section dédiée) → **publier la réponse**.
-4. Patient : validation comme une demande produits (`responded` → choix / passage comptoir, etc.).
+2. Détail dossier (patient + pharmacien) : **2 onglets** — **Conversation** (message/photos + messagerie inline, pas de FAB) | **Produits proposés**.
+3. Onglet par défaut : **Conversation** tant que non `responded` ; ensuite **Produits** (conversation toujours accessible, pastille non-lu).
+4. Pharmacien (onglet Produits) : recherche catalogue, cartes produit (qté, prix, dispo **Disponible** / **À commander** + date si à commander), alternatives → **publier** → `responded`.
+5. Patient (onglet Produits) : validation comme demande produits (`responded` → principal / alternative / aucun → comptoir, etc.).
 
 ### B3. Fichiers techniques de référence
 
@@ -96,9 +97,11 @@ Cocher après test manuel sur branche **`fix/validated-supply-ecart-ui-modal`** 
 
 - [ ] Migration **`20260529_001`** appliquée sur l’environnement de test.
 - [ ] Patient : création consultation (texte + photos).
-- [ ] Patient : édition texte/photos avant réponse pharma.
-- [ ] Pharmacien : brief violet + conversation + ajout produits + publication.
-- [ ] Patient : validation après `responded`.
+- [ ] Patient : édition texte/photos avant réponse pharma (onglet Conversation).
+- [ ] Patient / pharmacien : onglets Conversation | Produits ; pas de FAB conversation.
+- [ ] Pharmacien : onglet Produits — saisie + dispo (dispo / à commander) + date + publication.
+- [ ] Patient : bascule onglet Produits après `responded` ; validation principal / alternative / aucun.
+- [ ] Post-validé (réservé, commande, comptoir) comme une demande produits.
 
 ### Infra / CI
 
@@ -119,4 +122,4 @@ Cocher après test manuel sur branche **`fix/validated-supply-ecart-ui-modal`** 
 
 ## F. Prompt conseillé (ouverture de contexte — détails ensuite)
 
-**« On reprend ProxiPharma. Infra Supabase à jour (toutes les migrations appliquées). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §10 (session 2026-05-17) et ce fichier. Branche `fix/validated-supply-ecart-ui-modal`. Périmètre : demandes produits, ordonnances, consultations libres. Ne code rien tant que je n’ai pas précisé ce qui bloque. »**
+**« On reprend ProxiPharma — retours terrain ordonnance, consultation libre et auth. Lis `CAHIER_DES_CHARGES.md` §13.21, §10 (session 2026-05-17 suite), ce fichier §D, `RUNBOOK.md` §2b, `CONTEXTE.md` §6. Branche `fix/validated-supply-ecart-ui-modal`. Consultation : onglets Conversation | Produits proposés, publication `free_consultation`, thème violet. Ordonnance : ambre, qté prescrite/dispo. Auth : `APP_BASE_URL`, `/auth/callback`. Donne-moi tes retours terrain ; ne code rien avant. »**

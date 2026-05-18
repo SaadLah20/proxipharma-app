@@ -29,7 +29,14 @@ import {
   type PatientOutcomeDetailContext,
 } from "@/components/requests/patient-request-outcome-banner";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
+import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
 import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
+import { ConsultationBriefCompact } from "@/components/requests/consultation/consultation-brief-compact";
+import { ConsultationDetailTabBar } from "@/components/requests/consultation/consultation-detail-tab-bar";
+import {
+  getConsultationDefaultTab,
+  type ConsultationDetailTab,
+} from "@/lib/consultation-detail-tabs";
 import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
 import type { ConsultationImagePaths } from "@/lib/consultation-media";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
@@ -123,6 +130,7 @@ export default function DemandeDetailPage() {
     text: string;
     paths: ConsultationImagePaths;
   } | null>(null);
+  const [consultationTab, setConsultationTab] = useState<ConsultationDetailTab>("conversation");
 
   const loadDetail = useCallback(
     async (silent?: boolean) => {
@@ -321,6 +329,14 @@ export default function DemandeDetailPage() {
     return () => window.removeEventListener(REQUEST_DETAIL_REFRESH_EVENT, listener);
   }, [id, loadDetail]);
 
+  useEffect(() => {
+    if (!request || request.request_type !== "free_consultation") return;
+    const tid = window.setTimeout(() => {
+      setConsultationTab(getConsultationDefaultTab(request.status, request.responded_at));
+    }, 0);
+    return () => window.clearTimeout(tid);
+  }, [request]);
+
   const loadHistory = useCallback(async () => {
     if (!id) return;
     setHistoryBusy(true);
@@ -489,17 +505,46 @@ export default function DemandeDetailPage() {
         <PrescriptionImageViewer paths={prescriptionPaths} layout="desktop-comfort" className="mt-2" />
       ) : null}
 
-      {isConsultationRequest && consultationBrief ? (
-        <ConsultationBriefPanel
-          requestId={request.id}
-          initialText={consultationBrief.text}
-          initialPaths={consultationBrief.paths}
-          editable={consultationEditable}
-          viewerRole="patient"
+      {isConsultationRequest ? (
+        <ConsultationDetailTabBar
+          tab={consultationTab}
+          onTab={setConsultationTab}
+          conversationUnread={conversationUnread}
+          productLineCount={items.length}
         />
       ) : null}
 
-      {hasBottomActions || (showArchivedReadonly && items.length > 0) ? (
+      {isConsultationRequest && consultationTab === "conversation" && consultationBrief ? (
+        <div className="space-y-3">
+          <ConsultationBriefPanel
+            requestId={request.id}
+            initialText={consultationBrief.text}
+            initialPaths={consultationBrief.paths}
+            editable={consultationEditable}
+            viewerRole="patient"
+          />
+          {sessionUserId ? (
+            <RequestConversationInline
+              requestId={request.id}
+              viewerRole="patient"
+              currentUserId={sessionUserId}
+              variant="consultation"
+              onMarkedRead={() => setConversationUnread(false)}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {isConsultationRequest && consultationTab === "products" && consultationBrief ? (
+        <ConsultationBriefCompact
+          text={consultationBrief.text}
+          paths={consultationBrief.paths}
+          onOpenConversation={() => setConsultationTab("conversation")}
+        />
+      ) : null}
+
+      {(hasBottomActions || (showArchivedReadonly && items.length > 0)) &&
+      (!isConsultationRequest || consultationTab === "products") ? (
         <section className="pb-2">
         <PatientProductRequestActions
           key={
@@ -639,12 +684,12 @@ export default function DemandeDetailPage() {
           </div>
         </div>
       </details>
-      {usesLineWorkflow && sessionUserId ? (
+      {usesLineWorkflow && sessionUserId && !isConsultationRequest ? (
         <>
           <RequestConversationFabDock
             hasUnread={conversationUnread}
             onOpen={() => setConversationOpen(true)}
-            tone={isConsultationRequest ? "consultation" : "patient"}
+            tone="patient"
           />
           <RequestConversationPanel
             requestId={request.id}

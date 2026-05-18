@@ -318,6 +318,24 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-17 (suite) — Consultation libre : onglets, publication, parcours patient
+
+**Branche** : `fix/validated-supply-ecart-ui-modal`.
+
+**Consultation libre — restructuration livrée** :
+- **2 onglets** détail patient + pharmacien : **Conversation** (brief + messagerie inline) | **Produits proposés** (saisie / validation).
+- **Onglet par défaut** : Conversation tant que non `responded` ; ensuite Produits. Pastille non-lu sur Conversation.
+- **FAB conversation supprimée** pour `free_consultation` → `RequestConversationInline` + `ConsultationDetailTabBar`.
+- **Publication** : `publishResponse` étendu à `free_consultation` ; dispos **Disponible** / **À commander** uniquement ; date obligatoire si à commander.
+- **Patient** : plus d’éditeur catalogue avant réponse ; après `responded` = workflow demande produits (principal / alternative / aucun) ; badges **Proposition pharmacie**.
+- Fichiers clés : `lib/consultation-detail-tabs.ts`, `components/requests/consultation/*`, `request-conversation-inline.tsx`, détails `demandes/[id]`.
+
+**Rappel ordonnance + auth** (commits précédents sur la branche) : parcours ordonnance ambre, `lib/auth-site-url.ts`, `/auth/callback`, `RUNBOOK.md` §2b, lint footer ordonnance (`onFooterStateChange`).
+
+**QA terrain** : checklist **`docs/workflow-ordonnance-consultation-REPONSES.md`** §D ; migrations **`20260529_001`** (+ **`20260530_001`** ordonnance patient si pas fait).
+
+---
+
 ### Session 2026-05-17 — Finalisation UX ordonnance + consultation libre (retours terrain)
 
 **Branche** : `fix/validated-supply-ecart-ui-modal` (commits dont **`0fc70d0`** ordonnance qté prescrite/dispo).
@@ -1295,9 +1313,13 @@ Voir **§13.18**.
 
 **« On reprend ProxiPharma sans régression. Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-25)**, **`AGENTS.md`**, **`CONTEXTE.md` §6**. Branche **`fix/validated-supply-ecart-ui-modal`**. Sur Supabase, appliquer dans l’ordre **`20260525_001`**–**`004`** si pas déjà fait. Registre : **`lib/request-kinds/`** ; ordonnance : **`/pharmacie/[id]/demande-ordonnance`**, **`lib/prescription-media.ts`**, **`components/requests/prescription/`**. Avant tout changement : smoke test **demande produits** (catalogue + édition retour catalogue + post-validé) puis **ordonnance** (envoi 1–2 photos → saisie pharma → réponse → validation patient). Consultation libre = phase 3 (`workflowEnabled: false`). Je te dis ensuite quoi faire. »**
 
-### 13.20) Phrase de reprise (recommandée — contexte global ordonnance + consultation)
+### 13.20) Phrase de reprise (contexte global — dépassée pour consultation onglets)
 
 **« On reprend ProxiPharma. Infra Supabase à jour (toutes les migrations appliquées). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §10 (session 2026-05-17) et `docs/workflow-ordonnance-consultation-REPONSES.md`. Branche `fix/validated-supply-ecart-ui-modal`. Périmètre : demandes produits (référence), ordonnances et consultations libres — registre `lib/request-kinds/`. Ne code rien tant que je n’ai pas précisé ce qui bloque. »**
+
+### 13.21) Phrase de reprise (recommandée — retours terrain ordonnance + consultation + auth)
+
+**« On reprend ProxiPharma — **retours terrain uniquement**, pas de refacto hors périmètre. Lis `CAHIER_DES_CHARGES.md` §10 (sessions 2026-05-17 et suite consultation), `docs/workflow-ordonnance-consultation-REPONSES.md` §D (checklist), `RUNBOOK.md` §2b (auth e-mail/OTP), `CONTEXTE.md` §6, `AGENTS.md`. Branche `fix/validated-supply-ecart-ui-modal`. Migrations si besoin : `20260529_001` (consultation), `20260530_001` (ordonnance patient), refs ordonnance `20260525_*`. **Ordonnance** : scan patient → saisie pharma ambre (qté prescrite/dispo, modal quick-add) → validation/post-validé comme demande produits. **Consultation libre** : onglets Conversation | Produits proposés (violet, messagerie inline, publication `free_consultation`, validation patient principal/alternative/aucun). **Auth** : `APP_BASE_URL` + `NEXT_PUBLIC_APP_BASE_URL`, liens `/auth/callback`. Attends ma liste de retours terrain avant de coder. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 

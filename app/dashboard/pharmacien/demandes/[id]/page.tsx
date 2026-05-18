@@ -64,6 +64,13 @@ import { sharedShowPlannedVisitBlock } from "@/lib/request-kinds/shared-capabili
 import { RequestDetailBackLink } from "@/components/requests/shared/request-detail-back-link";
 import { RequestKindHeader } from "@/components/requests/shared/request-kind-header";
 import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
+import { ConsultationBriefCompact } from "@/components/requests/consultation/consultation-brief-compact";
+import { ConsultationDetailTabBar } from "@/components/requests/consultation/consultation-detail-tab-bar";
+import {
+  getConsultationDefaultTab,
+  type ConsultationDetailTab,
+} from "@/lib/consultation-detail-tabs";
+import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
 import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
 import { PharmacistOrdonnanceQuickAddModal } from "@/components/requests/prescription/pharmacist-ordonnance-quick-add-modal";
 import {
@@ -1470,6 +1477,7 @@ export default function PharmacienDemandeDetailPage() {
   >([]);
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationUnread, setConversationUnread] = useState(false);
+  const [consultationTab, setConsultationTab] = useState<ConsultationDetailTab>("conversation");
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const [prescriptionPaths, setPrescriptionPaths] = useState<PrescriptionPagePaths | null>(null);
   const [prescriptionNote, setPrescriptionNote] = useState<string | null>(null);
@@ -1900,6 +1908,24 @@ export default function PharmacienDemandeDetailPage() {
     }, 280);
     return () => window.clearTimeout(t);
   }, [propDebounced, propCatalogSearchActive]);
+
+  useEffect(() => {
+    if (!request || request.request_type !== "free_consultation") return;
+    const tid = window.setTimeout(() => {
+      setConsultationTab(getConsultationDefaultTab(request.status, request.responded_at));
+    }, 0);
+    return () => window.clearTimeout(tid);
+  }, [request]);
+
+  useEffect(() => {
+    if (!request || request.request_type !== "free_consultation" || consultationTab !== "products") return;
+    const tid = window.setTimeout(() => {
+      setPropOpen(true);
+      const reason = getRequestKindWorkflowCopy("free_consultation").pharmacistProposeDefaultReason;
+      if (reason) setPropReason(reason);
+    }, 0);
+    return () => window.clearTimeout(tid);
+  }, [request, consultationTab]);
 
   useEffect(() => {
     if (!ordonnanceQuickAddOpen || ordonnanceAltDebounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
@@ -3566,7 +3592,11 @@ export default function PharmacienDemandeDetailPage() {
 
   const publishResponse = async () => {
     if (!request) return;
-    if (request.request_type !== "product_request" && request.request_type !== "prescription") {
+    if (
+      request.request_type !== "product_request" &&
+      request.request_type !== "prescription" &&
+      request.request_type !== "free_consultation"
+    ) {
       setError("Type de demande non pris en charge sur cet écran.");
       return;
     }
@@ -3593,10 +3623,19 @@ export default function PharmacienDemandeDetailPage() {
       const reqQty = isOrdonnancePharma
         ? ordonnanceDraftRequestedQty(row, f)
         : row.requested_qty;
-      if (isAjoutOfficine) {
+      if (isAjoutOfficine || request.request_type === "free_consultation") {
         if (qty < 1) {
           const nm = one(row.products)?.name ?? "Produit";
-          setError(`« ${nm} » (proposition officine) : indiquez une quantité en stock d’au moins 1.`);
+          setError(
+            request.request_type === "free_consultation"
+              ? `« ${nm} » : indiquez une quantité d’au moins 1.`
+              : `« ${nm} » (proposition officine) : indiquez une quantité en stock d’au moins 1.`
+          );
+          return;
+        }
+        if (f.availability_status === "to_order" && !f.expected_availability_date.trim()) {
+          const nm = one(row.products)?.name ?? "Produit";
+          setError(`« ${nm} » : date de réception prévue obligatoire pour un produit à commander.`);
           return;
         }
       } else if (qty > reqQty) {
@@ -3785,6 +3824,7 @@ export default function PharmacienDemandeDetailPage() {
   const isPrescription = request?.request_type === "prescription";
   const isConsultation = request?.request_type === "free_consultation";
   const ordonnanceCatalogEditable = isPrescription && showLineAndPublishEdits;
+  const showConsultationProductsPane = !isConsultation || consultationTab === "products";
 
   const lineEntriesForList = useMemo(() => {
     if (request && ["confirmed", "treated"].includes(uiRequestStatus ?? "")) {
@@ -3799,7 +3839,7 @@ export default function PharmacienDemandeDetailPage() {
   const pharmacistSupplySurfaceGroups = useMemo(() => {
     type Entry = (typeof lineEntriesForList)[number];
     type Surface = "principal" | "secondary" | "neutral";
-    if (!request || !["confirmed", "treated"].includes(request.status)) {
+    if (!request || request.request_type === "free_consultation" || !["confirmed", "treated"].includes(request.status)) {
       return [{ surface: "neutral" as const, entries: lineEntriesForList as Entry[] }];
     }
     const groups: { surface: Surface; entries: Entry[] }[] = [];
@@ -4256,14 +4296,34 @@ export default function PharmacienDemandeDetailPage() {
 
       {kindConfig.capabilities.workflowEnabled ? (
         <>
-          {isConsultation && consultationBrief ? (
-            <ConsultationBriefPanel
-              requestId={request.id}
-              initialText={consultationBrief.text}
-              initialPaths={consultationBrief.paths}
-              editable={false}
-              viewerRole="pharmacien"
+          {isConsultation ? (
+            <ConsultationDetailTabBar
+              tab={consultationTab}
+              onTab={setConsultationTab}
+              conversationUnread={conversationUnread}
+              productLineCount={displayRows.length}
             />
+          ) : null}
+
+          {isConsultation && consultationTab === "conversation" && consultationBrief ? (
+            <div className="mt-2 space-y-3">
+              <ConsultationBriefPanel
+                requestId={request.id}
+                initialText={consultationBrief.text}
+                initialPaths={consultationBrief.paths}
+                editable={false}
+                viewerRole="pharmacien"
+              />
+              {sessionUserId ? (
+                <RequestConversationInline
+                  requestId={request.id}
+                  viewerRole="pharmacien"
+                  currentUserId={sessionUserId}
+                  variant="consultation"
+                  onMarkedRead={() => setConversationUnread(false)}
+                />
+              ) : null}
+            </div>
           ) : null}
 
           {isPrescription && request.status === "draft" ? (
@@ -4314,7 +4374,16 @@ export default function PharmacienDemandeDetailPage() {
             </div>
           ) : null}
 
-          {displayRows.length === 0 && !isPrescription && !isConsultation ? (
+          {showConsultationProductsPane && isConsultation && consultationBrief ? (
+            <ConsultationBriefCompact
+              text={consultationBrief.text}
+              paths={consultationBrief.paths}
+              onOpenConversation={() => setConsultationTab("conversation")}
+            />
+          ) : null}
+
+          {showConsultationProductsPane &&
+          (displayRows.length === 0 && !isPrescription && !isConsultation ? (
             <p className="mt-2 text-[11px] text-muted-foreground">Aucune ligne produit.</p>
           ) : (
             <>
@@ -4403,7 +4472,7 @@ export default function PharmacienDemandeDetailPage() {
                 status: f.availability_status,
                 availableQty: Number.isFinite(draftAvailQty) ? draftAvailQty : 0,
                 requestedQty: draftRequestedQtyForInfer,
-                isProposedLine: isAjoutOfficineLine,
+                isProposedLine: isAjoutOfficineLine || request?.request_type === "free_consultation",
               });
               const statusForBadge =
                 lineLockedTrace || respondedFrozenView || !canEditThisRow
@@ -4439,9 +4508,10 @@ export default function PharmacienDemandeDetailPage() {
                 (Number.isFinite(stockParsedQty) && stockParsedQty <= minStockFloor);
               const patientLineCc = row.client_comment?.trim() ?? "";
               const lineConvoVisual = lineConversationVisual(patientLineCc, f.pharmacist_comment ?? "");
-              const availabilityOptions = isAjoutOfficineLine
-                ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
-                : PHARMACIST_AVAILABILITY_OPTIONS;
+              const availabilityOptions =
+                isAjoutOfficineLine || request?.request_type === "free_consultation"
+                  ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
+                  : PHARMACIST_AVAILABILITY_OPTIONS;
 
               if (canManageSupply || canManageSupplyReadonly) {
                 const pl = row as PatientLineLike;
@@ -5754,44 +5824,54 @@ export default function PharmacienDemandeDetailPage() {
           </div>
               </>
               ) : null}
+            </>
+          ))}
 
-          {showLineAndPublishEdits ? (
+          {showConsultationProductsPane && showLineAndPublishEdits ? (
             <section className="mt-2 flex min-h-0 flex-col rounded-xl border border-violet-300/70 bg-gradient-to-br from-violet-50/80 via-fuchsia-50/35 to-white px-2 py-1.5 shadow-sm ring-1 ring-violet-300/35 sm:px-2.5 sm:py-2">
-              <button
-                type="button"
-                aria-expanded={propOpen}
-                onClick={() => {
-                  const next = !propOpen;
-                  setPropOpen(next);
-                  setError("");
-                  if (next) {
-                    resetPropForm();
-                    if (request?.request_type === "free_consultation" && workflowCopy.pharmacistProposeDefaultReason) {
-                      setPropReason(workflowCopy.pharmacistProposeDefaultReason);
+              {isConsultation ? (
+                <div className="rounded-lg bg-white/90 px-2 py-2 ring-1 ring-violet-200/55 sm:px-2.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-violet-950">
+                    Saisir les produits proposés
+                  </p>
+                  <p className="mt-0.5 text-[10px] leading-snug text-violet-900/85 sm:text-[11px]">
+                    {workflowCopy.pharmacistProposeSectionSubtitle}
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  aria-expanded={propOpen}
+                  onClick={() => {
+                    const next = !propOpen;
+                    setPropOpen(next);
+                    setError("");
+                    if (next) {
+                      resetPropForm();
+                      if (request?.request_type === "prescription") {
+                        setPropReason(PRESCRIPTION_ADDITIONAL_PROPOSED_REASON);
+                      }
                     }
-                    if (request?.request_type === "prescription") {
-                      setPropReason(PRESCRIPTION_ADDITIONAL_PROPOSED_REASON);
-                    }
-                  }
-                }}
-                className="flex w-full min-h-11 items-start justify-between gap-2 rounded-lg bg-white/90 px-2 py-2 text-left ring-1 ring-violet-200/55 shadow-sm transition hover:bg-violet-50/60 sm:min-h-0 sm:items-center sm:px-2.5"
-              >
-                <span className="min-w-0">
-                  <span className="block text-[10px] font-bold uppercase tracking-wide text-violet-950">
-                    {isPrescription ? "Produits proposés" : workflowCopy.pharmacistProposeSectionTitle}
+                  }}
+                  className="flex w-full min-h-11 items-start justify-between gap-2 rounded-lg bg-white/90 px-2 py-2 text-left ring-1 ring-violet-200/55 shadow-sm transition hover:bg-violet-50/60 sm:min-h-0 sm:items-center sm:px-2.5"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-[10px] font-bold uppercase tracking-wide text-violet-950">
+                      {isPrescription ? "Produits proposés" : workflowCopy.pharmacistProposeSectionTitle}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] leading-snug text-violet-900/85 sm:text-[11px]">
+                      {isPrescription
+                        ? "En complément des produits saisis depuis l’ordonnance."
+                        : workflowCopy.pharmacistProposeSectionSubtitle}
+                    </span>
                   </span>
-                  <span className="mt-0.5 block text-[10px] leading-snug text-violet-900/85 sm:text-[11px]">
-                    {isPrescription
-                      ? "En complément des produits saisis depuis l’ordonnance."
-                      : workflowCopy.pharmacistProposeSectionSubtitle}
-                  </span>
-                </span>
-                <ChevronDown
-                  className={clsx("mx-px size-6 shrink-0 text-violet-700 transition-transform sm:size-5", propOpen && "rotate-180")}
-                  aria-hidden
-                />
-              </button>
-              {propOpen ? (
+                  <ChevronDown
+                    className={clsx("mx-px size-6 shrink-0 text-violet-700 transition-transform sm:size-5", propOpen && "rotate-180")}
+                    aria-hidden
+                  />
+                </button>
+              )}
+              {propOpen || isConsultation ? (
                 <div className="mt-2 flex max-h-[min(52svh,22rem)] min-h-0 flex-col gap-2 overflow-hidden overscroll-y-contain">
                   <label className="block shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Motif
@@ -5886,7 +5966,7 @@ export default function PharmacienDemandeDetailPage() {
             </section>
           ) : null}
 
-          {respondedFrozenView ? (
+          {showConsultationProductsPane && respondedFrozenView ? (
             <section className="mt-3 space-y-2 rounded-xl border border-amber-200/85 bg-amber-50/50 p-2.5 shadow-sm sm:mt-4 sm:p-3">
               <button
                 type="button"
@@ -5911,7 +5991,7 @@ export default function PharmacienDemandeDetailPage() {
             </section>
           ) : null}
 
-          {showLineAndPublishEdits ? (
+          {showConsultationProductsPane && showLineAndPublishEdits ? (
             <section className="mt-3 space-y-2 sm:mt-4">
               {canEditResponse ? (
                 <button
@@ -5921,9 +6001,14 @@ export default function PharmacienDemandeDetailPage() {
                     setError("");
                     setPublishConfirmOpen(true);
                   }}
-                  className="inline-flex min-h-[3.25rem] w-full items-center justify-center rounded-2xl bg-emerald-700 px-6 py-3 text-base font-bold tracking-tight text-white shadow-lg ring-2 ring-emerald-900/15 transition hover:bg-emerald-800 hover:shadow-xl disabled:opacity-50 sm:min-h-[3.5rem] sm:text-[1.05rem]"
+                  className={clsx(
+                    "inline-flex min-h-[3.25rem] w-full items-center justify-center rounded-2xl px-6 py-3 text-base font-bold tracking-tight text-white shadow-lg transition hover:shadow-xl disabled:opacity-50 sm:min-h-[3.5rem] sm:text-[1.05rem]",
+                    isConsultation
+                      ? "bg-violet-700 ring-2 ring-violet-900/15 hover:bg-violet-800"
+                      : "bg-emerald-700 ring-2 ring-emerald-900/15 hover:bg-emerald-800"
+                  )}
                 >
-                  Envoyer la réponse au patient…
+                  {isConsultation ? "Publier les produits proposés au patient…" : "Envoyer la réponse au patient…"}
                 </button>
               ) : null}
             </section>
@@ -6055,8 +6140,6 @@ export default function PharmacienDemandeDetailPage() {
               </div>
             ) : null}
           </section>
-            </>
-          )}
         </>
       ) : null}
       {lineConvoEffectiveRowId
@@ -6615,12 +6698,12 @@ export default function PharmacienDemandeDetailPage() {
         blocks={pharmaHistoryBlocks}
         onClose={() => setPharmaHistoryRowId(null)}
       />
-      {usesLineWorkflow && sessionUserId ? (
+      {usesLineWorkflow && sessionUserId && !isConsultation ? (
         <>
           <RequestConversationFabDock
             hasUnread={conversationUnread}
             onOpen={() => setConversationOpen(true)}
-            tone={isConsultation ? "consultation" : "pharmacien"}
+            tone="pharmacien"
           />
           <RequestConversationPanel
             requestId={id}

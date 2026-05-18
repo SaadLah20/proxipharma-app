@@ -34,9 +34,9 @@ export const consultationRequestKindConfig: RequestKindConfig = {
     workflow: {
       pharmacistProposedBadge: "Proposé",
       patientProposedBadge: "Proposé par la pharmacie",
-      pharmacistProposeSectionTitle: "Produit pour le patient",
+      pharmacistProposeSectionTitle: "Saisir les produits proposés",
       pharmacistProposeSectionSubtitle:
-        "Saisissez les produits après l’échange ; publiez ensuite la réponse pour lancer la validation.",
+        "Recherchez dans le catalogue, renseignez quantité, prix et disponibilité (disponible ou à commander), puis publiez.",
       pharmacistProposeDefaultReason: "Proposition suite à consultation",
       pharmacistEmptyLinesHint:
         "Échangez via la conversation si besoin, puis saisissez les produits ci-dessous et publiez la réponse.",
