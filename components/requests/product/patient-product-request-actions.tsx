@@ -1380,11 +1380,9 @@ function buildPatientSummaryStatusHint(
     return "Tu peux passer à l’officine pour retirer les produits réservés et ceux commandés déjà reçus. Le suivi par produit est indiqué sur chaque carte.";
   }
   if (status === "in_review") {
-    return requestType === "prescription"
-      ? workflow.patientWaitingInReviewHint
-      : workflow.patientWaitingInReviewHint;
+    return workflow.patientWaitingInReviewHint;
   }
-  return requestType === "prescription" ? workflow.patientWaitingSubmittedHint : workflow.patientWaitingSubmittedHint;
+  return workflow.patientWaitingSubmittedHint;
 }
 
 function buildPatientLineCountLabel(
@@ -1397,6 +1395,11 @@ function buildPatientLineCountLabel(
   }
   if (requestType === "prescription" && lineCount > 0) {
     return `${lineCount} produit${lineCount > 1 ? "s" : ""} saisi${lineCount > 1 ? "s" : ""}`;
+  }
+  if (requestType === "free_consultation") {
+    if (["submitted", "in_review"].includes(status)) return "Consultation envoyée";
+    if (lineCount > 0) return `${lineCount} produit${lineCount > 1 ? "s" : ""} proposé${lineCount > 1 ? "s" : ""}`;
+    return "Consultation";
   }
   return `${lineCount} ligne${lineCount > 1 ? "s" : ""}`;
 }
@@ -1436,7 +1439,8 @@ function RespondedProductQtyStatusLine({ row, requestType }: { row: ActionItemRo
       status: row.availability_status ?? "available",
       availableQty: Number(row.available_qty ?? 0),
       requestedQty,
-      isProposedLine: requestType === "product_request" && isProposedLine,
+      isProposedLine:
+        (requestType === "product_request" && isProposedLine) || requestType === "free_consultation",
     });
   } catch {
     inferredKey = row.availability_status ?? "available";
@@ -1609,13 +1613,16 @@ function RespondedPatientLineChooser({
   const isExtraProposed =
     requestType === "prescription" &&
     isPrescriptionAdditionalProposedLine(requestType, row, supplyAmendmentBundles);
-  const principalBadgeLabel = isOrdonnancePrincipal
-    ? "Ordonnance"
-    : isExtraProposed
-      ? "Produit proposé par la pharmacie"
-      : isProposedLine
-        ? "Proposition officine"
-        : "Principal";
+  const principalBadgeLabel =
+    requestType === "free_consultation"
+      ? "Proposition pharmacie"
+      : isOrdonnancePrincipal
+        ? "Ordonnance"
+        : isExtraProposed
+          ? "Produit proposé par la pharmacie"
+          : isProposedLine
+            ? "Proposition officine"
+            : "Principal";
   const maxBranch = maxQtyForBranch(row, currentBranch, altList);
 
   const unitForSelection =
@@ -1698,9 +1705,18 @@ function RespondedPatientLineChooser({
   const cardShell = (inner: ReactNode) => (
     <li className="rounded-2xl border-[3px] border-slate-400/70 bg-gradient-to-b from-white to-slate-50/50 px-2.5 py-2.5 shadow-md ring-2 ring-slate-200/50 sm:px-3.5">
       {isProposedLine ? (
-        <div className="mb-2 rounded-md border border-violet-200/90 bg-violet-50/70 px-2 py-1.5">
+        <div
+          className={clsx(
+            "mb-2 rounded-md border px-2 py-1.5",
+            requestType === "free_consultation"
+              ? "border-violet-300/90 bg-violet-50/80"
+              : "border-violet-200/90 bg-violet-50/70"
+          )}
+        >
           <p className="text-[9px] font-bold uppercase tracking-wide text-violet-800">
-            {requestItemLineSourceFr.pharmacist_proposed}
+            {requestType === "free_consultation"
+              ? "Proposé par la pharmacie"
+              : requestItemLineSourceFr.pharmacist_proposed}
           </p>
           {row.pharmacist_proposal_reason?.trim() ? (
             <p className="mt-0.5 line-clamp-2 text-[10px] font-medium leading-snug text-violet-950">{row.pharmacist_proposal_reason.trim()}</p>
@@ -2288,6 +2304,7 @@ export function PatientProductRequestActions({
   const workflowCopy = kindConfig.copy.workflow;
   const accent = kindConfig.theme.accent;
   const isPrescription = requestType === "prescription";
+  const isConsultation = requestType === "free_consultation";
   const [actionError, setActionError] = useState("");
   const [historyModalItemId, setHistoryModalItemId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<"" | "confirm" | "resubmit" | "abandon" | "visit">("");
@@ -2901,10 +2918,13 @@ export function PatientProductRequestActions({
     patientLineProposedBadgeLabel(requestType, row, supplyAmendmentBundles, badgeDefaults);
 
   const showConfirm = uiStatus === "responded";
-  const showProductResubmit = !isPrescription && (uiStatus === "submitted" || uiStatus === "in_review");
+  const showProductResubmit =
+    !isPrescription && !isConsultation && (uiStatus === "submitted" || uiStatus === "in_review");
+  const showConsultationWaiting =
+    isConsultation && (uiStatus === "submitted" || uiStatus === "in_review");
   const showPrescriptionWaiting =
     isPrescription && (uiStatus === "submitted" || uiStatus === "in_review") && prescriptionPaths?.page1;
-  const showWaitingShell = showProductResubmit || showPrescriptionWaiting;
+  const showWaitingShell = showProductResubmit || showPrescriptionWaiting || showConsultationWaiting;
   const showPatientExitCTA =
     !forceReadOnly &&
     !showPrescriptionWaiting &&
@@ -2935,7 +2955,10 @@ export function PatientProductRequestActions({
   return (
     <section
       className={clsx(
-        "touch-pan-y mt-2 rounded-xl border-2 border-slate-200 bg-slate-50/95 p-2.5 sm:p-3",
+        "touch-pan-y mt-2 rounded-xl border-2 p-2.5 sm:p-3",
+        isConsultation
+          ? "border-violet-200/80 bg-gradient-to-b from-violet-50/40 via-white to-fuchsia-50/15"
+          : "border-slate-200 bg-slate-50/95",
         (showWaitingShell || showConfirm || showConfirmedCards) && "pb-40"
       )}
     >
@@ -2962,6 +2985,16 @@ export function PatientProductRequestActions({
           statusHint={buildPatientSummaryStatusHint(showConfirm ? "responded" : status, requestType, workflowCopy)}
           accent={accent}
         />
+      ) : null}
+
+      {showConsultationWaiting ? (
+        <div className="mt-2 space-y-2 rounded-xl border border-violet-200/70 bg-violet-50/35 px-3 py-3 text-[11px] leading-snug text-violet-950">
+          <p className="font-semibold">Votre consultation est bien envoyée.</p>
+          <p>
+            Échangez avec la pharmacie via l&apos;onglet <strong>Conversation</strong>. Dès qu&apos;elle aura publié des
+            produits, retrouvez-les dans l&apos;onglet <strong>Produits proposés</strong> pour valider votre choix.
+          </p>
+        </div>
       ) : null}
 
       {showPrescriptionWaiting && prescriptionPaths ? (
@@ -3518,9 +3551,25 @@ export function PatientProductRequestActions({
         ) : null}
 
         {showConfirm || showConfirmedCards ? (
-          <p className="mt-3 rounded-lg border border-sky-200/70 bg-white/90 px-2.5 py-2 text-[10px] leading-snug text-sky-950 shadow-sm">
-            Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
-            <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
+          <p
+            className={clsx(
+              "mt-3 rounded-lg border px-2.5 py-2 text-[10px] leading-snug shadow-sm",
+              isConsultation
+                ? "border-violet-200/70 bg-white/90 text-violet-950"
+                : "border-sky-200/70 bg-white/90 text-sky-950"
+            )}
+          >
+            {isConsultation ? (
+              <>
+                Pour échanger avec la pharmacie, utilise l&apos;onglet{" "}
+                <strong className="font-semibold">Conversation</strong>.
+              </>
+            ) : (
+              <>
+                Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
+                <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
+              </>
+            )}
           </p>
         ) : null}
 

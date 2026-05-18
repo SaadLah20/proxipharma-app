@@ -25,6 +25,9 @@ export function patientLineProposedBadgeLabel(
       ? defaults.ordonnance
       : defaults.proposed;
   }
+  if (requestType === "free_consultation") {
+    return defaults.proposed || "Proposé par la pharmacie";
+  }
   if (isProductRequestAjoutOfficineLine(requestType, row)) {
     return defaults.officine;
   }
