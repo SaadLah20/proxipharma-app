@@ -29,6 +29,7 @@ import {
   AUTH_SIGNUP_OTP_VERIFIED_PASSWORD_PHONE,
   AUTH_SIGNUP_SMS_RESENT,
   AUTH_SIGNUP_SMS_SENT,
+  mapAuthErrorToFrench,
 } from "@/lib/auth-messages-fr";
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -189,7 +190,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     const { data, error } = await supabase.auth.signInWithPassword(credentials);
 
     if (error) {
-      setMessage(error.message);
+      setMessage(mapAuthErrorToFrench(error.message));
       setLoading(false);
       return;
     }
@@ -265,7 +266,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       });
       setLoading(false);
       if (error) {
-        setMessage(error.message);
+        setMessage(mapAuthErrorToFrench(error.message));
         return;
       }
       setSignupOtpChannel("email");
@@ -290,7 +291,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
 
     setLoading(false);
     if (error) {
-      setMessage(error.message);
+      setMessage(mapAuthErrorToFrench(error.message));
       return;
     }
 
@@ -330,7 +331,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           });
 
     if (error) {
-      setMessage(error.message);
+      setMessage(mapAuthErrorToFrench(error.message));
       setLoading(false);
       return;
     }
@@ -462,7 +463,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           });
     setLoading(false);
     if (error) {
-      setMessage(error.message);
+      setMessage(mapAuthErrorToFrench(error.message));
       return;
     }
     setMessage(signupOtpChannel === "email" ? AUTH_SIGNUP_EMAIL_RESENT : AUTH_SIGNUP_SMS_RESENT);

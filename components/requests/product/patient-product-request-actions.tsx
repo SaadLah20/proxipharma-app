@@ -1597,6 +1597,7 @@ function RespondedPatientLineChooser({
   setLineQty,
   togglePrincipalOnlyLine,
   onPhotoPreview,
+  pharmacistProposedBadgeLabel,
   requestType,
   supplyAmendmentBundles,
 }: RespondedChooserProps) {
@@ -1623,6 +1624,12 @@ function RespondedPatientLineChooser({
           : isProposedLine
             ? "Proposition officine"
             : "Principal";
+  const proposedBannerLabel =
+    requestType === "prescription" && isOrdonnancePrincipal
+      ? "Ordonnance"
+      : requestType === "free_consultation"
+        ? "Proposé par la pharmacie"
+        : pharmacistProposedBadgeLabel;
   const maxBranch = maxQtyForBranch(row, currentBranch, altList);
 
   const unitForSelection =
@@ -1710,13 +1717,22 @@ function RespondedPatientLineChooser({
             "mb-2 rounded-md border px-2 py-1.5",
             requestType === "free_consultation"
               ? "border-violet-300/90 bg-violet-50/80"
-              : "border-violet-200/90 bg-violet-50/70"
+              : isOrdonnancePrincipal
+                ? "border-amber-300/90 bg-amber-50/80"
+                : "border-violet-200/90 bg-violet-50/70"
           )}
         >
-          <p className="text-[9px] font-bold uppercase tracking-wide text-violet-800">
-            {requestType === "free_consultation"
-              ? "Proposé par la pharmacie"
-              : requestItemLineSourceFr.pharmacist_proposed}
+          <p
+            className={clsx(
+              "text-[9px] font-bold uppercase tracking-wide",
+              requestType === "free_consultation"
+                ? "text-violet-800"
+                : isOrdonnancePrincipal
+                  ? "text-amber-900"
+                  : "text-violet-800"
+            )}
+          >
+            {proposedBannerLabel}
           </p>
           {row.pharmacist_proposal_reason?.trim() ? (
             <p className="mt-0.5 line-clamp-2 text-[10px] font-medium leading-snug text-violet-950">{row.pharmacist_proposal_reason.trim()}</p>
@@ -2914,8 +2930,15 @@ export function PatientProductRequestActions({
     proposed: "Proposé",
     officine: pharmacistProposedProductBadgeFr,
   };
-  const badgeForRow = (row: ActionItemRow) =>
-    patientLineProposedBadgeLabel(requestType, row, supplyAmendmentBundles, badgeDefaults);
+  const badgeForRow = (row: ActionItemRow) => {
+    if (requestType === "prescription" && row.line_source === "pharmacist_proposed") {
+      return (
+        patientPrescriptionLineBadge(requestType, row, supplyAmendmentBundles) ??
+        patientLineProposedBadgeLabel(requestType, row, supplyAmendmentBundles, badgeDefaults)
+      );
+    }
+    return patientLineProposedBadgeLabel(requestType, row, supplyAmendmentBundles, badgeDefaults);
+  };
 
   const showConfirm = uiStatus === "responded";
   const showProductResubmit =

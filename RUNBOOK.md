@@ -79,6 +79,19 @@ Ces flux Supabase envoient **toujours un lien** (pas un code OTP) :
 
 Vérifier les mêmes **Site URL** / **Redirect URLs** et le template *Change email address* / *Confirm signup*.
 
+### « Email rate limit exceeded » (429)
+
+**Cause** : limite Supabase sur l’envoi d’e-mails Auth (OTP inscription, renvoi de code, mot de passe oublié). Avec le **SMTP intégré** Supabase, le quota est **très bas** (souvent ~2–3 e-mails / heure pour tout le projet) — facile à atteindre en tests répétés.
+
+**À faire tout de suite** :
+1. Attendre **~1 h** (le compteur se réinitialise).
+2. Tester l’inscription **sans e-mail facultatif** (OTP par **SMS** uniquement).
+3. Éviter les clics répétés sur « Renvoyer le code ».
+
+**Pour la prod / les tests intensifs** : *Authentication* → configurer un **SMTP personnalisé** (Resend, SendGrid, etc.) — les quotas deviennent ceux de votre fournisseur. Voir [Rate limits Auth](https://supabase.com/docs/guides/auth/rate-limits).
+
+L’app affiche un libellé français via `mapAuthErrorToFrench` (`lib/auth-messages-fr.ts`).
+
 ## 3) Process de release (solo founder)
 
 1. Creer une branche de travail:

@@ -33,7 +33,7 @@ export const prescriptionRequestKindConfig: RequestKindConfig = {
     pharmacistNotEnabledMessage: "",
     workflow: {
       pharmacistOrdonnanceLineBadge: "Ordonnance",
-      pharmacistProposedBadge: "Ordonnance",
+      pharmacistProposedBadge: "Proposé",
       patientProposedBadge: "Ordonnance",
       pharmacistProposeSectionTitle: "Produit ordonnance",
       pharmacistProposeSectionSubtitle: "Saisie depuis le scan — catalogue ci-dessous.",

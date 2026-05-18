@@ -118,11 +118,14 @@ export type PatientLineTimelineInputs = {
   dossierHistoryDetailParagraphs?: (reason: string | null | undefined) => string[];
   /** Ex. « Produit saisi depuis l’ordonnance » (ordonnance) vs « Produit proposé par la pharmacie ». */
   pharmacistProposedOriginLabel?: string;
+  /** Historique produit côté officine : formulations « le patient a… ». */
+  timelineAudience?: "patient" | "pharmacist";
 };
 
 /** Chronologie du plus ancien (haut) au plus récent (bas). Dernier bloc = situation actuelle. */
 export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): PatientLineTimelineBlockFr[] {
   const { row } = input;
+  const ph = input.timelineAudience === "pharmacist";
   const amendList = amendmentsForPatientLine(row, input.supplyBundles);
   const histAsc = [...(input.dossierHistory ?? [])].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -163,29 +166,55 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
     originParts.push(`Produit demandé : ${pname} · ${row.requested_qty} unité(s).`);
   }
   if (row.client_comment?.trim()) {
-    originParts.push(`Votre précision : ${row.client_comment.trim()}`);
+    originParts.push(
+      ph ? `Précision patient : ${row.client_comment.trim()}` : `Votre précision : ${row.client_comment.trim()}`
+    );
   }
-  push(t0, "Demande envoyée", originParts.join("\n"), "Vous");
+  push(t0, ph ? "Demande reçue" : "Demande envoyée", originParts.join("\n"), ph ? "Le patient" : "Vous");
 
   /** Réponse officine (instantanée réponse dossier). */
   if (input.requestRespondedAt) {
     const rp: string[] = [];
+    const availLab = row.availability_status
+      ? availabilityStatusFr[row.availability_status] ?? row.availability_status
+      : "—";
     rp.push(
-      `Sur le produit principal : ${row.availability_status ? availabilityStatusFr[row.availability_status] ?? row.availability_status : "—"}`
+      ph
+        ? `Vous avez indiqué sur le principal : ${availLab}`
+        : `Sur le produit principal : ${availLab}`
     );
-    if (row.unit_price != null) rp.push(`Prix indiqué sur le principal : ${Number(row.unit_price).toFixed(2)} MAD`);
+    if (row.unit_price != null) {
+      rp.push(
+        ph
+          ? `Prix indiqué sur le principal : ${Number(row.unit_price).toFixed(2)} MAD`
+          : `Prix indiqué sur le principal : ${Number(row.unit_price).toFixed(2)} MAD`
+      );
+    }
     if (row.expected_availability_date && row.availability_status === "to_order") {
       rp.push(`Indication de réception : ${formatDateShortFr(row.expected_availability_date)}`);
     }
     if (row.pharmacist_comment?.trim()) {
-      rp.push(`Message de la pharmacie sur cette ligne : ${row.pharmacist_comment.trim()}`);
+      rp.push(
+        ph
+          ? `Votre note sur cette ligne : ${row.pharmacist_comment.trim()}`
+          : `Message de la pharmacie sur cette ligne : ${row.pharmacist_comment.trim()}`
+      );
     }
     const altRaw = row.request_item_alternatives;
     const alts = !altRaw ? [] : Array.isArray(altRaw) ? [...altRaw] : [altRaw];
     if (Array.isArray(alts) && alts.length > 0) {
-      rp.push(`Des options alternatives vous sont aussi proposées sur la page de validation (${alts.length}).`);
+      rp.push(
+        ph
+          ? `Des alternatives ont été proposées au patient (${alts.length}).`
+          : `Des options alternatives vous sont aussi proposées sur la page de validation (${alts.length}).`
+      );
     }
-    push(input.requestRespondedAt, "La pharmacie a répondu", rp.join("\n"), "La pharmacie");
+    push(
+      input.requestRespondedAt,
+      ph ? "Réponse enregistrée" : "La pharmacie a répondu",
+      rp.join("\n"),
+      ph ? "Vous" : "La pharmacie"
+    );
   }
 
   /** Validation patient */
@@ -193,23 +222,29 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
     const chosenId = row.patient_chosen_alternative_id ?? null;
     let choiceTxt: string;
     if (chosenId) {
-      choiceTxt = `Vous retenez l’alternative « ${validatedProductLabel(row)} » (référence initiale dans la liste : ${principalName(row)}).`;
+      choiceTxt = ph
+        ? `Le patient a retenu l’alternative « ${validatedProductLabel(row)} » (référence initiale : ${principalName(row)}).`
+        : `Vous retenez l’alternative « ${validatedProductLabel(row)} » (référence initiale dans la liste : ${principalName(row)}).`;
     } else {
-      choiceTxt = `Vous retenez le produit principal « ${validatedProductLabel(row)} ».`;
+      choiceTxt = ph
+        ? `Le patient a retenu le produit principal « ${validatedProductLabel(row)} ».`
+        : `Vous retenez le produit principal « ${validatedProductLabel(row)} ».`;
     }
     const qty = row.selected_qty ?? row.requested_qty;
     push(
       input.requestConfirmedAt,
-      "Vous avez validé cette ligne",
+      ph ? "Le patient a validé cette ligne" : "Vous avez validé cette ligne",
       `${choiceTxt}\nQuantité retenue : ${qty}.`,
-      "Vous"
+      ph ? "Le patient" : "Vous"
     );
   } else if (input.requestConfirmedAt && !row.is_selected_by_patient) {
     push(
       input.requestConfirmedAt,
-      "Ligne non retenue lors de votre validation",
-      `Ce produit ne fait pas partie de votre commande validée (trace conservée).`,
-      "Vous"
+      ph ? "Ligne non retenue par le patient" : "Ligne non retenue lors de votre validation",
+      ph
+        ? "Ce produit ne fait pas partie de la commande validée par le patient (trace conservée)."
+        : "Ce produit ne fait pas partie de votre commande validée (trace conservée).",
+      ph ? "Le patient" : "Vous"
     );
   }
 
@@ -226,7 +261,12 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
 
   /** Ajustements post-validation (JSON amendements avec request_item_id) */
   for (const am of amendList) {
-    push(am.created_at, "Changement après votre accord", summarizeSupplyAmendmentEntry(am.entry), "La pharmacie");
+    push(
+      am.created_at,
+      ph ? "Changement après accord du patient" : "Changement après votre accord",
+      summarizeSupplyAmendmentEntry(am.entry),
+      "La pharmacie"
+    );
   }
 
   /** Entrées d’historique statut dossier hors audit (filtre léger si la raison cite le nom produit ou l’uuid — rare). */
@@ -259,10 +299,14 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
       curParts.push("Comptoir : en attente de passage ou pas encore indiqué.");
     }
     if (row.withdrawn_after_confirm) {
-      curParts.push("Ligne retirée de la commande active après votre accord avec la pharmacie.");
+      curParts.push(
+        ph
+          ? "Ligne retirée de la commande active après accord du patient."
+          : "Ligne retirée de la commande active après votre accord avec la pharmacie."
+      );
     }
   } else {
-    curParts.push("Produit non retenu lors de votre validation.");
+    curParts.push(ph ? "Produit non retenu par le patient lors de la validation." : "Produit non retenu lors de votre validation.");
   }
   const lastTs =
     amendList.slice(-1)[0]?.created_at ??

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { mapAuthErrorToFrench } from "@/lib/auth-messages-fr";
 import { supabase } from "@/lib/supabase";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -50,7 +51,7 @@ export default function AuthUpdatePasswordPage() {
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (error) {
-      setMessage(error.message);
+      setMessage(mapAuthErrorToFrench(error.message));
       return;
     }
     setMessage("Mot de passe mis à jour. Redirection…");

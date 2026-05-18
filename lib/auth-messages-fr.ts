@@ -24,3 +24,34 @@ export const AUTH_RESET_EMAIL_SENT =
 
 export const AUTH_CALLBACK_LINK_EXPIRED =
   "Ce lien n’est plus valide ou a déjà été utilisé. Demandez un nouveau code ou un nouveau lien depuis l’application.";
+
+export const AUTH_EMAIL_RATE_LIMIT_FR =
+  "Trop de codes ou d’e-mails envoyés récemment. Attendez environ une heure avant de réessayer, ou testez l’inscription avec le numéro de téléphone (SMS) sans e-mail facultatif.";
+
+export const AUTH_SMS_RATE_LIMIT_FR =
+  "Trop de codes SMS envoyés récemment. Patientez quelques minutes avant de demander un nouveau code.";
+
+/** Traduit les erreurs Supabase Auth courantes (sinon message anglais brut). */
+export function mapAuthErrorToFrench(message: string): string {
+  const m = message.trim().toLowerCase();
+  if (!m) return message;
+  if (m.includes("email rate") || m.includes("over_email_send_rate")) {
+    return AUTH_EMAIL_RATE_LIMIT_FR;
+  }
+  if (m.includes("sms rate") || m.includes("over_sms_send_rate")) {
+    return AUTH_SMS_RATE_LIMIT_FR;
+  }
+  if (m.includes("token has expired") || m.includes("otp_expired")) {
+    return "Ce code a expiré. Demandez un nouveau code.";
+  }
+  if (m.includes("invalid otp") || m.includes("token is invalid")) {
+    return "Code incorrect. Vérifiez les 6 chiffres ou demandez un nouveau code.";
+  }
+  if (m.includes("user already registered") || m.includes("already been registered")) {
+    return "Un compte existe déjà avec cet identifiant. Connectez-vous ou utilisez « Mot de passe oublié ».";
+  }
+  if (m.includes("invalid login credentials")) {
+    return "Identifiant ou mot de passe incorrect.";
+  }
+  return message;
+}
