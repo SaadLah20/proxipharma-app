@@ -54,7 +54,7 @@ export default function AuthUpdatePasswordPage() {
       return;
     }
     setMessage("Mot de passe mis à jour. Redirection…");
-    router.replace("/auth?mode=login");
+    router.replace("/auth");
   };
 
   return (
