@@ -12,6 +12,18 @@ export function clampOrdonnanceAvailableQty(n: number, requestedQty: number): nu
   return Math.max(0, Math.min(req, Math.floor(Number.isFinite(n) ? n : 0)));
 }
 
+/** Qté dispo à l’insertion d’une ligne ordonnance (rupture / indispo → 0, pas de repli sur la qté prescrite). */
+export function ordonnanceInsertAvailableQty(
+  availability: string,
+  requestedQty: number,
+  rawAvailableQty?: number
+): number {
+  if (availability === "market_shortage" || availability === "unavailable") return 0;
+  const req = clampOrdonnanceRequestedQty(requestedQty);
+  if (rawAvailableQty == null || !Number.isFinite(rawAvailableQty)) return req;
+  return clampOrdonnanceAvailableQty(rawAvailableQty, req);
+}
+
 export function ordonnanceDraftRequestedQty(row: { requested_qty: number }, f?: { requested_qty_str?: string }): number {
   if (f?.requested_qty_str != null && f.requested_qty_str.trim() !== "") {
     const n = Number(f.requested_qty_str);

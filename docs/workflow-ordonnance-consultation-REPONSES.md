@@ -4,9 +4,9 @@
 
 1. Ce document résume les **décisions métier et UX** prises pour finaliser les deux parcours (hors demande produits).
 2. Cocher ou compléter la section **« Reste à valider en pilote »** après chaque campagne de tests.
-3. Pour reprendre le développement : utiliser la **phrase de reprise** dans `CAHIER_DES_CHARGES.md` §13.20.
+3. Pour reprendre le développement : utiliser la **phrase de reprise** dans `CAHIER_DES_CHARGES.md` §13.22.
 
-**Dernière mise à jour** : 2026-05-17 (onglets consultation + publication)
+**Dernière mise à jour** : 2026-05-17 (retours ordonnance lot 2 + header consultation sticky — commit **`46e68c7`**)
 
 ---
 
@@ -28,7 +28,10 @@
 | Accès scan | Agrandissement mobile + **FAB +** dans le lightbox pour ouvrir le modal de saisie. |
 | Modal d’ajout | **Recherche catalogue** (≥ 2 caractères) ; le modal **ne se ferme pas** au clic produit — fermeture via **×** ou après **« Ajouter le produit ordonnance »**. |
 | Quantités | **Deux champs** : **qté prescrite** (médecin) et **qté dispo** (officine). À l’ajout : dispo = prescrit ; le pharmacien peut **abaisser** la dispo, jamais la dépasser. |
-| Disponibilités | **Même mécanismes** que demande produits : indisponible / rupture → **qté dispo 0** ; dispo &lt; prescrit → **partiellement disponible** ; à commander → **date de réception prévue** obligatoire. |
+| Disponibilités | **Même mécanismes** que demande produits : indisponible / rupture → **qté dispo 0** (pas de repli sur qté prescrite — `ordonnanceInsertAvailableQty`) ; dispo &lt; prescrit → **partiellement disponible** ; à commander → **date de réception prévue** obligatoire. |
+| Proposition complémentaire | **Qté proposée** uniquement (pas de qté prescrite) ; badge **Proposé**. |
+| Post-validé + alternative | Modal **Enregistrer** : pas de faux changement sur la ligne principale si le patient a **retenu une alternative** (comparaison branche alternative). |
+| Lignes non retenues | Libellé **« Produit proposé par la pharmacie »** même pour saisie depuis scan. |
 | Édition lignes déjà saisies | Qté prescrite et qté dispo **modifiables** sur la fiche ligne (pas seulement à l’ajout). |
 | Publication | Au moins **une ligne ordonnance** avant de publier la réponse. |
 
@@ -38,7 +41,7 @@
 - Lignes : `lib/prescription-pharmacist-lines.ts`, `lib/prescription-ordonnance-line-qty.ts`
 - UI : `components/requests/prescription/` (`prescription-image-viewer.tsx`, `pharmacist-ordonnance-quick-add-modal.tsx`)
 - Page pharmacien : `app/dashboard/pharmacien/demandes/[id]/page.tsx` (section « Produits ordonnance », thème ambre)
-- Migrations : `20260525_001` … `20260525_004`, `20260526_001_patient_prescription_submit.sql`
+- Migrations : `20260525_001` … `20260525_004`, `20260526_001`, `20260530_001`, `20260531_001`
 
 ---
 
@@ -58,15 +61,17 @@
 
 1. Patient : `/pharmacie/[id]/consultation-libre` → envoi.
 2. Détail dossier (patient + pharmacien) : **2 onglets** — **Conversation** (message/photos + messagerie inline, pas de FAB) | **Produits proposés**.
-3. Onglet par défaut : **Conversation** tant que non `responded` ; ensuite **Produits** (conversation toujours accessible, pastille non-lu).
-4. Pharmacien (onglet Produits) : recherche catalogue, cartes produit (qté, prix, dispo **Disponible** / **À commander** + date si à commander), alternatives → **publier** → `responded`.
-5. Patient (onglet Produits) : validation comme demande produits (`responded` → principal / alternative / aucun → comptoir, etc.).
+3. **En-tête informatif** : récap dossier (réf., statut, officine) + barre d’onglets **sticky en haut** au scroll (`ConsultationDetailStickyChrome`) — comme demande produits / ordonnance.
+4. Onglet par défaut : **Conversation** tant que non `responded` ; ensuite **Produits** (conversation toujours accessible, pastille non-lu).
+5. Pharmacien (onglet Produits) : recherche catalogue, cartes produit (qté, prix, dispo **Disponible** / **À commander** + date si à commander), alternatives → **publier** → `responded`.
+6. Patient (onglet Produits) : validation comme demande produits (`responded` → principal / alternative / aucun → comptoir, etc.).
 
 ### B3. Fichiers techniques de référence
 
 - Config : `lib/request-kinds/consultation.config.ts` (`workflowEnabled: true`)
 - Médias : `lib/consultation-media.ts`, `lib/private-media-signed-url-client.ts`
-- UI : `components/requests/consultation/consultation-brief-panel.tsx`
+- UI : `components/requests/consultation/consultation-brief-panel.tsx`, `consultation-detail-tab-bar.tsx`, `consultation-detail-sticky-chrome.tsx`
+- Détail : `app/dashboard/demandes/[id]/page.tsx`, `app/dashboard/pharmacien/demandes/[id]/page.tsx`
 - Création : `app/pharmacie/[id]/consultation-libre/page.tsx`
 - Migration : **`20260529_001_free_consultation_workflow.sql`** (obligatoire avant E2E)
 
@@ -88,8 +93,11 @@ Cocher après test manuel sur branche **`fix/validated-supply-ecart-ui-modal`** 
 
 - [ ] Patient : envoi 1 puis 2 pages scan ; message optionnel.
 - [ ] Pharmacien : lightbox + FAB + → modal ; ajout plusieurs produits sans fermeture intempestive.
-- [ ] Pharmacien : prescrit 3 / dispo 1 → badge partiel ; indispo → dispo 0 ; à commander + date.
+- [ ] Pharmacien : prescrit 3 / dispo 1 → badge partiel ; rupture/indispo → dispo **0** (pas = prescrit) ; à commander + date.
+- [ ] Pharmacien : proposition complémentaire — qté proposée seule, badge **Proposé**.
+- [ ] Pharmacien : enregistrement post-validé sans faux écart si alternative retenue.
 - [ ] Pharmacien : modification qté prescrite / dispo sur ligne existante.
+- [ ] Patient : lignes non retenues — libellé **proposé par la pharmacie**.
 - [ ] Patient : validation réponse ; post-validé (réservé, commande, comptoir) comme une demande produits.
 - [ ] Aucune régression visible sur une **demande produits** du même compte.
 
@@ -99,6 +107,7 @@ Cocher après test manuel sur branche **`fix/validated-supply-ecart-ui-modal`** 
 - [ ] Patient : création consultation (texte + photos).
 - [ ] Patient : édition texte/photos avant réponse pharma (onglet Conversation).
 - [ ] Patient / pharmacien : onglets Conversation | Produits ; pas de FAB conversation.
+- [ ] Patient / pharmacien : scroll long — récap dossier + onglets **restent en haut** (sticky).
 - [ ] Pharmacien : onglet Produits — saisie + dispo (dispo / à commander) + date + publication.
 - [ ] Patient : bascule onglet Produits après `responded` ; validation principal / alternative / aucun.
 - [ ] Post-validé (réservé, commande, comptoir) comme une demande produits.
@@ -122,4 +131,4 @@ Cocher après test manuel sur branche **`fix/validated-supply-ecart-ui-modal`** 
 
 ## F. Prompt conseillé (ouverture de contexte — détails ensuite)
 
-**« On reprend ProxiPharma — retours terrain ordonnance, consultation libre et auth. Lis `CAHIER_DES_CHARGES.md` §13.21, §10 (session 2026-05-17 suite), ce fichier §D, `RUNBOOK.md` §2b, `CONTEXTE.md` §6. Branche `fix/validated-supply-ecart-ui-modal`. Consultation : onglets Conversation | Produits proposés, publication `free_consultation`, thème violet. Ordonnance : ambre, qté prescrite/dispo. Auth : `APP_BASE_URL`, `/auth/callback`. Donne-moi tes retours terrain ; ne code rien avant. »**
+**« On reprend ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §13.22, §10 (session 2026-05-17 suite 2), ce fichier §D–F, `CONTEXTE.md` §6, `AGENTS.md`. Branche `fix/validated-supply-ecart-ui-modal` (commit `46e68c7`+). Migrations : `20260529_001`, `20260530_001`, `20260531_001`, `20260531_002`, ordonnance `20260525_*`. Ordonnance : rupture → dispo 0, badges, modal enregistrement. Consultation : onglets + header sticky. Donne-moi la prochaine tâche. »**

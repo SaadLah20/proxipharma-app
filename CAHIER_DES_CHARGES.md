@@ -318,6 +318,29 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-17 (suite 2) — Retours ordonnance + header consultation sticky
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`b086521`**, **`46e68c7`** (poussés).
+
+**Ordonnance — retours terrain (lot 2)** :
+- **Rupture / indispo** : qté dispo **0** à l’ajout et au brouillon (`ordonnanceInsertAvailableQty`, plus de repli sur qté prescrite).
+- **Produits proposés** (complémentaires) : une seule **qté proposée** (pas de qté prescrite) ; badge **Proposé** (config `pharmacistProposedBadge`).
+- **Enregistrement post-validé** : modal sans faux écarts sur ligne principale quand **alternative retenue** (`supplyRowPersistedSupplyFields` ; comparaison branche alternative).
+- **Badges** : **Ordonnance** / **Ordonnance + alternative** / **Proposé** ; lignes non retenues : libellé **« Produit proposé par la pharmacie »** même si saisie scan.
+- **Lot 1** (`b086521`) : notif pharmacien si patient modifie ordonnance (`20260531_001`), modal publication pharma, libellés patient, historique voix patient.
+
+**Consultation libre** :
+- **`ConsultationDetailStickyChrome`** : récap dossier + onglets **figés en haut** au scroll (patient : `PatientSentEnvoyeeSummaryCard` ; pharmacien : `RequestKindHeader` + onglets), comme les autres parcours.
+
+**Demande produits** :
+- Migration **`20260531_002`** : notification pharmacien dédiée quand le patient modifie sa **date de passage** (`confirmed` / `treated`).
+
+**Fichiers clés** : `lib/prescription-ordonnance-line-qty.ts`, `lib/prescription-patient-labels.ts`, `app/dashboard/pharmacien/demandes/[id]/page.tsx`, `app/dashboard/demandes/[id]/page.tsx`, `components/requests/consultation/consultation-detail-sticky-chrome.tsx`, `components/requests/product/patient-product-request-actions.tsx`.
+
+**Prod / QA** : migrations **`20260529_001`**, **`20260530_001`**, **`20260531_001`**, **`20260531_002`** si pas déjà appliquées ; déployer front ; checklist **`docs/workflow-ordonnance-consultation-REPONSES.md`** §D.
+
+---
+
 ### Session 2026-05-17 (suite) — Consultation libre : onglets, publication, parcours patient
 
 **Branche** : `fix/validated-supply-ecart-ui-modal`.
@@ -1317,9 +1340,13 @@ Voir **§13.18**.
 
 **« On reprend ProxiPharma. Infra Supabase à jour (toutes les migrations appliquées). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §10 (session 2026-05-17) et `docs/workflow-ordonnance-consultation-REPONSES.md`. Branche `fix/validated-supply-ecart-ui-modal`. Périmètre : demandes produits (référence), ordonnances et consultations libres — registre `lib/request-kinds/`. Ne code rien tant que je n’ai pas précisé ce qui bloque. »**
 
-### 13.21) Phrase de reprise (recommandée — retours terrain ordonnance + consultation + auth)
+### 13.21) Phrase de reprise (dépassée — avant lot retours §10 session 2026-05-17 suite 2)
 
-**« On reprend ProxiPharma — **retours terrain uniquement**, pas de refacto hors périmètre. Lis `CAHIER_DES_CHARGES.md` §10 (sessions 2026-05-17 et suite consultation), `docs/workflow-ordonnance-consultation-REPONSES.md` §D (checklist), `RUNBOOK.md` §2b (auth e-mail/OTP), `CONTEXTE.md` §6, `AGENTS.md`. Branche `fix/validated-supply-ecart-ui-modal`. Migrations si besoin : `20260529_001` (consultation), `20260530_001` (ordonnance patient), refs ordonnance `20260525_*`. **Ordonnance** : scan patient → saisie pharma ambre (qté prescrite/dispo, modal quick-add) → validation/post-validé comme demande produits. **Consultation libre** : onglets Conversation | Produits proposés (violet, messagerie inline, publication `free_consultation`, validation patient principal/alternative/aucun). **Auth** : `APP_BASE_URL` + `NEXT_PUBLIC_APP_BASE_URL`, liens `/auth/callback`. Attends ma liste de retours terrain avant de coder. »**
+Voir **§13.22**.
+
+### 13.22) Phrase de reprise (recommandée — après commits **`b086521`** + **`46e68c7`**)
+
+**« On reprend ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §10 (session **2026-05-17 suite 2**), `docs/workflow-ordonnance-consultation-REPONSES.md` §D–F, `CONTEXTE.md` §6, `AGENTS.md`, `RUNBOOK.md` §2b si auth. Branche **`fix/validated-supply-ecart-ui-modal`** (commits **`46e68c7`**+). Migrations Supabase si besoin : **`20260529_001`** (consultation), **`20260530_001`** (patient modifie ordonnance), **`20260531_001`** (notif pharma modif ordonnance), **`20260531_002`** (notif pharma date passage), ordonnance **`20260525_*`**–**`20260526_001`**. **Ordonnance** : ambre, qté prescrite/dispo, rupture → dispo 0, badges Ordonnance / Proposé, modal enregistrement sans faux écarts si alternative retenue. **Consultation libre** : onglets Conversation | Produits, **`ConsultationDetailStickyChrome`** (récap + onglets en haut), publication `free_consultation`, validation comme demande produits. **Demande produits** : référence pour post-validé et catalogue. Prod : appliquer migrations puis déployer front. Donne-moi la prochaine tâche ou tes retours terrain. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 
