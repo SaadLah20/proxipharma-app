@@ -504,16 +504,6 @@ function effectiveEtaSupplyDraft(row: ItemRow, f: ItemDraft, requestType?: strin
   return row.expected_availability_date?.trim() || null;
 }
 
-function virtualizeItemsForSupplyBuckets(rows: ItemRow[], d: Draft, requestType?: string): ItemRow[] {
-  return rows.map((row) => {
-    const f = d[row.id];
-    if (!f) return row;
-    const inf = effectiveAvailSupplyDraft(row, f, requestType);
-    if (inf === row.availability_status) return row;
-    return { ...row, availability_status: inf };
-  });
-}
-
 function buildItemUpdatePayload(f: ItemDraft, row: ItemRow, requestType?: string) {
   const availQty = Number(f.available_qty);
   const isAjoutOfficine =
@@ -1913,7 +1903,7 @@ export default function PharmacienDemandeDetailPage() {
         setFulfillmentRpcBusyId(null);
       }
     },
-    [id, load, request?.status, draft]
+    [id, load, request?.status, request?.request_type, draft]
   );
 
   useEffect(() => {
@@ -3941,14 +3931,15 @@ export default function PharmacienDemandeDetailPage() {
   const ordonnanceCatalogEditable = isPrescription && showLineAndPublishEdits;
   const showConsultationProductsPane = !isConsultation || consultationTab === "products";
 
-  const lineEntriesForList = useMemo(() => {
-    if (request && ["confirmed", "treated"].includes(uiRequestStatus ?? "")) {
-      const eff = rowsWithEffectiveWithdrawnForSupply(displayRows, draft);
-      const flat = flattenPharmacistSupplyListEntries(eff);
-      if (flat.length > 0) return flat;
-    }
-    return displayRows.map((row) => ({ header: null as string | null, row }));
-  }, [request, displayRows, draft, uiRequestStatus]);
+  /* Pas de useMemo : `draft` est muté en place — react-hooks/preserve-manual-memoization (React Compiler). */
+  const lineEntriesForList =
+    request && ["confirmed", "treated"].includes(uiRequestStatus ?? "")
+      ? (() => {
+          const eff = rowsWithEffectiveWithdrawnForSupply(displayRows, draft);
+          const flat = flattenPharmacistSupplyListEntries(eff);
+          return flat.length > 0 ? flat : displayRows.map((row) => ({ header: null as string | null, row }));
+        })()
+      : displayRows.map((row) => ({ header: null as string | null, row }));
 
   const pharmacistSupplySurfaceGroups = useMemo(() => {
     type Entry = (typeof lineEntriesForList)[number];
