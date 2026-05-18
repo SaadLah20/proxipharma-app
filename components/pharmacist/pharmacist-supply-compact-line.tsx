@@ -46,6 +46,7 @@ export function PharmacistSupplyCompactLine({
   onMenuModify,
   onMenuWithdraw,
   onMenuHistory,
+  supplyMutationsEnabled = true,
   showAjoutOfficineBadge,
   ajoutOfficineBadgeLabel,
   withdrawDisabled,
@@ -93,6 +94,8 @@ export function PharmacistSupplyCompactLine({
   onMenuModify: () => void;
   onMenuWithdraw: () => void;
   onMenuHistory: () => void;
+  /** Modifier / écarter (désactivé en archive : annulé, expiré, abandonné, clôturé…). */
+  supplyMutationsEnabled?: boolean;
   /** Proposition officine (aligné badge patient). */
   showAjoutOfficineBadge?: boolean;
   ajoutOfficineBadgeLabel?: string;
@@ -190,7 +193,7 @@ export function PharmacistSupplyCompactLine({
                       style={{ top: menuPos.top, left: menuPos.left }}
                       role="menu"
                     >
-                      {selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
+                      {supplyMutationsEnabled && selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
                         <li role="none">
                           <button
                             type="button"
@@ -206,7 +209,7 @@ export function PharmacistSupplyCompactLine({
                           </button>
                         </li>
                       ) : null}
-                      {selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
+                      {supplyMutationsEnabled && selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
                         <li role="none">
                           <button
                             type="button"

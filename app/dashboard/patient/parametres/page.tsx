@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { PageShell } from "@/components/ui/compact-shell";
 import { ExternalNotificationPrefs } from "@/components/notifications/external-notification-prefs";
+import { authEmailRedirectUrl, resolveClientAppBaseUrl } from "@/lib/auth-site-url";
 import { supabase } from "@/lib/supabase";
 
 type Profile = {
@@ -95,7 +96,15 @@ export default function PatientParametresPage() {
       return;
     }
 
-    const { error: ue } = await supabase.auth.updateUser({ email: next });
+    const { error: ue } = await supabase.auth.updateUser(
+      { email: next },
+      {
+        emailRedirectTo: authEmailRedirectUrl(
+          "/auth/callback?next=/dashboard/patient/parametres",
+          resolveClientAppBaseUrl()
+        ),
+      }
+    );
     if (ue) {
       setRecoverySaving(false);
       setRecoveryMessage(ue.message);

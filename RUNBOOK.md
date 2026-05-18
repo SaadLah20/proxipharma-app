@@ -21,13 +21,49 @@ Variables:
 - `CRON_SECRET` (secret partagé pour protéger les endpoints cron)
 - `RESEND_API_KEY` (prestataire e-mail, free tier possible)
 - `EMAIL_FROM` (ex: `ProxiPharma <onboarding@resend.dev>` en dev, puis domaine validé)
-- `APP_BASE_URL` (URL publique Vercel/custome domain, utilisée dans les liens e-mail)
+- `APP_BASE_URL` (URL publique Vercel/custom domain, utilisée dans les liens e-mail Auth côté serveur)
+- `NEXT_PUBLIC_APP_BASE_URL` (même URL que `APP_BASE_URL`, exposée au navigateur pour OTP / confirmation e-mail)
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` (SMS alertes hors-app, même compte que l’auth si possible)
 - `TWILIO_SMS_FROM` (numéro expéditeur E.164, ex. `+1…`) **ou** `TWILIO_MESSAGING_SERVICE_SID`
 
 Regle:
 - Le nom doit etre exact
 - La valeur ne doit pas contenir de guillemets
+
+## 2b) Auth Supabase — codes OTP e-mail et liens (pas localhost)
+
+**Symptômes** : e-mail avec un **lien** au lieu d’un **code à 6 chiffres** ; lien qui pointe vers `http://localhost:3000/...` (inutilisable sur téléphone).
+
+### URL du site (obligatoire en prod)
+
+1. **Vercel** → `APP_BASE_URL` **et** `NEXT_PUBLIC_APP_BASE_URL` = URL publique (ex. `https://proxipharma-app.vercel.app`), **sans** slash final.
+2. **Supabase** → *Authentication* → *URL Configuration* :
+   - **Site URL** = même URL publique (pas `localhost`).
+   - **Redirect URLs** : ajouter au minimum :
+     - `https://<votre-domaine>/auth/callback`
+     - `https://<votre-domaine>/auth/update-password`
+     - `https://<votre-domaine>/auth/**` (wildcard si proposé)
+3. Redéployer Vercel après changement des variables.
+
+En local, les liens e-mail restent souvent en `localhost` : tester l’inscription / MDP sur **l’URL de preview ou production**, ou utiliser un tunnel (ngrok) si besoin.
+
+### Inscription : code à 6 chiffres (pas magic link)
+
+L’app appelle `signInWithOtp` + `verifyOtp` (`app/auth/page.tsx`). Le format de l’e-mail est défini dans **Supabase**, pas dans le code :
+
+1. *Authentication* → *Email Templates* → modèle utilisé pour la connexion OTP (souvent **Magic Link**).
+2. Remplacer le corps par un texte qui affiche le code, par ex. : `Votre code ProxiPharma : {{ .Token }}` (6 chiffres).
+3. Ne pas s’appuyer uniquement sur `{{ .ConfirmationURL }}` si vous voulez saisir le code dans l’app.
+4. Si un lien est quand même envoyé, il doit atterrir sur `https://<domaine>/auth/callback` (grâce à `emailRedirectTo` + Site URL).
+
+### Récupération mot de passe et changement d’e-mail
+
+Ces flux Supabase envoient **toujours un lien** (pas un code OTP) :
+
+- Mot de passe oublié → `/auth/update-password` (`APP_BASE_URL` + template *Reset password*).
+- Changement d’e-mail (paramètres patient) → `/auth/callback` puis retour paramètres.
+
+Vérifier les mêmes **Site URL** / **Redirect URLs** et le template *Change email address* / *Confirm signup*.
 
 ## 3) Process de release (solo founder)
 
