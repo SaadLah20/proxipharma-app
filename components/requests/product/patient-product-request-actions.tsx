@@ -2902,7 +2902,7 @@ export function PatientProductRequestActions({
                     setLineQty={setLineQty}
                     togglePrincipalOnlyLine={togglePrincipalOnlyLine}
                     onPhotoPreview={openProductPhotoPreview}
-                    pharmacistProposedBadgeLabel={badgeForRow(row)}
+                    pharmacistProposedBadgeLabel={badgeForRow(row) ?? "Proposé"}
                     requestType={requestType}
                   />
                 ))}
@@ -2958,7 +2958,7 @@ export function PatientProductRequestActions({
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
-                        pharmacistProposedBadgeLabel={badgeForRow(row)}
+                        pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                       />
                     ))}
                   </ul>
@@ -2993,7 +2993,7 @@ export function PatientProductRequestActions({
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
-                        pharmacistProposedBadgeLabel={badgeForRow(row)}
+                        pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                       />
                     ))}
                   </ul>
@@ -3023,7 +3023,7 @@ export function PatientProductRequestActions({
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
-                        pharmacistProposedBadgeLabel={badgeForRow(row)}
+                        pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                       />
                     ))}
                   </ul>
@@ -3052,7 +3052,7 @@ export function PatientProductRequestActions({
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
-                        pharmacistProposedBadgeLabel={badgeForRow(row)}
+                        pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                       />
                     ))}
                   </ul>

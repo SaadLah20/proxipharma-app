@@ -6386,7 +6386,7 @@ export default function PharmacienDemandeDetailPage() {
           onAddAlternative={(h) => {
             if (ordonnanceQuickAlternatives.length >= 3) return;
             if (h.id === ordonnanceQuickAddPick?.id) return;
-            setOrdonnanceQuickAlternatives((prev) => [...prev, h]);
+            setOrdonnanceQuickAlternatives((prev) => [...prev, h as ProductCatalogHit]);
             setOrdonnanceAltQuery("");
             setOrdonnanceAltHits([]);
           }}
