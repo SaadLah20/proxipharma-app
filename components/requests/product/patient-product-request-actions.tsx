@@ -74,7 +74,6 @@ import {
 } from "@/lib/build-patient-line-timeline-fr";
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { isPatientProductArchiveStatus, type PatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
-import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
 import {
   PatientPrescriptionEditablePanel,
   type PatientPrescriptionPanelHandle,
@@ -1594,7 +1593,6 @@ function RespondedPatientLineChooser({
   setLineQty,
   togglePrincipalOnlyLine,
   onPhotoPreview,
-  pharmacistProposedBadgeLabel,
   requestType,
   supplyAmendmentBundles,
 }: RespondedChooserProps) {
@@ -2304,7 +2302,13 @@ export function PatientProductRequestActions({
     setProductPhotoPreview({ url: url.trim(), title: title.trim() || "Produit" });
   }, []);
   const [prescriptionEditMode, setPrescriptionEditMode] = useState(false);
+  const [prescriptionPanelBusy, setPrescriptionPanelBusy] = useState(false);
+  const [prescriptionPanelCanSave, setPrescriptionPanelCanSave] = useState(false);
   const prescriptionPanelRef = useRef<PatientPrescriptionPanelHandle>(null);
+  const onPrescriptionPanelFooterState = useCallback((state: { busy: boolean; canSave: boolean }) => {
+    setPrescriptionPanelBusy(state.busy);
+    setPrescriptionPanelCanSave(state.canSave);
+  }, []);
 
   /** Lignes `pharmacist_proposed` masquées tant que statut submitted / in_review — elles sont un brouillon coté officine. */
   const itemsFilteredPending = useMemo(
@@ -2970,6 +2974,7 @@ export function PatientProductRequestActions({
           onReload={onReload}
           editMode={prescriptionEditMode}
           onEditModeChange={setPrescriptionEditMode}
+          onFooterStateChange={onPrescriptionPanelFooterState}
         />
       ) : null}
 
@@ -3631,7 +3636,7 @@ export function PatientProductRequestActions({
               <div className="flex flex-col gap-2">
                 <button
                   type="button"
-                  disabled={busyAction !== "" || prescriptionPanelRef.current?.isBusy()}
+                  disabled={busyAction !== "" || prescriptionPanelBusy}
                   onClick={() => prescriptionPanelRef.current?.startEdit()}
                   className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-amber-500/80 bg-amber-50 px-3 text-sm font-semibold text-amber-950 shadow-sm hover:bg-amber-100/90 disabled:opacity-50"
                 >
@@ -3640,7 +3645,7 @@ export function PatientProductRequestActions({
                 </button>
                 <button
                   type="button"
-                  disabled={busyAction !== "" || prescriptionPanelRef.current?.isBusy()}
+                  disabled={busyAction !== "" || prescriptionPanelBusy}
                   onClick={() => prescriptionPanelRef.current?.openCancelOrdonnance()}
                   className="h-10 w-full rounded-lg border border-rose-300/70 bg-rose-50/80 px-3 text-sm font-semibold text-rose-950 shadow-sm hover:bg-rose-100/90 disabled:opacity-50"
                 >
@@ -3651,7 +3656,7 @@ export function PatientProductRequestActions({
               <div className="flex gap-2">
                 <button
                   type="button"
-                  disabled={busyAction !== "" || prescriptionPanelRef.current?.isBusy()}
+                  disabled={busyAction !== "" || prescriptionPanelBusy}
                   onClick={() => prescriptionPanelRef.current?.cancelEdit()}
                   className="h-10 flex-1 rounded-lg border-2 border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
                 >
@@ -3659,15 +3664,11 @@ export function PatientProductRequestActions({
                 </button>
                 <button
                   type="button"
-                  disabled={
-                    busyAction !== "" ||
-                    prescriptionPanelRef.current?.isBusy() ||
-                    !prescriptionPanelRef.current?.canSave()
-                  }
+                  disabled={busyAction !== "" || prescriptionPanelBusy || !prescriptionPanelCanSave}
                   onClick={() => void prescriptionPanelRef.current?.save()}
                   className="h-10 flex-1 rounded-lg border border-amber-600 bg-amber-600/95 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 disabled:opacity-50"
                 >
-                  {prescriptionPanelRef.current?.isBusy() ? "Enregistrement…" : "Enregistrer les modifications"}
+                  {prescriptionPanelBusy ? "Enregistrement…" : "Enregistrer les modifications"}
                 </button>
               </div>
             )}

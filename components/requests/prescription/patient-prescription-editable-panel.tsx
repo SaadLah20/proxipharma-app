@@ -37,11 +37,13 @@ type Props = {
   onReload: () => Promise<void>;
   editMode: boolean;
   onEditModeChange: (next: boolean) => void;
+  /** État pour le footer parent (évite lecture de ref pendant le render). */
+  onFooterStateChange?: (state: { busy: boolean; canSave: boolean }) => void;
 };
 
 export const PatientPrescriptionEditablePanel = forwardRef<PatientPrescriptionPanelHandle, Props>(
   function PatientPrescriptionEditablePanel(
-    { requestId, status, paths, patientNote, onReload, editMode, onEditModeChange },
+    { requestId, status, paths, patientNote, onReload, editMode, onEditModeChange, onFooterStateChange },
     ref
   ) {
     const [localNote, setLocalNote] = useState<string | null>(null);
@@ -238,6 +240,10 @@ export const PatientPrescriptionEditablePanel = forwardRef<PatientPrescriptionPa
       onEditModeChange(false);
       await onReload();
     };
+
+    useEffect(() => {
+      onFooterStateChange?.({ busy, canSave: dirty });
+    }, [busy, dirty, onFooterStateChange]);
 
     useImperativeHandle(
       ref,
