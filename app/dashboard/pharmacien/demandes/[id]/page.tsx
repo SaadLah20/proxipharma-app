@@ -1504,9 +1504,7 @@ export default function PharmacienDemandeDetailPage() {
   const [ordonnanceQuickRequestedQty, setOrdonnanceQuickRequestedQty] = useState("1");
   const [ordonnanceQuickAvailableQty, setOrdonnanceQuickAvailableQty] = useState("1");
   const [ordonnanceQuickAddPick, setOrdonnanceQuickAddPick] = useState<ProductCatalogHit | null>(null);
-  const [ordonnanceQuickAlternatives, setOrdonnanceQuickAlternatives] = useState<
-    { id: string; name: string; price_pph?: number | null; photo_url?: string | null }[]
-  >([]);
+  const [ordonnanceQuickAlternatives, setOrdonnanceQuickAlternatives] = useState<ProductCatalogHit[]>([]);
   const [ordonnanceAltQuery, setOrdonnanceAltQuery] = useState("");
   const [ordonnanceAltHits, setOrdonnanceAltHits] = useState<ProductCatalogHit[]>([]);
   const propCatalogSearchActive = propOpen || ordonnanceQuickAddOpen;
