@@ -574,6 +574,9 @@ type PublishConfirmRowMeta = {
   inferredKey: string;
   availUi: ReturnType<typeof availabilityStatusUi>;
   proposed: boolean;
+  ordonnancePrincipal: boolean;
+  additionalProposed: boolean;
+  prescribedQty: number | null;
   prodName: string;
   priceMad: string;
   note: string;
@@ -584,24 +587,34 @@ type PublishConfirmRowMeta = {
 function buildPublishConfirmRowMeta(
   r: ItemRow,
   fd: ItemDraft,
-  requestType?: string | null
+  requestType?: string | null,
+  amendmentBundles: { amendments: unknown }[] = []
 ): PublishConfirmRowMeta {
   const proposed = isPharmacistProposedRow(r);
-  const requestedQtyForInfer =
-    requestType === "prescription" && isPrescriptionOrdonnancePharmacistLine(requestType, r)
-      ? ordonnanceDraftRequestedQty(r, fd)
-      : inferRequestedQtyForAvailability(r);
+  const ordonnancePrincipal =
+    requestType === "prescription" &&
+    isPrescriptionOrdonnancePrincipalLine(requestType, r, amendmentBundles);
+  const additionalProposed =
+    requestType === "prescription" &&
+    isPrescriptionAdditionalProposedLine(requestType, r, amendmentBundles);
+  const requestedQtyForInfer = ordonnancePrincipal
+    ? ordonnanceDraftRequestedQty(r, fd)
+    : inferRequestedQtyForAvailability(r);
   let inferredKey = fd.availability_status;
   try {
     inferredKey = inferAvailabilityStatusFromQty({
       status: fd.availability_status,
       availableQty: Number(fd.available_qty || "0"),
       requestedQty: requestedQtyForInfer,
-      isProposedLine: proposed,
+      isProposedLine:
+        additionalProposed ||
+        (requestType === "product_request" && isProductRequestAjoutOfficineLine(requestType, r)) ||
+        requestType === "free_consultation",
     });
   } catch {
     inferredKey = fd.availability_status;
   }
+  const prescribedQty = ordonnancePrincipal ? requestedQtyForInfer : null;
   const availUi = availabilityStatusUi(inferredKey);
   const prodName = one(r.products)?.name ?? "Produit";
   const priceMad =
@@ -614,23 +627,46 @@ function buildPublishConfirmRowMeta(
       ? formatDateShortFr(fd.expected_availability_date.trim())
       : null;
   const alts = normalizeAlts(r.request_item_alternatives);
-  return { r, fd, inferredKey, availUi, proposed, prodName, priceMad, note, eta, alts };
+  return {
+    r,
+    fd,
+    inferredKey,
+    availUi,
+    proposed,
+    ordonnancePrincipal,
+    additionalProposed,
+    prescribedQty,
+    prodName,
+    priceMad,
+    note,
+    eta,
+    alts,
+  };
+}
+
+function publishConfirmLineBadge(meta: PublishConfirmRowMeta, fallbackProposed: string, ordonnanceBadge: string) {
+  if (meta.ordonnancePrincipal) return { label: ordonnanceBadge, tone: "ordonnance" as const };
+  if (meta.additionalProposed) return { label: "Proposé", tone: "officine" as const };
+  if (meta.proposed) return { label: fallbackProposed, tone: "officine" as const };
+  return { label: fallbackProposed, tone: "officine" as const };
 }
 
 function PublishConfirmLineLi({
   meta,
   altQtyDrafts,
   proposedBadgeLabel,
-  proposedBadgeTone = "officine",
+  ordonnanceBadgeLabel,
 }: {
   meta: PublishConfirmRowMeta;
   altQtyDrafts: Record<string, string>;
   proposedBadgeLabel: string;
-  proposedBadgeTone?: "ordonnance" | "officine";
+  ordonnanceBadgeLabel: string;
 }) {
-  const { r, fd, availUi, proposed, prodName, priceMad, note, eta, alts } = meta;
+  const { r, fd, availUi, proposed, prodName, priceMad, note, eta, alts, ordonnancePrincipal, prescribedQty } = meta;
   const AvailIcon = availUi.Icon;
-  const ordonnanceTone = proposed && proposedBadgeTone === "ordonnance";
+  const lineBadge = publishConfirmLineBadge(meta, proposedBadgeLabel, ordonnanceBadgeLabel);
+  const ordonnanceTone = proposed && lineBadge.tone === "ordonnance";
+  const availableQtyNum = Number(fd.available_qty || "0");
   return (
     <li
       key={r.id}
@@ -654,7 +690,7 @@ function PublishConfirmLineLi({
                   ordonnanceTone ? "bg-amber-700" : "bg-violet-600"
                 )}
               >
-                {proposedBadgeLabel}
+                {lineBadge.label}
               </span>
               {r.pharmacist_proposal_reason?.trim() ? (
                 <p
@@ -698,9 +734,21 @@ function PublishConfirmLineLi({
       </div>
       <dl className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] tabular-nums text-muted-foreground sm:grid-cols-3">
         <div>
-          <dt className="font-bold text-foreground/80">Qté / stock</dt>
-          <dd className="font-semibold text-foreground">{fd.available_qty || "—"}</dd>
+          <dt className="font-bold text-foreground/80">
+            {ordonnancePrincipal ? "Prescrit" : "Qté / stock"}
+          </dt>
+          <dd className="font-semibold text-foreground">
+            {ordonnancePrincipal ? (prescribedQty ?? "—") : fd.available_qty || "—"}
+          </dd>
         </div>
+        {ordonnancePrincipal ? (
+          <div>
+            <dt className="font-bold text-foreground/80">Dispo</dt>
+            <dd className="font-semibold text-foreground">
+              {Number.isFinite(availableQtyNum) ? availableQtyNum : "—"}
+            </dd>
+          </div>
+        ) : null}
         <div>
           <dt className="font-bold text-foreground/80">Prix</dt>
           <dd className="font-semibold text-foreground">{priceMad}</dd>
@@ -3910,14 +3958,14 @@ export default function PharmacienDemandeDetailPage() {
     for (const r of displayRows) {
       const fd = draft[r.id];
       if (!fd) continue;
-      all.push(buildPublishConfirmRowMeta(r, fd, request?.request_type));
+      all.push(buildPublishConfirmRowMeta(r, fd, request?.request_type, supplyAmendmentBundles));
     }
     return {
       ready: all.filter((m) => publishConfirmModalGroup(m.inferredKey) === "ready"),
       order: all.filter((m) => publishConfirmModalGroup(m.inferredKey) === "order"),
       blocked: all.filter((m) => publishConfirmModalGroup(m.inferredKey) === "blocked"),
     };
-  }, [displayRows, draft]);
+  }, [displayRows, draft, request?.request_type, supplyAmendmentBundles]);
 
   const pharmaHistoryBlocks = useMemo(() => {
     if (!pharmaHistoryRowId || !request) return [];
@@ -3933,6 +3981,7 @@ export default function PharmacienDemandeDetailPage() {
       dossierHistory: dossierHistoryTimeline,
       dossierHistoryDetailParagraphs: pharmacistDossierHistoryDetailParagraphsFr,
       pharmacistProposedOriginLabel: getRequestKindWorkflowCopy(request.request_type).timelinePharmacistProposedOrigin,
+      timelineAudience: "pharmacist",
     });
   }, [pharmaHistoryRowId, request, items, supplyAmendmentBundles, dossierHistoryTimeline]);
 
@@ -4464,6 +4513,9 @@ export default function PharmacienDemandeDetailPage() {
                 isPrescriptionOrdonnancePrincipalLine(request.request_type, row, supplyAmendmentBundles);
               const isOrdonnancePharmacistLine =
                 request?.request_type === "prescription" && isPharmacistProposedRow(row);
+              const isPrescriptionExtraProposed =
+                request != null &&
+                isPrescriptionAdditionalProposedLine(request.request_type, row, supplyAmendmentBundles);
               const draftAvailQty = Number(f.available_qty);
               const draftRequestedQtyForInfer = isOrdonnancePharmacistLine
                 ? ordonnanceDraftRequestedQty(row, f)
@@ -4472,7 +4524,10 @@ export default function PharmacienDemandeDetailPage() {
                 status: f.availability_status,
                 availableQty: Number.isFinite(draftAvailQty) ? draftAvailQty : 0,
                 requestedQty: draftRequestedQtyForInfer,
-                isProposedLine: isAjoutOfficineLine || request?.request_type === "free_consultation",
+                isProposedLine:
+                  isAjoutOfficineLine ||
+                  request?.request_type === "free_consultation" ||
+                  isPrescriptionExtraProposed,
               });
               const statusForBadge =
                 lineLockedTrace || respondedFrozenView || !canEditThisRow
@@ -4480,9 +4535,6 @@ export default function PharmacienDemandeDetailPage() {
                   : draftInferredStatus;
               const availUi = availabilityStatusUi(statusForBadge);
               const AvailIcon = availUi.Icon;
-              const isPrescriptionExtraProposed =
-                request != null &&
-                isPrescriptionAdditionalProposedLine(request.request_type, row, supplyAmendmentBundles);
               const lineProposedBadge = isOrdonnancePrincipalLine
                 ? ordonnanceLineBadge
                 : isPrescriptionExtraProposed
@@ -6202,7 +6254,7 @@ export default function PharmacienDemandeDetailPage() {
                           meta={meta}
                           altQtyDrafts={altQtyDrafts}
                           proposedBadgeLabel={proposedBadgeLabel}
-                          proposedBadgeTone={isPrescription ? "ordonnance" : "officine"}
+                          ordonnanceBadgeLabel={ordonnanceLineBadge}
                         />
                       ))}
                     </ul>
@@ -6220,7 +6272,7 @@ export default function PharmacienDemandeDetailPage() {
                           meta={meta}
                           altQtyDrafts={altQtyDrafts}
                           proposedBadgeLabel={proposedBadgeLabel}
-                          proposedBadgeTone={isPrescription ? "ordonnance" : "officine"}
+                          ordonnanceBadgeLabel={ordonnanceLineBadge}
                         />
                       ))}
                     </ul>
@@ -6238,7 +6290,7 @@ export default function PharmacienDemandeDetailPage() {
                           meta={meta}
                           altQtyDrafts={altQtyDrafts}
                           proposedBadgeLabel={proposedBadgeLabel}
-                          proposedBadgeTone={isPrescription ? "ordonnance" : "officine"}
+                          ordonnanceBadgeLabel={ordonnanceLineBadge}
                         />
                       ))}
                     </ul>

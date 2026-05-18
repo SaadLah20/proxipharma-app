@@ -19,6 +19,12 @@ export function patientPrescriptionLineBadge(
   amendmentBundles: { amendments: unknown }[]
 ): string | null {
   if (requestType !== "prescription" || row.line_source !== "pharmacist_proposed") return null;
+  if (
+    row.patient_chosen_alternative_id &&
+    isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)
+  ) {
+    return "Ordonnance";
+  }
   if (row.patient_chosen_alternative_id) return "Alternative";
   if (isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)) return "Ordonnance";
   if (isPrescriptionAdditionalProposedLine(requestType, row, amendmentBundles)) {
