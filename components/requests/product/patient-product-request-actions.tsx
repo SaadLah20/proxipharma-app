@@ -85,6 +85,7 @@ import {
 import {
   isPrescriptionAdditionalProposedLine,
   isPrescriptionOrdonnancePrincipalLine,
+  PRESCRIPTION_ADDITIONAL_PROPOSED_REASON,
 } from "@/lib/prescription-pharmacist-lines";
 import { inferArchiveSnapshotStatus } from "@/lib/request-archive-snapshot-status";
 import { patientLineProposedBadgeLabel } from "@/lib/patient-line-proposed-badge";
@@ -663,18 +664,24 @@ function PatientTraceNotRetainedRow({
   onOpenHistory,
   postConfirmBadges,
   onPhotoPreview,
+  requestType,
 }: {
   row: ActionItemRow;
   onOpenHistory: () => void;
   postConfirmBadges?: string[];
   onPhotoPreview?: (url: string, title: string) => void;
+  requestType?: string;
 }) {
   const prod = one(row.products);
   const name = prod?.name ?? "Produit";
   const eff = row.availability_status;
   const lineKind =
     row.line_source === "pharmacist_proposed" ? (
-      <span className="text-violet-800">{requestItemLineSourceFr.pharmacist_proposed}</span>
+      <span className={requestType === "prescription" ? "text-amber-900" : "text-violet-800"}>
+        {requestType === "prescription"
+          ? PRESCRIPTION_ADDITIONAL_PROPOSED_REASON
+          : requestItemLineSourceFr.pharmacist_proposed}
+      </span>
     ) : null;
   return (
     <li className="flex flex-col gap-1 rounded-md border border-border/70 bg-muted/15 px-2 py-1.5">
@@ -972,6 +979,7 @@ function ReadonlyArchivedProductBucketsView({
               <PatientTraceNotRetainedRow
                 key={row.id}
                 row={row}
+                requestType={requestType}
                 onOpenHistory={() => onOpenLineHistory(row.id)}
                 postConfirmBadges={linePostConfirmBadgesById[row.id]}
                 onPhotoPreview={onPhotoPreview}
@@ -1220,7 +1228,7 @@ function summaryThemeClasses(accent: RequestKindAccent) {
   };
 }
 
-function PatientSentEnvoyeeSummaryCard({
+export function PatientSentEnvoyeeSummaryCard({
   pharmacyContact,
   pharmacyId,
   dossierRefLabel,
@@ -1363,9 +1371,11 @@ type Props = {
   requestType?: string;
   prescriptionPaths?: PrescriptionPagePaths | null;
   prescriptionNote?: string | null;
+  /** Récap dossier déjà affiché dans le chrome sticky consultation (évite le doublon). */
+  summaryInPageChrome?: boolean;
 };
 
-function buildPatientSummaryStatusHint(
+export function buildPatientSummaryStatusHint(
   status: string,
   requestType: string,
   workflow: ReturnType<typeof getRequestKindWorkflowCopy>
@@ -1385,7 +1395,7 @@ function buildPatientSummaryStatusHint(
   return workflow.patientWaitingSubmittedHint;
 }
 
-function buildPatientLineCountLabel(
+export function buildPatientLineCountLabel(
   requestType: string,
   status: string,
   lineCount: number
@@ -2138,21 +2148,17 @@ function buildNonRetainedConfirmLines(
     const on = st.branch !== null && cap > 0;
     if (!on) {
       const isRxProp = requestType === "prescription" && row.line_source === "pharmacist_proposed";
-      const isOrdonnance =
-        isRxProp && isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles);
       const isExtra =
         isRxProp && isPrescriptionAdditionalProposedLine(requestType, row, amendmentBundles);
       out.push({
         rowId: row.id,
         productName: one(row.products)?.name ?? "Produit",
         isProposed: isExtra || (row.line_source === "pharmacist_proposed" && requestType !== "prescription"),
-        skipLabel: isOrdonnance
-          ? "Ordonnance"
-          : isExtra
-            ? "Produit proposé par la pharmacie"
-            : row.line_source === "pharmacist_proposed"
-              ? "Proposition"
-              : null,
+        skipLabel: isRxProp
+          ? PRESCRIPTION_ADDITIONAL_PROPOSED_REASON
+          : row.line_source === "pharmacist_proposed"
+            ? "Proposition"
+            : null,
       });
     }
   }
@@ -2314,6 +2320,7 @@ export function PatientProductRequestActions({
   requestType = "product_request",
   prescriptionPaths = null,
   prescriptionNote = null,
+  summaryInPageChrome = false,
 }: Props) {
   const pathname = usePathname();
   const kindConfig = getRequestKindConfig(requestType);
@@ -2989,7 +2996,7 @@ export function PatientProductRequestActions({
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
       ) : null}
 
-      {(showWaitingShell || showConfirm || showConfirmedCards) && pharmacyId ? (
+      {(showWaitingShell || showConfirm || showConfirmedCards) && pharmacyId && !summaryInPageChrome ? (
         <PatientSentEnvoyeeSummaryCard
           pharmacyContact={pharmacyContact}
           pharmacyId={pharmacyId}
@@ -3236,6 +3243,7 @@ export function PatientProductRequestActions({
                       <PatientTraceNotRetainedRow
                         key={row.id}
                         row={row}
+                        requestType={requestType}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
                         postConfirmBadges={linePostConfirmBadgesById[row.id]}
                         onPhotoPreview={openProductPhotoPreview}

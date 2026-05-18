@@ -66,6 +66,7 @@ import { RequestKindHeader } from "@/components/requests/shared/request-kind-hea
 import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
 import { ConsultationBriefCompact } from "@/components/requests/consultation/consultation-brief-compact";
 import { ConsultationDetailTabBar } from "@/components/requests/consultation/consultation-detail-tab-bar";
+import { ConsultationDetailStickyChrome } from "@/components/requests/consultation/consultation-detail-sticky-chrome";
 import {
   getConsultationDefaultTab,
   type ConsultationDetailTab,
@@ -91,6 +92,7 @@ import {
   nudgeOrdonnanceAvailableQty,
   nudgeOrdonnanceRequestedQty,
   ordonnanceDraftRequestedQty,
+  ordonnanceInsertAvailableQty,
 } from "@/lib/prescription-ordonnance-line-qty";
 import type { ConsultationImagePaths } from "@/lib/consultation-media";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
@@ -934,7 +936,10 @@ function buildItemDraftFromRow(row: ItemRow, requestStatus?: string | null, requ
   const catalogPph = one(row.products)?.price_pph;
   const isProp = row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
   const isAjoutOfficine = requestType === "product_request" && isProp;
-  const isOrdonnancePharma = requestType === "prescription" && isProp;
+  const isOrdonnancePharma =
+    requestType === "prescription" &&
+    isProp &&
+    isPrescriptionOrdonnancePrincipalLine(requestType, row, []);
   const postConfirmSupply =
     requestStatus != null && ["confirmed", "treated"].includes(requestStatus) && row.is_selected_by_patient;
   const chosenId = row.patient_chosen_alternative_id ?? null;
@@ -959,8 +964,16 @@ function buildItemDraftFromRow(row: ItemRow, requestStatus?: string | null, requ
     if (!Number.isFinite(fromAlt)) fromAlt = selBase;
     availNum = Math.max(0, Math.min(cap, Math.floor(fromAlt)));
   } else {
-    availNum = row.available_qty != null ? Number(row.available_qty) : Number(row.requested_qty);
-    if (!Number.isFinite(availNum)) availNum = reqCap;
+    const rowAvailStatus = row.availability_status ?? "available";
+    if (
+      isOrdonnancePharma &&
+      (rowAvailStatus === "market_shortage" || rowAvailStatus === "unavailable")
+    ) {
+      availNum = row.available_qty != null ? Number(row.available_qty) : 0;
+    } else {
+      availNum = row.available_qty != null ? Number(row.available_qty) : Number(row.requested_qty);
+    }
+    if (!Number.isFinite(availNum)) availNum = isOrdonnancePharma ? 0 : reqCap;
     if (isAjoutOfficine) {
       availNum = Math.max(1, Math.floor(availNum));
     } else {
@@ -1159,10 +1172,47 @@ function diffRespondedSnapshots(
   return lines;
 }
 
+function unitPricesEqualForSupplyAmend(
+  a: number | null | undefined,
+  b: number | null | undefined
+): boolean {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  const na = Number(a);
+  const nb = Number(b);
+  if (!Number.isFinite(na) || !Number.isFinite(nb)) return false;
+  return Math.abs(na - nb) < 0.0001;
+}
+
+/** Champs stock / dispo persistés : branche alternative retenue si le patient l’a choisie. */
+function supplyRowPersistedSupplyFields(row: ItemRow) {
+  const chosenId = row.patient_chosen_alternative_id ?? null;
+  if (chosenId) {
+    const chosen = normalizeAlts(row.request_item_alternatives).find((a) => a.id === chosenId);
+    if (chosen) {
+      return {
+        available_qty: chosen.available_qty != null ? Number(chosen.available_qty) : null,
+        availability_status: chosen.availability_status ?? null,
+        unit_price: chosen.unit_price ?? row.unit_price ?? null,
+        pharmacist_comment: chosen.pharmacist_comment ?? null,
+        expected_availability_date: chosen.expected_availability_date ?? null,
+      };
+    }
+  }
+  return {
+    available_qty: row.available_qty != null ? Number(row.available_qty) : null,
+    availability_status: row.availability_status ?? null,
+    unit_price: row.unit_price ?? null,
+    pharmacist_comment: row.pharmacist_comment ?? null,
+    expected_availability_date: row.expected_availability_date ?? null,
+  };
+}
+
 function buildSupplyStructuralAmends(
   items: ItemRow[],
   draft: Draft,
-  requestType: string
+  requestType: string,
+  lineModifyConsent: Record<string, { channel: string; motive: string }> = {}
 ): SupplyAmendmentEntryJson[] {
   const out: SupplyAmendmentEntryJson[] = [];
   for (const row of items) {
@@ -1172,34 +1222,33 @@ function buildSupplyStructuralAmends(
     if (Boolean(f.withdrawn_after_confirm)) {
       continue;
     }
+    if (!lineModifyConsent[row.id]?.channel?.trim()) {
+      continue;
+    }
     let payload: ReturnType<typeof buildItemUpdatePayload>;
     try {
       payload = buildItemUpdatePayload(f, row, requestType);
     } catch {
       continue;
     }
-    const qtyChanged = (row.available_qty ?? null) !== (payload.available_qty ?? null);
-    const avChanged = (row.availability_status ?? null) !== (payload.availability_status ?? null);
-    const priceEq =
-      (row.unit_price == null && payload.unit_price == null) ||
-      (row.unit_price != null &&
-        payload.unit_price != null &&
-        Number(row.unit_price) === Number(payload.unit_price));
-    const priceChanged = !priceEq;
-    const ccRow = (row.pharmacist_comment ?? "").trim();
+    const persisted = supplyRowPersistedSupplyFields(row);
+    const qtyChanged = persisted.available_qty !== (payload.available_qty ?? null);
+    const avChanged = persisted.availability_status !== (payload.availability_status ?? null);
+    const priceChanged = !unitPricesEqualForSupplyAmend(persisted.unit_price, payload.unit_price);
+    const ccRow = (persisted.pharmacist_comment ?? "").trim();
     const ccNew = (payload.pharmacist_comment ?? "").trim();
     const ccChanged = ccRow !== ccNew;
-    const dRow = (row.expected_availability_date ?? "").trim();
+    const dRow = (persisted.expected_availability_date ?? "").trim();
     const dNew = (payload.expected_availability_date ?? "").trim().slice(0, 10);
     const dateChanged = dRow !== dNew;
     if (qtyChanged || avChanged || priceChanged || ccChanged || dateChanged) {
       const bits: string[] = [];
       if (avChanged) {
         bits.push(
-          `disponibilité « ${availabilityStatusFr[row.availability_status ?? ""] ?? row.availability_status ?? "—"} » → « ${availabilityStatusFr[payload.availability_status] ?? payload.availability_status} »`
+          `disponibilité « ${availabilityStatusFr[persisted.availability_status ?? ""] ?? persisted.availability_status ?? "—"} » → « ${availabilityStatusFr[payload.availability_status] ?? payload.availability_status} »`
         );
       }
-      if (qtyChanged) bits.push(`quantité officine ${row.available_qty ?? "—"} → ${payload.available_qty}`);
+      if (qtyChanged) bits.push(`quantité officine ${persisted.available_qty ?? "—"} → ${payload.available_qty}`);
       if (priceChanged) bits.push("prix unitaire");
       if (dateChanged) bits.push("date de disponibilité");
       if (ccChanged) bits.push("commentaire officine");
@@ -1254,7 +1303,7 @@ function buildConfirmedSupplySaveSummaryLines(
     );
   }
 
-  const amends = buildSupplyStructuralAmends(items, draft, requestType);
+  const amends = buildSupplyStructuralAmends(items, draft, requestType, lineModifyConsent);
   for (const e of amends) {
     const head = (e.summary ?? "").trim() || e.kind || "Mise à jour officine";
     const det = (e.detail ?? "").trim();
@@ -1298,7 +1347,8 @@ function buildConfirmedSupplySaveSummaryLines(
       }
       const dq = altQtyDrafts[alt.id];
       if (dq === undefined) continue;
-      const persisted = String(alt.available_qty ?? row.requested_qty);
+      if (alt.available_qty == null) continue;
+      const persisted = String(alt.available_qty);
       const trimmed = String(dq).trim();
       if (trimmed === persisted) continue;
       const an = one(alt.products)?.name ?? "Alternative";
@@ -1569,7 +1619,13 @@ export default function PharmacienDemandeDetailPage() {
   const [ordonnanceQuickAlternatives, setOrdonnanceQuickAlternatives] = useState<ProductCatalogHit[]>([]);
   const [ordonnanceAltQuery, setOrdonnanceAltQuery] = useState("");
   const [ordonnanceAltHits, setOrdonnanceAltHits] = useState<ProductCatalogHit[]>([]);
-  const propCatalogSearchActive = propOpen || ordonnanceQuickAddOpen;
+  const propCatalogSearchActive = useMemo(
+    () =>
+      propOpen ||
+      ordonnanceQuickAddOpen ||
+      (request?.request_type === "free_consultation" && consultationTab === "products"),
+    [propOpen, ordonnanceQuickAddOpen, request?.request_type, consultationTab]
+  );
   const ordonnanceAltDebounced = useMemo(() => ordonnanceAltQuery.trim(), [ordonnanceAltQuery]);
   const propDebounced = useMemo(() => propQuery.trim(), [propQuery]);
   const propVisibleHits =
@@ -2471,14 +2527,17 @@ export default function PharmacienDemandeDetailPage() {
           PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX,
           Math.max(1, opts?.qty ?? (parseInt(propQty, 10) || 1))
         );
+    const availRawForInsert = opts?.availability ?? ordonnanceQuickAvailability;
+    const parsedAvailOpt =
+      opts?.availableQty ??
+      (ordonnanceQuickAvailableQty.trim() === ""
+        ? undefined
+        : parseInt(ordonnanceQuickAvailableQty, 10));
     const availableQty = isPrescriptionInsert
-      ? Math.min(
-          requestedQty,
-          Math.max(0, opts?.availableQty ?? (parseInt(ordonnanceQuickAvailableQty, 10) || requestedQty))
-        )
+      ? ordonnanceInsertAvailableQty(availRawForInsert, requestedQty, parsedAvailOpt)
       : requestedQty;
     const qty = isPrescriptionInsert ? availableQty : requestedQty;
-    const availRaw = opts?.availability ?? "available";
+    const availRaw = opts?.availability ?? (isPrescriptionInsert ? availRawForInsert : "available");
     const avail = isPrescriptionInsert
       ? inferAvailabilityStatusFromQty({
           status: availRaw,
@@ -2605,7 +2664,7 @@ export default function PharmacienDemandeDetailPage() {
       if (opts?.fromQuickAdd) {
         resetOrdonnanceQuickAddForm();
       } else {
-        setPropOpen(false);
+        if (request?.request_type !== "free_consultation") setPropOpen(false);
         resetPropForm();
       }
       return;
@@ -2684,7 +2743,7 @@ export default function PharmacienDemandeDetailPage() {
     if (opts?.fromQuickAdd) {
       resetOrdonnanceQuickAddForm();
     } else {
-      setPropOpen(false);
+      if (request?.request_type !== "free_consultation") setPropOpen(false);
       resetPropForm();
     }
     dispatchRequestDetailRefresh(id);
@@ -3260,11 +3319,6 @@ export default function PharmacienDemandeDetailPage() {
         return;
       }
     }
-    const structuralBefore = buildSupplyStructuralAmends(items, draft, request.request_type);
-    const rowIds = new Set<string>();
-    for (const e of structuralBefore) {
-      if (e.request_item_id) rowIds.add(e.request_item_id);
-    }
     for (const row of items) {
       const fd = draft[row.id];
       if (!fd || !row.is_selected_by_patient) continue;
@@ -3284,10 +3338,19 @@ export default function PharmacienDemandeDetailPage() {
         return !was && next;
       })
       .map((r) => r.id);
-    for (const wid of withdrawTransitionIds) rowIds.add(wid);
-    for (const row of proposalSnapLocal) rowIds.add(row.id);
+    const structuralBefore = buildSupplyStructuralAmends(
+      items,
+      draft,
+      request.request_type,
+      lineModifyConsent
+    );
     const consentRowIdFilter = new Set<string>();
-    for (const rid of rowIds) {
+    for (const wid of withdrawTransitionIds) consentRowIdFilter.add(wid);
+    for (const row of proposalSnapLocal) consentRowIdFilter.add(row.id);
+    for (const e of structuralBefore) {
+      if (e.request_item_id) consentRowIdFilter.add(e.request_item_id);
+    }
+    for (const rid of consentRowIdFilter) {
       const row =
         items.find((r) => r.id === rid) ?? proposalSnapLocal.find((r) => r.id === rid);
       const needsConsent =
@@ -3302,12 +3365,12 @@ export default function PharmacienDemandeDetailPage() {
       if (!needsConsent) continue;
       const c = lineModifyConsent[rid];
       if (!c?.channel?.trim()) {
+        const label = row ? validatedProductLabel(row as PatientLineLike) : "cette ligne";
         setError(
-          "Pour chaque ligne concernée, indiquez le canal d’accord (menu ⋮ → Modifier ou Écarter), puis enregistrez."
+          `Canal d’accord patient manquant pour « ${label} ». Ouvrez le menu ⋮ (Modifier ou Écarter) ou l’ajout officine, renseignez le canal, puis enregistrez.`
         );
         return;
       }
-      consentRowIdFilter.add(rid);
     }
     setError("");
     const summaryLines = buildConfirmedSupplySaveSummaryLines(
@@ -3353,11 +3416,6 @@ export default function PharmacienDemandeDetailPage() {
         return;
       }
     }
-    const structuralBefore = buildSupplyStructuralAmends(items, draft, request.request_type);
-    const rowIds = new Set<string>();
-    for (const e of structuralBefore) {
-      if (e.request_item_id) rowIds.add(e.request_item_id);
-    }
     for (const row of items) {
       const fd = draft[row.id];
       if (!fd || !row.is_selected_by_patient) continue;
@@ -3379,10 +3437,19 @@ export default function PharmacienDemandeDetailPage() {
         return !was && next;
       })
       .map((r) => r.id);
-    for (const wid of withdrawTransitionIds) rowIds.add(wid);
-    for (const row of proposalSnapLocal) rowIds.add(row.id);
+    const structuralBefore = buildSupplyStructuralAmends(
+      items,
+      draft,
+      request.request_type,
+      lineModifyConsent
+    );
     const consentRowIdFilterExec = new Set<string>();
-    for (const rid of rowIds) {
+    for (const wid of withdrawTransitionIds) consentRowIdFilterExec.add(wid);
+    for (const row of proposalSnapLocal) consentRowIdFilterExec.add(row.id);
+    for (const e of structuralBefore) {
+      if (e.request_item_id) consentRowIdFilterExec.add(e.request_item_id);
+    }
+    for (const rid of consentRowIdFilterExec) {
       const row =
         items.find((r) => r.id === rid) ?? proposalSnapLocal.find((r) => r.id === rid);
       const needsConsent =
@@ -3397,14 +3464,14 @@ export default function PharmacienDemandeDetailPage() {
       if (!needsConsent) continue;
       const c = lineModifyConsent[rid];
       if (!c?.channel?.trim()) {
+        const label = row ? validatedProductLabel(row as PatientLineLike) : "cette ligne";
         setError(
-          "Pour chaque ligne concernée, indiquez le canal d’accord (menu ⋮ → Modifier ou Écarter), puis enregistrez."
+          `Canal d’accord patient manquant pour « ${label} ». Ouvrez le menu ⋮ (Modifier ou Écarter) ou l’ajout officine, renseignez le canal, puis enregistrez.`
         );
         setSupplySaveConfirmOpen(false);
         setSupplySaveConfirmLines([]);
         return;
       }
-      consentRowIdFilterExec.add(rid);
     }
     try {
       let workItems = [...items];
@@ -3452,10 +3519,10 @@ export default function PharmacienDemandeDetailPage() {
             })
           : null;
       await saveConfirmedAdjustmentsCore(enriched, { items: workItems, draft: workDraft, consent: workConsentFiltered });
-      if (rowIds.size > 0) {
+      if (consentRowIdFilterExec.size > 0) {
         setLineModifyConsent((prev) => {
           const next = { ...prev };
-          for (const rid of rowIds) delete next[rid];
+          for (const rid of consentRowIdFilterExec) delete next[rid];
           return next;
         });
       }
@@ -3877,12 +3944,11 @@ export default function PharmacienDemandeDetailPage() {
   const lineEntriesForList = useMemo(() => {
     if (request && ["confirmed", "treated"].includes(uiRequestStatus ?? "")) {
       const eff = rowsWithEffectiveWithdrawnForSupply(displayRows, draft);
-      const virt = virtualizeItemsForSupplyBuckets(eff, draft, request?.request_type);
-      const flat = flattenPharmacistSupplyListEntries(virt);
+      const flat = flattenPharmacistSupplyListEntries(eff);
       if (flat.length > 0) return flat;
     }
     return displayRows.map((row) => ({ header: null as string | null, row }));
-  }, [request, displayRows, draft]);
+  }, [request, displayRows, draft, uiRequestStatus]);
 
   const pharmacistSupplySurfaceGroups = useMemo(() => {
     type Entry = (typeof lineEntriesForList)[number];
@@ -4070,7 +4136,7 @@ export default function PharmacienDemandeDetailPage() {
   const kindConfig = getRequestKindConfig(request.request_type);
   const workflowCopy = kindConfig.copy.workflow;
   const ordonnanceLineBadge = workflowCopy.pharmacistOrdonnanceLineBadge ?? "Ordonnance";
-  const proposedBadgeLabel = isPrescription ? ordonnanceLineBadge : workflowCopy.pharmacistProposedBadge;
+  const proposedBadgeLabel = workflowCopy.pharmacistProposedBadge;
 
   const patientPhone = patientProfile?.whatsapp?.trim();
   const patientEmail = patientProfile?.email?.trim();
@@ -4127,13 +4193,31 @@ export default function PharmacienDemandeDetailPage() {
     >
       <RequestDetailBackLink config={kindConfig} viewerRole="pharmacien" />
 
-      <RequestKindHeader
-        config={kindConfig}
-        request={request}
-        lineCount={usesLineWorkflow ? displayRows.length : null}
-        showPlannedVisit={sharedShowPlannedVisitBlock(request.status)}
-        viewerRole="pharmacien"
-      />
+      {isConsultation ? (
+        <ConsultationDetailStickyChrome>
+          <RequestKindHeader
+            config={kindConfig}
+            request={request}
+            lineCount={usesLineWorkflow ? displayRows.length : null}
+            showPlannedVisit={sharedShowPlannedVisitBlock(request.status)}
+            viewerRole="pharmacien"
+          />
+          <ConsultationDetailTabBar
+            tab={consultationTab}
+            onTab={setConsultationTab}
+            conversationUnread={conversationUnread}
+            productLineCount={displayRows.length}
+          />
+        </ConsultationDetailStickyChrome>
+      ) : (
+        <RequestKindHeader
+          config={kindConfig}
+          request={request}
+          lineCount={usesLineWorkflow ? displayRows.length : null}
+          showPlannedVisit={sharedShowPlannedVisitBlock(request.status)}
+          viewerRole="pharmacien"
+        />
+      )}
 
       {pharmacistRequestIsHardStopped(request.status) && usesLineWorkflow ? (
         <section
@@ -4345,15 +4429,6 @@ export default function PharmacienDemandeDetailPage() {
 
       {kindConfig.capabilities.workflowEnabled ? (
         <>
-          {isConsultation ? (
-            <ConsultationDetailTabBar
-              tab={consultationTab}
-              onTab={setConsultationTab}
-              conversationUnread={conversationUnread}
-              productLineCount={displayRows.length}
-            />
-          ) : null}
-
           {isConsultation && consultationTab === "conversation" && consultationBrief ? (
             <div className="mt-2 space-y-3">
               <ConsultationBriefPanel
@@ -4511,8 +4586,7 @@ export default function PharmacienDemandeDetailPage() {
               const isOrdonnancePrincipalLine =
                 request != null &&
                 isPrescriptionOrdonnancePrincipalLine(request.request_type, row, supplyAmendmentBundles);
-              const isOrdonnancePharmacistLine =
-                request?.request_type === "prescription" && isPharmacistProposedRow(row);
+              const isOrdonnancePharmacistLine = isOrdonnancePrincipalLine;
               const isPrescriptionExtraProposed =
                 request != null &&
                 isPrescriptionAdditionalProposedLine(request.request_type, row, supplyAmendmentBundles);
@@ -5416,7 +5490,11 @@ export default function PharmacienDemandeDetailPage() {
                         ) : null}
                         <label className="flex w-[5.5rem] flex-col gap-0.5">
                           <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
-                            {isOrdonnancePharmacistLine ? "Qté dispo" : "Qté"}
+                            {isOrdonnancePharmacistLine
+                              ? "Qté dispo"
+                              : isPrescriptionExtraProposed
+                                ? "Qté proposée"
+                                : "Qté"}
                           </span>
                           <div className="flex h-9 items-center overflow-hidden rounded-xl border border-input bg-background shadow-sm">
                             <button
@@ -6724,7 +6802,15 @@ export default function PharmacienDemandeDetailPage() {
               return;
             }
             const req = clampOrdonnanceRequestedQty(parseInt(ordonnanceQuickRequestedQty, 10) || 1);
-            const avail = Math.min(req, parseInt(ordonnanceQuickAvailableQty, 10) || req);
+            const availParsed =
+              ordonnanceQuickAvailableQty.trim() === ""
+                ? undefined
+                : parseInt(ordonnanceQuickAvailableQty, 10);
+            const avail = ordonnanceInsertAvailableQty(
+              ordonnanceQuickAvailability,
+              req,
+              availParsed
+            );
             setPropBusy(true);
             await insertPharmacistProposedLine(ordonnanceQuickAddPick, {
               requestedQty: req,

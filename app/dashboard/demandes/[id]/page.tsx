@@ -21,8 +21,12 @@ import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@
 import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
 import {
   PatientProductRequestActions,
+  PatientSentEnvoyeeSummaryCard,
+  buildPatientLineCountLabel,
+  buildPatientSummaryStatusHint,
   type PatientPharmacyContactInfo,
 } from "@/components/requests/product/patient-product-request-actions";
+import { ConsultationDetailStickyChrome } from "@/components/requests/consultation/consultation-detail-sticky-chrome";
 import {
   PatientRequestOutcomeBanner,
   isPatientProductArchiveStatus,
@@ -422,7 +426,25 @@ export default function DemandeDetailPage() {
   const showPlannedVisitBlock = sharedShowPlannedVisitBlock(request.status);
 
   const hideMainRequestHeader =
-    usesLineWorkflow && ["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status);
+    usesLineWorkflow &&
+    !isConsultationRequest &&
+    ["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status);
+  const consultationChromeStatuses = ["submitted", "in_review", "responded", "confirmed", "treated"] as const;
+  const showConsultationStickyChrome =
+    isConsultationRequest &&
+    !showArchivedReadonly &&
+    consultationChromeStatuses.includes(request.status as (typeof consultationChromeStatuses)[number]);
+  const consultationPharmacyContact = (() => {
+    const ph = one(request.pharmacies);
+    if (!ph?.nom?.trim()) return null;
+    return {
+      nom: ph.nom,
+      ville: ph.ville,
+      telephone: ph.telephone,
+      contact_email: ph.contact_email ?? null,
+      public_ref: ph.public_ref ?? null,
+    } satisfies PatientPharmacyContactInfo;
+  })();
 
   return (
     <PageShell
@@ -505,7 +527,30 @@ export default function DemandeDetailPage() {
         <PrescriptionImageViewer paths={prescriptionPaths} layout="desktop-comfort" className="mt-2" />
       ) : null}
 
-      {isConsultationRequest ? (
+      {showConsultationStickyChrome && consultationPharmacyContact ? (
+        <ConsultationDetailStickyChrome>
+          <PatientSentEnvoyeeSummaryCard
+            pharmacyContact={consultationPharmacyContact}
+            pharmacyId={request.pharmacy_id}
+            dossierRefLabel={displayRequestPublicRef(request)}
+            lineCount={items.length}
+            lineCountLabel={buildPatientLineCountLabel(request.request_type, request.status, items.length)}
+            status={request.status}
+            createdAt={request.created_at}
+            updatedAt={request.updated_at}
+            kindLabel={workflowCopy.patientSummaryKindLabel}
+            refShort={workflowCopy.patientSummaryRefShort}
+            statusHint={buildPatientSummaryStatusHint(request.status, request.request_type, workflowCopy)}
+            accent="violet"
+          />
+          <ConsultationDetailTabBar
+            tab={consultationTab}
+            onTab={setConsultationTab}
+            conversationUnread={conversationUnread}
+            productLineCount={items.length}
+          />
+        </ConsultationDetailStickyChrome>
+      ) : isConsultationRequest ? (
         <ConsultationDetailTabBar
           tab={consultationTab}
           onTab={setConsultationTab}
@@ -613,6 +658,7 @@ export default function DemandeDetailPage() {
           requestType={request.request_type}
           prescriptionPaths={isPrescriptionRequest ? prescriptionPaths : null}
           prescriptionNote={isPrescriptionRequest ? prescriptionNote : null}
+          summaryInPageChrome={showConsultationStickyChrome}
         />
         </section>
       ) : showArchivedReadonly && items.length === 0 ? (

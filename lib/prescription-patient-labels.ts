@@ -23,7 +23,7 @@ export function patientPrescriptionLineBadge(
     row.patient_chosen_alternative_id &&
     isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)
   ) {
-    return "Ordonnance";
+    return "Ordonnance + alternative";
   }
   if (row.patient_chosen_alternative_id) return "Alternative";
   if (isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)) return "Ordonnance";
