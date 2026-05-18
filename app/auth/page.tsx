@@ -14,6 +14,7 @@ import {
   normalizeSignupEmail,
   SIGNUP_PHONE_ALREADY_REGISTERED_FR,
 } from "@/lib/auth-signup-phone";
+import { authEmailRedirectUrl, resolveClientAppBaseUrl } from "@/lib/auth-site-url";
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -187,10 +188,15 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     setPhoneE164(e164);
 
     if (optMail) {
+      const emailRedirectTo = authEmailRedirectUrl(
+        "/auth/callback?next=/auth%3Fmode%3Dsignup",
+        resolveClientAppBaseUrl()
+      );
       const { error } = await supabase.auth.signInWithOtp({
         email: optMail,
         options: {
           shouldCreateUser: true,
+          emailRedirectTo,
           data: {
             full_name: fullName.trim(),
             whatsapp: e164,
@@ -368,11 +374,15 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       whatsapp: phoneE164,
       ...(signupOtpChannel === "email" ? { signup_phone: phoneE164 } : {}),
     };
+    const emailRedirectTo = authEmailRedirectUrl(
+      "/auth/callback?next=/auth%3Fmode%3Dsignup",
+      resolveClientAppBaseUrl()
+    );
     const { error } =
       signupOtpChannel === "email"
         ? await supabase.auth.signInWithOtp({
             email: signupEmailForOtp,
-            options: { shouldCreateUser: false, data: meta },
+            options: { shouldCreateUser: false, emailRedirectTo, data: meta },
           })
         : await supabase.auth.signInWithOtp({
             phone: phoneE164,

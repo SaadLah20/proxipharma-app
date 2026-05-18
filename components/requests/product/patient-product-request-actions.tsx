@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -75,7 +75,18 @@ import {
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { isPatientProductArchiveStatus, type PatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
 import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
-import { PatientPrescriptionEditablePanel } from "@/components/requests/prescription/patient-prescription-editable-panel";
+import {
+  PatientPrescriptionEditablePanel,
+  type PatientPrescriptionPanelHandle,
+} from "@/components/requests/prescription/patient-prescription-editable-panel";
+import {
+  patientPrescriptionChoiceDetail,
+  patientPrescriptionLineBadge,
+} from "@/lib/prescription-patient-labels";
+import {
+  isPrescriptionAdditionalProposedLine,
+  isPrescriptionOrdonnancePrincipalLine,
+} from "@/lib/prescription-pharmacist-lines";
 import { inferArchiveSnapshotStatus } from "@/lib/request-archive-snapshot-status";
 import { patientLineProposedBadgeLabel } from "@/lib/patient-line-proposed-badge";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
@@ -441,6 +452,8 @@ function PatientValidatedCompactLineCard({
   postConfirmBadges,
   onPhotoPreview,
   pharmacistProposedBadgeLabel = pharmacistProposedProductBadgeFr,
+  requestType = "product_request",
+  supplyAmendmentBundles = [],
 }: {
   row: ActionItemRow;
   tier: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation";
@@ -454,6 +467,8 @@ function PatientValidatedCompactLineCard({
   /** Agrandissement photo plein écran (patient). */
   onPhotoPreview?: (url: string, title: string) => void;
   pharmacistProposedBadgeLabel?: string;
+  requestType?: string;
+  supplyAmendmentBundles?: { amendments: unknown }[];
 }) {
   const prod = one(row.products);
   const altList = normalizeAlternatives(row.request_item_alternatives);
@@ -488,8 +503,13 @@ function PatientValidatedCompactLineCard({
           : "rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-slate-50/50 px-2.5 py-2 shadow-sm ring-1 ring-slate-100/90 sm:px-3";
 
   const withdrawnGrey = tier === "retire_apres_validation";
-  const showAjoutOfficineBadge = row.line_source === "pharmacist_proposed";
-  const ordonnanceProposedBadge = pharmacistProposedBadgeLabel === "Ordonnance";
+  const prescriptionBadge =
+    requestType === "prescription" && row.line_source === "pharmacist_proposed"
+      ? patientPrescriptionLineBadge(requestType, row, supplyAmendmentBundles)
+      : null;
+  const lineBadgeLabel = prescriptionBadge ?? (row.line_source === "pharmacist_proposed" ? pharmacistProposedBadgeLabel : null);
+  const showLineBadge = Boolean(lineBadgeLabel);
+  const ordonnanceProposedBadge = lineBadgeLabel === "Ordonnance";
   return (
     <li
       className={clsx(
@@ -552,14 +572,23 @@ function PatientValidatedCompactLineCard({
               ) : (
                 <span className="text-[10px] leading-snug text-foreground/90">{availStatusOnly}</span>
               )}
-              {showAjoutOfficineBadge ? (
+              {chosenAlt && requestType === "prescription" ? (
+                <span className="rounded-full bg-sky-700 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                  Alternative
+                </span>
+              ) : null}
+              {showLineBadge ? (
                 <span
                   className={clsx(
                     "rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
-                    ordonnanceProposedBadge ? "bg-amber-700" : "bg-violet-600"
+                    ordonnanceProposedBadge || prescriptionBadge === "Produit proposé par la pharmacie"
+                      ? "bg-amber-700"
+                      : prescriptionBadge === "Alternative"
+                        ? "bg-sky-700"
+                        : "bg-violet-600"
                   )}
                 >
-                  {pharmacistProposedBadgeLabel}
+                  {lineBadgeLabel}
                 </span>
               ) : null}
               {tier === "retire_apres_validation" ? (
@@ -1395,18 +1424,20 @@ type RespondedChooserProps = {
   onPhotoPreview?: (url: string, title: string) => void;
   pharmacistProposedBadgeLabel: string;
   requestType: string;
+  supplyAmendmentBundles: { amendments: unknown }[];
 };
 
 /** Même résumé qté + dispo que la ligne ait des alternatives ou non. */
-function RespondedProductQtyStatusLine({ row }: { row: ActionItemRow }) {
+function RespondedProductQtyStatusLine({ row, requestType }: { row: ActionItemRow; requestType: string }) {
   const isProposedLine = row.line_source === "pharmacist_proposed";
+  const requestedQty = Math.max(1, Number(row.requested_qty) || 1);
   let inferredKey = row.availability_status ?? "available";
   try {
     inferredKey = inferAvailabilityStatusFromQty({
       status: row.availability_status ?? "available",
       availableQty: Number(row.available_qty ?? 0),
-      requestedQty: row.requested_qty,
-      isProposedLine,
+      requestedQty,
+      isProposedLine: requestType === "product_request" && isProposedLine,
     });
   } catch {
     inferredKey = row.availability_status ?? "available";
@@ -1565,6 +1596,7 @@ function RespondedPatientLineChooser({
   onPhotoPreview,
   pharmacistProposedBadgeLabel,
   requestType,
+  supplyAmendmentBundles,
 }: RespondedChooserProps) {
   const prod = one(row.products);
   const altList = normalizeAlternatives(row.request_item_alternatives);
@@ -1573,7 +1605,19 @@ function RespondedPatientLineChooser({
   const radioName = `line-choice-${row.id}`;
   const currentBranch = selState.branch;
   const isProposedLine = row.line_source === "pharmacist_proposed";
-  const isPrescriptionLine = requestType === "prescription" && isProposedLine;
+  const isOrdonnancePrincipal =
+    requestType === "prescription" &&
+    isPrescriptionOrdonnancePrincipalLine(requestType, row, supplyAmendmentBundles);
+  const isExtraProposed =
+    requestType === "prescription" &&
+    isPrescriptionAdditionalProposedLine(requestType, row, supplyAmendmentBundles);
+  const principalBadgeLabel = isOrdonnancePrincipal
+    ? "Ordonnance"
+    : isExtraProposed
+      ? "Produit proposé par la pharmacie"
+      : isProposedLine
+        ? "Proposition officine"
+        : "Principal";
   const maxBranch = maxQtyForBranch(row, currentBranch, altList);
 
   const unitForSelection =
@@ -1683,7 +1727,7 @@ function RespondedPatientLineChooser({
             >
               {prod?.name ?? "Produit"}
             </p>
-            <RespondedProductQtyStatusLine row={row} />
+            <RespondedProductQtyStatusLine row={row} requestType={requestType} />
             <PatientSentLineNotesModalFr
               productName={prod?.name ?? "Produit"}
               client={row.client_comment ?? ""}
@@ -1758,12 +1802,12 @@ function RespondedPatientLineChooser({
               "flex cursor-pointer gap-2 rounded-xl border-2 p-2 transition",
               capPrincipal === 0 && "cursor-not-allowed opacity-40",
               currentBranch === "principal"
-                ? isPrescriptionLine
+                ? isOrdonnancePrincipal || isExtraProposed
                   ? "border-amber-500 bg-amber-50 ring-2 ring-amber-200/80 shadow-md"
                   : isProposedLine
                     ? "border-violet-500 bg-violet-50 ring-2 ring-violet-200/80 shadow-md"
                     : "border-sky-500 bg-sky-50 ring-2 ring-sky-200/80 shadow-md"
-                : isPrescriptionLine
+                : isOrdonnancePrincipal || isExtraProposed
                   ? "border-amber-200/90 bg-gradient-to-br from-amber-50/50 to-white"
                   : isProposedLine
                     ? "border-violet-200/90 bg-gradient-to-br from-violet-50/50 to-white"
@@ -1786,16 +1830,16 @@ function RespondedPatientLineChooser({
                 <span
                   className={clsx(
                     "rounded-md px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
-                    isPrescriptionLine ? "bg-amber-700" : isProposedLine ? "bg-violet-700" : "bg-sky-700"
+                    isOrdonnancePrincipal || isExtraProposed
+                      ? "bg-amber-700"
+                      : isProposedLine
+                        ? "bg-violet-700"
+                        : "bg-sky-700"
                   )}
                 >
-                  {isPrescriptionLine ? "Ordonnance" : isProposedLine ? "Proposition officine" : "Principal"}
+                  {principalBadgeLabel}
                 </span>
-                {isProposedLine && !isPrescriptionLine ? (
-                  <span className="rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                    {pharmacistProposedBadgeLabel}
-                  </span>
-                ) : !isProposedLine ? (
+                {!isProposedLine && requestType !== "prescription" ? (
                   <span className="rounded-full bg-sky-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
                     Ta demande
                   </span>
@@ -1807,7 +1851,7 @@ function RespondedPatientLineChooser({
               >
                 {prod?.name ?? "Produit"}
               </p>
-              <RespondedProductQtyStatusLine row={row} />
+              <RespondedProductQtyStatusLine row={row} requestType={requestType} />
               <PatientSentLineNotesModalFr
                 productName={prod?.name ?? "Produit"}
                 client={row.client_comment ?? ""}
@@ -1934,6 +1978,7 @@ type PatientConfirmSkippedLine = {
   rowId: string;
   productName: string;
   isProposed: boolean;
+  skipLabel?: string | null;
 };
 
 type PatientConfirmReviewSnapshot = {
@@ -1947,7 +1992,9 @@ type PatientConfirmReviewSnapshot = {
 
 function buildPatientConfirmSelection(
   items: ActionItemRow[],
-  sel: Record<string, LineSelState>
+  sel: Record<string, LineSelState>,
+  requestType: string,
+  amendmentBundles: { amendments: unknown }[]
 ): { rpcPayload: PatientConfirmRpcRow[]; preview: PatientConfirmPreviewLine[] } {
   const preview: PatientConfirmPreviewLine[] = [];
   const rpcPayload = items.map((row) => {
@@ -1971,11 +2018,22 @@ function buildPatientConfirmSelection(
         productName = principalProd?.name ?? "Produit";
         unitPrice = row.unit_price != null ? Number(row.unit_price) : null;
         effStatus = row.availability_status;
-        if (row.line_source === "pharmacist_proposed") {
-          choiceDetail = "Proposition officine — produit ajouté par la pharmacie";
-        } else {
-          choiceDetail = "Produit demandé initialement";
+        try {
+          effStatus = inferAvailabilityStatusFromQty({
+            status: row.availability_status ?? "available",
+            availableQty: Number(row.available_qty ?? 0),
+            requestedQty: Math.max(1, Number(row.requested_qty) || 1),
+            isProposedLine: false,
+          });
+        } catch {
+          effStatus = row.availability_status;
         }
+        choiceDetail = patientPrescriptionChoiceDetail({
+          requestType,
+          row,
+          amendmentBundles,
+          branch: "principal",
+        });
         if (effStatus === "to_order" && row.expected_availability_date) {
           eta = formatDateShortFr(row.expected_availability_date);
         }
@@ -1986,7 +2044,22 @@ function buildPatientConfirmSelection(
         productName = altProd?.name ?? "Alternative";
         unitPrice = alt?.unit_price != null ? Number(alt.unit_price) : null;
         effStatus = alt?.availability_status ?? null;
-        choiceDetail = "Alternative proposée par la pharmacie";
+        try {
+          effStatus = inferAvailabilityStatusFromQty({
+            status: alt?.availability_status ?? "available",
+            availableQty: Number(alt?.available_qty ?? 0),
+            requestedQty: Math.max(1, Number(row.requested_qty) || 1),
+            isProposedLine: false,
+          });
+        } catch {
+          effStatus = alt?.availability_status ?? null;
+        }
+        choiceDetail = patientPrescriptionChoiceDetail({
+          requestType,
+          row,
+          amendmentBundles,
+          branch: "alternative",
+        });
         if (effStatus === "to_order" && alt?.expected_availability_date) {
           eta = formatDateShortFr(alt.expected_availability_date);
         }
@@ -2023,7 +2096,9 @@ function buildPatientConfirmSelection(
 
 function buildNonRetainedConfirmLines(
   items: ActionItemRow[],
-  sel: Record<string, LineSelState>
+  sel: Record<string, LineSelState>,
+  requestType: string,
+  amendmentBundles: { amendments: unknown }[]
 ): PatientConfirmSkippedLine[] {
   const out: PatientConfirmSkippedLine[] = [];
   for (const row of items) {
@@ -2032,10 +2107,22 @@ function buildNonRetainedConfirmLines(
     const cap = maxQtyForBranch(row, st.branch, alts);
     const on = st.branch !== null && cap > 0;
     if (!on) {
+      const isRxProp = requestType === "prescription" && row.line_source === "pharmacist_proposed";
+      const isOrdonnance =
+        isRxProp && isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles);
+      const isExtra =
+        isRxProp && isPrescriptionAdditionalProposedLine(requestType, row, amendmentBundles);
       out.push({
         rowId: row.id,
         productName: one(row.products)?.name ?? "Produit",
-        isProposed: row.line_source === "pharmacist_proposed",
+        isProposed: isExtra || (row.line_source === "pharmacist_proposed" && requestType !== "prescription"),
+        skipLabel: isOrdonnance
+          ? "Ordonnance"
+          : isExtra
+            ? "Produit proposé par la pharmacie"
+            : row.line_source === "pharmacist_proposed"
+              ? "Proposition"
+              : null,
       });
     }
   }
@@ -2216,6 +2303,8 @@ export function PatientProductRequestActions({
     if (!url.trim()) return;
     setProductPhotoPreview({ url: url.trim(), title: title.trim() || "Produit" });
   }, []);
+  const [prescriptionEditMode, setPrescriptionEditMode] = useState(false);
+  const prescriptionPanelRef = useRef<PatientPrescriptionPanelHandle>(null);
 
   /** Lignes `pharmacist_proposed` masquées tant que statut submitted / in_review — elles sont un brouillon coté officine. */
   const itemsFilteredPending = useMemo(
@@ -2580,7 +2669,7 @@ export function PatientProductRequestActions({
   }, []);
 
   const openConfirmReview = useCallback(() => {
-    const built = buildPatientConfirmSelection(items, sel);
+    const built = buildPatientConfirmSelection(items, sel, requestType, supplyAmendmentBundles);
     const err = validatePatientConfirmBeforeReview(built.rpcPayload, visitWin, resolvedVisitDate, visitDate);
     if (err) {
       setActionError(err);
@@ -2588,7 +2677,7 @@ export function PatientProductRequestActions({
     }
     setActionError("");
     const timePg = htmlTimeToPg(visitTimeComposed);
-    const skippedLines = buildNonRetainedConfirmLines(items, sel);
+    const skippedLines = buildNonRetainedConfirmLines(items, sel, requestType, supplyAmendmentBundles);
     setConfirmReviewSnap({
       rpcPayload: built.rpcPayload,
       preview: built.preview,
@@ -2598,7 +2687,7 @@ export function PatientProductRequestActions({
       visitSummaryFr: formatPlannedVisitFr(resolvedVisitDate, timePg ?? null),
     });
     setConfirmReviewOpen(true);
-  }, [items, sel, visitWin, resolvedVisitDate, visitDate, visitTimeComposed]);
+  }, [items, sel, requestType, supplyAmendmentBundles, visitWin, resolvedVisitDate, visitDate, visitTimeComposed]);
 
   useEffect(() => {
     if (!confirmReviewOpen) return;
@@ -2814,6 +2903,7 @@ export function PatientProductRequestActions({
   const showWaitingShell = showProductResubmit || showPrescriptionWaiting;
   const showPatientExitCTA =
     !forceReadOnly &&
+    !showPrescriptionWaiting &&
     (status === "submitted" ||
       status === "in_review" ||
       status === "responded" ||
@@ -2826,6 +2916,7 @@ export function PatientProductRequestActions({
   const showConfirmedCards = uiStatus === "confirmed" || uiStatus === "treated";
   /** Date/heure de passage : à la validation (responded) et pour modifier après coup. */
   const showVisitFields = showConfirm || showConfirmedCards;
+  const visitFieldsEditable = showVisitFields && !forceReadOnly;
 
   const visitTimeFr = visitTimeComposed ? formatTime24hFr(htmlTimeToPg(visitTimeComposed) ?? visitTimeComposed) : "";
 
@@ -2871,11 +2962,14 @@ export function PatientProductRequestActions({
 
       {showPrescriptionWaiting && prescriptionPaths ? (
         <PatientPrescriptionEditablePanel
+          ref={prescriptionPanelRef}
           requestId={requestId}
           status={forceReadOnly ? "in_review" : uiStatus}
           paths={prescriptionPaths}
           patientNote={prescriptionNote}
           onReload={onReload}
+          editMode={prescriptionEditMode}
+          onEditModeChange={setPrescriptionEditMode}
         />
       ) : null}
 
@@ -2904,6 +2998,7 @@ export function PatientProductRequestActions({
                     onPhotoPreview={openProductPhotoPreview}
                     pharmacistProposedBadgeLabel={badgeForRow(row) ?? "Proposé"}
                     requestType={requestType}
+                    supplyAmendmentBundles={supplyAmendmentBundles}
                   />
                 ))}
               </ul>
@@ -2959,6 +3054,8 @@ export function PatientProductRequestActions({
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
                         pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
+                        requestType={requestType}
+                        supplyAmendmentBundles={supplyAmendmentBundles}
                       />
                     ))}
                   </ul>
@@ -2994,6 +3091,8 @@ export function PatientProductRequestActions({
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
                         pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
+                        requestType={requestType}
+                        supplyAmendmentBundles={supplyAmendmentBundles}
                       />
                     ))}
                   </ul>
@@ -3024,6 +3123,8 @@ export function PatientProductRequestActions({
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
                         pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
+                        requestType={requestType}
+                        supplyAmendmentBundles={supplyAmendmentBundles}
                       />
                     ))}
                   </ul>
@@ -3053,6 +3154,8 @@ export function PatientProductRequestActions({
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
                         pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
+                        requestType={requestType}
+                        supplyAmendmentBundles={supplyAmendmentBundles}
                       />
                     ))}
                   </ul>
@@ -3302,17 +3405,35 @@ export function PatientProductRequestActions({
 
       <div className="mt-2 space-y-2">
         {showVisitFields ? (
-          <div className="rounded-xl border-2 border-primary/35 bg-gradient-to-br from-primary/[0.12] via-background to-primary/[0.06] p-2.5 shadow-md ring-1 ring-primary/25 sm:p-3">
+          <div
+            className={clsx(
+              "rounded-xl border-2 p-2.5 shadow-md sm:p-3",
+              visitFieldsEditable
+                ? "border-primary/35 bg-gradient-to-br from-primary/[0.12] via-background to-primary/[0.06] ring-1 ring-primary/25"
+                : "border-slate-200/90 bg-slate-50/80 ring-1 ring-slate-200/50"
+            )}
+          >
             <div className="flex items-center gap-2">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary shadow-sm ring-1 ring-primary/20">
+              <span
+                className={clsx(
+                  "flex size-9 shrink-0 items-center justify-center rounded-lg shadow-sm ring-1",
+                  visitFieldsEditable
+                    ? "bg-primary/15 text-primary ring-primary/20"
+                    : "bg-slate-200/80 text-slate-600 ring-slate-200/80"
+                )}
+              >
                 <Calendar className="size-4" strokeWidth={2} aria-hidden />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-foreground">
-                  Date de passage {showConfirm ? <span className="text-destructive">*</span> : null}
+                  Date de passage {showConfirm && visitFieldsEditable ? (
+                    <span className="text-destructive">*</span>
+                  ) : null}
                 </p>
                 <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
-                  Indique quand tu prévois de passer à l&apos;officine.
+                  {visitFieldsEditable
+                    ? "Indique quand tu prévois de passer à l'officine."
+                    : "Consultation seule — ce dossier n'accepte plus de modification."}
                 </p>
               </div>
             </div>
@@ -3324,8 +3445,10 @@ export function PatientProductRequestActions({
                 max={visitWin.maxYmd}
                 value={resolvedVisitDate}
                 onChange={(e) => setVisitDate(e.target.value)}
-                className="mt-1 block w-full rounded-lg border-2 border-input bg-background px-2 py-2 text-[13px] font-semibold tabular-nums shadow-inner"
-                required={showConfirm}
+                disabled={!visitFieldsEditable}
+                readOnly={!visitFieldsEditable}
+                className="mt-1 block w-full rounded-lg border-2 border-input bg-background px-2 py-2 text-[13px] font-semibold tabular-nums shadow-inner disabled:cursor-default disabled:opacity-90"
+                required={showConfirm && visitFieldsEditable}
               />
             </label>
             <div className="mt-2 grid grid-cols-2 gap-2">
@@ -3339,7 +3462,9 @@ export function PatientProductRequestActions({
                   placeholder="—"
                   value={visitHour}
                   onChange={(e) => setVisitHour(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                  className="mt-1 block w-full rounded-lg border-2 border-input bg-background px-2 py-1.5 text-[12px] font-semibold tabular-nums shadow-inner"
+                  disabled={!visitFieldsEditable}
+                  readOnly={!visitFieldsEditable}
+                  className="mt-1 block w-full rounded-lg border-2 border-input bg-background px-2 py-1.5 text-[12px] font-semibold tabular-nums shadow-inner disabled:cursor-default disabled:opacity-90"
                 />
               </label>
               <label className="block text-[10px] font-semibold text-foreground">
@@ -3352,18 +3477,20 @@ export function PatientProductRequestActions({
                   placeholder="—"
                   value={visitMinute}
                   onChange={(e) => setVisitMinute(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                  className="mt-1 block w-full rounded-lg border-2 border-input bg-background px-2 py-1.5 text-[12px] font-semibold tabular-nums shadow-inner"
+                  disabled={!visitFieldsEditable}
+                  readOnly={!visitFieldsEditable}
+                  className="mt-1 block w-full rounded-lg border-2 border-input bg-background px-2 py-1.5 text-[12px] font-semibold tabular-nums shadow-inner disabled:cursor-default disabled:opacity-90"
                 />
               </label>
             </div>
             {visitTimeFr ? (
               <span className="mt-2 block text-[10px] font-medium text-muted-foreground">Enregistré : {visitTimeFr}</span>
             ) : null}
-            {showConfirmedCards ? (
+            {visitFieldsEditable && showConfirmedCards ? (
               <p className="mt-2 text-[10px] leading-snug text-primary/90">
                 La pharmacie voit les changements sur la demande.
               </p>
-            ) : showConfirm ? (
+            ) : visitFieldsEditable && showConfirm ? (
               <p className="mt-2 text-[10px] leading-snug text-sky-900/85">
                 Ces informations seront transmises avec ta validation.
               </p>
@@ -3490,6 +3617,57 @@ export function PatientProductRequestActions({
                   className="h-10 flex-1 rounded-lg border border-sky-600 bg-sky-700 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:opacity-50"
                 >
                   Enregistrer les modifications
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {showPrescriptionWaiting && !forceReadOnly ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
+          <div className="mx-auto flex max-w-lg flex-col gap-2.5">
+            {!prescriptionEditMode ? (
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={busyAction !== "" || prescriptionPanelRef.current?.isBusy()}
+                  onClick={() => prescriptionPanelRef.current?.startEdit()}
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-amber-500/80 bg-amber-50 px-3 text-sm font-semibold text-amber-950 shadow-sm hover:bg-amber-100/90 disabled:opacity-50"
+                >
+                  <Pencil size={16} aria-hidden />
+                  Modifier
+                </button>
+                <button
+                  type="button"
+                  disabled={busyAction !== "" || prescriptionPanelRef.current?.isBusy()}
+                  onClick={() => prescriptionPanelRef.current?.openCancelOrdonnance()}
+                  className="h-10 w-full rounded-lg border border-rose-300/70 bg-rose-50/80 px-3 text-sm font-semibold text-rose-950 shadow-sm hover:bg-rose-100/90 disabled:opacity-50"
+                >
+                  {workflowCopy.patientCancelWhileWaitingLabel}
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={busyAction !== "" || prescriptionPanelRef.current?.isBusy()}
+                  onClick={() => prescriptionPanelRef.current?.cancelEdit()}
+                  className="h-10 flex-1 rounded-lg border-2 border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    busyAction !== "" ||
+                    prescriptionPanelRef.current?.isBusy() ||
+                    !prescriptionPanelRef.current?.canSave()
+                  }
+                  onClick={() => void prescriptionPanelRef.current?.save()}
+                  className="h-10 flex-1 rounded-lg border border-amber-600 bg-amber-600/95 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 disabled:opacity-50"
+                >
+                  {prescriptionPanelRef.current?.isBusy() ? "Enregistrement…" : "Enregistrer les modifications"}
                 </button>
               </div>
             )}
@@ -3626,7 +3804,18 @@ export function PatientProductRequestActions({
                         className="flex flex-wrap items-baseline justify-between gap-2 rounded-md border border-slate-200/70 bg-white/90 px-2 py-1 text-[10px] text-slate-800"
                       >
                         <span className="min-w-0 font-medium leading-snug">{s.productName}</span>
-                        {s.isProposed ? (
+                        {s.skipLabel ? (
+                          <span
+                            className={clsx(
+                              "shrink-0 rounded px-1 py-px text-[8px] font-semibold uppercase",
+                              s.skipLabel === "Ordonnance" || s.skipLabel === "Produit proposé par la pharmacie"
+                                ? "bg-amber-100 text-amber-950"
+                                : "bg-violet-100 text-violet-900"
+                            )}
+                          >
+                            {s.skipLabel}
+                          </span>
+                        ) : s.isProposed ? (
                           <span className="shrink-0 rounded bg-violet-100 px-1 py-px text-[8px] font-semibold uppercase text-violet-900">
                             Proposition
                           </span>

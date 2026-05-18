@@ -1,3 +1,4 @@
+import { authEmailRedirectUrl } from "@/lib/auth-site-url";
 import { createSupabaseServiceClient } from "@/lib/supabase-service";
 
 export function normalizeAuthEmail(raw: string): string | null {
@@ -7,9 +8,7 @@ export function normalizeAuthEmail(raw: string): string | null {
 }
 
 export function passwordResetRedirectUrl(req: Request): string {
-  const fromEnv = process.env.APP_BASE_URL?.replace(/\/$/, "");
-  const origin = fromEnv || new URL(req.url).origin;
-  return `${origin}/auth/update-password`;
+  return authEmailRedirectUrl("/auth/update-password", new URL(req.url).origin);
 }
 
 /**

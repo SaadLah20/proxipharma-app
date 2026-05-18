@@ -75,6 +75,7 @@ import {
   PRESCRIPTION_ADDITIONAL_PROPOSED_REASON,
 } from "@/lib/prescription-pharmacist-lines";
 import { inferArchiveSnapshotStatus } from "@/lib/request-archive-snapshot-status";
+import { prescriptionLineRequiresPatientConsent } from "@/lib/prescription-patient-labels";
 import {
   applyOrdonnanceAvailabilityChange,
   applyOrdonnanceAvailableQtyChange,
@@ -573,14 +574,22 @@ type PublishConfirmRowMeta = {
   alts: AltRowDb[];
 };
 
-function buildPublishConfirmRowMeta(r: ItemRow, fd: ItemDraft): PublishConfirmRowMeta {
+function buildPublishConfirmRowMeta(
+  r: ItemRow,
+  fd: ItemDraft,
+  requestType?: string | null
+): PublishConfirmRowMeta {
   const proposed = isPharmacistProposedRow(r);
+  const requestedQtyForInfer =
+    requestType === "prescription" && isPrescriptionOrdonnancePharmacistLine(requestType, r)
+      ? ordonnanceDraftRequestedQty(r, fd)
+      : inferRequestedQtyForAvailability(r);
   let inferredKey = fd.availability_status;
   try {
     inferredKey = inferAvailabilityStatusFromQty({
       status: fd.availability_status,
       availableQty: Number(fd.available_qty || "0"),
-      requestedQty: inferRequestedQtyForAvailability(r),
+      requestedQty: requestedQtyForInfer,
       isProposedLine: proposed,
     });
   } catch {
@@ -1017,9 +1026,6 @@ function computeSupplyStructuralDirty(
     if (d.unit_price !== b.unit_price) return true;
     if (d.pharmacist_comment !== b.pharmacist_comment) return true;
     if (d.expected_availability_date !== b.expected_availability_date) return true;
-    if ((d.counter_outcome_draft ?? "unset") !== (row.counter_outcome ?? "unset")) return true;
-    if ((d.counter_cancel_reason_draft ?? null) !== (row.counter_cancel_reason ?? null)) return true;
-    if ((d.counter_cancel_detail_draft ?? null) !== (row.counter_cancel_detail ?? null)) return true;
   }
 
   for (const row of items) {
@@ -2468,6 +2474,60 @@ export default function PharmacienDemandeDetailPage() {
         ...prev,
         [syntheticId]: buildItemDraftFromRow(syntheticRow, request?.status ?? null, request?.request_type),
       }));
+      const altPicks = opts?.alternatives ?? [];
+      if (altPicks.length > 0) {
+        let altValidationError: string | null = null;
+        flushSync(() => {
+          setPendingAlternatives((prev) => {
+            const mergedExisting = pendingAltsAsRankedDb(prev, syntheticId);
+            let next = [...prev];
+            for (const alt of altPicks.slice(0, 3)) {
+              if (alt.id === pick.id) continue;
+              const mergedForRank = [
+                ...mergedExisting,
+                ...pendingAltsAsRankedDb(next, syntheticId),
+              ];
+              if (mergedForRank.some((a) => a.product_id === alt.id)) {
+                altValidationError = "Cette alternative figure déjà sur la liste.";
+                return prev;
+              }
+              const rank = nextAltRank(mergedForRank);
+              if (rank == null) {
+                altValidationError = "Maximum 3 alternatives par ligne.";
+                return prev;
+              }
+              const prefPrice =
+                alt.price_pph != null && !Number.isNaN(Number(alt.price_pph))
+                  ? Number(alt.price_pph)
+                  : null;
+              next = [
+                ...next,
+                {
+                  localAltId: newLocalAltId(),
+                  parentItemId: syntheticId,
+                  rank,
+                  product_id: alt.id,
+                  availability_status: "available",
+                  available_qty: Math.max(1, availableQty),
+                  pharmacist_comment: null,
+                  unit_price: prefPrice,
+                  expected_availability_date: null,
+                  products: {
+                    name: alt.name,
+                    price_pph: alt.price_pph ?? null,
+                    photo_url: alt.photo_url ?? null,
+                  },
+                },
+              ];
+            }
+            return next;
+          });
+        });
+        if (altValidationError) {
+          setError(altValidationError);
+          return;
+        }
+      }
       if (opts?.fromQuickAdd) {
         resetOrdonnanceQuickAddForm();
       } else {
@@ -3110,6 +3170,14 @@ export default function PharmacienDemandeDetailPage() {
     }
     const proposalSnapLocal = pendingProposalRows.filter((r) => isLocalProposedItemId(r.id));
     for (const row of proposalSnapLocal) {
+      if (
+        request.request_type === "prescription" &&
+        !prescriptionLineRequiresPatientConsent(request.request_type, row, supplyAmendmentBundles, {
+          localOnly: true,
+        })
+      ) {
+        continue;
+      }
       const c = lineModifyConsent[row.id];
       if (!c?.channel?.trim()) {
         setError(
@@ -3144,7 +3212,20 @@ export default function PharmacienDemandeDetailPage() {
       .map((r) => r.id);
     for (const wid of withdrawTransitionIds) rowIds.add(wid);
     for (const row of proposalSnapLocal) rowIds.add(row.id);
+    const consentRowIdFilter = new Set<string>();
     for (const rid of rowIds) {
+      const row =
+        items.find((r) => r.id === rid) ?? proposalSnapLocal.find((r) => r.id === rid);
+      const needsConsent =
+        withdrawTransitionIds.includes(rid) ||
+        (row
+          ? request.request_type === "prescription"
+            ? prescriptionLineRequiresPatientConsent(request.request_type, row, supplyAmendmentBundles, {
+                localOnly: isLocalProposedItemId(rid),
+              })
+            : true
+          : true);
+      if (!needsConsent) continue;
       const c = lineModifyConsent[rid];
       if (!c?.channel?.trim()) {
         setError(
@@ -3152,9 +3233,9 @@ export default function PharmacienDemandeDetailPage() {
         );
         return;
       }
+      consentRowIdFilter.add(rid);
     }
     setError("");
-    const consentRowIdFilter = rowIds;
     const summaryLines = buildConfirmedSupplySaveSummaryLines(
       items,
       draft,
@@ -3180,6 +3261,14 @@ export default function PharmacienDemandeDetailPage() {
     const proposalSnapLocal = pendingProposalRows.filter((r) => isLocalProposedItemId(r.id));
     const altSnap = [...pendingAlternatives];
     for (const row of proposalSnapLocal) {
+      if (
+        request.request_type === "prescription" &&
+        !prescriptionLineRequiresPatientConsent(request.request_type, row, supplyAmendmentBundles, {
+          localOnly: true,
+        })
+      ) {
+        continue;
+      }
       const c = lineModifyConsent[row.id];
       if (!c?.channel?.trim()) {
         setError(
@@ -3218,7 +3307,20 @@ export default function PharmacienDemandeDetailPage() {
       .map((r) => r.id);
     for (const wid of withdrawTransitionIds) rowIds.add(wid);
     for (const row of proposalSnapLocal) rowIds.add(row.id);
+    const consentRowIdFilterExec = new Set<string>();
     for (const rid of rowIds) {
+      const row =
+        items.find((r) => r.id === rid) ?? proposalSnapLocal.find((r) => r.id === rid);
+      const needsConsent =
+        withdrawTransitionIds.includes(rid) ||
+        (row
+          ? request.request_type === "prescription"
+            ? prescriptionLineRequiresPatientConsent(request.request_type, row, supplyAmendmentBundles, {
+                localOnly: isLocalProposedItemId(rid),
+              })
+            : true
+          : true);
+      if (!needsConsent) continue;
       const c = lineModifyConsent[rid];
       if (!c?.channel?.trim()) {
         setError(
@@ -3228,13 +3330,14 @@ export default function PharmacienDemandeDetailPage() {
         setSupplySaveConfirmLines([]);
         return;
       }
+      consentRowIdFilterExec.add(rid);
     }
     try {
       let workItems = [...items];
       let workDraft: Draft = { ...draft };
       const workConsent: Record<string, { channel: string; motive: string }> = { ...lineModifyConsent };
       const workConsentFiltered: Record<string, { channel: string; motive: string }> = {};
-      for (const rid of rowIds) {
+      for (const rid of consentRowIdFilterExec) {
         const c = workConsent[rid];
         if (c?.channel?.trim()) workConsentFiltered[rid] = c;
       }
@@ -3671,8 +3774,9 @@ export default function PharmacienDemandeDetailPage() {
   const respondedFrozenView = Boolean(request?.status === "responded" && !respondedEditMode);
   const showLineAndPublishEdits =
     !!request &&
+    !archiveFrozen &&
     (["submitted", "in_review"].includes(uiRequestStatus ?? "") ||
-      (uiRequestStatus === "responded" && respondedEditMode && !archiveFrozen) ||
+      (uiRequestStatus === "responded" && respondedEditMode) ||
       ["confirmed", "treated"].includes(uiRequestStatus ?? ""));
   const usesLineWorkflow =
     request?.request_type === "product_request" ||
@@ -3680,6 +3784,7 @@ export default function PharmacienDemandeDetailPage() {
     request?.request_type === "free_consultation";
   const isPrescription = request?.request_type === "prescription";
   const isConsultation = request?.request_type === "free_consultation";
+  const ordonnanceCatalogEditable = isPrescription && showLineAndPublishEdits;
 
   const lineEntriesForList = useMemo(() => {
     if (request && ["confirmed", "treated"].includes(uiRequestStatus ?? "")) {
@@ -3765,7 +3870,7 @@ export default function PharmacienDemandeDetailPage() {
     for (const r of displayRows) {
       const fd = draft[r.id];
       if (!fd) continue;
-      all.push(buildPublishConfirmRowMeta(r, fd));
+      all.push(buildPublishConfirmRowMeta(r, fd, request?.request_type));
     }
     return {
       ready: all.filter((m) => publishConfirmModalGroup(m.inferredKey) === "ready"),
@@ -3823,14 +3928,15 @@ export default function PharmacienDemandeDetailPage() {
 
   const resetDraftFromRows = useCallback(() => {
     const st = request?.status ?? null;
+    const rt = request?.request_type ?? undefined;
     setDraft(() => {
       const next: Draft = {};
       for (const row of items) {
-        next[row.id] = buildItemDraftFromRow(row, st);
+        next[row.id] = buildItemDraftFromRow(row, st, rt);
       }
       return next;
     });
-  }, [items, request?.status]);
+  }, [items, request?.status, request?.request_type]);
 
   const cancelConfirmedSupplyEdits = useCallback(() => {
     resetDraftFromRows();
@@ -3907,7 +4013,7 @@ export default function PharmacienDemandeDetailPage() {
     canManageSupply;
 
   const showSupplyStatsFooter = usesLineWorkflow && Boolean(canManageSupply) && displayRows.length > 0;
-  const showSupplyDirtyBar = Boolean(canManageSupply && supplyStructuralDirty);
+  const showSupplyDirtyBar = Boolean(canManageSupply && supplyStructuralDirty && !ordonnanceQuickAddOpen);
 
   let bottomChromePaddingClass = "";
   if (showDeclareTreatedSticky && showSupplyStatsFooter) {
@@ -4173,9 +4279,9 @@ export default function PharmacienDemandeDetailPage() {
                 paths={prescriptionPaths}
                 layout="desktop-comfort"
                 className="lg:sticky lg:top-2"
-                allowMobileExpand={showLineAndPublishEdits}
+                allowMobileExpand={ordonnanceCatalogEditable}
                 ordonnanceQuickAdd={
-                  showLineAndPublishEdits
+                  ordonnanceCatalogEditable
                     ? {
                         lineCount: ordonnanceLineCount,
                         onOpenAdd: () => {
@@ -4311,7 +4417,7 @@ export default function PharmacienDemandeDetailPage() {
               const lineProposedBadge = isOrdonnancePrincipalLine
                 ? ordonnanceLineBadge
                 : isPrescriptionExtraProposed
-                  ? "Proposé"
+                  ? PRESCRIPTION_ADDITIONAL_PROPOSED_REASON
                   : isAjoutOfficineLine || isProposedLine
                     ? proposedBadgeLabel
                     : null;
@@ -4746,12 +4852,14 @@ export default function PharmacienDemandeDetailPage() {
                       supplyConfirmBusy={supplyConfirmBusy}
                       lineCounterLocked={lineCounterLocked}
                       showExpandedEditor={
+                        Boolean(canManageSupply) &&
                         selected &&
                         !lineLockedTrace &&
                         !lineCounterLocked &&
                         request.status !== "completed" &&
                         (withdrawnDraft || hasConsent)
                       }
+                      supplyMutationsEnabled={Boolean(canManageSupply)}
                       expandedEditor={expandedEditor}
                       treatedCounterSlot={treatedCounterSlot}
                       lineConversationSlot={lineConvoCompactSlot}

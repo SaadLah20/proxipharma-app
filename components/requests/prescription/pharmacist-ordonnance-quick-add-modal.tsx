@@ -176,7 +176,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[10100] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Ajouter un produit ordonnance"
@@ -190,10 +190,10 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
           <div>
             <p className="text-sm font-bold text-amber-950">Produit ordonnance</p>
             <p className="mt-0.5 text-[11px] text-amber-900/85">
-              QtÃ© prescrite et qtÃ© disponible, comme une demande produits.
+              Qté prescrite et qté disponible, comme une demande produits.
             </p>
             <p className="mt-1 text-[10px] font-semibold tabular-nums text-amber-800">
-              {lineCount} produit{lineCount !== 1 ? "s" : ""} ordonnance enregistrÃ©{lineCount !== 1 ? "s" : ""}
+              {lineCount} produit{lineCount !== 1 ? "s" : ""} ordonnance enregistré{lineCount !== 1 ? "s" : ""}
             </p>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-amber-900 hover:bg-amber-100/80" aria-label="Fermer">
@@ -243,9 +243,9 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                   ))}
                 </ul>
               ) : query.trim().length >= 2 ? (
-                <p className="text-[11px] text-muted-foreground">Aucun rÃ©sultat.</p>
+                <p className="text-[11px] text-muted-foreground">Aucun résultat.</p>
               ) : (
-                <p className="text-[11px] text-muted-foreground">Saisissez au moins 2 caractÃ¨res.</p>
+                <p className="text-[11px] text-muted-foreground">Saisissez au moins 2 caractères.</p>
               )}
             </>
           ) : selectedProduct ? (
@@ -303,7 +303,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
 
               <div className="flex flex-wrap items-end gap-2">
                 <QtyStepper
-                  label="QtÃ© prescrite"
+                  label="Qté prescrite"
                   value={requestedQty}
                   disabled={busy}
                   minusDisabled={(parseInt(requestedQty, 10) || 1) <= 1}
@@ -313,7 +313,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                   onPlus={() => onRequestedQtyNudge(1)}
                 />
                 <QtyStepper
-                  label="QtÃ© dispo"
+                  label="Qté dispo"
                   value={availableQty}
                   disabled={busy || stockDisabled}
                   minusDisabled={stockDisabled || availParsed <= (availability === "to_order" ? 1 : 0)}
@@ -324,7 +324,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                   highlightTeal={availability === "to_order"}
                 />
                 <label className="flex min-w-[9rem] flex-1 flex-col gap-0.5">
-                  <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">DisponibilitÃ©</span>
+                  <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Disponibilité</span>
                   <select
                     value={availability === "partially_available" ? "available" : availability}
                     disabled={busy}
@@ -350,13 +350,13 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                   <InferredIcon className="size-2.5 shrink-0" aria-hidden />
                   {availUi.label}
                 </span>
-                <span>QtÃ© dispo â‰¤ prescrite ({reqN} max). Indispo / rupture â†’ qtÃ© dispo 0.</span>
+                <span>Qté dispo ≤ prescrite ({reqN} max). Indispo / rupture → qté dispo 0.</span>
               </p>
 
               {needsEta ? (
                 <label className="flex flex-col gap-1 rounded-xl border-2 border-teal-400/70 bg-gradient-to-br from-teal-50/90 to-white p-2 shadow-sm ring-1 ring-teal-200/50">
                   <span className="text-[10px] font-bold uppercase tracking-wide text-teal-950">
-                    Date de rÃ©ception prÃ©vue (obligatoire)
+                    Date de réception prévue (obligatoire)
                   </span>
                   <input
                     type="date"
@@ -370,7 +370,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
 
               <div className="rounded-lg border border-slate-200/90 bg-slate-50/80 p-2">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-700">
-                  Alternatives (facultatif Â· max 3)
+                  Alternatives (facultatif · max 3)
                 </p>
                 {alternatives.length > 0 ? (
                   <ul className="mt-1.5 space-y-1">
@@ -379,7 +379,16 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                         key={a.id}
                         className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-white px-2 py-1 text-[11px]"
                       >
-                        <span className="min-w-0 truncate font-medium">{a.name}</span>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="relative flex size-8 shrink-0 overflow-hidden rounded-md border border-slate-200/80 bg-slate-50">
+                            {a.photo_url ? (
+                              <img src={a.photo_url} alt="" className="size-full object-cover" />
+                            ) : (
+                              <Package className="m-auto size-4 text-slate-500" aria-hidden />
+                            )}
+                          </span>
+                          <span className="min-w-0 truncate font-medium">{a.name}</span>
+                        </span>
                         <button
                           type="button"
                           disabled={busy}
@@ -407,16 +416,30 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                       />
                     </div>
                     {altHits.length > 0 ? (
-                      <ul className="mt-1 max-h-24 space-y-0.5 overflow-y-auto">
+                      <ul className="mt-1 max-h-[min(18svh,140px)] space-y-0.5 overflow-y-auto rounded-md border border-border/60 bg-muted/15 p-1">
                         {altHits.map((h) => (
                           <li key={h.id}>
                             <button
                               type="button"
                               disabled={busy}
                               onClick={() => onAddAlternative(h)}
-                              className="w-full rounded px-2 py-1 text-left text-[11px] hover:bg-white disabled:opacity-50"
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[11px] transition hover:bg-white disabled:opacity-50"
                             >
-                              {h.name}
+                              <span className="relative flex size-8 shrink-0 overflow-hidden rounded-md border border-slate-200/80 bg-slate-50">
+                                {h.photo_url ? (
+                                  <img src={h.photo_url} alt="" className="size-full object-cover" />
+                                ) : (
+                                  <Package className="m-auto size-4 text-slate-500" aria-hidden />
+                                )}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate font-medium text-foreground">{h.name}</span>
+                                {pphLabel(h.price_pph) ? (
+                                  <span className="mt-0.5 block text-[10px] font-medium text-teal-800">
+                                    {pphLabel(h.price_pph)}
+                                  </span>
+                                ) : null}
+                              </span>
                             </button>
                           </li>
                         ))}
@@ -436,7 +459,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
             onClick={() => void onConfirmAdd()}
             className="flex min-h-11 w-full items-center justify-center rounded-xl bg-amber-700 px-4 py-2.5 text-sm font-bold text-white shadow-md hover:bg-amber-800 disabled:opacity-50"
           >
-            {busy ? "Ajout en coursâ€¦" : "Ajouter le produit ordonnance"}
+            {busy ? "Ajout en cours…" : "Ajouter le produit ordonnance"}
           </button>
         </div>
       </div>
