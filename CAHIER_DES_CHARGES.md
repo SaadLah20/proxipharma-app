@@ -318,6 +318,27 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-17 — Finalisation UX ordonnance + consultation libre (retours terrain)
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` (commits dont **`0fc70d0`** ordonnance qté prescrite/dispo).
+
+**Ordonnance — retours intégrés** :
+- Modal **`PharmacistOrdonnanceQuickAddModal`** : recherche catalogue ; **ne pas fermer** au clic produit ; bouton **Ajouter** ; **qté prescrite** + **qté dispo** (dispo ≤ prescrit, partiel / indispo / à commander comme demande produits).
+- Lignes liste pharmacien : édition des deux quantités ; plafond dispo = prescrit ; badge **Ordonnance** (plus « Proposé ») — config + patient + modal confirmation envoi.
+- **`lib/prescription-ordonnance-line-qty.ts`** : logique partagée modal / fiche ligne.
+- Séparation stricte **produits ordonnance** (ambre) vs **ajout officine** (violet, uniquement `product_request`).
+
+**Consultation libre** :
+- Migration **`20260529_001`** : photos (3 slots), RPC submit/attach, workflow lignes, Storage `consultations/`.
+- **`ConsultationBriefPanel`** : texte + photos éditables avant réponse ; lightbox ; ESLint `set-state-in-effect` corrigé.
+- Hubs patient/pharmacien violet ; création **`/pharmacie/[id]/consultation-libre`** ; détail complet (`workflowEnabled: true`).
+
+**Documentation** : **`docs/workflow-ordonnance-consultation-REPONSES.md`** (synthèse retours + checklist QA).
+
+**Prod / QA** : appliquer **`20260529_001`** si pas fait ; smoke test ordonnance + consultation + non-régression demande produits ; cocher checklist §D du doc retours.
+
+---
+
 ### Session 2026-05-25 — Refactor `request-kinds` (phase 1) + workflow ordonnances (phase 2)
 
 **Branche** : `fix/validated-supply-ecart-ui-modal` (commit à pousser après cette session).
@@ -326,7 +347,7 @@ Statuts retenus v1:
 - **`lib/request-kinds/`** : registre `product_request` / `prescription` / `free_consultation` (thème, routes hubs, capacités, refs **D/O/C**).
 - UI partagée : **`components/requests/shared/`** (`request-kind-header`, `request-detail-back-link`, `request-type-stub-panel`).
 - Module produits extrait : **`components/requests/product/patient-product-request-actions.tsx`** (réexport depuis l’ancien chemin détail patient).
-- Détail patient/pharmacien : routage par `getRequestKindConfig` ; stub si `workflowEnabled: false` (consultation libre encore).
+- Détail patient/pharmacien : routage par `getRequestKindConfig` ; stub si `workflowEnabled: false` (consultation libre activée ensuite — session **2026-05-17**).
 
 **Phase 2 — ordonnances** :
 - Migrations **`20260525_001`** (compteurs refs **O** par type) · **`20260525_002`** (`page_2_path`, image nullable) · **`20260525_003`** (`_request_uses_product_line_workflow`) · **`20260525_004`** (RPC annulation / supply / traité élargies aux ordonnances).
@@ -1160,7 +1181,8 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 | **Auto expiration** cron supabase **`expire_overdue_requests(interval)`** | Défaut **24 h** après **`responded_at`** (**`20260523_001`**) + passe **`expires_at`** ; alias **`abandon_unconfirmed_responded_requests()`** ; cron **`service_role`** ou **`/api/cron/expire-overdue-requests`** |
 | **SMS hors-app pilote** | Patient **`responded` / `treated`** uniquement ; ref **`request_public_ref`** ; **`20260522_001`**–**`002`** ; webhook + Twilio |
 | **Abandon automatique** 24 h après **`responded`** | **Remplacé** par le même batch **`expire_overdue_requests()`** ( statut cible **`expired`** , pas **`abandoned`** ) |
-| **Ordonnance** : capture + workflow lignes (refs **O**, 1–2 pages) | **Fait** (phase 2 — session **2026-05-25**) ; consultation libre **placeholder** |
+| **Ordonnance** : capture + saisie pharma (qté prescrite/dispo, modal, badge Ordonnance) | **Fait** (sessions **2026-05-25** + **2026-05-17**) — QA pilote §D dans `docs/workflow-ordonnance-consultation-REPONSES.md` |
+| **Consultation libre** : texte + photos + workflow lignes + hubs violet | **Fait** (session **2026-05-17**, migration **`20260529_001`**) — QA pilote idem |
 | **`market_shortages`** insert auto quand pharma choisit **market_shortage** dispo ligne | **Fait** (trigger `20260503_005`) + **UI liste / retrait pharmacien** (`/dashboard/pharmacien/ruptures-marche`) |
 | **Notifications Q34–Q35** | **Q34 MVP fait** ; **Q35** schéma + enqueue + opt-in UI (**`20260505_001`**) ; **livraison messages** (API prestataires + worker) à brancher |
 | **PPH catalogue** sur parcours produits (`price_pph`) | **Fait** (`lib/product-price.ts` + selects + seed `20260503_003`) |
@@ -1272,6 +1294,10 @@ Voir **§13.18**.
 ### 13.19) Phrase de reprise (recommandée — après session **2026-05-25** — ordonnances + registre types)
 
 **« On reprend ProxiPharma sans régression. Lis **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-25)**, **`AGENTS.md`**, **`CONTEXTE.md` §6**. Branche **`fix/validated-supply-ecart-ui-modal`**. Sur Supabase, appliquer dans l’ordre **`20260525_001`**–**`004`** si pas déjà fait. Registre : **`lib/request-kinds/`** ; ordonnance : **`/pharmacie/[id]/demande-ordonnance`**, **`lib/prescription-media.ts`**, **`components/requests/prescription/`**. Avant tout changement : smoke test **demande produits** (catalogue + édition retour catalogue + post-validé) puis **ordonnance** (envoi 1–2 photos → saisie pharma → réponse → validation patient). Consultation libre = phase 3 (`workflowEnabled: false`). Je te dis ensuite quoi faire. »**
+
+### 13.20) Phrase de reprise (recommandée — contexte global ordonnance + consultation)
+
+**« On reprend ProxiPharma. Infra Supabase à jour (toutes les migrations appliquées). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §10 (session 2026-05-17) et `docs/workflow-ordonnance-consultation-REPONSES.md`. Branche `fix/validated-supply-ecart-ui-modal`. Périmètre : demandes produits (référence), ordonnances et consultations libres — registre `lib/request-kinds/`. Ne code rien tant que je n’ai pas précisé ce qui bloque. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 
