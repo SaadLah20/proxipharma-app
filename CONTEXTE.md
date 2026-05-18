@@ -55,10 +55,10 @@ Implémentation : séquences PostgreSQL, table `pharmacy_request_ref_counters`, 
 ### Notifications & analytics pharmacie (migrations `20260505_003` … `006`)
 Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_engagement_events`** pour vues/clics fiche ; dashboard pharmacien (Recharts) avec repli si table absente (`lib/pharmacy-engagement.ts`). Fallback nom patient dans le trigger d’émission si **`full_name` vide** (**`20260505_006`**, fichier SQL daté même jour).
 
-### Types de demande & ordonnances (mise à jour 2026-05-25)
+### Types de demande — ordonnances & consultations libres (mise à jour 2026-05-17)
 - **Registre** : **`lib/request-kinds/`** + UI partagée **`components/requests/shared/`** ; détail patient/pharmacien routé par type.
-- **Ordonnances** : listes hubs **`/dashboard/patient/ordonnances`** et **`/dashboard/pharmacien/ordonnances`** ; capture **`/pharmacie/[id]/demande-ordonnance`** (1–2 photos) ; workflow lignes identique aux produits après **`responded`** ; refs publiques préfixe **O** ; migrations **`20260525_001`**–**`004`**.
-- **Consultations libres** : listes existantes, détail encore **stub** (`workflowEnabled: false`) — phase 3.
+- **Ordonnances** : capture **`/pharmacie/[id]/demande-ordonnance`** ; saisie pharmacien via scan + modal (**qté prescrite / qté dispo**, dispos comme demande produits) ; badge **Ordonnance** ; hubs ambre ; migrations **`20260525_001`**–**`004`**, **`20260526_001`** ; synthèse retours **`docs/workflow-ordonnance-consultation-REPONSES.md`**.
+- **Consultations libres** : **`/pharmacie/[id]/consultation-libre`** (texte + 3 photos) ; brief + conversation ; produits proposés après échange ; hubs violet ; migration **`20260529_001`** ; `workflowEnabled: true`.
 
 ### Workflow « demande de produits » après validation patient (**`confirmed`** — mai 2026)
 Sans migration dédiée pour l’historique structuré : le patient voit ce qu’il a **validé** vs la **préparation actuelle** ; l’historique peut inclure **`audit_v1:`** dans `reason` (voir **`lib/patient-request-history-audit.ts`**, **`CAHIER_DES_CHARGES.md`** §4.4 + §4.5 et journal §10 **2026-05-06** / **2026-05-07**). Côté officine : plafonds qté, alternatives retenues vs indicatif, lignes fermées lecture seule, brouillon conservé au rechargement. Compteur **Annulés** patient : lignes **`cancelled_at_counter`**. Réinitialiser les données de test : **`scripts/clear-all-requests.mjs`** ou **`supabase/scripts/clear-all-requests.sql`**. Canvas de scénarios E2E : **`canvases/product-requests-e2e-test-plan.canvas.tsx`**.

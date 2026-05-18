@@ -75,6 +75,9 @@ import {
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { isPatientProductArchiveStatus, type PatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
 import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
+import { PatientPrescriptionEditablePanel } from "@/components/requests/prescription/patient-prescription-editable-panel";
+import { inferArchiveSnapshotStatus } from "@/lib/request-archive-snapshot-status";
+import { patientLineProposedBadgeLabel } from "@/lib/patient-line-proposed-badge";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 import { getRequestKindWorkflowCopy } from "@/lib/request-kinds/workflow-copy";
 import { patientArchiveIntroCopy, patientArchiveRetainedLabel } from "@/lib/request-kinds/hub-and-terminal-copy";
@@ -2770,13 +2773,22 @@ export function PatientProductRequestActions({
     return resubmitLinesSignature(lines) !== resubmitLinesSignature(resubmitBaseline);
   }, [status, lines, resubmitBaseline]);
 
-  const interactiveAllowed =
-    status === "submitted" ||
-    status === "in_review" ||
-    status === "responded" ||
-    status === "confirmed" ||
-    status === "treated";
   const readOnlyArchive = isPatientProductArchiveStatus(status);
+  const uiStatus = readOnlyArchive
+    ? inferArchiveSnapshotStatus(status, {
+        responded_at: requestTimelineMeta?.responded_at,
+        confirmed_at: requestTimelineMeta?.confirmed_at,
+        items,
+      })
+    : status;
+  const forceReadOnly = readOnlyArchive;
+  const interactiveAllowed =
+    !readOnlyArchive &&
+    (status === "submitted" ||
+      status === "in_review" ||
+      status === "responded" ||
+      status === "confirmed" ||
+      status === "treated");
   const productPhotoPreviewModal = (
     <PatientProductPhotoPreviewModal
       open={productPhotoPreview !== null}
@@ -2787,47 +2799,31 @@ export function PatientProductRequestActions({
   );
   if (!interactiveAllowed && !readOnlyArchive) return null;
 
-  if (readOnlyArchive) {
-    return (
-      <>
-        <section className="mt-2 rounded-lg border border-border/90 bg-muted/15 p-2 sm:p-2.5">
-          <ReadonlyArchivedProductBucketsView
-            items={items}
-            onOpenLineHistory={(itemId) => setHistoryModalItemId(itemId)}
-            linePostConfirmBadgesById={linePostConfirmBadgesById}
-            archiveStatus={status}
-            onPhotoPreview={openProductPhotoPreview}
-            pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
-            requestType={requestType}
-          />
-        </section>
-        <LineHistoryModalFr
-          open={historyModalItemId !== null}
-          title={historyModalRow ? validatedProductLabel(historyModalRow) : ""}
-          blocks={historyModalBlocks}
-          onClose={() => setHistoryModalItemId(null)}
-        />
-        {productPhotoPreviewModal}
-      </>
-    );
-  }
+  const badgeDefaults = {
+    ordonnance: workflowCopy.patientProposedBadge,
+    proposed: "Proposé",
+    officine: pharmacistProposedProductBadgeFr,
+  };
+  const badgeForRow = (row: ActionItemRow) =>
+    patientLineProposedBadgeLabel(requestType, row, supplyAmendmentBundles, badgeDefaults);
 
-  const showConfirm = status === "responded";
-  const showProductResubmit = !isPrescription && (status === "submitted" || status === "in_review");
+  const showConfirm = uiStatus === "responded";
+  const showProductResubmit = !isPrescription && (uiStatus === "submitted" || uiStatus === "in_review");
   const showPrescriptionWaiting =
-    isPrescription && (status === "submitted" || status === "in_review") && prescriptionPaths?.page1;
+    isPrescription && (uiStatus === "submitted" || uiStatus === "in_review") && prescriptionPaths?.page1;
   const showWaitingShell = showProductResubmit || showPrescriptionWaiting;
   const showPatientExitCTA =
-    status === "submitted" ||
-    status === "in_review" ||
-    status === "responded" ||
-    status === "confirmed" ||
-    status === "treated";
+    !forceReadOnly &&
+    (status === "submitted" ||
+      status === "in_review" ||
+      status === "responded" ||
+      status === "confirmed" ||
+      status === "treated");
   const patientExitPrimaryLabel =
     status === "submitted" || status === "in_review"
       ? workflowCopy.patientCancelWhileWaitingLabel
       : "Abandonner la demande";
-  const showConfirmedCards = status === "confirmed" || status === "treated";
+  const showConfirmedCards = uiStatus === "confirmed" || uiStatus === "treated";
   /** Date/heure de passage : à la validation (responded) et pour modifier après coup. */
   const showVisitFields = showConfirm || showConfirmedCards;
 
@@ -2874,15 +2870,19 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showPrescriptionWaiting && prescriptionPaths ? (
-        <section className="mt-2 space-y-3">
-          <PrescriptionImageViewer paths={prescriptionPaths} accent="amber" />
-          {prescriptionNote?.trim() ? (
-            <div className="rounded-xl border border-amber-200/70 bg-amber-50/40 px-3 py-2.5 text-sm">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Votre message</p>
-              <p className="mt-1 whitespace-pre-wrap text-foreground">{prescriptionNote.trim()}</p>
-            </div>
-          ) : null}
-        </section>
+        <PatientPrescriptionEditablePanel
+          requestId={requestId}
+          status={forceReadOnly ? "in_review" : uiStatus}
+          paths={prescriptionPaths}
+          patientNote={prescriptionNote}
+          onReload={onReload}
+        />
+      ) : null}
+
+      {forceReadOnly ? (
+        <p className="mt-2 rounded-lg border border-amber-200/80 bg-amber-50/50 px-3 py-2 text-[11px] font-medium text-amber-950">
+          Dossier {requestStatusFr[status] ?? status} — consultation en lecture seule (affichage au dernier stade actif).
+        </p>
       ) : null}
 
       {showConfirm ? (
@@ -2902,7 +2902,7 @@ export function PatientProductRequestActions({
                     setLineQty={setLineQty}
                     togglePrincipalOnlyLine={togglePrincipalOnlyLine}
                     onPhotoPreview={openProductPhotoPreview}
-                    pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
+                    pharmacistProposedBadgeLabel={badgeForRow(row) ?? "Proposé"}
                     requestType={requestType}
                   />
                 ))}
@@ -2958,7 +2958,7 @@ export function PatientProductRequestActions({
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
-                        pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
+                        pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                       />
                     ))}
                   </ul>
@@ -2993,7 +2993,7 @@ export function PatientProductRequestActions({
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
-                        pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
+                        pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                       />
                     ))}
                   </ul>
@@ -3023,7 +3023,7 @@ export function PatientProductRequestActions({
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
-                        pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
+                        pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                       />
                     ))}
                   </ul>
@@ -3052,7 +3052,7 @@ export function PatientProductRequestActions({
                         requestStatusForCard={status}
                         treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
-                        pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
+                        pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                       />
                     ))}
                   </ul>
@@ -3497,7 +3497,7 @@ export function PatientProductRequestActions({
         </div>
       ) : null}
 
-      {showConfirm ? (
+      {showConfirm && !forceReadOnly ? (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
           <div className="mx-auto flex max-w-lg flex-col gap-2.5">
             <div className="flex flex-nowrap items-center justify-between gap-3">
@@ -3521,7 +3521,7 @@ export function PatientProductRequestActions({
         </div>
       ) : null}
 
-      {showConfirmedCards ? (
+      {showConfirmedCards && !forceReadOnly ? (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
           <div className="mx-auto flex max-w-lg flex-col gap-2.5">
             <div className="flex flex-nowrap items-center justify-between gap-3">
