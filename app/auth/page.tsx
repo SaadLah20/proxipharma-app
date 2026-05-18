@@ -293,6 +293,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     const { error: pe } = await ensurePatientProfile(userData.user, {
       full_name: fullName.trim(),
       whatsapp: phoneE164,
+      ...(optMail ? { email: optMail } : {}),
     });
     if (pe) {
       setMessage(pe.message);
@@ -335,13 +336,21 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     }
     setLoading(true);
     setMessage("");
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const { error } = await supabase.auth.resetPasswordForEmail(id.email, {
-      redirectTo: `${origin}/auth/update-password`,
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/auth/request-password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: id.email }),
+      });
+    } catch {
+      setLoading(false);
+      setMessage("Impossible d’envoyer la demande. Vérifiez votre connexion et réessayez.");
+      return;
+    }
     setLoading(false);
-    if (error) {
-      setMessage(error.message);
+    if (!res.ok) {
+      setMessage("Impossible d’envoyer la demande pour le moment. Réessayez plus tard.");
       return;
     }
     setMessage("Si un compte existe avec cet e-mail, un lien de réinitialisation vient d’être envoyé.");
