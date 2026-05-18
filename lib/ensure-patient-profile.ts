@@ -14,7 +14,7 @@ function authEmailForProfile(user: User): string | null {
  */
 export async function ensurePatientProfile(
   user: User,
-  overrides?: { full_name?: string; whatsapp?: string }
+  overrides?: { full_name?: string; whatsapp?: string; email?: string }
 ): Promise<{ error: Error | null }> {
   const full_name =
     overrides?.full_name?.trim() ||
@@ -25,7 +25,9 @@ export async function ensurePatientProfile(
     (typeof user.user_metadata?.whatsapp === "string" ? user.user_metadata.whatsapp.trim() : "") ||
     user.phone?.trim() ||
     null;
-  const email = authEmailForProfile(user);
+  const overrideEmail = overrides?.email?.trim().toLowerCase();
+  const email =
+    (overrideEmail && overrideEmail.includes("@") ? overrideEmail : null) || authEmailForProfile(user);
 
   const { data: row, error: selErr } = await supabase
     .from("profiles")
