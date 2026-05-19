@@ -314,40 +314,38 @@ export default function DemandeProduitsPage() {
   }
 
   return (
-    <main className="min-h-screen touch-pan-y bg-slate-50 p-4 pb-32 text-slate-900 antialiased sm:p-5 sm:pb-36">
-      <div className="mx-auto max-w-lg">
+    <main className="min-h-screen touch-pan-y bg-background p-4 pb-32 text-foreground antialiased sm:p-5 sm:pb-36">
+      <div className="mx-auto max-w-lg space-y-3">
         <Link
           href={`/pharmacie/${pharmacyId}`}
           className={cn(
             buttonVariants({ variant: "ghost", size: "sm" }),
-            "mb-3 -ml-2 h-auto px-2 text-base font-semibold text-sky-900 underline-offset-2 hover:underline"
+            "-ml-2 h-auto px-2 text-sm font-medium text-muted-foreground"
           )}
         >
-          Retour à la pharmacie
+          ← Pharmacie
         </Link>
 
-        <div className="rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-md sm:p-4">
-          <div className="flex items-start gap-3">
+        <header className="rounded-xl border border-border/80 bg-card px-3 py-2.5 shadow-sm sm:px-4">
+          <div className="flex items-center gap-2.5">
             <span
-              className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-900"
+              className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-900"
               aria-hidden
             >
-              <Package className="size-6" strokeWidth={2.25} />
+              <Package className="size-5" strokeWidth={2.25} />
             </span>
-            <div className="min-w-0 pt-0.5">
-              <h1 className="text-[1.15rem] font-bold leading-snug tracking-tight text-slate-950 sm:text-xl">
-                Demande de produits pour{" "}
-                <span className="text-sky-900">{pharmacyName.trim() ? pharmacyName : "cette pharmacie"}</span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Demande de produits</p>
+              <h1 className="text-base font-semibold leading-snug text-foreground sm:text-lg">
+                {pharmacyName.trim() ? pharmacyName : "Cette pharmacie"}
               </h1>
             </div>
           </div>
-        </div>
+        </header>
 
-        <section className="mt-4 rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-          <label className="block text-base font-semibold text-slate-900">Ajouter un produit</label>
-          <p className="mt-1 text-sm leading-relaxed text-slate-600">
-            Au moins 2 caractères : recherche par nom ou laboratoire dans le catalogue.
-          </p>
+        <section className="rounded-xl border border-border/80 bg-card p-3 shadow-sm sm:p-4">
+          <label className="block text-sm font-semibold text-foreground">Rechercher un produit</label>
+          <p className="mt-0.5 text-xs text-muted-foreground">2 caractères minimum · nom ou laboratoire</p>
           <div className="relative mt-3">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-500"
@@ -551,11 +549,9 @@ export default function DemandeProduitsPage() {
           )}
         </section>
 
-        <section className="mt-4 rounded-2xl border-l-4 border-sky-700 bg-sky-50/90 p-4 shadow-md ring-1 ring-sky-200/60 sm:p-5">
-          <label className="block text-base font-semibold text-slate-900">Premier message pour la pharmacie (facultatif)</label>
-          <p className="mt-1 text-sm leading-relaxed text-slate-600">
-            Il apparaîtra dans la conversation du dossier (bouton « Conversation » après envoi).
-          </p>
+        <section className="rounded-xl border border-border/80 bg-card p-3 shadow-sm sm:p-4">
+          <label className="block text-sm font-semibold text-foreground">Message pour la pharmacie (facultatif)</label>
+          <p className="mt-0.5 text-xs text-muted-foreground">Visible dans la conversation du dossier après envoi.</p>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value.slice(0, REQUEST_CONVERSATION_MESSAGE_MAX))}
@@ -585,8 +581,8 @@ export default function DemandeProduitsPage() {
           </div>
         ) : null}
 
-        <p className="mt-5 text-center text-base leading-relaxed text-slate-700">
-          Après envoi, suivez la réponse dans <span className="font-semibold text-slate-900">Mes demandes de produits</span>.
+        <p className="text-center text-xs text-muted-foreground">
+          Après envoi : <span className="font-medium text-foreground">Mes demandes de produits</span>
         </p>
 
         <Button

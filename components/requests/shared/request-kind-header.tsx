@@ -22,6 +22,8 @@ type RequestKindHeaderProps = {
   lineCount?: number | null;
   showPlannedVisit?: boolean;
   viewerRole?: "patient" | "pharmacien";
+  /** Court paragraphe sous le bandeau (ex. dossier clôturé / expiré). */
+  statusDetail?: string | null;
 };
 
 function patientProductStatusBadgeClass(status: string): string {
@@ -48,6 +50,7 @@ export function RequestKindHeader({
   lineCount,
   showPlannedVisit = false,
   viewerRole = "patient",
+  statusDetail = null,
 }: RequestKindHeaderProps) {
   const shellClass =
     viewerRole === "pharmacien" && config.capabilities.workflowEnabled && config.theme.headerShellForStatus
@@ -145,6 +148,9 @@ export function RequestKindHeader({
           </span>
         </div>
       </div>
+      {statusDetail?.trim() ? (
+        <p className="mt-2 border-t border-border/50 pt-2 text-[11px] leading-snug text-muted-foreground">{statusDetail}</p>
+      ) : null}
     </header>
   );
 }

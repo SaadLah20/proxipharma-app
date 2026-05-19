@@ -26,11 +26,8 @@ import {
   type PatientPharmacyContactInfo,
 } from "@/components/requests/product/patient-product-request-actions";
 import { ConsultationDetailStickyChrome } from "@/components/requests/consultation/consultation-detail-sticky-chrome";
-import {
-  PatientRequestOutcomeBanner,
-  isPatientProductArchiveStatus,
-  type PatientOutcomeDetailContext,
-} from "@/components/requests/patient-request-outcome-banner";
+import { isPatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
+import { patientOutcomeStatusFooter } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
 import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
@@ -355,35 +352,19 @@ export default function DemandeDetailPage() {
     setHistoryBusy(false);
   }, [id]);
 
-  const archivedOutcomeDetail = useMemo((): PatientOutcomeDetailContext | null => {
+  const archiveStatusDetail = useMemo(() => {
     if (!request || !isPatientProductArchiveStatus(request.status)) return null;
-    if (
-      request.request_type !== "product_request" &&
-      request.request_type !== "prescription" &&
-      request.request_type !== "free_consultation"
-    ) {
-      return null;
-    }
-    const ph = one(request.pharmacies);
-    const pharmacyLine =
-      ph?.nom?.trim() != null && ph.nom.trim() !== ""
-        ? `${ph.nom.trim()}${ph.ville?.trim() ? ` · ${ph.ville.trim()}` : ""}`
-        : null;
-    const retainedCount = items.filter((i) => i.is_selected_by_patient).length;
-    return {
-      pharmacyLine,
-      retainedCount,
-      totalLines: items.length,
-      hasConversationMessages: conversationMessageCount > 0,
-      lastUpdatedLabel: formatDateShortCasablancaWithTime24hFr(request.updated_at),
-      linesMode:
-        request.request_type === "prescription"
-          ? "prescription"
-          : request.request_type === "free_consultation"
-            ? "prescription"
-            : "product",
-    };
-  }, [request, items, conversationMessageCount]);
+    const kindId =
+      request.request_type === "prescription"
+        ? "prescription"
+        : request.request_type === "free_consultation"
+          ? "free_consultation"
+          : "product_request";
+    const footer = patientOutcomeStatusFooter(request.status, kindId);
+    const entry = historyRows.find((h) => h.new_status === request.status) ?? historyRows[0] ?? null;
+    const paras = entry ? patientDossierHistoryDetailParagraphsFr(entry.reason) : [];
+    return [footer, ...paras].filter((s) => s.trim().length > 0).join(" — ");
+  }, [request, historyRows]);
 
   if (loading) {
     return (
@@ -454,72 +435,59 @@ export default function DemandeDetailPage() {
     >
       <RequestDetailBackLink config={kindConfig} viewerRole="patient" />
 
-      {!hideMainRequestHeader ? (
+      {!hideMainRequestHeader || showArchivedReadonly ? (
         <RequestKindHeader
           config={kindConfig}
           request={request}
           lineCount={items.length}
           showPlannedVisit={showPlannedVisitBlock}
           viewerRole="patient"
+          statusDetail={showArchivedReadonly ? archiveStatusDetail : null}
         />
       ) : null}
 
-      {showArchivedReadonly ? (
-        <PatientRequestOutcomeBanner
-          status={request.status}
-          historyRows={historyRows}
-          detailContext={archivedOutcomeDetail}
-          closedFooterNote={
-            isPrescriptionRequest || isConsultationRequest ? workflowCopy.patientArchiveClosedFooter : null
-          }
-          requestKindId={
-            isConsultationRequest ? "free_consultation" : isPrescriptionRequest ? "prescription" : "product_request"
-          }
-        >
-          {request.status === "expired" && !isPrescriptionRequest ? (
-            <>
-              {followUpErr ? (
-                <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">
-                  {followUpErr}
-                </p>
-              ) : null}
-              <button
-                type="button"
-                disabled={followUpBusy}
-                onClick={() => {
-                  void (async () => {
-                    setFollowUpErr("");
-                    setFollowUpBusy(true);
-                    const { data, error: rpcErr } = await supabase.rpc("patient_create_followup_from_expired_product_request", {
-                      p_expired_request_id: request.id,
-                    });
-                    setFollowUpBusy(false);
-                    if (rpcErr) {
-                      setFollowUpErr(rpcErr.message);
-                      return;
-                    }
-                    const newId = typeof data === "string" ? data : Array.isArray(data) ? data[0] : null;
-                    if (!newId || typeof newId !== "string") {
-                      setFollowUpErr("Réponse inattendue du serveur.");
-                      return;
-                    }
-                    router.push(`/dashboard/demandes/${newId}`);
-                  })();
-                }}
-                className="w-full rounded-lg bg-amber-700 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-800 disabled:opacity-50"
-              >
-                {followUpBusy ? "Création…" : "Ajuster et renvoyer une nouvelle demande"}
-              </button>
-            </>
-          ) : request.status === "expired" && isPrescriptionRequest ? (
-            <Link
-              href="/"
-              className="mt-1 inline-flex w-full justify-center rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-100"
-            >
-              Annuaire — envoyer une nouvelle ordonnance
-            </Link>
+      {showArchivedReadonly && request.status === "expired" && !isPrescriptionRequest ? (
+        <div className="space-y-2">
+          {followUpErr ? (
+            <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">
+              {followUpErr}
+            </p>
           ) : null}
-        </PatientRequestOutcomeBanner>
+          <button
+            type="button"
+            disabled={followUpBusy}
+            onClick={() => {
+              void (async () => {
+                setFollowUpErr("");
+                setFollowUpBusy(true);
+                const { data, error: rpcErr } = await supabase.rpc("patient_create_followup_from_expired_product_request", {
+                  p_expired_request_id: request.id,
+                });
+                setFollowUpBusy(false);
+                if (rpcErr) {
+                  setFollowUpErr(rpcErr.message);
+                  return;
+                }
+                const newId = typeof data === "string" ? data : Array.isArray(data) ? data[0] : null;
+                if (!newId || typeof newId !== "string") {
+                  setFollowUpErr("Réponse inattendue du serveur.");
+                  return;
+                }
+                router.push(`/dashboard/demandes/${newId}`);
+              })();
+            }}
+            className="w-full rounded-lg bg-amber-700 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-800 disabled:opacity-50"
+          >
+            {followUpBusy ? "Création…" : "Ajuster et renvoyer une nouvelle demande"}
+          </button>
+        </div>
+      ) : showArchivedReadonly && request.status === "expired" && isPrescriptionRequest ? (
+        <Link
+          href="/"
+          className="inline-flex w-full justify-center rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-100"
+        >
+          Annuaire — envoyer une nouvelle ordonnance
+        </Link>
       ) : null}
 
       {showArchivedReadonly && isPrescriptionRequest && prescriptionPaths?.page1 ? (

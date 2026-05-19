@@ -108,6 +108,11 @@ import {
 import { PageShell } from "@/components/ui/compact-shell";
 import { InfoHint } from "@/components/ui/info-hint";
 import {
+  PharmacistCloseRequestConfirmModal,
+  type PharmacistCloseRequestSummary,
+} from "@/components/pharmacist/pharmacist-close-request-confirm-modal";
+import { flattenPharmacistSupplyListEntriesStable } from "@/lib/pharmacist-supply-list-order";
+import {
   bucketPatientValidatedLinesThreeWays,
   validatedBranchUnitPriceMad,
   validatedProductLabel,
@@ -1532,6 +1537,7 @@ export default function PharmacienDemandeDetailPage() {
   const [counterBusyId, setCounterBusyId] = useState<string | null>(null);
   const [fulfillmentRpcBusyId, setFulfillmentRpcBusyId] = useState<string | null>(null);
   const [completeBusy, setCompleteBusy] = useState(false);
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [declareTreatedBusy, setDeclareTreatedBusy] = useState(false);
   const [supplyConfirmOpen, setSupplyConfirmOpen] = useState(false);
   const [supplyConfirmBusy, setSupplyConfirmBusy] = useState(false);
@@ -3873,17 +3879,26 @@ export default function PharmacienDemandeDetailPage() {
     setHistoryBusy(false);
   }, [id]);
 
+  const closeRequestSummary = useMemo((): PharmacistCloseRequestSummary | null => {
+    if (!request || request.status !== "treated") return null;
+    const selectedLines = items.filter((i) => i.is_selected_by_patient);
+    const tracked = selectedLines.filter((i) => !i.withdrawn_after_confirm);
+    const pickedUpCount = tracked.filter((i) => (i.counter_outcome ?? "unset") === "picked_up").length;
+    const pendingPickupCount = tracked.filter((i) => (i.counter_outcome ?? "unset") !== "picked_up").length;
+    return {
+      totalLines: items.length,
+      retainedCount: selectedLines.length,
+      notRetainedAtValidation: items.filter((i) => !i.is_selected_by_patient).length,
+      withdrawnAfterConfirm: items.filter((i) => i.is_selected_by_patient && i.withdrawn_after_confirm).length,
+      pickedUpCount,
+      pendingPickupCount,
+      hasPartialPickupWarning: pendingPickupCount > 0,
+    };
+  }, [items, request]);
+
   const runCompleteAfterCounter = async () => {
     if (!id || !request) return;
     if (request.status !== "treated") return;
-    const selectedLines = items.filter((i) => i.is_selected_by_patient);
-    const tracked = selectedLines.filter((i) => !i.withdrawn_after_confirm);
-    const pendingPickup = tracked.filter((i) => (i.counter_outcome ?? "unset") !== "picked_up").length;
-    const msg =
-      pendingPickup > 0
-        ? `Clôturer ce dossier ? ${pendingPickup} produit(s) retenu(s) ne sont pas encore enregistrés comme récupérés au comptoir.`
-        : "Confirmer la clôture du dossier ?";
-    if (!globalThis.confirm(msg)) return;
     setCompleteBusy(true);
     setError("");
     const { error: rpcErr } = await supabase.rpc("pharmacist_complete_request_after_counter", {
@@ -3891,6 +3906,7 @@ export default function PharmacienDemandeDetailPage() {
       p_reason: "pharmacist_ui_confirm_close",
     });
     setCompleteBusy(false);
+    setCloseConfirmOpen(false);
     if (rpcErr) {
       setError(rpcErr.message);
       return;
@@ -3936,7 +3952,7 @@ export default function PharmacienDemandeDetailPage() {
     request && ["confirmed", "treated"].includes(uiRequestStatus ?? "")
       ? (() => {
           const eff = rowsWithEffectiveWithdrawnForSupply(displayRows, draft);
-          const flat = flattenPharmacistSupplyListEntries(eff);
+          const flat = flattenPharmacistSupplyListEntriesStable(eff);
           return flat.length > 0 ? flat : displayRows.map((row) => ({ header: null as string | null, row }));
         })()
       : displayRows.map((row) => ({ header: null as string | null, row }));
@@ -4158,18 +4174,25 @@ export default function PharmacienDemandeDetailPage() {
     declarationTreatedEligible &&
     canManageSupply;
 
+  const showCloseCounterSticky =
+    usesLineWorkflow && request.status === "treated" && !archiveFrozen && canCompleteCounter;
+
   const showSupplyStatsFooter = usesLineWorkflow && Boolean(canManageSupply) && displayRows.length > 0;
   const showSupplyDirtyBar = Boolean(canManageSupply && supplyStructuralDirty && !ordonnanceQuickAddOpen);
 
+  const showBottomActionSticky = showDeclareTreatedSticky || showCloseCounterSticky;
+
   let bottomChromePaddingClass = "";
-  if (showDeclareTreatedSticky && showSupplyStatsFooter) {
+  if (showBottomActionSticky && showSupplyStatsFooter) {
     bottomChromePaddingClass = showSupplyDirtyBar ? "pb-44 sm:pb-[10.5rem]" : "pb-32 sm:pb-[8.75rem]";
-  } else if (showDeclareTreatedSticky) {
+  } else if (showBottomActionSticky) {
     bottomChromePaddingClass = showSupplyDirtyBar ? "pb-36 sm:pb-40" : "pb-24 sm:pb-[5.5rem]";
   } else if (showSupplyStatsFooter) {
     bottomChromePaddingClass = showSupplyDirtyBar ? "pb-28 sm:pb-32" : "pb-14 sm:pb-16";
   } else if (showSupplyDirtyBar) {
     bottomChromePaddingClass = "pb-24 sm:pb-28";
+  } else if (request.status === "treated" && !archiveFrozen) {
+    bottomChromePaddingClass = "pb-20 sm:pb-24";
   }
 
   return (
@@ -6145,28 +6168,12 @@ export default function PharmacienDemandeDetailPage() {
             ) : null
           ) : null}
 
-          {(request.status === "treated" || request.status === "completed") && items.length > 0 ? (
-            <section className="mt-2">
-              <button
-                type="button"
-                disabled={completeBusy || !canCompleteCounter}
-                onClick={() => void runCompleteAfterCounter()}
-                className={`w-full rounded-md py-2 text-xs font-semibold disabled:opacity-50 sm:text-sm ${
-                  canCompleteCounter
-                    ? "bg-foreground text-background shadow-sm"
-                    : "border border-border bg-muted/40 text-muted-foreground"
-                }`}
-              >
-                {completeBusy ? "Clôture…" : "Clôturer le dossier (comptoir OK)"}
-              </button>
-              {!canCompleteCounter && request.status === "treated" ? (
-                <p className="mt-2 text-[11px] text-amber-900">
-                  {counterClosurePendingTracked > 0
-                    ? "Marquez « Récupéré » pour chaque ligne retenue encore en attente au comptoir avant de clôturer."
-                    : "Aucune ligne retenue active au comptoir pour le moment — la clôture s’active quand toutes les lignes suivies sont récupérées."}
-                </p>
-              ) : null}
-            </section>
+          {request.status === "treated" && !canCompleteCounter && items.length > 0 ? (
+            <p className="mt-2 rounded-lg border border-amber-200/70 bg-amber-50/50 px-2.5 py-2 text-[11px] leading-snug text-amber-950">
+              {counterClosurePendingTracked > 0
+                ? "Pour clôturer le dossier, marquez « Récupéré » sur chaque ligne retenue encore au comptoir — ou écartez les produits dont le client n’a plus besoin."
+                : "La clôture s’active lorsque toutes les lignes retenues actives sont marquées récupérées au comptoir."}
+            </p>
           ) : null}
 
           {(request.status === "submitted" ||
@@ -6556,7 +6563,7 @@ export default function PharmacienDemandeDetailPage() {
         </div>
       ) : null}
 
-      {showDeclareTreatedSticky || showSupplyStatsFooter || showSupplyDirtyBar ? (
+      {showBottomActionSticky || showSupplyStatsFooter || showSupplyDirtyBar ? (
         <div className="fixed inset-x-0 bottom-0 z-[10050] flex flex-col border-t border-cyan-500/25 bg-background/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-6px_28px_rgba(15,23,42,0.12)] backdrop-blur-md">
           {showDeclareTreatedSticky ? (
             <div className="border-b border-cyan-500/20 px-3 py-2.5">
@@ -6572,6 +6579,23 @@ export default function PharmacienDemandeDetailPage() {
                   className="inline-flex h-11 w-full shrink-0 items-center justify-center rounded-xl bg-cyan-600 px-5 text-sm font-bold text-white shadow-md transition hover:bg-cyan-700 disabled:opacity-50 sm:w-auto sm:min-w-[200px]"
                 >
                   {declareTreatedBusy ? "En cours…" : "Déclarer la demande traitée"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {showCloseCounterSticky ? (
+            <div className="border-b border-cyan-500/20 px-3 py-2.5">
+              <div className="mx-auto flex max-w-3xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <p className="text-center text-[11px] leading-snug text-muted-foreground sm:flex-1 sm:text-left">
+                  Toutes les lignes retenues sont récupérées au comptoir. Vous pouvez clôturer le dossier.
+                </p>
+                <button
+                  type="button"
+                  disabled={completeBusy}
+                  onClick={() => setCloseConfirmOpen(true)}
+                  className="inline-flex h-11 w-full shrink-0 items-center justify-center rounded-xl bg-foreground px-5 text-sm font-bold text-background shadow-md transition hover:opacity-90 disabled:opacity-50 sm:w-auto sm:min-w-[200px]"
+                >
+                  {completeBusy ? "Clôture…" : "Clôturer le dossier"}
                 </button>
               </div>
             </div>
@@ -6664,6 +6688,18 @@ export default function PharmacienDemandeDetailPage() {
         busy={supplyConfirmBusy}
         onConfirm={(fills) => void applySupplyModalConfirm(fills)}
       />
+      {closeRequestSummary ? (
+        <PharmacistCloseRequestConfirmModal
+          open={closeConfirmOpen}
+          busy={completeBusy}
+          summary={closeRequestSummary}
+          onClose={() => {
+            if (completeBusy) return;
+            setCloseConfirmOpen(false);
+          }}
+          onConfirm={() => void runCompleteAfterCounter()}
+        />
+      ) : null}
       {isPrescription && showLineAndPublishEdits ? (
         <PharmacistOrdonnanceQuickAddModal
           open={ordonnanceQuickAddOpen}
