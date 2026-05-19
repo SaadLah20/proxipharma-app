@@ -450,6 +450,7 @@ function PatientValidatedCompactLineCard({
   treatedSupplyStatusLine,
   requestStatusForCard = null,
   postConfirmBadges,
+  archiveClosureLabel = null,
   onPhotoPreview,
   pharmacistProposedBadgeLabel = pharmacistProposedProductBadgeFr,
   requestType = "product_request",
@@ -464,6 +465,8 @@ function PatientValidatedCompactLineCard({
   requestStatusForCard?: string | null;
   /** Jalons post-validation (détail dans Historique produit). */
   postConfirmBadges?: string[];
+  /** Dossier clôturé : remplace la dispo initiale (ex. Récupéré). */
+  archiveClosureLabel?: string | null;
   /** Agrandissement photo plein écran (patient). */
   onPhotoPreview?: (url: string, title: string) => void;
   pharmacistProposedBadgeLabel?: string;
@@ -510,6 +513,11 @@ function PatientValidatedCompactLineCard({
   const lineBadgeLabel = prescriptionBadge ?? (row.line_source === "pharmacist_proposed" ? pharmacistProposedBadgeLabel : null);
   const showLineBadge = Boolean(lineBadgeLabel);
   const ordonnanceProposedBadge = lineBadgeLabel === "Ordonnance";
+  const confirmedPcfChip =
+    requestStatusForCard === "confirmed" && row.is_selected_by_patient && !row.withdrawn_after_confirm
+      ? patientConfirmedFulfillmentChipFr(row.post_confirm_fulfillment)
+      : null;
+  const closureLabel = archiveClosureLabel?.trim() || null;
   return (
     <li
       className={clsx(
@@ -558,7 +566,11 @@ function PatientValidatedCompactLineCard({
               </button>
             </div>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
-              {availUi && AvailIcon ? (
+              {closureLabel ? (
+                <span className="inline-flex max-w-full items-center rounded-full border border-emerald-400/80 bg-emerald-50 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-emerald-950">
+                  {closureLabel}
+                </span>
+              ) : availUi && AvailIcon ? (
                 <span
                   className={clsx(
                     "inline-flex max-w-full items-center gap-1 rounded-full px-1.5 py-px text-[9px] font-semibold ring-1",
@@ -572,6 +584,18 @@ function PatientValidatedCompactLineCard({
               ) : (
                 <span className="text-[10px] leading-snug text-foreground/90">{availStatusOnly}</span>
               )}
+              {confirmedPcfChip ? (
+                <span
+                  className={clsx(
+                    "inline-flex max-w-full shrink-0 items-center rounded-full px-1.5 py-px text-[9px] font-bold uppercase tracking-wide ring-1",
+                    confirmedPcfChip === "Réservé"
+                      ? "border-emerald-400/80 bg-emerald-50 text-emerald-950 ring-emerald-200/80"
+                      : "border-teal-400/80 bg-teal-50 text-teal-950 ring-teal-200/80"
+                  )}
+                >
+                  {confirmedPcfChip}
+                </span>
+              ) : null}
               {chosenAlt && requestType === "prescription" ? (
                 <span className="rounded-full bg-sky-700 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
                   Alternative
@@ -815,8 +839,6 @@ function ReadonlyArchivedProductBucketsView({
 }) {
   const kindId: RequestKindId =
     isRequestKindId(requestType) ? requestType : "product_request";
-  const introText = patientArchiveIntroCopy(archiveStatus, kindId);
-  const introShell = archiveReadonlyIntroShell(archiveStatus);
   const totalsRetained = useMemo(() => monetaryTotalsForRetainedLines(items), [items]);
   const { dispoOfficine, aCommander, horsPerimetre, retireesApresValidation } =
     bucketPatientValidatedLinesThreeWays(items);
@@ -834,14 +856,6 @@ function ReadonlyArchivedProductBucketsView({
 
   return (
     <div className="space-y-2">
-      <div
-        className={`rounded-xl border-2 bg-gradient-to-br px-2.5 py-2 shadow-sm sm:px-3 ${introShell.ring} ${introShell.gradient}`}
-      >
-        <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Lecture seule</p>
-        <p className="mt-0.5 text-[11px] font-bold leading-snug text-foreground">{introText.title}</p>
-        <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{introText.lede}</p>
-      </div>
-
       <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto rounded-md border border-primary/20 bg-primary/[0.06] px-2 py-1.5">
         <p className="shrink-0 text-[10px] font-semibold text-foreground">
           <span className="tabular-nums">{totalsRetained.count}</span>{" "}
@@ -876,6 +890,7 @@ function ReadonlyArchivedProductBucketsView({
                   tier="dispo_officine"
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                   postConfirmBadges={linePostConfirmBadgesById[row.id]}
+                  archiveClosureLabel={patientArchiveClosureLabelFr(row)}
                   onPhotoPreview={onPhotoPreview}
                   pharmacistProposedBadgeLabel={pharmacistProposedBadgeLabel}
                 />
@@ -909,6 +924,7 @@ function ReadonlyArchivedProductBucketsView({
                   tier="commande"
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                   postConfirmBadges={linePostConfirmBadgesById[row.id]}
+                  archiveClosureLabel={patientArchiveClosureLabelFr(row)}
                   onPhotoPreview={onPhotoPreview}
                   pharmacistProposedBadgeLabel={pharmacistProposedBadgeLabel}
                 />
@@ -934,6 +950,7 @@ function ReadonlyArchivedProductBucketsView({
                   tier="hors_perimetre"
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                   postConfirmBadges={linePostConfirmBadgesById[row.id]}
+                  archiveClosureLabel={patientArchiveClosureLabelFr(row)}
                   onPhotoPreview={onPhotoPreview}
                   pharmacistProposedBadgeLabel={pharmacistProposedBadgeLabel}
                 />
@@ -958,6 +975,7 @@ function ReadonlyArchivedProductBucketsView({
                   tier="retire_apres_validation"
                   onOpenHistory={() => onOpenLineHistory(row.id)}
                   postConfirmBadges={linePostConfirmBadgesById[row.id]}
+                  archiveClosureLabel={patientArchiveClosureLabelFr(row)}
                   onPhotoPreview={onPhotoPreview}
                   pharmacistProposedBadgeLabel={pharmacistProposedBadgeLabel}
                 />
@@ -1062,7 +1080,19 @@ function resubmitLinesSignature(ls: ResubmitLine[]): string {
     .join(">");
 }
 
-/** Bouton « Notes produit (…) » + petite fenêtre (fermeture fond ou Fermer). */
+function patientConfirmedFulfillmentChipFr(pcf: string | null | undefined): string | null {
+  if (pcf === "reserved") return "Réservé";
+  if (pcf === "ordered") return "Commandé";
+  return null;
+}
+
+function patientArchiveClosureLabelFr(row: ActionItemRow): string | null {
+  if ((row.counter_outcome ?? "unset") === "picked_up") return "Récupéré";
+  if (row.withdrawn_after_confirm) return "Écarté";
+  return null;
+}
+
+/** Bandeau notes (même style que répondu / validé) + modal lecture seule. */
 function PatientSentLineNotesModalFr({
   productName,
   client,
@@ -1077,22 +1107,7 @@ function PatientSentLineNotesModalFr({
   const c = client.trim();
   const p = pharmacist.trim();
 
-  const label = !c && !p
-    ? "Notes produit (vide)"
-    : c && p
-      ? "Notes produit (Vous + officine)"
-      : c
-        ? "Notes produit (vous)"
-        : "Notes produit (officine)";
-
-  const noteCls =
-    !c && !p
-      ? "text-sky-700"
-      : c && p
-        ? "text-violet-700"
-        : c
-          ? "text-sky-700"
-          : "text-emerald-800";
+  const visual = lineConversationVisual(c, p);
 
   useEffect(() => {
     if (!open) return;
@@ -1108,23 +1123,14 @@ function PatientSentLineNotesModalFr({
       <button
         type="button"
         className={clsx(
-          "flex min-h-[2.5rem] w-full max-w-full cursor-pointer items-center gap-1.5 rounded-lg border-2 px-2 py-2 text-left text-[9px] font-semibold leading-snug shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/45 focus-visible:ring-offset-1",
-          !c && !p &&
-            "border-sky-400/80 bg-gradient-to-r from-sky-50 to-sky-50/40 text-sky-950 hover:border-sky-500 hover:from-sky-100 hover:to-sky-50 active:scale-[0.99]",
-          c &&
-            p &&
-            "border-violet-400/80 bg-gradient-to-r from-violet-50 to-violet-50/40 text-violet-950 hover:border-violet-500 hover:from-violet-100 hover:to-violet-50/50 active:scale-[0.99]",
-          c &&
-            !p &&
-            "border-sky-400/80 bg-gradient-to-r from-sky-50 to-sky-50/40 text-sky-950 hover:border-sky-500 hover:from-sky-100 hover:to-sky-50 active:scale-[0.99]",
-          !c &&
-            p &&
-            "border-emerald-400/80 bg-gradient-to-r from-emerald-50 to-emerald-50/40 text-emerald-950 hover:border-emerald-500 hover:from-emerald-100 hover:to-emerald-50 active:scale-[0.99]"
+          lineConversationStripButtonClass(visual, { open, disabled: false }),
+          "w-full max-w-full justify-start"
         )}
         onClick={() => setOpen(true)}
+        aria-label={`Notes sur ce produit · ${lineConversationStripLabel(visual)}`}
       >
-        <StickyNote className={clsx("size-4 shrink-0 self-center", noteCls)} strokeWidth={2} aria-hidden />
-        <span className="min-w-0 leading-tight">{label}</span>
+        <MessageCircle className="size-3.5 shrink-0 opacity-90" strokeWidth={2.2} aria-hidden />
+        <span className="truncate text-[9px] font-medium leading-tight">{lineConversationStripLabel(visual)}</span>
       </button>
       {open && typeof document !== "undefined"
         ? createPortal(
