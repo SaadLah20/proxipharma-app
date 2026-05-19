@@ -1,4 +1,5 @@
 import type { User } from "@supabase/supabase-js";
+import { authUserLooksLikeFreshSignup } from "@/lib/auth-signup-phone";
 
 /** Métadonnée Auth : inscription OTP OK mais mot de passe pas encore défini. */
 export const SIGNUP_META_PASSWORD_PENDING = "signup_password_pending";
@@ -6,6 +7,11 @@ export const SIGNUP_META_PASSWORD_PENDING = "signup_password_pending";
 export function userNeedsSignupPassword(user: User | null | undefined): boolean {
   if (!user) return false;
   return user.user_metadata?.[SIGNUP_META_PASSWORD_PENDING] === true;
+}
+
+/** Après verifyOtp : poursuivre l’inscription (MDP) ou rejeter un compte déjà finalisé. */
+export function signupCanContinueAfterOtpVerify(user: User): boolean {
+  return userNeedsSignupPassword(user) || authUserLooksLikeFreshSignup(user.created_at);
 }
 
 export function signupProfileFromUser(user: User): {

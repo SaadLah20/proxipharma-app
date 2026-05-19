@@ -9,13 +9,14 @@ import { defaultPathAfterAuth } from "@/lib/post-auth-redirect";
 import { ensurePatientProfile } from "@/lib/ensure-patient-profile";
 import { parseLoginIdentifier } from "@/lib/auth-login-identifier";
 import {
-  authUserLooksLikeFreshSignup,
   checkPhoneAvailableForSignup,
   normalizeSignupEmail,
+  SIGNUP_EMAIL_ALREADY_REGISTERED_FR,
   SIGNUP_PHONE_ALREADY_REGISTERED_FR,
 } from "@/lib/auth-signup-phone";
 import {
   SIGNUP_META_PASSWORD_PENDING,
+  signupCanContinueAfterOtpVerify,
   signupOtpChannelFromUser,
   signupProfileFromUser,
   userNeedsSignupPassword,
@@ -159,6 +160,17 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     router.replace(path);
   };
 
+  const replaceSignupUrlStep = useCallback(
+    (step: SignupStep) => {
+      const q = new URLSearchParams(searchParams.toString());
+      q.set("mode", "signup");
+      if (step === "form") q.delete("step");
+      else q.set("step", step);
+      router.replace(`/auth?${q}`);
+    },
+    [router, searchParams]
+  );
+
   const resetSignupFlow = () => {
     setSignupStep("form");
     setOtp("");
@@ -168,6 +180,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     setSignupOtpChannel("phone");
     setSignupEmailForOtp("");
     setMessage("");
+    replaceSignupUrlStep("form");
   };
 
   const login = async (e: FormEvent<HTMLFormElement>) => {
@@ -272,6 +285,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       setSignupOtpChannel("email");
       setSignupEmailForOtp(optMail);
       setSignupStep("otp");
+      replaceSignupUrlStep("otp");
       setMessage(AUTH_SIGNUP_EMAIL_SENT);
       return;
     }
@@ -298,6 +312,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     setSignupOtpChannel("phone");
     setSignupEmailForOtp("");
     setSignupStep("otp");
+    replaceSignupUrlStep("otp");
     setMessage(AUTH_SIGNUP_SMS_SENT);
   };
 
@@ -343,11 +358,15 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       return;
     }
 
-    if (!authUserLooksLikeFreshSignup(user.created_at)) {
+    if (!signupCanContinueAfterOtpVerify(user)) {
       await supabase.auth.signOut();
-      setMessage(SIGNUP_PHONE_ALREADY_REGISTERED_FR);
-      setLoading(false);
       resetSignupFlow();
+      setMessage(
+        signupOtpChannel === "email"
+          ? SIGNUP_EMAIL_ALREADY_REGISTERED_FR
+          : SIGNUP_PHONE_ALREADY_REGISTERED_FR
+      );
+      setLoading(false);
       return;
     }
 
@@ -367,6 +386,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     });
 
     setSignupStep("password");
+    replaceSignupUrlStep("password");
     setMessage(
       signupOtpChannel === "email"
         ? AUTH_SIGNUP_OTP_VERIFIED_PASSWORD_EMAIL
