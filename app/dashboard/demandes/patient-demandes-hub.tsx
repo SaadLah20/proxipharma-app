@@ -156,7 +156,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
       const tb = new Date(b.created_at).getTime();
       return sortNewestFirst ? tb - ta : ta - tb;
     });
-  }, [rowsWithDashboardStatus, activeBucket, pharmacyFilter, refQuery, sortNewestFirst, rows]);
+  }, [rowsWithDashboardStatus, activeBucket, pharmacyFilter, refQuery, sortNewestFirst]);
 
   const setStatutFilter = (key: string) => {
     const next = new URLSearchParams(searchParams.toString());

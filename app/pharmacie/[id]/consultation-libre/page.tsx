@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Camera, FileImage, MessageSquare, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   CONSULTATION_MAX_PHOTOS,

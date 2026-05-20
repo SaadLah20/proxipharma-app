@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   detectRequestDetailStale,
@@ -21,14 +21,21 @@ export function useRequestDetailDrift(
 ) {
   const [snapshot, setSnapshot] = useState<RequestContentSnapshot | null>(null);
   const [live, setLive] = useState<RequestContentSnapshot | null>(null);
-  const [stale, setStale] = useState<RequestStaleState | null>(null);
-
   const acknowledge = useCallback((updatedAt: string, nextStatus: string) => {
     const snap = { updatedAt, status: nextStatus };
     setSnapshot(snap);
     setLive(snap);
-    setStale(null);
   }, []);
+
+  const stale = useMemo((): RequestStaleState | null => {
+    if (!status || !live) return null;
+    return detectRequestDetailStale({
+      viewerRole,
+      status,
+      snapshot,
+      live,
+    });
+  }, [viewerRole, status, snapshot, live]);
 
   const refresh = useCallback(async () => {
     await onReload();
@@ -56,17 +63,6 @@ export function useRequestDetailDrift(
       window.clearInterval(id);
     };
   }, [requestId, status, viewerRole]);
-
-  useEffect(() => {
-    if (!status || !live) return;
-    const detected = detectRequestDetailStale({
-      viewerRole,
-      status,
-      snapshot,
-      live,
-    });
-    setStale(detected);
-  }, [viewerRole, status, snapshot, live]);
 
   useEffect(() => {
     if (!requestId) return;

@@ -115,7 +115,6 @@ import {
   sortPharmacistSupplyRowsBySection,
 } from "@/lib/pharmacist-supply-list-order";
 import {
-  bucketPatientValidatedLinesThreeWays,
   validatedBranchUnitPriceMad,
   validatedProductLabel,
   validatedQtyForPatientLine,
@@ -317,28 +316,6 @@ function newLocalProposedId() {
 
 function newLocalAltId() {
   return `${LOCAL_ALT_ID_PREFIX}${crypto.randomUUID()}`;
-}
-
-function buildPharmacistSupplySections(rows: ItemRow[]): { title: string; rows: ItemRow[] }[] {
-  const b = bucketPatientValidatedLinesThreeWays(rows);
-  const sections: { title: string; rows: ItemRow[] }[] = [
-    { title: `À réserver (validé · ${b.dispoOfficine.length})`, rows: b.dispoOfficine },
-    { title: `À commander (validé · ${b.aCommander.length})`, rows: b.aCommander },
-    { title: `Hors bloc principal (${b.horsPerimetre.length})`, rows: b.horsPerimetre },
-    { title: `Écart après validation (${b.retireesApresValidation.length})`, rows: b.retireesApresValidation },
-  ];
-  return sections.filter((s) => s.rows.length > 0);
-}
-
-function flattenPharmacistSupplyListEntries(rows: ItemRow[]): { header: string | null; row: ItemRow }[] {
-  const secs = buildPharmacistSupplySections(rows);
-  const out: { header: string | null; row: ItemRow }[] = [];
-  for (const s of secs) {
-    s.rows.forEach((row, i) => {
-      out.push({ header: i === 0 ? s.title : null, row });
-    });
-  }
-  return out;
 }
 
 const PHARMACIST_SUPPLY_SURFACE_MAIN =
@@ -1878,11 +1855,12 @@ export default function PharmacienDemandeDetailPage() {
   }, [id, router]);
 
   const requestDrift = useRequestDetailDrift(id, request?.status, "pharmacien", load);
+  const { acknowledge: acknowledgeRequestDrift } = requestDrift;
 
   useEffect(() => {
     if (!request?.updated_at) return;
-    requestDrift.acknowledge(request.updated_at, request.status);
-  }, [request?.id, request?.updated_at, request?.status, requestDrift.acknowledge]);
+    acknowledgeRequestDrift(request.updated_at, request.status);
+  }, [request?.id, request?.updated_at, request?.status, acknowledgeRequestDrift]);
 
   const persistPostConfirmFulfillmentForRow = useCallback(
     async (rowSnap: ItemRow, pcf: "unset" | "reserved" | "ordered" | "arrived_reserved") => {

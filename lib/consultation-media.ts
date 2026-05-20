@@ -20,13 +20,15 @@ export function consultationSlotStoragePaths(requestId: string): Record<1 | 2 | 
 
 export async function createConsultationSignedUrl(
   objectPath: string,
-  _expiresInSeconds = 3600
+  expiresInSeconds = 3600
 ): Promise<{ url: string | null; error: string | null }> {
   const viaApi = await fetchPrivateMediaSignedUrl(objectPath);
   if (viaApi.url) return viaApi;
 
   const path = objectPath.replace(/^\//, "");
-  const { data, error } = await supabase.storage.from(STORAGE_BUCKET_PRIVATE).createSignedUrl(path, 3600);
+  const { data, error } = await supabase.storage
+    .from(STORAGE_BUCKET_PRIVATE)
+    .createSignedUrl(path, expiresInSeconds);
   if (error) return { url: null, error: viaApi.error ?? error.message };
   return { url: data.signedUrl ?? null, error: null };
 }

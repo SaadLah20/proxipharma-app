@@ -5,7 +5,7 @@ import { clsx } from "clsx";
 import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
 import { historyActorLabel, requestStatusFr } from "@/lib/request-display";
-import { patientOutcomeExpiredHint, patientOutcomeStatusFooter } from "@/lib/request-kinds/hub-and-terminal-copy";
+import { patientOutcomeExpiredHint } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { isRequestKindId } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { clsx } from "clsx";
 import { useParams, useRouter } from "next/navigation";
 import { PageShell } from "@/components/ui/compact-shell";
-import { formatDateShortCasablancaWithTime24hFr, formatDateTimeShort24hFr } from "@/lib/datetime-fr";
+import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import { supabase } from "@/lib/supabase";
 import { historyActorLabel, requestHistoryPatientHeadline } from "@/lib/request-display";
 import { displayRequestPublicRef } from "@/lib/public-ref";
@@ -314,11 +314,12 @@ export default function DemandeDetailPage() {
   );
 
   const requestDrift = useRequestDetailDrift(id, request?.status, "patient", () => loadDetail(true));
+  const { acknowledge: acknowledgeRequestDrift } = requestDrift;
 
   useEffect(() => {
     if (!request?.updated_at) return;
-    requestDrift.acknowledge(request.updated_at, request.status);
-  }, [request?.id, request?.updated_at, request?.status, requestDrift.acknowledge]);
+    acknowledgeRequestDrift(request.updated_at, request.status);
+  }, [request?.id, request?.updated_at, request?.status, acknowledgeRequestDrift]);
 
   useEffect(() => {
     const tid = window.setTimeout(() => {
