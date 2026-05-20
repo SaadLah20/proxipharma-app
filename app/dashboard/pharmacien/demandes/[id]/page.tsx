@@ -31,8 +31,8 @@ import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import { supabase } from "@/lib/supabase";
 import { formatDateShortFr, formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import {
-  PHARMACIST_AVAILABILITY_OPTIONS,
   PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS,
+  pharmacistAvailabilityOptionsForLine,
   PHARMACIST_SUPPLY_POST_CONFIRM_AVAILABILITY_OPTIONS,
   inferAvailabilityStatusFromQty,
 } from "@/lib/pharmacist-availability";
@@ -3247,8 +3247,19 @@ export default function PharmacienDemandeDetailPage() {
         if (isAjoutOfficine && qtyPrep < 1 && !f.withdrawn_after_confirm) {
           throw new Error(`« ${nm} » (proposition officine) : quantité en stock minimale 1.`);
         }
-        const draftSel = Math.min(999, Math.max(1, Number(f.selected_qty_str) || 1));
         const payload = buildItemUpdatePayload(f, row, request.request_type);
+        const validatedCap = Math.min(
+          PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX,
+          Math.max(1, Number(row.selected_qty ?? row.requested_qty) || 1)
+        );
+        const prepQty = Number(payload.available_qty);
+        const draftSel = Math.min(999, Math.max(1, Number(f.selected_qty_str) || 1));
+        const nextSelectedQty =
+          row.is_selected_by_patient && !f.withdrawn_after_confirm
+            ? Number.isFinite(prepQty) && prepQty >= 1
+              ? Math.min(validatedCap, Math.floor(prepQty))
+              : draftSel
+            : row.selected_qty;
         const inf = inferredAvailabilityForPostConfirmClamp(row, payload.availability_status);
         if (!f.withdrawn_after_confirm && inf === "to_order") {
           const eta = effectiveEtaSupplyDraft(row, f, request.request_type);
@@ -3272,7 +3283,7 @@ export default function PharmacienDemandeDetailPage() {
             ...payload,
             post_confirm_fulfillment: pcfDb,
             withdrawn_after_confirm: Boolean(f.withdrawn_after_confirm),
-            selected_qty: row.is_selected_by_patient && !f.withdrawn_after_confirm ? draftSel : row.selected_qty,
+            selected_qty: nextSelectedQty,
           })
           .eq("id", row.id);
         if (up) throw new Error(up.message);
@@ -4835,10 +4846,10 @@ export default function PharmacienDemandeDetailPage() {
                 (Number.isFinite(stockParsedQty) && stockParsedQty <= minStockFloor);
               const patientLineCc = row.client_comment?.trim() ?? "";
               const lineConvoVisual = lineConversationVisual(patientLineCc, f.pharmacist_comment ?? "");
-              const availabilityOptions =
-                isAjoutOfficineLine || request?.request_type === "free_consultation"
-                  ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
-                  : PHARMACIST_AVAILABILITY_OPTIONS;
+              const availabilityOptions = pharmacistAvailabilityOptionsForLine(
+                request?.request_type ?? "product_request",
+                { isAjoutOfficineLine, isPrescriptionExtraProposed }
+              );
 
               if (canManageSupply || canManageSupplyReadonly) {
                 const pl = row as PatientLineLike;

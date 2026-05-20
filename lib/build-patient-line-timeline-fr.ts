@@ -1,9 +1,11 @@
 import { formatDateShortFr, formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import {
   effectiveAvailabilityForPatientLine,
+  effectiveAvailableQtyForPatientLine,
   effectiveEtaForPatientLine,
   type PatientLineLike,
   validatedProductLabel,
+  validatedQtyForPatientLine,
 } from "@/lib/patient-confirmed-line-buckets";
 import {
   tryParsePatientHistoryAudit,
@@ -294,7 +296,12 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
   const curParts: string[] = [];
   curParts.push(`Produit : ${validatedProductLabel(row)}`);
   if (row.is_selected_by_patient) {
-    curParts.push(`Quantité retenue : ${row.selected_qty ?? row.requested_qty}`);
+    const validatedQty = validatedQtyForPatientLine(row);
+    const trackedQty = effectiveAvailableQtyForPatientLine(row);
+    curParts.push(`Quantité retenue : ${validatedQty}`);
+    if (trackedQty != null && trackedQty !== validatedQty) {
+      curParts.push(`Quantité suivie par l’officine : ${trackedQty}`);
+    }
     curParts.push(`Disponibilité affichée : ${eff ? availabilityStatusFr[eff] ?? eff : "—"}`);
     if (eff === "to_order" && eta) curParts.push(`Indication de disponibilité : ${formatDateShortFr(eta)}`);
     curParts.push(`Préparation : ${postConfirmFulfillmentShortFr(row.post_confirm_fulfillment)}`);
