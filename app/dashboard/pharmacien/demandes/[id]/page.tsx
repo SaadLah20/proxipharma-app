@@ -111,6 +111,7 @@ import {
   PharmacistCloseRequestConfirmModal,
   type PharmacistCloseRequestSummary,
 } from "@/components/pharmacist/pharmacist-close-request-confirm-modal";
+import { PharmacistClosedProductBucketsView } from "@/components/pharmacist/pharmacist-closed-product-buckets-view";
 import {
   flattenPharmacistSupplyListEntriesStable,
   sortPharmacistSupplyRowsBySection,
@@ -278,6 +279,19 @@ function clampFulfillmentDraftToInferred(
   if ((x === "ordered" || x === "arrived_reserved") && inferredAvail !== "to_order") x = "unset";
   return x;
 }
+
+/** Après passage en « à commander », le brouillon suit « commandé » pour afficher « reçu en officine ». */
+function fulfillmentDraftAfterAvailabilityChange(
+  current: "unset" | "reserved" | "ordered" | "arrived_reserved",
+  inferredAvail: string
+): "unset" | "reserved" | "ordered" | "arrived_reserved" {
+  let fd = clampFulfillmentDraftToInferred(current, inferredAvail);
+  if (inferredAvail === "to_order" && fd === "unset") fd = "ordered";
+  return fd;
+}
+
+/** Consentement global saisi avant le modal d’ajout post-validation. */
+const POST_CONFIRM_ADD_CONSENT_KEY = "__post_confirm_add__";
 
 /** Disponibilité dérivée du brouillon en cours d’enregistrement (alignée sur `buildItemUpdatePayload`). */
 function inferredAvailabilityForPostConfirmClamp(_row: ItemRow, payloadInferred: string): string {
@@ -1080,6 +1094,8 @@ function computeSupplyStructuralDirty(
     if (d.unit_price !== b.unit_price) return true;
     if (d.pharmacist_comment !== b.pharmacist_comment) return true;
     if (d.expected_availability_date !== b.expected_availability_date) return true;
+    if (d.selected_qty_str !== b.selected_qty_str) return true;
+    if (d.fulfillment_draft !== b.fulfillment_draft) return true;
   }
 
   for (const row of items) {
@@ -1536,6 +1552,7 @@ export default function PharmacienDemandeDetailPage() {
   const [supplyConfirmPending, setSupplyConfirmPending] = useState<
     | { kind: "unlock_modify"; rowId: string }
     | { kind: "add_line"; pick: ProductCatalogHit; reason: string; qty: number }
+    | { kind: "preface_post_confirm_add"; mode: "ordonnance" | "proposed" }
     | { kind: "withdraw_line"; rowId: string }
     | { kind: "remove_proposed_line"; row: ItemRow }
     | null
@@ -2153,7 +2170,10 @@ export default function PharmacienDemandeDetailPage() {
           requestedQty: refR,
           isProposedLine: false,
         });
-        const fulfillment_draft = clampFulfillmentDraftToInferred(current.fulfillment_draft, inferredStatus);
+        const fulfillment_draft = fulfillmentDraftAfterAvailabilityChange(
+          current.fulfillment_draft,
+          inferredStatus
+        );
         return {
           ...prev,
           [row.id]: {
@@ -2171,7 +2191,7 @@ export default function PharmacienDemandeDetailPage() {
         requestedQty: refR,
         isProposedLine: isAjoutOfficine,
       });
-      const fulfillment_draft = clampFulfillmentDraftToInferred(current.fulfillment_draft, inferred);
+      const fulfillment_draft = fulfillmentDraftAfterAvailabilityChange(current.fulfillment_draft, inferred);
       return {
         ...prev,
         [row.id]: {
@@ -2271,7 +2291,7 @@ export default function PharmacienDemandeDetailPage() {
       setDraft((prev) => {
         const cur = prev[row.id];
         if (!cur) return prev;
-        const fulfillment_draft = clampFulfillmentDraftToInferred(cur.fulfillment_draft, "to_order");
+        const fulfillment_draft = fulfillmentDraftAfterAvailabilityChange(cur.fulfillment_draft, "to_order");
         return {
           ...prev,
           [row.id]: {
@@ -2301,7 +2321,7 @@ export default function PharmacienDemandeDetailPage() {
       const cur = prev[row.id];
       if (!cur) return prev;
       const nextStatus = inferred;
-      const fulfillment_draft = clampFulfillmentDraftToInferred(cur.fulfillment_draft, nextStatus);
+      const fulfillment_draft = fulfillmentDraftAfterAvailabilityChange(cur.fulfillment_draft, nextStatus);
       return {
         ...prev,
         [row.id]: {
@@ -2345,7 +2365,7 @@ export default function PharmacienDemandeDetailPage() {
       setDraft((prev) => {
         const cur = prev[row.id];
         if (!cur) return prev;
-        const fulfillment_draft = clampFulfillmentDraftToInferred(cur.fulfillment_draft, "to_order");
+        const fulfillment_draft = fulfillmentDraftAfterAvailabilityChange(cur.fulfillment_draft, "to_order");
         return {
           ...prev,
           [row.id]: {
@@ -2487,6 +2507,36 @@ export default function PharmacienDemandeDetailPage() {
     setOrdonnanceQuickAlternatives([]);
     setOrdonnanceAltQuery("");
     setOrdonnanceAltHits([]);
+  };
+
+  const openPostConfirmAddPreface = (mode: "ordonnance" | "proposed") => {
+    if (!request || !["confirmed", "treated"].includes(request.status)) {
+      if (mode === "ordonnance") {
+        setError("");
+        resetOrdonnanceQuickAddForm();
+        setOrdonnanceQuickAddOpen(true);
+      } else {
+        setError("");
+        resetPropForm();
+        if (request?.request_type === "prescription") {
+          setPropReason(PRESCRIPTION_ADDITIONAL_PROPOSED_REASON);
+        }
+        setPropOpen(true);
+      }
+      return;
+    }
+    setSupplyConfirmBlocks([
+      {
+        key: "preface-add",
+        title: "Ajout après validation",
+        subtitle:
+          mode === "ordonnance"
+            ? "Indiquez le canal d’accord patient, puis saisissez le produit ordonnance."
+            : "Indiquez le canal d’accord patient, puis choisissez le produit proposé.",
+      },
+    ]);
+    setSupplyConfirmPending({ kind: "preface_post_confirm_add", mode });
+    setSupplyConfirmOpen(true);
   };
 
   const insertPharmacistProposedLine = async (
@@ -2664,26 +2714,22 @@ export default function PharmacienDemandeDetailPage() {
           return;
         }
       }
+      const globalConsent = lineModifyConsent[POST_CONFIRM_ADD_CONSENT_KEY];
+      if (globalConsent?.channel?.trim()) {
+        setLineModifyConsent((prev) => ({
+          ...prev,
+          [syntheticId]: {
+            channel: globalConsent.channel.trim(),
+            motive: (globalConsent.motive ?? "").trim(),
+          },
+        }));
+      }
       if (opts?.fromQuickAdd) {
         resetOrdonnanceQuickAddForm();
       } else {
         if (request?.request_type !== "free_consultation") setPropOpen(false);
         resetPropForm();
       }
-      return;
-    }
-    if (request && ["confirmed", "treated"].includes(uiRequestStatus ?? "")) {
-      setSupplyConfirmBlocks([
-        {
-          key: "add-line",
-          title: `Ajouter « ${pick.name} »`,
-          subtitle: `${qty} unité(s) · Motif : ${reason}`,
-        },
-      ]);
-      setSupplyConfirmPending({ kind: "add_line", pick, reason, qty });
-      setSupplyConfirmOpen(true);
-      setPropOpen(false);
-      resetPropForm();
       return;
     }
     setPropBusy(true);
@@ -3058,7 +3104,7 @@ export default function PharmacienDemandeDetailPage() {
 
       const rec = opts?.recordAddsAfterConfirm;
       if (rec) {
-        const fill = rec.consent[row.id];
+        const fill = rec.consent[row.id] ?? rec.consent[POST_CONFIRM_ADD_CONSENT_KEY];
         if (!fill?.channel?.trim()) {
           throw new Error("Canal d’accord patient requis pour chaque ajout officine avant enregistrement.");
         }
@@ -3280,6 +3326,20 @@ export default function PharmacienDemandeDetailPage() {
       for (const row of rows) {
         const f = d[row.id];
         if (!f) continue;
+        const wasWithdrawn = Boolean(row.withdrawn_after_confirm);
+        const nextWithdrawn = Boolean(f.withdrawn_after_confirm);
+        if (!wasWithdrawn && nextWithdrawn && row.is_selected_by_patient) {
+          const curCo = row.counter_outcome ?? "unset";
+          if (curCo !== "unset") {
+            const { error: rpcW } = await supabase.rpc("pharmacist_set_item_counter_outcome", {
+              p_request_item_id: row.id,
+              p_outcome: "unset",
+              p_cancel_reason: null,
+              p_cancel_detail: null,
+            });
+            if (rpcW) throw new Error(rpcW.message);
+          }
+        }
         const normalized = normalizeCounterOutcomeForPersist(row, f);
         if (normalized === null) continue;
         const nextCo = normalized.outcome;
@@ -3614,6 +3674,30 @@ export default function PharmacienDemandeDetailPage() {
             return { ...prev, [pending.rowId]: { ...cur, ...patch } };
           });
         }
+      } else if (pending.kind === "preface_post_confirm_add") {
+        const fill = fills[0];
+        if (!fill?.channel?.trim()) throw new Error("Indiquez le canal utilisé.");
+        setLineModifyConsent((prev) => ({
+          ...prev,
+          [POST_CONFIRM_ADD_CONSENT_KEY]: {
+            channel: fill.channel.trim(),
+            motive: (fill.motive ?? "").trim(),
+          },
+        }));
+        setSupplyConfirmOpen(false);
+        setSupplyConfirmPending(null);
+        setSupplyConfirmBusy(false);
+        if (pending.mode === "ordonnance") {
+          resetOrdonnanceQuickAddForm();
+          setOrdonnanceQuickAddOpen(true);
+        } else {
+          resetPropForm();
+          if (request?.request_type === "prescription") {
+            setPropReason(PRESCRIPTION_ADDITIONAL_PROPOSED_REASON);
+          }
+          setPropOpen(true);
+        }
+        return;
       } else if (pending.kind === "add_line") {
         const fill = fills[0];
         if (!fill?.channel?.trim()) throw new Error("Indiquez le canal utilisé.");
@@ -4029,7 +4113,12 @@ export default function PharmacienDemandeDetailPage() {
       if (e.header) {
         const h = e.header.toLowerCase();
         const surface: Surface =
-          h.includes("écart") || h.includes("hors bloc") || h.includes("hors périmètre") ? "secondary" : "principal";
+          h.includes("écart") ||
+          h.includes("non retenus") ||
+          h.includes("hors bloc") ||
+          h.includes("hors périmètre")
+            ? "secondary"
+            : "principal";
         groups.push({ surface, entries: [e] });
       } else if (groups.length > 0) {
         groups[groups.length - 1].entries.push(e);
@@ -4150,6 +4239,94 @@ export default function PharmacienDemandeDetailPage() {
         ).length
       : null;
 
+  const showClosedBucketsLayout = Boolean(
+    request && usesLineWorkflow && pharmacistRequestIsClosedSuccess(request.status)
+  );
+
+  const renderClosedReadonlySupplyLine = (row: ItemRow) => {
+    const f = draft[row.id];
+    if (!f || !request) return null;
+    const pl = row as PatientLineLike;
+    const prod = one(row.products);
+    const selected = Boolean(row.is_selected_by_patient);
+    const withdrawnDraft = Boolean(f.withdrawn_after_confirm);
+    const co = row.counter_outcome ?? "unset";
+    const lineLockedTrace = co === "cancelled_at_counter";
+    const effSupply = effectiveAvailSupplyDraft(row, f, request.request_type, request.status);
+    const etaSupply = effectiveEtaSupplyDraft(row, f, request.request_type);
+    let availSentence = "—";
+    if (!selected) availSentence = "Non retenu";
+    else if (effSupply === "to_order") {
+      availSentence = `À commander${etaSupply ? ` · dispo indicative ${formatDateShortFr(etaSupply)}` : ""}`;
+    } else if (effSupply) availSentence = availabilityStatusFr[effSupply] ?? effSupply;
+    const validatedName = validatedProductLabel(pl);
+    const validatedQty = validatedQtyForPatientLine(pl);
+    const branchPrice = validatedBranchUnitPriceMad(pl);
+    const lineTot = branchPrice != null ? branchPrice * validatedQty : null;
+    const unitLabel = branchPrice != null ? `${branchPrice.toFixed(2)} MAD` : "—";
+    const totalLabel = lineTot != null ? `${lineTot.toFixed(2)} MAD` : "—";
+    const thumbUrl = resolvePublicMediaUrl(prod?.photo_url ?? null);
+    const patientLineCc = row.client_comment?.trim() ?? "";
+    const lineConvoVisual = lineConversationVisual(patientLineCc, f.pharmacist_comment ?? "");
+    return (
+      <PharmacistSupplyCompactLine
+        header={null}
+        validatedName={validatedName}
+        validatedQty={validatedQty}
+        availSentence={availSentence}
+        unitLabel={unitLabel}
+        totalLabel={totalLabel}
+        thumbUrl={thumbUrl}
+        selected={selected}
+        lineLockedTrace={lineLockedTrace}
+        withdrawn={withdrawnDraft}
+        effAvailRow={effSupply}
+        canMarkReserved={false}
+        canMarkOrdered={false}
+        fulfillmentDraft={f.fulfillment_draft}
+        onToggleReserved={() => {}}
+        onToggleOrdered={() => {}}
+        onToggleArrivedReserved={() => {}}
+        canShowArrivedReservedPill={false}
+        canMarkPickedUpCounterSupply={false}
+        onMarkPickedUpCounter={() => {}}
+        hasModifyConsent={false}
+        busy={false}
+        supplyConfirmBusy={false}
+        lineCounterLocked={(co ?? "unset") === "picked_up"}
+        showExpandedEditor={false}
+        expandedEditor={null}
+        treatedCounterSlot={
+          <p className="border-t border-slate-100 bg-slate-50/25 px-2 py-2 text-[10px] text-muted-foreground">
+            <span className="font-semibold text-foreground">Comptoir : </span>
+            {counterOutcomeLabelPharmacien(co, row.counter_cancel_reason)}
+          </p>
+        }
+        lineConversationSlot={
+          <button
+            type="button"
+            onClick={() => setLineConvoRowId(row.id)}
+            className={clsx(
+              lineConversationStripButtonClass(lineConvoVisual, { open: lineConvoRowId === row.id }),
+              "min-w-0 w-full flex-1 justify-start"
+            )}
+          >
+            <MessageCircle className="size-4 shrink-0 text-teal-700" aria-hidden />
+            <span className="truncate text-[9px] font-medium">{lineConversationStripLabel(lineConvoVisual)}</span>
+          </button>
+        }
+        postConfirmAmendmentBadges={supplyAmendmentBadgeLabelsByItemId[row.id]}
+        menuOpen={false}
+        onMenuOpenChange={() => {}}
+        onMenuModify={() => {}}
+        onMenuWithdraw={() => {}}
+        onMenuHistory={() => setPharmaHistoryRowId(row.id)}
+        supplyMutationsEnabled={false}
+        withdrawDisabled
+      />
+    );
+  };
+
   const resetDraftFromRows = useCallback(() => {
     const st = request?.status ?? null;
     const rt = request?.request_type ?? undefined;
@@ -4257,6 +4434,8 @@ export default function PharmacienDemandeDetailPage() {
     bottomChromePaddingClass = "pb-24 sm:pb-28";
   } else if (request.status === "treated" && !archiveFrozen) {
     bottomChromePaddingClass = "pb-20 sm:pb-24";
+  } else if (canManageSupply) {
+    bottomChromePaddingClass = showSupplyDirtyBar ? "pb-28 sm:pb-32" : "pb-20 sm:pb-24";
   }
 
   return (
@@ -4435,6 +4614,7 @@ export default function PharmacienDemandeDetailPage() {
 
       {usesLineWorkflow &&
       request &&
+      !isPrescription &&
       ["submitted", "in_review"].includes(request.status) &&
       !pharmacistRequestIsHardStopped(request.status) ? (
         <section className="rounded-lg border-2 border-sky-400/35 bg-gradient-to-br from-sky-500/10 via-white to-teal-50/20 px-2.5 py-2 text-[10px] leading-snug text-sky-950 shadow-sm ring-1 ring-sky-300/30 sm:px-3">
@@ -4549,13 +4729,6 @@ export default function PharmacienDemandeDetailPage() {
             </p>
           ) : null}
 
-          {isPrescription && prescriptionNote?.trim() && ordonnanceCatalogEditable ? (
-            <p className="mb-2 rounded-lg border border-amber-200/70 bg-amber-50/40 px-2.5 py-2 text-[11px] leading-snug text-amber-950">
-              <span className="font-semibold">Message patient : </span>
-              {prescriptionNote.trim()}
-            </p>
-          ) : null}
-
           {showConsultationProductsPane && isConsultation && consultationBrief ? (
             <ConsultationBriefCompact
               text={consultationBrief.text}
@@ -4573,21 +4746,7 @@ export default function PharmacienDemandeDetailPage() {
                 <p className="mt-2 text-[11px] text-muted-foreground">{workflowCopy.pharmacistEmptyLinesHint}</p>
               ) : null}
               {displayRows.length === 0 && isPrescription && showLineAndPublishEdits ? (
-                <div className="mt-2">
-                  <p className="text-[11px] leading-snug text-amber-950/90">{workflowCopy.pharmacistEmptyLinesHint}</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError("");
-                      resetOrdonnanceQuickAddForm();
-                      setOrdonnanceQuickAddOpen(true);
-                    }}
-                    className="mt-2 inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border-2 border-amber-400/80 bg-gradient-to-r from-amber-500/15 to-orange-50/40 px-3 py-2 text-[11px] font-bold text-amber-950 shadow-sm ring-1 ring-amber-300/50 hover:bg-amber-50"
-                  >
-                    <Plus className="size-4 shrink-0" aria-hidden />
-                    Ajouter un produit ordonnance
-                  </button>
-                </div>
+                <p className="mt-2 text-[11px] leading-snug text-amber-950/90">{workflowCopy.pharmacistEmptyLinesHint}</p>
               ) : null}
               {displayRows.length > 0 ? (
               <>
@@ -4618,9 +4777,13 @@ export default function PharmacienDemandeDetailPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setError("");
-                    resetOrdonnanceQuickAddForm();
-                    setOrdonnanceQuickAddOpen(true);
+                    if (canManageSupply) {
+                      openPostConfirmAddPreface("ordonnance");
+                    } else {
+                      setError("");
+                      resetOrdonnanceQuickAddForm();
+                      setOrdonnanceQuickAddOpen(true);
+                    }
                   }}
                   className="inline-flex min-h-9 items-center justify-center gap-1 rounded-lg border border-amber-400/75 bg-amber-50/80 px-2.5 py-1 text-[10px] font-bold text-amber-950 shadow-sm hover:bg-amber-100/80"
                 >
@@ -4631,7 +4794,14 @@ export default function PharmacienDemandeDetailPage() {
             </div>
           </div>
           <div className="mt-2 flex flex-col gap-3">
-            {pharmacistSupplySurfaceGroups.map((group, gi) => (
+            {showClosedBucketsLayout ? (
+              <PharmacistClosedProductBucketsView
+                items={displayRows}
+                renderLine={(row) => renderClosedReadonlySupplyLine(row)}
+              />
+            ) : null}
+            {!showClosedBucketsLayout
+              ? pharmacistSupplySurfaceGroups.map((group, gi) => (
               <div
                 key={gi}
                 className={clsx(
@@ -6039,7 +6209,8 @@ export default function PharmacienDemandeDetailPage() {
               })}
                 </ul>
               </div>
-            ))}
+            ))
+              : null}
           </div>
               </>
               ) : null}
@@ -6052,15 +6223,19 @@ export default function PharmacienDemandeDetailPage() {
               paths={prescriptionPaths}
               defaultOpen={Boolean(ordonnanceCatalogEditable && ordonnanceLineCount === 0)}
               viewerRole="pharmacien"
-              prescriptionNote={ordonnanceCatalogEditable ? null : prescriptionNote}
+              prescriptionNote={prescriptionNote}
               ordonnanceQuickAdd={
                 ordonnanceCatalogEditable
                   ? {
                       lineCount: ordonnanceLineCount,
                       onOpenAdd: () => {
-                        setError("");
-                        resetOrdonnanceQuickAddForm();
-                        setOrdonnanceQuickAddOpen(true);
+                        if (canManageSupply) {
+                          openPostConfirmAddPreface("ordonnance");
+                        } else {
+                          setError("");
+                          resetOrdonnanceQuickAddForm();
+                          setOrdonnanceQuickAddOpen(true);
+                        }
                       },
                     }
                   : undefined
@@ -6068,7 +6243,7 @@ export default function PharmacienDemandeDetailPage() {
             />
           ) : null}
 
-          {showConsultationProductsPane && showLineAndPublishEdits ? (
+          {showConsultationProductsPane && showLineAndPublishEdits && !(isPrescription && canManageSupply) ? (
             <section
               className={clsx(
                 "mt-2 flex min-h-0 flex-col rounded-xl px-2 py-1.5 shadow-sm sm:px-2.5 sm:py-2",
@@ -6091,6 +6266,10 @@ export default function PharmacienDemandeDetailPage() {
                   type="button"
                   aria-expanded={propOpen}
                   onClick={() => {
+                    if (!propOpen && canManageSupply) {
+                      openPostConfirmAddPreface("proposed");
+                      return;
+                    }
                     const next = !propOpen;
                     setPropOpen(next);
                     setError("");
@@ -6790,9 +6969,11 @@ export default function PharmacienDemandeDetailPage() {
               ? "Écarter la ligne après validation"
               : supplyConfirmPending?.kind === "remove_proposed_line"
                 ? "Retirer la proposition officine"
-                : supplyConfirmPending?.kind === "add_line"
-                  ? "Ajouter un produit après validation"
-                  : "Confirmation"
+                : supplyConfirmPending?.kind === "preface_post_confirm_add"
+                  ? "Accord patient avant ajout"
+                  : supplyConfirmPending?.kind === "add_line"
+                    ? "Ajouter un produit après validation"
+                    : "Confirmation"
         }
         intro={
           supplyConfirmPending?.kind === "unlock_modify"
@@ -6801,17 +6982,21 @@ export default function PharmacienDemandeDetailPage() {
               ? "L’écart s’applique en brouillon dès le choix du canal ; journalisation à l’enregistrement du dossier."
               : supplyConfirmPending?.kind === "remove_proposed_line"
                 ? "Le retrait est journalisé pour le patient avec le canal d’accord."
-                : supplyConfirmPending?.kind === "add_line"
-                  ? "Choisissez le canal d’accord : l’ajout est créé en brouillon tout de suite, journalisé avec « Enregistrer les modifications »."
-                  : "Indiquez comment le patient a donné son accord."
+                : supplyConfirmPending?.kind === "preface_post_confirm_add"
+                  ? "Renseignez le canal et la précision, puis choisissez le produit à ajouter."
+                  : supplyConfirmPending?.kind === "add_line"
+                    ? "Choisissez le canal d’accord : l’ajout est créé en brouillon tout de suite, journalisé avec « Enregistrer les modifications »."
+                    : "Indiquez comment le patient a donné son accord."
         }
         blocks={supplyConfirmBlocks}
         confirmLabel={
-          supplyConfirmPending?.kind === "add_line"
-            ? "Valider (brouillon)"
-            : supplyConfirmPending?.kind === "remove_proposed_line"
-              ? "Enregistrer et retirer"
-              : "Valider"
+          supplyConfirmPending?.kind === "preface_post_confirm_add"
+            ? "Continuer vers l’ajout produit"
+            : supplyConfirmPending?.kind === "add_line"
+              ? "Valider (brouillon)"
+              : supplyConfirmPending?.kind === "remove_proposed_line"
+                ? "Enregistrer et retirer"
+                : "Valider"
         }
         busy={supplyConfirmBusy}
         onConfirm={(fills) => void applySupplyModalConfirm(fills)}
@@ -6845,6 +7030,9 @@ export default function PharmacienDemandeDetailPage() {
             setOrdonnanceQuickAddPick(h as ProductCatalogHit);
             setPropQuery("");
             setPropHits([]);
+            const reqN = clampOrdonnanceRequestedQty(parseInt(ordonnanceQuickRequestedQty, 10) || 1);
+            const avail = ordonnanceInsertAvailableQty(ordonnanceQuickAvailability, reqN, undefined);
+            setOrdonnanceQuickAvailableQty(String(avail));
           }}
           onClearProduct={() => {
             setOrdonnanceQuickAddPick(null);
