@@ -333,7 +333,9 @@ export function PharmacistSupplyCompactLine({
                         fulfillmentDraft === "ordered" || fulfillmentDraft === "arrived_reserved" ? pillActive : pillIdle
                       )}
                     >
-                      {fulfillmentDraft === "unset" ? "Marquer commandé" : "Commandé"}
+                      {fulfillmentDraft === "ordered" || fulfillmentDraft === "arrived_reserved"
+                        ? "Commandé"
+                        : "Marquer commandé"}
                     </button>
                   ) : null}
                   {effAvailRow === "to_order" && canShowArrivedReservedPill ? (

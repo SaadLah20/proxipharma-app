@@ -18,9 +18,11 @@ function clampHour(raw: string): string {
   return String(n);
 }
 
-function clampMinute(raw: string): string {
-  if (raw === "") return "";
-  const n = Math.min(59, Math.max(0, parseInt(raw, 10) || 0));
+/** Pendant la saisie : 1 chiffre tel quel (« 3 ») ; à 2 chiffres ou au blur : clamp + pad. */
+function normalizeMinuteDigits(digits: string, padSingle = false): string {
+  if (digits.length === 0) return "";
+  if (digits.length === 1 && !padSingle) return digits;
+  const n = Math.min(59, Math.max(0, parseInt(digits, 10) || 0));
   return String(n).padStart(2, "0");
 }
 
@@ -68,7 +70,13 @@ export function PlannedVisitTimeInput({
       onMinuteChange("");
       return;
     }
-    onMinuteChange(clampMinute(digits));
+    onMinuteChange(normalizeMinuteDigits(digits, false));
+  };
+
+  const onMinuteBlur = () => {
+    if (minute.length === 1) {
+      onMinuteChange(normalizeMinuteDigits(minute, true));
+    }
   };
 
   const segmentClass = (active: boolean) =>
@@ -130,7 +138,10 @@ export function PlannedVisitTimeInput({
             setFocusSeg("minute");
             e.target.select();
           }}
-          onBlur={() => setFocusSeg((s) => (s === "minute" ? null : s))}
+          onBlur={() => {
+            onMinuteBlur();
+            setFocusSeg((s) => (s === "minute" ? null : s));
+          }}
           className="mt-0.5 w-full border-0 bg-transparent p-0 text-center text-[15px] font-bold tabular-nums text-foreground focus:outline-none"
         />
       </div>

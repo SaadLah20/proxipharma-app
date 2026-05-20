@@ -90,6 +90,7 @@ import {
   clampOrdonnanceRequestedQty,
   nudgeOrdonnanceAvailableQty,
   nudgeOrdonnanceRequestedQty,
+  inferOrdonnanceLineAvailabilityStatus,
   ordonnanceDraftRequestedQty,
   ordonnanceInsertAvailableQty,
 } from "@/lib/prescription-ordonnance-line-qty";
@@ -1023,10 +1024,10 @@ function mergeItemDraftOnReload(
   if (requestStatus != null && ["confirmed", "treated"].includes(requestStatus)) {
     return {
       ...built,
-      fulfillment_draft: prev?.fulfillment_draft ?? built.fulfillment_draft,
-      counter_outcome_draft: prev?.counter_outcome_draft ?? built.counter_outcome_draft,
-      counter_cancel_reason_draft: prev?.counter_cancel_reason_draft ?? built.counter_cancel_reason_draft,
-      counter_cancel_detail_draft: prev?.counter_cancel_detail_draft ?? built.counter_cancel_detail_draft,
+      fulfillment_draft: built.fulfillment_draft,
+      counter_outcome_draft: built.counter_outcome_draft,
+      counter_cancel_reason_draft: built.counter_cancel_reason_draft,
+      counter_cancel_detail_draft: built.counter_cancel_detail_draft,
     };
   }
   return {
@@ -1891,6 +1892,10 @@ export default function PharmacienDemandeDetailPage() {
           return;
         }
       }
+      setDraft((prev) => {
+        const cur = prev[rowSnap.id] ?? liveDraft;
+        return { ...prev, [rowSnap.id]: { ...cur, fulfillment_draft: next } };
+      });
       setFulfillmentRpcBusyId(rowSnap.id);
       setError("");
       try {
@@ -1902,6 +1907,10 @@ export default function PharmacienDemandeDetailPage() {
         dispatchRequestDetailRefresh(id);
         await load();
       } catch (e) {
+        setDraft((prev) => {
+          const cur = prev[rowSnap.id] ?? liveDraft;
+          return { ...prev, [rowSnap.id]: { ...cur, fulfillment_draft: liveDraft.fulfillment_draft } };
+        });
         setError(e instanceof Error ? e.message : "Impossible d’enregistrer.");
       } finally {
         setFulfillmentRpcBusyId(null);
@@ -2924,8 +2933,65 @@ export default function PharmacienDemandeDetailPage() {
     for (const row of proposalSnap) {
       const f = draftSnap[row.id];
       if (!f?.availability_status) {
-        throw new Error("Choisis une disponibilité pour chaque ligne (propositions officine).");
+        throw new Error("Choisis une disponibilité pour chaque ligne.");
       }
+      const price = f.unit_price.trim() === "" ? null : Number(f.unit_price.replace(",", "."));
+      if (f.unit_price.trim() !== "" && (price == null || Number.isNaN(price) || price < 0)) {
+        throw new Error("Prix unitaire invalide.");
+      }
+
+      const isDeferredOrdonnanceLine =
+        request?.request_type === "prescription" && row.line_source === "patient_request";
+
+      if (isDeferredOrdonnanceLine) {
+        const requestedQty = ordonnanceDraftRequestedQty(row, f);
+        const availQtyRaw = Number(f.available_qty);
+        if (Number.isNaN(availQtyRaw) || availQtyRaw < 0) {
+          throw new Error("Quantité disponible invalide sur une ligne ordonnance.");
+        }
+        const availableQty = ordonnanceInsertAvailableQty(f.availability_status, requestedQty, availQtyRaw);
+        const inferredStatus = inferOrdonnanceLineAvailabilityStatus(
+          f.availability_status,
+          requestedQty,
+          availableQty
+        );
+        if (inferredStatus === "to_order" && !(f.expected_availability_date ?? "").trim()) {
+          throw new Error(
+            `« ${one(row.products)?.name ?? "Produit"} » : date de réception prévue obligatoire pour un produit à commander.`
+          );
+        }
+        if (inferredStatus === "to_order") {
+          assertReceptionDateNotBeforeToday(f.expected_availability_date, one(row.products)?.name ?? undefined);
+        }
+
+        const { data: inserted, error: insErr } = await supabase
+          .from("request_items")
+          .insert({
+            request_id: id,
+            product_id: row.product_id,
+            requested_qty: requestedQty,
+            line_source: "patient_request",
+            pharmacist_proposal_reason: null,
+            is_selected_by_patient: true,
+            selected_qty: requestedQty,
+            counter_outcome: "unset",
+            availability_status: inferredStatus,
+            available_qty: availableQty,
+            unit_price: price,
+            pharmacist_comment: f.pharmacist_comment.trim() || null,
+            expected_availability_date:
+              f.expected_availability_date.trim() !== "" ? f.expected_availability_date : null,
+          })
+          .select("id")
+          .single();
+
+        if (insErr || !inserted?.id) {
+          throw new Error(insErr?.message ?? "Échec de l'enregistrement d'une ligne ordonnance.");
+        }
+        proposedIdMap.set(row.id, inserted.id);
+        continue;
+      }
+
       const availQtyRaw = Number(f.available_qty);
       if (Number.isNaN(availQtyRaw) || availQtyRaw < 1) {
         throw new Error("Pour chaque proposition officine, la quantité en stock doit être au moins 1.");
@@ -2934,10 +3000,6 @@ export default function PharmacienDemandeDetailPage() {
         PHARMACIST_PROPOSED_STOCK_CEILING,
         Math.max(1, Math.floor(availQtyRaw))
       );
-      const price = f.unit_price.trim() === "" ? null : Number(f.unit_price.replace(",", "."));
-      if (f.unit_price.trim() !== "" && (price == null || Number.isNaN(price) || price < 0)) {
-        throw new Error("Prix unitaire invalide.");
-      }
       const inferredStatus = inferAvailabilityStatusFromQty({
         status: f.availability_status,
         availableQty: qtyLine,
@@ -4640,11 +4702,9 @@ export default function PharmacienDemandeDetailPage() {
               const AvailIcon = availUi.Icon;
               const lineProposedBadge = isOrdonnancePrincipalLine
                 ? ordonnanceLineBadge
-                : isPrescriptionExtraProposed
-                  ? PRESCRIPTION_ADDITIONAL_PROPOSED_REASON
-                  : isAjoutOfficineLine || isProposedLine
-                    ? proposedBadgeLabel
-                    : null;
+                : isPrescriptionExtraProposed || isAjoutOfficineLine || isProposedLine
+                  ? proposedBadgeLabel
+                  : null;
               const stockCeiling = draftStockCeilingForRow(row);
               const stockParsedQty = Number(f.available_qty);
               const stockPlusDisabled =
