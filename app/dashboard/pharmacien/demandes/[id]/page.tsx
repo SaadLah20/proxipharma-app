@@ -64,13 +64,6 @@ import { sharedShowPlannedVisitBlock } from "@/lib/request-kinds/shared-capabili
 import { RequestDetailBackLink } from "@/components/requests/shared/request-detail-back-link";
 import { RequestKindHeader } from "@/components/requests/shared/request-kind-header";
 import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
-import { ConsultationBriefCompact } from "@/components/requests/consultation/consultation-brief-compact";
-import { ConsultationDetailTabBar } from "@/components/requests/consultation/consultation-detail-tab-bar";
-import { ConsultationDetailStickyChrome } from "@/components/requests/consultation/consultation-detail-sticky-chrome";
-import {
-  getConsultationDefaultTab,
-  type ConsultationDetailTab,
-} from "@/lib/consultation-detail-tabs";
 import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
 import { PrescriptionScanCollapsible } from "@/components/requests/prescription/prescription-scan-collapsible";
 import { PharmacistOrdonnanceQuickAddModal } from "@/components/requests/prescription/pharmacist-ordonnance-quick-add-modal";
@@ -1579,7 +1572,6 @@ export default function PharmacienDemandeDetailPage() {
   >([]);
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationUnread, setConversationUnread] = useState(false);
-  const [consultationTab, setConsultationTab] = useState<ConsultationDetailTab>("conversation");
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const [prescriptionPaths, setPrescriptionPaths] = useState<PrescriptionPagePaths | null>(null);
   const [prescriptionNote, setPrescriptionNote] = useState<string | null>(null);
@@ -1624,11 +1616,8 @@ export default function PharmacienDemandeDetailPage() {
   const [ordonnanceAltQuery, setOrdonnanceAltQuery] = useState("");
   const [ordonnanceAltHits, setOrdonnanceAltHits] = useState<ProductCatalogHit[]>([]);
   const propCatalogSearchActive = useMemo(
-    () =>
-      propOpen ||
-      ordonnanceQuickAddOpen ||
-      (request?.request_type === "free_consultation" && consultationTab === "products"),
-    [propOpen, ordonnanceQuickAddOpen, request?.request_type, consultationTab]
+    () => propOpen || ordonnanceQuickAddOpen,
+    [propOpen, ordonnanceQuickAddOpen]
   );
   const ordonnanceAltDebounced = useMemo(() => ordonnanceAltQuery.trim(), [ordonnanceAltQuery]);
   const propDebounced = useMemo(() => propQuery.trim(), [propQuery]);
@@ -2032,24 +2021,6 @@ export default function PharmacienDemandeDetailPage() {
     }, 280);
     return () => window.clearTimeout(t);
   }, [propDebounced, propCatalogSearchActive]);
-
-  useEffect(() => {
-    if (!request || request.request_type !== "free_consultation") return;
-    const tid = window.setTimeout(() => {
-      setConsultationTab(getConsultationDefaultTab(request.status, request.responded_at));
-    }, 0);
-    return () => window.clearTimeout(tid);
-  }, [request]);
-
-  useEffect(() => {
-    if (!request || request.request_type !== "free_consultation" || consultationTab !== "products") return;
-    const tid = window.setTimeout(() => {
-      setPropOpen(true);
-      const reason = getRequestKindWorkflowCopy("free_consultation").pharmacistProposeDefaultReason;
-      if (reason) setPropReason(reason);
-    }, 0);
-    return () => window.clearTimeout(tid);
-  }, [request, consultationTab]);
 
   useEffect(() => {
     if (!ordonnanceQuickAddOpen || ordonnanceAltDebounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
@@ -4089,8 +4060,6 @@ export default function PharmacienDemandeDetailPage() {
   const isPrescription = request?.request_type === "prescription";
   const isConsultation = request?.request_type === "free_consultation";
   const ordonnanceCatalogEditable = isPrescription && showLineAndPublishEdits;
-  const showConsultationProductsPane = !isConsultation || consultationTab === "products";
-
   /* Pas de useMemo : `draft` est muté en place — react-hooks/preserve-manual-memoization (React Compiler). */
   const lineEntriesForList =
     request && ["confirmed", "treated"].includes(uiRequestStatus ?? "")
@@ -4450,31 +4419,13 @@ export default function PharmacienDemandeDetailPage() {
     >
       <RequestDetailBackLink config={kindConfig} viewerRole="pharmacien" />
 
-      {isConsultation ? (
-        <ConsultationDetailStickyChrome>
-          <RequestKindHeader
-            config={kindConfig}
-            request={request}
-            lineCount={usesLineWorkflow ? displayRows.length : null}
-            showPlannedVisit={sharedShowPlannedVisitBlock(request.status)}
-            viewerRole="pharmacien"
-          />
-          <ConsultationDetailTabBar
-            tab={consultationTab}
-            onTab={setConsultationTab}
-            conversationUnread={conversationUnread}
-            productLineCount={displayRows.length}
-          />
-        </ConsultationDetailStickyChrome>
-      ) : (
-        <RequestKindHeader
-          config={kindConfig}
-          request={request}
-          lineCount={usesLineWorkflow ? displayRows.length : null}
-          showPlannedVisit={sharedShowPlannedVisitBlock(request.status)}
-          viewerRole="pharmacien"
-        />
-      )}
+      <RequestKindHeader
+        config={kindConfig}
+        request={request}
+        lineCount={usesLineWorkflow ? displayRows.length : null}
+        showPlannedVisit={sharedShowPlannedVisitBlock(request.status)}
+        viewerRole="pharmacien"
+      />
 
       {pharmacistRequestIsHardStopped(request.status) && usesLineWorkflow ? (
         <section
@@ -4701,7 +4652,7 @@ export default function PharmacienDemandeDetailPage() {
 
       {kindConfig.capabilities.workflowEnabled ? (
         <>
-          {isConsultation && consultationTab === "conversation" && consultationBrief ? (
+          {isConsultation && consultationBrief ? (
             <div className="mt-2 space-y-3">
               <ConsultationBriefPanel
                 requestId={request.id}
@@ -4729,16 +4680,7 @@ export default function PharmacienDemandeDetailPage() {
             </p>
           ) : null}
 
-          {showConsultationProductsPane && isConsultation && consultationBrief ? (
-            <ConsultationBriefCompact
-              text={consultationBrief.text}
-              paths={consultationBrief.paths}
-              onOpenConversation={() => setConsultationTab("conversation")}
-            />
-          ) : null}
-
-          {showConsultationProductsPane &&
-          (displayRows.length === 0 && !isPrescription && !isConsultation ? (
+          {displayRows.length === 0 && !isPrescription && !isConsultation ? (
             <p className="mt-2 text-[11px] text-muted-foreground">Aucune ligne produit.</p>
           ) : (
             <>
@@ -6215,7 +6157,7 @@ export default function PharmacienDemandeDetailPage() {
               </>
               ) : null}
             </>
-          ))}
+          )}
 
           {isPrescription && prescriptionPaths?.page1 ? (
             <PrescriptionScanCollapsible
@@ -6243,7 +6185,7 @@ export default function PharmacienDemandeDetailPage() {
             />
           ) : null}
 
-          {showConsultationProductsPane && showLineAndPublishEdits && !(isPrescription && canManageSupply) ? (
+          {showLineAndPublishEdits && !(isPrescription && canManageSupply) ? (
             <section
               className={clsx(
                 "mt-2 flex min-h-0 flex-col rounded-xl px-2 py-1.5 shadow-sm sm:px-2.5 sm:py-2",
@@ -6412,7 +6354,7 @@ export default function PharmacienDemandeDetailPage() {
             </section>
           ) : null}
 
-          {showConsultationProductsPane && respondedFrozenView ? (
+          {respondedFrozenView ? (
             <section className="mt-3 space-y-2 rounded-xl border border-amber-200/85 bg-amber-50/50 p-2.5 shadow-sm sm:mt-4 sm:p-3">
               <button
                 type="button"
@@ -6437,7 +6379,7 @@ export default function PharmacienDemandeDetailPage() {
             </section>
           ) : null}
 
-          {showConsultationProductsPane && showLineAndPublishEdits ? (
+          {showLineAndPublishEdits ? (
             <section className="mt-3 space-y-2 sm:mt-4">
               {canEditResponse ? (
                 <button

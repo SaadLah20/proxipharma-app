@@ -2930,8 +2930,8 @@ export function PatientProductRequestActions({
         <div className="mt-2 space-y-2 rounded-xl border border-violet-200/70 bg-violet-50/35 px-3 py-3 text-[11px] leading-snug text-violet-950">
           <p className="font-semibold">Votre consultation est bien envoyée.</p>
           <p>
-            Échangez avec la pharmacie via l&apos;onglet <strong>Conversation</strong>. Dès qu&apos;elle aura publié des
-            produits, retrouvez-les dans l&apos;onglet <strong>Produits proposés</strong> pour valider votre choix.
+            Échangez avec la pharmacie dans la section conversation ci-dessus. Dès qu&apos;elle aura publié des produits,
+            retrouvez-les plus bas sur cette page pour valider votre choix.
           </p>
         </div>
       ) : null}
@@ -3502,8 +3502,7 @@ export function PatientProductRequestActions({
           >
             {isConsultation ? (
               <>
-                Pour échanger avec la pharmacie, utilise l&apos;onglet{" "}
-                <strong className="font-semibold">Conversation</strong>.
+                Pour échanger avec la pharmacie, utilisez la section conversation en haut de la page.
               </>
             ) : (
               <>
