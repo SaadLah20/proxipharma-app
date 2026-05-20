@@ -30,11 +30,21 @@ function demandeCardShell(status: string, role: "patient" | "pharmacien", accent
       : "rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/40 via-card to-card shadow-md ring-1 ring-amber-200/45 transition hover:shadow-lg hover:ring-amber-300/50";
   }
   if (status === "confirmed") {
+    if (accent === "amber") {
+      return role === "patient"
+        ? "rounded-xl border border-amber-200/85 bg-gradient-to-br from-amber-50/45 via-card to-card shadow-md ring-1 ring-amber-200/50 transition hover:shadow-lg hover:ring-amber-300/55"
+        : "rounded-lg border border-amber-300/70 bg-gradient-to-br from-amber-50/45 via-card to-card shadow-sm ring-1 ring-amber-200/55 transition hover:border-amber-400/65 hover:shadow-md";
+    }
     return role === "patient"
       ? "rounded-xl border border-emerald-200/85 bg-gradient-to-br from-emerald-50/45 via-card to-card shadow-md ring-1 ring-emerald-200/50 transition hover:shadow-lg hover:ring-emerald-300/55"
       : "rounded-lg border border-emerald-300/70 bg-gradient-to-br from-emerald-50/45 via-card to-card shadow-sm ring-1 ring-emerald-200/55 transition hover:border-emerald-400/65 hover:shadow-md";
   }
   if (status === "treated") {
+    if (accent === "amber") {
+      return pharma
+        ? "rounded-lg border border-amber-400/65 bg-gradient-to-br from-amber-50/40 via-card to-card shadow-sm ring-1 ring-amber-200/55 transition hover:border-amber-500/70 hover:shadow-md"
+        : "rounded-xl border border-amber-300/75 bg-gradient-to-br from-amber-50/38 via-card to-card shadow-md ring-1 ring-amber-200/45 transition hover:shadow-lg hover:ring-amber-300/50";
+    }
     return pharma
       ? "rounded-lg border border-violet-300/70 bg-gradient-to-br from-violet-50/40 via-card to-card shadow-sm ring-1 ring-violet-200/55 transition hover:border-violet-400/65 hover:shadow-md"
       : "rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/35 via-card to-card shadow-md ring-1 ring-violet-200/45 transition hover:shadow-lg hover:ring-violet-300/50";

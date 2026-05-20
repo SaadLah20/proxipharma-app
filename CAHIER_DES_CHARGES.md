@@ -318,6 +318,31 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-06-01 — Lot demandes produits (commité) + ordonnance = demande produits (local, à committer)
+
+**Branche** : `fix/validated-supply-ecart-ui-modal`.
+
+**Demande produits — commit `aec8fad` (poussé)** :
+- Style page saisie **`/pharmacie/[id]/demande-produits`** ; notes patient alignées conversation.
+- Ordre stable lignes pharmacien post-validé (**`lib/pharmacist-supply-list-order.ts`**).
+- Footer **Clôturer** + modal récap (**`components/pharmacist/pharmacist-close-request-confirm-modal.tsx`**).
+- Patient : retrait gros bandeau clôture, libellés **`confirmed`/`treated`** (réservé/commandé), cartes compactes inchangées.
+- **SQL** **`20260601_001_product_request_notifs_ui.sql`** : notifs patient traitée, amendements post-validation, passage modifié, réception en officine — **à appliquer sur Supabase** avant test notifs.
+
+**Ordonnance — lot aligné demande produits (modifs locales, retours terrain en attente)** :
+- Après réponse pharmacien : **même parcours** que demande produits (validation, validé, traité, comptoir) ; nomenclature **Ordonnance** / **Saisi ordonnance** (plus « demande initiale » / motif scan).
+- Lignes saisies depuis le scan : **`line_source = patient_request`** (sans `pharmacist_proposal_reason`) — équivalent saisie patient ; legacy **`pharmacist_proposed` + motif « Saisie depuis ordonnance »** toujours reconnu.
+- Compléments hors ordonnance : **`pharmacist_proposed`** + motif (comme ajout officine produits).
+- **Qté prescrite** = qté demandée ; mêmes mécanismes dispo / alternatives / post-validé.
+- **UI** : scan **`PrescriptionScanCollapsible`** (produits d’abord, scan replié) ; modal **`PharmacistOrdonnanceQuickAddModal`** ; identité **ambre** (header par statut, hubs `confirmed`/`treated`, blocs validés patient).
+- Fichiers clés : **`lib/prescription-pharmacist-lines.ts`**, **`lib/prescription-patient-labels.ts`**, **`components/requests/prescription/prescription-scan-collapsible.tsx`**, **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**, **`components/requests/product/patient-product-request-actions.tsx`**, **`lib/request-kinds/prescription.config.ts`**, **`components/requests/demande-hub-ui.tsx`**.
+
+**Prochaine étape** : retours utilisateur sur **demandes produits** → corrections → **commit + push** ; puis QA ordonnance + migration **`20260601_001`**.
+
+**Phrase de reprise** : **§13.23**.
+
+---
+
 ### Session 2026-05-17 (suite 2) — Retours ordonnance + header consultation sticky
 
 **Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`b086521`**, **`46e68c7`** (poussés).
@@ -326,7 +351,7 @@ Statuts retenus v1:
 - **Rupture / indispo** : qté dispo **0** à l’ajout et au brouillon (`ordonnanceInsertAvailableQty`, plus de repli sur qté prescrite).
 - **Produits proposés** (complémentaires) : une seule **qté proposée** (pas de qté prescrite) ; badge **Proposé** (config `pharmacistProposedBadge`).
 - **Enregistrement post-validé** : modal sans faux écarts sur ligne principale quand **alternative retenue** (`supplyRowPersistedSupplyFields` ; comparaison branche alternative).
-- **Badges** : **Ordonnance** / **Ordonnance + alternative** / **Proposé** ; lignes non retenues : libellé **« Produit proposé par la pharmacie »** même si saisie scan.
+- **Badges** : **Ordonnance** / **Ordonnance + alternative** / **Proposé** (complémentaires uniquement pour **Proposé** ; voir session **2026-06-01** pour saisie scan en `patient_request`).
 - **Lot 1** (`b086521`) : notif pharmacien si patient modifie ordonnance (`20260531_001`), modal publication pharma, libellés patient, historique voix patient.
 
 **Consultation libre** :
@@ -1344,9 +1369,13 @@ Voir **§13.18**.
 
 Voir **§13.22**.
 
-### 13.22) Phrase de reprise (recommandée — après commits **`b086521`** + **`46e68c7`**)
+### 13.22) Phrase de reprise (dépassée — avant session **2026-06-01**)
 
-**« On reprend ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §10 (session **2026-05-17 suite 2**), `docs/workflow-ordonnance-consultation-REPONSES.md` §D–F, `CONTEXTE.md` §6, `AGENTS.md`, `RUNBOOK.md` §2b si auth. Branche **`fix/validated-supply-ecart-ui-modal`** (commits **`46e68c7`**+). Migrations Supabase si besoin : **`20260529_001`** (consultation), **`20260530_001`** (patient modifie ordonnance), **`20260531_001`** (notif pharma modif ordonnance), **`20260531_002`** (notif pharma date passage), ordonnance **`20260525_*`**–**`20260526_001`**. **Ordonnance** : ambre, qté prescrite/dispo, rupture → dispo 0, badges Ordonnance / Proposé, modal enregistrement sans faux écarts si alternative retenue. **Consultation libre** : onglets Conversation | Produits, **`ConsultationDetailStickyChrome`** (récap + onglets en haut), publication `free_consultation`, validation comme demande produits. **Demande produits** : référence pour post-validé et catalogue. Prod : appliquer migrations puis déployer front. Donne-moi la prochaine tâche ou tes retours terrain. »**
+Voir **§13.23**.
+
+### 13.23) Phrase de reprise (recommandée — après session **2026-06-01**)
+
+**« On reprend ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §10 (session **2026-06-01**), `CONTEXTE.md` §6, `AGENTS.md`, `RUNBOOK.md` §9 si notifs/SMS. Branche **`fix/validated-supply-ecart-ui-modal`**. Commit poussé **`aec8fad`** (lot demandes produits UI + clôture + ordre lignes) ; **en local non commité** : alignement **ordonnance** (= demande produits après réponse pharma : lignes scan en **`patient_request`**, libellé **Saisi ordonnance**, scan **`PrescriptionScanCollapsible`**, thème ambre hubs/header/validé). Migration Supabase à appliquer si pas fait : **`20260601_001_product_request_notifs_ui.sql`**. Attendre ou intégrer **retours terrain demandes produits** avant commit/push du lot ordonnance. QA : demande produits (répondue → validée → traitée + notifs) puis ordonnance (saisie scan → réponse → validation ; complément **proposé** avec motif). Je te donne ensuite les retours ou la prochaine tâche. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 

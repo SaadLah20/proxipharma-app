@@ -90,11 +90,14 @@ import {
 import { inferArchiveSnapshotStatus } from "@/lib/request-archive-snapshot-status";
 import { patientLineProposedBadgeLabel } from "@/lib/patient-line-proposed-badge";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
+import { PrescriptionScanCollapsible } from "@/components/requests/prescription/prescription-scan-collapsible";
+import { PRESCRIPTION_ORDONNANCE_SOURCING_LABEL } from "@/lib/prescription-pharmacist-lines";
 import { getRequestKindWorkflowCopy } from "@/lib/request-kinds/workflow-copy";
 import { patientArchiveIntroCopy, patientArchiveRetainedLabel } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { getRequestKindConfig, isRequestKindId } from "@/lib/request-kinds/registry";
 import type { RequestKindAccent, RequestKindId } from "@/lib/request-kinds/types";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
+import { PlannedVisitTimeInput } from "@/components/requests/planned-visit-time-input";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
@@ -514,7 +517,9 @@ function PatientValidatedCompactLineCard({
   const showLineBadge = Boolean(lineBadgeLabel);
   const ordonnanceProposedBadge = lineBadgeLabel === "Ordonnance";
   const confirmedPcfChip =
-    requestStatusForCard === "confirmed" && row.is_selected_by_patient && !row.withdrawn_after_confirm
+    (requestStatusForCard === "confirmed" || requestStatusForCard === "treated") &&
+    row.is_selected_by_patient &&
+    !row.withdrawn_after_confirm
       ? patientConfirmedFulfillmentChipFr(row.post_confirm_fulfillment)
       : null;
   const closureLabel = archiveClosureLabel?.trim() || null;
@@ -1083,6 +1088,7 @@ function resubmitLinesSignature(ls: ResubmitLine[]): string {
 function patientConfirmedFulfillmentChipFr(pcf: string | null | undefined): string | null {
   if (pcf === "reserved") return "Réservé";
   if (pcf === "ordered") return "Commandé";
+  if (pcf === "arrived_reserved") return "Reçu en pharmacie";
   return null;
 }
 
@@ -1090,6 +1096,115 @@ function patientArchiveClosureLabelFr(row: ActionItemRow): string | null {
   if ((row.counter_outcome ?? "unset") === "picked_up") return "Récupéré";
   if (row.withdrawn_after_confirm) return "Écarté";
   return null;
+}
+
+/** Dossier clôturé : produits récupérés en tête, autres groupes atténués. */
+function PatientClosedProductBucketsView({
+  items,
+  onOpenLineHistory,
+  linePostConfirmBadgesById,
+  onPhotoPreview,
+  pharmacistProposedBadgeLabel,
+  requestType = "product_request",
+  supplyAmendmentBundles = [],
+}: {
+  items: ActionItemRow[];
+  onOpenLineHistory: (itemId: string) => void;
+  linePostConfirmBadgesById: Record<string, string[]>;
+  onPhotoPreview: (url: string, title: string) => void;
+  pharmacistProposedBadgeLabel: string;
+  requestType?: string;
+  supplyAmendmentBundles?: { amendments: unknown }[];
+}) {
+  const recuperes = items.filter(
+    (r) => r.is_selected_by_patient && (r.counter_outcome ?? "unset") === "picked_up"
+  );
+  const nonRetenues = items.filter((r) => !r.is_selected_by_patient);
+  const ecartes = items.filter(
+    (r) => r.is_selected_by_patient && r.withdrawn_after_confirm && (r.counter_outcome ?? "unset") !== "picked_up"
+  );
+  const autresRetenus = items.filter(
+    (r) =>
+      r.is_selected_by_patient &&
+      !r.withdrawn_after_confirm &&
+      (r.counter_outcome ?? "unset") !== "picked_up"
+  );
+
+  const renderList = (rows: ActionItemRow[], tier: "dispo_officine" | "retire_apres_validation") => (
+    <ul className="space-y-2">
+      {rows.map((row) => (
+        <PatientValidatedCompactLineCard
+          key={row.id}
+          row={row}
+          tier={tier}
+          onOpenHistory={() => onOpenLineHistory(row.id)}
+          postConfirmBadges={linePostConfirmBadgesById[row.id]}
+          requestStatusForCard="treated"
+          archiveClosureLabel={patientArchiveClosureLabelFr(row)}
+          onPhotoPreview={onPhotoPreview}
+          pharmacistProposedBadgeLabel={pharmacistProposedBadgeLabel}
+          requestType={requestType}
+          supplyAmendmentBundles={supplyAmendmentBundles}
+        />
+      ))}
+    </ul>
+  );
+
+  return (
+    <div className="space-y-3">
+      {recuperes.length > 0 ? (
+        <section className="rounded-xl border-2 border-emerald-300/80 bg-gradient-to-b from-emerald-50/55 via-white to-white p-2.5 shadow-md ring-1 ring-emerald-200/60 sm:p-3">
+          <div className="mb-2 flex items-center gap-1.5 text-emerald-950">
+            <Package className="size-4 shrink-0 text-emerald-700" aria-hidden />
+            <h3 className="text-[11px] font-bold uppercase tracking-wide">
+              Produits récupérés ({recuperes.length})
+            </h3>
+          </div>
+          {renderList(recuperes, "dispo_officine")}
+        </section>
+      ) : null}
+
+      {autresRetenus.length > 0 ? (
+        <section className="rounded-xl border border-slate-200/80 bg-slate-50/40 p-2 opacity-90">
+          <h3 className="text-[10px] font-bold uppercase tracking-wide text-slate-700">
+            Autres produits retenus ({autresRetenus.length})
+          </h3>
+          <div className="mt-1.5">{renderList(autresRetenus, "dispo_officine")}</div>
+        </section>
+      ) : null}
+
+      {nonRetenues.length > 0 ? (
+        <details className="group rounded-xl border border-slate-200/70 bg-slate-50/30 opacity-80">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold text-slate-700 marker:content-none [&::-webkit-details-marker]:hidden">
+            <span>Produits non retenus ({nonRetenues.length})</span>
+            <ChevronDown className="size-3.5 shrink-0 transition-transform group-open:rotate-180" aria-hidden />
+          </summary>
+          <ul className="space-y-1 border-t border-slate-200/60 px-2 py-1.5">
+            {nonRetenues.map((row) => (
+              <PatientTraceNotRetainedRow
+                key={row.id}
+                row={row}
+                requestType={requestType}
+                onOpenHistory={() => onOpenLineHistory(row.id)}
+                postConfirmBadges={linePostConfirmBadgesById[row.id]}
+                onPhotoPreview={onPhotoPreview}
+              />
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
+      {ecartes.length > 0 ? (
+        <details className="group rounded-xl border border-amber-200/60 bg-amber-50/20 opacity-85">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold text-amber-950 marker:content-none [&::-webkit-details-marker]:hidden">
+            <span>Produits écartés après validation ({ecartes.length})</span>
+            <ChevronDown className="size-3.5 shrink-0 transition-transform group-open:rotate-180" aria-hidden />
+          </summary>
+          <div className="border-t border-amber-200/50 px-2 py-1.5">{renderList(ecartes, "retire_apres_validation")}</div>
+        </details>
+      ) : null}
+    </div>
+  );
 }
 
 /** Bandeau notes (même style que répondu / validé) + modal lecture seule. */
@@ -1197,6 +1312,13 @@ function PatientSentLineNotesModalFr({
         : null}
     </>
   );
+}
+
+function validatedBucketShell(accent: RequestKindAccent): string {
+  if (accent === "amber") {
+    return "rounded-xl border-2 border-amber-200/70 bg-gradient-to-b from-amber-50/30 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-amber-200/45 sm:p-3";
+  }
+  return "rounded-xl border-2 border-emerald-200/70 bg-gradient-to-b from-emerald-50/30 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-emerald-200/45 sm:p-3";
 }
 
 function summaryThemeClasses(accent: RequestKindAccent) {
@@ -1379,6 +1501,8 @@ type Props = {
   prescriptionNote?: string | null;
   /** Récap dossier déjà affiché dans le chrome sticky consultation (évite le doublon). */
   summaryInPageChrome?: boolean;
+  /** Dossier modifié côté serveur pendant la saisie — actualisation requise. */
+  detailStale?: { title: string; message: string } | null;
 };
 
 export function buildPatientSummaryStatusHint(
@@ -1634,7 +1758,7 @@ function RespondedPatientLineChooser({
     requestType === "free_consultation"
       ? "Proposition pharmacie"
       : isOrdonnancePrincipal
-        ? "Ordonnance"
+        ? PRESCRIPTION_ORDONNANCE_SOURCING_LABEL
         : isExtraProposed
           ? "Produit proposé par la pharmacie"
           : isProposedLine
@@ -2327,6 +2451,7 @@ export function PatientProductRequestActions({
   prescriptionPaths = null,
   prescriptionNote = null,
   summaryInPageChrome = false,
+  detailStale = null,
 }: Props) {
   const pathname = usePathname();
   const kindConfig = getRequestKindConfig(requestType);
@@ -2577,8 +2702,16 @@ export function PatientProductRequestActions({
       supplyBundles: supplyAmendmentBundles,
       dossierHistory: dossierHistoryRows,
       pharmacistProposedOriginLabel: workflowCopy.timelinePharmacistProposedOrigin,
+      patientLineOriginLabel: workflowCopy.patientLineOriginLabel,
     });
-  }, [historyModalRow, requestTimelineMeta, supplyAmendmentBundles, dossierHistoryRows, workflowCopy.timelinePharmacistProposedOrigin]);
+  }, [
+    historyModalRow,
+    requestTimelineMeta,
+    supplyAmendmentBundles,
+    dossierHistoryRows,
+    workflowCopy.timelinePharmacistProposedOrigin,
+    workflowCopy.patientLineOriginLabel,
+  ]);
 
   const visibleHits = debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS ? [] : hits;
   const resubmitTotal = useMemo(
@@ -3002,7 +3135,7 @@ export function PatientProductRequestActions({
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
       ) : null}
 
-      {(showWaitingShell || showConfirm || showConfirmedCards) && pharmacyId && !summaryInPageChrome ? (
+      {(showWaitingShell || showConfirm || showConfirmedCards) && pharmacyId && !summaryInPageChrome && !forceReadOnly ? (
         <PatientSentEnvoyeeSummaryCard
           pharmacyContact={pharmacyContact}
           pharmacyId={pharmacyId}
@@ -3053,6 +3186,15 @@ export function PatientProductRequestActions({
         </p>
       ) : null}
 
+      {isPrescription && prescriptionPaths?.page1 && (showConfirm || showConfirmedCards) ? (
+        <PrescriptionScanCollapsible
+          paths={prescriptionPaths}
+          defaultOpen={false}
+          className="mb-2"
+          prescriptionNote={prescriptionNote}
+        />
+      ) : null}
+
       {showConfirm ? (
         <div className="space-y-2">
           {items.length > 0 ? (
@@ -3081,7 +3223,24 @@ export function PatientProductRequestActions({
         </div>
       ) : null}
 
-      {showConfirmedCards ? (
+      {showConfirmedCards && forceReadOnly ? (
+        <section className="space-y-2">
+          <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+            {workflowCopy.patientProductsSectionTitle}
+          </h3>
+          <PatientClosedProductBucketsView
+            items={items}
+            onOpenLineHistory={setHistoryModalItemId}
+            linePostConfirmBadgesById={linePostConfirmBadgesById}
+            onPhotoPreview={openProductPhotoPreview}
+            pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
+            requestType={requestType}
+            supplyAmendmentBundles={supplyAmendmentBundles}
+          />
+        </section>
+      ) : null}
+
+      {showConfirmedCards && !forceReadOnly ? (
         (() => {
           const { dispoOfficine, aCommander, horsPerimetre, retireesApresValidation } =
             bucketPatientValidatedLinesThreeWays(items);
@@ -3097,8 +3256,7 @@ export function PatientProductRequestActions({
               <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 {workflowCopy.patientProductsSectionTitle}
               </h3>
-              <div className="space-y-2">
-              <div className="rounded-xl border-2 border-emerald-200/70 bg-gradient-to-b from-emerald-50/30 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-emerald-200/45 sm:p-3">
+              <div className={validatedBucketShell(accent)}>
               {dispoRetenues.length > 0 ? (
                 <section className="space-y-2">
                   <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto text-emerald-950">
@@ -3258,7 +3416,6 @@ export function PatientProductRequestActions({
                   </ul>
                 </details>
               ) : null}
-              </div>
             </section>
           );
         })()
@@ -3526,37 +3683,14 @@ export function PatientProductRequestActions({
                 required={showConfirm && visitFieldsEditable}
               />
             </label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <label className="block text-[10px] font-semibold text-foreground">
-                Heure (0–23)
-                <input
-                  type="number"
-                  min={0}
-                  max={23}
-                  inputMode="numeric"
-                  placeholder="—"
-                  value={visitHour}
-                  onChange={(e) => setVisitHour(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                  disabled={!visitFieldsEditable}
-                  readOnly={!visitFieldsEditable}
-                  className="mt-1 block w-full rounded-lg border-2 border-input bg-background px-2 py-1.5 text-[12px] font-semibold tabular-nums shadow-inner disabled:cursor-default disabled:opacity-90"
-                />
-              </label>
-              <label className="block text-[10px] font-semibold text-foreground">
-                Minutes (0–59)
-                <input
-                  type="number"
-                  min={0}
-                  max={59}
-                  inputMode="numeric"
-                  placeholder="—"
-                  value={visitMinute}
-                  onChange={(e) => setVisitMinute(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                  disabled={!visitFieldsEditable}
-                  readOnly={!visitFieldsEditable}
-                  className="mt-1 block w-full rounded-lg border-2 border-input bg-background px-2 py-1.5 text-[12px] font-semibold tabular-nums shadow-inner disabled:cursor-default disabled:opacity-90"
-                />
-              </label>
+            <div className="mt-2">
+              <PlannedVisitTimeInput
+                hour={visitHour}
+                minute={visitMinute}
+                onHourChange={setVisitHour}
+                onMinuteChange={setVisitMinute}
+                disabled={!visitFieldsEditable}
+              />
             </div>
             {visitTimeFr ? (
               <span className="mt-2 block text-[10px] font-medium text-muted-foreground">Enregistré : {visitTimeFr}</span>
@@ -3929,7 +4063,7 @@ export function PatientProductRequestActions({
               <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-2">
                 <button
                   type="button"
-                  disabled={busyAction === "confirm"}
+                  disabled={busyAction === "confirm" || Boolean(detailStale)}
                   onClick={closeConfirmReview}
                   className="w-full rounded-xl border border-border bg-card px-3 py-2 text-[12px] font-semibold text-foreground shadow-sm transition hover:bg-muted/60 disabled:opacity-50 sm:order-1 sm:w-auto"
                 >
@@ -3937,7 +4071,7 @@ export function PatientProductRequestActions({
                 </button>
                 <button
                   type="button"
-                  disabled={busyAction === "confirm"}
+                  disabled={busyAction === "confirm" || Boolean(detailStale)}
                   onClick={() => void performConfirmAfterReview()}
                   className="w-full rounded-xl bg-primary px-3 py-2 text-[12px] font-semibold text-primary-foreground shadow-sm transition hover:opacity-95 disabled:opacity-50 sm:order-2 sm:w-auto sm:min-w-[180px]"
                 >
@@ -3955,7 +4089,7 @@ export function PatientProductRequestActions({
             type="button"
             className="absolute inset-0 bg-black/50"
             aria-label="Fermer"
-            disabled={busyAction === "resubmit"}
+            disabled={busyAction === "resubmit" || Boolean(detailStale)}
             onClick={() => busyAction !== "resubmit" && setResubmitConfirmOpen(false)}
           />
           <div
@@ -3970,7 +4104,7 @@ export function PatientProductRequestActions({
               </h2>
               <button
                 type="button"
-                disabled={busyAction === "resubmit"}
+                disabled={busyAction === "resubmit" || Boolean(detailStale)}
                 className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-40"
                 onClick={() => setResubmitConfirmOpen(false)}
                 aria-label="Fermer"
@@ -4044,7 +4178,7 @@ export function PatientProductRequestActions({
               <div className="mt-2 flex gap-2">
                 <button
                   type="button"
-                  disabled={busyAction === "resubmit"}
+                  disabled={busyAction === "resubmit" || Boolean(detailStale)}
                   onClick={() => setResubmitConfirmOpen(false)}
                   className="h-10 flex-1 rounded-xl border-2 border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
                 >
@@ -4052,7 +4186,7 @@ export function PatientProductRequestActions({
                 </button>
                 <button
                   type="button"
-                  disabled={busyAction === "resubmit"}
+                  disabled={busyAction === "resubmit" || Boolean(detailStale)}
                   onClick={() => void executeResubmit()}
                   className="h-10 flex-1 rounded-xl bg-amber-600 text-sm font-semibold text-white shadow-md hover:bg-amber-700 disabled:opacity-50"
                 >

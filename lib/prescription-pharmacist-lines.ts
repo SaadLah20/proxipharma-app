@@ -1,7 +1,10 @@
 import { isRequestItemAddedAfterPatientConfirmation } from "@/lib/supply-line-post-confirm";
 
-/** Motif RPC / insert des lignes saisies depuis le scan (≠ proposition complémentaire). */
+/** Motif historique des anciennes lignes ordonnance en `pharmacist_proposed` (legacy). */
 export const PRESCRIPTION_ORDONNANCE_REASON = "Saisie depuis ordonnance";
+
+/** Libellé patient / historique pour une ligne saisie depuis le scan. */
+export const PRESCRIPTION_ORDONNANCE_SOURCING_LABEL = "Saisi ordonnance";
 
 export const PRESCRIPTION_ADDITIONAL_PROPOSED_REASON = "Produit proposé par la pharmacie";
 
@@ -18,15 +21,16 @@ export function isPharmacistProposedLine(row: { line_source?: string | null; id:
   return row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
 }
 
-/** Ligne saisie depuis l’ordonnance (principal) — pas une proposition complémentaire. */
+/** Ligne saisie depuis l’ordonnance (équivalent « demandé » patient) — pas une proposition complémentaire. */
 export function isPrescriptionOrdonnancePrincipalLine(
   requestType: string,
   row: { line_source?: string | null; id: string; pharmacist_proposal_reason?: string | null },
   amendmentBundles: { amendments: unknown }[]
 ): boolean {
   if (requestType !== "prescription") return false;
-  if (!isPharmacistProposedLine(row)) return false;
   if (isRequestItemAddedAfterPatientConfirmation(row.id, amendmentBundles)) return false;
+  if (row.line_source === "patient_request") return true;
+  if (!isPharmacistProposedLine(row)) return false;
   return ordonnanceReasonMatches(row.pharmacist_proposal_reason);
 }
 

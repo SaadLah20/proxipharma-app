@@ -2,7 +2,7 @@ import {
   isPrescriptionAdditionalProposedLine,
   isPrescriptionOrdonnancePrincipalLine,
   PRESCRIPTION_ADDITIONAL_PROPOSED_REASON,
-  PRESCRIPTION_ORDONNANCE_REASON,
+  PRESCRIPTION_ORDONNANCE_SOURCING_LABEL,
 } from "@/lib/prescription-pharmacist-lines";
 
 type LineRow = {
@@ -18,19 +18,17 @@ export function patientPrescriptionLineBadge(
   row: LineRow,
   amendmentBundles: { amendments: unknown }[]
 ): string | null {
-  if (requestType !== "prescription" || row.line_source !== "pharmacist_proposed") return null;
-  if (
-    row.patient_chosen_alternative_id &&
-    isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)
-  ) {
-    return "Ordonnance + alternative";
+  if (requestType !== "prescription") return null;
+  if (isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)) {
+    if (row.patient_chosen_alternative_id) return "Ordonnance + alternative";
+    return null;
   }
+  if (row.line_source !== "pharmacist_proposed") return null;
   if (row.patient_chosen_alternative_id) return "Alternative";
-  if (isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)) return "Ordonnance";
   if (isPrescriptionAdditionalProposedLine(requestType, row, amendmentBundles)) {
     return "Produit proposé par la pharmacie";
   }
-  return "Ordonnance";
+  return "Produit proposé par la pharmacie";
 }
 
 /** Libellé détail confirmation patient. */
@@ -47,12 +45,12 @@ export function patientPrescriptionChoiceDetail(args: {
     return "Produit demandé initialement";
   }
   if (isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)) {
-    return PRESCRIPTION_ORDONNANCE_REASON;
+    return PRESCRIPTION_ORDONNANCE_SOURCING_LABEL;
   }
   if (isPrescriptionAdditionalProposedLine(requestType, row, amendmentBundles)) {
     return PRESCRIPTION_ADDITIONAL_PROPOSED_REASON;
   }
-  return PRESCRIPTION_ORDONNANCE_REASON;
+  return PRESCRIPTION_ORDONNANCE_SOURCING_LABEL;
 }
 
 /** Ajout après validation : canal patient requis (proposition complémentaire), pas saisie ordonnance. */

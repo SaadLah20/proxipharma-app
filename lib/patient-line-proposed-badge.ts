@@ -19,12 +19,12 @@ export function patientLineProposedBadgeLabel(
   amendmentBundles: AmendmentBundle[],
   defaults: { ordonnance: string; proposed: string; officine: string }
 ): string | null {
-  if (row.line_source !== "pharmacist_proposed") return null;
   if (requestType === "prescription") {
-    return isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)
-      ? defaults.ordonnance
-      : defaults.proposed;
+    if (isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)) return null;
+    if (row.line_source !== "pharmacist_proposed") return null;
+    return defaults.proposed;
   }
+  if (row.line_source !== "pharmacist_proposed") return null;
   if (requestType === "free_consultation") {
     return defaults.proposed || "Proposé par la pharmacie";
   }

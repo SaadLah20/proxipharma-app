@@ -326,29 +326,27 @@ export default function DemandeProduitsPage() {
           ← Pharmacie
         </Link>
 
-        <header className="rounded-xl border border-border/80 bg-card px-3 py-2.5 shadow-sm sm:px-4">
-          <div className="flex items-center gap-2.5">
+        <header className="rounded-xl border-2 border-sky-300/50 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/30 px-3 py-3 shadow-md ring-1 ring-sky-200/55 sm:px-4 sm:py-3.5">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-sky-900/90">Demande de produits</p>
+          <div className="mt-1.5 flex items-center gap-3">
             <span
-              className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-900"
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-900 ring-1 ring-sky-200/70"
               aria-hidden
             >
               <Package className="size-5" strokeWidth={2.25} />
             </span>
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Demande de produits</p>
-              <h1 className="text-base font-semibold leading-snug text-foreground sm:text-lg">
-                {pharmacyName.trim() ? pharmacyName : "Cette pharmacie"}
-              </h1>
-            </div>
+            <h1 className="min-w-0 text-lg font-bold leading-snug text-sky-950 sm:text-xl">
+              {pharmacyName.trim() ? pharmacyName : "Cette pharmacie"}
+            </h1>
           </div>
         </header>
 
-        <section className="rounded-xl border border-border/80 bg-card p-3 shadow-sm sm:p-4">
-          <label className="block text-sm font-semibold text-foreground">Rechercher un produit</label>
-          <p className="mt-0.5 text-xs text-muted-foreground">2 caractères minimum · nom ou laboratoire</p>
+        <section className="rounded-xl border-2 border-sky-200/70 bg-gradient-to-b from-white via-sky-50/25 to-white p-3 shadow-md ring-1 ring-sky-200/45 sm:p-4">
+          <label className="block text-sm font-bold text-sky-950">Rechercher un produit</label>
+          <p className="mt-0.5 text-xs font-medium text-sky-900/80">2 caractères minimum · nom ou laboratoire</p>
           <div className="relative mt-3">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-500"
+              className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-sky-700"
               aria-hidden
             />
             <input
@@ -357,7 +355,7 @@ export default function DemandeProduitsPage() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Ex: Doliprane, Smecta..."
               className={cn(
-                "touch-pan-y w-full rounded-xl border-2 border-slate-300 bg-white py-3 pl-11 pr-3 text-base leading-normal shadow-sm placeholder:text-slate-400",
+                "touch-pan-y w-full rounded-xl border-2 border-sky-300/80 bg-white py-3.5 pl-11 pr-3 text-base leading-normal shadow-sm ring-2 ring-sky-100/80 placeholder:text-slate-400",
                 fieldFocus
               )}
             />

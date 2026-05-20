@@ -72,14 +72,13 @@ import {
   type ConsultationDetailTab,
 } from "@/lib/consultation-detail-tabs";
 import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
-import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
+import { PrescriptionScanCollapsible } from "@/components/requests/prescription/prescription-scan-collapsible";
 import { PharmacistOrdonnanceQuickAddModal } from "@/components/requests/prescription/pharmacist-ordonnance-quick-add-modal";
 import {
   isPrescriptionOrdonnancePharmacistLine,
   isPrescriptionOrdonnancePrincipalLine,
   isPrescriptionAdditionalProposedLine,
   isProductRequestAjoutOfficineLine,
-  PRESCRIPTION_ORDONNANCE_REASON,
   PRESCRIPTION_ADDITIONAL_PROPOSED_REASON,
 } from "@/lib/prescription-pharmacist-lines";
 import { inferArchiveSnapshotStatus } from "@/lib/request-archive-snapshot-status";
@@ -111,7 +110,10 @@ import {
   PharmacistCloseRequestConfirmModal,
   type PharmacistCloseRequestSummary,
 } from "@/components/pharmacist/pharmacist-close-request-confirm-modal";
-import { flattenPharmacistSupplyListEntriesStable } from "@/lib/pharmacist-supply-list-order";
+import {
+  flattenPharmacistSupplyListEntriesStable,
+  sortPharmacistSupplyRowsBySection,
+} from "@/lib/pharmacist-supply-list-order";
 import {
   bucketPatientValidatedLinesThreeWays,
   validatedBranchUnitPriceMad,
@@ -130,6 +132,7 @@ import {
   REQUEST_DETAIL_REFRESH_EVENT,
   type RequestDetailRefreshDetail,
 } from "@/lib/request-detail-refresh-bus";
+import { useRequestDetailDrift } from "@/lib/use-request-detail-drift";
 import {
   PharmacistSupplyAmendmentConfirmModal,
   type SupplyConfirmBlock,
@@ -1040,6 +1043,15 @@ function mergeItemDraftOnReload(
         pharmacist_comment: built.pharmacist_comment,
       }
     : {};
+  if (requestStatus != null && ["confirmed", "treated"].includes(requestStatus)) {
+    return {
+      ...built,
+      fulfillment_draft: prev?.fulfillment_draft ?? built.fulfillment_draft,
+      counter_outcome_draft: prev?.counter_outcome_draft ?? built.counter_outcome_draft,
+      counter_cancel_reason_draft: prev?.counter_cancel_reason_draft ?? built.counter_cancel_reason_draft,
+      counter_cancel_detail_draft: prev?.counter_cancel_detail_draft ?? built.counter_cancel_detail_draft,
+    };
+  }
   return {
     ...built,
     ...prev,
@@ -1080,6 +1092,7 @@ function computeSupplyStructuralDirty(
   if (pendingProposalRows.length > 0) return true;
   if (pendingAlternatives.length > 0) return true;
   for (const row of items) {
+    if (!row.is_selected_by_patient) continue;
     const d = draft[row.id];
     if (!d) continue;
     const b = buildItemDraftFromRow(row, request?.status ?? null, request?.request_type);
@@ -1864,6 +1877,13 @@ export default function PharmacienDemandeDetailPage() {
     setLoading(false);
   }, [id, router]);
 
+  const requestDrift = useRequestDetailDrift(id, request?.status, "pharmacien", load);
+
+  useEffect(() => {
+    if (!request?.updated_at) return;
+    requestDrift.acknowledge(request.updated_at, request.status);
+  }, [request?.id, request?.updated_at, request?.status, requestDrift.acknowledge]);
+
   const persistPostConfirmFulfillmentForRow = useCallback(
     async (rowSnap: ItemRow, pcf: "unset" | "reserved" | "ordered" | "arrived_reserved") => {
       if (!id) return;
@@ -2503,11 +2523,11 @@ export default function PharmacienDemandeDetailPage() {
       request?.request_type === "prescription" &&
       (opts?.lineKind === "ordonnance" || opts?.fromQuickAdd);
     if (request?.request_type === "prescription") {
-      reason = isOrdonnanceInsert
-        ? PRESCRIPTION_ORDONNANCE_REASON
-        : reason.length >= 3
-          ? reason
-          : PRESCRIPTION_ADDITIONAL_PROPOSED_REASON;
+      if (isOrdonnanceInsert) {
+        reason = "";
+      } else {
+        reason = reason.length >= 3 ? reason : PRESCRIPTION_ADDITIONAL_PROPOSED_REASON;
+      }
     } else if (reason.length < 3) {
       setError("Indique un motif d’au moins 3 caractères pour proposer ce produit.");
       return;
@@ -2579,8 +2599,8 @@ export default function PharmacienDemandeDetailPage() {
         unit_price: prefPrice,
         pharmacist_comment: pharmacistComment,
         client_comment: null,
-        line_source: "pharmacist_proposed",
-        pharmacist_proposal_reason: reason,
+        line_source: isOrdonnanceInsert ? "patient_request" : "pharmacist_proposed",
+        pharmacist_proposal_reason: isOrdonnanceInsert ? null : reason,
         expected_availability_date: expectedDateValue,
         counter_outcome: "unset",
         counter_cancel_reason: null,
@@ -2689,8 +2709,8 @@ export default function PharmacienDemandeDetailPage() {
         availability_status: avail,
         available_qty: availableQty,
         expected_availability_date: expectedDateValue,
-        line_source: "pharmacist_proposed",
-        pharmacist_proposal_reason: reason,
+        line_source: isOrdonnanceInsert ? "patient_request" : "pharmacist_proposed",
+        pharmacist_proposal_reason: isOrdonnanceInsert ? null : reason,
         pharmacist_comment: pharmacistComment,
         is_selected_by_patient: true,
         selected_qty: requestedQty,
@@ -3952,7 +3972,8 @@ export default function PharmacienDemandeDetailPage() {
     request && ["confirmed", "treated"].includes(uiRequestStatus ?? "")
       ? (() => {
           const eff = rowsWithEffectiveWithdrawnForSupply(displayRows, draft);
-          const flat = flattenPharmacistSupplyListEntriesStable(eff);
+          const sorted = sortPharmacistSupplyRowsBySection(eff);
+          const flat = flattenPharmacistSupplyListEntriesStable(sorted);
           return flat.length > 0 ? flat : displayRows.map((row) => ({ header: null as string | null, row }));
         })()
       : displayRows.map((row) => ({ header: null as string | null, row }));
@@ -4054,6 +4075,7 @@ export default function PharmacienDemandeDetailPage() {
       dossierHistory: dossierHistoryTimeline,
       dossierHistoryDetailParagraphs: pharmacistDossierHistoryDetailParagraphsFr,
       pharmacistProposedOriginLabel: getRequestKindWorkflowCopy(request.request_type).timelinePharmacistProposedOrigin,
+      patientLineOriginLabel: getRequestKindWorkflowCopy(request.request_type).patientLineOriginLabel,
       timelineAudience: "pharmacist",
     });
   }, [pharmaHistoryRowId, request, items, supplyAmendmentBundles, dossierHistoryTimeline]);
@@ -4178,7 +4200,9 @@ export default function PharmacienDemandeDetailPage() {
     usesLineWorkflow && request.status === "treated" && !archiveFrozen && canCompleteCounter;
 
   const showSupplyStatsFooter = usesLineWorkflow && Boolean(canManageSupply) && displayRows.length > 0;
-  const showSupplyDirtyBar = Boolean(canManageSupply && supplyStructuralDirty && !ordonnanceQuickAddOpen);
+  const showSupplyDirtyBar = Boolean(
+    canManageSupply && supplyStructuralDirty && !ordonnanceQuickAddOpen && !requestDrift.stale
+  );
 
   const showBottomActionSticky = showDeclareTreatedSticky || showCloseCounterSticky;
 
@@ -4437,6 +4461,20 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
+      {requestDrift.stale ? (
+        <div className="rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">
+          <p className="font-bold">{requestDrift.stale.title}</p>
+          <p className="mt-1 leading-snug">{requestDrift.stale.message}</p>
+          <button
+            type="button"
+            className="mt-2 inline-flex min-h-9 items-center justify-center rounded-lg border border-amber-500/80 bg-white px-3 font-semibold text-amber-950 hover:bg-amber-50"
+            onClick={() => void requestDrift.refresh()}
+          >
+            Actualiser la page
+          </button>
+        </div>
+      ) : null}
+
       {error ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{error}</p>
       ) : null}
@@ -4471,45 +4509,11 @@ export default function PharmacienDemandeDetailPage() {
             </p>
           ) : null}
 
-          {isPrescription && prescriptionPaths?.page1 ? (
-            <div className="mb-3 space-y-2 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-start lg:gap-3">
-              <PrescriptionImageViewer
-                paths={prescriptionPaths}
-                layout="desktop-comfort"
-                className="lg:sticky lg:top-2"
-                allowMobileExpand={ordonnanceCatalogEditable}
-                ordonnanceQuickAdd={
-                  ordonnanceCatalogEditable
-                    ? {
-                        lineCount: ordonnanceLineCount,
-                        onOpenAdd: () => {
-                          setError("");
-                          resetOrdonnanceQuickAddForm();
-                          if (workflowCopy.pharmacistProposeDefaultReason) {
-                            setPropReason(workflowCopy.pharmacistProposeDefaultReason);
-                          }
-                          setOrdonnanceQuickAddOpen(true);
-                        },
-                        showMainHint: true,
-                      }
-                    : undefined
-                }
-              />
-              <div className="space-y-2">
-                {prescriptionNote?.trim() ? (
-                  <p className="rounded-lg border border-amber-200/70 bg-amber-50/40 px-2.5 py-2 text-[11px] leading-snug text-amber-950">
-                    <span className="font-semibold">Message patient : </span>
-                    {prescriptionNote.trim()}
-                  </p>
-                ) : null}
-                {showLineAndPublishEdits ? (
-                  <p className="rounded-lg border border-amber-200/60 bg-amber-50/50 px-2.5 py-2 text-[11px] font-semibold tabular-nums text-amber-950">
-                    {ordonnanceLineCount} produit{ordonnanceLineCount !== 1 ? "s" : ""} ordonnance enregistré
-                    {ordonnanceLineCount !== 1 ? "s" : ""}
-                  </p>
-                ) : null}
-              </div>
-            </div>
+          {isPrescription && prescriptionNote?.trim() && ordonnanceCatalogEditable ? (
+            <p className="mb-2 rounded-lg border border-amber-200/70 bg-amber-50/40 px-2.5 py-2 text-[11px] leading-snug text-amber-950">
+              <span className="font-semibold">Message patient : </span>
+              {prescriptionNote.trim()}
+            </p>
           ) : null}
 
           {showConsultationProductsPane && isConsultation && consultationBrief ? (
@@ -4527,6 +4531,23 @@ export default function PharmacienDemandeDetailPage() {
             <>
               {displayRows.length === 0 && isConsultation && showLineAndPublishEdits ? (
                 <p className="mt-2 text-[11px] text-muted-foreground">{workflowCopy.pharmacistEmptyLinesHint}</p>
+              ) : null}
+              {displayRows.length === 0 && isPrescription && showLineAndPublishEdits ? (
+                <div className="mt-2">
+                  <p className="text-[11px] leading-snug text-amber-950/90">{workflowCopy.pharmacistEmptyLinesHint}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError("");
+                      resetOrdonnanceQuickAddForm();
+                      setOrdonnanceQuickAddOpen(true);
+                    }}
+                    className="mt-2 inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border-2 border-amber-400/80 bg-gradient-to-r from-amber-500/15 to-orange-50/40 px-3 py-2 text-[11px] font-bold text-amber-950 shadow-sm ring-1 ring-amber-300/50 hover:bg-amber-50"
+                  >
+                    <Plus className="size-4 shrink-0" aria-hidden />
+                    Ajouter un produit ordonnance
+                  </button>
+                </div>
               ) : null}
               {displayRows.length > 0 ? (
               <>
@@ -4551,7 +4572,23 @@ export default function PharmacienDemandeDetailPage() {
                 </div>
               ) : null}
             </div>
-            <span className="text-[10px] text-muted-foreground">{displayRows.length} article(s)</span>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <span className="text-[10px] text-muted-foreground">{displayRows.length} article(s)</span>
+              {ordonnanceCatalogEditable ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError("");
+                    resetOrdonnanceQuickAddForm();
+                    setOrdonnanceQuickAddOpen(true);
+                  }}
+                  className="inline-flex min-h-9 items-center justify-center gap-1 rounded-lg border border-amber-400/75 bg-amber-50/80 px-2.5 py-1 text-[10px] font-bold text-amber-950 shadow-sm hover:bg-amber-100/80"
+                >
+                  <Plus className="size-3.5 shrink-0" aria-hidden />
+                  Ajouter
+                </button>
+              ) : null}
+            </div>
           </div>
           <div className="mt-2 flex flex-col gap-3">
             {pharmacistSupplySurfaceGroups.map((group, gi) => (
@@ -5312,7 +5349,7 @@ export default function PharmacienDemandeDetailPage() {
                           </span>
                         </div>
                       </div>
-                      {isProposedLine ? (
+                      {isProposedLine && !isOrdonnancePrincipalLine ? (
                         <p className="rounded-md border border-violet-300/80 bg-gradient-to-br from-violet-200/55 to-violet-100/40 px-2 py-1 text-[10px] leading-snug text-violet-950 shadow-sm ring-1 ring-violet-300/35">
                           {row.pharmacist_proposal_reason?.trim() ? (
                             <>
@@ -5971,8 +6008,37 @@ export default function PharmacienDemandeDetailPage() {
             </>
           ))}
 
+          {isPrescription && prescriptionPaths?.page1 ? (
+            <PrescriptionScanCollapsible
+              className="mt-3"
+              paths={prescriptionPaths}
+              defaultOpen={Boolean(ordonnanceCatalogEditable && ordonnanceLineCount === 0)}
+              viewerRole="pharmacien"
+              prescriptionNote={ordonnanceCatalogEditable ? null : prescriptionNote}
+              ordonnanceQuickAdd={
+                ordonnanceCatalogEditable
+                  ? {
+                      lineCount: ordonnanceLineCount,
+                      onOpenAdd: () => {
+                        setError("");
+                        resetOrdonnanceQuickAddForm();
+                        setOrdonnanceQuickAddOpen(true);
+                      },
+                    }
+                  : undefined
+              }
+            />
+          ) : null}
+
           {showConsultationProductsPane && showLineAndPublishEdits ? (
-            <section className="mt-2 flex min-h-0 flex-col rounded-xl border border-violet-300/70 bg-gradient-to-br from-violet-50/80 via-fuchsia-50/35 to-white px-2 py-1.5 shadow-sm ring-1 ring-violet-300/35 sm:px-2.5 sm:py-2">
+            <section
+              className={clsx(
+                "mt-2 flex min-h-0 flex-col rounded-xl px-2 py-1.5 shadow-sm sm:px-2.5 sm:py-2",
+                isPrescription
+                  ? "border border-amber-300/70 bg-gradient-to-br from-amber-50/80 via-orange-50/25 to-white ring-1 ring-amber-300/35"
+                  : "border border-violet-300/70 bg-gradient-to-br from-violet-50/80 via-fuchsia-50/35 to-white ring-1 ring-violet-300/35"
+              )}
+            >
               {isConsultation ? (
                 <div className="rounded-lg bg-white/90 px-2 py-2 ring-1 ring-violet-200/55 sm:px-2.5">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-violet-950">
@@ -5997,20 +6063,39 @@ export default function PharmacienDemandeDetailPage() {
                       }
                     }
                   }}
-                  className="flex w-full min-h-11 items-start justify-between gap-2 rounded-lg bg-white/90 px-2 py-2 text-left ring-1 ring-violet-200/55 shadow-sm transition hover:bg-violet-50/60 sm:min-h-0 sm:items-center sm:px-2.5"
+                  className={clsx(
+                    "flex w-full min-h-11 items-start justify-between gap-2 rounded-lg bg-white/90 px-2 py-2 text-left shadow-sm transition sm:min-h-0 sm:items-center sm:px-2.5",
+                    isPrescription
+                      ? "ring-1 ring-amber-200/55 hover:bg-amber-50/60"
+                      : "ring-1 ring-violet-200/55 hover:bg-violet-50/60"
+                  )}
                 >
                   <span className="min-w-0">
-                    <span className="block text-[10px] font-bold uppercase tracking-wide text-violet-950">
+                    <span
+                      className={clsx(
+                        "block text-[10px] font-bold uppercase tracking-wide",
+                        isPrescription ? "text-amber-950" : "text-violet-950"
+                      )}
+                    >
                       {isPrescription ? "Produits proposés" : workflowCopy.pharmacistProposeSectionTitle}
                     </span>
-                    <span className="mt-0.5 block text-[10px] leading-snug text-violet-900/85 sm:text-[11px]">
+                    <span
+                      className={clsx(
+                        "mt-0.5 block text-[10px] leading-snug sm:text-[11px]",
+                        isPrescription ? "text-amber-900/85" : "text-violet-900/85"
+                      )}
+                    >
                       {isPrescription
                         ? "En complément des produits saisis depuis l’ordonnance."
                         : workflowCopy.pharmacistProposeSectionSubtitle}
                     </span>
                   </span>
                   <ChevronDown
-                    className={clsx("mx-px size-6 shrink-0 text-violet-700 transition-transform sm:size-5", propOpen && "rotate-180")}
+                    className={clsx(
+                      "mx-px size-6 shrink-0 transition-transform sm:size-5",
+                      isPrescription ? "text-amber-700" : "text-violet-700",
+                      propOpen && "rotate-180"
+                    )}
                     aria-hidden
                   />
                 </button>
@@ -6140,8 +6225,13 @@ export default function PharmacienDemandeDetailPage() {
               {canEditResponse ? (
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || Boolean(requestDrift.stale)}
+                  title={requestDrift.stale?.message}
                   onClick={() => {
+                    if (requestDrift.stale) {
+                      setError(requestDrift.stale.message);
+                      return;
+                    }
                     setError("");
                     setPublishConfirmOpen(true);
                   }}

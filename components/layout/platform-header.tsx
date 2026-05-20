@@ -181,19 +181,19 @@ export function PlatformHeader() {
   const showNotifs = Boolean(session);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-border/90 bg-card/92 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-card/78">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-5">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-800/90 bg-slate-900 text-slate-100 shadow-md">
+      <div className="mx-auto flex h-[3.25rem] max-w-6xl items-center justify-between gap-3 px-4 sm:h-14 sm:px-5">
         <Link
           href="/"
-          className="group flex shrink-0 items-center gap-2 text-lg font-bold tracking-tight text-primary"
+          className="group flex shrink-0 items-center gap-2 text-lg font-bold tracking-tight text-white"
         >
           <span
-            className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15 transition group-hover:bg-primary/15"
+            className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-sky-200 ring-1 ring-white/15 transition group-hover:bg-white/15"
             aria-hidden
           >
             <Cross className="size-[1.125rem]" strokeWidth={2.25} />
           </span>
-          <span className="text-foreground">ProxiPharma</span>
+          <span>ProxiPharma</span>
         </Link>
 
         <div ref={wrapRef} className="relative flex items-center gap-2">

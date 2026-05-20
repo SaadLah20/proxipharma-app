@@ -93,11 +93,11 @@ export function RequestKindHeader({
   return (
     <header className={shellClass}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:gap-x-2">
-          <span className={clsx("shrink-0 font-bold uppercase tracking-wide", labelAccent)}>
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] sm:gap-x-2 sm:text-xs">
+          <span className={clsx("shrink-0 text-[10px] font-bold uppercase tracking-wide sm:text-[11px]", labelAccent)}>
             {config.theme.headerLabelShort}
           </span>
-          <span className="font-mono text-[11px] font-semibold text-foreground">
+          <span className="font-mono text-[12px] font-semibold text-foreground sm:text-[13px]">
             {displayRequestPublicRef(request)}
           </span>
           {showLineBadge && lineCount != null ? (

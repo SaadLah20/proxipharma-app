@@ -50,6 +50,8 @@ export type RequestKindWorkflowCopy = {
   patientArchiveEmptyLines: string;
   patientArchiveClosedFooter: string;
   timelinePharmacistProposedOrigin: string;
+  /** Origine ligne `patient_request` (ordonnance : saisie scan par la pharmacie). */
+  patientLineOriginLabel?: string;
   patientSuiviProposedHint: string;
   /** Bandeau récap patient (ex. « Ordonnance », « Demande de produits »). */
   patientSummaryKindLabel: string;
