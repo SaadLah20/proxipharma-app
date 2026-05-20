@@ -151,6 +151,28 @@ export function validatedQtyForPatientLine(row: PatientLineLike): number {
   return row.selected_qty ?? row.requested_qty;
 }
 
+/** Quantité stock / préparation sur la branche retenue (principal ou alternative choisie). */
+export function effectiveAvailableQtyForPatientLine(row: PatientLineLike): number | null {
+  const chosen = row.patient_chosen_alternative_id ?? null;
+  if (chosen) {
+    const alt = altRowsOf(row).find((a) => a.id === chosen);
+    if (alt?.available_qty != null) {
+      const n = Number(alt.available_qty);
+      return Number.isFinite(n) ? n : null;
+    }
+  }
+  if (row.available_qty != null) {
+    const n = Number(row.available_qty);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+/** Qté affichée sur les cartes patient : choix validé (`selected_qty`), pas le stock officine seul. */
+export function patientDisplayQtyForLine(row: PatientLineLike, _requestStatus?: string | null): number {
+  return validatedQtyForPatientLine(row);
+}
+
 export function patientConfirmedLinesNotInBuckets<T extends PatientLineLike>(
   items: T[],
   b: PatientConfirmedBuckets<T>

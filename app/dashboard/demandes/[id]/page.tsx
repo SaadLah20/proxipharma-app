@@ -21,23 +21,13 @@ import { useRequestDetailDrift } from "@/lib/use-request-detail-drift";
 import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
 import {
   PatientProductRequestActions,
-  PatientSentEnvoyeeSummaryCard,
-  buildPatientLineCountLabel,
-  buildPatientSummaryStatusHint,
   type PatientPharmacyContactInfo,
 } from "@/components/requests/product/patient-product-request-actions";
-import { ConsultationDetailStickyChrome } from "@/components/requests/consultation/consultation-detail-sticky-chrome";
 import { isPatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
 import { patientOutcomeStatusFooter } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
 import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
-import { ConsultationBriefCompact } from "@/components/requests/consultation/consultation-brief-compact";
-import { ConsultationDetailTabBar } from "@/components/requests/consultation/consultation-detail-tab-bar";
-import {
-  getConsultationDefaultTab,
-  type ConsultationDetailTab,
-} from "@/lib/consultation-detail-tabs";
 import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
 import type { ConsultationImagePaths } from "@/lib/consultation-media";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
@@ -131,8 +121,6 @@ export default function DemandeDetailPage() {
     text: string;
     paths: ConsultationImagePaths;
   } | null>(null);
-  const [consultationTab, setConsultationTab] = useState<ConsultationDetailTab>("conversation");
-
   const loadDetail = useCallback(
     async (silent?: boolean) => {
       if (!id) {
@@ -338,14 +326,6 @@ export default function DemandeDetailPage() {
     return () => window.removeEventListener(REQUEST_DETAIL_REFRESH_EVENT, listener);
   }, [id, loadDetail]);
 
-  useEffect(() => {
-    if (!request || request.request_type !== "free_consultation") return;
-    const tid = window.setTimeout(() => {
-      setConsultationTab(getConsultationDefaultTab(request.status, request.responded_at));
-    }, 0);
-    return () => window.clearTimeout(tid);
-  }, [request]);
-
   const loadHistory = useCallback(async () => {
     if (!id) return;
     setHistoryBusy(true);
@@ -416,24 +396,7 @@ export default function DemandeDetailPage() {
 
   const hideMainRequestHeader =
     usesLineWorkflow &&
-    !isConsultationRequest &&
     ["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status);
-  const consultationChromeStatuses = ["submitted", "in_review", "responded", "confirmed", "treated"] as const;
-  const showConsultationStickyChrome =
-    isConsultationRequest &&
-    !showArchivedReadonly &&
-    consultationChromeStatuses.includes(request.status as (typeof consultationChromeStatuses)[number]);
-  const consultationPharmacyContact = (() => {
-    const ph = one(request.pharmacies);
-    if (!ph?.nom?.trim()) return null;
-    return {
-      nom: ph.nom,
-      ville: ph.ville,
-      telephone: ph.telephone,
-      contact_email: ph.contact_email ?? null,
-      public_ref: ph.public_ref ?? null,
-    } satisfies PatientPharmacyContactInfo;
-  })();
 
   return (
     <PageShell
@@ -503,39 +466,7 @@ export default function DemandeDetailPage() {
         <PrescriptionImageViewer paths={prescriptionPaths} layout="desktop-comfort" className="mt-2" />
       ) : null}
 
-      {showConsultationStickyChrome && consultationPharmacyContact ? (
-        <ConsultationDetailStickyChrome>
-          <PatientSentEnvoyeeSummaryCard
-            pharmacyContact={consultationPharmacyContact}
-            pharmacyId={request.pharmacy_id}
-            dossierRefLabel={displayRequestPublicRef(request)}
-            lineCount={items.length}
-            lineCountLabel={buildPatientLineCountLabel(request.request_type, request.status, items.length)}
-            status={request.status}
-            createdAt={request.created_at}
-            updatedAt={request.updated_at}
-            kindLabel={workflowCopy.patientSummaryKindLabel}
-            refShort={workflowCopy.patientSummaryRefShort}
-            statusHint={buildPatientSummaryStatusHint(request.status, request.request_type, workflowCopy)}
-            accent="violet"
-          />
-          <ConsultationDetailTabBar
-            tab={consultationTab}
-            onTab={setConsultationTab}
-            conversationUnread={conversationUnread}
-            productLineCount={items.length}
-          />
-        </ConsultationDetailStickyChrome>
-      ) : isConsultationRequest ? (
-        <ConsultationDetailTabBar
-          tab={consultationTab}
-          onTab={setConsultationTab}
-          conversationUnread={conversationUnread}
-          productLineCount={items.length}
-        />
-      ) : null}
-
-      {isConsultationRequest && consultationTab === "conversation" && consultationBrief ? (
+      {isConsultationRequest && consultationBrief ? (
         <div className="space-y-3">
           <ConsultationBriefPanel
             requestId={request.id}
@@ -556,16 +487,7 @@ export default function DemandeDetailPage() {
         </div>
       ) : null}
 
-      {isConsultationRequest && consultationTab === "products" && consultationBrief ? (
-        <ConsultationBriefCompact
-          text={consultationBrief.text}
-          paths={consultationBrief.paths}
-          onOpenConversation={() => setConsultationTab("conversation")}
-        />
-      ) : null}
-
-      {(hasBottomActions || (showArchivedReadonly && items.length > 0)) &&
-      (!isConsultationRequest || consultationTab === "products") ? (
+      {(hasBottomActions || (showArchivedReadonly && items.length > 0)) ? (
         <>
         {requestDrift.stale ? (
           <div className="mb-2 rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">
@@ -648,7 +570,6 @@ export default function DemandeDetailPage() {
           requestType={request.request_type}
           prescriptionPaths={isPrescriptionRequest ? prescriptionPaths : null}
           prescriptionNote={isPrescriptionRequest ? prescriptionNote : null}
-          summaryInPageChrome={showConsultationStickyChrome}
           detailStale={requestDrift.stale}
         />
         </section>

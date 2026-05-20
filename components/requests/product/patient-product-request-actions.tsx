@@ -45,6 +45,7 @@ import {
   type PatientLineLike,
   validatedBranchUnitPriceMad,
   validatedProductLabel,
+  patientDisplayQtyForLine,
   validatedQtyForPatientLine,
 } from "@/lib/patient-confirmed-line-buckets";
 import { formatPriceDh } from "@/lib/product-price";
@@ -172,12 +173,11 @@ function maxQtyPrincipal(row: ActionItemRow): number {
 function maxQtyAlt(row: ActionItemRow, alt: ActionItemAltRow): number {
   if (isMarketShortage(alt.availability_status)) return 0;
   if (alt.availability_status === "unavailable") return 0;
-  let cap = row.requested_qty;
-  if (row.line_source === "pharmacist_proposed") {
-    cap = Math.max(cap, Number(row.available_qty ?? cap));
+  if (alt.available_qty != null) {
+    const aq = Math.floor(Number(alt.available_qty));
+    if (Number.isFinite(aq) && aq >= 0) return aq;
   }
-  if (alt.available_qty != null) cap = Math.min(cap, alt.available_qty);
-  return Math.max(0, cap);
+  return maxQtyPrincipal(row);
 }
 
 function maxQtyForBranch(row: ActionItemRow, branch: LineBranch, alts: ActionItemAltRow[]): number {
@@ -302,7 +302,10 @@ function PatientPharmacyQuickContact({
   );
 }
 
-function monetaryTotalsForRetainedLines(rows: ActionItemRow[]): { count: number; sumKnown: number; missingPrice: boolean } {
+function monetaryTotalsForRetainedLines(
+  rows: ActionItemRow[],
+  requestStatus?: string | null
+): { count: number; sumKnown: number; missingPrice: boolean } {
   let sumKnown = 0;
   let missingPrice = false;
   let count = 0;
@@ -310,7 +313,7 @@ function monetaryTotalsForRetainedLines(rows: ActionItemRow[]): { count: number;
     if (!row.is_selected_by_patient || row.withdrawn_after_confirm) continue;
     count += 1;
     const unit = validatedBranchUnitPriceMad(row);
-    const qty = validatedQtyForPatientLine(row);
+    const qty = patientDisplayQtyForLine(row, requestStatus);
     if (unit == null) missingPrice = true;
     else sumKnown += unit * qty;
   }
@@ -478,9 +481,9 @@ function PatientValidatedCompactLineCard({
   const altList = normalizeAlternatives(row.request_item_alternatives);
   const chosenAlt = altList.find((a) => a.id === row.patient_chosen_alternative_id);
   const validatedName = validatedProductLabel(row);
-  const validatedQty = validatedQtyForPatientLine(row);
+  const displayQty = patientDisplayQtyForLine(row, requestStatusForCard);
   const unitMad = validatedBranchUnitPriceMad(row);
-  const lineTotalMad = unitMad != null ? unitMad * validatedQty : null;
+  const lineTotalMad = unitMad != null ? unitMad * displayQty : null;
   const thumbUrl = resolvePublicMediaUrl(
     chosenAlt ? one(chosenAlt.products)?.photo_url ?? null : prod?.photo_url ?? null
   );
@@ -515,7 +518,9 @@ function PatientValidatedCompactLineCard({
   const showLineBadge = Boolean(lineBadgeLabel);
   const ordonnanceProposedBadge = lineBadgeLabel === "Ordonnance";
   const confirmedPcfChip =
-    (requestStatusForCard === "confirmed" || requestStatusForCard === "treated") &&
+    (requestStatusForCard === "confirmed" ||
+      requestStatusForCard === "processing" ||
+      requestStatusForCard === "treated") &&
     row.is_selected_by_patient &&
     !row.withdrawn_after_confirm
       ? patientConfirmedFulfillmentChipFr(row.post_confirm_fulfillment)
@@ -639,7 +644,7 @@ function PatientValidatedCompactLineCard({
           </div>
           <div className="flex min-w-0 justify-center text-center">
             <span className="text-slate-500">Qté</span>{" "}
-            <strong className="font-semibold text-slate-900">{validatedQty}</strong>
+            <strong className="font-semibold text-slate-900">{displayQty}</strong>
           </div>
           <div className="min-w-0 text-end">
             <span className="inline-flex flex-nowrap items-baseline justify-end gap-x-1 whitespace-nowrap">
@@ -1343,6 +1348,10 @@ type RespondedChooserProps = {
 function RespondedProductQtyStatusLine({ row, requestType }: { row: ActionItemRow; requestType: string }) {
   const isProposedLine = row.line_source === "pharmacist_proposed";
   const requestedQty = Math.max(1, Number(row.requested_qty) || 1);
+  const offeredQty =
+    row.available_qty != null && Number.isFinite(Number(row.available_qty))
+      ? Math.max(0, Math.floor(Number(row.available_qty)))
+      : null;
   let inferredKey = row.availability_status ?? "available";
   try {
     inferredKey = inferAvailabilityStatusFromQty({
@@ -1362,6 +1371,11 @@ function RespondedProductQtyStatusLine({ row, requestType }: { row: ActionItemRo
       {!isProposedLine ? (
         <span className="inline-flex items-center gap-0.5">
           Demandé <strong className="tabular-nums text-foreground">{row.requested_qty}</strong>
+        </span>
+      ) : null}
+      {offeredQty != null ? (
+        <span className="inline-flex items-center gap-0.5">
+          Proposé <strong className="tabular-nums text-foreground">{offeredQty}</strong>
         </span>
       ) : null}
       <span
@@ -1856,6 +1870,12 @@ function RespondedPatientLineChooser({
                     {alt.unit_price != null ? (
                       <span>
                         PU <strong className="tabular-nums text-foreground">{formatPriceDh(Number(alt.unit_price))}</strong>
+                      </span>
+                    ) : null}
+                    {alt.available_qty != null ? (
+                      <span className="inline-flex items-center gap-0.5">
+                        Proposé{" "}
+                        <strong className="tabular-nums text-foreground">{Math.max(0, Math.floor(Number(alt.available_qty)))}</strong>
                       </span>
                     ) : null}
                     {alt.availability_status ? (
@@ -2795,7 +2815,7 @@ export function PatientProductRequestActions({
     await onReload();
   };
 
-  const totalsRetained = useMemo(() => monetaryTotalsForRetainedLines(items), [items]);
+  const totalsRetained = useMemo(() => monetaryTotalsForRetainedLines(items, status), [items, status]);
   const totalRetainedGrandLabel = useMemo(
     () =>
       compactTotalMadLabel({
@@ -2930,8 +2950,8 @@ export function PatientProductRequestActions({
         <div className="mt-2 space-y-2 rounded-xl border border-violet-200/70 bg-violet-50/35 px-3 py-3 text-[11px] leading-snug text-violet-950">
           <p className="font-semibold">Votre consultation est bien envoyée.</p>
           <p>
-            Échangez avec la pharmacie via l&apos;onglet <strong>Conversation</strong>. Dès qu&apos;elle aura publié des
-            produits, retrouvez-les dans l&apos;onglet <strong>Produits proposés</strong> pour valider votre choix.
+            Échangez avec la pharmacie dans la section conversation ci-dessus. Dès qu&apos;elle aura publié des produits,
+            retrouvez-les plus bas sur cette page pour valider votre choix.
           </p>
         </div>
       ) : null}
@@ -3018,8 +3038,8 @@ export function PatientProductRequestActions({
           const aCommanderRetenues = aCommander.filter((r) => r.is_selected_by_patient);
           const horsPerimetreRetenues = horsPerimetre.filter((r) => r.is_selected_by_patient);
           const lignesNonRetenues = items.filter((r) => !r.is_selected_by_patient);
-          const subtotalDispo = monetaryTotalsForRetainedLines(dispoRetenues);
-          const subtotalCommande = monetaryTotalsForRetainedLines(aCommanderRetenues);
+          const subtotalDispo = monetaryTotalsForRetainedLines(dispoRetenues, status);
+          const subtotalCommande = monetaryTotalsForRetainedLines(aCommanderRetenues, status);
 
           return (
             <section className="space-y-2">
@@ -3502,8 +3522,7 @@ export function PatientProductRequestActions({
           >
             {isConsultation ? (
               <>
-                Pour échanger avec la pharmacie, utilise l&apos;onglet{" "}
-                <strong className="font-semibold">Conversation</strong>.
+                Pour échanger avec la pharmacie, utilisez la section conversation en haut de la page.
               </>
             ) : (
               <>

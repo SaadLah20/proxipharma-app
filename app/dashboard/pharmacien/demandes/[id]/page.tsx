@@ -31,8 +31,8 @@ import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import { supabase } from "@/lib/supabase";
 import { formatDateShortFr, formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import {
-  PHARMACIST_AVAILABILITY_OPTIONS,
   PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS,
+  pharmacistAvailabilityOptionsForLine,
   PHARMACIST_SUPPLY_POST_CONFIRM_AVAILABILITY_OPTIONS,
   inferAvailabilityStatusFromQty,
 } from "@/lib/pharmacist-availability";
@@ -64,13 +64,6 @@ import { sharedShowPlannedVisitBlock } from "@/lib/request-kinds/shared-capabili
 import { RequestDetailBackLink } from "@/components/requests/shared/request-detail-back-link";
 import { RequestKindHeader } from "@/components/requests/shared/request-kind-header";
 import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
-import { ConsultationBriefCompact } from "@/components/requests/consultation/consultation-brief-compact";
-import { ConsultationDetailTabBar } from "@/components/requests/consultation/consultation-detail-tab-bar";
-import { ConsultationDetailStickyChrome } from "@/components/requests/consultation/consultation-detail-sticky-chrome";
-import {
-  getConsultationDefaultTab,
-  type ConsultationDetailTab,
-} from "@/lib/consultation-detail-tabs";
 import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
 import { PrescriptionScanCollapsible } from "@/components/requests/prescription/prescription-scan-collapsible";
 import { PharmacistOrdonnanceQuickAddModal } from "@/components/requests/prescription/pharmacist-ordonnance-quick-add-modal";
@@ -1579,7 +1572,6 @@ export default function PharmacienDemandeDetailPage() {
   >([]);
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationUnread, setConversationUnread] = useState(false);
-  const [consultationTab, setConsultationTab] = useState<ConsultationDetailTab>("conversation");
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const [prescriptionPaths, setPrescriptionPaths] = useState<PrescriptionPagePaths | null>(null);
   const [prescriptionNote, setPrescriptionNote] = useState<string | null>(null);
@@ -1624,11 +1616,8 @@ export default function PharmacienDemandeDetailPage() {
   const [ordonnanceAltQuery, setOrdonnanceAltQuery] = useState("");
   const [ordonnanceAltHits, setOrdonnanceAltHits] = useState<ProductCatalogHit[]>([]);
   const propCatalogSearchActive = useMemo(
-    () =>
-      propOpen ||
-      ordonnanceQuickAddOpen ||
-      (request?.request_type === "free_consultation" && consultationTab === "products"),
-    [propOpen, ordonnanceQuickAddOpen, request?.request_type, consultationTab]
+    () => propOpen || ordonnanceQuickAddOpen,
+    [propOpen, ordonnanceQuickAddOpen]
   );
   const ordonnanceAltDebounced = useMemo(() => ordonnanceAltQuery.trim(), [ordonnanceAltQuery]);
   const propDebounced = useMemo(() => propQuery.trim(), [propQuery]);
@@ -2032,24 +2021,6 @@ export default function PharmacienDemandeDetailPage() {
     }, 280);
     return () => window.clearTimeout(t);
   }, [propDebounced, propCatalogSearchActive]);
-
-  useEffect(() => {
-    if (!request || request.request_type !== "free_consultation") return;
-    const tid = window.setTimeout(() => {
-      setConsultationTab(getConsultationDefaultTab(request.status, request.responded_at));
-    }, 0);
-    return () => window.clearTimeout(tid);
-  }, [request]);
-
-  useEffect(() => {
-    if (!request || request.request_type !== "free_consultation" || consultationTab !== "products") return;
-    const tid = window.setTimeout(() => {
-      setPropOpen(true);
-      const reason = getRequestKindWorkflowCopy("free_consultation").pharmacistProposeDefaultReason;
-      if (reason) setPropReason(reason);
-    }, 0);
-    return () => window.clearTimeout(tid);
-  }, [request, consultationTab]);
 
   useEffect(() => {
     if (!ordonnanceQuickAddOpen || ordonnanceAltDebounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
@@ -3276,8 +3247,19 @@ export default function PharmacienDemandeDetailPage() {
         if (isAjoutOfficine && qtyPrep < 1 && !f.withdrawn_after_confirm) {
           throw new Error(`« ${nm} » (proposition officine) : quantité en stock minimale 1.`);
         }
-        const draftSel = Math.min(999, Math.max(1, Number(f.selected_qty_str) || 1));
         const payload = buildItemUpdatePayload(f, row, request.request_type);
+        const validatedCap = Math.min(
+          PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX,
+          Math.max(1, Number(row.selected_qty ?? row.requested_qty) || 1)
+        );
+        const prepQty = Number(payload.available_qty);
+        const draftSel = Math.min(999, Math.max(1, Number(f.selected_qty_str) || 1));
+        const nextSelectedQty =
+          row.is_selected_by_patient && !f.withdrawn_after_confirm
+            ? Number.isFinite(prepQty) && prepQty >= 1
+              ? Math.min(validatedCap, Math.floor(prepQty))
+              : draftSel
+            : row.selected_qty;
         const inf = inferredAvailabilityForPostConfirmClamp(row, payload.availability_status);
         if (!f.withdrawn_after_confirm && inf === "to_order") {
           const eta = effectiveEtaSupplyDraft(row, f, request.request_type);
@@ -3301,7 +3283,7 @@ export default function PharmacienDemandeDetailPage() {
             ...payload,
             post_confirm_fulfillment: pcfDb,
             withdrawn_after_confirm: Boolean(f.withdrawn_after_confirm),
-            selected_qty: row.is_selected_by_patient && !f.withdrawn_after_confirm ? draftSel : row.selected_qty,
+            selected_qty: nextSelectedQty,
           })
           .eq("id", row.id);
         if (up) throw new Error(up.message);
@@ -4089,8 +4071,6 @@ export default function PharmacienDemandeDetailPage() {
   const isPrescription = request?.request_type === "prescription";
   const isConsultation = request?.request_type === "free_consultation";
   const ordonnanceCatalogEditable = isPrescription && showLineAndPublishEdits;
-  const showConsultationProductsPane = !isConsultation || consultationTab === "products";
-
   /* Pas de useMemo : `draft` est muté en place — react-hooks/preserve-manual-memoization (React Compiler). */
   const lineEntriesForList =
     request && ["confirmed", "treated"].includes(uiRequestStatus ?? "")
@@ -4450,31 +4430,13 @@ export default function PharmacienDemandeDetailPage() {
     >
       <RequestDetailBackLink config={kindConfig} viewerRole="pharmacien" />
 
-      {isConsultation ? (
-        <ConsultationDetailStickyChrome>
-          <RequestKindHeader
-            config={kindConfig}
-            request={request}
-            lineCount={usesLineWorkflow ? displayRows.length : null}
-            showPlannedVisit={sharedShowPlannedVisitBlock(request.status)}
-            viewerRole="pharmacien"
-          />
-          <ConsultationDetailTabBar
-            tab={consultationTab}
-            onTab={setConsultationTab}
-            conversationUnread={conversationUnread}
-            productLineCount={displayRows.length}
-          />
-        </ConsultationDetailStickyChrome>
-      ) : (
-        <RequestKindHeader
-          config={kindConfig}
-          request={request}
-          lineCount={usesLineWorkflow ? displayRows.length : null}
-          showPlannedVisit={sharedShowPlannedVisitBlock(request.status)}
-          viewerRole="pharmacien"
-        />
-      )}
+      <RequestKindHeader
+        config={kindConfig}
+        request={request}
+        lineCount={usesLineWorkflow ? displayRows.length : null}
+        showPlannedVisit={sharedShowPlannedVisitBlock(request.status)}
+        viewerRole="pharmacien"
+      />
 
       {pharmacistRequestIsHardStopped(request.status) && usesLineWorkflow ? (
         <section
@@ -4701,7 +4663,7 @@ export default function PharmacienDemandeDetailPage() {
 
       {kindConfig.capabilities.workflowEnabled ? (
         <>
-          {isConsultation && consultationTab === "conversation" && consultationBrief ? (
+          {isConsultation && consultationBrief ? (
             <div className="mt-2 space-y-3">
               <ConsultationBriefPanel
                 requestId={request.id}
@@ -4729,16 +4691,7 @@ export default function PharmacienDemandeDetailPage() {
             </p>
           ) : null}
 
-          {showConsultationProductsPane && isConsultation && consultationBrief ? (
-            <ConsultationBriefCompact
-              text={consultationBrief.text}
-              paths={consultationBrief.paths}
-              onOpenConversation={() => setConsultationTab("conversation")}
-            />
-          ) : null}
-
-          {showConsultationProductsPane &&
-          (displayRows.length === 0 && !isPrescription && !isConsultation ? (
+          {displayRows.length === 0 && !isPrescription && !isConsultation ? (
             <p className="mt-2 text-[11px] text-muted-foreground">Aucune ligne produit.</p>
           ) : (
             <>
@@ -4893,10 +4846,10 @@ export default function PharmacienDemandeDetailPage() {
                 (Number.isFinite(stockParsedQty) && stockParsedQty <= minStockFloor);
               const patientLineCc = row.client_comment?.trim() ?? "";
               const lineConvoVisual = lineConversationVisual(patientLineCc, f.pharmacist_comment ?? "");
-              const availabilityOptions =
-                isAjoutOfficineLine || request?.request_type === "free_consultation"
-                  ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
-                  : PHARMACIST_AVAILABILITY_OPTIONS;
+              const availabilityOptions = pharmacistAvailabilityOptionsForLine(
+                request?.request_type ?? "product_request",
+                { isAjoutOfficineLine, isPrescriptionExtraProposed }
+              );
 
               if (canManageSupply || canManageSupplyReadonly) {
                 const pl = row as PatientLineLike;
@@ -6215,7 +6168,7 @@ export default function PharmacienDemandeDetailPage() {
               </>
               ) : null}
             </>
-          ))}
+          )}
 
           {isPrescription && prescriptionPaths?.page1 ? (
             <PrescriptionScanCollapsible
@@ -6243,7 +6196,7 @@ export default function PharmacienDemandeDetailPage() {
             />
           ) : null}
 
-          {showConsultationProductsPane && showLineAndPublishEdits && !(isPrescription && canManageSupply) ? (
+          {showLineAndPublishEdits && !(isPrescription && canManageSupply) ? (
             <section
               className={clsx(
                 "mt-2 flex min-h-0 flex-col rounded-xl px-2 py-1.5 shadow-sm sm:px-2.5 sm:py-2",
@@ -6412,7 +6365,7 @@ export default function PharmacienDemandeDetailPage() {
             </section>
           ) : null}
 
-          {showConsultationProductsPane && respondedFrozenView ? (
+          {respondedFrozenView ? (
             <section className="mt-3 space-y-2 rounded-xl border border-amber-200/85 bg-amber-50/50 p-2.5 shadow-sm sm:mt-4 sm:p-3">
               <button
                 type="button"
@@ -6437,7 +6390,7 @@ export default function PharmacienDemandeDetailPage() {
             </section>
           ) : null}
 
-          {showConsultationProductsPane && showLineAndPublishEdits ? (
+          {showLineAndPublishEdits ? (
             <section className="mt-3 space-y-2 sm:mt-4">
               {canEditResponse ? (
                 <button
