@@ -3,19 +3,21 @@ import {
   type PatientLineLike,
 } from "@/lib/patient-confirmed-line-buckets";
 
-export type PharmacistSupplySectionKey = "dispo" | "commander" | "hors" | "ecart";
+export type PharmacistSupplySectionKey = "dispo" | "commander" | "nonRetenus" | "hors" | "ecart";
 
-const SECTION_ORDER: PharmacistSupplySectionKey[] = ["dispo", "commander", "hors", "ecart"];
+const SECTION_ORDER: PharmacistSupplySectionKey[] = ["dispo", "commander", "nonRetenus", "hors", "ecart"];
 
 const SECTION_TITLES: Record<PharmacistSupplySectionKey, (count: number) => string> = {
   dispo: (n) => `À réserver (validé · ${n})`,
   commander: (n) => `À commander (validé · ${n})`,
+  nonRetenus: (n) => `Non retenus à la validation (${n})`,
   hors: (n) => `Hors bloc principal (${n})`,
   ecart: (n) => `Écart après validation (${n})`,
 };
 
 /** Clé de section pour une ligne (sans réordonner la liste). */
 export function pharmacistSupplySectionKey<T extends PatientLineLike>(row: T): PharmacistSupplySectionKey {
+  if (!row.is_selected_by_patient && !row.withdrawn_after_confirm) return "nonRetenus";
   const b = bucketPatientValidatedLinesThreeWays([row]);
   if (b.retireesApresValidation.some((r) => r.id === row.id)) return "ecart";
   if (b.dispoOfficine.some((r) => r.id === row.id)) return "dispo";
@@ -39,6 +41,7 @@ export function flattenPharmacistSupplyListEntriesStable<T extends PatientLineLi
   const counts: Record<PharmacistSupplySectionKey, number> = {
     dispo: 0,
     commander: 0,
+    nonRetenus: 0,
     hors: 0,
     ecart: 0,
   };

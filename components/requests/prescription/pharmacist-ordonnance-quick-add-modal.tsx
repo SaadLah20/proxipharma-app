@@ -2,7 +2,7 @@
 
 import { clsx } from "clsx";
 import { Package, Pencil, Search, Trash2, X } from "lucide-react";
-import { PHARMACIST_AVAILABILITY_OPTIONS } from "@/lib/pharmacist-availability";
+import { PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS } from "@/lib/pharmacist-availability";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import {
   ORDONNANCE_LINE_QTY_MAX,
@@ -331,7 +331,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                     onChange={(e) => onAvailabilityChange(e.target.value)}
                     className="mt-0.5 h-9 w-full rounded-md border border-input bg-background px-2 text-xs font-medium"
                   >
-                    {PHARMACIST_AVAILABILITY_OPTIONS.map((o) => (
+                    {PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.label}
                       </option>

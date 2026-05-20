@@ -1377,6 +1377,14 @@ Voir **§13.23**.
 
 **« On reprend ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §10 (session **2026-06-01**), `CONTEXTE.md` §6, `AGENTS.md`, `RUNBOOK.md` §9 si notifs/SMS. Branche **`fix/validated-supply-ecart-ui-modal`**. Commit poussé **`aec8fad`** (lot demandes produits UI + clôture + ordre lignes) ; **en local non commité** : alignement **ordonnance** (= demande produits après réponse pharma : lignes scan en **`patient_request`**, libellé **Saisi ordonnance**, scan **`PrescriptionScanCollapsible`**, thème ambre hubs/header/validé). Migration Supabase à appliquer si pas fait : **`20260601_001_product_request_notifs_ui.sql`**. Attendre ou intégrer **retours terrain demandes produits** avant commit/push du lot ordonnance. QA : demande produits (répondue → validée → traitée + notifs) puis ordonnance (saisie scan → réponse → validation ; complément **proposé** avec motif). Je te donne ensuite les retours ou la prochaine tâche. »**
 
+### 13.24) Phrase de reprise — fiche digitale pharmacie (planifiée, pas encore livrée)
+
+**« On reprend la fiche digitale pharmacie : lire le plan Cursor *Fiche pharmacie schema* et `CAHIER_DES_CHARGES.md` §3 ; migrations `20260603_*` (profil officine, horaires Maroc, 3 types de garde, services catalogue, promos, avis étoiles, signalements) puis UI publique 4 onglets + espace pharmacien (`ma-fiche`, `horaires-garde`, `offres-promos`). »**
+
+### 13.25) Phrase de reprise — retours test terrain post-commit (2026-06-03)
+
+**« On reprend le lot retours test terrain (3 parcours identiques) : migration `20260603_001_retest_workflow_fixes.sql` + correctifs détail pharmacien `app/dashboard/pharmacien/demandes/[id]/page.tsx` (notifs patient = traitée + reçu en officine uniquement ; RPC amendements prescription/ordonnance ; canal avant ajout post-validé ; qté ordonnance ; clôture sans intru comptoir). »**
+
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 
 À utiliser quand tu veux **recharger le contexte** dans une nouvelle conversation **sans** lancer de correctif, migration ou refacto : l’agent **lit** puis **attend** ta tâche.
