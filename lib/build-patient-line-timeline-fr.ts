@@ -118,6 +118,8 @@ export type PatientLineTimelineInputs = {
   dossierHistoryDetailParagraphs?: (reason: string | null | undefined) => string[];
   /** Ex. « Produit saisi depuis l’ordonnance » (ordonnance) vs « Produit proposé par la pharmacie ». */
   pharmacistProposedOriginLabel?: string;
+  /** Ex. « Saisi depuis l’ordonnance » pour `patient_request` sur ordonnance. */
+  patientLineOriginLabel?: string;
   /** Historique produit côté officine : formulations « le patient a… ». */
   timelineAudience?: "patient" | "pharmacist";
 };
@@ -163,7 +165,12 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
     );
     originParts.push(`Référence : ${pname} · ${row.requested_qty} unité(s).`);
   } else {
-    originParts.push(`Produit demandé : ${pname} · ${row.requested_qty} unité(s).`);
+    const patientOrigin = input.patientLineOriginLabel?.trim();
+    originParts.push(
+      patientOrigin
+        ? `${patientOrigin} : ${pname} · ${row.requested_qty} unité(s) prescrite(s).`
+        : `Produit demandé : ${pname} · ${row.requested_qty} unité(s).`
+    );
   }
   if (row.client_comment?.trim()) {
     originParts.push(

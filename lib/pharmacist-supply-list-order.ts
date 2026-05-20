@@ -5,6 +5,8 @@ import {
 
 export type PharmacistSupplySectionKey = "dispo" | "commander" | "hors" | "ecart";
 
+const SECTION_ORDER: PharmacistSupplySectionKey[] = ["dispo", "commander", "hors", "ecart"];
+
 const SECTION_TITLES: Record<PharmacistSupplySectionKey, (count: number) => string> = {
   dispo: (n) => `À réserver (validé · ${n})`,
   commander: (n) => `À commander (validé · ${n})`,
@@ -21,7 +23,16 @@ export function pharmacistSupplySectionKey<T extends PatientLineLike>(row: T): P
   return "hors";
 }
 
-/** Conserve l’ordre d’entrée (ex. `created_at`) ; en-têtes de section uniquement quand la section change. */
+/** Trie par bloc métier (réserver → commander → hors → écart), ordre stable à l’intérieur d’un bloc. */
+export function sortPharmacistSupplyRowsBySection<T extends PatientLineLike>(rows: T[]): T[] {
+  const orderOf = (key: PharmacistSupplySectionKey) => SECTION_ORDER.indexOf(key);
+  return rows
+    .map((row, index) => ({ row, index, key: pharmacistSupplySectionKey(row) }))
+    .sort((a, b) => orderOf(a.key) - orderOf(b.key) || a.index - b.index)
+    .map((x) => x.row);
+}
+
+/** Conserve l’ordre d’entrée ; en-têtes de section uniquement quand la section change. */
 export function flattenPharmacistSupplyListEntriesStable<T extends PatientLineLike>(
   rows: T[]
 ): { header: string | null; row: T }[] {

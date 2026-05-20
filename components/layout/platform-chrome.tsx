@@ -7,7 +7,7 @@ export function PlatformChrome({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-full flex-col bg-background">
       <PlatformHeader />
-      <div className="flex flex-1 flex-col pt-14">{children}</div>
+      <div className="flex flex-1 flex-col pt-[3.25rem] sm:pt-14">{children}</div>
     </div>
   );
 }

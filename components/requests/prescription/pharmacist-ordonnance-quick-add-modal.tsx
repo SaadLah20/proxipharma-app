@@ -71,7 +71,7 @@ function QtyStepper({
   onChange,
   onMinus,
   onPlus,
-  highlightTeal,
+  highlightAmber,
 }: {
   label: string;
   value: string;
@@ -81,7 +81,7 @@ function QtyStepper({
   onChange: (v: string) => void;
   onMinus: () => void;
   onPlus: () => void;
-  highlightTeal?: boolean;
+  highlightAmber?: boolean;
 }) {
   return (
     <label className="flex w-[5.75rem] flex-col gap-0.5">
@@ -103,7 +103,7 @@ function QtyStepper({
           onChange={(e) => onChange(e.target.value)}
           className={clsx(
             "h-full w-full border-0 px-1 text-center text-[12px] font-semibold tabular-nums focus:outline-none",
-            highlightTeal && "bg-teal-50/90 font-bold text-teal-950 ring-1 ring-teal-200/80"
+            highlightAmber && "bg-amber-50/90 font-bold text-amber-950 ring-1 ring-amber-200/80"
           )}
         />
         <button
@@ -321,7 +321,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                   onChange={onAvailableQtyChange}
                   onMinus={() => onAvailableQtyNudge(-1)}
                   onPlus={() => onAvailableQtyNudge(1)}
-                  highlightTeal={availability === "to_order"}
+                  highlightAmber={availability === "to_order"}
                 />
                 <label className="flex min-w-[9rem] flex-1 flex-col gap-0.5">
                   <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Disponibilité</span>

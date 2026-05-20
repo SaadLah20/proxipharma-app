@@ -6,7 +6,7 @@ import Link from "next/link";
 import { clsx } from "clsx";
 import { useParams, useRouter } from "next/navigation";
 import { PageShell } from "@/components/ui/compact-shell";
-import { formatDateShortCasablancaWithTime24hFr, formatDateTimeShort24hFr } from "@/lib/datetime-fr";
+import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import { supabase } from "@/lib/supabase";
 import { historyActorLabel, requestHistoryPatientHeadline } from "@/lib/request-display";
 import { displayRequestPublicRef } from "@/lib/public-ref";
@@ -17,6 +17,7 @@ import { RequestKindHeader } from "@/components/requests/shared/request-kind-hea
 import { one } from "@/lib/embed";
 import { mapRequestItemsPhotos } from "@/lib/storage-media";
 import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
+import { useRequestDetailDrift } from "@/lib/use-request-detail-drift";
 import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
 import {
   PatientProductRequestActions,
@@ -312,6 +313,14 @@ export default function DemandeDetailPage() {
     [id, router]
   );
 
+  const requestDrift = useRequestDetailDrift(id, request?.status, "patient", () => loadDetail(true));
+  const { acknowledge: acknowledgeRequestDrift } = requestDrift;
+
+  useEffect(() => {
+    if (!request?.updated_at) return;
+    acknowledgeRequestDrift(request.updated_at, request.status);
+  }, [request?.id, request?.updated_at, request?.status, acknowledgeRequestDrift]);
+
   useEffect(() => {
     const tid = window.setTimeout(() => {
       void loadDetail();
@@ -557,6 +566,20 @@ export default function DemandeDetailPage() {
 
       {(hasBottomActions || (showArchivedReadonly && items.length > 0)) &&
       (!isConsultationRequest || consultationTab === "products") ? (
+        <>
+        {requestDrift.stale ? (
+          <div className="mb-2 rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">
+            <p className="font-bold">{requestDrift.stale.title}</p>
+            <p className="mt-1 leading-snug">{requestDrift.stale.message}</p>
+            <button
+              type="button"
+              className="mt-2 inline-flex min-h-9 items-center justify-center rounded-lg border border-amber-500/80 bg-white px-3 font-semibold text-amber-950 hover:bg-amber-50"
+              onClick={() => void requestDrift.refresh()}
+            >
+              Actualiser la page
+            </button>
+          </div>
+        ) : null}
         <section className="pb-2">
         <PatientProductRequestActions
           key={
@@ -626,8 +649,10 @@ export default function DemandeDetailPage() {
           prescriptionPaths={isPrescriptionRequest ? prescriptionPaths : null}
           prescriptionNote={isPrescriptionRequest ? prescriptionNote : null}
           summaryInPageChrome={showConsultationStickyChrome}
+          detailStale={requestDrift.stale}
         />
         </section>
+        </>
       ) : showArchivedReadonly && items.length === 0 ? (
         <p className="text-center text-xs text-muted-foreground">
           {isPrescriptionRequest ? workflowCopy.patientArchiveEmptyLines : workflowCopy.patientArchiveEmptyLines}
