@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageShell } from "@/components/ui/compact-shell";
 import { supabase } from "@/lib/supabase";
+import { PharmacyImageUploadField } from "@/components/pharmacy/pharmacy-image-upload-field";
 import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
 import type { PharmacyPublicProfileRow, PharmacyServiceCatalogRow } from "@/lib/pharmacy-profile-types";
 
@@ -24,6 +25,7 @@ export default function PharmacienMaFichePage() {
     instagram_url: "",
     maps_url: "",
     cover_image_path: "",
+    logo_url: "",
   });
   const [catalog, setCatalog] = useState<PharmacyServiceCatalogRow[]>([]);
   const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set());
@@ -42,7 +44,7 @@ export default function PharmacienMaFichePage() {
       supabase
         .from("pharmacies")
         .select(
-          "id,nom,ville,adresse,telephone,welcome_text,titular_name,titular_title,email,website_url,facebook_url,instagram_url,maps_url,cover_image_path"
+          "id,nom,ville,adresse,telephone,welcome_text,titular_name,titular_title,email,website_url,facebook_url,instagram_url,maps_url,cover_image_path,logo_url"
         )
         .eq("id", ctx.pharmacyId)
         .maybeSingle(),
@@ -62,6 +64,7 @@ export default function PharmacienMaFichePage() {
         instagram_url: ph.instagram_url ?? "",
         maps_url: ph.maps_url ?? "",
         cover_image_path: ph.cover_image_path ?? "",
+        logo_url: ph.logo_url ?? "",
       });
     }
     setCatalog((catRes.data ?? []) as PharmacyServiceCatalogRow[]);
@@ -98,6 +101,7 @@ export default function PharmacienMaFichePage() {
         instagram_url: form.instagram_url.trim() || null,
         maps_url: form.maps_url.trim() || null,
         cover_image_path: form.cover_image_path.trim() || null,
+        logo_url: form.logo_url.trim() || null,
       })
       .eq("id", pharmacyId);
 
@@ -119,6 +123,14 @@ export default function PharmacienMaFichePage() {
     }
     setBusy(false);
     setMessage("Fiche enregistrée.");
+  };
+
+  const persistImageColumn = async (column: "cover_image_path" | "logo_url", path: string) => {
+    if (!pharmacyId) return;
+    const value = path.trim() || null;
+    const { error } = await supabase.from("pharmacies").update({ [column]: value }).eq("id", pharmacyId);
+    if (error) setMessage(error.message);
+    else setMessage(column === "cover_image_path" ? "Couverture enregistrée." : "Logo enregistré.");
   };
 
   const toggleService = (id: string) => {
@@ -177,15 +189,34 @@ export default function PharmacienMaFichePage() {
             onChange={(e) => setForm((f) => ({ ...f, titular_name: e.target.value }))}
           />
         </label>
-        <label className="block text-xs">
-          Photo de couverture (chemin Storage public-assets)
-          <input
-            className="mt-1 w-full rounded border px-2 py-1.5 font-mono text-xs"
-            placeholder="pharmacies/{id}/cover.jpg"
-            value={form.cover_image_path}
-            onChange={(e) => setForm((f) => ({ ...f, cover_image_path: e.target.value }))}
-          />
-        </label>
+        {pharmacyId ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <PharmacyImageUploadField
+              pharmacyId={pharmacyId}
+              kind="cover"
+              label="Photo de couverture"
+              hint="Bannière en tête de la fiche publique (format paysage recommandé)."
+              storedPath={form.cover_image_path}
+              onStoredPathChange={(cover_image_path) => {
+                setForm((f) => ({ ...f, cover_image_path }));
+                void persistImageColumn("cover_image_path", cover_image_path);
+              }}
+              aspectClass="aspect-[21/9]"
+            />
+            <PharmacyImageUploadField
+              pharmacyId={pharmacyId}
+              kind="logo"
+              label="Logo officine"
+              hint="Affiché sur la fiche publique (carré, fond transparent si possible)."
+              storedPath={form.logo_url}
+              onStoredPathChange={(logo_url) => {
+                setForm((f) => ({ ...f, logo_url }));
+                void persistImageColumn("logo_url", logo_url);
+              }}
+              aspectClass="aspect-square"
+            />
+          </div>
+        ) : null}
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="text-xs">
             E-mail

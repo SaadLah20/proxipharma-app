@@ -91,6 +91,7 @@ export function PharmacyPublicProfile({
   const [tab, setTab] = useState<TabId>("services");
 
   const coverUrl = resolvePublicMediaUrl(pharmacy.cover_image_path ?? null);
+  const logoUrl = resolvePublicMediaUrl(pharmacy.logo_url ?? null);
   const wa = normalizeWhatsApp(pharmacy.whatsapp);
   const openState = useMemo(
     () => resolvePharmacyOpenStatus(weeklyHours, dayOverrides, onCallPeriods),
@@ -138,7 +139,13 @@ export function PharmacyPublicProfile({
           <img src={coverUrl} alt="" className="h-full w-full object-cover" />
         ) : null}
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
+        <div className="absolute bottom-0 left-0 right-0 flex items-end gap-3 p-3 text-white">
+          {logoUrl ? (
+            <div className="size-14 shrink-0 overflow-hidden rounded-xl border-2 border-white/90 bg-white shadow-md sm:size-16">
+              <img src={logoUrl} alt="" className="h-full w-full object-cover" />
+            </div>
+          ) : null}
+          <div className="min-w-0 flex-1">
           {pharmacy.public_ref?.trim() ? (
             <p className="font-mono text-[10px] font-bold opacity-90">{pharmacy.public_ref.trim()}</p>
           ) : null}
@@ -156,6 +163,7 @@ export function PharmacyPublicProfile({
               <Star className="size-3 fill-amber-300 text-amber-300" aria-hidden />
               {rating}
             </span>
+          </div>
           </div>
         </div>
         <button

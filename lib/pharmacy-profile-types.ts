@@ -48,6 +48,7 @@ export type PharmacyPublicProfileRow = {
   latitude?: number | null;
   longitude?: number | null;
   cover_image_path?: string | null;
+  logo_url?: string | null;
   welcome_text?: string | null;
   titular_name?: string | null;
   titular_title?: string | null;
