@@ -139,7 +139,7 @@ export function PharmacistLineConversationModal({
             <p className="mt-0.5 text-[9px] text-muted-foreground">
               {allowEdit || showPersistButton
                 ? "Visible par le patient avec votre réponse."
-                : "Lecture seule sur ce dossier."}
+                : "Notes figées sur ce dossier — poursuivez l’échange via la conversation."}
             </p>
           </div>
           <button
