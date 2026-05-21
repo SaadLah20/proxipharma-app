@@ -28,6 +28,10 @@ import {
 } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import { RequestExitConfirmModalFr } from "@/components/requests/request-exit-confirm-modal-fr";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
+import {
+  pharmacistRequestCatalogProductBlockMessageFr,
+  pharmacistRequestCatalogProductIdBlocked,
+} from "@/lib/pharmacist-request-catalog-product-block";
 import { supabase } from "@/lib/supabase";
 import { formatDateShortFr, formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import {
@@ -119,7 +123,13 @@ import { buildPatientLineTimelineFr, postConfirmSupplyAmendmentBadgeLabelsFr } f
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 import { PharmacistSupplyCompactLine } from "@/components/pharmacist/pharmacist-supply-compact-line";
+import { RequestLineSuiviStrip } from "@/components/requests/shared/request-line-suivi-strip";
 import { type SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
+import {
+  buildLineAddedAfterConfirmAmendment,
+  isRequestItemAddedAfterPatientConfirmation,
+  POST_CONFIRM_LINE_ADDED_BADGE_FR,
+} from "@/lib/supply-line-post-confirm";
 import { assertReceptionDateNotBeforeToday, todayLocalIsoDate } from "@/lib/planned-visit";
 import {
   dispatchRequestDetailRefresh,
@@ -833,41 +843,6 @@ function draftPatchPostConfirmSupplyUnlock(
   };
 }
 
-function effectiveWithdrawnAfterConfirm(row: ItemRow, draft: Draft): boolean {
-  const fd = draft[row.id];
-  return Boolean(row.withdrawn_after_confirm) || Boolean(fd?.withdrawn_after_confirm);
-}
-
-/**
- * Blocage « ajout officine » : même `product_id` que la réponse.
- * Hors `confirmed` / `treated` : toute ligne principale ou alternative compte.
- * Sur dossier validé / traité : seulement si le produit apparaît encore sur une ligne **retenue** et **non écartée**
- * (ou comme alternative sous une telle ligne).
- */
-function pharmacistProposedProductIdBlocked(
-  productId: string,
-  rows: ItemRow[],
-  draft: Draft,
-  requestStatus: string | null
-): boolean {
-  const onlyActiveRetained = requestStatus != null && ["confirmed", "treated"].includes(requestStatus);
-
-  for (const row of rows) {
-    if (row.product_id === productId) {
-      if (!onlyActiveRetained) return true;
-      if (row.is_selected_by_patient && !effectiveWithdrawnAfterConfirm(row, draft)) return true;
-    } else {
-      for (const alt of normalizeAlts(row.request_item_alternatives)) {
-        if (alt.product_id !== productId) continue;
-        if (!onlyActiveRetained) return true;
-        if (row.is_selected_by_patient && !effectiveWithdrawnAfterConfirm(row, draft)) return true;
-        break;
-      }
-    }
-  }
-  return false;
-}
-
 /** Mise à jour ligne : payload dispo/prix + pour ajout officine produit, `requested_qty` / `selected_qty` = qté offerte. */
 function buildRequestItemUpdatePayloadForPharmacistSave(f: ItemDraft, row: ItemRow, requestType: string) {
   const base = buildItemUpdatePayload(f, row, requestType);
@@ -923,6 +898,10 @@ function buildItemDraftFromRow(row: ItemRow, requestStatus?: string | null, requ
     requestType === "prescription" &&
     isProp &&
     isPrescriptionOrdonnancePrincipalLine(requestType, row, []);
+  const isPrescriptionExtraProposed =
+    requestType === "prescription" &&
+    isProp &&
+    !isOrdonnancePharma;
   const postConfirmSupply =
     requestStatus != null && ["confirmed", "treated"].includes(requestStatus) && row.is_selected_by_patient;
   const chosenId = row.patient_chosen_alternative_id ?? null;
@@ -957,7 +936,7 @@ function buildItemDraftFromRow(row: ItemRow, requestStatus?: string | null, requ
       availNum = row.available_qty != null ? Number(row.available_qty) : Number(row.requested_qty);
     }
     if (!Number.isFinite(availNum)) availNum = isOrdonnancePharma ? 0 : reqCap;
-    if (isAjoutOfficine) {
+    if (isAjoutOfficine || isPrescriptionExtraProposed) {
       availNum = Math.max(1, Math.floor(availNum));
     } else {
       const availCap = postConfirmSupply ? PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX : reqCap;
@@ -1597,7 +1576,6 @@ export default function PharmacienDemandeDetailPage() {
   const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
 
   const altDebounced = useMemo(() => altQuery.trim(), [altQuery]);
-  const altVisibleHits = altDebounced.length < 2 ? [] : altHits;
 
   const [propOpen, setPropOpen] = useState(false);
   const [propQuery, setPropQuery] = useState("");
@@ -1615,14 +1593,16 @@ export default function PharmacienDemandeDetailPage() {
   const [ordonnanceQuickAlternatives, setOrdonnanceQuickAlternatives] = useState<ProductCatalogHit[]>([]);
   const [ordonnanceAltQuery, setOrdonnanceAltQuery] = useState("");
   const [ordonnanceAltHits, setOrdonnanceAltHits] = useState<ProductCatalogHit[]>([]);
+  /** Consultation : formulaire toujours visible (`propOpen || isConsultation`) sans ouvrir l’accordéon. */
   const propCatalogSearchActive = useMemo(
-    () => propOpen || ordonnanceQuickAddOpen,
-    [propOpen, ordonnanceQuickAddOpen]
+    () =>
+      propOpen ||
+      ordonnanceQuickAddOpen ||
+      request?.request_type === "free_consultation",
+    [propOpen, ordonnanceQuickAddOpen, request?.request_type]
   );
   const ordonnanceAltDebounced = useMemo(() => ordonnanceAltQuery.trim(), [ordonnanceAltQuery]);
   const propDebounced = useMemo(() => propQuery.trim(), [propQuery]);
-  const propVisibleHits =
-    !propCatalogSearchActive || propDebounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS ? [] : propHits;
 
   /** Avant première réponse : aucune ligne `pharmacist_proposed` ne doit subsister en base (anciens inserts). */
   const hideStaleServerPharmacistProposals = useMemo(
@@ -1650,6 +1630,37 @@ export default function PharmacienDemandeDetailPage() {
     const withSynthetic = [...baseRows, ...pendingProposalRows];
     return mergePendingAlternativesOntoRows(withSynthetic, pendingAlternatives);
   }, [items, hideStaleServerPharmacistProposals, pendingProposalRows, pendingAlternatives]);
+
+  const propVisibleHits = useMemo(() => {
+    if (!propCatalogSearchActive || propDebounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) return [];
+    return propHits.filter((h) => !pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft));
+  }, [propCatalogSearchActive, propDebounced, propHits, displayRows, draft]);
+
+  const altPickerParentRow = useMemo(
+    () => (altPickerOpenFor ? displayRows.find((r) => r.id === altPickerOpenFor) ?? null : null),
+    [altPickerOpenFor, displayRows]
+  );
+
+  const altVisibleHits = useMemo(() => {
+    if (altDebounced.length < 2) return [];
+    const parent = altPickerParentRow;
+    const parentAlts = parent ? normalizeAlts(parent.request_item_alternatives) : [];
+    return altHits.filter((h) => {
+      if (parent && h.id === parent.product_id) return false;
+      if (parent && parentAlts.some((a) => a.product_id === h.id)) return false;
+      return !pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft);
+    });
+  }, [altDebounced, altHits, altPickerParentRow, displayRows, draft]);
+
+  const ordonnanceAltVisibleHits = useMemo(() => {
+    const pickId = ordonnanceQuickAddPick?.id;
+    return ordonnanceAltHits.filter(
+      (h) =>
+        h.id !== pickId &&
+        !ordonnanceQuickAlternatives.some((a) => a.id === h.id) &&
+        !pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft)
+    );
+  }, [ordonnanceAltHits, ordonnanceQuickAddPick?.id, ordonnanceQuickAlternatives, displayRows, draft]);
 
   const ordonnanceLineCount = useMemo(() => {
     if (!request || request.request_type !== "prescription") return 0;
@@ -2222,11 +2233,30 @@ export default function PharmacienDemandeDetailPage() {
     }
   };
 
+  const syncPendingLocalProposedQty = useCallback((rowId: string, qty: number, availabilityStatus?: string) => {
+    setPendingProposalRows((prev) =>
+      prev.map((r) =>
+        r.id === rowId
+          ? {
+              ...r,
+              requested_qty: qty,
+              selected_qty: qty,
+              available_qty: qty,
+              ...(availabilityStatus != null ? { availability_status: availabilityStatus } : {}),
+            }
+          : r
+      )
+    );
+  }, []);
+
   const setAvailableQty = (row: ItemRow, raw: string) => {
     const status = draft[row.id]?.availability_status ?? "available";
     if (status === "market_shortage") return;
     const isAjoutOfficine =
       request != null && isProductRequestAjoutOfficineLine(request.request_type, row);
+    const isPrescriptionExtraProposed =
+      request != null &&
+      isPrescriptionAdditionalProposedLine(request.request_type, row, supplyAmendmentBundles);
     const isOrdonnancePharma =
       request != null && isPrescriptionOrdonnancePharmacistLine(request.request_type, row);
     if (isOrdonnancePharma) {
@@ -2273,6 +2303,9 @@ export default function PharmacienDemandeDetailPage() {
           },
         };
       });
+      if (isLocalProposedItemId(row.id)) {
+        syncPendingLocalProposedQty(row.id, nextQty, "to_order");
+      }
       return;
     }
     const digits = raw.replace(/[^\d]/g, "");
@@ -2280,13 +2313,13 @@ export default function PharmacienDemandeDetailPage() {
       setField(row.id, "available_qty", "");
       return;
     }
-    const n = Math.min(max, Math.max(isAjoutOfficine ? 1 : 0, Number(digits)));
+    const n = Math.min(max, Math.max(isAjoutOfficine || isPrescriptionExtraProposed ? 1 : 0, Number(digits)));
     const nextQty = Number.isFinite(n) ? n : 0;
     const inferred = inferAvailabilityStatusFromQty({
       status: "available",
       availableQty: nextQty,
       requestedQty: inferRequestedQtyForAvailability(row),
-      isProposedLine: isAjoutOfficine,
+      isProposedLine: isAjoutOfficine || isPrescriptionExtraProposed,
     });
     setDraft((prev) => {
       const cur = prev[row.id];
@@ -2303,6 +2336,9 @@ export default function PharmacienDemandeDetailPage() {
         },
       };
     });
+    if (isLocalProposedItemId(row.id)) {
+      syncPendingLocalProposedQty(row.id, Math.max(1, nextQty), inferred);
+    }
   };
 
   const nudgeAvailableQty = (row: ItemRow, delta: number) => {
@@ -2310,6 +2346,9 @@ export default function PharmacienDemandeDetailPage() {
     if (status === "market_shortage") return;
     const isAjoutOfficine =
       request != null && isProductRequestAjoutOfficineLine(request.request_type, row);
+    const isPrescriptionExtraProposed =
+      request != null &&
+      isPrescriptionAdditionalProposedLine(request.request_type, row, supplyAmendmentBundles);
     const isOrdonnancePharma =
       request != null && isPrescriptionOrdonnancePharmacistLine(request.request_type, row);
     if (isOrdonnancePharma) {
@@ -2347,10 +2386,13 @@ export default function PharmacienDemandeDetailPage() {
           },
         };
       });
+      if (isLocalProposedItemId(row.id)) {
+        syncPendingLocalProposedQty(row.id, next, "to_order");
+      }
       return;
     }
     const current = Number(draft[row.id]?.available_qty ?? "0");
-    const floor = isAjoutOfficine ? 1 : 0;
+    const floor = isAjoutOfficine || isPrescriptionExtraProposed ? 1 : 0;
     const next = Math.min(
       max,
       Math.max(floor, Number.isFinite(current) ? current + delta : delta > 0 ? 1 : 0)
@@ -2359,7 +2401,7 @@ export default function PharmacienDemandeDetailPage() {
       status: "available",
       availableQty: next,
       requestedQty: inferRequestedQtyForAvailability(row),
-      isProposedLine: isAjoutOfficine,
+      isProposedLine: isAjoutOfficine || isPrescriptionExtraProposed,
     });
     setDraft((prev) => {
       const cur = prev[row.id];
@@ -2376,6 +2418,9 @@ export default function PharmacienDemandeDetailPage() {
         },
       };
     });
+    if (isLocalProposedItemId(row.id)) {
+      syncPendingLocalProposedQty(row.id, Math.max(1, next), inferred);
+    }
   };
 
   const resetAltPicker = () => {
@@ -2586,13 +2631,20 @@ export default function PharmacienDemandeDetailPage() {
       }
     }
     const expectedDateValue = needsEta && etaYmd ? etaYmd : null;
-    if (pharmacistProposedProductIdBlocked(pick.id, displayRows, draft, request?.status ?? null)) {
-      setError(
-        request && ["confirmed", "treated"].includes(request.status)
-          ? "Ce produit est déjà sur une ligne encore retenue et non écartée, ou en alternative sur une telle ligne. Écartez ou retirez l’autre occurrence, ou choisissez une autre référence."
-          : "Ce produit figure déjà sur la réponse (ligne principale ou alternative). Choisis un autre produit."
-      );
+    if (pharmacistRequestCatalogProductIdBlocked(pick.id, displayRows, draft)) {
+      setError(pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null));
       return;
+    }
+    const postConfirmImmediatePersist =
+      !!request && ["confirmed", "treated"].includes(request.status);
+    if (postConfirmImmediatePersist) {
+      const consent = lineModifyConsent[POST_CONFIRM_ADD_CONSENT_KEY];
+      if (!consent?.channel?.trim()) {
+        setError(
+          "Canal d’accord patient requis : ouvrez l’ajout via le bouton + (canal puis produit), puis réessayez."
+        );
+        return;
+      }
     }
     if (deferPersistOfficineAdditions) {
       const prefPrice =
@@ -2645,7 +2697,11 @@ export default function PharmacienDemandeDetailPage() {
                 ...pendingAltsAsRankedDb(next, syntheticId),
               ];
               if (mergedForRank.some((a) => a.product_id === alt.id)) {
-                altValidationError = "Cette alternative figure déjà sur la liste.";
+                altValidationError = "Cette alternative figure déjà sur cette ligne.";
+                return prev;
+              }
+              if (pharmacistRequestCatalogProductIdBlocked(alt.id, displayRows, draft)) {
+                altValidationError = pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null);
                 return prev;
               }
               const rank = nextAltRank(mergedForRank);
@@ -2727,11 +2783,45 @@ export default function PharmacienDemandeDetailPage() {
       setError(insErr.message);
       return;
     }
+    if (postConfirmImmediatePersist && insertedRow?.id) {
+      const fill = lineModifyConsent[POST_CONFIRM_ADD_CONSENT_KEY]!;
+      const amendMode: "ordonnance" | "proposed" = isOrdonnanceInsert ? "ordonnance" : "proposed";
+      const amendQty = isOrdonnanceInsert ? requestedQty : qty;
+      const amendments: SupplyAmendmentEntryJson[] = [
+        buildLineAddedAfterConfirmAmendment({
+          requestItemId: insertedRow.id,
+          productName: pick.name,
+          qty: amendQty,
+          mode: amendMode,
+          channel: fill.channel,
+          motive: fill.motive ?? "",
+        }),
+      ];
+      const { error: rpcA } = await supabase.rpc("pharmacist_record_supply_amendments", {
+        p_request_id: id,
+        p_amendments: amendments,
+      });
+      if (rpcA) {
+        setPropBusy(false);
+        setError(rpcA.message);
+        return;
+      }
+      setLineModifyConsent((prev) => {
+        const next = { ...prev };
+        delete next[POST_CONFIRM_ADD_CONSENT_KEY];
+        return next;
+      });
+    }
     const altPicks = opts?.alternatives ?? [];
     if (insertedRow?.id && altPicks.length > 0) {
       let rank = 1;
       for (const alt of altPicks.slice(0, 3)) {
         if (alt.id === pick.id) continue;
+        if (pharmacistRequestCatalogProductIdBlocked(alt.id, displayRows, draft)) {
+          setPropBusy(false);
+          setError(pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null));
+          return;
+        }
         const prefPrice =
           alt.price_pph != null && !Number.isNaN(Number(alt.price_pph)) ? Number(alt.price_pph) : null;
         const { error: altErr } = await supabase.from("request_item_alternatives").insert({
@@ -2777,6 +2867,10 @@ export default function PharmacienDemandeDetailPage() {
       setError("Choisis un produit différent de la ligne principale.");
       return;
     }
+    if (pharmacistRequestCatalogProductIdBlocked(catalogProductId, displayRows, draft)) {
+      setError(pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null));
+      return;
+    }
     if (deferPersistOfficineAdditions) {
       setAltBusyRow(parentRow.id);
       const prefPrice = pick.price_pph != null && !Number.isNaN(Number(pick.price_pph)) ? Number(pick.price_pph) : null;
@@ -2789,7 +2883,7 @@ export default function PharmacienDemandeDetailPage() {
             ...pendingAltsAsRankedDb(prev, parentRow.id),
           ];
           if (mergedExisting.some((a) => a.product_id === catalogProductId)) {
-            validationError = "Cette alternative figure déjà sur la liste.";
+            validationError = "Cette alternative figure déjà sur cette ligne.";
             return prev;
           }
           const rank = nextAltRank(mergedExisting);
@@ -2833,7 +2927,7 @@ export default function PharmacienDemandeDetailPage() {
     const existing = normalizeAlts(parentRow.request_item_alternatives);
     const rank = nextAltRank(existing);
     if (existing.some((a) => a.product_id === catalogProductId)) {
-      setError("Cette alternative figure déjà sur la liste.");
+      setError("Cette alternative figure déjà sur cette ligne.");
       return;
     }
     if (rank == null) {
@@ -3006,6 +3100,30 @@ export default function PharmacienDemandeDetailPage() {
           throw new Error(insErr?.message ?? "Échec de l'enregistrement d'une ligne ordonnance.");
         }
         proposedIdMap.set(row.id, inserted.id);
+
+        const recOrd = opts?.recordAddsAfterConfirm;
+        if (recOrd) {
+          const fillOrd = recOrd.consent[row.id] ?? recOrd.consent[POST_CONFIRM_ADD_CONSENT_KEY];
+          if (!fillOrd?.channel?.trim()) {
+            throw new Error("Canal d’accord patient requis pour chaque ajout après validation.");
+          }
+          const nmOrd = one(row.products)?.name ?? "Produit";
+          const amendmentsOrd: SupplyAmendmentEntryJson[] = [
+            buildLineAddedAfterConfirmAmendment({
+              requestItemId: inserted.id,
+              productName: nmOrd,
+              qty: requestedQty,
+              mode: "ordonnance",
+              channel: fillOrd.channel,
+              motive: fillOrd.motive ?? "",
+            }),
+          ];
+          const { error: rpcOrd } = await supabase.rpc("pharmacist_record_supply_amendments", {
+            p_request_id: recOrd.requestId,
+            p_amendments: amendmentsOrd,
+          });
+          if (rpcOrd) throw new Error(rpcOrd.message);
+        }
         continue;
       }
 
@@ -3081,14 +3199,14 @@ export default function PharmacienDemandeDetailPage() {
         }
         const nm = one(row.products)?.name ?? "Produit";
         const amendments: SupplyAmendmentEntryJson[] = [
-          {
-            kind: "line_added_after_confirm",
-            request_item_id: inserted.id,
-            summary: `${nm} ajouté avec accord patient`,
-            detail: `${nm} : proposition officine après validation (${qtyLine} unité(s)).`,
-            client_confirmation_channel: fill.channel.trim(),
-            client_motive: fill.motive.trim() === "" ? null : fill.motive.trim(),
-          },
+          buildLineAddedAfterConfirmAmendment({
+            requestItemId: inserted.id,
+            productName: nm,
+            qty: qtyLine,
+            mode: "proposed",
+            channel: fill.channel,
+            motive: fill.motive ?? "",
+          }),
         ];
         const { error: rpcA } = await supabase.rpc("pharmacist_record_supply_amendments", {
           p_request_id: rec.requestId,
@@ -3684,12 +3802,8 @@ export default function PharmacienDemandeDetailPage() {
         const fill = fills[0];
         if (!fill?.channel?.trim()) throw new Error("Indiquez le canal utilisé.");
         const { pick, reason, qty } = pending;
-        if (pharmacistProposedProductIdBlocked(pick.id, displayRows, draft, request?.status ?? null)) {
-          throw new Error(
-            request && ["confirmed", "treated"].includes(request.status)
-              ? "Ce produit est déjà sur une ligne encore retenue et non écartée, ou en alternative sur une telle ligne. Écartez ou retirez l’autre occurrence, ou choisissez une autre référence."
-              : "Ce produit figure déjà sur la réponse (ligne principale ou alternative). Choisis un autre produit."
-          );
+        if (pharmacistRequestCatalogProductIdBlocked(pick.id, displayRows, draft)) {
+          throw new Error(pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null));
         }
         const syntheticId = newLocalProposedId();
         scrollToEditorRowId = syntheticId;
@@ -3857,10 +3971,13 @@ export default function PharmacienDemandeDetailPage() {
         request != null && isProductRequestAjoutOfficineLine(request.request_type, row);
       const isOrdonnancePharma =
         request != null && isPrescriptionOrdonnancePharmacistLine(request.request_type, row);
+      const isPrescriptionExtraProposed =
+        request != null &&
+        isPrescriptionAdditionalProposedLine(request.request_type, row, supplyAmendmentBundles);
       const reqQty = isOrdonnancePharma
         ? ordonnanceDraftRequestedQty(row, f)
         : row.requested_qty;
-      if (isAjoutOfficine || request.request_type === "free_consultation") {
+      if (isAjoutOfficine || request.request_type === "free_consultation" || isPrescriptionExtraProposed) {
         if (qty < 1) {
           const nm = one(row.products)?.name ?? "Produit";
           setError(
@@ -4296,11 +4413,16 @@ export default function PharmacienDemandeDetailPage() {
           </button>
         }
         postConfirmAmendmentBadges={supplyAmendmentBadgeLabelsByItemId[row.id]}
-        menuOpen={false}
-        onMenuOpenChange={() => {}}
+        menuOpen={supplyMenuRowId === row.id}
+        onMenuOpenChange={(open) => {
+          setSupplyMenuRowId(open ? row.id : null);
+        }}
         onMenuModify={() => {}}
         onMenuWithdraw={() => {}}
-        onMenuHistory={() => setPharmaHistoryRowId(row.id)}
+        onMenuHistory={() => {
+          setSupplyMenuRowId(null);
+          setPharmaHistoryRowId(row.id);
+        }}
         supplyMutationsEnabled={false}
         withdrawDisabled
       />
@@ -4327,6 +4449,10 @@ export default function PharmacienDemandeDetailPage() {
     setLineModifyConsent({});
     setError("");
   }, [resetDraftFromRows]);
+
+  const handleConversationMarkedRead = useCallback(() => {
+    setConversationUnread(false);
+  }, []);
 
   let canCompleteCounter = false;
   let counterClosurePendingTracked = 0;
@@ -4577,12 +4703,26 @@ export default function PharmacienDemandeDetailPage() {
       {usesLineWorkflow &&
       request &&
       !isPrescription &&
+      !isConsultation &&
       ["submitted", "in_review"].includes(request.status) &&
       !pharmacistRequestIsHardStopped(request.status) ? (
         <section className="rounded-lg border-2 border-sky-400/35 bg-gradient-to-br from-sky-500/10 via-white to-teal-50/20 px-2.5 py-2 text-[10px] leading-snug text-sky-950 shadow-sm ring-1 ring-sky-300/30 sm:px-3">
           <p className="text-[11px] font-bold leading-tight text-sky-950">File d&apos;attente → votre réponse</p>
           <p className="mt-1 text-sky-900/92">
             Renseignez chaque ligne (dispo, quantités, prix catalogue, alternatives si besoin). Publiez une fois prêt : le patient voit exactement cette réponse jusqu&apos;à sa validation ou une modification de votre part.
+          </p>
+        </section>
+      ) : null}
+
+      {usesLineWorkflow &&
+      request &&
+      isConsultation &&
+      ["submitted", "in_review"].includes(request.status) &&
+      !pharmacistRequestIsHardStopped(request.status) ? (
+        <section className="rounded-lg border-2 border-violet-400/35 bg-gradient-to-br from-violet-500/10 via-white to-fuchsia-50/20 px-2.5 py-2 text-[10px] leading-snug text-violet-950 shadow-sm ring-1 ring-violet-300/30 sm:px-3">
+          <p className="text-[11px] font-bold leading-tight text-violet-950">Consultation reçue</p>
+          <p className="mt-1 text-violet-900/92">
+            Échangez avec le patient via la conversation, saisissez les produits proposés ci-dessous, puis publiez la réponse.
           </p>
         </section>
       ) : null}
@@ -4664,7 +4804,7 @@ export default function PharmacienDemandeDetailPage() {
       {kindConfig.capabilities.workflowEnabled ? (
         <>
           {isConsultation && consultationBrief ? (
-            <div className="mt-2 space-y-3">
+            <div className="space-y-3">
               <ConsultationBriefPanel
                 requestId={request.id}
                 initialText={consultationBrief.text}
@@ -4678,7 +4818,7 @@ export default function PharmacienDemandeDetailPage() {
                   viewerRole="pharmacien"
                   currentUserId={sessionUserId}
                   variant="consultation"
-                  onMarkedRead={() => setConversationUnread(false)}
+                  onMarkedRead={handleConversationMarkedRead}
                 />
               ) : null}
             </div>
@@ -4795,8 +4935,16 @@ export default function PharmacienDemandeDetailPage() {
                 !selected ||
                 !showInlineCounter;
               const isProposedLine = isPharmacistProposedRow(row);
+              const isPostConfirmAddedLine = isRequestItemAddedAfterPatientConfirmation(
+                row.id,
+                supplyAmendmentBundles
+              );
               const isAjoutOfficineLine =
-                request != null && isProductRequestAjoutOfficineLine(request.request_type, row);
+                (request != null && isProductRequestAjoutOfficineLine(request.request_type, row)) ||
+                isPostConfirmAddedLine;
+              const ajoutOfficineBadgeLabel = isPostConfirmAddedLine
+                ? POST_CONFIRM_LINE_ADDED_BADGE_FR
+                : proposedBadgeLabel;
               const isOrdonnancePrincipalLine =
                 request != null &&
                 isPrescriptionOrdonnancePrincipalLine(request.request_type, row, supplyAmendmentBundles);
@@ -4825,9 +4973,16 @@ export default function PharmacienDemandeDetailPage() {
               const AvailIcon = availUi.Icon;
               const lineProposedBadge = isOrdonnancePrincipalLine
                 ? ordonnanceLineBadge
-                : isPrescriptionExtraProposed || isAjoutOfficineLine || isProposedLine
-                  ? proposedBadgeLabel
-                  : null;
+                : isPrescriptionExtraProposed
+                  ? PRESCRIPTION_ADDITIONAL_PROPOSED_REASON
+                  : isAjoutOfficineLine || isProposedLine
+                    ? proposedBadgeLabel
+                    : null;
+              const compactOriginBadgeLabel =
+                isPostConfirmAddedLine || isAjoutOfficineLine ? null : lineProposedBadge;
+              const compactOriginBadgeTone: "ordonnance" | "proposed" = isOrdonnancePrincipalLine
+                ? "ordonnance"
+                : "proposed";
               const stockCeiling = draftStockCeilingForRow(row);
               const stockParsedQty = Number(f.available_qty);
               const stockPlusDisabled =
@@ -4890,12 +5045,14 @@ export default function PharmacienDemandeDetailPage() {
                   !lineCounterLocked &&
                   effSupply === "to_order";
                 const canShowArrivedReservedPill =
+                  uiRequestStatus !== "treated" &&
                   selected &&
                   !withdrawnDraft &&
                   !lineLockedTrace &&
                   !lineCounterLocked &&
                   effSupply === "to_order" &&
                   (f.fulfillment_draft === "ordered" || f.fulfillment_draft === "arrived_reserved");
+                const showTreatedLineSuivi = request.status === "treated" && selected && !withdrawnDraft;
                 const canMarkPickedUpCounterSupply =
                   request.status === "treated" &&
                   selected &&
@@ -5269,6 +5426,12 @@ export default function PharmacienDemandeDetailPage() {
                       }
                       supplyMutationsEnabled={Boolean(canManageSupply)}
                       expandedEditor={expandedEditor}
+                      hidePostConfirmFulfillmentPills={request.status === "treated"}
+                      lineSuiviSlot={
+                        showTreatedLineSuivi ? (
+                          <RequestLineSuiviStrip row={row as PatientLineLike} />
+                        ) : null
+                      }
                       treatedCounterSlot={treatedCounterSlot}
                       lineConversationSlot={lineConvoCompactSlot}
                       postConfirmAmendmentBadges={supplyAmendmentBadgeLabelsByItemId[row.id]}
@@ -5311,7 +5474,9 @@ export default function PharmacienDemandeDetailPage() {
                         setSupplyMenuRowId(null);
                       }}
                       showAjoutOfficineBadge={isAjoutOfficineLine}
-                      ajoutOfficineBadgeLabel={proposedBadgeLabel}
+                      ajoutOfficineBadgeLabel={ajoutOfficineBadgeLabel}
+                      lineOriginBadgeLabel={compactOriginBadgeLabel}
+                      lineOriginBadgeTone={compactOriginBadgeTone}
                       onMenuHistory={() => setPharmaHistoryRowId(row.id)}
                       withdrawDisabled={lineCounterLocked}
                       withdrawDisabledReason={
@@ -5752,11 +5917,12 @@ export default function PharmacienDemandeDetailPage() {
                             <strong>À commander</strong> · quantité pour cette ligne :{" "}
                             <strong className="tabular-nums">{f.available_qty}</strong> (min. 1, max. {stockCeiling}).
                           </p>
-                        ) : isAjoutOfficineLine ? (
+                        ) : isAjoutOfficineLine || isPrescriptionExtraProposed ? (
                           <p className="text-[9px] leading-snug text-violet-900/90">
-                            <span className="font-semibold text-violet-950">{proposedBadgeLabel} · </span>
-                            stock minimum <strong>1</strong>, sans plafond lié à la quantité initialement
-                            indiquée sur la ligne.
+                            <span className="font-semibold text-violet-950">
+                              {isPostConfirmAddedLine ? ajoutOfficineBadgeLabel : proposedBadgeLabel} ·{" "}
+                            </span>
+                            qté proposée minimum <strong>1</strong>, sans plafond lié à une autre ligne du dossier.
                           </p>
                         ) : isOrdonnancePharmacistLine ? (
                           <p className="text-[9px] leading-snug text-amber-900/90">
@@ -6995,14 +7161,14 @@ export default function PharmacienDemandeDetailPage() {
           alternatives={ordonnanceQuickAlternatives}
           altQuery={ordonnanceAltQuery}
           onAltQueryChange={setOrdonnanceAltQuery}
-          altHits={ordonnanceAltHits.filter(
-            (h) =>
-              h.id !== ordonnanceQuickAddPick?.id &&
-              !ordonnanceQuickAlternatives.some((a) => a.id === h.id)
-          )}
+          altHits={ordonnanceAltVisibleHits}
           onAddAlternative={(h) => {
             if (ordonnanceQuickAlternatives.length >= 3) return;
             if (h.id === ordonnanceQuickAddPick?.id) return;
+            if (pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft)) {
+              setError(pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null));
+              return;
+            }
             setOrdonnanceQuickAlternatives((prev) => [...prev, h as ProductCatalogHit]);
             setOrdonnanceAltQuery("");
             setOrdonnanceAltHits([]);
@@ -7145,7 +7311,7 @@ export default function PharmacienDemandeDetailPage() {
             currentUserId={sessionUserId}
             open={conversationOpen}
             onClose={() => setConversationOpen(false)}
-            onMarkedRead={() => setConversationUnread(false)}
+            onMarkedRead={handleConversationMarkedRead}
           />
         </>
       ) : null}

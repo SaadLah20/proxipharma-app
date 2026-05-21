@@ -37,6 +37,10 @@ export function PharmacistSupplyCompactLine({
   showExpandedEditor,
   expandedEditor,
   treatedCounterSlot,
+  /** Dossier traité : masque les pastilles réservé / commandé / reçu (remplacées par `lineSuiviSlot`). */
+  hidePostConfirmFulfillmentPills = false,
+  /** Bandeau jalons suivi (dossier traité). */
+  lineSuiviSlot,
   /** Bouton ouvrant les échanges patient / officine sur la ligne (demande validée). */
   lineConversationSlot,
   /** Libellés courts post-validation (détail dans Historique produit). */
@@ -49,6 +53,9 @@ export function PharmacistSupplyCompactLine({
   supplyMutationsEnabled = true,
   showAjoutOfficineBadge,
   ajoutOfficineBadgeLabel,
+  /** Badge origine ligne (Ordonnance / Proposé) — distinct de l’ajout post-validation. */
+  lineOriginBadgeLabel,
+  lineOriginBadgeTone = "ordonnance",
   withdrawDisabled,
   withdrawDisabledReason,
 }: {
@@ -87,6 +94,8 @@ export function PharmacistSupplyCompactLine({
   showExpandedEditor: boolean;
   expandedEditor: ReactNode;
   treatedCounterSlot: ReactNode | null;
+  hidePostConfirmFulfillmentPills?: boolean;
+  lineSuiviSlot?: ReactNode;
   lineConversationSlot?: ReactNode;
   postConfirmAmendmentBadges?: string[] | undefined;
   menuOpen: boolean;
@@ -99,6 +108,8 @@ export function PharmacistSupplyCompactLine({
   /** Proposition officine (aligné badge patient). */
   showAjoutOfficineBadge?: boolean;
   ajoutOfficineBadgeLabel?: string;
+  lineOriginBadgeLabel?: string | null;
+  lineOriginBadgeTone?: "ordonnance" | "proposed";
   withdrawDisabled: boolean;
   withdrawDisabledReason?: string | null;
 }) {
@@ -265,9 +276,18 @@ export function PharmacistSupplyCompactLine({
                   {validatedName}
                 </p>
                 {showAjoutOfficineBadge ? (
-                <span className="shrink-0 rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                  {ajoutOfficineBadgeLabel ?? pharmacistProposedProductBadgeFr}
-                </span>
+                  <span className="shrink-0 rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                    {ajoutOfficineBadgeLabel ?? pharmacistProposedProductBadgeFr}
+                  </span>
+                ) : lineOriginBadgeLabel ? (
+                  <span
+                    className={clsx(
+                      "shrink-0 rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
+                      lineOriginBadgeTone === "ordonnance" ? "bg-amber-700" : "bg-violet-600"
+                    )}
+                  >
+                    {lineOriginBadgeLabel}
+                  </span>
                 ) : null}
               </div>
               <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-slate-700">{availSentence}</p>
@@ -311,7 +331,7 @@ export function PharmacistSupplyCompactLine({
 
           {selected && !lineLockedTrace && !withdrawn ? (
             <div className="flex flex-wrap gap-1">
-              {!lineCounterLocked ? (
+              {!lineCounterLocked && !hidePostConfirmFulfillmentPills ? (
                 <>
                   {(effAvailRow === "available" || effAvailRow === "partially_available") && canMarkReserved ? (
                     <button
@@ -374,6 +394,9 @@ export function PharmacistSupplyCompactLine({
           ) : null}
         </div>
         {showExpandedEditor ? <div className="border-t border-border/60 bg-slate-50/40 px-2 py-1.5 sm:px-2.5">{expandedEditor}</div> : null}
+        {lineSuiviSlot ? (
+          <div className="border-t border-border/60 bg-slate-50/90 px-2 py-1.5 sm:px-2.5">{lineSuiviSlot}</div>
+        ) : null}
         {treatedCounterSlot ? <div className="border-t border-border/60 bg-slate-50/35 px-2 py-1.5 sm:px-2.5">{treatedCounterSlot}</div> : null}
       </li>
     </Fragment>

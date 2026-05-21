@@ -238,8 +238,8 @@ export function RequestConversationPanel({
   const [draft, setDraft] = useState("");
   const [err, setErr] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     setErr("");
     const { data, error } = await supabase
       .from("request_comments")
@@ -247,7 +247,7 @@ export function RequestConversationPanel({
       .eq("request_id", requestId)
       .eq("is_internal", false)
       .order("created_at", { ascending: true });
-    setLoading(false);
+    if (!opts?.silent) setLoading(false);
     if (error) {
       setErr(error.message);
       setRows([]);
@@ -256,10 +256,15 @@ export function RequestConversationPanel({
     setRows((data as RequestCommentRow[]) ?? []);
   }, [requestId]);
 
+  const onMarkedReadRef = useRef(onMarkedRead);
+  useEffect(() => {
+    onMarkedReadRef.current = onMarkedRead;
+  }, [onMarkedRead]);
+
   const markRead = useCallback(async () => {
     const { error } = await supabase.rpc("mark_request_conversation_read", { p_request_id: requestId });
-    if (!error) onMarkedRead?.();
-  }, [requestId, onMarkedRead]);
+    if (!error) onMarkedReadRef.current?.();
+  }, [requestId]);
 
   useEffect(() => {
     if (!open) return;
@@ -307,7 +312,7 @@ export function RequestConversationPanel({
       return;
     }
     setDraft("");
-    await load();
+    await load({ silent: true });
     await markRead();
   };
 
@@ -318,7 +323,7 @@ export function RequestConversationPanel({
       setErr(error.message);
       return;
     }
-    await load();
+    await load({ silent: true });
   };
 
   const visibleRows = useMemo(() => rows, [rows]);

@@ -151,7 +151,8 @@ Sans nouvelle validation patient obligatoire pour les ajustements officine coura
 ### 4.5 Réponse pharmacien — règles de saisie
 
 - **Disponibilités proposées au pharmacien (lignes patient)** : `Disponible`, `Indisponible`, `À commander`, `Rupture du marché`. **« Partiellement disponible » n'est plus saisissable** : il est **dérivé automatiquement** à l'enregistrement quand `available_qty < requested_qty` (`inferAvailabilityStatusFromQty` dans `lib/pharmacist-availability.ts`). Si la base contient encore `partially_available`, le brouillon repart à `available` et sera réinféré.
-- **Disponibilités sur lignes proposées par la pharmacie** (`line_source = 'pharmacist_proposed'`) : **uniquement** `Disponible` ou `À commander`.
+- **Disponibilités sur lignes proposées par la pharmacie** (`line_source = 'pharmacist_proposed'`) : **uniquement** `Disponible` ou `À commander` — **consultation libre** et **ajout officine** (`product_request`). **Ordonnance** (saisie depuis le scan, `patient_request` ou motif « Saisie depuis ordonnance ») : **toutes** les dispos (`PHARMACIST_AVAILABILITY_OPTIONS` via **`pharmacistAvailabilityOptionsForLine`**). Compléments ordonnance hors scan = proposés → dispos restreintes.
+- **Patient en `responded`** : qté affichée **« Proposé »** = `available_qty` (principal ou alternative) ; sélection initiale au plafond ; le patient peut **réduire** sa qté, pas l’augmenter au-delà de l’offre pharmacie (`maxQtyPrincipal` / **`maxQtyAlt`** dans **`patient-product-request-actions.tsx`**).
 - **Annulation totale par la pharmacie** : RPC **`pharmacist_cancel_request(p_request_id, p_reason_text)`** (motif obligatoire ≥ 5 car.) depuis `submitted` / `in_review` / `responded` / `confirmed` / **`processing`** / **`treated`** → `cancelled`. Le patient voit l'événement dans son historique avec auteur « La pharmacie ».
 - **Heure de passage patient** : saisie **texte 24 h** (HH:MM, normalisée par `parseFreeTime24h` qui accepte `18`, `18h30`, `1830`, `18:30`). Plus de `<input type="time">`.
 - **Le badge « Retenu après réponse patient »** sur la fiche pharmacien n'apparaît qu'à partir du statut `responded` (caché en `submitted` / `in_review`).
@@ -318,6 +319,57 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-06-04 — Retours test (badges, notifs, consultation, catalogue)
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commit groupé (voir hash après push).
+
+**SQL** : **`20260604_001_patient_notify_validated_request_updated.sql`** — restaure notif patient **« Demande validée mise à jour »** (amendements / ajustements post-validation) complémentaire à **`20260603_001`** ; **à appliquer** sur Supabase pilote si pas encore fait.
+
+**Consultation libre** :
+- **Recherche catalogue** pharmacien : `propCatalogSearchActive` inclut `free_consultation` (formulaire visible sans `propOpen` → recherche ne partait plus).
+- **Patient** : en-tête dossier + **`PatientSentEnvoyeeSummaryCard`** en tête ; brief + conversation ; **`summaryInPageChrome`** ; conversation sans rechargement tremblant (`onMarkedRead` stable, `key` sans `conversationMessageCount`).
+- **Pharmacien** : bandeau violet « Consultation reçue » ; aide saisie produits.
+
+**Ordonnance** :
+- Badges **Ordonnance** / **Proposé** (principal scan vs complément) ; **`PRESCRIPTION_ADDITIONAL_PROPOSED_REASON`** sur compléments ; patient sans double scan en clôturé.
+- Post-validé : badge **« Ajouté après validation »** via **`request_supply_amendments`** (`buildLineAddedAfterConfirmAmendment`, RPC à l’insert) ; **`lib/pharmacist-request-catalog-product-block.ts`** (anti-doublon catalogue).
+
+**Supply traité** : **`RequestLineSuiviStrip`** sur lignes retenues ; pastilles fulfillment masquées en `treated`.
+
+**Fichiers clés** : `app/dashboard/pharmacien/demandes/[id]/page.tsx`, `app/dashboard/demandes/[id]/page.tsx`, `lib/supply-line-post-confirm.ts`, `lib/patient-line-proposed-badge.ts`, `components/requests/request-conversation-inline.tsx`, `components/requests/shared/request-line-suivi-strip.tsx`.
+
+**Phrase de reprise** : **§13.26**.
+
+---
+
+### Session 2026-06-03 (suite UI) — Consultation scroll, qtés patient, dispo ordonnance, alternatives
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`dd06fe3`**, **`7286128`** (poussés).
+
+**Infra** : migrations **`20260601_001`**, **`20260602_001`**, **`20260603_001`** — **toutes appliquées** sur Supabase pilote (ne pas réappliquer sauf nouvelle migration).
+
+**Consultation libre** :
+- **Suppression** header sticky + onglets Conversation / Produits : **une seule page scroll** (brief + messagerie inline + lignes), comme demande produits / ordonnance.
+- Composants **`consultation-detail-sticky-chrome`** / **`consultation-detail-tab-bar`** : **non utilisés** (fichiers conservés).
+
+**Quantités — patient (`responded`)** :
+- Libellé **« Proposé X »** (ligne principale + alternatives) = **`available_qty`** saisie par la pharmacie.
+- Plafond stepper patient = offre officine ; le patient peut **diminuer**, pas dépasser.
+- **Alternatives** : correction **`maxQtyAlt`** (plus de plafond erroné à `min(requested_qty, alt.available_qty)` sur ligne proposée consultation).
+
+**Quantités — post-validation** :
+- Cartes patient : **`selected_qty`** (choix validé) ; ajustement pharmacien avec accord → **`selected_qty`** recalculée `min(qté validée, nouvelle qté officine)` à l’enregistrement (**`saveConfirmedAdjustmentsCore`**).
+
+**Disponibilités** :
+- **`lib/pharmacist-availability.ts`** : **`pharmacistAvailabilityOptionsForLine`** — **ordonnance** (saisie scan + modal) = **Indisponible** / **Rupture** / etc. ; **consultation libre** + **ajout officine** demande produits = **Disponible** / **À commander** seulement.
+- Modal **`PharmacistOrdonnanceQuickAddModal`** : liste complète **`PHARMACIST_AVAILABILITY_OPTIONS`**.
+
+**Fichiers clés** : `app/dashboard/demandes/[id]/page.tsx`, `app/dashboard/pharmacien/demandes/[id]/page.tsx`, `components/requests/product/patient-product-request-actions.tsx`, `lib/patient-confirmed-line-buckets.ts`, `lib/pharmacist-availability.ts`, `lib/build-patient-line-timeline-fr.ts`.
+
+**Phrase de reprise** : **§13.26**.
+
+---
+
 ### Session 2026-06-01 — Lot demandes produits (commité) + ordonnance = demande produits (local, à committer)
 
 **Branche** : `fix/validated-supply-ecart-ui-modal`.
@@ -354,8 +406,8 @@ Statuts retenus v1:
 - **Badges** : **Ordonnance** / **Ordonnance + alternative** / **Proposé** (complémentaires uniquement pour **Proposé** ; voir session **2026-06-01** pour saisie scan en `patient_request`).
 - **Lot 1** (`b086521`) : notif pharmacien si patient modifie ordonnance (`20260531_001`), modal publication pharma, libellés patient, historique voix patient.
 
-**Consultation libre** :
-- **`ConsultationDetailStickyChrome`** : récap dossier + onglets **figés en haut** au scroll (patient : `PatientSentEnvoyeeSummaryCard` ; pharmacien : `RequestKindHeader` + onglets), comme les autres parcours.
+**Consultation libre** (historique — **remplacé** session **2026-06-03 suite UI**) :
+- Ancien : header sticky + onglets Conversation / Produits → **retiré** ; détail = scroll unique comme les autres parcours.
 
 **Demande produits** :
 - Migration **`20260531_002`** : notification pharmacien dédiée quand le patient modifie sa **date de passage** (`confirmed` / `treated`).
@@ -1383,7 +1435,11 @@ Voir **§13.23**.
 
 ### 13.25) Phrase de reprise — retours test terrain post-commit (2026-06-03)
 
-**« On reprend le lot retours test terrain (3 parcours identiques) : migration `20260603_001_retest_workflow_fixes.sql` + correctifs détail pharmacien `app/dashboard/pharmacien/demandes/[id]/page.tsx` (notifs patient = traitée + reçu en officine uniquement ; RPC amendements prescription/ordonnance ; canal avant ajout post-validé ; qté ordonnance ; clôture sans intru comptoir). »**
+Voir **§13.26** (phrase consolidée — migrations déjà appliquées).
+
+### 13.26) Phrase de reprise (recommandée — après session **2026-06-04**)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal`. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §10 (sessions 2026-06-03 + **2026-06-04**), §4.4–§4.5, `docs/workflow-ordonnance-consultation-REPONSES.md`. Migrations déjà appliquées : `20260601_001`, `20260602_001`, `20260603_001` — **appliquer si besoin** : `20260604_001_patient_notify_validated_request_updated.sql` (notif patient « Demande validée mise à jour »). État livré : **consultation** = page scroll (brief + messagerie + lignes) ; recherche catalogue pharma consultation corrigée (`propCatalogSearchActive` + `free_consultation`) ; **ordonnance** = badges Ordonnance/Proposé, scan unique patient clôturé, ajout post-validé journalisé + badge « Ajouté après validation » ; patient consultation = récap en-tête, conversation stable ; supply **traité** = bandeau suivi ligne (`RequestLineSuiviStrip`). Fichiers clés : `app/dashboard/pharmacien/demandes/[id]/page.tsx`, `app/dashboard/demandes/[id]/page.tsx`, `lib/supply-line-post-confirm.ts`, `lib/pharmacist-request-catalog-product-block.ts`. Je te dis ensuite quoi faire. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 
