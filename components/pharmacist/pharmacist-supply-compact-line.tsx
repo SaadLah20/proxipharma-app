@@ -39,7 +39,7 @@ export function PharmacistSupplyCompactLine({
   showExpandedEditor,
   expandedEditor,
   treatedCounterSlot,
-  /** Dossier traité : masque les pastilles réservé / commandé / reçu (remplacées par `lineSuiviSlot`). */
+  /** Dossier traité : masque réservé / commandé (jalons dans `lineSuiviSlot`) ; reçu en officine via `canShowArrivedReservedPill`. */
   hidePostConfirmFulfillmentPills = false,
   /** Bandeau jalons suivi (dossier traité). */
   lineSuiviSlot,
@@ -122,12 +122,12 @@ export function PharmacistSupplyCompactLine({
   const pillIdle = "border-border bg-background text-foreground hover:bg-muted/50";
 
   const cardShell = withdrawn
-    ? "rounded-lg border border-amber-300/80 bg-gradient-to-b from-white to-amber-50/35 shadow-sm ring-1 ring-amber-100/70"
+    ? "rounded-lg border border-amber-200/80 bg-amber-50/25 shadow-sm ring-1 ring-amber-100/50"
     : !selected
-      ? "rounded-lg border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/50 shadow-sm ring-1 ring-slate-100/80"
+      ? "rounded-lg border border-slate-200/85 bg-white shadow-sm ring-1 ring-slate-100/60"
       : effAvailRow === "to_order"
-        ? "rounded-lg border border-teal-300/75 bg-gradient-to-b from-white to-teal-50/40 shadow-sm ring-1 ring-teal-100/80"
-        : "rounded-lg border border-emerald-300/75 bg-gradient-to-b from-white to-emerald-50/40 shadow-sm ring-1 ring-emerald-100/80";
+        ? "rounded-lg border border-teal-200/75 bg-teal-50/25 shadow-sm ring-1 ring-teal-100/50"
+        : "rounded-lg border border-emerald-200/75 bg-emerald-50/25 shadow-sm ring-1 ring-emerald-100/50";
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -369,22 +369,22 @@ export function PharmacistSupplyCompactLine({
                         : "Marquer commandé"}
                     </button>
                   ) : null}
-                  {effAvailRow === "to_order" && canShowArrivedReservedPill ? (
-                    <button
-                      type="button"
-                      disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
-                      onClick={onToggleArrivedReserved}
-                      className={clsx(
-                        pill,
-                        fulfillmentDraft === "arrived_reserved"
-                          ? "border-teal-700 bg-teal-600 text-white"
-                          : "border-teal-400/80 bg-background text-teal-950 hover:bg-teal-50/80"
-                      )}
-                    >
-                      {fulfillmentDraft === "arrived_reserved" ? "Reçu en officine" : "Marquer reçu en officine"}
-                    </button>
-                  ) : null}
                 </>
+              ) : null}
+              {effAvailRow === "to_order" && canShowArrivedReservedPill ? (
+                <button
+                  type="button"
+                  disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
+                  onClick={onToggleArrivedReserved}
+                  className={clsx(
+                    pill,
+                    fulfillmentDraft === "arrived_reserved"
+                      ? "border-teal-700 bg-teal-600 text-white"
+                      : "border-teal-400/80 bg-background text-teal-950 hover:bg-teal-50/80"
+                  )}
+                >
+                  {fulfillmentDraft === "arrived_reserved" ? "Reçu en officine" : "Marquer reçu en officine"}
+                </button>
               ) : null}
               {canMarkPickedUpCounterSupply ? (
                 <button

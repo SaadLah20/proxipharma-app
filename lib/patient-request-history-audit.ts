@@ -47,27 +47,43 @@ export function patientHistoryAuditTitle(audit: PharmaConfirmAdjustmentAudit): s
   return "La pharmacie a ajusté votre commande validée";
 }
 
-/** Détail lisible patient (une entrée par ligne modifiée). */
-export function patientHistoryAuditDetailLines(audit: PharmaConfirmAdjustmentAudit): string[] {
-  return audit.lines.map((L) => {
-    const bits: string[] = [`${L.productName}`];
+/** Détail historique : une phrase = un fait (pas de « · » ni « — »). */
+export function patientHistoryAuditDetailLines(
+  audit: PharmaConfirmAdjustmentAudit,
+  audience: "patient" | "pharmacist" = "patient"
+): string[] {
+  const ph = audience === "pharmacist";
+  const out: string[] = [];
+  for (const L of audit.lines) {
+    out.push(`Produit : ${L.productName}`);
     const qtyChanged = L.oldAvailQty !== L.newAvailQty;
     const availChanged = (L.oldAvailabilityStatus ?? "").trim() !== (L.newAvailabilityStatus ?? "").trim();
     if (qtyChanged) {
-      bits.push(
-        `quantité proposée par la pharmacie : ${L.oldAvailQty ?? "—"} → ${L.newAvailQty} (vous aviez validé ${L.validatedQty})`
+      out.push(
+        ph
+          ? `Quantité officine : ${L.oldAvailQty ?? "—"} → ${L.newAvailQty}`
+          : `Quantité proposée par la pharmacie : ${L.oldAvailQty ?? "—"} → ${L.newAvailQty}`
+      );
+      out.push(
+        ph
+          ? `Quantité validée par le patient : ${L.validatedQty}`
+          : `Quantité que vous aviez validée : ${L.validatedQty}`
       );
     }
     if (availChanged) {
       const ol = L.oldAvailLabelFr ?? L.oldAvailabilityStatus ?? "—";
       const nl = L.newAvailLabelFr ?? L.newAvailabilityStatus ?? "—";
-      bits.push(`disponibilité : ${ol} → ${nl}`);
+      out.push(`Disponibilité : ${ol} → ${nl}`);
     }
     if (!qtyChanged && !availChanged) {
-      bits.push(`détail mis à jour (quantité validée : ${L.validatedQty})`);
+      out.push(
+        ph
+          ? `Mise à jour enregistrée (quantité validée patient : ${L.validatedQty})`
+          : `Mise à jour enregistrée (quantité validée : ${L.validatedQty})`
+      );
     }
-    return bits.join(" · ");
-  });
+  }
+  return out;
 }
 
 /** Libellés courts pour les codes techniques stockés dans `request_status_history.reason`. */
@@ -117,15 +133,15 @@ const PHARMACIST_HISTORY_TECH_REASON_FR: Record<string, string> = {
 };
 
 /** Corps après le préfixe `patient_abandon|` (ex. `no_longer_needed|détail`). */
-export function formatPatientAbandonReasonForPharmacistFr(rest: string): string {
+export function formatPatientAbandonReasonForPharmacistFr(rest: string): string[] {
   const segs = rest.split("|").map((s) => s.trim());
   const code = segs[0] ?? "";
   const detail = segs.slice(1).filter(Boolean).join(" ").trim();
   const label =
     isPatientCancelReasonCode(code) ? PATIENT_CANCEL_REASON_LABELS[code] : code ? code.replace(/_/g, " ") : "";
-  const head = label ? `Abandon côté patient · ${label}` : "Abandon côté patient.";
-  if (detail) return `${head} Précision : ${detail}.`;
-  return `${head}`;
+  const lines = [label ? `Abandon côté patient : ${label}` : "Abandon côté patient"];
+  if (detail) lines.push(`Précision : ${detail}`);
+  return lines;
 }
 
 /**
@@ -146,9 +162,9 @@ export function patientDossierHistoryDetailParagraphsFr(reason: string | null | 
     const detail = segs.slice(1).filter(Boolean).join(" ").trim();
     const label =
       isPatientCancelReasonCode(code) ? PATIENT_CANCEL_REASON_LABELS[code] : code ? code.replace(/_/g, " ") : "";
-    const head = label ? `Abandon enregistré · ${label}` : "Abandon enregistré.";
-    if (detail) return [`${head} Précision : ${detail}.`];
-    return [head];
+    const lines = [label ? `Abandon enregistré : ${label}` : "Abandon enregistré"];
+    if (detail) lines.push(`Précision : ${detail}`);
+    return lines;
   }
   if (r.startsWith("pharmacist_cancel|")) {
     const motif = r.slice("pharmacist_cancel|".length).trim();
@@ -201,11 +217,11 @@ export function patientDossierHistoryDetailParagraphsFr(reason: string | null | 
  */
 export function pharmacistDossierHistoryDetailParagraphsFr(reason: string | null | undefined): string[] {
   const audit = tryParsePatientHistoryAudit(reason);
-  if (audit) return patientHistoryAuditDetailLines(audit);
+  if (audit) return patientHistoryAuditDetailLines(audit, "pharmacist");
   const r = (reason ?? "").trim();
   if (!r) return [];
   if (r.startsWith("patient_abandon|")) {
-    return [formatPatientAbandonReasonForPharmacistFr(r.slice("patient_abandon|".length))];
+    return formatPatientAbandonReasonForPharmacistFr(r.slice("patient_abandon|".length));
   }
   if (r.startsWith("pharmacist_cancel|")) {
     const motif = r.slice("pharmacist_cancel|".length).trim();
@@ -257,7 +273,7 @@ export function pharmacistHardStopMotifSummaryFr(raw: string | null | undefined)
   const t = (raw ?? "").trim();
   if (!t) return null;
   if (t.startsWith("patient_abandon|")) {
-    return formatPatientAbandonReasonForPharmacistFr(t.slice("patient_abandon|".length));
+    return formatPatientAbandonReasonForPharmacistFr(t.slice("patient_abandon|".length)).join(" ");
   }
   const paras = pharmacistDossierHistoryDetailParagraphsFr(t);
   if (paras.length > 0 && paras.some((p) => p.trim().length > 0)) {

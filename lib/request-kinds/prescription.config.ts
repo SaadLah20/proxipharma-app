@@ -52,10 +52,9 @@ export const prescriptionRequestKindConfig: RequestKindConfig = {
       pharmacistProposedBadge: "Proposé",
       patientProposedBadge: "Ordonnance",
       pharmacistProposeSectionTitle: "Produit ordonnance",
-      pharmacistProposeSectionSubtitle: "Saisie depuis le scan — catalogue ci-dessous.",
+      pharmacistProposeSectionSubtitle: "Catalogue ci-dessous.",
       pharmacistProposeDefaultReason: "",
-      pharmacistEmptyLinesHint:
-        "Ouvrez l’ordonnance (agrandir), utilisez le bouton + pour saisir chaque produit. Ils apparaissent dans « Produits ordonnance » ci-dessous.",
+      pharmacistEmptyLinesHint: "Scan : + pour chaque produit, puis publier.",
       pharmacistPublishNeedLinesError:
         "Ajoutez au moins un produit ordonnance avant de publier la réponse.",
       pharmacistLinesSectionTitle: "Produits ordonnance",
@@ -68,10 +67,8 @@ export const prescriptionRequestKindConfig: RequestKindConfig = {
       patientSummaryKindLabel: "Ordonnance",
       patientSummaryRefShort: "Ord.",
       patientProductsSectionTitle: "Produits ordonnance",
-      patientWaitingSubmittedHint:
-        "Votre ordonnance est transmise : la pharmacie la lit et saisira les produits. Vous serez notifié dès que la réponse sera publiée.",
-      patientWaitingInReviewHint:
-        "Un pharmacien examine votre ordonnance et saisit les produits. Vous serez averti dès que la réponse sera prête.",
+      patientWaitingSubmittedHint: "Ordonnance transmise — saisie et réponse par l’officine.",
+      patientWaitingInReviewHint: "Saisie en cours — notification à la publication.",
       patientCancelWhileWaitingLabel: "Annuler l’ordonnance",
     },
   },

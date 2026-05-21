@@ -20,48 +20,30 @@ function demandeCardShell(status: string, role: "patient" | "pharmacien", accent
   const closed = ["completed", "cancelled", "abandoned", "expired", "partially_collected", "fully_collected", "draft"];
   const pharma = role === "pharmacien";
   if (closed.includes(status)) {
-    return pharma
-      ? "rounded-lg border border-border/90 bg-card shadow-sm ring-1 ring-border/60 transition hover:border-border hover:shadow-md"
-      : "rounded-xl border border-border/80 bg-card shadow-md ring-1 ring-border/50 transition hover:shadow-lg hover:ring-border/70";
+    return "rounded-lg border border-border/85 bg-card shadow-sm ring-1 ring-border/50 transition hover:border-border/70 hover:shadow-md";
   }
   if (status === "responded") {
-    return pharma
-      ? "rounded-lg border border-amber-300/75 bg-gradient-to-br from-amber-50/50 via-card to-card shadow-sm ring-1 ring-amber-200/55 transition hover:border-amber-400/80 hover:shadow-md"
-      : "rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/40 via-card to-card shadow-md ring-1 ring-amber-200/45 transition hover:shadow-lg hover:ring-amber-300/50";
+    return "rounded-lg border border-amber-200/80 bg-amber-50/35 shadow-sm ring-1 ring-amber-100/60 transition hover:border-amber-300/70 hover:shadow-md";
   }
   if (status === "confirmed") {
     if (accent === "amber") {
-      return role === "patient"
-        ? "rounded-xl border border-amber-200/85 bg-gradient-to-br from-amber-50/45 via-card to-card shadow-md ring-1 ring-amber-200/50 transition hover:shadow-lg hover:ring-amber-300/55"
-        : "rounded-lg border border-amber-300/70 bg-gradient-to-br from-amber-50/45 via-card to-card shadow-sm ring-1 ring-amber-200/55 transition hover:border-amber-400/65 hover:shadow-md";
+      return "rounded-lg border border-amber-200/75 bg-amber-50/30 shadow-sm ring-1 ring-amber-100/55 transition hover:border-amber-300/65 hover:shadow-md";
     }
-    return role === "patient"
-      ? "rounded-xl border border-emerald-200/85 bg-gradient-to-br from-emerald-50/45 via-card to-card shadow-md ring-1 ring-emerald-200/50 transition hover:shadow-lg hover:ring-emerald-300/55"
-      : "rounded-lg border border-emerald-300/70 bg-gradient-to-br from-emerald-50/45 via-card to-card shadow-sm ring-1 ring-emerald-200/55 transition hover:border-emerald-400/65 hover:shadow-md";
+    return "rounded-lg border border-emerald-200/75 bg-emerald-50/30 shadow-sm ring-1 ring-emerald-100/55 transition hover:border-emerald-300/65 hover:shadow-md";
   }
   if (status === "treated") {
     if (accent === "amber") {
-      return pharma
-        ? "rounded-lg border border-amber-400/65 bg-gradient-to-br from-amber-50/40 via-card to-card shadow-sm ring-1 ring-amber-200/55 transition hover:border-amber-500/70 hover:shadow-md"
-        : "rounded-xl border border-amber-300/75 bg-gradient-to-br from-amber-50/38 via-card to-card shadow-md ring-1 ring-amber-200/45 transition hover:shadow-lg hover:ring-amber-300/50";
+      return "rounded-lg border border-amber-200/75 bg-amber-50/25 shadow-sm ring-1 ring-amber-100/50 transition hover:border-amber-300/60 hover:shadow-md";
     }
-    return pharma
-      ? "rounded-lg border border-violet-300/70 bg-gradient-to-br from-violet-50/40 via-card to-card shadow-sm ring-1 ring-violet-200/55 transition hover:border-violet-400/65 hover:shadow-md"
-      : "rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/35 via-card to-card shadow-md ring-1 ring-violet-200/45 transition hover:shadow-lg hover:ring-violet-300/50";
+    return "rounded-lg border border-violet-200/70 bg-violet-50/25 shadow-sm ring-1 ring-violet-100/50 transition hover:border-violet-300/60 hover:shadow-md";
   }
   if (accent === "amber") {
-    return pharma
-      ? "rounded-lg border border-amber-300/70 bg-gradient-to-br from-amber-50/45 via-card to-card shadow-sm ring-1 ring-amber-200/55 transition hover:border-amber-400/65 hover:shadow-md"
-      : "rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/40 via-card to-card shadow-md ring-1 ring-amber-200/45 transition hover:shadow-lg hover:ring-amber-300/50";
+    return "rounded-lg border border-amber-200/75 bg-amber-50/25 shadow-sm ring-1 ring-amber-100/50 transition hover:border-amber-300/60 hover:shadow-md";
   }
   if (accent === "violet") {
-    return pharma
-      ? "rounded-lg border border-violet-300/70 bg-gradient-to-br from-violet-50/40 via-card to-card shadow-sm ring-1 ring-violet-200/55 transition hover:border-violet-400/65 hover:shadow-md"
-      : "rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/35 via-card to-card shadow-md ring-1 ring-violet-200/45 transition hover:shadow-lg hover:ring-violet-300/50";
+    return "rounded-lg border border-violet-200/70 bg-violet-50/25 shadow-sm ring-1 ring-violet-100/50 transition hover:border-violet-300/60 hover:shadow-md";
   }
-  return pharma
-    ? "rounded-lg border border-sky-300/70 bg-gradient-to-br from-sky-50/45 via-card to-card shadow-sm ring-1 ring-sky-200/55 transition hover:border-sky-400/65 hover:shadow-md"
-    : "rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50/40 via-card to-card shadow-md ring-1 ring-sky-200/45 transition hover:shadow-lg hover:ring-sky-300/50";
+  return "rounded-lg border border-sky-200/75 bg-sky-50/25 shadow-sm ring-1 ring-sky-100/50 transition hover:border-sky-300/60 hover:shadow-md";
 }
 
 function patientCardLineBadge(row: PatientRequestRow, summary: ReturnType<typeof summarizeRequestForPatientCard>): string {
@@ -94,6 +76,15 @@ function pharmacistCardLineBadge(row: PharmacistRequestRow, lineCount: number): 
     return `${lineCount} produit${lineCount > 1 ? "s" : ""} saisi${lineCount > 1 ? "s" : ""}`;
   }
   return `${lineCount} ligne${lineCount === 1 ? "" : "s"}`;
+}
+
+/** Une date si identique, sinon MAJ seule (plus courte que création + MAJ). */
+function hubCardTimestamp(created: string, updated?: string | null): string {
+  const u = updated?.trim() || created;
+  if (updated?.trim() && updated.trim() !== created) {
+    return formatDateTimeShort24hFr(u);
+  }
+  return formatDateTimeShort24hFr(created);
 }
 
 export type HubTab = "dashboard" | "list";
@@ -212,7 +203,7 @@ export function PatientDemandeCard({
 }) {
   const ph = one(row.pharmacies);
   const when = row.submitted_at ?? row.created_at;
-  const updatedWhen = row.updated_at?.trim() ? row.updated_at : row.created_at;
+  const ts = hubCardTimestamp(when, row.updated_at);
   const itemsRaw = row.request_items;
   const items = (Array.isArray(itemsRaw) ? itemsRaw : []) as PatientRequestItemRow[];
   const summary = summarizeRequestForPatientCard(items.length ? items : null, row.status);
@@ -245,21 +236,10 @@ export function PatientDemandeCard({
                 ) : null}
               </div>
               <p className="font-mono text-[10px] font-medium text-foreground">{refVisuel}</p>
-              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] tabular-nums leading-snug text-muted-foreground">
-                <span>
-                  Création{" "}
-                  <span className="font-medium text-foreground">{formatDateTimeShort24hFr(when)}</span>
-                </span>
-                <span>
-                  MAJ <span className="font-medium text-foreground">{formatDateTimeShort24hFr(updatedWhen)}</span>
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+              <p className="text-[10px] tabular-nums text-muted-foreground">{ts}</p>
+              <div className="flex flex-wrap items-center gap-1 pt-0.5">
                 <span className="rounded-md bg-muted/80 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
                   {lineBadge}
-                </span>
-                <span className="rounded-md border border-border/70 bg-white/80 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {kindConfig.theme.headerLabelShort}
                 </span>
                 <RequestStatusBadge status={cardStatus} role="patient" />
               </div>
@@ -331,7 +311,7 @@ export function PharmacistDemandeCard({
   conversationUnread?: boolean;
 }) {
   const when = row.submitted_at ?? row.created_at;
-  const maj = row.updated_at?.trim() ? row.updated_at : row.created_at;
+  const ts = hubCardTimestamp(when, row.updated_at);
   const name = patientDisplayName(row);
   const lines = Array.isArray(row.request_items) ? row.request_items : [];
   const nReserved = lines.filter(
@@ -370,26 +350,16 @@ export function PharmacistDemandeCard({
                 </span>
               ) : null}
             </div>
-            <p className="text-[10px] tabular-nums leading-snug text-muted-foreground">
-              Création <span className="font-medium text-foreground">{formatDateTimeShort24hFr(when)}</span>
-              <span className="text-border" aria-hidden>
-                {" "}
-                ·{" "}
-              </span>
-              MAJ <span className="font-medium text-foreground">{formatDateTimeShort24hFr(maj)}</span>
-            </p>
+            <p className="text-[10px] tabular-nums text-muted-foreground">{ts}</p>
             <div className="flex flex-wrap items-center gap-1 pt-0.5">
               <span className="rounded border border-border/60 bg-muted/70 px-1.5 py-px text-[10px] font-medium text-foreground">
                 {lineBadge}
               </span>
-              <span className="rounded-md border border-border/70 bg-white/80 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {kindConfig.theme.headerLabelShort}
-              </span>
               <RequestStatusBadge status={statusForCard} role="pharmacien" />
             </div>
             {hasFulfillmentProgress && (row.status === "confirmed" || row.status === "treated") ? (
-              <p className="text-[9px] font-medium leading-snug text-muted-foreground">
-                Rés. {nReserved} · Cmd. {nOrdered}
+              <p className="text-[9px] font-medium text-muted-foreground">
+                Rés.{nReserved} · Cmd.{nOrdered}
                 {nArrived > 0 ? ` · Reçu ${nArrived}` : ""}
               </p>
             ) : null}

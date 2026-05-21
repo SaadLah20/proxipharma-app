@@ -59,27 +59,34 @@ function kindNaturalFr(kind: string | undefined, audience: "patient" | "pharmaci
   }
 }
 
+/** Une ligne d’historique = un fait (sans « · » ni « — »). */
+export function summarizeSupplyAmendmentEntryLines(
+  row: SupplyAmendmentEntryJson,
+  audience: "patient" | "pharmacist" = "patient"
+): string[] {
+  const lines: string[] = [];
+  const fromKind = kindNaturalFr(row.kind, audience);
+  if (fromKind) lines.push(fromKind);
+  const detail = (row.detail ?? row.summary ?? "").trim();
+  if (detail && !detail.toLowerCase().includes("request_item")) {
+    const short = detail.length > 160 ? `${detail.slice(0, 157).trim()}…` : detail;
+    const head = (fromKind ?? "").toLowerCase();
+    if (!head || !short.toLowerCase().includes(head.slice(0, Math.min(12, head.length)))) {
+      lines.push(short);
+    }
+  }
+  if (lines.length === 0) lines.push("Mise à jour enregistrée");
+  const ch = row.client_confirmation_channel ? supplyAmendChannelLabel(row.client_confirmation_channel) : null;
+  const mot = row.client_motive?.trim();
+  if (ch) lines.push(`Accord patient : ${ch}`);
+  if (mot) lines.push(`Précision : ${mot}`);
+  return lines;
+}
+
 /** Texte naturel pour l'historique produit / dossier (sans identifiants techniques). */
 export function summarizeSupplyAmendmentEntry(
   row: SupplyAmendmentEntryJson,
   audience: "patient" | "pharmacist" = "patient"
 ): string {
-  const detail = (row.detail ?? row.summary ?? "").trim();
-  const fromKind = kindNaturalFr(row.kind, audience);
-  let main = fromKind ?? "Mise à jour enregistrée";
-  if (detail && !detail.toLowerCase().includes("request_item")) {
-    const short =
-      detail.length > 140 ? `${detail.slice(0, 137).trim()}…` : detail;
-    if (!fromKind || !short.toLowerCase().includes(main.toLowerCase().slice(0, 12))) {
-      main = `${main} — ${short}`;
-    }
-  }
-  const ch = row.client_confirmation_channel ? supplyAmendChannelLabel(row.client_confirmation_channel) : null;
-  const mot = row.client_motive?.trim();
-  if (ch) {
-    main = `${main}. Accord patient : ${ch}${mot ? ` (${mot})` : ""}.`;
-  } else if (mot) {
-    main = `${main}. Précision : ${mot}.`;
-  }
-  return main;
+  return summarizeSupplyAmendmentEntryLines(row, audience).join("\n");
 }

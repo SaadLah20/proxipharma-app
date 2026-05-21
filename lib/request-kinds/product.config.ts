@@ -63,10 +63,8 @@ export const productRequestKindConfig: RequestKindConfig = {
       patientSummaryKindLabel: "Demande de produits",
       patientSummaryRefShort: "Dem.",
       patientProductsSectionTitle: "Produits",
-      patientWaitingSubmittedHint:
-        "Votre liste est en file d’attente : un pharmacien la traitera et vous répondra avec les disponibilités et les éventuelles alternatives.",
-      patientWaitingInReviewHint:
-        "Un pharmacien examine votre liste. Vous serez averti dès que la réponse (disponibilités, alternatives le cas échéant) sera prête.",
+      patientWaitingSubmittedHint: "En file d’attente — réponse dès traitement par l’officine.",
+      patientWaitingInReviewHint: "Examen en cours — notification à la publication.",
       patientCancelWhileWaitingLabel: "Annuler la demande",
     },
   },

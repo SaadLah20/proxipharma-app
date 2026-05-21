@@ -154,7 +154,9 @@ export function formatDossierHistoryDetailLines(
 ): string[] {
   const audit = tryParsePatientHistoryAudit(reason);
   if (audit) {
-    return patientHistoryAuditDetailLines(audit).map(sanitizeHistoryDisplayText).filter(Boolean);
+    return patientHistoryAuditDetailLines(audit, viewerRole === "pharmacien" ? "pharmacist" : "patient")
+      .map(sanitizeHistoryDisplayText)
+      .filter(Boolean);
   }
   const paras =
     viewerRole === "patient"

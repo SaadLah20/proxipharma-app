@@ -135,8 +135,7 @@ export function RequestKindHeader({
             </>
           ) : null}
         </div>
-        <div className="flex shrink-0 items-center gap-1.5 sm:ms-auto">
-          <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Statut</span>
+        <div className="flex shrink-0 items-center sm:ms-auto">
           <span
             className={clsx(
               "inline-flex max-w-[min(100%,16rem)] justify-center truncate rounded-full border px-2 py-0.5 text-center text-[10px] font-bold leading-tight shadow-sm sm:max-w-[14rem]",
