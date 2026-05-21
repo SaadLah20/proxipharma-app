@@ -10,6 +10,8 @@ export function PharmacistSupplyCompactLine({
   header,
   validatedName,
   validatedQty,
+  /** Qté prescrite (ordonnance) — affichée jusqu’à clôture du dossier. */
+  ordonnancePrescribedQty = null,
   availSentence,
   unitLabel,
   totalLabel,
@@ -62,6 +64,7 @@ export function PharmacistSupplyCompactLine({
   header: string | null;
   validatedName: string;
   validatedQty: number;
+  ordonnancePrescribedQty?: number | null;
   availSentence: string;
   unitLabel: string;
   totalLabel: string;
@@ -268,21 +271,21 @@ export function PharmacistSupplyCompactLine({
             </div>
 
             <div className="min-w-0 flex-1 pe-10">
-              <div className="flex flex-wrap items-start gap-1.5">
+              <div className="space-y-1">
                 <p
-                  className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
+                  className="line-clamp-2 break-words text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
                   style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
                 >
                   {validatedName}
                 </p>
                 {showAjoutOfficineBadge ? (
-                  <span className="shrink-0 rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                  <span className="inline-flex max-w-full rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
                     {ajoutOfficineBadgeLabel ?? pharmacistProposedProductBadgeFr}
                   </span>
                 ) : lineOriginBadgeLabel ? (
                   <span
                     className={clsx(
-                      "shrink-0 rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
+                      "inline-flex max-w-full rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
                       lineOriginBadgeTone === "ordonnance" ? "bg-amber-700" : "bg-violet-600"
                     )}
                   >
@@ -314,9 +317,17 @@ export function PharmacistSupplyCompactLine({
               <strong className="font-semibold text-slate-900">{unitLabel}</strong>
             </div>
             <div className="min-w-0 flex-1 text-center">
-              <span className="inline-flex items-baseline justify-center gap-1">
-                <span className="text-slate-500">Qté</span>
-                <strong className="font-semibold text-slate-900">{validatedQty}</strong>
+              <span className="inline-flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0">
+                {ordonnancePrescribedQty != null ? (
+                  <span className="inline-flex items-baseline gap-1">
+                    <span className="text-slate-500">Prescrit</span>
+                    <strong className="font-semibold text-amber-950 tabular-nums">{ordonnancePrescribedQty}</strong>
+                  </span>
+                ) : null}
+                <span className="inline-flex items-baseline gap-1">
+                  <span className="text-slate-500">{ordonnancePrescribedQty != null ? "Retenu" : "Qté"}</span>
+                  <strong className="font-semibold text-slate-900 tabular-nums">{validatedQty}</strong>
+                </span>
               </span>
             </div>
             <div className="min-w-0 shrink-0 whitespace-nowrap text-end">

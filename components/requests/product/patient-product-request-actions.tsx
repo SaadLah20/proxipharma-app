@@ -72,6 +72,7 @@ import {
   postConfirmSupplyAmendmentBadgeLabelsFr,
   type PatientLineTimelineBlockFr,
 } from "@/lib/build-patient-line-timeline-fr";
+import { patientLatestSupplyAmendmentNoticeFr } from "@/lib/patient-pharma-change-notice-fr";
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { isPatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
 import {
@@ -99,6 +100,7 @@ import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-p
 import { PlannedVisitTimeInput } from "@/components/requests/planned-visit-time-input";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
+import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternative-qty-rules";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import {
   lineConversationStripButtonClass,
@@ -156,29 +158,12 @@ function normalizeAlternatives(raw: ActionItemAltRow | ActionItemAltRow[] | null
   return Array.isArray(raw) ? [...raw].sort((a, b) => a.rank - b.rank) : [raw];
 }
 
-function isMarketShortage(st: string | null | undefined): boolean {
-  return st === "market_shortage";
-}
-
 function maxQtyPrincipal(row: ActionItemRow): number {
-  if (isMarketShortage(row.availability_status)) return 0;
-  if (row.availability_status === "unavailable") return 0;
-  let cap = row.requested_qty;
-  if (row.line_source === "pharmacist_proposed") {
-    cap = Math.max(cap, Number(row.available_qty ?? cap));
-  }
-  if (row.available_qty != null) cap = Math.min(cap, row.available_qty);
-  return Math.max(0, cap);
+  return patientMaxQtyPrincipal(row);
 }
 
 function maxQtyAlt(row: ActionItemRow, alt: ActionItemAltRow): number {
-  if (isMarketShortage(alt.availability_status)) return 0;
-  if (alt.availability_status === "unavailable") return 0;
-  if (alt.available_qty != null) {
-    const aq = Math.floor(Number(alt.available_qty));
-    if (Number.isFinite(aq) && aq >= 0) return aq;
-  }
-  return maxQtyPrincipal(row);
+  return patientMaxQtyAlternative(row, alt);
 }
 
 function maxQtyForBranch(row: ActionItemRow, branch: LineBranch, alts: ActionItemAltRow[]): number {
@@ -1532,7 +1517,11 @@ function RespondedPatientLineChooser({
     currentBranch !== null && maxBranch > 0 ? (
       <div
         className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-x-3.5 gap-y-1 border-t border-slate-200/80 pt-2 text-[12px] font-medium leading-none tabular-nums text-slate-800 sm:gap-x-4 sm:text-[13px]"
-        title={`Quantité max autorisée : ${maxBranch}`}
+        title={
+          currentBranch !== "principal"
+            ? `Quantité proposée par la pharmacie : ${maxBranch} (vous pouvez diminuer)`
+            : `Quantité max autorisée : ${maxBranch}`
+        }
       >
         <div className="min-w-0 justify-self-start truncate">
           {unitForSelection != null ? (
@@ -2028,6 +2017,8 @@ function buildNonRetainedConfirmLines(
 }
 
 function validatePatientConfirmBeforeReview(
+  items: ActionItemRow[],
+  sel: Record<string, LineSelState>,
   rpcPayload: PatientConfirmRpcRow[],
   visitWin: ReturnType<typeof plannedVisitWindow>,
   resolvedVisitDate: string,
@@ -2036,6 +2027,19 @@ function validatePatientConfirmBeforeReview(
   const anyOn = rpcPayload.some((p) => p.is_selected);
   if (!anyOn) {
     return "Garde au moins une ligne sélectionnée, modifie ta liste avant renvoi, ou abandonne la demande.";
+  }
+  for (const row of items) {
+    const st = sel[row.id];
+    if (!st || st.branch === null) continue;
+    const alts = normalizeAlternatives(row.request_item_alternatives);
+    const cap = maxQtyForBranch(row, st.branch, alts);
+    if (cap < 1) continue;
+    if (st.qty > cap) {
+      const alt = st.branch !== "principal" ? alts.find((a) => a.id === st.branch) : null;
+      const label =
+        st.branch === "principal" ? (one(row.products)?.name ?? "Produit") : (one(alt?.products)?.name ?? "Alternative");
+      return `Pour « ${label} », la quantité ne peut pas dépasser ${cap} (proposée par la pharmacie). Vous pouvez diminuer, pas augmenter.`;
+    }
   }
   if (visitWin.missingEtaOnToOrder) {
     return "Une ligne « à commander » n’a pas de date de réception côté pharmacie. Contacte l’officine ou modifie ta sélection.";
@@ -2585,7 +2589,7 @@ export function PatientProductRequestActions({
 
   const openConfirmReview = useCallback(() => {
     const built = buildPatientConfirmSelection(items, sel, requestType, supplyAmendmentBundles);
-    const err = validatePatientConfirmBeforeReview(built.rpcPayload, visitWin, resolvedVisitDate, visitDate);
+    const err = validatePatientConfirmBeforeReview(items, sel, built.rpcPayload, visitWin, resolvedVisitDate, visitDate);
     if (err) {
       setActionError(err);
       return;
@@ -2639,7 +2643,14 @@ export function PatientProductRequestActions({
     });
     setBusyAction("");
     if (error) {
-      setActionError(error.message);
+      const msg = error.message ?? "";
+      if (/selected_qty out of range|Quantité invalide pour cette ligne/i.test(msg)) {
+        setActionError(
+          "La quantité dépasse ce que la pharmacie a proposé pour une alternative. Diminuez la quantité (vous ne pouvez pas l’augmenter au-delà de l’offre)."
+        );
+      } else {
+        setActionError(msg);
+      }
       return;
     }
     closeConfirmReview();
@@ -2801,6 +2812,10 @@ export function PatientProductRequestActions({
       onClose={() => setProductPhotoPreview(null)}
     />
   );
+  const showConfirmedCards = uiStatus === "confirmed" || uiStatus === "treated";
+  const latestSupplyAmendmentNotice =
+    showConfirmedCards ? patientLatestSupplyAmendmentNoticeFr(supplyAmendmentBundles) : null;
+
   if (!interactiveAllowed && !readOnlyArchive) return null;
 
   const badgeDefaults = {
@@ -2838,7 +2853,6 @@ export function PatientProductRequestActions({
     status === "submitted" || status === "in_review"
       ? workflowCopy.patientCancelWhileWaitingLabel
       : "Abandonner la demande";
-  const showConfirmedCards = uiStatus === "confirmed" || uiStatus === "treated";
   const needsStickyFooterPad =
     showProductResubmit ||
     (showPrescriptionWaiting && !forceReadOnly) ||
@@ -2871,6 +2885,28 @@ export function PatientProductRequestActions({
     >
       {actionError ? (
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
+      ) : null}
+
+      {latestSupplyAmendmentNotice ? (
+        <div className="mb-2 rounded-lg border border-violet-300/80 bg-violet-50/90 px-2.5 py-2 text-[11px] leading-snug text-violet-950 shadow-sm">
+          <p className="font-bold">Mise à jour de la pharmacie · {latestSupplyAmendmentNotice.whenLabel}</p>
+          <ul className="mt-1 list-inside list-disc space-y-0.5 text-violet-900/95">
+            {latestSupplyAmendmentNotice.lines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          <p className="mt-1.5 text-[10px] text-violet-800/90">
+            Les cartes ci-dessous reflètent l&apos;état actuel ; le libellé « Modifié après validation » figure sur chaque
+            produit concerné.
+          </p>
+        </div>
+      ) : null}
+
+      {showConsultationWaiting && items.length === 0 ? (
+        <p className="mb-2 rounded-lg border border-violet-200/70 bg-white/80 px-2.5 py-2 text-[11px] leading-snug text-violet-950">
+          La pharmacie n&apos;a pas encore proposé de produit. Consultez l&apos;onglet <strong>Conversation</strong> pour
+          échanger.
+        </p>
       ) : null}
 
       {(showWaitingShell || showConfirm || showConfirmedCards) && pharmacyId && !summaryInPageChrome && !forceReadOnly ? (

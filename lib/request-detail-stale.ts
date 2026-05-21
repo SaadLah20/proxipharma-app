@@ -66,6 +66,14 @@ export function detectRequestDetailStale(ctx: RequestStaleContext): RequestStale
           "La pharmacie a modifié sa réponse. Actualisez pour valider la version à jour.",
       };
     }
+    if (["confirmed", "treated"].includes(status)) {
+      return {
+        stale: true,
+        title: "Commande mise à jour par la pharmacie",
+        message:
+          "La pharmacie a modifié un ou plusieurs produits après votre validation. Actualisez pour voir les quantités et libellés à jour.",
+      };
+    }
   }
 
   return {
@@ -79,5 +87,5 @@ export function shouldPollRequestDetailDrift(status: string, viewerRole: "patien
   if (viewerRole === "pharmacien") {
     return ["submitted", "in_review", "responded", "confirmed", "treated"].includes(status);
   }
-  return ["submitted", "in_review", "responded"].includes(status);
+  return ["submitted", "in_review", "responded", "confirmed", "treated"].includes(status);
 }
