@@ -116,7 +116,6 @@ export default function DemandeDetailPage() {
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationUnread, setConversationUnread] = useState(false);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
-  const [conversationMessageCount, setConversationMessageCount] = useState(0);
   const [prescriptionPaths, setPrescriptionPaths] = useState<PrescriptionPagePaths | null>(null);
   const [prescriptionNote, setPrescriptionNote] = useState<string | null>(null);
   const [consultationBrief, setConsultationBrief] = useState<{
@@ -188,7 +187,7 @@ export default function DemandeDetailPage() {
         isConsultation &&
         (["confirmed", "treated"].includes(st) || isPatientProductArchiveStatus(st));
 
-      const [itemsResult, amendmentsResult, convUnreadRes, convCountRes, histResult, prescriptionResult, consultationResult] =
+      const [itemsResult, amendmentsResult, convUnreadRes, histResult, prescriptionResult, consultationResult] =
         await Promise.all([
         supabase
           .from("request_items")
@@ -204,12 +203,6 @@ export default function DemandeDetailPage() {
           .order("created_at", { ascending: false })
           .limit(40),
         supabase.rpc("request_conversation_unread_flags", { p_request_ids: [id] }),
-        supabase
-          .from("request_comments")
-          .select("id", { count: "exact", head: true })
-          .eq("request_id", id)
-          .eq("is_internal", false)
-          .is("deleted_at", null),
         needStatusHistory || needStatusHistoryConsult
           ? supabase
               .from("request_status_history")
@@ -235,7 +228,6 @@ export default function DemandeDetailPage() {
       ]);
       const unreadRow = (convUnreadRes.data as { request_id: string; has_unread: boolean }[] | null)?.find((x) => x.request_id === id);
       setConversationUnread(Boolean(unreadRow?.has_unread));
-      setConversationMessageCount(convCountRes.count ?? 0);
       if ((needStatusHistory || needStatusHistoryConsult) && !histResult.error && Array.isArray(histResult.data)) {
         setHistoryRows(
           histResult.data as {
@@ -357,6 +349,23 @@ export default function DemandeDetailPage() {
     return [footer, ...paras].filter((s) => s.trim().length > 0).join(" — ");
   }, [request, historyRows]);
 
+  const patientPharmacyContact = useMemo((): PatientPharmacyContactInfo | null => {
+    if (!request) return null;
+    const ph = one(request.pharmacies);
+    if (!ph?.nom?.trim()) return null;
+    return {
+      nom: ph.nom,
+      ville: ph.ville,
+      telephone: ph.telephone,
+      contact_email: ph.contact_email ?? null,
+      public_ref: ph.public_ref ?? null,
+    };
+  }, [request]);
+
+  const handleConversationMarkedRead = useCallback(() => {
+    setConversationUnread(false);
+  }, []);
+
   if (loading) {
     return (
       <PageShell>
@@ -401,28 +410,12 @@ export default function DemandeDetailPage() {
     !isConsultationRequest &&
     ["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status);
 
-  const patientPharmacyContact = useMemo((): PatientPharmacyContactInfo | null => {
-    const ph = one(request.pharmacies);
-    if (!ph?.nom?.trim()) return null;
-    return {
-      nom: ph.nom,
-      ville: ph.ville,
-      telephone: ph.telephone,
-      contact_email: ph.contact_email ?? null,
-      public_ref: ph.public_ref ?? null,
-    };
-  }, [request.pharmacies]);
-
   const showConsultationBriefBlock = isConsultationRequest && consultationBrief != null;
   const showConsultationEnvoyeeSummary =
     showConsultationBriefBlock && hasBottomActions && !showArchivedReadonly && patientPharmacyContact != null;
 
   const dossierRefLabel =
     displayRequestPublicRef(request) || `Dossier ${request.id.slice(0, 8)}…`;
-
-  const handleConversationMarkedRead = useCallback(() => {
-    setConversationUnread(false);
-  }, []);
 
   return (
     <PageShell

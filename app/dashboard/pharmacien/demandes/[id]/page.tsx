@@ -843,11 +843,6 @@ function draftPatchPostConfirmSupplyUnlock(
   };
 }
 
-function effectiveWithdrawnAfterConfirm(row: ItemRow, draft: Draft): boolean {
-  const fd = draft[row.id];
-  return Boolean(row.withdrawn_after_confirm) || Boolean(fd?.withdrawn_after_confirm);
-}
-
 /** Mise à jour ligne : payload dispo/prix + pour ajout officine produit, `requested_qty` / `selected_qty` = qté offerte. */
 function buildRequestItemUpdatePayloadForPharmacistSave(f: ItemDraft, row: ItemRow, requestType: string) {
   const base = buildItemUpdatePayload(f, row, requestType);
@@ -4455,6 +4450,10 @@ export default function PharmacienDemandeDetailPage() {
     setError("");
   }, [resetDraftFromRows]);
 
+  const handleConversationMarkedRead = useCallback(() => {
+    setConversationUnread(false);
+  }, []);
+
   let canCompleteCounter = false;
   let counterClosurePendingTracked = 0;
   if (request && usesLineWorkflow && request.status === "treated") {
@@ -4529,10 +4528,6 @@ export default function PharmacienDemandeDetailPage() {
   );
 
   const showBottomActionSticky = showDeclareTreatedSticky || showCloseCounterSticky;
-
-  const handleConversationMarkedRead = useCallback(() => {
-    setConversationUnread(false);
-  }, []);
 
   let bottomChromePaddingClass = "";
   if (showBottomActionSticky && showSupplyStatsFooter) {

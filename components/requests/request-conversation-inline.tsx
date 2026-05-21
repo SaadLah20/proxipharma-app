@@ -34,7 +34,9 @@ export function RequestConversationInline({
   const [draft, setDraft] = useState("");
   const [err, setErr] = useState("");
   const onMarkedReadRef = useRef(onMarkedRead);
-  onMarkedReadRef.current = onMarkedRead;
+  useEffect(() => {
+    onMarkedReadRef.current = onMarkedRead;
+  }, [onMarkedRead]);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);

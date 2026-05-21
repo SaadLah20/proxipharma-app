@@ -257,7 +257,9 @@ export function RequestConversationPanel({
   }, [requestId]);
 
   const onMarkedReadRef = useRef(onMarkedRead);
-  onMarkedReadRef.current = onMarkedRead;
+  useEffect(() => {
+    onMarkedReadRef.current = onMarkedRead;
+  }, [onMarkedRead]);
 
   const markRead = useCallback(async () => {
     const { error } = await supabase.rpc("mark_request_conversation_read", { p_request_id: requestId });
