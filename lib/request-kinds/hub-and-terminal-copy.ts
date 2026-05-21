@@ -26,47 +26,47 @@ function withBucketHints(
 }
 
 const PRESCRIPTION_PATIENT_BUCKET_HINTS: Partial<Record<DemandeStatBucket["key"], string>> = {
-  envoyees: "Scan transmis — la pharmacie saisit les produits.",
-  repondues: "Produits saisis — à valider sous 24 h.",
-  validees_traitees: "Vous avez validé ; la pharmacie suit la préparation.",
-  traitee_retrait: "Préparation terminée ; retrait en officine.",
-  cloturees: "Ordonnance terminée.",
-  abandonnees: "Parcours arrêté après validation, sans retrait.",
-  expirees: "Sans validation dans le délai après la réponse pharmacie.",
-  annulees: "Ordonnance annulée (avant ou après réponse).",
+  envoyees: "Scan en attente de saisie",
+  repondues: "À valider (24 h)",
+  validees_traitees: "Validée — en préparation",
+  traitee_retrait: "Prête — retrait officine",
+  cloturees: "Terminée",
+  abandonnees: "Abandonnée",
+  expirees: "Expirée",
+  annulees: "Annulée",
 };
 
 const PRESCRIPTION_PHARMACIST_BUCKET_HINTS: Partial<Record<DemandeStatBucket["key"], string>> = {
-  envoyees: "Scan à lire — saisir les produits de l’ordonnance.",
-  repondues: "Réponse publiée : le patient doit valider sous 24 h.",
-  validees_traitees: "Validée par le patient — suivi réservation / commande.",
-  traitee_retrait: "Préparation déclarée — retrait au comptoir.",
-  cloturees: "Ordonnance clôturée.",
-  abandonnees: "Validée puis arrêt sans retrait.",
-  expirees: "Aucune validation patient sous 24 h après votre réponse.",
-  annulees: "Annulation patient ou brouillon abandonné.",
+  envoyees: "Saisir depuis le scan",
+  repondues: "Attente patient (24 h)",
+  validees_traitees: "Suivi résa. / commande",
+  traitee_retrait: "Retrait comptoir",
+  cloturees: "Clôturée",
+  abandonnees: "Abandonnée",
+  expirees: "Expirée",
+  annulees: "Annulée",
 };
 
 const CONSULTATION_PATIENT_BUCKET_HINTS: Partial<Record<DemandeStatBucket["key"], string>> = {
-  envoyees: "Message envoyé — échange en cours avec la pharmacie.",
-  repondues: "Produits proposés — à valider sous 24 h.",
-  validees_traitees: "Vous avez validé ; la pharmacie prépare.",
-  traitee_retrait: "Préparation terminée ; retrait en officine.",
-  cloturees: "Consultation terminée.",
-  abandonnees: "Parcours arrêté après validation.",
-  expirees: "Sans validation dans le délai après la proposition.",
-  annulees: "Consultation annulée.",
+  envoyees: "Message envoyé",
+  repondues: "À valider (24 h)",
+  validees_traitees: "Validée — en préparation",
+  traitee_retrait: "Prête — retrait",
+  cloturees: "Terminée",
+  abandonnees: "Abandonnée",
+  expirees: "Expirée",
+  annulees: "Annulée",
 };
 
 const CONSULTATION_PHARMACIST_BUCKET_HINTS: Partial<Record<DemandeStatBucket["key"], string>> = {
-  envoyees: "À lire — conversation puis proposition produits.",
-  repondues: "Proposition publiée : attente validation patient (24 h).",
-  validees_traitees: "Validée — suivi lignes jusqu’à traitée.",
-  traitee_retrait: "Traitée — retrait comptoir.",
-  cloturees: "Consultation clôturée.",
-  abandonnees: "Sans suite après validation.",
-  expirees: "Pas de validation patient sous 24 h.",
-  annulees: "Annulation ou abandon.",
+  envoyees: "Lire le message",
+  repondues: "Attente patient (24 h)",
+  validees_traitees: "Suivi lignes",
+  traitee_retrait: "Retrait comptoir",
+  cloturees: "Clôturée",
+  abandonnees: "Abandonnée",
+  expirees: "Expirée",
+  annulees: "Annulée",
 };
 
 export function dashboardBucketsForKind(
@@ -91,35 +91,17 @@ export function hubDashboardChrome(
 ): { title: string; subtitle: string } {
   if (kindId === "prescription") {
     return role === "patient"
-      ? {
-          title: "Vue rapide · ordonnances",
-          subtitle: "Touchez un bloc pour ouvrir la liste filtrée (ordonnances)",
-        }
-      : {
-          title: "Vue rapide · ordonnances reçues",
-          subtitle: "Touchez un bloc pour filtrer les ordonnances de l’officine",
-        };
+      ? { title: "Vue rapide", subtitle: "Toucher un bloc pour filtrer" }
+      : { title: "Vue rapide", subtitle: "Toucher un bloc pour filtrer" };
   }
   if (kindId === "free_consultation") {
     return role === "patient"
-      ? {
-          title: "Vue rapide · consultations",
-          subtitle: "Touchez un bloc pour filtrer vos consultations libres",
-        }
-      : {
-          title: "Vue rapide · consultations reçues",
-          subtitle: "Touchez un bloc pour filtrer les consultations de l’officine",
-        };
+      ? { title: "Vue rapide", subtitle: "Toucher un bloc pour filtrer" }
+      : { title: "Vue rapide", subtitle: "Toucher un bloc pour filtrer" };
   }
   return role === "patient"
-    ? {
-        title: "Vue rapide · demandes de produits",
-        subtitle: "Touchez un bloc pour ouvrir la liste filtrée (demandes de produits)",
-      }
-    : {
-        title: "Vue rapide · demandes de produits",
-        subtitle: "Touchez un bloc pour ouvrir la liste filtrée (demandes de produits)",
-      };
+    ? { title: "Vue rapide", subtitle: "Toucher un bloc pour filtrer" }
+    : { title: "Vue rapide", subtitle: "Toucher un bloc pour filtrer" };
 }
 
 export function patientArchiveIntroCopy(

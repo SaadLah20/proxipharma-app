@@ -34,8 +34,8 @@ export function DemandeStatDashboard({
   buckets,
   basePath,
   density = "default",
-  dashboardTitle = "Vue rapide · demandes de produits",
-  dashboardSubtitle = "Touchez un bloc pour ouvrir la liste filtrée (demandes de produits)",
+  dashboardTitle = "Vue rapide",
+  dashboardSubtitle = "Toucher un bloc pour filtrer",
 }: {
   rows: Row[];
   buckets: DemandeStatBucket[];
@@ -56,14 +56,14 @@ export function DemandeStatDashboard({
         compact ? "p-2.5 sm:p-3" : "p-3 sm:p-3.5"
       )}
     >
-      <div className={clsx("flex flex-col gap-0.5 px-0.5 sm:flex-row sm:items-end sm:justify-between", compact ? "mb-2" : "mb-3")}>
-        <div>
-          <h2 className="text-xs font-bold uppercase tracking-wide text-foreground">{dashboardTitle}</h2>
-          <p className={clsx("text-muted-foreground", compact ? "mt-px text-[10px] leading-snug" : "mt-0.5 text-xs")}>
-            {dashboardSubtitle}
-          </p>
+      {dashboardTitle || dashboardSubtitle ? (
+        <div className={clsx("px-0.5", compact ? "mb-1.5" : "mb-2")}>
+          <h2 className="text-[11px] font-bold uppercase tracking-wide text-foreground">{dashboardTitle}</h2>
+          {dashboardSubtitle ? (
+            <p className={clsx("text-muted-foreground", compact ? "text-[9px]" : "text-[10px]")}>{dashboardSubtitle}</p>
+          ) : null}
         </div>
-      </div>
+      ) : null}
       <div className={clsx("grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4", compact ? "gap-1.5" : "gap-2")}>
       {buckets.map((b) => {
         const n = countInBucket(rows, b);
@@ -97,19 +97,14 @@ export function DemandeStatDashboard({
               </span>
               <span className={clsx("font-bold tabular-nums text-foreground", compact ? "text-xl" : "text-2xl")}>{n}</span>
             </div>
-            <p className={clsx("font-semibold leading-snug text-foreground", compact ? "mt-1 text-[10px]" : "mt-2 text-[11px]")}>
+            <p
+              className={clsx("font-semibold leading-snug text-foreground", compact ? "mt-1 text-[10px]" : "mt-1.5 text-[11px]")}
+              title={b.hint ?? undefined}
+            >
               {b.label}
             </p>
-            <p className={clsx("font-medium text-primary/90", compact ? "text-[9px]" : "text-[10px]")}>Filtrer →</p>
-            {b.hint ? (
-              <p
-                className={clsx(
-                  "line-clamp-2 leading-snug text-muted-foreground",
-                  compact ? "mt-px text-[9px]" : "mt-0.5 text-[10px]"
-                )}
-              >
-                {b.hint}
-              </p>
+            {!compact && b.hint ? (
+              <p className="mt-0.5 line-clamp-1 text-[9px] leading-snug text-muted-foreground">{b.hint}</p>
             ) : null}
             <div className={clsx("w-full overflow-hidden rounded-full bg-muted", compact ? "mt-1 h-1" : "mt-2 h-1.5")}>
               <div

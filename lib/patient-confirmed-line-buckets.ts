@@ -20,7 +20,10 @@ export type PatientLineLike = {
   counter_cancel_detail?: string | null;
   post_confirm_fulfillment?: string | null;
   withdrawn_after_confirm?: boolean | null;
-  products?: { name?: string | null; price_pph?: number | string | null } | { name?: string | null; price_pph?: number | string | null }[] | null;
+  products?:
+    | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }
+    | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }[]
+    | null;
   request_item_alternatives?:
     | Array<{
         id: string;
@@ -28,7 +31,10 @@ export type PatientLineLike = {
         available_qty: number | null;
         unit_price: number | null;
         expected_availability_date: string | null;
-        products?: { name?: string | null; price_pph?: number | string | null } | { name?: string | null; price_pph?: number | string | null }[] | null;
+        products?:
+          | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }
+          | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }[]
+          | null;
       }>
     | {
         id: string;
@@ -36,7 +42,10 @@ export type PatientLineLike = {
         available_qty: number | null;
         unit_price: number | null;
         expected_availability_date: string | null;
-        products?: { name?: string | null; price_pph?: number | string | null } | { name?: string | null; price_pph?: number | string | null }[] | null;
+        products?:
+          | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }
+          | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }[]
+          | null;
       }
     | null;
 };
@@ -47,10 +56,13 @@ type LineAltRow = {
   available_qty: number | null;
   unit_price: number | null;
   expected_availability_date: string | null;
-  products?: { name?: string | null; price_pph?: number | string | null } | { name?: string | null; price_pph?: number | string | null }[] | null;
+        products?:
+          | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }
+          | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }[]
+          | null;
 };
 
-function altRowsOf(line: PatientLineLike): LineAltRow[] {
+export function altRowsOf(line: PatientLineLike): LineAltRow[] {
   const raw = line.request_item_alternatives;
   if (!raw) return [];
   return Array.isArray(raw) ? (raw as LineAltRow[]) : [raw as LineAltRow];
@@ -124,6 +136,18 @@ export function validatedProductLabel(row: PatientLineLike): string {
   if (!chosenId) return oneProd(row.products)?.name ?? "Produit";
   const alt = altRowsOf(row).find((a) => a.id === chosenId);
   return oneProd(alt?.products)?.name ?? oneProd(row.products)?.name ?? "Produit";
+}
+
+/** Photo catalogue de la branche retenue (alternative choisie ou produit principal). */
+export function validatedBranchPhotoPath(row: PatientLineLike): string | null {
+  const chosenId = row.patient_chosen_alternative_id ?? null;
+  if (!chosenId) {
+    const p = oneProd(row.products)?.photo_url;
+    return p?.trim() ? p.trim() : null;
+  }
+  const alt = altRowsOf(row).find((a) => a.id === chosenId);
+  const altPhoto = oneProd(alt?.products)?.photo_url;
+  return altPhoto?.trim() ? altPhoto.trim() : null;
 }
 
 /** Prix unitaire sur la branche retenue à la validation (principal ou alternative choisie). */

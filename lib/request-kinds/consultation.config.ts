@@ -35,11 +35,9 @@ export const consultationRequestKindConfig: RequestKindConfig = {
       pharmacistProposedBadge: "Proposé",
       patientProposedBadge: "Proposé par la pharmacie",
       pharmacistProposeSectionTitle: "Saisir les produits proposés",
-      pharmacistProposeSectionSubtitle:
-        "Recherchez dans le catalogue, renseignez quantité, prix et disponibilité (disponible ou à commander), puis publiez.",
+      pharmacistProposeSectionSubtitle: "Catalogue · dispo · publier.",
       pharmacistProposeDefaultReason: "Proposition suite à consultation",
-      pharmacistEmptyLinesHint:
-        "Échangez via la conversation si besoin, puis saisissez les produits ci-dessous et publiez la réponse.",
+      pharmacistEmptyLinesHint: "Saisir les produits puis publier.",
       pharmacistPublishNeedLinesError: "Ajoutez au moins un produit avant de publier la réponse.",
       pharmacistLinesSectionTitle: "Produits proposés",
       patientArchiveEmptyLines: "Aucun produit n’a été proposé sur cette consultation.",
@@ -50,10 +48,8 @@ export const consultationRequestKindConfig: RequestKindConfig = {
       patientSummaryKindLabel: "Consultation libre",
       patientSummaryRefShort: "Cons.",
       patientProductsSectionTitle: "Produits proposés",
-      patientWaitingSubmittedHint:
-        "Votre message est transmis. Échangez avec la pharmacie via la conversation ; elle pourra vous proposer des produits.",
-      patientWaitingInReviewHint:
-        "La pharmacie examine votre consultation. Utilisez la conversation ; vous serez notifié dès qu’une proposition produits sera publiée.",
+      patientWaitingSubmittedHint: "Message transmis — échange ou produits via l’officine.",
+      patientWaitingInReviewHint: "Examen en cours — notification à la publication.",
       patientCancelWhileWaitingLabel: "Annuler la consultation",
     },
   },

@@ -44,6 +44,7 @@ import {
   effectiveEtaForPatientLine,
   type PatientLineLike,
   validatedBranchUnitPriceMad,
+  validatedBranchPhotoPath,
   validatedProductLabel,
   patientDisplayQtyForLine,
   validatedQtyForPatientLine,
@@ -387,9 +388,7 @@ function PatientValidatedCompactLineCard({
   const displayQty = patientDisplayQtyForLine(row, requestStatusForCard);
   const unitMad = validatedBranchUnitPriceMad(row);
   const lineTotalMad = unitMad != null ? unitMad * displayQty : null;
-  const thumbUrl = resolvePublicMediaUrl(
-    chosenAlt ? one(chosenAlt.products)?.photo_url ?? null : prod?.photo_url ?? null
-  );
+  const thumbUrl = resolvePublicMediaUrl(validatedBranchPhotoPath(row));
   const eff = effectiveAvailabilityForPatientLine(row);
   const eta = effectiveEtaForPatientLine(row);
 
@@ -999,18 +998,18 @@ function PatientSentLineNotesModalFr({
 
 function validatedBucketShell(accent: RequestKindAccent): string {
   if (accent === "amber") {
-    return "rounded-xl border-2 border-amber-200/70 bg-gradient-to-b from-amber-50/30 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-amber-200/45 sm:p-3";
+    return "rounded-lg border border-amber-200/65 bg-amber-50/20 p-2 shadow-sm ring-1 ring-amber-100/40 sm:p-2.5";
   }
   if (accent === "violet") {
-    return "rounded-xl border-2 border-violet-200/70 bg-gradient-to-b from-violet-50/30 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-violet-200/45 sm:p-3";
+    return "rounded-lg border border-violet-200/65 bg-violet-50/20 p-2 shadow-sm ring-1 ring-violet-100/40 sm:p-2.5";
   }
-  return "rounded-xl border-2 border-emerald-200/70 bg-gradient-to-b from-emerald-50/30 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-emerald-200/45 sm:p-3";
+  return "rounded-lg border border-emerald-200/65 bg-emerald-50/20 p-2 shadow-sm ring-1 ring-emerald-100/40 sm:p-2.5";
 }
 
 function summaryThemeClasses(accent: RequestKindAccent) {
   if (accent === "amber") {
     return {
-      shell: "mb-2 rounded-lg border-2 border-amber-500/35 bg-gradient-to-br from-amber-500/12 via-white to-orange-50/30 px-2 py-2 text-[10px] leading-snug shadow-sm ring-1 ring-amber-400/35 sm:px-2.5",
+      shell: "mb-2 rounded-lg border border-amber-200/60 bg-amber-50/30 px-2 py-1.5 text-[10px] leading-snug shadow-sm sm:px-2.5",
       borderB: "border-amber-200/70",
       borderB2: "border-amber-200/60",
       title: "text-amber-950",
@@ -1027,7 +1026,7 @@ function summaryThemeClasses(accent: RequestKindAccent) {
   }
   if (accent === "violet") {
     return {
-      shell: "mb-2 rounded-lg border-2 border-violet-500/35 bg-gradient-to-br from-violet-500/12 via-white to-fuchsia-50/30 px-2 py-2 text-[10px] leading-snug shadow-sm ring-1 ring-violet-400/35 sm:px-2.5",
+      shell: "mb-2 rounded-lg border border-violet-200/60 bg-violet-50/30 px-2 py-1.5 text-[10px] leading-snug shadow-sm sm:px-2.5",
       borderB: "border-violet-200/70",
       borderB2: "border-violet-200/60",
       title: "text-violet-950",
@@ -1043,7 +1042,7 @@ function summaryThemeClasses(accent: RequestKindAccent) {
     };
   }
   return {
-    shell: "mb-2 rounded-lg border-2 border-sky-500/35 bg-gradient-to-br from-sky-500/12 via-white to-teal-50/30 px-2 py-2 text-[10px] leading-snug shadow-sm ring-1 ring-sky-400/35 sm:px-2.5",
+    shell: "mb-2 rounded-lg border border-sky-200/60 bg-sky-50/30 px-2 py-1.5 text-[10px] leading-snug shadow-sm sm:px-2.5",
     borderB: "border-sky-200/70",
     borderB2: "border-sky-200/60",
     title: "text-sky-950",
@@ -1067,7 +1066,7 @@ export function PatientSentEnvoyeeSummaryCard({
   status,
   createdAt,
   updatedAt,
-  kindLabel,
+  kindLabel: _kindLabel,
   refShort,
   statusHint,
   accent = "sky",
@@ -1102,14 +1101,12 @@ export function PatientSentEnvoyeeSummaryCard({
               <span className="font-mono font-semibold text-foreground">Off. {phRef}</span>
             </p>
           ) : null}
-          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9px] text-sky-900/85">
-            <span className="rounded border border-sky-300/60 bg-white/90 px-1 py-px font-semibold uppercase tracking-wide text-sky-900">
-              Horaires
-            </span>
-            <Link href={`/pharmacie/${pharmacyId}`} className="font-semibold text-sky-800 underline underline-offset-2">
-              Voir fiche & horaires
-            </Link>
-          </p>
+          <Link
+            href={`/pharmacie/${pharmacyId}`}
+            className="text-[9px] font-semibold text-sky-800 underline underline-offset-2"
+          >
+            Fiche officine
+          </Link>
         </div>
         {ph ? (
           <details className="group relative shrink-0">
@@ -1123,28 +1120,19 @@ export function PatientSentEnvoyeeSummaryCard({
           </details>
         ) : null}
       </div>
-      <p className={clsx("mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 border-b pb-1.5 text-[9px]", t.borderB2, t.metaRow)}>
-        <span className={clsx("font-bold uppercase tracking-wide", t.metaLabel)}>Dossier</span>
+      <p className={clsx("mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 border-b pb-1.5 text-[9px] tabular-nums", t.borderB2, t.metaRow)}>
         <span className="font-mono font-semibold text-foreground">
           {refShort} {dossierRefLabel}
         </span>
         <span aria-hidden>·</span>
-        <span>{kindLabel}</span>
+        <span className="font-semibold">{lineCountLabel}</span>
         <span aria-hidden>·</span>
-        <span className="tabular-nums font-semibold">{lineCountLabel}</span>
-        <span aria-hidden>·</span>
-        <span>
-          Créée{" "}
-          <span className="font-medium tabular-nums text-foreground">
-            {createdAt ? formatDateTimeShort24hFr(createdAt) : "—"}
-          </span>
-        </span>
-        <span aria-hidden>·</span>
-        <span>
-          MAJ{" "}
-          <span className="font-medium tabular-nums text-foreground">
-            {updatedAt ? formatDateTimeShort24hFr(updatedAt) : "—"}
-          </span>
+        <span className="font-medium text-foreground">
+          {updatedAt?.trim() && updatedAt !== createdAt
+            ? formatDateTimeShort24hFr(updatedAt)
+            : createdAt
+              ? formatDateTimeShort24hFr(createdAt)
+              : "—"}
         </span>
       </p>
       <div className="mt-1.5 flex flex-wrap items-start gap-2">
