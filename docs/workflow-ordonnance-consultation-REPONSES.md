@@ -60,17 +60,16 @@
 ### B2. Parcours attendu
 
 1. Patient : `/pharmacie/[id]/consultation-libre` → envoi.
-2. Détail dossier (patient + pharmacien) : **2 onglets** — **Conversation** (message/photos + messagerie inline, pas de FAB) | **Produits proposés**.
-3. **En-tête informatif** : récap dossier (réf., statut, officine) + barre d’onglets **sticky en haut** au scroll (`ConsultationDetailStickyChrome`) — comme demande produits / ordonnance.
-4. Onglet par défaut : **Conversation** tant que non `responded` ; ensuite **Produits** (conversation toujours accessible, pastille non-lu).
-5. Pharmacien (onglet Produits) : recherche catalogue, cartes produit (qté, prix, dispo **Disponible** / **À commander** + date si à commander), alternatives → **publier** → `responded`.
-6. Patient (onglet Produits) : validation comme demande produits (`responded` → principal / alternative / aucun → comptoir, etc.).
+2. Détail dossier (patient + pharmacien) : **page scroll unique** — brief + photos, **messagerie inline** (pas de FAB), puis lignes produits proposées (même logique que demande produits / ordonnance).
+3. **En-tête** : `RequestKindHeader` (ou récap patient dans `PatientProductRequestActions` selon statut) — **plus** de `ConsultationDetailStickyChrome` / onglets (retiré mai 2026).
+4. Pharmacien : recherche catalogue, qté, dispo **Disponible** / **À commander** (+ date si à commander), **alternatives** (qté par alternative enregistrée en `request_item_alternatives.available_qty`) → **publier** → `responded`.
+5. Patient : validation comme demande produits — **« Proposé X »** = qté officine ; stepper plafonné à cette qté, **diminution** possible ; choix principal / alternative / aucun.
 
 ### B3. Fichiers techniques de référence
 
 - Config : `lib/request-kinds/consultation.config.ts` (`workflowEnabled: true`)
 - Médias : `lib/consultation-media.ts`, `lib/private-media-signed-url-client.ts`
-- UI : `components/requests/consultation/consultation-brief-panel.tsx`, `consultation-detail-tab-bar.tsx`, `consultation-detail-sticky-chrome.tsx`
+- UI : `components/requests/consultation/consultation-brief-panel.tsx` ; `request-conversation-inline.tsx` (onglets sticky : fichiers `consultation-detail-*` **non branchés** depuis 2026-06-03)
 - Détail : `app/dashboard/demandes/[id]/page.tsx`, `app/dashboard/pharmacien/demandes/[id]/page.tsx`
 - Création : `app/pharmacie/[id]/consultation-libre/page.tsx`
 - Migration : **`20260529_001_free_consultation_workflow.sql`** (obligatoire avant E2E)

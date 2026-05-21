@@ -105,6 +105,7 @@ import {
   lineConversationStripLabel,
   lineConversationVisual,
 } from "@/components/pharmacist/pharmacist-line-conversation-chip";
+import { RequestLineSuiviStrip } from "@/components/requests/shared/request-line-suivi-strip";
 
 type ProdBrief = { name: string; price_pph?: number | null; photo_url?: string | null };
 
@@ -363,89 +364,6 @@ function patientTreatedSupplyStatusLine(row: ActionItemRow): string {
   return "Suivi : statut à préciser avec ta pharmacie.";
 }
 
-/** Jalons compacts pour une ligne retenue (dossier traité côté patient). */
-function PatientTreatedLineSuiviStrip({ row }: { row: ActionItemRow }) {
-  if (!row.is_selected_by_patient || row.withdrawn_after_confirm) return null;
-  const eff = effectiveAvailabilityForPatientLine(row);
-  const pcf = row.post_confirm_fulfillment ?? "unset";
-  const picked = (row.counter_outcome ?? "unset") === "picked_up";
-
-  const chip = (label: string, variant: "done" | "current" | "todo") => {
-    const base =
-      "inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide leading-tight";
-    if (variant === "done") {
-      return (
-        <span className={`${base} border-emerald-400/80 bg-emerald-100/90 text-emerald-950`} aria-current="false">
-          {label}
-        </span>
-      );
-    }
-    if (variant === "current") {
-      return (
-        <span
-          className={`${base} border-primary/50 bg-primary/12 text-primary ring-1 ring-primary/25`}
-          aria-current="step"
-        >
-          {label}
-        </span>
-      );
-    }
-    return (
-      <span className={`${base} border-border/70 bg-muted/25 text-muted-foreground`} aria-current="false">
-        {label}
-      </span>
-    );
-  };
-
-  const sep = <span className="text-[9px] font-semibold text-muted-foreground/80" aria-hidden>→</span>;
-
-  if (eff === "available" || eff === "partially_available") {
-    const reserved = pcf === "reserved";
-    const s0 = reserved ? "done" : "current";
-    const s1 = picked ? "done" : reserved ? "current" : "todo";
-    const s2 = picked ? "done" : "todo";
-    return (
-      <div className="space-y-1">
-        <p className="text-[8px] font-bold uppercase tracking-wide text-slate-700">Suivi</p>
-        <div className="flex flex-wrap items-center gap-1">
-          {chip("Réservé", s0)}
-          {sep}
-          {chip("En attente de passage", s1)}
-          {sep}
-          {chip("Récupéré", s2)}
-        </div>
-      </div>
-    );
-  }
-
-  if (eff === "to_order") {
-    const arrived = pcf === "arrived_reserved";
-    const ordered = pcf === "ordered" || arrived;
-    const sCmd = ordered ? "done" : "current";
-    const sRecv = arrived ? "done" : ordered ? "current" : "todo";
-    const sPass = picked ? "done" : arrived ? "current" : "todo";
-    const sPick = picked ? "done" : "todo";
-    return (
-      <div className="space-y-1">
-        <p className="text-[8px] font-bold uppercase tracking-wide text-slate-700">Suivi</p>
-        <div className="flex flex-wrap items-center gap-1">
-          {chip("Commandé", sCmd)}
-          {sep}
-          {chip("Reçu à la pharmacie", sRecv)}
-          {sep}
-          {chip("En attente de passage", sPass)}
-          {sep}
-          {chip("Récupéré", sPick)}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <p className="text-[10px] font-semibold leading-snug text-slate-800">{patientTreatedSupplyStatusLine(row)}</p>
-  );
-}
-
 /** Cartes condensées : produits validés après confirmation (pas de détail jusqu'à l'historique). */
 function PatientValidatedCompactLineCard({
   row,
@@ -511,16 +429,21 @@ function PatientValidatedCompactLineCard({
 
   const withdrawnGrey = tier === "retire_apres_validation";
   const prescriptionBadge =
-    requestType === "prescription" && row.line_source === "pharmacist_proposed"
+    requestType === "prescription"
       ? patientPrescriptionLineBadge(requestType, row, supplyAmendmentBundles)
       : null;
   const lineBadgeLabel = prescriptionBadge ?? (row.line_source === "pharmacist_proposed" ? pharmacistProposedBadgeLabel : null);
   const showLineBadge = Boolean(lineBadgeLabel);
-  const ordonnanceProposedBadge = lineBadgeLabel === "Ordonnance";
+  const ordonnanceProposedBadge =
+    lineBadgeLabel === "Ordonnance" || lineBadgeLabel === "Ordonnance + alternative";
+  const showTreatedSuiviStrip =
+    requestStatusForCard === "treated" &&
+    row.is_selected_by_patient &&
+    tier !== "retire_apres_validation" &&
+    !row.withdrawn_after_confirm;
   const confirmedPcfChip =
-    (requestStatusForCard === "confirmed" ||
-      requestStatusForCard === "processing" ||
-      requestStatusForCard === "treated") &&
+    !showTreatedSuiviStrip &&
+    (requestStatusForCard === "confirmed" || requestStatusForCard === "processing") &&
     row.is_selected_by_patient &&
     !row.withdrawn_after_confirm
       ? patientConfirmedFulfillmentChipFr(row.post_confirm_fulfillment)
@@ -675,14 +598,13 @@ function PatientValidatedCompactLineCard({
           </div>
         </div>
       ) : null}
-      {requestStatusForCard === "treated" &&
-      row.is_selected_by_patient &&
-      tier !== "retire_apres_validation" &&
-      !row.withdrawn_after_confirm ? (
+      {showTreatedSuiviStrip ? (
         <div className="mt-2 border-t border-slate-200/85 bg-slate-50/90 px-2 py-2 sm:px-2.5">
-          <PatientTreatedLineSuiviStrip row={row} />
+          <RequestLineSuiviStrip row={row} />
         </div>
-      ) : treatedSupplyStatusLine != null && treatedSupplyStatusLine.trim() !== "" ? (
+      ) : requestStatusForCard === "treated" &&
+        treatedSupplyStatusLine != null &&
+        treatedSupplyStatusLine.trim() !== "" ? (
         <div className="mt-2 border-t border-slate-200/85 bg-slate-50/90 px-2 py-2 sm:px-2.5">
           <p className="text-[10px] font-semibold leading-snug text-slate-800">{treatedSupplyStatusLine}</p>
         </div>
@@ -1094,6 +1016,9 @@ function validatedBucketShell(accent: RequestKindAccent): string {
   if (accent === "amber") {
     return "rounded-xl border-2 border-amber-200/70 bg-gradient-to-b from-amber-50/30 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-amber-200/45 sm:p-3";
   }
+  if (accent === "violet") {
+    return "rounded-xl border-2 border-violet-200/70 bg-gradient-to-b from-violet-50/30 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-violet-200/45 sm:p-3";
+  }
   return "rounded-xl border-2 border-emerald-200/70 bg-gradient-to-b from-emerald-50/30 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-emerald-200/45 sm:p-3";
 }
 
@@ -1113,6 +1038,23 @@ function summaryThemeClasses(accent: RequestKindAccent) {
       metaRow: "text-amber-950/88",
       metaLabel: "text-amber-900/90",
       hint: "text-amber-950/90",
+    };
+  }
+  if (accent === "violet") {
+    return {
+      shell: "mb-2 rounded-lg border-2 border-violet-500/35 bg-gradient-to-br from-violet-500/12 via-white to-fuchsia-50/30 px-2 py-2 text-[10px] leading-snug shadow-sm ring-1 ring-violet-400/35 sm:px-2.5",
+      borderB: "border-violet-200/70",
+      borderB2: "border-violet-200/60",
+      title: "text-violet-950",
+      meta: "text-violet-900/90",
+      chip: "border-violet-300/60 text-violet-900",
+      link: "text-violet-800",
+      contactBtn: "border-violet-400/70 text-violet-950 hover:bg-violet-50",
+      contactIcon: "text-violet-700",
+      contactPanel: "border-violet-200 ring-violet-200/60",
+      metaRow: "text-violet-950/88",
+      metaLabel: "text-violet-900/90",
+      hint: "text-violet-950/90",
     };
   }
   return {
@@ -2862,12 +2804,12 @@ export function PatientProductRequestActions({
   if (!interactiveAllowed && !readOnlyArchive) return null;
 
   const badgeDefaults = {
-    ordonnance: workflowCopy.patientProposedBadge,
-    proposed: "Proposé",
+    ordonnance: workflowCopy.pharmacistOrdonnanceLineBadge ?? "Ordonnance",
+    proposed: PRESCRIPTION_ADDITIONAL_PROPOSED_REASON,
     officine: pharmacistProposedProductBadgeFr,
   };
   const badgeForRow = (row: ActionItemRow) => {
-    if (requestType === "prescription" && row.line_source === "pharmacist_proposed") {
+    if (requestType === "prescription") {
       return (
         patientPrescriptionLineBadge(requestType, row, supplyAmendmentBundles) ??
         patientLineProposedBadgeLabel(requestType, row, supplyAmendmentBundles, badgeDefaults)
@@ -2897,6 +2839,10 @@ export function PatientProductRequestActions({
       ? workflowCopy.patientCancelWhileWaitingLabel
       : "Abandonner la demande";
   const showConfirmedCards = uiStatus === "confirmed" || uiStatus === "treated";
+  const needsStickyFooterPad =
+    showProductResubmit ||
+    (showPrescriptionWaiting && !forceReadOnly) ||
+    ((showConfirm || showConfirmedCards) && !forceReadOnly);
   /** Date/heure de passage : à la validation (responded) et pour modifier après coup. */
   const showVisitFields = showConfirm || showConfirmedCards;
   const visitFieldsEditable = showVisitFields && !forceReadOnly;
@@ -2914,11 +2860,13 @@ export function PatientProductRequestActions({
   return (
     <section
       className={clsx(
-        "touch-pan-y mt-2 rounded-xl border-2 p-2.5 sm:p-3",
+        "touch-pan-y rounded-xl border-2 p-2.5 sm:p-3",
+        isConsultation ? "mt-0" : "mt-2",
         isConsultation
           ? "border-violet-200/80 bg-gradient-to-b from-violet-50/40 via-white to-fuchsia-50/15"
           : "border-slate-200 bg-slate-50/95",
-        (showWaitingShell || showConfirm || showConfirmedCards) && "pb-40"
+        needsStickyFooterPad && "pb-40",
+        isConsultation && showConsultationWaiting && !needsStickyFooterPad && "pb-2"
       )}
     >
       {actionError ? (
@@ -2946,16 +2894,6 @@ export function PatientProductRequestActions({
         />
       ) : null}
 
-      {showConsultationWaiting ? (
-        <div className="mt-2 space-y-2 rounded-xl border border-violet-200/70 bg-violet-50/35 px-3 py-3 text-[11px] leading-snug text-violet-950">
-          <p className="font-semibold">Votre consultation est bien envoyée.</p>
-          <p>
-            Échangez avec la pharmacie dans la section conversation ci-dessus. Dès qu&apos;elle aura publié des produits,
-            retrouvez-les plus bas sur cette page pour valider votre choix.
-          </p>
-        </div>
-      ) : null}
-
       {showPrescriptionWaiting && prescriptionPaths ? (
         <PatientPrescriptionEditablePanel
           ref={prescriptionPanelRef}
@@ -2970,9 +2908,9 @@ export function PatientProductRequestActions({
         />
       ) : null}
 
-      {forceReadOnly ? (
-        <p className="mt-2 rounded-lg border border-amber-200/80 bg-amber-50/50 px-3 py-2 text-[11px] font-medium text-amber-950">
-          Dossier {requestStatusFr[status] ?? status} — consultation en lecture seule (affichage au dernier stade actif).
+      {forceReadOnly && isConsultation ? (
+        <p className="mt-2 rounded-lg border border-violet-200/80 bg-violet-50/50 px-3 py-2 text-[11px] font-medium text-violet-950">
+          Dossier {requestStatusFr[status] ?? status} — consultation en lecture seule.
         </p>
       ) : null}
 
@@ -3512,25 +3450,12 @@ export function PatientProductRequestActions({
         ) : null}
 
         {showConfirm || showConfirmedCards ? (
-          <p
-            className={clsx(
-              "mt-3 rounded-lg border px-2.5 py-2 text-[10px] leading-snug shadow-sm",
-              isConsultation
-                ? "border-violet-200/70 bg-white/90 text-violet-950"
-                : "border-sky-200/70 bg-white/90 text-sky-950"
-            )}
-          >
-            {isConsultation ? (
-              <>
-                Pour échanger avec la pharmacie, utilisez la section conversation en haut de la page.
-              </>
-            ) : (
-              <>
-                Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
-                <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
-              </>
-            )}
-          </p>
+          !isConsultation ? (
+            <p className="mt-3 rounded-lg border border-sky-200/70 bg-white/90 px-2.5 py-2 text-[10px] leading-snug text-sky-950 shadow-sm">
+              Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
+              <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
+            </p>
+          ) : null
         ) : null}
 
         {showPatientExitCTA ? (

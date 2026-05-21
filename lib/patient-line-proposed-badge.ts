@@ -3,6 +3,10 @@ import {
   isProductRequestAjoutOfficineLine,
 } from "@/lib/prescription-pharmacist-lines";
 import { pharmacistProposedProductBadgeFr } from "@/lib/request-display";
+import {
+  isRequestItemAddedAfterPatientConfirmation,
+  POST_CONFIRM_LINE_ADDED_BADGE_FR,
+} from "@/lib/supply-line-post-confirm";
 
 type LineRow = {
   line_source?: string | null;
@@ -19,8 +23,15 @@ export function patientLineProposedBadgeLabel(
   amendmentBundles: AmendmentBundle[],
   defaults: { ordonnance: string; proposed: string; officine: string }
 ): string | null {
+  if (isRequestItemAddedAfterPatientConfirmation(row.id, amendmentBundles)) {
+    return requestType === "prescription"
+      ? POST_CONFIRM_LINE_ADDED_BADGE_FR
+      : defaults.officine || POST_CONFIRM_LINE_ADDED_BADGE_FR;
+  }
   if (requestType === "prescription") {
-    if (isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)) return null;
+    if (isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)) {
+      return defaults.ordonnance;
+    }
     if (row.line_source !== "pharmacist_proposed") return null;
     return defaults.proposed;
   }

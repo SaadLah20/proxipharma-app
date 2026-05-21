@@ -189,9 +189,6 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
         <div className="flex shrink-0 items-start justify-between gap-2 border-b border-amber-100 bg-gradient-to-r from-amber-50/90 to-white px-3 py-2.5">
           <div>
             <p className="text-sm font-bold text-amber-950">Produit ordonnance</p>
-            <p className="mt-0.5 text-[11px] text-amber-900/85">
-              Qté prescrite et qté disponible, comme une demande produits.
-            </p>
             <p className="mt-1 text-[10px] font-semibold tabular-nums text-amber-800">
               {lineCount} produit{lineCount !== 1 ? "s" : ""} ordonnance enregistré{lineCount !== 1 ? "s" : ""}
             </p>

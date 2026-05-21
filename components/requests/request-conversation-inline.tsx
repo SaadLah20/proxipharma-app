@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MessagesSquare, Send, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -29,13 +29,15 @@ export function RequestConversationInline({
   variant = "default",
 }: Props) {
   const [rows, setRows] = useState<RequestCommentRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState("");
   const [err, setErr] = useState("");
+  const onMarkedReadRef = useRef(onMarkedRead);
+  onMarkedReadRef.current = onMarkedRead;
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     setErr("");
     const { data, error } = await supabase
       .from("request_comments")
@@ -43,7 +45,7 @@ export function RequestConversationInline({
       .eq("request_id", requestId)
       .eq("is_internal", false)
       .order("created_at", { ascending: true });
-    setLoading(false);
+    if (!opts?.silent) setLoading(false);
     if (error) {
       setErr(error.message);
       setRows([]);
@@ -54,16 +56,20 @@ export function RequestConversationInline({
 
   const markRead = useCallback(async () => {
     const { error } = await supabase.rpc("mark_request_conversation_read", { p_request_id: requestId });
-    if (!error) onMarkedRead?.();
-  }, [requestId, onMarkedRead]);
+    if (!error) onMarkedReadRef.current?.();
+  }, [requestId]);
 
   useEffect(() => {
-    const id = window.setTimeout(() => {
-      void load();
-      void markRead();
-    }, 0);
-    return () => window.clearTimeout(id);
-  }, [load, markRead]);
+    let cancelled = false;
+    const run = async () => {
+      await load();
+      if (!cancelled) await markRead();
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [requestId, load, markRead]);
 
   const send = async () => {
     const text = draft.trim();
@@ -83,7 +89,7 @@ export function RequestConversationInline({
       return;
     }
     setDraft("");
-    await load();
+    await load({ silent: true });
     await markRead();
   };
 
@@ -94,7 +100,7 @@ export function RequestConversationInline({
       setErr(error.message);
       return;
     }
-    await load();
+    await load({ silent: true });
   };
 
   const isConsultation = variant === "consultation";

@@ -4,6 +4,10 @@ import {
   PRESCRIPTION_ADDITIONAL_PROPOSED_REASON,
   PRESCRIPTION_ORDONNANCE_SOURCING_LABEL,
 } from "@/lib/prescription-pharmacist-lines";
+import {
+  isRequestItemAddedAfterPatientConfirmation,
+  POST_CONFIRM_LINE_ADDED_BADGE_FR,
+} from "@/lib/supply-line-post-confirm";
 
 type LineRow = {
   line_source?: string | null;
@@ -19,9 +23,12 @@ export function patientPrescriptionLineBadge(
   amendmentBundles: { amendments: unknown }[]
 ): string | null {
   if (requestType !== "prescription") return null;
+  if (isRequestItemAddedAfterPatientConfirmation(row.id, amendmentBundles)) {
+    return POST_CONFIRM_LINE_ADDED_BADGE_FR;
+  }
   if (isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)) {
     if (row.patient_chosen_alternative_id) return "Ordonnance + alternative";
-    return null;
+    return "Ordonnance";
   }
   if (row.line_source !== "pharmacist_proposed") return null;
   if (row.patient_chosen_alternative_id) return "Alternative";

@@ -21,6 +21,9 @@ import { useRequestDetailDrift } from "@/lib/use-request-detail-drift";
 import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
 import {
   PatientProductRequestActions,
+  PatientSentEnvoyeeSummaryCard,
+  buildPatientLineCountLabel,
+  buildPatientSummaryStatusHint,
   type PatientPharmacyContactInfo,
 } from "@/components/requests/product/patient-product-request-actions";
 import { isPatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
@@ -28,7 +31,6 @@ import { patientOutcomeStatusFooter } from "@/lib/request-kinds/hub-and-terminal
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
 import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
-import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
 import type { ConsultationImagePaths } from "@/lib/consultation-media";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 
@@ -396,7 +398,31 @@ export default function DemandeDetailPage() {
 
   const hideMainRequestHeader =
     usesLineWorkflow &&
+    !isConsultationRequest &&
     ["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status);
+
+  const patientPharmacyContact = useMemo((): PatientPharmacyContactInfo | null => {
+    const ph = one(request.pharmacies);
+    if (!ph?.nom?.trim()) return null;
+    return {
+      nom: ph.nom,
+      ville: ph.ville,
+      telephone: ph.telephone,
+      contact_email: ph.contact_email ?? null,
+      public_ref: ph.public_ref ?? null,
+    };
+  }, [request.pharmacies]);
+
+  const showConsultationBriefBlock = isConsultationRequest && consultationBrief != null;
+  const showConsultationEnvoyeeSummary =
+    showConsultationBriefBlock && hasBottomActions && !showArchivedReadonly && patientPharmacyContact != null;
+
+  const dossierRefLabel =
+    displayRequestPublicRef(request) || `Dossier ${request.id.slice(0, 8)}…`;
+
+  const handleConversationMarkedRead = useCallback(() => {
+    setConversationUnread(false);
+  }, []);
 
   return (
     <PageShell
@@ -407,7 +433,7 @@ export default function DemandeDetailPage() {
     >
       <RequestDetailBackLink config={kindConfig} viewerRole="patient" />
 
-      {!hideMainRequestHeader || showArchivedReadonly ? (
+      {!hideMainRequestHeader || showArchivedReadonly || isConsultationRequest ? (
         <RequestKindHeader
           config={kindConfig}
           request={request}
@@ -415,6 +441,23 @@ export default function DemandeDetailPage() {
           showPlannedVisit={showPlannedVisitBlock}
           viewerRole="patient"
           statusDetail={showArchivedReadonly ? archiveStatusDetail : null}
+        />
+      ) : null}
+
+      {showConsultationEnvoyeeSummary ? (
+        <PatientSentEnvoyeeSummaryCard
+          pharmacyContact={patientPharmacyContact}
+          pharmacyId={request.pharmacy_id}
+          dossierRefLabel={dossierRefLabel}
+          lineCount={items.length}
+          lineCountLabel={buildPatientLineCountLabel(request.request_type, request.status, items.length)}
+          status={request.status}
+          createdAt={request.created_at}
+          updatedAt={request.updated_at}
+          kindLabel={workflowCopy.patientSummaryKindLabel}
+          refShort={workflowCopy.patientSummaryRefShort}
+          statusHint={buildPatientSummaryStatusHint(request.status, request.request_type, workflowCopy)}
+          accent="violet"
         />
       ) : null}
 
@@ -462,11 +505,7 @@ export default function DemandeDetailPage() {
         </Link>
       ) : null}
 
-      {showArchivedReadonly && isPrescriptionRequest && prescriptionPaths?.page1 ? (
-        <PrescriptionImageViewer paths={prescriptionPaths} layout="desktop-comfort" className="mt-2" />
-      ) : null}
-
-      {isConsultationRequest && consultationBrief ? (
+      {showConsultationBriefBlock ? (
         <div className="space-y-3">
           <ConsultationBriefPanel
             requestId={request.id}
@@ -481,7 +520,7 @@ export default function DemandeDetailPage() {
               viewerRole="patient"
               currentUserId={sessionUserId}
               variant="consultation"
-              onMarkedRead={() => setConversationUnread(false)}
+              onMarkedRead={handleConversationMarkedRead}
             />
           ) : null}
         </div>
@@ -528,7 +567,6 @@ export default function DemandeDetailPage() {
                 ].join(":")
               ),
               supplyAmendments.map((a) => a.id).join(","),
-              String(conversationMessageCount),
               request.submitted_at ?? "",
               request.responded_at ?? "",
               request.confirmed_at ?? "",
@@ -570,6 +608,7 @@ export default function DemandeDetailPage() {
           requestType={request.request_type}
           prescriptionPaths={isPrescriptionRequest ? prescriptionPaths : null}
           prescriptionNote={isPrescriptionRequest ? prescriptionNote : null}
+          summaryInPageChrome={isConsultationRequest}
           detailStale={requestDrift.stale}
         />
         </section>
@@ -656,7 +695,7 @@ export default function DemandeDetailPage() {
             currentUserId={sessionUserId}
             open={conversationOpen}
             onClose={() => setConversationOpen(false)}
-            onMarkedRead={() => setConversationUnread(false)}
+            onMarkedRead={handleConversationMarkedRead}
           />
         </>
       ) : null}

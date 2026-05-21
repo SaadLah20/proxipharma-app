@@ -56,7 +56,7 @@ export function PrescriptionScanCollapsible({
         />
       </summary>
       <div className="border-t border-amber-200/60 px-2 pb-2 pt-1">
-        {prescriptionNote?.trim() ? (
+        {!isPharma && prescriptionNote?.trim() ? (
           <p className="mb-2 rounded-lg border border-amber-200/60 bg-amber-50/50 px-2.5 py-2 text-[11px] leading-snug text-amber-950">
             <span className="font-semibold">Votre message : </span>
             {prescriptionNote.trim()}
