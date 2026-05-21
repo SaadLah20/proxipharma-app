@@ -285,6 +285,7 @@ Pourquoi:
 - **Hub Mes demandes** (`/dashboard/demandes`, onglets + filtres) peut montrer **plus de lignes** que les derniers envois manuels (seed demo migration `20260501_002` avec tag `SEED_DEMO_WORKFLOW_v1`, ou anciens tests meme `patient_id`) — comportement attendu jusqu a nettoyage donnees ; le tableau de bord `/dashboard` ne fait plus office de liste exhaustive (CTA vers le hub).
 - **Contact patient côté pharmacien** : lecture **nom, WhatsApp, e-mail** via RPC **`SECURITY DEFINER`** — **`pharmacist_patient_contact_for_request(uuid)`** (fiche demande) et **`pharmacist_patient_directory_for_my_pharmacy()`** (hub liste). Migration **`20260503_008`**. Un essai de policy **`profiles`** + sous-requête **`requests`** (**`20260503_007`**) provoquait une **récursion RLS** avec `requests_select_access` : corrigé par **`20260503_009`** (`DROP` policy). **Ne pas réactiver 007** sans refonte ; l’app ne s’appuie pas sur un `SELECT profiles` cross-rôle côté client pour les patients des demandes.
 - **Renvoi liste patient avant réponse pharmacien** : RPC **`patient_resubmit_product_request_after_response`** accepte aussi **`submitted`** et **`in_review`** (**`20260503_006`**), pour permettre au patient d’ajuster la liste tant que la pharmacie n’a pas encore répondu.
+- **Notes par ligne vs conversation dossier** (produits, ordonnance, consultation) : **`client_comment`** / **`pharmacist_comment`** (et note ordonnance / texte consultation) **figées après `confirmed`** (et statuts terminaux). Patient : saisie à l’envoi ou modification **avant réponse** (`submitted`|`in_review`, RPC resubmit). Pharmacien : saisie à la **publication** ou **modification de réponse** (`responded` + mode Modifier). **`request_comments`** (conversation) reste ouverte. Migration **`20260607_001`** + **`lib/request-line-notes-policy.ts`**.
 
 ## 9.1 Modele donnees demandes retenu (v1 evolutif)
 
@@ -318,6 +319,16 @@ Statuts retenus v1:
 - `partially_collected` / `fully_collected` (conserves en enum; hors flux officiel depuis migration 20260502 au profit de `completed` + suivi ligne a ligne au comptoir)
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
+
+### Session 2026-05-19 — Notes produit figées après validation
+
+**Règle produit** (3 parcours) : notes patient / officine par ligne **une fenêtre d’édition** puis lecture seule ; **conversation dossier** inchangée.
+
+**Code** : `lib/request-line-notes-policy.ts` ; fiche pharmacien `canEditLineProductNotes` (plus d’édition modal en `confirmed`|`treated`) ; sauvegarde supply conserve les commentaires persistés ; libellé modal « Notes figées… ».
+
+**Migration** `supabase/migrations/20260607_001_lock_line_notes_after_validation.sql` — trigger `BEFORE UPDATE` sur `request_items` / `request_item_alternatives`.
+
+---
 
 ### Session 2026-06-04 — Retours test (badges, notifs, consultation, catalogue)
 
@@ -1429,9 +1440,15 @@ Voir **§13.23**.
 
 **« On reprend ProxiPharma. Lis `CAHIER_DES_CHARGES.md` §10 (session **2026-06-01**), `CONTEXTE.md` §6, `AGENTS.md`, `RUNBOOK.md` §9 si notifs/SMS. Branche **`fix/validated-supply-ecart-ui-modal`**. Commit poussé **`aec8fad`** (lot demandes produits UI + clôture + ordre lignes) ; **en local non commité** : alignement **ordonnance** (= demande produits après réponse pharma : lignes scan en **`patient_request`**, libellé **Saisi ordonnance**, scan **`PrescriptionScanCollapsible`**, thème ambre hubs/header/validé). Migration Supabase à appliquer si pas fait : **`20260601_001_product_request_notifs_ui.sql`**. Attendre ou intégrer **retours terrain demandes produits** avant commit/push du lot ordonnance. QA : demande produits (répondue → validée → traitée + notifs) puis ordonnance (saisie scan → réponse → validation ; complément **proposé** avec motif). Je te donne ensuite les retours ou la prochaine tâche. »**
 
-### 13.24) Phrase de reprise — fiche digitale pharmacie (planifiée, pas encore livrée)
+### 13.24) Phrase de reprise — fiche digitale pharmacie (MVP horaires + infos livré)
 
-**« On reprend la fiche digitale pharmacie : lire le plan Cursor *Fiche pharmacie schema* et `CAHIER_DES_CHARGES.md` §3 ; migrations `20260603_*` (profil officine, horaires Maroc, 3 types de garde, services catalogue, promos, avis étoiles, signalements) puis UI publique 4 onglets + espace pharmacien (`ma-fiche`, `horaires-garde`, `offres-promos`). »**
+**Migration** : `20260606_001_pharmacy_digital_profile.sql` (profil enrichi `pharmacies`, `pharmacy_service_catalog`, `pharmacy_services`, `pharmacy_weekly_hours`, `pharmacy_day_overrides`, `pharmacy_on_call_periods`, seed horaires Maroc à la création).
+
+**UI publique** : `/pharmacie/[id]` — header (couverture, nom, avis, ouvert/fermé/garde, partage), onglets **Services en ligne** · **Offres spéciales** (stub) · **Horaires** · **Informations**.
+
+**Pharmacien** : `ma-fiche` (infos + services), `horaires-garde` (semaine + exceptions + planning garde 48h/24h).
+
+**À venir** : upload couverture, promos, avis patients, signalement, édition admin complète du profil.
 
 ### 13.25) Phrase de reprise — retours test terrain post-commit (2026-06-03)
 

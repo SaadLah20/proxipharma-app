@@ -5,68 +5,130 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageShell } from "@/components/ui/compact-shell";
 import { supabase } from "@/lib/supabase";
-
-type Pharmacy = {
-  id: string;
-  nom: string;
-  ville: string;
-  adresse: string;
-  telephone: string | null;
-};
+import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
+import type { PharmacyPublicProfileRow, PharmacyServiceCatalogRow } from "@/lib/pharmacy-profile-types";
 
 export default function PharmacienMaFichePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [pharmacyId, setPharmacyId] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    welcome_text: "",
+    titular_name: "",
+    titular_title: "Pharmacien titulaire",
+    email: "",
+    website_url: "",
+    facebook_url: "",
+    instagram_url: "",
+    maps_url: "",
+    cover_image_path: "",
+  });
+  const [catalog, setCatalog] = useState<PharmacyServiceCatalogRow[]>([]);
+  const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
-    setError("");
-    const { data: auth } = await supabase.auth.getSession();
-    const user = auth.session?.user;
-    if (!user) {
-      router.replace("/auth?redirect=/dashboard/pharmacien/ma-fiche");
-      return;
-    }
-
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-    if ((profile as { role?: string } | null)?.role !== "pharmacien") {
-      setError("Cet écran est réservé aux pharmaciens.");
+    setMessage("");
+    const ctx = await loadPharmacistPharmacyId();
+    if (!ctx.pharmacyId) {
+      setMessage(ctx.error ?? "Erreur");
       setLoading(false);
       return;
     }
+    setPharmacyId(ctx.pharmacyId);
 
-    const { data: staff, error: se } = await supabase
-      .from("pharmacy_staff")
-      .select("pharmacy_id")
-      .eq("user_id", user.id)
-      .limit(1)
-      .maybeSingle();
+    const [phRes, catRes, svcRes] = await Promise.all([
+      supabase
+        .from("pharmacies")
+        .select(
+          "id,nom,ville,adresse,telephone,welcome_text,titular_name,titular_title,email,website_url,facebook_url,instagram_url,maps_url,cover_image_path"
+        )
+        .eq("id", ctx.pharmacyId)
+        .maybeSingle(),
+      supabase.from("pharmacy_service_catalog").select("id,label_fr").eq("is_active", true).order("sort_order"),
+      supabase.from("pharmacy_services").select("service_id").eq("pharmacy_id", ctx.pharmacyId),
+    ]);
 
-    if (se || !staff?.pharmacy_id) {
-      setError(se?.message ?? "Aucune pharmacie liée (pharmacy_staff).");
-      setLoading(false);
-      return;
+    const ph = phRes.data as PharmacyPublicProfileRow | null;
+    if (ph) {
+      setForm({
+        welcome_text: ph.welcome_text ?? "",
+        titular_name: ph.titular_name ?? "",
+        titular_title: ph.titular_title ?? "Pharmacien titulaire",
+        email: ph.email ?? "",
+        website_url: ph.website_url ?? "",
+        facebook_url: ph.facebook_url ?? "",
+        instagram_url: ph.instagram_url ?? "",
+        maps_url: ph.maps_url ?? "",
+        cover_image_path: ph.cover_image_path ?? "",
+      });
     }
-
-    const { data: ph, error: pe } = await supabase
-      .from("pharmacies")
-      .select("id,nom,ville,adresse,telephone")
-      .eq("id", staff.pharmacy_id)
-      .maybeSingle();
-
-    if (pe) {
-      setError(pe.message);
-    } else if (ph) {
-      setPharmacy(ph as Pharmacy);
-    }
+    setCatalog((catRes.data ?? []) as PharmacyServiceCatalogRow[]);
+    setSelectedServices(new Set((svcRes.data ?? []).map((r: { service_id: string }) => r.service_id)));
     setLoading(false);
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     const tid = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(tid);
   }, [load]);
+
+  useEffect(() => {
+    const run = async () => {
+      const { data: auth } = await supabase.auth.getSession();
+      if (!auth.session?.user) router.replace("/auth?redirect=/dashboard/pharmacien/ma-fiche");
+    };
+    void run();
+  }, [router]);
+
+  const save = async () => {
+    if (!pharmacyId) return;
+    setBusy(true);
+    setMessage("");
+    const { error } = await supabase
+      .from("pharmacies")
+      .update({
+        welcome_text: form.welcome_text.trim() || null,
+        titular_name: form.titular_name.trim() || null,
+        titular_title: form.titular_title.trim() || "Pharmacien titulaire",
+        email: form.email.trim() || null,
+        website_url: form.website_url.trim() || null,
+        facebook_url: form.facebook_url.trim() || null,
+        instagram_url: form.instagram_url.trim() || null,
+        maps_url: form.maps_url.trim() || null,
+        cover_image_path: form.cover_image_path.trim() || null,
+      })
+      .eq("id", pharmacyId);
+
+    if (error) {
+      setBusy(false);
+      setMessage(error.message);
+      return;
+    }
+
+    await supabase.from("pharmacy_services").delete().eq("pharmacy_id", pharmacyId);
+    const inserts = [...selectedServices].map((service_id) => ({ pharmacy_id: pharmacyId, service_id }));
+    if (inserts.length > 0) {
+      const { error: se } = await supabase.from("pharmacy_services").insert(inserts);
+      if (se) {
+        setBusy(false);
+        setMessage(se.message);
+        return;
+      }
+    }
+    setBusy(false);
+    setMessage("Fiche enregistrée.");
+  };
+
+  const toggleService = (id: string) => {
+    setSelectedServices((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   if (loading) {
     return (
@@ -79,39 +141,130 @@ export default function PharmacienMaFichePage() {
   return (
     <PageShell maxWidthClass="max-w-4xl" className="space-y-4">
       <div>
-        <Link href="/" className="text-xs font-medium text-sky-800 underline">
+        <Link href="/" className="text-xs font-medium text-primary underline">
           ← Annuaire
         </Link>
-        <h1 className="mt-2 text-lg font-bold text-foreground">Ma fiche pharmacie</h1>
-        <p className="text-xs text-muted-foreground">Informations affichées dans l’annuaire public.</p>
+        <h1 className="mt-2 text-lg font-bold">Ma fiche pharmacie</h1>
+        <p className="text-xs text-muted-foreground">
+          Texte d&apos;accueil, coordonnées étendues et services affichés dans l&apos;onglet Informations.
+        </p>
+        <Link
+          href="/dashboard/pharmacien/horaires-garde"
+          className="mt-2 inline-block text-sm font-medium text-amber-800 underline"
+        >
+          Horaires et garde →
+        </Link>
       </div>
 
-      {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
+      {message ? <p className="rounded-lg bg-sky-50 p-2 text-sm text-sky-950">{message}</p> : null}
 
-      {pharmacy ? (
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-foreground">{pharmacy.nom}</h2>
-          <dl className="mt-3 space-y-2 text-sm">
-            <div>
-              <dt className="text-xs text-muted-foreground">Ville</dt>
-              <dd>{pharmacy.ville}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground">Adresse</dt>
-              <dd>{pharmacy.adresse}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground">Téléphone</dt>
-              <dd>{pharmacy.telephone ?? "—"}</dd>
-            </div>
-          </dl>
-          <Link
-            href={`/pharmacie/${pharmacy.id}`}
-            className="mt-4 inline-block text-sm font-medium text-emerald-800 underline"
-          >
-            Voir la fiche publique
-          </Link>
+      <section className="rounded-lg border bg-card p-4 shadow-sm space-y-3">
+        <h2 className="text-sm font-bold">Informations publiques</h2>
+        <label className="block text-xs">
+          Message d&apos;accueil
+          <textarea
+            rows={3}
+            className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+            value={form.welcome_text}
+            onChange={(e) => setForm((f) => ({ ...f, welcome_text: e.target.value }))}
+          />
+        </label>
+        <label className="block text-xs">
+          Pharmacien titulaire
+          <input
+            className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+            value={form.titular_name}
+            onChange={(e) => setForm((f) => ({ ...f, titular_name: e.target.value }))}
+          />
+        </label>
+        <label className="block text-xs">
+          Photo de couverture (chemin Storage public-assets)
+          <input
+            className="mt-1 w-full rounded border px-2 py-1.5 font-mono text-xs"
+            placeholder="pharmacies/{id}/cover.jpg"
+            value={form.cover_image_path}
+            onChange={(e) => setForm((f) => ({ ...f, cover_image_path: e.target.value }))}
+          />
+        </label>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="text-xs">
+            E-mail
+            <input
+              type="email"
+              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            />
+          </label>
+          <label className="text-xs">
+            Site web
+            <input
+              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+              value={form.website_url}
+              onChange={(e) => setForm((f) => ({ ...f, website_url: e.target.value }))}
+            />
+          </label>
+          <label className="text-xs">
+            Facebook
+            <input
+              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+              value={form.facebook_url}
+              onChange={(e) => setForm((f) => ({ ...f, facebook_url: e.target.value }))}
+            />
+          </label>
+          <label className="text-xs">
+            Instagram
+            <input
+              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+              value={form.instagram_url}
+              onChange={(e) => setForm((f) => ({ ...f, instagram_url: e.target.value }))}
+            />
+          </label>
+          <label className="text-xs sm:col-span-2">
+            Lien carte (Google Maps)
+            <input
+              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+              value={form.maps_url}
+              onChange={(e) => setForm((f) => ({ ...f, maps_url: e.target.value }))}
+            />
+          </label>
         </div>
+      </section>
+
+      <section className="rounded-lg border bg-card p-4 shadow-sm">
+        <h2 className="text-sm font-bold">Services en officine</h2>
+        <ul className="mt-2 flex flex-wrap gap-2">
+          {catalog.map((s) => (
+            <li key={s.id}>
+              <button
+                type="button"
+                onClick={() => toggleService(s.id)}
+                className={
+                  selectedServices.has(s.id)
+                    ? "rounded-full border border-emerald-400 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-950"
+                    : "rounded-full border border-border bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground"
+                }
+              >
+                {s.label_fr}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void save()}
+        className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+      >
+        Enregistrer
+      </button>
+
+      {pharmacyId ? (
+        <Link href={`/pharmacie/${pharmacyId}`} className="block text-sm font-medium text-emerald-800 underline">
+          Voir la fiche publique
+        </Link>
       ) : null}
     </PageShell>
   );

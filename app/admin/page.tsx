@@ -170,7 +170,7 @@ export default function AdminPage() {
     setLatitude("");
     setLongitude("");
     setStatut("ouverte");
-    setMessage("Pharmacie creee avec succes.");
+    setMessage("Pharmacie créée. Horaires Maroc par défaut appliqués automatiquement (migration 20260606_001).");
     await loadData();
   };
 

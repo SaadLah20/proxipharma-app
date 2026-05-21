@@ -82,6 +82,7 @@ import {
   PRESCRIPTION_ADDITIONAL_PROPOSED_REASON,
 } from "@/lib/prescription-pharmacist-lines";
 import { inferArchiveSnapshotStatus } from "@/lib/request-archive-snapshot-status";
+import { pharmacistCanEditLineProductNotes } from "@/lib/request-line-notes-policy";
 import { prescriptionLineRequiresPatientConsent } from "@/lib/prescription-patient-labels";
 import {
   applyOrdonnanceAvailabilityChange,
@@ -856,23 +857,46 @@ function draftPatchPostConfirmSupplyUnlock(
 }
 
 /** Mise à jour ligne : payload dispo/prix + pour ajout officine produit, `requested_qty` / `selected_qty` = qté offerte. */
-function buildRequestItemUpdatePayloadForPharmacistSave(f: ItemDraft, row: ItemRow, requestType: string) {
+function buildRequestItemUpdatePayloadForPharmacistSave(
+  f: ItemDraft,
+  row: ItemRow,
+  requestType: string,
+  requestStatus?: string | null
+) {
   const base = buildItemUpdatePayload(f, row, requestType);
+  let payload: ReturnType<typeof buildItemUpdatePayload> & {
+    requested_qty?: number;
+    selected_qty?: number;
+  };
   if (isPrescriptionOrdonnancePharmacistLine(requestType, row)) {
     const req = ordonnanceDraftRequestedQty(row, f);
-    return {
+    payload = {
       ...base,
       requested_qty: req,
       selected_qty: req,
     };
+  } else if (!isPharmacistProposedRow(row) || !isProductRequestAjoutOfficineLine(requestType, row)) {
+    payload = base;
+  } else {
+    const n = clampRequestItemQty(Number(f.available_qty));
+    payload = {
+      ...base,
+      requested_qty: n,
+      selected_qty: n,
+    };
   }
-  if (!isPharmacistProposedRow(row) || !isProductRequestAjoutOfficineLine(requestType, row)) return base;
-  const n = clampRequestItemQty(Number(f.available_qty));
-  return {
-    ...base,
-    requested_qty: n,
-    selected_qty: n,
-  };
+  if (
+    requestStatus &&
+    ["confirmed", "treated", "completed", "partially_collected", "fully_collected", "cancelled", "abandoned", "expired"].includes(
+      requestStatus
+    )
+  ) {
+    return {
+      ...payload,
+      pharmacist_comment: row.pharmacist_comment ?? null,
+    };
+  }
+  return payload;
 }
 
 function buildPharmaConfirmAdjustmentAudit(items: ItemRow[], draft: Draft): PharmaConfirmAdjustmentAudit | null {
@@ -3387,7 +3411,12 @@ export default function PharmacienDemandeDetailPage() {
         if (isAjoutOfficine && qtyPrep < 1 && !f.withdrawn_after_confirm) {
           throw new Error(`« ${nm} » (proposition officine) : quantité en stock minimale 1.`);
         }
-        const payload = buildRequestItemUpdatePayloadForPharmacistSave(f, row, request.request_type);
+        const payload = buildRequestItemUpdatePayloadForPharmacistSave(
+          f,
+          row,
+          request.request_type,
+          request.status
+        );
         const validatedCap = Math.min(
           PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX,
           Math.max(1, Number(row.selected_qty ?? row.requested_qty) || 1)
@@ -3430,13 +3459,14 @@ export default function PharmacienDemandeDetailPage() {
 
         const chosenPatchId = row.patient_chosen_alternative_id;
         if (chosenPatchId && !f.withdrawn_after_confirm) {
+          const chosenAltRow = normalizeAlts(row.request_item_alternatives).find((a) => a.id === chosenPatchId);
           const { error: altUpd } = await supabase
             .from("request_item_alternatives")
             .update({
               availability_status: payload.availability_status,
               available_qty: payload.available_qty,
               unit_price: payload.unit_price,
-              pharmacist_comment: payload.pharmacist_comment,
+              pharmacist_comment: chosenAltRow?.pharmacist_comment ?? null,
               expected_availability_date: payload.expected_availability_date,
             })
             .eq("id", chosenPatchId)
@@ -3980,7 +4010,9 @@ export default function PharmacienDemandeDetailPage() {
         if (!f?.availability_status) throw new Error("Choisis une disponibilité pour chaque ligne.");
         const { error: up } = await supabase
           .from("request_items")
-          .update(buildRequestItemUpdatePayloadForPharmacistSave(f, row, request.request_type))
+          .update(
+            buildRequestItemUpdatePayloadForPharmacistSave(f, row, request.request_type, request.status)
+          )
           .eq("id", row.id);
         if (up) throw new Error(up.message);
       }
@@ -4099,7 +4131,12 @@ export default function PharmacienDemandeDetailPage() {
         }
         let payload: ReturnType<typeof buildRequestItemUpdatePayloadForPharmacistSave>;
         try {
-          payload = buildRequestItemUpdatePayloadForPharmacistSave(f, row, request.request_type);
+          payload = buildRequestItemUpdatePayloadForPharmacistSave(
+            f,
+            row,
+            request.request_type,
+            request.status
+          );
         } catch (e) {
           throw new Error(e instanceof Error ? e.message : "Données ligne invalides.");
         }
@@ -4240,6 +4277,11 @@ export default function PharmacienDemandeDetailPage() {
     (["submitted", "in_review"].includes(uiRequestStatus ?? "") ||
       (uiRequestStatus === "responded" && respondedEditMode) ||
       ["confirmed", "treated"].includes(uiRequestStatus ?? ""));
+  /** Notes patient / officine par ligne : réponse ou modification de réponse uniquement (pas en supply post-validé). */
+  const canEditLineProductNotes = pharmacistCanEditLineProductNotes(uiRequestStatus ?? null, {
+    respondedEditMode,
+    archiveFrozen,
+  });
   const usesLineWorkflow =
     request?.request_type === "product_request" ||
     request?.request_type === "prescription" ||
@@ -6765,7 +6807,7 @@ export default function PharmacienDemandeDetailPage() {
                 patientText={patientLineCcModal}
                 pharmacistDraft={fd.pharmacist_comment}
                 onPharmacistDraftChange={(text) => setField(row.id, "pharmacist_comment", text)}
-                allowEdit={canEditThisRow && showLineAndPublishEdits}
+                allowEdit={canEditThisRow && canEditLineProductNotes}
                 showPersistButton={false}
                 persistBusy={false}
               />

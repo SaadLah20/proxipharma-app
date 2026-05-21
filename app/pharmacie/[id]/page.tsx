@@ -3,26 +3,27 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { FileText, MessageCircle, Phone, ShoppingBag } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
-
-type PharmacyRow = {
-  id: string;
-  nom: string;
-  ville: string;
-  adresse: string;
-  telephone: string | null;
-  whatsapp: string | null;
-  statut: string;
-  public_ref?: string | null;
-};
+import { PharmacyPublicProfile } from "@/components/pharmacy/pharmacy-public-profile";
+import type {
+  PharmacyDayOverrideRow,
+  PharmacyOnCallPeriodRow,
+  PharmacyPublicProfileRow,
+  PharmacyServiceCatalogRow,
+  PharmacyWeeklyHourRow,
+} from "@/lib/pharmacy-profile-types";
 
 export default function PharmacieFichePage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
   const hasId = Boolean(id);
-  const [pharmacy, setPharmacy] = useState<PharmacyRow | null>(null);
+  const [pharmacy, setPharmacy] = useState<PharmacyPublicProfileRow | null>(null);
+  const [weeklyHours, setWeeklyHours] = useState<PharmacyWeeklyHourRow[]>([]);
+  const [dayOverrides, setDayOverrides] = useState<PharmacyDayOverrideRow[]>([]);
+  const [onCallPeriods, setOnCallPeriods] = useState<PharmacyOnCallPeriodRow[]>([]);
+  const [serviceIds, setServiceIds] = useState<string[]>([]);
+  const [serviceCatalog, setServiceCatalog] = useState<PharmacyServiceCatalogRow[]>([]);
   const [loading, setLoading] = useState(hasId);
   const [error, setError] = useState("");
   const viewTracked = useRef(false);
@@ -31,18 +32,58 @@ export default function PharmacieFichePage() {
     if (!id) return;
 
     const load = async () => {
-      const { data, error: qErr } = await supabase
-        .from("pharmacies")
-        .select("id,nom,ville,adresse,telephone,whatsapp,statut,public_ref")
-        .eq("id", id)
-        .maybeSingle();
+      const today = new Date();
+      const weekStart = new Date(today);
+      const js = today.getDay();
+      weekStart.setDate(today.getDate() - ((js + 6) % 7));
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      const weekStartIso = weekStart.toISOString().slice(0, 10);
+      const weekEndIso = weekEnd.toISOString().slice(0, 10);
 
-      if (qErr) {
-        setError(qErr.message);
-      } else if (!data) {
-        setError("Cette pharmacie n existe pas ou n est plus disponible.");
+      const [phRes, whRes, ovRes, ocRes, svcRes, catRes] = await Promise.all([
+        supabase
+          .from("pharmacies")
+          .select(
+            "id,nom,ville,adresse,telephone,whatsapp,statut,public_ref,latitude,longitude,cover_image_path,welcome_text,titular_name,titular_title,email,website_url,facebook_url,instagram_url,maps_url,rating_avg,rating_count"
+          )
+          .eq("id", id)
+          .maybeSingle(),
+        supabase
+          .from("pharmacy_weekly_hours")
+          .select("weekday,period,opens_at,closes_at,is_closed")
+          .eq("pharmacy_id", id)
+          .order("weekday")
+          .order("period"),
+        supabase
+          .from("pharmacy_day_overrides")
+          .select(
+            "id,day_date,override_type,label,morning_opens_at,morning_closes_at,afternoon_opens_at,afternoon_closes_at"
+          )
+          .eq("pharmacy_id", id)
+          .gte("day_date", weekStartIso)
+          .lte("day_date", weekEndIso),
+        supabase
+          .from("pharmacy_on_call_periods")
+          .select("id,kind,starts_at,ends_at,note")
+          .eq("pharmacy_id", id)
+          .gte("ends_at", new Date(Date.now() - 14 * 86400000).toISOString())
+          .order("starts_at"),
+        supabase.from("pharmacy_services").select("service_id").eq("pharmacy_id", id),
+        supabase.from("pharmacy_service_catalog").select("id,label_fr").eq("is_active", true).order("sort_order"),
+      ]);
+
+      if (phRes.error) {
+        setError(phRes.error.message);
+      } else if (!phRes.data) {
+        setError("Cette pharmacie n'existe pas ou n'est plus disponible.");
       } else {
-        setPharmacy(data as PharmacyRow);
+        setPharmacy(phRes.data as PharmacyPublicProfileRow);
+        setWeeklyHours((whRes.data ?? []) as PharmacyWeeklyHourRow[]);
+        setDayOverrides((ovRes.data ?? []) as PharmacyDayOverrideRow[]);
+        setOnCallPeriods((ocRes.data ?? []) as PharmacyOnCallPeriodRow[]);
+        setServiceIds((svcRes.data ?? []).map((r: { service_id: string }) => r.service_id));
+        setServiceCatalog((catRes.data ?? []) as PharmacyServiceCatalogRow[]);
       }
       setLoading(false);
     };
@@ -60,15 +101,13 @@ export default function PharmacieFichePage() {
     });
   }, [pharmacy?.id]);
 
-  const normalizeWhatsAppNumber = (value: string | null) => (value ?? "").replace(/[^\d]/g, "");
-
   if (!hasId) {
     return (
-      <main className="min-h-screen bg-gray-50 p-6">
-        <div className="mx-auto max-w-lg rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+      <main className="min-h-screen bg-background p-6">
+        <div className="mx-auto max-w-lg rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
           Pharmacie introuvable.
         </div>
-        <Link href="/" className="mt-4 block text-center text-sm font-medium text-blue-700">
+        <Link href="/" className="mt-4 block text-center text-sm font-medium text-primary">
           Retour à l&apos;annuaire
         </Link>
       </main>
@@ -77,107 +116,30 @@ export default function PharmacieFichePage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gray-50 p-6">
-        <p className="text-gray-600">Chargement de la pharmacie...</p>
+      <main className="min-h-screen bg-background p-6">
+        <p className="text-sm text-muted-foreground">Chargement de la fiche…</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 p-4 pb-10">
+    <main className="min-h-screen bg-background p-4 pb-10">
       <div className="mx-auto max-w-lg">
-        <Link href="/" className="mb-4 inline-block text-sm font-medium text-blue-700">
-          Retour à l&apos;annuaire
+        <Link href="/" className="mb-4 inline-block text-sm font-medium text-primary">
+          ← Annuaire
         </Link>
 
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</div>
+          <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>
         ) : pharmacy ? (
-          <article className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                {pharmacy.public_ref?.trim() ? (
-                  <p className="font-mono text-xs font-bold tracking-wide text-blue-900">{pharmacy.public_ref.trim()}</p>
-                ) : null}
-                <h1 className="text-xl font-bold text-blue-950">{pharmacy.nom}</h1>
-                <p className="mt-1 text-sm text-gray-600">
-                  {pharmacy.ville} • {pharmacy.adresse}
-                </p>
-              </div>
-              <span className="shrink-0 rounded-lg bg-emerald-100 px-2 py-1 text-xs font-semibold uppercase text-emerald-800">
-                {pharmacy.statut}
-              </span>
-            </div>
-
-            <div className="mb-6 flex flex-wrap gap-2">
-              <a
-                href={pharmacy.telephone ? `tel:${pharmacy.telephone}` : undefined}
-                aria-disabled={!pharmacy.telephone}
-                onClick={() =>
-                  trackPharmacyEngagement({
-                    pharmacyId: pharmacy.id,
-                    eventType: "phone_click",
-                    source: "profile",
-                  })
-                }
-                className="flex flex-1 min-w-[120px] items-center justify-center gap-2 rounded-xl bg-blue-50 py-3 text-sm font-medium text-blue-800 aria-disabled:pointer-events-none aria-disabled:opacity-50"
-              >
-                <Phone size={18} strokeWidth={2} /> Appeler
-              </a>
-              <a
-                href={
-                  normalizeWhatsAppNumber(pharmacy.whatsapp)
-                    ? `https://wa.me/${normalizeWhatsAppNumber(pharmacy.whatsapp)}`
-                    : undefined
-                }
-                target={normalizeWhatsAppNumber(pharmacy.whatsapp) ? "_blank" : undefined}
-                rel={normalizeWhatsAppNumber(pharmacy.whatsapp) ? "noreferrer" : undefined}
-                aria-disabled={!normalizeWhatsAppNumber(pharmacy.whatsapp)}
-                onClick={() =>
-                  trackPharmacyEngagement({
-                    pharmacyId: pharmacy.id,
-                    eventType: "whatsapp_click",
-                    source: "profile",
-                  })
-                }
-                className="flex flex-1 min-w-[120px] items-center justify-center gap-2 rounded-xl bg-green-50 py-3 text-sm font-medium text-green-800 aria-disabled:pointer-events-none aria-disabled:opacity-50"
-              >
-                <MessageCircle size={18} strokeWidth={2} /> WhatsApp
-              </a>
-            </div>
-
-            <section>
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-                Services en ligne
-              </h2>
-              <div className="flex flex-col gap-3">
-                <Link
-                  href={`/pharmacie/${pharmacy.id}/demande-produits`}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-blue-200 bg-blue-600/5 py-4 text-base font-semibold text-blue-900 transition hover:bg-blue-600/10"
-                >
-                  <ShoppingBag size={22} strokeWidth={2} />
-                  Demander des produits
-                </Link>
-                <Link
-                  href={`/pharmacie/${pharmacy.id}/demande-ordonnance`}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-amber-200 bg-amber-600/5 py-4 text-base font-semibold text-amber-950 transition hover:bg-amber-600/10"
-                >
-                  <FileText size={22} strokeWidth={2} />
-                  Envoyer une ordonnance
-                </Link>
-                <Link
-                  href={`/pharmacie/${pharmacy.id}/consultation-libre`}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-violet-200 bg-violet-600/5 py-4 text-base font-semibold text-violet-950 transition hover:bg-violet-600/10"
-                >
-                  <MessageCircle size={22} strokeWidth={2} />
-                  Consultation libre
-                </Link>
-              </div>
-              <p className="mt-2 text-xs text-gray-500">
-                Produits via le catalogue, ordonnance (scan), ou message + photos pour échange avec la pharmacie.
-              </p>
-            </section>
-          </article>
+          <PharmacyPublicProfile
+            pharmacy={pharmacy}
+            weeklyHours={weeklyHours}
+            dayOverrides={dayOverrides}
+            onCallPeriods={onCallPeriods}
+            serviceIds={serviceIds}
+            serviceCatalog={serviceCatalog}
+          />
         ) : null}
       </div>
     </main>
