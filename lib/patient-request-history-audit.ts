@@ -50,61 +50,70 @@ export function patientHistoryAuditTitle(audit: PharmaConfirmAdjustmentAudit): s
 /** Détail lisible patient (une entrée par ligne modifiée). */
 export function patientHistoryAuditDetailLines(audit: PharmaConfirmAdjustmentAudit): string[] {
   return audit.lines.map((L) => {
-    const parts: string[] = [];
+    const bits: string[] = [`${L.productName}`];
     const qtyChanged = L.oldAvailQty !== L.newAvailQty;
     const availChanged = (L.oldAvailabilityStatus ?? "").trim() !== (L.newAvailabilityStatus ?? "").trim();
-    parts.push(`${L.productName} — quantité retenue à la validation : ${L.validatedQty} unité(s).`);
     if (qtyChanged) {
-      parts.push(
-        `Quantité suivie par la pharmacie : ${L.oldAvailQty ?? "?"} → ${L.newAvailQty}${L.newAvailQty > L.validatedQty ? " (la pharmacie propose plus, par exemple après une rupture puis une solution)." : ""}${L.newAvailQty < L.validatedQty ? " (la pharmacie propose moins sur cette ligne.)" : ""}`
+      bits.push(
+        `quantité proposée par la pharmacie : ${L.oldAvailQty ?? "—"} → ${L.newAvailQty} (vous aviez validé ${L.validatedQty})`
       );
     }
     if (availChanged) {
       const ol = L.oldAvailLabelFr ?? L.oldAvailabilityStatus ?? "—";
       const nl = L.newAvailLabelFr ?? L.newAvailabilityStatus ?? "—";
-      parts.push(`Disponibilité communiquée : ${ol} → ${nl}.`);
+      bits.push(`disponibilité : ${ol} → ${nl}`);
     }
-    return parts.join(" ");
+    if (!qtyChanged && !availChanged) {
+      bits.push(`détail mis à jour (quantité validée : ${L.validatedQty})`);
+    }
+    return bits.join(" · ");
   });
 }
 
 /** Libellés courts pour les codes techniques stockés dans `request_status_history.reason`. */
 const PATIENT_HISTORY_TECH_REASON_FR: Record<string, string> = {
-  patient_confirm_after_response: "Vous avez validé votre choix et enregistré votre passage en pharmacie.",
-  publication_disponibilites: "La pharmacie a publié sa réponse (prix et disponibilités).",
-  pharmacien_ui: "Mise à jour enregistrée par la pharmacie.",
-  patient_planned_visit_updated: "Votre date ou heure de passage a été modifiée.",
-  pharmacist_response_updated: "La pharmacie a mis à jour sa réponse.",
-  auto_expire_after_response_silence:
-    "Sans validation de votre part dans le délai prévu, la demande a expiré.",
-  auto_expire_24h_after_response:
-    "Sans validation de votre part dans le délai prévu, la demande a expiré.",
-  expire_overdue_requests: "La date limite du dossier est dépassée : la demande a expiré.",
+  patient_confirm_after_response: "Vous avez validé votre choix et indiqué votre passage en pharmacie.",
+  publication_disponibilites: "La pharmacie a publié sa réponse : produits, prix et disponibilités.",
+  pharmacien_ui: "La pharmacie a enregistré une mise à jour sur le dossier.",
+  patient_planned_visit_updated: "Vous avez modifié la date ou l'heure de passage prévu.",
+  pharmacist_response_updated: "La pharmacie a modifié sa réponse avant votre validation.",
+  pharmacist_adjustments_after_confirmation: "La pharmacie a ajusté un ou plusieurs produits après votre validation.",
+  pharmacist_supply_amendments_saved: "La pharmacie a mis à jour des produits de votre commande validée.",
+  pharmacist_proposed_line_removed: "La pharmacie a retiré une proposition de produit.",
+  counter_product_added: "Un produit a été ajouté pour le suivi au comptoir.",
+  counter_alternative_added: "Une alternative a été ajoutée sur une ligne.",
+  counter_alternative_removed: "Une alternative a été retirée.",
+  auto_expire_after_response_silence: "Sans réponse de votre part à temps, la demande a expiré.",
+  auto_expire_24h_after_response: "Sans réponse de votre part à temps, la demande a expiré.",
+  expire_overdue_requests: "Le délai du dossier est dépassé : la demande a expiré.",
   auto_abandon_24h_after_response: "Sans validation de votre part, la demande a été fermée automatiquement.",
-  request_created_with_status: "Demande créée et envoyée.",
+  request_created_with_status: "Votre demande a été créée et envoyée à la pharmacie.",
   patient_abandon_request: "Vous avez abandonné la demande.",
   patient_resubmit_product_request_after_response: "Vous avez renvoyé une liste de produits mise à jour.",
-  pharmacist_ui_confirm_close: "La pharmacie a clôturé le dossier après le passage au comptoir.",
+  pharmacist_ui_confirm_close: "La pharmacie a clôturé le dossier après les retraits au comptoir.",
 };
 
 /** Libellés `request_event:*` / codes courts — vue officine (historique & résumés). */
 const PHARMACIST_HISTORY_TECH_REASON_FR: Record<string, string> = {
-  patient_confirm_after_response: "Le patient a validé son choix et enregistré son passage.",
-  publication_disponibilites: "Réponse publiée (prix et disponibilités).",
-  pharmacien_ui: "Mise à jour enregistrée.",
-  patient_planned_visit_updated: "Date ou heure de passage modifiée par le patient.",
-  pharmacist_response_updated: "Réponse pharmacie mise à jour.",
-  auto_expire_after_response_silence:
-    "Sans validation du patient dans le délai prévu, la demande a expiré.",
-  auto_expire_24h_after_response:
-    "Sans validation du patient dans le délai prévu, la demande a expiré.",
-  expire_overdue_requests: "Délai du dossier dépassé : la demande a expiré.",
-  auto_abandon_24h_after_response:
-    "Fermeture automatique : pas de validation du patient dans le délai prévu.",
-  request_created_with_status: "Demande créée.",
+  patient_confirm_after_response: "Le patient a validé sa sélection et son passage en pharmacie.",
+  publication_disponibilites: "Réponse publiée au patient (prix et disponibilités).",
+  pharmacien_ui: "Mise à jour enregistrée sur le dossier.",
+  patient_planned_visit_updated: "Le patient a modifié la date ou l'heure de passage.",
+  pharmacist_response_updated: "Réponse modifiée avant validation patient.",
+  pharmacist_adjustments_after_confirmation: "Ajustements enregistrés après validation patient.",
+  pharmacist_supply_amendments_saved: "Modifications supply enregistrées (accord patient).",
+  pharmacist_proposed_line_removed: "Proposition de produit retirée du dossier.",
+  counter_product_added: "Produit ajouté pour le suivi comptoir.",
+  counter_alternative_added: "Alternative ajoutée sur une ligne.",
+  counter_alternative_removed: "Alternative retirée.",
+  auto_expire_after_response_silence: "Expiration automatique : pas de validation patient à temps.",
+  auto_expire_24h_after_response: "Expiration automatique : pas de validation patient à temps.",
+  expire_overdue_requests: "Délai dépassé : demande expirée.",
+  auto_abandon_24h_after_response: "Fermeture automatique faute de validation patient.",
+  request_created_with_status: "Demande reçue.",
   patient_abandon_request: "Le patient a abandonné la demande.",
   patient_resubmit_product_request_after_response: "Le patient a renvoyé une liste de produits mise à jour.",
-  pharmacist_ui_confirm_close: "Dossier clôturé après passage au comptoir.",
+  pharmacist_ui_confirm_close: "Dossier clôturé après comptoir.",
 };
 
 /** Corps après le préfixe `patient_abandon|` (ex. `no_longer_needed|détail`). */
@@ -163,16 +172,25 @@ export function patientDossierHistoryDetailParagraphsFr(reason: string | null | 
     }
     return ["Mise à jour du suivi comptoir pour cette ligne."];
   }
+  if (r.startsWith("pharmacist_supply_amendments_saved")) {
+    return [PATIENT_HISTORY_TECH_REASON_FR.pharmacist_supply_amendments_saved];
+  }
+  if (r === "pharmacist_adjustments_after_confirmation") {
+    return [PATIENT_HISTORY_TECH_REASON_FR.pharmacist_adjustments_after_confirmation];
+  }
   if (r.startsWith("request_event:")) {
     const key = r.slice("request_event:".length).trim().toLowerCase();
     const mapped = PATIENT_HISTORY_TECH_REASON_FR[key];
     if (mapped) return [mapped];
-    return ["Événement enregistré sur le dossier."];
+    return ["Un événement a été enregistré sur le dossier."];
   }
   if (/^[a-z][a-z0-9_]*$/i.test(r) && r.length < 120) {
     const mapped = PATIENT_HISTORY_TECH_REASON_FR[r.toLowerCase()];
     if (mapped) return [mapped];
-    return ["Mise à jour enregistrée sur le dossier."];
+    return ["Une mise à jour a été enregistrée sur le dossier."];
+  }
+  if (/[a-z][a-z0-9_]{3,}/i.test(r)) {
+    return ["Une mise à jour a été enregistrée sur le dossier."];
   }
   return [r];
 }
@@ -211,6 +229,12 @@ export function pharmacistDossierHistoryDetailParagraphsFr(reason: string | null
     }
     return ["Mise à jour du suivi comptoir pour cette ligne."];
   }
+  if (r.startsWith("pharmacist_supply_amendments_saved")) {
+    return [PHARMACIST_HISTORY_TECH_REASON_FR.pharmacist_supply_amendments_saved];
+  }
+  if (r === "pharmacist_adjustments_after_confirmation") {
+    return [PHARMACIST_HISTORY_TECH_REASON_FR.pharmacist_adjustments_after_confirmation];
+  }
   if (r.startsWith("request_event:")) {
     const key = r.slice("request_event:".length).trim().toLowerCase();
     const mapped = PHARMACIST_HISTORY_TECH_REASON_FR[key];
@@ -220,6 +244,9 @@ export function pharmacistDossierHistoryDetailParagraphsFr(reason: string | null
   if (/^[a-z][a-z0-9_]*$/i.test(r) && r.length < 120) {
     const mapped = PHARMACIST_HISTORY_TECH_REASON_FR[r.toLowerCase()];
     if (mapped) return [mapped];
+    return ["Mise à jour enregistrée sur le dossier."];
+  }
+  if (/[a-z][a-z0-9_]{3,}/i.test(r)) {
     return ["Mise à jour enregistrée sur le dossier."];
   }
   return [r];

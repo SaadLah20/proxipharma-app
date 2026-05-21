@@ -6,9 +6,9 @@ import Link from "next/link";
 import { clsx } from "clsx";
 import { useParams, useRouter } from "next/navigation";
 import { PageShell } from "@/components/ui/compact-shell";
-import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import { supabase } from "@/lib/supabase";
-import { historyActorLabel, requestHistoryPatientHeadline } from "@/lib/request-display";
+import { DossierHistoryListFr } from "@/components/requests/dossier-history-list-fr";
+import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import { sharedShowPlannedVisitBlock } from "@/lib/request-kinds/shared-capabilities";
@@ -18,14 +18,12 @@ import { one } from "@/lib/embed";
 import { mapRequestItemsPhotos } from "@/lib/storage-media";
 import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
 import { useRequestDetailDrift } from "@/lib/use-request-detail-drift";
-import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
+import { PatientProductRequestActions, type PatientPharmacyContactInfo } from "@/components/requests/product/patient-product-request-actions";
+import { ConsultationRequestDetailChrome } from "@/components/requests/consultation/consultation-request-detail-chrome";
 import {
-  PatientProductRequestActions,
-  PatientSentEnvoyeeSummaryCard,
-  buildPatientLineCountLabel,
-  buildPatientSummaryStatusHint,
-  type PatientPharmacyContactInfo,
-} from "@/components/requests/product/patient-product-request-actions";
+  getConsultationDefaultTab,
+  type ConsultationDetailTab,
+} from "@/lib/consultation-detail-tabs";
 import { isPatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
 import { patientOutcomeStatusFooter } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
@@ -122,6 +120,8 @@ export default function DemandeDetailPage() {
     text: string;
     paths: ConsultationImagePaths;
   } | null>(null);
+  const [consultationTab, setConsultationTab] = useState<ConsultationDetailTab>("conversation");
+  const [prevConsultationTabSyncKey, setPrevConsultationTabSyncKey] = useState("");
   const loadDetail = useCallback(
     async (silent?: boolean) => {
       if (!id) {
@@ -407,15 +407,31 @@ export default function DemandeDetailPage() {
 
   const hideMainRequestHeader =
     usesLineWorkflow &&
-    !isConsultationRequest &&
-    ["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status);
+    (isConsultationRequest || ["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status));
 
-  const showConsultationBriefBlock = isConsultationRequest && consultationBrief != null;
-  const showConsultationEnvoyeeSummary =
-    showConsultationBriefBlock && hasBottomActions && !showArchivedReadonly && patientPharmacyContact != null;
+  const showConsultationTabbed =
+    isConsultationRequest && consultationBrief != null && hasBottomActions && !showArchivedReadonly;
 
   const dossierRefLabel =
     displayRequestPublicRef(request) || `Dossier ${request.id.slice(0, 8)}…`;
+
+  const consultationSeed =
+    consultationBrief != null
+      ? {
+          text: consultationBrief.text,
+          paths: consultationBrief.paths,
+          createdAt: request.submitted_at ?? request.created_at,
+        }
+      : null;
+
+  const consultationTabSyncKey =
+    isConsultationRequest && request
+      ? `${request.id}|${request.status}|${request.responded_at ?? ""}`
+      : "";
+  if (consultationTabSyncKey && consultationTabSyncKey !== prevConsultationTabSyncKey) {
+    setPrevConsultationTabSyncKey(consultationTabSyncKey);
+    setConsultationTab(getConsultationDefaultTab(request.status, request.responded_at));
+  }
 
   return (
     <PageShell
@@ -426,7 +442,16 @@ export default function DemandeDetailPage() {
     >
       <RequestDetailBackLink config={kindConfig} viewerRole="patient" />
 
-      {!hideMainRequestHeader || showArchivedReadonly || isConsultationRequest ? (
+      {showConsultationTabbed ? (
+        <ConsultationRequestDetailChrome
+          dossierRefLabel={dossierRefLabel}
+          status={request.status}
+          tab={consultationTab}
+          onTab={setConsultationTab}
+          conversationUnread={conversationUnread}
+          productLineCount={items.length}
+        />
+      ) : !hideMainRequestHeader || showArchivedReadonly ? (
         <RequestKindHeader
           config={kindConfig}
           request={request}
@@ -434,23 +459,6 @@ export default function DemandeDetailPage() {
           showPlannedVisit={showPlannedVisitBlock}
           viewerRole="patient"
           statusDetail={showArchivedReadonly ? archiveStatusDetail : null}
-        />
-      ) : null}
-
-      {showConsultationEnvoyeeSummary ? (
-        <PatientSentEnvoyeeSummaryCard
-          pharmacyContact={patientPharmacyContact}
-          pharmacyId={request.pharmacy_id}
-          dossierRefLabel={dossierRefLabel}
-          lineCount={items.length}
-          lineCountLabel={buildPatientLineCountLabel(request.request_type, request.status, items.length)}
-          status={request.status}
-          createdAt={request.created_at}
-          updatedAt={request.updated_at}
-          kindLabel={workflowCopy.patientSummaryKindLabel}
-          refShort={workflowCopy.patientSummaryRefShort}
-          statusHint={buildPatientSummaryStatusHint(request.status, request.request_type, workflowCopy)}
-          accent="violet"
         />
       ) : null}
 
@@ -498,28 +506,35 @@ export default function DemandeDetailPage() {
         </Link>
       ) : null}
 
-      {showConsultationBriefBlock ? (
-        <div className="space-y-3">
-          <ConsultationBriefPanel
+      {showConsultationTabbed && consultationTab === "conversation" && sessionUserId ? (
+        <div className="space-y-2">
+          <RequestConversationInline
             requestId={request.id}
-            initialText={consultationBrief.text}
-            initialPaths={consultationBrief.paths}
-            editable={consultationEditable}
             viewerRole="patient"
+            currentUserId={sessionUserId}
+            variant="consultation"
+            consultationSeed={consultationSeed}
+            onMarkedRead={handleConversationMarkedRead}
           />
-          {sessionUserId ? (
-            <RequestConversationInline
-              requestId={request.id}
-              viewerRole="patient"
-              currentUserId={sessionUserId}
-              variant="consultation"
-              onMarkedRead={handleConversationMarkedRead}
-            />
+          {consultationEditable ? (
+            <details className="rounded-lg border border-violet-200/70 bg-violet-50/30 px-2.5 py-2 text-[11px] text-violet-950">
+              <summary className="cursor-pointer font-semibold">Modifier mon message ou mes photos</summary>
+              <div className="mt-2">
+                <ConsultationBriefPanel
+                  requestId={request.id}
+                  initialText={consultationBrief!.text}
+                  initialPaths={consultationBrief!.paths}
+                  editable
+                  viewerRole="patient"
+                />
+              </div>
+            </details>
           ) : null}
         </div>
       ) : null}
 
-      {(hasBottomActions || (showArchivedReadonly && items.length > 0)) ? (
+      {(hasBottomActions || (showArchivedReadonly && items.length > 0)) &&
+      (!showConsultationTabbed || consultationTab === "products") ? (
         <>
         {requestDrift.stale ? (
           <div className="mb-2 rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">
@@ -601,7 +616,7 @@ export default function DemandeDetailPage() {
           requestType={request.request_type}
           prescriptionPaths={isPrescriptionRequest ? prescriptionPaths : null}
           prescriptionNote={isPrescriptionRequest ? prescriptionNote : null}
-          summaryInPageChrome={isConsultationRequest}
+          summaryInPageChrome={showConsultationTabbed}
           detailStale={requestDrift.stale}
         />
         </section>
@@ -637,42 +652,7 @@ export default function DemandeDetailPage() {
               Rafraîchir
             </button>
           </div>
-          <div className="space-y-1">
-            {historyBusy ? (
-              <p className="text-[11px] text-muted-foreground">Chargement…</p>
-            ) : historyRows.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground">Aucun événement disponible.</p>
-            ) : (
-              <ul className="space-y-1">
-                {historyRows.map((h) => {
-                  const detailParas = patientDossierHistoryDetailParagraphsFr(h.reason);
-                  return (
-                    <li key={h.id} className="rounded-md border border-border/60 bg-muted/15 px-2 py-1 text-[11px]">
-                      <p className="font-semibold leading-snug text-foreground">
-                        {requestHistoryPatientHeadline(h.old_status, h.new_status)}
-                      </p>
-                      {detailParas.length > 0
-                        ? detailParas.map((para, i) => (
-                            <p key={i} className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
-                              {para}
-                            </p>
-                          ))
-                        : null}
-                      <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9px] text-muted-foreground">
-                        <span>
-                          <strong className="font-medium text-foreground">{historyActorLabel("patient", h.reason)}</strong>
-                        </span>
-                        <span aria-hidden>·</span>
-                        <time dateTime={h.created_at} className="tabular-nums">
-                          {formatDateTimeShort24hFr(h.created_at)}
-                        </time>
-                      </p>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+          <DossierHistoryListFr rows={historyRows} viewerRole="patient" busy={historyBusy} />
         </div>
       </details>
       {usesLineWorkflow && sessionUserId && !isConsultationRequest ? (

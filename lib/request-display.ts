@@ -61,7 +61,9 @@ export function requestHistoryPharmacistHeadline(oldStatus: string | null, newSt
   if (n === "cancelled") return "Demande annulée.";
   if (n === "abandoned") return "Demande abandonnée par le patient.";
   if (n === "expired") return "Demande expirée côté patient.";
-  return `${requestStatusFr[o] ?? o} → ${requestStatusFr[n] ?? n}`;
+  const from = requestStatusFr[o] ?? "étape précédente";
+  const to = requestStatusFr[n] ?? "nouvelle étape";
+  return `Le dossier passe de « ${from} » à « ${to} ».`;
 }
 
 /** Libellé court pour badges (même vocabulaire, `in_review` = envoyée). */
