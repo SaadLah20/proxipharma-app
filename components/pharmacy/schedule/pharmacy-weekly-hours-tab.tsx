@@ -1,24 +1,100 @@
 "use client";
 
-import { useState } from "react";
 import { clsx } from "clsx";
-import { ChevronDown } from "lucide-react";
-import { PharmacySimpleTimeInput } from "@/components/pharmacy/schedule/pharmacy-simple-time-input";
+import { PharmacyCompactTimeRange } from "@/components/pharmacy/schedule/pharmacy-compact-time-range";
 
-const WEEKDAYS: { d: number; label: string; short: string }[] = [
-  { d: 1, label: "Lundi", short: "Lun" },
-  { d: 2, label: "Mardi", short: "Mar" },
-  { d: 3, label: "Mercredi", short: "Mer" },
-  { d: 4, label: "Jeudi", short: "Jeu" },
-  { d: 5, label: "Vendredi", short: "Ven" },
-  { d: 6, label: "Samedi", short: "Sam" },
-  { d: 7, label: "Dimanche", short: "Dim" },
+const WEEKDAYS: { d: number; label: string }[] = [
+  { d: 1, label: "Lun" },
+  { d: 2, label: "Mar" },
+  { d: 3, label: "Mer" },
+  { d: 4, label: "Jeu" },
+  { d: 5, label: "Ven" },
+  { d: 6, label: "Sam" },
+  { d: 7, label: "Dim" },
 ];
 
 export type WeeklyDraft = Record<string, { opens_at: string; closes_at: string; is_closed: boolean }>;
 
 export function weeklyKey(weekday: number, period: "morning" | "afternoon") {
   return `${weekday}-${period}`;
+}
+
+function DayRow({
+  weekday,
+  label,
+  draft,
+  onChange,
+}: {
+  weekday: number;
+  label: string;
+  draft: WeeklyDraft;
+  onChange: (next: WeeklyDraft) => void;
+}) {
+  const morningKey = weeklyKey(weekday, "morning");
+  const afternoonKey = weeklyKey(weekday, "afternoon");
+  const morning = draft[morningKey];
+  const afternoon = draft[afternoonKey];
+  const allClosed = morning?.is_closed && afternoon?.is_closed;
+
+  const setPeriod = (period: "morning" | "afternoon", patch: Partial<WeeklyDraft[string]>) => {
+    const k = weeklyKey(weekday, period);
+    onChange({ ...draft, [k]: { ...draft[k], ...patch } });
+  };
+
+  const closeWholeDay = (closed: boolean) => {
+    onChange({
+      ...draft,
+      [morningKey]: { ...morning, is_closed: closed, opens_at: morning.opens_at, closes_at: morning.closes_at },
+      [afternoonKey]: {
+        ...afternoon,
+        is_closed: closed,
+        opens_at: afternoon.opens_at,
+        closes_at: afternoon.closes_at,
+      },
+    });
+  };
+
+  return (
+    <div
+      className={clsx(
+        "grid grid-cols-[2.25rem_1fr] gap-x-2 gap-y-1.5 rounded-xl border border-border/70 bg-card px-2 py-2 sm:grid-cols-[2.5rem_1fr_1fr]",
+        allClosed && "bg-muted/25"
+      )}
+    >
+      <div className="flex flex-col justify-center">
+        <span className="text-xs font-bold text-foreground">{label}</span>
+        <label className="mt-1 flex items-center gap-0.5 text-[9px] font-semibold text-muted-foreground">
+          <input
+            type="checkbox"
+            className="size-3 rounded"
+            checked={allClosed}
+            onChange={(e) => closeWholeDay(e.target.checked)}
+          />
+          Jour off
+        </label>
+      </div>
+
+      <PharmacyCompactTimeRange
+        periodLabel="Matin"
+        closed={morning.is_closed}
+        opensAt={morning.opens_at}
+        closesAt={morning.closes_at}
+        onClosedChange={(c) => setPeriod("morning", { is_closed: c })}
+        onOpensChange={(v) => setPeriod("morning", { opens_at: v })}
+        onClosesChange={(v) => setPeriod("morning", { closes_at: v })}
+      />
+
+      <PharmacyCompactTimeRange
+        periodLabel="Après-m."
+        closed={afternoon.is_closed}
+        opensAt={afternoon.opens_at}
+        closesAt={afternoon.closes_at}
+        onClosedChange={(c) => setPeriod("afternoon", { is_closed: c })}
+        onOpensChange={(v) => setPeriod("afternoon", { opens_at: v })}
+        onClosesChange={(v) => setPeriod("afternoon", { closes_at: v })}
+      />
+    </div>
+  );
 }
 
 export function PharmacyWeeklyHoursTab({
@@ -32,170 +108,17 @@ export function PharmacyWeeklyHoursTab({
   onChange: (next: WeeklyDraft) => void;
   onSave: () => void;
 }) {
-  const [openDay, setOpenDay] = useState<number>(() => {
-    const js = new Date().getDay();
-    return js === 0 ? 7 : js;
-  });
-
-  const applyPreset = (weekday: number, preset: "weekday" | "saturday" | "closed") => {
-    const next = { ...draft };
-    if (preset === "closed") {
-      for (const period of ["morning", "afternoon"] as const) {
-        const k = weeklyKey(weekday, period);
-        next[k] = { opens_at: "", closes_at: "", is_closed: true };
-      }
-      onChange(next);
-      return;
-    }
-    if (preset === "saturday") {
-      next[weeklyKey(weekday, "morning")] = { opens_at: "09:00", closes_at: "13:00", is_closed: false };
-      next[weeklyKey(weekday, "afternoon")] = { opens_at: "", closes_at: "", is_closed: true };
-      onChange(next);
-      return;
-    }
-    next[weeklyKey(weekday, "morning")] = { opens_at: "09:00", closes_at: "13:00", is_closed: false };
-    next[weeklyKey(weekday, "afternoon")] = { opens_at: "15:00", closes_at: "21:00", is_closed: false };
-    onChange(next);
-  };
-
   return (
     <div className="space-y-3">
-      <p className="rounded-lg bg-muted/40 px-2.5 py-2 text-[11px] leading-snug text-muted-foreground">
-        Touchez un jour pour modifier. Utilisez les boutons d&apos;heure (9h, 13h…) — plus simple que la saisie
-        clavier sur téléphone.
+      <p className="text-[11px] leading-snug text-muted-foreground">
+        Horaires habituels de la semaine. Modifiez directement chaque jour — les jours fériés nationaux ferment
+        automatiquement l&apos;officine (sauf garde).
       </p>
 
-      <div className="flex gap-1 overflow-x-auto pb-1 sm:hidden">
-        {WEEKDAYS.map(({ d, short }) => (
-          <button
-            key={d}
-            type="button"
-            className={clsx(
-              "shrink-0 rounded-full px-3 py-1.5 text-xs font-bold",
-              openDay === d ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-            )}
-            onClick={() => setOpenDay(d)}
-          >
-            {short}
-          </button>
+      <div className="space-y-1.5">
+        {WEEKDAYS.map(({ d, label }) => (
+          <DayRow key={d} weekday={d} label={label} draft={draft} onChange={onChange} />
         ))}
-      </div>
-
-      <div className="space-y-2">
-        {WEEKDAYS.map(({ d, label }) => {
-          const isOpen = openDay === d;
-          const morning = draft[weeklyKey(d, "morning")];
-          const afternoon = draft[weeklyKey(d, "afternoon")];
-          const summary =
-            morning?.is_closed && afternoon?.is_closed
-              ? "Fermé"
-              : [
-                  !morning?.is_closed && morning?.opens_at
-                    ? `M ${morning.opens_at.slice(0, 5)}–${morning.closes_at?.slice(0, 5) ?? "?"}`
-                    : morning?.is_closed
-                      ? "M fermé"
-                      : null,
-                  !afternoon?.is_closed && afternoon?.opens_at
-                    ? `AM ${afternoon.opens_at.slice(0, 5)}–${afternoon.closes_at?.slice(0, 5) ?? "?"}`
-                    : afternoon?.is_closed
-                      ? "AM fermé"
-                      : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ");
-
-          return (
-            <div
-              key={d}
-              className={clsx(
-                "overflow-hidden rounded-xl border border-border/80 bg-muted/20",
-                isOpen && "ring-1 ring-primary/30"
-              )}
-            >
-              <button
-                type="button"
-                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
-                onClick={() => setOpenDay(isOpen ? 0 : d)}
-              >
-                <div>
-                  <p className="text-sm font-bold">{label}</p>
-                  <p className="text-[11px] text-muted-foreground">{summary || "—"}</p>
-                </div>
-                <ChevronDown className={clsx("size-4 shrink-0 transition", isOpen && "rotate-180")} />
-              </button>
-
-              {isOpen ? (
-                <div className="space-y-3 border-t border-border/60 bg-card px-3 pb-3 pt-2">
-                  <div className="flex flex-wrap gap-1">
-                    <button
-                      type="button"
-                      className="rounded-lg border px-2 py-1 text-[10px] font-semibold"
-                      onClick={() => applyPreset(d, "weekday")}
-                    >
-                      Lun–ven 9h–13h / 15h–21h
-                    </button>
-                    {d === 6 ? (
-                      <button
-                        type="button"
-                        className="rounded-lg border px-2 py-1 text-[10px] font-semibold"
-                        onClick={() => applyPreset(d, "saturday")}
-                      >
-                        Sam. 9h–13h
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="rounded-lg border px-2 py-1 text-[10px] font-semibold text-destructive"
-                      onClick={() => applyPreset(d, "closed")}
-                    >
-                      Jour fermé
-                    </button>
-                  </div>
-
-                  {(["morning", "afternoon"] as const).map((period) => {
-                    const k = weeklyKey(d, period);
-                    const cell = draft[k];
-                    const periodLabel = period === "morning" ? "Matin" : "Après-midi";
-                    return (
-                      <div key={period} className="rounded-lg border border-border/60 bg-muted/10 p-2.5">
-                        <div className="mb-2 flex items-center justify-between">
-                          <p className="text-xs font-bold">{periodLabel}</p>
-                          <label className="flex items-center gap-2 text-xs font-medium">
-                            <input
-                              type="checkbox"
-                              checked={cell.is_closed}
-                              onChange={(e) =>
-                                onChange({
-                                  ...draft,
-                                  [k]: { ...cell, is_closed: e.target.checked },
-                                })
-                              }
-                            />
-                            Fermé
-                          </label>
-                        </div>
-                        {!cell.is_closed ? (
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            <PharmacySimpleTimeInput
-                              label="Ouverture"
-                              value={cell.opens_at}
-                              onChange={(v) => onChange({ ...draft, [k]: { ...cell, opens_at: v } })}
-                            />
-                            <PharmacySimpleTimeInput
-                              label="Fermeture"
-                              value={cell.closes_at}
-                              onChange={(v) => onChange({ ...draft, [k]: { ...cell, closes_at: v } })}
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
       </div>
 
       <button

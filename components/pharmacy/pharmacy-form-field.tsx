@@ -12,10 +12,10 @@ export function PharmacyFormField({
   onChange: (value: string) => void;
 }) {
   const inputClass =
-    "mt-1 w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+    "mt-1.5 w-full min-h-11 rounded-xl border border-input bg-background px-3 py-2.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
   return (
-    <label className="block text-xs font-medium text-foreground">
+    <label className="block text-xs font-bold text-foreground">
       {meta.label}
       {meta.rows ? (
         <textarea

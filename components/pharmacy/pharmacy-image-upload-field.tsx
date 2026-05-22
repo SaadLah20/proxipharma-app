@@ -79,14 +79,16 @@ export function PharmacyImageUploadField({
   };
 
   return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium text-foreground">{label}</p>
-      <p className="text-[10px] text-muted-foreground">{hint}</p>
+    <div className="space-y-2 rounded-xl border border-border/70 bg-muted/10 p-3">
+      <div>
+        <p className="text-xs font-bold text-foreground">{label}</p>
+        <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{hint}</p>
+      </div>
       <div
         className={clsx(
-          "relative overflow-hidden rounded-xl border border-border bg-muted/25",
+          "relative overflow-hidden rounded-xl border border-border bg-muted/25 shadow-inner",
           aspectClass,
-          kind === "logo" && "mx-auto max-w-[140px]"
+          kind === "logo" && "mx-auto max-w-[160px]"
         )}
       >
         {previewUrl ? (
@@ -108,7 +110,7 @@ export function PharmacyImageUploadField({
           type="button"
           disabled={busy}
           onClick={() => pickFile()}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-[11px] font-semibold shadow-sm hover:bg-muted/40 disabled:opacity-50"
+          className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold shadow-sm hover:bg-muted/40 disabled:opacity-50 sm:flex-none"
         >
           <ImagePlus className="size-3.5" aria-hidden />
           {previewUrl ? "Remplacer" : "Choisir une photo"}
@@ -118,7 +120,7 @@ export function PharmacyImageUploadField({
             type="button"
             disabled={busy}
             onClick={() => void remove()}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-semibold text-rose-950 hover:bg-rose-100 disabled:opacity-50"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-950 hover:bg-rose-100 disabled:opacity-50"
           >
             <Trash2 className="size-3.5" aria-hidden />
             Retirer

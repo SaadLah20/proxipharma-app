@@ -2,13 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { clsx } from "clsx";
-import { CalendarOff, PartyPopper, Clock3 } from "lucide-react";
-import { PharmacySimpleTimeInput } from "@/components/pharmacy/schedule/pharmacy-simple-time-input";
+import { CalendarOff, Clock3 } from "lucide-react";
+import { PharmacyCompactTimeRange } from "@/components/pharmacy/schedule/pharmacy-compact-time-range";
 import { OVERRIDE_TYPE_LABEL_FR } from "@/lib/pharmacy-schedule-fr";
-import {
-  findMoroccoHolidayById,
-  moroccoPublicHolidaysFromDate,
-} from "@/lib/morocco-public-holidays";
+import { findMoroccoHolidayOnDate, moroccoPublicHolidaysFromDate } from "@/lib/morocco-public-holidays";
 import { canPlanOverrideOnDate } from "@/lib/pharmacy-schedule-conflicts";
 import type { PharmacyDayOverrideRow, PharmacyOnCallPeriodRow } from "@/lib/pharmacy-profile-types";
 
@@ -21,26 +18,24 @@ function formatOverrideDate(iso: string) {
   });
 }
 
+function formatShortDate(iso: string) {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
+
 const TYPE_OPTIONS = [
   {
     id: "closed" as const,
-    label: "Fermeture exceptionnelle",
-    hint: "La pharmacie sera fermée ce jour-là sur la fiche publique.",
+    label: "Fermeture",
+    hint: "Fermé exceptionnellement ce jour (en plus des fériés nationaux).",
     icon: CalendarOff,
   },
   {
-    id: "holiday" as const,
-    label: "Jour férié",
-    hint: "Choisissez la fête dans la liste (dates Maroc).",
-    icon: PartyPopper,
-  },
-  {
     id: "custom" as const,
-    label: "Horaires spécifiques",
-    hint: "Remplace les horaires habituels de ce jour uniquement.",
+    label: "Horaires spéciaux",
+    hint: "Remplace les horaires habituels pour cette date seulement.",
     icon: Clock3,
   },
-];
+] as const;
 
 export function PharmacyOverridesTab({
   todayIso,
@@ -57,7 +52,7 @@ export function PharmacyOverridesTab({
   busy: boolean;
   onAdd: (payload: {
     day_date: string;
-    override_type: "closed" | "holiday" | "custom";
+    override_type: "closed" | "custom";
     label: string | null;
     morning_opens_at: string | null;
     morning_closes_at: string | null;
@@ -68,8 +63,7 @@ export function PharmacyOverridesTab({
   onHint: (message: string, tone?: "info" | "warning" | "error" | "success") => void;
 }) {
   const [overrideDate, setOverrideDate] = useState("");
-  const [overrideType, setOverrideType] = useState<"closed" | "holiday" | "custom">("closed");
-  const [holidayId, setHolidayId] = useState("");
+  const [overrideType, setOverrideType] = useState<"closed" | "custom">("closed");
   const [customMorningOpen, setCustomMorningOpen] = useState("09:00");
   const [customMorningClose, setCustomMorningClose] = useState("13:00");
   const [customAfternoonOpen, setCustomAfternoonOpen] = useState("15:00");
@@ -77,9 +71,10 @@ export function PharmacyOverridesTab({
   const [customMorningClosed, setCustomMorningClosed] = useState(false);
   const [customAfternoonClosed, setCustomAfternoonClosed] = useState(false);
 
-  const holidays = useMemo(() => moroccoPublicHolidaysFromDate(todayIso), [todayIso]);
+  const upcomingHolidays = useMemo(() => moroccoPublicHolidaysFromDate(todayIso).slice(0, 12), [todayIso]);
 
   const dateConflict = overrideDate ? canPlanOverrideOnDate(onCallPeriods, overrideDate) : { ok: true as const };
+  const holidayOnDate = overrideDate ? findMoroccoHolidayOnDate(overrideDate) : undefined;
 
   const submit = async () => {
     if (!overrideDate) {
@@ -95,27 +90,26 @@ export function PharmacyOverridesTab({
       return;
     }
 
-    let label: string | null = null;
+    if (overrideType === "closed" && holidayOnDate) {
+      onHint(
+        `${holidayOnDate.labelFr} est déjà un jour férié (fermé automatiquement). Utilisez « Horaires spéciaux » si vous ouvrez quand même.`,
+        "warning"
+      );
+      return;
+    }
+
     let morning_opens_at: string | null = null;
     let morning_closes_at: string | null = null;
     let afternoon_opens_at: string | null = null;
     let afternoon_closes_at: string | null = null;
 
-    if (overrideType === "holiday") {
-      const h = findMoroccoHolidayById(holidayId);
-      if (!h) {
-        onHint("Choisissez un jour férié dans la liste.", "warning");
-        return;
-      }
-      if (h.dateIso !== overrideDate) setOverrideDate(h.dateIso);
-      label = h.labelFr;
-    } else if (overrideType === "custom") {
+    if (overrideType === "custom") {
       if (!customMorningClosed && (!customMorningOpen || !customMorningClose)) {
-        onHint("Renseignez les horaires du matin ou cochez « Matin fermé ».", "warning");
+        onHint("Renseignez le matin ou cochez Matin fermé.", "warning");
         return;
       }
       if (!customAfternoonClosed && (!customAfternoonOpen || !customAfternoonClose)) {
-        onHint("Renseignez les horaires de l'après-midi ou cochez « Après-midi fermé ».", "warning");
+        onHint("Renseignez l'après-midi ou cochez Après-midi fermé.", "warning");
         return;
       }
       morning_opens_at = customMorningClosed ? null : customMorningOpen;
@@ -123,17 +117,15 @@ export function PharmacyOverridesTab({
       afternoon_opens_at = customAfternoonClosed ? null : customAfternoonOpen;
       afternoon_closes_at = customAfternoonClosed ? null : customAfternoonClose;
       if (customMorningClosed && customAfternoonClosed) {
-        onHint("Indiquez au moins un créneau ouvert pour des horaires spécifiques.", "warning");
+        onHint("Indiquez au moins un créneau ouvert.", "warning");
         return;
       }
     }
 
-    const day_date = overrideType === "holiday" && holidayId ? findMoroccoHolidayById(holidayId)!.dateIso : overrideDate;
-
     const { error } = await onAdd({
-      day_date,
+      day_date: overrideDate,
       override_type: overrideType,
-      label,
+      label: overrideType === "custom" && holidayOnDate ? holidayOnDate.labelFr : null,
       morning_opens_at: overrideType === "custom" ? morning_opens_at : null,
       morning_closes_at: overrideType === "custom" ? morning_closes_at : null,
       afternoon_opens_at: overrideType === "custom" ? afternoon_opens_at : null,
@@ -142,8 +134,7 @@ export function PharmacyOverridesTab({
 
     if (!error) {
       setOverrideDate("");
-      setHolidayId("");
-      onHint("Exception enregistrée — visible sur la fiche publique.", "success");
+      onHint("Exception enregistrée.", "success");
     } else {
       onHint(error, "error");
     }
@@ -151,12 +142,33 @@ export function PharmacyOverridesTab({
 
   return (
     <div className="space-y-4">
-      <p className="rounded-lg border border-dashed border-border px-2.5 py-2 text-[11px] leading-snug text-muted-foreground">
-        Prioritaire sur les horaires habituels. <strong>Interdit</strong> sur un jour déjà en garde — planifiez
-        d&apos;abord la garde (elle peut remplacer une exception existante).
+      <div className="rounded-xl border border-violet-200/70 bg-violet-50/40 px-3 py-2.5">
+        <p className="text-xs font-bold text-violet-950">Jours fériés Maroc (automatiques)</p>
+        <p className="mt-1 text-[11px] leading-snug text-violet-900/90">
+          Pas besoin de les saisir : l&apos;officine est <strong>fermée</strong> ces jours sur la fiche publique, sauf si
+          vous êtes de garde. Les Aid et fêtes mobiles utilisent la <strong>première date annoncée</strong> jusqu&apos;à
+          validation admin chaque année.
+        </p>
+        <ul className="mt-2 max-h-28 space-y-1 overflow-y-auto text-[10px] text-violet-950/90">
+          {upcomingHolidays.map((h) => (
+            <li key={h.id} className="flex justify-between gap-2 border-b border-violet-200/40 pb-0.5 last:border-0">
+              <span>
+                {formatShortDate(h.dateIso)} — {h.labelFr}
+                {h.uncertainDate ? (
+                  <span className="text-violet-700/80"> (date estimée)</span>
+                ) : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <p className="text-[11px] leading-snug text-muted-foreground">
+        Ajoutez seulement une <strong>fermeture exceptionnelle</strong> ou des <strong>horaires spéciaux</strong>. Interdit
+        sur un jour déjà en garde.
       </p>
 
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2">
         {TYPE_OPTIONS.map((opt) => {
           const Icon = opt.icon;
           const active = overrideType === opt.id;
@@ -165,107 +177,63 @@ export function PharmacyOverridesTab({
               key={opt.id}
               type="button"
               className={clsx(
-                "rounded-xl border p-2.5 text-left transition",
-                active ? "border-primary bg-primary/5 ring-1 ring-primary/40" : "border-border bg-card"
+                "flex min-h-11 items-center justify-center gap-1.5 rounded-xl border px-2 py-2 text-xs font-bold",
+                active ? "border-primary bg-primary/5 text-primary" : "border-border bg-card"
               )}
               onClick={() => {
                 setOverrideType(opt.id);
                 onHint(opt.hint, "info");
               }}
             >
-              <Icon className="mb-1 size-4 text-primary" />
-              <p className="text-xs font-bold leading-tight">{opt.label}</p>
+              <Icon className="size-3.5 shrink-0" aria-hidden />
+              {opt.label}
             </button>
           );
         })}
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-3 space-y-3">
-        <label className="block text-xs font-bold">
+      <div className="rounded-xl border border-border bg-card p-2.5 space-y-2">
+        <label className="block text-[11px] font-bold">
           Date
           <input
             type="date"
             min={todayIso}
-            className="mt-1 h-11 w-full rounded-lg border px-2 text-sm"
+            className="mt-1 h-10 w-full rounded-lg border px-2 text-sm"
             value={overrideDate}
             onChange={(e) => setOverrideDate(e.target.value)}
           />
         </label>
 
-        {!dateConflict.ok && overrideDate ? (
-          <p className="text-xs font-medium text-red-700">{dateConflict.reason}</p>
+        {holidayOnDate && overrideType === "closed" ? (
+          <p className="text-[11px] font-medium text-amber-800">
+            Férié automatique : {holidayOnDate.labelFr}. Choisissez « Horaires spéciaux » pour ouvrir ce jour.
+          </p>
         ) : null}
 
-        {overrideType === "holiday" ? (
-          <label className="block text-xs font-bold">
-            Fête (Maroc)
-            <select
-              className="mt-1 h-11 w-full rounded-lg border px-2 text-sm"
-              value={holidayId}
-              onChange={(e) => {
-                setHolidayId(e.target.value);
-                const h = findMoroccoHolidayById(e.target.value);
-                if (h) setOverrideDate(h.dateIso);
-              }}
-            >
-              <option value="">— Choisir une fête —</option>
-              {holidays.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.dateIso.split("-").reverse().join("/")} — {h.labelFr}
-                </option>
-              ))}
-            </select>
-            <span className="mt-1 block text-[10px] font-normal text-muted-foreground">
-              Liste pilote ; les dates seront gérées par l&apos;admin plus tard.
-            </span>
-          </label>
+        {!dateConflict.ok && overrideDate ? (
+          <p className="text-[11px] font-medium text-red-700">{dateConflict.reason}</p>
         ) : null}
 
         {overrideType === "custom" ? (
-          <div className="space-y-3 rounded-lg bg-muted/20 p-2.5">
-            <p className="text-[11px] font-semibold text-muted-foreground">
-              Horaires affichés sur la fiche publique pour ce jour
-            </p>
-            <div className="rounded-lg border border-border/70 bg-card p-2">
-              <label className="mb-2 flex items-center gap-2 text-xs font-bold">
-                <input
-                  type="checkbox"
-                  checked={customMorningClosed}
-                  onChange={(e) => setCustomMorningClosed(e.target.checked)}
-                />
-                Matin fermé
-              </label>
-              {!customMorningClosed ? (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <PharmacySimpleTimeInput label="Ouverture matin" value={customMorningOpen} onChange={setCustomMorningOpen} />
-                  <PharmacySimpleTimeInput label="Fermeture matin" value={customMorningClose} onChange={setCustomMorningClose} />
-                </div>
-              ) : null}
-            </div>
-            <div className="rounded-lg border border-border/70 bg-card p-2">
-              <label className="mb-2 flex items-center gap-2 text-xs font-bold">
-                <input
-                  type="checkbox"
-                  checked={customAfternoonClosed}
-                  onChange={(e) => setCustomAfternoonClosed(e.target.checked)}
-                />
-                Après-midi fermé
-              </label>
-              {!customAfternoonClosed ? (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <PharmacySimpleTimeInput
-                    label="Ouverture après-midi"
-                    value={customAfternoonOpen}
-                    onChange={setCustomAfternoonOpen}
-                  />
-                  <PharmacySimpleTimeInput
-                    label="Fermeture après-midi"
-                    value={customAfternoonClose}
-                    onChange={setCustomAfternoonClose}
-                  />
-                </div>
-              ) : null}
-            </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <PharmacyCompactTimeRange
+              periodLabel="Matin"
+              closed={customMorningClosed}
+              opensAt={customMorningOpen}
+              closesAt={customMorningClose}
+              onClosedChange={setCustomMorningClosed}
+              onOpensChange={setCustomMorningOpen}
+              onClosesChange={setCustomMorningClose}
+            />
+            <PharmacyCompactTimeRange
+              periodLabel="Après-m."
+              closed={customAfternoonClosed}
+              opensAt={customAfternoonOpen}
+              closesAt={customAfternoonClose}
+              onClosedChange={setCustomAfternoonClosed}
+              onOpensChange={setCustomAfternoonOpen}
+              onClosesChange={setCustomAfternoonClose}
+            />
           </div>
         ) : null}
       </div>
@@ -274,37 +242,34 @@ export function PharmacyOverridesTab({
         type="button"
         disabled={busy || !overrideDate || !dateConflict.ok}
         onClick={() => void submit()}
-        className="w-full rounded-xl border-2 border-primary bg-primary/5 px-4 py-3 text-sm font-bold disabled:opacity-50 sm:w-auto"
+        className="w-full rounded-xl border-2 border-primary bg-primary/5 px-4 py-2.5 text-sm font-bold disabled:opacity-50 sm:w-auto"
       >
-        Ajouter l&apos;exception
+        Ajouter
       </button>
 
       {overrideList.length > 0 ? (
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">À venir</h3>
-          <ul className="mt-2 space-y-2">
+          <h3 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+            Vos exceptions planifiées
+          </h3>
+          <ul className="mt-1.5 space-y-1.5">
             {overrideList.map((o) => (
               <li
                 key={o.id}
-                className="flex items-start justify-between gap-2 rounded-xl border bg-muted/10 p-3 text-xs"
+                className="flex items-center justify-between gap-2 rounded-lg border bg-muted/10 px-2.5 py-2 text-xs"
               >
-                <div>
+                <div className="min-w-0">
                   <p className="font-bold">{formatOverrideDate(o.day_date)}</p>
-                  <p className="text-muted-foreground">{OVERRIDE_TYPE_LABEL_FR[o.override_type]}</p>
-                  {o.label?.trim() ? <p className="mt-0.5">{o.label.trim()}</p> : null}
-                  {o.override_type === "custom" ? (
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      {o.morning_opens_at ? `Matin ${o.morning_opens_at.slice(0, 5)}–${o.morning_closes_at?.slice(0, 5)}` : "Matin fermé"}
-                      {" · "}
-                      {o.afternoon_opens_at
-                        ? `AM ${o.afternoon_opens_at.slice(0, 5)}–${o.afternoon_closes_at?.slice(0, 5)}`
-                        : "Après-midi fermé"}
-                    </p>
-                  ) : null}
+                  <p className="text-muted-foreground">
+                    {OVERRIDE_TYPE_LABEL_FR[o.override_type]}
+                    {o.override_type === "custom"
+                      ? ` · ${o.morning_opens_at ? `M ${o.morning_opens_at.slice(0, 5)}–${o.morning_closes_at?.slice(0, 5)}` : "M fermé"} / ${o.afternoon_opens_at ? `AM ${o.afternoon_opens_at.slice(0, 5)}–${o.afternoon_closes_at?.slice(0, 5)}` : "AM fermé"}`
+                      : ""}
+                  </p>
                 </div>
                 <button
                   type="button"
-                  className="shrink-0 font-semibold text-destructive underline"
+                  className="shrink-0 text-[11px] font-semibold text-destructive underline"
                   disabled={busy}
                   onClick={() => void onDelete(o.id)}
                 >
@@ -315,7 +280,7 @@ export function PharmacyOverridesTab({
           </ul>
         </div>
       ) : (
-        <p className="text-[11px] text-muted-foreground">Aucune exception planifiée.</p>
+        <p className="text-[11px] text-muted-foreground">Aucune exception manuelle.</p>
       )}
     </div>
   );

@@ -152,7 +152,7 @@ export default function PharmacienHorairesGardePage() {
 
   const addOverride = async (payload: {
     day_date: string;
-    override_type: "closed" | "holiday" | "custom";
+    override_type: "closed" | "custom";
     label: string | null;
     morning_opens_at: string | null;
     morning_closes_at: string | null;

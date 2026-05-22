@@ -14,15 +14,18 @@ export function PharmacySegmentTabs<T extends string>({
   active,
   onChange,
   ariaLabel,
+  columnClass = "grid-cols-4",
 }: {
   tabs: PharmacySegmentTab<T>[];
   active: T;
   onChange: (id: T) => void;
   ariaLabel: string;
+  /** ex. `grid-cols-3` pour moins d’onglets */
+  columnClass?: string;
 }) {
   return (
     <nav
-      className="grid w-full grid-cols-4 border-b border-border bg-muted/15"
+      className={clsx("grid w-full border-b border-border bg-muted/15", columnClass)}
       aria-label={ariaLabel}
     >
       {tabs.map((t) => {
