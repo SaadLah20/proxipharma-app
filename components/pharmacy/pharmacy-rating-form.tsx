@@ -53,7 +53,10 @@ export function PharmacyRatingForm({ pharmacyId, ratingAvg, ratingCount, onUpdat
   }, [pharmacyId]);
 
   useEffect(() => {
-    void loadContext();
+    const id = window.setTimeout(() => {
+      void loadContext();
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [loadContext]);
 
   const submit = async () => {
