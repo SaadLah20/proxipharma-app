@@ -16,15 +16,21 @@ type ProfileLite = {
   role: "patient" | "pharmacien" | "admin";
 };
 
-type NotifRow = {
+type HeaderNotifRow = {
   id: string;
   created_at: string;
   title: string;
   body: string | null;
-  request_id: string;
   read_at: string | null;
   event_type: string | null;
+  href: string;
+  source: "request" | "promo";
 };
+
+function promoNotifHref(role: string, reservationId: string) {
+  if (role === "pharmacien") return `/dashboard/pharmacien/reservations-packs/${reservationId}`;
+  return `/dashboard/patient/packs-promo/${reservationId}`;
+}
 
 function initials(name: string | null | undefined) {
   const t = (name ?? "").trim();
@@ -146,7 +152,7 @@ export function PlatformHeader() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<ProfileLite | null>(null);
-  const [notifications, setNotifications] = useState<NotifRow[]>([]);
+  const [notifications, setNotifications] = useState<HeaderNotifRow[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -165,21 +171,86 @@ export function PlatformHeader() {
       setProfile(null);
     }
 
-    const { data: notifData } = await supabase
-      .from("app_notifications")
-      .select("id,created_at,title,body,request_id,read_at,event_type")
-      .eq("recipient_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(12);
+    const [{ data: requestNotifs }, { data: promoNotifs }, { count: requestUnread }, { count: promoUnread }] =
+      await Promise.all([
+        supabase
+          .from("app_notifications")
+          .select("id,created_at,title,body,request_id,read_at,event_type")
+          .eq("recipient_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(12),
+        supabase
+          .from("promo_in_app_notifications")
+          .select("id,created_at,title,body,reservation_id,read_at,event_type")
+          .eq("recipient_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(12),
+        supabase
+          .from("app_notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("recipient_id", userId)
+          .is("read_at", null),
+        supabase
+          .from("promo_in_app_notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("recipient_id", userId)
+          .is("read_at", null),
+      ]);
 
-    setNotifications(Array.isArray(notifData) ? (notifData as NotifRow[]) : []);
+    const role = (profileData as ProfileLite | null)?.role ?? "patient";
+    const merged: HeaderNotifRow[] = [
+      ...(Array.isArray(requestNotifs)
+        ? requestNotifs.map((n) => {
+            const row = n as {
+              id: string;
+              created_at: string;
+              title: string;
+              body: string | null;
+              request_id: string;
+              read_at: string | null;
+              event_type: string | null;
+            };
+            return {
+              id: row.id,
+              created_at: row.created_at,
+              title: row.title,
+              body: row.body,
+              read_at: row.read_at,
+              event_type: row.event_type,
+              href: notifDetailHref(role, row.request_id),
+              source: "request" as const,
+            };
+          })
+        : []),
+      ...(Array.isArray(promoNotifs)
+        ? promoNotifs.map((n) => {
+            const row = n as {
+              id: string;
+              created_at: string;
+              title: string;
+              body: string | null;
+              reservation_id: string;
+              read_at: string | null;
+              event_type: string | null;
+            };
+            return {
+              id: `promo-${row.id}`,
+              created_at: row.created_at,
+              title: row.title,
+              body: row.body,
+              read_at: row.read_at,
+              event_type: row.event_type,
+              href: promoNotifHref(role, row.reservation_id),
+              source: "promo" as const,
+            };
+          })
+        : []),
+    ]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, 12);
 
-    const { count } = await supabase
-      .from("app_notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("recipient_id", userId)
-      .is("read_at", null);
-    setUnreadCount(count ?? 0);
+    setNotifications(merged);
+    setUnreadCount((requestUnread ?? 0) + (promoUnread ?? 0));
   }, []);
 
   const markNotificationsAsRead = useCallback(async () => {
@@ -188,13 +259,19 @@ export function PlatformHeader() {
     const nowIso = new Date().toISOString();
     setNotifications((prev) => prev.map((n) => (!n.read_at ? { ...n, read_at: nowIso } : n)));
     setUnreadCount(0);
-    const { error } = await supabase
-      .from("app_notifications")
-      .update({ read_at: nowIso })
-      .eq("recipient_id", userId)
-      .is("read_at", null);
-    if (error) {
-      // Re-sync from source of truth if update fails.
+    const [{ error: reqErr }, { error: promoErr }] = await Promise.all([
+      supabase
+        .from("app_notifications")
+        .update({ read_at: nowIso })
+        .eq("recipient_id", userId)
+        .is("read_at", null),
+      supabase
+        .from("promo_in_app_notifications")
+        .update({ read_at: nowIso })
+        .eq("recipient_id", userId)
+        .is("read_at", null),
+    ]);
+    if (reqErr || promoErr) {
       if (userId) await loadProfileAndNotifs(userId);
     }
   }, [loadProfileAndNotifs, session?.user?.id]);
@@ -326,7 +403,7 @@ export function PlatformHeader() {
                                 }
                                 createdAt={n.created_at}
                                 eventType={n.event_type}
-                                href={notifDetailHref(role, n.request_id)}
+                                href={n.href}
                                 onNavigate={() => setNotifOpen(false)}
                                 compact
                                 isRead={Boolean(n.read_at)}

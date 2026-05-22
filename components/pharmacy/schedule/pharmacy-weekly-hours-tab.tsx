@@ -13,6 +13,17 @@ const WEEKDAYS: { d: number; label: string }[] = [
   { d: 7, label: "Dim" },
 ];
 
+/** Teintes alternées pour distinguer les jours sans surcharger l’écran. */
+const DAY_BLOCK_TINTS: Record<number, string> = {
+  1: "border-sky-200/70 bg-sky-50/50",
+  2: "border-emerald-200/70 bg-emerald-50/45",
+  3: "border-violet-200/70 bg-violet-50/45",
+  4: "border-amber-200/70 bg-amber-50/40",
+  5: "border-rose-200/70 bg-rose-50/40",
+  6: "border-teal-200/70 bg-teal-50/45",
+  7: "border-slate-200/80 bg-slate-50/60",
+};
+
 export type WeeklyDraft = Record<string, { opens_at: string; closes_at: string; is_closed: boolean }>;
 
 export function weeklyKey(weekday: number, period: "morning" | "afternoon") {
@@ -57,11 +68,12 @@ function DayRow({
   return (
     <div
       className={clsx(
-        "grid grid-cols-[2.25rem_1fr] gap-x-2 gap-y-1.5 rounded-xl border border-border/70 bg-card px-2 py-2 sm:grid-cols-[2.5rem_1fr_1fr]",
-        allClosed && "bg-muted/25"
+        "grid grid-cols-[2.75rem_1fr] grid-rows-2 gap-x-2 gap-y-1.5 rounded-xl border px-2 py-2 sm:grid-cols-[2.75rem_1fr_1fr] sm:grid-rows-1",
+        DAY_BLOCK_TINTS[weekday] ?? "border-border/70 bg-card",
+        allClosed && "opacity-75 saturate-50"
       )}
     >
-      <div className="flex flex-col justify-center">
+      <div className="row-span-2 flex flex-col justify-center sm:row-span-1">
         <span className="text-xs font-bold text-foreground">{label}</span>
         <label className="mt-1 flex items-center gap-0.5 text-[9px] font-semibold text-muted-foreground">
           <input
@@ -75,6 +87,7 @@ function DayRow({
       </div>
 
       <PharmacyCompactTimeRange
+        className="col-start-2 row-start-1 sm:col-start-2"
         periodLabel="Matin"
         closed={morning.is_closed}
         opensAt={morning.opens_at}
@@ -85,7 +98,8 @@ function DayRow({
       />
 
       <PharmacyCompactTimeRange
-        periodLabel="Après-m."
+        className="col-start-2 row-start-2 sm:col-start-3 sm:row-start-1"
+        periodLabel="Après-midi"
         closed={afternoon.is_closed}
         opensAt={afternoon.opens_at}
         closesAt={afternoon.closes_at}
