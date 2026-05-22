@@ -2,13 +2,13 @@
 
 import type { LucideIcon } from "lucide-react";
 import {
-  Facebook,
+  ExternalLink,
   Globe,
-  Instagram,
   Mail,
   MapPin,
   MessageCircle,
   Phone,
+  Share2,
 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -97,6 +97,6 @@ export const PHARMACY_CONTACT_ICONS = {
   maps: MapPin,
   email: Mail,
   website: Globe,
-  facebook: Facebook,
-  instagram: Instagram,
+  facebook: Share2,
+  instagram: ExternalLink,
 } as const;
