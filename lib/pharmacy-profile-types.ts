@@ -61,7 +61,7 @@ export type PharmacyPublicProfileRow = {
   rating_count?: number | null;
 };
 
-/** Ouverture selon horaires / exceptions uniquement (pas la garde). */
+/** Ouverture : horaires / exceptions, ou permanence de garde en cours (starts_at → ends_at). */
 export type PharmacyOpenStatus = "open" | "closed";
 
 export type PharmacyDayScheduleLine = {
@@ -71,4 +71,8 @@ export type PharmacyDayScheduleLine = {
   lines: string[];
   isToday: boolean;
   isException: boolean;
+  /** Journée calendaire affichée uniquement comme garde (pas de créneaux habituels). */
+  isOnCallFullDay?: boolean;
+  /** Jour de fin de garde (ex. 10 mai 9h après garde du 9 mai). */
+  isOnCallTailDay?: boolean;
 };
