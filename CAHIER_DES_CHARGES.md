@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.27** ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.28** ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** : pour **vider toutes les demandes** en environnement de test → `scripts/clear-all-requests.mjs` (`.env.local` avec `SUPABASE_SERVICE_ROLE_KEY`) ou SQL `supabase/scripts/clear-all-requests.sql` dans l’éditeur Supabase. **Doublons patient** (même téléphone, 2× `auth.users`) en pilote : reset demandes + suppression des comptes Auth puis nouvelle inscription. Plan de tests E2E demandes produits → fichier Canvas Cursor `canvases/product-requests-e2e-test-plan.canvas.tsx` (mention §13.5).
@@ -320,6 +320,35 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### Session 2026-05-22 — Fiche digitale (Infos/Horaires/notes), upload photos versionné, supply post-validé
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits poussés **`0094611`**, **`9862128`**, **`60c543b`**.
+
+**Migration** (à appliquer sur Supabase pilote si pas encore fait) :
+- **`20260608_001_pharmacy_ratings.sql`** — table **`pharmacy_ratings`** (1 note 1–5 par compte et officine, **sans commentaire** au pilote), agrégats **`pharmacies.rating_avg`** / **`rating_count`**, RPC **`submit_pharmacy_rating`**.
+- **`20260609_001_storage_pharmacy_versioned_media_paths.sql`** — **à appliquer** si upload couverture/logo échoue en RLS : autorise `cover-{ms}.webp` / `logo-{ms}.webp` (policy **`20260528_001`** n’acceptait que `cover` / `logo` exacts).
+
+**Fiche digitale publique** (`components/pharmacy/pharmacy-public-profile.tsx`, commit **`9862128`**) :
+- Onglets **grille 4 colonnes** (plus d’espace vide à droite).
+- Onglet **Infos** : grille contacts (`pharmacy-profile-contact-grid.tsx` — icônes **`Share2`** / **`ExternalLink`** pour Facebook/Instagram, absents de `lucide-react` 1.11), bloc adresse, titulaire, services.
+- Onglet **Horaires** : encart **Aujourd’hui** + semaine en liste avec badges (ouvert / fermé / garde / exception).
+- **Notes patients** : `PharmacyRatingForm` — pilote **sans commentaire** ; après vote = ligne compacte **« Votre note »** + **Modifier** ; enregistrement au clic étoile.
+
+**Upload photos officine** (commit **`9862128`**, corrige retour à l’ancienne image) :
+- Chemins Storage **horodatés** : `pharmacies/{id}/cover-{ms}.webp` | `logo-{ms}.webp` (**`lib/storage-media.ts`** `pharmacyImageObjectPath`) ; suppression de l’ancien fichier au remplacement (**`lib/pharmacy-media.ts`**).
+- Aperçu local pendant l’envoi + anti-cache URL ; **`ma-fiche`** persiste la colonne après upload.
+- **RLS** : appliquer **`20260609_001`** sur Supabase (sinon erreur « row-level security » : policy n’acceptait que `cover.webp` / `logo.webp` fixes).
+
+**Supply pharmacien post-validé** (commit **`0094611`**, `app/dashboard/pharmacien/demandes/[id]/page.tsx`) :
+- **Qté validée** : brouillon aligné `selected_qty` / `available_qty` ; plus d’écrasement au `load()` en `confirmed`/`treated` ; amendement **`validated_qty_change`**.
+- **Ajout produit après validation** : brouillon (`pendingProposalRows`) + canal patient ; qté/dispo saisies avant ajout ; flush à **Enregistrer les modifications**.
+
+**Build** (commit **`60c543b`**) : remplacement icônes Facebook/Instagram inexistantes dans lucide (échec Turbopack/Vercel).
+
+**Phrase de reprise** : **§13.28**.
+
+---
+
 ### Session 2026-05-19 (suite) — Fiche digitale, upload photos officine
 
 **Branche** : `fix/validated-supply-ecart-ui-modal` — commits poussés **`b846a8c`**, **`a4a3b8a`**.
@@ -333,14 +362,14 @@ Statuts retenus v1:
 - Pharmacien **`/dashboard/pharmacien/ma-fiche`** (texte, services, liens) + **`/dashboard/pharmacien/horaires-garde`**.
 - **`lib/pharmacy-schedule-fr.ts`**, **`lib/pharmacy-profile-types.ts`**, **`lib/pharmacy-staff-context.ts`**.
 
-**Photos officine** (commit **`a4a3b8a`**) :
+**Photos officine** (commit **`a4a3b8a`**, chemins versionnés depuis **`9862128`**) :
 - Upload **couverture** + **logo** depuis **Ma fiche** (`components/pharmacy/pharmacy-image-upload-field.tsx`, **`lib/pharmacy-media.ts`**).
-- Storage **`public-assets`** : `pharmacies/{id}/cover.webp`, `pharmacies/{id}/logo.webp` (policies **`20260524_001`**).
+- Storage **`public-assets`** : `pharmacies/{id}/cover-{timestamp}.webp` | `logo-{timestamp}.webp` (spec **`lib/pharmacy-cover-spec.ts`** : ratio **21:9**, 1920×823 px ; policies **`20260524_001`**).
 - Colonnes **`cover_image_path`** + **`logo_url`** ; enregistrement auto après upload.
 
 **Notes produit** (commit **`b846a8c`**) : **`lib/request-line-notes-policy.ts`** ; modal pharmacien lecture seule en `confirmed`|`treated` ; supply n’écrase plus les commentaires.
 
-**Phrase de reprise** : **§13.27**.
+**Phrase de reprise** : **§13.28** (voir session **2026-05-22** pour le détail récent).
 
 ---
 
@@ -373,7 +402,7 @@ Statuts retenus v1:
 
 **Fichiers clés** : `app/dashboard/pharmacien/demandes/[id]/page.tsx`, `app/dashboard/demandes/[id]/page.tsx`, `lib/supply-line-post-confirm.ts`, `lib/patient-line-proposed-badge.ts`, `components/requests/request-conversation-inline.tsx`, `components/requests/shared/request-line-suivi-strip.tsx`.
 
-**Phrase de reprise** : **§13.27** (voir aussi **§13.26** pour le lot consultation/ordonnance juin).
+**Phrase de reprise** : **§13.28** (voir aussi **§13.26** pour le lot consultation/ordonnance juin).
 
 ---
 
@@ -1258,6 +1287,8 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260605_001_alternative_qty_patient_confirm.sql` (plafond qté alternative à la validation patient)
   - `supabase/migrations/20260606_001_pharmacy_digital_profile.sql` (fiche digitale : profil, services, horaires, gardes)
   - `supabase/migrations/20260607_001_lock_line_notes_after_validation.sql` (notes ligne figées après `confirmed`)
+  - `supabase/migrations/20260608_001_pharmacy_ratings.sql` (avis publics 1–5 étoiles par compte ; agrégat sur `pharmacies`)
+  - `supabase/migrations/20260609_001_storage_pharmacy_versioned_media_paths.sql` (RLS Storage : noms fichiers cover-{ms} / logo-{ms})
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -1270,8 +1301,8 @@ Regles fonctionnelles retenues (alignement dernier atelier):
 
 Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-05-03**, **2026-05-05**, **2026-05-06** et **lot plateforme / codes publics 2026-05-05**):
 - **`/`** annuaire + recherche par code officine **`public_ref`** + lien carte vers fiche **`/pharmacie/[id]`** (affiche aussi le code)
-- **`/pharmacie/[id]`** : fiche digitale publique (**`PharmacyPublicProfile`**, onglets services / horaires / infos).
-- **`/dashboard/pharmacien/ma-fiche`** + **`/dashboard/pharmacien/horaires-garde`** : édition fiche officine (texte, services, upload **couverture** / **logo** via **`lib/pharmacy-media.ts`**).
+- **`/pharmacie/[id]`** : fiche digitale publique (**`PharmacyPublicProfile`**, onglets Services / Offres stub / Horaires / Infos ; notes publiques ; contacts en grille).
+- **`/dashboard/pharmacien/ma-fiche`** + **`/dashboard/pharmacien/horaires-garde`** : édition fiche officine (texte, services, upload **couverture** / **logo** versionnés via **`lib/pharmacy-media.ts`**).
 - **`/pharmacie/[id]/demande-produits`**: création demande **`submitted`**
 - **`/dashboard`** (résumé / routage rôle), **`/dashboard/demandes`** (hub + **filtre par réf.** + codes **`request_public_ref`** sur cartes), **`/dashboard/demandes/[id]`** (ref mémorable + code officine en détail)
 - **`/dashboard/demandes`** (vue liste) : refonte UX des filtres/cartes ; suppression bouton copie ; compteurs et montants contextualisés (`responded` vs validé/en traitement/clôturé) ; statut intermédiaire UI **En traitement** (virtuel : `confirmed` + **`post_confirm_fulfillment`** `reserved`/`ordered`, migration **`20260507_005`**)
@@ -1475,23 +1506,27 @@ Voir **§13.23**.
 
 ### 13.24) Phrase de reprise — fiche digitale pharmacie (dépassée pour upload)
 
-Voir **§13.27** (horaires + infos + **upload couverture/logo** livré).
+Voir **§13.28**.
 
 ### 13.25) Phrase de reprise — retours test terrain post-commit (2026-06-03)
 
-Voir **§13.27**.
+Voir **§13.28**.
 
 ### 13.26) Phrase de reprise (dépassée — lot demandes juin 2026-06-03/04)
 
-Voir **§13.27** pour la phrase consolidée actuelle.
+Voir **§13.28** pour la phrase consolidée actuelle.
 
 ### 13.26-suite) Phrase de reprise (historique — après session **2026-06-04**)
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal`. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §10 (sessions 2026-06-03 + **2026-06-04**), §4.4–§4.5, `docs/workflow-ordonnance-consultation-REPONSES.md`. Migrations déjà appliquées : `20260601_001`, `20260602_001`, `20260603_001` — **appliquer si besoin** : `20260604_001_patient_notify_validated_request_updated.sql` (notif patient « Demande validée mise à jour »). État livré : **consultation** = page scroll (brief + messagerie + lignes) ; recherche catalogue pharma consultation corrigée (`propCatalogSearchActive` + `free_consultation`) ; **ordonnance** = badges Ordonnance/Proposé, scan unique patient clôturé, ajout post-validé journalisé + badge « Ajouté après validation » ; patient consultation = récap en-tête, conversation stable ; supply **traité** = bandeau suivi ligne (`RequestLineSuiviStrip`). Fichiers clés : `app/dashboard/pharmacien/demandes/[id]/page.tsx`, `app/dashboard/demandes/[id]/page.tsx`, `lib/supply-line-post-confirm.ts`, `lib/pharmacist-request-catalog-product-block.ts`. Je te dis ensuite quoi faire. »**
 
-### 13.27) Phrase de reprise (recommandée — après session **2026-05-19** fiche digitale + photos)
+### 13.27) Phrase de reprise (dépassée — avant session **2026-05-22**)
 
-**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`a4a3b8a`**+). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§10 (session 2026-05-19 suite)**, §4.4–§4.6, §11. Migrations Supabase dans l’ordre jusqu’à **`20260607_001`** si pas déjà fait (`20260606_001` fiche digitale, `20260607_001` notes ligne figées ; lot juin **`20260601_001`**–**`20260605_001`** pour demandes). **Fiche digitale** : `/pharmacie/[id]` (`PharmacyPublicProfile`), pharmacien **`ma-fiche`** (upload couverture/logo → `public-assets/pharmacies/{id}/cover.webp` + `logo.webp`, colonnes **`cover_image_path`** / **`logo_url`**) et **`horaires-garde`**. **Demandes** : notes patient/officine par ligne **figées après `confirmed`** ; **`request_comments`** = conversation ouverte. Fichiers clés fiche : `components/pharmacy/`, `lib/pharmacy-media.ts`, `lib/pharmacy-schedule-fr.ts`. Fichiers clés demandes : `app/dashboard/pharmacien/demandes/[id]/page.tsx`, `lib/request-line-notes-policy.ts`. Pilote : reset demandes OK si jeux obsolètes. Je te dis ensuite quoi faire (promos fiche, QA, merge `main`, autre). »**
+Voir **§13.28**.
+
+### 13.28) Phrase de reprise (recommandée — après session **2026-05-22**)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`60c543b`**+ : **`0094611`** supply post-validé, **`9862128`** fiche + photos, **`60c543b`** build). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§10 (session 2026-05-22)**, §4.4–§4.6, §11. Migrations Supabase dans l’ordre jusqu’à **`20260608_001`** si pas déjà fait (`20260606_001` fiche, `20260607_001` notes ligne figées, `20260608_001` avis publics ; lot juin **`20260601_001`**–**`20260605_001`** demandes). **Fiche digitale** : `/pharmacie/[id]` — onglets grille 4 col., Infos (contacts), Horaires (encart aujourd’hui), notes **1–5 sans commentaire** (`PharmacyRatingForm`) ; **`ma-fiche`** upload → `pharmacies/{id}/cover-{ms}.webp` | `logo-{ms}.webp` (**`lib/pharmacy-cover-spec.ts`** 21:9 · 1920×823). **Demandes** : `app/dashboard/pharmacien/demandes/[id]/page.tsx` — qté validée persistante, ajouts officine post-validé en brouillon jusqu’à Enregistrer ; notes ligne figées après `confirmed` (`lib/request-line-notes-policy.ts`). Pilote : reset demandes OK si jeux obsolètes. Je te dis ensuite quoi faire (promos fiche, commentaires avis, QA, merge `main`). »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 

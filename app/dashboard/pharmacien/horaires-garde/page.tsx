@@ -247,8 +247,10 @@ export default function PharmacienHorairesGardePage() {
         </Link>
         <h1 className="mt-2 text-lg font-bold">Horaires et garde</h1>
         <p className="text-xs text-muted-foreground">
-          Le public voit <strong>Ouverte</strong> ou <strong>Fermée</strong> selon vos horaires ; le badge{" "}
-          <strong>De garde</strong> s&apos;affiche à part quand une permanence est prévue aujourd&apos;hui.
+          Le public voit <strong>Ouverte</strong> ou <strong>Fermée</strong> (y compris pendant une garde jusqu&apos;à
+          la fin de permanence). Les jours de garde affichent <strong>journée entière</strong> sans vos créneaux
+          habituels ; le lendemain de fin de garde : <strong>Garde jusqu&apos;à …</strong> puis horaires normaux à
+          partir de l&apos;heure de fin (ex. 9 mai 9h → 10 mai 9h).
         </p>
       </div>
 
@@ -415,8 +417,8 @@ export default function PharmacienHorairesGardePage() {
           {tab === "on_call" ? (
             <div className="space-y-4">
               <p className="text-[11px] text-amber-900/90">
-                La garde n&apos;change pas le statut Ouverte/Fermée : elle active le badge &quot;De garde&quot; sur la
-                fiche publique.
+                Ex. garde 24 h du 9 mai 9h au 10 mai 9h : le 9 s&apos;affiche en garde journée entière ; le 10 montre
+                « Garde jusqu&apos;à 09h00 » puis les horaires du 10 à partir de 9h (ou fermeture si férié).
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 <label className="text-xs font-medium sm:col-span-2">

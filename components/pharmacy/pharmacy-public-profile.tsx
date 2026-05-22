@@ -105,7 +105,8 @@ function PharmacyWeekScheduleView({ days, openLabel }: { days: PharmacyDaySchedu
             className={clsx(
               "flex gap-3 px-3 py-2.5 sm:gap-4",
               day.isToday && "bg-primary/[0.04]",
-              day.isException && !day.isToday && "bg-amber-50/40"
+              day.isOnCallFullDay && !day.isToday && "bg-amber-50/50",
+              day.isException && !day.isToday && !day.isOnCallFullDay && "bg-amber-50/40"
             )}
           >
             <div className="w-[4.5rem] shrink-0 sm:w-24">
@@ -113,7 +114,11 @@ function PharmacyWeekScheduleView({ days, openLabel }: { days: PharmacyDaySchedu
                 {day.weekdayLabel.slice(0, 3)}.
               </p>
               <p className="text-[10px] text-muted-foreground">{day.dateLabel}</p>
-              {day.isException ? (
+              {day.isOnCallFullDay ? (
+                <span className="mt-0.5 inline-block text-[9px] font-semibold uppercase tracking-wide text-amber-800">
+                  Garde
+                </span>
+              ) : day.isException ? (
                 <span className="mt-0.5 inline-block text-[9px] font-semibold uppercase tracking-wide text-amber-800">
                   Exception
                 </span>

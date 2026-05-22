@@ -5,7 +5,7 @@
  * | Catégorie              | Bucket          | Préfixe chemin                    |
  * |------------------------|-----------------|-----------------------------------|
  * | Produits               | public-assets   | products/{id}/main.{ext}          |
- * | Pharmacies             | public-assets   | pharmacies/{id}/logo|cover.{ext} |
+ * | Pharmacies             | public-assets   | pharmacies/{id}/logo|cover-{ms}.{ext} |
  * | Ordonnances            | private-media   | ordonnances/{request_id}/…        |
  * | Consultations libres     | private-media   | consultations/{request_id}/…    |
  * | Photos patient (dossier)| private-media  | patient/{request_id}/…          |
