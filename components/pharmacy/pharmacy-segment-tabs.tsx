@@ -22,7 +22,7 @@ export function PharmacySegmentTabs<T extends string>({
 }) {
   return (
     <nav
-      className="flex gap-1 overflow-x-auto border-b border-border bg-muted/15 px-1.5 pb-0 pt-1.5 scrollbar-none"
+      className="grid w-full grid-cols-4 border-b border-border bg-muted/15"
       aria-label={ariaLabel}
     >
       {tabs.map((t) => {
@@ -34,9 +34,9 @@ export function PharmacySegmentTabs<T extends string>({
             type="button"
             onClick={() => onChange(t.id)}
             className={clsx(
-              "flex min-w-[4.5rem] shrink-0 flex-col items-center gap-0.5 rounded-t-xl px-2 py-2 text-[9px] font-bold uppercase tracking-wide transition sm:min-w-0 sm:flex-1 sm:flex-row sm:gap-1.5 sm:text-[10px]",
+              "flex w-full flex-col items-center justify-center gap-0.5 rounded-t-xl px-1 py-2.5 text-[9px] font-bold uppercase tracking-wide transition sm:flex-row sm:gap-1.5 sm:px-2 sm:text-[10px]",
               isActive
-                ? "bg-card text-primary shadow-[0_-1px_0_0_hsl(var(--border))] ring-1 ring-border/80"
+                ? "bg-card text-primary shadow-[0_-1px_0_0_hsl(var(--border))] ring-1 ring-inset ring-border/80"
                 : "text-muted-foreground hover:bg-card/60 hover:text-foreground"
             )}
           >
