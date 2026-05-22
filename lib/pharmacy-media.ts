@@ -70,7 +70,7 @@ export async function uploadPharmacyImageFile(
       error.message.toLowerCase().includes("row-level security") ||
       error.message.toLowerCase().includes("policy");
     const hint = rls
-      ? " Vérifiez que vous êtes bien rattaché à cette officine (pharmacy_staff) et que la migration Storage 20260524_001 est appliquée."
+      ? " Vérifiez pharmacy_staff, puis migrations Storage 20260524_001 et 20260609_001 (chemins cover-{ms}.webp / logo-{ms}.webp)."
       : "";
     return { path: "", error: `${error.message}${hint}` };
   }

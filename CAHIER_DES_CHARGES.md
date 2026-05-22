@@ -326,6 +326,7 @@ Statuts retenus v1:
 
 **Migration** (à appliquer sur Supabase pilote si pas encore fait) :
 - **`20260608_001_pharmacy_ratings.sql`** — table **`pharmacy_ratings`** (1 note 1–5 par compte et officine, **sans commentaire** au pilote), agrégats **`pharmacies.rating_avg`** / **`rating_count`**, RPC **`submit_pharmacy_rating`**.
+- **`20260609_001_storage_pharmacy_versioned_media_paths.sql`** — **à appliquer** si upload couverture/logo échoue en RLS : autorise `cover-{ms}.webp` / `logo-{ms}.webp` (policy **`20260528_001`** n’acceptait que `cover` / `logo` exacts).
 
 **Fiche digitale publique** (`components/pharmacy/pharmacy-public-profile.tsx`, commit **`9862128`**) :
 - Onglets **grille 4 colonnes** (plus d’espace vide à droite).
@@ -336,6 +337,7 @@ Statuts retenus v1:
 **Upload photos officine** (commit **`9862128`**, corrige retour à l’ancienne image) :
 - Chemins Storage **horodatés** : `pharmacies/{id}/cover-{ms}.webp` | `logo-{ms}.webp` (**`lib/storage-media.ts`** `pharmacyImageObjectPath`) ; suppression de l’ancien fichier au remplacement (**`lib/pharmacy-media.ts`**).
 - Aperçu local pendant l’envoi + anti-cache URL ; **`ma-fiche`** persiste la colonne après upload.
+- **RLS** : appliquer **`20260609_001`** sur Supabase (sinon erreur « row-level security » : policy n’acceptait que `cover.webp` / `logo.webp` fixes).
 
 **Supply pharmacien post-validé** (commit **`0094611`**, `app/dashboard/pharmacien/demandes/[id]/page.tsx`) :
 - **Qté validée** : brouillon aligné `selected_qty` / `available_qty` ; plus d’écrasement au `load()` en `confirmed`/`treated` ; amendement **`validated_qty_change`**.
@@ -1286,6 +1288,7 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260606_001_pharmacy_digital_profile.sql` (fiche digitale : profil, services, horaires, gardes)
   - `supabase/migrations/20260607_001_lock_line_notes_after_validation.sql` (notes ligne figées après `confirmed`)
   - `supabase/migrations/20260608_001_pharmacy_ratings.sql` (avis publics 1–5 étoiles par compte ; agrégat sur `pharmacies`)
+  - `supabase/migrations/20260609_001_storage_pharmacy_versioned_media_paths.sql` (RLS Storage : noms fichiers cover-{ms} / logo-{ms})
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
