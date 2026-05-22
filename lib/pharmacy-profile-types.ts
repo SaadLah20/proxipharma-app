@@ -61,7 +61,8 @@ export type PharmacyPublicProfileRow = {
   rating_count?: number | null;
 };
 
-export type PharmacyOpenStatus = "open" | "closed" | "on_call";
+/** Ouverture selon horaires / exceptions uniquement (pas la garde). */
+export type PharmacyOpenStatus = "open" | "closed";
 
 export type PharmacyDayScheduleLine = {
   dateIso: string;

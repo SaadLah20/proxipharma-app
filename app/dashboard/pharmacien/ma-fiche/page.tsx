@@ -5,7 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageShell } from "@/components/ui/compact-shell";
 import { supabase } from "@/lib/supabase";
+import { PharmacyFormField } from "@/components/pharmacy/pharmacy-form-field";
 import { PharmacyImageUploadField } from "@/components/pharmacy/pharmacy-image-upload-field";
+import { PHARMACY_COVER_UPLOAD_HINT, PHARMACY_LOGO_UPLOAD_HINT } from "@/lib/pharmacy-cover-spec";
+import {
+  PHARMACY_FORM_FIELDS,
+  normalizeOptionalUrl,
+  validatePharmacyProfileForm,
+  type PharmacyFieldKey,
+} from "@/lib/pharmacy-form-fields";
 import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
 import type { PharmacyPublicProfileRow, PharmacyServiceCatalogRow } from "@/lib/pharmacy-profile-types";
 
@@ -87,6 +95,11 @@ export default function PharmacienMaFichePage() {
 
   const save = async () => {
     if (!pharmacyId) return;
+    const validationError = validatePharmacyProfileForm(form);
+    if (validationError) {
+      setMessage(validationError);
+      return;
+    }
     setBusy(true);
     setMessage("");
     const { error } = await supabase
@@ -96,10 +109,10 @@ export default function PharmacienMaFichePage() {
         titular_name: form.titular_name.trim() || null,
         titular_title: form.titular_title.trim() || "Pharmacien titulaire",
         email: form.email.trim() || null,
-        website_url: form.website_url.trim() || null,
-        facebook_url: form.facebook_url.trim() || null,
-        instagram_url: form.instagram_url.trim() || null,
-        maps_url: form.maps_url.trim() || null,
+        website_url: normalizeOptionalUrl(form.website_url),
+        facebook_url: normalizeOptionalUrl(form.facebook_url),
+        instagram_url: normalizeOptionalUrl(form.instagram_url),
+        maps_url: normalizeOptionalUrl(form.maps_url),
         cover_image_path: form.cover_image_path.trim() || null,
         logo_url: form.logo_url.trim() || null,
       })
@@ -172,30 +185,21 @@ export default function PharmacienMaFichePage() {
 
       <section className="rounded-lg border bg-card p-4 shadow-sm space-y-3">
         <h2 className="text-sm font-bold">Informations publiques</h2>
-        <label className="block text-xs">
-          Message d&apos;accueil
-          <textarea
-            rows={3}
-            className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-            value={form.welcome_text}
-            onChange={(e) => setForm((f) => ({ ...f, welcome_text: e.target.value }))}
+        {(["welcome_text", "titular_name", "titular_title"] as PharmacyFieldKey[]).map((key) => (
+          <PharmacyFormField
+            key={key}
+            meta={PHARMACY_FORM_FIELDS[key]}
+            value={form[key]}
+            onChange={(v) => setForm((f) => ({ ...f, [key]: v }))}
           />
-        </label>
-        <label className="block text-xs">
-          Pharmacien titulaire
-          <input
-            className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-            value={form.titular_name}
-            onChange={(e) => setForm((f) => ({ ...f, titular_name: e.target.value }))}
-          />
-        </label>
+        ))}
         {pharmacyId ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <PharmacyImageUploadField
               pharmacyId={pharmacyId}
               kind="cover"
               label="Photo de couverture"
-              hint="Bannière en tête de la fiche publique (format paysage recommandé)."
+              hint={PHARMACY_COVER_UPLOAD_HINT}
               storedPath={form.cover_image_path}
               onStoredPathChange={(cover_image_path) => {
                 setForm((f) => ({ ...f, cover_image_path }));
@@ -207,7 +211,7 @@ export default function PharmacienMaFichePage() {
               pharmacyId={pharmacyId}
               kind="logo"
               label="Logo officine"
-              hint="Affiché sur la fiche publique (carré, fond transparent si possible)."
+              hint={PHARMACY_LOGO_UPLOAD_HINT}
               storedPath={form.logo_url}
               onStoredPathChange={(logo_url) => {
                 setForm((f) => ({ ...f, logo_url }));
@@ -217,48 +221,18 @@ export default function PharmacienMaFichePage() {
             />
           </div>
         ) : null}
-        <div className="grid gap-2 sm:grid-cols-2">
-          <label className="text-xs">
-            E-mail
-            <input
-              type="email"
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-              value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-            />
-          </label>
-          <label className="text-xs">
-            Site web
-            <input
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-              value={form.website_url}
-              onChange={(e) => setForm((f) => ({ ...f, website_url: e.target.value }))}
-            />
-          </label>
-          <label className="text-xs">
-            Facebook
-            <input
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-              value={form.facebook_url}
-              onChange={(e) => setForm((f) => ({ ...f, facebook_url: e.target.value }))}
-            />
-          </label>
-          <label className="text-xs">
-            Instagram
-            <input
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-              value={form.instagram_url}
-              onChange={(e) => setForm((f) => ({ ...f, instagram_url: e.target.value }))}
-            />
-          </label>
-          <label className="text-xs sm:col-span-2">
-            Lien carte (Google Maps)
-            <input
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-              value={form.maps_url}
-              onChange={(e) => setForm((f) => ({ ...f, maps_url: e.target.value }))}
-            />
-          </label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {(["email", "website_url", "facebook_url", "instagram_url", "maps_url"] as PharmacyFieldKey[]).map(
+            (key) => (
+              <div key={key} className={key === "maps_url" ? "sm:col-span-2" : undefined}>
+                <PharmacyFormField
+                  meta={PHARMACY_FORM_FIELDS[key]}
+                  value={form[key]}
+                  onChange={(v) => setForm((f) => ({ ...f, [key]: v }))}
+                />
+              </div>
+            )
+          )}
         </div>
       </section>
 
