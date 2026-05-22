@@ -119,6 +119,7 @@ export const patientNavLinks: { href: string; label: string }[] = [
   { href: "/dashboard/demandes", label: "Mes demandes de produits" },
   { href: "/dashboard/patient/ordonnances", label: "Mes ordonnances" },
   { href: "/dashboard/patient/consultations-libres", label: "Mes consultations libres" },
+  { href: "/dashboard/patient/packs-promo", label: "Mes packs promo" },
   { href: "/dashboard/patient/liste-souhaits", label: "Liste de souhaits" },
   { href: "/dashboard/patient/parametres", label: "Paramètres" },
 ];
@@ -136,6 +137,7 @@ export const pharmacienNavLinks: { href: string; label: string }[] = [
   { href: "/dashboard/pharmacien/pricing", label: "Moteur de pricing" },
   { href: "/dashboard/pharmacien/ruptures-marche", label: "Produits en rupture" },
   { href: "/dashboard/pharmacien/offres-promos", label: "Offres et promos" },
+  { href: "/dashboard/pharmacien/reservations-packs", label: "Réservations packs" },
   { href: "/dashboard/pharmacien/parametres", label: "Paramètres généraux" },
 ];
 

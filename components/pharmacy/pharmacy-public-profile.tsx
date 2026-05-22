@@ -29,6 +29,7 @@ import type {
   PharmacyServiceCatalogRow,
   PharmacyWeeklyHourRow,
 } from "@/lib/pharmacy-profile-types";
+import { PublicPromoOffers } from "@/components/promo/public-promo-offers";
 import { PharmacySegmentTabs } from "@/components/pharmacy/pharmacy-segment-tabs";
 import { PharmacyRatingForm } from "@/components/pharmacy/pharmacy-rating-form";
 import {
@@ -349,14 +350,7 @@ export function PharmacyPublicProfile({
           </div>
         ) : null}
 
-        {tab === "promos" ? (
-          <div className="rounded-xl border border-dashed border-border bg-muted/15 p-6 text-center">
-            <Tag className="mx-auto mb-2 size-8 text-muted-foreground/50" aria-hidden />
-            <p className="text-sm text-muted-foreground">
-              Offres spéciales à venir. La pharmacie pourra publier ses promotions depuis son espace officine.
-            </p>
-          </div>
-        ) : null}
+        {tab === "promos" ? <PublicPromoOffers pharmacyId={pharmacy.id} /> : null}
 
         {tab === "hours" ? (
           <PharmacyWeekScheduleView days={weekLines} openLabel={openState.openLabel} />
