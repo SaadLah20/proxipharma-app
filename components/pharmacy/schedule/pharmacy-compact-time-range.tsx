@@ -12,6 +12,7 @@ export function PharmacyCompactTimeRange({
   onOpensChange,
   onClosesChange,
   disabled,
+  className,
 }: {
   periodLabel: string;
   closed: boolean;
@@ -21,16 +22,20 @@ export function PharmacyCompactTimeRange({
   onOpensChange: (value: string) => void;
   onClosesChange: (value: string) => void;
   disabled?: boolean;
+  className?: string;
 }) {
   return (
     <div
       className={clsx(
-        "flex min-w-0 flex-1 flex-col gap-1 rounded-lg border border-border/60 bg-background px-2 py-1.5",
-        disabled && "opacity-50"
+        "flex min-w-0 flex-col gap-1 rounded-lg border border-border/60 bg-background/90 px-2 py-1.5",
+        disabled && "opacity-50",
+        className
       )}
     >
       <div className="flex items-center justify-between gap-1">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{periodLabel}</span>
+        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-muted-foreground whitespace-nowrap">
+          {periodLabel}
+        </span>
         <label className="flex items-center gap-1 text-[10px] font-semibold text-foreground">
           <input
             type="checkbox"
@@ -43,13 +48,13 @@ export function PharmacyCompactTimeRange({
         </label>
       </div>
       {!closed ? (
-        <div className="flex items-center gap-1">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1">
           <input
             type="time"
             disabled={disabled}
             value={opensAt}
             onChange={(e) => onOpensChange(e.target.value)}
-            className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-1 text-xs font-medium tabular-nums"
+            className="h-9 w-full min-w-[4.5rem] rounded-md border border-input bg-background px-1 text-xs font-medium tabular-nums"
           />
           <span className="shrink-0 text-[10px] text-muted-foreground">→</span>
           <input
@@ -57,7 +62,7 @@ export function PharmacyCompactTimeRange({
             disabled={disabled}
             value={closesAt}
             onChange={(e) => onClosesChange(e.target.value)}
-            className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-1 text-xs font-medium tabular-nums"
+            className="h-9 w-full min-w-[4.5rem] rounded-md border border-input bg-background px-1 text-xs font-medium tabular-nums"
           />
         </div>
       ) : null}
