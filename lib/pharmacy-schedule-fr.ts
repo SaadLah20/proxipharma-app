@@ -11,6 +11,12 @@ const TZ = "Africa/Casablanca";
 
 const WEEKDAY_FR = ["", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
+export const OVERRIDE_TYPE_LABEL_FR: Record<PharmacyDayOverrideRow["override_type"], string> = {
+  closed: "Fermeture exceptionnelle",
+  holiday: "Jour férié",
+  custom: "Horaires spécifiques",
+};
+
 function parseTimeToMinutes(t: string | null | undefined): number | null {
   if (!t?.trim()) return null;
   const m = /^(\d{1,2}):(\d{2})/.exec(t.trim());
@@ -166,31 +172,39 @@ function isOpenFromOverrideAt(o: PharmacyDayOverrideRow, minutes: number): boole
   return open;
 }
 
-/** Statut public : ouvert, fermé, ou en garde (permanence active maintenant). */
+function isOnCallNowAt(onCall: PharmacyOnCallPeriodRow[], at: Date = new Date()): boolean {
+  return onCall.some((p) => {
+    const start = new Date(p.starts_at);
+    const end = new Date(p.ends_at);
+    return at >= start && at < end;
+  });
+}
+
+function isOnCallOnDate(onCall: PharmacyOnCallPeriodRow[], dateIso: string): boolean {
+  const dayStart = new Date(`${dateIso}T00:00:00`);
+  const dayEnd = new Date(`${dateIso}T23:59:59.999`);
+  return onCall.some((p) => {
+    const start = new Date(p.starts_at);
+    const end = new Date(p.ends_at);
+    return start <= dayEnd && end >= dayStart;
+  });
+}
+
+/** Statut d'ouverture (horaires) + indicateurs garde séparés. */
 export function resolvePharmacyOpenStatus(
   weekly: PharmacyWeeklyHourRow[],
   overrides: PharmacyDayOverrideRow[],
   onCall: PharmacyOnCallPeriodRow[]
-): { status: PharmacyOpenStatus; onCallToday: boolean; label: string } {
+): {
+  status: PharmacyOpenStatus;
+  openLabel: string;
+  onCallNow: boolean;
+  onCallToday: boolean;
+} {
   const now = new Date();
-  const activeOnCall = onCall.find((p) => {
-    const start = new Date(p.starts_at);
-    const end = new Date(p.ends_at);
-    return now >= start && now < end;
-  });
-
   const todayIso = isoDateInCasablanca();
-  const onCallToday = onCall.some((p) => {
-    const start = new Date(p.starts_at);
-    const end = new Date(p.ends_at);
-    const dayStart = new Date(`${todayIso}T00:00:00`);
-    const dayEnd = new Date(`${todayIso}T23:59:59.999`);
-    return start <= dayEnd && end >= dayStart;
-  });
-
-  if (activeOnCall) {
-    return { status: "on_call", onCallToday: true, label: "De garde" };
-  }
+  const onCallNow = isOnCallNowAt(onCall, now);
+  const onCallToday = isOnCallOnDate(onCall, todayIso);
 
   const minutes = minutesNowInCasablanca();
   const weekday = isoWeekdayInCasablanca();
@@ -203,10 +217,12 @@ export function resolvePharmacyOpenStatus(
     open = isOpenFromWeeklyAt(weekly, weekday, minutes);
   }
 
-  if (open) {
-    return { status: "open", onCallToday, label: onCallToday ? "Ouverte (garde prévue)" : "Ouverte" };
-  }
-  return { status: "closed", onCallToday, label: onCallToday ? "Fermée (garde prévue)" : "Fermée" };
+  return {
+    status: open ? "open" : "closed",
+    openLabel: open ? "Ouverte" : "Fermée",
+    onCallNow,
+    onCallToday,
+  };
 }
 
 export const ON_CALL_KIND_LABEL_FR: Record<string, string> = {

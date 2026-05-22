@@ -3,11 +3,25 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CalendarOff, CalendarRange, Clock } from "lucide-react";
 import { PageShell } from "@/components/ui/compact-shell";
+import { PharmacySegmentTabs } from "@/components/pharmacy/pharmacy-segment-tabs";
 import { supabase } from "@/lib/supabase";
 import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
-import { ON_CALL_KIND_LABEL_FR } from "@/lib/pharmacy-schedule-fr";
-import type { PharmacyOnCallKind, PharmacyWeeklyHourRow } from "@/lib/pharmacy-profile-types";
+import { ON_CALL_KIND_LABEL_FR, OVERRIDE_TYPE_LABEL_FR } from "@/lib/pharmacy-schedule-fr";
+import type {
+  PharmacyDayOverrideRow,
+  PharmacyOnCallKind,
+  PharmacyWeeklyHourRow,
+} from "@/lib/pharmacy-profile-types";
+
+type ScheduleTab = "weekly" | "overrides" | "on_call";
+
+const SCHEDULE_TABS = [
+  { id: "weekly" as const, label: "Horaires", icon: Clock },
+  { id: "overrides" as const, label: "Exceptions", icon: CalendarOff },
+  { id: "on_call" as const, label: "Garde", icon: CalendarRange },
+];
 
 const WEEKDAYS: { d: number; label: string }[] = [
   { d: 1, label: "Lundi" },
@@ -43,10 +57,21 @@ function rowsToDraft(rows: PharmacyWeeklyHourRow[]): WeeklyDraft {
   return d;
 }
 
+function formatOverrideDate(iso: string) {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString("fr-FR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export default function PharmacienHorairesGardePage() {
   const router = useRouter();
+  const [tab, setTab] = useState<ScheduleTab>("weekly");
   const [pharmacyId, setPharmacyId] = useState<string | null>(null);
   const [weeklyDraft, setWeeklyDraft] = useState<WeeklyDraft>({});
+  const [overrideList, setOverrideList] = useState<PharmacyDayOverrideRow[]>([]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -73,11 +98,19 @@ export default function PharmacienHorairesGardePage() {
     }
     setPharmacyId(ctx.pharmacyId);
 
-    const [wh, oc] = await Promise.all([
+    const today = new Date().toISOString().slice(0, 10);
+
+    const [wh, ov, oc] = await Promise.all([
       supabase
         .from("pharmacy_weekly_hours")
         .select("weekday,period,opens_at,closes_at,is_closed")
         .eq("pharmacy_id", ctx.pharmacyId),
+      supabase
+        .from("pharmacy_day_overrides")
+        .select("id,day_date,override_type,label")
+        .eq("pharmacy_id", ctx.pharmacyId)
+        .gte("day_date", today)
+        .order("day_date"),
       supabase
         .from("pharmacy_on_call_periods")
         .select("id,kind,starts_at,ends_at,note")
@@ -87,6 +120,7 @@ export default function PharmacienHorairesGardePage() {
     ]);
 
     setWeeklyDraft(rowsToDraft((wh.data ?? []) as PharmacyWeeklyHourRow[]));
+    setOverrideList((ov.data ?? []) as PharmacyDayOverrideRow[]);
     setOnCallList((oc.data ?? []) as typeof onCallList);
     setLoading(false);
   }, []);
@@ -151,9 +185,21 @@ export default function PharmacienHorairesGardePage() {
       { onConflict: "pharmacy_id,day_date" }
     );
     setBusy(false);
-    setMessage(error ? error.message : "Exception enregistrée.");
-    setOverrideDate("");
-    setOverrideLabel("");
+    if (error) setMessage(error.message);
+    else {
+      setMessage("Exception enregistrée.");
+      setOverrideDate("");
+      setOverrideLabel("");
+      void load();
+    }
+  };
+
+  const deleteOverride = async (id: string) => {
+    setBusy(true);
+    const { error } = await supabase.from("pharmacy_day_overrides").delete().eq("id", id);
+    setBusy(false);
+    if (!error) void load();
+    else setMessage(error.message);
   };
 
   const addOnCall = async () => {
@@ -194,210 +240,268 @@ export default function PharmacienHorairesGardePage() {
   }
 
   return (
-    <PageShell maxWidthClass="max-w-4xl" className="space-y-5">
+    <PageShell maxWidthClass="max-w-4xl" className="space-y-4">
       <div>
         <Link href="/dashboard/pharmacien/ma-fiche" className="text-xs font-medium text-primary underline">
           ← Ma fiche
         </Link>
         <h1 className="mt-2 text-lg font-bold">Horaires et garde</h1>
         <p className="text-xs text-muted-foreground">
-          Modèle Maroc par défaut (lun–ven 9h–13h / 15h–21h, sam 9h–13h). Le public voit la semaine en cours et si vous
-          êtes de garde aujourd&apos;hui.
+          Le public voit <strong>Ouverte</strong> ou <strong>Fermée</strong> selon vos horaires ; le badge{" "}
+          <strong>De garde</strong> s&apos;affiche à part quand une permanence est prévue aujourd&apos;hui.
         </p>
       </div>
 
       {message ? <p className="rounded-lg bg-sky-50 p-2 text-sm text-sky-950">{message}</p> : null}
 
-      <section className="rounded-lg border bg-card p-4 shadow-sm">
-        <h2 className="text-sm font-bold">Horaires habituels</h2>
-        <div className="mt-3 space-y-3">
-          {WEEKDAYS.map(({ d, label }) => (
-            <div key={d} className="rounded-md border border-border/70 p-2">
-              <p className="text-[11px] font-bold">{label}</p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {(["morning", "afternoon"] as const).map((period) => {
-                  const k = key(d, period);
-                  const cell = weeklyDraft[k];
-                  return (
-                    <div key={period} className="space-y-1">
-                      <p className="text-[10px] uppercase text-muted-foreground">
-                        {period === "morning" ? "Matin" : "Après-midi"}
-                      </p>
-                      <label className="flex items-center gap-2 text-[11px]">
-                        <input
-                          type="checkbox"
-                          checked={cell.is_closed}
-                          onChange={(e) =>
-                            setWeeklyDraft((p) => ({
-                              ...p,
-                              [k]: { ...p[k], is_closed: e.target.checked },
-                            }))
-                          }
-                        />
-                        Fermé
-                      </label>
-                      {!cell.is_closed ? (
-                        <div className="flex gap-1">
-                          <input
-                            type="time"
-                            className="w-full rounded border px-1 py-1 text-xs"
-                            value={cell.opens_at}
-                            onChange={(e) =>
-                              setWeeklyDraft((p) => ({ ...p, [k]: { ...p[k], opens_at: e.target.value } }))
-                            }
-                          />
-                          <input
-                            type="time"
-                            className="w-full rounded border px-1 py-1 text-xs"
-                            value={cell.closes_at}
-                            onChange={(e) =>
-                              setWeeklyDraft((p) => ({ ...p, [k]: { ...p[k], closes_at: e.target.value } }))
-                            }
-                          />
-                        </div>
-                      ) : null}
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <PharmacySegmentTabs tabs={SCHEDULE_TABS} active={tab} onChange={setTab} ariaLabel="Gestion horaires" />
+
+        <div className="p-4">
+          {tab === "weekly" ? (
+            <div className="space-y-3">
+              <p className="text-[11px] text-muted-foreground">
+                Modèle Maroc par défaut (lun–ven 9h–13h / 15h–21h, sam 9h–13h).
+              </p>
+              <div className="space-y-3">
+                {WEEKDAYS.map(({ d, label }) => (
+                  <div key={d} className="rounded-lg border border-border/70 p-2.5">
+                    <p className="text-[11px] font-bold">{label}</p>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {(["morning", "afternoon"] as const).map((period) => {
+                        const k = key(d, period);
+                        const cell = weeklyDraft[k];
+                        return (
+                          <div key={period} className="space-y-1">
+                            <p className="text-[10px] uppercase text-muted-foreground">
+                              {period === "morning" ? "Matin" : "Après-midi"}
+                            </p>
+                            <label className="flex items-center gap-2 text-[11px]">
+                              <input
+                                type="checkbox"
+                                checked={cell.is_closed}
+                                onChange={(e) =>
+                                  setWeeklyDraft((p) => ({
+                                    ...p,
+                                    [k]: { ...p[k], is_closed: e.target.checked },
+                                  }))
+                                }
+                              />
+                              Fermé
+                            </label>
+                            {!cell.is_closed ? (
+                              <div className="flex gap-1">
+                                <input
+                                  type="time"
+                                  className="w-full rounded-lg border px-1.5 py-1 text-xs"
+                                  value={cell.opens_at}
+                                  onChange={(e) =>
+                                    setWeeklyDraft((p) => ({ ...p, [k]: { ...p[k], opens_at: e.target.value } }))
+                                  }
+                                />
+                                <input
+                                  type="time"
+                                  className="w-full rounded-lg border px-1.5 py-1 text-xs"
+                                  value={cell.closes_at}
+                                  onChange={(e) =>
+                                    setWeeklyDraft((p) => ({ ...p, [k]: { ...p[k], closes_at: e.target.value } }))
+                                  }
+                                />
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void saveWeekly()}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                Enregistrer les horaires
+              </button>
             </div>
-          ))}
-        </div>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void saveWeekly()}
-          className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-        >
-          Enregistrer les horaires
-        </button>
-      </section>
+          ) : null}
 
-      <section className="rounded-lg border bg-card p-4 shadow-sm">
-        <h2 className="text-sm font-bold">Exception (fermeture ou férié)</h2>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          <label className="text-xs">
-            Date
-            <input
-              type="date"
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-              value={overrideDate}
-              onChange={(e) => setOverrideDate(e.target.value)}
-            />
-          </label>
-          <label className="text-xs">
-            Type
-            <select
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-              value={overrideType}
-              onChange={(e) => setOverrideType(e.target.value as typeof overrideType)}
-            >
-              <option value="closed">Fermeture exceptionnelle</option>
-              <option value="holiday">Jour férié</option>
-              <option value="custom">Horaires spécifiques</option>
-            </select>
-          </label>
-          <label className="text-xs sm:col-span-2">
-            Libellé (optionnel)
-            <input
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-              value={overrideLabel}
-              onChange={(e) => setOverrideLabel(e.target.value)}
-              placeholder="Ex. Aid el-Fitr"
-            />
-          </label>
-        </div>
-        <button
-          type="button"
-          disabled={busy || !overrideDate}
-          onClick={() => void addOverride()}
-          className="mt-3 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50"
-        >
-          Ajouter l&apos;exception
-        </button>
-      </section>
+          {tab === "overrides" ? (
+            <div className="space-y-4">
+              <p className="text-[11px] text-muted-foreground">
+                Fermetures exceptionnelles ou jours fériés pour des dates précises (prioritaires sur le planning
+                habituel).
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="text-xs font-medium">
+                  Date
+                  <input
+                    type="date"
+                    className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
+                    value={overrideDate}
+                    onChange={(e) => setOverrideDate(e.target.value)}
+                  />
+                  <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">
+                    Jour concerné par l&apos;exception.
+                  </span>
+                </label>
+                <label className="text-xs font-medium">
+                  Type
+                  <select
+                    className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
+                    value={overrideType}
+                    onChange={(e) => setOverrideType(e.target.value as typeof overrideType)}
+                  >
+                    <option value="closed">Fermeture exceptionnelle</option>
+                    <option value="holiday">Jour férié</option>
+                    <option value="custom">Horaires spécifiques</option>
+                  </select>
+                </label>
+                <label className="text-xs font-medium sm:col-span-2">
+                  Libellé (optionnel)
+                  <input
+                    className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
+                    value={overrideLabel}
+                    maxLength={80}
+                    onChange={(e) => setOverrideLabel(e.target.value)}
+                    placeholder="Ex. Aid el-Fitr"
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                disabled={busy || !overrideDate}
+                onClick={() => void addOverride()}
+                className="rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50"
+              >
+                Ajouter l&apos;exception
+              </button>
 
-      <section className="rounded-lg border border-amber-200/80 bg-amber-50/30 p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-amber-950">Planning de garde</h2>
-        <p className="mt-1 text-[11px] text-amber-900/90">
-          Garde 24 h : ouverture continue de l&apos;heure de début à l&apos;heure de fin (ex. 15 mai 9h → 16 mai 9h).
-          Garde 48 h week-end : typiquement samedi 9h → dimanche 9h.
-        </p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <label className="text-xs sm:col-span-2">
-            Type
-            <select
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-              value={onCallKind}
-              onChange={(e) => setOnCallKind(e.target.value as PharmacyOnCallKind)}
-            >
-              {Object.entries(ON_CALL_KIND_LABEL_FR).map(([k, lab]) => (
-                <option key={k} value={k}>
-                  {lab}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-xs">
-            Début
-            <input
-              type="datetime-local"
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-              value={onCallStart}
-              onChange={(e) => setOnCallStart(e.target.value)}
-            />
-          </label>
-          <label className="text-xs">
-            Fin
-            <input
-              type="datetime-local"
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-              value={onCallEnd}
-              onChange={(e) => setOnCallEnd(e.target.value)}
-            />
-          </label>
-          <label className="text-xs sm:col-span-2">
-            Note
-            <input
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-              value={onCallNote}
-              onChange={(e) => setOnCallNote(e.target.value)}
-            />
-          </label>
-        </div>
-        <button
-          type="button"
-          disabled={busy || !onCallStart || !onCallEnd}
-          onClick={() => void addOnCall()}
-          className="mt-3 rounded-lg bg-amber-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          Planifier une garde
-        </button>
-
-        {onCallList.length > 0 ? (
-          <ul className="mt-4 space-y-2">
-            {onCallList.map((p) => (
-              <li key={p.id} className="flex items-start justify-between gap-2 rounded border bg-white p-2 text-xs">
+              {overrideList.length > 0 ? (
                 <div>
-                  <p className="font-semibold">{ON_CALL_KIND_LABEL_FR[p.kind] ?? p.kind}</p>
-                  <p className="text-muted-foreground">
-                    {new Date(p.starts_at).toLocaleString("fr-FR")} → {new Date(p.ends_at).toLocaleString("fr-FR")}
-                  </p>
-                  {p.note ? <p>{p.note}</p> : null}
+                  <h3 className="text-xs font-bold text-muted-foreground">À venir</h3>
+                  <ul className="mt-2 space-y-2">
+                    {overrideList.map((o) => (
+                      <li
+                        key={o.id}
+                        className="flex items-start justify-between gap-2 rounded-lg border bg-muted/10 p-2.5 text-xs"
+                      >
+                        <div>
+                          <p className="font-semibold">{formatOverrideDate(o.day_date)}</p>
+                          <p className="text-muted-foreground">
+                            {OVERRIDE_TYPE_LABEL_FR[o.override_type]}
+                            {o.label?.trim() ? ` · ${o.label.trim()}` : ""}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="shrink-0 text-destructive underline"
+                          disabled={busy}
+                          onClick={() => void deleteOverride(o.id)}
+                        >
+                          Retirer
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <button
-                  type="button"
-                  className="shrink-0 text-destructive underline"
-                  disabled={busy}
-                  onClick={() => void deleteOnCall(p.id)}
-                >
-                  Retirer
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </section>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">Aucune exception planifiée.</p>
+              )}
+            </div>
+          ) : null}
+
+          {tab === "on_call" ? (
+            <div className="space-y-4">
+              <p className="text-[11px] text-amber-900/90">
+                La garde n&apos;change pas le statut Ouverte/Fermée : elle active le badge &quot;De garde&quot; sur la
+                fiche publique.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="text-xs font-medium sm:col-span-2">
+                  Type
+                  <select
+                    className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
+                    value={onCallKind}
+                    onChange={(e) => setOnCallKind(e.target.value as PharmacyOnCallKind)}
+                  >
+                    {Object.entries(ON_CALL_KIND_LABEL_FR).map(([k, lab]) => (
+                      <option key={k} value={k}>
+                        {lab}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-xs font-medium">
+                  Début
+                  <input
+                    type="datetime-local"
+                    className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
+                    value={onCallStart}
+                    onChange={(e) => setOnCallStart(e.target.value)}
+                  />
+                </label>
+                <label className="text-xs font-medium">
+                  Fin
+                  <input
+                    type="datetime-local"
+                    className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
+                    value={onCallEnd}
+                    onChange={(e) => setOnCallEnd(e.target.value)}
+                  />
+                </label>
+                <label className="text-xs font-medium sm:col-span-2">
+                  Note
+                  <input
+                    className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
+                    value={onCallNote}
+                    maxLength={120}
+                    onChange={(e) => setOnCallNote(e.target.value)}
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                disabled={busy || !onCallStart || !onCallEnd}
+                onClick={() => void addOnCall()}
+                className="rounded-lg bg-amber-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                Planifier une garde
+              </button>
+
+              {onCallList.length > 0 ? (
+                <ul className="space-y-2">
+                  {onCallList.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex items-start justify-between gap-2 rounded-lg border border-amber-200/60 bg-amber-50/40 p-2.5 text-xs"
+                    >
+                      <div>
+                        <p className="font-semibold text-amber-950">{ON_CALL_KIND_LABEL_FR[p.kind] ?? p.kind}</p>
+                        <p className="text-amber-900/80">
+                          {new Date(p.starts_at).toLocaleString("fr-FR")} → {new Date(p.ends_at).toLocaleString("fr-FR")}
+                        </p>
+                        {p.note ? <p>{p.note}</p> : null}
+                      </div>
+                      <button
+                        type="button"
+                        className="shrink-0 text-destructive underline"
+                        disabled={busy}
+                        onClick={() => void deleteOnCall(p.id)}
+                      >
+                        Retirer
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">Aucune garde planifiée.</p>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </div>
 
       {pharmacyId ? (
         <Link href={`/pharmacie/${pharmacyId}`} className="inline-block text-sm font-medium text-emerald-800 underline">
