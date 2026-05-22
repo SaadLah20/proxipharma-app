@@ -120,7 +120,7 @@ function PharmacyWeekScheduleView({ days, openLabel }: { days: PharmacyDaySchedu
                 </span>
               ) : day.isException ? (
                 <span className="mt-0.5 inline-block text-[9px] font-semibold uppercase tracking-wide text-amber-800">
-                  Exception
+                  {day.lines[0]?.startsWith("Férié") ? "Férié" : "Exception"}
                 </span>
               ) : null}
             </div>

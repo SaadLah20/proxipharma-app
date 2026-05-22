@@ -1,4 +1,5 @@
 import { formatDateShortFr } from "@/lib/datetime-fr";
+import { findMoroccoHolidayOnDate } from "@/lib/morocco-public-holidays";
 import type {
   PharmacyDayOverrideRow,
   PharmacyDayScheduleLine,
@@ -169,6 +170,13 @@ function buildDayLinesFromWeekly(
   return lines;
 }
 
+function buildMoroccoHolidayLines(dateIso: string): string[] {
+  const h = findMoroccoHolidayOnDate(dateIso);
+  if (!h) return ["Fermé"];
+  const suffix = h.uncertainDate ? " (date estimée)" : "";
+  return [`Férié — ${h.labelFr}${suffix}`];
+}
+
 function buildDayLinesFromOverride(o: PharmacyDayOverrideRow, opts?: { treatOpenFromMinutes?: number }): string[] {
   if (o.override_type === "closed" || o.override_type === "holiday") {
     const closedLabel = o.label?.trim()
@@ -212,7 +220,9 @@ function buildPublicDayLines(
   // Jour de fin de garde : horaires habituels (ou exception) à partir de l'heure de fin — ex. mer. 24h → jeu. « Garde jusqu'à 9h » + créneaux du jeu.
   const base = override
     ? buildDayLinesFromOverride(override, { treatOpenFromMinutes: treatFrom })
-    : buildDayLinesFromWeekly(weekly, weekday, { treatOpenFromMinutes: treatFrom });
+    : findMoroccoHolidayOnDate(dateIso)
+      ? buildMoroccoHolidayLines(dateIso)
+      : buildDayLinesFromWeekly(weekly, weekday, { treatOpenFromMinutes: treatFrom });
 
   for (const line of base) {
     if (tailEnd != null && (line === "Fermé" || line.startsWith("Fermé"))) continue;
@@ -258,6 +268,7 @@ export function buildCurrentWeekScheduleFr(
     const dateIso = isoDateInCasablanca(d);
     const weekday = i + 1;
     const override = overrideByDate.get(dateIso);
+    const publicHoliday = findMoroccoHolidayOnDate(dateIso);
     const { lines, isOnCallFullDay, isOnCallTailDay } = buildPublicDayLines(
       dateIso,
       weekday,
@@ -272,7 +283,7 @@ export function buildCurrentWeekScheduleFr(
       dateLabel: formatDateShortFr(dateIso),
       lines,
       isToday: dateIso === todayIso,
-      isException: Boolean(override) && !isOnCallFullDay,
+      isException: Boolean((override || publicHoliday) && !isOnCallFullDay),
       isOnCallFullDay,
       isOnCallTailDay,
     });
@@ -339,6 +350,8 @@ export function resolvePharmacyOpenStatus(
     if (override) {
       const o = isOpenFromOverrideAt(override, minutes);
       open = o === true;
+    } else if (findMoroccoHolidayOnDate(todayIso)) {
+      open = false;
     } else {
       open = isOpenFromWeeklyAt(weekly, weekday, minutes);
     }
