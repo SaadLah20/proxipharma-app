@@ -1,0 +1,33 @@
+---
+description: Livraison commit/push, PR Vercel preview, rôle utilisateur (merge seul)
+alwaysApply: true
+---
+
+# Livraison — rôle utilisateur vs agent
+
+L’utilisateur **n’est pas développeur**. Il ne fait **pas** git, PR, ni Vercel lui-même.
+
+## Ce que fait l’utilisateur (seulement)
+
+1. Appliquer les migrations Supabase quand l’agent le signale (SQL Editor, ordre `YYYYMMDD_*`).
+2. Après **commit & push** de l’agent : **attendre** la preview Vercel (URL sur la PR ou lien indiqué par l’agent).
+3. Tester sur la preview.
+4. GitHub → **Pull requests** → **Merge** quand c’est bon.
+5. En cas d’erreur : copier-coller le message complet (navigateur / console).
+
+**Il ne doit jamais** avoir à ouvrir une PR, installer `gh`, ou comprendre les branches — sauf clic **Merge**.
+
+## Ce que fait l’agent à chaque livraison groupée
+
+1. Travailler sur la **branche de feature** (pas `main` sauf consigne explicite).
+2. **Avant ou juste après le push** : s’assurer qu’une **PR ouverte vers `main`** couvre les commits (créer ou rouvrir si la dernière PR a été mergée — ne pas laisser des push orphelins sans PR).
+3. `git commit` + `git push` sur cette branche.
+4. Répondre brièvement : numéro/lien PR, preview Vercel en cours, migrations à appliquer le cas échéant, rappel « merge quand la preview vous convient ».
+5. Ne pas demander à l’utilisateur de faire des étapes git/GitHub techniques.
+
+## Vercel
+
+- **Preview** = PR vers `main` + push sur la branche (déploiement auto habituel).
+- **Production** = après **merge** de la PR dans `main`.
+
+Si preview absente après push : vérifier PR ouverte ; sinon en créer une ( `gh pr create` si auth OK, sinon lien compare GitHub).

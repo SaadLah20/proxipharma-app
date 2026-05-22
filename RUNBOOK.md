@@ -94,15 +94,13 @@ L’app affiche un libellé français via `mapAuthErrorToFrench` (`lib/auth-mess
 
 ## 3) Process de release (solo founder)
 
-1. Creer une branche de travail:
-   - `git switch -c feat/nom-court`
-2. Commit et push sur la branche
-3. Ouvrir une PR vers `main`
-4. Attendre checks verts:
-   - `lint-and-build`
-   - Vercel preview
-5. Merge PR
-6. Verifier le deploiement production Vercel
+**Répartition** : l’agent Cursor gère branche, commits, push et **PR ouverte** (voir `.cursor/rules/delivery-workflow-user.mdc`). Vous : migrations Supabase si besoin, attendre la preview, tester, **Merge** sur GitHub.
+
+1. (Agent) Branche de travail + PR vers `main` si aucune PR ouverte après le dernier merge
+2. (Agent) Commit et push sur la branche → preview Vercel sur la PR
+3. (Vous) Attendre checks verts (`lint-and-build`, Vercel preview) et tester la preview
+4. (Vous) Merge PR sur GitHub
+5. (Vous) Verifier le deploiement production Vercel apres merge
 
 Important:
 - Ne pas push direct sur `main` (branche protegee)

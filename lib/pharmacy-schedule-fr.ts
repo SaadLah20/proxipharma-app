@@ -209,6 +209,7 @@ function buildPublicDayLines(
 
   if (tailEnd != null) lines.push(gardeTailLine(tailEnd));
 
+  // Jour de fin de garde : horaires habituels (ou exception) à partir de l'heure de fin — ex. mer. 24h → jeu. « Garde jusqu'à 9h » + créneaux du jeu.
   const base = override
     ? buildDayLinesFromOverride(override, { treatOpenFromMinutes: treatFrom })
     : buildDayLinesFromWeekly(weekly, weekday, { treatOpenFromMinutes: treatFrom });
@@ -216,6 +217,13 @@ function buildPublicDayLines(
   for (const line of base) {
     if (tailEnd != null && (line === "Fermé" || line.startsWith("Fermé"))) continue;
     lines.push(line);
+  }
+
+  if (tailEnd != null && base.length > 0 && lines.length === 1) {
+    const weeklyFallback = buildDayLinesFromWeekly(weekly, weekday, { treatOpenFromMinutes: treatFrom });
+    for (const line of weeklyFallback) {
+      if (line !== "Fermé" && !line.startsWith("Fermé") && !lines.includes(line)) lines.push(line);
+    }
   }
 
   if (lines.length === 0 && tailEnd != null) {

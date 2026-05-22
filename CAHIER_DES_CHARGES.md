@@ -15,9 +15,16 @@ Au **demarrage** d une session :
 
 A la **sortie**: demander ou accepter la mise a jour de ce cahier (Journal + Etat actuel + prompt de reprise du §12).
 
+**Répartition livraison (utilisateur non dev)** — détail agent : `.cursor/rules/delivery-workflow-user.mdc` ; `RUNBOOK.md` §3.
+
+| Qui | Actions |
+|-----|---------|
+| **Utilisateur** | Migrations Supabase si nouvelles ; après livraison agent → attendre **preview Vercel**, tester ; GitHub **PR → Merge** ; coller les erreurs si besoin. |
+| **Agent** | Branche feature, **PR ouverte vers `main`** (créer/rouvrir si la précédente est mergée), `commit` + `push`, indiquer lien PR + preview + migrations. |
+
 **Ton role coté infra (minimal)**:
 1. Appliquer tout nouveau fichier sous `supabase/migrations/` sur Supabase (ordre chronologique des noms).
-2. `git commit` + `git push` quand l assistant indique une livraison groupee.
+2. Attendre la preview Vercel puis merger la PR quand c est bon (pas de git cote utilisateur).
 3. En cas d'erreur : copier-coller integralement le message (navigateur ou console).
 
 **Ou est la verite du backend (schema)** : les migrations Git + les RPC/policies decrites dedans ; le SQL Editor hors migrations est reserve aux tests ponctuels mais ne remplace pas le fichier migre versionne dans le depot.
