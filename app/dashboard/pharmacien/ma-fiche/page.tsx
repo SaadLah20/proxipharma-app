@@ -142,8 +142,12 @@ export default function PharmacienMaFichePage() {
     if (!pharmacyId) return;
     const value = path.trim() || null;
     const { error } = await supabase.from("pharmacies").update({ [column]: value }).eq("id", pharmacyId);
-    if (error) setMessage(error.message);
-    else setMessage(column === "cover_image_path" ? "Couverture enregistrée." : "Logo enregistré.");
+    if (error) {
+      setMessage(error.message);
+      return false;
+    }
+    setMessage(column === "cover_image_path" ? "Couverture enregistrée." : "Logo enregistré.");
+    return true;
   };
 
   const toggleService = (id: string) => {
@@ -202,8 +206,14 @@ export default function PharmacienMaFichePage() {
               hint={PHARMACY_COVER_UPLOAD_HINT}
               storedPath={form.cover_image_path}
               onStoredPathChange={(cover_image_path) => {
-                setForm((f) => ({ ...f, cover_image_path }));
-                void persistImageColumn("cover_image_path", cover_image_path);
+                setForm((f) => {
+                  const previous = f.cover_image_path;
+                  void (async () => {
+                    const ok = await persistImageColumn("cover_image_path", cover_image_path);
+                    if (!ok) setForm((ff) => ({ ...ff, cover_image_path: previous }));
+                  })();
+                  return { ...f, cover_image_path };
+                });
               }}
               aspectClass="aspect-[21/9]"
             />
@@ -214,8 +224,14 @@ export default function PharmacienMaFichePage() {
               hint={PHARMACY_LOGO_UPLOAD_HINT}
               storedPath={form.logo_url}
               onStoredPathChange={(logo_url) => {
-                setForm((f) => ({ ...f, logo_url }));
-                void persistImageColumn("logo_url", logo_url);
+                setForm((f) => {
+                  const previous = f.logo_url;
+                  void (async () => {
+                    const ok = await persistImageColumn("logo_url", logo_url);
+                    if (!ok) setForm((ff) => ({ ...ff, logo_url: previous }));
+                  })();
+                  return { ...f, logo_url };
+                });
               }}
               aspectClass="aspect-square"
             />

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  CalendarClock,
   Clock,
   FileText,
   Info,
@@ -30,6 +31,12 @@ import type {
 } from "@/lib/pharmacy-profile-types";
 import { PharmacySegmentTabs } from "@/components/pharmacy/pharmacy-segment-tabs";
 import { PharmacyRatingForm } from "@/components/pharmacy/pharmacy-rating-form";
+import {
+  PHARMACY_CONTACT_ICONS,
+  PharmacyProfileContactGrid,
+  type PharmacyProfileContactItem,
+} from "@/components/pharmacy/pharmacy-profile-contact-grid";
+import type { PharmacyDayScheduleLine } from "@/lib/pharmacy-profile-types";
 
 type TabId = "services" | "promos" | "hours" | "info";
 
@@ -44,34 +51,83 @@ function normalizeWhatsApp(value: string | null) {
   return (value ?? "").replace(/[^\d]/g, "");
 }
 
-function ContactChip({
-  href,
-  label,
-  disabled,
-  onClick,
-}: {
-  href?: string;
-  label: string;
-  disabled?: boolean;
-  onClick?: () => void;
-}) {
-  if (disabled || !href) {
-    return (
-      <span className="rounded-xl border border-dashed border-border/80 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
-        {label} : non renseigné
-      </span>
-    );
-  }
+function scheduleLineTone(line: string): "closed" | "oncall" | "open" | "meta" {
+  if (/garde/i.test(line)) return "oncall";
+  if (/fermé|férié/i.test(line)) return "closed";
+  if (/matin|après-midi|\d{1,2}h\d/i.test(line)) return "open";
+  return "meta";
+}
+
+function ScheduleLineBadge({ line }: { line: string }) {
+  const tone = scheduleLineTone(line);
   return (
-    <a
-      href={href}
-      target={href.startsWith("http") ? "_blank" : undefined}
-      rel={href.startsWith("http") ? "noreferrer" : undefined}
-      onClick={onClick}
-      className="inline-flex min-h-9 items-center justify-center rounded-xl border border-border bg-card px-3 py-2 text-[11px] font-semibold text-foreground shadow-sm transition hover:border-primary/30 hover:bg-muted/40"
+    <span
+      className={clsx(
+        "inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium leading-snug",
+        tone === "closed" && "bg-rose-50 text-rose-900 ring-1 ring-rose-200/80",
+        tone === "oncall" && "bg-amber-50 text-amber-950 ring-1 ring-amber-200/80",
+        tone === "open" && "bg-emerald-50/90 text-emerald-950 ring-1 ring-emerald-200/70",
+        tone === "meta" && "bg-muted/50 text-foreground/85 ring-1 ring-border/60"
+      )}
     >
-      {label}
-    </a>
+      {line}
+    </span>
+  );
+}
+
+function PharmacyWeekScheduleView({ days, openLabel }: { days: PharmacyDayScheduleLine[]; openLabel: string }) {
+  const today = days.find((d) => d.isToday);
+
+  return (
+    <div className="space-y-3">
+      {today ? (
+        <div className="rounded-xl border-2 border-primary/35 bg-gradient-to-br from-primary/8 via-card to-card p-3 shadow-sm ring-1 ring-primary/15">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold text-foreground">
+              <CalendarClock className="size-4 text-primary" aria-hidden />
+              Aujourd&apos;hui · {today.weekdayLabel} {today.dateLabel}
+            </p>
+            <span className="rounded-full bg-primary/12 px-2 py-0.5 text-[10px] font-bold text-primary">{openLabel}</span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1">
+            {today.lines.map((line, i) => (
+              <ScheduleLineBadge key={i} line={line} />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Semaine en cours</p>
+      <ul className="overflow-hidden rounded-xl border border-border/80 bg-card divide-y divide-border/60">
+        {days.map((day) => (
+          <li
+            key={day.dateIso}
+            className={clsx(
+              "flex gap-3 px-3 py-2.5 sm:gap-4",
+              day.isToday && "bg-primary/[0.04]",
+              day.isException && !day.isToday && "bg-amber-50/40"
+            )}
+          >
+            <div className="w-[4.5rem] shrink-0 sm:w-24">
+              <p className={clsx("text-[11px] font-bold", day.isToday ? "text-primary" : "text-foreground")}>
+                {day.weekdayLabel.slice(0, 3)}.
+              </p>
+              <p className="text-[10px] text-muted-foreground">{day.dateLabel}</p>
+              {day.isException ? (
+                <span className="mt-0.5 inline-block text-[9px] font-semibold uppercase tracking-wide text-amber-800">
+                  Exception
+                </span>
+              ) : null}
+            </div>
+            <div className="min-w-0 flex-1 flex flex-wrap content-start gap-1">
+              {day.lines.map((line, i) => (
+                <ScheduleLineBadge key={i} line={line} />
+              ))}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -110,6 +166,75 @@ export function PharmacyPublicProfile({
     const set = new Set(serviceIds);
     return serviceCatalog.filter((s) => set.has(s.id));
   }, [serviceIds, serviceCatalog]);
+
+  const mapsHref =
+    pharmacy.maps_url?.trim() ||
+    (pharmacy.latitude != null && pharmacy.longitude != null
+      ? `https://www.google.com/maps?q=${pharmacy.latitude},${pharmacy.longitude}`
+      : undefined);
+
+  const contactItems = useMemo((): PharmacyProfileContactItem[] => {
+    const tel = pharmacy.telephone?.trim();
+    return [
+      {
+        id: "phone",
+        label: "Appeler",
+        detail: tel ?? undefined,
+        href: tel ? `tel:${tel}` : undefined,
+        icon: PHARMACY_CONTACT_ICONS.phone,
+        tone: "phone",
+        onClick: () =>
+          trackPharmacyEngagement({ pharmacyId: pharmacy.id, eventType: "phone_click", source: "profile" }),
+      },
+      {
+        id: "whatsapp",
+        label: "WhatsApp",
+        detail: wa ? "Message" : undefined,
+        href: wa ? `https://wa.me/${wa}` : undefined,
+        icon: PHARMACY_CONTACT_ICONS.whatsapp,
+        tone: "whatsapp",
+        onClick: () =>
+          trackPharmacyEngagement({ pharmacyId: pharmacy.id, eventType: "whatsapp_click", source: "profile" }),
+      },
+      {
+        id: "maps",
+        label: "Itinéraire",
+        detail: "Carte",
+        href: mapsHref,
+        icon: PHARMACY_CONTACT_ICONS.maps,
+        tone: "maps",
+      },
+      {
+        id: "email",
+        label: "E-mail",
+        detail: pharmacy.email?.trim() ?? undefined,
+        href: pharmacy.email?.trim() ? `mailto:${pharmacy.email.trim()}` : undefined,
+        icon: PHARMACY_CONTACT_ICONS.email,
+        tone: "neutral",
+      },
+      {
+        id: "website",
+        label: "Site web",
+        href: pharmacy.website_url ?? undefined,
+        icon: PHARMACY_CONTACT_ICONS.website,
+        tone: "neutral",
+      },
+      {
+        id: "facebook",
+        label: "Facebook",
+        href: pharmacy.facebook_url ?? undefined,
+        icon: PHARMACY_CONTACT_ICONS.facebook,
+        tone: "neutral",
+      },
+      {
+        id: "instagram",
+        label: "Instagram",
+        href: pharmacy.instagram_url ?? undefined,
+        icon: PHARMACY_CONTACT_ICONS.instagram,
+        tone: "neutral",
+      },
+    ];
+  }, [pharmacy, wa, mapsHref]);
 
   const ratingLabel =
     (ratingCount ?? 0) > 0 ? `${Number(ratingAvg ?? 0).toFixed(1)} (${ratingCount} avis)` : "Pas encore d'avis";
@@ -229,50 +354,35 @@ export function PharmacyPublicProfile({
         ) : null}
 
         {tab === "hours" ? (
-          <div className="space-y-3">
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
-              <Clock className="size-4 text-primary" aria-hidden />
-              Semaine en cours
-            </p>
-            <ul className="space-y-2">
-              {weekLines.map((day) => (
-                <li
-                  key={day.dateIso}
-                  className={clsx(
-                    "rounded-xl border px-3 py-2.5 transition",
-                    day.isToday ? "border-primary/45 bg-primary/5 ring-1 ring-primary/15" : "border-border/70 bg-muted/10",
-                    day.isException && "border-amber-200/90 bg-amber-50/50"
-                  )}
-                >
-                  <p className="text-[11px] font-bold text-foreground">
-                    {day.weekdayLabel}
-                    <span className="font-normal text-muted-foreground"> · {day.dateLabel}</span>
-                    {day.isToday ? (
-                      <span className="ms-1.5 rounded-md bg-primary/15 px-1.5 py-px text-[9px] uppercase tracking-wide text-primary">
-                        Aujourd&apos;hui
-                      </span>
-                    ) : null}
-                  </p>
-                  <ul className="mt-1.5 space-y-0.5">
-                    {day.lines.map((line, i) => (
-                      <li key={i} className="text-[11px] leading-snug text-foreground/90">
-                        {line}
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <PharmacyWeekScheduleView days={weekLines} openLabel={openState.openLabel} />
         ) : null}
 
         {tab === "info" ? (
           <div className="space-y-4">
             {pharmacy.welcome_text?.trim() ? (
-              <p className="rounded-lg bg-muted/20 px-3 py-2 text-[12px] leading-relaxed text-foreground/90">
+              <p className="rounded-xl border border-border/60 bg-gradient-to-br from-muted/30 to-card px-3 py-2.5 text-[12px] leading-relaxed text-foreground/90">
                 {pharmacy.welcome_text.trim()}
               </p>
             ) : null}
+
+            <div className="rounded-xl border border-border/70 bg-card p-3 shadow-sm">
+              <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Adresse</h2>
+              <p className="mt-2 flex items-start gap-2 text-[12px] leading-snug text-foreground">
+                <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <MapPin className="size-4" aria-hidden />
+                </span>
+                <span>
+                  <span className="font-semibold">{pharmacy.adresse}</span>
+                  <br />
+                  <span className="text-muted-foreground">{pharmacy.ville}</span>
+                </span>
+              </p>
+            </div>
+
+            <div>
+              <h2 className="mb-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Contact</h2>
+              <PharmacyProfileContactGrid items={contactItems} />
+            </div>
 
             <PharmacyRatingForm
               pharmacyId={pharmacy.id}
@@ -283,50 +393,6 @@ export function PharmacyPublicProfile({
                 setRatingCount(count);
               }}
             />
-
-            <div>
-              <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Coordonnées</h2>
-              <p className="mt-1.5 flex items-start gap-1.5 text-[12px] text-foreground">
-                <MapPin className="mt-0.5 size-4 shrink-0 text-primary/80" aria-hidden />
-                <span>
-                  {pharmacy.adresse}
-                  <br />
-                  {pharmacy.ville}
-                </span>
-              </p>
-              <div className="mt-2.5 flex flex-wrap gap-2">
-                <ContactChip
-                  href={pharmacy.telephone ? `tel:${pharmacy.telephone}` : undefined}
-                  label="Téléphone"
-                  disabled={!pharmacy.telephone}
-                  onClick={() =>
-                    trackPharmacyEngagement({ pharmacyId: pharmacy.id, eventType: "phone_click", source: "profile" })
-                  }
-                />
-                <ContactChip
-                  href={wa ? `https://wa.me/${wa}` : undefined}
-                  label="WhatsApp"
-                  disabled={!wa}
-                  onClick={() =>
-                    trackPharmacyEngagement({ pharmacyId: pharmacy.id, eventType: "whatsapp_click", source: "profile" })
-                  }
-                />
-                <ContactChip
-                  href={
-                    pharmacy.maps_url?.trim() ||
-                    (pharmacy.latitude != null && pharmacy.longitude != null
-                      ? `https://www.google.com/maps?q=${pharmacy.latitude},${pharmacy.longitude}`
-                      : undefined)
-                  }
-                  label="Itinéraire"
-                  disabled={!pharmacy.maps_url?.trim() && (pharmacy.latitude == null || pharmacy.longitude == null)}
-                />
-                <ContactChip href={pharmacy.email ? `mailto:${pharmacy.email}` : undefined} label="E-mail" disabled={!pharmacy.email} />
-                <ContactChip href={pharmacy.website_url ?? undefined} label="Site web" disabled={!pharmacy.website_url} />
-                <ContactChip href={pharmacy.facebook_url ?? undefined} label="Facebook" disabled={!pharmacy.facebook_url} />
-                <ContactChip href={pharmacy.instagram_url ?? undefined} label="Instagram" disabled={!pharmacy.instagram_url} />
-              </div>
-            </div>
 
             {pharmacy.titular_name?.trim() ? (
               <div>

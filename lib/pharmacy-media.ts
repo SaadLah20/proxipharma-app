@@ -36,7 +36,8 @@ async function compressImageFile(file: File, maxSide: number): Promise<Blob> {
 export async function uploadPharmacyImageFile(
   pharmacyId: string,
   kind: PharmacyImageKind,
-  file: File
+  file: File,
+  previousPath?: string | null
 ): Promise<{ path: string; error: string | null }> {
   if (file.size > MAX_BYTES) {
     return { path: "", error: "Image trop lourde (max. 8 Mo)." };
@@ -60,7 +61,7 @@ export async function uploadPharmacyImageFile(
 
   const objectPath = pharmacyImageObjectPath(pharmacyId, kind, "webp");
   const { error } = await supabase.storage.from(STORAGE_BUCKET_PUBLIC).upload(objectPath, blob, {
-    upsert: true,
+    upsert: false,
     contentType: "image/webp",
   });
 
@@ -71,7 +72,12 @@ export async function uploadPharmacyImageFile(
     const hint = rls
       ? " Vérifiez que vous êtes bien rattaché à cette officine (pharmacy_staff) et que la migration Storage 20260524_001 est appliquée."
       : "";
-    return { path: objectPath, error: `${error.message}${hint}` };
+    return { path: "", error: `${error.message}${hint}` };
+  }
+
+  const prev = previousPath?.trim();
+  if (prev && prev !== objectPath) {
+    await removePharmacyImageFile(prev);
   }
 
   return { path: objectPath, error: null };

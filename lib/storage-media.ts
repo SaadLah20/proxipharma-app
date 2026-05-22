@@ -28,12 +28,14 @@ export function productImageObjectPath(productId: string, ext = "webp"): string 
   return `${STORAGE_PATH_PREFIX.products}/${productId}/main.${ext}`;
 }
 
+/** Nouveau fichier à chaque upload (évite le cache navigateur sur une URL fixe). */
 export function pharmacyImageObjectPath(
   pharmacyId: string,
   kind: PharmacyImageKind,
-  ext = "webp"
+  ext = "webp",
+  versionMs: number = Date.now()
 ): string {
-  return `${STORAGE_PATH_PREFIX.pharmacies}/${pharmacyId}/${kind}.${ext}`;
+  return `${STORAGE_PATH_PREFIX.pharmacies}/${pharmacyId}/${kind}-${versionMs}.${ext}`;
 }
 
 export function ordonnanceMediaObjectPath(requestId: string, fileId: string, ext = "webp"): string {

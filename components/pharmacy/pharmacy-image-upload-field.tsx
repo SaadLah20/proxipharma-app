@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ImagePlus, Trash2 } from "lucide-react";
 import { clsx } from "clsx";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
@@ -30,21 +30,40 @@ export function PharmacyImageUploadField({
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState("");
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
+  const [previewToken, setPreviewToken] = useState(0);
 
-  const previewUrl = resolvePublicMediaUrl(storedPath.trim() || null);
+  useEffect(() => {
+    return () => {
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+    };
+  }, [localPreviewUrl]);
+
+  const storedPreviewUrl = resolvePublicMediaUrl(storedPath.trim() || null);
+  const previewUrl =
+    localPreviewUrl ??
+    (storedPreviewUrl
+      ? `${storedPreviewUrl}${storedPreviewUrl.includes("?") ? "&" : "?"}v=${previewToken}`
+      : null);
 
   const pickFile = () => inputRef.current?.click();
 
   const onFile = async (file: File | undefined) => {
     if (!file) return;
     setLocalError("");
+    const blobPreview = URL.createObjectURL(file);
+    setLocalPreviewUrl(blobPreview);
     setBusy(true);
-    const { path, error } = await uploadPharmacyImageFile(pharmacyId, kind, file);
+    const previousPath = storedPath.trim() || null;
+    const { path, error } = await uploadPharmacyImageFile(pharmacyId, kind, file, previousPath);
     setBusy(false);
+    URL.revokeObjectURL(blobPreview);
+    setLocalPreviewUrl(null);
     if (error) {
       setLocalError(error);
       return;
     }
+    setPreviewToken(Date.now());
     onStoredPathChange(path);
   };
 
