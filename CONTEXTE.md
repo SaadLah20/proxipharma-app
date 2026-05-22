@@ -60,7 +60,12 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 - **Ordonnances** : capture **`/pharmacie/[id]/demande-ordonnance`** ; saisie pharmacien via scan + modal (**qté prescrite / qté dispo**, rupture/indispo → **dispo 0**, complémentaires = **qté proposée** seule) ; badges **Ordonnance** / **Ordonnance + alternative** / **Proposé** ; enregistrement post-validé compare la **branche alternative retenue** (`supplyRowPersistedSupplyFields` dans **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**) ; hubs ambre ; migrations **`20260525_001`**–**`004`**, **`20260526_001`**, **`20260530_001`**, **`20260531_001`** ; synthèse **`docs/workflow-ordonnance-consultation-REPONSES.md`**.
 - **Consultations libres** : **`/pharmacie/[id]/consultation-libre`** (texte + 3 photos) ; détail patient/pharmacien = **une page scroll** (brief + messagerie inline + lignes proposées) — **sans** onglets sticky (mai 2026) ; dispos proposées = **Disponible / À commander** ; patient **`responded`** : qté proposée = `available_qty` par branche (alternatives : plafond = qté alternative) ; hubs violet ; migration **`20260529_001`** ; `workflowEnabled: true`.
 - **Demande produits** : notif pharmacien dédiée si patient change la date de passage — **`20260531_002`**.
-- **Phrase de reprise** : **`CAHIER_DES_CHARGES.md` §13.28** (fiche Infos/Horaires/notes, photos versionnées, supply post-validé ; voir §10 session **2026-05-22** et lot demandes **2026-06-03** / **2026-06-04**).
+- **Phrase de reprise** : **`CAHIER_DES_CHARGES.md` §13.28** (packs promo **`20260610_001`**, horaires compacts, fiche + photos versionnées, supply post-validé ; voir §10 session **2026-05-19 promo** et lot demandes **2026-06-03** / **2026-06-04**).
+
+**Mise à jour 2026-05-19 — packs promo + horaires** :
+- **SQL** : **`20260610_001`** — offres/réservations packs, refs **`P042/26`**, **`promo_in_app_notifications`** (workflow isolé des demandes D/O/C).
+- **UI** : `offres-promos`, `reservations-packs`, `packs-promo`, onglet Offres fiche publique, cloche header fusionnée.
+- **Horaires** : `pharmacy-weekly-hours-tab` (grille mobile corrigée, teintes par jour), fériés **`lib/morocco-public-holidays.ts`**, garde **`lib/pharmacy-on-call-compute.ts`**.
 
 **Mise à jour 2026-06-01 — demandes produits + ordonnance alignée** :
 - **Commit `aec8fad`** : UI saisie patient, notes, ordre lignes pharma post-validé, footer clôture + modal, libellés patient validé/traité ; migration notifs **`20260601_001`** (à appliquer Supabase).
