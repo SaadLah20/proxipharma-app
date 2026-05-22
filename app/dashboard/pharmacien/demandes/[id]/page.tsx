@@ -824,35 +824,44 @@ function isPharmacistProposedRow(row: ItemRow): boolean {
   return row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
 }
 
-/** Après accord « Modifier », défaut **Disponible** plein (pas « partiellement » : qté ≥ demandée si statut `available`). */
+function withSyncedPostConfirmQtyDraft(
+  row: ItemRow,
+  requestStatus: string | null | undefined,
+  entry: ItemDraft
+): ItemDraft {
+  if (!requestStatus || !["confirmed", "treated"].includes(requestStatus)) return entry;
+  if (!row.is_selected_by_patient || isPharmacistProposedRow(row)) return entry;
+  const q = entry.available_qty?.trim();
+  if (!q) return entry;
+  return { ...entry, selected_qty_str: q };
+}
+
+/** Qté validée à persister (ligne retenue post-validation) : une seule source pour `selected_qty` et `available_qty`. */
+function draftValidatedQtyForSave(f: ItemDraft, row: ItemRow): number {
+  const fromAvail = Number(f.available_qty);
+  const fromSelStr = Number(f.selected_qty_str);
+  let n = Math.max(1, Number(row.selected_qty ?? row.requested_qty) || 1);
+  if (Number.isFinite(fromAvail) && fromAvail >= 1) n = Math.floor(fromAvail);
+  else if (Number.isFinite(fromSelStr) && fromSelStr >= 1) n = Math.floor(fromSelStr);
+  return Math.min(PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX, Math.max(1, n));
+}
+
+/** Après accord « Modifier », réaligner le brouillon sur la qté validée patient (`selected_qty`). */
 function draftPatchPostConfirmSupplyUnlock(
   row: ItemRow,
   d: ItemDraft,
-  requestStatus: string | null
+  requestStatus: string | null,
+  requestType?: string
 ): Partial<ItemDraft> | null {
   if (isPharmacistProposedRow(row)) return null;
   if (!requestStatus || !["confirmed", "treated"].includes(requestStatus) || !row.is_selected_by_patient) return null;
-  if (d.availability_status === "to_order") return null;
-
-  const qRaw = Number(d.available_qty || "0");
-  const q = Number.isFinite(qRaw) ? Math.floor(qRaw) : 0;
-  const refQty = inferRequestedQtyForAvailability(row);
-  const rq = Math.max(1, Math.floor(refQty) || 1);
-  const inferred = inferAvailabilityStatusFromQty({
-    status: d.availability_status,
-    availableQty: q,
-    requestedQty: refQty,
-    isProposedLine: false,
-  });
-
-  if (d.availability_status === "available" && inferred === "available") {
-    return null;
-  }
-
-  const nextQty = Math.min(PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX, Math.max(q, rq));
+  const rebuilt = buildItemDraftFromRow(row, requestStatus, requestType);
   return {
-    availability_status: "available",
-    available_qty: String(nextQty),
+    ...rebuilt,
+    fulfillment_draft: d.fulfillment_draft,
+    counter_outcome_draft: d.counter_outcome_draft,
+    counter_cancel_reason_draft: d.counter_cancel_reason_draft,
+    counter_cancel_detail_draft: d.counter_cancel_detail_draft,
   };
 }
 
@@ -968,6 +977,12 @@ function buildItemDraftFromRow(row: ItemRow, requestStatus?: string | null, requ
       (rowAvailStatus === "market_shortage" || rowAvailStatus === "unavailable")
     ) {
       availNum = row.available_qty != null ? Number(row.available_qty) : 0;
+    } else if (postConfirmSupply && !isProp) {
+      const validatedBase = Math.min(
+        PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX,
+        Math.max(1, Math.floor(Number(row.selected_qty ?? row.requested_qty) || 1))
+      );
+      availNum = validatedBase;
     } else {
       availNum = row.available_qty != null ? Number(row.available_qty) : Number(row.requested_qty);
     }
@@ -1046,10 +1061,19 @@ function mergeItemDraftOnReload(
   if (requestStatus != null && ["confirmed", "treated"].includes(requestStatus)) {
     return {
       ...built,
-      fulfillment_draft: built.fulfillment_draft,
-      counter_outcome_draft: built.counter_outcome_draft,
-      counter_cancel_reason_draft: built.counter_cancel_reason_draft,
-      counter_cancel_detail_draft: built.counter_cancel_detail_draft,
+      ...prev,
+      ...supplyFromBuilt,
+      withdrawn_after_confirm: built.withdrawn_after_confirm,
+      fulfillment_draft: prev.fulfillment_draft ?? built.fulfillment_draft,
+      counter_outcome_draft: prev.counter_outcome_draft ?? built.counter_outcome_draft,
+      counter_cancel_reason_draft: prev.counter_cancel_reason_draft ?? built.counter_cancel_reason_draft,
+      counter_cancel_detail_draft: prev.counter_cancel_detail_draft ?? built.counter_cancel_detail_draft,
+      available_qty: prev.available_qty ?? built.available_qty,
+      availability_status: prev.availability_status ?? built.availability_status,
+      selected_qty_str: prev.selected_qty_str ?? built.selected_qty_str,
+      unit_price: prev.unit_price ?? built.unit_price,
+      expected_availability_date: prev.expected_availability_date ?? built.expected_availability_date,
+      pharmacist_comment: prev.pharmacist_comment ?? built.pharmacist_comment,
     };
   }
   return {
@@ -1242,7 +1266,14 @@ function buildSupplyStructuralAmends(
       continue;
     }
     const persisted = supplyRowPersistedSupplyFields(row);
+    const persistedSelected = Math.max(
+      1,
+      Math.floor(Number(row.selected_qty ?? row.requested_qty) || 1)
+    );
+    const draftSelected = draftValidatedQtyForSave(f, row);
     const qtyChanged = persisted.available_qty !== (payload.available_qty ?? null);
+    const selectedQtyChanged =
+      row.is_selected_by_patient && !f.withdrawn_after_confirm && persistedSelected !== draftSelected;
     const avChanged = persisted.availability_status !== (payload.availability_status ?? null);
     const priceChanged = !unitPricesEqualForSupplyAmend(persisted.unit_price, payload.unit_price);
     const ccRow = (persisted.pharmacist_comment ?? "").trim();
@@ -1251,19 +1282,23 @@ function buildSupplyStructuralAmends(
     const dRow = (persisted.expected_availability_date ?? "").trim();
     const dNew = (payload.expected_availability_date ?? "").trim().slice(0, 10);
     const dateChanged = dRow !== dNew;
-    if (qtyChanged || avChanged || priceChanged || ccChanged || dateChanged) {
+    if (qtyChanged || selectedQtyChanged || avChanged || priceChanged || ccChanged || dateChanged) {
       const bits: string[] = [];
       if (avChanged) {
         bits.push(
           `disponibilité « ${availabilityStatusFr[persisted.availability_status ?? ""] ?? persisted.availability_status ?? "—"} » → « ${availabilityStatusFr[payload.availability_status] ?? payload.availability_status} »`
         );
       }
-      if (qtyChanged) bits.push(`quantité officine ${persisted.available_qty ?? "—"} → ${payload.available_qty}`);
+      if (selectedQtyChanged) {
+        bits.push(`quantité validée ${persistedSelected} → ${draftSelected}`);
+      } else if (qtyChanged) {
+        bits.push(`quantité officine ${persisted.available_qty ?? "—"} → ${payload.available_qty}`);
+      }
       if (priceChanged) bits.push("prix unitaire");
       if (dateChanged) bits.push("date de disponibilité");
       if (ccChanged) bits.push("commentaire officine");
       out.push({
-        kind: "line_adjust_supply",
+        kind: selectedQtyChanged ? "validated_qty_change" : "line_adjust_supply",
         request_item_id: row.id,
         summary: `${nm} — ${bits.join(", ")}`,
         detail: bits.join(" · "),
@@ -1620,6 +1655,8 @@ export default function PharmacienDemandeDetailPage() {
   const [propHits, setPropHits] = useState<ProductCatalogHit[]>([]);
   const [propReason, setPropReason] = useState("");
   const [propQty, setPropQty] = useState("1");
+  const [propAvailability, setPropAvailability] = useState("available");
+  const [propExpectedDate, setPropExpectedDate] = useState("");
   const [propBusy, setPropBusy] = useState(false);
   const [ordonnanceQuickAddOpen, setOrdonnanceQuickAddOpen] = useState(false);
   const [ordonnanceQuickNote, setOrdonnanceQuickNote] = useState("");
@@ -1652,14 +1689,15 @@ export default function PharmacienDemandeDetailPage() {
     [request]
   );
 
-  const deferPersistOfficineAdditions = useMemo(
-    () =>
-      !!request &&
-      !["confirmed", "treated"].includes(request.status) &&
-      (["submitted", "in_review"].includes(request.status) ||
-        (request.status === "responded" && respondedEditMode)),
-    [request, respondedEditMode]
-  );
+  /** Ajouts officine en mémoire jusqu'à « Enregistrer les modifications » (y compris après validation patient). */
+  const deferPersistOfficineAdditions = useMemo(() => {
+    if (!request) return false;
+    if (["confirmed", "treated"].includes(request.status)) return true;
+    return (
+      ["submitted", "in_review"].includes(request.status) ||
+      (request.status === "responded" && respondedEditMode)
+    );
+  }, [request, respondedEditMode]);
 
   const displayRows = useMemo(() => {
     const baseRows = hideStaleServerPharmacistProposals
@@ -2339,14 +2377,15 @@ export default function PharmacienDemandeDetailPage() {
         const cur = prev[row.id];
         if (!cur) return prev;
         const fulfillment_draft = fulfillmentDraftAfterAvailabilityChange(cur.fulfillment_draft, "to_order");
+        const reqSt = request?.status ?? null;
         return {
           ...prev,
-          [row.id]: {
+          [row.id]: withSyncedPostConfirmQtyDraft(row, reqSt, {
             ...cur,
             available_qty: String(nextQty),
             availability_status: "to_order",
             fulfillment_draft,
-          },
+          }),
         };
       });
       if (isLocalProposedItemId(row.id)) {
@@ -2372,14 +2411,15 @@ export default function PharmacienDemandeDetailPage() {
       if (!cur) return prev;
       const nextStatus = inferred;
       const fulfillment_draft = fulfillmentDraftAfterAvailabilityChange(cur.fulfillment_draft, nextStatus);
+      const reqSt = request?.status ?? null;
       return {
         ...prev,
-        [row.id]: {
+        [row.id]: withSyncedPostConfirmQtyDraft(row, reqSt, {
           ...cur,
           available_qty: String(nextQty),
           availability_status: nextStatus,
           fulfillment_draft,
-        },
+        }),
       };
     });
     if (isLocalProposedItemId(row.id)) {
@@ -2454,14 +2494,15 @@ export default function PharmacienDemandeDetailPage() {
       if (!cur) return prev;
       const nextStatus = inferred;
       const fulfillment_draft = clampFulfillmentDraftToInferred(cur.fulfillment_draft, nextStatus);
+      const reqSt = request?.status ?? null;
       return {
         ...prev,
-        [row.id]: {
+        [row.id]: withSyncedPostConfirmQtyDraft(row, reqSt, {
           ...cur,
           available_qty: String(next),
           availability_status: nextStatus,
           fulfillment_draft,
-        },
+        }),
       };
     });
     if (isLocalProposedItemId(row.id)) {
@@ -2554,6 +2595,8 @@ export default function PharmacienDemandeDetailPage() {
     setPropHits([]);
     setPropReason("");
     setPropQty("1");
+    setPropAvailability("available");
+    setPropExpectedDate("");
   };
 
   const resetOrdonnanceQuickAddForm = () => {
@@ -2652,7 +2695,7 @@ export default function PharmacienDemandeDetailPage() {
       ? ordonnanceInsertAvailableQty(availRawForInsert, requestedQty, parsedAvailOpt)
       : requestedQty;
     const qty = isPrescriptionInsert ? availableQty : requestedQty;
-    const availRaw = opts?.availability ?? (isPrescriptionInsert ? availRawForInsert : "available");
+    const availRaw = opts?.availability ?? (isPrescriptionInsert ? availRawForInsert : propAvailability);
     const avail = isPrescriptionInsert
       ? inferAvailabilityStatusFromQty({
           status: availRaw,
@@ -2662,7 +2705,7 @@ export default function PharmacienDemandeDetailPage() {
         })
       : availRaw;
     const pharmacistComment = (opts?.pharmacistComment ?? "").trim() || null;
-    const etaYmd = (opts?.expectedAvailabilityDate ?? "").trim();
+    const etaYmd = (opts?.expectedAvailabilityDate ?? propExpectedDate ?? "").trim();
     const needsEta = availRaw === "to_order" || avail === "to_order";
     if (needsEta && !etaYmd) {
       setError("Indiquez la date de réception prévue pour « À commander ».");
@@ -2695,13 +2738,16 @@ export default function PharmacienDemandeDetailPage() {
     if (deferPersistOfficineAdditions) {
       const prefPrice =
         pick.price_pph != null && !Number.isNaN(Number(pick.price_pph)) ? Number(pick.price_pph) : null;
+      const safeAvailableQty = isPrescriptionInsert
+        ? availableQty
+        : Math.max(1, Math.floor(Number(availableQty)) || 1);
       const syntheticId = newLocalProposedId();
       const syntheticRow: ItemRow = {
         id: syntheticId,
         product_id: pick.id,
         requested_qty: requestedQty,
         availability_status: avail,
-        available_qty: availableQty,
+        available_qty: safeAvailableQty,
         unit_price: prefPrice,
         pharmacist_comment: pharmacistComment,
         client_comment: null,
@@ -2796,6 +2842,13 @@ export default function PharmacienDemandeDetailPage() {
             motive: (globalConsent.motive ?? "").trim(),
           },
         }));
+      }
+      if (typeof window !== "undefined") {
+        requestAnimationFrame(() => {
+          document
+            .querySelector(`[data-pharma-supply-editor="${syntheticId}"]`)
+            ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        });
       }
       if (opts?.fromQuickAdd) {
         resetOrdonnanceQuickAddForm();
@@ -3411,24 +3464,19 @@ export default function PharmacienDemandeDetailPage() {
         if (isAjoutOfficine && qtyPrep < 1 && !f.withdrawn_after_confirm) {
           throw new Error(`« ${nm} » (proposition officine) : quantité en stock minimale 1.`);
         }
+        const validatedQtySave = draftValidatedQtyForSave(f, row);
+        const fForPayload: ItemDraft = { ...f, available_qty: String(validatedQtySave) };
         const payload = buildRequestItemUpdatePayloadForPharmacistSave(
-          f,
+          fForPayload,
           row,
           request.request_type,
           request.status
         );
-        const validatedCap = Math.min(
-          PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX,
-          Math.max(1, Number(row.selected_qty ?? row.requested_qty) || 1)
-        );
-        const prepQty = Number(payload.available_qty);
-        const draftSel = Math.min(999, Math.max(1, Number(f.selected_qty_str) || 1));
         const nextSelectedQty =
           row.is_selected_by_patient && !f.withdrawn_after_confirm
-            ? Number.isFinite(prepQty) && prepQty >= 1
-              ? Math.min(validatedCap, Math.floor(prepQty))
-              : draftSel
+            ? validatedQtySave
             : row.selected_qty;
+        payload.available_qty = validatedQtySave;
         const inf = inferredAvailabilityForPostConfirmClamp(row, payload.availability_status);
         if (!f.withdrawn_after_confirm && inf === "to_order") {
           const eta = effectiveEtaSupplyDraft(row, f, request.request_type);
@@ -3821,7 +3869,12 @@ export default function PharmacienDemandeDetailPage() {
           setDraft((prev) => {
             const cur = prev[pending.rowId];
             if (!cur) return prev;
-            const patch = draftPatchPostConfirmSupplyUnlock(row, cur, request?.status ?? null);
+            const patch = draftPatchPostConfirmSupplyUnlock(
+              row,
+              cur,
+              request?.status ?? null,
+              request?.request_type
+            );
             if (!patch || Object.keys(patch).length === 0) return prev;
             return { ...prev, [pending.rowId]: { ...cur, ...patch } };
           });
@@ -6604,6 +6657,40 @@ export default function PharmacienDemandeDetailPage() {
                       </button>
                     </div>
                   </label>
+                  {request && ["confirmed", "treated"].includes(request.status) && !isPrescription ? (
+                    <div className="shrink-0 space-y-2 rounded-lg border border-violet-200/60 bg-violet-50/40 p-2">
+                      <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Disponibilité (avant enregistrement)
+                        <select
+                          className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+                          value={propAvailability}
+                          onChange={(e) => setPropAvailability(e.target.value)}
+                        >
+                          {PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {propAvailability === "to_order" ? (
+                        <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Date prévisionnelle
+                          <input
+                            type="date"
+                            min={receptionDateMinYmd}
+                            className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+                            value={propExpectedDate}
+                            onChange={(e) => setPropExpectedDate(e.target.value)}
+                          />
+                        </label>
+                      ) : null}
+                      <p className="text-[10px] leading-snug text-violet-900/85">
+                        Le produit apparaît en brouillon sur la demande : vérifiez qté et dispo sur la ligne, puis
+                        « Enregistrer les modifications ».
+                      </p>
+                    </div>
+                  ) : null}
                   <div className="relative shrink-0">
                     <Search
                       className="pointer-events-none absolute left-3 top-1/2 size-[1.125rem] -translate-y-1/2 text-violet-600"
