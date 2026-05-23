@@ -20,9 +20,21 @@ export function trackPharmacyEngagement(args: {
   source: PharmacyEngagementSource;
 }) {
   if (!args.pharmacyId) return;
-  void supabase.from("pharmacy_engagement_events").insert({
-    pharmacy_id: args.pharmacyId,
-    event_type: args.eventType,
-    source: args.source,
-  });
+  void (async () => {
+    let patientId: string | null = null;
+    const { data: auth } = await supabase.auth.getSession();
+    const uid = auth.session?.user?.id;
+    if (uid) {
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", uid).maybeSingle();
+      if ((profile as { role?: string } | null)?.role === "patient") {
+        patientId = uid;
+      }
+    }
+    await supabase.from("pharmacy_engagement_events").insert({
+      pharmacy_id: args.pharmacyId,
+      event_type: args.eventType,
+      source: args.source,
+      ...(patientId ? { patient_id: patientId } : {}),
+    });
+  })();
 }

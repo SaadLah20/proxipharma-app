@@ -10,7 +10,6 @@ import {
   Calculator,
   CalendarClock,
   ChevronDown,
-  ClipboardList,
   Cross,
   FileText,
   Gift,
@@ -21,9 +20,7 @@ import {
   Package,
   Settings,
   ShoppingBag,
-  Sparkles,
   Store,
-  Truck,
   User,
   Users,
 } from "lucide-react";
@@ -146,147 +143,157 @@ function ProfileNavLogoutButton({ onLogout }: { onLogout: () => void }) {
 
 export type PlatformNavItem = { href: string; label: string; icon: LucideIcon };
 
-export type PlatformNavGroup = {
-  id: string;
-  label: string;
-  icon: LucideIcon;
-  items: PlatformNavItem[];
-};
+/** Bloc menu : lien seul (pas de rubrique) ou section avec 2+ entrées. */
+export type PlatformNavBlock =
+  | { kind: "link"; item: PlatformNavItem; emphasis?: "primary" }
+  | { kind: "section"; id: string; heading: string; items: PlatformNavItem[] };
 
-/** Menu patient — ordre : demandes (cœur métier) → pharmacies → compte. */
-export const patientNavGroups: PlatformNavGroup[] = [
+function flattenNavBlocks(blocks: PlatformNavBlock[]): PlatformNavItem[] {
+  return blocks.flatMap((b) => (b.kind === "section" ? b.items : [b.item]));
+}
+
+/** Patient : dossiers (4 parcours) puis raccourcis isolés. */
+export const patientNavMenu: PlatformNavBlock[] = [
   {
-    id: "demandes",
-    label: "Mes demandes",
-    icon: ClipboardList,
+    kind: "section",
+    id: "dossiers",
+    heading: "Mes dossiers",
     items: [
-      { href: "/dashboard/demandes", label: "Produits", icon: Package },
+      { href: "/dashboard/demandes", label: "Demandes de produits", icon: Package },
       { href: "/dashboard/patient/ordonnances", label: "Ordonnances", icon: FileText },
       { href: "/dashboard/patient/consultations-libres", label: "Consultations libres", icon: MessageSquare },
       { href: "/dashboard/patient/packs-promo", label: "Packs promo", icon: Gift },
     ],
   },
-  {
-    id: "pharmacies",
-    label: "Mes pharmacies",
-    icon: MapPin,
-    items: [{ href: "/dashboard/patient/pharmacies", label: "Annuaire & favoris", icon: Store }],
-  },
-  {
-    id: "compte",
-    label: "Mon compte",
-    icon: Settings,
-    items: [{ href: "/dashboard/patient/parametres", label: "Paramètres", icon: Settings }],
-  },
+  { kind: "link", item: { href: "/dashboard/patient/pharmacies", label: "Mes pharmacies", icon: MapPin } },
+  { kind: "link", item: { href: "/dashboard/patient/parametres", label: "Paramètres", icon: Settings } },
 ];
 
-/** Menu pharmacien — ordre : accueil → demandes → supply → promo → officine → outils → compte. */
-export const pharmacienNavGroups: PlatformNavGroup[] = [
+/**
+ * Pharmacien : accueil seul → dossiers + réservations packs → supply → officine (dont promos) → outil → paramètres.
+ */
+export const pharmacienNavMenu: PlatformNavBlock[] = [
   {
-    id: "accueil",
-    label: "Accueil",
-    icon: LayoutDashboard,
-    items: [{ href: "/dashboard/pharmacien", label: "Tableau de bord", icon: LayoutDashboard }],
+    kind: "link",
+    emphasis: "primary",
+    item: { href: "/dashboard/pharmacien", label: "Tableau de bord", icon: LayoutDashboard },
   },
   {
-    id: "demandes",
-    label: "Demandes patients",
-    icon: ClipboardList,
+    kind: "section",
+    id: "dossiers",
+    heading: "Dossiers & réservations",
     items: [
-      { href: "/dashboard/pharmacien/demandes", label: "Produits", icon: Package },
+      { href: "/dashboard/pharmacien/demandes", label: "Demandes de produits", icon: Package },
       { href: "/dashboard/pharmacien/ordonnances", label: "Ordonnances", icon: FileText },
       { href: "/dashboard/pharmacien/consultations-libres", label: "Consultations libres", icon: MessageSquare },
+      { href: "/dashboard/pharmacien/reservations-packs", label: "Réservations packs promo", icon: CalendarClock },
     ],
   },
   {
-    id: "approvisionnement",
-    label: "Approvisionnement",
-    icon: Truck,
+    kind: "section",
+    id: "supply",
+    heading: "Suivi approvisionnement",
     items: [
       { href: "/dashboard/pharmacien/produits-commandes", label: "Produits commandés", icon: ShoppingBag },
       { href: "/dashboard/pharmacien/ruptures-marche", label: "Produits en rupture", icon: AlertTriangle },
     ],
   },
   {
-    id: "promos",
-    label: "Promos & packs",
-    icon: Sparkles,
-    items: [
-      { href: "/dashboard/pharmacien/offres-promos", label: "Offres et promos", icon: Gift },
-      { href: "/dashboard/pharmacien/reservations-packs", label: "Réservations packs", icon: CalendarClock },
-    ],
-  },
-  {
+    kind: "section",
     id: "officine",
-    label: "Officine & relation client",
-    icon: Building2,
+    heading: "Officine & visibilité",
     items: [
       { href: "/dashboard/pharmacien/clients", label: "Clients", icon: Users },
       { href: "/dashboard/pharmacien/ma-fiche", label: "Ma fiche publique", icon: Store },
       { href: "/dashboard/pharmacien/horaires-garde", label: "Horaires et garde", icon: CalendarClock },
+      { href: "/dashboard/pharmacien/offres-promos", label: "Offres et promos", icon: Gift },
       { href: "/dashboard/pharmacien/visites-interactions", label: "Visites et interactions", icon: MapPin },
     ],
   },
   {
-    id: "outils",
-    label: "Outils",
-    icon: Calculator,
-    items: [{ href: "/dashboard/pharmacien/pricing", label: "Moteur de pricing", icon: Calculator }],
+    kind: "link",
+    item: { href: "/dashboard/pharmacien/pricing", label: "Moteur de pricing", icon: Calculator },
   },
-  {
-    id: "compte",
-    label: "Paramètres",
-    icon: Settings,
-    items: [{ href: "/dashboard/pharmacien/parametres", label: "Paramètres généraux", icon: Settings }],
-  },
+  { kind: "link", item: { href: "/dashboard/pharmacien/parametres", label: "Paramètres", icon: Settings } },
 ];
 
-/** Liste plate (compat. liens profonds, tests). */
-export const patientNavLinks = patientNavGroups.flatMap((g) => g.items);
-export const pharmacienNavLinks = pharmacienNavGroups.flatMap((g) => g.items);
+export const patientNavLinks = flattenNavBlocks(patientNavMenu);
+export const pharmacienNavLinks = flattenNavBlocks(pharmacienNavMenu);
 
-function ProfileNavGroupedMenu({
-  groups,
-  onNavigate,
-}: {
-  groups: PlatformNavGroup[];
-  onNavigate: () => void;
-}) {
+function ProfileNavSectionHeading({ children }: { children: string }) {
   return (
-    <div className="space-y-1 px-2 pb-1">
-      {groups.map((group, gi) => {
-        const GroupIcon = group.icon;
-        return (
-          <div key={group.id} className={gi > 0 ? "mt-2 border-t border-border/60 pt-2" : ""}>
-            <div className="mb-1 flex items-center gap-2 px-2 py-1">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <GroupIcon className="size-3.5" strokeWidth={2.25} aria-hidden />
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                {group.label}
-              </span>
-            </div>
-            <ul className="space-y-0.5">
-              {group.items.map((item) => {
-                const ItemIcon = item.icon;
-                return (
+    <div className="mx-2 mb-1 mt-3 rounded-md bg-muted/70 px-2.5 py-1.5 first:mt-0" role="presentation">
+      <p className="pointer-events-none select-none text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        {children}
+      </p>
+    </div>
+  );
+}
+
+function ProfileNavMenuLink({
+  item,
+  onNavigate,
+  emphasis,
+}: {
+  item: PlatformNavItem;
+  onNavigate: () => void;
+  emphasis?: "primary";
+}) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      className={
+        emphasis === "primary"
+          ? "mx-2 flex items-center gap-2.5 rounded-lg border border-border/70 bg-muted/40 px-2.5 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted/70"
+          : "mx-2 flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
+      }
+    >
+      <Icon className="size-4 shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden />
+      <span className="min-w-0 leading-snug">{item.label}</span>
+    </Link>
+  );
+}
+
+function ProfileNavMenuDivider() {
+  return <div className="mx-3 my-2 border-t border-border/80" role="separator" />;
+}
+
+function ProfileNavMenu({ blocks, onNavigate }: { blocks: PlatformNavBlock[]; onNavigate: () => void }) {
+  return (
+    <nav className="space-y-0.5 px-0 pb-1 pt-0.5" aria-label="Navigation du compte">
+      {blocks.map((block, i) => {
+        const prev = blocks[i - 1];
+        const showDivider =
+          i > 0 &&
+          block.kind === "link" &&
+          !block.emphasis &&
+          (prev?.kind === "section" || prev?.kind === "link");
+
+        if (block.kind === "section") {
+          return (
+            <div key={block.id}>
+              <ProfileNavSectionHeading>{block.heading}</ProfileNavSectionHeading>
+              <ul className="space-y-px">
+                {block.items.map((item) => (
                   <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={onNavigate}
-                      className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-foreground transition hover:bg-muted/80"
-                    >
-                      <ItemIcon className="size-4 shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden />
-                      <span className="min-w-0 leading-snug">{item.label}</span>
-                    </Link>
+                    <ProfileNavMenuLink item={item} onNavigate={onNavigate} />
                   </li>
-                );
-              })}
-            </ul>
+                ))}
+              </ul>
+            </div>
+          );
+        }
+
+        return (
+          <div key={block.item.href}>
+            {showDivider ? <ProfileNavMenuDivider /> : null}
+            <ProfileNavMenuLink item={block.item} onNavigate={onNavigate} emphasis={block.emphasis} />
           </div>
         );
       })}
-    </div>
+    </nav>
   );
 }
 
@@ -634,8 +641,8 @@ export function PlatformHeader() {
                           {profile.full_name?.trim() || "Pharmacien"}
                         </p>
                         <ProfileNavScrollPanel maxHeightClass="max-h-[min(58vh,20rem)]">
-                          <ProfileNavGroupedMenu
-                            groups={pharmacienNavGroups}
+                          <ProfileNavMenu
+                            blocks={pharmacienNavMenu}
                             onNavigate={() => setProfileOpen(false)}
                           />
                         </ProfileNavScrollPanel>
@@ -647,10 +654,7 @@ export function PlatformHeader() {
                           {profile?.full_name?.trim() || "Patient"}
                         </p>
                         <ProfileNavScrollPanel maxHeightClass="max-h-[min(52vh,18rem)]">
-                          <ProfileNavGroupedMenu
-                            groups={patientNavGroups}
-                            onNavigate={() => setProfileOpen(false)}
-                          />
+                          <ProfileNavMenu blocks={patientNavMenu} onNavigate={() => setProfileOpen(false)} />
                         </ProfileNavScrollPanel>
                         <ProfileNavLogoutButton onLogout={() => void handleLogout()} />
                       </div>
