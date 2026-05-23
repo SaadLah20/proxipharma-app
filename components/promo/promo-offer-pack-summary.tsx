@@ -26,7 +26,7 @@ export function PromoOfferPackSummary({
           <ul className="mt-1 space-y-1.5">
             {products.map((l, i) => (
               <li key={l.id || i} className="flex items-center gap-2">
-                <ProductThumb photoUrl={l.photo_url} name={l.product_name} compact={compact} />
+                <ProductThumb photoUrl={l.photo_url} compact={compact} />
                 <span className="min-w-0 flex-1 font-medium">
                   {l.product_name} × {l.quantity}
                 </span>
@@ -70,11 +70,9 @@ export function PromoOfferPackSummary({
 
 function ProductThumb({
   photoUrl,
-  name,
   compact,
 }: {
   photoUrl?: string | null;
-  name?: string | null;
   compact?: boolean;
 }) {
   const url = resolvePublicMediaUrl(photoUrl ?? null);

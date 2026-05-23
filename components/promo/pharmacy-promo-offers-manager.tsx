@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
-import { Gift, Package, Plus, Tag } from "lucide-react";
+import { Gift, Package, Plus } from "lucide-react";
 import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
 import { ScheduleToast, type ScheduleToastTone } from "@/components/pharmacy/schedule/schedule-toast";
 import { PromoProductPicker, PromoCompactLinesList } from "@/components/promo/promo-product-picker";
@@ -186,7 +186,7 @@ export function PharmacyPromoOffersManager() {
     setBusy(true);
     const id = editingId === "new" ? null : editingId;
     const existing = id ? offers.find((o) => o.id === id) : null;
-    const { offerId, error } = await savePromoOffer(pharmacyId, id, offer, lines, publish, existing?.status ?? null);
+    const { error } = await savePromoOffer(pharmacyId, id, offer, lines, publish, existing?.status ?? null);
     setBusy(false);
     if (error) {
       showToast(error, "error");

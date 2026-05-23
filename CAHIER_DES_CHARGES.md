@@ -354,6 +354,8 @@ Statuts retenus v1:
 
 **Phrase de reprise** : **§13.28**.
 
+**Lint CI** : corriger toute **erreur** `react-hooks/set-state-in-effect` (pas seulement les warnings) — modales : sous-composant + `key`, pas `setState` dans `useEffect` pour reset.
+
 ---
 
 ### Session 2026-05-22 — Fiche digitale (Infos/Horaires/notes), upload photos versionné, supply post-validé

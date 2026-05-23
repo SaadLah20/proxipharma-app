@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
-import { clsx } from "clsx";
 import { filterPromoCatalogProducts, type PromoCatalogProduct } from "@/lib/promo/catalog";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 
