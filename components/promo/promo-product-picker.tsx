@@ -2,6 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
+import {
+  CatalogProductPhotoThumb,
+  PatientProductPhotoPreviewModal,
+  type CatalogProductPhotoPreview,
+} from "@/components/requests/patient-product-photo-preview-modal";
 import { filterPromoCatalogProducts, type PromoCatalogProduct } from "@/lib/promo/catalog";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 
@@ -15,6 +20,7 @@ export function PromoProductPicker({
   onPick: (p: PromoCatalogProduct) => void;
 }) {
   const [q, setQ] = useState("");
+  const [preview, setPreview] = useState<CatalogProductPhotoPreview | null>(null);
   const hits = useMemo(() => filterPromoCatalogProducts(products, q), [products, q]);
 
   return (
@@ -45,7 +51,12 @@ export function PromoProductPicker({
                   }}
                 >
                   {photo ? (
-                    <img src={photo} alt="" className="size-8 shrink-0 rounded object-cover" />
+                    <CatalogProductPhotoThumb
+                      imageUrl={photo}
+                      title={p.name}
+                      size={32}
+                      onPreview={setPreview}
+                    />
                   ) : (
                     <span className="flex size-8 shrink-0 items-center justify-center rounded bg-muted text-[9px]">—</span>
                   )}
@@ -64,6 +75,12 @@ export function PromoProductPicker({
       ) : q.trim() ? (
         <p className="text-[10px] text-muted-foreground">Aucun produit trouvé.</p>
       ) : null}
+      <PatientProductPhotoPreviewModal
+        open={Boolean(preview)}
+        imageUrl={preview?.url ?? null}
+        title={preview?.title ?? ""}
+        onClose={() => setPreview(null)}
+      />
     </div>
   );
 }
