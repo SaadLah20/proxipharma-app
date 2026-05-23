@@ -2,6 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
+import {
+  ClickablePromoProductPhoto,
+  PromoProductPhotoLightbox,
+  type PromoProductPhotoLightboxState,
+} from "@/components/promo/promo-product-photo-lightbox";
 import { filterPromoCatalogProducts, type PromoCatalogProduct } from "@/lib/promo/catalog";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 
@@ -15,6 +20,7 @@ export function PromoProductPicker({
   onPick: (p: PromoCatalogProduct) => void;
 }) {
   const [q, setQ] = useState("");
+  const [lightbox, setLightbox] = useState<PromoProductPhotoLightboxState>(null);
   const hits = useMemo(() => filterPromoCatalogProducts(products, q), [products, q]);
 
   return (
@@ -45,7 +51,12 @@ export function PromoProductPicker({
                   }}
                 >
                   {photo ? (
-                    <img src={photo} alt="" className="size-8 shrink-0 rounded object-cover" />
+                    <ClickablePromoProductPhoto
+                      url={photo}
+                      label={p.name}
+                      size={32}
+                      onOpen={setLightbox}
+                    />
                   ) : (
                     <span className="flex size-8 shrink-0 items-center justify-center rounded bg-muted text-[9px]">—</span>
                   )}
@@ -64,6 +75,7 @@ export function PromoProductPicker({
       ) : q.trim() ? (
         <p className="text-[10px] text-muted-foreground">Aucun produit trouvé.</p>
       ) : null}
+      <PromoProductPhotoLightbox state={lightbox} onClose={() => setLightbox(null)} />
     </div>
   );
 }
