@@ -1,5 +1,9 @@
 /** Regroupe les lignes « produits » côté patient une fois la demande validée (confirmed+). */
 
+import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
+import { productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
+import { resolveLineUnitPrice } from "@/lib/pharmacy-pricing/resolve";
+
 export type PatientLineLike = {
   id: string;
   requested_qty: number;
@@ -21,8 +25,22 @@ export type PatientLineLike = {
   post_confirm_fulfillment?: string | null;
   withdrawn_after_confirm?: boolean | null;
   products?:
-    | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }
-    | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }[]
+    | {
+        name?: string | null;
+        product_type?: string | null;
+        laboratory?: string | null;
+        price_pph?: number | string | null;
+        price_ppv?: number | string | null;
+        photo_url?: string | null;
+      }
+    | {
+        name?: string | null;
+        product_type?: string | null;
+        laboratory?: string | null;
+        price_pph?: number | string | null;
+        price_ppv?: number | string | null;
+        photo_url?: string | null;
+      }[]
     | null;
   request_item_alternatives?:
     | Array<{
@@ -52,6 +70,7 @@ export type PatientLineLike = {
 
 type LineAltRow = {
   id: string;
+  product_id?: string;
   availability_status: string | null;
   available_qty: number | null;
   unit_price: number | null;
@@ -150,25 +169,48 @@ export function validatedBranchPhotoPath(row: PatientLineLike): string | null {
   return altPhoto?.trim() ? altPhoto.trim() : null;
 }
 
-/** Prix unitaire sur la branche retenue à la validation (principal ou alternative choisie). */
-export function validatedBranchUnitPriceMad(row: PatientLineLike): number | null {
+/** Prix unitaire sur la branche retenue (ligne saisie ou grille officine). */
+export function validatedBranchUnitPriceMad(
+  row: PatientLineLike,
+  pricingConfig?: PharmacyPricingConfig | null,
+  productId?: string
+): number | null {
   const chosenId = row.patient_chosen_alternative_id ?? null;
   if (!chosenId) {
-    const u = row.unit_price;
-    if (u != null) {
-      const n = Number(u);
-      if (Number.isFinite(n)) return n;
-    }
-    const pph = oneProd(row.products)?.price_pph;
-    if (pph == null || pph === "") return null;
-    const pn = Number(pph);
-    return Number.isFinite(pn) ? pn : null;
+    const prod = oneProd(row.products);
+    return resolveLineUnitPrice(
+      pricingConfig,
+      productEmbedToPricingInput(
+        prod
+          ? {
+              product_type: prod.product_type ?? "parapharmacie",
+              price_pph: prod.price_pph,
+              price_ppv: prod.price_ppv,
+              laboratory: prod.laboratory,
+            }
+          : null,
+        productId
+      ),
+      row.unit_price
+    );
   }
   const alt = altRowsOf(row).find((a) => a.id === chosenId);
-  const u = alt?.unit_price ?? null;
-  if (u == null) return null;
-  const n = Number(u);
-  return Number.isFinite(n) ? n : null;
+  const prod = oneProd(alt?.products);
+  return resolveLineUnitPrice(
+    pricingConfig,
+    productEmbedToPricingInput(
+      prod
+        ? {
+            product_type: prod.product_type ?? "parapharmacie",
+            price_pph: prod.price_pph,
+            price_ppv: prod.price_ppv,
+            laboratory: prod.laboratory,
+          }
+        : null,
+      alt?.product_id
+    ),
+    alt?.unit_price ?? null
+  );
 }
 
 export function validatedQtyForPatientLine(row: PatientLineLike): number {

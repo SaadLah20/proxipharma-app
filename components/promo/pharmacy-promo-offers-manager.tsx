@@ -15,6 +15,8 @@ import { computePromoPackTotals, formatDh } from "@/lib/promo/pricing";
 import { defaultPromoOfferValidity, formatPromoValidityFr, todayIsoCasablanca } from "@/lib/promo/dates";
 import { MAX_PROMO_GIFT_LINES, MAX_PROMO_PRODUCT_LINES, type PromoOfferRow } from "@/lib/promo/types";
 import type { PromoCatalogProduct } from "@/lib/promo/catalog";
+import { usePharmacyPricing } from "@/lib/pharmacy-pricing";
+import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 
 type LineState = PromoLineDraft & { _key: string; _name?: string };
 
@@ -43,6 +45,7 @@ export function PharmacyPromoOffersManager() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; tone: ScheduleToastTone }>({ message: "", tone: "info" });
+  const { resolve: resolveCatalogPrice } = usePharmacyPricing(pharmacyId ?? undefined);
 
   const showToast = (message: string, tone: ScheduleToastTone = "info") => setToast({ message, tone });
 
@@ -77,7 +80,7 @@ export function PharmacyPromoOffersManager() {
     setPharmacyId(ctx.pharmacyId);
     const { data: prods } = await supabase
       .from("products")
-      .select("id,name,laboratory,price_pph,photo_url")
+      .select("id,name,product_type,laboratory,price_pph,price_ppv,photo_url")
       .eq("is_active", true)
       .order("name")
       .limit(500);
@@ -166,8 +169,21 @@ export function PharmacyPromoOffersManager() {
       product_name: l._name,
       price_pph: l.product_id ? catalog.find((c) => c.id === l.product_id)?.price_pph ?? null : null,
     }));
-    return computePromoPackTotals(priced, offer.discount_percent || 0);
-  }, [lines, offer.discount_percent, catalog]);
+    return computePromoPackTotals(priced, offer.discount_percent || 0, (line) => {
+      if (!line.product_id) return null;
+      const cat = catalog.find((c) => c.id === line.product_id);
+      if (!cat) return line.price_pph ?? null;
+      return resolveCatalogPrice(
+        catalogHitToPricingInput({
+          id: cat.id,
+          product_type: (cat as { product_type?: string }).product_type ?? "parapharmacie",
+          price_pph: cat.price_pph,
+          price_ppv: (cat as { price_ppv?: number | null }).price_ppv ?? null,
+          laboratory: cat.laboratory,
+        })
+      );
+    });
+  }, [lines, offer.discount_percent, catalog, resolveCatalogPrice]);
 
   const unpublish = async (id: string) => {
     if (!confirm("Retirer cette offre de la fiche publique ?")) return;

@@ -18,10 +18,13 @@ import { PATIENT_PRODUCT_LINE_COMMENT_MAX, REQUEST_CONVERSATION_MESSAGE_MAX } fr
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
   clearPatientDemandeProduitsDraft,
+  draftLineUnitPrice,
   readPatientDemandeProduitsDraft,
   writePatientDemandeProduitsDraft,
   type PatientDemandeProduitsDraftLine,
 } from "@/lib/patient-demande-produits-draft";
+import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
+import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 
 type ProductLite = {
   id: string;
@@ -30,6 +33,7 @@ type ProductLite = {
   laboratory: string | null;
   photo_url: string | null;
   price_pph?: number | null;
+  price_ppv?: number | null;
 };
 
 type CartLine = PatientDemandeProduitsDraftLine;
@@ -84,6 +88,7 @@ export default function DemandeProduitsPage() {
   const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [photoPreview, setPhotoPreview] = useState<{ url: string; title: string } | null>(null);
+  const { resolve: resolveCatalogPrice } = usePharmacyPricingForPatient(pharmacyId);
 
   useEffect(() => {
     const gate = async () => {
@@ -137,7 +142,7 @@ export default function DemandeProduitsPage() {
         setSearchLoading(true);
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph")
+          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -159,24 +164,28 @@ export default function DemandeProduitsPage() {
     return () => clearTimeout(t);
   }, [debouncedQuery]);
 
-  const addProduct = useCallback((p: ProductLite) => {
-    setLines((prev) => {
-      if (prev.some((l) => l.product_id === p.id)) return prev;
-      return [
-        ...prev,
-        {
-          product_id: p.id,
-          name: p.name,
-          photo_url: resolvePublicMediaUrl(p.photo_url),
-          qty: 1,
-          price_pph: p.price_pph ?? null,
-        },
-      ];
-    });
-    setQuery("");
-    setHits([]);
-    setFeedback(null);
-  }, []);
+  const addProduct = useCallback(
+    (p: ProductLite) => {
+      const unitPrice = resolveCatalogPrice(catalogHitToPricingInput(p));
+      setLines((prev) => {
+        if (prev.some((l) => l.product_id === p.id)) return prev;
+        return [
+          ...prev,
+          {
+            product_id: p.id,
+            name: p.name,
+            photo_url: resolvePublicMediaUrl(p.photo_url),
+            qty: 1,
+            unit_price: unitPrice,
+          },
+        ];
+      });
+      setQuery("");
+      setHits([]);
+      setFeedback(null);
+    },
+    [resolveCatalogPrice]
+  );
 
   const setQty = (productId: string, qty: number) => {
     const q = Math.min(10, Math.max(1, qty));
@@ -301,7 +310,7 @@ export default function DemandeProduitsPage() {
   const fieldFocus =
     "outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
   const totalAmount = useMemo(
-    () => lines.reduce((sum, l) => sum + (l.price_pph ?? 0) * l.qty, 0),
+    () => lines.reduce((sum, l) => sum + (draftLineUnitPrice(l) ?? 0) * l.qty, 0),
     [lines]
   );
 
@@ -412,7 +421,10 @@ export default function DemandeProduitsPage() {
                         {p.name}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-sky-900 sm:text-sm">
-                        <PriceDhInline value={p.price_pph} amountClassName="font-semibold text-sky-900" />
+                        <PriceDhInline
+                          value={resolveCatalogPrice(catalogHitToPricingInput(p))}
+                          amountClassName="font-semibold text-sky-900"
+                        />
                       </p>
                     </button>
                   </div>
@@ -475,14 +487,14 @@ export default function DemandeProduitsPage() {
                         <span className="inline-flex min-w-0 shrink-0 items-baseline gap-0.5 text-[12px] text-slate-600 sm:text-[13px]">
                           <span className="shrink-0 font-semibold text-slate-500">PU</span>
                           <strong className="font-semibold text-slate-900">
-                            <PriceDhInline value={l.price_pph} />
+                            <PriceDhInline value={draftLineUnitPrice(l)} />
                           </strong>
                         </span>
                         <span className="inline-flex shrink-0 items-baseline gap-0.5 text-[13px] font-bold text-sky-900 sm:text-sm">
                           <span className="shrink-0 font-semibold text-sky-800/90">Tot</span>
-                          {l.price_pph != null ? (
+                          {draftLineUnitPrice(l) != null ? (
                             <PriceDhInline
-                              value={l.price_pph * l.qty}
+                              value={(draftLineUnitPrice(l) ?? 0) * l.qty}
                               amountClassName="font-bold text-sky-900"
                               suffixClassName="text-sky-800/90"
                             />
@@ -684,14 +696,14 @@ export default function DemandeProduitsPage() {
                           <span className="inline-flex min-w-0 shrink items-baseline gap-0.5 text-[11px] text-slate-600">
                             <span className="shrink-0 font-semibold text-slate-500">PU</span>
                             <strong className="font-semibold text-slate-900">
-                              <PriceDhInline value={l.price_pph} amountClassName="text-[11px]" suffixClassName="text-[9px]" />
+                              <PriceDhInline value={draftLineUnitPrice(l)} amountClassName="text-[11px]" suffixClassName="text-[9px]" />
                             </strong>
                           </span>
                           <span className="inline-flex shrink-0 items-baseline gap-0.5 text-[11px] font-bold text-sky-900">
                             <span className="font-semibold text-sky-800/90">Tot</span>
-                            {l.price_pph != null ? (
+                            {draftLineUnitPrice(l) != null ? (
                               <PriceDhInline
-                                value={l.price_pph * l.qty}
+                                value={(draftLineUnitPrice(l) ?? 0) * l.qty}
                                 amountClassName="text-[11px] font-bold"
                                 suffixClassName="text-[9px] font-bold text-sky-800/90"
                               />

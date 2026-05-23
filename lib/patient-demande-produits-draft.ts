@@ -8,9 +8,22 @@ export type PatientDemandeProduitsDraftLine = {
   name: string;
   photo_url: string | null;
   qty: number;
+  /** Prix unitaire officine (source de vérité affichage / total). */
+  unit_price?: number | null;
+  /** @deprecated Ancien brouillon — migré vers unit_price à la lecture. */
   price_pph?: number | null;
   client_comment?: string;
 };
+
+export function draftLineUnitPrice(line: PatientDemandeProduitsDraftLine): number | null {
+  if (line.unit_price != null && !Number.isNaN(Number(line.unit_price))) {
+    return Number(line.unit_price);
+  }
+  if (line.price_pph != null && !Number.isNaN(Number(line.price_pph))) {
+    return Number(line.price_pph);
+  }
+  return null;
+}
 
 export type PatientDemandeProduitsCatalogProduct = {
   id: string;
@@ -19,6 +32,7 @@ export type PatientDemandeProduitsCatalogProduct = {
   laboratory: string | null;
   photo_url: string | null;
   price_pph?: number | null;
+  price_ppv?: number | null;
 };
 
 function draftKey(pharmacyId: string, requestId?: string): string {
@@ -114,7 +128,8 @@ export function draftLineToResubmitLine(line: PatientDemandeProduitsDraftLine): 
 export function mergeCatalogProductsIntoDraft(
   existing: PatientDemandeProduitsDraftLine[],
   products: PatientDemandeProduitsCatalogProduct[],
-  resolvePhoto: (url: string | null | undefined) => string | null
+  resolvePhoto: (url: string | null | undefined) => string | null,
+  resolveUnitPrice?: (p: PatientDemandeProduitsCatalogProduct) => number | null
 ): PatientDemandeProduitsDraftLine[] {
   const inCart = new Set(existing.map((l) => l.product_id));
   const added: PatientDemandeProduitsDraftLine[] = [];
@@ -126,7 +141,7 @@ export function mergeCatalogProductsIntoDraft(
       name: p.name,
       photo_url: resolvePhoto(p.photo_url),
       qty: 1,
-      price_pph: p.price_pph ?? null,
+      unit_price: resolveUnitPrice?.(p) ?? p.price_pph ?? null,
     });
   }
   return [...existing, ...added];

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageShell } from "@/components/ui/compact-shell";
+import { PharmacistPricingManager } from "@/components/pharmacist/pricing/pharmacist-pricing-manager";
 import { supabase } from "@/lib/supabase";
 
 export default function PharmacienPricingPage() {
@@ -17,7 +18,11 @@ export default function PharmacienPricingPage() {
         router.replace("/auth?redirect=/dashboard/pharmacien/pricing");
         return;
       }
-      const { data: profile } = await supabase.from("profiles").select("role").eq("id", auth.session.user.id).maybeSingle();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", auth.session.user.id)
+        .maybeSingle();
       if ((profile as { role?: string } | null)?.role !== "pharmacien") {
         router.replace("/dashboard/pharmacien");
         return;
@@ -39,18 +44,15 @@ export default function PharmacienPricingPage() {
   return (
     <PageShell maxWidthClass="max-w-4xl" className="space-y-4">
       <div>
-        <Link href="/" className="text-xs font-medium text-sky-800 underline">
-          ← Annuaire
+        <Link href="/dashboard/pharmacien" className="text-xs font-medium text-sky-800 underline">
+          ← Tableau de bord
         </Link>
         <h1 className="mt-2 text-lg font-bold text-foreground">Moteur de pricing</h1>
-        <p className="text-xs text-muted-foreground">Grilles, marges et suggestions de prix (à venir).</p>
+        <p className="text-xs text-muted-foreground">
+          Grille parapharmacie (PPH ± marge), règles par laboratoire ou par produit. Médicaments : PPV catalogue fixe.
+        </p>
       </div>
-      <div className="rounded-lg border border-dashed border-violet-200 bg-violet-50/50 p-6 text-sm text-violet-950">
-        Outil de tarification connecté au catalogue et aux politiques d’officine — non branché pour l’instant.
-      </div>
-      <Link href="/dashboard/pharmacien/demandes" className="inline-block text-sm font-medium text-emerald-800 underline">
-        Retour aux demandes de produits
-      </Link>
+      <PharmacistPricingManager />
     </PageShell>
   );
 }
