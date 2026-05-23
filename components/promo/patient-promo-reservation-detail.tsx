@@ -144,23 +144,32 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
       </div>
 
       <p className="rounded-xl bg-sky-50/80 px-3 py-2.5 text-sm leading-snug text-sky-950 ring-1 ring-sky-100">
-        {promoReservationHint(row.status)}
+        {promoReservationHint(row.status, {
+          pharmacistMessage: Boolean(row.pharmacist_note?.trim()),
+        })}
       </p>
 
-      {row.status === "unavailable" && row.pharmacist_note?.trim() ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50/50 px-3 py-2.5 text-sm text-rose-950">
+      {["unavailable", "cancelled", "confirmed"].includes(row.status) && row.pharmacist_note?.trim() ? (
+        <div
+          className={clsx(
+            "rounded-xl border px-3 py-2.5 text-sm",
+            row.status === "confirmed"
+              ? "border-emerald-200 bg-emerald-50/60 text-emerald-950"
+              : "border-rose-200 bg-rose-50/50 text-rose-950"
+          )}
+        >
           <p className="text-[10px] font-bold uppercase">Message de l&apos;officine</p>
-          <p className="mt-1">{row.pharmacist_note.trim()}</p>
+          <p className="mt-1 leading-snug">{row.pharmacist_note.trim()}</p>
         </div>
       ) : null}
 
-      <section className="rounded-xl border bg-card p-3">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Contenu du pack</p>
-        <div className="mt-2">
+      <section className="rounded-xl border-2 border-slate-200/90 bg-card p-4 shadow-sm">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Contenu du pack</p>
+        <div className="mt-3">
           <PromoOfferPackSummary
             lines={lines}
             discountPercent={row.offer?.discount_percent ?? 0}
-            compact
+            variant="detail"
           />
         </div>
       </section>
@@ -177,12 +186,6 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
           <div>
             <dt className="text-[10px] font-bold uppercase text-muted-foreground">Votre message</dt>
             <dd className="text-muted-foreground">{row.patient_note.trim()}</dd>
-          </div>
-        ) : null}
-        {row.status !== "unavailable" && row.pharmacist_note?.trim() ? (
-          <div>
-            <dt className="text-[10px] font-bold uppercase text-muted-foreground">Message de l&apos;officine</dt>
-            <dd>{row.pharmacist_note.trim()}</dd>
           </div>
         ) : null}
       </dl>

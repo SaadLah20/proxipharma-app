@@ -21,13 +21,86 @@ function whatsAppHref(phone: string | null | undefined) {
   return `https://wa.me/${digits}`;
 }
 
+function PharmacistNoteForm({
+  label,
+  placeholder,
+  value,
+  onChange,
+  required,
+  submitLabel,
+  busy,
+  disabled,
+  onSubmit,
+  onCancel,
+  tone = "default",
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+  submitLabel: string;
+  busy: boolean;
+  disabled?: boolean;
+  onSubmit: () => void;
+  onCancel?: () => void;
+  tone?: "default" | "danger";
+}) {
+  return (
+    <div
+      className={clsx(
+        "space-y-2 rounded-xl border p-3",
+        tone === "danger" ? "border-rose-200 bg-rose-50/50" : "border-emerald-200/80 bg-emerald-50/30"
+      )}
+    >
+      <label className="block text-xs font-bold text-foreground">
+        {label}
+        {required ? <span className="text-rose-700"> *</span> : null}
+        <textarea
+          className="mt-1 w-full rounded-lg border border-input bg-white px-2.5 py-2 text-sm"
+          rows={3}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          maxLength={500}
+        />
+      </label>
+      <div className="flex flex-wrap gap-2">
+        {onCancel ? (
+          <button
+            type="button"
+            disabled={busy}
+            className="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+            onClick={onCancel}
+          >
+            Retour
+          </button>
+        ) : null}
+        <button
+          type="button"
+          disabled={busy || disabled || (required && !value.trim())}
+          className={clsx(
+            "rounded-lg px-3 py-2 text-xs font-bold text-white disabled:opacity-50",
+            tone === "danger" ? "bg-rose-800 hover:bg-rose-900" : "bg-emerald-700 hover:bg-emerald-800"
+          )}
+          onClick={onSubmit}
+        >
+          {busy ? "…" : submitLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function PharmacistPromoReservationDetail({ reservationId }: { reservationId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [declineReason, setDeclineReason] = useState("");
-  const [showDecline, setShowDecline] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [panel, setPanel] = useState<"none" | "decline" | "cancel">("none");
   const [lines, setLines] = useState<PromoLineWithPrice[]>([]);
   const [row, setRow] = useState<{
     id: string;
@@ -93,6 +166,12 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     return () => window.clearTimeout(tid);
   }, [load]);
 
+  const resetPanels = () => {
+    setPanel("none");
+    setDeclineReason("");
+    setCancelReason("");
+  };
+
   const runRpc = async (fn: () => PromiseLike<{ error: { message: string } | null }>) => {
     setBusy(true);
     setError("");
@@ -100,8 +179,8 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     setBusy(false);
     if (rpcErr) setError(rpcErr.message);
     else {
-      setShowDecline(false);
-      setDeclineReason("");
+      resetPanels();
+      setConfirmMessage("");
       await load();
     }
   };
@@ -131,6 +210,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     month: "long",
   });
   const wa = whatsAppHref(row.patient?.whatsapp);
+  const canAct = row.status === "submitted" || row.status === "confirmed";
 
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
@@ -169,10 +249,14 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
         {row.public_ref ? <p className="mt-1 font-mono text-xs">{row.public_ref}</p> : null}
       </div>
 
-      <section className="rounded-xl border bg-card p-3">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Pack réservé</p>
-        <div className="mt-2">
-          <PromoOfferPackSummary lines={lines} discountPercent={row.offer?.discount_percent ?? 0} compact />
+      <section className="rounded-xl border-2 border-slate-200/90 bg-card p-4 shadow-sm">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Contenu du pack réservé</p>
+        <div className="mt-3">
+          <PromoOfferPackSummary
+            lines={lines}
+            discountPercent={row.offer?.discount_percent ?? 0}
+            variant="detail"
+          />
         </div>
       </section>
 
@@ -184,90 +268,112 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
             {row.pickup_time ? ` · ${row.pickup_time.slice(0, 5)}` : ""}
           </dd>
         </div>
-        {row.patient_note?.trim() ? (
-          <div>
-            <dt className="text-[10px] font-bold uppercase text-muted-foreground">Message patient</dt>
-            <dd>{row.patient_note.trim()}</dd>
-          </div>
-        ) : null}
-        {row.pharmacist_note?.trim() ? (
-          <div>
-            <dt className="text-[10px] font-bold uppercase text-muted-foreground">Motif / note officine</dt>
-            <dd>{row.pharmacist_note.trim()}</dd>
-          </div>
-        ) : null}
       </dl>
+
+      {row.patient_note?.trim() ? (
+        <div className="rounded-xl border border-sky-200/80 bg-sky-50/60 px-3 py-2.5">
+          <p className="text-[10px] font-bold uppercase text-sky-900">Message du patient</p>
+          <p className="mt-1 text-sm leading-snug text-sky-950">{row.patient_note.trim()}</p>
+        </div>
+      ) : null}
+
+      {!canAct && row.pharmacist_note?.trim() ? (
+        <div className="rounded-xl border bg-muted/20 px-3 py-2.5 text-sm">
+          <p className="text-[10px] font-bold uppercase text-muted-foreground">Votre message au patient</p>
+          <p className="mt-1">{row.pharmacist_note.trim()}</p>
+        </div>
+      ) : null}
 
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
 
-      {row.status === "submitted" ? (
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <button
-            type="button"
-            disabled={busy}
-            className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
-            onClick={() =>
-              void runRpc(async () =>
-                supabase.rpc("pharmacist_confirm_promo_reservation", { p_reservation_id: reservationId })
-              )
+      {row.status === "submitted" && panel === "none" ? (
+        <div className="space-y-3">
+          <PharmacistNoteForm
+            label="Réponse / message au patient (avec la confirmation)"
+            placeholder={
+              row.patient_note?.trim()
+                ? "Ex. Bonjour, votre pack est prêt pour le créneau choisi…"
+                : "Message facultatif transmis au patient avec la confirmation"
             }
-          >
-            Confirmer la réservation
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            className="rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-900 disabled:opacity-50"
-            onClick={() => setShowDecline((v) => !v)}
-          >
-            Non disponible
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            className="rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
-            onClick={() =>
+            value={confirmMessage}
+            onChange={setConfirmMessage}
+            submitLabel="Confirmer la réservation"
+            busy={busy}
+            onSubmit={() =>
               void runRpc(async () =>
-                supabase.rpc("cancel_promo_reservation", { p_reservation_id: reservationId, p_note: null })
-              )
-            }
-          >
-            Annuler
-          </button>
-        </div>
-      ) : null}
-
-      {showDecline && row.status === "submitted" ? (
-        <div className="space-y-2 rounded-xl border border-rose-100 bg-rose-50/50 p-3">
-          <label className="block text-xs font-bold">
-            Motif (obligatoire)
-            <textarea
-              className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
-              rows={3}
-              value={declineReason}
-              onChange={(e) => setDeclineReason(e.target.value)}
-              placeholder="Ex. Stock insuffisant pour ce pack"
-            />
-          </label>
-          <button
-            type="button"
-            disabled={busy || !declineReason.trim()}
-            className="rounded-lg bg-rose-800 px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
-            onClick={() =>
-              void runRpc(async () =>
-                supabase.rpc("pharmacist_decline_promo_reservation", {
+                supabase.rpc("pharmacist_confirm_promo_reservation", {
                   p_reservation_id: reservationId,
-                  p_reason: declineReason.trim(),
+                  p_pharmacist_note: confirmMessage.trim() || null,
                 })
               )
             }
-          >
-            Envoyer au patient
-          </button>
+          />
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <button
+              type="button"
+              disabled={busy}
+              className="rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-900 disabled:opacity-50"
+              onClick={() => setPanel("decline")}
+            >
+              Non disponible
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              className="rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
+              onClick={() => setPanel("cancel")}
+            >
+              Annuler la réservation
+            </button>
+          </div>
         </div>
       ) : null}
 
-      {row.status === "confirmed" ? (
+      {row.status === "submitted" && panel === "decline" ? (
+        <PharmacistNoteForm
+          label="Motif visible par le patient"
+          placeholder="Ex. Stock insuffisant pour ce pack"
+          value={declineReason}
+          onChange={setDeclineReason}
+          required
+          submitLabel="Envoyer au patient"
+          busy={busy}
+          tone="danger"
+          onCancel={() => setPanel("none")}
+          onSubmit={() =>
+            void runRpc(async () =>
+              supabase.rpc("pharmacist_decline_promo_reservation", {
+                p_reservation_id: reservationId,
+                p_reason: declineReason.trim(),
+              })
+            )
+          }
+        />
+      ) : null}
+
+      {canAct && panel === "cancel" ? (
+        <PharmacistNoteForm
+          label="Motif d'annulation (visible par le patient)"
+          placeholder="Ex. Erreur de stock, report impossible…"
+          value={cancelReason}
+          onChange={setCancelReason}
+          required
+          submitLabel="Confirmer l'annulation"
+          busy={busy}
+          tone="danger"
+          onCancel={() => setPanel("none")}
+          onSubmit={() =>
+            void runRpc(async () =>
+              supabase.rpc("cancel_promo_reservation", {
+                p_reservation_id: reservationId,
+                p_note: cancelReason.trim(),
+              })
+            )
+          }
+        />
+      ) : null}
+
+      {row.status === "confirmed" && panel === "none" ? (
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
@@ -285,13 +391,9 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
             type="button"
             disabled={busy}
             className="rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
-            onClick={() =>
-              void runRpc(async () =>
-                supabase.rpc("cancel_promo_reservation", { p_reservation_id: reservationId, p_note: null })
-              )
-            }
+            onClick={() => setPanel("cancel")}
           >
-            Annuler
+            Annuler la réservation
           </button>
         </div>
       ) : null}
