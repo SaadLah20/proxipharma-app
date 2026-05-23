@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.28** (dernier lot : promo **`20260610_001`** + horaires) ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.29** (dernier lot : moteur pricing **`20260619_001`**, Supabase **appliquee**) ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** : pour **vider toutes les demandes** en environnement de test → `scripts/clear-all-requests.mjs` (`.env.local` avec `SUPABASE_SERVICE_ROLE_KEY`) ou SQL `supabase/scripts/clear-all-requests.sql` dans l’éditeur Supabase. **Doublons patient** (même téléphone, 2× `auth.users`) en pilote : reset demandes + suppression des comptes Auth puis nouvelle inscription. Plan de tests E2E demandes produits → fichier Canvas Cursor `canvases/product-requests-e2e-test-plan.canvas.tsx` (mention §13.5).
@@ -329,6 +329,36 @@ Statuts retenus v1:
 - `partially_collected` / `fully_collected` (conserves en enum; hors flux officiel depuis migration 20260502 au profit de `completed` + suivi ligne a ligne au comptoir)
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
+
+### Session 2026-05-19 (pricing officine) — Moteur de pricing pharmacien
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commit poussé **`f7361ff`** (rebase sur remote).
+
+**Migration** (**appliquée** sur Supabase pilote) :
+- **`20260619_001_pharmacy_pricing_engine.sql`** — tables **`pharmacy_pricing_settings`**, **`pharmacy_pricing_laboratory_rules`**, **`pharmacy_pricing_product_overrides`** ; RPC **`pharmacist_pricing_config_get`** / **`pharmacist_pricing_config_save`**, **`pharmacist_pricing_distinct_laboratories`**, **`pharmacy_pricing_config_public_get`** (parcours patient), **`resolve_pharmacy_product_unit_price`** ; backfill **`price_ppv`** médicaments si manquant.
+
+**Règles métier** :
+- **Médicaments** : toujours **PPV** catalogue (`products.price_ppv`) — **non paramétrable** dans l’UI pricing.
+- **Parapharmacie** : PPH + marge **−10 % à +40 %** (global, par laboratoire, ou par produit) ; priorité **produit > laboratoire > global**.
+- **Source de vérité affichage** : grille officine (plus le PPH brut catalogue) sur demandes produits, ordonnances, promos, panier patient.
+- **Patient** : libellés **Prix / PU** uniquement (jamais « PPH » / « PPH +10 % »).
+
+**UI pharmacien** :
+- **`/dashboard/pharmacien/pricing`** — **`components/pharmacist/pricing/pharmacist-pricing-manager.tsx`** (onglets Général / Laboratoires / Produits).
+- Menu profil : **Moteur de pricing** (`platform-header.tsx`).
+
+**Code** :
+- **`lib/pharmacy-pricing/`** — résolution (`resolve.ts`), hooks (`use-pharmacy-pricing.ts`), API RPC.
+- **`lib/product-price.ts`** — **`formatPharmacyCatalogPrice`** / **`formatPharmacyLinePrice`**.
+- Intégration : **`demande-produits`** + catalogue, **`patient-product-request-actions`**, **`pharmacien/demandes/[id]`**, promos (`lib/promo/pricing.ts`), modal ordonnance.
+
+**Lint CI** : correctifs **`react-hooks/set-state-in-effect`** (annuaire pagination, hooks pricing) — warnings restants non bloquants.
+
+**Phrase de reprise** : **§13.29**.
+
+**QA pilote** : configurer une grille sur **`/dashboard/pharmacien/pricing`** → vérifier PU patient (nouvelle demande produits) et PU indicatif pharmacien à la réponse ; modifier la grille et recontrôler les **nouveaux** parcours (lignes déjà répondues gardent le **`unit_price`** enregistré).
+
+---
 
 ### Session 2026-05-19 (promo + horaires) — Packs promo, horaires mobile, cloche notifs
 
@@ -1328,11 +1358,20 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260608_001_pharmacy_ratings.sql` (avis publics 1–5 étoiles par compte ; agrégat sur `pharmacies`)
   - `supabase/migrations/20260609_001_storage_pharmacy_versioned_media_paths.sql` (RLS Storage : noms fichiers cover-{ms} / logo-{ms})
   - `supabase/migrations/20260610_001_promo_offers_reservations.sql` (offres packs promo + réservations + notifs `promo_in_app_notifications` — workflow séparé des `requests`)
+  - `supabase/migrations/20260611_001_promo_duplicate_reservation_guard.sql`
+  - `supabase/migrations/20260612_001_pharmacist_ordered_products_hub.sql`
+  - `supabase/migrations/20260613_001_promo_cancel_confirm_messages.sql`
+  - `supabase/migrations/20260614_001_post_confirm_arrival_cancelled_notif.sql`
+  - `supabase/migrations/20260615_001_pharmacist_market_shortage_hub.sql`
+  - `supabase/migrations/20260616_001_pharmacist_dashboard_patient_crm.sql`
+  - `supabase/migrations/20260617_001_pharmacist_profile_analytics.sql`
+  - `supabase/migrations/20260618_001_market_shortage_notify_chosen_alternative.sql`
+  - `supabase/migrations/20260619_001_pharmacy_pricing_engine.sql` (**moteur pricing** officine — parapharmacie PPH±marge, médicaments PPV fixe)
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
 - A la **`responded` -> `confirmed`**, le patient peut choisir pour chaque ligne le **produit principal** ou **une alternative** proposee (`patient_chosen_alternative_id`), ou **rien** pour la ligne.
-- **Référentiel catalogue** : affichage **PPH** (`products.price_pph`) partout où le catalogue est lu sur les parcours produits lorsque renseigné ; **prix de réponse** pharmacien distingué (« Prix pharmacie » / champ `request_items.unit_price`).
+- **Prix catalogue officine** (depuis **`20260619_001`**, migration **appliquée**) : résolution via **`lib/pharmacy-pricing`** + RPC **`resolve_pharmacy_product_unit_price`** / **`pharmacy_pricing_config_public_get`** — **médicament = PPV** ; **parapharmacie = PPH + marge** (global / laboratoire / produit, voir **`/dashboard/pharmacien/pricing`**). Patient : libellé **Prix / PU** uniquement. **`request_items.unit_price`** = prix saisi ou résolu à l’enregistrement pharmacien (lignes déjà répondues).
 - Le client peut **modifier et renvoyer** une demande produit **avant réponse** (`submitted`|`in_review`) ou **après réponse** (`responded` uniquement pour ce flux ; en **`confirmed`** le renvoi liste est retiré côté UI — abandon possible) via RPC `patient_resubmit_product_request_after_response` → retour **`submitted`**, reset préparation pharma.
 - Le **retrait reel** au comptoir est porte par le **pharmacien**: colonne par ligne `request_items.counter_outcome` (en UI post-validé **saisie brouillon** limitée à **`unset`** / **`picked_up`** pour les lignes non figées ; valeurs legacy **`deferred_next_visit`** / **`cancelled_at_counter`** restent en base et sont affichées en lecture seule ou normalisées à l’enregistrement). **Clôture** dossier : **`pharmacist_complete_request_after_counter`** accessible dès qu’**au moins une** ligne retenue (non écartée) est **`picked_up`**, avec **confirmation** si d’autres lignes retenues ne le sont pas encore.
 - **Après réponse** : l’app ne renseigne plus **`expires_at` +7 j** sur publication (pilote). L’expiration **`responded`** sans validation patient repose sur **`expire_overdue_requests()`** (cron **`service_role`** ou **`/api/cron/expire-overdue-requests`**) : **`responded_at`** vs **`now()`** ; défaut **24 h** (**`20260523_001`**) ; **`expires_at`** non nul reste pris en charge en seconde passe. **`abandon_unconfirmed_responded_requests()`** = alias. Les **`request_items`** sont limités à **qté 1–10** et **un seul `product_id` par demande**.
@@ -1343,6 +1382,7 @@ Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-
 - **`/pharmacie/[id]`** : fiche digitale publique (**`PharmacyPublicProfile`**, onglets Services / **Offres** (packs promo) / Horaires / Infos ; notes publiques ; contacts en grille).
 - **`/dashboard/pharmacien/ma-fiche`** + **`/dashboard/pharmacien/horaires-garde`** : édition fiche officine (texte, services, horaires compacts + fériés auto + garde, upload **couverture** / **logo** versionnés via **`lib/pharmacy-media.ts`**).
 - **`/dashboard/pharmacien/offres-promos`** + **`/dashboard/pharmacien/reservations-packs`** ; **`/dashboard/patient/packs-promo`** — workflow packs promo (après **`20260610_001`**).
+- **`/dashboard/pharmacien/pricing`** — moteur de pricing officine (**`20260619_001`**, appliquée).
 - **`/pharmacie/[id]/demande-produits`**: création demande **`submitted`**
 - **`/dashboard`** (résumé / routage rôle), **`/dashboard/demandes`** (hub + **filtre par réf.** + codes **`request_public_ref`** sur cartes), **`/dashboard/demandes/[id]`** (ref mémorable + code officine en détail)
 - **`/dashboard/demandes`** (vue liste) : refonte UX des filtres/cartes ; suppression bouton copie ; compteurs et montants contextualisés (`responded` vs validé/en traitement/clôturé) ; statut intermédiaire UI **En traitement** (virtuel : `confirmed` + **`post_confirm_fulfillment`** `reserved`/`ordered`, migration **`20260507_005`**)
@@ -1564,9 +1604,13 @@ Voir **§13.28** pour la phrase consolidée actuelle.
 
 Voir **§13.28**.
 
-### 13.28) Phrase de reprise (recommandée — après session **2026-05-19 promo + horaires**)
+### 13.28) Phrase de reprise (dépassée — promo + horaires seuls)
 
-**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`71acf25`**+ : **`5859ab8`** packs promo, **`1499e7e`** horaires/Ma fiche, **`71acf25`** cloche promo + fix mobile horaires). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§10 (session 2026-05-19 promo)**, §4.4–§4.6, §11. Migrations Supabase dans l’ordre jusqu’à **`20260610_001`** si pas déjà fait (`20260609_001` Storage cover/logo versionné **obligatoire** si RLS upload ; **`20260610_001`** offres/réservations packs — workflow **séparé** des `requests`). **Packs promo** : pharmacien `offres-promos` + `reservations-packs` ; public onglet **Offres** + réserver ; patient `packs-promo` ; refs **`P042/26`** ; notifs **`promo_in_app_notifications`** dans la **cloche** header. **Horaires** : `horaires-garde` — 7 jours compacts, fériés Maroc auto (`lib/morocco-public-holidays.ts`), garde fin auto ; grille mobile Matin/Après-midi corrigée. **Fiche** : Infos/Horaires/notes + upload versionné. **Demandes** : supply post-validé (`0094611`) inchangé. Pilote : reset demandes OK ; promo testable après **`20260610_001`**. Je te dis ensuite quoi faire. »**
+Voir **§13.29**.
+
+### 13.29) Phrase de reprise (recommandée — après session **2026-05-19 pricing**, migration **`20260619_001` appliquée**)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commit **`f7361ff`**+ pricing). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§10 (session 2026-05-19 pricing)**, §4.4–§4.6, §11. Supabase : migrations jusqu’à **`20260619_001`** (**appliquée** — moteur pricing). **Pricing** : pharmacien **`/dashboard/pharmacien/pricing`** (`lib/pharmacy-pricing/`, `PharmacistPricingManager`) — parapharmacie PPH ± marge (−10 % à +40 %), règles laboratoire/produit ; **médicaments = PPV** catalogue (non modifiable). Prix affichés patient/pharmacien = grille officine (**Prix / PU**, jamais PPH). Fichiers clés : `lib/pharmacy-pricing/resolve.ts`, `lib/product-price.ts`, `demande-produits`, `patient-product-request-actions`, `pharmacien/demandes/[id]/page.tsx`. Lots antérieurs inchangés : promo **`20260610_001`**, supply post-validé, fiche digitale, hubs CRM **`20260616_001`**–**`20260618_001`**. QA : configurer grille → nouvelle demande produits + réponse pharma. Je te dis ensuite quoi faire. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
