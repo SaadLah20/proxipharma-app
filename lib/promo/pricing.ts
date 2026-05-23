@@ -6,11 +6,16 @@ export type PromoLineWithPrice = PromoOfferLineRow & {
   photo_url?: string | null;
 };
 
-export function computePromoPackTotals(lines: PromoLineWithPrice[], discountPercent: number) {
+export function computePromoPackTotals(
+  lines: PromoLineWithPrice[],
+  discountPercent: number,
+  unitPriceForLine?: (line: PromoLineWithPrice) => number | null
+) {
   let subtotal = 0;
   for (const line of lines) {
     if (line.line_kind !== "product" || !line.product_id) continue;
-    const p = line.price_pph ?? 0;
+    const resolved = unitPriceForLine?.(line);
+    const p = resolved != null && !Number.isNaN(resolved) ? resolved : line.price_pph ?? 0;
     subtotal += p * line.quantity;
   }
   const discount = (subtotal * discountPercent) / 100;

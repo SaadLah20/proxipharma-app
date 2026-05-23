@@ -6,12 +6,7 @@ import { clsx } from "clsx";
 import { AnnuaireFooter } from "@/components/annuaire/annuaire-footer";
 import { AnnuairePagination } from "@/components/annuaire/annuaire-pagination";
 import { AnnuairePharmacyCard } from "@/components/annuaire/annuaire-pharmacy-card";
-import {
-  formatDistanceKm,
-  haversineKm,
-  isPlausibleMoroccoCoords,
-  requestUserLocation,
-} from "@/lib/annuaire/geo";
+import { haversineKm, isPlausibleMoroccoCoords, requestUserLocation } from "@/lib/annuaire/geo";
 import {
   loadScheduleBundlesByPharmacyIds,
   openSnapshotForBundle,
@@ -28,14 +23,11 @@ export function AnnuairePage() {
     new Map()
   );
   const [loading, setLoading] = useState(true);
-  const [schedulesLoading, setSchedulesLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterOnCall, setFilterOnCall] = useState(false);
-  const [page, setPage] = useState(1);
-
   const [radiusEnabled, setRadiusEnabled] = useState(false);
   const [radiusKm, setRadiusKm] = useState<number>(5);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -65,21 +57,22 @@ export function AnnuairePage() {
     return () => window.clearTimeout(tid);
   }, [loadPharmacies]);
 
+  const pharmacyIdsKey = useMemo(() => pharmacies.map((p) => p.id).join(","), [pharmacies]);
+
   useEffect(() => {
-    if (pharmacies.length === 0) return;
+    if (!pharmacyIdsKey) return;
     let cancelled = false;
-    setSchedulesLoading(true);
-    const ids = pharmacies.map((p) => p.id);
+    const ids = pharmacyIdsKey.split(",").filter(Boolean);
     void loadScheduleBundlesByPharmacyIds(ids).then((map) => {
-      if (!cancelled) {
-        setScheduleMap(map);
-        setSchedulesLoading(false);
-      }
+      if (!cancelled) setScheduleMap(map);
     });
     return () => {
       cancelled = true;
     };
-  }, [pharmacies]);
+  }, [pharmacyIdsKey]);
+
+  const schedulesLoading =
+    pharmacies.length > 0 && pharmacies.some((p) => !scheduleMap.has(p.id));
 
   const enriched: AnnuairePharmacyEnriched[] = useMemo(() => {
     return pharmacies.map((p) => {
@@ -128,18 +121,38 @@ export function AnnuairePage() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ANNUAIRE_PAGE_SIZE));
 
-  useEffect(() => {
-    setPage(1);
-  }, [searchQuery, filterOpen, filterOnCall, radiusEnabled, radiusKm, userLocation]);
+  const listFilterKey = useMemo(
+    () =>
+      [
+        searchQuery,
+        filterOpen,
+        filterOnCall,
+        radiusEnabled,
+        radiusKm,
+        userLocation?.lat ?? "",
+        userLocation?.lng ?? "",
+      ].join("|"),
+    [searchQuery, filterOpen, filterOnCall, radiusEnabled, radiusKm, userLocation]
+  );
 
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
+  const [pageState, setPageState] = useState({ filterKey: listFilterKey, page: 1 });
+
+  const effectivePage = useMemo(() => {
+    const raw = pageState.filterKey === listFilterKey ? pageState.page : 1;
+    return Math.min(Math.max(1, raw), totalPages);
+  }, [pageState, listFilterKey, totalPages]);
+
+  const setEffectivePage = useCallback(
+    (next: number) => {
+      setPageState({ filterKey: listFilterKey, page: next });
+    },
+    [listFilterKey]
+  );
 
   const pageItems = useMemo(() => {
-    const start = (page - 1) * ANNUAIRE_PAGE_SIZE;
+    const start = (effectivePage - 1) * ANNUAIRE_PAGE_SIZE;
     return filtered.slice(start, start + ANNUAIRE_PAGE_SIZE);
-  }, [filtered, page]);
+  }, [filtered, effectivePage]);
 
   const activateRadiusSearch = async () => {
     setLocationError("");
@@ -317,11 +330,11 @@ export function AnnuairePage() {
             </div>
             <div className="mt-6">
               <AnnuairePagination
-                page={page}
+                page={effectivePage}
                 totalPages={totalPages}
                 totalItems={filtered.length}
                 pageSize={ANNUAIRE_PAGE_SIZE}
-                onPage={setPage}
+                onPage={setEffectivePage}
               />
             </div>
           </>

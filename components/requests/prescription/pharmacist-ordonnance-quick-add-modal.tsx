@@ -13,21 +13,21 @@ import {
 export type OrdonnanceCatalogHit = {
   id: string;
   name: string;
+  product_type?: string;
+  laboratory?: string | null;
   price_pph?: number | null;
+  price_ppv?: number | null;
   photo_url?: string | null;
 };
 
 export type OrdonnanceModalAlternativePick = {
   id: string;
   name: string;
+  product_type?: string;
   price_pph?: number | null;
+  price_ppv?: number | null;
   photo_url?: string | null;
 };
-
-function pphLabel(v: number | null | undefined): string | null {
-  if (v == null || Number.isNaN(Number(v))) return null;
-  return `${Number(v).toFixed(2)} MAD`;
-}
 
 type Props = {
   open: boolean;
@@ -60,6 +60,7 @@ type Props = {
   onExpectedDateChange: (v: string) => void;
   receptionDateMin: string;
   onConfirmAdd: () => void | Promise<void>;
+  catalogUnitPriceLabel?: (hit: OrdonnanceCatalogHit) => string | null;
 };
 
 function QtyStepper({
@@ -151,7 +152,10 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
     onExpectedDateChange,
     receptionDateMin,
     onConfirmAdd,
+    catalogUnitPriceLabel,
   } = props;
+
+  const puLabel = (hit: OrdonnanceCatalogHit) => catalogUnitPriceLabel?.(hit) ?? null;
 
   if (!open) return null;
 
@@ -231,8 +235,8 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block font-medium text-foreground">{h.name}</span>
-                          {pphLabel(h.price_pph) ? (
-                            <span className="mt-0.5 block text-[11px] font-medium text-teal-800">{pphLabel(h.price_pph)}</span>
+                          {puLabel(h) ? (
+                            <span className="mt-0.5 block text-[11px] font-medium text-teal-800">PU {puLabel(h)}</span>
                           ) : null}
                         </span>
                       </button>
@@ -258,8 +262,8 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-amber-800">Produit choisi</p>
                   <p className="text-sm font-semibold text-amber-950">{selectedProduct.name}</p>
-                  {pphLabel(selectedProduct.price_pph) ? (
-                    <p className="text-[11px] font-medium text-teal-800">{pphLabel(selectedProduct.price_pph)}</p>
+                  {puLabel(selectedProduct) ? (
+                    <p className="text-[11px] font-medium text-teal-800">PU {puLabel(selectedProduct)}</p>
                   ) : null}
                 </div>
                 <div className="flex shrink-0 flex-col gap-1">
@@ -431,9 +435,9 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                               </span>
                               <span className="min-w-0 flex-1">
                                 <span className="block truncate font-medium text-foreground">{h.name}</span>
-                                {pphLabel(h.price_pph) ? (
+                                {puLabel(h) ? (
                                   <span className="mt-0.5 block text-[10px] font-medium text-teal-800">
-                                    {pphLabel(h.price_pph)}
+                                    PU {puLabel(h)}
                                   </span>
                                 ) : null}
                               </span>

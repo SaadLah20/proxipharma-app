@@ -50,6 +50,9 @@ import {
   validatedQtyForPatientLine,
 } from "@/lib/patient-confirmed-line-buckets";
 import { formatPriceDh } from "@/lib/product-price";
+import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
+import { catalogHitToPricingInput, productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
+import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
   clearPatientDemandeCatalogueReturnEdit,
@@ -110,7 +113,14 @@ import {
 } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import { RequestLineSuiviStrip } from "@/components/requests/shared/request-line-suivi-strip";
 
-type ProdBrief = { name: string; price_pph?: number | null; photo_url?: string | null };
+type ProdBrief = {
+  name: string;
+  product_type?: string | null;
+  laboratory?: string | null;
+  price_pph?: number | null;
+  price_ppv?: number | null;
+  photo_url?: string | null;
+};
 
 export type ActionItemAltRow = {
   id: string;
@@ -291,7 +301,8 @@ function PatientPharmacyQuickContact({
 
 function monetaryTotalsForRetainedLines(
   rows: ActionItemRow[],
-  requestStatus?: string | null
+  requestStatus?: string | null,
+  pricingConfig?: PharmacyPricingConfig | null
 ): { count: number; sumKnown: number; missingPrice: boolean } {
   let sumKnown = 0;
   let missingPrice = false;
@@ -299,7 +310,7 @@ function monetaryTotalsForRetainedLines(
   for (const row of rows) {
     if (!row.is_selected_by_patient || row.withdrawn_after_confirm) continue;
     count += 1;
-    const unit = validatedBranchUnitPriceMad(row);
+    const unit = validatedBranchUnitPriceMad(row, pricingConfig, row.product_id);
     const qty = patientDisplayQtyForLine(row, requestStatus);
     if (unit == null) missingPrice = true;
     else sumKnown += unit * qty;
@@ -363,9 +374,11 @@ function PatientValidatedCompactLineCard({
   pharmacistProposedBadgeLabel = pharmacistProposedProductBadgeFr,
   requestType = "product_request",
   supplyAmendmentBundles = [],
+  pricingConfig = null,
 }: {
   row: ActionItemRow;
   tier: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation";
+  pricingConfig?: PharmacyPricingConfig | null;
   onOpenHistory: () => void;
   /** Dossier `treated` : texte court réservation / commande / réception / comptoir. */
   treatedSupplyStatusLine?: string | null;
@@ -386,7 +399,7 @@ function PatientValidatedCompactLineCard({
   const chosenAlt = altList.find((a) => a.id === row.patient_chosen_alternative_id);
   const validatedName = validatedProductLabel(row);
   const displayQty = patientDisplayQtyForLine(row, requestStatusForCard);
-  const unitMad = validatedBranchUnitPriceMad(row);
+  const unitMad = validatedBranchUnitPriceMad(row, pricingConfig, row.product_id);
   const lineTotalMad = unitMad != null ? unitMad * displayQty : null;
   const thumbUrl = resolvePublicMediaUrl(validatedBranchPhotoPath(row));
   const eff = effectiveAvailabilityForPatientLine(row);
@@ -725,6 +738,7 @@ type ResubmitLine = {
   name: string;
   photo_url?: string | null;
   qty: number;
+  unit_price?: number | null;
   price_pph?: number | null;
   client_comment: string;
   pharmacist_comment?: string | null;
@@ -738,13 +752,22 @@ function visibleItemsForPatientBeforePharmacyResponse(items: ActionItemRow[], st
   return items.filter((row) => row.line_source !== "pharmacist_proposed");
 }
 
-function computeResubmitLinesFromItems(items: ActionItemRow[]): ResubmitLine[] {
+function resubmitLineUnitPrice(line: ResubmitLine): number | null {
+  if (line.unit_price != null && !Number.isNaN(Number(line.unit_price))) return Number(line.unit_price);
+  if (line.price_pph != null && !Number.isNaN(Number(line.price_pph))) return Number(line.price_pph);
+  return null;
+}
+
+function computeResubmitLinesFromItems(
+  items: ActionItemRow[],
+  resolveCatalog?: (row: ActionItemRow) => number | null
+): ResubmitLine[] {
   return items.map((row) => ({
     product_id: row.product_id,
     name: one(row.products)?.name ?? "Produit",
     photo_url: resolvePublicMediaUrl(one(row.products)?.photo_url ?? null),
     qty: Math.min(10, Math.max(1, row.requested_qty)),
-    price_pph: one(row.products)?.price_pph ?? null,
+    unit_price: row.unit_price ?? resolveCatalog?.(row) ?? null,
     client_comment: row.client_comment ?? "",
     pharmacist_comment: row.pharmacist_comment ?? "",
     line_source: row.line_source ?? null,
@@ -789,6 +812,7 @@ function PatientClosedProductBucketsView({
   pharmacistProposedBadgeLabel,
   requestType = "product_request",
   supplyAmendmentBundles = [],
+  pricingConfig = null,
 }: {
   items: ActionItemRow[];
   onOpenLineHistory: (itemId: string) => void;
@@ -797,6 +821,7 @@ function PatientClosedProductBucketsView({
   pharmacistProposedBadgeLabel: string;
   requestType?: string;
   supplyAmendmentBundles?: { amendments: unknown }[];
+  pricingConfig?: PharmacyPricingConfig | null;
 }) {
   const recuperes = items.filter(
     (r) => r.is_selected_by_patient && (r.counter_outcome ?? "unset") === "picked_up"
@@ -827,6 +852,7 @@ function PatientClosedProductBucketsView({
           pharmacistProposedBadgeLabel={pharmacistProposedBadgeLabel}
           requestType={requestType}
           supplyAmendmentBundles={supplyAmendmentBundles}
+          pricingConfig={pricingConfig}
         />
       ))}
     </ul>
@@ -2181,6 +2207,27 @@ export function PatientProductRequestActions({
   const kindConfig = getRequestKindConfig(requestType);
   const workflowCopy = kindConfig.copy.workflow;
   const accent = kindConfig.theme.accent;
+  const { config: pricingConfig, resolve: resolveCatalogPrice } = usePharmacyPricingForPatient(pharmacyId ?? undefined);
+
+  const resolveItemCatalogPrice = useCallback(
+    (row: ActionItemRow) => {
+      const prod = one(row.products);
+      return resolveCatalogPrice(
+        productEmbedToPricingInput(
+          prod
+            ? {
+                product_type: prod.product_type ?? "parapharmacie",
+                price_pph: prod.price_pph,
+                price_ppv: prod.price_ppv,
+                laboratory: prod.laboratory,
+              }
+            : null,
+          row.product_id
+        )
+      );
+    },
+    [resolveCatalogPrice]
+  );
   const isPrescription = requestType === "prescription";
   const isConsultation = requestType === "free_consultation";
   const [actionError, setActionError] = useState("");
@@ -2248,8 +2295,12 @@ export function PatientProductRequestActions({
   const [catalogueRestoreDone, setCatalogueRestoreDone] = useState(false);
 
   const serverResubmitLines = useMemo(
-    () => computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status)),
-    [items, status]
+    () =>
+      computeResubmitLinesFromItems(
+        visibleItemsForPatientBeforePharmacyResponse(items, status),
+        resolveItemCatalogPrice
+      ),
+    [items, status, resolveItemCatalogPrice]
   );
   const linesSyncKey = editMode
     ? "edit"
@@ -2327,7 +2378,12 @@ export function PatientProductRequestActions({
   const resetResubmitDraft = () => {
     if (requestId) clearPatientDemandeCatalogueReturnEdit(requestId);
     if (pharmacyId) clearPatientDemandeProduitsDraft(pharmacyId, requestId);
-    setLines(computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status)));
+    setLines(
+      computeResubmitLinesFromItems(
+        visibleItemsForPatientBeforePharmacyResponse(items, status),
+        resolveItemCatalogPrice
+      )
+    );
     setQuery("");
     setHits([]);
     setActionError("");
@@ -2439,7 +2495,7 @@ export function PatientProductRequestActions({
 
   const visibleHits = debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS ? [] : hits;
   const resubmitTotal = useMemo(
-    () => lines.reduce((sum, l) => sum + (l.price_pph ?? 0) * l.qty, 0),
+    () => lines.reduce((sum, l) => sum + (resubmitLineUnitPrice(l) ?? 0) * l.qty, 0),
     [lines]
   );
 
@@ -2477,7 +2533,7 @@ export function PatientProductRequestActions({
         }
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph")
+          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -2507,7 +2563,7 @@ export function PatientProductRequestActions({
           name: p.name,
           photo_url: resolvePublicMediaUrl(p.photo_url ?? null),
           qty: 1,
-          price_pph: p.price_pph ?? null,
+          unit_price: resolveCatalogPrice(catalogHitToPricingInput(p)),
           client_comment: "",
           line_source: "patient_request",
           pharmacist_proposal_reason: null,
@@ -2756,7 +2812,10 @@ export function PatientProductRequestActions({
     await onReload();
   };
 
-  const totalsRetained = useMemo(() => monetaryTotalsForRetainedLines(items, status), [items, status]);
+  const totalsRetained = useMemo(
+    () => monetaryTotalsForRetainedLines(items, status, pricingConfig),
+    [items, status, pricingConfig]
+  );
   const totalRetainedGrandLabel = useMemo(
     () =>
       compactTotalMadLabel({
@@ -2768,7 +2827,11 @@ export function PatientProductRequestActions({
   );
 
   const resubmitBaseline = useMemo(
-    () => computeResubmitLinesFromItems(visibleItemsForPatientBeforePharmacyResponse(items, status)),
+    () =>
+      computeResubmitLinesFromItems(
+        visibleItemsForPatientBeforePharmacyResponse(items, status),
+        resolveItemCatalogPrice
+      ),
     [items, status]
   );
   const resubmitDirty = useMemo(() => {
@@ -2988,6 +3051,7 @@ export function PatientProductRequestActions({
             pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
             requestType={requestType}
             supplyAmendmentBundles={supplyAmendmentBundles}
+            pricingConfig={pricingConfig}
           />
         </section>
       ) : null}
@@ -3040,6 +3104,7 @@ export function PatientProductRequestActions({
                         pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                         requestType={requestType}
                         supplyAmendmentBundles={supplyAmendmentBundles}
+                        pricingConfig={pricingConfig}
                       />
                     ))}
                   </ul>
@@ -3077,6 +3142,7 @@ export function PatientProductRequestActions({
                         pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                         requestType={requestType}
                         supplyAmendmentBundles={supplyAmendmentBundles}
+                        pricingConfig={pricingConfig}
                       />
                     ))}
                   </ul>
@@ -3109,6 +3175,7 @@ export function PatientProductRequestActions({
                         pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                         requestType={requestType}
                         supplyAmendmentBundles={supplyAmendmentBundles}
+                        pricingConfig={pricingConfig}
                       />
                     ))}
                   </ul>
@@ -3140,6 +3207,7 @@ export function PatientProductRequestActions({
                         pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                         requestType={requestType}
                         supplyAmendmentBundles={supplyAmendmentBundles}
+                        pricingConfig={pricingConfig}
                       />
                     ))}
                   </ul>
@@ -3255,7 +3323,9 @@ export function PatientProductRequestActions({
                       >
                         {h.name}
                       </p>
-                      <p className="mt-1 text-xs font-semibold text-sky-900 sm:text-sm">{formatPriceDh(h.price_pph)}</p>
+                      <p className="mt-1 text-xs font-semibold text-sky-900 sm:text-sm">
+                        {formatPriceDh(resolveCatalogPrice(catalogHitToPricingInput(h)))}
+                      </p>
                     </button>
                   </div>
                 </li>
@@ -3319,7 +3389,7 @@ export function PatientProductRequestActions({
                   <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-3.5 gap-y-1 border-t border-slate-200/80 pt-2 text-[12px] font-medium leading-none tabular-nums text-slate-800 sm:gap-x-4 sm:text-[13px]">
                     <div className="min-w-0 justify-self-start truncate">
                       <span className="text-slate-500">PU</span>{" "}
-                      <strong className="font-semibold text-slate-900">{formatPriceDh(l.price_pph)}</strong>
+                      <strong className="font-semibold text-slate-900">{formatPriceDh(resubmitLineUnitPrice(l))}</strong>
                     </div>
                     <div className="flex shrink-0 items-center justify-center gap-1.5 justify-self-center">
                       <span className="shrink-0 text-slate-500">Qté</span>
@@ -3352,7 +3422,9 @@ export function PatientProductRequestActions({
                     <div className="min-w-0 justify-self-end truncate text-end">
                       <span className="text-slate-500">Total</span>{" "}
                       <strong className="font-semibold text-sky-900">
-                        {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
+                        {resubmitLineUnitPrice(l) != null
+                          ? formatPriceDh((resubmitLineUnitPrice(l) ?? 0) * l.qty)
+                          : "—"}
                       </strong>
                     </div>
                   </div>
@@ -3886,12 +3958,14 @@ export function PatientProductRequestActions({
                           <span className="min-w-0 shrink text-[11px] text-slate-600">
                             <span className="font-semibold text-slate-500">PU</span>{" "}
                             <strong className="whitespace-nowrap tabular-nums text-slate-900">
-                              {formatPriceDh(l.price_pph)}
+                              {formatPriceDh(resubmitLineUnitPrice(l))}
                             </strong>
                           </span>
                           <span className="shrink-0 whitespace-nowrap text-[11px] font-bold tabular-nums text-sky-900">
                             <span className="font-semibold text-sky-800/90">Tot</span>{" "}
-                            {l.price_pph != null ? formatPriceDh(l.price_pph * l.qty) : "—"}
+                            {resubmitLineUnitPrice(l) != null
+                          ? formatPriceDh((resubmitLineUnitPrice(l) ?? 0) * l.qty)
+                          : "—"}
                           </span>
                         </div>
                         {l.client_comment?.trim() ? (

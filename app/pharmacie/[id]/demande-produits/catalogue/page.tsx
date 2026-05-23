@@ -17,6 +17,8 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { cn } from "@/lib/utils";
+import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
+import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 
 const CATALOG_FETCH_LIMIT = 500;
 
@@ -71,6 +73,7 @@ export default function DemandeProduitsCataloguePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [photoPreview, setPhotoPreview] = useState<{ url: string; title: string } | null>(null);
   const [adding, setAdding] = useState(false);
+  const { resolve: resolveCatalogPrice } = usePharmacyPricingForPatient(pharmacyId);
 
   const fieldFocus =
     "outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
@@ -108,7 +111,7 @@ export default function DemandeProduitsCataloguePage() {
       setLoadError(null);
       const { data, error } = await supabase
         .from("products")
-        .select("id,name,product_type,laboratory,photo_url,price_pph")
+        .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv")
         .eq("is_active", true)
         .order("name")
         .limit(CATALOG_FETCH_LIMIT);
@@ -166,7 +169,12 @@ export default function DemandeProduitsCataloguePage() {
     setAdding(true);
     const toAdd = products.filter((p) => selectedIds.has(p.id));
     const existing = readPatientDemandeProduitsDraft(pharmacyId, editRequestId);
-    const merged = mergeCatalogProductsIntoDraft(existing, toAdd, resolvePublicMediaUrl);
+    const merged = mergeCatalogProductsIntoDraft(
+      existing,
+      toAdd,
+      resolvePublicMediaUrl,
+      (p) => resolveCatalogPrice(catalogHitToPricingInput(p))
+    );
     writePatientDemandeProduitsDraft(pharmacyId, merged, editRequestId);
     if (editRequestId) markPatientDemandeCatalogueReturnEdit(editRequestId);
     setAdding(false);
@@ -328,7 +336,10 @@ export default function DemandeProduitsCataloguePage() {
                           {p.name}
                         </p>
                         <p className="mt-1 text-xs font-semibold text-sky-900 sm:text-sm">
-                          <PriceDhInline value={p.price_pph} amountClassName="font-semibold text-sky-900" />
+                          <PriceDhInline
+                            value={resolveCatalogPrice(catalogHitToPricingInput(p))}
+                            amountClassName="font-semibold text-sky-900"
+                          />
                         </p>
                         {inCart ? (
                           <span className="mt-1 inline-flex w-fit rounded-md bg-slate-200/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700">

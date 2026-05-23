@@ -1,8 +1,10 @@
 export type PromoCatalogProduct = {
   id: string;
   name: string;
+  product_type: string;
   laboratory: string | null;
   price_pph: number | null;
+  price_ppv: number | null;
   photo_url: string | null;
 };
 

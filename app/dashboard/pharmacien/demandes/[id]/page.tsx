@@ -98,7 +98,10 @@ import {
 import type { ConsultationImagePaths } from "@/lib/consultation-media";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 import { one } from "@/lib/embed";
-import { formatPphMad, pphLabel } from "@/lib/product-price";
+import { formatPharmacyCatalogPrice, formatPharmacyLinePrice, formatPriceDh } from "@/lib/product-price";
+import { usePharmacyPricing, type PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
+import { resolvePharmacyUnitPrice } from "@/lib/pharmacy-pricing/resolve";
+import { catalogHitToPricingInput, productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 import { mapRequestItemRowPhotos, mapRequestItemsPhotos, resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
@@ -172,7 +175,14 @@ type RequestRow = {
   request_public_ref?: string | null;
 };
 
-type ProdEmbedDb = { name: string; price_pph?: number | null; photo_url?: string | null };
+type ProdEmbedDb = {
+  name: string;
+  product_type?: string | null;
+  laboratory?: string | null;
+  price_pph?: number | null;
+  price_ppv?: number | null;
+  photo_url?: string | null;
+};
 
 type AltRowDb = {
   id: string;
@@ -232,7 +242,7 @@ type ItemDraft = {
 type Draft = Record<string, ItemDraft>;
 
 const PHARMA_REQUEST_ITEMS_SELECT =
-  "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,is_selected_by_patient,selected_qty,patient_chosen_alternative_id,post_confirm_fulfillment,withdrawn_after_confirm,line_source,pharmacist_proposal_reason,client_comment,updated_at,products(name,price_pph,photo_url),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph,photo_url))";
+  "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,is_selected_by_patient,selected_qty,patient_chosen_alternative_id,post_confirm_fulfillment,withdrawn_after_confirm,line_source,pharmacist_proposal_reason,client_comment,updated_at,products(name,product_type,laboratory,price_pph,price_ppv,photo_url),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,product_type,laboratory,price_pph,price_ppv,photo_url))";
 
 function rowsWithEffectiveWithdrawnForSupply(rows: ItemRow[], d: Draft): ItemRow[] {
   return rows.map((row) => {
@@ -250,6 +260,7 @@ type ProductCatalogHit = {
   laboratory: string | null;
   photo_url?: string | null;
   price_pph?: number | null;
+  price_ppv?: number | null;
 };
 
 type PatientBrief = {
@@ -570,6 +581,33 @@ function clampRequestItemQty(n: number): number {
   return Math.min(10, Math.max(1, Math.floor(Number.isFinite(n) ? n : 1)));
 }
 
+function catalogPriceMadLabel(
+  config: PharmacyPricingConfig | null | undefined,
+  prod: ProdEmbedDb | null | undefined,
+  productId?: string,
+  unitPrice?: number | string | null
+): string {
+  if (unitPrice != null && unitPrice !== "" && !Number.isNaN(Number(unitPrice))) {
+    return `${Number(unitPrice).toFixed(2)} MAD`;
+  }
+  const resolved = resolvePharmacyUnitPrice(
+    config,
+    productEmbedToPricingInput(
+      prod
+        ? {
+            product_type: prod.product_type ?? "parapharmacie",
+            price_pph: prod.price_pph,
+            price_ppv: prod.price_ppv,
+            laboratory: prod.laboratory,
+          }
+        : null,
+      productId
+    )
+  );
+  if (resolved == null) return "—";
+  return `${resolved.toFixed(2)} MAD`;
+}
+
 function publishConfirmModalGroup(inferred: string): "ready" | "order" | "blocked" {
   if (inferred === "available" || inferred === "partially_available") return "ready";
   if (inferred === "to_order") return "order";
@@ -596,7 +634,8 @@ function buildPublishConfirmRowMeta(
   r: ItemRow,
   fd: ItemDraft,
   requestType?: string | null,
-  amendmentBundles: { amendments: unknown }[] = []
+  amendmentBundles: { amendments: unknown }[] = [],
+  pricingConfig?: PharmacyPricingConfig | null
 ): PublishConfirmRowMeta {
   const proposed = isPharmacistProposedRow(r);
   const ordonnancePrincipal =
@@ -628,7 +667,7 @@ function buildPublishConfirmRowMeta(
   const priceMad =
     fd.unit_price.trim() !== ""
       ? `${Number(fd.unit_price.replace(",", ".")).toFixed(2)} MAD`
-      : pphLabel(one(r.products)?.price_pph) ?? "—";
+      : catalogPriceMadLabel(pricingConfig, one(r.products), r.product_id);
   const note = fd.pharmacist_comment?.trim() ?? "";
   const eta =
     fd.availability_status === "to_order" && fd.expected_availability_date.trim()
@@ -664,11 +703,13 @@ function PublishConfirmLineLi({
   altQtyDrafts,
   proposedBadgeLabel,
   ordonnanceBadgeLabel,
+  pricingConfig,
 }: {
   meta: PublishConfirmRowMeta;
   altQtyDrafts: Record<string, string>;
   proposedBadgeLabel: string;
   ordonnanceBadgeLabel: string;
+  pricingConfig?: PharmacyPricingConfig | null;
 }) {
   const { r, fd, availUi, proposed, prodName, priceMad, note, eta, alts, ordonnancePrincipal, prescribedQty } = meta;
   const AvailIcon = availUi.Icon;
@@ -789,10 +830,12 @@ function PublishConfirmLineLi({
                 ast === "to_order" && alt.expected_availability_date?.trim()
                   ? formatDateShortFr(alt.expected_availability_date.trim())
                   : null;
-              const ap =
-                alt.unit_price != null && !Number.isNaN(Number(alt.unit_price))
-                  ? `${Number(alt.unit_price).toFixed(2)} MAD`
-                  : pphLabel(one(alt.products)?.price_pph) ?? "—";
+              const ap = catalogPriceMadLabel(
+                pricingConfig,
+                one(alt.products),
+                alt.product_id,
+                alt.unit_price
+              );
               return (
                 <li
                   key={alt.id}
@@ -1576,6 +1619,7 @@ export default function PharmacienDemandeDetailPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [request, setRequest] = useState<RequestRow | null>(null);
+  const { config: pricingConfig, resolve: resolveCatalogPrice } = usePharmacyPricing(request?.pharmacy_id);
   const [items, setItems] = useState<ItemRow[]>([]);
   const [draft, setDraft] = useState<Draft>({});
   const [altRowsOpen, setAltRowsOpen] = useState<Record<string, boolean>>({});
@@ -2050,7 +2094,7 @@ export default function PharmacienDemandeDetailPage() {
         }
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph")
+          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -2097,7 +2141,7 @@ export default function PharmacienDemandeDetailPage() {
         }
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph")
+          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -2130,7 +2174,7 @@ export default function PharmacienDemandeDetailPage() {
         }
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph")
+          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -2737,7 +2781,7 @@ export default function PharmacienDemandeDetailPage() {
     }
     if (deferPersistOfficineAdditions) {
       const prefPrice =
-        pick.price_pph != null && !Number.isNaN(Number(pick.price_pph)) ? Number(pick.price_pph) : null;
+        resolveCatalogPrice(catalogHitToPricingInput(pick));
       const safeAvailableQty = isPrescriptionInsert
         ? availableQty
         : Math.max(1, Math.floor(Number(availableQty)) || 1);
@@ -2802,9 +2846,7 @@ export default function PharmacienDemandeDetailPage() {
                 return prev;
               }
               const prefPrice =
-                alt.price_pph != null && !Number.isNaN(Number(alt.price_pph))
-                  ? Number(alt.price_pph)
-                  : null;
+                resolveCatalogPrice(catalogHitToPricingInput(alt));
               next = [
                 ...next,
                 {
@@ -2922,7 +2964,7 @@ export default function PharmacienDemandeDetailPage() {
           return;
         }
         const prefPrice =
-          alt.price_pph != null && !Number.isNaN(Number(alt.price_pph)) ? Number(alt.price_pph) : null;
+          resolveCatalogPrice(catalogHitToPricingInput(alt));
         const { error: altErr } = await supabase.from("request_item_alternatives").insert({
           request_item_id: insertedRow.id,
           rank,
@@ -2972,7 +3014,7 @@ export default function PharmacienDemandeDetailPage() {
     }
     if (deferPersistOfficineAdditions) {
       setAltBusyRow(parentRow.id);
-      const prefPrice = pick.price_pph != null && !Number.isNaN(Number(pick.price_pph)) ? Number(pick.price_pph) : null;
+      const prefPrice = resolveCatalogPrice(catalogHitToPricingInput(pick));
       let validationError: string | null = null;
       let added = false;
       flushSync(() => {
@@ -3034,7 +3076,7 @@ export default function PharmacienDemandeDetailPage() {
       return;
     }
     setAltBusyRow(parentRow.id);
-    const prefPrice = pick.price_pph != null && !Number.isNaN(Number(pick.price_pph)) ? Number(pick.price_pph) : null;
+    const prefPrice = resolveCatalogPrice(catalogHitToPricingInput(pick));
     const { error: insErr } = await supabase.from("request_item_alternatives").insert({
       request_item_id: parentRow.id,
       rank,
@@ -3918,8 +3960,7 @@ export default function PharmacienDemandeDetailPage() {
           requested_qty: qty,
           availability_status: "available",
           available_qty: qty,
-          unit_price:
-            pick.price_pph != null && !Number.isNaN(Number(pick.price_pph)) ? Number(pick.price_pph) : null,
+          unit_price: resolveCatalogPrice(catalogHitToPricingInput(pick)),
           pharmacist_comment: null,
           client_comment: null,
           line_source: "pharmacist_proposed",
@@ -4432,7 +4473,7 @@ export default function PharmacienDemandeDetailPage() {
     for (const r of displayRows) {
       const fd = draft[r.id];
       if (!fd) continue;
-      all.push(buildPublishConfirmRowMeta(r, fd, request?.request_type, supplyAmendmentBundles));
+      all.push(buildPublishConfirmRowMeta(r, fd, request?.request_type, supplyAmendmentBundles, pricingConfig));
     }
     return {
       ready: all.filter((m) => publishConfirmModalGroup(m.inferredKey) === "ready"),
@@ -5072,13 +5113,25 @@ export default function PharmacienDemandeDetailPage() {
                 <ul className="flex flex-col gap-2">
                   {group.entries.map(({ header, row }) => {
               const prod = one(row.products);
-              const linePph = pphLabel(prod?.price_pph);
               const f = draft[row.id];
               if (!f) return null;
               const draftIndicativePuMad =
                 f.unit_price.trim() !== ""
                   ? `${Number(f.unit_price.replace(",", ".")).toFixed(2)}\u00A0MAD`
-                  : formatPphMad(prod?.price_pph) ?? "—";
+                  : formatPharmacyCatalogPrice(
+                      pricingConfig,
+                      productEmbedToPricingInput(
+                        prod
+                          ? {
+                              product_type: prod.product_type ?? "parapharmacie",
+                              price_pph: prod.price_pph,
+                              price_ppv: prod.price_ppv,
+                              laboratory: prod.laboratory,
+                            }
+                          : null,
+                        row.product_id
+                      )
+                    ).replace("\u00A0DH", "\u00A0MAD");
               const co = row.counter_outcome ?? "unset";
               const selected = Boolean(row.is_selected_by_patient);
               const lineLockedTrace = co === "cancelled_at_counter";
@@ -5412,7 +5465,11 @@ export default function PharmacienDemandeDetailPage() {
                         </span>
                         <p
                           className="whitespace-nowrap py-2 text-[12px] font-semibold tabular-nums text-foreground"
-                          title={linePph ? `Catalogue : ${linePph}` : undefined}
+                          title={
+                            draftIndicativePuMad !== "—"
+                              ? `Prix catalogue officine : ${draftIndicativePuMad}`
+                              : undefined
+                          }
                         >
                           {draftIndicativePuMad}
                         </p>
@@ -5896,7 +5953,11 @@ export default function PharmacienDemandeDetailPage() {
                         </button>
                         <div
                           className="flex shrink-0 flex-col justify-center self-stretch border-l border-border/45 pl-2 text-end"
-                          title={linePph ? `PPH catalogue : ${linePph}` : undefined}
+                          title={
+                            draftIndicativePuMad !== "—"
+                              ? `Prix catalogue officine : ${draftIndicativePuMad}`
+                              : undefined
+                          }
                         >
                           <span className="text-[8px] font-bold uppercase leading-none tracking-wide text-muted-foreground">
                             PU
@@ -6265,8 +6326,10 @@ export default function PharmacienDemandeDetailPage() {
                                   </div>
                                   <span className="min-w-0 flex-1">
                                     <span className="block font-semibold leading-tight text-foreground">{h.name}</span>
-                                    {pphLabel(h.price_pph) ? (
-                                      <span className="mt-0.5 block text-[10px] font-semibold text-primary">{pphLabel(h.price_pph)}</span>
+                                    {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h)) !== "—" ? (
+                                      <span className="mt-0.5 block text-[10px] font-semibold text-primary">
+                                        PU {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h))}
+                                      </span>
                                     ) : null}
                                   </span>
                                 </button>
@@ -6288,7 +6351,20 @@ export default function PharmacienDemandeDetailPage() {
                             {rowAlts.map((alt) => {
                               const altProd = one(alt.products);
                               const altName = altProd?.name ?? "Alternative";
-                              const altPph = pphLabel(altProd?.price_pph);
+                              const altCatalogPu = formatPharmacyCatalogPrice(
+                                pricingConfig,
+                                productEmbedToPricingInput(
+                                  altProd
+                                    ? {
+                                        product_type: altProd.product_type ?? "parapharmacie",
+                                        price_pph: altProd.price_pph,
+                                        price_ppv: altProd.price_ppv,
+                                        laboratory: altProd.laboratory,
+                                      }
+                                    : null,
+                                  alt.product_id
+                                )
+                              );
                               const chosenAltId = row.patient_chosen_alternative_id ?? null;
                               const patientChoseHere =
                                 request.status === "confirmed" &&
@@ -6336,7 +6412,9 @@ export default function PharmacienDemandeDetailPage() {
                                       </div>
                                       <p className="mt-0.5 text-[10px] text-teal-800/85">
                                         #{alt.rank}
-                                        {altPph ? <span className="text-teal-700"> · {altPph}</span> : null}
+                                        {altCatalogPu !== "—" ? (
+                                          <span className="text-teal-700"> · PU {altCatalogPu}</span>
+                                        ) : null}
                                       </p>
                                       {canEditThisRow && showLineAndPublishEdits ? (
                                         <div className="mt-1.5 flex flex-wrap items-center gap-1">
@@ -6729,8 +6807,10 @@ export default function PharmacienDemandeDetailPage() {
                             </div>
                             <span className="min-w-0 flex-1">
                               <span className="block font-medium text-foreground">{h.name}</span>
-                              {pphLabel(h.price_pph) ? (
-                                <span className="mt-0.5 block text-[11px] font-medium text-teal-800">{pphLabel(h.price_pph)}</span>
+                              {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h)) !== "—" ? (
+                                <span className="mt-0.5 block text-[11px] font-medium text-teal-800">
+                                  PU {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h))}
+                                </span>
                               ) : null}
                             </span>
                           </button>
@@ -6933,6 +7013,7 @@ export default function PharmacienDemandeDetailPage() {
                           altQtyDrafts={altQtyDrafts}
                           proposedBadgeLabel={proposedBadgeLabel}
                           ordonnanceBadgeLabel={ordonnanceLineBadge}
+                          pricingConfig={pricingConfig}
                         />
                       ))}
                     </ul>
@@ -6951,6 +7032,7 @@ export default function PharmacienDemandeDetailPage() {
                           altQtyDrafts={altQtyDrafts}
                           proposedBadgeLabel={proposedBadgeLabel}
                           ordonnanceBadgeLabel={ordonnanceLineBadge}
+                          pricingConfig={pricingConfig}
                         />
                       ))}
                     </ul>
@@ -6969,6 +7051,7 @@ export default function PharmacienDemandeDetailPage() {
                           altQtyDrafts={altQtyDrafts}
                           proposedBadgeLabel={proposedBadgeLabel}
                           ordonnanceBadgeLabel={ordonnanceLineBadge}
+                          pricingConfig={pricingConfig}
                         />
                       ))}
                     </ul>
@@ -7434,6 +7517,13 @@ export default function PharmacienDemandeDetailPage() {
           expectedDate={ordonnanceQuickExpectedDate}
           onExpectedDateChange={setOrdonnanceQuickExpectedDate}
           receptionDateMin={receptionDateMinYmd}
+          catalogUnitPriceLabel={(h) => {
+            const dh = formatPharmacyCatalogPrice(
+              pricingConfig,
+              catalogHitToPricingInput(h as ProductCatalogHit)
+            );
+            return dh !== "—" ? dh : null;
+          }}
           onConfirmAdd={async () => {
             if (!ordonnanceQuickAddPick) {
               setError("Sélectionnez un produit dans le catalogue.");
