@@ -4,11 +4,22 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
+import { MessageCircle } from "lucide-react";
 import { PageShell } from "@/components/ui/compact-shell";
+import { PromoOfferPackSummary } from "@/components/promo/promo-offer-pack-summary";
+import { fetchPromoOfferLines } from "@/lib/promo/load-offer-lines";
+import { markPromoReservationNotificationsRead } from "@/lib/promo/mark-reservation-notifs-read";
 import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
 import { supabase } from "@/lib/supabase";
 import { promoReservationBadgeClass, promoReservationLabel } from "@/lib/promo/reservation-status-ui";
+import type { PromoLineWithPrice } from "@/lib/promo/pricing";
 import type { PromoReservationStatus } from "@/lib/promo/types";
+
+function whatsAppHref(phone: string | null | undefined) {
+  const digits = (phone ?? "").replace(/[^\d]/g, "");
+  if (!digits) return null;
+  return `https://wa.me/${digits}`;
+}
 
 export function PharmacistPromoReservationDetail({ reservationId }: { reservationId: string }) {
   const router = useRouter();
@@ -17,8 +28,10 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
   const [error, setError] = useState("");
   const [declineReason, setDeclineReason] = useState("");
   const [showDecline, setShowDecline] = useState(false);
+  const [lines, setLines] = useState<PromoLineWithPrice[]>([]);
   const [row, setRow] = useState<{
     id: string;
+    offer_id: string;
     status: PromoReservationStatus;
     pickup_date: string;
     pickup_time: string | null;
@@ -45,7 +58,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     const { data, error: qErr } = await supabase
       .from("pharmacy_promo_reservations")
       .select(
-        "id,status,pickup_date,pickup_time,patient_note,pharmacist_note,public_ref,pharmacy_promo_offers(title,discount_percent),profiles:patient_id(full_name,whatsapp)"
+        "id,offer_id,status,pickup_date,pickup_time,patient_note,pharmacist_note,public_ref,pharmacy_promo_offers(title,discount_percent),profiles:patient_id(full_name,whatsapp)"
       )
       .eq("id", reservationId)
       .eq("pharmacy_id", ctx.pharmacyId)
@@ -53,10 +66,13 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     if (qErr || !data) {
       setError(qErr?.message ?? "Réservation introuvable.");
       setRow(null);
+      setLines([]);
     } else {
       const r = data as Record<string, unknown>;
+      const offerId = r.offer_id as string;
       setRow({
         id: r.id as string,
+        offer_id: offerId,
         status: r.status as PromoReservationStatus,
         pickup_date: r.pickup_date as string,
         pickup_time: r.pickup_time as string | null,
@@ -66,6 +82,8 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
         offer: r.pharmacy_promo_offers as { title: string; discount_percent: number } | null,
         patient: r.profiles as { full_name: string | null; whatsapp: string | null } | null,
       });
+      setLines(await fetchPromoOfferLines(offerId));
+      void markPromoReservationNotificationsRead(reservationId);
     }
     setLoading(false);
   }, [reservationId, router]);
@@ -112,6 +130,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     day: "numeric",
     month: "long",
   });
+  const wa = whatsAppHref(row.patient?.whatsapp);
 
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
@@ -124,7 +143,18 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
             <h1 className="text-lg font-bold">{row.offer?.title ?? "Pack promo"}</h1>
             <p className="text-sm text-muted-foreground">{row.patient?.full_name?.trim() || "Patient"}</p>
             {row.patient?.whatsapp ? (
-              <p className="text-xs text-muted-foreground">{row.patient.whatsapp}</p>
+              <p className="text-xs tabular-nums text-muted-foreground">{row.patient.whatsapp}</p>
+            ) : null}
+            {wa ? (
+              <a
+                href={wa}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 underline"
+              >
+                <MessageCircle className="size-3.5" aria-hidden />
+                WhatsApp patient
+              </a>
             ) : null}
           </div>
           <span
@@ -138,6 +168,13 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
         </div>
         {row.public_ref ? <p className="mt-1 font-mono text-xs">{row.public_ref}</p> : null}
       </div>
+
+      <section className="rounded-xl border bg-card p-3">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Pack réservé</p>
+        <div className="mt-2">
+          <PromoOfferPackSummary lines={lines} discountPercent={row.offer?.discount_percent ?? 0} compact />
+        </div>
+      </section>
 
       <dl className="space-y-2 rounded-xl border p-3 text-sm">
         <div>
@@ -161,7 +198,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
         ) : null}
       </dl>
 
-      {error ? <p className="text-sm text-red-800">{error}</p> : null}
+      {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
 
       {row.status === "submitted" ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -201,7 +238,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
       ) : null}
 
       {showDecline && row.status === "submitted" ? (
-        <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-3 space-y-2">
+        <div className="space-y-2 rounded-xl border border-rose-100 bg-rose-50/50 p-3">
           <label className="block text-xs font-bold">
             Motif (obligatoire)
             <textarea
@@ -209,6 +246,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
               rows={3}
               value={declineReason}
               onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder="Ex. Stock insuffisant pour ce pack"
             />
           </label>
           <button

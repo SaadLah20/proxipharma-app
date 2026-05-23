@@ -3,6 +3,7 @@ import type { PromoOfferLineRow } from "@/lib/promo/types";
 export type PromoLineWithPrice = PromoOfferLineRow & {
   product_name?: string | null;
   price_pph?: number | null;
+  photo_url?: string | null;
 };
 
 export function computePromoPackTotals(lines: PromoLineWithPrice[], discountPercent: number) {

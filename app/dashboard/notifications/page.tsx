@@ -1,49 +1,58 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { clsx } from "clsx";
 import { PageShell } from "@/components/ui/compact-shell";
 import { InAppNotificationItem } from "@/components/notifications/in-app-notification-item";
 import { rewriteForPatientView, rewriteForPharmacistView } from "@/lib/patient-copy";
 import { supabase } from "@/lib/supabase";
 
-type Row = {
+type FeedRow = {
   id: string;
   created_at: string;
   title: string;
   body: string | null;
-  request_id: string;
   read_at: string | null;
   event_type: string | null;
+  href: string;
+  source: "request" | "promo";
 };
 
-function hrefFor(role: string, requestId: string) {
+function requestHref(role: string, requestId: string) {
   if (role === "admin") return `/admin/demandes/${requestId}`;
   if (role === "pharmacien") return `/dashboard/pharmacien/demandes/${requestId}`;
   return `/dashboard/demandes/${requestId}`;
+}
+
+function promoHref(role: string, reservationId: string) {
+  if (role === "pharmacien") return `/dashboard/pharmacien/reservations-packs/${reservationId}`;
+  return `/dashboard/patient/packs-promo/${reservationId}`;
 }
 
 export default function NotificationsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string>("patient");
-  const [rows, setRows] = useState<Row[]>([]);
+  const [rows, setRows] = useState<FeedRow[]>([]);
+  const [filter, setFilter] = useState<"all" | "request" | "promo">("all");
   const [error, setError] = useState("");
 
-  const markRowsAsRead = useCallback(async (rowsToMark: Row[]) => {
+  const markAllAsRead = useCallback(async () => {
     const { data: auth } = await supabase.auth.getSession();
     const userId = auth.session?.user?.id;
     if (!userId) return;
-    const unreadRows = rowsToMark.filter((r) => !r.read_at);
-    if (unreadRows.length === 0) return;
     const nowIso = new Date().toISOString();
     setRows((prev) => prev.map((r) => (!r.read_at ? { ...r, read_at: nowIso } : r)));
-    await supabase
-      .from("app_notifications")
-      .update({ read_at: nowIso })
-      .eq("recipient_id", userId)
-      .is("read_at", null);
+    await Promise.all([
+      supabase.from("app_notifications").update({ read_at: nowIso }).eq("recipient_id", userId).is("read_at", null),
+      supabase
+        .from("promo_in_app_notifications")
+        .update({ read_at: nowIso })
+        .eq("recipient_id", userId)
+        .is("read_at", null),
+    ]);
   }, []);
 
   const load = useCallback(async () => {
@@ -61,28 +70,93 @@ export default function NotificationsPage() {
       setLoading(false);
       return;
     }
-    setRole((profile as { role?: string } | null)?.role ?? "patient");
+    const r = (profile as { role?: string } | null)?.role ?? "patient";
+    setRole(r);
 
-    const { data, error: ne } = await supabase
-      .from("app_notifications")
-      .select("id,created_at,title,body,request_id,read_at,event_type")
-      .order("created_at", { ascending: false })
-      .limit(80);
+    const [{ data: reqNotifs, error: re }, { data: promoNotifs, error: pe2 }] = await Promise.all([
+      supabase
+        .from("app_notifications")
+        .select("id,created_at,title,body,request_id,read_at,event_type")
+        .eq("recipient_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(60),
+      supabase
+        .from("promo_in_app_notifications")
+        .select("id,created_at,title,body,reservation_id,read_at,event_type")
+        .eq("recipient_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(60),
+    ]);
 
-    if (ne) {
-      setError(ne.message);
-    } else {
-      const nextRows = (data ?? []) as Row[];
-      setRows(nextRows);
-      void markRowsAsRead(nextRows);
+    if (re || pe2) {
+      setError(re?.message ?? pe2?.message ?? "Erreur");
+      setLoading(false);
+      return;
     }
+
+    const merged: FeedRow[] = [
+      ...(reqNotifs ?? []).map((n) => {
+        const row = n as {
+          id: string;
+          created_at: string;
+          title: string;
+          body: string | null;
+          request_id: string;
+          read_at: string | null;
+          event_type: string | null;
+        };
+        return {
+          id: row.id,
+          created_at: row.created_at,
+          title: row.title,
+          body: row.body,
+          read_at: row.read_at,
+          event_type: row.event_type,
+          href: requestHref(r, row.request_id),
+          source: "request" as const,
+        };
+      }),
+      ...(promoNotifs ?? []).map((n) => {
+        const row = n as {
+          id: string;
+          created_at: string;
+          title: string;
+          body: string | null;
+          reservation_id: string;
+          read_at: string | null;
+          event_type: string | null;
+        };
+        return {
+          id: `promo-${row.id}`,
+          created_at: row.created_at,
+          title: row.title,
+          body: row.body,
+          read_at: row.read_at,
+          event_type: row.event_type,
+          href: promoHref(r, row.reservation_id),
+          source: "promo" as const,
+        };
+      }),
+    ]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, 80);
+
+    setRows(merged);
+    void markAllAsRead();
     setLoading(false);
-  }, [markRowsAsRead, router]);
+  }, [markAllAsRead, router]);
 
   useEffect(() => {
     const tid = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(tid);
   }, [load]);
+
+  const filtered = useMemo(() => {
+    if (filter === "all") return rows;
+    return rows.filter((x) => x.source === filter);
+  }, [rows, filter]);
+
+  const promoCount = rows.filter((x) => x.source === "promo").length;
 
   if (loading) {
     return (
@@ -94,25 +168,49 @@ export default function NotificationsPage() {
 
   return (
     <PageShell className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <Link href="/" className="text-xs font-medium text-sky-800 underline">
-            ← Annuaire
-          </Link>
-          <h1 className="mt-2 text-lg font-bold text-foreground">Notifications</h1>
-          <p className="text-xs text-muted-foreground">Historique des alertes liées à vos demandes de produits.</p>
-        </div>
+      <div className="min-w-0">
+        <Link href="/" className="text-xs font-medium text-sky-800 underline">
+          ← Annuaire
+        </Link>
+        <h1 className="mt-2 text-lg font-bold text-foreground">Notifications</h1>
+        <p className="text-xs text-muted-foreground">
+          Demandes (produits, ordonnances, consultations) et réservations de packs promo.
+        </p>
       </div>
+
+      {promoCount > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {(
+            [
+              { key: "all", label: "Tout" },
+              { key: "request", label: "Demandes" },
+              { key: "promo", label: "Packs promo" },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              className={clsx(
+                "rounded-full px-3 py-1 text-[11px] font-bold",
+                filter === tab.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              )}
+              onClick={() => setFilter(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
 
-      {rows.length === 0 ? (
+      {filtered.length === 0 ? (
         <p className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
           Aucune notification pour le moment.
         </p>
       ) : (
         <ul className="w-full min-w-0 max-w-full space-y-3">
-          {rows.map((n) => (
+          {filtered.map((n) => (
             <li key={n.id} className="min-w-0 max-w-full">
               <InAppNotificationItem
                 title={
@@ -131,7 +229,7 @@ export default function NotificationsPage() {
                 }
                 createdAt={n.created_at}
                 eventType={n.event_type}
-                href={hrefFor(role, n.request_id)}
+                href={n.href}
                 isRead={Boolean(n.read_at)}
               />
             </li>
