@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { clsx } from "clsx";
 import { Gift, Package, Sparkles } from "lucide-react";
+import {
+  CatalogProductPhotoThumb,
+  PatientProductPhotoPreviewModal,
+  type CatalogProductPhotoPreview,
+} from "@/components/requests/patient-product-photo-preview-modal";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { computePromoPackTotals, formatDh, type PromoLineWithPrice } from "@/lib/promo/pricing";
-import {
-  ClickablePromoProductPhoto,
-  PromoProductPhotoLightbox,
-  type PromoProductPhotoLightboxState,
-} from "@/components/promo/promo-product-photo-lightbox";
 
 export function PromoOfferPackSummary({
   lines,
@@ -23,7 +23,7 @@ export function PromoOfferPackSummary({
   compact?: boolean;
   variant?: "compact" | "default" | "detail";
 }) {
-  const [lightbox, setLightbox] = useState<PromoProductPhotoLightboxState>(null);
+  const [preview, setPreview] = useState<CatalogProductPhotoPreview | null>(null);
   const resolvedVariant = compact && variant === "default" ? "compact" : variant;
   const products = lines.filter((l) => l.line_kind === "product");
   const gifts = lines.filter((l) => l.line_kind === "gift");
@@ -58,7 +58,7 @@ export function PromoOfferPackSummary({
                     photoUrl={l.photo_url}
                     productLabel={l.product_name ?? "Produit"}
                     variant={resolvedVariant}
-                    onOpen={setLightbox}
+                    onPreview={setPreview}
                   />
                   <div className="min-w-0 flex-1">
                     <p className={clsx("font-semibold text-foreground", isDetail && "text-sm leading-snug")}>
@@ -123,7 +123,7 @@ export function PromoOfferPackSummary({
                       productLabel={l.product_name ?? l.label ?? "Cadeau"}
                       variant="detail"
                       gift
-                      onOpen={setLightbox}
+                      onPreview={setPreview}
                     />
                   ) : (
                     <Gift className="size-3.5 shrink-0" aria-hidden />
@@ -162,7 +162,12 @@ export function PromoOfferPackSummary({
           </div>
         ) : null}
       </div>
-      <PromoProductPhotoLightbox state={lightbox} onClose={() => setLightbox(null)} />
+      <PatientProductPhotoPreviewModal
+        open={Boolean(preview)}
+        imageUrl={preview?.url ?? null}
+        title={preview?.title ?? ""}
+        onClose={() => setPreview(null)}
+      />
     </>
   );
 }
@@ -172,13 +177,13 @@ function ProductThumb({
   productLabel,
   variant,
   gift,
-  onOpen,
+  onPreview,
 }: {
   photoUrl?: string | null;
   productLabel: string;
   variant: "compact" | "default" | "detail";
   gift?: boolean;
-  onOpen: (state: PromoProductPhotoLightboxState) => void;
+  onPreview: (preview: CatalogProductPhotoPreview) => void;
 }) {
   const url = resolvePublicMediaUrl(photoUrl ?? null);
   const size = variant === "detail" ? 52 : variant === "compact" ? 32 : 40;
@@ -196,12 +201,12 @@ function ProductThumb({
     );
   }
   return (
-    <ClickablePromoProductPhoto
-      url={url}
-      label={productLabel}
+    <CatalogProductPhotoThumb
+      imageUrl={url}
+      title={productLabel}
       size={size}
       imageClassName={variant === "detail" ? "border-amber-200/60" : undefined}
-      onOpen={onOpen}
+      onPreview={onPreview}
     />
   );
 }

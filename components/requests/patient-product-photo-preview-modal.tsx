@@ -1,11 +1,59 @@
 "use client";
 
 import { useEffect } from "react";
+import Image from "next/image";
 import { createPortal } from "react-dom";
+import { clsx } from "clsx";
 import { X } from "lucide-react";
 
+export type CatalogProductPhotoPreview = { url: string; title: string };
+
+/** Vignette catalogue cliquable → ouvre `PatientProductPhotoPreviewModal` via `onPreview`. */
+export function CatalogProductPhotoThumb({
+  imageUrl,
+  title,
+  size,
+  className,
+  imageClassName,
+  onPreview,
+}: {
+  imageUrl: string;
+  title: string;
+  size: number;
+  className?: string;
+  imageClassName?: string;
+  onPreview: (preview: CatalogProductPhotoPreview) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={clsx(
+        "relative shrink-0 overflow-hidden rounded-md border border-slate-200/80 bg-white",
+        "cursor-zoom-in ring-offset-2 hover:ring-2 hover:ring-sky-400/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
+        className
+      )}
+      style={{ width: size, height: size }}
+      aria-label={`Agrandir ${title}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        onPreview({ url: imageUrl, title });
+      }}
+    >
+      <Image
+        src={imageUrl}
+        alt=""
+        width={size}
+        height={size}
+        className={clsx("size-full object-cover", imageClassName)}
+        unoptimized
+      />
+    </button>
+  );
+}
+
 /**
- * Aperçu plein écran (patient) : photo catalogue / ligne, fermeture Échap ou clic extérieur.
+ * Aperçu plein écran : photo catalogue / ligne (demandes produits, packs promo, etc.).
  */
 export function PatientProductPhotoPreviewModal({
   open,
