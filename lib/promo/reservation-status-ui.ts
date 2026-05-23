@@ -24,7 +24,16 @@ export function promoReservationLabel(status: PromoReservationStatus, role: "pat
     : PROMO_RESERVATION_STATUS_PHARMACIST_FR[status];
 }
 
-export function promoReservationHint(status: PromoReservationStatus): string {
+export function promoReservationHint(
+  status: PromoReservationStatus,
+  opts?: { pharmacistMessage?: boolean }
+): string {
+  if (status === "cancelled" && opts?.pharmacistMessage) {
+    return "L'officine a annulé cette réservation. Consultez le motif ci-dessous.";
+  }
+  if (status === "confirmed" && opts?.pharmacistMessage) {
+    return "Votre pack est confirmé. Un message de l'officine est joint ci-dessous.";
+  }
   return PROMO_RESERVATION_STATUS_PATIENT_FR[status].hint;
 }
 
