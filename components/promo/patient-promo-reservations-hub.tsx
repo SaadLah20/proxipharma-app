@@ -99,9 +99,12 @@ export function PatientPromoReservationsHub() {
       </div>
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
       {rows.length === 0 ? (
-        <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Aucune réservation pour le moment. Réservez un pack depuis l&apos;onglet Offres d&apos;une pharmacie.
-        </p>
+        <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground space-y-2">
+          <p>Aucune réservation pour le moment.</p>
+          <Link href="/dashboard/patient/pharmacies" className="inline-block font-semibold text-primary underline">
+            Trouver une pharmacie →
+          </Link>
+        </div>
       ) : null}
       {active.length > 0 ? (
         <section className="space-y-2">

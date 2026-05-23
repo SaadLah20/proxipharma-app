@@ -4,14 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
-import { Gift, Package, Plus, Tag } from "lucide-react";
+import { Gift, Package, Plus } from "lucide-react";
 import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
 import { ScheduleToast, type ScheduleToastTone } from "@/components/pharmacy/schedule/schedule-toast";
 import { PromoProductPicker, PromoCompactLinesList } from "@/components/promo/promo-product-picker";
 import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
 import { supabase } from "@/lib/supabase";
 import { deletePromoOffer, savePromoOffer, type PromoLineDraft, type PromoOfferDraft } from "@/lib/promo/save-offer";
-import { formatPromoValidityFr } from "@/lib/promo/dates";
+import { computePromoPackTotals, formatDh } from "@/lib/promo/pricing";
+import { defaultPromoOfferValidity, formatPromoValidityFr, todayIsoCasablanca } from "@/lib/promo/dates";
 import { MAX_PROMO_GIFT_LINES, MAX_PROMO_PRODUCT_LINES, type PromoOfferRow } from "@/lib/promo/types";
 import type { PromoCatalogProduct } from "@/lib/promo/catalog";
 
@@ -33,6 +34,7 @@ export function PharmacyPromoOffersManager() {
   const router = useRouter();
   const [pharmacyId, setPharmacyId] = useState<string | null>(null);
   const [offers, setOffers] = useState<PromoOfferRow[]>([]);
+  const [pendingByOffer, setPendingByOffer] = useState<Map<string, number>>(new Map());
   const [catalog, setCatalog] = useState<PromoCatalogProduct[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [offer, setOffer] = useState<PromoOfferDraft>(EMPTY_OFFER);
@@ -51,6 +53,18 @@ export function PharmacyPromoOffersManager() {
       .eq("pharmacy_id", pid)
       .order("updated_at", { ascending: false });
     setOffers((data ?? []) as PromoOfferRow[]);
+
+    const { data: pending } = await supabase
+      .from("pharmacy_promo_reservations")
+      .select("offer_id")
+      .eq("pharmacy_id", pid)
+      .eq("status", "submitted");
+    const m = new Map<string, number>();
+    for (const r of pending ?? []) {
+      const oid = (r as { offer_id: string }).offer_id;
+      m.set(oid, (m.get(oid) ?? 0) + 1);
+    }
+    setPendingByOffer(m);
   }, []);
 
   const load = useCallback(async () => {
@@ -86,8 +100,9 @@ export function PharmacyPromoOffersManager() {
   }, [router]);
 
   const startNew = () => {
+    const { valid_from, valid_until } = defaultPromoOfferValidity();
     setEditingId("new");
-    setOffer({ ...EMPTY_OFFER });
+    setOffer({ ...EMPTY_OFFER, valid_from, valid_until });
     setLines([]);
     setGiftText("");
   };
@@ -139,12 +154,39 @@ export function PharmacyPromoOffersManager() {
   const productCount = lines.filter((l) => l.line_kind === "product").length;
   const giftCount = lines.filter((l) => l.line_kind === "gift").length;
 
+  const draftPreview = useMemo(() => {
+    const priced = lines.map((l) => ({
+      id: "",
+      offer_id: "",
+      line_kind: l.line_kind,
+      sort_order: 0,
+      product_id: l.product_id,
+      label: l.label,
+      quantity: l.quantity,
+      product_name: l._name,
+      price_pph: l.product_id ? catalog.find((c) => c.id === l.product_id)?.price_pph ?? null : null,
+    }));
+    return computePromoPackTotals(priced, offer.discount_percent || 0);
+  }, [lines, offer.discount_percent, catalog]);
+
+  const unpublish = async (id: string) => {
+    if (!confirm("Retirer cette offre de la fiche publique ?")) return;
+    setBusy(true);
+    const { error } = await supabase.from("pharmacy_promo_offers").update({ status: "draft" }).eq("id", id);
+    setBusy(false);
+    if (error) showToast(error.message, "error");
+    else {
+      showToast("Offre retirée de la publication.", "success");
+      if (pharmacyId) await loadOffers(pharmacyId);
+    }
+  };
+
   const persist = async (publish: boolean) => {
     if (!pharmacyId) return;
     setBusy(true);
     const id = editingId === "new" ? null : editingId;
     const existing = id ? offers.find((o) => o.id === id) : null;
-    const { offerId, error } = await savePromoOffer(pharmacyId, id, offer, lines, publish, existing?.status ?? null);
+    const { error } = await savePromoOffer(pharmacyId, id, offer, lines, publish, existing?.status ?? null);
     setBusy(false);
     if (error) {
       showToast(error, "error");
@@ -231,7 +273,11 @@ export function PharmacyPromoOffersManager() {
             Nouvelle offre
           </button>
           <ul className="space-y-2">
-            {offers.map((o) => (
+            {offers.map((o) => {
+              const today = todayIsoCasablanca();
+              const expired = o.valid_until < today;
+              const pending = pendingByOffer.get(o.id) ?? 0;
+              return (
               <li key={o.id} className="rounded-xl border bg-card p-3 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -239,19 +285,44 @@ export function PharmacyPromoOffersManager() {
                     <p className="text-[11px] text-muted-foreground">
                       −{o.discount_percent} % · {formatPromoValidityFr(o.valid_from, o.valid_until)}
                     </p>
-                    <span
-                      className={clsx(
-                        "mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
-                        o.status === "published" ? "bg-emerald-50 text-emerald-900" : "bg-muted text-muted-foreground"
-                      )}
-                    >
-                      {o.status === "published" ? "Publiée" : "Brouillon"}
-                    </span>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      <span
+                        className={clsx(
+                          "inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
+                          o.status === "published" ? "bg-emerald-50 text-emerald-900" : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {o.status === "published" ? "Publiée" : "Brouillon"}
+                      </span>
+                      {expired ? (
+                        <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                          Expirée
+                        </span>
+                      ) : null}
+                      {pending > 0 ? (
+                        <Link
+                          href="/dashboard/pharmacien/reservations-packs"
+                          className="inline-block rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-900"
+                        >
+                          {pending} à traiter
+                        </Link>
+                      ) : null}
+                    </div>
                   </div>
                   <div className="flex shrink-0 flex-col gap-1">
                     <button type="button" className="text-xs font-semibold text-primary underline" onClick={() => void startEdit(o.id)}>
                       Modifier
                     </button>
+                    {o.status === "published" ? (
+                      <button
+                        type="button"
+                        className="text-xs font-semibold text-amber-800 underline"
+                        disabled={busy}
+                        onClick={() => void unpublish(o.id)}
+                      >
+                        Dépublier
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       className="text-xs font-semibold text-destructive underline"
@@ -274,7 +345,8 @@ export function PharmacyPromoOffersManager() {
                   </div>
                 </div>
               </li>
-            ))}
+            );
+            })}
             {offers.length === 0 ? <p className="text-sm text-muted-foreground">Aucune offre pour le moment.</p> : null}
           </ul>
         </>
@@ -367,6 +439,12 @@ export function PharmacyPromoOffersManager() {
                 onQtyChange={(k, q) => setLines((p) => p.map((l) => (l._key === k ? { ...l, quantity: q } : l)))}
               />
             </div>
+
+            {draftPreview.subtotal > 0 ? (
+              <p className="rounded-lg bg-emerald-50/60 px-2.5 py-2 text-[11px] tabular-nums text-emerald-950">
+                Aperçu pack : {formatDh(draftPreview.subtotal)} → <strong>{formatDh(draftPreview.total)}</strong> après remise
+              </p>
+            ) : null}
 
             <div className="flex flex-wrap gap-2">
               <button type="button" disabled={busy} className="rounded-xl border px-3 py-2 text-sm font-bold" onClick={() => void persist(false)}>

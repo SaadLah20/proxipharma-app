@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.28** ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.28** (dernier lot : promo **`20260610_001`** + horaires) ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** : pour **vider toutes les demandes** en environnement de test → `scripts/clear-all-requests.mjs` (`.env.local` avec `SUPABASE_SERVICE_ROLE_KEY`) ou SQL `supabase/scripts/clear-all-requests.sql` dans l’éditeur Supabase. **Doublons patient** (même téléphone, 2× `auth.users`) en pilote : reset demandes + suppression des comptes Auth puis nouvelle inscription. Plan de tests E2E demandes produits → fichier Canvas Cursor `canvases/product-requests-e2e-test-plan.canvas.tsx` (mention §13.5).
@@ -85,11 +85,14 @@ Point cle:
   - Le client veut des informations de disponibilite/prix/quantites
   - Le pharmacien repond sous forme de liste de produits structuree
 
-### 3.3 Promos et offres
+### 3.3 Promos et offres (packs promo — workflow dédié)
 
-- Volet commercial de la pharmacie
-- Affichage public sur la fiche
-- Gestion depuis espace pharmacien (details de workflow a cadrer plus tard)
+- Workflow **séparé** des demandes produits / ordonnances / consultations (`requests`) — migration **`20260610_001`**
+- **Pharmacien** : **`/dashboard/pharmacien/offres-promos`** (CRUD pack : max **5 produits** + **5 cadeaux**, remise %, validité, brouillon / publier) ; **`/dashboard/pharmacien/reservations-packs`** (confirmer, non disponible + motif, récupérée, annuler)
+- **Public** : onglet **Offres** sur **`/pharmacie/[id]`** (`PublicPromoOffers`) — cartes + **Réserver** (connexion patient, date passage **J→J+3**, heure facultative)
+- **Patient** : **`/dashboard/patient/packs-promo`** (+ détail `[id]`) — suivi statuts courtois
+- Réf. réservation **`P042/26`** (compteur par officine + année) ; notifs in-app **`promo_in_app_notifications`** (fusionnées dans la cloche header avec **`app_notifications`**)
+- Code : **`lib/promo/`**, **`components/promo/`** — voir journal §10 **session 2026-05-19 (promo)**
 
 ## 4) Workflow metier central (demande -> reponse)
 
@@ -326,6 +329,34 @@ Statuts retenus v1:
 - `partially_collected` / `fully_collected` (conserves en enum; hors flux officiel depuis migration 20260502 au profit de `completed` + suivi ligne a ligne au comptoir)
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
+
+### Session 2026-05-19 (promo + horaires) — Packs promo, horaires mobile, cloche notifs
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits poussés **`1499e7e`**, **`5859ab8`**, **`71acf25`**.
+
+**Migration** (à appliquer sur Supabase pilote si pas encore fait) :
+- **`20260610_001_promo_offers_reservations.sql`** — tables **`pharmacy_promo_offers`**, **`pharmacy_promo_offer_lines`**, **`pharmacy_promo_reservations`**, historique statuts, refs **`P042/26`**, **`promo_in_app_notifications`** ; RLS + RPC (`patient_submit_promo_reservation`, `pharmacist_confirm_promo_reservation`, `pharmacist_decline_promo_reservation`, `pharmacist_mark_promo_reservation_collected`, `cancel_promo_reservation`). **Prérequis** : jusqu’à **`20260609_001`** (Storage cover/logo versionnés).
+
+**Packs promo (workflow séparé des demandes)** :
+- Pharmacien : **`components/promo/pharmacy-promo-offers-manager.tsx`** — **`/dashboard/pharmacien/offres-promos`** ; **`/dashboard/pharmacien/reservations-packs`** (+ détail actions RPC).
+- Public : **`components/promo/public-promo-offers.tsx`** + **`promo-reserve-modal.tsx`** — onglet Offres **`pharmacy-public-profile.tsx`** (remplace stub).
+- Patient : **`/dashboard/patient/packs-promo`** — hub + détail, annulation si `submitted` / `confirmed`.
+- Libs : **`lib/promo/`** (`save-offer.ts`, `dates.ts`, `pricing.ts`, `reservation-copy-fr.ts`, …).
+- Header : **`platform-header.tsx`** — cloche = **`app_notifications`** + **`promo_in_app_notifications`** (compteur + liste fusionnés, liens détail pack).
+
+**Horaires pharmacien** (commit **`1499e7e`**, fix mobile **`71acf25`**) :
+- **`horaires-garde`** : onglet **Horaires** — 7 jours compacts (`pharmacy-weekly-hours-tab.tsx`, `pharmacy-compact-time-range.tsx`) ; **Exceptions** — fériés Maroc automatiques (`lib/morocco-public-holidays.ts`), plus de type « jour férié » manuel ; **Garde** — fin auto (`lib/pharmacy-on-call-compute.ts`).
+- **Fix mobile** : grille Matin / Après-midi (après-midi n’était plus en colonne étroite) ; teintes discrètes par jour ; label **Après-midi**.
+- **`ma-fiche`** : refonte onglets Accueil / Photos / Liens / Services.
+- Script reset horaires : **`supabase/scripts/reset-pharmacy-schedules.sql`**.
+
+**Menus** : patient **Mes packs promo** ; pharmacien **Réservations packs** (`platform-header.tsx`).
+
+**Phrase de reprise** : **§13.28**.
+
+**Lint CI** : corriger toute **erreur** `react-hooks/set-state-in-effect` (pas seulement les warnings) — modales : sous-composant + `key`, pas `setState` dans `useEffect` pour reset.
+
+---
 
 ### Session 2026-05-22 — Fiche digitale (Infos/Horaires/notes), upload photos versionné, supply post-validé
 
@@ -1296,6 +1327,7 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260607_001_lock_line_notes_after_validation.sql` (notes ligne figées après `confirmed`)
   - `supabase/migrations/20260608_001_pharmacy_ratings.sql` (avis publics 1–5 étoiles par compte ; agrégat sur `pharmacies`)
   - `supabase/migrations/20260609_001_storage_pharmacy_versioned_media_paths.sql` (RLS Storage : noms fichiers cover-{ms} / logo-{ms})
+  - `supabase/migrations/20260610_001_promo_offers_reservations.sql` (offres packs promo + réservations + notifs `promo_in_app_notifications` — workflow séparé des `requests`)
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -1308,15 +1340,16 @@ Regles fonctionnelles retenues (alignement dernier atelier):
 
 Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-05-03**, **2026-05-05**, **2026-05-06** et **lot plateforme / codes publics 2026-05-05**):
 - **`/`** annuaire + recherche par code officine **`public_ref`** + lien carte vers fiche **`/pharmacie/[id]`** (affiche aussi le code)
-- **`/pharmacie/[id]`** : fiche digitale publique (**`PharmacyPublicProfile`**, onglets Services / Offres stub / Horaires / Infos ; notes publiques ; contacts en grille).
-- **`/dashboard/pharmacien/ma-fiche`** + **`/dashboard/pharmacien/horaires-garde`** : édition fiche officine (texte, services, upload **couverture** / **logo** versionnés via **`lib/pharmacy-media.ts`**).
+- **`/pharmacie/[id]`** : fiche digitale publique (**`PharmacyPublicProfile`**, onglets Services / **Offres** (packs promo) / Horaires / Infos ; notes publiques ; contacts en grille).
+- **`/dashboard/pharmacien/ma-fiche`** + **`/dashboard/pharmacien/horaires-garde`** : édition fiche officine (texte, services, horaires compacts + fériés auto + garde, upload **couverture** / **logo** versionnés via **`lib/pharmacy-media.ts`**).
+- **`/dashboard/pharmacien/offres-promos`** + **`/dashboard/pharmacien/reservations-packs`** ; **`/dashboard/patient/packs-promo`** — workflow packs promo (après **`20260610_001`**).
 - **`/pharmacie/[id]/demande-produits`**: création demande **`submitted`**
 - **`/dashboard`** (résumé / routage rôle), **`/dashboard/demandes`** (hub + **filtre par réf.** + codes **`request_public_ref`** sur cartes), **`/dashboard/demandes/[id]`** (ref mémorable + code officine en détail)
 - **`/dashboard/demandes`** (vue liste) : refonte UX des filtres/cartes ; suppression bouton copie ; compteurs et montants contextualisés (`responded` vs validé/en traitement/clôturé) ; statut intermédiaire UI **En traitement** (virtuel : `confirmed` + **`post_confirm_fulfillment`** `reserved`/`ordered`, migration **`20260507_005`**)
 - **`/dashboard/demandes`** et **`/dashboard/pharmacien/demandes`** (vue dashboard) : bloc **En traitement** alimenté par le même statut dérivé ; bucket **Validée par vous / le client** pour **`confirmed`** sans réservation/commande
 - **`/dashboard/demandes/[id]`** (détail patient) : refonte orientée produit avec header sticky montant+volume+passage prévu et actions globales en bas ; date de passage modifiable aussi en `confirmed` côté UI/app
 - **`/dashboard/pharmacien`** (tableau de bord analytics + liens), **`/dashboard/pharmacien/demandes`** (idem refs + **code client** sur cartes), **`/dashboard/pharmacien/demandes/[id]`**, **`/dashboard/pharmacien/clients`** (recherche par **`patient_ref`**)
-- **Chrome** : **`components/layout/platform-*.tsx`** — nav patient & pharmacien (ordonnances / consultations libres en menu, etc.), notifs in-app header
+- **Chrome** : **`components/layout/platform-*.tsx`** — nav patient & pharmacien (ordonnances / consultations libres / **packs promo** en menu, etc.), cloche = **`app_notifications`** + **`promo_in_app_notifications`**
 - **Patient** : **`/dashboard/patient/*`** (paramètres avec **code client**, pharmacies, liste souhaits, ordonnances/consultations libres désormais branchées en listes filtrées par type)
 - **Pharmacien** : **`/dashboard/pharmacien/ordonnances`** et **`/dashboard/pharmacien/consultations-libres`** branchées sur les demandes existantes de l’officine (filtre `request_type`, cartes simples, lien détail)
 - Auth **`/auth`** + **`lib/post-auth-redirect.ts`**
@@ -1531,9 +1564,13 @@ Voir **§13.28** pour la phrase consolidée actuelle.
 
 Voir **§13.28**.
 
-### 13.28) Phrase de reprise (recommandée — après session **2026-05-22**)
+### 13.28) Phrase de reprise (recommandée — après session **2026-05-19 promo + horaires**)
 
-**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`60c543b`**+ : **`0094611`** supply post-validé, **`9862128`** fiche + photos, **`60c543b`** build). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§10 (session 2026-05-22)**, §4.4–§4.6, §11. Migrations Supabase dans l’ordre jusqu’à **`20260608_001`** si pas déjà fait (`20260606_001` fiche, `20260607_001` notes ligne figées, `20260608_001` avis publics ; lot juin **`20260601_001`**–**`20260605_001`** demandes). **Fiche digitale** : `/pharmacie/[id]` — onglets grille 4 col., Infos (contacts), Horaires (encart aujourd’hui), notes **1–5 sans commentaire** (`PharmacyRatingForm`) ; **`ma-fiche`** upload → `pharmacies/{id}/cover-{ms}.webp` | `logo-{ms}.webp` (**`lib/pharmacy-cover-spec.ts`** 21:9 · 1920×823). **Demandes** : `app/dashboard/pharmacien/demandes/[id]/page.tsx` — qté validée persistante, ajouts officine post-validé en brouillon jusqu’à Enregistrer ; notes ligne figées après `confirmed` (`lib/request-line-notes-policy.ts`). Pilote : reset demandes OK si jeux obsolètes. Je te dis ensuite quoi faire (promos fiche, commentaires avis, QA, merge `main`). »**
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`71acf25`**+ : **`5859ab8`** packs promo, **`1499e7e`** horaires/Ma fiche, **`71acf25`** cloche promo + fix mobile horaires). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§10 (session 2026-05-19 promo)**, §4.4–§4.6, §11. Migrations Supabase dans l’ordre jusqu’à **`20260610_001`** si pas déjà fait (`20260609_001` Storage cover/logo versionné **obligatoire** si RLS upload ; **`20260610_001`** offres/réservations packs — workflow **séparé** des `requests`). **Packs promo** : pharmacien `offres-promos` + `reservations-packs` ; public onglet **Offres** + réserver ; patient `packs-promo` ; refs **`P042/26`** ; notifs **`promo_in_app_notifications`** dans la **cloche** header. **Horaires** : `horaires-garde` — 7 jours compacts, fériés Maroc auto (`lib/morocco-public-holidays.ts`), garde fin auto ; grille mobile Matin/Après-midi corrigée. **Fiche** : Infos/Horaires/notes + upload versionné. **Demandes** : supply post-validé (`0094611`) inchangé. Pilote : reset demandes OK ; promo testable après **`20260610_001`**. Je te dis ensuite quoi faire. »**
+
+### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`60c543b`**+ : **`0094611`** supply post-validé, **`9862128`** fiche + photos). Migrations jusqu’à **`20260608_001`**. Voir **§13.28** actuelle pour promo + horaires + **`20260610_001`**. »**
 
 ### 13.11) Phrase d’ouverture **sans consigne** (ne pas implémenter avant précision explicite)
 

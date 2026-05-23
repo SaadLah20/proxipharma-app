@@ -20,6 +20,18 @@ export function maxPickupDateIso(fromToday = todayIsoCasablanca()): string {
   return `${yy}-${mm}-${dd}`;
 }
 
+/** Validité par défaut à la création d'une offre : aujourd'hui → +30 j (Casablanca). */
+export function defaultPromoOfferValidity(): { valid_from: string; valid_until: string } {
+  const valid_from = todayIsoCasablanca();
+  const [y, m, d] = valid_from.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + 30);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return { valid_from, valid_until: `${yy}-${mm}-${dd}` };
+}
+
 export function formatPromoValidityFr(from: string, until: string): string {
   const a = new Date(`${from}T12:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
   const b = new Date(`${until}T12:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });

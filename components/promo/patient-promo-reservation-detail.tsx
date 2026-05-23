@@ -5,8 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { PageShell } from "@/components/ui/compact-shell";
+import { PromoOfferPackSummary } from "@/components/promo/promo-offer-pack-summary";
+import { fetchPromoOfferLines } from "@/lib/promo/load-offer-lines";
+import { markPromoReservationNotificationsRead } from "@/lib/promo/mark-reservation-notifs-read";
 import { supabase } from "@/lib/supabase";
 import { promoReservationBadgeClass, promoReservationHint, promoReservationLabel } from "@/lib/promo/reservation-status-ui";
+import type { PromoLineWithPrice } from "@/lib/promo/pricing";
 import type { PromoReservationStatus } from "@/lib/promo/types";
 
 export function PatientPromoReservationDetail({ reservationId }: { reservationId: string }) {
@@ -14,8 +18,10 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [lines, setLines] = useState<PromoLineWithPrice[]>([]);
   const [row, setRow] = useState<{
     id: string;
+    offer_id: string;
     status: PromoReservationStatus;
     pickup_date: string;
     pickup_time: string | null;
@@ -36,17 +42,20 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
     const { data, error: qErr } = await supabase
       .from("pharmacy_promo_reservations")
       .select(
-        "id,status,pickup_date,pickup_time,patient_note,pharmacist_note,public_ref,pharmacy_promo_offers(title,description,discount_percent),pharmacies:pharmacy_id(id,nom)"
+        "id,offer_id,status,pickup_date,pickup_time,patient_note,pharmacist_note,public_ref,pharmacy_promo_offers(title,description,discount_percent),pharmacies:pharmacy_id(id,nom)"
       )
       .eq("id", reservationId)
       .maybeSingle();
     if (qErr || !data) {
       setError(qErr?.message ?? "Réservation introuvable.");
       setRow(null);
+      setLines([]);
     } else {
       const r = data as Record<string, unknown>;
+      const offerId = r.offer_id as string;
       setRow({
         id: r.id as string,
+        offer_id: offerId,
         status: r.status as PromoReservationStatus,
         pickup_date: r.pickup_date as string,
         pickup_time: r.pickup_time as string | null,
@@ -60,6 +69,8 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
         } | null,
         pharmacy: r.pharmacies as { nom: string; id: string } | null,
       });
+      setLines(await fetchPromoOfferLines(offerId));
+      void markPromoReservationNotificationsRead(reservationId);
     }
     setLoading(false);
   }, [reservationId, router]);
@@ -129,12 +140,30 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
             {promoReservationLabel(row.status, "patient")}
           </span>
         </div>
-        {row.public_ref ? (
-          <p className="mt-1 font-mono text-xs text-muted-foreground">{row.public_ref}</p>
-        ) : null}
+        {row.public_ref ? <p className="mt-1 font-mono text-xs text-muted-foreground">{row.public_ref}</p> : null}
       </div>
 
-      <p className="rounded-xl bg-muted/30 px-3 py-2 text-sm">{promoReservationHint(row.status)}</p>
+      <p className="rounded-xl bg-sky-50/80 px-3 py-2.5 text-sm leading-snug text-sky-950 ring-1 ring-sky-100">
+        {promoReservationHint(row.status)}
+      </p>
+
+      {row.status === "unavailable" && row.pharmacist_note?.trim() ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50/50 px-3 py-2.5 text-sm text-rose-950">
+          <p className="text-[10px] font-bold uppercase">Message de l&apos;officine</p>
+          <p className="mt-1">{row.pharmacist_note.trim()}</p>
+        </div>
+      ) : null}
+
+      <section className="rounded-xl border bg-card p-3">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Contenu du pack</p>
+        <div className="mt-2">
+          <PromoOfferPackSummary
+            lines={lines}
+            discountPercent={row.offer?.discount_percent ?? 0}
+            compact
+          />
+        </div>
+      </section>
 
       <dl className="space-y-2 rounded-xl border p-3 text-sm">
         <div>
@@ -144,22 +173,16 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
             {row.pickup_time ? ` · ${row.pickup_time.slice(0, 5)}` : ""}
           </dd>
         </div>
-        {row.offer?.discount_percent ? (
-          <div>
-            <dt className="text-[10px] font-bold uppercase text-muted-foreground">Remise pack</dt>
-            <dd>−{row.offer.discount_percent} %</dd>
-          </div>
-        ) : null}
         {row.patient_note?.trim() ? (
           <div>
             <dt className="text-[10px] font-bold uppercase text-muted-foreground">Votre message</dt>
             <dd className="text-muted-foreground">{row.patient_note.trim()}</dd>
           </div>
         ) : null}
-        {row.pharmacist_note?.trim() ? (
+        {row.status !== "unavailable" && row.pharmacist_note?.trim() ? (
           <div>
             <dt className="text-[10px] font-bold uppercase text-muted-foreground">Message de l&apos;officine</dt>
-            <dd className="text-foreground">{row.pharmacist_note.trim()}</dd>
+            <dd>{row.pharmacist_note.trim()}</dd>
           </div>
         ) : null}
       </dl>
@@ -179,7 +202,7 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
         <button
           type="button"
           disabled={busy}
-          className="rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-800 disabled:opacity-50"
+          className="w-full rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-800 disabled:opacity-50 sm:w-auto"
           onClick={() => void cancel()}
         >
           {busy ? "Annulation…" : "Annuler ma réservation"}

@@ -7,6 +7,7 @@ import { clsx } from "clsx";
 import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
 import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
 import { supabase } from "@/lib/supabase";
+import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { PROMO_RESERVATION_BUCKETS, promoReservationBadgeClass, promoReservationLabel } from "@/lib/promo/reservation-status-ui";
 import type { PromoReservationStatus } from "@/lib/promo/types";
 
@@ -31,6 +32,7 @@ export function PharmacistPromoReservationsHub() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const load = useCallback(async () => {
     setError("");
@@ -75,15 +77,28 @@ export function PharmacistPromoReservationsHub() {
     return () => window.clearTimeout(tid);
   }, [load]);
 
+  const filteredRows = useMemo(() => {
+    if (searchQuery.trim().length < 2) return rows;
+    return rows.filter((r) =>
+      rowMatchesPublicRefQuery(searchQuery, [
+        r.public_ref,
+        r.offer?.title,
+        r.patient?.full_name,
+      ])
+    );
+  }, [rows, searchQuery]);
+
+  const submittedCount = useMemo(() => rows.filter((r) => r.status === "submitted").length, [rows]);
+
   const byBucket = useMemo(() => {
     const map = new Map<string, Row[]>();
     for (const b of PROMO_RESERVATION_BUCKETS) map.set(b.key, []);
-    for (const r of rows) {
+    for (const r of filteredRows) {
       const bucket = PROMO_RESERVATION_BUCKETS.find((b) => b.statuses.includes(r.status));
       if (bucket) map.get(bucket.key)!.push(r);
     }
     return map;
-  }, [rows]);
+  }, [filteredRows]);
 
   if (loading) {
     return (
@@ -111,6 +126,25 @@ export function PharmacistPromoReservationsHub() {
         </Link>
       </div>
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
+
+      {submittedCount > 0 ? (
+        <p className="rounded-xl bg-sky-50 px-3 py-2 text-sm font-medium text-sky-950 ring-1 ring-sky-100">
+          {submittedCount} réservation{submittedCount > 1 ? "s" : ""} en attente de votre réponse.
+        </p>
+      ) : null}
+
+      {rows.length > 0 ? (
+        <label className="flex max-w-md flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Recherche (réf., pack, patient)
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Ex. P042/26"
+            className="rounded-md border px-2 py-1.5 text-xs font-normal normal-case tracking-normal"
+          />
+        </label>
+      ) : null}
+
       {rows.length === 0 ? (
         <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
           Aucune réservation pour le moment.
