@@ -3,7 +3,31 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, ChevronDown, Cross, LogOut, User } from "lucide-react";
+import {
+  AlertTriangle,
+  Bell,
+  Building2,
+  Calculator,
+  CalendarClock,
+  ChevronDown,
+  ClipboardList,
+  Cross,
+  FileText,
+  Gift,
+  LayoutDashboard,
+  LogOut,
+  MapPin,
+  MessageSquare,
+  Package,
+  Settings,
+  ShoppingBag,
+  Sparkles,
+  Store,
+  Truck,
+  User,
+  Users,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { InAppNotificationItem } from "@/components/notifications/in-app-notification-item";
@@ -120,32 +144,151 @@ function ProfileNavLogoutButton({ onLogout }: { onLogout: () => void }) {
   );
 }
 
-export const patientNavLinks: { href: string; label: string }[] = [
-  { href: "/dashboard/patient/pharmacies", label: "Mes pharmacies" },
-  { href: "/dashboard/demandes", label: "Mes demandes de produits" },
-  { href: "/dashboard/patient/ordonnances", label: "Mes ordonnances" },
-  { href: "/dashboard/patient/consultations-libres", label: "Mes consultations libres" },
-  { href: "/dashboard/patient/packs-promo", label: "Mes packs promo" },
-  { href: "/dashboard/patient/liste-souhaits", label: "Liste de souhaits" },
-  { href: "/dashboard/patient/parametres", label: "Paramètres" },
+export type PlatformNavItem = { href: string; label: string; icon: LucideIcon };
+
+export type PlatformNavGroup = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  items: PlatformNavItem[];
+};
+
+/** Menu patient — ordre : demandes (cœur métier) → pharmacies → compte. */
+export const patientNavGroups: PlatformNavGroup[] = [
+  {
+    id: "demandes",
+    label: "Mes demandes",
+    icon: ClipboardList,
+    items: [
+      { href: "/dashboard/demandes", label: "Produits", icon: Package },
+      { href: "/dashboard/patient/ordonnances", label: "Ordonnances", icon: FileText },
+      { href: "/dashboard/patient/consultations-libres", label: "Consultations libres", icon: MessageSquare },
+      { href: "/dashboard/patient/packs-promo", label: "Packs promo", icon: Gift },
+    ],
+  },
+  {
+    id: "pharmacies",
+    label: "Mes pharmacies",
+    icon: MapPin,
+    items: [{ href: "/dashboard/patient/pharmacies", label: "Annuaire & favoris", icon: Store }],
+  },
+  {
+    id: "compte",
+    label: "Mon compte",
+    icon: Settings,
+    items: [{ href: "/dashboard/patient/parametres", label: "Paramètres", icon: Settings }],
+  },
 ];
 
-export const pharmacienNavLinks: { href: string; label: string }[] = [
-  { href: "/dashboard/pharmacien", label: "Tableau de bord" },
-  { href: "/dashboard/pharmacien/demandes", label: "Demandes de produits" },
-  { href: "/dashboard/pharmacien/ordonnances", label: "Ordonnances" },
-  { href: "/dashboard/pharmacien/consultations-libres", label: "Consultations libres" },
-  { href: "/dashboard/pharmacien/clients", label: "Clients" },
-  { href: "/dashboard/pharmacien/produits-commandes", label: "Produits commandés" },
-  { href: "/dashboard/pharmacien/ma-fiche", label: "Ma fiche pharmacie" },
-  { href: "/dashboard/pharmacien/horaires-garde", label: "Horaires et garde" },
-  { href: "/dashboard/pharmacien/visites-interactions", label: "Visites et interactions" },
-  { href: "/dashboard/pharmacien/pricing", label: "Moteur de pricing" },
-  { href: "/dashboard/pharmacien/ruptures-marche", label: "Produits en rupture" },
-  { href: "/dashboard/pharmacien/offres-promos", label: "Offres et promos" },
-  { href: "/dashboard/pharmacien/reservations-packs", label: "Réservations packs" },
-  { href: "/dashboard/pharmacien/parametres", label: "Paramètres généraux" },
+/** Menu pharmacien — ordre : accueil → demandes → supply → promo → officine → outils → compte. */
+export const pharmacienNavGroups: PlatformNavGroup[] = [
+  {
+    id: "accueil",
+    label: "Accueil",
+    icon: LayoutDashboard,
+    items: [{ href: "/dashboard/pharmacien", label: "Tableau de bord", icon: LayoutDashboard }],
+  },
+  {
+    id: "demandes",
+    label: "Demandes patients",
+    icon: ClipboardList,
+    items: [
+      { href: "/dashboard/pharmacien/demandes", label: "Produits", icon: Package },
+      { href: "/dashboard/pharmacien/ordonnances", label: "Ordonnances", icon: FileText },
+      { href: "/dashboard/pharmacien/consultations-libres", label: "Consultations libres", icon: MessageSquare },
+    ],
+  },
+  {
+    id: "approvisionnement",
+    label: "Approvisionnement",
+    icon: Truck,
+    items: [
+      { href: "/dashboard/pharmacien/produits-commandes", label: "Produits commandés", icon: ShoppingBag },
+      { href: "/dashboard/pharmacien/ruptures-marche", label: "Produits en rupture", icon: AlertTriangle },
+    ],
+  },
+  {
+    id: "promos",
+    label: "Promos & packs",
+    icon: Sparkles,
+    items: [
+      { href: "/dashboard/pharmacien/offres-promos", label: "Offres et promos", icon: Gift },
+      { href: "/dashboard/pharmacien/reservations-packs", label: "Réservations packs", icon: CalendarClock },
+    ],
+  },
+  {
+    id: "officine",
+    label: "Officine & relation client",
+    icon: Building2,
+    items: [
+      { href: "/dashboard/pharmacien/clients", label: "Clients", icon: Users },
+      { href: "/dashboard/pharmacien/ma-fiche", label: "Ma fiche publique", icon: Store },
+      { href: "/dashboard/pharmacien/horaires-garde", label: "Horaires et garde", icon: CalendarClock },
+      { href: "/dashboard/pharmacien/visites-interactions", label: "Visites et interactions", icon: MapPin },
+    ],
+  },
+  {
+    id: "outils",
+    label: "Outils",
+    icon: Calculator,
+    items: [{ href: "/dashboard/pharmacien/pricing", label: "Moteur de pricing", icon: Calculator }],
+  },
+  {
+    id: "compte",
+    label: "Paramètres",
+    icon: Settings,
+    items: [{ href: "/dashboard/pharmacien/parametres", label: "Paramètres généraux", icon: Settings }],
+  },
 ];
+
+/** Liste plate (compat. liens profonds, tests). */
+export const patientNavLinks = patientNavGroups.flatMap((g) => g.items);
+export const pharmacienNavLinks = pharmacienNavGroups.flatMap((g) => g.items);
+
+function ProfileNavGroupedMenu({
+  groups,
+  onNavigate,
+}: {
+  groups: PlatformNavGroup[];
+  onNavigate: () => void;
+}) {
+  return (
+    <div className="space-y-1 px-2 pb-1">
+      {groups.map((group, gi) => {
+        const GroupIcon = group.icon;
+        return (
+          <div key={group.id} className={gi > 0 ? "mt-2 border-t border-border/60 pt-2" : ""}>
+            <div className="mb-1 flex items-center gap-2 px-2 py-1">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <GroupIcon className="size-3.5" strokeWidth={2.25} aria-hidden />
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                {group.label}
+              </span>
+            </div>
+            <ul className="space-y-0.5">
+              {group.items.map((item) => {
+                const ItemIcon = item.icon;
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={onNavigate}
+                      className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-foreground transition hover:bg-muted/80"
+                    >
+                      <ItemIcon className="size-4 shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden />
+                      <span className="min-w-0 leading-snug">{item.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function PlatformHeader() {
   const router = useRouter();
@@ -446,7 +589,7 @@ export function PlatformHeader() {
                 </button>
 
                 {profileOpen ? (
-                  <div className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,18rem)] rounded-xl border border-border bg-popover py-2 text-popover-foreground shadow-xl">
+                  <div className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,19.5rem)] rounded-xl border border-border bg-popover py-2 text-popover-foreground shadow-xl sm:w-[20.5rem]">
                     {!session ? (
                       <div className="px-2">
                         <Link
@@ -491,18 +634,10 @@ export function PlatformHeader() {
                           {profile.full_name?.trim() || "Pharmacien"}
                         </p>
                         <ProfileNavScrollPanel maxHeightClass="max-h-[min(58vh,20rem)]">
-                          <div className="px-2 pb-1">
-                            {pharmacienNavLinks.map((item) => (
-                              <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={() => setProfileOpen(false)}
-                                className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/80"
-                              >
-                                {item.label}
-                              </Link>
-                            ))}
-                          </div>
+                          <ProfileNavGroupedMenu
+                            groups={pharmacienNavGroups}
+                            onNavigate={() => setProfileOpen(false)}
+                          />
                         </ProfileNavScrollPanel>
                         <ProfileNavLogoutButton onLogout={() => void handleLogout()} />
                       </div>
@@ -512,18 +647,10 @@ export function PlatformHeader() {
                           {profile?.full_name?.trim() || "Patient"}
                         </p>
                         <ProfileNavScrollPanel maxHeightClass="max-h-[min(52vh,18rem)]">
-                          <div className="px-2 pb-1">
-                            {patientNavLinks.map((item) => (
-                              <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={() => setProfileOpen(false)}
-                                className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/80"
-                              >
-                                {item.label}
-                              </Link>
-                            ))}
-                          </div>
+                          <ProfileNavGroupedMenu
+                            groups={patientNavGroups}
+                            onNavigate={() => setProfileOpen(false)}
+                          />
                         </ProfileNavScrollPanel>
                         <ProfileNavLogoutButton onLogout={() => void handleLogout()} />
                       </div>
