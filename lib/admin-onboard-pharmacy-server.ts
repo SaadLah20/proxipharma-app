@@ -1,10 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  PROVISIONED_PHARMACIST_META,
-  SIGNUP_META_PASSWORD_PENDING,
-  type OnboardPharmacyInput,
-  type OnboardPharmacySuccess,
-} from "@/lib/admin-onboard-pharmacy";
+import { SIGNUP_META_PASSWORD_PENDING } from "@/lib/auth-signup-flow";
+import type { OnboardPharmacyInput, OnboardPharmacySuccess } from "@/lib/admin-onboard-pharmacy";
+import { PROVISIONED_PHARMACIST_META } from "@/lib/provisioned-pharmacist-auth";
 
 async function deleteAuthUser(admin: SupabaseClient, userId: string) {
   await admin.auth.admin.deleteUser(userId);
