@@ -3,6 +3,11 @@
 import { FormEvent, useState } from "react";
 import { adminApiFetch } from "@/lib/admin-api-fetch";
 import { generateProvisionalPassword } from "@/lib/generate-provisional-password";
+import {
+  AdminPharmacyCoordsFields,
+  validateAdminPharmacyCoordsForSubmit,
+} from "@/components/admin/AdminPharmacyCoordsFields";
+import { parseAdminPharmacyCoords } from "@/lib/pharmacy-coords-morocco";
 
 type OnboardResult = {
   pharmacy_id: string;
@@ -58,6 +63,19 @@ export function AdminOnboardPharmacyForm({ onCreated }: Props) {
     setError("");
     setResult(null);
 
+    const coordsErr = validateAdminPharmacyCoordsForSubmit(latitude, longitude, true);
+    if (coordsErr) {
+      setError(coordsErr);
+      setLoading(false);
+      return;
+    }
+    const coords = parseAdminPharmacyCoords(latitude, longitude, { required: true });
+    if (!coords.ok || coords.latitude === null || coords.longitude === null) {
+      setError(!coords.ok ? coords.error : "Coordonnées invalides.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await adminApiFetch("/api/admin/onboard-pharmacy", {
         method: "POST",
@@ -68,8 +86,8 @@ export function AdminOnboardPharmacyForm({ onCreated }: Props) {
             ville,
             telephone: telephone || undefined,
             whatsapp: whatsapp || undefined,
-            latitude: latitude || null,
-            longitude: longitude || null,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
             statut,
           },
           pharmacist: {
@@ -208,17 +226,12 @@ export function AdminOnboardPharmacyForm({ onCreated }: Props) {
             value={whatsapp}
             onChange={(e) => setWhatsapp(e.target.value)}
           />
-          <input
-            className="rounded-lg border p-3"
-            placeholder="Latitude"
-            value={latitude}
-            onChange={(e) => setLatitude(e.target.value)}
-          />
-          <input
-            className="rounded-lg border p-3"
-            placeholder="Longitude"
-            value={longitude}
-            onChange={(e) => setLongitude(e.target.value)}
+          <AdminPharmacyCoordsFields
+            latitude={latitude}
+            longitude={longitude}
+            onLatitudeChange={setLatitude}
+            onLongitudeChange={setLongitude}
+            required
           />
           <select
             className="rounded-lg border p-3 md:col-span-2"

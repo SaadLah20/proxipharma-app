@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AdminPilotBlock } from "@/components/admin/AdminPilotBlock";
 import { AdminOnboardPharmacyForm } from "@/components/admin/AdminOnboardPharmacyForm";
+import {
+  AdminPharmacyCoordsFields,
+  validateAdminPharmacyCoordsForSubmit,
+} from "@/components/admin/AdminPharmacyCoordsFields";
+import { parseAdminPharmacyCoords } from "@/lib/pharmacy-coords-morocco";
 
 type Pharmacy = {
   id: string;
@@ -124,26 +129,14 @@ export default function AdminPage() {
     e.preventDefault();
     setMessage("");
 
-    const parsedLatitude = latitude ? Number(latitude) : null;
-    const parsedLongitude = longitude ? Number(longitude) : null;
-
-    if (latitude && Number.isNaN(parsedLatitude)) {
-      setMessage("Latitude invalide. Utilise un nombre (ex: 33.5731).");
+    const coordsErr = validateAdminPharmacyCoordsForSubmit(latitude, longitude, true);
+    if (coordsErr) {
+      setMessage(coordsErr);
       return;
     }
-
-    if (longitude && Number.isNaN(parsedLongitude)) {
-      setMessage("Longitude invalide. Utilise un nombre (ex: -7.5898).");
-      return;
-    }
-
-    if (parsedLatitude !== null && (parsedLatitude < -90 || parsedLatitude > 90)) {
-      setMessage("Latitude hors limites (-90 a 90).");
-      return;
-    }
-
-    if (parsedLongitude !== null && (parsedLongitude < -180 || parsedLongitude > 180)) {
-      setMessage("Longitude hors limites (-180 a 180).");
+    const coords = parseAdminPharmacyCoords(latitude, longitude, { required: true });
+    if (!coords.ok || coords.latitude === null || coords.longitude === null) {
+      setMessage(!coords.ok ? coords.error : "Coordonnées invalides.");
       return;
     }
 
@@ -153,8 +146,8 @@ export default function AdminPage() {
       ville,
       telephone,
       whatsapp,
-      latitude: parsedLatitude,
-      longitude: parsedLongitude,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
       statut,
     });
 
@@ -262,17 +255,12 @@ export default function AdminPage() {
             value={whatsapp}
             onChange={(e) => setWhatsapp(e.target.value)}
           />
-          <input
-            className="rounded-lg border p-3"
-            placeholder="Latitude (ex: 33.5731)"
-            value={latitude}
-            onChange={(e) => setLatitude(e.target.value)}
-          />
-          <input
-            className="rounded-lg border p-3"
-            placeholder="Longitude (ex: -7.5898)"
-            value={longitude}
-            onChange={(e) => setLongitude(e.target.value)}
+          <AdminPharmacyCoordsFields
+            latitude={latitude}
+            longitude={longitude}
+            onLatitudeChange={setLatitude}
+            onLongitudeChange={setLongitude}
+            required
           />
           <select
             className="rounded-lg border p-3 md:col-span-2"

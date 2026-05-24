@@ -73,9 +73,9 @@ export const PHARMACY_FORM_FIELDS: Record<PharmacyFieldKey, PharmacyFieldMeta> =
     maxLength: 200,
   },
   maps_url: {
-    label: "Lien Google Maps",
-    hint: "URL de partage Google Maps ou Waze (itinéraire).",
-    placeholder: "https://maps.google.com/…",
+    label: "Lien de localisation",
+    hint: "Collez le lien « Partager » (Google Maps, Waze, Plans…). Les patients choisissent l’app à l’ouverture.",
+    placeholder: "https://maps.google.com/… ou https://waze.com/ul/…",
     type: "url",
     inputMode: "url",
     maxLength: 300,

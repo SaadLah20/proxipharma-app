@@ -37,6 +37,8 @@ import {
   PharmacyProfileContactGrid,
   type PharmacyProfileContactItem,
 } from "@/components/pharmacy/pharmacy-profile-contact-grid";
+import { PharmacyNavigationPicker } from "@/components/pharmacy/pharmacy-navigation-picker";
+import { hasPharmacyNavigation } from "@/lib/pharmacy-navigation";
 import type { PharmacyDayScheduleLine } from "@/lib/pharmacy-profile-types";
 
 type TabId = "services" | "promos" | "hours" | "info";
@@ -153,8 +155,10 @@ export function PharmacyPublicProfile({
   serviceCatalog: PharmacyServiceCatalogRow[];
 }) {
   const [tab, setTab] = useState<TabId>("services");
+  const [navOpen, setNavOpen] = useState(false);
   const [ratingAvg, setRatingAvg] = useState<number | null>(pharmacy.rating_avg ?? null);
   const [ratingCount, setRatingCount] = useState<number | null>(pharmacy.rating_count ?? null);
+  const canNavigate = hasPharmacyNavigation(pharmacy);
 
   const coverUrl = resolvePublicMediaUrl(pharmacy.cover_image_path ?? null);
   const logoUrl = resolvePublicMediaUrl(pharmacy.logo_url ?? null);
@@ -172,12 +176,6 @@ export function PharmacyPublicProfile({
     const set = new Set(serviceIds);
     return serviceCatalog.filter((s) => set.has(s.id));
   }, [serviceIds, serviceCatalog]);
-
-  const mapsHref =
-    pharmacy.maps_url?.trim() ||
-    (pharmacy.latitude != null && pharmacy.longitude != null
-      ? `https://www.google.com/maps?q=${pharmacy.latitude},${pharmacy.longitude}`
-      : undefined);
 
   const contactItems = useMemo((): PharmacyProfileContactItem[] => {
     const tel = pharmacy.telephone?.trim();
@@ -205,10 +203,19 @@ export function PharmacyPublicProfile({
       {
         id: "maps",
         label: "Itinéraire",
-        detail: "Carte",
-        href: mapsHref,
+        detail: canNavigate ? "Google, Waze…" : undefined,
         icon: PHARMACY_CONTACT_ICONS.maps,
         tone: "maps",
+        onClick: canNavigate
+          ? () => {
+              trackPharmacyEngagement({
+                pharmacyId: pharmacy.id,
+                eventType: "maps_click",
+                source: "profile",
+              });
+              setNavOpen(true);
+            }
+          : undefined,
       },
       {
         id: "email",
@@ -240,7 +247,7 @@ export function PharmacyPublicProfile({
         tone: "neutral",
       },
     ];
-  }, [pharmacy, wa, mapsHref]);
+  }, [pharmacy, wa, canNavigate]);
 
   const ratingLabel =
     (ratingCount ?? 0) > 0 ? `${Number(ratingAvg ?? 0).toFixed(1)} (${ratingCount} avis)` : "Pas encore d'avis";
@@ -439,6 +446,22 @@ export function PharmacyPublicProfile({
           <MessageCircle className="size-4" aria-hidden /> WhatsApp
         </a>
       </div>
+
+      <PharmacyNavigationPicker
+        pharmacy={{
+          pharmacyId: pharmacy.id,
+          nom: pharmacy.nom,
+          adresse: pharmacy.adresse,
+          ville: pharmacy.ville,
+          latitude: pharmacy.latitude,
+          longitude: pharmacy.longitude,
+          maps_url: pharmacy.maps_url,
+        }}
+        source="profile"
+        hideTrigger
+        open={navOpen}
+        onOpenChange={setNavOpen}
+      />
     </article>
   );
 }

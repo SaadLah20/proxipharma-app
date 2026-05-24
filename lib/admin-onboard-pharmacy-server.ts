@@ -71,6 +71,7 @@ export async function onboardPharmacyAndPharmacist(
       ville: input.pharmacy.ville,
       telephone: input.pharmacy.telephone ?? null,
       whatsapp: input.pharmacy.whatsapp ?? phone,
+      maps_url: null,
       latitude: input.pharmacy.latitude,
       longitude: input.pharmacy.longitude,
       statut: input.pharmacy.statut ?? "ouverte",

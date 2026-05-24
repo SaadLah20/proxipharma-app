@@ -10,7 +10,11 @@ export function isPharmacyEngagementTableUnavailable(message: string | undefined
   );
 }
 
-export type PharmacyEngagementEventType = "profile_view" | "phone_click" | "whatsapp_click";
+export type PharmacyEngagementEventType =
+  | "profile_view"
+  | "phone_click"
+  | "whatsapp_click"
+  | "maps_click";
 export type PharmacyEngagementSource = "annuaire" | "profile";
 
 /** Enregistre un événement d’audience (RLS : insert public). Les erreurs sont ignorées côté UX. */
