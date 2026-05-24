@@ -14,6 +14,8 @@ export type AnnuairePharmacyRow = {
   latitude: number | null;
   longitude: number | null;
   maps_url: string | null;
+  rating_avg: number | null;
+  rating_count: number | null;
 };
 
 export type AnnuairePharmacyEnriched = AnnuairePharmacyRow & {

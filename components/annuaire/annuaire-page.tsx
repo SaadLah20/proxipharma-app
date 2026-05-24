@@ -44,7 +44,7 @@ export function AnnuairePage() {
     const { data, error } = await supabase
       .from("pharmacies")
       .select(
-        "id,nom,ville,adresse,telephone,whatsapp,statut,public_ref,cover_image_path,logo_url,latitude,longitude,maps_url"
+        "id,nom,ville,adresse,telephone,whatsapp,statut,public_ref,cover_image_path,logo_url,latitude,longitude,maps_url,rating_avg,rating_count"
       )
       .order("nom", { ascending: true });
 
@@ -214,7 +214,7 @@ export function AnnuairePage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
-      <section className="relative isolate overflow-hidden border-b border-primary/15 text-white shadow-md">
+      <section className="relative z-20 border-b border-primary/15 text-white shadow-md">
         <div
           className="pointer-events-none absolute inset-0 bg-cover bg-left bg-no-repeat sm:bg-[center_left_20%]"
           style={{ backgroundImage: "url(/brand/annuaire-hero.png)" }}
@@ -232,7 +232,7 @@ export function AnnuairePage() {
             intermédiaire.
           </p>
 
-          <div className="mt-3 space-y-2 rounded-xl border border-white/20 bg-white/10 p-2.5 shadow-inner ring-1 ring-white/15 backdrop-blur-sm sm:p-3">
+          <div className="relative z-10 mt-3 space-y-2 overflow-visible rounded-xl border border-white/20 bg-white/10 p-2.5 shadow-inner ring-1 ring-white/15 backdrop-blur-sm sm:p-3">
             <label className="block">
               <span className="sr-only">Rechercher une pharmacie</span>
               <span className="relative block">
@@ -249,25 +249,30 @@ export function AnnuairePage() {
               </span>
             </label>
 
-            <div className="flex flex-nowrap items-center gap-x-2.5 gap-y-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] text-emerald-50 sm:text-xs">
-                <input
-                  type="checkbox"
-                  checked={filterOpen}
-                  onChange={(e) => setFilterOpen(e.target.checked)}
-                  className="size-3.5 shrink-0 rounded border-white/50 bg-white/90 accent-emerald-700"
-                />
-                <span className="font-semibold whitespace-nowrap">Ouvertes</span>
-              </label>
-              <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] text-emerald-50 sm:text-xs">
-                <input
-                  type="checkbox"
-                  checked={filterOnCall}
-                  onChange={(e) => setFilterOnCall(e.target.checked)}
-                  className="size-3.5 shrink-0 rounded border-white/50 bg-white/90 accent-emerald-700"
-                />
-                <span className="font-semibold whitespace-nowrap">En garde</span>
-              </label>
+            <div className="flex items-center gap-2 overflow-visible">
+              <div className="flex min-w-0 flex-1 items-center gap-x-2.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] text-emerald-50 sm:text-xs">
+                  <input
+                    type="checkbox"
+                    checked={filterOpen}
+                    onChange={(e) => setFilterOpen(e.target.checked)}
+                    className="size-3.5 shrink-0 rounded border-white/50 bg-white/90 accent-emerald-700"
+                  />
+                  <span className="font-semibold whitespace-nowrap">Ouvertes</span>
+                </label>
+                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] text-emerald-50 sm:text-xs">
+                  <input
+                    type="checkbox"
+                    checked={filterOnCall}
+                    onChange={(e) => setFilterOnCall(e.target.checked)}
+                    className="size-3.5 shrink-0 rounded border-white/50 bg-white/90 accent-emerald-700"
+                  />
+                  <span className="font-semibold whitespace-nowrap">En garde</span>
+                </label>
+                {schedulesLoading ? (
+                  <span className="shrink-0 whitespace-nowrap text-[10px] text-emerald-100/80">Horaires…</span>
+                ) : null}
+              </div>
 
               <AnnuaireRadiusPicker
                 mode={radiusMode}
@@ -275,10 +280,6 @@ export function AnnuairePage() {
                 inRadiusCount={inRadiusCount}
                 onSelect={(next) => void handleRadiusSelect(next)}
               />
-
-              {schedulesLoading ? (
-                <span className="shrink-0 whitespace-nowrap text-[10px] text-emerald-100/80">Horaires…</span>
-              ) : null}
             </div>
 
             {locationError ? (
@@ -299,7 +300,7 @@ export function AnnuairePage() {
         ) : null}
       </p>
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-5 pt-3 sm:px-5">
+      <main className="relative z-0 mx-auto w-full max-w-5xl flex-1 px-4 pb-5 pt-3 sm:px-5">
         {errorMessage ? (
           <p className="mb-4 rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
             {errorMessage}
