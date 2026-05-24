@@ -60,7 +60,11 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 - **Ordonnances** : capture **`/pharmacie/[id]/demande-ordonnance`** ; saisie pharmacien via scan + modal (**qté prescrite / qté dispo**, rupture/indispo → **dispo 0**, complémentaires = **qté proposée** seule) ; badges **Ordonnance** / **Ordonnance + alternative** / **Proposé** ; enregistrement post-validé compare la **branche alternative retenue** (`supplyRowPersistedSupplyFields` dans **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**) ; hubs ambre ; migrations **`20260525_001`**–**`004`**, **`20260526_001`**, **`20260530_001`**, **`20260531_001`** ; synthèse **`docs/workflow-ordonnance-consultation-REPONSES.md`**.
 - **Consultations libres** : **`/pharmacie/[id]/consultation-libre`** (texte + 3 photos) ; détail patient/pharmacien = **une page scroll** (brief + messagerie inline + lignes proposées) — **sans** onglets sticky (mai 2026) ; dispos proposées = **Disponible / À commander** ; patient **`responded`** : qté proposée = `available_qty` par branche (alternatives : plafond = qté alternative) ; hubs violet ; migration **`20260529_001`** ; `workflowEnabled: true`.
 - **Demande produits** : notif pharmacien dédiée si patient change la date de passage — **`20260531_002`**.
-- **Phrase de reprise** : **`CAHIER_DES_CHARGES.md` §13.28** (packs promo **`20260610_001`**, horaires compacts, fiche + photos versionnées, supply post-validé ; voir §10 session **2026-05-19 promo** et lot demandes **2026-06-03** / **2026-06-04**).
+- **Phrase de reprise** : **`CAHIER_DES_CHARGES.md` §13.29** (moteur pricing **`20260619_001` appliquée**, promo, fiche, supply post-validé ; voir §10 session **2026-05-19 pricing** et lots antérieurs).
+
+**Mise à jour 2026-05-19 — moteur de pricing officine** :
+- **SQL** : **`20260619_001`** (**appliquée**) — grille parapharmacie (PPH ± marge, règles labo/produit), PPV médicaments, RPC public + pharmacien.
+- **UI** : **`/dashboard/pharmacien/pricing`** ; résolution prix sur demandes, catalogue patient, promos via **`lib/pharmacy-pricing/`**.
 
 **Mise à jour 2026-05-19 — packs promo + horaires** :
 - **SQL** : **`20260610_001`** — offres/réservations packs, refs **`P042/26`**, **`promo_in_app_notifications`** (workflow isolé des demandes D/O/C).

@@ -24,7 +24,9 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **Supply post-validé (mai 2026)** — **`app/dashboard/pharmacien/demandes/[id]/page.tsx`** (commit **`0094611`**) : qté validée + brouillon au reload ; ajouts officine **`confirmed`/`treated`** en **`pendingProposalRows`** jusqu’à Enregistrer.
 
-**Ne pas réécrire tout le détail produit** sans relire **`CONTEXTE.md` §6** et **`CAHIER_DES_CHARGES.md` §4.4–§4.5 + dernier §10 Journal + §13.28** (phrase de reprise ; §13.12 / **`20260509_*`** pour supply post-validé). Pour une **ouverture sans tâche** : **`CAHIER_DES_CHARGES.md` §13.11**.
+**Moteur de pricing officine (mai 2026)** — migration **`20260619_001`** (**appliquée** sur pilote). Tables **`pharmacy_pricing_*`** ; RPC config + **`resolve_pharmacy_product_unit_price`** ; **`lib/pharmacy-pricing/`** ; UI **`/dashboard/pharmacien/pricing`** (`PharmacistPricingManager`). **Médicaments** = **PPV** fixe ; **parapharmacie** = PPH + marge **−10 % à +40 %** (global / labo / produit). Affichage patient = **Prix / PU** uniquement. Détail journal : **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-19 pricing)** · phrase **§13.29**.
+
+**Ne pas réécrire tout le détail produit** sans relire **`CONTEXTE.md` §6** et **`CAHIER_DES_CHARGES.md` §4.4–§4.5 + dernier §10 Journal + §13.29** (phrase de reprise ; §13.12 / **`20260509_*`** pour supply post-validé). Pour une **ouverture sans tâche** : **`CAHIER_DES_CHARGES.md` §13.11**.
 
 **Catalogue & photos (mai 2026)** — **`lib/storage-media.ts`**, **`lib/patient-demande-produits-draft.ts`**, **`/pharmacie/[id]/demande-produits/catalogue`** ; vignettes = chemins Storage résolus en URL publique (pas `<img src="products/…">` relatif). Merge **`main`** + migrations **`20260524_*`** pour prod.
 
