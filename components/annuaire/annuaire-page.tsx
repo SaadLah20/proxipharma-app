@@ -224,15 +224,15 @@ export function AnnuairePage() {
           className="pointer-events-none absolute inset-0 bg-gradient-to-r from-emerald-950/92 via-emerald-900/78 to-emerald-900/25 sm:from-emerald-950/88 sm:via-emerald-900/55"
           aria-hidden
         />
-        <div className="relative mx-auto max-w-5xl px-4 py-5 sm:px-5 sm:py-7">
+        <div className="relative mx-auto max-w-5xl px-4 py-4 sm:px-5 sm:py-5">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-100/90">ProxiPharma</p>
-          <h1 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">Annuaire interactif des pharmacies</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-emerald-50/95">
+          <h1 className="mt-0.5 text-lg font-bold tracking-tight sm:text-xl">Annuaire interactif des pharmacies</h1>
+          <p className="mt-1.5 max-w-2xl text-xs leading-snug text-emerald-50/95 sm:text-sm sm:leading-relaxed">
             Consultez les officines, appelez ou écrivez en un clic, et lancez vos demandes depuis la fiche — sans
             intermédiaire.
           </p>
 
-          <div className="mt-5 space-y-3 rounded-2xl border border-white/20 bg-white/10 p-3 shadow-inner ring-1 ring-white/15 backdrop-blur-sm sm:p-4">
+          <div className="mt-3 space-y-2 rounded-xl border border-white/20 bg-white/10 p-2.5 shadow-inner ring-1 ring-white/15 backdrop-blur-sm sm:p-3">
             <label className="block">
               <span className="sr-only">Rechercher une pharmacie</span>
               <span className="relative block">
@@ -244,29 +244,29 @@ export function AnnuairePage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Nom, ville, adresse ou code officine…"
-                  className="w-full rounded-xl border border-white/40 bg-white py-2.5 pl-10 pr-3 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-white/60"
+                  className="w-full rounded-lg border border-white/40 bg-white py-2 pl-9 pr-2.5 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-white/60"
                 />
               </span>
             </label>
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-emerald-50">
+            <div className="flex flex-nowrap items-center gap-x-2.5 gap-y-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] text-emerald-50 sm:text-xs">
                 <input
                   type="checkbox"
                   checked={filterOpen}
                   onChange={(e) => setFilterOpen(e.target.checked)}
-                  className="size-4 rounded border-white/50 bg-white/90 accent-emerald-700"
+                  className="size-3.5 shrink-0 rounded border-white/50 bg-white/90 accent-emerald-700"
                 />
-                <span className="font-semibold">Ouvertes</span>
+                <span className="font-semibold whitespace-nowrap">Ouvertes</span>
               </label>
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-emerald-50">
+              <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] text-emerald-50 sm:text-xs">
                 <input
                   type="checkbox"
                   checked={filterOnCall}
                   onChange={(e) => setFilterOnCall(e.target.checked)}
-                  className="size-4 rounded border-white/50 bg-white/90 accent-emerald-700"
+                  className="size-3.5 shrink-0 rounded border-white/50 bg-white/90 accent-emerald-700"
                 />
-                <span className="font-semibold">En garde</span>
+                <span className="font-semibold whitespace-nowrap">En garde</span>
               </label>
 
               <AnnuaireRadiusPicker
@@ -277,29 +277,29 @@ export function AnnuairePage() {
               />
 
               {schedulesLoading ? (
-                <span className="text-[11px] text-emerald-100/80">Mise à jour des horaires…</span>
+                <span className="shrink-0 whitespace-nowrap text-[10px] text-emerald-100/80">Horaires…</span>
               ) : null}
             </div>
 
             {locationError ? (
-              <p className="rounded-lg bg-amber-400/20 px-2.5 py-1.5 text-[11px] font-medium text-amber-50 ring-1 ring-amber-200/30">
+              <p className="rounded-lg bg-amber-400/20 px-2 py-1 text-[10px] font-medium text-amber-50 ring-1 ring-amber-200/30">
                 {locationError}
               </p>
             ) : null}
-
-            <p className="text-xs text-emerald-100/90">
-              <span className="font-bold text-white">{filtered.length}</span> officine
-              {filtered.length !== 1 ? "s" : ""}
-              {searchQuery.trim().length >= 2 ? ` (sur ${pharmacies.length})` : ""}
-              {radiusEnabled && inRadiusCount != null ? (
-                <span className="text-emerald-100/75"> · {inRadiusCount} dans le rayon</span>
-              ) : null}
-            </p>
           </div>
         </div>
       </section>
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-5 sm:px-5">
+      <p className="mx-auto max-w-5xl px-4 pt-2 text-[11px] text-muted-foreground sm:px-5">
+        <span className="font-semibold text-foreground">{filtered.length}</span> officine
+        {filtered.length !== 1 ? "s" : ""}
+        {searchQuery.trim().length >= 2 ? ` (sur ${pharmacies.length})` : ""}
+        {radiusEnabled && inRadiusCount != null ? (
+          <span> · {inRadiusCount} dans le rayon</span>
+        ) : null}
+      </p>
+
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-5 pt-3 sm:px-5">
         {errorMessage ? (
           <p className="mb-4 rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
             {errorMessage}

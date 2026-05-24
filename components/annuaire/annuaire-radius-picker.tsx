@@ -61,19 +61,19 @@ export function AnnuaireRadiusPicker({
         disabled={loading}
         onClick={() => setOpen((v) => !v)}
         className={clsx(
-          "inline-flex min-h-9 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold shadow-sm transition",
+          "inline-flex min-h-8 items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold leading-none shadow-sm transition",
           "border-white/35 bg-white/15 text-white hover:bg-white/25",
           "disabled:cursor-wait disabled:opacity-70",
           open && "bg-white/25 ring-2 ring-white/40"
         )}
       >
         {loading ? (
-          <Loader2 className="size-3.5 animate-spin" aria-hidden />
+          <Loader2 className="size-3 animate-spin" aria-hidden />
         ) : (
-          <MapPinned className="size-3.5 shrink-0 opacity-90" aria-hidden />
+          <MapPinned className="size-3 shrink-0 opacity-90" aria-hidden />
         )}
-        <span>Rayon&nbsp;: {RADIUS_LABELS[mode]}</span>
-        <ChevronDown className={clsx("size-3.5 opacity-80 transition", open && "rotate-180")} aria-hidden />
+        <span className="whitespace-nowrap">Rayon&nbsp;: {RADIUS_LABELS[mode]}</span>
+        <ChevronDown className={clsx("size-3 opacity-80 transition", open && "rotate-180")} aria-hidden />
       </button>
 
       {open ? (
