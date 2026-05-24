@@ -50,13 +50,17 @@ export async function onboardPharmacyAndPharmacist(
 
   const userId = authData.user.id;
 
-  const { error: profileErr } = await admin.from("profiles").insert({
-    id: userId,
-    role: "pharmacien",
-    full_name: input.pharmacist.full_name,
-    whatsapp: phone,
-    email: input.pharmacist.email ?? null,
-  });
+  // Un trigger Supabase (on_auth_user_created) peut déjà avoir inséré une ligne profiles → upsert.
+  const { error: profileErr } = await admin.from("profiles").upsert(
+    {
+      id: userId,
+      role: "pharmacien",
+      full_name: input.pharmacist.full_name,
+      whatsapp: phone,
+      email: input.pharmacist.email ?? null,
+    },
+    { onConflict: "id" }
+  );
 
   if (profileErr) {
     await deleteAuthUser(admin, userId);
