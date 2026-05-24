@@ -33,8 +33,8 @@ const TONE_CLASS: Record<PharmacyProfileContactItem["tone"], string> = {
 };
 
 export function PharmacyProfileContactGrid({ items }: { items: PharmacyProfileContactItem[] }) {
-  const available = items.filter((i) => i.href);
-  const missing = items.filter((i) => !i.href);
+  const available = items.filter((i) => i.href || i.onClick);
+  const missing = items.filter((i) => !i.href && !i.onClick);
 
   if (available.length === 0 && missing.length === items.length) {
     return (
@@ -49,18 +49,12 @@ export function PharmacyProfileContactGrid({ items }: { items: PharmacyProfileCo
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-2">
         {available.map((item) => {
           const Icon = item.icon;
-          return (
-            <a
-              key={item.id}
-              href={item.href}
-              target={item.href?.startsWith("http") ? "_blank" : undefined}
-              rel={item.href?.startsWith("http") ? "noreferrer" : undefined}
-              onClick={item.onClick}
-              className={clsx(
-                "flex min-h-[3.25rem] flex-col justify-center gap-1 rounded-xl border px-3 py-2.5 shadow-sm transition active:scale-[0.98]",
-                TONE_CLASS[item.tone]
-              )}
-            >
+          const cellClass = clsx(
+            "flex min-h-[3.25rem] w-full flex-col justify-center gap-1 rounded-xl border px-3 py-2.5 text-left shadow-sm transition active:scale-[0.98]",
+            TONE_CLASS[item.tone]
+          );
+          const inner = (
+            <>
               <span className="flex items-center gap-2">
                 <span
                   className={clsx(
@@ -78,7 +72,26 @@ export function PharmacyProfileContactGrid({ items }: { items: PharmacyProfileCo
               {item.detail ? (
                 <span className="truncate ps-10 text-[10px] font-medium opacity-85">{item.detail}</span>
               ) : null}
-            </a>
+            </>
+          );
+          if (item.href) {
+            return (
+              <a
+                key={item.id}
+                href={item.href}
+                target={item.href.startsWith("http") ? "_blank" : undefined}
+                rel={item.href.startsWith("http") ? "noreferrer" : undefined}
+                onClick={item.onClick}
+                className={cellClass}
+              >
+                {inner}
+              </a>
+            );
+          }
+          return (
+            <button key={item.id} type="button" onClick={item.onClick} className={cellClass}>
+              {inner}
+            </button>
           );
         })}
       </div>

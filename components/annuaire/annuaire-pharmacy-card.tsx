@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, MapPin, MessageCircle, Navigation, Phone } from "lucide-react";
+import { ArrowRight, MapPin, MessageCircle, Phone } from "lucide-react";
+import { PharmacyNavigationPicker } from "@/components/pharmacy/pharmacy-navigation-picker";
+import { hasPharmacyNavigation } from "@/lib/pharmacy-navigation";
 import { clsx } from "clsx";
 import type { AnnuairePharmacyEnriched } from "@/lib/annuaire/types";
 import { formatDistanceKm } from "@/lib/annuaire/geo";
@@ -17,11 +19,7 @@ function normalizeWhatsApp(value: string | null) {
 export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyEnriched }) {
   const coverUrl = resolvePublicMediaUrl(pharmacy.cover_image_path ?? pharmacy.logo_url ?? null);
   const wa = normalizeWhatsApp(pharmacy.whatsapp);
-  const mapsHref =
-    pharmacy.maps_url?.trim() ||
-    (pharmacy.hasValidLocation
-      ? `https://www.google.com/maps?q=${pharmacy.latitude},${pharmacy.longitude}`
-      : undefined);
+  const canNavigate = hasPharmacyNavigation(pharmacy);
 
   const statusOpen = pharmacy.open.status === "open";
 
@@ -125,22 +123,20 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
           <MessageCircle className="size-4" aria-hidden />
           WhatsApp
         </a>
-        <a
-          href={mapsHref}
-          target={mapsHref ? "_blank" : undefined}
-          rel={mapsHref ? "noreferrer" : undefined}
-          aria-disabled={!mapsHref}
-          onClick={(e) => {
-            if (!mapsHref) e.preventDefault();
+        <PharmacyNavigationPicker
+          pharmacy={{
+            pharmacyId: pharmacy.id,
+            nom: pharmacy.nom,
+            adresse: pharmacy.adresse,
+            ville: pharmacy.ville,
+            latitude: pharmacy.latitude,
+            longitude: pharmacy.longitude,
+            maps_url: pharmacy.maps_url,
           }}
-          className={cn(
-            "flex flex-col items-center gap-0.5 rounded-lg border border-teal-200/80 bg-teal-50/90 py-2 text-[10px] font-bold text-teal-950 transition hover:bg-teal-100",
-            !mapsHref && "pointer-events-none opacity-45"
-          )}
-        >
-          <Navigation className="size-4" aria-hidden />
-          Itinéraire
-        </a>
+          source="annuaire"
+          variant="annuaire"
+          disabledClassName={!canNavigate ? "pointer-events-none opacity-45" : undefined}
+        />
       </div>
 
       <div className="space-y-2 p-3 pt-2">

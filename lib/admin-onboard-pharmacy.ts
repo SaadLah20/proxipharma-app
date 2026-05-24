@@ -1,5 +1,7 @@
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
 import { generateProvisionalPassword, validateProvisionalPassword } from "@/lib/generate-provisional-password";
+import { adminPharmacyCoordsFromBody } from "@/lib/pharmacy-coords-morocco";
+
 export type OnboardPharmacyInput = {
   pharmacy: {
     nom: string;
@@ -7,8 +9,8 @@ export type OnboardPharmacyInput = {
     ville: string;
     telephone?: string;
     whatsapp?: string;
-    latitude?: number | null;
-    longitude?: number | null;
+    latitude: number;
+    longitude: number;
     statut?: string;
   };
   pharmacist: {
@@ -68,19 +70,10 @@ export function parseOnboardPharmacyBody(body: unknown):
     return { ok: false, error: "Statut invalide (ouverte, fermee ou garde)." };
   }
 
-  let latitude: number | null = null;
-  let longitude: number | null = null;
-  if (ph.latitude !== undefined && ph.latitude !== null && ph.latitude !== "") {
-    latitude = Number(ph.latitude);
-    if (Number.isNaN(latitude) || latitude < -90 || latitude > 90) {
-      return { ok: false, error: "Latitude invalide (-90 à 90)." };
-    }
-  }
-  if (ph.longitude !== undefined && ph.longitude !== null && ph.longitude !== "") {
-    longitude = Number(ph.longitude);
-    if (Number.isNaN(longitude) || longitude < -180 || longitude > 180) {
-      return { ok: false, error: "Longitude invalide (-180 à 180)." };
-    }
+  const coords = adminPharmacyCoordsFromBody(ph.latitude, ph.longitude, { required: true });
+  if ("error" in coords) return { ok: false, error: coords.error };
+  if (coords.latitude === null || coords.longitude === null) {
+    return { ok: false, error: "Latitude et longitude sont requises." };
   }
 
   const emailOpt = String(tit.email ?? "")
@@ -106,8 +99,8 @@ export function parseOnboardPharmacyBody(body: unknown):
       ville,
       telephone: String(ph.telephone ?? "").trim() || undefined,
       whatsapp: String(ph.whatsapp ?? "").trim() || phone,
-      latitude,
-      longitude,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
       statut,
     },
     pharmacist: {

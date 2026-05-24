@@ -7,6 +7,7 @@ import { AnnuaireFooter } from "@/components/annuaire/annuaire-footer";
 import { AnnuairePagination } from "@/components/annuaire/annuaire-pagination";
 import { AnnuairePharmacyCard } from "@/components/annuaire/annuaire-pharmacy-card";
 import { haversineKm, isPlausibleMoroccoCoords, requestUserLocation } from "@/lib/annuaire/geo";
+import { pharmacyCoordsForDistance } from "@/lib/pharmacy-navigation";
 import {
   loadScheduleBundlesByPharmacyIds,
   openSnapshotForBundle,
@@ -78,12 +79,13 @@ export function AnnuairePage() {
     return pharmacies.map((p) => {
       const bundle = scheduleMap.get(p.id);
       const open = openSnapshotForBundle(bundle);
-      const lat = p.latitude != null ? Number(p.latitude) : NaN;
-      const lng = p.longitude != null ? Number(p.longitude) : NaN;
-      const hasValidLocation = isPlausibleMoroccoCoords(lat, lng);
+      const coords = pharmacyCoordsForDistance(p);
+      const lat = coords?.latitude ?? NaN;
+      const lng = coords?.longitude ?? NaN;
+      const hasValidLocation = coords ? isPlausibleMoroccoCoords(lat, lng) : false;
       let distanceKm: number | null = null;
-      if (radiusEnabled && userLocation && hasValidLocation) {
-        distanceKm = haversineKm(userLocation.lat, userLocation.lng, lat, lng);
+      if (radiusEnabled && userLocation && hasValidLocation && coords) {
+        distanceKm = haversineKm(userLocation.lat, userLocation.lng, coords.latitude, coords.longitude);
       }
       return { ...p, open, distanceKm, hasValidLocation };
     });
