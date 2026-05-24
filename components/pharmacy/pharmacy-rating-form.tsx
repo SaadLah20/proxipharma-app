@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Star } from "lucide-react";
 import { clsx } from "clsx";
+import { pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
 
 type Props = {
   pharmacyId: string;
@@ -122,9 +124,10 @@ export function PharmacyRatingForm({ pharmacyId, ratingAvg, ratingCount, onUpdat
 
   return (
     <section
-      className={clsx(
-        "rounded-xl border p-3",
-        hasUserRating && !editing ? "border-border/60 bg-muted/5" : "border-border/80 bg-muted/10"
+      className={cn(
+        pharmacyPublicCard,
+        "p-3 sm:p-4",
+        hasUserRating && !editing ? "bg-muted/5" : "bg-muted/10"
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -178,7 +181,7 @@ export function PharmacyRatingForm({ pharmacyId, ratingAvg, ratingCount, onUpdat
         </div>
       )}
 
-      {message ? <p className="mt-2 text-[11px] text-sky-900">{message}</p> : null}
+      {message ? <p className="mt-2 text-[11px] font-medium text-emerald-800">{message}</p> : null}
       {busy ? <p className="mt-1 text-[10px] text-muted-foreground">Enregistrement…</p> : null}
     </section>
   );

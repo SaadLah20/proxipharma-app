@@ -7,10 +7,16 @@ import { Tag } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { PromoReserveModal } from "@/components/promo/promo-reserve-modal";
 import { PromoOfferPackSummary } from "@/components/promo/promo-offer-pack-summary";
+import {
+  PharmacyPublicEmptyState,
+  PharmacyPublicSectionTitle,
+  pharmacyPublicCard,
+} from "@/components/pharmacy/pharmacy-public-chrome";
 import { fetchPromoOfferLinesByOfferIds } from "@/lib/promo/load-offer-lines";
 import { formatPromoValidityFr, todayIsoCasablanca } from "@/lib/promo/dates";
 import type { PromoLineWithPrice } from "@/lib/promo/pricing";
 import type { PromoOfferRow } from "@/lib/promo/types";
+import { cn } from "@/lib/utils";
 
 type OfferBundle = PromoOfferRow & {
   lines: PromoLineWithPrice[];
@@ -85,8 +91,9 @@ export function PublicPromoOffers({ pharmacyId }: { pharmacyId: string }) {
   if (loading) {
     return (
       <div className="space-y-3">
+        <PharmacyPublicSectionTitle title="Offres en cours" hint="Chargement des packs promotionnels…" />
         {[1, 2].map((i) => (
-          <div key={i} className="h-48 animate-pulse rounded-2xl bg-muted/40" />
+          <div key={i} className={cn(pharmacyPublicCard, "h-44 animate-pulse bg-muted/30")} />
         ))}
       </div>
     );
@@ -94,44 +101,51 @@ export function PublicPromoOffers({ pharmacyId }: { pharmacyId: string }) {
 
   if (offers.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed bg-muted/15 p-6 text-center text-sm text-muted-foreground">
-        Aucune offre en cours pour le moment.
-      </p>
+      <div className="space-y-3">
+        <PharmacyPublicSectionTitle
+          title="Offres promotionnelles"
+          hint="Packs à prix réduit proposés par l'officine."
+        />
+        <PharmacyPublicEmptyState>Aucune offre en cours pour le moment.</PharmacyPublicEmptyState>
+      </div>
     );
   }
 
   return (
     <div className="space-y-3">
+      <PharmacyPublicSectionTitle
+        title="Offres en cours"
+        hint={`${offers.length} pack${offers.length > 1 ? "s" : ""} · réservez en ligne si vous êtes connecté`}
+      />
       {offers.map((o) => {
         const existingId = activeByOffer.get(o.id);
         return (
-          <article
-            key={o.id}
-            className="overflow-hidden rounded-2xl border border-rose-200/50 bg-gradient-to-br from-rose-50/80 to-card shadow-sm"
-          >
-            <div className="border-b border-rose-100/80 bg-rose-100/40 px-3 py-2.5">
+          <article key={o.id} className={cn(pharmacyPublicCard, "overflow-hidden")}>
+            <div className="border-b border-border/60 bg-gradient-to-br from-amber-50/80 via-card to-primary/5 px-3 py-2.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="flex items-center gap-1.5 text-sm font-bold text-rose-950">
-                    <Tag className="size-4 shrink-0" aria-hidden />
+                  <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                    <Tag className="size-4 shrink-0 text-amber-700" aria-hidden />
                     {o.title}
                   </p>
                   {o.description?.trim() ? (
-                    <p className="mt-0.5 text-[11px] leading-snug text-rose-900/80">{o.description.trim()}</p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{o.description.trim()}</p>
                   ) : null}
                 </div>
-                <span className="shrink-0 rounded-full bg-rose-600 px-2.5 py-0.5 text-[11px] font-bold text-white">
+                <span className="shrink-0 rounded-full bg-amber-500 px-2.5 py-0.5 text-[11px] font-bold text-white shadow-sm">
                   −{o.discount_percent} %
                 </span>
               </div>
-              <p className="mt-1 text-[10px] text-rose-900/70">{formatPromoValidityFr(o.valid_from, o.valid_until)}</p>
+              <p className="mt-1 text-[10px] font-medium text-muted-foreground">
+                {formatPromoValidityFr(o.valid_from, o.valid_until)}
+              </p>
             </div>
             <div className="space-y-3 p-3">
               <PromoOfferPackSummary lines={o.lines} discountPercent={o.discount_percent} compact />
               {session === false ? (
                 <Link
                   href={`/auth?redirect=/pharmacie/${pharmacyId}`}
-                  className="flex w-full items-center justify-center rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-sm"
+                  className="flex w-full items-center justify-center rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:opacity-95"
                 >
                   Se connecter pour réserver
                 </Link>
@@ -139,21 +153,21 @@ export function PublicPromoOffers({ pharmacyId }: { pharmacyId: string }) {
                 existingId ? (
                   <Link
                     href={`/dashboard/patient/packs-promo/${existingId}`}
-                    className="flex w-full items-center justify-center rounded-xl border-2 border-emerald-600 bg-emerald-50 py-3 text-sm font-bold text-emerald-900"
+                    className="flex w-full items-center justify-center rounded-xl border-2 border-emerald-600/80 bg-emerald-50 py-3 text-sm font-bold text-emerald-950 transition hover:bg-emerald-100/80"
                   >
                     Voir ma réservation en cours
                   </Link>
                 ) : (
                   <button
                     type="button"
-                    className="w-full rounded-xl bg-rose-700 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-rose-800"
+                    className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:opacity-95"
                     onClick={() => setReserveOffer(o)}
                   >
                     Réserver ce pack
                   </button>
                 )
               ) : (
-                <div className="h-11 animate-pulse rounded-xl bg-muted" />
+                <div className="h-11 animate-pulse rounded-xl bg-muted/40" />
               )}
             </div>
           </article>

@@ -36,7 +36,11 @@ import {
   PharmacyProfileContactGrid,
   type PharmacyProfileContactItem,
 } from "@/components/pharmacy/pharmacy-profile-contact-grid";
-import { pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
+import {
+  PharmacyPublicInfoBlock,
+  PharmacyPublicSectionTitle,
+  pharmacyPublicCard,
+} from "@/components/pharmacy/pharmacy-public-chrome";
 import { PharmacyNavigationPicker } from "@/components/pharmacy/pharmacy-navigation-picker";
 import {
   PharmacyRequestServiceLinks,
@@ -89,13 +93,13 @@ function PharmacyWeekScheduleView({ days, openLabel }: { days: PharmacyDaySchedu
   return (
     <div className="space-y-3">
       {today ? (
-        <div className="rounded-xl border-2 border-primary/35 bg-gradient-to-br from-primary/8 via-card to-card p-3 shadow-sm ring-1 ring-primary/15">
+        <div className={cn(pharmacyPublicCard, "border-primary/25 bg-gradient-to-br from-primary/8 via-card to-emerald-50/20 p-3 ring-1 ring-primary/10")}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="flex items-center gap-1.5 text-[11px] font-bold text-foreground">
               <CalendarClock className="size-4 text-primary" aria-hidden />
               Aujourd&apos;hui · {today.weekdayLabel} {today.dateLabel}
             </p>
-            <span className="rounded-full bg-primary/12 px-2 py-0.5 text-[10px] font-bold text-primary">{openLabel}</span>
+            <span className="rounded-full bg-primary/12 px-2.5 py-0.5 text-[10px] font-bold text-primary">{openLabel}</span>
           </div>
           <div className="mt-2 flex flex-wrap gap-1">
             {today.lines.map((line, i) => (
@@ -106,7 +110,7 @@ function PharmacyWeekScheduleView({ days, openLabel }: { days: PharmacyDaySchedu
       ) : null}
 
       <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">7 prochains jours</p>
-      <ul className="overflow-hidden rounded-xl border border-border/80 bg-card divide-y divide-border/60">
+      <ul className={cn(pharmacyPublicCard, "divide-y divide-border/60 overflow-hidden p-0")}>
         {days.map((day) => (
           <li
             key={day.dateIso}
@@ -403,21 +407,31 @@ export function PharmacyPublicProfile({
         {tab === "promos" ? <PublicPromoOffers pharmacyId={pharmacy.id} /> : null}
 
         {tab === "hours" ? (
-          <PharmacyWeekScheduleView days={weekLines} openLabel={openState.openLabel} />
+          <div className="space-y-3">
+            <PharmacyPublicSectionTitle
+              title="Horaires & gardes"
+              hint="Statut du jour et planning sur les 7 prochains jours."
+            />
+            <PharmacyWeekScheduleView days={weekLines} openLabel={openState.openLabel} />
+          </div>
         ) : null}
 
         {tab === "info" ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
+            <PharmacyPublicSectionTitle
+              title="Informations"
+              hint="Coordonnées, avis et services proposés par l'officine."
+            />
+
             {pharmacy.welcome_text?.trim() ? (
-              <p className="rounded-xl border border-border/60 bg-gradient-to-br from-muted/30 to-card px-3 py-2.5 text-[12px] leading-relaxed text-foreground/90">
+              <div className={cn(pharmacyPublicCard, "border-dashed bg-gradient-to-br from-emerald-50/30 to-card p-3 text-[12px] leading-relaxed text-foreground/90")}>
                 {pharmacy.welcome_text.trim()}
-              </p>
+              </div>
             ) : null}
 
-            <div className="rounded-xl border border-border/70 bg-card p-3 shadow-sm">
-              <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Adresse</h2>
-              <p className="mt-2 flex items-start gap-2 text-[12px] leading-snug text-foreground">
-                <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <PharmacyPublicInfoBlock title="Adresse">
+              <p className="flex items-start gap-2 text-[12px] leading-snug text-foreground">
+                <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 text-primary">
                   <MapPin className="size-4" aria-hidden />
                 </span>
                 <span>
@@ -426,12 +440,11 @@ export function PharmacyPublicProfile({
                   <span className="text-muted-foreground">{pharmacy.ville}</span>
                 </span>
               </p>
-            </div>
+            </PharmacyPublicInfoBlock>
 
-            <div>
-              <h2 className="mb-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Contact</h2>
+            <PharmacyPublicInfoBlock title="Contact">
               <PharmacyProfileContactGrid items={contactItems} />
-            </div>
+            </PharmacyPublicInfoBlock>
 
             <PharmacyRatingForm
               pharmacyId={pharmacy.id}
@@ -444,18 +457,14 @@ export function PharmacyPublicProfile({
             />
 
             {pharmacy.titular_public !== false && pharmacy.titular_name?.trim() ? (
-              <div>
-                <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                  {pharmacy.titular_title?.trim() || "Pharmacien titulaire"}
-                </h2>
-                <p className="mt-1 text-[12px] font-semibold text-foreground">{pharmacy.titular_name.trim()}</p>
-              </div>
+              <PharmacyPublicInfoBlock title={pharmacy.titular_title?.trim() || "Pharmacien titulaire"}>
+                <p className="text-[12px] font-semibold text-foreground">{pharmacy.titular_name.trim()}</p>
+              </PharmacyPublicInfoBlock>
             ) : null}
 
-            <div>
-              <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Services en officine</h2>
+            <PharmacyPublicInfoBlock title="Services en officine">
               {servicesOffered.length > 0 ? (
-                <ul className="mt-2 flex flex-wrap gap-1.5">
+                <ul className="flex flex-wrap gap-1.5">
                   {servicesOffered.map((s) => (
                     <li
                       key={s.id}
@@ -466,9 +475,9 @@ export function PharmacyPublicProfile({
                   ))}
                 </ul>
               ) : (
-                <p className="mt-1 text-[11px] text-muted-foreground">Liste non renseignée par l&apos;officine.</p>
+                <p className="text-[11px] text-muted-foreground">Liste non renseignée par l&apos;officine.</p>
               )}
-            </div>
+            </PharmacyPublicInfoBlock>
           </div>
         ) : null}
       </div>

@@ -66,3 +66,29 @@ export function PharmacyPublicSectionTitle({
     </div>
   );
 }
+
+/** Bloc titre + contenu dans une carte type fiche / annuaire. */
+export function PharmacyPublicInfoBlock({
+  title,
+  children,
+  className,
+}: {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn(pharmacyPublicCard, "p-3 sm:p-4", className)}>
+      <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{title}</h2>
+      <div className="mt-2">{children}</div>
+    </section>
+  );
+}
+
+export function PharmacyPublicEmptyState({ children }: { children: React.ReactNode }) {
+  return (
+    <p className={cn(pharmacyPublicCard, "border-dashed bg-muted/10 p-6 text-center text-sm text-muted-foreground")}>
+      {children}
+    </p>
+  );
+}
