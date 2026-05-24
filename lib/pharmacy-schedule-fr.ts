@@ -247,7 +247,7 @@ function buildPublicDayLines(
   };
 }
 
-/** Semaine en cours (lun → dim) — affichage public garde / horaires. */
+/** 7 jours glissants (aujourd’hui + 6 suivants) — affichage public garde / horaires. */
 export function buildCurrentWeekScheduleFr(
   weekly: PharmacyWeeklyHourRow[],
   overrides: PharmacyDayOverrideRow[],
@@ -255,18 +255,15 @@ export function buildCurrentWeekScheduleFr(
 ): PharmacyDayScheduleLine[] {
   const now = nowInCasablanca();
   const todayIso = isoDateInCasablanca(now);
-  const jsDay = now.getDay();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - ((jsDay + 6) % 7));
 
   const overrideByDate = new Map(overrides.map((o) => [o.day_date, o]));
 
   const out: PharmacyDayScheduleLine[] = [];
   for (let i = 0; i < 7; i++) {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
     const dateIso = isoDateInCasablanca(d);
-    const weekday = i + 1;
+    const weekday = isoWeekdayInCasablanca(d);
     const override = overrideByDate.get(dateIso);
     const publicHoliday = findMoroccoHolidayOnDate(dateIso);
     const { lines, isOnCallFullDay, isOnCallTailDay } = buildPublicDayLines(
