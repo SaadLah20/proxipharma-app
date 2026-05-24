@@ -52,6 +52,7 @@ export type PharmacyPublicProfileRow = {
   welcome_text?: string | null;
   titular_name?: string | null;
   titular_title?: string | null;
+  titular_public?: boolean | null;
   email?: string | null;
   website_url?: string | null;
   facebook_url?: string | null;

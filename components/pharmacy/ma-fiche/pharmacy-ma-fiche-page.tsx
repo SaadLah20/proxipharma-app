@@ -4,14 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Building2,
   CalendarRange,
   ExternalLink,
+  Eye,
+  EyeOff,
   ImageIcon,
   LayoutGrid,
   Link2,
   MapPin,
   MessageSquareText,
-  Store,
 } from "lucide-react";
 import { CompactCard, CompactCardBody, PageShell } from "@/components/ui/compact-shell";
 import { PharmacyFormField } from "@/components/pharmacy/pharmacy-form-field";
@@ -21,18 +23,26 @@ import { PharmacyServicesPicker } from "@/components/pharmacy/ma-fiche/pharmacy-
 import { ScheduleToast, type ScheduleToastTone } from "@/components/pharmacy/schedule/schedule-toast";
 import { PHARMACY_COVER_UPLOAD_HINT, PHARMACY_LOGO_UPLOAD_HINT } from "@/lib/pharmacy-cover-spec";
 import {
+  PHARMACY_CONTACT_FIELDS,
+  validatePharmacyContactForm,
+  type PharmacyContactFieldKey,
+  type PharmacyContactForm,
+} from "@/lib/pharmacy-contact-fields";
+import {
   PHARMACY_FORM_FIELDS,
   normalizeOptionalUrl,
   validatePharmacyProfileForm,
   type PharmacyFieldKey,
 } from "@/lib/pharmacy-form-fields";
+import { normalizePhoneToE164 } from "@/lib/phone-e164";
 import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
 import { supabase } from "@/lib/supabase";
 import type { PharmacyPublicProfileRow, PharmacyServiceCatalogRow } from "@/lib/pharmacy-profile-types";
 
-type MaFicheTab = "welcome" | "visual" | "links" | "services";
+type MaFicheTab = "contact" | "welcome" | "visual" | "links" | "services";
 
 const MA_FICHE_TABS = [
+  { id: "contact" as const, label: "Coordonnées", icon: Building2 },
   { id: "welcome" as const, label: "Accueil", icon: MessageSquareText },
   { id: "visual" as const, label: "Photos", icon: ImageIcon },
   { id: "links" as const, label: "Liens", icon: Link2 },
@@ -61,17 +71,19 @@ const EMPTY_FORM: ProfileForm = {
 
 export function PharmacyMaFichePage() {
   const router = useRouter();
-  const [tab, setTab] = useState<MaFicheTab>("welcome");
+  const [tab, setTab] = useState<MaFicheTab>("contact");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ message: string; tone: ScheduleToastTone }>({ message: "", tone: "info" });
   const [pharmacyId, setPharmacyId] = useState<string | null>(null);
-  const [pharmacyMeta, setPharmacyMeta] = useState<{
-    nom: string;
-    ville: string;
-    adresse: string;
-    telephone: string | null;
-  } | null>(null);
+  const [contactForm, setContactForm] = useState<PharmacyContactForm>({
+    nom: "",
+    adresse: "",
+    ville: "",
+    telephone: "",
+    whatsapp: "",
+  });
+  const [titularPublic, setTitularPublic] = useState(true);
   const [form, setForm] = useState<ProfileForm>(EMPTY_FORM);
   const [catalog, setCatalog] = useState<PharmacyServiceCatalogRow[]>([]);
   const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set());
@@ -89,29 +101,50 @@ export function PharmacyMaFichePage() {
     }
     setPharmacyId(ctx.pharmacyId);
 
-    const [phRes, catRes, svcRes] = await Promise.all([
+    const [phRes, catRes, svcRes, ownerStaffRes] = await Promise.all([
       supabase
         .from("pharmacies")
         .select(
-          "id,nom,ville,adresse,telephone,welcome_text,titular_name,titular_title,email,website_url,facebook_url,instagram_url,maps_url,cover_image_path,logo_url"
+          "id,nom,ville,adresse,telephone,whatsapp,welcome_text,titular_name,titular_title,titular_public,email,website_url,facebook_url,instagram_url,maps_url,cover_image_path,logo_url"
         )
         .eq("id", ctx.pharmacyId)
         .maybeSingle(),
       supabase.from("pharmacy_service_catalog").select("id,label_fr").eq("is_active", true).order("sort_order"),
       supabase.from("pharmacy_services").select("service_id").eq("pharmacy_id", ctx.pharmacyId),
+      supabase
+        .from("pharmacy_staff")
+        .select("user_id")
+        .eq("pharmacy_id", ctx.pharmacyId)
+        .eq("is_owner", true)
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     const ph = phRes.data as PharmacyPublicProfileRow | null;
+    let ownerFullName = "";
+    const ownerUserId = (ownerStaffRes.data as { user_id?: string } | null)?.user_id;
+    if (ownerUserId) {
+      const { data: ownerProfile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", ownerUserId)
+        .maybeSingle();
+      ownerFullName = ((ownerProfile as { full_name?: string | null } | null)?.full_name ?? "").trim();
+    }
+
     if (ph) {
-      setPharmacyMeta({
-        nom: ph.nom,
-        ville: ph.ville,
-        adresse: ph.adresse,
-        telephone: ph.telephone,
+      setContactForm({
+        nom: ph.nom ?? "",
+        adresse: ph.adresse ?? "",
+        ville: ph.ville ?? "",
+        telephone: ph.telephone ?? "",
+        whatsapp: ph.whatsapp ?? "",
       });
+      setTitularPublic(ph.titular_public !== false);
+      const titularFromPharmacy = ph.titular_name?.trim() ?? "";
       setForm({
         welcome_text: ph.welcome_text ?? "",
-        titular_name: ph.titular_name ?? "",
+        titular_name: titularFromPharmacy || ownerFullName,
         titular_title: ph.titular_title ?? "Pharmacien titulaire",
         email: ph.email ?? "",
         website_url: ph.website_url ?? "",
@@ -142,18 +175,36 @@ export function PharmacyMaFichePage() {
 
   const save = async () => {
     if (!pharmacyId) return;
+    const contactError = validatePharmacyContactForm(contactForm);
+    if (contactError) {
+      showToast(contactError, "error");
+      return;
+    }
     const validationError = validatePharmacyProfileForm(form);
     if (validationError) {
       showToast(validationError, "error");
+      return;
+    }
+    const whatsappE164 = contactForm.whatsapp.trim()
+      ? normalizePhoneToE164(contactForm.whatsapp)
+      : null;
+    if (contactForm.whatsapp.trim() && !whatsappE164) {
+      showToast("Numéro WhatsApp invalide (ex. 0612345678 ou +212612345678).", "error");
       return;
     }
     setBusy(true);
     const { error } = await supabase
       .from("pharmacies")
       .update({
+        nom: contactForm.nom.trim(),
+        adresse: contactForm.adresse.trim(),
+        ville: contactForm.ville.trim(),
+        telephone: contactForm.telephone.trim() || null,
+        whatsapp: whatsappE164,
         welcome_text: form.welcome_text.trim() || null,
         titular_name: form.titular_name.trim() || null,
         titular_title: form.titular_title.trim() || "Pharmacien titulaire",
+        titular_public: titularPublic,
         email: form.email.trim() || null,
         website_url: normalizeOptionalUrl(form.website_url),
         facebook_url: normalizeOptionalUrl(form.facebook_url),
@@ -246,26 +297,6 @@ export function PharmacyMaFichePage() {
           ) : null}
         </div>
 
-        {pharmacyMeta ? (
-          <div className="flex gap-3 rounded-xl border border-border/80 bg-gradient-to-br from-muted/40 to-card p-3 shadow-sm">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Store className="size-5" aria-hidden />
-            </div>
-            <div className="min-w-0 flex-1 text-sm">
-              <p className="font-bold leading-tight">{pharmacyMeta.nom}</p>
-              <p className="text-muted-foreground">
-                {pharmacyMeta.adresse}, {pharmacyMeta.ville}
-              </p>
-              {pharmacyMeta.telephone ? (
-                <p className="mt-0.5 text-xs text-muted-foreground">Tél. {pharmacyMeta.telephone}</p>
-              ) : null}
-              <p className="mt-1.5 text-[10px] text-muted-foreground">
-                Nom et adresse : modifiés par l&apos;administration. Vous éditez ici le texte, les photos et les liens.
-              </p>
-            </div>
-          </div>
-        ) : null}
-
         <Link
           href="/dashboard/pharmacien/horaires-garde"
           className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-amber-200/80 bg-amber-50/50 px-3 py-2.5 text-sm font-semibold text-amber-950 sm:w-auto"
@@ -287,10 +318,27 @@ export function PharmacyMaFichePage() {
           active={tab}
           onChange={setTab}
           ariaLabel="Sections de la fiche"
-          columnClass="grid-cols-4"
+          columnClass="grid-cols-5"
         />
 
         <CompactCardBody className="space-y-4">
+          {tab === "contact" ? (
+            <div className="space-y-4">
+              <p className="rounded-lg bg-muted/30 px-2.5 py-2 text-[11px] leading-snug text-muted-foreground">
+                Coordonnées affichées sur la fiche publique et l&apos;annuaire. La position GPS reste gérée par
+                l&apos;administration.
+              </p>
+              {(["nom", "adresse", "ville", "telephone", "whatsapp"] as PharmacyContactFieldKey[]).map((key) => (
+                <PharmacyFormField
+                  key={key}
+                  meta={PHARMACY_CONTACT_FIELDS[key]}
+                  value={contactForm[key]}
+                  onChange={(v) => setContactForm((f) => ({ ...f, [key]: v }))}
+                />
+              ))}
+            </div>
+          ) : null}
+
           {tab === "welcome" ? (
             <div className="space-y-4">
               <p className="rounded-lg bg-muted/30 px-2.5 py-2 text-[11px] leading-snug text-muted-foreground">
@@ -305,6 +353,39 @@ export function PharmacyMaFichePage() {
                   onChange={(v) => setForm((f) => ({ ...f, [key]: v }))}
                 />
               ))}
+              <div className="rounded-xl border border-border/80 bg-muted/20 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold text-foreground">Afficher le titulaire sur la fiche publique</p>
+                    <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
+                      Le nom et le titre restent enregistrés même si l&apos;affichage public est désactivé.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={titularPublic}
+                    onClick={() => setTitularPublic((v) => !v)}
+                    className={`inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors ${
+                      titularPublic
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+                        : "border-border bg-card text-muted-foreground"
+                    }`}
+                  >
+                    {titularPublic ? (
+                      <>
+                        <Eye className="size-3.5" aria-hidden />
+                        Visible
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="size-3.5" aria-hidden />
+                        Masqué
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
               <p className="text-right text-[10px] tabular-nums text-muted-foreground">
                 {welcomeChars} / {welcomeMax} caractères
               </p>

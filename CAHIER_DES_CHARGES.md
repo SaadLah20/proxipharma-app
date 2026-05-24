@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.29** (dernier lot : moteur pricing **`20260619_001`**, Supabase **appliquee**) ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.30** (dernier lot : onboarding admin + ma-fiche pharmacien + **`20260622_001`**, Supabase **appliquee**) ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** : pour **vider toutes les demandes** en environnement de test → `scripts/clear-all-requests.mjs` (`.env.local` avec `SUPABASE_SERVICE_ROLE_KEY`) ou SQL `supabase/scripts/clear-all-requests.sql` dans l’éditeur Supabase. **Doublons patient** (même téléphone, 2× `auth.users`) en pilote : reset demandes + suppression des comptes Auth puis nouvelle inscription. Plan de tests E2E demandes produits → fichier Canvas Cursor `canvases/product-requests-e2e-test-plan.canvas.tsx` (mention §13.5).
@@ -329,6 +329,39 @@ Statuts retenus v1:
 - `partially_collected` / `fully_collected` (conserves en enum; hors flux officiel depuis migration 20260502 au profit de `completed` + suivi ligne a ligne au comptoir)
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
+
+### Session 2026-05-24 — Onboarding admin, ma-fiche pharmacien, reset pilote, auth SMS oublié
+
+**Branche** : `fix/validated-supply-ecart-ui-modal`.
+
+**Migrations** (**appliquées** sur Supabase pilote) :
+- **`20260620_001_fix_pharmacist_profile_analytics_journal_cte.sql`**
+- **`20260621_001_pharmacies_statut_check_align.sql`** (`ouverte` | `fermee` | `garde`)
+- **`20260622_001_pharmacy_titular_public.sql`** — colonne **`pharmacies.titular_public`** + backfill **`titular_name`** depuis profil propriétaire
+
+**Onboarding admin → officine + pharmacien** :
+- API **`POST /api/admin/onboard-pharmacy`** — **`lib/admin-onboard-pharmacy-server.ts`**, **`components/admin/AdminOnboardPharmacyForm.tsx`**
+- Crée Auth (tél. + MDP provisoire), **`profiles`** (upsert), **`pharmacies`**, **`pharmacy_staff`** ; **`titular_name`** / **`titular_public`** à la création
+- Première connexion pharmacien : MDP obligatoire — **`app/auth/page.tsx`** + **`lib/provisioned-pharmacist-auth.ts`**
+- Coords GPS Maroc admin : **`lib/pharmacy-coords-morocco.ts`**, **`AdminPharmacyCoordsFields.tsx`**
+- Navigation patient : **`components/pharmacy/pharmacy-navigation-picker.tsx`**
+
+**Ma fiche pharmacien** (`/dashboard/pharmacien/ma-fiche`) :
+- Onglet **Coordonnées** : nom, adresse, ville, tél., WhatsApp (éditables)
+- Onglet **Accueil** : titulaire prérempli (officine ou profil owner), toggle **Visible / Masqué** (`titular_public`)
+- Fiche publique : titulaire affiché seulement si **`titular_public`** et nom renseigné
+
+**Auth — mot de passe oublié** :
+- **Téléphone** : OTP SMS (`signInWithOtp` + `verifyOtp` + `updateUser`) — **`lib/auth-phone-password-reset.ts`**, **`app/auth/page.tsx`**
+- **E-mail** : lien inchangé — **`/api/auth/request-password-reset`**
+
+**Reset pilote** :
+- Script **`supabase/scripts/reset-pilot-keep-products-single-admin.sql`** (sans table temp `_reset_keep_admin` ; exécuter **tout** le fichier — modale Supabase « Run without RLS »)
+- **État pilote (fin session)** : reset SQL **effectué** (1 admin conservé) ; **tests ma-fiche / onboarding** faits ; **storage** (`scripts/reset-storage-keep-product-photos-only.mjs --confirm`) **pas encore** ; **création officine finale + MDP oublié SMS** **pas encore** testés
+
+**Phrase de reprise** : **§13.30**.
+
+---
 
 ### Session 2026-05-19 (pricing officine) — Moteur de pricing pharmacien
 
@@ -1367,6 +1400,9 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260617_001_pharmacist_profile_analytics.sql`
   - `supabase/migrations/20260618_001_market_shortage_notify_chosen_alternative.sql`
   - `supabase/migrations/20260619_001_pharmacy_pricing_engine.sql` (**moteur pricing** officine — parapharmacie PPH±marge, médicaments PPV fixe)
+  - `supabase/migrations/20260620_001_fix_pharmacist_profile_analytics_journal_cte.sql`
+  - `supabase/migrations/20260621_001_pharmacies_statut_check_align.sql`
+  - `supabase/migrations/20260622_001_pharmacy_titular_public.sql` (**titular_public** + backfill titulaire)
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -1380,7 +1416,8 @@ Regles fonctionnelles retenues (alignement dernier atelier):
 Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-05-03**, **2026-05-05**, **2026-05-06** et **lot plateforme / codes publics 2026-05-05**):
 - **`/`** annuaire + recherche par code officine **`public_ref`** + lien carte vers fiche **`/pharmacie/[id]`** (affiche aussi le code)
 - **`/pharmacie/[id]`** : fiche digitale publique (**`PharmacyPublicProfile`**, onglets Services / **Offres** (packs promo) / Horaires / Infos ; notes publiques ; contacts en grille).
-- **`/dashboard/pharmacien/ma-fiche`** + **`/dashboard/pharmacien/horaires-garde`** : édition fiche officine (texte, services, horaires compacts + fériés auto + garde, upload **couverture** / **logo** versionnés via **`lib/pharmacy-media.ts`**).
+- **`/dashboard/pharmacien/ma-fiche`** + **`/dashboard/pharmacien/horaires-garde`** : édition fiche officine (onglets **Coordonnées** / Accueil / Photos / Liens / Services ; titulaire + **`titular_public`** ; horaires compacts + fériés auto + garde ; upload **couverture** / **logo** versionnés via **`lib/pharmacy-media.ts`**).
+- **`/admin`** : onboarding officine + pharmacien (**`AdminOnboardPharmacyForm`**, MDP provisoire copié manuellement).
 - **`/dashboard/pharmacien/offres-promos`** + **`/dashboard/pharmacien/reservations-packs`** ; **`/dashboard/patient/packs-promo`** — workflow packs promo (après **`20260610_001`**).
 - **`/dashboard/pharmacien/pricing`** — moteur de pricing officine (**`20260619_001`**, appliquée).
 - **`/pharmacie/[id]/demande-produits`**: création demande **`submitted`**
@@ -1608,9 +1645,13 @@ Voir **§13.28**.
 
 Voir **§13.29**.
 
-### 13.29) Phrase de reprise (recommandée — après session **2026-05-19 pricing**, migration **`20260619_001` appliquée**)
+### 13.29) Phrase de reprise (dépassée — pricing seul)
 
-**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commit **`f7361ff`**+ pricing). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§10 (session 2026-05-19 pricing)**, §4.4–§4.6, §11. Supabase : migrations jusqu’à **`20260619_001`** (**appliquée** — moteur pricing). **Pricing** : pharmacien **`/dashboard/pharmacien/pricing`** (`lib/pharmacy-pricing/`, `PharmacistPricingManager`) — parapharmacie PPH ± marge (−10 % à +40 %), règles laboratoire/produit ; **médicaments = PPV** catalogue (non modifiable). Prix affichés patient/pharmacien = grille officine (**Prix / PU**, jamais PPH). Fichiers clés : `lib/pharmacy-pricing/resolve.ts`, `lib/product-price.ts`, `demande-produits`, `patient-product-request-actions`, `pharmacien/demandes/[id]/page.tsx`. Lots antérieurs inchangés : promo **`20260610_001`**, supply post-validé, fiche digitale, hubs CRM **`20260616_001`**–**`20260618_001`**. QA : configurer grille → nouvelle demande produits + réponse pharma. Je te dis ensuite quoi faire. »**
+Voir **§13.30**.
+
+### 13.30) Phrase de reprise (recommandée — après session **2026-05-24**, migrations **`20260620_001`**–**`20260622_001` appliquées**)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal`. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§10 (session 2026-05-24)**, §11. Supabase : jusqu’à **`20260622_001`** (**appliquées**). **Pilote** : reset SQL déjà fait (1 admin + catalogue `products`) — **à faire** : `node scripts/reset-storage-keep-product-photos-only.mjs --confirm`, puis **Admin** → créer officine + pharmacien, tester **ma-fiche** (Coordonnées, titulaire Visible/Masqué), **première connexion MDP**, **`/auth` mot de passe oublié par SMS**. Fichiers clés : `lib/admin-onboard-pharmacy-server.ts`, `components/pharmacy/ma-fiche/pharmacy-ma-fiche-page.tsx`, `app/auth/page.tsx`, `lib/auth-phone-password-reset.ts`, `supabase/scripts/reset-pilot-keep-products-single-admin.sql`. Lots antérieurs : pricing **`20260619_001`**, promo, supply post-validé. Je te dis ensuite quoi faire. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 

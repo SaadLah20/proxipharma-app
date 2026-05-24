@@ -1,5 +1,6 @@
 "use client";
 
+import type { PharmacyContactFieldMeta } from "@/lib/pharmacy-contact-fields";
 import type { PharmacyFieldMeta } from "@/lib/pharmacy-form-fields";
 
 export function PharmacyFormField({
@@ -7,7 +8,7 @@ export function PharmacyFormField({
   value,
   onChange,
 }: {
-  meta: PharmacyFieldMeta;
+  meta: PharmacyFieldMeta | PharmacyContactFieldMeta;
   value: string;
   onChange: (value: string) => void;
 }) {

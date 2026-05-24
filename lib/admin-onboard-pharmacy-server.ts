@@ -79,6 +79,9 @@ export async function onboardPharmacyAndPharmacist(
       latitude: input.pharmacy.latitude,
       longitude: input.pharmacy.longitude,
       statut: input.pharmacy.statut ?? "ouverte",
+      titular_name: input.pharmacist.full_name.trim(),
+      titular_title: "Pharmacien titulaire",
+      titular_public: true,
     })
     .select("id,public_ref")
     .single();
