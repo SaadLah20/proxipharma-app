@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.30** (dernier lot : onboarding admin + ma-fiche pharmacien + **`20260622_001`**, Supabase **appliquee**) ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.31** (dernier lot : **annuaire + fiche publique + demande produits** UI alignée ; onboarding **`20260622_001`** déjà en place) ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** : pour **vider toutes les demandes** en environnement de test → `scripts/clear-all-requests.mjs` (`.env.local` avec `SUPABASE_SERVICE_ROLE_KEY`) ou SQL `supabase/scripts/clear-all-requests.sql` dans l’éditeur Supabase. **Doublons patient** (même téléphone, 2× `auth.users`) en pilote : reset demandes + suppression des comptes Auth puis nouvelle inscription. Plan de tests E2E demandes produits → fichier Canvas Cursor `canvases/product-requests-e2e-test-plan.canvas.tsx` (mention §13.5).
@@ -348,6 +348,40 @@ git checkout pilote-stable-2026-05-24
 **Branche de travail après retour** : `git switch -c reprise-depuis-stable-2026-05-24`
 
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
+
+---
+
+### Session 2026-05-19 (annuaire + fiche publique UI) — Cohérence parcours patient officine
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits poussés **`264f7e6`**, **`2ae5d22`**, **`194443c`**, **`d500301`** (après rebase sur remote).
+
+**Pas de nouvelle migration** sur ce lot.
+
+**Annuaire** (`components/annuaire/`, `/`) :
+- Hero image **`public/brand/annuaire-hero.png`**, header compact, compteur sous bandeau
+- Cartes : partage, nom + **`public_ref`**, **avis** (`rating_avg` / `rating_count`) sur la couverture
+- Menu **Rayon** : portail `fixed` `z-[200]` (plus de clipping scroll) ; libellés **max** colorés ; position au clic (ESLint **`react-hooks/set-state-in-effect`**)
+
+**Chrome public partagé** :
+- **`components/pharmacy/pharmacy-public-chrome.tsx`** — `pharmacyPublicCard`, `PharmacyPublicBackLink`, `PharmacyFlowHero`, `PharmacyPublicSectionTitle`, `PharmacyPublicInfoBlock`, `PharmacyPublicEmptyState`
+- **`components/pharmacy/pharmacy-request-service-links.tsx`** — liens Services (produits / ordonnance / consultation)
+
+**Fiche digitale** (`components/pharmacy/pharmacy-public-profile.tsx`, **`/pharmacie/[id]`**) :
+- Onglet **Services** : grille **Appeler / WhatsApp / Itinéraire** (comme cartes annuaire) + cartes demande avec description
+- Onglet **Offres** : **`public-promo-offers.tsx`** — cartes alignées, CTA **primary**, intro + état vide
+- Onglet **Horaires** : intro + encart **Aujourd’hui** + liste 7 jours en carte unique
+- Onglet **Infos** : blocs **Adresse / Contact / Note / Titulaire / Services** ; message bienvenue
+- **`pharmacy-rating-form.tsx`**, **`pharmacy-profile-contact-grid.tsx`** — même gabarit cartes
+
+**Demande produits patient** :
+- **`app/pharmacie/[id]/demande-produits/page.tsx`** + **`catalogue/page.tsx`** — hero émeraude, cartes `pharmacyPublicCard`, totaux **primary** (fini thème bleu ciel dominant)
+- Retour **← Fiche officine** harmonisé
+
+**Lint CI** : **0 erreur** sur le lot annuaire rayon (warnings `<img>` inchangés).
+
+**Phrase de reprise** : **§13.31**.
+
+**QA mobile** : annuaire (rayon, avis) → fiche (4 onglets) → demande produits → catalogue → envoi.
 
 ---
 
@@ -1437,8 +1471,9 @@ Regles fonctionnelles retenues (alignement dernier atelier):
 - Les statuts enum `partially_collected` / `fully_collected` restent en base mais le flux officiel livre passe par **`completed`**; `patient_mark_collected` nest plus callable par le JWT patient (obsolete).
 
 Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-05-03**, **2026-05-05**, **2026-05-06** et **lot plateforme / codes publics 2026-05-05**):
-- **`/`** annuaire + recherche par code officine **`public_ref`** + lien carte vers fiche **`/pharmacie/[id]`** (affiche aussi le code)
-- **`/pharmacie/[id]`** : fiche digitale publique (**`PharmacyPublicProfile`**, onglets Services / **Offres** (packs promo) / Horaires / Infos ; notes publiques ; contacts en grille).
+- **`/`** annuaire interactif (**`components/annuaire/`** — hero, filtres, rayon portail, cartes avec avis + actions contact) + recherche **`public_ref`** → fiche **`/pharmacie/[id]`**
+- **`/pharmacie/[id]`** : fiche digitale (**`PharmacyPublicProfile`** + **`pharmacy-public-chrome`**) — Services (grille contact + liens demande), Offres (**`PublicPromoOffers`**), Horaires, Infos (blocs cartes + **`PharmacyRatingForm`**).
+- **`/pharmacie/[id]/demande-produits`** (+ **`/catalogue`**) : parcours patient aligné visuellement sur l’annuaire (hero émeraude, cartes produits).
 - **`/dashboard/pharmacien/ma-fiche`** + **`/dashboard/pharmacien/horaires-garde`** : édition fiche officine (onglets **Coordonnées** / Accueil / Photos / Liens / Services ; titulaire + **`titular_public`** ; horaires compacts + fériés auto + garde ; upload **couverture** / **logo** versionnés via **`lib/pharmacy-media.ts`**).
 - **`/admin`** : onboarding officine + pharmacien (**`AdminOnboardPharmacyForm`**, MDP provisoire copié manuellement).
 - **`/dashboard/pharmacien/offres-promos`** + **`/dashboard/pharmacien/reservations-packs`** ; **`/dashboard/patient/packs-promo`** — workflow packs promo (après **`20260610_001`**).
@@ -1672,9 +1707,13 @@ Voir **§13.29**.
 
 Voir **§13.30**.
 
-### 13.30) Phrase de reprise (recommandée — après session **2026-05-24**, migrations **`20260620_001`**–**`20260622_001` appliquées**)
+### 13.30) Phrase de reprise (dépassée — onboarding + stable **`0c4f0e7`**)
 
-**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (référence stable **`0c4f0e7`** / tag **`pilote-stable-2026-05-24`** — §10.1). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§10 (session 2026-05-24)**, §11. Supabase : jusqu’à **`20260622_001`** (**appliquées**). **Pilote** : resets SQL + Storage faits ; valider si besoin **Admin** → officine, **ma-fiche**, **MDP oublié SMS**. Fichiers clés : `lib/admin-onboard-pharmacy-server.ts`, `components/pharmacy/ma-fiche/pharmacy-ma-fiche-page.tsx`, `app/auth/page.tsx`, `lib/pharmacy-schedule-fr.ts`. Je te dis ensuite quoi faire. »**
+Voir **§13.31**.
+
+### 13.31) Phrase de reprise (recommandée — après session **2026-05-19 annuaire + fiche**, migrations **`20260622_001` appliquées**)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits récents **`d500301`**+ : annuaire, fiche publique, demande produits — §10 session **2026-05-19 annuaire + fiche**). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§10**, §11. Supabase : jusqu’à **`20260622_001`** (**appliquées**). Pas de migration sur le lot UI annuaire/fiche. Fichiers clés : `components/annuaire/`, `components/pharmacy/pharmacy-public-chrome.tsx`, `components/pharmacy/pharmacy-public-profile.tsx`, `components/promo/public-promo-offers.tsx`, `app/pharmacie/[id]/demande-produits/page.tsx`. Référence stable antérieure : tag **`pilote-stable-2026-05-24`** → **`0c4f0e7`** (§10.1). Je te dis ensuite quoi faire. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
