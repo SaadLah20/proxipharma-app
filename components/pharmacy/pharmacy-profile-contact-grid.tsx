@@ -38,7 +38,7 @@ export function PharmacyProfileContactGrid({ items }: { items: PharmacyProfileCo
 
   if (available.length === 0 && missing.length === items.length) {
     return (
-      <p className="rounded-xl border border-dashed border-border/80 bg-muted/15 px-3 py-4 text-center text-[11px] text-muted-foreground">
+      <p className="rounded-xl border border-dashed border-border/90 bg-muted/10 px-3 py-4 text-center text-[11px] text-muted-foreground">
         Aucun moyen de contact renseigné par l&apos;officine.
       </p>
     );
@@ -50,7 +50,7 @@ export function PharmacyProfileContactGrid({ items }: { items: PharmacyProfileCo
         {available.map((item) => {
           const Icon = item.icon;
           const cellClass = clsx(
-            "flex min-h-[3.25rem] w-full flex-col justify-center gap-1 rounded-xl border px-3 py-2.5 text-left shadow-sm transition active:scale-[0.98]",
+            "flex min-h-[3.25rem] w-full flex-col justify-center gap-1 rounded-lg border px-3 py-2.5 text-left shadow-sm transition hover:shadow-md active:scale-[0.98]",
             TONE_CLASS[item.tone]
           );
           const inner = (

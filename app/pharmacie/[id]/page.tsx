@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
+import { PharmacyPublicBackLink } from "@/components/pharmacy/pharmacy-public-chrome";
 import { PharmacyPublicProfile } from "@/components/pharmacy/pharmacy-public-profile";
 import type {
   PharmacyDayOverrideRow,
@@ -123,11 +124,9 @@ export default function PharmacieFichePage() {
   }
 
   return (
-    <main className="min-h-screen bg-background p-4 pb-10">
+    <main className="min-h-screen bg-background p-4 pb-10 sm:p-5">
       <div className="mx-auto max-w-lg">
-        <Link href="/" className="mb-4 inline-block text-sm font-medium text-primary">
-          ← Annuaire
-        </Link>
+        <PharmacyPublicBackLink href="/">Annuaire</PharmacyPublicBackLink>
 
         {error ? (
           <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>

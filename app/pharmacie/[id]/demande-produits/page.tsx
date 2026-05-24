@@ -11,6 +11,12 @@ import {
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
 import { supabase } from "@/lib/supabase";
+import {
+  PharmacyFlowHero,
+  PharmacyPublicBackLink,
+  PharmacyPublicSectionTitle,
+  pharmacyPublicCard,
+} from "@/components/pharmacy/pharmacy-public-chrome";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { cn } from "@/lib/utils";
@@ -325,46 +331,32 @@ export default function DemandeProduitsPage() {
   return (
     <main className="min-h-screen touch-pan-y bg-background p-4 pb-32 text-foreground antialiased sm:p-5 sm:pb-36">
       <div className="mx-auto max-w-lg space-y-3">
-        <Link
-          href={`/pharmacie/${pharmacyId}`}
-          className={cn(
-            buttonVariants({ variant: "ghost", size: "sm" }),
-            "-ml-2 h-auto px-2 text-sm font-medium text-muted-foreground"
-          )}
-        >
-          ← Pharmacie
-        </Link>
+        <PharmacyPublicBackLink href={`/pharmacie/${pharmacyId}`}>Fiche officine</PharmacyPublicBackLink>
 
-        <header className="rounded-xl border-2 border-sky-300/50 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/30 px-3 py-3 shadow-md ring-1 ring-sky-200/55 sm:px-4 sm:py-3.5">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-sky-900/90">Demande de produits</p>
-          <div className="mt-1.5 flex items-center gap-3">
-            <span
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-900 ring-1 ring-sky-200/70"
-              aria-hidden
-            >
-              <Package className="size-5" strokeWidth={2.25} />
-            </span>
-            <h1 className="min-w-0 text-lg font-bold leading-snug text-sky-950 sm:text-xl">
-              {pharmacyName.trim() ? pharmacyName : "Cette pharmacie"}
-            </h1>
-          </div>
-        </header>
+        <PharmacyFlowHero
+          eyebrow="Demande de produits"
+          title={pharmacyName.trim() ? pharmacyName : "Cette pharmacie"}
+          subtitle="Recherchez, ajoutez vos produits et envoyez la liste à l'officine."
+          icon={Package}
+        />
 
-        <section className="rounded-xl border-2 border-sky-200/70 bg-gradient-to-b from-white via-sky-50/25 to-white p-3 shadow-md ring-1 ring-sky-200/45 sm:p-4">
-          <label className="block text-sm font-bold text-sky-950">Rechercher un produit</label>
-          <p className="mt-0.5 text-xs font-medium text-sky-900/80">2 caractères minimum · nom ou laboratoire</p>
-          <div className="relative mt-3">
+        <section className={cn(pharmacyPublicCard, "p-3 sm:p-4")}>
+          <PharmacyPublicSectionTitle
+            title="Rechercher un produit"
+            hint="2 caractères minimum · nom ou laboratoire"
+          />
+          <div className="relative">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-sky-700"
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-primary/70"
               aria-hidden
             />
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ex: Doliprane, Smecta..."
+              placeholder="Ex: Doliprane, Smecta…"
               className={cn(
-                "touch-pan-y w-full rounded-xl border-2 border-sky-300/80 bg-white py-3.5 pl-11 pr-3 text-base leading-normal shadow-sm ring-2 ring-sky-100/80 placeholder:text-slate-400",
+                "touch-pan-y w-full rounded-lg border border-border/80 bg-background py-3 pl-10 pr-3 text-base leading-normal shadow-sm placeholder:text-muted-foreground",
                 fieldFocus
               )}
             />
@@ -374,7 +366,7 @@ export default function DemandeProduitsPage() {
             onClick={() => writePatientDemandeProduitsDraft(pharmacyId, lines)}
             className={cn(
               buttonVariants({ variant: "outline", size: "sm" }),
-              "mt-3 flex h-11 w-full items-center justify-center gap-2 text-sm font-semibold text-sky-900"
+              "mt-3 flex h-11 w-full items-center justify-center gap-2 border-primary/25 text-sm font-semibold"
             )}
           >
             <LayoutGrid className="size-4 shrink-0" aria-hidden />
@@ -385,13 +377,13 @@ export default function DemandeProduitsPage() {
             <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto">
               {visibleHits.map((p) => (
                 <li key={p.id}>
-                  <div className="flex h-20 w-full items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-2.5 py-2 transition hover:bg-muted/35">
+                  <div className="flex h-20 w-full items-center gap-3 rounded-xl border border-border/80 bg-muted/15 px-2.5 py-2 transition hover:border-primary/20 hover:bg-muted/30">
                     <button
                       type="button"
                       disabled={!p.photo_url}
                       className={cn(
                         "flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card transition",
-                        p.photo_url ? "cursor-zoom-in hover:ring-2 hover:ring-sky-400/50" : "cursor-default opacity-80"
+                        p.photo_url ? "cursor-zoom-in hover:ring-2 hover:ring-primary/40" : "cursor-default opacity-80"
                       )}
                       aria-label={p.photo_url ? `Agrandir la photo · ${p.name}` : "Pas de photo catalogue"}
                       onClick={(ev) => {
@@ -420,10 +412,10 @@ export default function DemandeProduitsPage() {
                       >
                         {p.name}
                       </p>
-                      <p className="mt-1 text-xs font-semibold text-sky-900 sm:text-sm">
+                      <p className="mt-1 text-xs font-semibold text-primary sm:text-sm">
                         <PriceDhInline
                           value={resolveCatalogPrice(catalogHitToPricingInput(p))}
-                          amountClassName="font-semibold text-sky-900"
+                          amountClassName="font-semibold text-primary"
                         />
                       </p>
                     </button>
@@ -436,19 +428,19 @@ export default function DemandeProduitsPage() {
           ) : null}
         </section>
 
-        <section className="mt-4 rounded-2xl border-l-4 border-sky-700 bg-sky-50/40 p-4 shadow-sm ring-1 ring-sky-200/50 sm:p-5">
-          <h2 className="text-base font-semibold text-sky-950">Produits ajoutés</h2>
+        <section className={cn(pharmacyPublicCard, "p-3 sm:p-4")}>
+          <PharmacyPublicSectionTitle title="Produits ajoutés" />
           {lines.length === 0 ? (
-            <p className="mt-3 text-base leading-relaxed text-slate-700">Ajoutez un produit pour continuer.</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">Ajoutez un produit pour continuer.</p>
           ) : (
-            <ul className="mt-4 space-y-4">
+            <ul className="space-y-3">
               {lines.map((l) => (
                 <li
                   key={l.product_id}
-                  className="rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-slate-50/50 p-3 shadow-sm ring-1 ring-slate-100/90"
+                  className="rounded-xl border border-border/80 bg-muted/10 p-3 shadow-sm"
                 >
                   <div className="flex min-h-[96px] items-stretch gap-2.5">
-                    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner">
+                    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-border/80 bg-card shadow-inner">
                       <button
                         type="button"
                         aria-label="Retirer"
@@ -460,7 +452,7 @@ export default function DemandeProduitsPage() {
                       {l.photo_url ? (
                         <button
                           type="button"
-                          className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                          className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                           aria-label={`Agrandir la photo · ${l.name}`}
                           onClick={() => setPhotoPreview({ url: l.photo_url!, title: l.name })}
                         >
@@ -483,20 +475,20 @@ export default function DemandeProduitsPage() {
                       >
                         {l.name}
                       </p>
-                      <div className="mt-1.5 flex flex-nowrap items-baseline justify-between gap-2 border-b border-slate-200/90 pb-2">
-                        <span className="inline-flex min-w-0 shrink-0 items-baseline gap-0.5 text-[12px] text-slate-600 sm:text-[13px]">
-                          <span className="shrink-0 font-semibold text-slate-500">PU</span>
-                          <strong className="font-semibold text-slate-900">
+                      <div className="mt-1.5 flex flex-nowrap items-baseline justify-between gap-2 border-b border-border/70 pb-2">
+                        <span className="inline-flex min-w-0 shrink-0 items-baseline gap-0.5 text-[12px] text-muted-foreground sm:text-[13px]">
+                          <span className="shrink-0 font-semibold">PU</span>
+                          <strong className="font-semibold text-foreground">
                             <PriceDhInline value={draftLineUnitPrice(l)} />
                           </strong>
                         </span>
-                        <span className="inline-flex shrink-0 items-baseline gap-0.5 text-[13px] font-bold text-sky-900 sm:text-sm">
-                          <span className="shrink-0 font-semibold text-sky-800/90">Tot</span>
+                        <span className="inline-flex shrink-0 items-baseline gap-0.5 text-[13px] font-bold text-primary sm:text-sm">
+                          <span className="shrink-0 font-semibold text-primary/80">Tot</span>
                           {draftLineUnitPrice(l) != null ? (
                             <PriceDhInline
                               value={(draftLineUnitPrice(l) ?? 0) * l.qty}
-                              amountClassName="font-bold text-sky-900"
-                              suffixClassName="text-sky-800/90"
+                              amountClassName="font-bold text-primary"
+                              suffixClassName="text-primary/80"
                             />
                           ) : (
                             <span className="tabular-nums">—</span>
@@ -504,12 +496,12 @@ export default function DemandeProduitsPage() {
                         </span>
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-medium text-slate-600">Qté</span>
+                        <span className="text-sm font-medium text-muted-foreground">Qté</span>
                         <div className="flex flex-wrap items-center gap-1.5">
                           <button
                             type="button"
                             aria-label="Diminuer"
-                            className="rounded-lg border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50"
+                            className="rounded-lg border border-border/80 bg-card p-1.5 text-foreground shadow-sm hover:bg-muted/40"
                             onClick={() => setQty(l.product_id, l.qty - 1)}
                           >
                             <Minus size={16} />
@@ -529,7 +521,7 @@ export default function DemandeProduitsPage() {
                     </div>
                   </div>
                   <label className="mt-3 block">
-                    <span className="mb-1 block text-sm font-medium text-slate-800">Commentaire sur ce produit (facultatif)</span>
+                    <span className="mb-1 block text-sm font-medium text-foreground">Commentaire sur ce produit (facultatif)</span>
                     <input
                       type="text"
                       value={l.client_comment ?? ""}
@@ -545,7 +537,7 @@ export default function DemandeProduitsPage() {
                       }
                       placeholder="Ex. dosage, marque souhaitée…"
                       className={cn(
-                        "w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-2 text-sm leading-normal placeholder:text-slate-400 [touch-action:pan-x_pan-y]",
+                        "w-full rounded-lg border border-border/80 bg-background px-3 py-2 text-sm leading-normal placeholder:text-muted-foreground [touch-action:pan-x_pan-y]",
                         fieldFocus
                       )}
                     />
@@ -559,16 +551,18 @@ export default function DemandeProduitsPage() {
           )}
         </section>
 
-        <section className="rounded-xl border border-border/80 bg-card p-3 shadow-sm sm:p-4">
-          <label className="block text-sm font-semibold text-foreground">Message pour la pharmacie (facultatif)</label>
-          <p className="mt-0.5 text-xs text-muted-foreground">Visible dans la conversation du dossier après envoi.</p>
+        <section className={cn(pharmacyPublicCard, "p-3 sm:p-4")}>
+          <PharmacyPublicSectionTitle
+            title="Message pour la pharmacie (facultatif)"
+            hint="Visible dans la conversation du dossier après envoi."
+          />
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value.slice(0, REQUEST_CONVERSATION_MESSAGE_MAX))}
             rows={4}
             maxLength={REQUEST_CONVERSATION_MESSAGE_MAX}
             className={cn(
-              "mt-3 w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-3 text-base leading-relaxed shadow-inner placeholder:text-slate-400 [touch-action:pan-x_pan-y]",
+              "w-full rounded-lg border border-border/80 bg-background px-3 py-3 text-base leading-relaxed placeholder:text-muted-foreground [touch-action:pan-x_pan-y]",
               fieldFocus
             )}
             placeholder="Ex. précisions utiles pour l’officine…"
@@ -616,16 +610,20 @@ export default function DemandeProduitsPage() {
         </Link>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-primary/15 bg-card/98 py-3 shadow-[0_-4px_20px_rgba(15,23,42,0.06)] backdrop-blur supports-[backdrop-filter]:bg-card/95">
         <div className="mx-auto flex max-w-lg flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 sm:px-5">
-          <p className="text-base text-slate-700">
-            <span className="font-bold tabular-nums text-slate-950">{lines.length}</span>{" "}
+          <p className="text-sm text-muted-foreground">
+            <span className="font-bold tabular-nums text-foreground">{lines.length}</span>{" "}
             <span className="font-medium">{lines.length > 1 ? "produits" : "produit"}</span>
           </p>
-          <p className="inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-x-1 text-lg font-bold tracking-tight text-slate-950">
-            <span className="shrink-0">TOTAL:</span>
-            <span className="text-sky-900">
-              <PriceDhInline value={totalAmount} amountClassName="font-bold text-lg text-sky-900" suffixClassName="font-bold text-sky-800" />
+          <p className="inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-x-1 text-base font-bold tracking-tight text-foreground sm:text-lg">
+            <span className="shrink-0 text-muted-foreground">Total</span>
+            <span className="text-primary">
+              <PriceDhInline
+                value={totalAmount}
+                amountClassName="font-bold text-base text-primary sm:text-lg"
+                suffixClassName="font-bold text-primary/80"
+              />
             </span>
           </p>
         </div>
@@ -644,7 +642,7 @@ export default function DemandeProduitsPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="send-confirm-title"
-            className="relative z-10 flex max-h-[min(88dvh,560px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border-2 border-slate-200 bg-white shadow-2xl"
+            className={cn("relative z-10 flex max-h-[min(88dvh,560px)] w-full max-w-md flex-col overflow-hidden shadow-2xl", pharmacyPublicCard)}
           >
             <div className="flex items-start justify-between gap-2 border-b border-slate-200 px-3 py-2.5 sm:px-4">
               <h2 id="send-confirm-title" className="text-base font-bold leading-tight text-slate-900 sm:text-lg">
@@ -674,7 +672,7 @@ export default function DemandeProduitsPage() {
                       {l.photo_url ? (
                         <button
                           type="button"
-                          className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                          className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                           aria-label={`Agrandir la photo · ${l.name}`}
                           onClick={() => setPhotoPreview({ url: l.photo_url!, title: l.name })}
                         >
@@ -699,13 +697,13 @@ export default function DemandeProduitsPage() {
                               <PriceDhInline value={draftLineUnitPrice(l)} amountClassName="text-[11px]" suffixClassName="text-[9px]" />
                             </strong>
                           </span>
-                          <span className="inline-flex shrink-0 items-baseline gap-0.5 text-[11px] font-bold text-sky-900">
-                            <span className="font-semibold text-sky-800/90">Tot</span>
+                          <span className="inline-flex shrink-0 items-baseline gap-0.5 text-[11px] font-bold text-primary">
+                            <span className="font-semibold text-primary/80">Tot</span>
                             {draftLineUnitPrice(l) != null ? (
                               <PriceDhInline
                                 value={(draftLineUnitPrice(l) ?? 0) * l.qty}
                                 amountClassName="text-[11px] font-bold"
-                                suffixClassName="text-[9px] font-bold text-sky-800/90"
+                                suffixClassName="text-[9px] font-bold text-primary/80"
                               />
                             ) : (
                               <span className="tabular-nums">—</span>
@@ -726,7 +724,7 @@ export default function DemandeProduitsPage() {
                 ))}
               </ul>
               {note.trim() ? (
-                <p className="mt-2 rounded-md border border-sky-200/80 bg-sky-50/80 px-2 py-1.5 text-[11px] text-slate-800">
+                <p className="mt-2 rounded-md border border-primary/20 bg-primary/5 px-2 py-1.5 text-[11px] text-foreground">
                   <span className="font-semibold">Message : </span>
                   <span className="whitespace-pre-wrap">{note.trim().slice(0, 200)}{note.trim().length > 200 ? "…" : ""}</span>
                 </p>
@@ -735,8 +733,8 @@ export default function DemandeProduitsPage() {
             <div className="border-t border-slate-200 bg-slate-50 px-3 py-2.5 sm:px-4">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-bold text-slate-800">TOTAL</span>
-                <span className="text-lg font-bold text-sky-900">
-                  <PriceDhInline value={totalAmount} amountClassName="text-lg font-bold" suffixClassName="text-[0.65em] font-bold text-sky-800" />
+                <span className="text-lg font-bold text-primary">
+                  <PriceDhInline value={totalAmount} amountClassName="text-lg font-bold" suffixClassName="text-[0.65em] font-bold text-primary/80" />
                 </span>
               </div>
               <div className="mt-2 flex gap-2">
