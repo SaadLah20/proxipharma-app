@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Check, ChevronLeft, LayoutGrid, Package, Search } from "lucide-react";
+import { Check, LayoutGrid, Package, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
@@ -14,6 +14,7 @@ import {
   type PatientDemandeProduitsCatalogProduct,
   writePatientDemandeProduitsDraft,
 } from "@/lib/patient-demande-produits-draft";
+import { PharmacyPublicBackLink, pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { cn } from "@/lib/utils";
@@ -39,21 +40,6 @@ function PriceDhInline({
         {"\u00A0"}DH
       </span>
     </span>
-  );
-}
-
-function CatalogueBackLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        buttonVariants({ variant: "ghost", size: "sm" }),
-        "mb-3 -ml-2 inline-flex h-auto items-center gap-1 px-2 text-base font-semibold text-sky-900 underline-offset-2 hover:underline"
-      )}
-    >
-      <ChevronLeft className="size-5" aria-hidden />
-      {label}
-    </Link>
   );
 }
 
@@ -190,24 +176,24 @@ export default function DemandeProduitsCataloguePage() {
   }
 
   return (
-    <main className="min-h-screen touch-pan-y bg-slate-50 p-4 pb-36 text-slate-900 antialiased sm:p-5 sm:pb-40">
-      <div className="mx-auto max-w-lg">
-        <CatalogueBackLink href={backHref} label={backLabel} />
+    <main className="min-h-screen touch-pan-y bg-background p-4 pb-36 text-foreground antialiased sm:p-5 sm:pb-40">
+      <div className="mx-auto max-w-lg space-y-3">
+        <PharmacyPublicBackLink href={backHref}>{backLabel}</PharmacyPublicBackLink>
 
-        <section className="rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+        <section className={cn(pharmacyPublicCard, "p-3 sm:p-4")}>
           <div className="flex items-center gap-2">
-            <LayoutGrid className="size-5 shrink-0 text-sky-800" aria-hidden />
-            <h1 className="text-base font-bold text-slate-950 sm:text-lg">Tous les produits</h1>
+            <LayoutGrid className="size-5 shrink-0 text-primary" aria-hidden />
+            <h1 className="text-base font-bold sm:text-lg">Tous les produits</h1>
           </div>
-          <p className="mt-1 text-sm leading-relaxed text-slate-600">
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
             Cochez les produits à ajouter. Ceux déjà dans votre demande ne sont pas sélectionnables.
           </p>
         </section>
 
-        <section className="mt-4 rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+        <section className={cn(pharmacyPublicCard, "p-3 sm:p-4")}>
           <div className="relative">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-500"
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-primary/70"
               aria-hidden
             />
             <input
@@ -216,14 +202,14 @@ export default function DemandeProduitsCataloguePage() {
               onChange={(e) => setFilterQuery(e.target.value)}
               placeholder="Filtrer par nom ou laboratoire…"
               className={cn(
-                "w-full rounded-xl border-2 border-slate-300 bg-white py-3 pl-11 pr-3 text-base leading-normal shadow-sm placeholder:text-slate-400",
+                "w-full rounded-lg border border-border/80 bg-background py-3 pl-10 pr-3 text-base leading-normal shadow-sm placeholder:text-muted-foreground",
                 fieldFocus
               )}
             />
           </div>
         </section>
 
-        <section className="mt-4 rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+        <section className={cn(pharmacyPublicCard, "p-3 sm:p-4")}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-slate-600">
               {loading ? (
