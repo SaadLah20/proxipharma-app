@@ -16,7 +16,9 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **UI pharmacien — note / échange par ligne** — **`components/pharmacist/pharmacist-line-conversation-chip.tsx`** (`PharmacistLineConversationModal` sur **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**) : **Confirmer la note** valide le texte saisi dans **`pharmacist_comment`** (pas de raccourci qui insère `"OK"`). Envoi patient = **publier la réponse** dossier.
 
-**Fiche digitale pharmacie (mai 2026)** — **`CAHIER_DES_CHARGES.md` §10 (sessions 2026-05-22 + 2026-05-19 promo)** + **§13.28**. Migrations **`20260606_001`** · **`20260607_001`** · **`20260608_001`** · **`20260609_001`** · **`20260610_001`** (packs promo — workflow **séparé** des `requests`). Publique **`/pharmacie/[id]`** : onglets grille 4 col., Infos, **Offres** (`PublicPromoOffers`), Horaires, **`PharmacyRatingForm`**. Pharmacien **`ma-fiche`** (upload cover/logo versionnés) · **`horaires-garde`** (7 jours compacts, fériés Maroc auto, garde fin auto — grille mobile Matin/Après-midi). Storage : **`20260524_001`** + **`20260528_001`** + **`20260609_001`** (RLS upload **obligatoire** si erreur cover/logo).
+**Fiche digitale pharmacie (mai 2026)** — **`CAHIER_DES_CHARGES.md` §10 (session **2026-05-24** + 2026-05-22 promo)** · phrase **§13.30**. Migrations **`20260606_001`** … **`20260610_001`** + **`20260622_001`** (`titular_public`). Publique **`/pharmacie/[id]`** : onglets grille 4 col., Infos, **Offres**, Horaires, **`PharmacyRatingForm`** ; titulaire si **`titular_public`**. Pharmacien **`ma-fiche`** : onglets **Coordonnées** (nom, adresse, tél., WhatsApp), **Accueil** (message + titulaire + Visible/Masqué), Photos, Liens, Services · **`horaires-garde`**. Onboarding admin : **`POST /api/admin/onboard-pharmacy`** — titulaire prérempli à la création. Storage : **`20260524_001`** + **`20260528_001`** + **`20260609_001`**.
+
+**Reset pilote** — `supabase/scripts/reset-pilot-keep-products-single-admin.sql` (tout le fichier, modale « Run without RLS ») ; storage : `scripts/reset-storage-keep-product-photos-only.mjs --confirm`.
 
 **ESLint / React** — règle **`react-hooks/set-state-in-effect`** (CI en erreur) : ne pas appeler **`setState` dans un `useEffect`** pour resynchroniser un formulaire (modale, passage patient, etc.). Préférer **remonter l’état dans un sous-composant** monté avec **`key={…}`** quand la modale s’ouvre (ex. **`PromoReserveForm`** dans **`promo-reserve-modal.tsx`**) ou réinitialisation en rendu si les props changent (voir journal §10 session patient **2026-05-14**).
 
@@ -26,7 +28,7 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **Moteur de pricing officine (mai 2026)** — migration **`20260619_001`** (**appliquée** sur pilote). Tables **`pharmacy_pricing_*`** ; RPC config + **`resolve_pharmacy_product_unit_price`** ; **`lib/pharmacy-pricing/`** ; UI **`/dashboard/pharmacien/pricing`** (`PharmacistPricingManager`). **Médicaments** = **PPV** fixe ; **parapharmacie** = PPH + marge **−10 % à +40 %** (global / labo / produit). Affichage patient = **Prix / PU** uniquement. Détail journal : **`CAHIER_DES_CHARGES.md` §10 (session 2026-05-19 pricing)** · phrase **§13.29**.
 
-**Ne pas réécrire tout le détail produit** sans relire **`CONTEXTE.md` §6** et **`CAHIER_DES_CHARGES.md` §4.4–§4.5 + dernier §10 Journal + §13.29** (phrase de reprise ; §13.12 / **`20260509_*`** pour supply post-validé). Pour une **ouverture sans tâche** : **`CAHIER_DES_CHARGES.md` §13.11**.
+**Ne pas réécrire tout le détail produit** sans relire **`CONTEXTE.md` §6** et **`CAHIER_DES_CHARGES.md` §4.4–§4.5 + dernier §10 Journal + §13.30** (phrase de reprise ; §13.12 / **`20260509_*`** pour supply post-validé). Pour une **ouverture sans tâche** : **`CAHIER_DES_CHARGES.md` §13.11**.
 
 **Catalogue & photos (mai 2026)** — **`lib/storage-media.ts`**, **`lib/patient-demande-produits-draft.ts`**, **`/pharmacie/[id]/demande-produits/catalogue`** ; vignettes = chemins Storage résolus en URL publique (pas `<img src="products/…">` relatif). Merge **`main`** + migrations **`20260524_*`** pour prod.
 
@@ -41,7 +43,8 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 **Auth patient (mai 2026)** — **`app/auth/page.tsx`** :
 - **Connexion** (`/auth`) : un champ **téléphone ou e-mail** + mot de passe (`lib/auth-login-identifier.ts`, `signInWithPassword`).
 - **Inscription** (`/auth?mode=signup`) : nom + téléphone + e-mail facultatif → **OTP** (souvent **SMS** ; au pilote peut arriver via **WhatsApp** selon config Supabase/Twilio Verify) → mot de passe → session (`lib/ensure-patient-profile.ts`, `lib/phone-e164.ts`). Numéros **pro** : SMS Verify souvent **Failed** — tester en **perso** (`+2126…`).
-- E-mail récupération : **`/auth/update-password`** ; opt-in e-mail aussi dans **`app/dashboard/patient/parametres/page.tsx`**.
+- E-mail récupération : **`/auth/update-password`** ; **mot de passe oublié** connexion : **SMS** si identifiant = téléphone (`lib/auth-phone-password-reset.ts`), **lien e-mail** si identifiant = e-mail ; opt-in e-mail aussi dans **`app/dashboard/patient/parametres/page.tsx`**.
+- **Pharmacien provisionné** (admin) : première connexion → choix MDP — **`lib/provisioned-pharmacist-auth.ts`**, `?provisioned=1` sur **`/auth`**.
 - Migration **`20260521_001_profiles_email_nullable.sql`** : `profiles.email` nullable.
 - Unicité : **téléphone / e-mail** uniques côté **`auth.users`** (Supabase) ; doublons possibles dans **`profiles.whatsapp`** sur comptes **legacy** (e-mail avant SMS).
 - **Inscription** : avant envoi OTP, **`POST /api/auth/signup-phone-check`** + **`auth_phone_user_exists`** (**`20260522_003`**) — pas de SMS si le numéro est déjà dans **`auth.users`** ; message « utilisez Connexion ». **Renvoi OTP** : `shouldCreateUser: false`. Doublons historiques même téléphone en pilote : reset demandes + suppression comptes Auth.

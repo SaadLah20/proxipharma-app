@@ -22,6 +22,16 @@ export const AUTH_SIGNUP_OTP_VERIFIED_PASSWORD_PHONE =
 export const AUTH_RESET_EMAIL_SENT =
   "Si un compte existe avec cet e-mail, un lien de réinitialisation vient d’être envoyé. Ouvrez le lien dans l’e-mail pour choisir un nouveau mot de passe (valable quelques minutes).";
 
+export const AUTH_RESET_SMS_SENT =
+  "Un code à 6 chiffres a été envoyé sur votre téléphone. Saisissez-le ci-dessous pour choisir un nouveau mot de passe.";
+
+export const AUTH_RESET_SMS_RESENT = "Un nouveau code à 6 chiffres a été envoyé (SMS ou WhatsApp).";
+
+export const AUTH_RESET_OTP_VERIFIED_PASSWORD =
+  "Numéro vérifié. Choisissez un nouveau mot de passe (au moins 6 caractères).";
+
+export const AUTH_RESET_PASSWORD_DONE = "Mot de passe mis à jour. Redirection…";
+
 export const AUTH_CALLBACK_LINK_EXPIRED =
   "Ce lien n’est plus valide ou a déjà été utilisé. Demandez un nouveau code ou un nouveau lien depuis l’application.";
 

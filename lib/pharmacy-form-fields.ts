@@ -30,13 +30,13 @@ export const PHARMACY_FORM_FIELDS: Record<PharmacyFieldKey, PharmacyFieldMeta> =
   },
   titular_name: {
     label: "Pharmacien titulaire",
-    hint: "Nom affiché publiquement (80 caractères max.).",
+    hint: "Prérempli à la création de l’officine — modifiable ici. Masquez l’affichage public avec le bouton ci-dessous si besoin (80 car. max.).",
     placeholder: "Ex. Dr Karim Benali",
     maxLength: 80,
   },
   titular_title: {
     label: "Titre du titulaire",
-    hint: "Libellé sous le nom (60 caractères max.).",
+    hint: "Libellé sous le nom sur la fiche publique (60 caractères max.).",
     placeholder: "Pharmacien titulaire",
     maxLength: 60,
   },

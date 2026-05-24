@@ -23,7 +23,15 @@ import {
 } from "@/lib/auth-signup-flow";
 import { userIsProvisionedPharmacist } from "@/lib/provisioned-pharmacist-auth";
 import {
+  checkPhoneRegisteredForPasswordReset,
+  AUTH_RESET_PHONE_NOT_FOUND_FR,
+} from "@/lib/auth-phone-password-reset";
+import {
   AUTH_RESET_EMAIL_SENT,
+  AUTH_RESET_OTP_VERIFIED_PASSWORD,
+  AUTH_RESET_PASSWORD_DONE,
+  AUTH_RESET_SMS_RESENT,
+  AUTH_RESET_SMS_SENT,
   AUTH_SIGNUP_EMAIL_RESENT,
   AUTH_SIGNUP_EMAIL_SENT,
   AUTH_SIGNUP_LINK_VERIFIED_PASSWORD,
@@ -54,6 +62,7 @@ function isSuccessMessage(msg: string) {
     m.includes("réinitialisation") ||
     m.includes("vérifiez votre boîte") ||
     m.includes("mot de passe enregistré") ||
+    m.includes("mot de passe mis à jour") ||
     m.includes("redirection") ||
     m.includes("vérifié")
   );
@@ -69,6 +78,11 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
   const [loginId, setLoginId] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotResetStep, setForgotResetStep] = useState<"idle" | "otp" | "password">("idle");
+  const [forgotPhoneE164, setForgotPhoneE164] = useState("");
+  const [forgotOtp, setForgotOtp] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotNewPassword2, setForgotNewPassword2] = useState("");
 
   const [signupStep, setSignupStep] = useState<SignupStep>("form");
   const [phoneE164, setPhoneE164] = useState("");
@@ -506,6 +520,113 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     setMessage(signupOtpChannel === "email" ? AUTH_SIGNUP_EMAIL_RESENT : AUTH_SIGNUP_SMS_RESENT);
   };
 
+  const resetForgotFlow = () => {
+    setForgotResetStep("idle");
+    setForgotPhoneE164("");
+    setForgotOtp("");
+    setForgotNewPassword("");
+    setForgotNewPassword2("");
+  };
+
+  const sendForgotPhoneOtp = async () => {
+    const id = parseLoginIdentifier(loginId);
+    if (!id || id.kind !== "phone") {
+      setMessage("Pour réinitialiser par SMS, saisissez votre numéro de téléphone dans le champ identifiant.");
+      return;
+    }
+    setLoading(true);
+    setMessage("");
+    const check = await checkPhoneRegisteredForPasswordReset(id.phone);
+    if (!check.e164) {
+      setLoading(false);
+      setMessage("Numéro invalide. Utilisez le format 0612345678 ou +212612345678.");
+      return;
+    }
+    if (!check.registered) {
+      setLoading(false);
+      setMessage(AUTH_RESET_PHONE_NOT_FOUND_FR);
+      return;
+    }
+    const { error } = await supabase.auth.signInWithOtp({
+      phone: check.e164,
+      options: { channel: "sms", shouldCreateUser: false },
+    });
+    setLoading(false);
+    if (error) {
+      setMessage(mapAuthErrorToFrench(error.message));
+      return;
+    }
+    setForgotPhoneE164(check.e164);
+    setForgotResetStep("otp");
+    setMessage(AUTH_RESET_SMS_SENT);
+  };
+
+  const resendForgotPhoneOtp = async () => {
+    if (!forgotPhoneE164) return;
+    setLoading(true);
+    setMessage("");
+    const { error } = await supabase.auth.signInWithOtp({
+      phone: forgotPhoneE164,
+      options: { channel: "sms", shouldCreateUser: false },
+    });
+    setLoading(false);
+    if (error) {
+      setMessage(mapAuthErrorToFrench(error.message));
+      return;
+    }
+    setMessage(AUTH_RESET_SMS_RESENT);
+  };
+
+  const verifyForgotPhoneOtp = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage("");
+    const code = forgotOtp.replace(/\D/g, "");
+    if (code.length < 6) {
+      setMessage("Saisissez le code à 6 chiffres reçu par SMS.");
+      setLoading(false);
+      return;
+    }
+    const { error } = await supabase.auth.verifyOtp({
+      phone: forgotPhoneE164,
+      token: code,
+      type: "sms",
+    });
+    setLoading(false);
+    if (error) {
+      setMessage(mapAuthErrorToFrench(error.message));
+      return;
+    }
+    setForgotResetStep("password");
+    setMessage(AUTH_RESET_OTP_VERIFIED_PASSWORD);
+  };
+
+  const finishForgotPassword = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage("");
+    if (forgotNewPassword.length < 6) {
+      setMessage("Le mot de passe doit contenir au moins 6 caractères.");
+      setLoading(false);
+      return;
+    }
+    if (forgotNewPassword !== forgotNewPassword2) {
+      setMessage("Les deux mots de passe ne correspondent pas.");
+      setLoading(false);
+      return;
+    }
+    const { error } = await supabase.auth.updateUser({ password: forgotNewPassword });
+    setLoading(false);
+    if (error) {
+      setMessage(mapAuthErrorToFrench(error.message));
+      return;
+    }
+    setMessage(AUTH_RESET_PASSWORD_DONE);
+    resetForgotFlow();
+    setForgotOpen(false);
+    await redirectAfterAuth();
+  };
+
   const sendPasswordReset = async () => {
     const id = parseLoginIdentifier(loginId);
     if (!id || id.kind !== "email") {
@@ -548,7 +669,11 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
             ? "Code e-mail"
             : "Code SMS"
           : "Choisissez un mot de passe"
-      : "Connexion";
+      : forgotResetStep === "otp"
+        ? "Code SMS"
+        : forgotResetStep === "password"
+          ? "Nouveau mot de passe"
+          : "Connexion";
 
   const subtitle = isProvisionedPharmacistStep
     ? "Votre compte a été créé par l’administrateur. Choisissez un mot de passe personnel : vous vous connecterez ensuite avec votre numéro et ce mot de passe."
@@ -560,7 +685,11 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
             ? "Saisissez le code à 6 chiffres reçu par e-mail (pas le lien)."
             : "Saisissez le code à 6 chiffres reçu par SMS ou WhatsApp."
           : "Définissez le mot de passe de votre compte. Vous vous connecterez ensuite avec votre numéro ou votre e-mail."
-      : "Identifiant (téléphone ou e-mail) et mot de passe.";
+      : forgotResetStep === "otp"
+        ? "Saisissez le code à 6 chiffres reçu par SMS ou WhatsApp."
+        : forgotResetStep === "password"
+          ? "Choisissez un nouveau mot de passe pour votre compte officine ou patient."
+          : "Identifiant (téléphone ou e-mail) et mot de passe.";
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-10 sm:px-6">
@@ -589,7 +718,99 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           </div>
         </div>
 
-        {!isSignup ? (
+        {!isSignup && forgotResetStep === "otp" ? (
+          <form className="space-y-3" onSubmit={(ev) => void verifyForgotPhoneOtp(ev)}>
+            <div className="rounded-xl border border-border/80 bg-muted/25 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+              <p>
+                Code envoyé au <span className="font-mono font-medium text-foreground">{forgotPhoneE164}</span>
+              </p>
+              <p className="mt-1.5">
+                Consultez vos <strong className="text-foreground">SMS</strong> ou{" "}
+                <strong className="text-foreground">WhatsApp</strong>, puis saisissez les 6 chiffres.
+              </p>
+            </div>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="Code à 6 chiffres"
+              className={fieldClass}
+              value={forgotOtp}
+              onChange={(e) => setForgotOtp(e.target.value)}
+              maxLength={12}
+              required
+            />
+            <Button type="submit" disabled={loading} className="h-11 w-full gap-2 text-sm">
+              {loading ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  Patientez…
+                </>
+              ) : (
+                "Valider le code"
+              )}
+            </Button>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                disabled={loading}
+                onClick={() => void resendForgotPhoneOtp()}
+              >
+                Renvoyer le SMS
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="flex-1"
+                disabled={loading}
+                onClick={() => {
+                  resetForgotFlow();
+                  setForgotOpen(false);
+                  setMessage("");
+                }}
+              >
+                Retour connexion
+              </Button>
+            </div>
+          </form>
+        ) : !isSignup && forgotResetStep === "password" ? (
+          <form className="space-y-3" onSubmit={(ev) => void finishForgotPassword(ev)}>
+            <input
+              type="password"
+              placeholder="Nouveau mot de passe (min. 6 caractères)"
+              className={fieldClass}
+              value={forgotNewPassword}
+              onChange={(e) => setForgotNewPassword(e.target.value)}
+              required
+              minLength={6}
+              autoComplete="new-password"
+            />
+            <input
+              type="password"
+              placeholder="Confirmer le mot de passe"
+              className={fieldClass}
+              value={forgotNewPassword2}
+              onChange={(e) => setForgotNewPassword2(e.target.value)}
+              required
+              minLength={6}
+              autoComplete="new-password"
+            />
+            <Button type="submit" disabled={loading} className="h-11 w-full gap-2 text-sm">
+              {loading ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  Patientez…
+                </>
+              ) : (
+                "Enregistrer le nouveau mot de passe"
+              )}
+            </Button>
+          </form>
+        ) : !isSignup ? (
           <form className="space-y-3" onSubmit={(ev) => void login(ev)}>
             <input
               type="text"
@@ -615,6 +836,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
                 type="button"
                 onClick={() => {
                   setForgotOpen((v) => !v);
+                  resetForgotFlow();
                   setMessage("");
                 }}
                 className="text-xs font-semibold text-primary underline-offset-2 hover:underline"
@@ -622,16 +844,27 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
                 Mot de passe oublié ?
               </button>
               {forgotOpen ? (
-                <div className="rounded-xl border border-border bg-muted/30 p-3">
+                <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
                   <p className="text-xs text-muted-foreground">
-                    Un <strong className="font-medium text-foreground">lien par e-mail</strong> vous permettra de
-                    choisir un nouveau mot de passe (pas de code à 6 chiffres pour cette étape).
+                    <strong className="font-medium text-foreground">Téléphone</strong> : code SMS à 6 chiffres puis
+                    nouveau mot de passe. <strong className="font-medium text-foreground">E-mail</strong> : lien de
+                    réinitialisation.
                   </p>
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
-                    className="mt-2 w-full"
+                    className="w-full"
+                    disabled={loading}
+                    onClick={() => void sendForgotPhoneOtp()}
+                  >
+                    Recevoir un code SMS
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
                     disabled={loading}
                     onClick={() => void sendPasswordReset()}
                   >
@@ -808,6 +1041,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           onClick={() => {
             setMessage("");
             setForgotOpen(false);
+            resetForgotFlow();
             if (isSignup) {
               resetSignupFlow();
               switchMode(false);

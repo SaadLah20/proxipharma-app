@@ -400,7 +400,7 @@ export function PharmacyPublicProfile({
               }}
             />
 
-            {pharmacy.titular_name?.trim() ? (
+            {pharmacy.titular_public !== false && pharmacy.titular_name?.trim() ? (
               <div>
                 <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                   {pharmacy.titular_title?.trim() || "Pharmacien titulaire"}

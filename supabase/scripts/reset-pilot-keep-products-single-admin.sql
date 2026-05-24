@@ -4,10 +4,14 @@
 -- À exécuter dans Supabase SQL Editor (rôle postgres / service_role).
 -- Une seule exécution. Lire les NOTICE au début (admin conservé).
 --
+-- IMPORTANT : tout sélectionner (Ctrl+A) puis « Run selected », ou Run sans sélection.
+-- Ne pas lancer uniquement la fin (commit / vérifs) : exécuter depuis begin; (l.19).
+-- À la modale Supabase : « Run without RLS » (pas de table permanente créée).
+--
 -- CONSERVE :
 --   public.products
 --   public.pharmacy_service_catalog (référentiel services)
---   1 profil admin (premier id uuid — vérifiez le NOTICE avant commit)
+--   1 profil admin (le plus ancien par created_at, sinon par id)
 --   auth.users correspondant
 --
 -- SUPPRIME : demandes, officines, promos, patients, pharmaciens, notifs, files…
@@ -16,14 +20,7 @@
 
 begin;
 
--- Admin conservé (un seul)
-create temp table _reset_keep_admin on commit drop as
-select p.id, p.email, p.full_name
-from public.profiles p
-where p.role = 'admin'
-order by p.id
-limit 1;
-
+-- Admin conservé (un seul) — contrôle avant suppressions (NOTICE dans l’onglet Messages)
 do $$
 declare
   n_admin int;
@@ -31,7 +28,13 @@ declare
   k_email text;
 begin
   select count(*) into n_admin from public.profiles where role = 'admin';
-  select id, coalesce(email, '(sans email)') into k, k_email from _reset_keep_admin;
+
+  select p.id, coalesce(p.email, '(sans email)')
+  into k, k_email
+  from public.profiles p
+  where p.role = 'admin'
+  order by p.created_at nulls last, p.id
+  limit 1;
 
   if k is null then
     raise exception 'Aucun profil role=admin trouvé. Créez un admin avant ce reset.';
@@ -90,16 +93,34 @@ delete from public.app_notifications;
 delete from public.notification_external_queue;
 
 delete from public.notification_external_prefs
-where user_id not in (select id from _reset_keep_admin);
+where user_id not in (
+  select p.id
+  from public.profiles p
+  where p.role = 'admin'
+  order by p.created_at nulls last, p.id
+  limit 1
+);
 
 -- ---------------------------------------------------------------------------
 -- Comptes (patients, pharmaciens, admins en trop)
 -- ---------------------------------------------------------------------------
 delete from public.profiles
-where id not in (select id from _reset_keep_admin);
+where id not in (
+  select p.id
+  from public.profiles p
+  where p.role = 'admin'
+  order by p.created_at nulls last, p.id
+  limit 1
+);
 
 delete from auth.users
-where id not in (select id from _reset_keep_admin);
+where id not in (
+  select p.id
+  from public.profiles p
+  where p.role = 'admin'
+  order by p.created_at nulls last, p.id
+  limit 1
+);
 
 commit;
 
