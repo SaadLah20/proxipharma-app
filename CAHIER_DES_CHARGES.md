@@ -330,6 +330,27 @@ Statuts retenus v1:
 
 ## 10) Journal d'avancement (a mettre a jour chaque fin de session)
 
+### 10.1) Versions stables de référence (pour retour arrière Git)
+
+| Label | Commit | Branche | Date | Contenu synthétique |
+|-------|--------|---------|------|---------------------|
+| **`pilote-stable-2026-05-24`** | **`0c4f0e7`** | `fix/validated-supply-ecart-ui-modal` | 2026-05-24 | Onboarding admin + ma-fiche (coordonnées, titulaire public), MDP oublié SMS, migrations **`20260619_001`**–**`20260622_001`**, reset pilote SQL + script Storage (hors `products/`), horaires fiche publique (7 jours glissants, noms complets). Lot pricing / promo / supply post-validé déjà sur la branche. |
+
+**Revenir à cette version (code)** :
+
+```bash
+git fetch origin
+git checkout 0c4f0e7
+# ou, si le tag a été poussé :
+git checkout pilote-stable-2026-05-24
+```
+
+**Branche de travail après retour** : `git switch -c reprise-depuis-stable-2026-05-24`
+
+**Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
+
+---
+
 ### Session 2026-05-24 — Onboarding admin, ma-fiche pharmacien, reset pilote, auth SMS oublié
 
 **Branche** : `fix/validated-supply-ecart-ui-modal`.
@@ -357,7 +378,9 @@ Statuts retenus v1:
 
 **Reset pilote** :
 - Script **`supabase/scripts/reset-pilot-keep-products-single-admin.sql`** (sans table temp `_reset_keep_admin` ; exécuter **tout** le fichier — modale Supabase « Run without RLS »)
-- **État pilote (fin session)** : reset SQL **effectué** (1 admin conservé) ; **tests ma-fiche / onboarding** faits ; **storage** (`scripts/reset-storage-keep-product-photos-only.mjs --confirm`) **pas encore** ; **création officine finale + MDP oublié SMS** **pas encore** testés
+- **État pilote (fin session)** : reset SQL **effectué** (1 admin conservé) ; reset Storage **effectué** (garde `products/`) ; **tests ma-fiche / onboarding** faits ; **création officine finale + MDP oublié SMS** à valider au prochain passage
+- **Horaires fiche publique** (commit **`0c4f0e7`**) : aujourd’hui + 6 jours, noms de jours complets
+- **Référence stable** : tag Git **`pilote-stable-2026-05-24`** → commit **`0c4f0e7`** — voir **§10.1**
 
 **Phrase de reprise** : **§13.30**.
 
@@ -1651,7 +1674,7 @@ Voir **§13.30**.
 
 ### 13.30) Phrase de reprise (recommandée — après session **2026-05-24**, migrations **`20260620_001`**–**`20260622_001` appliquées**)
 
-**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal`. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§10 (session 2026-05-24)**, §11. Supabase : jusqu’à **`20260622_001`** (**appliquées**). **Pilote** : reset SQL déjà fait (1 admin + catalogue `products`) — **à faire** : `node scripts/reset-storage-keep-product-photos-only.mjs --confirm`, puis **Admin** → créer officine + pharmacien, tester **ma-fiche** (Coordonnées, titulaire Visible/Masqué), **première connexion MDP**, **`/auth` mot de passe oublié par SMS**. Fichiers clés : `lib/admin-onboard-pharmacy-server.ts`, `components/pharmacy/ma-fiche/pharmacy-ma-fiche-page.tsx`, `app/auth/page.tsx`, `lib/auth-phone-password-reset.ts`, `supabase/scripts/reset-pilot-keep-products-single-admin.sql`. Lots antérieurs : pricing **`20260619_001`**, promo, supply post-validé. Je te dis ensuite quoi faire. »**
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (référence stable **`0c4f0e7`** / tag **`pilote-stable-2026-05-24`** — §10.1). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§10 (session 2026-05-24)**, §11. Supabase : jusqu’à **`20260622_001`** (**appliquées**). **Pilote** : resets SQL + Storage faits ; valider si besoin **Admin** → officine, **ma-fiche**, **MDP oublié SMS**. Fichiers clés : `lib/admin-onboard-pharmacy-server.ts`, `components/pharmacy/ma-fiche/pharmacy-ma-fiche-page.tsx`, `app/auth/page.tsx`, `lib/pharmacy-schedule-fr.ts`. Je te dis ensuite quoi faire. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 

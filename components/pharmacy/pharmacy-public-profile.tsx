@@ -100,7 +100,7 @@ function PharmacyWeekScheduleView({ days, openLabel }: { days: PharmacyDaySchedu
         </div>
       ) : null}
 
-      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Semaine en cours</p>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">7 prochains jours</p>
       <ul className="overflow-hidden rounded-xl border border-border/80 bg-card divide-y divide-border/60">
         {days.map((day) => (
           <li
@@ -112,9 +112,9 @@ function PharmacyWeekScheduleView({ days, openLabel }: { days: PharmacyDaySchedu
               day.isException && !day.isToday && !day.isOnCallFullDay && "bg-amber-50/40"
             )}
           >
-            <div className="w-[4.5rem] shrink-0 sm:w-24">
-              <p className={clsx("text-[11px] font-bold", day.isToday ? "text-primary" : "text-foreground")}>
-                {day.weekdayLabel.slice(0, 3)}.
+            <div className="min-w-[5.5rem] shrink-0 sm:min-w-[6.5rem]">
+              <p className={clsx("text-[11px] font-bold leading-tight", day.isToday ? "text-primary" : "text-foreground")}>
+                {day.weekdayLabel}
               </p>
               <p className="text-[10px] text-muted-foreground">{day.dateLabel}</p>
               {day.isOnCallFullDay ? (
