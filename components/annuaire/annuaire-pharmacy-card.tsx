@@ -1,7 +1,8 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import Link from "next/link";
-import { ArrowRight, MapPin, MessageCircle, Phone } from "lucide-react";
+import { ArrowRight, MapPin, MessageCircle, Phone, Share2 } from "lucide-react";
 import { PharmacyNavigationPicker } from "@/components/pharmacy/pharmacy-navigation-picker";
 import { hasPharmacyNavigation } from "@/lib/pharmacy-navigation";
 import { clsx } from "clsx";
@@ -20,8 +21,26 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
   const coverUrl = resolvePublicMediaUrl(pharmacy.cover_image_path ?? pharmacy.logo_url ?? null);
   const wa = normalizeWhatsApp(pharmacy.whatsapp);
   const canNavigate = hasPharmacyNavigation(pharmacy);
+  const publicRef = pharmacy.public_ref?.trim() ?? "";
 
   const statusOpen = pharmacy.open.status === "open";
+
+  const handleShare = async (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url =
+      typeof window !== "undefined" ? `${window.location.origin}/pharmacie/${pharmacy.id}` : "";
+    const title = publicRef ? `${pharmacy.nom} (${publicRef})` : pharmacy.nom;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, url });
+      } else if (navigator.clipboard && url) {
+        await navigator.clipboard.writeText(url);
+      }
+    } catch {
+      /* annulé ou indisponible */
+    }
+  };
 
   return (
     <article className="overflow-hidden rounded-2xl border border-border/90 bg-card text-card-foreground shadow-sm transition hover:border-primary/20 hover:shadow-md">
@@ -139,12 +158,27 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
         />
       </div>
 
-      <div className="space-y-2 p-3 pt-2">
-        {pharmacy.public_ref?.trim() ? (
-          <p className="font-mono text-[10px] font-bold text-primary">{pharmacy.public_ref.trim()}</p>
-        ) : null}
-        <h2 className="text-base font-bold leading-snug text-foreground">{pharmacy.nom}</h2>
-        <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+      <div className="space-y-1.5 p-3 pt-2">
+        <div className="flex items-center gap-2">
+          <div
+            className="flex min-w-0 flex-1 items-baseline gap-1.5"
+            title={publicRef ? `${pharmacy.nom} · ${publicRef}` : pharmacy.nom}
+          >
+            <h2 className="min-w-0 truncate text-base font-bold leading-tight text-foreground">{pharmacy.nom}</h2>
+            {publicRef ? (
+              <span className="shrink-0 font-mono text-[10px] font-bold tabular-nums text-primary">{publicRef}</span>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={(e) => void handleShare(e)}
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-muted/40 text-foreground transition hover:bg-muted/70"
+            aria-label={`Partager ${pharmacy.nom}`}
+          >
+            <Share2 className="size-3.5" aria-hidden />
+          </button>
+        </div>
+        <p className="flex items-start gap-1.5 text-xs leading-snug text-muted-foreground">
           <MapPin className="mt-0.5 size-3.5 shrink-0 text-primary/70" aria-hidden />
           <span>
             {pharmacy.adresse}
