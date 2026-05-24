@@ -18,7 +18,9 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **Fiche digitale pharmacie (mai 2026)** — **`CAHIER_DES_CHARGES.md` §10 (session **2026-05-24** + 2026-05-22 promo)** · phrase **§13.30**. Migrations **`20260606_001`** … **`20260610_001`** + **`20260622_001`** (`titular_public`). Publique **`/pharmacie/[id]`** : onglets grille 4 col., Infos, **Offres**, Horaires, **`PharmacyRatingForm`** ; titulaire si **`titular_public`**. Pharmacien **`ma-fiche`** : onglets **Coordonnées** (nom, adresse, tél., WhatsApp), **Accueil** (message + titulaire + Visible/Masqué), Photos, Liens, Services · **`horaires-garde`**. Onboarding admin : **`POST /api/admin/onboard-pharmacy`** — titulaire prérempli à la création. Storage : **`20260524_001`** + **`20260528_001`** + **`20260609_001`**.
 
-**Reset pilote** — `supabase/scripts/reset-pilot-keep-products-single-admin.sql` (tout le fichier, modale « Run without RLS ») ; storage : `scripts/reset-storage-keep-product-photos-only.mjs --confirm`.
+**Reset pilote** — `supabase/scripts/reset-pilot-keep-products-single-admin.sql` (tout le fichier, modale « Run without RLS ») ; storage : `node --use-system-ca scripts/reset-storage-keep-product-photos-only.mjs --confirm`.
+
+**Version stable de référence (mai 2026)** — commit **`0c4f0e7`**, tag Git **`pilote-stable-2026-05-24`**, détail **`CAHIER_DES_CHARGES.md` §10.1**.
 
 **ESLint / React** — règle **`react-hooks/set-state-in-effect`** (CI en erreur) : ne pas appeler **`setState` dans un `useEffect`** pour resynchroniser un formulaire (modale, passage patient, etc.). Préférer **remonter l’état dans un sous-composant** monté avec **`key={…}`** quand la modale s’ouvre (ex. **`PromoReserveForm`** dans **`promo-reserve-modal.tsx`**) ou réinitialisation en rendu si les props changent (voir journal §10 session patient **2026-05-14**).
 
