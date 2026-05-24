@@ -214,8 +214,17 @@ export function AnnuairePage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
-      <section className="border-b border-primary/15 bg-gradient-to-br from-emerald-800 via-emerald-700 to-teal-800 text-white shadow-md">
-        <div className="mx-auto max-w-5xl px-4 py-6 sm:px-5 sm:py-7">
+      <section className="relative isolate overflow-hidden border-b border-primary/15 text-white shadow-md">
+        <div
+          className="pointer-events-none absolute inset-0 bg-cover bg-left bg-no-repeat sm:bg-[center_left_20%]"
+          style={{ backgroundImage: "url(/brand/annuaire-hero.png)" }}
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-emerald-950/92 via-emerald-900/78 to-emerald-900/25 sm:from-emerald-950/88 sm:via-emerald-900/55"
+          aria-hidden
+        />
+        <div className="relative mx-auto max-w-5xl px-4 py-5 sm:px-5 sm:py-7">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-100/90">ProxiPharma</p>
           <h1 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">Annuaire interactif des pharmacies</h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-emerald-50/95">

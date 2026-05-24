@@ -87,12 +87,11 @@ export function AnnuaireRadiusPicker({
               type="button"
               onClick={() => pick("all")}
               className={clsx(
-                "flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-medium hover:bg-muted/60",
+                "w-full px-3 py-2 text-left text-xs font-medium hover:bg-muted/60",
                 mode === "all" && "bg-primary/10 text-primary"
               )}
             >
               Toutes
-              <span className="text-[10px] font-normal text-muted-foreground">Maroc</span>
             </button>
           </li>
           {ANNUAIRE_RADIUS_KM_OPTIONS.map((km) => (
@@ -101,14 +100,11 @@ export function AnnuaireRadiusPicker({
                 type="button"
                 onClick={() => pick(km)}
                 className={clsx(
-                  "flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-semibold hover:bg-muted/60",
+                  "w-full px-3 py-2 text-left text-xs font-semibold hover:bg-muted/60",
                   mode === km && "bg-primary/10 text-primary"
                 )}
               >
                 {RADIUS_LABELS[km]}
-                {km === 2 ? (
-                  <span className="text-[10px] font-normal text-muted-foreground">proche</span>
-                ) : null}
               </button>
             </li>
           ))}
