@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AdminPilotBlock } from "@/components/admin/AdminPilotBlock";
+import { AdminOnboardPharmacyForm } from "@/components/admin/AdminOnboardPharmacyForm";
 
 type Pharmacy = {
   id: string;
@@ -216,10 +217,17 @@ export default function AdminPage() {
 
       {message ? <p className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{message}</p> : null}
 
+      <AdminOnboardPharmacyForm onCreated={loadData} />
+
       <AdminPilotBlock pharmacies={pharmacies} />
 
-      <section className="mb-6 rounded-xl border bg-white p-4">
-        <h2 className="mb-3 text-lg font-semibold">Creer une pharmacie</h2>
+      <details className="mb-6 rounded-xl border bg-white p-4">
+        <summary className="cursor-pointer text-lg font-semibold">Création pharmacie seule (sans compte)</summary>
+        <p className="mt-2 mb-3 text-sm text-gray-600">
+          Pour une officine sans titulaire ou rattachement manuel par UUID ci-dessous.
+        </p>
+      <section className="mt-2">
+        <h2 className="mb-3 text-lg font-semibold sr-only">Creer une pharmacie</h2>
         <form className="grid gap-3 md:grid-cols-2" onSubmit={handleCreatePharmacy}>
           <input
             className="rounded-lg border p-3"
@@ -281,9 +289,16 @@ export default function AdminPage() {
           </button>
         </form>
       </section>
+      </details>
 
-      <section className="mb-6 rounded-xl border bg-white p-4">
-        <h2 className="mb-3 text-lg font-semibold">Assigner un pharmacien</h2>
+      <details className="mb-6 rounded-xl border bg-white p-4">
+        <summary className="cursor-pointer text-lg font-semibold">Assigner un pharmacien existant (UUID)</summary>
+        <p className="mt-2 mb-3 text-sm text-amber-800">
+          Le rôle <code className="text-xs">pharmacien</code> doit déjà être défini sur le profil. Préférez le
+          formulaire « Nouvelle officine » ci-dessus.
+        </p>
+      <section className="mt-2">
+        <h2 className="mb-3 text-lg font-semibold sr-only">Assigner un pharmacien</h2>
         <form className="grid gap-3 md:grid-cols-2" onSubmit={handleAssignPharmacien}>
           <select
             className="rounded-lg border p-3"
@@ -314,6 +329,7 @@ export default function AdminPage() {
           </button>
         </form>
       </section>
+      </details>
 
       <section className="rounded-xl border bg-white p-4">
         <h2 className="mb-3 text-lg font-semibold">Assignations existantes</h2>

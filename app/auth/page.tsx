@@ -21,6 +21,7 @@ import {
   signupProfileFromUser,
   userNeedsSignupPassword,
 } from "@/lib/auth-signup-flow";
+import { userIsProvisionedPharmacist } from "@/lib/provisioned-pharmacist-auth";
 import {
   AUTH_RESET_EMAIL_SENT,
   AUTH_SIGNUP_EMAIL_RESENT,
@@ -128,6 +129,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           q.set("mode", "signup");
           q.set("step", "password");
           if (fromLink) q.set("from", "link");
+          if (userIsProvisionedPharmacist(user)) q.set("provisioned", "1");
           router.replace(`/auth?${q}`);
         }
         return;
@@ -209,6 +211,21 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     }
 
     const user = data.session?.user;
+    if (user?.user_metadata?.[SIGNUP_META_PASSWORD_PENDING] === true) {
+      const profile = signupProfileFromUser(user);
+      if (profile.full_name) setFullName(profile.full_name);
+      if (profile.whatsapp) setPhoneE164(profile.whatsapp);
+      setSignupStep("password");
+      const q = new URLSearchParams();
+      q.set("mode", "signup");
+      q.set("step", "password");
+      if (userIsProvisionedPharmacist(user)) q.set("provisioned", "1");
+      if (safeRedirect) q.set("redirect", safeRedirect);
+      router.replace(`/auth?${q}`);
+      setLoading(false);
+      return;
+    }
+
     if (user) {
       const { error: pe } = await ensurePatientProfile(user, {
         full_name: typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name : undefined,
@@ -518,25 +535,32 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     setForgotOpen(false);
   };
 
-  const title = isSignup
-    ? signupStep === "form"
-      ? "Créer un compte"
-      : signupStep === "otp"
-        ? signupOtpChannel === "email"
-          ? "Code e-mail"
-          : "Code SMS"
-        : "Choisissez un mot de passe"
-    : "Connexion";
+  const isProvisionedPharmacistStep =
+    isSignup && signupStep === "password" && searchParams.get("provisioned") === "1";
 
-  const subtitle = isSignup
-    ? signupStep === "form"
-      ? "Téléphone obligatoire. E-mail facultatif : si vous le renseignez, le code part par e-mail (recommandé si les SMS sont bloqués, ex. Inwi). Sinon, vérifiez SMS ou WhatsApp."
-      : signupStep === "otp"
-        ? signupOtpChannel === "email"
-          ? "Saisissez le code à 6 chiffres reçu par e-mail (pas le lien)."
-          : "Saisissez le code à 6 chiffres reçu par SMS ou WhatsApp."
-        : "Définissez le mot de passe de votre compte. Vous vous connecterez ensuite avec votre numéro ou votre e-mail."
-    : "Identifiant (téléphone ou e-mail) et mot de passe.";
+  const title = isProvisionedPharmacistStep
+    ? "Première connexion officine"
+    : isSignup
+      ? signupStep === "form"
+        ? "Créer un compte"
+        : signupStep === "otp"
+          ? signupOtpChannel === "email"
+            ? "Code e-mail"
+            : "Code SMS"
+          : "Choisissez un mot de passe"
+      : "Connexion";
+
+  const subtitle = isProvisionedPharmacistStep
+    ? "Votre compte a été créé par l’administrateur. Choisissez un mot de passe personnel : vous vous connecterez ensuite avec votre numéro et ce mot de passe."
+    : isSignup
+      ? signupStep === "form"
+        ? "Téléphone obligatoire. E-mail facultatif : si vous le renseignez, le code part par e-mail (recommandé si les SMS sont bloqués, ex. Inwi). Sinon, vérifiez SMS ou WhatsApp."
+        : signupStep === "otp"
+          ? signupOtpChannel === "email"
+            ? "Saisissez le code à 6 chiffres reçu par e-mail (pas le lien)."
+            : "Saisissez le code à 6 chiffres reçu par SMS ou WhatsApp."
+          : "Définissez le mot de passe de votre compte. Vous vous connecterez ensuite avec votre numéro ou votre e-mail."
+      : "Identifiant (téléphone ou e-mail) et mot de passe.";
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-10 sm:px-6">
@@ -769,6 +793,8 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
                   <Loader2 className="size-4 animate-spin" aria-hidden />
                   Patientez…
                 </>
+              ) : isProvisionedPharmacistStep ? (
+                "Enregistrer mon mot de passe"
               ) : (
                 "Créer mon compte et continuer"
               )}
@@ -776,6 +802,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           </form>
         )}
 
+        {!(isSignup && signupStep === "password" && searchParams.get("provisioned") === "1") ? (
         <button
           type="button"
           onClick={() => {
@@ -795,6 +822,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
         >
           {isSignup ? "Déjà un compte ? Connexion" : "Pas de compte ? Créer un compte"}
         </button>
+        ) : null}
 
         {message ? (
           <p
