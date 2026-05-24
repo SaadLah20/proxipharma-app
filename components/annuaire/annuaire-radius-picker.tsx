@@ -42,6 +42,13 @@ function RadiusModeLabel({
 
 type MenuPos = { top: number; left: number };
 
+function computeMenuPos(anchor: HTMLElement | null): MenuPos {
+  if (!anchor) return { top: 0, left: 8 };
+  const rect = anchor.getBoundingClientRect();
+  const left = Math.max(8, Math.min(rect.right - MENU_MIN_W, window.innerWidth - MENU_MIN_W - 8));
+  return { top: rect.bottom + 6, left };
+}
+
 export function AnnuaireRadiusPicker({
   mode,
   loading,
@@ -57,27 +64,19 @@ export function AnnuaireRadiusPicker({
   const [menuPos, setMenuPos] = useState<MenuPos | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const updateMenuPos = useCallback(() => {
-    const el = rootRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const left = Math.max(8, Math.min(rect.right - MENU_MIN_W, window.innerWidth - MENU_MIN_W - 8));
-    setMenuPos({ top: rect.bottom + 6, left });
+  const syncMenuPos = useCallback(() => {
+    setMenuPos(computeMenuPos(rootRef.current));
   }, []);
 
   useLayoutEffect(() => {
-    if (!open) {
-      setMenuPos(null);
-      return;
-    }
-    updateMenuPos();
-    window.addEventListener("resize", updateMenuPos);
-    window.addEventListener("scroll", updateMenuPos, true);
+    if (!open) return;
+    window.addEventListener("resize", syncMenuPos);
+    window.addEventListener("scroll", syncMenuPos, true);
     return () => {
-      window.removeEventListener("resize", updateMenuPos);
-      window.removeEventListener("scroll", updateMenuPos, true);
+      window.removeEventListener("resize", syncMenuPos);
+      window.removeEventListener("scroll", syncMenuPos, true);
     };
-  }, [open, updateMenuPos]);
+  }, [open, syncMenuPos]);
 
   useEffect(() => {
     if (!open) return;
@@ -106,7 +105,12 @@ export function AnnuaireRadiusPicker({
 
   const toggleOpen = () => {
     if (loading) return;
-    setOpen((v) => !v);
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setMenuPos(computeMenuPos(rootRef.current));
+    setOpen(true);
   };
 
   const menu =

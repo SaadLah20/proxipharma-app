@@ -2,7 +2,7 @@
 
 import type { MouseEvent } from "react";
 import Link from "next/link";
-import { ArrowRight, MapPin, MessageCircle, Phone, Share2 } from "lucide-react";
+import { ArrowRight, MapPin, MessageCircle, Phone, Share2, Star } from "lucide-react";
 import { PharmacyNavigationPicker } from "@/components/pharmacy/pharmacy-navigation-picker";
 import { hasPharmacyNavigation } from "@/lib/pharmacy-navigation";
 import { clsx } from "clsx";
@@ -24,6 +24,11 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
   const publicRef = pharmacy.public_ref?.trim() ?? "";
 
   const statusOpen = pharmacy.open.status === "open";
+  const ratingCount = pharmacy.rating_count ?? 0;
+  const ratingLabel =
+    ratingCount > 0
+      ? `${Number(pharmacy.rating_avg ?? 0).toFixed(1)} (${ratingCount} avis)`
+      : "Pas encore d\u2019avis";
 
   const handleShare = async (e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -69,6 +74,10 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
           )}
         </div>
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+        <span className="absolute right-2 top-2 inline-flex max-w-[calc(100%-1rem)] items-center gap-0.5 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+          <Star className="size-3 shrink-0 fill-amber-300 text-amber-300" aria-hidden />
+          <span className="truncate">{ratingLabel}</span>
+        </span>
         <div className="absolute bottom-2 left-2 right-2 flex flex-wrap items-end justify-between gap-2">
           <div className="flex flex-wrap gap-1">
             <span

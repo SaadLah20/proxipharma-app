@@ -44,7 +44,7 @@ export function AnnuairePage() {
     const { data, error } = await supabase
       .from("pharmacies")
       .select(
-        "id,nom,ville,adresse,telephone,whatsapp,statut,public_ref,cover_image_path,logo_url,latitude,longitude,maps_url"
+        "id,nom,ville,adresse,telephone,whatsapp,statut,public_ref,cover_image_path,logo_url,latitude,longitude,maps_url,rating_avg,rating_count"
       )
       .order("nom", { ascending: true });
 
