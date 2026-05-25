@@ -278,29 +278,35 @@ function RespondedVariantTabs({
   activeTab,
   onTab,
 }: {
-  tabs: { id: string; label: string }[];
+  tabs: { id: string; label: string; retainable: boolean }[];
   activeTab: string;
   onTab: (id: string) => void;
 }) {
   return (
     <div
-      className="mb-1 flex gap-0.5 overflow-x-auto overscroll-x-contain border-b border-sky-200/60 [-webkit-overflow-scrolling:touch]"
+      className="mb-1.5 flex gap-0.5 overflow-x-auto overscroll-x-contain border-b border-sky-200/60 pb-0.5 [-webkit-overflow-scrolling:touch]"
       role="tablist"
       aria-label="Options pour ce produit"
     >
       {tabs.map((tab) => {
         const active = tab.id === activeTab;
+        const dim = !tab.retainable;
         return (
           <button
             key={tab.id}
             type="button"
             role="tab"
             aria-selected={active}
+            title={dim ? "Non retenable — rupture ou indisponible" : undefined}
             className={cn(
               "shrink-0 rounded-t border-x border-t px-1.5 py-0.5 text-[9px] font-bold leading-tight transition",
               active
-                ? "border-sky-400 border-b-white bg-white text-sky-950"
-                : "border-transparent bg-transparent text-sky-800/85 hover:bg-sky-50/90"
+                ? dim
+                  ? "border-slate-300 border-b-white bg-slate-50 text-slate-500"
+                  : "border-sky-400 border-b-white bg-white text-sky-950"
+                : dim
+                  ? "border-transparent bg-transparent text-slate-400 line-through decoration-slate-400/80"
+                  : "border-transparent bg-transparent text-sky-800/85 hover:bg-sky-50/90"
             )}
             onClick={() => onTab(tab.id)}
           >
@@ -333,8 +339,9 @@ function RespondedLineBlock({
   requestType: string;
   isProposedLine: boolean;
 }) {
-  const disabledRetain = variant.cap < 1;
-  const showQty = retained && variant.cap > 0;
+  const unavailable = variant.cap < 1;
+  const notRetained = !retained && !unavailable;
+  const showQty = retained && !unavailable;
   const total =
     variant.unitPrice != null && Number.isFinite(Number(variant.unitPrice))
       ? selQty * Number(variant.unitPrice)
@@ -364,56 +371,82 @@ function RespondedLineBlock({
   return (
     <div
       className={cn(
-        "w-full min-w-0 rounded-lg border bg-white transition",
-        retained ? "border-sky-400/90 ring-1 ring-sky-200/60" : "border-slate-200/80"
+        "w-full min-w-0 rounded-lg border transition",
+        unavailable &&
+          "border-slate-200/90 bg-slate-100/95 opacity-50 grayscale saturate-50",
+        notRetained && "border-slate-200/75 bg-slate-50/70",
+        retained && !unavailable && "border-sky-400/90 bg-white ring-1 ring-sky-200/60",
+        !retained && !unavailable && "border-slate-200/80 bg-white"
       )}
+      title={unavailable ? "Non retenable — rupture ou indisponible" : undefined}
     >
-      <div className="flex items-stretch gap-1.5 p-1.5">
+      <div className="flex items-stretch gap-2 p-2">
         <div className="relative shrink-0 self-center">
-          <div className={PRODUCT_REQUEST_LINE_THUMB}>{thumbInner}</div>
+          <div className={cn(PRODUCT_REQUEST_LINE_THUMB, unavailable && "opacity-80")}>{thumbInner}</div>
           <label
             className={cn(
-              "absolute -left-1 -top-1 z-10 flex size-5 cursor-pointer items-center justify-center rounded-md bg-white shadow ring-1 ring-sky-300/90",
-              disabledRetain && "cursor-not-allowed opacity-45"
+              "absolute -left-1 -top-1 z-10 flex size-5 items-center justify-center rounded-md bg-white shadow ring-1 ring-sky-300/90",
+              unavailable ? "cursor-not-allowed opacity-40" : "cursor-pointer"
             )}
           >
             <input
               type="checkbox"
-              className="size-3.5 shrink-0 rounded border-2 border-sky-500 text-sky-600 accent-sky-600"
+              className="size-3.5 shrink-0 rounded border-2 border-sky-500 text-sky-600 accent-sky-600 disabled:border-slate-300"
               checked={retained}
-              disabled={disabledRetain}
+              disabled={unavailable}
               onChange={(e) => onToggleRetain(e.target.checked)}
-              aria-label={retained ? "Ne plus retenir cette ligne" : "Retenir cette ligne"}
+              aria-label={
+                unavailable
+                  ? "Non retenable — rupture ou indisponible"
+                  : retained
+                    ? "Ne plus retenir cette ligne"
+                    : "Retenir cette ligne"
+              }
             />
           </label>
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
-          <div className="flex min-w-0 items-center gap-1 leading-none">
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 py-0.5">
+          <div className="flex min-w-0 items-center gap-1 leading-snug">
             <span
               className={cn(
                 "shrink-0 rounded px-1 py-px text-[7px] font-bold uppercase tracking-wide leading-tight",
-                badgeToneClass(variant.badgeLabel)
+                badgeToneClass(variant.badgeLabel),
+                (unavailable || notRetained) && "opacity-70"
               )}
             >
               {variant.badgeLabel}
             </span>
-            <p className="min-w-0 flex-1 truncate text-[12px] font-semibold text-foreground" title={variant.productName}>
+            <p
+              className={cn(
+                "min-w-0 flex-1 truncate text-[12px] font-semibold leading-snug",
+                unavailable ? "text-muted-foreground" : "text-foreground",
+                notRetained && "text-muted-foreground line-through decoration-slate-400/90"
+              )}
+              title={variant.productName}
+            >
               {variant.productName}
             </p>
           </div>
 
-          <RespondedLineQtyMeta
-            showRequested={variant.showRequested}
-            requestedQty={variant.requestedQty}
-            stockQty={variant.stockQty}
-            availabilityStatus={variant.availabilityStatus}
-            expectedDate={variant.expectedDate}
-            requestType={requestType}
-            isProposedLine={isProposedLine}
-          />
+          <div className={cn((unavailable || notRetained) && "opacity-80")}>
+            <RespondedLineQtyMeta
+              showRequested={variant.showRequested}
+              requestedQty={variant.requestedQty}
+              stockQty={variant.stockQty}
+              availabilityStatus={variant.availabilityStatus}
+              expectedDate={variant.expectedDate}
+              requestType={requestType}
+              isProposedLine={isProposedLine}
+            />
+          </div>
 
-          <div className="flex min-w-0 items-center justify-between gap-1 leading-none">
+          <div
+            className={cn(
+              "flex min-w-0 items-center justify-between gap-1.5 leading-none",
+              (unavailable || notRetained) && "opacity-75"
+            )}
+          >
             <p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0 text-[10px]">
               <span className="whitespace-nowrap text-muted-foreground">
                 PU{" "}
@@ -468,12 +501,6 @@ function RespondedLineBlock({
           </div>
         </div>
       </div>
-
-      {disabledRetain ? (
-        <p className="border-t border-amber-200/50 bg-amber-50/70 px-1.5 py-1 text-[9px] leading-snug text-amber-950">
-          Pas de stock — ne pas retenir ou contacter l&apos;officine.
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -512,11 +539,6 @@ export function RespondedPatientLineChooser({
     requestType === "prescription" &&
     isPrescriptionAdditionalProposedLine(requestType, row, supplyAmendmentBundles);
 
-  const tabs = useMemo(() => {
-    const base = [{ id: "principal", label: "Ta demande" }];
-    altList.forEach((_, i) => base.push({ id: altList[i]!.id, label: `Alternative ${i + 1}` }));
-    return base;
-  }, [altList]);
 
   const initialTab =
     selState.branch !== null && selState.branch !== "principal"
@@ -649,7 +671,15 @@ export function RespondedPatientLineChooser({
       {isProposedLine && proposedReason ? (
         <p className="mb-1.5 line-clamp-2 text-[10px] font-medium leading-snug text-violet-950">{proposedReason}</p>
       ) : null}
-      <RespondedVariantTabs tabs={tabs} activeTab={activeTab} onTab={onTab} />
+      <RespondedVariantTabs
+        tabs={variants.map((v) => ({
+          id: v.tabId,
+          label: v.tabLabel,
+          retainable: v.cap > 0,
+        }))}
+        activeTab={activeTab}
+        onTab={onTab}
+      />
       <RespondedLineBlock
         variant={activeVariant}
         retained={retainedForTab}
