@@ -135,15 +135,15 @@ export function ProductRequestLinePanel({
       <div className={cn("shrink-0 self-center", THUMB, thumbClassName)}>{thumb}</div>
       <div
         className={cn(
-          "flex min-w-0 flex-1 basis-0 flex-col justify-center gap-1 overflow-hidden py-px",
+          "flex min-w-0 flex-1 basis-0 flex-col justify-between gap-0 overflow-hidden",
           contentMinHeight ?? "min-h-14"
         )}
       >
-        <div className="flex w-full min-w-0 items-start gap-1.5">
+        <div className="flex w-full min-w-0 items-start gap-1.5 pt-1">
           <div className="min-w-0 flex-1 overflow-hidden">{title}</div>
           {topRight ? <div className="shrink-0">{topRight}</div> : null}
         </div>
-        <div className="flex w-full min-w-0 items-center gap-2 sm:gap-3">
+        <div className="flex w-full min-w-0 items-center gap-2 pb-0.5 sm:gap-3">
           <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
           <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
             <ProductRequestLineQty
