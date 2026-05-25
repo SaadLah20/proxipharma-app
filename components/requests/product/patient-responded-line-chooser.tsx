@@ -2,17 +2,12 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { MessageCircle, Minus, Package, Plus, X } from "lucide-react";
+import { Minus, Package, Plus, X } from "lucide-react";
 import {
   PRODUCT_REQUEST_LINE_THUMB,
   PriceDhInline,
   ProductRequestLineMessageButton,
 } from "@/components/pharmacy/patient-demande-produits-ui";
-import {
-  lineConversationStripButtonClass,
-  lineConversationStripLabel,
-  lineConversationVisual,
-} from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternative-qty-rules";
@@ -167,7 +162,6 @@ function RespondedLineNotesButton({
   const titleId = useId();
   const c = client.trim();
   const p = pharmacist.trim();
-  const visual = lineConversationVisual(c, p);
   const hasNotes = Boolean(c || p);
 
   useEffect(() => {
@@ -561,17 +555,14 @@ export function RespondedPatientLineChooser({
     isPrescriptionAdditionalProposedLine(requestType, row, supplyAmendmentBundles);
 
 
-  const initialTab =
-    selState.branch !== null && selState.branch !== "principal"
-      ? selState.branch
-      : "principal";
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [browseTab, setBrowseTab] = useState("principal");
 
-  useEffect(() => {
-    if (selState.branch === null) return;
-    if (selState.branch === "principal") setActiveTab("principal");
-    else if (altList.some((a) => a.id === selState.branch)) setActiveTab(selState.branch);
-  }, [selState.branch, altList]);
+  const activeTab =
+    selState.branch === null
+      ? browseTab
+      : selState.branch === "principal"
+        ? "principal"
+        : selState.branch;
 
   const buildPrincipalVariant = (): VariantData => {
     const stockQty =
@@ -656,7 +647,7 @@ export function RespondedPatientLineChooser({
   const retainedForTab = selState.branch === activeBranch;
 
   const onTab = (tabId: string) => {
-    setActiveTab(tabId);
+    setBrowseTab(tabId);
     if (selState.branch !== null) {
       const branch = branchFromTab(tabId);
       const cap = maxQtyForBranch(row, branch, altList);

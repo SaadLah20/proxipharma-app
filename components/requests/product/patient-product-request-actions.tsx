@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   ChevronDown,
@@ -11,14 +10,11 @@ import {
   Layers,
   Calendar,
   MessageCircle,
-  Minus,
   Package,
   Pencil,
-  Plus,
   LayoutGrid,
   Search,
   ShoppingCart,
-  Trash2,
   X,
 } from "lucide-react";
 import { clsx } from "clsx";
@@ -45,7 +41,6 @@ import {
   validatedBranchPhotoPath,
   validatedProductLabel,
   patientDisplayQtyForLine,
-  validatedQtyForPatientLine,
 } from "@/lib/patient-confirmed-line-buckets";
 import { formatPriceDh } from "@/lib/product-price";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
@@ -58,7 +53,6 @@ import {
   PatientPharmacyQuickContact,
   type PatientPharmacyContactInfo,
 } from "@/components/requests/product/patient-pharmacy-quick-contact";
-import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
   clearPatientDemandeCatalogueReturnEdit,
@@ -95,14 +89,12 @@ import {
 } from "@/lib/prescription-patient-labels";
 import {
   isPrescriptionAdditionalProposedLine,
-  isPrescriptionOrdonnancePrincipalLine,
   PRESCRIPTION_ADDITIONAL_PROPOSED_REASON,
 } from "@/lib/prescription-pharmacist-lines";
 import { inferArchiveSnapshotStatus } from "@/lib/request-archive-snapshot-status";
 import { patientLineProposedBadgeLabel } from "@/lib/patient-line-proposed-badge";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 import { PrescriptionScanCollapsible } from "@/components/requests/prescription/prescription-scan-collapsible";
-import { PRESCRIPTION_ORDONNANCE_SOURCING_LABEL } from "@/lib/prescription-pharmacist-lines";
 import { getRequestKindWorkflowCopy } from "@/lib/request-kinds/workflow-copy";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindAccent } from "@/lib/request-kinds/types";
@@ -289,7 +281,6 @@ function PatientValidatedCompactLineCard({
   requestType?: string;
   supplyAmendmentBundles?: { amendments: unknown }[];
 }) {
-  const prod = one(row.products);
   const altList = normalizeAlternatives(row.request_item_alternatives);
   const chosenAlt = altList.find((a) => a.id === row.patient_chosen_alternative_id);
   const validatedName = validatedProductLabel(row);
