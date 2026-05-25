@@ -46,7 +46,7 @@ export function PatientProductRequestDossierHeader({
     <>
       <header
         className={cn(
-          "overflow-hidden rounded-xl border-2 shadow-md",
+          "w-full min-w-0 max-w-full overflow-hidden rounded-xl border-2 shadow-md",
           "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
         )}
       >

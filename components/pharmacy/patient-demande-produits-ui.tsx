@@ -143,9 +143,11 @@ export function ProductRequestLinePanel({
           <div className="min-w-0 flex-1 overflow-hidden">{title}</div>
           {topRight ? <div className="shrink-0">{topRight}</div> : null}
         </div>
-        <div className="-mt-1.5 flex w-full min-w-0 items-center gap-2 pb-0.5 sm:gap-3">
-          <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
-          <div className="ml-3 flex shrink-0 items-center gap-2 sm:ml-4 sm:gap-3">
+        <div className="-mt-1.5 flex w-full min-w-0 items-center justify-between gap-2 overflow-hidden pb-0.5">
+          <div className="min-w-0 max-w-[46%] shrink">
+            <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <ProductRequestLineQty
               qty={qty}
               onDecQty={onDecQty}
@@ -156,7 +158,7 @@ export function ProductRequestLinePanel({
             {bottomRight ? (
               <>
                 <span className="h-7 w-px shrink-0 bg-border/50" aria-hidden />
-                {bottomRight}
+                <div className="shrink-0">{bottomRight}</div>
               </>
             ) : null}
           </div>

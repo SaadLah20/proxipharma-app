@@ -837,9 +837,9 @@ function PatientSentLineNotesModalFr({
     <>
       <button
         type="button"
-        className={clsx(
+        className={cn(
           lineConversationStripButtonClass(visual, { open, disabled: false }),
-          "w-full max-w-full justify-start"
+          "inline-flex max-w-[5.25rem] shrink-0 justify-center px-2 py-1 text-[10px]"
         )}
         onClick={() => setOpen(true)}
         aria-label={`Notes sur ce produit · ${lineConversationStripLabel(visual)}`}
@@ -2809,7 +2809,7 @@ export function PatientProductRequestActions({
   return (
     <section
       className={clsx(
-        "touch-pan-y rounded-xl border-2 p-2.5 sm:p-3",
+        "touch-pan-y w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border-2 p-2.5 sm:p-3",
         isConsultation ? "mt-0" : "mt-2",
         isConsultation
           ? "border-violet-200/80 bg-gradient-to-b from-violet-50/40 via-white to-fuchsia-50/15"
@@ -3136,7 +3136,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showProductResubmit ? (
-        <section className="mt-2 space-y-2">
+        <section className="mt-2 w-full min-w-0 max-w-full space-y-2">
           <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
             {workflowCopy.patientProductsSectionTitle}
           </h3>
@@ -3230,7 +3230,7 @@ export function PatientProductRequestActions({
           ) : null}
         </div>
           ) : null}
-          <ul className="divide-y divide-border/60">
+          <ul className="w-full min-w-0 max-w-full divide-y divide-border/60">
             {lines.map((l, idx) => (
               <PatientProductRequestCompactLine
                 key={`${l.product_id}-${idx}`}
@@ -3272,13 +3272,11 @@ export function PatientProductRequestActions({
                 notesSlot={
                   !editMode &&
                   (l.client_comment?.trim() || l.pharmacist_comment?.trim()) ? (
-                    <div className="ml-auto max-w-[45%]">
-                      <PatientSentLineNotesModalFr
-                        productName={l.name}
-                        client={l.client_comment ?? ""}
-                        pharmacist={l.pharmacist_comment ?? ""}
-                      />
-                    </div>
+                    <PatientSentLineNotesModalFr
+                      productName={l.name}
+                      client={l.client_comment ?? ""}
+                      pharmacist={l.pharmacist_comment ?? ""}
+                    />
                   ) : null
                 }
               />
