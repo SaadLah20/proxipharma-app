@@ -145,7 +145,7 @@ export function ProductRequestLinePanel({
         </div>
         <div className="-mt-1.5 flex w-full min-w-0 items-center gap-2 pb-0.5 sm:gap-3">
           <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
-          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="ml-3 flex shrink-0 items-center gap-2 sm:ml-4 sm:gap-3">
             <ProductRequestLineQty
               qty={qty}
               onDecQty={onDecQty}
