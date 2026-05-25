@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageSquare, Minus, Package, Plus, Trash2 } from "lucide-react";
-import { PatientLineCommentModal } from "@/components/pharmacy/patient-demande-produits-ui";
+import { PatientLineCommentModal, ProductRequestLineBodyGrid } from "@/components/pharmacy/patient-demande-produits-ui";
 import { formatPriceDh } from "@/lib/product-price";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
@@ -46,92 +46,92 @@ export function PatientProductRequestCompactLine({
 
   return (
     <>
-      <li className="flex items-center gap-2 border-b border-border/50 py-2 last:border-b-0">
-        <div className={cn("relative overflow-hidden rounded-lg border border-border/80 bg-card", THUMB)}>
-          {editMode && onRemove ? (
-            <button
-              type="button"
-              aria-label="Retirer"
-              className="absolute right-0.5 top-0.5 z-10 rounded-md bg-background/95 p-0.5 text-destructive shadow-sm hover:bg-destructive/10"
-              onClick={onRemove}
-            >
-              <Trash2 size={13} />
-            </button>
-          ) : null}
-          {line.photo_url ? (
-            <button
-              type="button"
-              className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
-              aria-label={`Agrandir la photo · ${line.name}`}
-              onClick={onPhotoPreview}
-            >
-              <img src={line.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
-            </button>
-          ) : (
-            <span className="flex h-full w-full items-center justify-center">
-              <Package className="size-5 text-muted-foreground" aria-hidden />
-            </span>
+      <li className="border-b border-border/50 py-2 last:border-b-0">
+        <div
+          className={cn(
+            "grid min-h-14 min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2 gap-y-0.5",
+            line.line_source === "pharmacist_proposed" ? "grid-rows-[auto_1fr]" : "grid-rows-[auto_1fr] h-14"
           )}
-        </div>
-        <div className="flex min-h-14 min-w-0 flex-1 flex-col justify-between gap-0.5 py-0.5">
-          <p className="truncate text-[13px] font-semibold leading-tight text-foreground" title={line.name}>
-            {line.name}
-          </p>
-          {line.line_source === "pharmacist_proposed" ? (
-            <p className="truncate text-[9px] font-medium text-violet-900" title={line.pharmacist_proposal_reason ?? undefined}>
-              Proposé officine
-              {line.pharmacist_proposal_reason ? ` — ${line.pharmacist_proposal_reason}` : ""}
-            </p>
-          ) : null}
-          <div className="flex flex-nowrap items-baseline justify-between gap-2 text-[11px]">
-            <span className="inline-flex min-w-0 items-baseline gap-0.5 text-muted-foreground">
-              <span className="shrink-0 font-semibold">PU</span>
-              <strong className="font-semibold text-foreground">{formatPriceDh(unitPrice)}</strong>
-            </span>
-            <span className={cn("inline-flex shrink-0 items-baseline gap-0.5 font-bold", t.price)}>
-              <span className="font-semibold text-sky-600/80">Tot</span>
-              {unitPrice != null ? formatPriceDh(unitPrice * line.qty) : "—"}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-medium text-muted-foreground">Qté</span>
-            <button
-              type="button"
-              aria-label="Diminuer"
-              disabled={!editMode || line.qty <= 1}
-              className="rounded-md border border-border/80 bg-card p-0.5 shadow-sm hover:bg-muted/40 disabled:opacity-40"
-              onClick={() => onSetQty(line.qty - 1)}
-            >
-              <Minus size={14} />
-            </button>
-            <span className="w-6 text-center text-xs font-semibold tabular-nums">{line.qty}</span>
-            <button
-              type="button"
-              aria-label="Augmenter"
-              disabled={!editMode || line.qty >= 10}
-              className="rounded-md border border-border/80 bg-card p-0.5 shadow-sm hover:bg-muted/40 disabled:opacity-40"
-              onClick={() => onSetQty(line.qty + 1)}
-            >
-              <Plus size={14} />
-            </button>
-            {editMode && onSaveComment ? (
+        >
+          <div
+            className={cn(
+              "row-span-2 shrink-0 self-stretch overflow-hidden rounded-lg border border-border/80 bg-card",
+              THUMB,
+              line.line_source === "pharmacist_proposed" ? "h-14 w-14" : "size-14"
+            )}
+          >
+            {line.photo_url ? (
               <button
                 type="button"
-                onClick={() => {
-                  setCommentDraft(line.client_comment ?? "");
-                  setCommentOpen(true);
-                }}
-                className={cn(
-                  "ml-auto inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold transition",
-                  hasComment ? t.noteActive : cn("border-border/80 bg-card text-muted-foreground", t.noteIdle)
-                )}
+                className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
+                aria-label={`Agrandir la photo · ${line.name}`}
+                onClick={onPhotoPreview}
               >
-                <MessageSquare className="size-3 shrink-0" aria-hidden />
-                {hasComment ? "Note" : "Message"}
+                <img src={line.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
               </button>
             ) : (
-              notesSlot
+              <span className="flex h-full w-full items-center justify-center">
+                <Package className="size-5 text-muted-foreground" aria-hidden />
+              </span>
             )}
+          </div>
+          <div className="col-start-2 row-start-1 flex min-w-0 items-start gap-1.5 leading-none">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[11px] font-semibold text-foreground" title={line.name}>
+                {line.name}
+              </p>
+              {line.line_source === "pharmacist_proposed" ? (
+                <p
+                  className="truncate text-[9px] font-medium text-violet-900"
+                  title={line.pharmacist_proposal_reason ?? undefined}
+                >
+                  Proposé officine
+                  {line.pharmacist_proposal_reason ? ` — ${line.pharmacist_proposal_reason}` : ""}
+                </p>
+              ) : null}
+            </div>
+            {editMode && onRemove ? (
+              <button
+                type="button"
+                aria-label="Retirer"
+                className="shrink-0 rounded p-0.5 text-destructive transition hover:bg-destructive/10"
+                onClick={onRemove}
+              >
+                <Trash2 size={14} />
+              </button>
+            ) : null}
+          </div>
+          <div className="col-start-2 row-start-2 flex min-h-0 min-w-0 items-start overflow-hidden pt-px">
+            <ProductRequestLineBodyGrid
+              className="!h-auto min-h-0 w-full"
+              unitPrice={unitPrice}
+              qty={line.qty}
+              totalValue={unitPrice != null ? unitPrice * line.qty : null}
+              onDecQty={() => onSetQty(line.qty - 1)}
+              onIncQty={() => onSetQty(line.qty + 1)}
+              qtyDisabledDec={!editMode || line.qty <= 1}
+              qtyDisabledInc={!editMode || line.qty >= 10}
+              messageButton={
+                editMode && onSaveComment ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCommentDraft(line.client_comment ?? "");
+                      setCommentOpen(true);
+                    }}
+                    className={cn(
+                      "inline-flex max-w-[4.25rem] items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] font-semibold leading-none whitespace-nowrap transition",
+                      hasComment ? t.noteActive : cn("border-border/80 bg-card text-muted-foreground", t.noteIdle)
+                    )}
+                  >
+                    <MessageSquare className="size-3 shrink-0" aria-hidden />
+                    <span className="truncate">{hasComment ? "Note" : "Message"}</span>
+                  </button>
+                ) : (
+                  notesSlot
+                )
+              }
+            />
           </div>
         </div>
       </li>
