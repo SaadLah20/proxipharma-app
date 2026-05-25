@@ -267,6 +267,42 @@ export function PriceDhInline({
   );
 }
 
+/** Barre de recherche seule (page Explorer catalogue). */
+export function ProductRequestExplorerSearchBar({
+  query,
+  onQueryChange,
+  fieldFocus,
+  placeholder = "Filtrer par nom ou laboratoire…",
+}: {
+  query: string;
+  onQueryChange: (v: string) => void;
+  fieldFocus: string;
+  placeholder?: string;
+}) {
+  return (
+    <div className={cn("overflow-hidden rounded-2xl border bg-card shadow-md", t.shell)}>
+      <div className="relative px-3 py-3 sm:px-4">
+        <Search
+          className={cn("pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 sm:left-4", t.searchIcon)}
+          aria-hidden
+        />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          placeholder={placeholder}
+          aria-label={placeholder}
+          className={cn(
+            "h-11 w-full rounded-xl border-2 bg-background py-2 pl-10 pr-3 text-base leading-normal shadow-sm placeholder:text-muted-foreground",
+            t.searchInput,
+            fieldFocus
+          )}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function ProductRequestHeaderSearch({
   pharmacyLabel,
   pharmacyId,

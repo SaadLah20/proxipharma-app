@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Check, LayoutGrid, Package, Search } from "lucide-react";
+import { Check, Package } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
@@ -14,34 +13,20 @@ import {
   type PatientDemandeProduitsCatalogProduct,
   writePatientDemandeProduitsDraft,
 } from "@/lib/patient-demande-produits-draft";
-import { PharmacyPublicBackLink, pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { PharmacyPublicBackLink } from "@/components/pharmacy/pharmacy-public-chrome";
+import {
+  PriceDhInline,
+  ProductRequestExplorerSearchBar,
+} from "@/components/pharmacy/patient-demande-produits-ui";
+import { Button } from "@/components/ui/button";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { cn } from "@/lib/utils";
+import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 
 const CATALOG_FETCH_LIMIT = 500;
-
-function PriceDhInline({
-  value,
-  amountClassName,
-}: {
-  value: number | string | null | undefined;
-  amountClassName?: string;
-}) {
-  if (value == null || value === "") return <span className={amountClassName}>—</span>;
-  const n = typeof value === "string" ? Number(value) : value;
-  if (Number.isNaN(n) || n < 0) return <span className={amountClassName}>—</span>;
-  return (
-    <span className="inline-flex items-baseline whitespace-nowrap">
-      <span className={cn("tabular-nums", amountClassName)}>{n.toFixed(2)}</span>
-      <span className="translate-y-[0.02em] text-[0.62em] font-semibold uppercase leading-none tracking-tight text-slate-500">
-        {"\u00A0"}DH
-      </span>
-    </span>
-  );
-}
+const THUMB = "box-border size-14 shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
 
 export default function DemandeProduitsCataloguePage() {
   const params = useParams();
@@ -61,8 +46,7 @@ export default function DemandeProduitsCataloguePage() {
   const [adding, setAdding] = useState(false);
   const { resolve: resolveCatalogPrice } = usePharmacyPricingForPatient(pharmacyId);
 
-  const fieldFocus =
-    "outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
+  const fieldFocus = t.focus;
 
   const backHref =
     returnToParam && returnToParam.startsWith("/")
@@ -150,6 +134,13 @@ export default function DemandeProduitsCataloguePage() {
 
   const selectedCount = selectedIds.size;
 
+  const addButtonLabel = (() => {
+    if (adding) return "Ajout…";
+    if (selectedCount === 0) return "Sélectionnez des produits";
+    const suffix = editRequestId ? " au dossier" : " à la demande";
+    return `Ajouter ${selectedCount} produit${selectedCount > 1 ? "s" : ""}${suffix}`;
+  })();
+
   const addSelectedAndReturn = () => {
     if (!pharmacyId || selectedCount === 0) return;
     setAdding(true);
@@ -176,91 +167,57 @@ export default function DemandeProduitsCataloguePage() {
   }
 
   return (
-    <main className="min-h-screen touch-pan-y bg-background p-4 pb-36 text-foreground antialiased sm:p-5 sm:pb-40">
+    <main className="min-h-screen touch-pan-y bg-background p-4 pb-24 text-foreground antialiased sm:p-5 sm:pb-28">
       <div className="mx-auto max-w-lg space-y-3">
-        <PharmacyPublicBackLink href={backHref}>{backLabel}</PharmacyPublicBackLink>
+        <PharmacyPublicBackLink href={backHref} className={t.backLink}>
+          {backLabel}
+        </PharmacyPublicBackLink>
 
-        <section className={cn(pharmacyPublicCard, "p-3 sm:p-4")}>
-          <div className="flex items-center gap-2">
-            <LayoutGrid className="size-5 shrink-0 text-primary" aria-hidden />
-            <h1 className="text-base font-bold sm:text-lg">Tous les produits</h1>
-          </div>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Cochez les produits à ajouter. Ceux déjà dans votre demande ne sont pas sélectionnables.
-          </p>
-        </section>
+        <ProductRequestExplorerSearchBar
+          query={filterQuery}
+          onQueryChange={setFilterQuery}
+          fieldFocus={fieldFocus}
+        />
 
-        <section className={cn(pharmacyPublicCard, "p-3 sm:p-4")}>
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-primary/70"
-              aria-hidden
-            />
-            <input
-              type="search"
-              value={filterQuery}
-              onChange={(e) => setFilterQuery(e.target.value)}
-              placeholder="Filtrer par nom ou laboratoire…"
-              className={cn(
-                "w-full rounded-lg border border-border/80 bg-background py-3 pl-10 pr-3 text-base leading-normal shadow-sm placeholder:text-muted-foreground",
-                fieldFocus
-              )}
-            />
-          </div>
-        </section>
-
-        <section className={cn(pharmacyPublicCard, "p-3 sm:p-4")}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-slate-600">
-              {loading ? (
-                "Chargement…"
-              ) : (
-                <>
-                  <span className="font-semibold tabular-nums text-slate-900">{filtered.length}</span> produit
-                  {filtered.length > 1 ? "s" : ""}
-                  {filterQuery.trim() ? " (filtrés)" : ""}
-                </>
-              )}
-            </p>
-            {!loading && selectableFiltered.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
+        <section className={cn("overflow-hidden rounded-2xl border bg-card shadow-md", t.shell)}>
+          {!loading && selectableFiltered.length > 0 ? (
+            <div className="flex flex-wrap justify-end gap-3 border-b border-border/50 px-3 py-2 text-xs">
+              <button
+                type="button"
+                className={cn("font-semibold underline-offset-2 hover:underline", t.backLink)}
+                onClick={selectAllVisible}
+              >
+                Tout sélectionner
+              </button>
+              {selectedCount > 0 ? (
                 <button
                   type="button"
-                  className="text-xs font-semibold text-sky-900 underline-offset-2 hover:underline"
-                  onClick={selectAllVisible}
+                  className="font-semibold text-muted-foreground underline-offset-2 hover:underline"
+                  onClick={clearSelection}
                 >
-                  Tout sélectionner
+                  Effacer
                 </button>
-                {selectedCount > 0 ? (
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-slate-600 underline-offset-2 hover:underline"
-                    onClick={clearSelection}
-                  >
-                    Effacer la sélection
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-          {loadError ? <p className="mt-3 text-sm text-destructive">{loadError}</p> : null}
-          {!loading && filtered.length === 0 ? (
-            <p className="mt-3 text-sm text-muted-foreground">Aucun produit trouvé.</p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {loadError ? <p className="px-3 py-3 text-sm text-destructive">{loadError}</p> : null}
+          {loading ? (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">Chargement…</p>
+          ) : filtered.length === 0 ? (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">Aucun produit trouvé.</p>
           ) : (
-            <ul className="mt-3 max-h-[min(52dvh,420px)] space-y-2 overflow-y-auto sm:max-h-[min(58dvh,480px)]">
+            <ul className="max-h-[min(58dvh,520px)] divide-y divide-border/50 overflow-y-auto">
               {filtered.map((p) => {
                 const inCart = cartProductIds.has(p.id);
                 const checked = !inCart && selectedIds.has(p.id);
+                const unitPrice = resolveCatalogPrice(catalogHitToPricingInput(p));
                 return (
                   <li key={p.id}>
                     <div
                       className={cn(
-                        "flex min-h-[5rem] items-center gap-2.5 rounded-xl border px-2 py-2 transition",
-                        inCart
-                          ? "cursor-not-allowed border-slate-200 bg-slate-100/80 opacity-75"
-                          : checked
-                            ? "border-sky-400 bg-sky-50/60 ring-1 ring-sky-200"
-                            : "border-border/70 bg-muted/20 hover:bg-muted/35"
+                        "flex min-h-14 items-stretch gap-2 px-3 py-2 transition",
+                        inCart ? "bg-muted/30 opacity-80" : checked ? "bg-sky-50/50" : "hover:bg-muted/20"
                       )}
                     >
                       <button
@@ -268,12 +225,12 @@ export default function DemandeProduitsCataloguePage() {
                         disabled={inCart}
                         onClick={() => toggleSelect(p.id)}
                         className={cn(
-                          "flex size-10 shrink-0 items-center justify-center rounded-lg border-2 transition",
+                          "flex size-9 shrink-0 self-center items-center justify-center rounded-lg border-2 transition",
                           inCart
-                            ? "border-slate-300 bg-slate-200"
+                            ? "border-border/60 bg-muted"
                             : checked
                               ? "border-sky-600 bg-sky-600 text-white"
-                              : "border-slate-300 bg-white hover:border-sky-400"
+                              : "border-border/80 bg-card hover:border-sky-400"
                         )}
                         aria-label={
                           inCart
@@ -284,14 +241,15 @@ export default function DemandeProduitsCataloguePage() {
                         }
                         aria-pressed={inCart ? undefined : checked}
                       >
-                        {inCart ? null : checked ? <Check className="size-5" strokeWidth={2.5} /> : null}
+                        {inCart ? null : checked ? <Check className="size-4" strokeWidth={2.5} /> : null}
                       </button>
                       <button
                         type="button"
                         disabled={!p.photo_url}
                         className={cn(
-                          "flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card",
-                          p.photo_url ? "cursor-zoom-in hover:ring-2 hover:ring-sky-400/50" : "cursor-default opacity-80"
+                          THUMB,
+                          "self-center",
+                          p.photo_url ? cn("cursor-zoom-in", t.photoRing) : "cursor-default opacity-80"
                         )}
                         aria-label={p.photo_url ? `Agrandir la photo · ${p.name}` : "Pas de photo catalogue"}
                         onClick={(ev) => {
@@ -302,35 +260,29 @@ export default function DemandeProduitsCataloguePage() {
                         {p.photo_url ? (
                           <img src={p.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
                         ) : (
-                          <Package className="size-5 text-muted-foreground" aria-hidden />
+                          <span className="flex h-full w-full items-center justify-center">
+                            <Package className="size-5 text-muted-foreground" aria-hidden />
+                          </span>
                         )}
                       </button>
                       <button
                         type="button"
                         disabled={inCart}
                         onClick={() => toggleSelect(p.id)}
-                        className="flex min-w-0 flex-1 flex-col justify-center text-left disabled:cursor-not-allowed"
+                        className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-0.5 text-left disabled:cursor-not-allowed"
                       >
-                        <p
-                          className="overflow-hidden pr-1 text-[14px] font-semibold leading-tight text-foreground sm:text-[15px]"
-                          style={{
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                          }}
-                        >
+                        <p className="truncate text-[13px] font-semibold leading-tight text-foreground" title={p.name}>
                           {p.name}
                         </p>
-                        <p className="mt-1 text-xs font-semibold text-sky-900 sm:text-sm">
+                        <p className={cn("text-xs font-semibold leading-none", t.price)}>
                           <PriceDhInline
-                            value={resolveCatalogPrice(catalogHitToPricingInput(p))}
-                            amountClassName="font-semibold text-sky-900"
+                            value={unitPrice}
+                            amountClassName={cn("font-semibold", t.price)}
+                            suffixClassName="text-[10px] font-semibold text-sky-600/70"
                           />
                         </p>
                         {inCart ? (
-                          <span className="mt-1 inline-flex w-fit rounded-md bg-slate-200/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
-                            Déjà dans la demande
-                          </span>
+                          <span className="text-[10px] font-medium text-muted-foreground">Déjà dans la demande</span>
                         ) : null}
                       </button>
                     </div>
@@ -342,40 +294,22 @@ export default function DemandeProduitsCataloguePage() {
         </section>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
-        <div className="mx-auto flex max-w-lg flex-col gap-2 px-4 sm:px-5">
-          <p className="text-center text-sm text-slate-600">
-            <span className="font-bold tabular-nums text-slate-950">{selectedCount}</span> sélectionné
-            {selectedCount > 1 ? "s" : ""}
-            {cartProductIds.size > 0 ? (
-              <span className="text-slate-500">
-                {" "}
-                · {cartProductIds.size} déjà dans la demande
-              </span>
-            ) : null}
-          </p>
+      <div
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-30 border-t bg-card/98 py-2.5 shadow-[0_-4px_20px_rgba(15,23,42,0.06)] backdrop-blur supports-[backdrop-filter]:bg-card/95",
+          t.footerBorder
+        )}
+      >
+        <div className="mx-auto max-w-lg px-4 sm:px-5">
           <Button
             type="button"
             size="lg"
             disabled={selectedCount === 0 || adding}
-            className="h-12 w-full text-base font-semibold shadow-md"
+            className={cn("h-12 w-full text-base font-semibold", t.cta)}
             onClick={() => addSelectedAndReturn()}
           >
-            {adding
-              ? "Ajout…"
-              : selectedCount > 0
-                ? `Ajouter ${selectedCount} produit${selectedCount > 1 ? "s" : ""}${editRequestId ? " au dossier" : " à la demande"}`
-                : "Sélectionnez des produits"}
+            {addButtonLabel}
           </Button>
-          <Link
-            href={backHref}
-            className={cn(
-              buttonVariants({ variant: "outline", size: "lg" }),
-              "flex h-11 w-full items-center justify-center text-sm font-semibold"
-            )}
-          >
-            Retour sans ajouter
-          </Link>
         </div>
       </div>
 
