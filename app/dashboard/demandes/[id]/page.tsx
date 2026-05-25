@@ -356,19 +356,6 @@ export default function DemandeDetailPage() {
     return [footer, ...paras].filter((s) => s.trim().length > 0).join(" — ");
   }, [request, historyRows]);
 
-  const patientPharmacyContact = useMemo((): PatientPharmacyContactInfo | null => {
-    if (!request) return null;
-    const ph = one(request.pharmacies);
-    if (!ph?.nom?.trim()) return null;
-    return {
-      nom: ph.nom,
-      ville: ph.ville,
-      telephone: ph.telephone,
-      contact_email: ph.contact_email ?? null,
-      public_ref: ph.public_ref ?? null,
-    };
-  }, [request]);
-
   const handleConversationMarkedRead = useCallback(() => {
     setConversationUnread(false);
   }, []);

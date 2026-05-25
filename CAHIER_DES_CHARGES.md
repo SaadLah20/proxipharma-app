@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.31** (dernier lot : **annuaire + fiche publique + demande produits** UI alignée ; onboarding **`20260622_001`** déjà en place) ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.32** (dernier lot : **patient demande produits** — saisie publique + **envoyée** + **répondue** UI ; §4.6 étape 2 patient largement faite) ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** : pour **vider toutes les demandes** en environnement de test → `scripts/clear-all-requests.mjs` (`.env.local` avec `SUPABASE_SERVICE_ROLE_KEY`) ou SQL `supabase/scripts/clear-all-requests.sql` dans l’éditeur Supabase. **Doublons patient** (même téléphone, 2× `auth.users`) en pilote : reset demandes + suppression des comptes Auth puis nouvelle inscription. Plan de tests E2E demandes produits → fichier Canvas Cursor `canvases/product-requests-e2e-test-plan.canvas.tsx` (mention §13.5).
@@ -175,8 +175,8 @@ Sans nouvelle validation patient obligatoire pour les ajustements officine coura
 
 | Étape | Périmètre métier (libellé grand public) | Côté patient | Côté pharmacien |
 |-------|----------------------------------------|--------------|-----------------|
-| 1 | **Demande envoyée** (`submitted` / `in_review`) | Page détail + hub — **déjà affinée** | Page détail + hub — **à clôturer** pour ce jalon |
-| 2 | **Demande répondue** (`responded`) | À affiner | À affiner |
+| 1 | **Demande envoyée** (`submitted` / `in_review`) | Page détail + hub — **affinée** (header dossier sky, lignes compactes, mobile) | Page détail + hub — **à clôturer** pour ce jalon |
+| 2 | **Demande répondue** (`responded`) | **Affinée** (header sky, blocs compacts, onglets alternatives, modale confirmation) — QA terrain | À affiner |
 | 3 | **Validée** (`confirmed` sans entrée en **`processing`** ni virtuel **`in_progress_virtual`** uniquement via lignes) | Affinée (**focus produits validés** : cartes courtes groupées + historique ligne + lignes non retenues repliable ; contact / passage / abandon) | Affinée (synthèse alignée patient, réservé/commandé) |
 | 4 | **En préparation officine** (`processing` en DB, ou `confirmed` + `in_progress_virtual` si réservé/commandé sans migration statut) | Affinée (même logique compacte que validée ; pas de liste amendements « pleine page ») | Affinée (enregistrement traçabilité, déclaration traitée si règles OK) |
 | 5 | **Traitée** (`treated`) — suivi retrait comptoir jusqu'à **`completed`** | Affinée (idem) | Affinée |
@@ -348,6 +348,34 @@ git checkout pilote-stable-2026-05-24
 **Branche de travail après retour** : `git switch -c reprise-depuis-stable-2026-05-24`
 
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
+
+---
+
+### Session 2026-05-25 — Patient demande produits : saisie publique, envoyée, répondue (UI/UX)
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits poussés **`e37f667`** … **`0900e26`** (lot UI patient ; pas de nouvelle migration).
+
+**Saisie publique** (`/pharmacie/[id]/demande-produits` + **catalogue**) :
+- Grille compacte **`ProductRequestLinePanel`** — **`components/pharmacy/patient-demande-produits-ui.tsx`** (photo 56px, PU/Total, Qté, Message).
+- Explorer : charte sky, barre recherche seule, footer un bouton « Ajouter X produit(s)… » (sans « Tout sélectionner »).
+
+**Demande envoyée** (`submitted` / `in_review`) — détail patient **`app/dashboard/demandes/[id]/page.tsx`** :
+- En-tête **`PatientProductRequestDossierHeader`** (sky, N°, Contacter, Voir la fiche).
+- Lignes **`PatientProductRequestCompactLine`** ; correctifs mobile (`overflow-x-hidden`, import `cn`).
+
+**Demande répondue** (`responded`) — **`components/requests/product/patient-responded-line-chooser.tsx`** (nouveau) + **`patient-product-request-actions.tsx`** :
+- Même en-tête dossier sky que **envoyée**.
+- Bloc produit compact : case à cocher sur vignette, badges **Ta demande** / **Alternative** / **Ajout Officine**, Dem./Stk., PU/Tot, Qté, Message.
+- **Motif** ajout officine **dans le bloc** (ligne unique « Motif · … »).
+- Lignes avec alternatives : **onglets** (Ta demande, Alternative 1…).
+- Indisponible / rupture : bloc **grisé** (case désactivée) ; non retenu : fond atténué + **titre barré** (plus de bandeau texte « Pas de stock… »).
+- Modale **Confirmer ta sélection** : charte sky, cartes recap compactes.
+
+**Phrase de reprise** : **§13.32**.
+
+**Prochain jalon documenté (§4.6)** : finir UI patient **validée / traitée / terminés** si retours ; puis **pharmacien** — **envoyée** puis **répondue**.
+
+**QA** : demande test en `responded` (principal, alternative, ajout officine, ligne non cochée, ligne indispo) → validation → suite parcours.
 
 ---
 
@@ -1711,9 +1739,13 @@ Voir **§13.30**.
 
 Voir **§13.31**.
 
-### 13.31) Phrase de reprise (recommandée — après session **2026-05-19 annuaire + fiche**, migrations **`20260622_001` appliquées**)
+### 13.31) Phrase de reprise (dépassée — annuaire + fiche publique)
 
-**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits récents **`d500301`**+ : annuaire, fiche publique, demande produits — §10 session **2026-05-19 annuaire + fiche**). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§10**, §11. Supabase : jusqu’à **`20260622_001`** (**appliquées**). Pas de migration sur le lot UI annuaire/fiche. Fichiers clés : `components/annuaire/`, `components/pharmacy/pharmacy-public-chrome.tsx`, `components/pharmacy/pharmacy-public-profile.tsx`, `components/promo/public-promo-offers.tsx`, `app/pharmacie/[id]/demande-produits/page.tsx`. Référence stable antérieure : tag **`pilote-stable-2026-05-24`** → **`0c4f0e7`** (§10.1). Je te dis ensuite quoi faire. »**
+Voir **§13.32**.
+
+### 13.32) Phrase de reprise (recommandée — après session **2026-05-25** patient demande produits UI)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`e37f667`** … **`0900e26`** : patient demande produits — saisie publique + détail **envoyée** + **répondue** ; §10 session **2026-05-25**). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.6**, **§10**, §11. Supabase : jusqu’à **`20260622_001`** (**appliquées**) — **pas de nouvelle migration** sur ce lot UI. Fichiers clés patient : `components/pharmacy/patient-demande-produits-ui.tsx`, `components/requests/product/patient-product-request-dossier-header.tsx`, `components/requests/product/patient-responded-line-chooser.tsx`, `components/requests/product/patient-product-request-actions.tsx`, `app/dashboard/demandes/[id]/page.tsx`. **Fait** : §4.6 étapes 1–2 patient (envoyée + répondue). **À faire ensuite** : (1) compléter UI/UX **patient** — validée `confirmed`, traitée `treated`, dossiers terminés (§4.6 étapes 3–5 + règle transverse) selon retours preview ; (2) **pharmacien** — même roadmap §4.6 : d’abord **demande envoyée** (hub + détail), puis **répondue**, aligné patient. Référence stable : tag **`pilote-stable-2026-05-24`** → **`0c4f0e7`** (§10.1). Je te donne la tâche précise ou les retours terrain. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 

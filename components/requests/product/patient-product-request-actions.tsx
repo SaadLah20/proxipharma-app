@@ -1,9 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   ChevronDown,
@@ -11,14 +10,11 @@ import {
   Layers,
   Calendar,
   MessageCircle,
-  Minus,
   Package,
   Pencil,
-  Plus,
   LayoutGrid,
   Search,
   ShoppingCart,
-  Trash2,
   X,
 } from "lucide-react";
 import { clsx } from "clsx";
@@ -45,7 +41,6 @@ import {
   validatedBranchPhotoPath,
   validatedProductLabel,
   patientDisplayQtyForLine,
-  validatedQtyForPatientLine,
 } from "@/lib/patient-confirmed-line-buckets";
 import { formatPriceDh } from "@/lib/product-price";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
@@ -53,11 +48,11 @@ import { catalogHitToPricingInput, productEmbedToPricingInput } from "@/lib/phar
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
 import { PatientProductRequestDossierHeader } from "@/components/requests/product/patient-product-request-dossier-header";
 import { PatientProductRequestCompactLine } from "@/components/requests/product/patient-product-request-compact-line";
+import { RespondedPatientLineChooser } from "@/components/requests/product/patient-responded-line-chooser";
 import {
   PatientPharmacyQuickContact,
   type PatientPharmacyContactInfo,
 } from "@/components/requests/product/patient-pharmacy-quick-contact";
-import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
   clearPatientDemandeCatalogueReturnEdit,
@@ -94,17 +89,16 @@ import {
 } from "@/lib/prescription-patient-labels";
 import {
   isPrescriptionAdditionalProposedLine,
-  isPrescriptionOrdonnancePrincipalLine,
   PRESCRIPTION_ADDITIONAL_PROPOSED_REASON,
 } from "@/lib/prescription-pharmacist-lines";
 import { inferArchiveSnapshotStatus } from "@/lib/request-archive-snapshot-status";
 import { patientLineProposedBadgeLabel } from "@/lib/patient-line-proposed-badge";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 import { PrescriptionScanCollapsible } from "@/components/requests/prescription/prescription-scan-collapsible";
-import { PRESCRIPTION_ORDONNANCE_SOURCING_LABEL } from "@/lib/prescription-pharmacist-lines";
 import { getRequestKindWorkflowCopy } from "@/lib/request-kinds/workflow-copy";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindAccent } from "@/lib/request-kinds/types";
+import { productRequestPublicTheme as productRequestTheme } from "@/lib/request-kinds/product-request-public-theme";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { PlannedVisitTimeInput } from "@/components/requests/planned-visit-time-input";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
@@ -287,7 +281,6 @@ function PatientValidatedCompactLineCard({
   requestType?: string;
   supplyAmendmentBundles?: { amendments: unknown }[];
 }) {
-  const prod = one(row.products);
   const altList = normalizeAlternatives(row.request_item_alternatives);
   const chosenAlt = altList.find((a) => a.id === row.patient_chosen_alternative_id);
   const validatedName = validatedProductLabel(row);
@@ -1158,69 +1151,6 @@ function htmlTimeToPg(t: string): string | null {
   return s;
 }
 
-type RespondedChooserProps = {
-  row: ActionItemRow;
-  selState: LineSelState;
-  setLineBranch: (itemId: string, branch: LineBranch) => void;
-  setLineQty: (itemId: string, qty: number) => void;
-  togglePrincipalOnlyLine: (itemId: string, on: boolean) => void;
-  onPhotoPreview?: (url: string, title: string) => void;
-  pharmacistProposedBadgeLabel: string;
-  requestType: string;
-  supplyAmendmentBundles: { amendments: unknown }[];
-};
-
-/** Même résumé qté + dispo que la ligne ait des alternatives ou non. */
-function RespondedProductQtyStatusLine({ row, requestType }: { row: ActionItemRow; requestType: string }) {
-  const isProposedLine = row.line_source === "pharmacist_proposed";
-  const requestedQty = Math.max(1, Number(row.requested_qty) || 1);
-  const offeredQty =
-    row.available_qty != null && Number.isFinite(Number(row.available_qty))
-      ? Math.max(0, Math.floor(Number(row.available_qty)))
-      : null;
-  let inferredKey = row.availability_status ?? "available";
-  try {
-    inferredKey = inferAvailabilityStatusFromQty({
-      status: row.availability_status ?? "available",
-      availableQty: Number(row.available_qty ?? 0),
-      requestedQty,
-      isProposedLine:
-        (requestType === "product_request" && isProposedLine) || requestType === "free_consultation",
-    });
-  } catch {
-    inferredKey = row.availability_status ?? "available";
-  }
-  const availUi = availabilityStatusUi(inferredKey);
-  const AvailIcon = availUi.Icon;
-  return (
-    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
-      {!isProposedLine ? (
-        <span className="inline-flex items-center gap-0.5">
-          Demandé <strong className="tabular-nums text-foreground">{row.requested_qty}</strong>
-        </span>
-      ) : null}
-      {offeredQty != null ? (
-        <span className="inline-flex items-center gap-0.5">
-          Proposé <strong className="tabular-nums text-foreground">{offeredQty}</strong>
-        </span>
-      ) : null}
-      <span
-        className={clsx(
-          "inline-flex max-w-full items-center gap-1 rounded-full px-1.5 py-px text-[9px] font-semibold ring-1",
-          availUi.badgeClass
-        )}
-        title={availUi.label}
-      >
-        <AvailIcon className="size-2.5 shrink-0" aria-hidden />
-        <span className="truncate">{availUi.label}</span>
-      </span>
-      {row.availability_status === "to_order" && row.expected_availability_date ? (
-        <RespondedReceptionBadgeFr dateYmd={row.expected_availability_date} />
-      ) : null}
-    </p>
-  );
-}
-
 /** Date de réception (produit à commander) — libellé très visible. */
 function RespondedReceptionBadgeFr({ dateYmd, className }: { dateYmd: string; className?: string }) {
   return (
@@ -1340,403 +1270,6 @@ function PatientRespondedLineConvoStripReadOnly({
   );
 }
 
-function RespondedPatientLineChooser({
-  row,
-  selState,
-  setLineBranch,
-  setLineQty,
-  togglePrincipalOnlyLine,
-  onPhotoPreview,
-  pharmacistProposedBadgeLabel,
-  requestType,
-  supplyAmendmentBundles,
-}: RespondedChooserProps) {
-  const prod = one(row.products);
-  const altList = normalizeAlternatives(row.request_item_alternatives);
-  const hasAlts = altList.length > 0;
-  const capPrincipal = maxQtyPrincipal(row);
-  const radioName = `line-choice-${row.id}`;
-  const currentBranch = selState.branch;
-  const isProposedLine = row.line_source === "pharmacist_proposed";
-  const isOrdonnancePrincipal =
-    requestType === "prescription" &&
-    isPrescriptionOrdonnancePrincipalLine(requestType, row, supplyAmendmentBundles);
-  const isExtraProposed =
-    requestType === "prescription" &&
-    isPrescriptionAdditionalProposedLine(requestType, row, supplyAmendmentBundles);
-  const principalBadgeLabel =
-    requestType === "free_consultation"
-      ? "Proposition pharmacie"
-      : isOrdonnancePrincipal
-        ? PRESCRIPTION_ORDONNANCE_SOURCING_LABEL
-        : isExtraProposed
-          ? "Produit proposé par la pharmacie"
-          : isProposedLine
-            ? "Proposition officine"
-            : "Principal";
-  const proposedBannerLabel =
-    requestType === "prescription" && isOrdonnancePrincipal
-      ? "Ordonnance"
-      : requestType === "free_consultation"
-        ? "Proposé par la pharmacie"
-        : pharmacistProposedBadgeLabel;
-  const maxBranch = maxQtyForBranch(row, currentBranch, altList);
-
-  const unitForSelection =
-    currentBranch === "principal"
-      ? row.unit_price
-      : currentBranch !== null
-        ? altList.find((a) => a.id === currentBranch)?.unit_price ?? null
-        : null;
-
-  const thumb = (
-    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner">
-      {prod?.photo_url ? (
-        onPhotoPreview ? (
-          <button
-            type="button"
-            className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-            onClick={() => onPhotoPreview(prod.photo_url!, prod?.name ?? "Produit")}
-            aria-label={`Agrandir la photo · ${prod?.name ?? "Produit"}`}
-          >
-            <img src={prod.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
-          </button>
-        ) : (
-          <img src={prod.photo_url} alt="" className="h-full w-full object-cover" />
-        )
-      ) : (
-        <div className="flex h-full w-full items-center justify-center">
-          <Package className="size-6 text-muted-foreground" aria-hidden />
-        </div>
-      )}
-    </div>
-  );
-
-  const qtyRowGrid =
-    currentBranch !== null && maxBranch > 0 ? (
-      <div
-        className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-x-3.5 gap-y-1 border-t border-slate-200/80 pt-2 text-[12px] font-medium leading-none tabular-nums text-slate-800 sm:gap-x-4 sm:text-[13px]"
-        title={
-          currentBranch !== "principal"
-            ? `Quantité proposée par la pharmacie : ${maxBranch} (vous pouvez diminuer)`
-            : `Quantité max autorisée : ${maxBranch}`
-        }
-      >
-        <div className="min-w-0 justify-self-start truncate">
-          {unitForSelection != null ? (
-            <>
-              <span className="text-slate-500">PU</span>{" "}
-              <strong className="font-semibold text-slate-900">{formatPriceDh(Number(unitForSelection))}</strong>
-            </>
-          ) : (
-            <span className="text-slate-400">PU —</span>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center justify-center gap-1.5 justify-self-center">
-          <span className="shrink-0 text-slate-500">Qté</span>
-          <button
-            type="button"
-            aria-label="Diminuer la quantité"
-            disabled={selState.qty <= 1}
-            className="rounded-md border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
-            onClick={() => setLineQty(row.id, selState.qty - 1)}
-          >
-            <Minus size={15} />
-          </button>
-          <span className="min-w-[1.5rem] text-center font-semibold text-slate-900">{selState.qty}</span>
-          <button
-            type="button"
-            aria-label="Augmenter la quantité"
-            disabled={selState.qty >= maxBranch}
-            className="rounded-md border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
-            onClick={() => setLineQty(row.id, selState.qty + 1)}
-          >
-            <Plus size={15} />
-          </button>
-        </div>
-        <div className="min-w-0 justify-self-end truncate text-end">
-          <span className="text-slate-500">Total</span>{" "}
-          <strong className="font-semibold text-sky-900">
-            {unitForSelection != null ? formatPriceDh(selState.qty * Number(unitForSelection)) : "—"}
-          </strong>
-        </div>
-      </div>
-    ) : null;
-
-  const cardShell = (inner: ReactNode) => (
-    <li className="rounded-2xl border-[3px] border-slate-400/70 bg-gradient-to-b from-white to-slate-50/50 px-2.5 py-2.5 shadow-md ring-2 ring-slate-200/50 sm:px-3.5">
-      {isProposedLine ? (
-        <div
-          className={clsx(
-            "mb-2 rounded-md border px-2 py-1.5",
-            requestType === "free_consultation"
-              ? "border-violet-300/90 bg-violet-50/80"
-              : isOrdonnancePrincipal
-                ? "border-amber-300/90 bg-amber-50/80"
-                : "border-violet-200/90 bg-violet-50/70"
-          )}
-        >
-          <p
-            className={clsx(
-              "text-[9px] font-bold uppercase tracking-wide",
-              requestType === "free_consultation"
-                ? "text-violet-800"
-                : isOrdonnancePrincipal
-                  ? "text-amber-900"
-                  : "text-violet-800"
-            )}
-          >
-            {proposedBannerLabel}
-          </p>
-          {row.pharmacist_proposal_reason?.trim() ? (
-            <p className="mt-0.5 line-clamp-2 text-[10px] font-medium leading-snug text-violet-950">{row.pharmacist_proposal_reason.trim()}</p>
-          ) : (
-            <p className="mt-0.5 text-[10px] italic text-violet-800/80">Motif non renseigné.</p>
-          )}
-        </div>
-      ) : null}
-      <div className="flex flex-col gap-2">{inner}</div>
-    </li>
-  );
-
-  if (!hasAlts) {
-    return cardShell(
-      <>
-        <div className="flex items-start gap-2">
-          {thumb}
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <p
-              className="overflow-hidden pr-0.5 text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
-              style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
-            >
-              {prod?.name ?? "Produit"}
-            </p>
-            <RespondedProductQtyStatusLine row={row} requestType={requestType} />
-            <PatientSentLineNotesModalFr
-              productName={prod?.name ?? "Produit"}
-              client={row.client_comment ?? ""}
-              pharmacist={row.pharmacist_comment ?? ""}
-            />
-          </div>
-        </div>
-        <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border-2 border-slate-200 bg-slate-50/40 px-2.5 py-2 transition hover:border-sky-200">
-          <input
-            type="checkbox"
-            className="mt-1 rounded border-primary"
-            checked={currentBranch === "principal" && capPrincipal > 0}
-            disabled={capPrincipal === 0}
-            onChange={(e) => togglePrincipalOnlyLine(row.id, e.target.checked)}
-          />
-          <span className="text-[13px] leading-snug">
-            <span className="font-semibold text-foreground">Je retiens cette ligne</span>
-          </span>
-        </label>
-        {capPrincipal === 0 ? (
-          <p className="rounded-lg border border-amber-200/80 bg-amber-50 px-2 py-1.5 text-[10px] leading-snug text-amber-950">
-            Aucune quantité dispo pour l’instant — tu peux ne pas retenir cette ligne ou contacter l’officine.
-          </p>
-        ) : null}
-        {qtyRowGrid}
-      </>
-    );
-  }
-
-  return cardShell(
-    <>
-      <div className="rounded-xl border-2 border-slate-300/70 bg-slate-100/45 p-2 ring-1 ring-slate-200/50">
-        <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <Layers className="size-3.5 shrink-0 text-slate-600" aria-hidden />
-            <p className="truncate text-[9px] font-bold uppercase tracking-wide text-slate-700">Choix pour cette ligne</p>
-          </div>
-          <details className="shrink-0 text-[9px] text-slate-700">
-            <summary className="cursor-pointer font-semibold underline decoration-slate-400 underline-offset-2">Aide</summary>
-            <p className="mt-1 max-w-[14rem] rounded-md bg-white px-1.5 py-1 leading-snug ring-1 ring-slate-200/60">
-              Une option : principal{isProposedLine ? " / proposition" : ""}, alternative ou aucune.
-            </p>
-          </details>
-        </div>
-
-        <fieldset className="space-y-2 border-0 p-0">
-          <legend className="sr-only">Choix pour {prod?.name ?? "Produit"}</legend>
-
-          <label
-            className={clsx(
-              "flex cursor-pointer items-start gap-2 rounded-xl border-2 px-2.5 py-2 transition",
-              currentBranch === null
-                ? "border-slate-500 bg-slate-100/90 shadow-sm ring-2 ring-slate-300/35"
-                : "border-slate-200 bg-white/90 opacity-65"
-            )}
-          >
-            <input
-              type="radio"
-              name={radioName}
-              className="mt-1 shrink-0"
-              checked={currentBranch === null}
-              onChange={() => setLineBranch(row.id, null)}
-            />
-            <span>
-              <span className="text-[13px] font-semibold text-foreground">Ne pas retenir</span>
-              <span className="mt-0.5 block text-[10px] text-muted-foreground">Aucune des options ci-dessous.</span>
-            </span>
-          </label>
-
-          <label
-            className={clsx(
-              "flex cursor-pointer gap-2 rounded-xl border-2 p-2 transition",
-              capPrincipal === 0 && "cursor-not-allowed opacity-40",
-              currentBranch === "principal"
-                ? isOrdonnancePrincipal || isExtraProposed
-                  ? "border-amber-500 bg-amber-50 ring-2 ring-amber-200/80 shadow-md"
-                  : isProposedLine
-                    ? "border-violet-500 bg-violet-50 ring-2 ring-violet-200/80 shadow-md"
-                    : "border-sky-500 bg-sky-50 ring-2 ring-sky-200/80 shadow-md"
-                : isOrdonnancePrincipal || isExtraProposed
-                  ? "border-amber-200/90 bg-gradient-to-br from-amber-50/50 to-white"
-                  : isProposedLine
-                    ? "border-violet-200/90 bg-gradient-to-br from-violet-50/50 to-white"
-                    : "border-sky-200/90 bg-gradient-to-br from-sky-50/55 via-white to-white",
-              currentBranch !== null && currentBranch !== "principal" && "opacity-45 saturate-[0.65]",
-              currentBranch === null && "bg-slate-50/90 opacity-55"
-            )}
-          >
-            <input
-              type="radio"
-              name={radioName}
-              className="shrink-0 self-start pt-2"
-              checked={currentBranch === "principal"}
-              disabled={capPrincipal === 0}
-              onChange={() => setLineBranch(row.id, "principal")}
-            />
-            {thumb}
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span
-                  className={clsx(
-                    "rounded-md px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
-                    isOrdonnancePrincipal || isExtraProposed
-                      ? "bg-amber-700"
-                      : isProposedLine
-                        ? "bg-violet-700"
-                        : "bg-sky-700"
-                  )}
-                >
-                  {principalBadgeLabel}
-                </span>
-                {!isProposedLine && requestType !== "prescription" ? (
-                  <span className="rounded-full bg-sky-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                    Ta demande
-                  </span>
-                ) : null}
-              </div>
-              <p
-                className="text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
-                style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}
-              >
-                {prod?.name ?? "Produit"}
-              </p>
-              <RespondedProductQtyStatusLine row={row} requestType={requestType} />
-              <PatientSentLineNotesModalFr
-                productName={prod?.name ?? "Produit"}
-                client={row.client_comment ?? ""}
-                pharmacist={row.pharmacist_comment ?? ""}
-              />
-            </div>
-          </label>
-
-          {altList.map((alt) => {
-            const altProd = one(alt.products);
-            const capA = maxQtyAlt(row, alt);
-            const disabled = capA === 0;
-            const altComment = alt.pharmacist_comment?.trim();
-            const altPhoto = resolvePublicMediaUrl(altProd?.photo_url ?? null);
-            const altSelected = currentBranch === alt.id;
-            return (
-              <label
-                key={alt.id}
-                className={clsx(
-                  "flex cursor-pointer gap-2 rounded-xl border-2 p-2 transition",
-                  disabled && "cursor-not-allowed opacity-40",
-                  altSelected
-                    ? "border-teal-500 bg-teal-50 ring-2 ring-teal-200/80 shadow-md"
-                    : "border-teal-100/85 bg-gradient-to-br from-teal-50/35 to-white",
-                  !disabled && currentBranch !== null && currentBranch !== alt.id && "opacity-45 saturate-[0.65]",
-                  !disabled && currentBranch === null && "bg-slate-50/90 opacity-55"
-                )}
-              >
-                <input
-                  type="radio"
-                  name={radioName}
-                  className="shrink-0 self-center"
-                  checked={altSelected}
-                  disabled={disabled}
-                  onChange={() => setLineBranch(row.id, alt.id)}
-                />
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner sm:h-20 sm:w-20">
-                  {altPhoto ? (
-                    onPhotoPreview ? (
-                      <button
-                        type="button"
-                        className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-                        onClick={() => onPhotoPreview(altPhoto, altProd?.name ?? "Alternative")}
-                        aria-label={`Agrandir la photo · ${altProd?.name ?? "Alternative"}`}
-                      >
-                        <img src={altPhoto} alt="" className="pointer-events-none h-full w-full object-cover" />
-                      </button>
-                    ) : (
-                      <img src={altPhoto} alt="" className="h-full w-full object-cover" />
-                    )
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <Package className="size-6 text-muted-foreground" aria-hidden />
-                    </div>
-                  )}
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-                  <span className="text-[13px] font-semibold leading-tight text-foreground">
-                    {altProd?.name ?? "Alternative"}
-                  </span>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
-                    {alt.unit_price != null ? (
-                      <span>
-                        PU <strong className="tabular-nums text-foreground">{formatPriceDh(Number(alt.unit_price))}</strong>
-                      </span>
-                    ) : null}
-                    {alt.available_qty != null ? (
-                      <span className="inline-flex items-center gap-0.5">
-                        Proposé{" "}
-                        <strong className="tabular-nums text-foreground">{Math.max(0, Math.floor(Number(alt.available_qty)))}</strong>
-                      </span>
-                    ) : null}
-                    {alt.availability_status ? (
-                      <span className="rounded-full bg-slate-200/80 px-1.5 py-px text-[9px] font-semibold text-slate-800">
-                        {availabilityStatusFr[alt.availability_status] ?? alt.availability_status}
-                      </span>
-                    ) : null}
-                    <span className="rounded-full bg-teal-600 px-1.5 py-0.5 text-[7px] font-bold uppercase leading-tight tracking-wide text-white sm:px-2 sm:text-[8px]">
-                      ALTERNATIVE
-                    </span>
-                  </div>
-                  {alt.availability_status === "to_order" && alt.expected_availability_date ? (
-                    <RespondedReceptionBadgeFr dateYmd={alt.expected_availability_date} />
-                  ) : null}
-                  {altComment ? (
-                    <details className="rounded-md border border-teal-200/50 bg-white/80 text-[9px] text-teal-950">
-                      <summary className="cursor-pointer px-1.5 py-1 font-semibold">Note officine</summary>
-                      <p className="border-t border-teal-100/80 px-1.5 py-1 leading-snug">{altComment}</p>
-                    </details>
-                  ) : null}
-                </div>
-              </label>
-            );
-          })}
-        </fieldset>
-      </div>
-
-      {qtyRowGrid}
-    </>
-  );
-}
 
 function splitVisitHm(raw: string | null | undefined): { h: string; m: string } {
   if (!raw) return { h: "", m: "" };
@@ -1986,82 +1519,61 @@ function PatientConfirmReviewLineCard({
   onPhotoPreview?: (url: string, title: string) => void;
 }) {
   const isOrder = line.bucket === "order";
-  const thumbRing = isOrder ? "border-teal-300/70 ring-1 ring-teal-300/35" : "border-emerald-300/65 ring-1 ring-emerald-300/35";
-  const thumb = (
-    <div
-      className={`relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl border bg-white shadow-inner ${thumbRing}`}
-    >
-      {line.photoUrl ? (
-        onPhotoPreview ? (
-          <button
-            type="button"
-            className="relative size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            onClick={() => onPhotoPreview(line.photoUrl!, line.productName)}
-            aria-label={`Agrandir la photo · ${line.productName}`}
-          >
-            <img src={line.photoUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
-          </button>
-        ) : (
-          <img src={line.photoUrl} alt="" className="h-full w-full object-cover" />
-        )
-      ) : (
-        <div
-          className={`flex h-full w-full items-center justify-center ${isOrder ? "bg-teal-50/90" : "bg-emerald-50/90"}`}
-        >
-          <Package className={`size-6 ${isOrder ? "text-teal-600/90" : "text-emerald-600/90"}`} aria-hidden />
-        </div>
-      )}
-    </div>
-  );
-
-  const cardShell = isOrder
-    ? "border-2 border-teal-200/90 bg-gradient-to-br from-teal-50/90 via-white to-cyan-50/40 shadow-md ring-1 ring-teal-200/40"
-    : "border-2 border-emerald-200/85 bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/30 shadow-md ring-1 ring-emerald-200/35";
-  const titleTone = isOrder ? "text-teal-950" : "text-emerald-950";
-  const metaTone = isOrder ? "text-teal-800/90" : "text-emerald-900/88";
-  const qtyTone = isOrder ? "text-teal-900" : "text-emerald-900";
-  const priceAccent = isOrder ? "text-teal-700" : "text-emerald-700";
 
   return (
-    <li className={`rounded-lg p-2 ${cardShell}`}>
-      <div className="flex gap-2">
-        {thumb}
+    <li
+      className={cn(
+        "rounded-xl border bg-white p-2 shadow-sm",
+        isOrder ? "border-teal-200/90 ring-1 ring-teal-100/80" : "border-sky-200/90 ring-1 ring-sky-100/80"
+      )}
+    >
+      <div className="flex items-stretch gap-2">
+        <div
+          className={cn(
+            "relative size-14 shrink-0 overflow-hidden rounded-md border bg-card",
+            isOrder ? "border-teal-200/80" : "border-sky-200/80"
+          )}
+        >
+          {line.photoUrl ? (
+            onPhotoPreview ? (
+              <button
+                type="button"
+                className="relative size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                onClick={() => onPhotoPreview(line.photoUrl!, line.productName)}
+                aria-label={`Agrandir la photo · ${line.productName}`}
+              >
+                <img src={line.photoUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
+              </button>
+            ) : (
+              <img src={line.photoUrl} alt="" className="h-full w-full object-cover" />
+            )
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-muted/30">
+              <Package className="size-5 text-muted-foreground" aria-hidden />
+            </div>
+          )}
+        </div>
         <div className="min-w-0 flex-1">
-          <p
-            className={`text-[12px] font-semibold leading-tight ${titleTone}`}
-            style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
-          >
-            {line.productName}
-          </p>
-          <p className={`mt-0.5 text-[9px] leading-snug ${metaTone}`}>{line.choiceDetail}</p>
-          <p className={`mt-1 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[10px] ${qtyTone}`}>
-            <span>
-              Qté <strong className="tabular-nums">{line.qty}</strong>
-            </span>
-            <span className={isOrder ? "text-teal-500/80" : "text-emerald-500/80"}>·</span>
-            <span>
+          <p className="truncate text-[13px] font-semibold leading-tight text-foreground">{line.productName}</p>
+          <p className="mt-0.5 text-[9px] leading-snug text-muted-foreground">{line.choiceDetail}</p>
+          <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-[10px]">
+            <span className="text-muted-foreground">
+              Qté <strong className="tabular-nums text-foreground">{line.qty}</strong>
+              <span className="mx-1">·</span>
               PU{" "}
-              <strong className={`tabular-nums ${priceAccent}`}>
+              <strong className={cn("tabular-nums", productRequestTheme.price)}>
                 {line.unitPriceMad != null && Number.isFinite(line.unitPriceMad)
                   ? `${line.unitPriceMad.toFixed(2)} MAD`
                   : "—"}
               </strong>
             </span>
-          </p>
+            <span className="shrink-0 font-semibold tabular-nums text-sky-900">
+              Tot · {line.lineTotalMad != null ? `${line.lineTotalMad.toFixed(2)} MAD` : "—"}
+            </span>
+          </div>
           {line.bucket === "order" && line.etaLabel ? (
-            <p className="mt-0.5 rounded border border-teal-200/70 bg-teal-100/50 px-1.5 py-0.5 text-[9px] font-medium text-teal-950">
-              Dispo · {line.etaLabel}
-            </p>
+            <p className="mt-0.5 text-[9px] font-medium text-teal-900">Réception · {line.etaLabel}</p>
           ) : null}
-          <p
-            className={`mt-1 rounded border px-1.5 py-1 text-right text-[10px] font-semibold ${
-              isOrder
-                ? "border-teal-200/80 bg-teal-100/45 text-teal-950"
-                : "border-emerald-200/80 bg-emerald-100/45 text-emerald-950"
-            }`}
-          >
-            Tot · <span className="tabular-nums">{line.lineTotalMad != null ? `${line.lineTotalMad.toFixed(2)} MAD` : "—"}</span>
-          </p>
         </div>
       </div>
     </li>
@@ -2493,12 +2005,12 @@ export function PatientProductRequestActions({
     }));
   };
 
-  const togglePrincipalOnlyLine = (itemId: string, on: boolean) => {
+  const toggleLineRetention = (itemId: string, on: boolean, branchWhenOn: LineBranch) => {
     setSel((s) => {
       const row = items.find((i) => i.id === itemId);
       if (!row) return s;
       const alts = normalizeAlternatives(row.request_item_alternatives);
-      const branch: LineBranch = on ? "principal" : null;
+      const branch: LineBranch = on ? branchWhenOn : null;
       const cap = maxQtyForBranch(row, branch, alts);
       const qty = on && cap > 0 ? cap : 1;
       return {
@@ -2846,13 +2358,13 @@ export function PatientProductRequestActions({
       ) : null}
 
       {(showWaitingShell || showConfirm || showConfirmedCards) && pharmacyId && !summaryInPageChrome && !forceReadOnly ? (
-        showProductResubmit ? (
+        showProductResubmit || showConfirm ? (
           <PatientProductRequestDossierHeader
             dossierRefLabel={dossierRefLabel}
             pharmacyContact={pharmacyContact ?? null}
             pharmacyId={pharmacyId}
-            status={status}
-            statusHint={buildPatientSummaryStatusHint(status, requestType, workflowCopy)}
+            status={showConfirm ? "responded" : status}
+            statusHint={buildPatientSummaryStatusHint(showConfirm ? "responded" : status, requestType, workflowCopy)}
           />
         ) : (
           <PatientSentEnvoyeeSummaryCard
@@ -2865,12 +2377,12 @@ export function PatientProductRequestActions({
               showConfirm ? "responded" : status,
               items.length
             )}
-            status={showConfirm ? "responded" : status}
+            status={status}
             createdAt={requestTimelineMeta?.created_at ?? ""}
             updatedAt={requestUpdatedAt ?? requestTimelineMeta?.created_at ?? ""}
             kindLabel={workflowCopy.patientSummaryKindLabel}
             refShort={workflowCopy.patientSummaryRefShort}
-            statusHint={buildPatientSummaryStatusHint(showConfirm ? "responded" : status, requestType, workflowCopy)}
+            statusHint={buildPatientSummaryStatusHint(status, requestType, workflowCopy)}
             accent={accent}
           />
         )
@@ -2912,7 +2424,7 @@ export function PatientProductRequestActions({
               <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 {workflowCopy.patientProductsSectionTitle}
               </h3>
-              <ul className="space-y-4">
+              <ul className="w-full min-w-0 space-y-2">
                 {items.map((row) => (
                   <RespondedPatientLineChooser
                     key={row.id}
@@ -2920,9 +2432,9 @@ export function PatientProductRequestActions({
                     selState={sel[row.id] ?? { branch: null, qty: 1 }}
                     setLineBranch={setLineBranch}
                     setLineQty={setLineQty}
-                    togglePrincipalOnlyLine={togglePrincipalOnlyLine}
+                    toggleLineRetention={toggleLineRetention}
                     onPhotoPreview={openProductPhotoPreview}
-                    pharmacistProposedBadgeLabel={badgeForRow(row) ?? "Proposé"}
+                    pharmacistProposedBadgeLabel={badgeForRow(row) ?? "Ajout Officine"}
                     requestType={requestType}
                     supplyAmendmentBundles={supplyAmendmentBundles}
                   />
@@ -3595,26 +3107,31 @@ export function PatientProductRequestActions({
             role="dialog"
             aria-modal="true"
             aria-labelledby="confirm-review-title"
-            className="relative z-10 flex max-h-[min(92dvh,34rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-emerald-200/85 bg-card shadow-2xl ring-1 ring-emerald-900/10"
+            className={cn(
+              "relative z-10 flex max-h-[min(92dvh,34rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl",
+              productRequestTheme.modalShell
+            )}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="shrink-0 border-b border-emerald-200/60 bg-gradient-to-r from-emerald-50/80 via-white to-teal-50/30 px-3 py-2.5">
-              <h2 id="confirm-review-title" className="text-center text-sm font-bold text-emerald-950 sm:text-base">
+            <div className={cn("shrink-0 border-b px-3 py-2.5", productRequestTheme.modalHeader)}>
+              <h2 id="confirm-review-title" className="text-center text-sm font-bold text-sky-950 sm:text-base">
                 Confirmer ta sélection
               </h2>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-gradient-to-b from-white/80 to-muted/20 px-2.5 py-2.5 sm:px-3 [-webkit-overflow-scrolling:touch]">
-              <div className="rounded-lg border border-primary/20 bg-primary/5 px-2 py-1.5">
-                <p className="text-[8px] font-bold uppercase tracking-wide text-primary/95">Passage</p>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-gradient-to-b from-sky-50/20 via-white to-muted/15 px-2.5 py-2.5 sm:px-3 [-webkit-overflow-scrolling:touch]">
+              <div className={cn("rounded-lg border px-2 py-1.5", productRequestTheme.modalHighlight)}>
+                <p className={cn("text-[8px] font-bold uppercase tracking-wide", productRequestTheme.modalLabel)}>
+                  Passage
+                </p>
                 <p className="mt-0.5 text-[11px] font-medium leading-snug text-foreground">{confirmReviewSnap.visitSummaryFr}</p>
               </div>
 
               {confirmReserveLines.length > 0 ? (
                 <div className="mt-3">
-                  <div className="mb-1.5 flex items-center gap-1.5 rounded-md border border-emerald-200/80 bg-emerald-50/70 px-2 py-1">
-                    <Package className="size-3.5 shrink-0 text-emerald-900" aria-hidden />
-                    <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-950">À réserver</p>
+                  <div className="mb-1.5 flex items-center gap-1.5 rounded-md border border-sky-200/80 bg-sky-50/80 px-2 py-1">
+                    <Package className="size-3.5 shrink-0 text-sky-800" aria-hidden />
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-sky-950">À réserver</p>
                   </div>
                   <ul className="space-y-1.5">
                     {confirmReserveLines.map((line) => (
@@ -3625,7 +3142,7 @@ export function PatientProductRequestActions({
                       />
                     ))}
                   </ul>
-                  <p className="mt-2 text-right text-[11px] leading-snug font-medium text-emerald-900/85">
+                  <p className="mt-2 text-right text-[11px] leading-snug font-medium text-sky-900/90">
                     {formatBlockSubtotalLabel(confirmReserveLines)}
                   </p>
                 </div>
@@ -3686,12 +3203,12 @@ export function PatientProductRequestActions({
                 </div>
               ) : null}
 
-              <div className="mt-3 rounded-lg border border-violet-200/70 bg-violet-50/40 px-2 py-1.5 ring-1 ring-violet-200/30">
-                <p className="text-[10px] font-semibold tabular-nums text-violet-950 sm:text-[11px]">
+              <div className="mt-3 rounded-lg border border-sky-200/70 bg-sky-50/50 px-2 py-1.5 ring-1 ring-sky-200/40">
+                <p className="text-[10px] font-semibold tabular-nums text-sky-950 sm:text-[11px]">
                   {formatGrandTotalLabel(confirmAllPreviewLines)}
                 </p>
                 {blockMonetarySummary(confirmAllPreviewLines).missingUnitPrice ? (
-                  <p className="mt-0.5 text-[9px] leading-snug text-violet-900/85">Total partiel : certains prix unitaires manquent.</p>
+                  <p className="mt-0.5 text-[9px] leading-snug text-sky-900/85">Total partiel : certains prix unitaires manquent.</p>
                 ) : null}
               </div>
             </div>
@@ -3710,7 +3227,10 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction === "confirm" || Boolean(detailStale)}
                   onClick={() => void performConfirmAfterReview()}
-                  className="w-full rounded-xl bg-primary px-3 py-2 text-[12px] font-semibold text-primary-foreground shadow-sm transition hover:opacity-95 disabled:opacity-50 sm:order-2 sm:w-auto sm:min-w-[180px]"
+                  className={cn(
+                    "w-full rounded-xl px-3 py-2 text-[12px] font-semibold shadow-sm transition hover:opacity-95 disabled:opacity-50 sm:order-2 sm:w-auto sm:min-w-[180px]",
+                    productRequestTheme.cta
+                  )}
                 >
                   {busyAction === "confirm" ? "Enregistrement…" : "Confirmer définitivement"}
                 </button>
