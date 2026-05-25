@@ -107,11 +107,6 @@ export default function DemandeProduitsCataloguePage() {
     [products, filterQuery]
   );
 
-  const selectableFiltered = useMemo(
-    () => filtered.filter((p) => !cartProductIds.has(p.id)),
-    [filtered, cartProductIds]
-  );
-
   const toggleSelect = (productId: string) => {
     if (cartProductIds.has(productId)) return;
     setSelectedIds((prev) => {
@@ -121,16 +116,6 @@ export default function DemandeProduitsCataloguePage() {
       return next;
     });
   };
-
-  const selectAllVisible = () => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      for (const p of selectableFiltered) next.add(p.id);
-      return next;
-    });
-  };
-
-  const clearSelection = () => setSelectedIds(new Set());
 
   const selectedCount = selectedIds.size;
 
@@ -180,27 +165,6 @@ export default function DemandeProduitsCataloguePage() {
         />
 
         <section className={cn("overflow-hidden rounded-2xl border bg-card shadow-md", t.shell)}>
-          {!loading && selectableFiltered.length > 0 ? (
-            <div className="flex flex-wrap justify-end gap-3 border-b border-border/50 px-3 py-2 text-xs">
-              <button
-                type="button"
-                className={cn("font-semibold underline-offset-2 hover:underline", t.backLink)}
-                onClick={selectAllVisible}
-              >
-                Tout sélectionner
-              </button>
-              {selectedCount > 0 ? (
-                <button
-                  type="button"
-                  className="font-semibold text-muted-foreground underline-offset-2 hover:underline"
-                  onClick={clearSelection}
-                >
-                  Effacer
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-
           {loadError ? <p className="px-3 py-3 text-sm text-destructive">{loadError}</p> : null}
           {loading ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">Chargement…</p>
