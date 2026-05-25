@@ -10,13 +10,10 @@ import {
   History,
   Layers,
   Calendar,
-  Mail,
   MessageCircle,
-  MessageSquare,
   Minus,
   Package,
   Pencil,
-  Phone,
   Plus,
   LayoutGrid,
   Search,
@@ -53,6 +50,12 @@ import { formatPriceDh } from "@/lib/product-price";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput, productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
+import { PatientProductRequestDossierHeader } from "@/components/requests/product/patient-product-request-dossier-header";
+import { PatientProductRequestCompactLine } from "@/components/requests/product/patient-product-request-compact-line";
+import {
+  PatientPharmacyQuickContact,
+  type PatientPharmacyContactInfo,
+} from "@/components/requests/product/patient-pharmacy-quick-contact";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
@@ -186,119 +189,7 @@ function maxQtyForBranch(row: ActionItemRow, branch: LineBranch, alts: ActionIte
   return maxQtyAlt(row, alt);
 }
 
-function telHrefPatient(raw: string): string {
-  const d = raw.replace(/\D/g, "");
-  return d.length >= 8 ? `tel:${d}` : `tel:${raw.trim()}`;
-}
-
-function smsHrefPatient(raw: string): string {
-  const d = raw.replace(/\D/g, "");
-  return d.length >= 8 ? `sms:${d}` : `sms:${raw.trim()}`;
-}
-
-function whatsappHrefPatient(raw: string): string {
-  const d = raw.replace(/\D/g, "");
-  return `https://wa.me/${d}`;
-}
-
-function PatientPharmacyQuickContact({
-  pharmacy,
-  requestRef,
-  variant = "default",
-}: {
-  pharmacy: PatientPharmacyContactInfo;
-  requestRef: string;
-  variant?: "default" | "iconsOnly";
-}) {
-  const telRaw = pharmacy.telephone?.trim() ?? "";
-  const digits = telRaw.replace(/\D/g, "");
-  const telOk = digits.length >= 8 || telRaw.length >= 8;
-  const mail = pharmacy.contact_email?.trim() ?? "";
-  const mailOk = mail.length > 4 && mail.includes("@");
-
-  const mailHref = mailOk
-    ? `mailto:${mail}?subject=${encodeURIComponent(`Demande ${requestRef}`)}&body=${encodeURIComponent(
-        `Bonjour,\n\nConcernant ma demande ${requestRef} :\n\n`
-      )}`
-    : "";
-
-  const loc = [pharmacyPublicLabel(pharmacy.nom), pharmacy.ville?.trim()].filter(Boolean).join(" · ");
-
-  const iconButtons = (
-    <>
-      {telOk ? (
-        <>
-          <a
-            href={telHrefPatient(telRaw)}
-            className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
-            title="Appeler"
-            aria-label="Appeler la pharmacie"
-          >
-            <Phone className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-          </a>
-          <a
-            href={smsHrefPatient(telRaw)}
-            className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
-            title="SMS"
-            aria-label="Envoyer un SMS"
-          >
-            <MessageSquare className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-          </a>
-          <a
-            href={whatsappHrefPatient(telRaw)}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
-            title="WhatsApp"
-            aria-label="Discuter sur WhatsApp"
-          >
-            <MessageCircle className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-          </a>
-        </>
-      ) : null}
-      {mailOk ? (
-        <a
-          href={mailHref}
-          className="inline-flex size-9 items-center justify-center rounded-lg border border-sky-400/70 bg-white text-sky-900 shadow-sm transition hover:bg-sky-50"
-          title="Courriel"
-          aria-label="Écrire à la pharmacie"
-        >
-          <Mail className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-        </a>
-      ) : null}
-    </>
-  );
-
-  if (variant === "iconsOnly") {
-    if (!telOk && !mailOk) {
-      return (
-        <p className="text-[9px] leading-snug text-emerald-900/80">
-          Coordonnées non renseignées sur le dossier — rapprochez-vous de l&apos;officine.
-        </p>
-      );
-    }
-    return <div className="flex flex-wrap items-center gap-1.5">{iconButtons}</div>;
-  }
-
-  return (
-    <section className="rounded-xl border border-emerald-300/60 bg-gradient-to-br from-emerald-50/85 via-white to-teal-50/40 p-2 shadow-sm ring-1 ring-emerald-200/45">
-      <h3 className="text-[10px] font-bold uppercase tracking-wide text-emerald-950">Contacter l&apos;officine</h3>
-      <p className="mt-1 text-[10px] leading-snug text-emerald-950/88">
-        Pour un ajustement sur un produit déjà validé, contactez directement la pharmacie.
-      </p>
-      {loc ? (
-        <p className="mt-1 text-[11px] font-semibold leading-snug text-emerald-950">{loc}</p>
-      ) : null}
-      {telOk || mailOk ? (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">{iconButtons}</div>
-      ) : (
-        <p className="mt-1.5 text-[9px] leading-snug text-emerald-900/80">
-          Coordonnées non renseignées sur le dossier — rapprochez-vous de l&apos;officine.
-        </p>
-      )}
-    </section>
-  );
-}
+export type { PatientPharmacyContactInfo } from "@/components/requests/product/patient-pharmacy-quick-contact";
 
 function monetaryTotalsForRetainedLines(
   rows: ActionItemRow[],
@@ -1179,14 +1070,6 @@ type ProductHit = {
   laboratory: string | null;
   photo_url?: string | null;
   price_pph?: number | null;
-};
-
-export type PatientPharmacyContactInfo = {
-  nom: string;
-  ville?: string | null;
-  telephone?: string | null;
-  contact_email?: string | null;
-  public_ref?: string | null;
 };
 
 type Props = {
@@ -2962,24 +2845,34 @@ export function PatientProductRequestActions({
       ) : null}
 
       {(showWaitingShell || showConfirm || showConfirmedCards) && pharmacyId && !summaryInPageChrome && !forceReadOnly ? (
-        <PatientSentEnvoyeeSummaryCard
-          pharmacyContact={pharmacyContact}
-          pharmacyId={pharmacyId}
-          dossierRefLabel={dossierRefLabel}
-          lineCount={showProductResubmit ? lines.length : items.length}
-          lineCountLabel={buildPatientLineCountLabel(
-            requestType,
-            showConfirm ? "responded" : status,
-            showProductResubmit ? lines.length : items.length
-          )}
-          status={showConfirm ? "responded" : status}
-          createdAt={requestTimelineMeta?.created_at ?? ""}
-          updatedAt={requestUpdatedAt ?? requestTimelineMeta?.created_at ?? ""}
-          kindLabel={workflowCopy.patientSummaryKindLabel}
-          refShort={workflowCopy.patientSummaryRefShort}
-          statusHint={buildPatientSummaryStatusHint(showConfirm ? "responded" : status, requestType, workflowCopy)}
-          accent={accent}
-        />
+        showProductResubmit ? (
+          <PatientProductRequestDossierHeader
+            dossierRefLabel={dossierRefLabel}
+            pharmacyContact={pharmacyContact ?? null}
+            pharmacyId={pharmacyId}
+            status={status}
+            statusHint={buildPatientSummaryStatusHint(status, requestType, workflowCopy)}
+          />
+        ) : (
+          <PatientSentEnvoyeeSummaryCard
+            pharmacyContact={pharmacyContact}
+            pharmacyId={pharmacyId}
+            dossierRefLabel={dossierRefLabel}
+            lineCount={items.length}
+            lineCountLabel={buildPatientLineCountLabel(
+              requestType,
+              showConfirm ? "responded" : status,
+              items.length
+            )}
+            status={showConfirm ? "responded" : status}
+            createdAt={requestTimelineMeta?.created_at ?? ""}
+            updatedAt={requestUpdatedAt ?? requestTimelineMeta?.created_at ?? ""}
+            kindLabel={workflowCopy.patientSummaryKindLabel}
+            refShort={workflowCopy.patientSummaryRefShort}
+            statusHint={buildPatientSummaryStatusHint(showConfirm ? "responded" : status, requestType, workflowCopy)}
+            accent={accent}
+          />
+        )
       ) : null}
 
       {showPrescriptionWaiting && prescriptionPaths ? (
@@ -3337,124 +3230,58 @@ export function PatientProductRequestActions({
           ) : null}
         </div>
           ) : null}
-          <ul className="space-y-2">
+          <ul className="divide-y divide-border/60">
             {lines.map((l, idx) => (
-              <li
+              <PatientProductRequestCompactLine
                 key={`${l.product_id}-${idx}`}
-                className="rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-slate-50/50 px-2.5 py-2 shadow-sm ring-1 ring-slate-100/90 sm:px-3"
-              >
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-start gap-2">
-                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner">
-                      {editMode ? (
-                        <button
-                          type="button"
-                          aria-label="Retirer"
-                          className="absolute right-1 top-1 z-10 rounded-md bg-background/90 p-1 text-destructive shadow-sm hover:bg-destructive/10"
-                          onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      ) : null}
-                      {l.photo_url ? (
-                        <button
-                          type="button"
-                          className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-                          onClick={() => openProductPhotoPreview(l.photo_url!, l.name)}
-                          aria-label={`Agrandir la photo · ${l.name}`}
-                        >
-                          <img src={l.photo_url} alt={l.name} className="pointer-events-none h-full w-full object-cover" />
-                        </button>
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <Package className="size-6 text-muted-foreground" aria-hidden />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                      <p
-                        className="overflow-hidden pr-0.5 text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
-                        style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
-                      >
-                        {l.name}
-                      </p>
-                      {l.line_source === "pharmacist_proposed" ? (
-                        <p className="text-[9px] font-medium leading-snug text-violet-900">
-                          {requestItemLineSourceFr.pharmacist_proposed}
-                          {l.pharmacist_proposal_reason ? ` — ${l.pharmacist_proposal_reason}` : ""}
-                        </p>
-                      ) : null}
-                      <PatientSentLineNotesModalFr productName={l.name} client={l.client_comment} pharmacist={l.pharmacist_comment ?? ""} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-3.5 gap-y-1 border-t border-slate-200/80 pt-2 text-[12px] font-medium leading-none tabular-nums text-slate-800 sm:gap-x-4 sm:text-[13px]">
-                    <div className="min-w-0 justify-self-start truncate">
-                      <span className="text-slate-500">PU</span>{" "}
-                      <strong className="font-semibold text-slate-900">{formatPriceDh(resubmitLineUnitPrice(l))}</strong>
-                    </div>
-                    <div className="flex shrink-0 items-center justify-center gap-1.5 justify-self-center">
-                      <span className="shrink-0 text-slate-500">Qté</span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          aria-label="Diminuer"
-                          disabled={!editMode || l.qty <= 1}
-                          className="rounded-md border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
-                          onClick={() =>
-                            setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.max(1, row.qty - 1) } : row)))
-                          }
-                        >
-                          <Minus size={15} />
-                        </button>
-                        <span className="min-w-[1.5rem] text-center font-semibold text-slate-900">{l.qty}</span>
-                        <button
-                          type="button"
-                          aria-label="Augmenter"
-                          disabled={!editMode || l.qty >= 10}
-                          className="rounded-md border border-slate-300 bg-white p-1.5 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
-                          onClick={() =>
-                            setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, qty: Math.min(10, row.qty + 1) } : row)))
-                          }
-                        >
-                          <Plus size={15} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="min-w-0 justify-self-end truncate text-end">
-                      <span className="text-slate-500">Total</span>{" "}
-                      <strong className="font-semibold text-sky-900">
-                        {resubmitLineUnitPrice(l) != null
-                          ? formatPriceDh((resubmitLineUnitPrice(l) ?? 0) * l.qty)
-                          : "—"}
-                      </strong>
-                    </div>
-                  </div>
-                </div>
-                {editMode ? (
-                  <label className="mt-2 block">
-                    <span className="mb-0.5 block text-xs font-medium text-slate-800">Commentaire sur ce produit</span>
-                    <input
-                      type="text"
-                      value={l.client_comment}
-                      maxLength={PATIENT_PRODUCT_LINE_COMMENT_MAX}
-                      onChange={(e) =>
+                line={{
+                  product_id: l.product_id,
+                  name: l.name,
+                  photo_url: l.photo_url,
+                  qty: l.qty,
+                  client_comment: l.client_comment,
+                  line_source: l.line_source,
+                  pharmacist_proposal_reason: l.pharmacist_proposal_reason,
+                }}
+                unitPrice={resubmitLineUnitPrice(l)}
+                editMode={editMode}
+                onRemove={editMode ? () => setLines((prev) => prev.filter((_, i) => i !== idx)) : undefined}
+                onPhotoPreview={() => {
+                  if (l.photo_url) openProductPhotoPreview(l.photo_url, l.name);
+                }}
+                onSetQty={(qty) =>
+                  setLines((prev) =>
+                    prev.map((row, i) => (i === idx ? { ...row, qty: Math.min(10, Math.max(1, qty)) } : row))
+                  )
+                }
+                onSaveComment={
+                  editMode
+                    ? (comment) =>
                         setLines((prev) =>
                           prev.map((row, i) =>
                             i === idx
-                              ? { ...row, client_comment: e.target.value.slice(0, PATIENT_PRODUCT_LINE_COMMENT_MAX) }
+                              ? {
+                                  ...row,
+                                  client_comment: comment.slice(0, PATIENT_PRODUCT_LINE_COMMENT_MAX),
+                                }
                               : row
                           )
                         )
-                      }
-                      placeholder="Ex. dosage, précision…"
-                        className="w-full rounded-lg border-2 border-slate-300 bg-white px-2.5 py-1.5 text-sm leading-normal text-slate-900 placeholder:text-slate-400 [touch-action:pan-x_pan-y]"
-                    />
-                    <span className="mt-0.5 block text-right text-[9px] text-slate-400 tabular-nums">
-                      {l.client_comment.length}/{PATIENT_PRODUCT_LINE_COMMENT_MAX}
-                    </span>
-                  </label>
-                ) : null}
-              </li>
+                    : undefined
+                }
+                notesSlot={
+                  !editMode &&
+                  (l.client_comment?.trim() || l.pharmacist_comment?.trim()) ? (
+                    <div className="ml-auto max-w-[45%]">
+                      <PatientSentLineNotesModalFr
+                        productName={l.name}
+                        client={l.client_comment ?? ""}
+                        pharmacist={l.pharmacist_comment ?? ""}
+                      />
+                    </div>
+                  ) : null
+                }
+              />
             ))}
           </ul>
         </section>
