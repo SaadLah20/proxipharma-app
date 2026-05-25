@@ -1,14 +1,19 @@
 "use client";
 
-import { MessageSquare, Minus, Package, Plus, Trash2 } from "lucide-react";
-import { PatientLineCommentModal, ProductRequestLineBodyGrid } from "@/components/pharmacy/patient-demande-produits-ui";
+import { Package, Trash2 } from "lucide-react";
+import {
+  PatientLineCommentModal,
+  PRODUCT_REQUEST_LINE_THUMB,
+  ProductRequestLineBodyGrid,
+  ProductRequestLineMessageButton,
+} from "@/components/pharmacy/patient-demande-produits-ui";
 import { formatPriceDh } from "@/lib/product-price";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
-const THUMB = "size-14 shrink-0";
+const THUMB = PRODUCT_REQUEST_LINE_THUMB;
 
 export type PatientDossierCompactLine = {
   product_id: string;
@@ -46,18 +51,19 @@ export function PatientProductRequestCompactLine({
 
   return (
     <>
-      <li className="border-b border-border/50 py-2 last:border-b-0">
+      <li className="border-b border-border/50 py-2.5 last:border-b-0">
         <div
           className={cn(
-            "grid min-h-14 min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2 gap-y-0.5",
-            line.line_source === "pharmacist_proposed" ? "grid-rows-[auto_1fr]" : "grid-rows-[auto_1fr] h-14"
+            "grid min-w-0 grid-cols-[4rem_minmax(0,1fr)] gap-x-2.5 gap-y-0.5",
+            line.line_source === "pharmacist_proposed"
+              ? "min-h-[5.25rem] grid-rows-[auto_auto_1fr]"
+              : "min-h-[4.75rem] grid-rows-[auto_auto_1fr]"
           )}
         >
           <div
             className={cn(
-              "row-span-2 shrink-0 self-stretch overflow-hidden rounded-lg border border-border/80 bg-card",
-              THUMB,
-              line.line_source === "pharmacist_proposed" ? "h-14 w-14" : "size-14"
+              "row-span-3 shrink-0 self-center overflow-hidden rounded-lg border border-border/80 bg-card",
+              THUMB
             )}
           >
             {line.photo_url ? (
@@ -101,9 +107,9 @@ export function PatientProductRequestCompactLine({
               </button>
             ) : null}
           </div>
-          <div className="col-start-2 row-start-2 flex min-h-0 min-w-0 items-start overflow-hidden pt-px">
+          <div className="col-start-2 row-start-2 flex min-h-0 min-w-0 items-start pt-0.5">
             <ProductRequestLineBodyGrid
-              className="!h-auto min-h-0 w-full"
+              className="!h-auto w-full"
               unitPrice={unitPrice}
               qty={line.qty}
               totalValue={unitPrice != null ? unitPrice * line.qty : null}
@@ -111,27 +117,20 @@ export function PatientProductRequestCompactLine({
               onIncQty={() => onSetQty(line.qty + 1)}
               qtyDisabledDec={!editMode || line.qty <= 1}
               qtyDisabledInc={!editMode || line.qty >= 10}
-              messageButton={
-                editMode && onSaveComment ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCommentDraft(line.client_comment ?? "");
-                      setCommentOpen(true);
-                    }}
-                    className={cn(
-                      "inline-flex max-w-[4.25rem] items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] font-semibold leading-none whitespace-nowrap transition",
-                      hasComment ? t.noteActive : cn("border-border/80 bg-card text-muted-foreground", t.noteIdle)
-                    )}
-                  >
-                    <MessageSquare className="size-3 shrink-0" aria-hidden />
-                    <span className="truncate">{hasComment ? "Note" : "Message"}</span>
-                  </button>
-                ) : (
-                  notesSlot
-                )
-              }
             />
+          </div>
+          <div className="col-start-2 row-start-3 flex min-h-[1.75rem] items-end justify-end self-end">
+            {editMode && onSaveComment ? (
+              <ProductRequestLineMessageButton
+                hasComment={hasComment}
+                onClick={() => {
+                  setCommentDraft(line.client_comment ?? "");
+                  setCommentOpen(true);
+                }}
+              />
+            ) : (
+              notesSlot
+            )}
           </div>
         </div>
       </li>

@@ -10,18 +10,46 @@ import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-lim
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import type { PatientDemandeProduitsDraftLine } from "@/lib/patient-demande-produits-draft";
 
-const THUMB = "size-14 shrink-0";
+export const PRODUCT_REQUEST_LINE_THUMB = "size-16 shrink-0";
+const THUMB = PRODUCT_REQUEST_LINE_THUMB;
 
 function priceLine(label: string, labelClass: string, children: ReactNode) {
   return (
-    <p className="flex min-w-0 items-baseline gap-1 whitespace-nowrap text-[10px] leading-none">
-      <span className={cn("shrink-0 text-[9px] font-semibold uppercase tracking-wide", labelClass)}>{label}</span>
+    <p className="flex min-w-0 items-baseline gap-1 whitespace-nowrap text-xs leading-none">
+      <span className={cn("shrink-0 text-[10px] font-semibold uppercase tracking-wide", labelClass)}>{label}</span>
       <span className="min-w-0 truncate">{children}</span>
     </p>
   );
 }
 
-/** PU/Tot (espacement fixe) | Qté | Message — ligne unique, centrée verticalement. */
+export function ProductRequestLineMessageButton({
+  hasComment,
+  onClick,
+  className,
+}: {
+  hasComment: boolean;
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-semibold leading-none whitespace-nowrap transition",
+        hasComment
+          ? t.noteActive
+          : cn("border-border/80 bg-card text-muted-foreground hover:text-foreground", t.noteIdle),
+        className
+      )}
+    >
+      <MessageSquare className="size-3.5 shrink-0" aria-hidden />
+      <span>{hasComment ? "Note" : "Message"}</span>
+    </button>
+  );
+}
+
+/** PU/Tot + Qté (Message optionnel en ligne, sinon rangée dédiée sous le cart). */
 export function ProductRequestLineBodyGrid({
   unitPrice,
   qty,
@@ -40,21 +68,21 @@ export function ProductRequestLineBodyGrid({
   onIncQty: () => void;
   qtyDisabledDec?: boolean;
   qtyDisabledInc?: boolean;
-  messageButton: ReactNode;
+  messageButton?: ReactNode;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "flex h-full min-h-0 min-w-0 items-center gap-x-1.5 leading-none",
+        "flex h-full min-h-0 min-w-0 items-center gap-x-2 leading-none",
         className
       )}
     >
-      <div className="flex shrink-0 flex-col gap-[3px]">
+      <div className="flex shrink-0 flex-col gap-1">
         {priceLine(
           "PU",
           "text-muted-foreground",
-          <PriceDhInline value={unitPrice} amountClassName="font-semibold text-[10px]" suffixClassName="text-[8px]" />
+          <PriceDhInline value={unitPrice} amountClassName="font-semibold text-xs" suffixClassName="text-[9px]" />
         )}
         {priceLine(
           "Tot",
@@ -62,39 +90,39 @@ export function ProductRequestLineBodyGrid({
           totalValue != null ? (
             <PriceDhInline
               value={totalValue}
-              amountClassName={cn("font-bold text-[10px]", t.price)}
-              suffixClassName="text-[8px] font-bold text-sky-600/80"
+              amountClassName={cn("font-bold text-xs", t.price)}
+              suffixClassName="text-[9px] font-bold text-sky-600/80"
             />
           ) : (
-            <span className="font-bold">—</span>
+            <span className="font-bold text-xs">—</span>
           )
         )}
       </div>
-      <div className="flex w-[4.25rem] shrink-0 flex-col items-center justify-center gap-0.5">
-        <span className="w-full text-center text-[8px] font-medium leading-none text-muted-foreground">Qté</span>
-        <div className="flex items-center justify-center gap-0.5">
+      <div className="ml-4 flex w-[5.5rem] shrink-0 flex-col items-center justify-center gap-1 sm:ml-5">
+        <span className="w-full text-center text-[9px] font-medium leading-none text-muted-foreground">Qté</span>
+        <div className="flex items-center justify-center gap-1">
           <button
             type="button"
             aria-label="Diminuer"
             disabled={qtyDisabledDec}
-            className="rounded border border-border/80 bg-card p-0.5 text-foreground hover:bg-muted/40 disabled:opacity-40"
+            className="rounded-md border border-border/80 bg-card p-1 text-foreground hover:bg-muted/40 disabled:opacity-40"
             onClick={onDecQty}
           >
-            <Minus size={13} />
+            <Minus size={15} />
           </button>
-          <span className="w-5 text-center text-[11px] font-semibold leading-none tabular-nums">{qty}</span>
+          <span className="w-6 text-center text-sm font-semibold leading-none tabular-nums">{qty}</span>
           <button
             type="button"
             aria-label="Augmenter"
             disabled={qtyDisabledInc}
-            className="rounded border border-border/80 bg-card p-0.5 hover:bg-muted/40 disabled:opacity-40"
+            className="rounded-md border border-border/80 bg-card p-1 hover:bg-muted/40 disabled:opacity-40"
             onClick={onIncQty}
           >
-            <Plus size={13} />
+            <Plus size={15} />
           </button>
         </div>
       </div>
-      <div className="ml-auto flex shrink-0 items-center">{messageButton}</div>
+      {messageButton ? <div className="ml-auto flex shrink-0 items-center">{messageButton}</div> : null}
     </div>
   );
 }
@@ -278,9 +306,9 @@ export function ProductRequestCartLineRow({
   hasComment: boolean;
 }) {
   return (
-    <li className="border-b border-border/50 py-2 last:border-b-0">
-      <div className="grid h-14 min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] grid-rows-[auto_1fr] gap-x-2 gap-y-0.5">
-        <div className={cn("row-span-2 shrink-0 overflow-hidden rounded-lg border border-border/80 bg-card", THUMB)}>
+    <li className="border-b border-border/50 py-2.5 last:border-b-0">
+      <div className="grid min-h-[4.75rem] min-w-0 grid-cols-[4rem_minmax(0,1fr)] grid-rows-[auto_auto_1fr] gap-x-2.5 gap-y-0.5">
+        <div className={cn("row-span-3 self-center overflow-hidden rounded-lg border border-border/80 bg-card", THUMB)}>
           {line.photo_url ? (
             <button
               type="button"
@@ -292,13 +320,13 @@ export function ProductRequestCartLineRow({
             </button>
           ) : (
             <span className="flex h-full w-full items-center justify-center">
-              <Package className="size-5 text-muted-foreground" aria-hidden />
+              <Package className="size-6 text-muted-foreground" aria-hidden />
             </span>
           )}
         </div>
-        <div className="col-start-2 row-start-1 flex min-h-[1.125rem] min-w-0 items-center gap-1.5 leading-none">
+        <div className="col-start-2 row-start-1 flex min-w-0 items-center gap-1.5 leading-none">
           <p
-            className="min-w-0 flex-1 truncate text-[11px] font-semibold leading-tight text-foreground"
+            className="min-w-0 flex-1 truncate text-xs font-semibold leading-tight text-foreground"
             title={line.name}
           >
             {line.name}
@@ -309,34 +337,22 @@ export function ProductRequestCartLineRow({
             className="shrink-0 rounded p-0.5 text-destructive transition hover:bg-destructive/10"
             onClick={onRemove}
           >
-            <Trash2 size={14} />
+            <Trash2 size={15} />
           </button>
         </div>
-        <div className="col-start-2 row-start-2 flex min-h-0 min-w-0 items-start overflow-hidden pt-px">
+        <div className="col-start-2 row-start-2 flex min-h-0 min-w-0 items-start pt-0.5">
           <ProductRequestLineBodyGrid
-            className="!h-auto min-h-0 w-full"
+            className="!h-auto w-full"
             unitPrice={unitPrice}
             qty={line.qty}
             totalValue={unitPrice != null ? unitPrice * line.qty : null}
             onDecQty={() => onSetQty(line.qty - 1)}
             onIncQty={() => onSetQty(line.qty + 1)}
             qtyDisabledInc={line.qty >= 10}
-            messageButton={
-              <button
-                type="button"
-                onClick={onOpenComment}
-                className={cn(
-                  "inline-flex max-w-[4.25rem] items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] font-semibold leading-none whitespace-nowrap transition",
-                  hasComment
-                    ? t.noteActive
-                    : cn("border-border/80 bg-card text-muted-foreground hover:text-foreground", t.noteIdle)
-                )}
-              >
-                <MessageSquare className="size-3 shrink-0" aria-hidden />
-                <span className="truncate">{hasComment ? "Note" : "Message"}</span>
-              </button>
-            }
           />
+        </div>
+        <div className="col-start-2 row-start-3 flex min-h-[1.75rem] items-end justify-end self-end">
+          <ProductRequestLineMessageButton hasComment={hasComment} onClick={onOpenComment} />
         </div>
       </div>
     </li>
