@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { cn } from "@/lib/utils";
 import { formatDateShortFr, formatDateTimeShort24hFr, formatPlannedVisitFr, formatTime24hFr } from "@/lib/datetime-fr";
 import {
   RequestExitConfirmModalFr,
