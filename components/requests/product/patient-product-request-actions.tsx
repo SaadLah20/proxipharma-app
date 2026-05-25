@@ -35,7 +35,6 @@ import { plannedVisitWindow } from "@/lib/planned-visit";
 import {
   bucketPatientValidatedLinesThreeWays,
   effectiveAvailabilityForPatientLine,
-  effectiveEtaForPatientLine,
   type PatientLineLike,
   validatedBranchUnitPriceMad,
   validatedBranchPhotoPath,
@@ -105,13 +104,17 @@ import { PlannedVisitTimeInput } from "@/components/requests/planned-visit-time-
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
 import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternative-qty-rules";
-import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import {
   lineConversationStripButtonClass,
   lineConversationStripLabel,
   lineConversationVisual,
 } from "@/components/pharmacist/pharmacist-line-conversation-chip";
-import { RequestLineSuiviStrip } from "@/components/requests/shared/request-line-suivi-strip";
+import { PatientLineNotesIconButton } from "@/components/requests/product/patient-line-notes-icon-button";
+import {
+  buildPatientValidatedLineLabelsFr,
+  validatedLineLabelChipClass,
+  validatedOriginLabelFr,
+} from "@/lib/patient-validated-line-labels-fr";
 
 type ProdBrief = {
   name: string;
@@ -214,41 +217,6 @@ function compactTotalMadLabel(t: { sumKnown: number; missingPrice: boolean; empt
   return `Total · ${t.sumKnown.toFixed(2)} MAD`;
 }
 
-/** Ligne de statut sous la carte produit (dossier traité côté patient). */
-function patientTreatedSupplyStatusLine(row: ActionItemRow): string {
-  if (!row.is_selected_by_patient) {
-    return "Non retenu à la validation — pas de suivi réservation / commande.";
-  }
-  if (row.withdrawn_after_confirm) {
-    return "Écart après validation : ce produit n’est plus suivi comme commande active.";
-  }
-  const eff = effectiveAvailabilityForPatientLine(row);
-  const pcf = row.post_confirm_fulfillment ?? "unset";
-  const co = row.counter_outcome ?? "unset";
-  const picked = co === "picked_up";
-
-  if (eff === "available" || eff === "partially_available") {
-    if (pcf === "reserved") {
-      return picked
-        ? "Suivi : produit réservé à la pharmacie et indiqué comme récupéré au comptoir."
-        : "Suivi : produit réservé à la pharmacie — en attente de ton passage au comptoir.";
-    }
-    return "Suivi : la pharmacie n’a pas encore indiqué la mise de côté (réservé).";
-  }
-  if (eff === "to_order") {
-    if (pcf === "arrived_reserved") {
-      return picked
-        ? "Suivi : commande reçue à l’officine puis récupérée au comptoir."
-        : "Suivi : commande reçue à l’officine — en attente de ton passage au comptoir.";
-    }
-    if (pcf === "ordered") {
-      return "Suivi : produit commandé auprès du fournisseur — pas encore reçu en officine.";
-    }
-    return "Suivi : commande en cours de traitement par la pharmacie (pas encore indiquée comme commandée).";
-  }
-  return "Suivi : statut à préciser avec ta pharmacie.";
-}
-
 /** Vignette validée — même gabarit que demande répondue (~62px). */
 const VALIDATED_LINE_THUMB =
   "box-border size-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
@@ -271,9 +239,7 @@ function PatientValidatedCompactLineCard({
   row,
   tier,
   onOpenHistory,
-  treatedSupplyStatusLine,
   requestStatusForCard = null,
-  postConfirmBadges,
   archiveClosureLabel = null,
   onPhotoPreview,
   pharmacistProposedBadgeLabel = pharmacistProposedProductBadgeFr,
@@ -285,58 +251,36 @@ function PatientValidatedCompactLineCard({
   tier: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation";
   pricingConfig?: PharmacyPricingConfig | null;
   onOpenHistory: () => void;
-  /** Dossier `treated` : texte court réservation / commande / réception / comptoir. */
-  treatedSupplyStatusLine?: string | null;
-  /** Quand `treated`, affiche le bandeau jalons à la place du paragraphe pour les lignes suivies. */
   requestStatusForCard?: string | null;
-  /** Jalons post-validation (détail dans Historique produit). */
-  postConfirmBadges?: string[];
-  /** Dossier clôturé : remplace la dispo initiale (ex. Récupéré). */
   archiveClosureLabel?: string | null;
-  /** Agrandissement photo plein écran (patient). */
   onPhotoPreview?: (url: string, title: string) => void;
   pharmacistProposedBadgeLabel?: string;
   requestType?: string;
   supplyAmendmentBundles?: { amendments: unknown }[];
 }) {
-  const altList = normalizeAlternatives(row.request_item_alternatives);
-  const chosenAlt = altList.find((a) => a.id === row.patient_chosen_alternative_id);
   const validatedName = validatedProductLabel(row);
   const displayQty = patientDisplayQtyForLine(row, requestStatusForCard);
   const unitMad = validatedBranchUnitPriceMad(row, pricingConfig, row.product_id);
   const lineTotalMad = unitMad != null ? unitMad * displayQty : null;
   const thumbUrl = resolvePublicMediaUrl(validatedBranchPhotoPath(row));
-  const eff = effectiveAvailabilityForPatientLine(row);
-  const eta = effectiveEtaForPatientLine(row);
-
-  const availStatusOnly =
-    !row.is_selected_by_patient
-      ? "Non retenu lors de votre validation."
-      : eff
-        ? (availabilityStatusFr[eff] ?? eff)
-        : "Dispo communiquée par la pharmacie à l’historique.";
-
-  const availUi = row.is_selected_by_patient && eff ? availabilityStatusUi(eff) : null;
-  const AvailIcon = availUi?.Icon;
 
   const withdrawnGrey = tier === "retire_apres_validation";
-  const hasConvo = Boolean(row.client_comment?.trim() || row.pharmacist_comment?.trim());
   const prescriptionBadge =
     requestType === "prescription"
       ? patientPrescriptionLineBadge(requestType, row, supplyAmendmentBundles)
       : null;
-  const lineBadgeLabel = prescriptionBadge ?? (row.line_source === "pharmacist_proposed" ? pharmacistProposedBadgeLabel : null);
-  const showLineBadge = Boolean(lineBadgeLabel);
-  const ordonnanceProposedBadge =
-    lineBadgeLabel === "Ordonnance" || lineBadgeLabel === "Ordonnance + alternative";
-  const showSuiviStrip =
-    row.is_selected_by_patient &&
-    tier !== "retire_apres_validation" &&
-    !row.withdrawn_after_confirm &&
-    (requestStatusForCard === "treated" ||
-      requestStatusForCard === "confirmed" ||
-      requestStatusForCard === "processing");
-  const closureLabel = archiveClosureLabel?.trim() || null;
+  const originLabel = validatedOriginLabelFr({
+    row,
+    requestType,
+    pharmacistProposedBadgeLabel,
+    prescriptionBadge,
+  });
+  const lineLabels = buildPatientValidatedLineLabelsFr({
+    row,
+    originLabel,
+    supplyAmendmentBundles,
+    archiveClosureLabel,
+  });
   const thumbInner = thumbUrl ? (
     onPhotoPreview ? (
       <button
@@ -359,7 +303,7 @@ function PatientValidatedCompactLineCard({
   return (
     <li
       className={cn(
-        "relative w-full min-w-0 overflow-visible rounded-lg border transition",
+        "w-full min-w-0 overflow-visible rounded-lg border transition",
         validatedLineShellClass(tier, withdrawnGrey)
       )}
     >
@@ -369,26 +313,14 @@ function PatientValidatedCompactLineCard({
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 py-0.5">
-          <div className="flex min-w-0 items-center gap-1.5 overflow-hidden leading-none">
-            {showLineBadge ? (
-              <span
-                className={cn(
-                  "shrink-0 rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide leading-tight text-white",
-                  ordonnanceProposedBadge || prescriptionBadge === "Produit proposé par la pharmacie"
-                    ? "bg-amber-700"
-                    : prescriptionBadge === "Alternative"
-                      ? "bg-sky-700"
-                      : "bg-violet-600"
-                )}
-              >
-                {lineBadgeLabel}
-              </span>
-            ) : chosenAlt && requestType === "prescription" ? (
-              <span className="shrink-0 rounded bg-sky-700 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white">
-                Alternative
-              </span>
-            ) : null}
-            <p className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-none text-foreground" title={validatedName}>
+          <div className="flex min-w-0 items-center gap-1 leading-none">
+            <p
+              className={cn(
+                "min-w-0 flex-1 truncate text-[13px] font-semibold leading-none",
+                withdrawnGrey && "text-muted-foreground line-through decoration-slate-400/90"
+              )}
+              title={validatedName}
+            >
               {validatedName}
             </p>
             <button
@@ -400,49 +332,12 @@ function PatientValidatedCompactLineCard({
             >
               <History className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
             </button>
+            <PatientLineNotesIconButton
+              productName={validatedName}
+              client={row.client_comment ?? ""}
+              pharmacist={row.pharmacist_comment ?? ""}
+            />
           </div>
-
-          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-none">
-            {closureLabel ? (
-              <span className="inline-flex max-w-full items-center rounded-full border border-emerald-400/80 bg-emerald-50 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-emerald-950">
-                {closureLabel}
-              </span>
-            ) : availUi && AvailIcon ? (
-              <span
-                className={cn(
-                  "inline-flex max-w-[9.5rem] min-w-0 items-center gap-0.5 rounded-full px-1 py-px text-[8px] font-semibold leading-tight ring-1",
-                  availUi.badgeClass
-                )}
-                title={availUi.label}
-              >
-                <AvailIcon className="size-2 shrink-0" aria-hidden />
-                <span className="truncate">{availUi.label}</span>
-              </span>
-            ) : (
-              <span className="text-[10px] leading-snug text-foreground/90">{availStatusOnly}</span>
-            )}
-            {tier === "retire_apres_validation" ? (
-              <span className="rounded-full bg-amber-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                Écart
-              </span>
-            ) : null}
-            {row.is_selected_by_patient && eff === "to_order" && eta ? (
-              <RespondedReceptionBadgeFr dateYmd={eta} />
-            ) : null}
-          </div>
-
-          {postConfirmBadges && postConfirmBadges.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {postConfirmBadges.map((label) => (
-                <span
-                  key={label}
-                  className="inline-flex max-w-full rounded-md border border-slate-300/80 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
-                >
-                  {label}
-                </span>
-              ))}
-            </div>
-          ) : null}
 
           <div
             className={cn(
@@ -450,29 +345,24 @@ function PatientValidatedCompactLineCard({
               withdrawnGrey && "opacity-85"
             )}
           >
-            <div
-              className={cn(
-                "grid shrink-0 leading-none text-muted-foreground",
-                lineTotalMad != null && row.is_selected_by_patient
-                  ? "grid-cols-[auto_auto] gap-x-1 gap-y-0.5"
-                  : "grid-cols-[auto_auto] gap-x-1"
-              )}
-            >
-              <span className="text-[11px]">PU</span>
-              <span className="whitespace-nowrap text-[11px]">
-                {unitMad != null ? (
-                  <PriceDhInline
-                    value={unitMad}
-                    amountClassName="text-xs font-bold text-foreground"
-                    suffixClassName="text-[9px]"
-                  />
-                ) : (
-                  <strong className="text-foreground">—</strong>
-                )}
-              </span>
+            <div className="flex shrink-0 flex-col gap-1 leading-none text-muted-foreground">
+              <div className="flex items-baseline gap-1.5">
+                <span className="w-[1.4rem] shrink-0 text-[11px] leading-none">PU</span>
+                <span className="whitespace-nowrap">
+                  {unitMad != null ? (
+                    <PriceDhInline
+                      value={unitMad}
+                      amountClassName="text-xs font-bold leading-none text-foreground"
+                      suffixClassName="text-[9px] leading-none"
+                    />
+                  ) : (
+                    <strong className="text-xs leading-none text-foreground">—</strong>
+                  )}
+                </span>
+              </div>
               {lineTotalMad != null && row.is_selected_by_patient ? (
-                <>
-                  <span className="text-[8px] font-medium">Tot</span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="w-[1.4rem] shrink-0 text-[8px] font-medium leading-none">Tot</span>
                   <span
                     className={cn(
                       "whitespace-nowrap text-[8px] font-medium text-muted-foreground/90",
@@ -481,39 +371,28 @@ function PatientValidatedCompactLineCard({
                   >
                     <PriceDhInline
                       value={lineTotalMad}
-                      amountClassName="text-[9px] font-semibold text-muted-foreground"
-                      suffixClassName="text-[7px]"
+                      amountClassName="text-[9px] font-semibold leading-none text-muted-foreground"
+                      suffixClassName="text-[7px] leading-none"
                     />
                   </span>
-                </>
+                </div>
               ) : null}
             </div>
 
-            <div className="ml-auto flex shrink-0 items-center gap-2">
-              <span className="whitespace-nowrap text-[11px] text-muted-foreground">
-                Qté <strong className="font-semibold tabular-nums text-foreground">{displayQty}</strong>
-              </span>
-              {hasConvo ? (
-                <PatientRespondedLineConvoStripReadOnly
-                  patientNote={row.client_comment ?? ""}
-                  pharmaLineNote={row.pharmacist_comment ?? ""}
-                  layout="inline"
-                />
-              ) : null}
-            </div>
+            <span className="ml-auto whitespace-nowrap text-[11px] text-muted-foreground">
+              Qté <strong className="font-semibold tabular-nums text-foreground">{displayQty}</strong>
+            </span>
           </div>
         </div>
       </div>
 
-      {showSuiviStrip ? (
-        <div className="border-t border-sky-200/60 bg-sky-50/40 px-2.5 py-2">
-          <RequestLineSuiviStrip row={row} />
-        </div>
-      ) : requestStatusForCard === "treated" &&
-        treatedSupplyStatusLine != null &&
-        treatedSupplyStatusLine.trim() !== "" ? (
-        <div className="border-t border-sky-200/60 bg-sky-50/40 px-2.5 py-2">
-          <p className="text-[10px] font-semibold leading-snug text-slate-800">{treatedSupplyStatusLine}</p>
+      {lineLabels.length > 0 ? (
+        <div className="flex flex-wrap gap-1 border-t border-sky-200/55 bg-sky-50/30 px-2.5 py-1.5">
+          {lineLabels.map((label) => (
+            <span key={label.key} className={validatedLineLabelChipClass(label)}>
+              {label.text}
+            </span>
+          ))}
         </div>
       ) : null}
     </li>
@@ -741,7 +620,6 @@ function PatientClosedProductBucketsView({
           row={row}
           tier={tier}
           onOpenHistory={() => onOpenLineHistory(row.id)}
-          postConfirmBadges={linePostConfirmBadgesById[row.id]}
           requestStatusForCard="treated"
           archiveClosureLabel={patientArchiveClosureLabelFr(row)}
           onPhotoPreview={onPhotoPreview}
@@ -790,7 +668,6 @@ function PatientClosedProductBucketsView({
                 row={row}
                 requestType={requestType}
                 onOpenHistory={() => onOpenLineHistory(row.id)}
-                postConfirmBadges={linePostConfirmBadgesById[row.id]}
                 onPhotoPreview={onPhotoPreview}
               />
             ))}
@@ -2517,9 +2394,7 @@ export function PatientProductRequestActions({
                         row={row}
                         tier="dispo_officine"
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
-                        postConfirmBadges={linePostConfirmBadgesById[row.id]}
                         requestStatusForCard={status}
-                        treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
                         pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                         requestType={requestType}
@@ -2555,9 +2430,7 @@ export function PatientProductRequestActions({
                         row={row}
                         tier="commande"
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
-                        postConfirmBadges={linePostConfirmBadgesById[row.id]}
                         requestStatusForCard={status}
-                        treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
                         pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                         requestType={requestType}
@@ -2587,9 +2460,7 @@ export function PatientProductRequestActions({
                         row={row}
                         tier="hors_perimetre"
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
-                        postConfirmBadges={linePostConfirmBadgesById[row.id]}
                         requestStatusForCard={status}
-                        treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
                         pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                         requestType={requestType}
@@ -2619,9 +2490,7 @@ export function PatientProductRequestActions({
                         row={row}
                         tier="retire_apres_validation"
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
-                        postConfirmBadges={linePostConfirmBadgesById[row.id]}
                         requestStatusForCard={status}
-                        treatedSupplyStatusLine={status === "treated" ? patientTreatedSupplyStatusLine(row) : undefined}
                         onPhotoPreview={openProductPhotoPreview}
                         pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                         requestType={requestType}
@@ -2648,7 +2517,6 @@ export function PatientProductRequestActions({
                         row={row}
                         requestType={requestType}
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
-                        postConfirmBadges={linePostConfirmBadgesById[row.id]}
                         onPhotoPreview={openProductPhotoPreview}
                       />
                     ))}
