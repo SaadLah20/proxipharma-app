@@ -10,18 +10,90 @@ import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-lim
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import type { PatientDemandeProduitsDraftLine } from "@/lib/patient-demande-produits-draft";
 
-export const PRODUCT_REQUEST_LINE_THUMB = "size-16 shrink-0";
+export const PRODUCT_REQUEST_LINE_THUMB = "size-20 shrink-0";
 /** Hauteur du bloc = vignette produit (toujours liée à PRODUCT_REQUEST_LINE_THUMB). */
-export const PRODUCT_REQUEST_LINE_BLOCK_H = "h-16";
+export const PRODUCT_REQUEST_LINE_BLOCK_H = "h-20";
 const THUMB = PRODUCT_REQUEST_LINE_THUMB;
 const LINE_BLOCK_H = PRODUCT_REQUEST_LINE_BLOCK_H;
 
 function priceLine(label: string, labelClass: string, children: ReactNode) {
   return (
-    <p className="flex min-w-0 items-baseline gap-1 whitespace-nowrap text-xs leading-none">
+    <p className="flex min-w-0 items-baseline gap-1 whitespace-nowrap text-sm leading-none">
       <span className={cn("shrink-0 text-[10px] font-semibold uppercase tracking-wide", labelClass)}>{label}</span>
       <span className="min-w-0 truncate">{children}</span>
     </p>
+  );
+}
+
+function ProductRequestLinePrices({
+  unitPrice,
+  totalValue,
+}: {
+  unitPrice: number | null;
+  totalValue: number | null;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col justify-center gap-0.5 leading-none">
+      {priceLine(
+        "PU",
+        "text-muted-foreground",
+        <PriceDhInline value={unitPrice} amountClassName="font-semibold text-sm" suffixClassName="text-[10px]" />
+      )}
+      {priceLine(
+        "Tot",
+        "text-sky-600/85",
+        totalValue != null ? (
+          <PriceDhInline
+            value={totalValue}
+            amountClassName={cn("font-bold text-sm", t.price)}
+            suffixClassName="text-[10px] font-bold text-sky-600/80"
+          />
+        ) : (
+          <span className="font-bold text-sm">—</span>
+        )
+      )}
+    </div>
+  );
+}
+
+function ProductRequestLineQty({
+  qty,
+  onDecQty,
+  onIncQty,
+  qtyDisabledDec,
+  qtyDisabledInc,
+}: {
+  qty: number;
+  onDecQty: () => void;
+  onIncQty: () => void;
+  qtyDisabledDec?: boolean;
+  qtyDisabledInc?: boolean;
+}) {
+  return (
+    <div className="flex w-[5.75rem] shrink-0 flex-col items-center justify-center gap-0.5">
+      <span className="w-full text-center text-[9px] font-medium leading-none text-muted-foreground">Qté</span>
+      <div className="flex items-center justify-center gap-1">
+        <button
+          type="button"
+          aria-label="Diminuer"
+          disabled={qtyDisabledDec}
+          className="rounded-md border border-border/80 bg-card p-1 text-foreground hover:bg-muted/40 disabled:opacity-40"
+          onClick={onDecQty}
+        >
+          <Minus size={16} />
+        </button>
+        <span className="w-6 text-center text-sm font-semibold leading-none tabular-nums">{qty}</span>
+        <button
+          type="button"
+          aria-label="Augmenter"
+          disabled={qtyDisabledInc}
+          className="rounded-md border border-border/80 bg-card p-1 hover:bg-muted/40 disabled:opacity-40"
+          onClick={onIncQty}
+        >
+          <Plus size={16} />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -77,54 +149,18 @@ export function ProductRequestLineBodyGrid({
   return (
     <div
       className={cn(
-        "flex h-full min-h-0 min-w-0 items-center gap-x-2 leading-none",
+        "flex h-full min-h-0 min-w-0 items-center gap-x-3 leading-none",
         className
       )}
     >
-      <div className="flex shrink-0 flex-col gap-1">
-        {priceLine(
-          "PU",
-          "text-muted-foreground",
-          <PriceDhInline value={unitPrice} amountClassName="font-semibold text-xs" suffixClassName="text-[9px]" />
-        )}
-        {priceLine(
-          "Tot",
-          "text-sky-600/85",
-          totalValue != null ? (
-            <PriceDhInline
-              value={totalValue}
-              amountClassName={cn("font-bold text-xs", t.price)}
-              suffixClassName="text-[9px] font-bold text-sky-600/80"
-            />
-          ) : (
-            <span className="font-bold text-xs">—</span>
-          )
-        )}
-      </div>
-      <div className="ml-4 flex w-[5.5rem] shrink-0 flex-col items-center justify-center gap-1 sm:ml-5">
-        <span className="w-full text-center text-[9px] font-medium leading-none text-muted-foreground">Qté</span>
-        <div className="flex items-center justify-center gap-1">
-          <button
-            type="button"
-            aria-label="Diminuer"
-            disabled={qtyDisabledDec}
-            className="rounded-md border border-border/80 bg-card p-1 text-foreground hover:bg-muted/40 disabled:opacity-40"
-            onClick={onDecQty}
-          >
-            <Minus size={15} />
-          </button>
-          <span className="w-6 text-center text-sm font-semibold leading-none tabular-nums">{qty}</span>
-          <button
-            type="button"
-            aria-label="Augmenter"
-            disabled={qtyDisabledInc}
-            className="rounded-md border border-border/80 bg-card p-1 hover:bg-muted/40 disabled:opacity-40"
-            onClick={onIncQty}
-          >
-            <Plus size={15} />
-          </button>
-        </div>
-      </div>
+      <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
+      <ProductRequestLineQty
+        qty={qty}
+        onDecQty={onDecQty}
+        onIncQty={onIncQty}
+        qtyDisabledDec={qtyDisabledDec}
+        qtyDisabledInc={qtyDisabledInc}
+      />
       {messageButton ? <div className="ml-auto flex shrink-0 items-center">{messageButton}</div> : null}
     </div>
   );
@@ -327,35 +363,41 @@ export function ProductRequestCartLineRow({
             </span>
           )}
         </div>
-        <div className={cn("relative min-w-0 flex-1", LINE_BLOCK_H)}>
-          <div className="flex h-[1.125rem] min-w-0 items-center gap-1.5 pr-5 leading-none">
-            <p
-              className="min-w-0 flex-1 truncate text-xs font-semibold leading-none text-foreground"
-              title={line.name}
-            >
-              {line.name}
-            </p>
-          </div>
+        <div
+          className={cn(
+            "grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] grid-rows-[1.25rem_minmax(0,1fr)_1.375rem] gap-x-1.5",
+            LINE_BLOCK_H
+          )}
+        >
+          <p
+            className="col-start-1 row-start-1 min-w-0 truncate pr-1 text-xs font-semibold leading-tight text-foreground"
+            title={line.name}
+          >
+            {line.name}
+          </p>
           <button
             type="button"
             aria-label="Retirer"
-            className="absolute top-0 right-0 rounded p-0.5 text-destructive transition hover:bg-destructive/10"
+            className="col-start-2 row-start-1 justify-self-end rounded p-0.5 text-destructive transition hover:bg-destructive/10"
             onClick={onRemove}
           >
             <Trash2 size={15} />
           </button>
-          <div className="absolute inset-x-0 top-[1.125rem] bottom-[1.375rem] flex min-w-0 items-center overflow-hidden">
-            <ProductRequestLineBodyGrid
-              className="h-full w-full"
+          <div className="col-start-1 row-start-2 min-h-0 min-w-0 self-center overflow-hidden">
+            <ProductRequestLinePrices
               unitPrice={unitPrice}
-              qty={line.qty}
               totalValue={unitPrice != null ? unitPrice * line.qty : null}
+            />
+          </div>
+          <div className="col-start-2 row-start-2 self-center justify-self-end">
+            <ProductRequestLineQty
+              qty={line.qty}
               onDecQty={() => onSetQty(line.qty - 1)}
               onIncQty={() => onSetQty(line.qty + 1)}
               qtyDisabledInc={line.qty >= 10}
             />
           </div>
-          <div className="absolute bottom-0 right-0">
+          <div className="col-start-2 row-start-3 flex items-end justify-end">
             <ProductRequestLineMessageButton
               hasComment={hasComment}
               onClick={onOpenComment}

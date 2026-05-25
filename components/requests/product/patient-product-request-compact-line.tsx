@@ -56,13 +56,13 @@ export function PatientProductRequestCompactLine({
         <div
           className={cn(
             "flex min-w-0 items-stretch gap-x-2.5",
-            line.line_source === "pharmacist_proposed" ? "h-20" : PRODUCT_REQUEST_LINE_BLOCK_H
+            line.line_source === "pharmacist_proposed" ? "h-24" : PRODUCT_REQUEST_LINE_BLOCK_H
           )}
         >
           <div
             className={cn(
               "shrink-0 overflow-hidden rounded-lg border border-border/80 bg-card",
-              line.line_source === "pharmacist_proposed" ? "size-20" : THUMB
+              line.line_source === "pharmacist_proposed" ? "size-24" : THUMB
             )}
           >
             {line.photo_url ? (
@@ -82,17 +82,19 @@ export function PatientProductRequestCompactLine({
           </div>
           <div
             className={cn(
-              "relative min-w-0 flex-1",
-              line.line_source === "pharmacist_proposed" ? "h-20" : PRODUCT_REQUEST_LINE_BLOCK_H
+              "grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] gap-x-1.5",
+              line.line_source === "pharmacist_proposed"
+                ? "h-24 grid-rows-[1.75rem_minmax(0,1fr)_1.375rem]"
+                : cn(PRODUCT_REQUEST_LINE_BLOCK_H, "grid-rows-[1.25rem_minmax(0,1fr)_1.375rem]")
             )}
           >
             <div
               className={cn(
-                "min-w-0 pr-5 leading-none",
-                line.line_source === "pharmacist_proposed" ? "h-[1.75rem]" : "flex h-[1.125rem] items-center"
+                "col-start-1 row-start-1 min-w-0 leading-none",
+                line.line_source === "pharmacist_proposed" ? "space-y-0" : "flex items-center"
               )}
             >
-              <p className="truncate text-xs font-semibold leading-none text-foreground" title={line.name}>
+              <p className="truncate text-xs font-semibold leading-tight text-foreground" title={line.name}>
                 {line.name}
               </p>
               {line.line_source === "pharmacist_proposed" ? (
@@ -109,20 +111,13 @@ export function PatientProductRequestCompactLine({
               <button
                 type="button"
                 aria-label="Retirer"
-                className="absolute top-0 right-0 rounded p-0.5 text-destructive transition hover:bg-destructive/10"
+                className="col-start-2 row-start-1 justify-self-end rounded p-0.5 text-destructive transition hover:bg-destructive/10"
                 onClick={onRemove}
               >
                 <Trash2 size={14} />
               </button>
             ) : null}
-            <div
-              className={cn(
-                "absolute inset-x-0 flex min-w-0 items-center overflow-hidden",
-                line.line_source === "pharmacist_proposed"
-                  ? "top-[1.75rem] bottom-[1.375rem]"
-                  : "top-[1.125rem] bottom-[1.375rem]"
-              )}
-            >
+            <div className="col-start-1 row-start-2 min-h-0 min-w-0 self-center overflow-hidden">
               <ProductRequestLineBodyGrid
                 className="h-full w-full"
                 unitPrice={unitPrice}
@@ -134,7 +129,7 @@ export function PatientProductRequestCompactLine({
                 qtyDisabledInc={!editMode || line.qty >= 10}
               />
             </div>
-            <div className="absolute bottom-0 right-0">
+            <div className="col-start-2 row-start-3 flex items-end justify-end">
               {editMode && onSaveComment ? (
                 <ProductRequestLineMessageButton
                   hasComment={hasComment}
