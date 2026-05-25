@@ -143,7 +143,7 @@ export function ProductRequestLinePanel({
       >
         <div className="relative min-w-0 w-full">
           {topRight ? <div className="absolute right-0 top-0 z-[1]">{topRight}</div> : null}
-          <div className={cn("min-w-0 w-full leading-tight", topRight && "pr-9")}>{title}</div>
+          <div className={cn("min-w-0 w-full overflow-hidden leading-tight", topRight && "pr-9")}>{title}</div>
         </div>
         <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
       </div>
@@ -430,7 +430,7 @@ export function ProductRequestCartLineRow({
       <ProductRequestLinePanel
         title={
           <p
-            className="line-clamp-2 min-w-0 text-[13px] font-semibold leading-snug text-foreground"
+            className="block w-full min-w-0 truncate text-[13px] font-semibold leading-none text-foreground"
             title={line.name}
           >
             {line.name}

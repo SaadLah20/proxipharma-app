@@ -68,7 +68,7 @@ export function PatientProductRequestCompactLine({
           title={
             <div className="min-w-0">
               <p
-                className="line-clamp-2 min-w-0 text-[13px] font-semibold leading-snug text-foreground"
+                className="block w-full min-w-0 truncate text-[13px] font-semibold leading-none text-foreground"
                 title={line.name}
               >
                 {line.name}
