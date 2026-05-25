@@ -284,7 +284,7 @@ function RespondedVariantTabs({
 }) {
   return (
     <div
-      className="mb-1.5 flex gap-0.5 overflow-x-auto overscroll-x-contain border-b border-sky-200/60 pb-0.5 [-webkit-overflow-scrolling:touch]"
+      className="mb-2 flex gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [-webkit-overflow-scrolling:touch]"
       role="tablist"
       aria-label="Options pour ce produit"
     >
@@ -299,14 +299,14 @@ function RespondedVariantTabs({
             aria-selected={active}
             title={dim ? "Non retenable — rupture ou indisponible" : undefined}
             className={cn(
-              "shrink-0 rounded-t border-x border-t px-1.5 py-0.5 text-[9px] font-bold leading-tight transition",
+              "shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold leading-tight shadow-sm transition",
               active
                 ? dim
-                  ? "border-slate-300 border-b-white bg-slate-50 text-slate-500"
-                  : "border-sky-400 border-b-white bg-white text-sky-950"
+                  ? "border-slate-300 bg-slate-100 text-slate-600 ring-1 ring-slate-200/90"
+                  : "border-sky-500 bg-white text-sky-950 ring-2 ring-sky-300/70"
                 : dim
-                  ? "border-transparent bg-transparent text-slate-500 line-through decoration-slate-400/70"
-                  : "border-transparent bg-transparent text-sky-800/85 hover:bg-sky-50/90"
+                  ? "border-slate-200/90 bg-slate-50/90 text-slate-500 line-through decoration-slate-400/80"
+                  : "border-sky-300/80 bg-sky-100/90 text-sky-900 hover:border-sky-400 hover:bg-white"
             )}
             onClick={() => onTab(tab.id)}
           >
@@ -414,7 +414,7 @@ function RespondedLineBlock({
           {thumbInner}
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 py-0.5">
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 py-0.5">
           <div className="flex min-w-0 items-center gap-1.5 overflow-hidden leading-none">
             <span
               className={cn(
@@ -474,35 +474,27 @@ function RespondedLineBlock({
 
           <div
             className={cn(
-              "flex min-w-0 items-center justify-between gap-2 leading-none",
+              "flex min-w-0 items-center gap-3 leading-none",
               unavailable && "opacity-95",
               notRetained && !unavailable && "opacity-85"
             )}
           >
-            <div className="flex min-w-0 flex-1 flex-nowrap items-baseline gap-x-2 overflow-hidden text-[11px] leading-none">
-              <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap text-muted-foreground">
-                <span>PU</span>
-                {unit != null ? (
-                  <PriceDhInline
-                    value={unit}
-                    amountClassName="text-xs font-bold text-foreground"
-                    suffixClassName="text-[9px]"
-                  />
-                ) : (
-                  <strong className="text-foreground">—</strong>
-                )}
-              </span>
-              {showQty && total != null ? (
-                <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap text-muted-foreground">
-                  <span className="text-[10px]">Tot</span>
-                  <PriceDhInline value={total} amountClassName="text-xs font-semibold" suffixClassName="text-[9px]" />
-                </span>
-              ) : null}
-            </div>
+            <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap text-[11px] text-muted-foreground">
+              <span>PU</span>
+              {unit != null ? (
+                <PriceDhInline
+                  value={unit}
+                  amountClassName="text-xs font-bold text-foreground"
+                  suffixClassName="text-[9px]"
+                />
+              ) : (
+                <strong className="text-foreground">—</strong>
+              )}
+            </span>
 
-            <div className="flex shrink-0 items-center gap-1.5">
+            <div className="ml-auto flex shrink-0 items-center gap-2">
               {showQty ? (
-                <div className="flex items-center gap-1" role="group" aria-label="Quantité">
+                <div className="flex items-center gap-0.5" role="group" aria-label="Quantité">
                   <button
                     type="button"
                     aria-label="Diminuer la quantité"
@@ -524,11 +516,26 @@ function RespondedLineBlock({
                   </button>
                 </div>
               ) : null}
-              <RespondedLineNotesButton
-                productName={variant.productName}
-                client={variant.clientComment}
-                pharmacist={variant.pharmacistComment}
-              />
+              <div className="relative shrink-0">
+                <RespondedLineNotesButton
+                  productName={variant.productName}
+                  client={variant.clientComment}
+                  pharmacist={variant.pharmacistComment}
+                />
+                {showQty && total != null ? (
+                  <span
+                    className="pointer-events-none absolute right-0 top-full mt-0.5 inline-flex items-baseline gap-0.5 whitespace-nowrap text-[8px] font-medium leading-none text-muted-foreground/90"
+                    aria-hidden
+                  >
+                    <span>Tot</span>
+                    <PriceDhInline
+                      value={total}
+                      amountClassName="text-[9px] font-semibold text-muted-foreground"
+                      suffixClassName="text-[7px]"
+                    />
+                  </span>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
