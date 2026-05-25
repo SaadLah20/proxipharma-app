@@ -383,31 +383,31 @@ function RespondedLineBlock({
       )}
       title={unavailable ? "Non retenable — rupture ou indisponible" : undefined}
     >
-      <div className="flex items-stretch gap-2 p-2.5 sm:gap-2.5">
-        <label
-          className={cn(
-            "flex size-11 min-h-11 min-w-11 shrink-0 touch-manipulation cursor-pointer items-center justify-center self-center rounded-lg active:bg-sky-50/90",
-            unavailable && "cursor-not-allowed opacity-60"
-          )}
-        >
-          <input
-            type="checkbox"
-            className="size-5 shrink-0 rounded-md border-2 border-sky-500 text-sky-600 accent-sky-600 disabled:border-slate-300"
-            checked={retained}
-            disabled={unavailable}
-            onChange={(e) => onToggleRetain(e.target.checked)}
-            onClick={(e) => e.stopPropagation()}
-            aria-label={
-              unavailable
-                ? "Non retenable — rupture ou indisponible"
-                : retained
-                  ? "Ne plus retenir cette ligne"
-                  : "Retenir cette ligne"
-            }
-          />
-        </label>
-        <div className={cn(RESPONDED_LINE_THUMB, "shrink-0 self-center", unavailable && "opacity-95")}>
-          {thumbInner}
+      <div className="flex items-stretch gap-2.5 p-2.5">
+        <div className="relative shrink-0 self-center">
+          <div className={cn(RESPONDED_LINE_THUMB, unavailable && "opacity-95")}>{thumbInner}</div>
+          <label
+            className={cn(
+              "absolute -left-2 -top-3 z-20 flex size-10 touch-manipulation cursor-pointer items-center justify-center rounded-lg bg-white shadow-md ring-2 ring-sky-400/90",
+              unavailable ? "cursor-not-allowed opacity-55" : "active:bg-sky-50"
+            )}
+          >
+            <input
+              type="checkbox"
+              className="size-5 shrink-0 rounded-md border-[2.5px] border-sky-600 text-sky-600 accent-sky-600 disabled:border-slate-300"
+              checked={retained}
+              disabled={unavailable}
+              onChange={(e) => onToggleRetain(e.target.checked)}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={
+                unavailable
+                  ? "Non retenable — rupture ou indisponible"
+                  : retained
+                    ? "Ne plus retenir cette ligne"
+                    : "Retenir cette ligne"
+              }
+            />
+          </label>
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 py-0.5">
