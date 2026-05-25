@@ -328,6 +328,7 @@ function RespondedLineBlock({
   onPhotoPreview,
   requestType,
   isProposedLine,
+  variantTabsAbove = false,
 }: {
   variant: VariantData;
   retained: boolean;
@@ -338,6 +339,8 @@ function RespondedLineBlock({
   onPhotoPreview?: (url: string, title: string) => void;
   requestType: string;
   isProposedLine: boolean;
+  /** Onglets Ta demande / Alternative au-dessus — case un peu plus basse pour ne pas gêner. */
+  variantTabsAbove?: boolean;
 }) {
   const unavailable = variant.cap < 1;
   const notRetained = !retained && !unavailable;
@@ -372,7 +375,7 @@ function RespondedLineBlock({
   return (
     <div
       className={cn(
-        "w-full min-w-0 rounded-lg border transition",
+        "relative w-full min-w-0 overflow-visible rounded-lg border transition",
         unavailable &&
           "border-slate-300/85 bg-slate-50/95 saturate-[0.72] [&_img]:opacity-90",
         notRetained && !unavailable && "border-slate-200/75 bg-slate-50/75",
@@ -383,31 +386,32 @@ function RespondedLineBlock({
       )}
       title={unavailable ? "Non retenable — rupture ou indisponible" : undefined}
     >
+      <label
+        className={cn(
+          "absolute -left-2 z-20 flex size-8 touch-manipulation cursor-pointer items-center justify-center rounded-md bg-white shadow ring-1 ring-sky-400/85",
+          variantTabsAbove ? "top-1.5" : "-top-2",
+          unavailable ? "cursor-not-allowed opacity-55" : "active:bg-sky-50"
+        )}
+      >
+        <input
+          type="checkbox"
+          className="size-4 shrink-0 rounded border-2 border-sky-600 text-sky-600 accent-sky-600 disabled:border-slate-300"
+          checked={retained}
+          disabled={unavailable}
+          onChange={(e) => onToggleRetain(e.target.checked)}
+          onClick={(e) => e.stopPropagation()}
+          aria-label={
+            unavailable
+              ? "Non retenable — rupture ou indisponible"
+              : retained
+                ? "Ne plus retenir cette ligne"
+                : "Retenir cette ligne"
+          }
+        />
+      </label>
       <div className="flex items-stretch gap-2.5 p-2.5">
-        <div className="relative shrink-0 self-center">
-          <div className={cn(RESPONDED_LINE_THUMB, unavailable && "opacity-95")}>{thumbInner}</div>
-          <label
-            className={cn(
-              "absolute -left-1.5 -top-2 z-20 flex size-8 touch-manipulation cursor-pointer items-center justify-center rounded-md bg-white shadow ring-1 ring-sky-400/85",
-              unavailable ? "cursor-not-allowed opacity-55" : "active:bg-sky-50"
-            )}
-          >
-            <input
-              type="checkbox"
-              className="size-4 shrink-0 rounded border-2 border-sky-600 text-sky-600 accent-sky-600 disabled:border-slate-300"
-              checked={retained}
-              disabled={unavailable}
-              onChange={(e) => onToggleRetain(e.target.checked)}
-              onClick={(e) => e.stopPropagation()}
-              aria-label={
-                unavailable
-                  ? "Non retenable — rupture ou indisponible"
-                  : retained
-                    ? "Ne plus retenir cette ligne"
-                    : "Retenir cette ligne"
-              }
-            />
-          </label>
+        <div className={cn(RESPONDED_LINE_THUMB, "shrink-0 self-center", unavailable && "opacity-95")}>
+          {thumbInner}
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 py-0.5">
@@ -712,6 +716,7 @@ export function RespondedPatientLineChooser({
         onPhotoPreview={onPhotoPreview}
         requestType={requestType}
         isProposedLine={isProposedLine && activeTab === "principal"}
+        variantTabsAbove
       />
     </li>
   );
