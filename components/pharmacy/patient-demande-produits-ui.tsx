@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { LayoutGrid, MessageSquare, Minus, Package, Plus, Search, Trash2, X } from "lucide-react";
 import { PharmacyFlowHero } from "@/components/pharmacy/pharmacy-public-chrome";
@@ -10,6 +11,93 @@ import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-requ
 import type { PatientDemandeProduitsDraftLine } from "@/lib/patient-demande-produits-draft";
 
 const THUMB = "size-14 shrink-0";
+
+function priceLine(label: string, labelClass: string, children: ReactNode) {
+  return (
+    <p className="flex min-w-0 items-baseline gap-1 whitespace-nowrap text-[10px] leading-none">
+      <span className={cn("shrink-0 text-[9px] font-semibold uppercase tracking-wide", labelClass)}>{label}</span>
+      <span className="min-w-0 truncate">{children}</span>
+    </p>
+  );
+}
+
+/** PU/Tot (espacement fixe) | Qté | Message — ligne unique, centrée verticalement. */
+export function ProductRequestLineBodyGrid({
+  unitPrice,
+  qty,
+  totalValue,
+  onDecQty,
+  onIncQty,
+  qtyDisabledDec,
+  qtyDisabledInc,
+  messageButton,
+  className,
+}: {
+  unitPrice: number | null;
+  qty: number;
+  totalValue: number | null;
+  onDecQty: () => void;
+  onIncQty: () => void;
+  qtyDisabledDec?: boolean;
+  qtyDisabledInc?: boolean;
+  messageButton: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex h-full min-h-0 min-w-0 items-center gap-x-1.5 leading-none",
+        className
+      )}
+    >
+      <div className="flex shrink-0 flex-col gap-[3px]">
+        {priceLine(
+          "PU",
+          "text-muted-foreground",
+          <PriceDhInline value={unitPrice} amountClassName="font-semibold text-[10px]" suffixClassName="text-[8px]" />
+        )}
+        {priceLine(
+          "Tot",
+          "text-sky-600/85",
+          totalValue != null ? (
+            <PriceDhInline
+              value={totalValue}
+              amountClassName={cn("font-bold text-[10px]", t.price)}
+              suffixClassName="text-[8px] font-bold text-sky-600/80"
+            />
+          ) : (
+            <span className="font-bold">—</span>
+          )
+        )}
+      </div>
+      <div className="flex w-[4.25rem] shrink-0 flex-col items-center justify-center gap-0.5">
+        <span className="w-full text-center text-[8px] font-medium leading-none text-muted-foreground">Qté</span>
+        <div className="flex items-center justify-center gap-0.5">
+          <button
+            type="button"
+            aria-label="Diminuer"
+            disabled={qtyDisabledDec}
+            className="rounded border border-border/80 bg-card p-0.5 text-foreground hover:bg-muted/40 disabled:opacity-40"
+            onClick={onDecQty}
+          >
+            <Minus size={13} />
+          </button>
+          <span className="w-5 text-center text-[11px] font-semibold leading-none tabular-nums">{qty}</span>
+          <button
+            type="button"
+            aria-label="Augmenter"
+            disabled={qtyDisabledInc}
+            className="rounded border border-border/80 bg-card p-0.5 hover:bg-muted/40 disabled:opacity-40"
+            onClick={onIncQty}
+          >
+            <Plus size={13} />
+          </button>
+        </div>
+      </div>
+      <div className="ml-auto flex shrink-0 items-center">{messageButton}</div>
+    </div>
+  );
+}
 
 export function PriceDhInline({
   value,
@@ -190,88 +278,65 @@ export function ProductRequestCartLineRow({
   hasComment: boolean;
 }) {
   return (
-    <li className="flex items-center gap-2 border-b border-border/50 py-2 last:border-b-0">
-      <div className={cn("relative overflow-hidden rounded-lg border border-border/80 bg-card", THUMB)}>
-        <button
-          type="button"
-          aria-label="Retirer"
-          className="absolute right-0.5 top-0.5 z-10 rounded-md bg-background/95 p-0.5 text-destructive shadow-sm hover:bg-destructive/10"
-          onClick={onRemove}
-        >
-          <Trash2 size={13} />
-        </button>
-        {line.photo_url ? (
-          <button
-            type="button"
-            className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
-            aria-label={`Agrandir la photo · ${line.name}`}
-            onClick={onPhotoPreview}
-          >
-            <img src={line.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
-          </button>
-        ) : (
-          <span className="flex h-full w-full items-center justify-center">
-            <Package className="size-5 text-muted-foreground" aria-hidden />
-          </span>
-        )}
-      </div>
-      <div className="flex min-h-14 min-w-0 flex-1 flex-col justify-between gap-0.5 py-0.5">
-        <p className="truncate text-[13px] font-semibold leading-tight text-foreground" title={line.name}>
-          {line.name}
-        </p>
-        <div className="flex flex-nowrap items-baseline justify-between gap-2 text-[11px]">
-          <span className="inline-flex min-w-0 items-baseline gap-0.5 text-muted-foreground">
-            <span className="shrink-0 font-semibold">PU</span>
-            <strong className="font-semibold text-foreground">
-              <PriceDhInline value={unitPrice} amountClassName="text-[11px]" suffixClassName="text-[9px]" />
-            </strong>
-          </span>
-          <span className={cn("inline-flex shrink-0 items-baseline gap-0.5 font-bold", t.price)}>
-            <span className="font-semibold text-sky-600/80">Tot</span>
-            {unitPrice != null ? (
-              <PriceDhInline
-                value={unitPrice * line.qty}
-                amountClassName="text-[11px] font-bold"
-                suffixClassName="text-[9px] font-bold text-sky-600/80"
-              />
-            ) : (
-              <span className="tabular-nums">—</span>
-            )}
-          </span>
+    <li className="border-b border-border/50 py-2 last:border-b-0">
+      <div className="grid h-14 min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] grid-rows-[auto_1fr] gap-x-2 gap-y-0.5">
+        <div className={cn("row-span-2 shrink-0 overflow-hidden rounded-lg border border-border/80 bg-card", THUMB)}>
+          {line.photo_url ? (
+            <button
+              type="button"
+              className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
+              aria-label={`Agrandir la photo · ${line.name}`}
+              onClick={onPhotoPreview}
+            >
+              <img src={line.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
+            </button>
+          ) : (
+            <span className="flex h-full w-full items-center justify-center">
+              <Package className="size-5 text-muted-foreground" aria-hidden />
+            </span>
+          )}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] font-medium text-muted-foreground">Qté</span>
+        <div className="col-start-2 row-start-1 flex min-h-[1.125rem] min-w-0 items-center gap-1.5 leading-none">
+          <p
+            className="min-w-0 flex-1 truncate text-[11px] font-semibold leading-tight text-foreground"
+            title={line.name}
+          >
+            {line.name}
+          </p>
           <button
             type="button"
-            aria-label="Diminuer"
-            className="rounded-md border border-border/80 bg-card p-0.5 text-foreground shadow-sm hover:bg-muted/40"
-            onClick={() => onSetQty(line.qty - 1)}
+            aria-label="Retirer"
+            className="shrink-0 rounded p-0.5 text-destructive transition hover:bg-destructive/10"
+            onClick={onRemove}
           >
-            <Minus size={14} />
+            <Trash2 size={14} />
           </button>
-          <span className="w-6 text-center text-xs font-semibold tabular-nums">{line.qty}</span>
-          <button
-            type="button"
-            aria-label="Augmenter"
-            disabled={line.qty >= 10}
-            className="rounded-md border border-border/80 bg-card p-0.5 shadow-sm hover:bg-muted/40 disabled:opacity-40"
-            onClick={() => onSetQty(line.qty + 1)}
-          >
-            <Plus size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={onOpenComment}
-            className={cn(
-              "ml-auto inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold transition",
-              hasComment
-                ? t.noteActive
-                : cn("border-border/80 bg-card text-muted-foreground hover:text-foreground", t.noteIdle)
-            )}
-          >
-            <MessageSquare className="size-3 shrink-0" aria-hidden />
-            {hasComment ? "Note" : "Message"}
-          </button>
+        </div>
+        <div className="col-start-2 row-start-2 flex min-h-0 min-w-0 items-start overflow-hidden pt-px">
+          <ProductRequestLineBodyGrid
+            className="!h-auto min-h-0 w-full"
+            unitPrice={unitPrice}
+            qty={line.qty}
+            totalValue={unitPrice != null ? unitPrice * line.qty : null}
+            onDecQty={() => onSetQty(line.qty - 1)}
+            onIncQty={() => onSetQty(line.qty + 1)}
+            qtyDisabledInc={line.qty >= 10}
+            messageButton={
+              <button
+                type="button"
+                onClick={onOpenComment}
+                className={cn(
+                  "inline-flex max-w-[4.25rem] items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] font-semibold leading-none whitespace-nowrap transition",
+                  hasComment
+                    ? t.noteActive
+                    : cn("border-border/80 bg-card text-muted-foreground hover:text-foreground", t.noteIdle)
+                )}
+              >
+                <MessageSquare className="size-3 shrink-0" aria-hidden />
+                <span className="truncate">{hasComment ? "Note" : "Message"}</span>
+              </button>
+            }
+          />
         </div>
       </div>
     </li>
