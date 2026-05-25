@@ -46,6 +46,7 @@ import { formatPriceDh } from "@/lib/product-price";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput, productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
+import { PriceDhInline } from "@/components/pharmacy/patient-demande-produits-ui";
 import { PatientProductRequestDossierHeader } from "@/components/requests/product/patient-product-request-dossier-header";
 import { PatientProductRequestCompactLine } from "@/components/requests/product/patient-product-request-compact-line";
 import { RespondedPatientLineChooser } from "@/components/requests/product/patient-responded-line-chooser";
@@ -248,7 +249,24 @@ function patientTreatedSupplyStatusLine(row: ActionItemRow): string {
   return "Suivi : statut à préciser avec ta pharmacie.";
 }
 
-/** Cartes condensées : produits validés après confirmation (pas de détail jusqu'à l'historique). */
+/** Vignette validée — même gabarit que demande répondue (~62px). */
+const VALIDATED_LINE_THUMB =
+  "box-border size-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
+
+function validatedLineShellClass(
+  tier: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation",
+  withdrawnGrey: boolean
+): string {
+  if (withdrawnGrey) {
+    return "border-slate-200/75 bg-slate-50/75 saturate-[0.65] opacity-[0.72]";
+  }
+  if (tier === "dispo_officine") return "border-emerald-300/85 bg-white ring-1 ring-emerald-200/55";
+  if (tier === "commande") return "border-teal-300/85 bg-white ring-1 ring-teal-200/55";
+  if (tier === "retire_apres_validation") return "border-amber-200/80 bg-amber-50/25";
+  return "border-slate-200/80 bg-white";
+}
+
+/** Cartes condensées : produits validés après confirmation (alignées répondue / envoyée). */
 function PatientValidatedCompactLineCard({
   row,
   tier,
@@ -301,16 +319,8 @@ function PatientValidatedCompactLineCard({
   const availUi = row.is_selected_by_patient && eff ? availabilityStatusUi(eff) : null;
   const AvailIcon = availUi?.Icon;
 
-  const shell =
-    tier === "dispo_officine"
-      ? "rounded-xl border-2 border-emerald-200 bg-gradient-to-b from-white to-emerald-50/40 px-2.5 py-2 shadow-sm ring-1 ring-emerald-100/90 sm:px-3"
-      : tier === "commande"
-        ? "rounded-xl border-2 border-teal-200 bg-gradient-to-b from-white to-teal-50/40 px-2.5 py-2 shadow-sm ring-1 ring-teal-100/90 sm:px-3"
-        : tier === "retire_apres_validation"
-          ? "rounded-xl border-2 border-amber-200/90 bg-gradient-to-b from-white to-amber-50/35 px-2.5 py-2 shadow-sm ring-1 ring-amber-100/85 sm:px-3"
-          : "rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-slate-50/50 px-2.5 py-2 shadow-sm ring-1 ring-slate-100/90 sm:px-3";
-
   const withdrawnGrey = tier === "retire_apres_validation";
+  const hasConvo = Boolean(row.client_comment?.trim() || row.pharmacist_comment?.trim());
   const prescriptionBadge =
     requestType === "prescription"
       ? patientPrescriptionLineBadge(requestType, row, supplyAmendmentBundles)
@@ -319,176 +329,190 @@ function PatientValidatedCompactLineCard({
   const showLineBadge = Boolean(lineBadgeLabel);
   const ordonnanceProposedBadge =
     lineBadgeLabel === "Ordonnance" || lineBadgeLabel === "Ordonnance + alternative";
-  const showTreatedSuiviStrip =
-    requestStatusForCard === "treated" &&
+  const showSuiviStrip =
     row.is_selected_by_patient &&
     tier !== "retire_apres_validation" &&
-    !row.withdrawn_after_confirm;
-  const confirmedPcfChip =
-    !showTreatedSuiviStrip &&
-    (requestStatusForCard === "confirmed" || requestStatusForCard === "processing") &&
-    row.is_selected_by_patient &&
-    !row.withdrawn_after_confirm
-      ? patientConfirmedFulfillmentChipFr(row.post_confirm_fulfillment)
-      : null;
+    !row.withdrawn_after_confirm &&
+    (requestStatusForCard === "treated" ||
+      requestStatusForCard === "confirmed" ||
+      requestStatusForCard === "processing");
   const closureLabel = archiveClosureLabel?.trim() || null;
+  const thumbInner = thumbUrl ? (
+    onPhotoPreview ? (
+      <button
+        type="button"
+        className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", productRequestTheme.photoRing)}
+        onClick={() => onPhotoPreview(thumbUrl, validatedName)}
+        aria-label={`Agrandir la photo · ${validatedName}`}
+      >
+        <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
+      </button>
+    ) : (
+      <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
+    )
+  ) : (
+    <span className="flex h-full w-full items-center justify-center">
+      <Package className="size-5 text-muted-foreground" aria-hidden />
+    </span>
+  );
+
   return (
     <li
-      className={clsx(
-        shell,
-        withdrawnGrey && "opacity-[0.72] saturate-[0.65]"
+      className={cn(
+        "relative w-full min-w-0 overflow-visible rounded-lg border transition",
+        validatedLineShellClass(tier, withdrawnGrey)
       )}
     >
-      <div className="flex flex-col gap-2">
-        <div className="flex items-start gap-2">
-          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-card shadow-inner">
-            {thumbUrl ? (
-              onPhotoPreview ? (
-                <button
-                  type="button"
-                  className="relative z-0 size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-                  onClick={() => onPhotoPreview(thumbUrl, validatedName)}
-                  aria-label={`Agrandir la photo · ${validatedName}`}
-                >
-                  <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
-                </button>
-              ) : (
-                <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
-              )
-            ) : (
-              <div className="flex h-full w-full items-center justify-center">
-                <Package className="size-6 text-muted-foreground" aria-hidden />
-              </div>
-            )}
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <div className="flex items-start justify-between gap-2">
-              <p
-                className="min-w-0 flex-1 overflow-hidden text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
-                style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
-              >
-                {validatedName}
-              </p>
-              <button
-                type="button"
-                onClick={onOpenHistory}
-                className="shrink-0 rounded-lg border border-slate-300 bg-white p-1.5 text-slate-700 shadow-sm hover:bg-slate-50"
-                aria-label="Historique de cette ligne"
-                title="Historique"
-              >
-                <History className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-              </button>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
-              {closureLabel ? (
-                <span className="inline-flex max-w-full items-center rounded-full border border-emerald-400/80 bg-emerald-50 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-emerald-950">
-                  {closureLabel}
-                </span>
-              ) : availUi && AvailIcon ? (
-                <span
-                  className={clsx(
-                    "inline-flex max-w-full items-center gap-1 rounded-full px-1.5 py-px text-[9px] font-semibold ring-1",
-                    availUi.badgeClass
-                  )}
-                  title={availUi.label}
-                >
-                  <AvailIcon className="size-2.5 shrink-0" aria-hidden />
-                  <span className="truncate">{availUi.label}</span>
-                </span>
-              ) : (
-                <span className="text-[10px] leading-snug text-foreground/90">{availStatusOnly}</span>
-              )}
-              {confirmedPcfChip ? (
-                <span
-                  className={clsx(
-                    "inline-flex max-w-full shrink-0 items-center rounded-full px-1.5 py-px text-[9px] font-bold uppercase tracking-wide ring-1",
-                    confirmedPcfChip === "Réservé"
-                      ? "border-emerald-400/80 bg-emerald-50 text-emerald-950 ring-emerald-200/80"
-                      : "border-teal-400/80 bg-teal-50 text-teal-950 ring-teal-200/80"
-                  )}
-                >
-                  {confirmedPcfChip}
-                </span>
-              ) : null}
-              {chosenAlt && requestType === "prescription" ? (
-                <span className="rounded-full bg-sky-700 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                  Alternative
-                </span>
-              ) : null}
-              {showLineBadge ? (
-                <span
-                  className={clsx(
-                    "rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
-                    ordonnanceProposedBadge || prescriptionBadge === "Produit proposé par la pharmacie"
-                      ? "bg-amber-700"
-                      : prescriptionBadge === "Alternative"
-                        ? "bg-sky-700"
-                        : "bg-violet-600"
-                  )}
-                >
-                  {lineBadgeLabel}
-                </span>
-              ) : null}
-              {tier === "retire_apres_validation" ? (
-                <span className="rounded-full bg-amber-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                  Écart
-                </span>
-              ) : null}
-            </div>
-            {row.is_selected_by_patient && eff === "to_order" && eta ? <RespondedReceptionBadgeFr dateYmd={eta} /> : null}
-            <PatientRespondedLineConvoStripReadOnly
-              patientNote={row.client_comment ?? ""}
-              pharmaLineNote={row.pharmacist_comment ?? ""}
-              layout="embedded"
-            />
-          </div>
+      <div className="flex items-stretch gap-2.5 p-2.5">
+        <div className={cn(VALIDATED_LINE_THUMB, "shrink-0 self-center", withdrawnGrey && "opacity-95")}>
+          {thumbInner}
         </div>
-        <div className="grid grid-cols-[5rem_1fr_auto] items-baseline gap-x-2 pt-1.5 text-[12px] font-medium leading-none tabular-nums text-slate-800 sm:text-[13px]">
-          <div className="min-w-0 text-start">
-            <span className="text-slate-500">PU</span>{" "}
-            <strong className="font-semibold text-slate-900">{formatPriceDh(unitMad)}</strong>
-          </div>
-          <div className="flex min-w-0 justify-center text-center">
-            <span className="text-slate-500">Qté</span>{" "}
-            <strong className="font-semibold text-slate-900">{displayQty}</strong>
-          </div>
-          <div className="min-w-0 text-end">
-            <span className="inline-flex flex-nowrap items-baseline justify-end gap-x-1 whitespace-nowrap">
-              <span className="text-slate-500">Total</span>
-              <strong
-                className={clsx(
-                  "font-semibold text-sky-900",
-                  withdrawnGrey && "line-through decoration-muted-foreground/70"
+
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 py-0.5">
+          <div className="flex min-w-0 items-center gap-1.5 overflow-hidden leading-none">
+            {showLineBadge ? (
+              <span
+                className={cn(
+                  "shrink-0 rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide leading-tight text-white",
+                  ordonnanceProposedBadge || prescriptionBadge === "Produit proposé par la pharmacie"
+                    ? "bg-amber-700"
+                    : prescriptionBadge === "Alternative"
+                      ? "bg-sky-700"
+                      : "bg-violet-600"
                 )}
               >
-                {formatPriceDh(lineTotalMad)}
-              </strong>
-            </span>
+                {lineBadgeLabel}
+              </span>
+            ) : chosenAlt && requestType === "prescription" ? (
+              <span className="shrink-0 rounded bg-sky-700 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white">
+                Alternative
+              </span>
+            ) : null}
+            <p className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-none text-foreground" title={validatedName}>
+              {validatedName}
+            </p>
+            <button
+              type="button"
+              onClick={onOpenHistory}
+              className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-sky-300/80 bg-white text-sky-800 shadow-sm hover:bg-sky-50"
+              aria-label="Historique de cette ligne"
+              title="Historique"
+            >
+              <History className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-none">
+            {closureLabel ? (
+              <span className="inline-flex max-w-full items-center rounded-full border border-emerald-400/80 bg-emerald-50 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-emerald-950">
+                {closureLabel}
+              </span>
+            ) : availUi && AvailIcon ? (
+              <span
+                className={cn(
+                  "inline-flex max-w-[9.5rem] min-w-0 items-center gap-0.5 rounded-full px-1 py-px text-[8px] font-semibold leading-tight ring-1",
+                  availUi.badgeClass
+                )}
+                title={availUi.label}
+              >
+                <AvailIcon className="size-2 shrink-0" aria-hidden />
+                <span className="truncate">{availUi.label}</span>
+              </span>
+            ) : (
+              <span className="text-[10px] leading-snug text-foreground/90">{availStatusOnly}</span>
+            )}
+            {tier === "retire_apres_validation" ? (
+              <span className="rounded-full bg-amber-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                Écart
+              </span>
+            ) : null}
+            {row.is_selected_by_patient && eff === "to_order" && eta ? (
+              <RespondedReceptionBadgeFr dateYmd={eta} />
+            ) : null}
+          </div>
+
+          {postConfirmBadges && postConfirmBadges.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {postConfirmBadges.map((label) => (
+                <span
+                  key={label}
+                  className="inline-flex max-w-full rounded-md border border-slate-300/80 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          <div
+            className={cn(
+              "flex min-w-0 items-center gap-3 leading-none",
+              withdrawnGrey && "opacity-85"
+            )}
+          >
+            <div
+              className={cn(
+                "grid shrink-0 leading-none text-muted-foreground",
+                lineTotalMad != null && row.is_selected_by_patient
+                  ? "grid-cols-[auto_auto] gap-x-1 gap-y-0.5"
+                  : "grid-cols-[auto_auto] gap-x-1"
+              )}
+            >
+              <span className="text-[11px]">PU</span>
+              <span className="whitespace-nowrap text-[11px]">
+                {unitMad != null ? (
+                  <PriceDhInline
+                    value={unitMad}
+                    amountClassName="text-xs font-bold text-foreground"
+                    suffixClassName="text-[9px]"
+                  />
+                ) : (
+                  <strong className="text-foreground">—</strong>
+                )}
+              </span>
+              {lineTotalMad != null && row.is_selected_by_patient ? (
+                <>
+                  <span className="text-[8px] font-medium">Tot</span>
+                  <span
+                    className={cn(
+                      "whitespace-nowrap text-[8px] font-medium text-muted-foreground/90",
+                      withdrawnGrey && "line-through decoration-muted-foreground/70"
+                    )}
+                  >
+                    <PriceDhInline
+                      value={lineTotalMad}
+                      amountClassName="text-[9px] font-semibold text-muted-foreground"
+                      suffixClassName="text-[7px]"
+                    />
+                  </span>
+                </>
+              ) : null}
+            </div>
+
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <span className="whitespace-nowrap text-[11px] text-muted-foreground">
+                Qté <strong className="font-semibold tabular-nums text-foreground">{displayQty}</strong>
+              </span>
+              {hasConvo ? (
+                <PatientRespondedLineConvoStripReadOnly
+                  patientNote={row.client_comment ?? ""}
+                  pharmaLineNote={row.pharmacist_comment ?? ""}
+                  layout="inline"
+                />
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
-      {postConfirmBadges && postConfirmBadges.length > 0 ? (
-        <div className="mt-2 border-t border-border/55 pt-2">
-          <div className="flex flex-wrap gap-1">
-            {postConfirmBadges.map((label) => (
-              <span
-                key={label}
-                className="inline-flex max-w-full rounded-md border border-slate-300/80 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
-              >
-                {label}
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
-      {showTreatedSuiviStrip ? (
-        <div className="mt-2 border-t border-slate-200/85 bg-slate-50/90 px-2 py-2 sm:px-2.5">
+
+      {showSuiviStrip ? (
+        <div className="border-t border-sky-200/60 bg-sky-50/40 px-2.5 py-2">
           <RequestLineSuiviStrip row={row} />
         </div>
       ) : requestStatusForCard === "treated" &&
         treatedSupplyStatusLine != null &&
         treatedSupplyStatusLine.trim() !== "" ? (
-        <div className="mt-2 border-t border-slate-200/85 bg-slate-50/90 px-2 py-2 sm:px-2.5">
+        <div className="border-t border-sky-200/60 bg-sky-50/40 px-2.5 py-2">
           <p className="text-[10px] font-semibold leading-snug text-slate-800">{treatedSupplyStatusLine}</p>
         </div>
       ) : null}
@@ -520,61 +544,54 @@ function PatientTraceNotRetainedRow({
           : requestItemLineSourceFr.pharmacist_proposed}
       </span>
     ) : null;
+  const photoUrl = prod?.photo_url ? resolvePublicMediaUrl(prod.photo_url) : null;
   return (
-    <li className="flex flex-col gap-1 rounded-md border border-border/70 bg-muted/15 px-2 py-1.5">
-      <div className="flex items-start gap-2">
-      <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded border border-border/60 bg-card">
-        {prod?.photo_url ? (
-          onPhotoPreview ? (
+    <li className="rounded-lg border border-slate-200/75 bg-slate-50/75 px-2.5 py-2">
+      <div className="flex items-center gap-2">
+        <div className={VALIDATED_LINE_THUMB}>
+          {photoUrl ? (
+            onPhotoPreview ? (
+              <button
+                type="button"
+                className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", productRequestTheme.photoRing)}
+                onClick={() => onPhotoPreview(photoUrl, name)}
+                aria-label={`Agrandir la photo · ${name}`}
+              >
+                <img src={photoUrl} alt="" className="pointer-events-none h-full w-full object-cover opacity-90" />
+              </button>
+            ) : (
+              <img src={photoUrl} alt="" className="h-full w-full object-cover opacity-90" />
+            )
+          ) : (
+            <span className="flex h-full w-full items-center justify-center">
+              <Package className="size-5 text-muted-foreground" aria-hidden />
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <p
+              className="min-w-0 flex-1 truncate text-[12px] font-medium leading-none text-muted-foreground line-through decoration-slate-400/90"
+              title={name}
+            >
+              {name}
+            </p>
             <button
               type="button"
-              className="relative size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              onClick={() => onPhotoPreview(prod.photo_url!, name)}
-              aria-label={`Agrandir la photo · ${name}`}
+              onClick={onOpenHistory}
+              className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-slate-300/80 bg-white text-slate-700 shadow-sm hover:bg-slate-50"
+              aria-label="Historique de cette ligne"
+              title="Historique"
             >
-              <img src={prod.photo_url} alt="" className="pointer-events-none size-full object-cover" />
+              <History className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
             </button>
-          ) : (
-            <img src={prod.photo_url} alt="" className="size-full object-cover" />
-          )
-        ) : (
-          <div className="flex size-full items-center justify-center">
-            <Package className="size-5 text-muted-foreground" aria-hidden />
           </div>
-        )}
-      </div>
-      <div className="relative min-w-0 flex-1">
-        <button
-          type="button"
-          onClick={onOpenHistory}
-          className="absolute right-0 top-0 z-10 inline-flex size-7 touch-manipulation items-center justify-center rounded-md border border-primary/35 bg-card/95 text-primary shadow-sm backdrop-blur-[2px] hover:bg-primary/10"
-          aria-label="Historique de cette ligne"
-          title="Historique"
-        >
-          <History className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
-        </button>
-        <p className="line-clamp-2 pr-9 text-[10px] font-medium leading-snug">{name}</p>
-        <p className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 pr-9 text-[10px] leading-snug text-muted-foreground">
-          <span className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground/90">Demandé</span>
-          <span className="tabular-nums font-semibold text-foreground">×{row.requested_qty}</span>
-          {eff ? (
-            <>
-              <span className="text-border" aria-hidden>
-                ·
-              </span>
-              <span>{availabilityStatusFr[eff] ?? eff}</span>
-            </>
-          ) : null}
-          {lineKind ? (
-            <>
-              <span className="text-border" aria-hidden>
-                ·
-              </span>
-              {lineKind}
-            </>
-          ) : null}
-        </p>
-      </div>
+          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] leading-snug text-muted-foreground">
+            <span className="font-semibold tabular-nums text-foreground/80">×{row.requested_qty}</span>
+            {eff ? <span>{availabilityStatusFr[eff] ?? eff}</span> : null}
+            {lineKind}
+          </p>
+        </div>
       </div>
       {postConfirmBadges && postConfirmBadges.length > 0 ? (
         <div className="flex flex-wrap gap-1 border-t border-border/50 pt-1">
@@ -674,13 +691,6 @@ function resubmitLinesSignature(ls: ResubmitLine[]): string {
       ].join(":")
     )
     .join(">");
-}
-
-function patientConfirmedFulfillmentChipFr(pcf: string | null | undefined): string | null {
-  if (pcf === "reserved") return "Réservé";
-  if (pcf === "ordered") return "Commandé";
-  if (pcf === "arrived_reserved") return "Reçu en pharmacie";
-  return null;
 }
 
 function patientArchiveClosureLabelFr(row: ActionItemRow): string | null {
@@ -906,16 +916,6 @@ function PatientSentLineNotesModalFr({
         : null}
     </>
   );
-}
-
-function validatedBucketShell(accent: RequestKindAccent): string {
-  if (accent === "amber") {
-    return "rounded-lg border border-amber-200/65 bg-amber-50/20 p-2 shadow-sm ring-1 ring-amber-100/40 sm:p-2.5";
-  }
-  if (accent === "violet") {
-    return "rounded-lg border border-violet-200/65 bg-violet-50/20 p-2 shadow-sm ring-1 ring-violet-100/40 sm:p-2.5";
-  }
-  return "rounded-lg border border-emerald-200/65 bg-emerald-50/20 p-2 shadow-sm ring-1 ring-emerald-100/40 sm:p-2.5";
 }
 
 function summaryThemeClasses(accent: RequestKindAccent) {
@@ -1173,8 +1173,8 @@ function PatientRespondedLineConvoStripReadOnly({
 }: {
   patientNote: string;
   pharmaLineNote: string;
-  /** `embedded` : sous la dispo, pleine largeur, sans ligne du haut (carte compacte validée/traitée). */
-  layout?: "footer" | "embedded";
+  /** `embedded` : sous la dispo, pleine largeur. `inline` : à côté de Qté (carte compacte validée). */
+  layout?: "footer" | "embedded" | "inline";
 }) {
   const [open, setOpen] = useState(false);
   const visual = lineConversationVisual(patientNote, pharmaLineNote);
@@ -1189,9 +1189,11 @@ function PatientRespondedLineConvoStripReadOnly({
   }, [open]);
 
   const wrapCls =
-    layout === "embedded"
-      ? "mt-1.5 flex w-full min-w-0 justify-stretch pt-0"
-      : "mt-1.5 flex w-full min-w-0 justify-end border-t border-dotted border-border/55 pt-1.5";
+    layout === "inline"
+      ? "flex shrink-0 justify-end"
+      : layout === "embedded"
+        ? "mt-1.5 flex w-full min-w-0 justify-stretch pt-0"
+        : "mt-1.5 flex w-full min-w-0 justify-end border-t border-dotted border-border/55 pt-1.5";
 
   return (
     <>
@@ -2010,14 +2012,19 @@ export function PatientProductRequestActions({
       const row = items.find((i) => i.id === itemId);
       if (!row) return s;
       const alts = normalizeAlternatives(row.request_item_alternatives);
-      const branch: LineBranch = on ? branchWhenOn : null;
-      const cap = maxQtyForBranch(row, branch, alts);
-      const qty = on && cap > 0 ? cap : 1;
+      const prev = s[itemId] ?? { branch: null, qty: 1 };
+      if (!on) {
+        return { ...s, [itemId]: { branch: null, qty: prev.qty } };
+      }
+      const cap = maxQtyForBranch(row, branchWhenOn, alts);
+      if (cap < 1) {
+        return { ...s, [itemId]: { branch: null, qty: prev.qty } };
+      }
       return {
         ...s,
         [itemId]: {
-          branch,
-          qty: on && cap > 0 ? Math.min(Math.max(1, s[itemId]?.qty ?? qty), cap) : 1,
+          branch: branchWhenOn,
+          qty: Math.min(Math.max(1, prev.qty), cap),
         },
       };
     });
@@ -2319,6 +2326,11 @@ export function PatientProductRequestActions({
   const confirmAllPreviewLines = confirmReviewSnap?.preview ?? [];
   const confirmSkippedLines = confirmReviewSnap?.skippedLines ?? [];
 
+  const useSkyProductShell =
+    !isConsultation &&
+    (showConfirm || showConfirmedCards || showProductResubmit) &&
+    !forceReadOnly;
+
   return (
     <section
       className={clsx(
@@ -2326,7 +2338,9 @@ export function PatientProductRequestActions({
         isConsultation ? "mt-0" : "mt-2",
         isConsultation
           ? "border-violet-200/80 bg-gradient-to-b from-violet-50/40 via-white to-fuchsia-50/15"
-          : "border-slate-200 bg-slate-50/95",
+          : useSkyProductShell
+            ? "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
+            : "border-slate-200 bg-slate-50/95",
         needsStickyFooterPad && "pb-40",
         isConsultation && showConsultationWaiting && !needsStickyFooterPad && "pb-2"
       )}
@@ -2358,7 +2372,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {(showWaitingShell || showConfirm || showConfirmedCards) && pharmacyId && !summaryInPageChrome && !forceReadOnly ? (
-        showProductResubmit || showConfirm ? (
+        showProductResubmit || showConfirm || showConfirmedCards ? (
           <PatientProductRequestDossierHeader
             dossierRefLabel={dossierRefLabel}
             pharmacyContact={pharmacyContact ?? null}
@@ -2475,21 +2489,20 @@ export function PatientProductRequestActions({
           const subtotalCommande = monetaryTotalsForRetainedLines(aCommanderRetenues, status);
 
           return (
-            <section className="space-y-2">
-              <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+            <section className="space-y-3">
+              <h3 className="mt-4 px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 {workflowCopy.patientProductsSectionTitle}
               </h3>
-              <div className={validatedBucketShell(accent)}>
               {dispoRetenues.length > 0 ? (
                 <section className="space-y-2">
-                  <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto text-emerald-950">
+                  <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto px-0.5 text-emerald-950">
                     <div className="flex min-w-0 items-center gap-1">
                       <Package className="size-3.5 shrink-0 text-emerald-700" aria-hidden />
-                      <h3 className="text-[10px] font-bold uppercase tracking-wide">
-                        À réserver (validé · {dispoRetenues.length})
-                      </h3>
+                      <h4 className="text-[10px] font-bold uppercase tracking-wide">
+                        À réserver · {dispoRetenues.length}
+                      </h4>
                     </div>
-                    <p className="shrink-0 text-[10px] font-semibold tabular-nums text-emerald-800 whitespace-nowrap">
+                    <p className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-emerald-800">
                       {compactTotalMadLabel({
                         sumKnown: subtotalDispo.sumKnown,
                         missingPrice: subtotalDispo.missingPrice,
@@ -2497,7 +2510,7 @@ export function PatientProductRequestActions({
                       })}
                     </p>
                   </div>
-                  <ul className="space-y-2">
+                  <ul className="space-y-2.5">
                     {dispoRetenues.map((row) => (
                       <PatientValidatedCompactLineCard
                         key={row.id}
@@ -2519,15 +2532,15 @@ export function PatientProductRequestActions({
               ) : null}
 
               {aCommanderRetenues.length > 0 ? (
-                <section className="mt-2 space-y-2">
-                  <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto text-teal-950">
+                <section className="space-y-2">
+                  <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto px-0.5 text-teal-950">
                     <div className="flex min-w-0 items-center gap-1">
                       <ShoppingCart className="size-3.5 shrink-0 text-teal-800" aria-hidden />
-                      <h3 className="text-[10px] font-bold uppercase tracking-wide">
-                        À commander (validé · {aCommanderRetenues.length})
-                      </h3>
+                      <h4 className="text-[10px] font-bold uppercase tracking-wide">
+                        À commander · {aCommanderRetenues.length}
+                      </h4>
                     </div>
-                    <p className="shrink-0 text-[10px] font-semibold tabular-nums text-teal-900 whitespace-nowrap">
+                    <p className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-teal-900">
                       {compactTotalMadLabel({
                         sumKnown: subtotalCommande.sumKnown,
                         missingPrice: subtotalCommande.missingPrice,
@@ -2535,7 +2548,7 @@ export function PatientProductRequestActions({
                       })}
                     </p>
                   </div>
-                  <ul className="space-y-2">
+                  <ul className="space-y-2.5">
                     {aCommanderRetenues.map((row) => (
                       <PatientValidatedCompactLineCard
                         key={row.id}
@@ -2555,20 +2568,19 @@ export function PatientProductRequestActions({
                   </ul>
                 </section>
               ) : null}
-              </div>
 
               {horsPerimetreRetenues.length > 0 || retireesApresValidation.length > 0 ? (
-                <div className="mt-2 rounded-xl border-2 border-amber-200/75 bg-gradient-to-b from-amber-50/35 via-white to-white p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-amber-200/50 sm:p-3">
+                <div className="space-y-3 rounded-lg border border-amber-200/70 bg-amber-50/20 p-2 ring-1 ring-amber-100/50 sm:p-2.5">
               {horsPerimetreRetenues.length > 0 ? (
-                <section className="mt-2 space-y-1">
-                  <div className="flex items-center gap-1 text-amber-950">
+                <section className="space-y-2">
+                  <div className="flex items-center gap-1 px-0.5 text-amber-950">
                     <Layers className="size-3.5 shrink-0 text-amber-800" aria-hidden />
-                    <h3 className="text-[10px] font-bold uppercase tracking-wide">Point d&apos;attention (hors bloc principal)</h3>
+                    <h4 className="text-[10px] font-bold uppercase tracking-wide">Point d&apos;attention</h4>
                   </div>
-                  <p className="text-[9px] leading-snug text-muted-foreground">
+                  <p className="px-0.5 text-[9px] leading-snug text-muted-foreground">
                     À confirmer avec l&apos;officine si besoin.
                   </p>
-                  <ul className="space-y-2">
+                  <ul className="space-y-2.5">
                     {horsPerimetreRetenues.map((row) => (
                       <PatientValidatedCompactLineCard
                         key={row.id}
@@ -2590,17 +2602,17 @@ export function PatientProductRequestActions({
               ) : null}
 
               {retireesApresValidation.length > 0 ? (
-                <section className="mt-2 space-y-1">
-                  <div className="flex items-center gap-1 text-amber-950">
+                <section className="space-y-2">
+                  <div className="flex items-center gap-1 px-0.5 text-amber-950">
                     <Layers className="size-3.5 shrink-0 text-amber-900" aria-hidden />
-                    <h3 className="text-[10px] font-bold uppercase tracking-wide">
-                      Écart après validation ({retireesApresValidation.length})
-                    </h3>
+                    <h4 className="text-[10px] font-bold uppercase tracking-wide">
+                      Écart après validation · {retireesApresValidation.length}
+                    </h4>
                   </div>
-                  <p className="text-[9px] leading-snug text-muted-foreground">
+                  <p className="px-0.5 text-[9px] leading-snug text-muted-foreground">
                     Retrait convenu avec la pharmacie — trace uniquement.
                   </p>
-                  <ul className="space-y-2">
+                  <ul className="space-y-2.5">
                     {retireesApresValidation.map((row) => (
                       <PatientValidatedCompactLineCard
                         key={row.id}
@@ -2624,12 +2636,12 @@ export function PatientProductRequestActions({
               ) : null}
 
               {lignesNonRetenues.length > 0 ? (
-                <details className="group rounded-md border border-border/80 bg-muted/10">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2 py-1.5 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
+                <details className="group rounded-lg border border-sky-200/60 bg-sky-50/25">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold text-sky-950 [&::-webkit-details-marker]:hidden">
                     <span>Lignes non retenues ({lignesNonRetenues.length})</span>
-                    <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+                    <ChevronDown className="size-3.5 shrink-0 text-sky-700 transition-transform group-open:rotate-180" aria-hidden />
                   </summary>
-                  <ul className="space-y-1 border-t border-border/60 px-2 py-1.5">
+                  <ul className="space-y-2 border-t border-sky-200/50 px-2.5 py-2">
                     {lignesNonRetenues.map((row) => (
                       <PatientTraceNotRetainedRow
                         key={row.id}
