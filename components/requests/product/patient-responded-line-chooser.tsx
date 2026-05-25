@@ -388,13 +388,13 @@ function RespondedLineBlock({
           <div className={cn(RESPONDED_LINE_THUMB, unavailable && "opacity-95")}>{thumbInner}</div>
           <label
             className={cn(
-              "absolute -left-2 -top-3 z-20 flex size-10 touch-manipulation cursor-pointer items-center justify-center rounded-lg bg-white shadow-md ring-2 ring-sky-400/90",
+              "absolute -left-1.5 -top-2 z-20 flex size-8 touch-manipulation cursor-pointer items-center justify-center rounded-md bg-white shadow ring-1 ring-sky-400/85",
               unavailable ? "cursor-not-allowed opacity-55" : "active:bg-sky-50"
             )}
           >
             <input
               type="checkbox"
-              className="size-5 shrink-0 rounded-md border-[2.5px] border-sky-600 text-sky-600 accent-sky-600 disabled:border-slate-300"
+              className="size-4 shrink-0 rounded border-2 border-sky-600 text-sky-600 accent-sky-600 disabled:border-slate-300"
               checked={retained}
               disabled={unavailable}
               onChange={(e) => onToggleRetain(e.target.checked)}
