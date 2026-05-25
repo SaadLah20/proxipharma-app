@@ -15,7 +15,7 @@ export function PageShell({
   return (
     <main
       className={clsx(
-        "mx-auto min-h-screen px-3 pb-12 pt-4 sm:px-5 sm:pb-16 sm:pt-5",
+        "mx-auto min-h-screen w-full max-w-full overflow-x-hidden px-3 pb-12 pt-4 sm:px-5 sm:pb-16 sm:pt-5",
         maxWidthClass,
         className
       )}

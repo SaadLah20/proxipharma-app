@@ -443,7 +443,7 @@ export default function DemandeDetailPage() {
   return (
     <PageShell
       className={clsx(
-        "space-y-3 bg-slate-50",
+        "min-w-0 max-w-full space-y-3 bg-slate-50",
         hideMainRequestHeader && "pb-56"
       )}
     >
@@ -556,7 +556,7 @@ export default function DemandeDetailPage() {
             </button>
           </div>
         ) : null}
-        <section className="pb-2">
+        <section className="min-w-0 w-full max-w-full overflow-x-hidden pb-2">
         <PatientProductRequestActions
           key={
             [
