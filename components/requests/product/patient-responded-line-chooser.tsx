@@ -1,0 +1,619 @@
+"use client";
+
+import { useEffect, useId, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { MessageCircle, Minus, Package, Plus, X } from "lucide-react";
+import {
+  ProductRequestLineMessageButton,
+  ProductRequestLinePanel,
+} from "@/components/pharmacy/patient-demande-produits-ui";
+import {
+  lineConversationStripButtonClass,
+  lineConversationStripLabel,
+  lineConversationVisual,
+} from "@/components/pharmacist/pharmacist-line-conversation-chip";
+import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
+import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
+import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternative-qty-rules";
+import { formatPriceDh } from "@/lib/product-price";
+import { formatDateShortFr } from "@/lib/datetime-fr";
+import {
+  isPrescriptionAdditionalProposedLine,
+  isPrescriptionOrdonnancePrincipalLine,
+  PRESCRIPTION_ORDONNANCE_SOURCING_LABEL,
+} from "@/lib/prescription-pharmacist-lines";
+import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
+import { resolvePublicMediaUrl } from "@/lib/storage-media";
+import { cn } from "@/lib/utils";
+import type { ActionItemAltRow, ActionItemRow, LineBranch, LineSelState } from "@/components/requests/product/patient-product-request-actions";
+
+function one<T>(v: T | T[] | null | undefined): T | null {
+  if (v == null) return null;
+  return Array.isArray(v) ? (v[0] ?? null) : v;
+}
+
+function normalizeAlternatives(raw: ActionItemAltRow | ActionItemAltRow[] | null | undefined): ActionItemAltRow[] {
+  if (!raw) return [];
+  return Array.isArray(raw) ? [...raw].sort((a, b) => a.rank - b.rank) : [raw];
+}
+
+function maxQtyPrincipal(row: ActionItemRow): number {
+  return patientMaxQtyPrincipal(row);
+}
+
+function maxQtyAlt(row: ActionItemRow, alt: ActionItemAltRow): number {
+  return patientMaxQtyAlternative(row, alt);
+}
+
+function maxQtyForBranch(row: ActionItemRow, branch: LineBranch, alts: ActionItemAltRow[]): number {
+  if (branch === null) return 0;
+  if (branch === "principal") return maxQtyPrincipal(row);
+  const alt = alts.find((a) => a.id === branch);
+  if (!alt) return 0;
+  return maxQtyAlt(row, alt);
+}
+
+function branchFromTab(tab: string): LineBranch {
+  return tab === "principal" ? "principal" : tab;
+}
+
+function lineBadgeLabelFr(opts: {
+  requestType: string;
+  isAlt: boolean;
+  isProposedLine: boolean;
+  isOrdonnancePrincipal: boolean;
+  isExtraProposed: boolean;
+  pharmacistProposedBadgeLabel: string;
+}): string {
+  if (opts.isAlt) return "Alternative";
+  if (opts.requestType === "prescription" && opts.isOrdonnancePrincipal) return "Ordonnance";
+  if (opts.requestType === "prescription" && opts.isExtraProposed) return "Produit proposé par la pharmacie";
+  if (opts.requestType === "free_consultation" && opts.isProposedLine) return "Proposition pharmacie";
+  if (opts.isProposedLine) return opts.pharmacistProposedBadgeLabel || "Ajout Officine";
+  return "Ta demande";
+}
+
+function badgeToneClass(label: string): string {
+  if (label === "Alternative") return "bg-teal-700 text-white";
+  if (label === "Ta demande") return "bg-sky-700 text-white";
+  if (label === "Ordonnance") return "bg-amber-700 text-white";
+  return "bg-violet-700 text-white";
+}
+
+/** Date de réception (produit à commander). */
+function RespondedReceptionBadgeFr({ dateYmd }: { dateYmd: string }) {
+  return (
+    <span className="inline-flex max-w-full shrink-0 items-center rounded border border-amber-500/75 bg-amber-100 px-1.5 py-px text-[9px] font-bold leading-tight text-amber-950">
+      Réception · {formatDateShortFr(dateYmd)}
+    </span>
+  );
+}
+
+function RespondedLineQtyMeta({
+  showRequested,
+  requestedQty,
+  stockQty,
+  availabilityStatus,
+  expectedDate,
+  requestType,
+  isProposedLine,
+}: {
+  showRequested: boolean;
+  requestedQty: number;
+  stockQty: number | null;
+  availabilityStatus: string | null;
+  expectedDate: string | null;
+  requestType: string;
+  isProposedLine: boolean;
+}) {
+  let inferredKey = availabilityStatus ?? "available";
+  if (showRequested && stockQty != null) {
+    try {
+      inferredKey = inferAvailabilityStatusFromQty({
+        status: availabilityStatus ?? "available",
+        availableQty: stockQty,
+        requestedQty,
+        isProposedLine:
+          (requestType === "product_request" && isProposedLine) || requestType === "free_consultation",
+      });
+    } catch {
+      inferredKey = availabilityStatus ?? "available";
+    }
+  }
+  const availUi = availabilityStatusUi(inferredKey);
+  const AvailIcon = availUi.Icon;
+
+  return (
+    <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+      {showRequested ? (
+        <span>
+          Demandé <strong className="tabular-nums text-foreground">{requestedQty}</strong>
+        </span>
+      ) : null}
+      {stockQty != null ? (
+        <span>
+          Stock <strong className="tabular-nums text-foreground">{stockQty}</strong>
+        </span>
+      ) : null}
+      {availabilityStatus ? (
+        <span
+          className={cn(
+            "inline-flex max-w-full items-center gap-0.5 rounded-full px-1.5 py-px text-[9px] font-semibold ring-1",
+            availUi.badgeClass
+          )}
+          title={availUi.label}
+        >
+          <AvailIcon className="size-2.5 shrink-0" aria-hidden />
+          <span className="truncate">{availUi.label}</span>
+        </span>
+      ) : null}
+      {availabilityStatus === "to_order" && expectedDate ? (
+        <RespondedReceptionBadgeFr dateYmd={expectedDate} />
+      ) : null}
+    </p>
+  );
+}
+
+function RespondedLineNotesButton({
+  productName,
+  client,
+  pharmacist,
+}: {
+  productName: string;
+  client: string;
+  pharmacist: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const titleId = useId();
+  const c = client.trim();
+  const p = pharmacist.trim();
+  const visual = lineConversationVisual(c, p);
+  const hasNotes = Boolean(c || p);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  return (
+    <>
+      <ProductRequestLineMessageButton hasComment={hasNotes} onClick={() => setOpen(true)} />
+      {open && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-3 backdrop-blur-[1px] sm:items-center"
+              role="presentation"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setOpen(false);
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
+                className={cn("max-h-[min(80vh,20rem)] w-full max-w-sm overflow-hidden rounded-2xl border bg-card shadow-2xl", t.modalShell)}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className={cn("flex items-start justify-between gap-2 border-b px-3 py-2", t.modalHeader)}>
+                  <div className="min-w-0 flex-1">
+                    <h2 id={titleId} className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                      <span className="block">Message</span>
+                      <span className="mt-1 block text-[13px] font-semibold normal-case leading-snug text-foreground">
+                        {productName}
+                      </span>
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted/60"
+                    aria-label="Fermer"
+                    onClick={() => setOpen(false)}
+                  >
+                    <X className="size-4" aria-hidden />
+                  </button>
+                </div>
+                <div className="max-h-[min(60vh,16rem)] space-y-2 overflow-y-auto overscroll-y-contain px-3 py-2.5 text-[11px] [-webkit-overflow-scrolling:touch]">
+                  {!c && !p ? (
+                    <p className="text-[11px] leading-snug text-muted-foreground">Aucun message sur ce produit.</p>
+                  ) : null}
+                  {c ? (
+                    <div className="rounded-lg border border-sky-200/80 bg-sky-50/90 px-2.5 py-2">
+                      <p className="text-[8px] font-bold uppercase tracking-wide text-sky-900">Vous</p>
+                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-sky-950">{c}</p>
+                    </div>
+                  ) : null}
+                  {p ? (
+                    <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-2">
+                      <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-900">Officine</p>
+                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-emerald-950">{p}</p>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="border-t border-border/60 px-3 py-2">
+                  <button
+                    type="button"
+                    className="h-9 w-full rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                    onClick={() => setOpen(false)}
+                  >
+                    Fermer
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+    </>
+  );
+}
+
+type VariantData = {
+  tabId: string;
+  tabLabel: string;
+  badgeLabel: string;
+  productName: string;
+  photoUrl: string | null;
+  showRequested: boolean;
+  requestedQty: number;
+  stockQty: number | null;
+  unitPrice: number | null;
+  availabilityStatus: string | null;
+  expectedDate: string | null;
+  clientComment: string;
+  pharmacistComment: string;
+  branch: LineBranch;
+  cap: number;
+};
+
+function RespondedVariantTabs({
+  tabs,
+  activeTab,
+  onTab,
+}: {
+  tabs: { id: string; label: string }[];
+  activeTab: string;
+  onTab: (id: string) => void;
+}) {
+  return (
+    <div
+      className="mb-1.5 flex gap-1 overflow-x-auto overscroll-x-contain border-b border-sky-200/70 pb-1 [-webkit-overflow-scrolling:touch]"
+      role="tablist"
+      aria-label="Options pour ce produit"
+    >
+      {tabs.map((tab) => {
+        const active = tab.id === activeTab;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            className={cn(
+              "shrink-0 rounded-t-md border px-2 py-1 text-[10px] font-bold leading-tight transition",
+              active
+                ? "border-sky-400 border-b-white bg-white text-sky-950 shadow-sm"
+                : "border-transparent bg-sky-50/80 text-sky-800/90 hover:bg-sky-100/90"
+            )}
+            onClick={() => onTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function RespondedLineBlock({
+  variant,
+  retained,
+  selQty,
+  onToggleRetain,
+  onDecQty,
+  onIncQty,
+  onPhotoPreview,
+  requestType,
+  isProposedLine,
+}: {
+  variant: VariantData;
+  retained: boolean;
+  selQty: number;
+  onToggleRetain: (on: boolean) => void;
+  onDecQty: () => void;
+  onIncQty: () => void;
+  onPhotoPreview?: (url: string, title: string) => void;
+  requestType: string;
+  isProposedLine: boolean;
+}) {
+  const disabledRetain = variant.cap < 1;
+  const showQty = retained && variant.cap > 0;
+  const total =
+    variant.unitPrice != null && Number.isFinite(Number(variant.unitPrice))
+      ? selQty * Number(variant.unitPrice)
+      : null;
+
+  const thumbInner = variant.photoUrl ? (
+    onPhotoPreview ? (
+      <button
+        type="button"
+        className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
+        onClick={() => onPhotoPreview(variant.photoUrl!, variant.productName)}
+        aria-label={`Agrandir la photo · ${variant.productName}`}
+      >
+        <img src={variant.photoUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
+      </button>
+    ) : (
+      <img src={variant.photoUrl} alt="" className="h-full w-full object-cover" />
+    )
+  ) : (
+    <span className="flex h-full w-full items-center justify-center">
+      <Package className="size-5 text-muted-foreground" aria-hidden />
+    </span>
+  );
+
+  return (
+    <div
+      className={cn(
+        "w-full min-w-0 rounded-xl border-2 bg-white transition",
+        retained ? "border-sky-400/90 shadow-sm ring-2 ring-sky-200/55" : "border-slate-200/85"
+      )}
+    >
+      <div className="flex gap-2 p-2">
+        <label
+          className={cn(
+            "flex shrink-0 items-start pt-0.5",
+            disabledRetain ? "cursor-not-allowed opacity-45" : "cursor-pointer"
+          )}
+        >
+          <input
+            type="checkbox"
+            className="size-[1.125rem] shrink-0 rounded border-2 border-sky-500 text-sky-600 accent-sky-600 focus:ring-sky-400/50"
+            checked={retained}
+            disabled={disabledRetain}
+            onChange={(e) => onToggleRetain(e.target.checked)}
+            aria-label={retained ? "Ne plus retenir cette ligne" : "Retenir cette ligne"}
+          />
+        </label>
+        <div className="min-w-0 flex-1">
+          <span
+            className={cn(
+              "inline-block rounded px-1.5 py-px text-[8px] font-bold uppercase tracking-wide",
+              badgeToneClass(variant.badgeLabel)
+            )}
+          >
+            {variant.badgeLabel}
+          </span>
+          <ProductRequestLinePanel
+            thumb={thumbInner}
+            title={
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-semibold leading-tight text-foreground" title={variant.productName}>
+                  {variant.productName}
+                </p>
+                <RespondedLineQtyMeta
+                  showRequested={variant.showRequested}
+                  requestedQty={variant.requestedQty}
+                  stockQty={variant.stockQty}
+                  availabilityStatus={variant.availabilityStatus}
+                  expectedDate={variant.expectedDate}
+                  requestType={requestType}
+                  isProposedLine={isProposedLine}
+                />
+              </div>
+            }
+            unitPrice={variant.unitPrice != null ? Number(variant.unitPrice) : null}
+            totalValue={showQty ? total : null}
+            qty={selQty}
+            onDecQty={onDecQty}
+            onIncQty={onIncQty}
+            qtyDisabledDec={!showQty || selQty <= 1}
+            qtyDisabledInc={!showQty || selQty >= variant.cap}
+            bottomRight={
+              <RespondedLineNotesButton
+                productName={variant.productName}
+                client={variant.clientComment}
+                pharmacist={variant.pharmacistComment}
+              />
+            }
+          />
+        </div>
+      </div>
+      {disabledRetain ? (
+        <p className="border-t border-amber-200/60 bg-amber-50/80 px-2.5 py-1.5 text-[10px] leading-snug text-amber-950">
+          Aucune quantité dispo pour l&apos;instant — tu peux ne pas retenir cette ligne ou contacter l&apos;officine.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+export type RespondedChooserProps = {
+  row: ActionItemRow;
+  selState: LineSelState;
+  setLineBranch: (itemId: string, branch: LineBranch) => void;
+  setLineQty: (itemId: string, qty: number) => void;
+  toggleLineRetention: (itemId: string, on: boolean, branchWhenOn: LineBranch) => void;
+  onPhotoPreview?: (url: string, title: string) => void;
+  pharmacistProposedBadgeLabel: string;
+  requestType: string;
+  supplyAmendmentBundles: { amendments: unknown }[];
+};
+
+export function RespondedPatientLineChooser({
+  row,
+  selState,
+  setLineBranch,
+  setLineQty,
+  toggleLineRetention,
+  onPhotoPreview,
+  pharmacistProposedBadgeLabel,
+  requestType,
+  supplyAmendmentBundles,
+}: RespondedChooserProps) {
+  const prod = one(row.products);
+  const altList = normalizeAlternatives(row.request_item_alternatives);
+  const hasAlts = altList.length > 0;
+  const isProposedLine = row.line_source === "pharmacist_proposed";
+  const isOrdonnancePrincipal =
+    requestType === "prescription" &&
+    isPrescriptionOrdonnancePrincipalLine(requestType, row, supplyAmendmentBundles);
+  const isExtraProposed =
+    requestType === "prescription" &&
+    isPrescriptionAdditionalProposedLine(requestType, row, supplyAmendmentBundles);
+
+  const tabs = useMemo(() => {
+    const base = [{ id: "principal", label: "Ta demande" }];
+    altList.forEach((_, i) => base.push({ id: altList[i]!.id, label: `Alternative ${i + 1}` }));
+    return base;
+  }, [altList]);
+
+  const initialTab =
+    selState.branch !== null && selState.branch !== "principal"
+      ? selState.branch
+      : "principal";
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    if (selState.branch === null) return;
+    if (selState.branch === "principal") setActiveTab("principal");
+    else if (altList.some((a) => a.id === selState.branch)) setActiveTab(selState.branch);
+  }, [selState.branch, altList]);
+
+  const buildPrincipalVariant = (): VariantData => {
+    const stockQty =
+      row.available_qty != null && Number.isFinite(Number(row.available_qty))
+        ? Math.max(0, Math.floor(Number(row.available_qty)))
+        : null;
+    return {
+      tabId: "principal",
+      tabLabel: "Ta demande",
+      badgeLabel: lineBadgeLabelFr({
+        requestType,
+        isAlt: false,
+        isProposedLine,
+        isOrdonnancePrincipal,
+        isExtraProposed,
+        pharmacistProposedBadgeLabel,
+      }),
+      productName: prod?.name ?? "Produit",
+      photoUrl: resolvePublicMediaUrl(prod?.photo_url ?? null),
+      showRequested: !isProposedLine,
+      requestedQty: Math.max(1, Number(row.requested_qty) || 1),
+      stockQty,
+      unitPrice: row.unit_price != null ? Number(row.unit_price) : null,
+      availabilityStatus: row.availability_status,
+      expectedDate: row.expected_availability_date,
+      clientComment: row.client_comment ?? "",
+      pharmacistComment: row.pharmacist_comment ?? "",
+      branch: "principal",
+      cap: maxQtyPrincipal(row),
+    };
+  };
+
+  const buildAltVariant = (alt: ActionItemAltRow, index: number): VariantData => {
+    const altProd = one(alt.products);
+    const stockQty =
+      alt.available_qty != null && Number.isFinite(Number(alt.available_qty))
+        ? Math.max(0, Math.floor(Number(alt.available_qty)))
+        : null;
+    return {
+      tabId: alt.id,
+      tabLabel: `Alternative ${index + 1}`,
+      badgeLabel: "Alternative",
+      productName: altProd?.name ?? "Alternative",
+      photoUrl: resolvePublicMediaUrl(altProd?.photo_url ?? null),
+      showRequested: false,
+      requestedQty: 0,
+      stockQty,
+      unitPrice: alt.unit_price != null ? Number(alt.unit_price) : null,
+      availabilityStatus: alt.availability_status,
+      expectedDate: alt.expected_availability_date,
+      clientComment: row.client_comment ?? "",
+      pharmacistComment: alt.pharmacist_comment ?? "",
+      branch: alt.id,
+      cap: maxQtyAlt(row, alt),
+    };
+  };
+
+  const variants = useMemo(() => {
+    const list = [buildPrincipalVariant()];
+    altList.forEach((alt, i) => list.push(buildAltVariant(alt, i)));
+    return list;
+  }, [
+    row,
+    altList,
+    requestType,
+    isProposedLine,
+    isOrdonnancePrincipal,
+    isExtraProposed,
+    pharmacistProposedBadgeLabel,
+    supplyAmendmentBundles,
+    prod?.name,
+    prod?.photo_url,
+  ]);
+
+  const activeVariant = variants.find((v) => v.tabId === activeTab) ?? variants[0]!;
+  const activeBranch = branchFromTab(activeTab);
+  const retainedForTab = selState.branch === activeBranch;
+
+  const onTab = (tabId: string) => {
+    setActiveTab(tabId);
+    if (selState.branch !== null) {
+      const branch = branchFromTab(tabId);
+      const cap = maxQtyForBranch(row, branch, altList);
+      if (cap > 0) setLineBranch(row.id, branch);
+      else setLineBranch(row.id, null);
+    }
+  };
+
+  const proposedReason = row.pharmacist_proposal_reason?.trim();
+
+  if (!hasAlts) {
+    const v = buildPrincipalVariant();
+    return (
+      <li className="w-full min-w-0">
+        {isProposedLine && proposedReason ? (
+          <p className="mb-1 line-clamp-2 text-[10px] font-medium leading-snug text-violet-950">{proposedReason}</p>
+        ) : null}
+        {requestType === "prescription" && isOrdonnancePrincipal ? (
+          <p className="mb-1 text-[10px] font-semibold text-amber-900">{PRESCRIPTION_ORDONNANCE_SOURCING_LABEL}</p>
+        ) : null}
+        <RespondedLineBlock
+          variant={v}
+          retained={selState.branch === "principal"}
+          selQty={selState.qty}
+          onToggleRetain={(on) => toggleLineRetention(row.id, on, "principal")}
+          onDecQty={() => setLineQty(row.id, selState.qty - 1)}
+          onIncQty={() => setLineQty(row.id, selState.qty + 1)}
+          onPhotoPreview={onPhotoPreview}
+          requestType={requestType}
+          isProposedLine={isProposedLine}
+        />
+      </li>
+    );
+  }
+
+  return (
+    <li className="w-full min-w-0 rounded-xl border-2 border-sky-200/70 bg-gradient-to-b from-sky-50/30 to-white p-2 shadow-sm">
+      {isProposedLine && proposedReason ? (
+        <p className="mb-1.5 line-clamp-2 text-[10px] font-medium leading-snug text-violet-950">{proposedReason}</p>
+      ) : null}
+      <RespondedVariantTabs tabs={tabs} activeTab={activeTab} onTab={onTab} />
+      <RespondedLineBlock
+        variant={activeVariant}
+        retained={retainedForTab}
+        selQty={selState.qty}
+        onToggleRetain={(on) => toggleLineRetention(row.id, on, activeBranch)}
+        onDecQty={() => setLineQty(row.id, selState.qty - 1)}
+        onIncQty={() => setLineQty(row.id, selState.qty + 1)}
+        onPhotoPreview={onPhotoPreview}
+        requestType={requestType}
+        isProposedLine={isProposedLine && activeTab === "principal"}
+      />
+    </li>
+  );
+}
