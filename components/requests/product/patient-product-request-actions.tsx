@@ -34,7 +34,6 @@ import {
 import { plannedVisitWindow } from "@/lib/planned-visit";
 import {
   bucketPatientValidatedLinesThreeWays,
-  effectiveAvailabilityForPatientLine,
   type PatientLineLike,
   validatedBranchUnitPriceMad,
   validatedBranchPhotoPath,
@@ -73,7 +72,6 @@ import { supabase } from "@/lib/supabase";
 import { one } from "@/lib/embed";
 import {
   buildPatientLineTimelineFr,
-  postConfirmSupplyAmendmentBadgeLabelsFr,
   type PatientLineTimelineBlockFr,
 } from "@/lib/build-patient-line-timeline-fr";
 import { patientLatestSupplyAmendmentNoticeFr } from "@/lib/patient-pharma-change-notice-fr";
@@ -582,7 +580,6 @@ function patientArchiveClosureLabelFr(row: ActionItemRow): string | null {
 function PatientClosedProductBucketsView({
   items,
   onOpenLineHistory,
-  linePostConfirmBadgesById,
   onPhotoPreview,
   pharmacistProposedBadgeLabel,
   requestType = "product_request",
@@ -591,7 +588,6 @@ function PatientClosedProductBucketsView({
 }: {
   items: ActionItemRow[];
   onOpenLineHistory: (itemId: string) => void;
-  linePostConfirmBadgesById: Record<string, string[]>;
   onPhotoPreview: (url: string, title: string) => void;
   pharmacistProposedBadgeLabel: string;
   requestType?: string;
@@ -1026,20 +1022,6 @@ function htmlTimeToPg(t: string): string | null {
   if (!s) return null;
   if (/^\d{2}:\d{2}$/.test(s)) return `${s}:00`;
   return s;
-}
-
-/** Date de réception (produit à commander) — libellé très visible. */
-function RespondedReceptionBadgeFr({ dateYmd, className }: { dateYmd: string; className?: string }) {
-  return (
-    <span
-      className={clsx(
-        "inline-flex max-w-full shrink-0 items-center rounded-md border-2 border-amber-500/80 bg-amber-100 px-2 py-0.5 text-[10px] font-bold leading-tight text-amber-950 shadow-sm sm:py-1",
-        className
-      )}
-    >
-      Réception · {formatDateShortFr(dateYmd)}
-    </span>
-  );
 }
 
 /** Bandeau + modal lecture seule (échanges patient / pharmacie sur la ligne). */
@@ -1533,15 +1515,6 @@ export function PatientProductRequestActions({
     () => visibleItemsForPatientBeforePharmacyResponse(items, status),
     [items, status]
   );
-
-  const linePostConfirmBadgesById = useMemo(() => {
-    const m: Record<string, string[]> = {};
-    for (const row of items) {
-      const labels = postConfirmSupplyAmendmentBadgeLabelsFr(row as unknown as PatientLineLike, supplyAmendmentBundles);
-      if (labels.length > 0) m[row.id] = labels;
-    }
-    return m;
-  }, [items, supplyAmendmentBundles]);
 
   /** Confirmation responded -> confirmed — reset via parent `key` when server rows change */
   const [sel, setSel] = useState(() => computeSelFromItems(items));
@@ -2344,7 +2317,6 @@ export function PatientProductRequestActions({
           <PatientClosedProductBucketsView
             items={items}
             onOpenLineHistory={setHistoryModalItemId}
-            linePostConfirmBadgesById={linePostConfirmBadgesById}
             onPhotoPreview={openProductPhotoPreview}
             pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
             requestType={requestType}

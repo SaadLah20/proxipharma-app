@@ -20,7 +20,7 @@ export function PatientLineNotesIconButton({
   const titleId = useId();
   const c = client.trim();
   const p = pharmacist.trim();
-  if (!c && !p) return null;
+  const hasNotes = Boolean(c || p);
 
   useEffect(() => {
     if (!open) return;
@@ -30,6 +30,8 @@ export function PatientLineNotesIconButton({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
+
+  if (!hasNotes) return null;
 
   return (
     <>
