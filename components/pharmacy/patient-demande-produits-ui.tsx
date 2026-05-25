@@ -133,7 +133,7 @@ export function ProductRequestLinePanel({
   contentMinHeight?: string;
 }) {
   return (
-    <div className="flex min-w-0 items-stretch gap-2">
+    <div className="flex w-full min-w-0 items-stretch gap-2">
       <div className={cn(THUMB, thumbClassName)}>{thumb}</div>
       <div
         className={cn(
@@ -141,9 +141,9 @@ export function ProductRequestLinePanel({
           contentMinHeight ?? "min-h-14"
         )}
       >
-        <div className="flex min-w-0 items-start gap-2">
-          <div className="min-w-0 flex-1 leading-tight">{title}</div>
-          {topRight ? <div className="shrink-0">{topRight}</div> : null}
+        <div className="relative min-w-0 w-full">
+          {topRight ? <div className="absolute right-0 top-0 z-[1]">{topRight}</div> : null}
+          <div className={cn("min-w-0 w-full leading-tight", topRight && "pr-9")}>{title}</div>
         </div>
         <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
       </div>
@@ -429,7 +429,10 @@ export function ProductRequestCartLineRow({
     <li className="border-b border-border/50 py-2 last:border-b-0">
       <ProductRequestLinePanel
         title={
-          <p className="truncate text-[13px] font-semibold text-foreground" title={line.name}>
+          <p
+            className="line-clamp-2 min-w-0 text-[13px] font-semibold leading-snug text-foreground"
+            title={line.name}
+          >
             {line.name}
           </p>
         }
