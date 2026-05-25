@@ -410,10 +410,10 @@ function RespondedLineBlock({
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 py-0.5">
-          <div className="flex min-w-0 items-start gap-1.5 leading-snug">
+          <div className="flex min-w-0 items-center gap-1.5 overflow-hidden leading-none">
             <span
               className={cn(
-                "mt-px shrink-0 rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide leading-tight",
+                "shrink-0 rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide leading-tight",
                 badgeToneClass(variant.badgeLabel),
                 unavailable && "opacity-90",
                 notRetained && !unavailable && "opacity-80"
@@ -423,10 +423,9 @@ function RespondedLineBlock({
             </span>
             <p
               className={cn(
-                "min-w-0 flex-1 text-[13px] font-semibold leading-snug",
+                "min-w-0 flex-1 truncate text-[13px] font-semibold leading-none",
                 unavailable ? "text-slate-600" : "text-foreground",
-                notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90",
-                isProposedBlock && !unavailable && !notRetained && "line-clamp-2"
+                notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
               )}
               title={variant.productName}
             >
@@ -475,9 +474,9 @@ function RespondedLineBlock({
               notRetained && !unavailable && "opacity-85"
             )}
           >
-            <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0 text-[11px]">
-              <span className="whitespace-nowrap text-muted-foreground">
-                PU{" "}
+            <div className="flex min-w-0 flex-1 flex-nowrap items-baseline gap-x-2 overflow-hidden text-[11px] leading-none">
+              <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap text-muted-foreground">
+                <span>PU</span>
                 {unit != null ? (
                   <PriceDhInline
                     value={unit}
@@ -489,12 +488,12 @@ function RespondedLineBlock({
                 )}
               </span>
               {showQty && total != null ? (
-                <span className="whitespace-nowrap text-[10px] text-muted-foreground">
-                  Tot{" "}
-                  <PriceDhInline value={total} amountClassName="font-semibold" suffixClassName="text-[9px]" />
+                <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap text-muted-foreground">
+                  <span className="text-[10px]">Tot</span>
+                  <PriceDhInline value={total} amountClassName="text-xs font-semibold" suffixClassName="text-[9px]" />
                 </span>
               ) : null}
-            </p>
+            </div>
 
             <div className="flex shrink-0 items-center gap-1.5">
               {showQty ? (
