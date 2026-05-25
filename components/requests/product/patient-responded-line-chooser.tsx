@@ -4,8 +4,9 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { MessageCircle, Minus, Package, Plus, X } from "lucide-react";
 import {
+  PRODUCT_REQUEST_LINE_THUMB,
+  PriceDhInline,
   ProductRequestLineMessageButton,
-  ProductRequestLinePanel,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import {
   lineConversationStripButtonClass,
@@ -15,7 +16,6 @@ import {
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternative-qty-rules";
-import { formatPriceDh } from "@/lib/product-price";
 import { formatDateShortFr } from "@/lib/datetime-fr";
 import {
   isPrescriptionAdditionalProposedLine,
@@ -83,8 +83,8 @@ function badgeToneClass(label: string): string {
 /** Date de réception (produit à commander). */
 function RespondedReceptionBadgeFr({ dateYmd }: { dateYmd: string }) {
   return (
-    <span className="inline-flex max-w-full shrink-0 items-center rounded border border-amber-500/75 bg-amber-100 px-1.5 py-px text-[9px] font-bold leading-tight text-amber-950">
-      Réception · {formatDateShortFr(dateYmd)}
+    <span className="inline-flex max-w-full shrink-0 items-center rounded border border-amber-500/70 bg-amber-100 px-1 py-px text-[8px] font-bold leading-tight text-amber-950">
+      Réc. {formatDateShortFr(dateYmd)}
     </span>
   );
 }
@@ -124,26 +124,26 @@ function RespondedLineQtyMeta({
   const AvailIcon = availUi.Icon;
 
   return (
-    <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+    <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9px] leading-none text-muted-foreground">
       {showRequested ? (
-        <span>
-          Demandé <strong className="tabular-nums text-foreground">{requestedQty}</strong>
+        <span className="whitespace-nowrap">
+          Dem. <strong className="tabular-nums text-foreground">{requestedQty}</strong>
         </span>
       ) : null}
       {stockQty != null ? (
-        <span>
-          Stock <strong className="tabular-nums text-foreground">{stockQty}</strong>
+        <span className="whitespace-nowrap">
+          Stk <strong className="tabular-nums text-foreground">{stockQty}</strong>
         </span>
       ) : null}
       {availabilityStatus ? (
         <span
           className={cn(
-            "inline-flex max-w-full items-center gap-0.5 rounded-full px-1.5 py-px text-[9px] font-semibold ring-1",
+            "inline-flex max-w-[9.5rem] min-w-0 items-center gap-0.5 rounded-full px-1 py-px text-[8px] font-semibold leading-tight ring-1",
             availUi.badgeClass
           )}
           title={availUi.label}
         >
-          <AvailIcon className="size-2.5 shrink-0" aria-hidden />
+          <AvailIcon className="size-2 shrink-0" aria-hidden />
           <span className="truncate">{availUi.label}</span>
         </span>
       ) : null}
@@ -181,7 +181,11 @@ function RespondedLineNotesButton({
 
   return (
     <>
-      <ProductRequestLineMessageButton hasComment={hasNotes} onClick={() => setOpen(true)} />
+      <ProductRequestLineMessageButton
+        hasComment={hasNotes}
+        onClick={() => setOpen(true)}
+        className="px-1.5 py-0.5 text-[9px]"
+      />
       {open && typeof document !== "undefined"
         ? createPortal(
             <div
@@ -280,7 +284,7 @@ function RespondedVariantTabs({
 }) {
   return (
     <div
-      className="mb-1.5 flex gap-1 overflow-x-auto overscroll-x-contain border-b border-sky-200/70 pb-1 [-webkit-overflow-scrolling:touch]"
+      className="mb-1 flex gap-0.5 overflow-x-auto overscroll-x-contain border-b border-sky-200/60 [-webkit-overflow-scrolling:touch]"
       role="tablist"
       aria-label="Options pour ce produit"
     >
@@ -293,10 +297,10 @@ function RespondedVariantTabs({
             role="tab"
             aria-selected={active}
             className={cn(
-              "shrink-0 rounded-t-md border px-2 py-1 text-[10px] font-bold leading-tight transition",
+              "shrink-0 rounded-t border-x border-t px-1.5 py-0.5 text-[9px] font-bold leading-tight transition",
               active
-                ? "border-sky-400 border-b-white bg-white text-sky-950 shadow-sm"
-                : "border-transparent bg-sky-50/80 text-sky-800/90 hover:bg-sky-100/90"
+                ? "border-sky-400 border-b-white bg-white text-sky-950"
+                : "border-transparent bg-transparent text-sky-800/85 hover:bg-sky-50/90"
             )}
             onClick={() => onTab(tab.id)}
           >
@@ -355,76 +359,119 @@ function RespondedLineBlock({
     </span>
   );
 
+  const unit = variant.unitPrice != null ? Number(variant.unitPrice) : null;
+
   return (
     <div
       className={cn(
-        "w-full min-w-0 rounded-xl border-2 bg-white transition",
-        retained ? "border-sky-400/90 shadow-sm ring-2 ring-sky-200/55" : "border-slate-200/85"
+        "w-full min-w-0 rounded-lg border bg-white transition",
+        retained ? "border-sky-400/90 ring-1 ring-sky-200/60" : "border-slate-200/80"
       )}
     >
-      <div className="flex gap-2 p-2">
-        <label
-          className={cn(
-            "flex shrink-0 items-start pt-0.5",
-            disabledRetain ? "cursor-not-allowed opacity-45" : "cursor-pointer"
-          )}
-        >
-          <input
-            type="checkbox"
-            className="size-[1.125rem] shrink-0 rounded border-2 border-sky-500 text-sky-600 accent-sky-600 focus:ring-sky-400/50"
-            checked={retained}
-            disabled={disabledRetain}
-            onChange={(e) => onToggleRetain(e.target.checked)}
-            aria-label={retained ? "Ne plus retenir cette ligne" : "Retenir cette ligne"}
-          />
-        </label>
-        <div className="min-w-0 flex-1">
-          <span
+      <div className="flex items-stretch gap-1.5 p-1.5">
+        <div className="relative shrink-0 self-center">
+          <div className={PRODUCT_REQUEST_LINE_THUMB}>{thumbInner}</div>
+          <label
             className={cn(
-              "inline-block rounded px-1.5 py-px text-[8px] font-bold uppercase tracking-wide",
-              badgeToneClass(variant.badgeLabel)
+              "absolute -left-1 -top-1 z-10 flex size-5 cursor-pointer items-center justify-center rounded-md bg-white shadow ring-1 ring-sky-300/90",
+              disabledRetain && "cursor-not-allowed opacity-45"
             )}
           >
-            {variant.badgeLabel}
-          </span>
-          <ProductRequestLinePanel
-            thumb={thumbInner}
-            title={
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-semibold leading-tight text-foreground" title={variant.productName}>
-                  {variant.productName}
-                </p>
-                <RespondedLineQtyMeta
-                  showRequested={variant.showRequested}
-                  requestedQty={variant.requestedQty}
-                  stockQty={variant.stockQty}
-                  availabilityStatus={variant.availabilityStatus}
-                  expectedDate={variant.expectedDate}
-                  requestType={requestType}
-                  isProposedLine={isProposedLine}
-                />
-              </div>
-            }
-            unitPrice={variant.unitPrice != null ? Number(variant.unitPrice) : null}
-            totalValue={showQty ? total : null}
-            qty={selQty}
-            onDecQty={onDecQty}
-            onIncQty={onIncQty}
-            qtyDisabledDec={!showQty || selQty <= 1}
-            qtyDisabledInc={!showQty || selQty >= variant.cap}
-            bottomRight={
+            <input
+              type="checkbox"
+              className="size-3.5 shrink-0 rounded border-2 border-sky-500 text-sky-600 accent-sky-600"
+              checked={retained}
+              disabled={disabledRetain}
+              onChange={(e) => onToggleRetain(e.target.checked)}
+              aria-label={retained ? "Ne plus retenir cette ligne" : "Retenir cette ligne"}
+            />
+          </label>
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+          <div className="flex min-w-0 items-center gap-1 leading-none">
+            <span
+              className={cn(
+                "shrink-0 rounded px-1 py-px text-[7px] font-bold uppercase tracking-wide leading-tight",
+                badgeToneClass(variant.badgeLabel)
+              )}
+            >
+              {variant.badgeLabel}
+            </span>
+            <p className="min-w-0 flex-1 truncate text-[12px] font-semibold text-foreground" title={variant.productName}>
+              {variant.productName}
+            </p>
+          </div>
+
+          <RespondedLineQtyMeta
+            showRequested={variant.showRequested}
+            requestedQty={variant.requestedQty}
+            stockQty={variant.stockQty}
+            availabilityStatus={variant.availabilityStatus}
+            expectedDate={variant.expectedDate}
+            requestType={requestType}
+            isProposedLine={isProposedLine}
+          />
+
+          <div className="flex min-w-0 items-center justify-between gap-1 leading-none">
+            <p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0 text-[10px]">
+              <span className="whitespace-nowrap text-muted-foreground">
+                PU{" "}
+                {unit != null ? (
+                  <PriceDhInline
+                    value={unit}
+                    amountClassName="text-[11px] font-bold text-foreground"
+                    suffixClassName="text-[8px]"
+                  />
+                ) : (
+                  <strong className="text-foreground">—</strong>
+                )}
+              </span>
+              {showQty && total != null ? (
+                <span className="whitespace-nowrap text-[9px] text-muted-foreground">
+                  Tot{" "}
+                  <PriceDhInline value={total} amountClassName="font-semibold" suffixClassName="text-[8px]" />
+                </span>
+              ) : null}
+            </p>
+
+            <div className="flex shrink-0 items-center gap-1">
+              {showQty ? (
+                <div className="flex items-center gap-0.5" role="group" aria-label="Quantité">
+                  <button
+                    type="button"
+                    aria-label="Diminuer la quantité"
+                    disabled={selQty <= 1}
+                    className="rounded border border-border/80 bg-card p-0.5 hover:bg-muted/40 disabled:opacity-40"
+                    onClick={onDecQty}
+                  >
+                    <Minus size={12} />
+                  </button>
+                  <span className="w-4 text-center text-xs font-semibold tabular-nums">{selQty}</span>
+                  <button
+                    type="button"
+                    aria-label="Augmenter la quantité"
+                    disabled={selQty >= variant.cap}
+                    className="rounded border border-border/80 bg-card p-0.5 hover:bg-muted/40 disabled:opacity-40"
+                    onClick={onIncQty}
+                  >
+                    <Plus size={12} />
+                  </button>
+                </div>
+              ) : null}
               <RespondedLineNotesButton
                 productName={variant.productName}
                 client={variant.clientComment}
                 pharmacist={variant.pharmacistComment}
               />
-            }
-          />
+            </div>
+          </div>
         </div>
       </div>
+
       {disabledRetain ? (
-        <p className="border-t border-amber-200/60 bg-amber-50/80 px-2.5 py-1.5 text-[10px] leading-snug text-amber-950">
-          Aucune quantité dispo pour l&apos;instant — tu peux ne pas retenir cette ligne ou contacter l&apos;officine.
+        <p className="border-t border-amber-200/50 bg-amber-50/70 px-1.5 py-1 text-[9px] leading-snug text-amber-950">
+          Pas de stock — ne pas retenir ou contacter l&apos;officine.
         </p>
       ) : null}
     </div>
@@ -598,7 +645,7 @@ export function RespondedPatientLineChooser({
   }
 
   return (
-    <li className="w-full min-w-0 rounded-xl border-2 border-sky-200/70 bg-gradient-to-b from-sky-50/30 to-white p-2 shadow-sm">
+    <li className="w-full min-w-0 rounded-lg border border-sky-200/70 bg-sky-50/25 p-1.5">
       {isProposedLine && proposedReason ? (
         <p className="mb-1.5 line-clamp-2 text-[10px] font-medium leading-snug text-violet-950">{proposedReason}</p>
       ) : null}
