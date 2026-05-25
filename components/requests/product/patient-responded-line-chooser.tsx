@@ -4,10 +4,13 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Minus, Package, Plus, X } from "lucide-react";
 import {
-  PRODUCT_REQUEST_LINE_THUMB,
   PriceDhInline,
   ProductRequestLineMessageButton,
 } from "@/components/pharmacy/patient-demande-produits-ui";
+
+/** Vignette répondue ~10 % plus grande que le panier (56px → ~62px). */
+const RESPONDED_LINE_THUMB =
+  "box-border size-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternative-qty-rules";
@@ -119,7 +122,7 @@ function RespondedLineQtyMeta({
   const AvailIcon = availUi.Icon;
 
   return (
-    <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9px] leading-none text-muted-foreground">
+    <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] leading-none text-muted-foreground">
       {showRequested ? (
         <span className="whitespace-nowrap">
           Dem. <strong className="tabular-nums text-foreground">{requestedQty}</strong>
@@ -302,7 +305,7 @@ function RespondedVariantTabs({
                   ? "border-slate-300 border-b-white bg-slate-50 text-slate-500"
                   : "border-sky-400 border-b-white bg-white text-sky-950"
                 : dim
-                  ? "border-transparent bg-transparent text-slate-400 line-through decoration-slate-400/80"
+                  ? "border-transparent bg-transparent text-slate-500 line-through decoration-slate-400/70"
                   : "border-transparent bg-transparent text-sky-800/85 hover:bg-sky-50/90"
             )}
             onClick={() => onTab(tab.id)}
@@ -325,6 +328,7 @@ function RespondedLineBlock({
   onPhotoPreview,
   requestType,
   isProposedLine,
+  variantTabsAbove = false,
 }: {
   variant: VariantData;
   retained: boolean;
@@ -335,6 +339,8 @@ function RespondedLineBlock({
   onPhotoPreview?: (url: string, title: string) => void;
   requestType: string;
   isProposedLine: boolean;
+  /** Onglets Ta demande / Alternative au-dessus — case un peu plus basse pour ne pas gêner. */
+  variantTabsAbove?: boolean;
 }) {
   const unavailable = variant.cap < 1;
   const notRetained = !retained && !unavailable;
@@ -364,61 +370,67 @@ function RespondedLineBlock({
   );
 
   const unit = variant.unitPrice != null ? Number(variant.unitPrice) : null;
+  const isProposedBlock = variant.showProposalMotif;
 
   return (
     <div
       className={cn(
-        "w-full min-w-0 rounded-lg border transition",
+        "relative w-full min-w-0 overflow-visible rounded-lg border transition",
         unavailable &&
-          "border-slate-200/90 bg-slate-100/95 opacity-50 grayscale saturate-50",
-        notRetained && "border-slate-200/75 bg-slate-50/70",
-        retained && !unavailable && "border-sky-400/90 bg-white ring-1 ring-sky-200/60",
-        !retained && !unavailable && "border-slate-200/80 bg-white"
+          "border-slate-300/85 bg-slate-50/95 saturate-[0.72] [&_img]:opacity-90",
+        notRetained && !unavailable && "border-slate-200/75 bg-slate-50/75",
+        retained && !unavailable && !isProposedBlock && "border-sky-400/90 bg-white ring-1 ring-sky-200/60",
+        retained && !unavailable && isProposedBlock && "border-violet-300/80 bg-white ring-1 ring-violet-200/55",
+        !retained && !unavailable && !isProposedBlock && "border-slate-200/80 bg-white",
+        !retained && !unavailable && isProposedBlock && "border-violet-200/70 bg-violet-50/25"
       )}
       title={unavailable ? "Non retenable — rupture ou indisponible" : undefined}
     >
-      <div className="flex items-stretch gap-2 p-2">
-        <div className="relative shrink-0 self-center">
-          <div className={cn(PRODUCT_REQUEST_LINE_THUMB, unavailable && "opacity-80")}>{thumbInner}</div>
-          <label
-            className={cn(
-              "absolute -left-1 -top-1 z-10 flex size-5 items-center justify-center rounded-md bg-white shadow ring-1 ring-sky-300/90",
-              unavailable ? "cursor-not-allowed opacity-40" : "cursor-pointer"
-            )}
-          >
-            <input
-              type="checkbox"
-              className="size-3.5 shrink-0 rounded border-2 border-sky-500 text-sky-600 accent-sky-600 disabled:border-slate-300"
-              checked={retained}
-              disabled={unavailable}
-              onChange={(e) => onToggleRetain(e.target.checked)}
-              aria-label={
-                unavailable
-                  ? "Non retenable — rupture ou indisponible"
-                  : retained
-                    ? "Ne plus retenir cette ligne"
-                    : "Retenir cette ligne"
-              }
-            />
-          </label>
+      <label
+        className={cn(
+          "absolute -left-2 z-20 flex size-8 touch-manipulation cursor-pointer items-center justify-center rounded-md bg-white shadow ring-1 ring-sky-400/85",
+          variantTabsAbove ? "top-1.5" : "-top-2",
+          unavailable ? "cursor-not-allowed opacity-55" : "active:bg-sky-50"
+        )}
+      >
+        <input
+          type="checkbox"
+          className="size-4 shrink-0 rounded border-2 border-sky-600 text-sky-600 accent-sky-600 disabled:border-slate-300"
+          checked={retained}
+          disabled={unavailable}
+          onChange={(e) => onToggleRetain(e.target.checked)}
+          onClick={(e) => e.stopPropagation()}
+          aria-label={
+            unavailable
+              ? "Non retenable — rupture ou indisponible"
+              : retained
+                ? "Ne plus retenir cette ligne"
+                : "Retenir cette ligne"
+          }
+        />
+      </label>
+      <div className="flex items-stretch gap-2.5 p-2.5">
+        <div className={cn(RESPONDED_LINE_THUMB, "shrink-0 self-center", unavailable && "opacity-95")}>
+          {thumbInner}
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 py-0.5">
-          <div className="flex min-w-0 items-center gap-1 leading-snug">
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 py-0.5">
+          <div className="flex min-w-0 items-center gap-1.5 overflow-hidden leading-none">
             <span
               className={cn(
-                "shrink-0 rounded px-1 py-px text-[7px] font-bold uppercase tracking-wide leading-tight",
+                "shrink-0 rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide leading-tight",
                 badgeToneClass(variant.badgeLabel),
-                (unavailable || notRetained) && "opacity-70"
+                unavailable && "opacity-90",
+                notRetained && !unavailable && "opacity-80"
               )}
             >
               {variant.badgeLabel}
             </span>
             <p
               className={cn(
-                "min-w-0 flex-1 truncate text-[12px] font-semibold leading-snug",
-                unavailable ? "text-muted-foreground" : "text-foreground",
-                notRetained && "text-muted-foreground line-through decoration-slate-400/90"
+                "min-w-0 flex-1 truncate text-[13px] font-semibold leading-none",
+                unavailable ? "text-slate-600" : "text-foreground",
+                notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
               )}
               title={variant.productName}
             >
@@ -426,11 +438,15 @@ function RespondedLineBlock({
             </p>
           </div>
 
-          {variant.showProposalMotif ? (
+          {isProposedBlock ? (
             <p
               className={cn(
-                "line-clamp-2 text-[9px] leading-snug",
-                unavailable || notRetained ? "text-muted-foreground opacity-80" : "text-violet-900"
+                "line-clamp-3 rounded-md px-2 py-1 text-[10px] leading-snug",
+                unavailable
+                  ? "bg-slate-100/90 text-slate-600 ring-1 ring-slate-200/80"
+                  : notRetained
+                    ? "bg-violet-50/60 text-violet-900/70 ring-1 ring-violet-100/80"
+                    : "bg-violet-50/95 text-violet-950 ring-1 ring-violet-200/60"
               )}
             >
               {variant.proposalReason ? (
@@ -439,12 +455,12 @@ function RespondedLineBlock({
                   {variant.proposalReason}
                 </>
               ) : (
-                <span className="italic text-muted-foreground">Motif non renseigné par l&apos;officine</span>
+                <span className="italic text-violet-800/80">Motif non renseigné par l&apos;officine</span>
               )}
             </p>
           ) : null}
 
-          <div className={cn((unavailable || notRetained) && "opacity-80")}>
+          <div className={cn(notRetained && !unavailable && "opacity-85")}>
             <RespondedLineQtyMeta
               showRequested={variant.showRequested}
               requestedQty={variant.requestedQty}
@@ -458,52 +474,53 @@ function RespondedLineBlock({
 
           <div
             className={cn(
-              "flex min-w-0 items-center justify-between gap-1.5 leading-none",
-              (unavailable || notRetained) && "opacity-75"
+              "flex min-w-0 items-center justify-between gap-2 leading-none",
+              unavailable && "opacity-95",
+              notRetained && !unavailable && "opacity-85"
             )}
           >
-            <p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0 text-[10px]">
-              <span className="whitespace-nowrap text-muted-foreground">
-                PU{" "}
+            <div className="flex min-w-0 flex-1 flex-nowrap items-baseline gap-x-2 overflow-hidden text-[11px] leading-none">
+              <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap text-muted-foreground">
+                <span>PU</span>
                 {unit != null ? (
                   <PriceDhInline
                     value={unit}
-                    amountClassName="text-[11px] font-bold text-foreground"
-                    suffixClassName="text-[8px]"
+                    amountClassName="text-xs font-bold text-foreground"
+                    suffixClassName="text-[9px]"
                   />
                 ) : (
                   <strong className="text-foreground">—</strong>
                 )}
               </span>
               {showQty && total != null ? (
-                <span className="whitespace-nowrap text-[9px] text-muted-foreground">
-                  Tot{" "}
-                  <PriceDhInline value={total} amountClassName="font-semibold" suffixClassName="text-[8px]" />
+                <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap text-muted-foreground">
+                  <span className="text-[10px]">Tot</span>
+                  <PriceDhInline value={total} amountClassName="text-xs font-semibold" suffixClassName="text-[9px]" />
                 </span>
               ) : null}
-            </p>
+            </div>
 
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="flex shrink-0 items-center gap-1.5">
               {showQty ? (
-                <div className="flex items-center gap-0.5" role="group" aria-label="Quantité">
+                <div className="flex items-center gap-1" role="group" aria-label="Quantité">
                   <button
                     type="button"
                     aria-label="Diminuer la quantité"
                     disabled={selQty <= 1}
-                    className="rounded border border-border/80 bg-card p-0.5 hover:bg-muted/40 disabled:opacity-40"
+                    className="rounded border border-border/80 bg-card p-1 hover:bg-muted/40 disabled:opacity-40"
                     onClick={onDecQty}
                   >
-                    <Minus size={12} />
+                    <Minus size={14} />
                   </button>
-                  <span className="w-4 text-center text-xs font-semibold tabular-nums">{selQty}</span>
+                  <span className="w-5 text-center text-sm font-semibold tabular-nums">{selQty}</span>
                   <button
                     type="button"
                     aria-label="Augmenter la quantité"
                     disabled={selQty >= variant.cap}
-                    className="rounded border border-border/80 bg-card p-0.5 hover:bg-muted/40 disabled:opacity-40"
+                    className="rounded border border-border/80 bg-card p-1 hover:bg-muted/40 disabled:opacity-40"
                     onClick={onIncQty}
                   >
-                    <Plus size={12} />
+                    <Plus size={14} />
                   </button>
                 </div>
               ) : null}
@@ -679,7 +696,7 @@ export function RespondedPatientLineChooser({
   }
 
   return (
-    <li className="w-full min-w-0 rounded-lg border border-sky-200/70 bg-sky-50/25 p-1.5">
+    <li className="w-full min-w-0 rounded-lg border border-sky-200/70 bg-sky-50/25 p-2">
       <RespondedVariantTabs
         tabs={variants.map((v) => ({
           id: v.tabId,
@@ -699,6 +716,7 @@ export function RespondedPatientLineChooser({
         onPhotoPreview={onPhotoPreview}
         requestType={requestType}
         isProposedLine={isProposedLine && activeTab === "principal"}
+        variantTabsAbove
       />
     </li>
   );

@@ -2421,10 +2421,10 @@ export function PatientProductRequestActions({
         <div className="space-y-2">
           {items.length > 0 ? (
             <section className="space-y-2">
-              <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              <h3 className="mt-4 px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 {workflowCopy.patientProductsSectionTitle}
               </h3>
-              <ul className="w-full min-w-0 space-y-2">
+              <ul className="w-full min-w-0 space-y-2.5">
                 {items.map((row) => (
                   <RespondedPatientLineChooser
                     key={row.id}
@@ -3203,14 +3203,26 @@ export function PatientProductRequestActions({
                 </div>
               ) : null}
 
-              <div className="mt-3 rounded-lg border border-sky-200/70 bg-sky-50/50 px-2 py-1.5 ring-1 ring-sky-200/40">
-                <p className="text-[10px] font-semibold tabular-nums text-sky-950 sm:text-[11px]">
-                  {formatGrandTotalLabel(confirmAllPreviewLines)}
-                </p>
-                {blockMonetarySummary(confirmAllPreviewLines).missingUnitPrice ? (
-                  <p className="mt-0.5 text-[9px] leading-snug text-sky-900/85">Total partiel : certains prix unitaires manquent.</p>
-                ) : null}
-              </div>
+              {(() => {
+                const grand = blockMonetarySummary(confirmAllPreviewLines);
+                return (
+                  <div className="mt-4 rounded-xl border-2 border-sky-400/55 bg-gradient-to-br from-sky-50 via-white to-sky-100/70 px-3 py-3 shadow-md ring-2 ring-sky-200/50">
+                    <p className="text-center text-[10px] font-bold uppercase tracking-wide text-sky-800">
+                      Total de votre sélection
+                    </p>
+                    <p className="mt-1.5 text-center text-2xl font-bold leading-none tabular-nums text-sky-950 sm:text-[1.65rem]">
+                      {grand.missingUnitPrice && grand.sumKnown === 0
+                        ? "—"
+                        : `${grand.sumKnown.toFixed(2)} MAD`}
+                    </p>
+                    {grand.missingUnitPrice ? (
+                      <p className="mt-1.5 text-center text-[10px] leading-snug text-sky-900/85">
+                        Total partiel — certains prix unitaires manquent.
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="shrink-0 border-t border-border/70 bg-background/95 px-2.5 py-2 backdrop-blur sm:px-3">
