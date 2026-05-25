@@ -2012,14 +2012,19 @@ export function PatientProductRequestActions({
       const row = items.find((i) => i.id === itemId);
       if (!row) return s;
       const alts = normalizeAlternatives(row.request_item_alternatives);
-      const branch: LineBranch = on ? branchWhenOn : null;
-      const cap = maxQtyForBranch(row, branch, alts);
-      const qty = on && cap > 0 ? cap : 1;
+      const prev = s[itemId] ?? { branch: null, qty: 1 };
+      if (!on) {
+        return { ...s, [itemId]: { branch: null, qty: prev.qty } };
+      }
+      const cap = maxQtyForBranch(row, branchWhenOn, alts);
+      if (cap < 1) {
+        return { ...s, [itemId]: { branch: null, qty: prev.qty } };
+      }
       return {
         ...s,
         [itemId]: {
-          branch,
-          qty: on && cap > 0 ? Math.min(Math.max(1, s[itemId]?.qty ?? qty), cap) : 1,
+          branch: branchWhenOn,
+          qty: Math.min(Math.max(1, prev.qty), cap),
         },
       };
     });

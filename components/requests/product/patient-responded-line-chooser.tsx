@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Minus, Package, Plus, X } from "lucide-react";
+import { Ban, Minus, Package, Plus, X } from "lucide-react";
 import {
   PriceDhInline,
   ProductRequestLineMessageButton,
@@ -277,14 +277,19 @@ function RespondedVariantTabs({
   tabs,
   activeTab,
   onTab,
+  className,
 }: {
   tabs: { id: string; label: string; retainable: boolean }[];
   activeTab: string;
   onTab: (id: string) => void;
+  className?: string;
 }) {
   return (
     <div
-      className="mb-2 flex gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [-webkit-overflow-scrolling:touch]"
+      className={cn(
+        "flex gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [-webkit-overflow-scrolling:touch]",
+        className
+      )}
       role="tablist"
       aria-label="Options pour ce produit"
     >
@@ -386,29 +391,34 @@ function RespondedLineBlock({
       )}
       title={unavailable ? "Non retenable — rupture ou indisponible" : undefined}
     >
-      <label
-        className={cn(
-          "absolute -left-2 z-20 flex size-8 touch-manipulation cursor-pointer items-center justify-center rounded-md bg-white shadow ring-1 ring-sky-400/85",
-          variantTabsAbove ? "top-1.5" : "-top-2",
-          unavailable ? "cursor-not-allowed opacity-55" : "active:bg-sky-50"
-        )}
-      >
-        <input
-          type="checkbox"
-          className="size-4 shrink-0 rounded border-2 border-sky-600 text-sky-600 accent-sky-600 disabled:border-slate-300"
-          checked={retained}
-          disabled={unavailable}
-          onChange={(e) => onToggleRetain(e.target.checked)}
-          onClick={(e) => e.stopPropagation()}
-          aria-label={
-            unavailable
-              ? "Non retenable — rupture ou indisponible"
-              : retained
-                ? "Ne plus retenir cette ligne"
-                : "Retenir cette ligne"
-          }
-        />
-      </label>
+      {unavailable ? (
+        <span
+          className={cn(
+            "absolute -left-2 z-20 flex size-8 items-center justify-center rounded-md bg-slate-100 shadow ring-1 ring-slate-300/90",
+            variantTabsAbove ? "top-1.5" : "-top-2"
+          )}
+          role="img"
+          aria-label="Non retenable — rupture ou indisponible"
+        >
+          <Ban className="size-4 text-slate-500" strokeWidth={2.25} aria-hidden />
+        </span>
+      ) : (
+        <label
+          className={cn(
+            "absolute -left-2 z-20 flex size-8 touch-manipulation cursor-pointer items-center justify-center rounded-md bg-white shadow ring-1 ring-sky-400/85 active:bg-sky-50",
+            variantTabsAbove ? "top-1.5" : "-top-2"
+          )}
+        >
+          <input
+            type="checkbox"
+            className="size-4 shrink-0 rounded border-2 border-sky-600 text-sky-600 accent-sky-600"
+            checked={retained}
+            onChange={(e) => onToggleRetain(e.target.checked)}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={retained ? "Ne plus retenir cette ligne" : "Retenir cette ligne"}
+          />
+        </label>
+      )}
       <div className="flex items-stretch gap-2.5 p-2.5">
         <div className={cn(RESPONDED_LINE_THUMB, "shrink-0 self-center", unavailable && "opacity-95")}>
           {thumbInner}
@@ -479,37 +489,32 @@ function RespondedLineBlock({
               notRetained && !unavailable && "opacity-85"
             )}
           >
-            <div
-              className={cn(
-                "grid shrink-0 leading-none text-muted-foreground",
-                showQty && total != null
-                  ? "grid-cols-[auto_auto] gap-x-1 gap-y-0.5"
-                  : "grid-cols-[auto_auto] gap-x-1"
-              )}
-            >
-              <span className="text-[11px]">PU</span>
-              <span className="whitespace-nowrap text-[11px]">
-                {unit != null ? (
-                  <PriceDhInline
-                    value={unit}
-                    amountClassName="text-xs font-bold text-foreground"
-                    suffixClassName="text-[9px]"
-                  />
-                ) : (
-                  <strong className="text-foreground">—</strong>
-                )}
-              </span>
+            <div className="flex shrink-0 flex-col gap-1 leading-none text-muted-foreground">
+              <div className="flex items-baseline gap-1.5">
+                <span className="w-[1.4rem] shrink-0 text-[11px] leading-none">PU</span>
+                <span className="whitespace-nowrap">
+                  {unit != null ? (
+                    <PriceDhInline
+                      value={unit}
+                      amountClassName="text-xs font-bold leading-none text-foreground"
+                      suffixClassName="text-[9px] leading-none"
+                    />
+                  ) : (
+                    <strong className="text-xs leading-none text-foreground">—</strong>
+                  )}
+                </span>
+              </div>
               {showQty && total != null ? (
-                <>
-                  <span className="text-[8px] font-medium">Tot</span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="w-[1.4rem] shrink-0 text-[8px] font-medium leading-none">Tot</span>
                   <span className="whitespace-nowrap text-[8px] font-medium text-muted-foreground/90">
                     <PriceDhInline
                       value={total}
-                      amountClassName="text-[9px] font-semibold text-muted-foreground"
-                      suffixClassName="text-[7px]"
+                      amountClassName="text-[9px] font-semibold leading-none text-muted-foreground"
+                      suffixClassName="text-[7px] leading-none"
                     />
                   </span>
-                </>
+                </div>
               ) : null}
             </div>
 
@@ -709,28 +714,35 @@ export function RespondedPatientLineChooser({
   }
 
   return (
-    <li className="w-full min-w-0 rounded-lg border border-sky-200/70 bg-sky-50/25 p-2">
-      <RespondedVariantTabs
-        tabs={variants.map((v) => ({
-          id: v.tabId,
-          label: v.tabLabel,
-          retainable: v.cap > 0,
-        }))}
-        activeTab={activeTab}
-        onTab={onTab}
-      />
-      <RespondedLineBlock
-        variant={activeVariant}
-        retained={retainedForTab}
-        selQty={selState.qty}
-        onToggleRetain={(on) => toggleLineRetention(row.id, on, activeBranch)}
-        onDecQty={() => setLineQty(row.id, selState.qty - 1)}
-        onIncQty={() => setLineQty(row.id, selState.qty + 1)}
-        onPhotoPreview={onPhotoPreview}
-        requestType={requestType}
-        isProposedLine={isProposedLine && activeTab === "principal"}
-        variantTabsAbove
-      />
+    <li className="w-full min-w-0 overflow-visible rounded-xl border border-sky-300/75 bg-gradient-to-b from-sky-50/55 via-sky-50/20 to-white ring-1 ring-sky-200/50">
+      <div className="px-2 pt-2 pb-1">
+        <p className="mb-1.5 px-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-800/85">
+          Choisir une option
+        </p>
+        <RespondedVariantTabs
+          tabs={variants.map((v) => ({
+            id: v.tabId,
+            label: v.tabLabel,
+            retainable: v.cap > 0,
+          }))}
+          activeTab={activeTab}
+          onTab={onTab}
+        />
+      </div>
+      <div className="px-2 pb-2">
+        <RespondedLineBlock
+          variant={activeVariant}
+          retained={retainedForTab}
+          selQty={selState.qty}
+          onToggleRetain={(on) => toggleLineRetention(row.id, on, activeBranch)}
+          onDecQty={() => setLineQty(row.id, selState.qty - 1)}
+          onIncQty={() => setLineQty(row.id, selState.qty + 1)}
+          onPhotoPreview={onPhotoPreview}
+          requestType={requestType}
+          isProposedLine={isProposedLine && activeTab === "principal"}
+          variantTabsAbove
+        />
+      </div>
     </li>
   );
 }
