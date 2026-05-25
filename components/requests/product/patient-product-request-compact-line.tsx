@@ -3,8 +3,6 @@
 import { Package, Trash2 } from "lucide-react";
 import {
   PatientLineCommentModal,
-  PRODUCT_REQUEST_LINE_BLOCK_H,
-  PRODUCT_REQUEST_LINE_THUMB,
   ProductRequestLineMessageButton,
   ProductRequestLinePanel,
 } from "@/components/pharmacy/patient-demande-produits-ui";
@@ -12,8 +10,6 @@ import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-lim
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-
-const PROPOSED_BLOCK_H = "h-[4.75rem]";
 
 export type PatientDossierCompactLine = {
   product_id: string;
@@ -48,7 +44,6 @@ export function PatientProductRequestCompactLine({
   const [commentDraft, setCommentDraft] = useState(line.client_comment ?? "");
   const hasComment = Boolean(line.client_comment?.trim());
   const isProposed = line.line_source === "pharmacist_proposed";
-  const blockClassName = isProposed ? PROPOSED_BLOCK_H : PRODUCT_REQUEST_LINE_BLOCK_H;
 
   const thumbInner = line.photo_url ? (
     <button
@@ -67,12 +62,12 @@ export function PatientProductRequestCompactLine({
 
   return (
     <>
-      <li className="border-b border-border/50 py-2.5 last:border-b-0">
+      <li className="border-b border-border/50 py-2 last:border-b-0">
         <ProductRequestLinePanel
-          blockClassName={blockClassName}
+          contentMinHeight={isProposed ? "min-h-16" : undefined}
           title={
-            <div className="min-w-0 leading-none">
-              <p className="truncate text-xs font-semibold text-foreground" title={line.name}>
+            <div className="min-w-0">
+              <p className="truncate text-[13px] font-semibold text-foreground" title={line.name}>
                 {line.name}
               </p>
               {isProposed ? (
@@ -90,11 +85,11 @@ export function PatientProductRequestCompactLine({
             editMode && onRemove ? (
               <button
                 type="button"
-                aria-label="Retirer"
-                className="rounded p-0.5 text-destructive transition hover:bg-destructive/10"
+                aria-label="Retirer le produit"
+                className="-mr-0.5 rounded-md p-1 text-destructive transition hover:bg-destructive/10"
                 onClick={onRemove}
               >
-                <Trash2 size={14} />
+                <Trash2 size={16} />
               </button>
             ) : undefined
           }
@@ -109,7 +104,6 @@ export function PatientProductRequestCompactLine({
             editMode && onSaveComment ? (
               <ProductRequestLineMessageButton
                 hasComment={hasComment}
-                className="px-2 py-1 text-[10px]"
                 onClick={() => {
                   setCommentDraft(line.client_comment ?? "");
                   setCommentOpen(true);
@@ -120,7 +114,6 @@ export function PatientProductRequestCompactLine({
             )
           }
           thumb={thumbInner}
-          thumbClassName={isProposed ? "!size-[4.75rem]" : undefined}
         />
       </li>
       {editMode && onSaveComment ? (

@@ -10,43 +10,40 @@ import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-lim
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import type { PatientDemandeProduitsDraftLine } from "@/lib/patient-demande-produits-draft";
 
-/** size-16 (64px) + 10 % max — vignette pilote ; hauteur du bloc = cette taille (bordure incluse). */
+/** Vignette compacte — la hauteur du bloc suit la photo (items-stretch). */
 export const PRODUCT_REQUEST_LINE_THUMB =
-  "box-border size-[4.375rem] shrink-0 overflow-hidden rounded-lg border border-border/80 bg-card";
-export const PRODUCT_REQUEST_LINE_BLOCK_H = "h-[4.375rem]";
+  "box-border size-14 shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
+/** Alias compat (lecture seule / grilles). */
+export const PRODUCT_REQUEST_LINE_BLOCK_H = "min-h-14";
 const THUMB = PRODUCT_REQUEST_LINE_THUMB;
-const LINE_BLOCK_H = PRODUCT_REQUEST_LINE_BLOCK_H;
 
-function priceLine(label: string, labelClass: string, children: ReactNode) {
+function ProductRequestLinePu({ unitPrice }: { unitPrice: number | null }) {
   return (
-    <p className="flex min-w-0 items-baseline gap-1 whitespace-nowrap text-xs leading-none">
-      <span className={cn("shrink-0 text-[10px] font-semibold uppercase tracking-wide", labelClass)}>{label}</span>
-      <span className="min-w-0 truncate">{children}</span>
+    <p className="flex min-w-0 items-baseline gap-1 whitespace-nowrap leading-none">
+      <span className="shrink-0 text-[10px] font-medium text-muted-foreground">PU</span>
+      <PriceDhInline
+        value={unitPrice}
+        amountClassName="text-sm font-bold text-foreground"
+        suffixClassName="text-[10px] font-semibold text-muted-foreground"
+      />
     </p>
   );
 }
 
-function ProductRequestLinePu({ unitPrice }: { unitPrice: number | null }) {
-  return priceLine(
-    "PU",
-    "text-muted-foreground",
-    <PriceDhInline value={unitPrice} amountClassName="font-semibold text-xs" suffixClassName="text-[9px]" />
-  );
-}
-
-function ProductRequestLineTot({ totalValue }: { totalValue: number | null }) {
-  return priceLine(
-    "Tot",
-    "text-sky-600/85",
-    totalValue != null ? (
-      <PriceDhInline
-        value={totalValue}
-        amountClassName={cn("font-bold text-xs", t.price)}
-        suffixClassName="text-[9px] font-bold text-sky-600/80"
-      />
-    ) : (
-      <span className="font-bold text-xs">—</span>
-    )
+function ProductRequestLineTotIndicative({ totalValue }: { totalValue: number | null }) {
+  return (
+    <p className="flex min-w-0 items-baseline gap-1 whitespace-nowrap leading-none text-muted-foreground">
+      <span className="shrink-0 text-[9px] font-medium">Total</span>
+      {totalValue != null ? (
+        <PriceDhInline
+          value={totalValue}
+          amountClassName="text-[10px] font-medium"
+          suffixClassName="text-[9px] font-medium"
+        />
+      ) : (
+        <span className="text-[10px] font-medium">—</span>
+      )}
+    </p>
   );
 }
 
@@ -60,64 +57,7 @@ function ProductRequestLinePrices({
   return (
     <div className="flex min-w-0 flex-col gap-0.5 leading-none">
       <ProductRequestLinePu unitPrice={unitPrice} />
-      <ProductRequestLineTot totalValue={totalValue} />
-    </div>
-  );
-}
-
-/** Panneau droit : titre haut · PU centre image · Tot bas · Qté milieu-droite · action bas-droite. */
-export function ProductRequestLinePanel({
-  title,
-  topRight,
-  unitPrice,
-  totalValue,
-  qty,
-  onDecQty,
-  onIncQty,
-  qtyDisabledDec,
-  qtyDisabledInc,
-  bottomRight,
-  thumb,
-  blockClassName = LINE_BLOCK_H,
-  thumbClassName,
-}: {
-  title: ReactNode;
-  topRight?: ReactNode;
-  unitPrice: number | null;
-  totalValue: number | null;
-  qty: number;
-  onDecQty: () => void;
-  onIncQty: () => void;
-  qtyDisabledDec?: boolean;
-  qtyDisabledInc?: boolean;
-  bottomRight?: ReactNode;
-  thumb: ReactNode;
-  blockClassName?: string;
-  thumbClassName?: string;
-}) {
-  return (
-    <div className={cn("flex min-w-0 items-stretch gap-x-2", blockClassName)}>
-      <div className={cn(THUMB, thumbClassName)}>{thumb}</div>
-      <div className={cn("relative min-w-0 flex-1", blockClassName)}>
-        <div className="absolute left-0 right-7 top-0 min-w-0 leading-none">{title}</div>
-        {topRight ? <div className="absolute right-0 top-0 z-10">{topRight}</div> : null}
-        <div className="absolute left-0 top-1/2 z-[1] -translate-y-1/2">
-          <ProductRequestLinePu unitPrice={unitPrice} />
-        </div>
-        <div className="absolute bottom-0 left-0 z-[1] max-w-[38%]">
-          <ProductRequestLineTot totalValue={totalValue} />
-        </div>
-        <div className="absolute left-[54%] top-1/2 z-[2] -translate-y-1/2">
-          <ProductRequestLineQty
-            qty={qty}
-            onDecQty={onDecQty}
-            onIncQty={onIncQty}
-            qtyDisabledDec={qtyDisabledDec}
-            qtyDisabledInc={qtyDisabledInc}
-          />
-        </div>
-        {bottomRight ? <div className="absolute bottom-0 right-0 z-[2]">{bottomRight}</div> : null}
-      </div>
+      <ProductRequestLineTotIndicative totalValue={totalValue} />
     </div>
   );
 }
@@ -136,29 +76,89 @@ function ProductRequestLineQty({
   qtyDisabledInc?: boolean;
 }) {
   return (
-    <div className="flex w-[5.25rem] shrink-0 flex-col items-center justify-center gap-0.5">
-      <span className="w-full text-center text-[9px] font-medium leading-none text-muted-foreground">Qté</span>
-      <div className="flex items-center justify-center gap-0.5">
-        <button
-          type="button"
-          aria-label="Diminuer"
-          disabled={qtyDisabledDec}
-          className="rounded-md border border-border/80 bg-card p-0.5 text-foreground hover:bg-muted/40 disabled:opacity-40"
-          onClick={onDecQty}
-        >
-          <Minus size={15} />
-        </button>
-        <span className="w-5 text-center text-xs font-semibold leading-none tabular-nums">{qty}</span>
-        <button
-          type="button"
-          aria-label="Augmenter"
-          disabled={qtyDisabledInc}
-          className="rounded-md border border-border/80 bg-card p-0.5 hover:bg-muted/40 disabled:opacity-40"
-          onClick={onIncQty}
-        >
-          <Plus size={15} />
-        </button>
+    <div className="flex items-center gap-1" role="group" aria-label="Quantité">
+      <button
+        type="button"
+        aria-label="Diminuer la quantité"
+        disabled={qtyDisabledDec}
+        className="rounded-md border border-border/80 bg-card p-1 text-foreground hover:bg-muted/40 disabled:opacity-40"
+        onClick={onDecQty}
+      >
+        <Minus size={14} />
+      </button>
+      <span className="w-5 text-center text-sm font-semibold leading-none tabular-nums">{qty}</span>
+      <button
+        type="button"
+        aria-label="Augmenter la quantité"
+        disabled={qtyDisabledInc}
+        className="rounded-md border border-border/80 bg-card p-1 hover:bg-muted/40 disabled:opacity-40"
+        onClick={onIncQty}
+      >
+        <Plus size={14} />
+      </button>
+    </div>
+  );
+}
+
+const LINE_ACTION_DIVIDER = "border-l border-border/50 pl-2.5 sm:pl-3";
+
+/** Ligne panier : photo · infos · qté · message — actions séparées. */
+export function ProductRequestLinePanel({
+  title,
+  topRight,
+  unitPrice,
+  totalValue,
+  qty,
+  onDecQty,
+  onIncQty,
+  qtyDisabledDec,
+  qtyDisabledInc,
+  bottomRight,
+  thumb,
+  thumbClassName,
+  contentMinHeight,
+}: {
+  title: ReactNode;
+  topRight?: ReactNode;
+  unitPrice: number | null;
+  totalValue: number | null;
+  qty: number;
+  onDecQty: () => void;
+  onIncQty: () => void;
+  qtyDisabledDec?: boolean;
+  qtyDisabledInc?: boolean;
+  bottomRight?: ReactNode;
+  thumb: ReactNode;
+  thumbClassName?: string;
+  contentMinHeight?: string;
+}) {
+  return (
+    <div className="flex min-w-0 items-stretch gap-2">
+      <div className={cn(THUMB, thumbClassName)}>{thumb}</div>
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-px",
+          contentMinHeight ?? "min-h-14"
+        )}
+      >
+        <div className="flex min-w-0 items-start gap-2">
+          <div className="min-w-0 flex-1 leading-tight">{title}</div>
+          {topRight ? <div className="shrink-0">{topRight}</div> : null}
+        </div>
+        <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
       </div>
+      <div className={cn("flex shrink-0 items-center", LINE_ACTION_DIVIDER)}>
+        <ProductRequestLineQty
+          qty={qty}
+          onDecQty={onDecQty}
+          onIncQty={onIncQty}
+          qtyDisabledDec={qtyDisabledDec}
+          qtyDisabledInc={qtyDisabledInc}
+        />
+      </div>
+      {bottomRight ? (
+        <div className={cn("flex shrink-0 items-center", LINE_ACTION_DIVIDER)}>{bottomRight}</div>
+      ) : null}
     </div>
   );
 }
@@ -177,14 +177,14 @@ export function ProductRequestLineMessageButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-semibold leading-none whitespace-nowrap transition",
+        "inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold leading-none whitespace-nowrap transition",
         hasComment
           ? t.noteActive
           : cn("border-border/80 bg-card text-muted-foreground hover:text-foreground", t.noteIdle),
         className
       )}
     >
-      <MessageSquare className="size-3.5 shrink-0" aria-hidden />
+      <MessageSquare className="size-3 shrink-0" aria-hidden />
       <span>{hasComment ? "Note" : "Message"}</span>
     </button>
   );
@@ -426,21 +426,21 @@ export function ProductRequestCartLineRow({
   );
 
   return (
-    <li className="border-b border-border/50 py-2.5 last:border-b-0">
+    <li className="border-b border-border/50 py-2 last:border-b-0">
       <ProductRequestLinePanel
         title={
-          <p className="truncate text-xs font-semibold leading-none text-foreground" title={line.name}>
+          <p className="truncate text-[13px] font-semibold text-foreground" title={line.name}>
             {line.name}
           </p>
         }
         topRight={
           <button
             type="button"
-            aria-label="Retirer"
-            className="rounded p-0.5 text-destructive transition hover:bg-destructive/10"
+            aria-label="Retirer le produit"
+            className="-mr-0.5 rounded-md p-1 text-destructive transition hover:bg-destructive/10"
             onClick={onRemove}
           >
-            <Trash2 size={15} />
+            <Trash2 size={16} />
           </button>
         }
         unitPrice={unitPrice}
@@ -450,11 +450,7 @@ export function ProductRequestCartLineRow({
         onIncQty={() => onSetQty(line.qty + 1)}
         qtyDisabledInc={line.qty >= 10}
         bottomRight={
-          <ProductRequestLineMessageButton
-            hasComment={hasComment}
-            onClick={onOpenComment}
-            className="px-2 py-1 text-[10px]"
-          />
+          <ProductRequestLineMessageButton hasComment={hasComment} onClick={onOpenComment} />
         }
         thumb={thumbInner}
       />
