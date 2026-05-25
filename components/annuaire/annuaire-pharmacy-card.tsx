@@ -11,6 +11,7 @@ import { formatDistanceKm } from "@/lib/annuaire/geo";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import { buttonVariants } from "@/components/ui/button";
+import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { cn } from "@/lib/utils";
 
 function normalizeWhatsApp(value: string | null) {
@@ -35,7 +36,8 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
     e.stopPropagation();
     const url =
       typeof window !== "undefined" ? `${window.location.origin}/pharmacie/${pharmacy.id}` : "";
-    const title = publicRef ? `${pharmacy.nom} (${publicRef})` : pharmacy.nom;
+    const label = pharmacyPublicLabel(pharmacy.nom);
+    const title = publicRef ? `${label} (${publicRef})` : label;
     try {
       if (navigator.share) {
         await navigator.share({ title, url });
@@ -171,9 +173,11 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
         <div className="flex items-center gap-2">
           <div
             className="flex min-w-0 flex-1 items-baseline gap-1.5"
-            title={publicRef ? `${pharmacy.nom} · ${publicRef}` : pharmacy.nom}
+            title={publicRef ? `${pharmacyPublicLabel(pharmacy.nom)} · ${publicRef}` : pharmacyPublicLabel(pharmacy.nom)}
           >
-            <h2 className="min-w-0 truncate text-base font-bold leading-tight text-foreground">{pharmacy.nom}</h2>
+            <h2 className="min-w-0 truncate text-base font-bold leading-tight text-foreground">
+              {pharmacyPublicLabel(pharmacy.nom)}
+            </h2>
             {publicRef ? (
               <span className="shrink-0 font-mono text-[10px] font-bold tabular-nums text-primary">{publicRef}</span>
             ) : null}
@@ -182,7 +186,7 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
             type="button"
             onClick={(e) => void handleShare(e)}
             className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-muted/40 text-foreground transition hover:bg-muted/70"
-            aria-label={`Partager ${pharmacy.nom}`}
+            aria-label={`Partager ${pharmacyPublicLabel(pharmacy.nom)}`}
           >
             <Share2 className="size-3.5" aria-hidden />
           </button>

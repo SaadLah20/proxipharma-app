@@ -12,8 +12,8 @@ const LINKS = [
     description: "Recherchez dans le catalogue et envoyez votre liste.",
     icon: ShoppingBag,
     className:
-      "border-primary/25 bg-gradient-to-br from-primary/12 via-card to-emerald-50/40 text-foreground hover:border-primary/40",
-    iconClass: "text-primary",
+      "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-card to-teal-50/25 text-foreground hover:border-sky-400/55 ring-1 ring-sky-200/55",
+    iconClass: "text-sky-700",
     primary: true,
   },
   {
@@ -48,7 +48,7 @@ export function PharmacyRequestServiceLinks({ pharmacyId }: { pharmacyId: string
             className={cn(
               "flex items-center gap-3 rounded-xl border-2 p-3.5 shadow-sm transition hover:shadow-md",
               item.className,
-              item.primary && "ring-1 ring-primary/15"
+              item.primary && "ring-1 ring-sky-200/55"
             )}
           >
             <span

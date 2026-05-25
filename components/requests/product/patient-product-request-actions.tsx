@@ -53,6 +53,7 @@ import { formatPriceDh } from "@/lib/product-price";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput, productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
+import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
   clearPatientDemandeCatalogueReturnEdit,
@@ -221,7 +222,7 @@ function PatientPharmacyQuickContact({
       )}`
     : "";
 
-  const loc = [pharmacy.nom, pharmacy.ville?.trim()].filter(Boolean).join(" · ");
+  const loc = [pharmacyPublicLabel(pharmacy.nom), pharmacy.ville?.trim()].filter(Boolean).join(" · ");
 
   const iconButtons = (
     <>

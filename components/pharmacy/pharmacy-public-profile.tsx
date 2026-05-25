@@ -15,6 +15,7 @@ import {
   Tag,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import {
@@ -270,7 +271,7 @@ export function PharmacyPublicProfile({
     const url = typeof window !== "undefined" ? window.location.href : "";
     try {
       if (navigator.share) {
-        await navigator.share({ title: pharmacy.nom, url });
+        await navigator.share({ title: pharmacyPublicLabel(pharmacy.nom), url });
       } else if (navigator.clipboard) {
         await navigator.clipboard.writeText(url);
       }
@@ -306,7 +307,9 @@ export function PharmacyPublicProfile({
             {pharmacy.public_ref?.trim() ? (
               <p className="font-mono text-[10px] font-bold tracking-wide opacity-90">{pharmacy.public_ref.trim()}</p>
             ) : null}
-            <h1 className="text-lg font-bold leading-tight drop-shadow-sm sm:text-xl">{pharmacy.nom}</h1>
+            <h1 className="text-lg font-bold leading-tight drop-shadow-sm sm:text-xl">
+              {pharmacyPublicLabel(pharmacy.nom)}
+            </h1>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <span className={clsx("rounded-full px-2.5 py-0.5 text-[10px] font-bold ring-1", statusClass)}>
                 {openState.openLabel}

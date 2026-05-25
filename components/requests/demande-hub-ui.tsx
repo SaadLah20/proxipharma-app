@@ -14,6 +14,7 @@ import { summarizeRequestForPatientCard, type PatientRequestItemRow } from "@/li
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindAccent } from "@/lib/request-kinds/types";
 import { one } from "@/lib/embed";
+import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { clsx } from "clsx";
 
 function demandeCardShell(status: string, role: "patient" | "pharmacien", accent: RequestKindAccent = "sky"): string {
@@ -275,7 +276,7 @@ export function PatientDemandeCard({
               {ph ? (
                 <>
                   {" "}
-                  · <span className="font-medium text-foreground">{ph.nom}</span>
+                  · <span className="font-medium text-foreground">{pharmacyPublicLabel(ph.nom)}</span>
                   <span className="text-muted-foreground/90"> ({ph.ville})</span>
                 </>
               ) : null}
