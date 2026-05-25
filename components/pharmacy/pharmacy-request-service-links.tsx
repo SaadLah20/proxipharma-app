@@ -76,8 +76,7 @@ export function PharmacyRequestServicesIntro({ className }: { className?: string
   return (
     <div className={cn(pharmacyPublicCard, "border-dashed bg-muted/10 p-3", className)}>
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Envoyez une demande à cette officine. Le suivi se fait ensuite dans votre espace personnel — comme depuis
-        l&apos;annuaire, sans intermédiaire.
+        Envoyez une demande à cette officine. Le suivi se fait ensuite dans votre espace personnel.
       </p>
     </div>
   );

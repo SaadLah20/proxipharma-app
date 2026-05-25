@@ -340,68 +340,6 @@ export function PharmacyPublicProfile({
       <div className="p-3 sm:p-4">
         {tab === "services" ? (
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-1 rounded-xl border border-border/60 bg-muted/20 p-2">
-              <a
-                href={pharmacy.telephone ? `tel:${pharmacy.telephone}` : undefined}
-                aria-disabled={!pharmacy.telephone}
-                onClick={() =>
-                  pharmacy.telephone &&
-                  trackPharmacyEngagement({
-                    pharmacyId: pharmacy.id,
-                    eventType: "phone_click",
-                    source: "profile",
-                  })
-                }
-                className={cn(
-                  "flex flex-col items-center gap-0.5 rounded-lg border border-sky-200/80 bg-sky-50/90 py-2 text-[10px] font-bold text-sky-950 transition hover:bg-sky-100",
-                  !pharmacy.telephone && "pointer-events-none opacity-45"
-                )}
-              >
-                <Phone className="size-4" aria-hidden />
-                Appeler
-              </a>
-              <a
-                href={wa ? `https://wa.me/${wa}` : undefined}
-                target={wa ? "_blank" : undefined}
-                rel={wa ? "noreferrer" : undefined}
-                aria-disabled={!wa}
-                onClick={() =>
-                  wa &&
-                  trackPharmacyEngagement({
-                    pharmacyId: pharmacy.id,
-                    eventType: "whatsapp_click",
-                    source: "profile",
-                  })
-                }
-                className={cn(
-                  "flex flex-col items-center gap-0.5 rounded-lg border border-emerald-200/80 bg-emerald-50/90 py-2 text-[10px] font-bold text-emerald-950 transition hover:bg-emerald-100",
-                  !wa && "pointer-events-none opacity-45"
-                )}
-              >
-                <MessageCircle className="size-4" aria-hidden />
-                WhatsApp
-              </a>
-              <button
-                type="button"
-                disabled={!canNavigate}
-                onClick={() => {
-                  if (!canNavigate) return;
-                  trackPharmacyEngagement({
-                    pharmacyId: pharmacy.id,
-                    eventType: "maps_click",
-                    source: "profile",
-                  });
-                  setNavOpen(true);
-                }}
-                className={cn(
-                  "flex flex-col items-center gap-0.5 rounded-lg border border-teal-200/80 bg-teal-50/90 py-2 text-[10px] font-bold text-teal-950 transition hover:bg-teal-100",
-                  !canNavigate && "pointer-events-none opacity-45"
-                )}
-              >
-                <Navigation className="size-4" aria-hidden />
-                Itinéraire
-              </button>
-            </div>
             <PharmacyRequestServicesIntro />
             <PharmacyRequestServiceLinks pharmacyId={pharmacy.id} />
           </div>
