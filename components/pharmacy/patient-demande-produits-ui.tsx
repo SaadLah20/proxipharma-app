@@ -100,9 +100,7 @@ function ProductRequestLineQty({
   );
 }
 
-const LINE_ACTION_DIVIDER = "border-l border-border/50 pl-2.5 sm:pl-3";
-
-/** Ligne panier : photo · infos · qté · message — actions séparées. */
+/** Ligne panier : photo + un seul bloc à droite (titre pleine largeur, puis prix / actions). */
 export function ProductRequestLinePanel({
   title,
   topRight,
@@ -133,39 +131,37 @@ export function ProductRequestLinePanel({
   contentMinHeight?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "grid w-full min-w-0 items-center gap-x-2",
-        bottomRight
-          ? "grid-cols-[auto_minmax(0,1fr)_auto_auto]"
-          : "grid-cols-[auto_minmax(0,1fr)_auto]"
-      )}
-    >
-      <div className={cn("row-span-1 self-center", THUMB, thumbClassName)}>{thumb}</div>
+    <div className="flex w-full min-w-0 items-stretch gap-2">
+      <div className={cn("shrink-0 self-center", THUMB, thumbClassName)}>{thumb}</div>
       <div
         className={cn(
-          "flex min-w-0 flex-col justify-center gap-0.5 overflow-hidden py-px",
+          "flex min-w-0 flex-1 basis-0 flex-col justify-center gap-1 overflow-hidden py-px",
           contentMinHeight ?? "min-h-14"
         )}
       >
-        <div className="flex w-full min-w-0 items-start gap-1">
+        <div className="flex w-full min-w-0 items-start gap-1.5">
           <div className="min-w-0 flex-1 overflow-hidden">{title}</div>
           {topRight ? <div className="shrink-0">{topRight}</div> : null}
         </div>
-        <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
+        <div className="flex w-full min-w-0 items-center gap-2 sm:gap-3">
+          <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+            <ProductRequestLineQty
+              qty={qty}
+              onDecQty={onDecQty}
+              onIncQty={onIncQty}
+              qtyDisabledDec={qtyDisabledDec}
+              qtyDisabledInc={qtyDisabledInc}
+            />
+            {bottomRight ? (
+              <>
+                <span className="h-7 w-px shrink-0 bg-border/50" aria-hidden />
+                {bottomRight}
+              </>
+            ) : null}
+          </div>
+        </div>
       </div>
-      <div className={cn("flex shrink-0 items-center justify-center", LINE_ACTION_DIVIDER)}>
-        <ProductRequestLineQty
-          qty={qty}
-          onDecQty={onDecQty}
-          onIncQty={onIncQty}
-          qtyDisabledDec={qtyDisabledDec}
-          qtyDisabledInc={qtyDisabledInc}
-        />
-      </div>
-      {bottomRight ? (
-        <div className={cn("flex shrink-0 items-center justify-center", LINE_ACTION_DIVIDER)}>{bottomRight}</div>
-      ) : null}
     </div>
   );
 }
