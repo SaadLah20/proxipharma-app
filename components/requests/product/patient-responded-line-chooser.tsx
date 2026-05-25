@@ -435,14 +435,14 @@ function RespondedLineBlock({
           {variant.showProposalMotif ? (
             <p
               className={cn(
-                "text-[9px] leading-snug",
+                "line-clamp-2 text-[9px] leading-snug",
                 unavailable || notRetained ? "text-muted-foreground opacity-80" : "text-violet-900"
               )}
             >
               {variant.proposalReason ? (
                 <>
                   <span className="font-semibold text-violet-800">Motif · </span>
-                  <span className="line-clamp-2">{variant.proposalReason}</span>
+                  {variant.proposalReason}
                 </>
               ) : (
                 <span className="italic text-muted-foreground">Motif non renseigné par l&apos;officine</span>
