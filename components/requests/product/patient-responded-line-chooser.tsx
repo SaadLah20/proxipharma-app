@@ -271,6 +271,9 @@ type VariantData = {
   pharmacistComment: string;
   branch: LineBranch;
   cap: number;
+  /** Ajout / proposition officine : afficher le motif pharmacien dans le bloc. */
+  showProposalMotif: boolean;
+  proposalReason: string | null;
 };
 
 function RespondedVariantTabs({
@@ -429,6 +432,24 @@ function RespondedLineBlock({
             </p>
           </div>
 
+          {variant.showProposalMotif ? (
+            <p
+              className={cn(
+                "text-[9px] leading-snug",
+                unavailable || notRetained ? "text-muted-foreground opacity-80" : "text-violet-900"
+              )}
+            >
+              {variant.proposalReason ? (
+                <>
+                  <span className="font-semibold text-violet-800">Motif · </span>
+                  <span className="line-clamp-2">{variant.proposalReason}</span>
+                </>
+              ) : (
+                <span className="italic text-muted-foreground">Motif non renseigné par l&apos;officine</span>
+              )}
+            </p>
+          ) : null}
+
           <div className={cn((unavailable || notRetained) && "opacity-80")}>
             <RespondedLineQtyMeta
               showRequested={variant.showRequested}
@@ -580,6 +601,8 @@ export function RespondedPatientLineChooser({
       pharmacistComment: row.pharmacist_comment ?? "",
       branch: "principal",
       cap: maxQtyPrincipal(row),
+      showProposalMotif: isProposedLine || isExtraProposed,
+      proposalReason: row.pharmacist_proposal_reason?.trim() || null,
     };
   };
 
@@ -605,6 +628,8 @@ export function RespondedPatientLineChooser({
       pharmacistComment: alt.pharmacist_comment ?? "",
       branch: alt.id,
       cap: maxQtyAlt(row, alt),
+      showProposalMotif: false,
+      proposalReason: null,
     };
   };
 
@@ -623,6 +648,7 @@ export function RespondedPatientLineChooser({
     supplyAmendmentBundles,
     prod?.name,
     prod?.photo_url,
+    row.pharmacist_proposal_reason,
   ]);
 
   const activeVariant = variants.find((v) => v.tabId === activeTab) ?? variants[0]!;
@@ -639,15 +665,10 @@ export function RespondedPatientLineChooser({
     }
   };
 
-  const proposedReason = row.pharmacist_proposal_reason?.trim();
-
   if (!hasAlts) {
     const v = buildPrincipalVariant();
     return (
       <li className="w-full min-w-0">
-        {isProposedLine && proposedReason ? (
-          <p className="mb-1 line-clamp-2 text-[10px] font-medium leading-snug text-violet-950">{proposedReason}</p>
-        ) : null}
         {requestType === "prescription" && isOrdonnancePrincipal ? (
           <p className="mb-1 text-[10px] font-semibold text-amber-900">{PRESCRIPTION_ORDONNANCE_SOURCING_LABEL}</p>
         ) : null}
@@ -668,9 +689,6 @@ export function RespondedPatientLineChooser({
 
   return (
     <li className="w-full min-w-0 rounded-lg border border-sky-200/70 bg-sky-50/25 p-1.5">
-      {isProposedLine && proposedReason ? (
-        <p className="mb-1.5 line-clamp-2 text-[10px] font-medium leading-snug text-violet-950">{proposedReason}</p>
-      ) : null}
       <RespondedVariantTabs
         tabs={variants.map((v) => ({
           id: v.tabId,
