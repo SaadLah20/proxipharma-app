@@ -11,7 +11,10 @@ import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-requ
 import type { PatientDemandeProduitsDraftLine } from "@/lib/patient-demande-produits-draft";
 
 export const PRODUCT_REQUEST_LINE_THUMB = "size-16 shrink-0";
+/** Hauteur du bloc = vignette produit (toujours liée à PRODUCT_REQUEST_LINE_THUMB). */
+export const PRODUCT_REQUEST_LINE_BLOCK_H = "h-16";
 const THUMB = PRODUCT_REQUEST_LINE_THUMB;
+const LINE_BLOCK_H = PRODUCT_REQUEST_LINE_BLOCK_H;
 
 function priceLine(label: string, labelClass: string, children: ReactNode) {
   return (
@@ -307,8 +310,8 @@ export function ProductRequestCartLineRow({
 }) {
   return (
     <li className="border-b border-border/50 py-2.5 last:border-b-0">
-      <div className="grid min-h-[4.75rem] min-w-0 grid-cols-[4rem_minmax(0,1fr)] grid-rows-[auto_auto_1fr] gap-x-2.5 gap-y-0.5">
-        <div className={cn("row-span-3 self-center overflow-hidden rounded-lg border border-border/80 bg-card", THUMB)}>
+      <div className={cn("flex min-w-0 items-stretch gap-x-2.5", LINE_BLOCK_H)}>
+        <div className={cn("overflow-hidden rounded-lg border border-border/80 bg-card", THUMB)}>
           {line.photo_url ? (
             <button
               type="button"
@@ -324,35 +327,41 @@ export function ProductRequestCartLineRow({
             </span>
           )}
         </div>
-        <div className="col-start-2 row-start-1 flex min-w-0 items-center gap-1.5 leading-none">
-          <p
-            className="min-w-0 flex-1 truncate text-xs font-semibold leading-tight text-foreground"
-            title={line.name}
-          >
-            {line.name}
-          </p>
+        <div className={cn("relative min-w-0 flex-1", LINE_BLOCK_H)}>
+          <div className="flex h-[1.125rem] min-w-0 items-center gap-1.5 pr-5 leading-none">
+            <p
+              className="min-w-0 flex-1 truncate text-xs font-semibold leading-none text-foreground"
+              title={line.name}
+            >
+              {line.name}
+            </p>
+          </div>
           <button
             type="button"
             aria-label="Retirer"
-            className="shrink-0 rounded p-0.5 text-destructive transition hover:bg-destructive/10"
+            className="absolute top-0 right-0 rounded p-0.5 text-destructive transition hover:bg-destructive/10"
             onClick={onRemove}
           >
             <Trash2 size={15} />
           </button>
-        </div>
-        <div className="col-start-2 row-start-2 flex min-h-0 min-w-0 items-start pt-0.5">
-          <ProductRequestLineBodyGrid
-            className="!h-auto w-full"
-            unitPrice={unitPrice}
-            qty={line.qty}
-            totalValue={unitPrice != null ? unitPrice * line.qty : null}
-            onDecQty={() => onSetQty(line.qty - 1)}
-            onIncQty={() => onSetQty(line.qty + 1)}
-            qtyDisabledInc={line.qty >= 10}
-          />
-        </div>
-        <div className="col-start-2 row-start-3 flex min-h-[1.75rem] items-end justify-end self-end">
-          <ProductRequestLineMessageButton hasComment={hasComment} onClick={onOpenComment} />
+          <div className="absolute inset-x-0 top-[1.125rem] bottom-[1.375rem] flex min-w-0 items-center overflow-hidden">
+            <ProductRequestLineBodyGrid
+              className="h-full w-full"
+              unitPrice={unitPrice}
+              qty={line.qty}
+              totalValue={unitPrice != null ? unitPrice * line.qty : null}
+              onDecQty={() => onSetQty(line.qty - 1)}
+              onIncQty={() => onSetQty(line.qty + 1)}
+              qtyDisabledInc={line.qty >= 10}
+            />
+          </div>
+          <div className="absolute bottom-0 right-0">
+            <ProductRequestLineMessageButton
+              hasComment={hasComment}
+              onClick={onOpenComment}
+              className="px-2 py-1 text-[10px]"
+            />
+          </div>
         </div>
       </div>
     </li>

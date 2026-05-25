@@ -3,6 +3,7 @@
 import { Package, Trash2 } from "lucide-react";
 import {
   PatientLineCommentModal,
+  PRODUCT_REQUEST_LINE_BLOCK_H,
   PRODUCT_REQUEST_LINE_THUMB,
   ProductRequestLineBodyGrid,
   ProductRequestLineMessageButton,
@@ -54,16 +55,14 @@ export function PatientProductRequestCompactLine({
       <li className="border-b border-border/50 py-2.5 last:border-b-0">
         <div
           className={cn(
-            "grid min-w-0 grid-cols-[4rem_minmax(0,1fr)] gap-x-2.5 gap-y-0.5",
-            line.line_source === "pharmacist_proposed"
-              ? "min-h-[5.25rem] grid-rows-[auto_auto_1fr]"
-              : "min-h-[4.75rem] grid-rows-[auto_auto_1fr]"
+            "flex min-w-0 items-stretch gap-x-2.5",
+            line.line_source === "pharmacist_proposed" ? "h-20" : PRODUCT_REQUEST_LINE_BLOCK_H
           )}
         >
           <div
             className={cn(
-              "row-span-3 shrink-0 self-center overflow-hidden rounded-lg border border-border/80 bg-card",
-              THUMB
+              "shrink-0 overflow-hidden rounded-lg border border-border/80 bg-card",
+              line.line_source === "pharmacist_proposed" ? "size-20" : THUMB
             )}
           >
             {line.photo_url ? (
@@ -81,14 +80,24 @@ export function PatientProductRequestCompactLine({
               </span>
             )}
           </div>
-          <div className="col-start-2 row-start-1 flex min-w-0 items-start gap-1.5 leading-none">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[11px] font-semibold text-foreground" title={line.name}>
+          <div
+            className={cn(
+              "relative min-w-0 flex-1",
+              line.line_source === "pharmacist_proposed" ? "h-20" : PRODUCT_REQUEST_LINE_BLOCK_H
+            )}
+          >
+            <div
+              className={cn(
+                "min-w-0 pr-5 leading-none",
+                line.line_source === "pharmacist_proposed" ? "h-[1.75rem]" : "flex h-[1.125rem] items-center"
+              )}
+            >
+              <p className="truncate text-xs font-semibold leading-none text-foreground" title={line.name}>
                 {line.name}
               </p>
               {line.line_source === "pharmacist_proposed" ? (
                 <p
-                  className="truncate text-[9px] font-medium text-violet-900"
+                  className="truncate text-[9px] font-medium leading-none text-violet-900"
                   title={line.pharmacist_proposal_reason ?? undefined}
                 >
                   Proposé officine
@@ -100,37 +109,45 @@ export function PatientProductRequestCompactLine({
               <button
                 type="button"
                 aria-label="Retirer"
-                className="shrink-0 rounded p-0.5 text-destructive transition hover:bg-destructive/10"
+                className="absolute top-0 right-0 rounded p-0.5 text-destructive transition hover:bg-destructive/10"
                 onClick={onRemove}
               >
                 <Trash2 size={14} />
               </button>
             ) : null}
-          </div>
-          <div className="col-start-2 row-start-2 flex min-h-0 min-w-0 items-start pt-0.5">
-            <ProductRequestLineBodyGrid
-              className="!h-auto w-full"
-              unitPrice={unitPrice}
-              qty={line.qty}
-              totalValue={unitPrice != null ? unitPrice * line.qty : null}
-              onDecQty={() => onSetQty(line.qty - 1)}
-              onIncQty={() => onSetQty(line.qty + 1)}
-              qtyDisabledDec={!editMode || line.qty <= 1}
-              qtyDisabledInc={!editMode || line.qty >= 10}
-            />
-          </div>
-          <div className="col-start-2 row-start-3 flex min-h-[1.75rem] items-end justify-end self-end">
-            {editMode && onSaveComment ? (
-              <ProductRequestLineMessageButton
-                hasComment={hasComment}
-                onClick={() => {
-                  setCommentDraft(line.client_comment ?? "");
-                  setCommentOpen(true);
-                }}
+            <div
+              className={cn(
+                "absolute inset-x-0 flex min-w-0 items-center overflow-hidden",
+                line.line_source === "pharmacist_proposed"
+                  ? "top-[1.75rem] bottom-[1.375rem]"
+                  : "top-[1.125rem] bottom-[1.375rem]"
+              )}
+            >
+              <ProductRequestLineBodyGrid
+                className="h-full w-full"
+                unitPrice={unitPrice}
+                qty={line.qty}
+                totalValue={unitPrice != null ? unitPrice * line.qty : null}
+                onDecQty={() => onSetQty(line.qty - 1)}
+                onIncQty={() => onSetQty(line.qty + 1)}
+                qtyDisabledDec={!editMode || line.qty <= 1}
+                qtyDisabledInc={!editMode || line.qty >= 10}
               />
-            ) : (
-              notesSlot
-            )}
+            </div>
+            <div className="absolute bottom-0 right-0">
+              {editMode && onSaveComment ? (
+                <ProductRequestLineMessageButton
+                  hasComment={hasComment}
+                  className="px-2 py-1 text-[10px]"
+                  onClick={() => {
+                    setCommentDraft(line.client_comment ?? "");
+                    setCommentOpen(true);
+                  }}
+                />
+              ) : (
+                notesSlot
+              )}
+            </div>
           </div>
         </div>
       </li>
