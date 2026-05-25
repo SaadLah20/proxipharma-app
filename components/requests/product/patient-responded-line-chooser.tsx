@@ -479,18 +479,39 @@ function RespondedLineBlock({
               notRetained && !unavailable && "opacity-85"
             )}
           >
-            <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap text-[11px] text-muted-foreground">
-              <span>PU</span>
-              {unit != null ? (
-                <PriceDhInline
-                  value={unit}
-                  amountClassName="text-xs font-bold text-foreground"
-                  suffixClassName="text-[9px]"
-                />
-              ) : (
-                <strong className="text-foreground">—</strong>
+            <div
+              className={cn(
+                "grid shrink-0 leading-none text-muted-foreground",
+                showQty && total != null
+                  ? "grid-cols-[auto_auto] gap-x-1 gap-y-0.5"
+                  : "grid-cols-[auto_auto] gap-x-1"
               )}
-            </span>
+            >
+              <span className="text-[11px]">PU</span>
+              <span className="whitespace-nowrap text-[11px]">
+                {unit != null ? (
+                  <PriceDhInline
+                    value={unit}
+                    amountClassName="text-xs font-bold text-foreground"
+                    suffixClassName="text-[9px]"
+                  />
+                ) : (
+                  <strong className="text-foreground">—</strong>
+                )}
+              </span>
+              {showQty && total != null ? (
+                <>
+                  <span className="text-[8px] font-medium">Tot</span>
+                  <span className="whitespace-nowrap text-[8px] font-medium text-muted-foreground/90">
+                    <PriceDhInline
+                      value={total}
+                      amountClassName="text-[9px] font-semibold text-muted-foreground"
+                      suffixClassName="text-[7px]"
+                    />
+                  </span>
+                </>
+              ) : null}
+            </div>
 
             <div className="ml-auto flex shrink-0 items-center gap-2">
               {showQty ? (
@@ -516,26 +537,11 @@ function RespondedLineBlock({
                   </button>
                 </div>
               ) : null}
-              <div className="relative shrink-0">
-                <RespondedLineNotesButton
-                  productName={variant.productName}
-                  client={variant.clientComment}
-                  pharmacist={variant.pharmacistComment}
-                />
-                {showQty && total != null ? (
-                  <span
-                    className="pointer-events-none absolute right-0 top-full mt-0.5 inline-flex items-baseline gap-0.5 whitespace-nowrap text-[8px] font-medium leading-none text-muted-foreground/90"
-                    aria-hidden
-                  >
-                    <span>Tot</span>
-                    <PriceDhInline
-                      value={total}
-                      amountClassName="text-[9px] font-semibold text-muted-foreground"
-                      suffixClassName="text-[7px]"
-                    />
-                  </span>
-                ) : null}
-              </div>
+              <RespondedLineNotesButton
+                productName={variant.productName}
+                client={variant.clientComment}
+                pharmacist={variant.pharmacistComment}
+              />
             </div>
           </div>
         </div>
