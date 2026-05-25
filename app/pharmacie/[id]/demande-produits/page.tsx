@@ -366,7 +366,7 @@ export default function DemandeProduitsPage() {
         {lines.length === 0 ? (
           <p className="px-0.5 text-sm text-muted-foreground">Ajoutez un produit pour continuer.</p>
         ) : (
-          <ul className="min-w-0 divide-y divide-border/60 overflow-hidden">
+          <ul className="w-full min-w-0 divide-y divide-border/60">
             {lines.map((l) => (
               <ProductRequestCartLineRow
                 key={l.product_id}

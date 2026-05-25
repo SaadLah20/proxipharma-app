@@ -1,14 +1,15 @@
 "use client";
 
-import { MessageSquare, Minus, Package, Plus, Trash2 } from "lucide-react";
-import { PatientLineCommentModal, ProductRequestLineBodyGrid } from "@/components/pharmacy/patient-demande-produits-ui";
-import { formatPriceDh } from "@/lib/product-price";
+import { Package, Trash2 } from "lucide-react";
+import {
+  PatientLineCommentModal,
+  ProductRequestLineMessageButton,
+  ProductRequestLinePanel,
+} from "@/components/pharmacy/patient-demande-produits-ui";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-
-const THUMB = "size-14 shrink-0";
 
 export type PatientDossierCompactLine = {
   product_id: string;
@@ -37,50 +38,39 @@ export function PatientProductRequestCompactLine({
   onPhotoPreview: () => void;
   onSetQty: (qty: number) => void;
   onSaveComment?: (comment: string) => void;
-  /** Bandeau notes existant (lecture) si pas en édition commentaire inline */
   notesSlot?: React.ReactNode;
 }) {
   const [commentOpen, setCommentOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState(line.client_comment ?? "");
   const hasComment = Boolean(line.client_comment?.trim());
+  const isProposed = line.line_source === "pharmacist_proposed";
+
+  const thumbInner = line.photo_url ? (
+    <button
+      type="button"
+      className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
+      aria-label={`Agrandir la photo · ${line.name}`}
+      onClick={onPhotoPreview}
+    >
+      <img src={line.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
+    </button>
+  ) : (
+    <span className="flex h-full w-full items-center justify-center">
+      <Package className="size-5 text-muted-foreground" aria-hidden />
+    </span>
+  );
 
   return (
     <>
-      <li className="border-b border-border/50 py-2 last:border-b-0">
-        <div
-          className={cn(
-            "grid min-h-14 min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2 gap-y-0.5",
-            line.line_source === "pharmacist_proposed" ? "grid-rows-[auto_1fr]" : "grid-rows-[auto_1fr] h-14"
-          )}
-        >
-          <div
-            className={cn(
-              "row-span-2 shrink-0 self-stretch overflow-hidden rounded-lg border border-border/80 bg-card",
-              THUMB,
-              line.line_source === "pharmacist_proposed" ? "h-14 w-14" : "size-14"
-            )}
-          >
-            {line.photo_url ? (
-              <button
-                type="button"
-                className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
-                aria-label={`Agrandir la photo · ${line.name}`}
-                onClick={onPhotoPreview}
-              >
-                <img src={line.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
-              </button>
-            ) : (
-              <span className="flex h-full w-full items-center justify-center">
-                <Package className="size-5 text-muted-foreground" aria-hidden />
-              </span>
-            )}
-          </div>
-          <div className="col-start-2 row-start-1 flex min-w-0 items-start gap-1.5 leading-none">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[11px] font-semibold text-foreground" title={line.name}>
+      <li className="w-full min-w-0 border-b border-border/50 py-2 last:border-b-0">
+        <ProductRequestLinePanel
+          contentMinHeight={isProposed ? "min-h-16" : undefined}
+          title={
+            <div className="min-w-0">
+              <p className="truncate text-[13px] font-semibold leading-none text-foreground" title={line.name}>
                 {line.name}
               </p>
-              {line.line_source === "pharmacist_proposed" ? (
+              {isProposed ? (
                 <p
                   className="truncate text-[9px] font-medium text-violet-900"
                   title={line.pharmacist_proposal_reason ?? undefined}
@@ -90,50 +80,41 @@ export function PatientProductRequestCompactLine({
                 </p>
               ) : null}
             </div>
-            {editMode && onRemove ? (
+          }
+          topRight={
+            editMode && onRemove ? (
               <button
                 type="button"
-                aria-label="Retirer"
-                className="shrink-0 rounded p-0.5 text-destructive transition hover:bg-destructive/10"
+                aria-label="Retirer le produit"
+                className="-mr-0.5 rounded-md p-1 text-destructive transition hover:bg-destructive/10"
                 onClick={onRemove}
               >
-                <Trash2 size={14} />
+                <Trash2 size={16} />
               </button>
-            ) : null}
-          </div>
-          <div className="col-start-2 row-start-2 flex min-h-0 min-w-0 items-start overflow-hidden pt-px">
-            <ProductRequestLineBodyGrid
-              className="!h-auto min-h-0 w-full"
-              unitPrice={unitPrice}
-              qty={line.qty}
-              totalValue={unitPrice != null ? unitPrice * line.qty : null}
-              onDecQty={() => onSetQty(line.qty - 1)}
-              onIncQty={() => onSetQty(line.qty + 1)}
-              qtyDisabledDec={!editMode || line.qty <= 1}
-              qtyDisabledInc={!editMode || line.qty >= 10}
-              messageButton={
-                editMode && onSaveComment ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCommentDraft(line.client_comment ?? "");
-                      setCommentOpen(true);
-                    }}
-                    className={cn(
-                      "inline-flex max-w-[4.25rem] items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] font-semibold leading-none whitespace-nowrap transition",
-                      hasComment ? t.noteActive : cn("border-border/80 bg-card text-muted-foreground", t.noteIdle)
-                    )}
-                  >
-                    <MessageSquare className="size-3 shrink-0" aria-hidden />
-                    <span className="truncate">{hasComment ? "Note" : "Message"}</span>
-                  </button>
-                ) : (
-                  notesSlot
-                )
-              }
-            />
-          </div>
-        </div>
+            ) : undefined
+          }
+          unitPrice={unitPrice}
+          totalValue={unitPrice != null ? unitPrice * line.qty : null}
+          qty={line.qty}
+          onDecQty={() => onSetQty(line.qty - 1)}
+          onIncQty={() => onSetQty(line.qty + 1)}
+          qtyDisabledDec={!editMode || line.qty <= 1}
+          qtyDisabledInc={!editMode || line.qty >= 10}
+          bottomRight={
+            editMode && onSaveComment ? (
+              <ProductRequestLineMessageButton
+                hasComment={hasComment}
+                onClick={() => {
+                  setCommentDraft(line.client_comment ?? "");
+                  setCommentOpen(true);
+                }}
+              />
+            ) : (
+              notesSlot
+            )
+          }
+          thumb={thumbInner}
+        />
       </li>
       {editMode && onSaveComment ? (
         <PatientLineCommentModal

@@ -10,18 +10,190 @@ import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-lim
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import type { PatientDemandeProduitsDraftLine } from "@/lib/patient-demande-produits-draft";
 
-const THUMB = "size-14 shrink-0";
+/** Vignette compacte — la hauteur du bloc suit la photo (items-stretch). */
+export const PRODUCT_REQUEST_LINE_THUMB =
+  "box-border size-14 shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
+/** Alias compat (lecture seule / grilles). */
+export const PRODUCT_REQUEST_LINE_BLOCK_H = "min-h-14";
+const THUMB = PRODUCT_REQUEST_LINE_THUMB;
 
-function priceLine(label: string, labelClass: string, children: ReactNode) {
+function ProductRequestLinePu({ unitPrice }: { unitPrice: number | null }) {
   return (
-    <p className="flex min-w-0 items-baseline gap-1 whitespace-nowrap text-[10px] leading-none">
-      <span className={cn("shrink-0 text-[9px] font-semibold uppercase tracking-wide", labelClass)}>{label}</span>
-      <span className="min-w-0 truncate">{children}</span>
+    <p className="flex min-w-0 items-baseline gap-1 whitespace-nowrap leading-none">
+      <span className="shrink-0 text-[10px] font-medium text-muted-foreground">PU</span>
+      <PriceDhInline
+        value={unitPrice}
+        amountClassName="text-sm font-bold text-foreground"
+        suffixClassName="text-[10px] font-semibold text-muted-foreground"
+      />
     </p>
   );
 }
 
-/** PU/Tot (espacement fixe) | Qté | Message — ligne unique, centrée verticalement. */
+function ProductRequestLineTotIndicative({ totalValue }: { totalValue: number | null }) {
+  return (
+    <p className="flex min-w-0 items-baseline gap-1 whitespace-nowrap leading-none text-muted-foreground">
+      <span className="shrink-0 text-[9px] font-medium">Total</span>
+      {totalValue != null ? (
+        <PriceDhInline
+          value={totalValue}
+          amountClassName="text-[10px] font-medium"
+          suffixClassName="text-[9px] font-medium"
+        />
+      ) : (
+        <span className="text-[10px] font-medium">—</span>
+      )}
+    </p>
+  );
+}
+
+function ProductRequestLinePrices({
+  unitPrice,
+  totalValue,
+}: {
+  unitPrice: number | null;
+  totalValue: number | null;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5 leading-none">
+      <ProductRequestLinePu unitPrice={unitPrice} />
+      <ProductRequestLineTotIndicative totalValue={totalValue} />
+    </div>
+  );
+}
+
+function ProductRequestLineQty({
+  qty,
+  onDecQty,
+  onIncQty,
+  qtyDisabledDec,
+  qtyDisabledInc,
+}: {
+  qty: number;
+  onDecQty: () => void;
+  onIncQty: () => void;
+  qtyDisabledDec?: boolean;
+  qtyDisabledInc?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1" role="group" aria-label="Quantité">
+      <button
+        type="button"
+        aria-label="Diminuer la quantité"
+        disabled={qtyDisabledDec}
+        className="rounded-md border border-border/80 bg-card p-1 text-foreground hover:bg-muted/40 disabled:opacity-40"
+        onClick={onDecQty}
+      >
+        <Minus size={14} />
+      </button>
+      <span className="w-5 text-center text-sm font-semibold leading-none tabular-nums">{qty}</span>
+      <button
+        type="button"
+        aria-label="Augmenter la quantité"
+        disabled={qtyDisabledInc}
+        className="rounded-md border border-border/80 bg-card p-1 hover:bg-muted/40 disabled:opacity-40"
+        onClick={onIncQty}
+      >
+        <Plus size={14} />
+      </button>
+    </div>
+  );
+}
+
+/** Ligne panier : photo + un seul bloc à droite (titre pleine largeur, puis prix / actions). */
+export function ProductRequestLinePanel({
+  title,
+  topRight,
+  unitPrice,
+  totalValue,
+  qty,
+  onDecQty,
+  onIncQty,
+  qtyDisabledDec,
+  qtyDisabledInc,
+  bottomRight,
+  thumb,
+  thumbClassName,
+  contentMinHeight,
+}: {
+  title: ReactNode;
+  topRight?: ReactNode;
+  unitPrice: number | null;
+  totalValue: number | null;
+  qty: number;
+  onDecQty: () => void;
+  onIncQty: () => void;
+  qtyDisabledDec?: boolean;
+  qtyDisabledInc?: boolean;
+  bottomRight?: ReactNode;
+  thumb: ReactNode;
+  thumbClassName?: string;
+  contentMinHeight?: string;
+}) {
+  return (
+    <div className="flex w-full min-w-0 items-stretch gap-2">
+      <div className={cn("shrink-0 self-center", THUMB, thumbClassName)}>{thumb}</div>
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 basis-0 flex-col justify-between gap-0 overflow-hidden",
+          contentMinHeight ?? "min-h-14"
+        )}
+      >
+        <div className="flex w-full min-w-0 items-start gap-1.5 pt-1">
+          <div className="min-w-0 flex-1 overflow-hidden">{title}</div>
+          {topRight ? <div className="shrink-0">{topRight}</div> : null}
+        </div>
+        <div className="-mt-1.5 flex w-full min-w-0 items-center gap-2 pb-0.5 sm:gap-3">
+          <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
+          <div className="ml-3 flex shrink-0 items-center gap-2 sm:ml-4 sm:gap-3">
+            <ProductRequestLineQty
+              qty={qty}
+              onDecQty={onDecQty}
+              onIncQty={onIncQty}
+              qtyDisabledDec={qtyDisabledDec}
+              qtyDisabledInc={qtyDisabledInc}
+            />
+            {bottomRight ? (
+              <>
+                <span className="h-7 w-px shrink-0 bg-border/50" aria-hidden />
+                {bottomRight}
+              </>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ProductRequestLineMessageButton({
+  hasComment,
+  onClick,
+  className,
+}: {
+  hasComment: boolean;
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold leading-none whitespace-nowrap transition",
+        hasComment
+          ? t.noteActive
+          : cn("border-border/80 bg-card text-muted-foreground hover:text-foreground", t.noteIdle),
+        className
+      )}
+    >
+      <MessageSquare className="size-3 shrink-0" aria-hidden />
+      <span>{hasComment ? "Note" : "Message"}</span>
+    </button>
+  );
+}
+
+/** PU/Tot + Qté (Message optionnel en ligne, sinon rangée dédiée sous le cart). */
 export function ProductRequestLineBodyGrid({
   unitPrice,
   qty,
@@ -40,61 +212,25 @@ export function ProductRequestLineBodyGrid({
   onIncQty: () => void;
   qtyDisabledDec?: boolean;
   qtyDisabledInc?: boolean;
-  messageButton: ReactNode;
+  messageButton?: ReactNode;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "flex h-full min-h-0 min-w-0 items-center gap-x-1.5 leading-none",
+        "flex h-full min-h-0 min-w-0 items-center gap-x-3 leading-none",
         className
       )}
     >
-      <div className="flex shrink-0 flex-col gap-[3px]">
-        {priceLine(
-          "PU",
-          "text-muted-foreground",
-          <PriceDhInline value={unitPrice} amountClassName="font-semibold text-[10px]" suffixClassName="text-[8px]" />
-        )}
-        {priceLine(
-          "Tot",
-          "text-sky-600/85",
-          totalValue != null ? (
-            <PriceDhInline
-              value={totalValue}
-              amountClassName={cn("font-bold text-[10px]", t.price)}
-              suffixClassName="text-[8px] font-bold text-sky-600/80"
-            />
-          ) : (
-            <span className="font-bold">—</span>
-          )
-        )}
-      </div>
-      <div className="flex w-[4.25rem] shrink-0 flex-col items-center justify-center gap-0.5">
-        <span className="w-full text-center text-[8px] font-medium leading-none text-muted-foreground">Qté</span>
-        <div className="flex items-center justify-center gap-0.5">
-          <button
-            type="button"
-            aria-label="Diminuer"
-            disabled={qtyDisabledDec}
-            className="rounded border border-border/80 bg-card p-0.5 text-foreground hover:bg-muted/40 disabled:opacity-40"
-            onClick={onDecQty}
-          >
-            <Minus size={13} />
-          </button>
-          <span className="w-5 text-center text-[11px] font-semibold leading-none tabular-nums">{qty}</span>
-          <button
-            type="button"
-            aria-label="Augmenter"
-            disabled={qtyDisabledInc}
-            className="rounded border border-border/80 bg-card p-0.5 hover:bg-muted/40 disabled:opacity-40"
-            onClick={onIncQty}
-          >
-            <Plus size={13} />
-          </button>
-        </div>
-      </div>
-      <div className="ml-auto flex shrink-0 items-center">{messageButton}</div>
+      <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
+      <ProductRequestLineQty
+        qty={qty}
+        onDecQty={onDecQty}
+        onIncQty={onIncQty}
+        qtyDisabledDec={qtyDisabledDec}
+        qtyDisabledInc={qtyDisabledInc}
+      />
+      {messageButton ? <div className="ml-auto flex shrink-0 items-center">{messageButton}</div> : null}
     </div>
   );
 }
@@ -128,6 +264,42 @@ export function PriceDhInline({
         DH
       </span>
     </span>
+  );
+}
+
+/** Barre de recherche seule (page Explorer catalogue). */
+export function ProductRequestExplorerSearchBar({
+  query,
+  onQueryChange,
+  fieldFocus,
+  placeholder = "Filtrer par nom ou laboratoire…",
+}: {
+  query: string;
+  onQueryChange: (v: string) => void;
+  fieldFocus: string;
+  placeholder?: string;
+}) {
+  return (
+    <div className={cn("overflow-hidden rounded-2xl border bg-card shadow-md", t.shell)}>
+      <div className="relative px-3 py-3 sm:px-4">
+        <Search
+          className={cn("pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 sm:left-4", t.searchIcon)}
+          aria-hidden
+        />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          placeholder={placeholder}
+          aria-label={placeholder}
+          className={cn(
+            "h-11 w-full rounded-xl border-2 bg-background py-2 pl-10 pr-3 text-base leading-normal shadow-sm placeholder:text-muted-foreground",
+            t.searchInput,
+            fieldFocus
+          )}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -277,68 +449,50 @@ export function ProductRequestCartLineRow({
   onOpenComment: () => void;
   hasComment: boolean;
 }) {
+  const thumbInner = line.photo_url ? (
+    <button
+      type="button"
+      className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
+      aria-label={`Agrandir la photo · ${line.name}`}
+      onClick={onPhotoPreview}
+    >
+      <img src={line.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
+    </button>
+  ) : (
+    <span className="flex h-full w-full items-center justify-center">
+      <Package className="size-5 text-muted-foreground" aria-hidden />
+    </span>
+  );
+
   return (
-    <li className="border-b border-border/50 py-2 last:border-b-0">
-      <div className="grid h-14 min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] grid-rows-[auto_1fr] gap-x-2 gap-y-0.5">
-        <div className={cn("row-span-2 shrink-0 overflow-hidden rounded-lg border border-border/80 bg-card", THUMB)}>
-          {line.photo_url ? (
-            <button
-              type="button"
-              className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
-              aria-label={`Agrandir la photo · ${line.name}`}
-              onClick={onPhotoPreview}
-            >
-              <img src={line.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
-            </button>
-          ) : (
-            <span className="flex h-full w-full items-center justify-center">
-              <Package className="size-5 text-muted-foreground" aria-hidden />
-            </span>
-          )}
-        </div>
-        <div className="col-start-2 row-start-1 flex min-h-[1.125rem] min-w-0 items-center gap-1.5 leading-none">
-          <p
-            className="min-w-0 flex-1 truncate text-[11px] font-semibold leading-tight text-foreground"
-            title={line.name}
-          >
+    <li className="w-full min-w-0 border-b border-border/50 py-2 last:border-b-0">
+      <ProductRequestLinePanel
+        title={
+          <p className="truncate text-[13px] font-semibold leading-none text-foreground" title={line.name}>
             {line.name}
           </p>
+        }
+        topRight={
           <button
             type="button"
-            aria-label="Retirer"
-            className="shrink-0 rounded p-0.5 text-destructive transition hover:bg-destructive/10"
+            aria-label="Retirer le produit"
+            className="-mr-0.5 rounded-md p-1 text-destructive transition hover:bg-destructive/10"
             onClick={onRemove}
           >
-            <Trash2 size={14} />
+            <Trash2 size={16} />
           </button>
-        </div>
-        <div className="col-start-2 row-start-2 flex min-h-0 min-w-0 items-start overflow-hidden pt-px">
-          <ProductRequestLineBodyGrid
-            className="!h-auto min-h-0 w-full"
-            unitPrice={unitPrice}
-            qty={line.qty}
-            totalValue={unitPrice != null ? unitPrice * line.qty : null}
-            onDecQty={() => onSetQty(line.qty - 1)}
-            onIncQty={() => onSetQty(line.qty + 1)}
-            qtyDisabledInc={line.qty >= 10}
-            messageButton={
-              <button
-                type="button"
-                onClick={onOpenComment}
-                className={cn(
-                  "inline-flex max-w-[4.25rem] items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] font-semibold leading-none whitespace-nowrap transition",
-                  hasComment
-                    ? t.noteActive
-                    : cn("border-border/80 bg-card text-muted-foreground hover:text-foreground", t.noteIdle)
-                )}
-              >
-                <MessageSquare className="size-3 shrink-0" aria-hidden />
-                <span className="truncate">{hasComment ? "Note" : "Message"}</span>
-              </button>
-            }
-          />
-        </div>
-      </div>
+        }
+        unitPrice={unitPrice}
+        totalValue={unitPrice != null ? unitPrice * line.qty : null}
+        qty={line.qty}
+        onDecQty={() => onSetQty(line.qty - 1)}
+        onIncQty={() => onSetQty(line.qty + 1)}
+        qtyDisabledInc={line.qty >= 10}
+        bottomRight={
+          <ProductRequestLineMessageButton hasComment={hasComment} onClick={onOpenComment} />
+        }
+        thumb={thumbInner}
+      />
     </li>
   );
 }
