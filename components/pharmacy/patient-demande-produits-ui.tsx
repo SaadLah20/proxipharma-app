@@ -133,21 +133,28 @@ export function ProductRequestLinePanel({
   contentMinHeight?: string;
 }) {
   return (
-    <div className="flex w-full min-w-0 items-stretch gap-2">
-      <div className={cn(THUMB, thumbClassName)}>{thumb}</div>
+    <div
+      className={cn(
+        "grid w-full min-w-0 items-center gap-x-2",
+        bottomRight
+          ? "grid-cols-[auto_minmax(0,1fr)_auto_auto]"
+          : "grid-cols-[auto_minmax(0,1fr)_auto]"
+      )}
+    >
+      <div className={cn("row-span-1 self-center", THUMB, thumbClassName)}>{thumb}</div>
       <div
         className={cn(
-          "flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-px",
+          "flex min-w-0 flex-col justify-center gap-0.5 overflow-hidden py-px",
           contentMinHeight ?? "min-h-14"
         )}
       >
-        <div className="relative min-w-0 w-full">
-          {topRight ? <div className="absolute right-0 top-0 z-[1]">{topRight}</div> : null}
-          <div className={cn("min-w-0 w-full overflow-hidden leading-tight", topRight && "pr-9")}>{title}</div>
+        <div className="flex w-full min-w-0 items-start gap-1">
+          <div className="min-w-0 flex-1 overflow-hidden">{title}</div>
+          {topRight ? <div className="shrink-0">{topRight}</div> : null}
         </div>
         <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
       </div>
-      <div className={cn("flex shrink-0 items-center", LINE_ACTION_DIVIDER)}>
+      <div className={cn("flex shrink-0 items-center justify-center", LINE_ACTION_DIVIDER)}>
         <ProductRequestLineQty
           qty={qty}
           onDecQty={onDecQty}
@@ -157,7 +164,7 @@ export function ProductRequestLinePanel({
         />
       </div>
       {bottomRight ? (
-        <div className={cn("flex shrink-0 items-center", LINE_ACTION_DIVIDER)}>{bottomRight}</div>
+        <div className={cn("flex shrink-0 items-center justify-center", LINE_ACTION_DIVIDER)}>{bottomRight}</div>
       ) : null}
     </div>
   );
@@ -426,13 +433,10 @@ export function ProductRequestCartLineRow({
   );
 
   return (
-    <li className="border-b border-border/50 py-2 last:border-b-0">
+    <li className="w-full min-w-0 border-b border-border/50 py-2 last:border-b-0">
       <ProductRequestLinePanel
         title={
-          <p
-            className="block w-full min-w-0 truncate text-[13px] font-semibold leading-none text-foreground"
-            title={line.name}
-          >
+          <p className="truncate text-[13px] font-semibold leading-none text-foreground" title={line.name}>
             {line.name}
           </p>
         }

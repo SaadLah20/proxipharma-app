@@ -62,15 +62,12 @@ export function PatientProductRequestCompactLine({
 
   return (
     <>
-      <li className="border-b border-border/50 py-2 last:border-b-0">
+      <li className="w-full min-w-0 border-b border-border/50 py-2 last:border-b-0">
         <ProductRequestLinePanel
           contentMinHeight={isProposed ? "min-h-16" : undefined}
           title={
             <div className="min-w-0">
-              <p
-                className="block w-full min-w-0 truncate text-[13px] font-semibold leading-none text-foreground"
-                title={line.name}
-              >
+              <p className="truncate text-[13px] font-semibold leading-none text-foreground" title={line.name}>
                 {line.name}
               </p>
               {isProposed ? (
