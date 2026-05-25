@@ -353,7 +353,7 @@ git checkout pilote-stable-2026-05-24
 
 ### Session 2026-05-25 — Patient demande produits : saisie publique, envoyée, répondue (UI/UX)
 
-**Branche** : `fix/validated-supply-ecart-ui-modal` — commits poussés **`e37f667`** … **`63ef375`** (lot UI patient ; pas de nouvelle migration).
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits poussés **`e37f667`** … **`41a6f70`** (lot UI patient ; pas de nouvelle migration).
 
 **Saisie publique** (`/pharmacie/[id]/demande-produits` + **catalogue**) :
 - Grille compacte **`ProductRequestLinePanel`** — **`components/pharmacy/patient-demande-produits-ui.tsx`** (photo 56px, PU/Total, Qté, Message).
@@ -1746,7 +1746,7 @@ Voir **§13.32**.
 
 ### 13.32) Phrase de reprise (recommandée — après session **2026-05-25** patient demande produits UI)
 
-**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`e37f667`** … **`63ef375`** : patient demande produits — saisie publique + détail **envoyée** + **répondue** ; §10 session **2026-05-25**). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.6**, **§10**, §11. Supabase : jusqu’à **`20260622_001`** (**appliquées**) — **pas de nouvelle migration** sur ce lot UI. Fichiers clés patient : `components/pharmacy/patient-demande-produits-ui.tsx`, `components/requests/product/patient-product-request-dossier-header.tsx`, `components/requests/product/patient-responded-line-chooser.tsx`, `components/requests/product/patient-product-request-actions.tsx`, `app/dashboard/demandes/[id]/page.tsx`. **Fait** : §4.6 étapes 1–2 patient (envoyée + répondue, dont case retenir sur coin du bloc + ajustement si onglets alternatives). **À faire ensuite** : (1) compléter UI/UX **patient** — validée `confirmed`, traitée `treated`, dossiers terminés (§4.6 étapes 3–5 + règle transverse) selon retours preview ; (2) **pharmacien** — même roadmap §4.6 : d’abord **demande envoyée** (hub + détail), puis **répondue**, aligné patient. Référence stable : tag **`pilote-stable-2026-05-24`** → **`0c4f0e7`** (§10.1). Je te donne la tâche précise ou les retours terrain. »**
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`e37f667`** … **`41a6f70`** : patient demande produits — saisie publique + détail **envoyée** + **répondue** ; §10 session **2026-05-25**). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.6**, **§10**, §11. Supabase : jusqu’à **`20260622_001`** (**appliquées**) — **pas de nouvelle migration** sur ce lot UI. Fichiers clés patient : `components/pharmacy/patient-demande-produits-ui.tsx`, `components/requests/product/patient-product-request-dossier-header.tsx`, `components/requests/product/patient-responded-line-chooser.tsx`, `components/requests/product/patient-product-request-actions.tsx`, `app/dashboard/demandes/[id]/page.tsx`. **Fait** : §4.6 étapes 1–2 patient (envoyée + répondue, dont case retenir sur coin du bloc + ajustement si onglets alternatives). **À faire ensuite** : (1) compléter UI/UX **patient** — validée `confirmed`, traitée `treated`, dossiers terminés (§4.6 étapes 3–5 + règle transverse) selon retours preview ; (2) **pharmacien** — même roadmap §4.6 : d’abord **demande envoyée** (hub + détail), puis **répondue**, aligné patient. Référence stable : tag **`pilote-stable-2026-05-24`** → **`0c4f0e7`** (§10.1). Je te donne la tâche précise ou les retours terrain. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
