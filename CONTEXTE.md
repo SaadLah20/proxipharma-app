@@ -60,7 +60,7 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 - **Ordonnances** : capture **`/pharmacie/[id]/demande-ordonnance`** ; saisie pharmacien via scan + modal (**qté prescrite / qté dispo**, rupture/indispo → **dispo 0**, complémentaires = **qté proposée** seule) ; badges **Ordonnance** / **Ordonnance + alternative** / **Proposé** ; enregistrement post-validé compare la **branche alternative retenue** (`supplyRowPersistedSupplyFields` dans **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**) ; hubs ambre ; migrations **`20260525_001`**–**`004`**, **`20260526_001`**, **`20260530_001`**, **`20260531_001`** ; synthèse **`docs/workflow-ordonnance-consultation-REPONSES.md`**.
 - **Consultations libres** : **`/pharmacie/[id]/consultation-libre`** (texte + 3 photos) ; détail patient/pharmacien = **une page scroll** (brief + messagerie inline + lignes proposées) — **sans** onglets sticky (mai 2026) ; dispos proposées = **Disponible / À commander** ; patient **`responded`** : qté proposée = `available_qty` par branche (alternatives : plafond = qté alternative) ; hubs violet ; migration **`20260529_001`** ; `workflowEnabled: true`.
 - **Demande produits** : notif pharmacien dédiée si patient change la date de passage — **`20260531_002`**.
-- **Phrase de reprise** : **`CAHIER_DES_CHARGES.md` §13.32** (patient demande produits — saisie publique + **envoyée** + **répondue** ; annuaire/fiche **§13.31** ; voir §10 session **2026-05-25**).
+- **Phrase de reprise** : **`CAHIER_DES_CHARGES.md` §13.32** (patient demande produits — saisie publique + **envoyée** + **répondue** + **validée** ; annuaire/fiche **§13.31** ; voir §10 session **2026-05-25**).
 
 **Mise à jour 2026-05-19 — annuaire + fiche publique (UI)** :
 - **Annuaire** : hero, cartes avec **avis**, menu rayon portail, lint **`set-state-in-effect`** corrigé — `components/annuaire/`.
@@ -82,9 +82,10 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 ### Workflow « demande de produits » après validation patient (**`confirmed`** — mai 2026)
 Sans migration dédiée pour l’historique structuré : le patient voit ce qu’il a **validé** vs la **préparation actuelle** ; l’historique peut inclure **`audit_v1:`** dans `reason` (voir **`lib/patient-request-history-audit.ts`**, **`CAHIER_DES_CHARGES.md`** §4.4 + §4.5 et journal §10 **2026-05-06** / **2026-05-07**). Côté officine : plafonds qté, alternatives retenues vs indicatif, lignes fermées lecture seule, brouillon conservé au rechargement. Compteur **Annulés** patient : lignes **`cancelled_at_counter`**. Réinitialiser les données de test : **`scripts/clear-all-requests.mjs`** ou **`supabase/scripts/clear-all-requests.sql`**. Canvas de scénarios E2E : **`canvases/product-requests-e2e-test-plan.canvas.tsx`**.
 
-**Mise à jour 2026-05-25 — patient demande produits (envoyée + répondue, UI)** :
-- Branche **`fix/validated-supply-ecart-ui-modal`** (commits **`e37f667`** … **`41a6f70`**) ; pas de nouvelle migration.
-- **Répondue** : **`patient-responded-line-chooser.tsx`** — case retenir sur **coin du bloc** (plus basse si onglets alternatives), onglets Ta demande / Alternative, modale confirmation ; détail journal **`CAHIER_DES_CHARGES.md` §10 session 2026-05-25** · phrase **§13.32**.
+**Mise à jour 2026-05-25 — patient demande produits (envoyée + répondue + validée, UI)** :
+- Branche **`fix/validated-supply-ecart-ui-modal`** (commits **`e37f667`** … **`aec3071`**) ; pas de nouvelle migration.
+- **Répondue** : **`patient-responded-line-chooser.tsx`** — case sur coin du bloc, alternatives groupées, **Ban** indispo, **Tot** sous **PU**, qty au recochage ; modale confirmation sky.
+- **Validée** : **`PatientValidatedCompactLineCard`** + **`lib/patient-validated-line-labels-fr.ts`** (bandeau origine / statut / événements) ; **`PatientLineNotesIconButton`** ; sans dispo ni suivi sur la carte ; détail **`CAHIER_DES_CHARGES.md` §10 session 2026-05-25** · phrase **§13.32**.
 
 **Mise à jour 2026-05-24 — catalogue photos Storage + saisie patient** :
 - **SQL** : **`20260524_001`**–**`003`** — buckets Storage, catalogue pilote MAROC, `products.photo_url` = chemin `products/{uuid}/main.jpg`.
