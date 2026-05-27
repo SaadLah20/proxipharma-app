@@ -1,10 +1,14 @@
 "use client";
 
-import { Package, Trash2 } from "lucide-react";
+import { Package } from "lucide-react";
 import {
   PatientLineCommentModal,
-  ProductRequestLineMessageButton,
+  PRODUCT_REQUEST_LINE_CARD_SHELL,
+  ProductRequestLineDeleteButton,
+  ProductRequestLineMessageIconButton,
   ProductRequestLinePanel,
+  ProductRequestLineQtyPicker,
+  ProductRequestLineQtyReadonly,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
@@ -62,7 +66,8 @@ export function PatientProductRequestCompactLine({
 
   return (
     <>
-      <li className="w-full min-w-0 border-b border-border/50 py-2 last:border-b-0">
+      <li className={cn("relative w-full min-w-0 overflow-visible p-1", PRODUCT_REQUEST_LINE_CARD_SHELL)}>
+        {editMode && onRemove ? <ProductRequestLineDeleteButton onClick={onRemove} /> : null}
         <ProductRequestLinePanel
           contentMinHeight={isProposed ? "min-h-16" : undefined}
           title={
@@ -81,28 +86,21 @@ export function PatientProductRequestCompactLine({
               ) : null}
             </div>
           }
-          topRight={
-            editMode && onRemove ? (
-              <button
-                type="button"
-                aria-label="Retirer le produit"
-                className="-mr-0.5 rounded-md p-1 text-destructive transition hover:bg-destructive/10"
-                onClick={onRemove}
-              >
-                <Trash2 size={16} />
-              </button>
-            ) : undefined
-          }
           unitPrice={unitPrice}
           totalValue={unitPrice != null ? unitPrice * line.qty : null}
-          qty={line.qty}
-          onDecQty={() => onSetQty(line.qty - 1)}
-          onIncQty={() => onSetQty(line.qty + 1)}
-          qtyDisabledDec={!editMode || line.qty <= 1}
-          qtyDisabledInc={!editMode || line.qty >= 10}
+          qtyControl={
+            editMode ? (
+              <ProductRequestLineQtyPicker
+                qty={line.qty}
+                onSelect={(n) => onSetQty(Math.min(10, Math.max(1, n)))}
+              />
+            ) : (
+              <ProductRequestLineQtyReadonly qty={line.qty} />
+            )
+          }
           bottomRight={
             editMode && onSaveComment ? (
-              <ProductRequestLineMessageButton
+              <ProductRequestLineMessageIconButton
                 hasComment={hasComment}
                 onClick={() => {
                   setCommentDraft(line.client_comment ?? "");

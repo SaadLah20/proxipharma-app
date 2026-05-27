@@ -1,8 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { LayoutGrid, MessageSquare, Minus, Package, Plus, Search, Trash2, X } from "lucide-react";
+import { ChevronDown, LayoutGrid, MessageCircle, MessageSquare, Package, Search, Trash2, X } from "lucide-react";
 import { PharmacyFlowHero } from "@/components/pharmacy/pharmacy-public-chrome";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,6 +17,9 @@ export const PRODUCT_REQUEST_LINE_THUMB =
   "box-border size-14 shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
 /** Alias compat (lecture seule / grilles). */
 export const PRODUCT_REQUEST_LINE_BLOCK_H = "min-h-14";
+/** Contour discret sans changer la boîte de contenu (ombre interne). */
+export const PRODUCT_REQUEST_LINE_CARD_SHELL =
+  "rounded-lg [box-shadow:inset_0_0_0_1px_rgba(14,165,233,0.22)]";
 const THUMB = PRODUCT_REQUEST_LINE_THUMB;
 
 function ProductRequestLinePu({ unitPrice }: { unitPrice: number | null }) {
@@ -62,105 +67,220 @@ function ProductRequestLinePrices({
   );
 }
 
-function ProductRequestLineQty({
+const QTY_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+
+/** Libellé quantité (lecture seule ou dans le sélecteur). */
+function ProductRequestLineQtyLabel({ qty, className }: { qty: number; className?: string }) {
+  return (
+    <span className={cn("inline-flex items-baseline gap-1 whitespace-nowrap leading-none", className)}>
+      <span className="text-[10px] font-medium text-muted-foreground">Quantité&nbsp;:</span>
+      <span className="text-[12px] font-semibold tabular-nums text-foreground">{qty}</span>
+    </span>
+  );
+}
+
+/** Qté lecture seule (alignée sur le sélecteur). */
+export function ProductRequestLineQtyReadonly({ qty }: { qty: number }) {
+  return (
+    <span
+      className="inline-flex h-7 w-full max-w-[6.75rem] items-center justify-center rounded-full border border-sky-200/80 bg-sky-50/80 px-2.5"
+      aria-label={`Quantité ${qty}`}
+    >
+      <ProductRequestLineQtyLabel qty={qty} />
+    </span>
+  );
+}
+
+/** Bouton quantité + liste 1–10 (parcours demande de produits). */
+export function ProductRequestLineQtyPicker({
   qty,
-  onDecQty,
-  onIncQty,
-  qtyDisabledDec,
-  qtyDisabledInc,
+  disabled,
+  onSelect,
 }: {
   qty: number;
-  onDecQty: () => void;
-  onIncQty: () => void;
-  qtyDisabledDec?: boolean;
-  qtyDisabledInc?: boolean;
+  disabled?: boolean;
+  onSelect: (qty: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const listId = useId();
+
+  const syncMenuPos = () => {
+    const el = rootRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setMenuPos({ top: r.bottom + 4, left: r.left + r.width / 2 });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    syncMenuPos();
+    const onPointer = (e: MouseEvent | TouchEvent) => {
+      const t = e.target as Node;
+      if (rootRef.current?.contains(t)) return;
+      const menu = document.getElementById(listId);
+      if (menu?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    const onReflow = () => syncMenuPos();
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("touchstart", onPointer);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onReflow);
+    window.addEventListener("scroll", onReflow, true);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("touchstart", onPointer);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onReflow);
+      window.removeEventListener("scroll", onReflow, true);
+    };
+  }, [open, listId]);
+
+  if (disabled) return <ProductRequestLineQtyReadonly qty={qty} />;
+
+  const menu =
+    open && menuPos && typeof document !== "undefined"
+      ? createPortal(
+          <ul
+            id={listId}
+            role="listbox"
+            aria-label="Choisir la quantité"
+            style={{ top: menuPos.top, left: menuPos.left }}
+            className={cn(
+              "fixed z-[120] max-h-44 w-[4.25rem] -translate-x-1/2 overflow-y-auto overscroll-y-contain rounded-xl border bg-card py-1 shadow-xl",
+              t.shell
+            )}
+          >
+            {QTY_OPTIONS.map((n) => (
+              <li key={n} role="option" aria-selected={n === qty}>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex w-full items-center justify-center px-2 py-1.5 text-[13px] font-semibold tabular-nums transition hover:bg-sky-50",
+                    n === qty ? "bg-sky-100/90 text-sky-950" : "text-foreground"
+                  )}
+                  onClick={() => {
+                    onSelect(n);
+                    setOpen(false);
+                  }}
+                >
+                  {n}
+                </button>
+              </li>
+            ))}
+          </ul>,
+          document.body
+        )
+      : null;
+
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-label={`Quantité ${qty}, choisir une autre valeur`}
+        onClick={() => {
+          setOpen((v) => {
+            const next = !v;
+            if (next) syncMenuPos();
+            return next;
+          });
+        }}
+        className={cn(
+          "inline-flex h-7 w-full max-w-[6.75rem] items-center justify-center gap-0.5 rounded-full border border-sky-300/80 bg-white px-2 shadow-sm transition hover:bg-sky-50",
+          open && "border-sky-500/70 ring-2 ring-sky-400/30"
+        )}
+      >
+        <ProductRequestLineQtyLabel qty={qty} />
+        <ChevronDown className={cn("size-3 shrink-0 text-sky-700 transition", open && "rotate-180")} aria-hidden />
+      </button>
+      {menu}
+    </div>
+  );
+}
+
+/** Icône message circulaire (même gabarit que Historique carte validée). */
+export function ProductRequestLineMessageIconButton({
+  hasComment,
+  onClick,
+  className,
+}: {
+  hasComment: boolean;
+  onClick: () => void;
+  className?: string;
 }) {
   return (
-    <div className="flex items-center gap-1" role="group" aria-label="Quantité">
-      <button
-        type="button"
-        aria-label="Diminuer la quantité"
-        disabled={qtyDisabledDec}
-        className="rounded-md border border-border/80 bg-card p-1 text-foreground hover:bg-muted/40 disabled:opacity-40"
-        onClick={onDecQty}
-      >
-        <Minus size={14} />
-      </button>
-      <span className="w-5 text-center text-sm font-semibold leading-none tabular-nums">{qty}</span>
-      <button
-        type="button"
-        aria-label="Augmenter la quantité"
-        disabled={qtyDisabledInc}
-        className="rounded-md border border-border/80 bg-card p-1 hover:bg-muted/40 disabled:opacity-40"
-        onClick={onIncQty}
-      >
-        <Plus size={14} />
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={hasComment ? "Voir ou modifier le message sur ce produit" : "Ajouter un message sur ce produit"}
+      title={hasComment ? "Message renseigné" : "Message"}
+      className={cn(
+        "inline-flex size-7 shrink-0 items-center justify-center rounded-full border shadow-sm transition",
+        hasComment
+          ? "border-sky-400/70 bg-sky-100 text-sky-900 hover:bg-sky-200/80"
+          : "border-sky-200/70 bg-white text-sky-600/80 hover:border-sky-300/80 hover:bg-sky-50 hover:text-sky-800",
+        className
+      )}
+    >
+      <MessageCircle className="size-3.5 shrink-0" strokeWidth={hasComment ? 2.35 : 2} aria-hidden />
+    </button>
+  );
+}
+
+/** Supprimer — épinglé coin haut droit du bloc produit. */
+export function ProductRequestLineDeleteButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="Retirer le produit"
+      onClick={onClick}
+      className="absolute -right-1.5 -top-1.5 z-10 flex size-7 items-center justify-center rounded-full border border-rose-200/90 bg-white text-destructive shadow-md transition hover:bg-rose-50"
+    >
+      <Trash2 className="size-3.5" strokeWidth={2.25} aria-hidden />
+    </button>
   );
 }
 
 /** Ligne panier : photo + un seul bloc à droite (titre pleine largeur, puis prix / actions). */
 export function ProductRequestLinePanel({
   title,
-  topRight,
   unitPrice,
   totalValue,
-  qty,
-  onDecQty,
-  onIncQty,
-  qtyDisabledDec,
-  qtyDisabledInc,
+  qtyControl,
   bottomRight,
   thumb,
   thumbClassName,
   contentMinHeight,
 }: {
   title: ReactNode;
-  topRight?: ReactNode;
   unitPrice: number | null;
   totalValue: number | null;
-  qty: number;
-  onDecQty: () => void;
-  onIncQty: () => void;
-  qtyDisabledDec?: boolean;
-  qtyDisabledInc?: boolean;
+  qtyControl: ReactNode;
   bottomRight?: ReactNode;
   thumb: ReactNode;
   thumbClassName?: string;
   contentMinHeight?: string;
 }) {
   return (
-    <div className="flex w-full min-w-0 items-stretch gap-2">
-      <div className={cn("shrink-0 self-center", THUMB, thumbClassName)}>{thumb}</div>
-      <div
-        className={cn(
-          "flex min-w-0 flex-1 basis-0 flex-col justify-between gap-0 overflow-hidden",
-          contentMinHeight ?? "min-h-14"
-        )}
-      >
-        <div className="flex w-full min-w-0 items-start gap-1.5 pt-1">
-          <div className="min-w-0 flex-1 overflow-hidden">{title}</div>
-          {topRight ? <div className="shrink-0">{topRight}</div> : null}
-        </div>
-        <div className="-mt-1.5 flex w-full min-w-0 items-center justify-between gap-2 overflow-hidden pb-0.5">
-          <div className="min-w-0 max-w-[46%] shrink">
+    <div className="flex w-full min-w-0 items-center gap-2">
+      <div className={cn("shrink-0", THUMB, thumbClassName)}>{thumb}</div>
+      <div className={cn("flex min-w-0 flex-1 flex-col gap-1", contentMinHeight)}>
+        <div className="min-w-0 overflow-hidden pe-5 leading-tight">{title}</div>
+        <div className="relative flex min-h-7 w-full items-center overflow-visible">
+          <div className="z-0 min-w-0 max-w-[42%] shrink-0 leading-none">
             <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
           </div>
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <ProductRequestLineQty
-              qty={qty}
-              onDecQty={onDecQty}
-              onIncQty={onIncQty}
-              qtyDisabledDec={qtyDisabledDec}
-              qtyDisabledInc={qtyDisabledInc}
-            />
-            {bottomRight ? (
-              <>
-                <span className="h-7 w-px shrink-0 bg-border/50" aria-hidden />
-                <div className="shrink-0">{bottomRight}</div>
-              </>
-            ) : null}
+          <div className="absolute left-1/2 top-1/2 z-[1] flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 overflow-visible">
+            {qtyControl}
+            {bottomRight ?? null}
           </div>
         </div>
       </div>
@@ -198,22 +318,14 @@ export function ProductRequestLineMessageButton({
 /** PU/Tot + Qté (Message optionnel en ligne, sinon rangée dédiée sous le cart). */
 export function ProductRequestLineBodyGrid({
   unitPrice,
-  qty,
+  qtyControl,
   totalValue,
-  onDecQty,
-  onIncQty,
-  qtyDisabledDec,
-  qtyDisabledInc,
   messageButton,
   className,
 }: {
   unitPrice: number | null;
-  qty: number;
+  qtyControl: ReactNode;
   totalValue: number | null;
-  onDecQty: () => void;
-  onIncQty: () => void;
-  qtyDisabledDec?: boolean;
-  qtyDisabledInc?: boolean;
   messageButton?: ReactNode;
   className?: string;
 }) {
@@ -225,14 +337,57 @@ export function ProductRequestLineBodyGrid({
       )}
     >
       <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
-      <ProductRequestLineQty
-        qty={qty}
-        onDecQty={onDecQty}
-        onIncQty={onIncQty}
-        qtyDisabledDec={qtyDisabledDec}
-        qtyDisabledInc={qtyDisabledInc}
-      />
+      {qtyControl}
       {messageButton ? <div className="ml-auto flex shrink-0 items-center">{messageButton}</div> : null}
+    </div>
+  );
+}
+
+/** Barre recherche + Explorer (saisie et modification demande envoyée). */
+export function ProductRequestSearchExplorerRow({
+  query,
+  onQueryChange,
+  explorerHref,
+  onExplorerNavigate,
+  fieldFocus = t.focus,
+  placeholder = "Nom ou laboratoire (2 car. min.)…",
+  searchSlot,
+}: {
+  query: string;
+  onQueryChange: (v: string) => void;
+  explorerHref: string;
+  onExplorerNavigate?: () => void;
+  fieldFocus?: string;
+  placeholder?: string;
+  searchSlot?: ReactNode;
+}) {
+  return (
+    <div className={cn("overflow-hidden rounded-2xl border bg-card shadow-sm", t.shell)}>
+      <div className="flex items-stretch gap-2 px-3 py-2.5 sm:px-3.5">
+        <div className="relative min-w-0 flex-1">
+          <Search
+            className={cn("pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2", t.searchIcon)}
+            aria-hidden
+          />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder={placeholder}
+            aria-label={placeholder}
+            className={cn(
+              "h-10 w-full rounded-xl border-2 bg-background py-2 pl-9 pr-3 text-[15px] leading-normal shadow-sm placeholder:text-muted-foreground",
+              t.searchInput,
+              fieldFocus
+            )}
+          />
+        </div>
+        <Link href={explorerHref} onClick={onExplorerNavigate} className={cn(t.explorerBtn, "h-10 px-3")}>
+          <LayoutGrid className="size-4 shrink-0" aria-hidden />
+          Explorer
+        </Link>
+      </div>
+      {searchSlot ? <div className={cn("border-t px-3 pb-2.5 pt-0", t.searchDivider)}>{searchSlot}</div> : null}
     </div>
   );
 }
@@ -467,31 +622,24 @@ export function ProductRequestCartLineRow({
   );
 
   return (
-    <li className="w-full min-w-0 border-b border-border/50 py-2 last:border-b-0">
+    <li className={cn("relative w-full min-w-0 overflow-visible p-1", PRODUCT_REQUEST_LINE_CARD_SHELL)}>
+      <ProductRequestLineDeleteButton onClick={onRemove} />
       <ProductRequestLinePanel
         title={
           <p className="truncate text-[13px] font-semibold leading-none text-foreground" title={line.name}>
             {line.name}
           </p>
         }
-        topRight={
-          <button
-            type="button"
-            aria-label="Retirer le produit"
-            className="-mr-0.5 rounded-md p-1 text-destructive transition hover:bg-destructive/10"
-            onClick={onRemove}
-          >
-            <Trash2 size={16} />
-          </button>
-        }
         unitPrice={unitPrice}
         totalValue={unitPrice != null ? unitPrice * line.qty : null}
-        qty={line.qty}
-        onDecQty={() => onSetQty(line.qty - 1)}
-        onIncQty={() => onSetQty(line.qty + 1)}
-        qtyDisabledInc={line.qty >= 10}
+        qtyControl={
+          <ProductRequestLineQtyPicker
+            qty={line.qty}
+            onSelect={(n) => onSetQty(Math.min(10, Math.max(1, n)))}
+          />
+        }
         bottomRight={
-          <ProductRequestLineMessageButton hasComment={hasComment} onClick={onOpenComment} />
+          <ProductRequestLineMessageIconButton hasComment={hasComment} onClick={onOpenComment} />
         }
         thumb={thumbInner}
       />

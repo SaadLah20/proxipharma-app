@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.32** (dernier lot : **patient demande produits** — saisie publique + **envoyée** + **répondue** UI ; §4.6 étape 2 patient largement faite) ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.32** (dernier lot : **patient demande produits** — saisie publique + **envoyée** + **répondue** + **validée** UI ; §4.6 étapes 1–3 patient largement faites) ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** : pour **vider toutes les demandes** en environnement de test → `scripts/clear-all-requests.mjs` (`.env.local` avec `SUPABASE_SERVICE_ROLE_KEY`) ou SQL `supabase/scripts/clear-all-requests.sql` dans l’éditeur Supabase. **Doublons patient** (même téléphone, 2× `auth.users`) en pilote : reset demandes + suppression des comptes Auth puis nouvelle inscription. Plan de tests E2E demandes produits → fichier Canvas Cursor `canvases/product-requests-e2e-test-plan.canvas.tsx` (mention §13.5).
@@ -148,7 +148,7 @@ Cas de rendu attendus:
 
 Sans nouvelle validation patient obligatoire pour les ajustements officine courants :
 
-- **Référence figée** : ce que le patient a validé reste lisible en base via **`selected_qty`**, **`patient_chosen_alternative_id`** (principal vs alternative). **UI (écran actions patient `PatientProductRequestActions`, statuts `confirmed` / `processing` / `treated`)** : **cartes compactes** (photo, titre retenu, qté, synthèse disponibilité) **groupées** (à réserver en officine · à commander · cas limites · écart après validation) ; **lignes non retenues** en **section repliable fermée par défaut** (trace) ; **Historique** par ligne → **modal** avec chronologie (**`lib/build-patient-line-timeline-fr.ts`** : origine, réponse officine, validation, audits `audit_v1` filtrés produit, amendements ciblés `request_item_id`, situation actuelle). Le **détail lecture seule** hors ce bloc (statuts sans actions, ex. **clôturé**) peut encore reprendre la **liste complète** dans **`page.tsx`**.
+- **Référence figée** : ce que le patient a validé reste lisible en base via **`selected_qty`**, **`patient_chosen_alternative_id`** (principal vs alternative). **UI (écran actions patient `PatientProductRequestActions`, statuts `confirmed` / `processing` / `treated`)** : **cartes compactes** (photo, titre retenu, qté validée, PU/Tot indicatif) **groupées** (à réserver · à commander · cas limites · écart) ; **bandeau libellés** sous chaque carte (**`lib/patient-validated-line-labels-fr.ts`** : origine + statut préparation + événements officine, sans redondance) ; **lignes non retenues** en **section repliable fermée par défaut** ; **Historique** + **notes ligne** (icône) par produit → modal chronologie (**`lib/build-patient-line-timeline-fr.ts`**). Le **détail lecture seule** hors ce bloc (statuts sans actions, ex. **clôturé**) peut encore reprendre la **liste complète** dans **`page.tsx`**.
 - **Suivi courant** : encart **« Suivi officine »** avec **mêmes champs** (qté, dispo, prix, état). Tant qu'**aucun `counter_outcome` n'est posé** sur la ligne (i.e. la pharmacie n'a pas commencé l'exécution comptoir), l'encart affiche un placeholder **« En cours · la pharmacie n'a pas encore commencé… »** (pas de données techniques exposées). Dès qu'un résultat comptoir est saisi, le bloc bascule en mode complet ; message si **quantité suivie ≠ quantité validée**.
 - **Statuts dossier après validation (DB)** : en plus de **`confirmed`**, le workflow produit utilise **`processing`** (préparation officine enregistrée côté système) et **`treated`** (la pharmacie déclare la préparation terminée ; le suivi actif est le **comptoir** jusqu'à **`completed`**). Transitions typiques : premier lot d'ajustements structurés avec canal patient ou première saisie **`reserved`/`ordered`** depuis **`confirmed`** peut faire passer en **`processing`** ; RPC **`pharmacist_mark_request_treated`** passe en **`treated`** lorsque chaque ligne **retenue et non écartée** est cohérente (**`reserved`** sur voie officine disponible / partiel, **`ordered`** sur voie à commander).
 - **Après validation — réservation / commande (sans comptoir)** : chaque ligne peut porter **`post_confirm_fulfillment`** (`unset` / `reserved` / `ordered`) — saisie pharmacien en **`confirmed`**, **`processing`** ou **`treated`**. Les **hubs** et les **cartes liste** affichent **`processing`** ou **`treated`** quand le statut DB l'est ; le statut virtuel **`in_progress_virtual`** (« **En préparation** ») subsiste tant que le dossier reste **`confirmed`** avec **au moins une ligne** **`reserved`** ou **`ordered`** mais sans encore **`processing`** en base (rétrocompatibilité avec l'ancre **`post_confirm_fulfillment`** seule).
@@ -176,8 +176,8 @@ Sans nouvelle validation patient obligatoire pour les ajustements officine coura
 | Étape | Périmètre métier (libellé grand public) | Côté patient | Côté pharmacien |
 |-------|----------------------------------------|--------------|-----------------|
 | 1 | **Demande envoyée** (`submitted` / `in_review`) | Page détail + hub — **affinée** (header dossier sky, lignes compactes, mobile) | Page détail + hub — **à clôturer** pour ce jalon |
-| 2 | **Demande répondue** (`responded`) | **Affinée** (header sky, blocs compacts, onglets alternatives, modale confirmation) — QA terrain | À affiner |
-| 3 | **Validée** (`confirmed` sans entrée en **`processing`** ni virtuel **`in_progress_virtual`** uniquement via lignes) | Affinée (**focus produits validés** : cartes courtes groupées + historique ligne + lignes non retenues repliable ; contact / passage / abandon) | Affinée (synthèse alignée patient, réservé/commandé) |
+| 2 | **Demande répondue** (`responded`) | **Affinée** (header sky, blocs compacts, alternatives groupées, qty conservée au recochage, indispo sans case, modale confirmation) — QA terrain | À affiner |
+| 3 | **Validée** (`confirmed` sans entrée en **`processing`** ni virtuel **`in_progress_virtual`** uniquement via lignes) | **Affinée** (cartes **`PatientValidatedCompactLineCard`**, bandeau libellés **`lib/patient-validated-line-labels-fr.ts`**, notes **`PatientLineNotesIconButton`**, sans pastilles dispo ni bandeau suivi sur la carte ; groupes à réserver / à commander + **`<details>`** non retenues) | Affinée (synthèse alignée patient, réservé/commandé) |
 | 4 | **En préparation officine** (`processing` en DB, ou `confirmed` + `in_progress_virtual` si réservé/commandé sans migration statut) | Affinée (même logique compacte que validée ; pas de liste amendements « pleine page ») | Affinée (enregistrement traçabilité, déclaration traitée si règles OK) |
 | 5 | **Traitée** (`treated`) — suivi retrait comptoir jusqu'à **`completed`** | Affinée (idem) | Affinée |
 
@@ -351,9 +351,9 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
-### Session 2026-05-25 — Patient demande produits : saisie publique, envoyée, répondue (UI/UX)
+### Session 2026-05-25 — Patient demande produits : saisie publique, envoyée, répondue, validée (UI/UX)
 
-**Branche** : `fix/validated-supply-ecart-ui-modal` — commits poussés **`e37f667`** … **`41a6f70`** (lot UI patient ; pas de nouvelle migration).
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits poussés **`e37f667`** … **`aec3071`** (lot UI patient ; pas de nouvelle migration).
 
 **Saisie publique** (`/pharmacie/[id]/demande-produits` + **catalogue**) :
 - Grille compacte **`ProductRequestLinePanel`** — **`components/pharmacy/patient-demande-produits-ui.tsx`** (photo 56px, PU/Total, Qté, Message).
@@ -363,20 +363,32 @@ git checkout pilote-stable-2026-05-24
 - En-tête **`PatientProductRequestDossierHeader`** (sky, N°, Contacter, Voir la fiche).
 - Lignes **`PatientProductRequestCompactLine`** ; correctifs mobile (`overflow-x-hidden`, import `cn`).
 
-**Demande répondue** (`responded`) — **`components/requests/product/patient-responded-line-chooser.tsx`** (nouveau) + **`patient-product-request-actions.tsx`** :
+**Demande répondue** (`responded`) — **`components/requests/product/patient-responded-line-chooser.tsx`** + **`patient-product-request-actions.tsx`** :
 - Même en-tête dossier sky que **envoyée**.
-- Bloc produit compact : **case à cocher** sur le **coin haut gauche du bloc** (léger débordement hors bordure ; avec **onglets** alternatives : position un peu plus basse pour ne pas gêner les onglets — prop **`variantTabsAbove`**).
-- Badges **Ta demande** / **Alternative** / **Ajout Officine** ; **Stk** (pas « Demandé » sur alternative) ; **PU / Tot** sur une ligne ; titre produit **une ligne** (`truncate` + `title` au survol).
-- **Motif** ajout officine **dans le bloc** (ligne unique « Motif · … », ellipsis si long).
-- Lignes avec alternatives : **onglets** (Ta demande, Alternative 1…).
-- Indisponible / rupture : bloc **grisé** léger (case désactivée) ; non retenu : fond atténué + **titre barré** (plus de bandeau texte « Pas de stock… »).
-- Modale **Confirmer ta sélection** : charte sky, **total de la sélection** mis en avant, cartes recap compactes.
+- Bloc produit compact : **case à cocher** sur le **coin haut gauche du bloc** (léger débordement ; avec **onglets** alternatives : position plus basse — prop **`variantTabsAbove`**).
+- **Alternatives groupées** : un seul conteneur bordé sky (« Choisir une option », onglets + carte active).
+- Badges **Ta demande** / **Alternative** / **Ajout Officine** ; **PU** + **Tot** indicatif (Tot sous PU) ; titre produit **une ligne** (`truncate` + `title`).
+- **Motif** ajout officine **dans le bloc** (ellipsis si long).
+- Indisponible / rupture : icône **Ban** (pas de case) ; non retenu : fond atténué + **titre barré**.
+- **Qté conservée** au recochage d’une ligne déjà retenue (`toggleLineRetention` garde `prev.qty` si `branch: null`).
+- Modale **Confirmer ta sélection** : charte sky, **total** mis en avant.
+
+**Demande validée** (`confirmed` / `processing` / `treated` — cartes actives) — **`patient-product-request-actions.tsx`** :
+- En-tête **`PatientProductRequestDossierHeader`** (shell sky/teal) à la place du récap envoyée.
+- Carte **`PatientValidatedCompactLineCard`** : photo ~62px, nom 1 ligne, **Historique** + **`PatientLineNotesIconButton`** (si notes ligne), **PU / Tot** indicatif, **qté validée** lecture seule.
+- **Bandeau libellés** sous la carte : **`lib/patient-validated-line-labels-fr.ts`** (`buildPatientValidatedLineLabelsFr`) — **origine** (Ta demande, Alternative, Ajout Officine, ordonnance…) + **un** statut préparation (À réserver, Réservé, À commander, Commandé, Reçu en officine, Récupéré) + **événements** officine (Modifié / Ajouté / Écarté) **sans redondance** avec l’origine.
+- **Retiré** sur la carte : pastilles **disponibilité**, bandeau suivi ligne, badges amendements dupliqués dans le corps.
+- Listes groupées : **À réserver** / **À commander** ; amber hors périmètre & écarts ; **`<details>`** sky pour lignes **non retenues** (fermé par défaut).
+
+**Fiche publique Services** (`d108e33`) — **`pharmacy-public-profile.tsx`** : plus de grille Appeler/WhatsApp/Itinéraire en tête onglet Services ; intro épurée.
+
+**Lint CI** (`aec3071`) — **`patient-line-notes-icon-button.tsx`** : hooks toujours exécutés (`hasNotes` avant `return null`) ; nettoyage imports morts dans **`patient-product-request-actions.tsx`**.
 
 **Phrase de reprise** : **§13.32**.
 
-**Prochain jalon documenté (§4.6)** : finir UI patient **validée / traitée / terminés** si retours ; puis **pharmacien** — **envoyée** puis **répondue**.
+**Prochain jalon documenté (§4.6)** : affiner UI patient **traitée** + dossiers **terminés** (lecture seule) si retours ; puis **pharmacien** — **envoyée** puis **répondue**.
 
-**QA** : demande test en `responded` (principal, alternative, ajout officine, ligne non cochée, ligne indispo) → validation → suite parcours.
+**QA** : `responded` (principal, alternative groupée, ajout officine, indispo Ban, qty recochage) → validation → `confirmed` (libellés origine/statut/écarté, notes, pas de dispo sur carte).
 
 ---
 
@@ -1746,7 +1758,7 @@ Voir **§13.32**.
 
 ### 13.32) Phrase de reprise (recommandée — après session **2026-05-25** patient demande produits UI)
 
-**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`e37f667`** … **`41a6f70`** : patient demande produits — saisie publique + détail **envoyée** + **répondue** ; §10 session **2026-05-25**). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.6**, **§10**, §11. Supabase : jusqu’à **`20260622_001`** (**appliquées**) — **pas de nouvelle migration** sur ce lot UI. Fichiers clés patient : `components/pharmacy/patient-demande-produits-ui.tsx`, `components/requests/product/patient-product-request-dossier-header.tsx`, `components/requests/product/patient-responded-line-chooser.tsx`, `components/requests/product/patient-product-request-actions.tsx`, `app/dashboard/demandes/[id]/page.tsx`. **Fait** : §4.6 étapes 1–2 patient (envoyée + répondue, dont case retenir sur coin du bloc + ajustement si onglets alternatives). **À faire ensuite** : (1) compléter UI/UX **patient** — validée `confirmed`, traitée `treated`, dossiers terminés (§4.6 étapes 3–5 + règle transverse) selon retours preview ; (2) **pharmacien** — même roadmap §4.6 : d’abord **demande envoyée** (hub + détail), puis **répondue**, aligné patient. Référence stable : tag **`pilote-stable-2026-05-24`** → **`0c4f0e7`** (§10.1). Je te donne la tâche précise ou les retours terrain. »**
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`e37f667`** … **`aec3071`** : patient demande produits — saisie publique + **envoyée** + **répondue** + **validée** ; §10 session **2026-05-25**). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.6**, **§10**, §11. Supabase : jusqu’à **`20260622_001`** (**appliquées**) — **pas de nouvelle migration** sur ce lot UI. Fichiers clés patient : `components/pharmacy/patient-demande-produits-ui.tsx`, `components/requests/product/patient-product-request-dossier-header.tsx`, `components/requests/product/patient-responded-line-chooser.tsx`, `components/requests/product/patient-product-request-actions.tsx`, `lib/patient-validated-line-labels-fr.ts`, `components/requests/product/patient-line-notes-icon-button.tsx`, `app/dashboard/demandes/[id]/page.tsx`. **Fait** : §4.6 étapes 1–3 patient (envoyée, répondue avec alternatives groupées + qty recochage + Ban indispo, validée avec cartes compactes + bandeau libellés dédiés + notes icon, sans dispo/suivi sur carte). **À faire ensuite** : (1) affiner **traitée** `treated` et dossiers **terminés** (§4.6 étapes 4–5 + règle transverse) selon retours preview ; (2) **pharmacien** — §4.6 : **envoyée** puis **répondue**, aligné patient. Référence stable : tag **`pilote-stable-2026-05-24`** → **`0c4f0e7`** (§10.1). Je te donne la tâche précise ou les retours terrain. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
