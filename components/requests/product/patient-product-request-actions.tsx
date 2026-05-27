@@ -2789,7 +2789,7 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction !== "" || !resubmitDirty || lines.length === 0}
                   onClick={() => openResubmitConfirm()}
-                  className="h-10 min-w-0 flex-1 rounded-lg border border-amber-500/80 bg-amber-50 px-2 text-sm font-semibold text-amber-950 shadow-sm hover:bg-amber-100/90 disabled:cursor-not-allowed disabled:opacity-45"
+                  className="h-10 min-w-0 flex-1 rounded-lg bg-primary px-2 text-sm font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {busyAction === "resubmit" ? "Enregistrement…" : "Enregistrer les modifications"}
                 </button>
@@ -2862,7 +2862,7 @@ export function PatientProductRequestActions({
               type="button"
               disabled={busyAction !== "" || visitWin.missingEtaOnToOrder}
               onClick={openConfirmReview}
-              className="flex h-11 w-full items-center justify-center rounded-lg border border-amber-600 bg-amber-600/95 px-4 text-base font-semibold text-white shadow-md transition hover:bg-amber-700 disabled:opacity-50"
+              className="flex h-11 w-full items-center justify-center rounded-xl bg-primary px-4 text-base font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50"
             >
               Valider ma demande
             </button>
