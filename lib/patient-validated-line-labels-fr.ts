@@ -1,6 +1,8 @@
 import { postConfirmSupplyAmendmentBadgeLabelsFr } from "@/lib/build-patient-line-timeline-fr";
+import { formatDateShortFr } from "@/lib/datetime-fr";
 import {
   effectiveAvailabilityForPatientLine,
+  effectiveEtaForPatientLine,
   type PatientLineLike,
 } from "@/lib/patient-confirmed-line-buckets";
 import {
@@ -69,6 +71,18 @@ export function buildPatientValidatedLineLabelsFr(input: {
   } else {
     const status = fulfillmentStatusLabelFr(row);
     if (status) out.push({ key: "status", text: status, tone: "status" });
+    const eff = effectiveAvailabilityForPatientLine(row);
+    const eta = effectiveEtaForPatientLine(row);
+    if (eta && (eff === "to_order" || ajoutOrigin)) {
+      out.push({
+        key: "reception",
+        text:
+          eff === "to_order"
+            ? `Réception prévue · ${formatDateShortFr(eta)}`
+            : `Réception · ${formatDateShortFr(eta)}`,
+        tone: "status",
+      });
+    }
   }
 
   const seenEvent = new Set<string>();

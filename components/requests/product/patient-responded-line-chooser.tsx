@@ -79,13 +79,6 @@ function lineBadgeLabelFr(opts: {
   return "Ta demande";
 }
 
-function badgeToneClass(label: string): string {
-  if (label === "Alternative") return "bg-teal-700 text-white";
-  if (label === "Ta demande") return "bg-sky-700 text-white";
-  if (label === "Ordonnance") return "bg-amber-700 text-white";
-  return "bg-violet-700 text-white";
-}
-
 /** Date de réception (produit à commander). */
 function RespondedReceptionBadgeFr({ dateYmd }: { dateYmd: string }) {
   return (
@@ -336,6 +329,7 @@ function RespondedLineBlock({
   onPhotoPreview,
   requestType,
   isProposedLine,
+  ajoutOfficineLabel = "Ajout Officine",
   variantTabsAbove = false,
 }: {
   variant: VariantData;
@@ -346,6 +340,7 @@ function RespondedLineBlock({
   onPhotoPreview?: (url: string, title: string) => void;
   requestType: string;
   isProposedLine: boolean;
+  ajoutOfficineLabel?: string;
   /** Onglets Ta demande / Alternative au-dessus — case un peu plus basse pour ne pas gêner. */
   variantTabsAbove?: boolean;
 }) {
@@ -431,28 +426,16 @@ function RespondedLineBlock({
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-visible py-0.5">
-          <div className="flex min-w-0 items-center gap-1.5 overflow-hidden leading-none">
-            <span
-              className={cn(
-                "shrink-0 rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide leading-tight",
-                badgeToneClass(variant.badgeLabel),
-                unavailable && "opacity-90",
-                notRetained && !unavailable && "opacity-80"
-              )}
-            >
-              {variant.badgeLabel}
-            </span>
-            <p
-              className={cn(
-                "min-w-0 flex-1 truncate text-[13px] font-semibold leading-none",
-                unavailable ? "text-slate-600" : "text-foreground",
-                notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
-              )}
-              title={variant.productName}
-            >
-              {variant.productName}
-            </p>
-          </div>
+          <p
+            className={cn(
+              "min-w-0 truncate pb-px pe-1 text-[13px] font-semibold leading-snug",
+              unavailable ? "text-slate-600" : "text-foreground",
+              notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
+            )}
+            title={variant.productName}
+          >
+            {variant.productName}
+          </p>
 
           {isProposedBlock ? (
             <p
@@ -465,6 +448,9 @@ function RespondedLineBlock({
                     : "bg-violet-50/95 text-violet-950 ring-1 ring-violet-200/60"
               )}
             >
+              <span className="mr-1.5 inline-flex max-w-full shrink-0 items-center rounded bg-violet-700 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide leading-tight text-white">
+                {ajoutOfficineLabel}
+              </span>
               {variant.proposalReason ? (
                 <>
                   <span className="font-semibold text-violet-800">Motif · </span>
@@ -705,6 +691,7 @@ export function RespondedPatientLineChooser({
           onPhotoPreview={onPhotoPreview}
           requestType={requestType}
           isProposedLine={isProposedLine}
+          ajoutOfficineLabel={pharmacistProposedBadgeLabel}
         />
       </li>
     );
@@ -736,6 +723,7 @@ export function RespondedPatientLineChooser({
           onPhotoPreview={onPhotoPreview}
           requestType={requestType}
           isProposedLine={isProposedLine && activeTab === "principal"}
+          ajoutOfficineLabel={pharmacistProposedBadgeLabel}
           variantTabsAbove
         />
       </div>

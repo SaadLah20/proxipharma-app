@@ -79,6 +79,16 @@ function ProductRequestLineQtyLabel({ qty, className }: { qty: number; className
   );
 }
 
+/** Qté lecture seule, même ligne et typo que PU (label 10px + valeur sm). */
+export function ProductRequestLineQtyInline({ qty }: { qty: number }) {
+  return (
+    <p className="flex min-w-0 items-baseline gap-1 whitespace-nowrap leading-none">
+      <span className="shrink-0 text-[10px] font-medium text-muted-foreground">Qté</span>
+      <span className="text-sm font-bold tabular-nums text-foreground">{qty}</span>
+    </p>
+  );
+}
+
 /** Qté lecture seule (alignée sur le sélecteur). */
 export function ProductRequestLineQtyReadonly({ qty }: { qty: number }) {
   return (
@@ -632,7 +642,7 @@ export function ProductRequestCartLineRow({
       <ProductRequestLineDeleteButton onClick={onRemove} />
       <ProductRequestLinePanel
         title={
-          <p className="truncate text-[13px] font-semibold leading-none text-foreground" title={line.name}>
+          <p className="truncate pb-px text-[13px] font-semibold leading-snug text-foreground" title={line.name}>
             {line.name}
           </p>
         }

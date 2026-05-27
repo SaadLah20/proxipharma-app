@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatDateShortFr, formatDateTimeShort24hFr, formatPlannedVisitFr, formatTime24hFr } from "@/lib/datetime-fr";
 import {
@@ -30,6 +31,11 @@ import {
   requestStatusFr,
 } from "@/lib/request-display";
 import { plannedVisitWindow } from "@/lib/planned-visit";
+import {
+  bucketPatientRespondedLines,
+  PATIENT_RESPONDED_BUCKET_ORDER,
+  patientRespondedBucketTitleFr,
+} from "@/lib/patient-responded-line-buckets";
 import {
   bucketPatientValidatedLinesThreeWays,
   type PatientLineLike,
@@ -46,10 +52,13 @@ import {
   PriceDhInline,
   ProductRequestCatalogHitRow,
   ProductRequestLineMessageIconButton,
+  ProductRequestLineQtyInline,
+  ProductRequestLinePrices,
   ProductRequestSearchExplorerRow,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import { PatientProductRequestDossierHeader } from "@/components/requests/product/patient-product-request-dossier-header";
 import { PatientProductRequestCompactLine } from "@/components/requests/product/patient-product-request-compact-line";
+import { PatientPharmaUpdateBanner } from "@/components/requests/product/patient-pharma-update-banner";
 import { RespondedPatientLineChooser } from "@/components/requests/product/patient-responded-line-chooser";
 import {
   PatientPharmacyQuickContact,
@@ -259,7 +268,7 @@ function validatedLineShellClass(
   }
   if (tier === "dispo_officine") return "border-emerald-300/85 bg-white ring-1 ring-emerald-200/55";
   if (tier === "commande") return "border-teal-300/85 bg-white ring-1 ring-teal-200/55";
-  if (tier === "retire_apres_validation") return "border-amber-200/80 bg-amber-50/25";
+  if (tier === "retire_apres_validation") return "border-red-200/85 bg-red-50/30";
   return "border-slate-200/80 bg-white";
 }
 
@@ -341,11 +350,11 @@ function PatientValidatedCompactLineCard({
           {thumbInner}
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 py-0.5">
-          <div className="flex min-w-0 items-center gap-1 leading-none">
+        <div className="flex min-w-0 flex-1 flex-col gap-2 py-0.5">
+          <div className="flex min-w-0 items-start gap-1">
             <p
               className={cn(
-                "min-w-0 flex-1 truncate text-[13px] font-semibold leading-none",
+                "min-w-0 flex-1 truncate pb-px text-[13px] font-semibold leading-snug",
                 withdrawnGrey && "text-muted-foreground line-through decoration-slate-400/90"
               )}
               title={validatedName}
@@ -361,56 +370,30 @@ function PatientValidatedCompactLineCard({
             >
               <History className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
             </button>
-            <PatientLineNotesIconButton
-              productName={validatedName}
-              client={row.client_comment ?? ""}
-              pharmacist={row.pharmacist_comment ?? ""}
-            />
           </div>
 
           <div
             className={cn(
-              "flex min-w-0 items-center gap-3 leading-none",
+              "flex w-full items-end justify-between gap-2 leading-none",
               withdrawnGrey && "opacity-85"
             )}
           >
-            <div className="flex shrink-0 flex-col gap-1 leading-none text-muted-foreground">
-              <div className="flex items-baseline gap-1.5">
-                <span className="w-[1.4rem] shrink-0 text-[11px] leading-none">PU</span>
-                <span className="whitespace-nowrap">
-                  {unitMad != null ? (
-                    <PriceDhInline
-                      value={unitMad}
-                      amountClassName="text-xs font-bold leading-none text-foreground"
-                      suffixClassName="text-[9px] leading-none"
-                    />
-                  ) : (
-                    <strong className="text-xs leading-none text-foreground">—</strong>
-                  )}
-                </span>
-              </div>
-              {lineTotalMad != null && row.is_selected_by_patient ? (
-                <div className="flex items-baseline gap-1.5">
-                  <span className="w-[1.4rem] shrink-0 text-[8px] font-medium leading-none">Tot</span>
-                  <span
-                    className={cn(
-                      "whitespace-nowrap text-[8px] font-medium text-muted-foreground/90",
-                      withdrawnGrey && "line-through decoration-muted-foreground/70"
-                    )}
-                  >
-                    <PriceDhInline
-                      value={lineTotalMad}
-                      amountClassName="text-[9px] font-semibold leading-none text-muted-foreground"
-                      suffixClassName="text-[7px] leading-none"
-                    />
-                  </span>
-                </div>
-              ) : null}
+            <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
+              <ProductRequestLinePrices
+                unitPrice={unitMad}
+                totalValue={
+                  lineTotalMad != null && row.is_selected_by_patient ? lineTotalMad : null
+                }
+              />
+              <ProductRequestLineQtyInline qty={displayQty} />
             </div>
-
-            <span className="ml-auto whitespace-nowrap text-[11px] text-muted-foreground">
-              Qté <strong className="font-semibold tabular-nums text-foreground">{displayQty}</strong>
-            </span>
+            <div className="flex shrink-0 self-end">
+              <PatientLineNotesIconButton
+                productName={validatedName}
+                client={row.client_comment ?? ""}
+                pharmacist={row.pharmacist_comment ?? ""}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -528,6 +511,26 @@ function pickDefaultBranch(row: ActionItemRow, alts: ActionItemAltRow[]): LineBr
     if (maxQtyAlt(row, alt) > 0) return alt.id;
   }
   return null;
+}
+
+function computeSelFromConfirmedItems(items: ActionItemRow[]): Record<string, LineSelState> {
+  const next: Record<string, LineSelState> = {};
+  for (const row of items) {
+    const alts = normalizeAlternatives(row.request_item_alternatives);
+    let branch: LineBranch = null;
+    if (row.is_selected_by_patient) {
+      branch = row.patient_chosen_alternative_id ?? "principal";
+    }
+    const cap = maxQtyForBranch(row, branch, alts);
+    if (branch !== null && cap < 1) branch = null;
+    const rawQty = row.selected_qty != null ? Number(row.selected_qty) : row.requested_qty;
+    const clamped =
+      branch !== null && cap > 0 ? Math.min(Math.max(1, rawQty), cap) : 1;
+    const browseQty: Record<string, number> = {};
+    if (branch !== null) browseQty[lineBranchKey(branch)] = clamped;
+    next[row.id] = { branch, qty: clamped, browseQty };
+  }
+  return next;
 }
 
 function computeSelFromItems(items: ActionItemRow[]): Record<string, LineSelState> {
@@ -1608,6 +1611,8 @@ export function PatientProductRequestActions({
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<ProductHit[]>([]);
   const [editMode, setEditMode] = useState(false);
+  const [confirmedRevalidationMode, setConfirmedRevalidationMode] = useState(false);
+  const [confirmReviewMode, setConfirmReviewMode] = useState<"initial" | "revalidation">("initial");
   const [resubmitConfirmOpen, setResubmitConfirmOpen] = useState(false);
   const [shouldRestoreFromCatalogue] = useState(() =>
     requestId ? peekPatientDemandeCatalogueReturnEdit(requestId) : false
@@ -1986,6 +1991,7 @@ export function PatientProductRequestActions({
   }, []);
 
   const openConfirmReview = useCallback(() => {
+    setConfirmReviewMode("initial");
     const built = buildPatientConfirmSelection(items, sel, requestType, supplyAmendmentBundles);
     const err = validatePatientConfirmBeforeReview(items, sel, built.rpcPayload, visitWin, resolvedVisitDate, visitDate);
     if (err) {
@@ -2005,6 +2011,63 @@ export function PatientProductRequestActions({
     });
     setConfirmReviewOpen(true);
   }, [items, sel, requestType, supplyAmendmentBundles, visitWin, resolvedVisitDate, visitDate, visitTimeComposed]);
+
+  const openConfirmedRevalidationReview = useCallback(() => {
+    if (detailStale) {
+      setActionError(detailStale.message);
+      return;
+    }
+    setConfirmReviewMode("revalidation");
+    const built = buildPatientConfirmSelection(items, sel, requestType, supplyAmendmentBundles);
+    const err = validatePatientConfirmBeforeReview(
+      items,
+      sel,
+      built.rpcPayload,
+      visitWin,
+      resolvedVisitDate,
+      resolvedVisitDate
+    );
+    if (err) {
+      setActionError(err);
+      return;
+    }
+    setActionError("");
+    const skippedLines = buildNonRetainedConfirmLines(items, sel, requestType, supplyAmendmentBundles);
+    setConfirmReviewSnap({
+      rpcPayload: built.rpcPayload,
+      preview: built.preview,
+      skippedLines,
+      plannedVisitDate: resolvedVisitDate,
+      plannedVisitTimePg: htmlTimeToPg(visitTimeComposed),
+      visitSummaryFr: formatPlannedVisitFr(resolvedVisitDate, htmlTimeToPg(visitTimeComposed) ?? null),
+    });
+    setConfirmReviewOpen(true);
+  }, [
+    items,
+    sel,
+    requestType,
+    supplyAmendmentBundles,
+    visitWin,
+    resolvedVisitDate,
+    visitTimeComposed,
+    detailStale,
+  ]);
+
+  const startConfirmedRevalidation = useCallback(() => {
+    if (detailStale) {
+      setActionError(detailStale.message);
+      return;
+    }
+    setConfirmedRevalidationMode(true);
+    setSel(computeSelFromConfirmedItems(items));
+    setActionError("");
+  }, [items, detailStale]);
+
+  const cancelConfirmedRevalidation = useCallback(() => {
+    setConfirmedRevalidationMode(false);
+    setSel(computeSelFromConfirmedItems(items));
+    setActionError("");
+  }, [items]);
 
   useEffect(() => {
     if (!confirmReviewOpen) return;
@@ -2026,23 +2089,37 @@ export function PatientProductRequestActions({
 
   const performConfirmAfterReview = async () => {
     if (!confirmReviewSnap) return;
+    if (detailStale) {
+      setActionError(detailStale.message);
+      return;
+    }
     setActionError("");
     setBusyAction("confirm");
-    const { error } = await supabase.rpc("patient_confirm_after_response", {
-      p_request_id: requestId,
-      p_selections: confirmReviewSnap.rpcPayload.map((p) => ({
-        request_item_id: p.request_item_id,
-        is_selected: p.is_selected,
-        selected_qty: p.selected_qty,
-        chosen_alternative_id: p.chosen_alternative_id,
-      })),
-      p_planned_visit_date: confirmReviewSnap.plannedVisitDate,
-      p_planned_visit_time: confirmReviewSnap.plannedVisitTimePg,
-    });
+    const selections = confirmReviewSnap.rpcPayload.map((p) => ({
+      request_item_id: p.request_item_id,
+      is_selected: p.is_selected,
+      selected_qty: p.selected_qty,
+      chosen_alternative_id: p.chosen_alternative_id,
+    }));
+    const { error } =
+      confirmReviewMode === "revalidation"
+        ? await supabase.rpc("patient_update_confirmation", {
+            p_request_id: requestId,
+            p_selections: selections,
+            p_expected_updated_at: requestUpdatedAt,
+          })
+        : await supabase.rpc("patient_confirm_after_response", {
+            p_request_id: requestId,
+            p_selections: selections,
+            p_planned_visit_date: confirmReviewSnap.plannedVisitDate,
+            p_planned_visit_time: confirmReviewSnap.plannedVisitTimePg,
+          });
     setBusyAction("");
     if (error) {
       const msg = error.message ?? "";
-      if (/selected_qty out of range|Quantité invalide pour cette ligne/i.test(msg)) {
+      if (/modifié entre-temps|Actualisez la page/i.test(msg)) {
+        setActionError(msg);
+      } else if (/selected_qty out of range|Quantité invalide pour cette ligne/i.test(msg)) {
         setActionError(
           "La quantité dépasse ce que la pharmacie a proposé pour une alternative. Diminuez la quantité (vous ne pouvez pas l’augmenter au-delà de l’offre)."
         );
@@ -2052,6 +2129,7 @@ export function PatientProductRequestActions({
       return;
     }
     closeConfirmReview();
+    setConfirmedRevalidationMode(false);
     await onReload();
   };
 
@@ -2142,6 +2220,10 @@ export function PatientProductRequestActions({
   };
 
   const runUpdateVisit = async () => {
+    if (detailStale) {
+      setActionError(detailStale.message);
+      return;
+    }
     setActionError("");
     const rawVisit = visitDate.trim();
     if (rawVisit !== "" && rawVisit !== resolvedVisitDate) {
@@ -2239,6 +2321,8 @@ export function PatientProductRequestActions({
   };
 
   const showConfirm = uiStatus === "responded";
+  const canPatientRevalidateConfirmation =
+    uiStatus === "confirmed" && !forceReadOnly && requestType === "product_request";
   const showProductResubmit =
     !isPrescription && !isConsultation && (uiStatus === "submitted" || uiStatus === "in_review");
   const showConsultationWaiting =
@@ -2300,18 +2384,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {latestSupplyAmendmentNotice ? (
-        <div className="mb-2 rounded-lg border border-violet-300/80 bg-violet-50/90 px-2.5 py-2 text-[11px] leading-snug text-violet-950 shadow-sm">
-          <p className="font-bold">Mise à jour de la pharmacie · {latestSupplyAmendmentNotice.whenLabel}</p>
-          <ul className="mt-1 list-inside list-disc space-y-0.5 text-violet-900/95">
-            {latestSupplyAmendmentNotice.lines.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-          <p className="mt-1.5 text-[10px] text-violet-800/90">
-            Les cartes ci-dessous reflètent l&apos;état actuel ; le libellé « Modifié après validation » figure sur chaque
-            produit concerné.
-          </p>
-        </div>
+        <PatientPharmaUpdateBanner whenLabel={latestSupplyAmendmentNotice.whenLabel} bundles={supplyAmendmentBundles} />
       ) : null}
 
       {showConsultationWaiting && items.length === 0 ? (
@@ -2382,14 +2455,19 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirm ? (
-        <div className="mt-4 space-y-2.5">
+        <div className="mt-4 space-y-3">
           {items.length > 0 ? (
-            <section className="space-y-2.5">
+            <section className="space-y-3">
               <h3 className="px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 {workflowCopy.patientProductsSectionTitle}
               </h3>
-              <ul className="w-full min-w-0 space-y-2.5 overflow-visible">
-                {items.map((row) => (
+              {(() => {
+                const respondedBuckets = bucketPatientRespondedLines(
+                  items,
+                  requestType,
+                  supplyAmendmentBundles
+                );
+                const renderRespondedLine = (row: ActionItemRow) => (
                   <RespondedPatientLineChooser
                     key={row.id}
                     row={row}
@@ -2403,8 +2481,29 @@ export function PatientProductRequestActions({
                     supplyAmendmentBundles={supplyAmendmentBundles}
                     resolveCatalogUnitPrice={resolveCatalogUnitPriceForProduct}
                   />
-                ))}
-              </ul>
+                );
+                return (
+                  <div className="space-y-3">
+                    {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
+                      const rows = respondedBuckets[bucketId];
+                      if (rows.length === 0) return null;
+                      return (
+                        <section key={bucketId} className="space-y-2">
+                          <h4 className="px-0.5 text-[10px] font-extrabold uppercase tracking-wide text-sky-900/90">
+                            {patientRespondedBucketTitleFr(bucketId)}
+                            <span className="ml-1 font-bold tabular-nums text-muted-foreground">
+                              · {rows.length}
+                            </span>
+                          </h4>
+                          <ul className="w-full min-w-0 space-y-2.5 overflow-visible">
+                            {rows.map((row) => renderRespondedLine(row))}
+                          </ul>
+                        </section>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </section>
           ) : null}
         </div>
@@ -2429,6 +2528,60 @@ export function PatientProductRequestActions({
 
       {showConfirmedCards && !forceReadOnly ? (
         (() => {
+          if (confirmedRevalidationMode) {
+            return (
+              <section className="mt-4 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 px-0.5">
+                  <h3 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    Modifier ma validation
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-[11px]"
+                      disabled={busyAction !== ""}
+                      onClick={cancelConfirmedRevalidation}
+                    >
+                      Annuler
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8 bg-primary text-[11px] text-primary-foreground hover:bg-primary/90"
+                      disabled={busyAction !== "" || Boolean(detailStale)}
+                      onClick={openConfirmedRevalidationReview}
+                    >
+                      Enregistrer ma validation
+                    </Button>
+                  </div>
+                </div>
+                <p className="px-0.5 text-[10px] leading-snug text-muted-foreground">
+                  Tant que la pharmacie n&apos;a pas déclaré la demande traitée, vous pouvez ajuster vos choix (quantités,
+                  alternatives).
+                </p>
+                <ul className="w-full min-w-0 space-y-2.5 overflow-visible">
+                  {items.map((row) => (
+                    <RespondedPatientLineChooser
+                      key={row.id}
+                      row={row}
+                      selState={sel[row.id] ?? emptyLineSelState()}
+                      setLineBranch={setLineBranch}
+                      setLineQty={setLineQty}
+                      toggleLineRetention={toggleLineRetention}
+                      onPhotoPreview={openProductPhotoPreview}
+                      pharmacistProposedBadgeLabel={badgeForRow(row) ?? "Ajout Officine"}
+                      requestType={requestType}
+                      supplyAmendmentBundles={supplyAmendmentBundles}
+                      resolveCatalogUnitPrice={resolveCatalogUnitPriceForProduct}
+                    />
+                  ))}
+                </ul>
+              </section>
+            );
+          }
+
           const { dispoOfficine, aCommander, horsPerimetre, retireesApresValidation } =
             bucketPatientValidatedLinesThreeWays(items);
           const dispoRetenues = dispoOfficine.filter((r) => r.is_selected_by_patient);
@@ -2440,15 +2593,32 @@ export function PatientProductRequestActions({
 
           return (
             <section className="space-y-3">
-              <h3 className="mt-4 px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              {canPatientRevalidateConfirmation ? (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sky-200/80 bg-sky-50/50 px-2.5 py-2">
+                  <p className="text-[10px] leading-snug text-sky-950">
+                    Besoin d&apos;ajuster vos choix validés&nbsp;?
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 border-amber-400/80 bg-white text-[11px] font-semibold text-amber-950 hover:bg-amber-50"
+                    disabled={busyAction !== "" || Boolean(detailStale)}
+                    onClick={startConfirmedRevalidation}
+                  >
+                    Modifier ma validation
+                  </Button>
+                </div>
+              ) : null}
+              <h3 className="mt-2 px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 {workflowCopy.patientProductsSectionTitle}
               </h3>
               {dispoRetenues.length > 0 ? (
-                <section className="space-y-2">
+                <section className="space-y-2 rounded-xl border-2 border-emerald-300/90 bg-emerald-50/35 p-2 ring-1 ring-emerald-200/60">
                   <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto px-0.5 text-emerald-950">
-                    <div className="flex min-w-0 items-center gap-1">
-                      <Package className="size-3.5 shrink-0 text-emerald-700" aria-hidden />
-                      <h4 className="text-[10px] font-bold uppercase tracking-wide">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <Package className="size-4 shrink-0 text-emerald-700" aria-hidden />
+                      <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-emerald-950">
                         À réserver · {dispoRetenues.length}
                       </h4>
                     </div>
@@ -2480,11 +2650,11 @@ export function PatientProductRequestActions({
               ) : null}
 
               {aCommanderRetenues.length > 0 ? (
-                <section className="space-y-2">
+                <section className="space-y-2 rounded-xl border-2 border-teal-400/85 bg-teal-50/40 p-2 ring-1 ring-teal-200/65">
                   <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto px-0.5 text-teal-950">
-                    <div className="flex min-w-0 items-center gap-1">
-                      <ShoppingCart className="size-3.5 shrink-0 text-teal-800" aria-hidden />
-                      <h4 className="text-[10px] font-bold uppercase tracking-wide">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <ShoppingCart className="size-4 shrink-0 text-teal-800" aria-hidden />
+                      <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-teal-950">
                         À commander · {aCommanderRetenues.length}
                       </h4>
                     </div>
@@ -2515,13 +2685,11 @@ export function PatientProductRequestActions({
                 </section>
               ) : null}
 
-              {horsPerimetreRetenues.length > 0 || retireesApresValidation.length > 0 ? (
-                <div className="space-y-3 rounded-lg border border-amber-200/70 bg-amber-50/20 p-2 ring-1 ring-amber-100/50 sm:p-2.5">
               {horsPerimetreRetenues.length > 0 ? (
-                <section className="space-y-2">
-                  <div className="flex items-center gap-1 px-0.5 text-amber-950">
-                    <Layers className="size-3.5 shrink-0 text-amber-800" aria-hidden />
-                    <h4 className="text-[10px] font-bold uppercase tracking-wide">Point d&apos;attention</h4>
+                <section className="space-y-2 rounded-xl border border-amber-200/80 bg-amber-50/25 p-2 ring-1 ring-amber-100/60">
+                  <div className="flex items-center gap-1.5 px-0.5 text-amber-950">
+                    <Layers className="size-4 shrink-0 text-amber-800" aria-hidden />
+                    <h4 className="text-[11px] font-extrabold uppercase tracking-wide">Point d&apos;attention</h4>
                   </div>
                   <p className="px-0.5 text-[9px] leading-snug text-muted-foreground">
                     À confirmer avec l&apos;officine si besoin.
@@ -2546,35 +2714,38 @@ export function PatientProductRequestActions({
               ) : null}
 
               {retireesApresValidation.length > 0 ? (
-                <section className="space-y-2">
-                  <div className="flex items-center gap-1 px-0.5 text-amber-950">
-                    <Layers className="size-3.5 shrink-0 text-amber-900" aria-hidden />
-                    <h4 className="text-[10px] font-bold uppercase tracking-wide">
-                      Écart après validation · {retireesApresValidation.length}
-                    </h4>
+                <details className="group rounded-xl border border-red-200/85 bg-red-50/30 ring-1 ring-red-100/70">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-red-950 [&::-webkit-details-marker]:hidden">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <Layers className="size-4 shrink-0 text-red-700" aria-hidden />
+                      <span className="text-[11px] font-extrabold uppercase tracking-wide">
+                        Écart après validation · {retireesApresValidation.length}
+                      </span>
+                    </span>
+                    <ChevronDown className="size-3.5 shrink-0 text-red-700 transition-transform group-open:rotate-180" aria-hidden />
+                  </summary>
+                  <div className="space-y-2 border-t border-red-200/70 px-2.5 pb-2.5 pt-2">
+                    <p className="text-[9px] leading-snug text-red-900/85">
+                      Retrait convenu avec la pharmacie — trace uniquement.
+                    </p>
+                    <ul className="space-y-2.5">
+                      {retireesApresValidation.map((row) => (
+                        <PatientValidatedCompactLineCard
+                          key={row.id}
+                          row={row}
+                          tier="retire_apres_validation"
+                          onOpenHistory={() => setHistoryModalItemId(row.id)}
+                          requestStatusForCard={status}
+                          onPhotoPreview={openProductPhotoPreview}
+                          pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
+                          requestType={requestType}
+                          supplyAmendmentBundles={supplyAmendmentBundles}
+                          pricingConfig={pricingConfig}
+                        />
+                      ))}
+                    </ul>
                   </div>
-                  <p className="px-0.5 text-[9px] leading-snug text-muted-foreground">
-                    Retrait convenu avec la pharmacie — trace uniquement.
-                  </p>
-                  <ul className="space-y-2.5">
-                    {retireesApresValidation.map((row) => (
-                      <PatientValidatedCompactLineCard
-                        key={row.id}
-                        row={row}
-                        tier="retire_apres_validation"
-                        onOpenHistory={() => setHistoryModalItemId(row.id)}
-                        requestStatusForCard={status}
-                        onPhotoPreview={openProductPhotoPreview}
-                        pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
-                        requestType={requestType}
-                        supplyAmendmentBundles={supplyAmendmentBundles}
-                        pricingConfig={pricingConfig}
-                      />
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-                </div>
+                </details>
               ) : null}
 
               {lignesNonRetenues.length > 0 ? (
@@ -2991,7 +3162,7 @@ export function PatientProductRequestActions({
             </div>
             <button
               type="button"
-              disabled={busyAction !== "" || !visitPassageDirty}
+              disabled={busyAction !== "" || !visitPassageDirty || Boolean(detailStale)}
               onClick={() => void runUpdateVisit()}
               className="w-full shrink-0 rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50 sm:ms-auto sm:w-auto sm:min-w-[220px]"
             >
@@ -3001,7 +3172,7 @@ export function PatientProductRequestActions({
         </div>
       ) : null}
 
-      {showConfirm && confirmReviewOpen && confirmReviewSnap ? (
+      {confirmReviewOpen && confirmReviewSnap ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/45 p-2 sm:items-center sm:p-4">
           <button
             type="button"
@@ -3022,18 +3193,26 @@ export function PatientProductRequestActions({
             onClick={(e) => e.stopPropagation()}
           >
             <div className={cn("shrink-0 border-b px-3 py-2.5", productRequestTheme.modalHeader)}>
-              <h2 id="confirm-review-title" className="text-center text-sm font-bold text-sky-950 sm:text-base">
-                Confirmer ta sélection
+              <h2 id="confirm-review-title" className="text-center text-sm font-bold leading-snug text-sky-950 sm:text-base">
+                {confirmReviewMode === "revalidation" ? "Enregistrer ma validation" : "Confirmer ta sélection"}
               </h2>
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-gradient-to-b from-sky-50/20 via-white to-muted/15 px-2.5 py-2.5 sm:px-3 [-webkit-overflow-scrolling:touch]">
-              <div className={cn("rounded-lg border px-2 py-1.5", productRequestTheme.modalHighlight)}>
-                <p className={cn("text-[8px] font-bold uppercase tracking-wide", productRequestTheme.modalLabel)}>
-                  Passage
+              {confirmReviewMode === "initial" ? (
+                <div className={cn("rounded-lg border px-2 py-1.5", productRequestTheme.modalHighlight)}>
+                  <p className={cn("text-[8px] font-bold uppercase tracking-wide", productRequestTheme.modalLabel)}>
+                    Passage
+                  </p>
+                  <p className="mt-0.5 text-[11px] font-medium leading-snug text-foreground">
+                    {confirmReviewSnap.visitSummaryFr}
+                  </p>
+                </div>
+              ) : (
+                <p className="rounded-lg border border-sky-200/80 bg-sky-50/80 px-2 py-1.5 text-[11px] leading-snug text-sky-950">
+                  Vérifiez vos produits retenus et quantités avant enregistrement.
                 </p>
-                <p className="mt-0.5 text-[11px] font-medium leading-snug text-foreground">{confirmReviewSnap.visitSummaryFr}</p>
-              </div>
+              )}
 
               {confirmReserveLines.length > 0 ? (
                 <div className="mt-3">
@@ -3152,7 +3331,11 @@ export function PatientProductRequestActions({
                     productRequestTheme.cta
                   )}
                 >
-                  {busyAction === "confirm" ? "Enregistrement…" : "Confirmer définitivement"}
+                  {busyAction === "confirm"
+                    ? "Enregistrement…"
+                    : confirmReviewMode === "revalidation"
+                      ? "Enregistrer ma validation"
+                      : "Confirmer définitivement"}
                 </button>
               </div>
             </div>

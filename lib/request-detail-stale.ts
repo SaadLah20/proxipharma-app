@@ -22,6 +22,24 @@ export function detectRequestDetailStale(ctx: RequestStaleContext): RequestStale
   if (!snapshot) return null;
   if (snapshot.updatedAt === live.updatedAt && snapshot.status === live.status) return null;
 
+  if (viewerRole === "pharmacien" && snapshot.status === "confirmed" && live.status === "treated") {
+    return {
+      stale: true,
+      title: "Le patient a peut-être modifié sa validation",
+      message:
+        "Le dossier est passé en traitée ou a changé pendant votre consultation. Actualisez avant d’enregistrer ou de déclarer traitée.",
+    };
+  }
+
+  if (viewerRole === "patient" && snapshot.status === "confirmed" && live.status === "treated") {
+    return {
+      stale: true,
+      title: "Demande traitée par la pharmacie",
+      message:
+        "L’officine a déclaré votre demande comme traitée. Actualisez la page : vous ne pouvez plus modifier votre validation.",
+    };
+  }
+
   if (viewerRole === "pharmacien") {
     if (["submitted", "in_review"].includes(status)) {
       return {

@@ -3474,6 +3474,7 @@ export default function PharmacienDemandeDetailPage() {
     setError("");
     const { error: rpcErr } = await supabase.rpc("pharmacist_mark_request_treated", {
       p_request_id: id,
+      p_expected_updated_at: request?.updated_at ?? null,
     });
     setDeclareTreatedBusy(false);
     if (rpcErr) {
@@ -7259,7 +7260,8 @@ export default function PharmacienDemandeDetailPage() {
                 </p>
                 <button
                   type="button"
-                  disabled={declareTreatedBusy}
+                  disabled={declareTreatedBusy || Boolean(requestDrift.stale)}
+                  title={requestDrift.stale?.message}
                   onClick={() => void runDeclareRequestTreated()}
                   className="inline-flex h-11 w-full shrink-0 items-center justify-center rounded-xl bg-cyan-600 px-5 text-sm font-bold text-white shadow-md transition hover:bg-cyan-700 disabled:opacity-50 sm:w-auto sm:min-w-[200px]"
                 >
