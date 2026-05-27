@@ -32,6 +32,11 @@ import {
 } from "@/lib/request-display";
 import { plannedVisitWindow } from "@/lib/planned-visit";
 import {
+  bucketPatientRespondedLines,
+  PATIENT_RESPONDED_BUCKET_ORDER,
+  patientRespondedBucketTitleFr,
+} from "@/lib/patient-responded-line-buckets";
+import {
   bucketPatientValidatedLinesThreeWays,
   type PatientLineLike,
   validatedBranchUnitPriceMad,
@@ -2450,14 +2455,19 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirm ? (
-        <div className="mt-4 space-y-2.5">
+        <div className="mt-4 space-y-3">
           {items.length > 0 ? (
-            <section className="space-y-2.5">
+            <section className="space-y-3">
               <h3 className="px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 {workflowCopy.patientProductsSectionTitle}
               </h3>
-              <ul className="w-full min-w-0 space-y-2.5 overflow-visible">
-                {items.map((row) => (
+              {(() => {
+                const respondedBuckets = bucketPatientRespondedLines(
+                  items,
+                  requestType,
+                  supplyAmendmentBundles
+                );
+                const renderRespondedLine = (row: ActionItemRow) => (
                   <RespondedPatientLineChooser
                     key={row.id}
                     row={row}
@@ -2471,8 +2481,29 @@ export function PatientProductRequestActions({
                     supplyAmendmentBundles={supplyAmendmentBundles}
                     resolveCatalogUnitPrice={resolveCatalogUnitPriceForProduct}
                   />
-                ))}
-              </ul>
+                );
+                return (
+                  <div className="space-y-3">
+                    {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
+                      const rows = respondedBuckets[bucketId];
+                      if (rows.length === 0) return null;
+                      return (
+                        <section key={bucketId} className="space-y-2">
+                          <h4 className="px-0.5 text-[10px] font-extrabold uppercase tracking-wide text-sky-900/90">
+                            {patientRespondedBucketTitleFr(bucketId)}
+                            <span className="ml-1 font-bold tabular-nums text-muted-foreground">
+                              · {rows.length}
+                            </span>
+                          </h4>
+                          <ul className="w-full min-w-0 space-y-2.5 overflow-visible">
+                            {rows.map((row) => renderRespondedLine(row))}
+                          </ul>
+                        </section>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </section>
           ) : null}
         </div>
