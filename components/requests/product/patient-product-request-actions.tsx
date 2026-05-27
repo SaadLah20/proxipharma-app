@@ -2546,7 +2546,7 @@ export function PatientProductRequestActions({
               }
             />
           ) : null}
-          <ul className="w-full min-w-0 max-w-full space-y-1.5">
+          <ul className="w-full min-w-0 max-w-full space-y-1.5 overflow-visible">
             {lines.map((l, idx) => (
               <PatientProductRequestCompactLine
                 key={`${l.product_id}-${idx}`}

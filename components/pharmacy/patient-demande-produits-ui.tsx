@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ChevronDown, LayoutGrid, MessageCircle, MessageSquare, Package, Search, Trash2, X } from "lucide-react";
 import { PharmacyFlowHero } from "@/components/pharmacy/pharmacy-public-chrome";
@@ -82,7 +83,7 @@ function ProductRequestLineQtyLabel({ qty, className }: { qty: number; className
 export function ProductRequestLineQtyReadonly({ qty }: { qty: number }) {
   return (
     <span
-      className="inline-flex h-7 items-center rounded-full border border-sky-200/80 bg-sky-50/80 px-2.5"
+      className="inline-flex h-7 w-full max-w-[6.75rem] items-center justify-center rounded-full border border-sky-200/80 bg-sky-50/80 px-2.5"
       aria-label={`Quantité ${qty}`}
     >
       <ProductRequestLineQtyLabel qty={qty} />
@@ -101,75 +102,106 @@ export function ProductRequestLineQtyPicker({
   onSelect: (qty: number) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const listId = useId();
 
+  const syncMenuPos = () => {
+    const el = rootRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setMenuPos({ top: r.bottom + 4, left: r.left + r.width / 2 });
+  };
+
   useEffect(() => {
     if (!open) return;
+    syncMenuPos();
     const onPointer = (e: MouseEvent | TouchEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (rootRef.current?.contains(t)) return;
+      const menu = document.getElementById(listId);
+      if (menu?.contains(t)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    const onReflow = () => syncMenuPos();
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("touchstart", onPointer);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onReflow);
+    window.addEventListener("scroll", onReflow, true);
     return () => {
       document.removeEventListener("mousedown", onPointer);
       document.removeEventListener("touchstart", onPointer);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onReflow);
+      window.removeEventListener("scroll", onReflow, true);
     };
-  }, [open]);
+  }, [open, listId]);
 
   if (disabled) return <ProductRequestLineQtyReadonly qty={qty} />;
 
+  const menu =
+    open && menuPos && typeof document !== "undefined"
+      ? createPortal(
+          <ul
+            id={listId}
+            role="listbox"
+            aria-label="Choisir la quantité"
+            style={{ top: menuPos.top, left: menuPos.left }}
+            className={cn(
+              "fixed z-[120] max-h-44 w-[4.25rem] -translate-x-1/2 overflow-y-auto overscroll-y-contain rounded-xl border bg-card py-1 shadow-xl",
+              t.shell
+            )}
+          >
+            {QTY_OPTIONS.map((n) => (
+              <li key={n} role="option" aria-selected={n === qty}>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex w-full items-center justify-center px-2 py-1.5 text-[13px] font-semibold tabular-nums transition hover:bg-sky-50",
+                    n === qty ? "bg-sky-100/90 text-sky-950" : "text-foreground"
+                  )}
+                  onClick={() => {
+                    onSelect(n);
+                    setOpen(false);
+                  }}
+                >
+                  {n}
+                </button>
+              </li>
+            ))}
+          </ul>,
+          document.body
+        )
+      : null;
+
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative shrink-0">
       <button
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
         aria-label={`Quantité ${qty}, choisir une autre valeur`}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((v) => {
+            const next = !v;
+            if (next) syncMenuPos();
+            return next;
+          });
+        }}
         className={cn(
-          "inline-flex h-7 items-center gap-0.5 rounded-full border border-sky-300/80 bg-white px-2 shadow-sm transition hover:bg-sky-50",
+          "inline-flex h-7 w-full max-w-[6.75rem] items-center justify-center gap-0.5 rounded-full border border-sky-300/80 bg-white px-2 shadow-sm transition hover:bg-sky-50",
           open && "border-sky-500/70 ring-2 ring-sky-400/30"
         )}
       >
         <ProductRequestLineQtyLabel qty={qty} />
         <ChevronDown className={cn("size-3 shrink-0 text-sky-700 transition", open && "rotate-180")} aria-hidden />
       </button>
-      {open ? (
-        <ul
-          id={listId}
-          role="listbox"
-          aria-label="Choisir la quantité"
-          className={cn(
-            "absolute left-1/2 z-20 mt-1 max-h-44 w-[4.25rem] -translate-x-1/2 overflow-y-auto overscroll-y-contain rounded-xl border bg-card py-1 shadow-lg",
-            t.shell
-          )}
-        >
-          {QTY_OPTIONS.map((n) => (
-            <li key={n} role="option" aria-selected={n === qty}>
-              <button
-                type="button"
-                className={cn(
-                  "flex w-full items-center justify-center px-2 py-1.5 text-[13px] font-semibold tabular-nums transition hover:bg-sky-50",
-                  n === qty ? "bg-sky-100/90 text-sky-950" : "text-foreground"
-                )}
-                onClick={() => {
-                  onSelect(n);
-                  setOpen(false);
-                }}
-              >
-                {n}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {menu}
     </div>
   );
 }
@@ -240,21 +272,14 @@ export function ProductRequestLinePanel({
   return (
     <div className="flex w-full min-w-0 items-center gap-2">
       <div className={cn("shrink-0", THUMB, thumbClassName)}>{thumb}</div>
-      <div
-        className={cn(
-          "flex min-w-0 flex-1 flex-col gap-1 overflow-hidden",
-          contentMinHeight
-        )}
-      >
+      <div className={cn("flex min-w-0 flex-1 flex-col gap-1", contentMinHeight)}>
         <div className="min-w-0 overflow-hidden pe-5 leading-tight">{title}</div>
-        <div className="flex w-full min-w-0 items-center gap-2">
-          <div className="min-w-0 max-w-[38%] shrink leading-none">
+        <div className="grid w-full grid-cols-[minmax(0,1fr)_6.75rem_1.75rem] items-center gap-x-1.5 overflow-visible">
+          <div className="min-w-0 leading-none">
             <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
           </div>
-          <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
-            {qtyControl}
-            {bottomRight ? <div className="shrink-0">{bottomRight}</div> : null}
-          </div>
+          <div className="flex justify-center overflow-visible">{qtyControl}</div>
+          <div className="flex justify-end overflow-visible">{bottomRight ?? null}</div>
         </div>
       </div>
     </div>
@@ -595,7 +620,7 @@ export function ProductRequestCartLineRow({
   );
 
   return (
-    <li className={cn("relative w-full min-w-0 p-1", PRODUCT_REQUEST_LINE_CARD_SHELL)}>
+    <li className={cn("relative w-full min-w-0 overflow-visible p-1", PRODUCT_REQUEST_LINE_CARD_SHELL)}>
       <ProductRequestLineDeleteButton onClick={onRemove} />
       <ProductRequestLinePanel
         title={

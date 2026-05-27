@@ -66,7 +66,7 @@ export function PatientProductRequestCompactLine({
 
   return (
     <>
-      <li className={cn("relative w-full min-w-0 p-1", PRODUCT_REQUEST_LINE_CARD_SHELL)}>
+      <li className={cn("relative w-full min-w-0 overflow-visible p-1", PRODUCT_REQUEST_LINE_CARD_SHELL)}>
         {editMode && onRemove ? <ProductRequestLineDeleteButton onClick={onRemove} /> : null}
         <ProductRequestLinePanel
           contentMinHeight={isProposed ? "min-h-16" : undefined}
