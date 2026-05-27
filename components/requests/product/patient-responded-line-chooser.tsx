@@ -25,7 +25,13 @@ import {
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { cn } from "@/lib/utils";
-import type { ActionItemAltRow, ActionItemRow, LineBranch, LineSelState } from "@/components/requests/product/patient-product-request-actions";
+import {
+  lineSelQtyForBranch,
+  type ActionItemAltRow,
+  type ActionItemRow,
+  type LineBranch,
+  type LineSelState,
+} from "@/components/requests/product/patient-product-request-actions";
 
 function one<T>(v: T | T[] | null | undefined): T | null {
   if (v == null) return null;
@@ -344,8 +350,11 @@ function RespondedLineBlock({
   variantTabsAbove?: boolean;
 }) {
   const unavailable = variant.cap < 1;
-  const notRetained = !retained && !unavailable;
-  const showQty = retained && !unavailable;
+  /** Avec onglets : PU/Tot/qty visibles sur l’onglet consulté (comparaison), pas seulement si cette branche est cochée. */
+  const showQty = variantTabsAbove
+    ? !unavailable && variant.cap > 0
+    : retained && !unavailable;
+  const notRetained = variantTabsAbove ? false : !retained && !unavailable;
   const total =
     variant.unitPrice != null && Number.isFinite(Number(variant.unitPrice))
       ? selQty * Number(variant.unitPrice)
@@ -513,16 +522,34 @@ function RespondedLineBlock({
   );
 }
 
+type RespondedProdBrief = {
+  product_type?: string | null;
+  laboratory?: string | null;
+  price_pph?: number | null;
+  price_ppv?: number | null;
+};
+
+function resolvedRespondedUnitPrice(
+  stored: number | null | undefined,
+  productId: string,
+  prod: RespondedProdBrief | null,
+  resolveCatalog?: (productId: string, prod: RespondedProdBrief | null) => number | null
+): number | null {
+  if (stored != null && Number.isFinite(Number(stored))) return Number(stored);
+  return resolveCatalog?.(productId, prod) ?? null;
+}
+
 export type RespondedChooserProps = {
   row: ActionItemRow;
   selState: LineSelState;
   setLineBranch: (itemId: string, branch: LineBranch) => void;
-  setLineQty: (itemId: string, qty: number) => void;
+  setLineQty: (itemId: string, qty: number, forBranch: Exclude<LineBranch, null>) => void;
   toggleLineRetention: (itemId: string, on: boolean, branchWhenOn: LineBranch) => void;
   onPhotoPreview?: (url: string, title: string) => void;
   pharmacistProposedBadgeLabel: string;
   requestType: string;
   supplyAmendmentBundles: { amendments: unknown }[];
+  resolveCatalogUnitPrice?: (productId: string, prod: RespondedProdBrief | null) => number | null;
 };
 
 export function RespondedPatientLineChooser({
@@ -535,6 +562,7 @@ export function RespondedPatientLineChooser({
   pharmacistProposedBadgeLabel,
   requestType,
   supplyAmendmentBundles,
+  resolveCatalogUnitPrice,
 }: RespondedChooserProps) {
   const prod = one(row.products);
   const altList = normalizeAlternatives(row.request_item_alternatives);
@@ -578,7 +606,12 @@ export function RespondedPatientLineChooser({
       showRequested: !isProposedLine,
       requestedQty: Math.max(1, Number(row.requested_qty) || 1),
       stockQty,
-      unitPrice: row.unit_price != null ? Number(row.unit_price) : null,
+      unitPrice: resolvedRespondedUnitPrice(
+        row.unit_price,
+        row.product_id,
+        prod,
+        resolveCatalogUnitPrice
+      ),
       availabilityStatus: row.availability_status,
       expectedDate: row.expected_availability_date,
       clientComment: row.client_comment ?? "",
@@ -605,7 +638,12 @@ export function RespondedPatientLineChooser({
       showRequested: false,
       requestedQty: 0,
       stockQty,
-      unitPrice: alt.unit_price != null ? Number(alt.unit_price) : null,
+      unitPrice: resolvedRespondedUnitPrice(
+        alt.unit_price,
+        alt.product_id,
+        altProd,
+        resolveCatalogUnitPrice
+      ),
       availabilityStatus: alt.availability_status,
       expectedDate: alt.expected_availability_date,
       clientComment: row.client_comment ?? "",
@@ -633,11 +671,13 @@ export function RespondedPatientLineChooser({
     prod?.name,
     prod?.photo_url,
     row.pharmacist_proposal_reason,
+    resolveCatalogUnitPrice,
   ]);
 
   const activeVariant = variants.find((v) => v.tabId === activeTab) ?? variants[0]!;
   const activeBranch = branchFromTab(activeTab);
   const retainedForTab = selState.branch === activeBranch;
+  const displayQty = lineSelQtyForBranch(selState, activeBranch, activeVariant.cap);
 
   const onTab = (tabId: string) => {
     setBrowseTab(tabId);
@@ -659,9 +699,9 @@ export function RespondedPatientLineChooser({
         <RespondedLineBlock
           variant={v}
           retained={selState.branch === "principal"}
-          selQty={selState.qty}
+          selQty={lineSelQtyForBranch(selState, "principal", v.cap)}
           onToggleRetain={(on) => toggleLineRetention(row.id, on, "principal")}
-          onSetQty={(qty) => setLineQty(row.id, qty)}
+          onSetQty={(qty) => setLineQty(row.id, qty, "principal")}
           onPhotoPreview={onPhotoPreview}
           requestType={requestType}
           isProposedLine={isProposedLine}
@@ -690,9 +730,9 @@ export function RespondedPatientLineChooser({
         <RespondedLineBlock
           variant={activeVariant}
           retained={retainedForTab}
-          selQty={selState.qty}
+          selQty={displayQty}
           onToggleRetain={(on) => toggleLineRetention(row.id, on, activeBranch)}
-          onSetQty={(qty) => setLineQty(row.id, qty)}
+          onSetQty={(qty) => setLineQty(row.id, qty, activeBranch)}
           onPhotoPreview={onPhotoPreview}
           requestType={requestType}
           isProposedLine={isProposedLine && activeTab === "principal"}

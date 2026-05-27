@@ -60,9 +60,11 @@ import {
   clearPatientDemandeCatalogueReturnEdit,
   clearPatientDemandeProduitsDraft,
   draftLineToResubmitLine,
+  draftLineUnitPrice,
   peekPatientDemandeCatalogueReturnEdit,
   readPatientDemandeProduitsDraft,
   writePatientDemandeProduitsDraft,
+  type PatientDemandeProduitsDraftLine,
 } from "@/lib/patient-demande-produits-draft";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
@@ -128,6 +130,7 @@ type ProdBrief = {
 export type ActionItemAltRow = {
   id: string;
   rank: number;
+  product_id: string;
   availability_status: string | null;
   available_qty: number | null;
   unit_price: number | null;
@@ -165,7 +168,33 @@ export type ActionItemRow = {
 /** null = rien pour cette ligne ; "principal" ; sinon id alternative */
 export type LineBranch = null | "principal" | string;
 
-export type LineSelState = { branch: LineBranch; qty: number };
+export type LineSelState = {
+  branch: LineBranch;
+  /** Qté de la branche retenue (case cochée). */
+  qty: number;
+  /** Qté par onglet (principal | id alternative) — conservée à la navigation. */
+  browseQty: Record<string, number>;
+};
+
+export function lineBranchKey(branch: Exclude<LineBranch, null>): string {
+  return branch === "principal" ? "principal" : branch;
+}
+
+export function lineSelQtyForBranch(
+  st: LineSelState,
+  branch: Exclude<LineBranch, null>,
+  cap: number
+): number {
+  const key = lineBranchKey(branch);
+  const stored = st.browseQty[key];
+  if (stored != null) return Math.min(Math.max(1, stored), cap);
+  if (st.branch === branch) return Math.min(Math.max(1, st.qty), cap);
+  return cap > 0 ? cap : 1;
+}
+
+function emptyLineSelState(): LineSelState {
+  return { branch: null, qty: 1, browseQty: {} };
+}
 
 function normalizeAlternatives(raw: ActionItemAltRow | ActionItemAltRow[] | null | undefined): ActionItemAltRow[] {
   if (!raw) return [];
@@ -510,7 +539,10 @@ function computeSelFromItems(items: ActionItemRow[]): Record<string, LineSelStat
     if (branch !== null && cap < 1) branch = null;
     cap = maxQtyForBranch(row, branch, alts);
     const qty = branch !== null && cap > 0 ? cap : 1;
-    next[row.id] = { branch, qty: branch !== null && cap > 0 ? Math.min(qty, cap) : 1 };
+    const clamped = branch !== null && cap > 0 ? Math.min(qty, cap) : 1;
+    const browseQty: Record<string, number> = {};
+    if (branch !== null) browseQty[lineBranchKey(branch)] = clamped;
+    next[row.id] = { branch, qty: clamped, browseQty };
   }
   return next;
 }
@@ -538,6 +570,32 @@ function resubmitLineUnitPrice(line: ResubmitLine): number | null {
   if (line.unit_price != null && !Number.isNaN(Number(line.unit_price))) return Number(line.unit_price);
   if (line.price_pph != null && !Number.isNaN(Number(line.price_pph))) return Number(line.price_pph);
   return null;
+}
+
+function resubmitLineFromDraftAndServer(
+  d: PatientDemandeProduitsDraftLine,
+  srv: ResubmitLine | undefined,
+  resolveCatalog?: (row: ActionItemRow) => number | null,
+  items?: ActionItemRow[]
+): ResubmitLine {
+  const base = draftLineToResubmitLine(d);
+  const itemRow = items?.find((r) => r.product_id === d.product_id);
+  const unit_price =
+    draftLineUnitPrice(d) ??
+    (srv ? resubmitLineUnitPrice(srv) : null) ??
+    (itemRow && resolveCatalog ? resolveCatalog(itemRow) : null);
+  return {
+    product_id: base.product_id,
+    name: base.name,
+    photo_url: base.photo_url,
+    qty: base.qty,
+    unit_price,
+    price_pph: base.price_pph ?? srv?.price_pph ?? null,
+    client_comment: base.client_comment,
+    pharmacist_comment: srv?.pharmacist_comment ?? null,
+    line_source: srv?.line_source ?? null,
+    pharmacist_proposal_reason: srv?.pharmacist_proposal_reason ?? null,
+  };
 }
 
 function computeResubmitLinesFromItems(
@@ -1177,10 +1235,10 @@ function buildPatientConfirmSelection(
   const preview: PatientConfirmPreviewLine[] = [];
   const rpcPayload = items.map((row) => {
     const alts = normalizeAlternatives(row.request_item_alternatives);
-    const st = sel[row.id] ?? ({ branch: null, qty: 1 } satisfies LineSelState);
+    const st = sel[row.id] ?? emptyLineSelState();
     const cap = maxQtyForBranch(row, st.branch, alts);
     const on = st.branch !== null && cap > 0;
-    const qty = on ? Math.min(st.qty, cap) : null;
+    const qty = on ? Math.min(lineSelQtyForBranch(st, st.branch!, cap), cap) : null;
     const chosenAlt = on && st.branch !== null && st.branch !== "principal" ? st.branch : null;
 
     if (on && qty != null) {
@@ -1281,7 +1339,7 @@ function buildNonRetainedConfirmLines(
   const out: PatientConfirmSkippedLine[] = [];
   for (const row of items) {
     const alts = normalizeAlternatives(row.request_item_alternatives);
-    const st = sel[row.id] ?? ({ branch: null, qty: 1 } satisfies LineSelState);
+    const st = sel[row.id] ?? emptyLineSelState();
     const cap = maxQtyForBranch(row, st.branch, alts);
     const on = st.branch !== null && cap > 0;
     if (!on) {
@@ -1321,7 +1379,8 @@ function validatePatientConfirmBeforeReview(
     const alts = normalizeAlternatives(row.request_item_alternatives);
     const cap = maxQtyForBranch(row, st.branch, alts);
     if (cap < 1) continue;
-    if (st.qty > cap) {
+    const effQty = lineSelQtyForBranch(st, st.branch!, cap);
+    if (effQty > cap) {
       const alt = st.branch !== "principal" ? alts.find((a) => a.id === st.branch) : null;
       const label =
         st.branch === "principal" ? (one(row.products)?.name ?? "Produit") : (one(alt?.products)?.name ?? "Alternative");
@@ -1480,6 +1539,24 @@ export function PatientProductRequestActions({
     },
     [resolveCatalogPrice]
   );
+
+  const resolveCatalogUnitPriceForProduct = useCallback(
+    (productId: string, embed: { product_type?: string | null; price_pph?: number | null; price_ppv?: number | null; laboratory?: string | null } | null) =>
+      resolveCatalogPrice(
+        productEmbedToPricingInput(
+          embed
+            ? {
+                product_type: embed.product_type ?? "parapharmacie",
+                price_pph: embed.price_pph,
+                price_ppv: embed.price_ppv,
+                laboratory: embed.laboratory,
+              }
+            : null,
+          productId
+        )
+      ),
+    [resolveCatalogPrice]
+  );
   const isPrescription = requestType === "prescription";
   const isConsultation = requestType === "free_consultation";
   const [actionError, setActionError] = useState("");
@@ -1565,18 +1642,12 @@ export function PatientProductRequestActions({
       setLines(
         draft.map((d) => {
           const srv = serverResubmitLines.find((s) => s.product_id === d.product_id);
-          const base = draftLineToResubmitLine(d);
-          return {
-            product_id: base.product_id,
-            name: base.name,
-            photo_url: base.photo_url,
-            qty: base.qty,
-            price_pph: base.price_pph ?? srv?.price_pph ?? null,
-            client_comment: base.client_comment,
-            pharmacist_comment: srv?.pharmacist_comment ?? null,
-            line_source: srv?.line_source ?? null,
-            pharmacist_proposal_reason: srv?.pharmacist_proposal_reason ?? null,
-          };
+          return resubmitLineFromDraftAndServer(
+            d,
+            srv,
+            resolveItemCatalogPrice,
+            visibleItemsForPatientBeforePharmacyResponse(items, status)
+          );
         })
       );
     }
@@ -1599,18 +1670,12 @@ export function PatientProductRequestActions({
         setLines(
           draft.map((d) => {
             const srv = serverResubmitLines.find((s) => s.product_id === d.product_id);
-            const base = draftLineToResubmitLine(d);
-            return {
-              product_id: base.product_id,
-              name: base.name,
-              photo_url: base.photo_url,
-              qty: base.qty,
-              price_pph: base.price_pph ?? srv?.price_pph ?? null,
-              client_comment: base.client_comment,
-              pharmacist_comment: srv?.pharmacist_comment ?? null,
-              line_source: srv?.line_source ?? null,
-              pharmacist_proposal_reason: srv?.pharmacist_proposal_reason ?? null,
-            };
+            return resubmitLineFromDraftAndServer(
+              d,
+              srv,
+              resolveItemCatalogPrice,
+              visibleItemsForPatientBeforePharmacyResponse(items, status)
+            );
           })
         );
       }
@@ -1652,7 +1717,7 @@ export function PatientProductRequestActions({
           capPositive = maxQtyPrincipal(row) > 0;
         }
       } else {
-        const st = sel[row.id] ?? { branch: null, qty: 1 };
+        const st = sel[row.id] ?? emptyLineSelState();
         branch = st.branch;
         capPositive = st.branch !== null && maxQtyForBranch(row, st.branch, alts) > 0;
       }
@@ -1753,15 +1818,22 @@ export function PatientProductRequestActions({
       const cap = maxQtyForBranch(row, st.branch, alts);
       if (cap < 1) continue;
       count += 1;
-      const effQty = Math.min(st.qty, cap);
+      const effQty = Math.min(lineSelQtyForBranch(st, st.branch!, cap), cap);
       const branchPrice =
         st.branch === "principal"
-          ? row.unit_price
-          : alts.find((a) => a.id === st.branch)?.unit_price ?? null;
-      if (branchPrice != null) total += Number(branchPrice) * effQty;
+          ? (row.unit_price ?? resolveItemCatalogPrice(row))
+          : (() => {
+              const alt = alts.find((a) => a.id === st.branch);
+              if (!alt) return null;
+              const altProd = one(alt.products);
+              return alt.unit_price ?? resolveCatalogUnitPriceForProduct(alt.product_id, altProd);
+            })();
+      if (branchPrice != null && Number.isFinite(Number(branchPrice))) {
+        total += Number(branchPrice) * effQty;
+      }
     }
     return { count, total };
-  }, [status, items, sel]);
+  }, [status, items, sel, resolveItemCatalogPrice, resolveCatalogUnitPriceForProduct]);
 
   useEffect(() => {
     if (debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
@@ -1823,32 +1895,52 @@ export function PatientProductRequestActions({
       const row = items.find((i) => i.id === itemId);
       if (!row) return s;
       const alts = normalizeAlternatives(row.request_item_alternatives);
+      const prev = s[itemId] ?? emptyLineSelState();
+      const browseQty = { ...prev.browseQty };
+      if (prev.branch !== null) {
+        browseQty[lineBranchKey(prev.branch)] = prev.qty;
+      }
+      if (branch === null) {
+        return { ...s, [itemId]: { ...prev, branch: null, browseQty } };
+      }
       const cap = maxQtyForBranch(row, branch, alts);
-      const qty = branch !== null && cap > 0 ? cap : 1;
+      const key = lineBranchKey(branch);
+      const stored = browseQty[key];
+      const qty =
+        stored != null
+          ? Math.min(Math.max(1, stored), cap)
+          : cap > 0
+            ? cap
+            : 1;
+      browseQty[key] = qty;
       return {
         ...s,
-        [itemId]: {
-          branch,
-          qty: branch !== null && cap > 0 ? Math.min(Math.max(1, qty), cap) : 1,
-        },
+        [itemId]: { branch, qty, browseQty },
       };
     });
   };
 
-  const setLineQty = (itemId: string, qty: number) => {
+  const setLineQty = (itemId: string, qty: number, forBranch: Exclude<LineBranch, null>) => {
     const row = items.find((i) => i.id === itemId);
     if (!row) return;
     const alts = normalizeAlternatives(row.request_item_alternatives);
-    const branch = sel[itemId]?.branch ?? null;
-    const cap = maxQtyForBranch(row, branch, alts);
-    if (branch === null || cap < 1) return;
-    setSel((s) => ({
-      ...s,
-      [itemId]: {
-        ...(s[itemId] ?? { branch, qty: 1 }),
-        qty: Math.min(Math.max(1, qty), cap),
-      },
-    }));
+    const cap = maxQtyForBranch(row, forBranch, alts);
+    if (cap < 1) return;
+    const clamped = Math.min(Math.max(1, qty), cap);
+    setSel((s) => {
+      const prev = s[itemId] ?? emptyLineSelState();
+      const key = lineBranchKey(forBranch);
+      const browseQty = { ...prev.browseQty, [key]: clamped };
+      const isRetained = prev.branch === forBranch;
+      return {
+        ...s,
+        [itemId]: {
+          ...prev,
+          browseQty,
+          ...(isRetained ? { qty: clamped } : {}),
+        },
+      };
+    });
   };
 
   const toggleLineRetention = (itemId: string, on: boolean, branchWhenOn: LineBranch) => {
@@ -1856,19 +1948,29 @@ export function PatientProductRequestActions({
       const row = items.find((i) => i.id === itemId);
       if (!row) return s;
       const alts = normalizeAlternatives(row.request_item_alternatives);
-      const prev = s[itemId] ?? { branch: null, qty: 1 };
+      const prev = s[itemId] ?? emptyLineSelState();
       if (!on) {
-        return { ...s, [itemId]: { branch: null, qty: prev.qty } };
+        const browseQty = { ...prev.browseQty };
+        if (prev.branch !== null) browseQty[lineBranchKey(prev.branch)] = prev.qty;
+        return { ...s, [itemId]: { ...prev, branch: null, browseQty } };
       }
       const cap = maxQtyForBranch(row, branchWhenOn, alts);
       if (cap < 1) {
-        return { ...s, [itemId]: { branch: null, qty: prev.qty } };
+        return { ...s, [itemId]: { ...prev, branch: null } };
       }
+      const key = lineBranchKey(branchWhenOn);
+      const stored = prev.browseQty[key];
+      const qty =
+        stored != null
+          ? Math.min(Math.max(1, stored), cap)
+          : Math.min(Math.max(1, prev.qty), cap);
+      const browseQty = { ...prev.browseQty, [key]: qty };
       return {
         ...s,
         [itemId]: {
           branch: branchWhenOn,
-          qty: Math.min(Math.max(1, prev.qty), cap),
+          qty,
+          browseQty,
         },
       };
     });
@@ -2276,10 +2378,10 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirm ? (
-        <div className="space-y-2">
+        <div className="mt-4 space-y-2.5">
           {items.length > 0 ? (
-            <section className="space-y-2">
-              <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+            <section className="space-y-2.5">
+              <h3 className="px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 {workflowCopy.patientProductsSectionTitle}
               </h3>
               <ul className="w-full min-w-0 space-y-2.5 overflow-visible">
@@ -2287,7 +2389,7 @@ export function PatientProductRequestActions({
                   <RespondedPatientLineChooser
                     key={row.id}
                     row={row}
-                    selState={sel[row.id] ?? { branch: null, qty: 1 }}
+                    selState={sel[row.id] ?? emptyLineSelState()}
                     setLineBranch={setLineBranch}
                     setLineQty={setLineQty}
                     toggleLineRetention={toggleLineRetention}
@@ -2295,6 +2397,7 @@ export function PatientProductRequestActions({
                     pharmacistProposedBadgeLabel={badgeForRow(row) ?? "Ajout Officine"}
                     requestType={requestType}
                     supplyAmendmentBundles={supplyAmendmentBundles}
+                    resolveCatalogUnitPrice={resolveCatalogUnitPriceForProduct}
                   />
                 ))}
               </ul>
@@ -2304,8 +2407,8 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirmedCards && forceReadOnly ? (
-        <section className="space-y-2">
-          <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+        <section className="mt-4 space-y-2">
+          <h3 className="px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
             {workflowCopy.patientProductsSectionTitle}
           </h3>
           <PatientClosedProductBucketsView
@@ -2495,8 +2598,8 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showProductResubmit ? (
-        <section className="mt-2 w-full min-w-0 max-w-full space-y-1.5">
-          <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+        <section className="mt-4 w-full min-w-0 max-w-full space-y-2">
+          <h3 className="px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
             {workflowCopy.patientProductsSectionTitle}
           </h3>
           {editMode && pharmacyId ? (
@@ -2513,7 +2616,7 @@ export function PatientProductRequestActions({
                     name: l.name,
                     photo_url: l.photo_url ?? null,
                     qty: l.qty,
-                    price_pph: l.price_pph ?? null,
+                    unit_price: resubmitLineUnitPrice(l),
                     client_comment: l.client_comment,
                   })),
                   requestId
