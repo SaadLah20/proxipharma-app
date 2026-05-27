@@ -1943,7 +1943,11 @@ export function PatientProductRequestActions({
     });
   };
 
-  const toggleLineRetention = (itemId: string, on: boolean, branchWhenOn: LineBranch) => {
+  const toggleLineRetention = (
+    itemId: string,
+    on: boolean,
+    branchWhenOn: Exclude<LineBranch, null>
+  ) => {
     setSel((s) => {
       const row = items.find((i) => i.id === itemId);
       if (!row) return s;

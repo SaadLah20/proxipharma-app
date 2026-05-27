@@ -59,7 +59,7 @@ function maxQtyForBranch(row: ActionItemRow, branch: LineBranch, alts: ActionIte
   return maxQtyAlt(row, alt);
 }
 
-function branchFromTab(tab: string): LineBranch {
+function branchFromTab(tab: string): Exclude<LineBranch, null> {
   return tab === "principal" ? "principal" : tab;
 }
 
@@ -544,7 +544,7 @@ export type RespondedChooserProps = {
   selState: LineSelState;
   setLineBranch: (itemId: string, branch: LineBranch) => void;
   setLineQty: (itemId: string, qty: number, forBranch: Exclude<LineBranch, null>) => void;
-  toggleLineRetention: (itemId: string, on: boolean, branchWhenOn: LineBranch) => void;
+  toggleLineRetention: (itemId: string, on: boolean, branchWhenOn: Exclude<LineBranch, null>) => void;
   onPhotoPreview?: (url: string, title: string) => void;
   pharmacistProposedBadgeLabel: string;
   requestType: string;
