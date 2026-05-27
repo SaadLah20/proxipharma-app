@@ -2586,14 +2586,13 @@ export function PatientProductRequestActions({
                     : undefined
                 }
                 notesSlot={
-                  !editMode &&
-                  (l.client_comment?.trim() || l.pharmacist_comment?.trim()) ? (
+                  !editMode ? (
                     <PatientSentLineNotesModalFr
                       productName={l.name}
                       client={l.client_comment ?? ""}
                       pharmacist={l.pharmacist_comment ?? ""}
                     />
-                  ) : null
+                  ) : undefined
                 }
               />
             ))}
@@ -2774,15 +2773,7 @@ export function PatientProductRequestActions({
                 ) : null}
               </div>
             ) : (
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  disabled={busyAction !== "" || !resubmitDirty || lines.length === 0}
-                  onClick={() => openResubmitConfirm()}
-                  className="flex h-11 w-full items-center justify-center rounded-xl border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-md transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  {busyAction === "resubmit" ? "Enregistrement…" : "Enregistrer les modifications"}
-                </button>
+              <div className="flex gap-2">
                 <button
                   type="button"
                   disabled={busyAction !== ""}
@@ -2790,9 +2781,17 @@ export function PatientProductRequestActions({
                     resetResubmitDraft();
                     setEditMode(false);
                   }}
-                  className="h-9 w-full rounded-lg border border-slate-300/90 bg-white text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                  className="h-10 min-w-0 flex-1 rounded-lg border border-slate-300/90 bg-white px-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
                 >
                   Annuler les changements
+                </button>
+                <button
+                  type="button"
+                  disabled={busyAction !== "" || !resubmitDirty || lines.length === 0}
+                  onClick={() => openResubmitConfirm()}
+                  className="h-10 min-w-0 flex-1 rounded-lg border border-emerald-600 bg-emerald-600 px-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {busyAction === "resubmit" ? "Enregistrement…" : "Enregistrer les modifications"}
                 </button>
               </div>
             )}
