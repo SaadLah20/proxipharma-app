@@ -2529,7 +2529,7 @@ export function PatientProductRequestActions({
                           hit={{
                             id: h.id,
                             name: h.name,
-                            photo_url: h.photo_url,
+                            photo_url: h.photo_url ?? null,
                             unitPrice: resolveCatalogPrice(catalogHitToPricingInput(h)),
                           }}
                           onAdd={() => addProduct(h)}
