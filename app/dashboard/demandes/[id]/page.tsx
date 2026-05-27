@@ -70,6 +70,7 @@ type ProdEmbed = {
 type AltEmbed = {
   id: string;
   rank: number;
+  product_id: string;
   availability_status: string | null;
   available_qty: number | null;
   unit_price: number | null;
