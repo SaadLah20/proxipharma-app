@@ -47,6 +47,8 @@ import {
   PriceDhInline,
   ProductRequestCatalogHitRow,
   ProductRequestLineMessageIconButton,
+  ProductRequestLineQtyInline,
+  ProductRequestLinePrices,
   ProductRequestSearchExplorerRow,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import { PatientProductRequestDossierHeader } from "@/components/requests/product/patient-product-request-dossier-header";
@@ -367,50 +369,20 @@ function PatientValidatedCompactLineCard({
 
           <div
             className={cn(
-              "grid w-full grid-cols-[1fr_auto_1fr] items-end gap-2 leading-none",
+              "flex w-full items-end justify-between gap-2 leading-none",
               withdrawnGrey && "opacity-85"
             )}
           >
-            <div className="flex min-w-0 flex-col gap-0.5 text-muted-foreground">
-              <div className="flex items-baseline gap-1.5">
-                <span className="shrink-0 text-[11px] font-medium leading-snug">PU</span>
-                <span className="whitespace-nowrap">
-                  {unitMad != null ? (
-                    <PriceDhInline
-                      value={unitMad}
-                      amountClassName="text-sm font-bold leading-snug text-foreground"
-                      suffixClassName="text-[10px] leading-snug"
-                    />
-                  ) : (
-                    <strong className="text-sm leading-snug text-foreground">—</strong>
-                  )}
-                </span>
-              </div>
-              {lineTotalMad != null && row.is_selected_by_patient ? (
-                <div className="flex items-baseline gap-1.5">
-                  <span className="shrink-0 text-[10px] font-medium leading-snug">Tot</span>
-                  <span
-                    className={cn(
-                      "whitespace-nowrap text-[10px] font-medium text-muted-foreground/90",
-                      withdrawnGrey && "line-through decoration-muted-foreground/70"
-                    )}
-                  >
-                    <PriceDhInline
-                      value={lineTotalMad}
-                      amountClassName="text-[10px] font-semibold leading-snug text-muted-foreground"
-                      suffixClassName="text-[9px] leading-snug"
-                    />
-                  </span>
-                </div>
-              ) : null}
+            <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
+              <ProductRequestLinePrices
+                unitPrice={unitMad}
+                totalValue={
+                  lineTotalMad != null && row.is_selected_by_patient ? lineTotalMad : null
+                }
+              />
+              <ProductRequestLineQtyInline qty={displayQty} />
             </div>
-
-            <span className="justify-self-center whitespace-nowrap text-center text-[11px] leading-snug text-muted-foreground">
-              Qté{" "}
-              <strong className="text-sm font-semibold tabular-nums text-foreground">{displayQty}</strong>
-            </span>
-
-            <div className="flex justify-end">
+            <div className="flex shrink-0 self-end">
               <PatientLineNotesIconButton
                 productName={validatedName}
                 client={row.client_comment ?? ""}
