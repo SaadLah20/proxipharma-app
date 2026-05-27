@@ -5,11 +5,14 @@ import { createPortal } from "react-dom";
 import { Ban, Package, X } from "lucide-react";
 import {
   PRODUCT_REQUEST_LINE_CARD_SHELL,
-  PRODUCT_REQUEST_LINE_THUMB,
   ProductRequestLineMessageIconButton,
   ProductRequestLinePrices,
   ProductRequestLineQtyPicker,
 } from "@/components/pharmacy/patient-demande-produits-ui";
+
+/** Vignette répondue un peu plus haute que le panier standard (meilleure lisibilité). */
+const RESPONDED_LINE_THUMB =
+  "box-border size-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternative-qty-rules";
@@ -373,7 +376,7 @@ function RespondedLineBlock({
   return (
     <div
       className={cn(
-        "relative w-full min-w-0 overflow-visible p-1 transition",
+        "relative w-full min-w-0 overflow-visible px-2 py-2.5 transition",
         PRODUCT_REQUEST_LINE_CARD_SHELL,
         unavailable &&
           "bg-slate-50/95 saturate-[0.72] [&_img]:opacity-90",
@@ -413,12 +416,12 @@ function RespondedLineBlock({
           />
         </label>
       )}
-      <div className="flex items-center gap-2 pe-1 pt-1">
-        <div className={cn(PRODUCT_REQUEST_LINE_THUMB, "shrink-0", unavailable && "opacity-95")}>
+      <div className="flex items-start gap-2.5 pe-1">
+        <div className={cn(RESPONDED_LINE_THUMB, "shrink-0 self-center", unavailable && "opacity-95")}>
           {thumbInner}
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-1 overflow-visible">
+        <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-visible py-0.5">
           <div className="flex min-w-0 items-center gap-1.5 overflow-hidden leading-none">
             <span
               className={cn(
@@ -445,7 +448,7 @@ function RespondedLineBlock({
           {isProposedBlock ? (
             <p
               className={cn(
-                "line-clamp-3 rounded-md px-2 py-1 text-[10px] leading-snug",
+                "line-clamp-3 rounded-md px-2 py-1.5 text-[10px] leading-snug",
                 unavailable
                   ? "bg-slate-100/90 text-slate-600 ring-1 ring-slate-200/80"
                   : notRetained
@@ -478,18 +481,18 @@ function RespondedLineBlock({
 
           <div
             className={cn(
-              "relative flex min-h-7 w-full items-center overflow-visible",
+              "flex min-h-9 w-full items-center justify-between gap-3 overflow-visible pt-0.5",
               unavailable && "opacity-95",
               notRetained && !unavailable && "opacity-85"
             )}
           >
-            <div className="z-0 min-w-0 max-w-[42%] shrink-0 leading-none">
+            <div className="min-w-0 max-w-[48%] shrink-0 leading-none">
               <ProductRequestLinePrices
                 unitPrice={unit}
                 totalValue={showQty && total != null ? total : null}
               />
             </div>
-            <div className="absolute left-[calc(50%+6mm)] top-1/2 z-[1] flex -translate-x-1/2 -translate-y-1/2 items-center gap-2">
+            <div className="flex shrink-0 items-center justify-end gap-2">
               {showQty ? (
                 <ProductRequestLineQtyPicker
                   qty={selQty}
@@ -668,9 +671,9 @@ export function RespondedPatientLineChooser({
   }
 
   return (
-    <li className="w-full min-w-0 overflow-visible rounded-xl border border-sky-300/75 bg-gradient-to-b from-sky-50/55 via-sky-50/20 to-white p-1 ring-1 ring-sky-200/50">
-      <div className="px-2 pt-2 pb-1">
-        <p className="mb-1.5 px-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-800/85">
+    <li className="w-full min-w-0 overflow-visible rounded-xl border border-sky-300/75 bg-gradient-to-b from-sky-50/55 via-sky-50/20 to-white p-2 ring-1 ring-sky-200/50">
+      <div className="px-0.5 pt-1 pb-2">
+        <p className="mb-2 px-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-800/85">
           Choisir une option
         </p>
         <RespondedVariantTabs
@@ -683,7 +686,7 @@ export function RespondedPatientLineChooser({
           onTab={onTab}
         />
       </div>
-      <div className="px-2 pb-2">
+      <div className="px-0.5 pb-1">
         <RespondedLineBlock
           variant={activeVariant}
           retained={retainedForTab}
