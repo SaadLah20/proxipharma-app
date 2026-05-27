@@ -2,15 +2,14 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Ban, Minus, Package, Plus, X } from "lucide-react";
+import { Ban, Package, X } from "lucide-react";
 import {
-  PriceDhInline,
-  ProductRequestLineMessageButton,
+  PRODUCT_REQUEST_LINE_CARD_SHELL,
+  PRODUCT_REQUEST_LINE_THUMB,
+  ProductRequestLineMessageIconButton,
+  ProductRequestLinePrices,
+  ProductRequestLineQtyPicker,
 } from "@/components/pharmacy/patient-demande-produits-ui";
-
-/** Vignette répondue ~10 % plus grande que le panier (56px → ~62px). */
-const RESPONDED_LINE_THUMB =
-  "box-border size-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternative-qty-rules";
@@ -178,11 +177,7 @@ function RespondedLineNotesButton({
 
   return (
     <>
-      <ProductRequestLineMessageButton
-        hasComment={hasNotes}
-        onClick={() => setOpen(true)}
-        className="px-1.5 py-0.5 text-[9px]"
-      />
+      <ProductRequestLineMessageIconButton hasComment={hasNotes} onClick={() => setOpen(true)} />
       {open && typeof document !== "undefined"
         ? createPortal(
             <div
@@ -328,8 +323,7 @@ function RespondedLineBlock({
   retained,
   selQty,
   onToggleRetain,
-  onDecQty,
-  onIncQty,
+  onSetQty,
   onPhotoPreview,
   requestType,
   isProposedLine,
@@ -339,8 +333,7 @@ function RespondedLineBlock({
   retained: boolean;
   selQty: number;
   onToggleRetain: (on: boolean) => void;
-  onDecQty: () => void;
-  onIncQty: () => void;
+  onSetQty: (qty: number) => void;
   onPhotoPreview?: (url: string, title: string) => void;
   requestType: string;
   isProposedLine: boolean;
@@ -380,14 +373,15 @@ function RespondedLineBlock({
   return (
     <div
       className={cn(
-        "relative w-full min-w-0 overflow-visible rounded-lg border transition",
+        "relative w-full min-w-0 overflow-visible p-1 transition",
+        PRODUCT_REQUEST_LINE_CARD_SHELL,
         unavailable &&
-          "border-slate-300/85 bg-slate-50/95 saturate-[0.72] [&_img]:opacity-90",
-        notRetained && !unavailable && "border-slate-200/75 bg-slate-50/75",
-        retained && !unavailable && !isProposedBlock && "border-sky-400/90 bg-white ring-1 ring-sky-200/60",
-        retained && !unavailable && isProposedBlock && "border-violet-300/80 bg-white ring-1 ring-violet-200/55",
-        !retained && !unavailable && !isProposedBlock && "border-slate-200/80 bg-white",
-        !retained && !unavailable && isProposedBlock && "border-violet-200/70 bg-violet-50/25"
+          "bg-slate-50/95 saturate-[0.72] [&_img]:opacity-90",
+        notRetained && !unavailable && "bg-slate-50/75",
+        retained && !unavailable && !isProposedBlock && "bg-white ring-1 ring-sky-200/50",
+        retained && !unavailable && isProposedBlock && "bg-white ring-1 ring-violet-200/45",
+        !retained && !unavailable && !isProposedBlock && "bg-white",
+        !retained && !unavailable && isProposedBlock && "bg-violet-50/25"
       )}
       title={unavailable ? "Non retenable — rupture ou indisponible" : undefined}
     >
@@ -419,12 +413,12 @@ function RespondedLineBlock({
           />
         </label>
       )}
-      <div className="flex items-stretch gap-2.5 p-2.5">
-        <div className={cn(RESPONDED_LINE_THUMB, "shrink-0 self-center", unavailable && "opacity-95")}>
+      <div className="flex items-center gap-2 pe-1 pt-1">
+        <div className={cn(PRODUCT_REQUEST_LINE_THUMB, "shrink-0", unavailable && "opacity-95")}>
           {thumbInner}
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 py-0.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1 overflow-visible">
           <div className="flex min-w-0 items-center gap-1.5 overflow-hidden leading-none">
             <span
               className={cn(
@@ -484,63 +478,24 @@ function RespondedLineBlock({
 
           <div
             className={cn(
-              "flex min-w-0 items-center gap-3 leading-none",
+              "relative flex min-h-7 w-full items-center overflow-visible",
               unavailable && "opacity-95",
               notRetained && !unavailable && "opacity-85"
             )}
           >
-            <div className="flex shrink-0 flex-col gap-1 leading-none text-muted-foreground">
-              <div className="flex items-baseline gap-1.5">
-                <span className="w-[1.4rem] shrink-0 text-[11px] leading-none">PU</span>
-                <span className="whitespace-nowrap">
-                  {unit != null ? (
-                    <PriceDhInline
-                      value={unit}
-                      amountClassName="text-xs font-bold leading-none text-foreground"
-                      suffixClassName="text-[9px] leading-none"
-                    />
-                  ) : (
-                    <strong className="text-xs leading-none text-foreground">—</strong>
-                  )}
-                </span>
-              </div>
-              {showQty && total != null ? (
-                <div className="flex items-baseline gap-1.5">
-                  <span className="w-[1.4rem] shrink-0 text-[8px] font-medium leading-none">Tot</span>
-                  <span className="whitespace-nowrap text-[8px] font-medium text-muted-foreground/90">
-                    <PriceDhInline
-                      value={total}
-                      amountClassName="text-[9px] font-semibold leading-none text-muted-foreground"
-                      suffixClassName="text-[7px] leading-none"
-                    />
-                  </span>
-                </div>
-              ) : null}
+            <div className="z-0 min-w-0 max-w-[42%] shrink-0 leading-none">
+              <ProductRequestLinePrices
+                unitPrice={unit}
+                totalValue={showQty && total != null ? total : null}
+              />
             </div>
-
-            <div className="ml-auto flex shrink-0 items-center gap-2">
+            <div className="absolute left-[calc(50%+6mm)] top-1/2 z-[1] flex -translate-x-1/2 -translate-y-1/2 items-center gap-2">
               {showQty ? (
-                <div className="flex items-center gap-0.5" role="group" aria-label="Quantité">
-                  <button
-                    type="button"
-                    aria-label="Diminuer la quantité"
-                    disabled={selQty <= 1}
-                    className="rounded border border-border/80 bg-card p-1 hover:bg-muted/40 disabled:opacity-40"
-                    onClick={onDecQty}
-                  >
-                    <Minus size={14} />
-                  </button>
-                  <span className="w-5 text-center text-sm font-semibold tabular-nums">{selQty}</span>
-                  <button
-                    type="button"
-                    aria-label="Augmenter la quantité"
-                    disabled={selQty >= variant.cap}
-                    className="rounded border border-border/80 bg-card p-1 hover:bg-muted/40 disabled:opacity-40"
-                    onClick={onIncQty}
-                  >
-                    <Plus size={14} />
-                  </button>
-                </div>
+                <ProductRequestLineQtyPicker
+                  qty={selQty}
+                  maxQty={variant.cap}
+                  onSelect={(n) => onSetQty(Math.min(variant.cap, Math.max(1, n)))}
+                />
               ) : null}
               <RespondedLineNotesButton
                 productName={variant.productName}
@@ -703,8 +658,7 @@ export function RespondedPatientLineChooser({
           retained={selState.branch === "principal"}
           selQty={selState.qty}
           onToggleRetain={(on) => toggleLineRetention(row.id, on, "principal")}
-          onDecQty={() => setLineQty(row.id, selState.qty - 1)}
-          onIncQty={() => setLineQty(row.id, selState.qty + 1)}
+          onSetQty={(qty) => setLineQty(row.id, qty)}
           onPhotoPreview={onPhotoPreview}
           requestType={requestType}
           isProposedLine={isProposedLine}
@@ -714,7 +668,7 @@ export function RespondedPatientLineChooser({
   }
 
   return (
-    <li className="w-full min-w-0 overflow-visible rounded-xl border border-sky-300/75 bg-gradient-to-b from-sky-50/55 via-sky-50/20 to-white ring-1 ring-sky-200/50">
+    <li className="w-full min-w-0 overflow-visible rounded-xl border border-sky-300/75 bg-gradient-to-b from-sky-50/55 via-sky-50/20 to-white p-1 ring-1 ring-sky-200/50">
       <div className="px-2 pt-2 pb-1">
         <p className="mb-1.5 px-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-800/85">
           Choisir une option
@@ -735,8 +689,7 @@ export function RespondedPatientLineChooser({
           retained={retainedForTab}
           selQty={selState.qty}
           onToggleRetain={(on) => toggleLineRetention(row.id, on, activeBranch)}
-          onDecQty={() => setLineQty(row.id, selState.qty - 1)}
-          onIncQty={() => setLineQty(row.id, selState.qty + 1)}
+          onSetQty={(qty) => setLineQty(row.id, qty)}
           onPhotoPreview={onPhotoPreview}
           requestType={requestType}
           isProposedLine={isProposedLine && activeTab === "principal"}
