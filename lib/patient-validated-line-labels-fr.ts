@@ -10,7 +10,7 @@ import {
   isRequestItemAddedAfterPatientConfirmation,
 } from "@/lib/supply-line-post-confirm";
 
-export type ValidatedLineLabelTone = "origin" | "status" | "event";
+export type ValidatedLineLabelTone = "origin" | "status" | "event" | "reception" | "arrived";
 
 export type ValidatedLineLabel = {
   key: string;
@@ -18,10 +18,24 @@ export type ValidatedLineLabel = {
   tone: ValidatedLineLabelTone;
 };
 
-function fulfillmentStatusLabelFr(row: PatientLineLike): string | null {
+const TREATED_OMIT_STATUS_RE =
+  /réservé|commandé|à réserver|à commander/i;
+
+function fulfillmentStatusLabelFr(row: PatientLineLike, treatedLineLabels?: boolean): string | null {
   if (!row.is_selected_by_patient) return null;
   const eff = effectiveAvailabilityForPatientLine(row);
   const pcf = row.post_confirm_fulfillment ?? "unset";
+  if (treatedLineLabels) {
+    if (eff === "available" || eff === "partially_available") {
+      if (pcf === "reserved") return null;
+      return "En attente de votre passage";
+    }
+    if (eff === "to_order") {
+      if (pcf === "arrived_reserved") return "Reçu en officine";
+      return null;
+    }
+    return null;
+  }
   if (eff === "available" || eff === "partially_available") {
     return pcf === "reserved" ? "Réservé" : "À réserver par la pharmacie";
   }
@@ -54,8 +68,10 @@ export function buildPatientValidatedLineLabelsFr(input: {
   originLabel: string;
   supplyAmendmentBundles: { amendments: unknown }[];
   archiveClosureLabel?: string | null;
+  /** Demande traitée : pas de pastilles « réservé / commandé » (déjà dans les blocs). */
+  treatedLineLabels?: boolean;
 }): ValidatedLineLabel[] {
-  const { row, originLabel, supplyAmendmentBundles, archiveClosureLabel } = input;
+  const { row, originLabel, supplyAmendmentBundles, archiveClosureLabel, treatedLineLabels } = input;
   const out: ValidatedLineLabel[] = [{ key: "origin", text: originLabel, tone: "origin" }];
 
   const withdrawn = Boolean(row.withdrawn_after_confirm);
@@ -69,18 +85,26 @@ export function buildPatientValidatedLineLabelsFr(input: {
   } else if (withdrawn) {
     out.push({ key: "ecart", text: "Écarté par la pharmacie", tone: "event" });
   } else {
-    const status = fulfillmentStatusLabelFr(row);
-    if (status) out.push({ key: "status", text: status, tone: "status" });
+    const status = fulfillmentStatusLabelFr(row, treatedLineLabels);
+    if (status && !(treatedLineLabels && TREATED_OMIT_STATUS_RE.test(status))) {
+      out.push({
+        key: status === "Reçu en officine" ? "arrived" : "status",
+        text: status,
+        tone: status === "Reçu en officine" ? "arrived" : "status",
+      });
+    }
     const eff = effectiveAvailabilityForPatientLine(row);
     const eta = effectiveEtaForPatientLine(row);
-    if (eta && (eff === "to_order" || ajoutOrigin)) {
+    const pcf = row.post_confirm_fulfillment ?? "unset";
+    const receivedAtPharmacy = pcf === "arrived_reserved";
+    if (eta && (eff === "to_order" || ajoutOrigin) && !receivedAtPharmacy) {
       out.push({
         key: "reception",
         text:
           eff === "to_order"
             ? `Réception prévue · ${formatDateShortFr(eta)}`
             : `Réception · ${formatDateShortFr(eta)}`,
-        tone: "status",
+        tone: "reception",
       });
     }
   }
@@ -111,8 +135,14 @@ export function validatedLineLabelChipClass(label: ValidatedLineLabel): string {
     if (t === "Ordonnance" || t.startsWith("Ordonnance")) return `${base} border-amber-500/70 bg-amber-700 text-white ring-amber-600/40`;
     return `${base} border-violet-500/70 bg-violet-700 text-white ring-violet-600/40`;
   }
+  if (label.tone === "reception" || label.key === "reception") {
+    return `${base} border-teal-400/90 bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-sm ring-teal-300/55`;
+  }
+  if (label.tone === "arrived" || label.text === "Reçu en officine") {
+    return `${base} border-emerald-400/90 bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-sm ring-emerald-300/55`;
+  }
   if (label.tone === "status") {
-    return `${base} border-emerald-400/80 bg-emerald-50 text-emerald-950 ring-emerald-200/70`;
+    return `${base} border-sky-400/80 bg-sky-50 text-sky-950 ring-sky-200/70`;
   }
   return `${base} border-slate-300/80 bg-slate-50 text-slate-800 ring-slate-200/70`;
 }
