@@ -18,7 +18,13 @@ import {
 import { clsx } from "clsx";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatDateShortFr, formatDateTimeShort24hFr, formatPlannedVisitFr, formatTime24hFr } from "@/lib/datetime-fr";
+import {
+  formatDateShortFr,
+  formatDateTimeShort24hFr,
+  formatPlannedVisitFr,
+  formatTime24hFr,
+  patientPlannedVisitPassageLineFr,
+} from "@/lib/datetime-fr";
 import {
   RequestExitConfirmModalFr,
   type RequestExitModalMode,
@@ -266,7 +272,7 @@ function validatedLineShellClass(
   if (withdrawnGrey) {
     return "border-slate-200/75 bg-slate-50/75 saturate-[0.65] opacity-[0.72]";
   }
-  if (tier === "dispo_officine") return "border-emerald-300/85 bg-white ring-1 ring-emerald-200/55";
+  if (tier === "dispo_officine") return "border-sky-300/85 bg-white ring-1 ring-sky-200/55";
   if (tier === "commande") return "border-teal-300/85 bg-white ring-1 ring-teal-200/55";
   if (tier === "retire_apres_validation") return "border-red-200/85 bg-red-50/30";
   return "border-slate-200/80 bg-white";
@@ -318,6 +324,7 @@ function PatientValidatedCompactLineCard({
     originLabel,
     supplyAmendmentBundles,
     archiveClosureLabel,
+    treatedLineLabels: requestStatusForCard === "treated",
   });
   const thumbInner = thumbUrl ? (
     onPhotoPreview ? (
@@ -694,9 +701,9 @@ function PatientClosedProductBucketsView({
   return (
     <div className="space-y-3">
       {recuperes.length > 0 ? (
-        <section className="rounded-xl border-2 border-emerald-300/80 bg-gradient-to-b from-emerald-50/55 via-white to-white p-2.5 shadow-md ring-1 ring-emerald-200/60 sm:p-3">
-          <div className="mb-2 flex items-center gap-1.5 text-emerald-950">
-            <Package className="size-4 shrink-0 text-emerald-700" aria-hidden />
+        <section className="rounded-xl border-2 border-sky-300/80 bg-gradient-to-b from-sky-50/55 via-white to-white p-2.5 shadow-md ring-1 ring-sky-200/60 sm:p-3">
+          <div className="mb-2 flex items-center gap-1.5 text-sky-950">
+            <Package className="size-4 shrink-0 text-sky-700" aria-hidden />
             <h3 className="text-[11px] font-bold uppercase tracking-wide">
               Produits récupérés ({recuperes.length})
             </h3>
@@ -2352,6 +2359,23 @@ export function PatientProductRequestActions({
 
   const visitTimeFr = visitTimeComposed ? formatTime24hFr(htmlTimeToPg(visitTimeComposed) ?? visitTimeComposed) : "";
 
+  const isTreatedActiveView = status === "treated" && !forceReadOnly;
+  const treatedPassageLine = useMemo(() => {
+    if (!isTreatedActiveView) return "";
+    const dateYmd = (initialPlannedVisitDate ?? "").trim() || resolvedVisitDate;
+    const timePg =
+      visitTimeComposed.trim() !== ""
+        ? htmlTimeToPg(visitTimeComposed)
+        : (initialPlannedVisitTime ?? null);
+    return patientPlannedVisitPassageLineFr(dateYmd, timePg);
+  }, [
+    isTreatedActiveView,
+    initialPlannedVisitDate,
+    initialPlannedVisitTime,
+    resolvedVisitDate,
+    visitTimeComposed,
+  ]);
+
   const dossierRefLabel = requestPublicRef?.trim() || `Dossier ${requestId.slice(0, 8)}…`;
 
   const confirmReserveLines =
@@ -2423,6 +2447,15 @@ export function PatientProductRequestActions({
             accent={accent}
           />
         )
+      ) : null}
+
+      {isTreatedActiveView ? (
+        <p
+          className="mt-2 rounded-lg border-2 border-sky-400/55 bg-gradient-to-r from-sky-50 via-white to-sky-50/80 px-3 py-2.5 text-center text-[13px] font-semibold leading-snug text-sky-950 shadow-sm ring-1 ring-sky-200/60 sm:text-sm"
+          role="status"
+        >
+          {treatedPassageLine || "Votre date de passage sera confirmée avec la pharmacie."}
+        </p>
       ) : null}
 
       {showPrescriptionWaiting && prescriptionPaths ? (
@@ -2528,35 +2561,12 @@ export function PatientProductRequestActions({
 
       {showConfirmedCards && !forceReadOnly ? (
         (() => {
-          if (confirmedRevalidationMode) {
+          if (confirmedRevalidationMode && status === "confirmed") {
             return (
               <section className="mt-4 space-y-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2 px-0.5">
-                  <h3 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                    Modifier ma validation
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-[11px]"
-                      disabled={busyAction !== ""}
-                      onClick={cancelConfirmedRevalidation}
-                    >
-                      Annuler
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="h-8 bg-primary text-[11px] text-primary-foreground hover:bg-primary/90"
-                      disabled={busyAction !== "" || Boolean(detailStale)}
-                      onClick={openConfirmedRevalidationReview}
-                    >
-                      Enregistrer ma validation
-                    </Button>
-                  </div>
-                </div>
+                <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Modifier ma validation
+                </h3>
                 <p className="px-0.5 text-[10px] leading-snug text-muted-foreground">
                   Tant que la pharmacie n&apos;a pas déclaré la demande traitée, vous pouvez ajuster vos choix (quantités,
                   alternatives).
@@ -2590,39 +2600,32 @@ export function PatientProductRequestActions({
           const lignesNonRetenues = items.filter((r) => !r.is_selected_by_patient);
           const subtotalDispo = monetaryTotalsForRetainedLines(dispoRetenues, status);
           const subtotalCommande = monetaryTotalsForRetainedLines(aCommanderRetenues, status);
+          const isTreatedProductsView = status === "treated";
 
           return (
             <section className="space-y-3">
-              {canPatientRevalidateConfirmation ? (
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sky-200/80 bg-sky-50/50 px-2.5 py-2">
-                  <p className="text-[10px] leading-snug text-sky-950">
-                    Besoin d&apos;ajuster vos choix validés&nbsp;?
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 border-amber-400/80 bg-white text-[11px] font-semibold text-amber-950 hover:bg-amber-50"
-                    disabled={busyAction !== "" || Boolean(detailStale)}
-                    onClick={startConfirmedRevalidation}
-                  >
-                    Modifier ma validation
-                  </Button>
-                </div>
-              ) : null}
               <h3 className="mt-2 px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 {workflowCopy.patientProductsSectionTitle}
               </h3>
               {dispoRetenues.length > 0 ? (
-                <section className="space-y-2 rounded-xl border-2 border-emerald-300/90 bg-emerald-50/35 p-2 ring-1 ring-emerald-200/60">
-                  <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto px-0.5 text-emerald-950">
+                <section className="space-y-2 rounded-xl border-2 border-sky-300/90 bg-sky-50/35 p-2 ring-1 ring-sky-200/60">
+                  <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto px-0.5 text-sky-950">
                     <div className="flex min-w-0 items-center gap-1.5">
-                      <Package className="size-4 shrink-0 text-emerald-700" aria-hidden />
-                      <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-emerald-950">
-                        À réserver · {dispoRetenues.length}
+                      <Package className="size-4 shrink-0 text-sky-700" aria-hidden />
+                      <h4
+                        className={clsx(
+                          "min-w-0 font-extrabold uppercase tracking-wide text-sky-950",
+                          isTreatedProductsView
+                            ? "text-[10px] leading-snug sm:text-[11px]"
+                            : "text-[11px]"
+                        )}
+                      >
+                        {isTreatedProductsView
+                          ? "Produits réservés pour vous et en attente de votre passage"
+                          : `À réserver · ${dispoRetenues.length}`}
                       </h4>
                     </div>
-                    <p className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-emerald-800">
+                    <p className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-sky-800">
                       {compactTotalMadLabel({
                         sumKnown: subtotalDispo.sumKnown,
                         missingPrice: subtotalDispo.missingPrice,
@@ -2637,7 +2640,7 @@ export function PatientProductRequestActions({
                         row={row}
                         tier="dispo_officine"
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
-                        requestStatusForCard={status}
+                        requestStatusForCard={isTreatedProductsView ? "treated" : status}
                         onPhotoPreview={openProductPhotoPreview}
                         pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                         requestType={requestType}
@@ -2654,8 +2657,17 @@ export function PatientProductRequestActions({
                   <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto px-0.5 text-teal-950">
                     <div className="flex min-w-0 items-center gap-1.5">
                       <ShoppingCart className="size-4 shrink-0 text-teal-800" aria-hidden />
-                      <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-teal-950">
-                        À commander · {aCommanderRetenues.length}
+                      <h4
+                        className={clsx(
+                          "min-w-0 font-extrabold uppercase tracking-wide text-teal-950",
+                          isTreatedProductsView
+                            ? "text-[10px] leading-snug sm:text-[11px]"
+                            : "text-[11px]"
+                        )}
+                      >
+                        {isTreatedProductsView
+                          ? "Produits commandés pour vous"
+                          : `À commander · ${aCommanderRetenues.length}`}
                       </h4>
                     </div>
                     <p className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-teal-900">
@@ -2673,7 +2685,7 @@ export function PatientProductRequestActions({
                         row={row}
                         tier="commande"
                         onOpenHistory={() => setHistoryModalItemId(row.id)}
-                        requestStatusForCard={status}
+                        requestStatusForCard={isTreatedProductsView ? "treated" : status}
                         onPhotoPreview={openProductPhotoPreview}
                         pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
                         requestType={requestType}
@@ -2938,9 +2950,13 @@ export function PatientProductRequestActions({
             {visitTimeFr ? (
               <span className="mt-2 block text-[10px] font-medium text-muted-foreground">Enregistré : {visitTimeFr}</span>
             ) : null}
-            {visitFieldsEditable && showConfirmedCards ? (
+            {visitFieldsEditable && showConfirmedCards && status === "confirmed" ? (
               <p className="mt-2 text-[10px] leading-snug text-primary/90">
                 La pharmacie voit les changements sur la demande.
+              </p>
+            ) : visitFieldsEditable && isTreatedActiveView ? (
+              <p className="mt-2 text-[10px] leading-snug text-sky-900/85">
+                La pharmacie est informée si vous modifiez votre passage (bouton en bas de l&apos;écran).
               </p>
             ) : visitFieldsEditable && showConfirm ? (
               <p className="mt-2 text-[10px] leading-snug text-sky-900/85">
@@ -2956,7 +2972,7 @@ export function PatientProductRequestActions({
               <PatientPharmacyQuickContact pharmacy={pharmacyContact} requestRef={dossierRefLabel} />
             </div>
           ) : (
-            <section className="mt-2 rounded-xl border border-emerald-200/65 bg-muted/25 px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
+            <section className="mt-2 rounded-xl border border-sky-200/65 bg-muted/25 px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
               {showConfirmedCards
                 ? "Après validation, les changements passent par votre pharmacie."
                 : "Les coordonnées de l’officine seront affichées ici lorsqu’elles sont disponibles."}
@@ -2981,6 +2997,17 @@ export function PatientProductRequestActions({
               showConfirmedCards && "mb-32"
             )}
           >
+            {canPatientRevalidateConfirmation && !confirmedRevalidationMode ? (
+              <button
+                type="button"
+                disabled={busyAction !== "" || Boolean(detailStale)}
+                onClick={startConfirmedRevalidation}
+                className="mx-auto mb-3 flex min-h-[2.75rem] min-w-[min(100%,14rem)] max-w-md items-center justify-center gap-2 rounded-lg border border-amber-500/80 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-950 shadow-sm hover:bg-amber-100/90 disabled:opacity-50"
+              >
+                <Pencil size={16} aria-hidden />
+                Modifier ma validation
+              </button>
+            ) : null}
             <button
               type="button"
               disabled={busyAction !== ""}
@@ -3151,23 +3178,46 @@ export function PatientProductRequestActions({
       {showConfirmedCards && !forceReadOnly ? (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
           <div className="mx-auto flex max-w-lg flex-col gap-2.5">
-            <div className="flex flex-nowrap items-center justify-between gap-3">
-              <p className="min-w-0 shrink text-sm font-medium text-slate-700 sm:text-base">
-                <span className="font-bold tabular-nums text-slate-950">{totalsRetained.count}</span>{" "}
-                {totalsRetained.count > 1 ? "produits retenus" : "produit retenu"}
-              </p>
-              <p className="shrink-0 whitespace-nowrap text-lg font-bold tabular-nums text-sky-900 sm:text-xl">
-                {totalRetainedGrandLabel}
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled={busyAction !== "" || !visitPassageDirty || Boolean(detailStale)}
-              onClick={() => void runUpdateVisit()}
-              className="w-full shrink-0 rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50 sm:ms-auto sm:w-auto sm:min-w-[220px]"
-            >
-              {busyAction === "visit" ? "Mise à jour…" : "Mettre à jour ma date de passage"}
-            </button>
+            {!confirmedRevalidationMode ? (
+              <>
+                <div className="flex flex-nowrap items-center justify-between gap-3">
+                  <p className="min-w-0 shrink text-sm font-medium text-slate-700 sm:text-base">
+                    <span className="font-bold tabular-nums text-slate-950">{totalsRetained.count}</span>{" "}
+                    {totalsRetained.count > 1 ? "produits retenus" : "produit retenu"}
+                  </p>
+                  <p className="shrink-0 whitespace-nowrap text-lg font-bold tabular-nums text-sky-900 sm:text-xl">
+                    {totalRetainedGrandLabel}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={busyAction !== "" || !visitPassageDirty || Boolean(detailStale)}
+                  onClick={() => void runUpdateVisit()}
+                  className="w-full shrink-0 rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50 sm:ms-auto sm:w-auto sm:min-w-[220px]"
+                >
+                  {busyAction === "visit" ? "Mise à jour…" : "Mettre à jour ma date de passage"}
+                </button>
+              </>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={busyAction !== ""}
+                  onClick={cancelConfirmedRevalidation}
+                  className="h-10 min-w-0 flex-1 rounded-lg border border-slate-300/90 bg-white px-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Annuler les changements
+                </button>
+                <button
+                  type="button"
+                  disabled={busyAction !== "" || Boolean(detailStale)}
+                  onClick={openConfirmedRevalidationReview}
+                  className="h-10 min-w-0 flex-1 rounded-lg border border-amber-600 bg-amber-600/95 px-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {busyAction === "confirm" ? "Enregistrement…" : "Enregistrer les modifications"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ) : null}

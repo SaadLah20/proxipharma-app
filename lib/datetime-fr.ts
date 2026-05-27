@@ -38,6 +38,17 @@ export function formatPlannedVisitFr(dateYmd: string | null | undefined, timePg:
   return t ? `${d} · ${t}` : d;
 }
 
+/** Bandeau demande traitée : phrase complète pour le créneau de passage. */
+export function patientPlannedVisitPassageLineFr(
+  dateYmd: string | null | undefined,
+  timePg: string | null | undefined
+): string {
+  const d = formatDateShortFr(dateYmd ?? null, true);
+  const t = formatTime24hFr(timePg ?? null);
+  if (!d) return "";
+  return t ? `Votre passage est prévu le ${d} à ${t}` : `Votre passage est prévu le ${d}`;
+}
+
 /** Liste type maquette mobile : « 12 déc. 2023 10:45 » (fuseau Maroc sur le web). */
 export function formatDateTimeListCasablanca(iso: string | null | undefined): string {
   if (iso == null || String(iso).trim() === "") return "—";
