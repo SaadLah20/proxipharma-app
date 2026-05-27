@@ -52,7 +52,7 @@ function ProductRequestLineTotIndicative({ totalValue }: { totalValue: number | 
   );
 }
 
-function ProductRequestLinePrices({
+export function ProductRequestLinePrices({
   unitPrice,
   totalValue,
 }: {
@@ -95,10 +95,13 @@ export function ProductRequestLineQtyReadonly({ qty }: { qty: number }) {
 export function ProductRequestLineQtyPicker({
   qty,
   disabled,
+  maxQty = 10,
   onSelect,
 }: {
   qty: number;
   disabled?: boolean;
+  /** Plafond sélectionnable (défaut 10). */
+  maxQty?: number;
   onSelect: (qty: number) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -143,6 +146,9 @@ export function ProductRequestLineQtyPicker({
 
   if (disabled) return <ProductRequestLineQtyReadonly qty={qty} />;
 
+  const cap = Math.min(10, Math.max(1, maxQty));
+  const options = QTY_OPTIONS.filter((n) => n <= cap);
+
   const menu =
     open && menuPos && typeof document !== "undefined"
       ? createPortal(
@@ -156,8 +162,8 @@ export function ProductRequestLineQtyPicker({
               t.shell
             )}
           >
-            {QTY_OPTIONS.map((n) => (
-              <li key={n} role="option" aria-selected={n === qty}>
+          {options.map((n) => (
+            <li key={n} role="option" aria-selected={n === qty}>
                 <button
                   type="button"
                   className={cn(

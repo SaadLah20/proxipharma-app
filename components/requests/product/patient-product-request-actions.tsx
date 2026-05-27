@@ -2278,11 +2278,11 @@ export function PatientProductRequestActions({
       {showConfirm ? (
         <div className="space-y-2">
           {items.length > 0 ? (
-            <section className="space-y-2">
-              <h3 className="mt-4 px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+            <section className="space-y-1.5">
+              <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 {workflowCopy.patientProductsSectionTitle}
               </h3>
-              <ul className="w-full min-w-0 space-y-2.5">
+              <ul className="w-full min-w-0 space-y-1.5 overflow-visible">
                 {items.map((row) => (
                   <RespondedPatientLineChooser
                     key={row.id}
@@ -2789,7 +2789,7 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction !== "" || !resubmitDirty || lines.length === 0}
                   onClick={() => openResubmitConfirm()}
-                  className="h-10 min-w-0 flex-1 rounded-lg border border-emerald-600 bg-emerald-600 px-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-45"
+                  className="h-10 min-w-0 flex-1 rounded-lg bg-primary px-2 text-sm font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {busyAction === "resubmit" ? "Enregistrement…" : "Enregistrer les modifications"}
                 </button>
@@ -2862,7 +2862,7 @@ export function PatientProductRequestActions({
               type="button"
               disabled={busyAction !== "" || visitWin.missingEtaOnToOrder}
               onClick={openConfirmReview}
-              className="w-full shrink-0 rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50 sm:ms-auto sm:w-auto sm:min-w-[220px]"
+              className="flex h-11 w-full items-center justify-center rounded-xl bg-primary px-4 text-base font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50"
             >
               Valider ma demande
             </button>
