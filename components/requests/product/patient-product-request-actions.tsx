@@ -2789,7 +2789,7 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction !== "" || !resubmitDirty || lines.length === 0}
                   onClick={() => openResubmitConfirm()}
-                  className="h-10 min-w-0 flex-1 rounded-lg border border-emerald-600 bg-emerald-600 px-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-45"
+                  className="h-10 min-w-0 flex-1 rounded-lg border border-amber-500/80 bg-amber-50 px-2 text-sm font-semibold text-amber-950 shadow-sm hover:bg-amber-100/90 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {busyAction === "resubmit" ? "Enregistrement…" : "Enregistrer les modifications"}
                 </button>
