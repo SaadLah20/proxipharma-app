@@ -278,7 +278,7 @@ export function ProductRequestLinePanel({
           <div className="z-0 min-w-0 max-w-[42%] shrink-0 leading-none">
             <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
           </div>
-          <div className="absolute left-1/2 top-1/2 z-[1] flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 overflow-visible">
+          <div className="absolute left-[calc(50%+6mm)] top-1/2 z-[1] flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 overflow-visible">
             {qtyControl}
             {bottomRight ?? null}
           </div>
