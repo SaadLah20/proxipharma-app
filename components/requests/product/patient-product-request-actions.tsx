@@ -2278,11 +2278,11 @@ export function PatientProductRequestActions({
       {showConfirm ? (
         <div className="space-y-2">
           {items.length > 0 ? (
-            <section className="space-y-1.5">
+            <section className="space-y-2">
               <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 {workflowCopy.patientProductsSectionTitle}
               </h3>
-              <ul className="w-full min-w-0 space-y-1.5 overflow-visible">
+              <ul className="w-full min-w-0 space-y-2.5 overflow-visible">
                 {items.map((row) => (
                   <RespondedPatientLineChooser
                     key={row.id}
