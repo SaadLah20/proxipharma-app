@@ -2495,7 +2495,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showProductResubmit ? (
-        <section className="mt-2 w-full min-w-0 max-w-full space-y-2">
+        <section className="mt-2 w-full min-w-0 max-w-full space-y-1.5">
           <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
             {workflowCopy.patientProductsSectionTitle}
           </h3>

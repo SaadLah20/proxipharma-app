@@ -68,14 +68,24 @@ function ProductRequestLinePrices({
 
 const QTY_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
+/** Libellé quantité (lecture seule ou dans le sélecteur). */
+function ProductRequestLineQtyLabel({ qty, className }: { qty: number; className?: string }) {
+  return (
+    <span className={cn("inline-flex items-baseline gap-1 whitespace-nowrap leading-none", className)}>
+      <span className="text-[10px] font-medium text-muted-foreground">Quantité&nbsp;:</span>
+      <span className="text-[12px] font-semibold tabular-nums text-foreground">{qty}</span>
+    </span>
+  );
+}
+
 /** Qté lecture seule (alignée sur le sélecteur). */
 export function ProductRequestLineQtyReadonly({ qty }: { qty: number }) {
   return (
     <span
-      className="inline-flex h-7 min-w-[2.125rem] items-center justify-center rounded-full border border-sky-200/80 bg-sky-50/80 px-2 text-[12px] font-semibold tabular-nums text-sky-950"
+      className="inline-flex h-7 items-center rounded-full border border-sky-200/80 bg-sky-50/80 px-2.5"
       aria-label={`Quantité ${qty}`}
     >
-      {qty}
+      <ProductRequestLineQtyLabel qty={qty} />
     </span>
   );
 }
@@ -121,13 +131,14 @@ export function ProductRequestLineQtyPicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
+        aria-label={`Quantité ${qty}, choisir une autre valeur`}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "inline-flex h-7 min-w-[2.125rem] items-center justify-center gap-0.5 rounded-full border border-sky-300/80 bg-white px-2 text-[12px] font-semibold tabular-nums text-sky-950 shadow-sm transition hover:bg-sky-50",
+          "inline-flex h-7 items-center gap-0.5 rounded-full border border-sky-300/80 bg-white px-2 shadow-sm transition hover:bg-sky-50",
           open && "border-sky-500/70 ring-2 ring-sky-400/30"
         )}
       >
-        {qty}
+        <ProductRequestLineQtyLabel qty={qty} />
         <ChevronDown className={cn("size-3 shrink-0 text-sky-700 transition", open && "rotate-180")} aria-hidden />
       </button>
       {open ? (
@@ -136,7 +147,7 @@ export function ProductRequestLineQtyPicker({
           role="listbox"
           aria-label="Choisir la quantité"
           className={cn(
-            "absolute right-0 z-20 mt-1 max-h-44 w-[4.25rem] overflow-y-auto overscroll-y-contain rounded-xl border bg-card py-1 shadow-lg",
+            "absolute left-1/2 z-20 mt-1 max-h-44 w-[4.25rem] -translate-x-1/2 overflow-y-auto overscroll-y-contain rounded-xl border bg-card py-1 shadow-lg",
             t.shell
           )}
         >
@@ -227,29 +238,22 @@ export function ProductRequestLinePanel({
   contentMinHeight?: string;
 }) {
   return (
-    <div className="flex w-full min-w-0 items-stretch gap-2">
-      <div className={cn("shrink-0 self-center", THUMB, thumbClassName)}>{thumb}</div>
+    <div className="flex w-full min-w-0 items-center gap-2">
+      <div className={cn("shrink-0", THUMB, thumbClassName)}>{thumb}</div>
       <div
         className={cn(
-          "flex min-w-0 flex-1 basis-0 flex-col justify-between gap-0 overflow-hidden",
-          contentMinHeight ?? "min-h-14"
+          "flex min-w-0 flex-1 flex-col gap-1 overflow-hidden",
+          contentMinHeight
         )}
       >
-        <div className="flex w-full min-w-0 items-start gap-1.5 pt-0.5">
-          <div className="min-w-0 flex-1 overflow-hidden pe-4">{title}</div>
-        </div>
-        <div className="-mt-1 flex w-full min-w-0 items-center justify-between gap-2 overflow-hidden pb-0.5">
-          <div className="min-w-0 max-w-[46%] shrink">
+        <div className="min-w-0 overflow-hidden pe-5 leading-tight">{title}</div>
+        <div className="flex w-full min-w-0 items-center gap-2">
+          <div className="min-w-0 max-w-[38%] shrink leading-none">
             <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
             {qtyControl}
-            {bottomRight ? (
-              <>
-                <span className="h-7 w-px shrink-0 bg-border/50" aria-hidden />
-                <div className="shrink-0">{bottomRight}</div>
-              </>
-            ) : null}
+            {bottomRight ? <div className="shrink-0">{bottomRight}</div> : null}
           </div>
         </div>
       </div>
