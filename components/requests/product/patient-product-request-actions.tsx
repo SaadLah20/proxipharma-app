@@ -2283,6 +2283,22 @@ export function PatientProductRequestActions({
   }, [status, lines, resubmitBaseline]);
 
   const readOnlyArchive = isPatientProductArchiveStatus(status);
+  const treatedPassageLine = useMemo(() => {
+    if (status !== "treated" || readOnlyArchive) return "";
+    const dateYmd = (initialPlannedVisitDate ?? "").trim() || resolvedVisitDate;
+    const timePg =
+      visitTimeComposed.trim() !== ""
+        ? htmlTimeToPg(visitTimeComposed)
+        : (initialPlannedVisitTime ?? null);
+    return patientPlannedVisitPassageLineFr(dateYmd, timePg);
+  }, [
+    status,
+    readOnlyArchive,
+    initialPlannedVisitDate,
+    initialPlannedVisitTime,
+    resolvedVisitDate,
+    visitTimeComposed,
+  ]);
   const uiStatus = readOnlyArchive
     ? inferArchiveSnapshotStatus(status, {
         responded_at: requestTimelineMeta?.responded_at,
@@ -2360,21 +2376,6 @@ export function PatientProductRequestActions({
   const visitTimeFr = visitTimeComposed ? formatTime24hFr(htmlTimeToPg(visitTimeComposed) ?? visitTimeComposed) : "";
 
   const isTreatedActiveView = status === "treated" && !forceReadOnly;
-  const treatedPassageLine = useMemo(() => {
-    if (!isTreatedActiveView) return "";
-    const dateYmd = (initialPlannedVisitDate ?? "").trim() || resolvedVisitDate;
-    const timePg =
-      visitTimeComposed.trim() !== ""
-        ? htmlTimeToPg(visitTimeComposed)
-        : (initialPlannedVisitTime ?? null);
-    return patientPlannedVisitPassageLineFr(dateYmd, timePg);
-  }, [
-    isTreatedActiveView,
-    initialPlannedVisitDate,
-    initialPlannedVisitTime,
-    resolvedVisitDate,
-    visitTimeComposed,
-  ]);
 
   const dossierRefLabel = requestPublicRef?.trim() || `Dossier ${requestId.slice(0, 8)}…`;
 
