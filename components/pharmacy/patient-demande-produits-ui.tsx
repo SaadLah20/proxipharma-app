@@ -632,7 +632,7 @@ export function ProductRequestCartLineRow({
       <ProductRequestLineDeleteButton onClick={onRemove} />
       <ProductRequestLinePanel
         title={
-          <p className="truncate text-[13px] font-semibold leading-none text-foreground" title={line.name}>
+          <p className="truncate pb-px text-[13px] font-semibold leading-snug text-foreground" title={line.name}>
             {line.name}
           </p>
         }

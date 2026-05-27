@@ -61,7 +61,9 @@ export function PatientProductRequestDossierHeader({
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200/70 px-3 py-2 sm:px-3.5">
-          <p className="min-w-0 flex-1 text-sm font-bold leading-tight text-foreground">{phLabel}</p>
+          <p className="min-w-0 flex-1 truncate pb-px text-sm font-bold leading-snug text-foreground" title={phLabel}>
+            {phLabel}
+          </p>
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
             {pharmacyContact ? (
               <button

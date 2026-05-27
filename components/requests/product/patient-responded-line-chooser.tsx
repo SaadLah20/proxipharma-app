@@ -444,7 +444,7 @@ function RespondedLineBlock({
             </span>
             <p
               className={cn(
-                "min-w-0 flex-1 truncate text-[13px] font-semibold leading-none",
+                "min-w-0 flex-1 truncate pb-px text-[13px] font-semibold leading-snug",
                 unavailable ? "text-slate-600" : "text-foreground",
                 notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
               )}
