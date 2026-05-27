@@ -274,12 +274,14 @@ export function ProductRequestLinePanel({
       <div className={cn("shrink-0", THUMB, thumbClassName)}>{thumb}</div>
       <div className={cn("flex min-w-0 flex-1 flex-col gap-1", contentMinHeight)}>
         <div className="min-w-0 overflow-hidden pe-5 leading-tight">{title}</div>
-        <div className="grid w-full grid-cols-[minmax(0,1fr)_6.75rem_1.75rem] items-center gap-x-1.5 overflow-visible">
-          <div className="min-w-0 leading-none">
+        <div className="relative flex min-h-7 w-full items-center overflow-visible">
+          <div className="z-0 min-w-0 max-w-[42%] shrink-0 leading-none">
             <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
           </div>
-          <div className="flex justify-center overflow-visible">{qtyControl}</div>
-          <div className="flex justify-end overflow-visible">{bottomRight ?? null}</div>
+          <div className="absolute left-1/2 top-1/2 z-[1] flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 overflow-visible">
+            {qtyControl}
+            {bottomRight ?? null}
+          </div>
         </div>
       </div>
     </div>
