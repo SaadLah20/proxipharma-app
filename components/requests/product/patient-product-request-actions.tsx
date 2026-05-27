@@ -47,7 +47,6 @@ import {
   ProductRequestCatalogHitRow,
   ProductRequestLineMessageIconButton,
   ProductRequestSearchExplorerRow,
-  productRequestPublicTheme as productRequestTheme,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import { PatientProductRequestDossierHeader } from "@/components/requests/product/patient-product-request-dossier-header";
 import { PatientProductRequestCompactLine } from "@/components/requests/product/patient-product-request-compact-line";
