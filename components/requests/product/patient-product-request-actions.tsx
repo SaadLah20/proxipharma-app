@@ -12,8 +12,6 @@ import {
   MessageCircle,
   Package,
   Pencil,
-  LayoutGrid,
-  Search,
   ShoppingCart,
   X,
 } from "lucide-react";
@@ -44,7 +42,13 @@ import { formatPriceDh } from "@/lib/product-price";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput, productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
-import { PriceDhInline } from "@/components/pharmacy/patient-demande-produits-ui";
+import {
+  PriceDhInline,
+  ProductRequestCatalogHitRow,
+  ProductRequestLineMessageIconButton,
+  ProductRequestSearchExplorerRow,
+  productRequestPublicTheme as productRequestTheme,
+} from "@/components/pharmacy/patient-demande-produits-ui";
 import { PatientProductRequestDossierHeader } from "@/components/requests/product/patient-product-request-dossier-header";
 import { PatientProductRequestCompactLine } from "@/components/requests/product/patient-product-request-compact-line";
 import { RespondedPatientLineChooser } from "@/components/requests/product/patient-responded-line-chooser";
@@ -61,7 +65,6 @@ import {
   readPatientDemandeProduitsDraft,
   writePatientDemandeProduitsDraft,
 } from "@/lib/patient-demande-produits-draft";
-import { buttonVariants } from "@/components/ui/button";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
@@ -699,8 +702,6 @@ function PatientSentLineNotesModalFr({
   const c = client.trim();
   const p = pharmacist.trim();
 
-  const visual = lineConversationVisual(c, p);
-
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -710,20 +711,14 @@ function PatientSentLineNotesModalFr({
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
+  const hasNotes = Boolean(c || p);
+
   return (
     <>
-      <button
-        type="button"
-        className={cn(
-          lineConversationStripButtonClass(visual, { open, disabled: false }),
-          "inline-flex max-w-[5.25rem] shrink-0 justify-center px-2 py-1 text-[10px]"
-        )}
+      <ProductRequestLineMessageIconButton
+        hasComment={hasNotes}
         onClick={() => setOpen(true)}
-        aria-label={`Notes sur ce produit · ${lineConversationStripLabel(visual)}`}
-      >
-        <MessageCircle className="size-3.5 shrink-0 opacity-90" strokeWidth={2.2} aria-hidden />
-        <span className="truncate text-[9px] font-medium leading-tight">{lineConversationStripLabel(visual)}</span>
-      </button>
+      />
       {open && typeof document !== "undefined"
         ? createPortal(
             <div
@@ -2505,26 +2500,13 @@ export function PatientProductRequestActions({
           <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
             {workflowCopy.patientProductsSectionTitle}
           </h3>
-          {editMode ? (
-        <div className="rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-          <label className="block text-base font-semibold text-slate-900">Ajouter un produit</label>
-          <p className="mt-1 text-sm text-slate-600">
-            Au moins 2 caractères : recherche par nom ou laboratoire dans le catalogue.
-          </p>
-          <div className="relative mt-2">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-500" />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ex: Doliprane, Smecta..."
-              className="touch-pan-y w-full rounded-xl border-2 border-slate-300 bg-white py-3 pl-11 pr-3 text-base shadow-sm placeholder:text-slate-400"
-            />
-          </div>
-          {pharmacyId ? (
-            <Link
-              href={`/pharmacie/${pharmacyId}/demande-produits/catalogue?requestId=${encodeURIComponent(requestId)}&returnTo=${encodeURIComponent(`/dashboard/demandes/${requestId}`)}`}
-              onClick={() =>
+          {editMode && pharmacyId ? (
+            <ProductRequestSearchExplorerRow
+              query={query}
+              onQueryChange={setQuery}
+              fieldFocus={productRequestTheme.focus}
+              explorerHref={`/pharmacie/${pharmacyId}/demande-produits/catalogue?requestId=${encodeURIComponent(requestId)}&returnTo=${encodeURIComponent(`/dashboard/demandes/${requestId}`)}`}
+              onExplorerNavigate={() =>
                 writePatientDemandeProduitsDraft(
                   pharmacyId,
                   lines.map((l) => ({
@@ -2538,64 +2520,34 @@ export function PatientProductRequestActions({
                   requestId
                 )
               }
-              className={clsx(
-                buttonVariants({ variant: "outline", size: "sm" }),
-                "mt-3 flex h-11 w-full items-center justify-center gap-2 text-sm font-semibold text-sky-900"
-              )}
-            >
-              <LayoutGrid className="size-4 shrink-0" aria-hidden />
-              Voir tous les produits
-            </Link>
+              searchSlot={
+                <>
+                  {visibleHits.length > 0 ? (
+                    <ul className="mt-2 max-h-56 space-y-1.5 overflow-y-auto">
+                      {visibleHits.map((h) => (
+                        <ProductRequestCatalogHitRow
+                          key={h.id}
+                          hit={{
+                            id: h.id,
+                            name: h.name,
+                            photo_url: h.photo_url,
+                            unitPrice: resolveCatalogPrice(catalogHitToPricingInput(h)),
+                          }}
+                          onAdd={() => addProduct(h)}
+                          onPhotoPreview={() => {
+                            if (h.photo_url) openProductPhotoPreview(h.photo_url, h.name);
+                          }}
+                        />
+                      ))}
+                    </ul>
+                  ) : query.trim().length >= 2 ? (
+                    <p className="mt-2 text-xs text-muted-foreground">Aucun résultat.</p>
+                  ) : null}
+                </>
+              }
+            />
           ) : null}
-          {visibleHits.length > 0 ? (
-            <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto">
-              {visibleHits.map((h) => (
-                <li key={h.id}>
-                  <div className="flex h-20 w-full items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-2.5 py-2 transition hover:bg-muted/35">
-                    <button
-                      type="button"
-                      disabled={!h.photo_url}
-                      className={clsx(
-                        "flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card transition",
-                        h.photo_url ? "cursor-zoom-in hover:ring-2 hover:ring-sky-400/50" : "cursor-default opacity-80"
-                      )}
-                      aria-label={h.photo_url ? `Agrandir la photo · ${h.name}` : "Pas de photo catalogue"}
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        if (h.photo_url) openProductPhotoPreview(h.photo_url, h.name);
-                      }}
-                    >
-                      {h.photo_url ? (
-                        <img src={h.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
-                      ) : (
-                        <Package className="size-5 text-muted-foreground" aria-hidden />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addProduct(h)}
-                      className="flex min-h-[5rem] min-w-0 flex-1 flex-col justify-center text-left"
-                    >
-                      <p
-                        className="overflow-hidden pr-1 text-[14px] font-semibold leading-tight text-foreground sm:text-[15px]"
-                        style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
-                      >
-                        {h.name}
-                      </p>
-                      <p className="mt-1 text-xs font-semibold text-sky-900 sm:text-sm">
-                        {formatPriceDh(resolveCatalogPrice(catalogHitToPricingInput(h)))}
-                      </p>
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : query.trim().length >= 2 ? (
-            <p className="mt-2 text-xs text-muted-foreground">Aucun résultat.</p>
-          ) : null}
-        </div>
-          ) : null}
-          <ul className="w-full min-w-0 max-w-full divide-y divide-border/60">
+          <ul className="w-full min-w-0 max-w-full space-y-1.5">
             {lines.map((l, idx) => (
               <PatientProductRequestCompactLine
                 key={`${l.product_id}-${idx}`}
@@ -2749,8 +2701,7 @@ export function PatientProductRequestActions({
           <div
             className={clsx(
               "mt-4 border-t border-rose-200/50 pt-3",
-              showProductResubmit && "mb-20",
-              showConfirm && "mb-24",
+              showConfirm && !showProductResubmit && "mb-24",
               showConfirmedCards && "mb-32"
             )}
           >
@@ -2824,7 +2775,15 @@ export function PatientProductRequestActions({
                 ) : null}
               </div>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={busyAction !== "" || !resubmitDirty || lines.length === 0}
+                  onClick={() => openResubmitConfirm()}
+                  className="flex h-11 w-full items-center justify-center rounded-xl border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-md transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {busyAction === "resubmit" ? "Enregistrement…" : "Enregistrer les modifications"}
+                </button>
                 <button
                   type="button"
                   disabled={busyAction !== ""}
@@ -2832,17 +2791,9 @@ export function PatientProductRequestActions({
                     resetResubmitDraft();
                     setEditMode(false);
                   }}
-                  className="h-10 flex-1 rounded-lg border-2 border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                  className="h-9 w-full rounded-lg border border-slate-300/90 bg-white text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
                 >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  disabled={busyAction !== ""}
-                  onClick={() => setEditMode(false)}
-                  className="h-10 flex-1 rounded-lg border border-sky-600 bg-sky-700 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:opacity-50"
-                >
-                  Enregistrer les modifications
+                  Annuler les changements
                 </button>
               </div>
             )}
