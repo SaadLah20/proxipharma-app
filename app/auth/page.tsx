@@ -41,6 +41,7 @@ import {
   AUTH_SIGNUP_SMS_SENT,
   mapAuthErrorToFrench,
 } from "@/lib/auth-messages-fr";
+import { linkSignupPhoneOnAuth, syncPhoneBeforeLogin } from "@/lib/auth-client-phone-link";
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -209,6 +210,15 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       setMessage("Saisissez un numéro valide (ex. 0612345678) ou une adresse e-mail.");
       setLoading(false);
       return;
+    }
+
+    if (id.kind === "phone") {
+      const sync = await syncPhoneBeforeLogin(id.phone, loginPassword);
+      if (!sync.ok && sync.error) {
+        setMessage(sync.error);
+        setLoading(false);
+        return;
+      }
     }
 
     const credentials =
@@ -458,6 +468,18 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       setMessage(ue.message);
       setLoading(false);
       return;
+    }
+
+    if (signupOtpChannel === "email" && phoneE164) {
+      const link = await linkSignupPhoneOnAuth(phoneE164);
+      if (!link.ok) {
+        setMessage(
+          link.error ??
+            "Compte créé mais le téléphone n’a pas pu être lié pour la connexion. Réessayez depuis Mes paramètres ou contactez le support."
+        );
+        setLoading(false);
+        return;
+      }
     }
 
     const { data: userData, error: guErr } = await supabase.auth.getUser();
