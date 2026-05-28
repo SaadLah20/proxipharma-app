@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
@@ -59,6 +59,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     if (t === "dashboard") {
       next.delete("statut");
       next.delete("section");
+      setFiltersExpandedUser(null);
     }
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
@@ -70,7 +71,8 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const [pharmacyFilter, setPharmacyFilter] = useState("");
   const [refQuery, setRefQuery] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  /** `null` = ouverture auto si filtres URL ou actifs sur la liste. */
+  const [filtersExpandedUser, setFiltersExpandedUser] = useState<boolean | null>(null);
 
   const isProductHub = kindId === "product_request";
   const dashboardBuckets = useMemo(() => dashboardBucketsForKind(kindId, "patient"), [kindId]);
@@ -99,67 +101,70 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   }, [tab, searchParams, router, hubPath]);
 
   useEffect(() => {
-    if (tab === "list" && (listStatutParam || listSectionParam)) {
-      setFiltersOpen(true);
-    }
-  }, [tab, listStatutParam, listSectionParam]);
+    let cancelled = false;
 
-  const load = useCallback(async () => {
-    setError("");
-    const { data: auth } = await supabase.auth.getSession();
-    const user = auth.session?.user;
-    if (!user) {
-      router.replace(`/auth?redirect=${encodeURIComponent(hubPath)}`);
-      return;
-    }
+    async function loadHubRows() {
+      setError("");
+      const { data: auth } = await supabase.auth.getSession();
+      const user = auth.session?.user;
+      if (!user) {
+        router.replace(`/auth?redirect=${encodeURIComponent(hubPath)}`);
+        return;
+      }
 
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-    if ((profile as { role?: string } | null)?.role !== "patient") {
-      setError("Cet espace est réservé aux patients.");
-      setLoading(false);
-      return;
-    }
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+      if ((profile as { role?: string } | null)?.role !== "patient") {
+        if (!cancelled) {
+          setError("Cet espace est réservé aux patients.");
+          setLoading(false);
+        }
+        return;
+      }
 
-    const { data, error: re } = await supabase
-      .from("requests")
-      .select(
-        "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,request_public_ref,pharmacies(nom,ville,public_ref)," +
-          "request_items(requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient,line_source,patient_chosen_alternative_id,counter_outcome,post_confirm_fulfillment,availability_status,products(price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,unit_price))"
-      )
-      .eq("patient_id", user.id)
-      .eq("request_type", kindId)
-      .order("created_at", { ascending: false })
-      .limit(200);
+      const { data, error: re } = await supabase
+        .from("requests")
+        .select(
+          "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,request_public_ref,pharmacies(nom,ville,public_ref)," +
+            "request_items(requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient,line_source,patient_chosen_alternative_id,counter_outcome,post_confirm_fulfillment,availability_status,products(price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,unit_price))"
+        )
+        .eq("patient_id", user.id)
+        .eq("request_type", kindId)
+        .order("created_at", { ascending: false })
+        .limit(200);
 
-    if (re) {
-      setError(re.message);
-      setUnreadById({});
-    } else if (Array.isArray(data)) {
-      setRows(data as unknown as PatientRequestRow[]);
-      const ids = (data as unknown as { id: string }[]).map((r) => r.id);
-      const unreadMap: Record<string, boolean> = {};
-      if (ids.length > 0) {
-        const { data: flagData, error: unreadErr } = await supabase.rpc("request_conversation_unread_flags", {
-          p_request_ids: ids,
-        });
-        if (!unreadErr && Array.isArray(flagData)) {
-          for (const fr of flagData as { request_id: string; has_unread: boolean }[]) {
-            if (fr.request_id) unreadMap[fr.request_id] = fr.has_unread === true;
+      if (cancelled) return;
+
+      if (re) {
+        setError(re.message);
+        setUnreadById({});
+      } else if (Array.isArray(data)) {
+        setRows(data as unknown as PatientRequestRow[]);
+        const ids = (data as unknown as { id: string }[]).map((r) => r.id);
+        const unreadMap: Record<string, boolean> = {};
+        if (ids.length > 0) {
+          const { data: flagData, error: unreadErr } = await supabase.rpc("request_conversation_unread_flags", {
+            p_request_ids: ids,
+          });
+          if (!unreadErr && Array.isArray(flagData)) {
+            for (const fr of flagData as { request_id: string; has_unread: boolean }[]) {
+              if (fr.request_id) unreadMap[fr.request_id] = fr.has_unread === true;
+            }
           }
         }
+        setUnreadById(unreadMap);
+      } else {
+        setUnreadById({});
       }
-      setUnreadById(unreadMap);
-    } else {
-      setUnreadById({});
+
+      setLoading(false);
     }
 
-    setLoading(false);
+    const tid = window.setTimeout(() => void loadHubRows(), 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(tid);
+    };
   }, [router, hubPath, kindId]);
-
-  useEffect(() => {
-    const tid = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(tid);
-  }, [load]);
 
   const pharmacyOptions = useMemo(() => {
     const m = new Map<string, string>();
@@ -239,10 +244,15 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     [activeBucket, activeProductSectionMeta, pharmacyFilterLabel, refQuery, sortNewestFirst]
   );
 
+  const filtersAutoExpand =
+    tab === "list" && (Boolean(listStatutParam || listSectionParam) || listHasActiveFilters);
+  const filtersPanelExpanded = filtersExpandedUser ?? filtersAutoExpand;
+
   const clearListFilters = () => {
     setPharmacyFilter("");
     setRefQuery("");
     setSortNewestFirst(true);
+    setFiltersExpandedUser(null);
     const next = new URLSearchParams(searchParams.toString());
     next.set("vue", "liste");
     next.delete("statut");
@@ -446,7 +456,9 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setFiltersOpen((v) => !v)}
+                  onClick={() =>
+                    setFiltersExpandedUser(!(filtersExpandedUser ?? filtersAutoExpand))
+                  }
                   className={clsx(
                     "shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-semibold shadow-sm transition",
                     isProductHub
@@ -454,11 +466,11 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                       : filterBtn
                   )}
                 >
-                  {filtersOpen ? "Réduire" : "Ouvrir"}
+                  {filtersPanelExpanded ? "Réduire" : "Ouvrir"}
                 </button>
               </div>
 
-              {filtersOpen ? (
+              {filtersPanelExpanded ? (
                 <div
                   className={clsx(
                     "mt-3 grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4",
