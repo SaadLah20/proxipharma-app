@@ -51,6 +51,7 @@ import {
 } from "@/lib/request-display";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import {
+  formatCounterOutcomeHistoryReason,
   pharmacistDossierHistoryDetailParagraphsFr,
   pharmacistHardStopMotifSummaryFr,
   stringifyPharmaConfirmAudit,
@@ -3387,6 +3388,16 @@ export default function PharmacienDemandeDetailPage() {
   ) => {
     const rowSnap = items.find((r) => r.id === requestItemId);
     const prevCo = rowSnap?.counter_outcome ?? "unset";
+    const prevCancelReason = rowSnap?.counter_cancel_reason ?? null;
+    const prevCancelDetail = rowSnap?.counter_cancel_detail ?? null;
+    if (
+      prevCo === outcome &&
+      (outcome !== "cancelled_at_counter" ||
+        ((prevCancelReason ?? null) === (cancelReason ?? null) &&
+          (prevCancelDetail ?? null) === (cancelDetail ?? null)))
+    ) {
+      return;
+    }
     const shouldResetPrepQtyAfterDropPickup =
       request?.status === "confirmed" &&
       Boolean(rowSnap?.is_selected_by_patient) &&
@@ -3428,10 +3439,10 @@ export default function PharmacienDemandeDetailPage() {
     }
     const st = request?.status;
     if (st === "confirmed" || st === "treated") {
-      const reasonStr =
-        outcome === "cancelled_at_counter" && cancelReason
-          ? `counter_outcome:cancelled_at_counter:${cancelReason}`
-          : `counter_outcome:${outcome}`;
+      const counterProductName = rowSnap
+        ? validatedProductLabel(rowSnap as PatientLineLike)
+        : "Produit";
+      const reasonStr = formatCounterOutcomeHistoryReason(outcome, counterProductName, cancelReason);
       const { error: h } = await logHistory(id, st, st, reasonStr);
       if (h) {
         setError(h.message);
@@ -4493,6 +4504,7 @@ export default function PharmacienDemandeDetailPage() {
       requestSubmittedAt: request.submitted_at,
       requestRespondedAt: request.responded_at,
       requestConfirmedAt: request.confirmed_at ?? null,
+      requestStatus: request.status,
       supplyBundles: supplyAmendmentBundles,
       dossierHistory: dossierHistoryTimeline,
       dossierHistoryDetailParagraphs: pharmacistDossierHistoryDetailParagraphsFr,
@@ -6947,7 +6959,21 @@ export default function PharmacienDemandeDetailPage() {
             </button>
             {historyOpen ? (
               <div className="mt-2">
-                <DossierHistoryListFr rows={historyRows} viewerRole="pharmacien" busy={historyBusy} />
+                <DossierHistoryListFr
+                  rows={historyRows}
+                  viewerRole="pharmacien"
+                  busy={historyBusy}
+                  supplyBundles={supplyAmendmentBundles}
+                  timeline={{
+                    requestCreatedAt: request.created_at,
+                    requestSubmittedAt: request.submitted_at,
+                    requestRespondedAt: request.responded_at,
+                    requestConfirmedAt: request.confirmed_at ?? null,
+                    requestStatus: request.status,
+                    plannedVisitDate: request.patient_planned_visit_date,
+                    plannedVisitTime: request.patient_planned_visit_time,
+                  }}
+                />
               </div>
             ) : null}
           </section>

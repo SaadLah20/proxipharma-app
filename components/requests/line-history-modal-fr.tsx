@@ -46,8 +46,11 @@ export function LineHistoryModalFr({
       <div className="relative z-10 flex max-h-[min(calc(100dvh-5.5rem),34rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:max-h-[min(90dvh,34rem)] sm:rounded-2xl">
         <div className="flex items-start justify-between gap-2 border-b border-border px-2.5 py-2">
           <div className="min-w-0 flex-1">
-            <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Parcours du produit</p>
+            <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Historique du produit</p>
             <p className="truncate text-[12px] font-semibold leading-tight">{title}</p>
+            <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+              Du plus ancien au plus récent — chaque étape avec ses détails.
+            </p>
           </div>
           <button type="button" onClick={onClose} className="shrink-0 rounded-lg p-1 text-foreground hover:bg-muted" aria-label="Fermer">
             <X className="size-4" />

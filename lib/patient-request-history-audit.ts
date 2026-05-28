@@ -3,6 +3,38 @@ import { isPatientCancelReasonCode, PATIENT_CANCEL_REASON_LABELS } from "@/lib/p
 /** Préfixe stocké dans `request_status_history.reason` pour événements structurés côté patient. */
 export const HISTORY_AUDIT_V1_PREFIX = "audit_v1:";
 
+/** Nom produit optionnel après `|`, ex. `counter_outcome:picked_up|Doliprane`. */
+export function counterOutcomeReasonProductName(reason: string | null | undefined): string | null {
+  const r = (reason ?? "").trim();
+  const pipe = r.indexOf("|");
+  if (pipe < 0) return null;
+  const name = r.slice(pipe + 1).trim();
+  return name || null;
+}
+
+/** Partie technique du motif comptoir (sans le nom produit). */
+export function counterOutcomeReasonPayload(reason: string | null | undefined): string {
+  const r = (reason ?? "").trim();
+  if (!r.startsWith("counter_outcome:")) return r;
+  const after = r.slice("counter_outcome:".length);
+  const pipe = after.indexOf("|");
+  const payload = pipe >= 0 ? after.slice(0, pipe).trim() : after.trim();
+  return `counter_outcome:${payload}`;
+}
+
+export function formatCounterOutcomeHistoryReason(
+  outcome: string,
+  productName: string,
+  cancelReason?: string | null
+): string {
+  const nm = productName.trim();
+  const suffix = nm ? `|${nm}` : "";
+  if (outcome === "cancelled_at_counter" && cancelReason) {
+    return `counter_outcome:cancelled_at_counter:${cancelReason}${suffix}`;
+  }
+  return `counter_outcome:${outcome}${suffix}`;
+}
+
 /** Ajustements enregistrés après validation patient (`confirmed`). */
 export type PharmaConfirmAdjustmentLine = {
   productName: string;
@@ -171,22 +203,25 @@ export function patientDossierHistoryDetailParagraphsFr(reason: string | null | 
     return [motif ? `La pharmacie a annulé la demande. Précision : ${motif}.` : "La pharmacie a annulé la demande."];
   }
   if (r.startsWith("counter_outcome:")) {
-    const rest = r.slice("counter_outcome:".length).trim();
+    const product = counterOutcomeReasonProductName(r);
+    const rest = counterOutcomeReasonPayload(r).slice("counter_outcome:".length).trim();
+    const productLine = product ? `Produit : ${product}.` : null;
     if (rest === "picked_up") {
-      return ["Produit enregistré comme retiré au comptoir."];
+      return [productLine, "Produit enregistré comme retiré au comptoir."].filter(Boolean) as string[];
     }
     if (rest === "unset") {
-      return ["Suivi comptoir remis en attente sur cette ligne."];
+      return [productLine, "Suivi comptoir remis en attente sur cette ligne."].filter(Boolean) as string[];
     }
     if (rest.startsWith("cancelled_at_counter")) {
       const tail = rest.slice("cancelled_at_counter".length).replace(/^:/, "").trim();
       return [
+        productLine,
         tail
           ? `Annulation au comptoir enregistrée. Motif : ${tail}.`
           : "Annulation au comptoir enregistrée sur cette ligne.",
-      ];
+      ].filter(Boolean) as string[];
     }
-    return ["Mise à jour du suivi comptoir pour cette ligne."];
+    return [productLine, "Mise à jour du suivi comptoir pour cette ligne."].filter(Boolean) as string[];
   }
   if (r.startsWith("pharmacist_supply_amendments_saved")) {
     return [PATIENT_HISTORY_TECH_REASON_FR.pharmacist_supply_amendments_saved];
@@ -228,22 +263,25 @@ export function pharmacistDossierHistoryDetailParagraphsFr(reason: string | null
     return [motif ? `Annulation officine enregistrée. Précision : ${motif}.` : "Annulation officine enregistrée."];
   }
   if (r.startsWith("counter_outcome:")) {
-    const rest = r.slice("counter_outcome:".length).trim();
+    const product = counterOutcomeReasonProductName(r);
+    const rest = counterOutcomeReasonPayload(r).slice("counter_outcome:".length).trim();
+    const productLine = product ? `Produit : ${product}.` : null;
     if (rest === "picked_up") {
-      return ["Produit enregistré comme retiré au comptoir."];
+      return [productLine, "Produit enregistré comme retiré au comptoir."].filter(Boolean) as string[];
     }
     if (rest === "unset") {
-      return ["Suivi comptoir remis en attente sur cette ligne."];
+      return [productLine, "Suivi comptoir remis en attente sur cette ligne."].filter(Boolean) as string[];
     }
     if (rest.startsWith("cancelled_at_counter")) {
       const tail = rest.slice("cancelled_at_counter".length).replace(/^:/, "").trim();
       return [
+        productLine,
         tail
           ? `Annulation au comptoir enregistrée. Motif : ${tail}.`
           : "Annulation au comptoir enregistrée sur cette ligne.",
-      ];
+      ].filter(Boolean) as string[];
     }
-    return ["Mise à jour du suivi comptoir pour cette ligne."];
+    return [productLine, "Mise à jour du suivi comptoir pour cette ligne."].filter(Boolean) as string[];
   }
   if (r.startsWith("pharmacist_supply_amendments_saved")) {
     return [PHARMACIST_HISTORY_TECH_REASON_FR.pharmacist_supply_amendments_saved];
