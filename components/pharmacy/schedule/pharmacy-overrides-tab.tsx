@@ -8,6 +8,7 @@ import { OVERRIDE_TYPE_LABEL_FR } from "@/lib/pharmacy-schedule-fr";
 import { findMoroccoHolidayOnDate, moroccoPublicHolidaysFromDate } from "@/lib/morocco-public-holidays";
 import { canPlanOverrideOnDate } from "@/lib/pharmacy-schedule-conflicts";
 import type { PharmacyDayOverrideRow, PharmacyOnCallPeriodRow } from "@/lib/pharmacy-profile-types";
+import { pharmacyClosedTextClass } from "@/lib/pharmacy-open-status-ui";
 
 function formatOverrideDate(iso: string) {
   return new Date(`${iso}T12:00:00`).toLocaleDateString("fr-FR", {
@@ -261,10 +262,31 @@ export function PharmacyOverridesTab({
                 <div className="min-w-0">
                   <p className="font-bold">{formatOverrideDate(o.day_date)}</p>
                   <p className="text-muted-foreground">
-                    {OVERRIDE_TYPE_LABEL_FR[o.override_type]}
-                    {o.override_type === "custom"
-                      ? ` · ${o.morning_opens_at ? `M ${o.morning_opens_at.slice(0, 5)}–${o.morning_closes_at?.slice(0, 5)}` : "M fermé"} / ${o.afternoon_opens_at ? `AM ${o.afternoon_opens_at.slice(0, 5)}–${o.afternoon_closes_at?.slice(0, 5)}` : "AM fermé"}`
-                      : ""}
+                    {o.override_type === "closed" ? (
+                      <span className={pharmacyClosedTextClass}>{OVERRIDE_TYPE_LABEL_FR.closed}</span>
+                    ) : (
+                      OVERRIDE_TYPE_LABEL_FR[o.override_type]
+                    )}
+                    {o.override_type === "custom" ? (
+                      <>
+                        {" · "}
+                        {o.morning_opens_at ? (
+                          `M ${o.morning_opens_at.slice(0, 5)}–${o.morning_closes_at?.slice(0, 5)}`
+                        ) : (
+                          <>
+                            M <span className={pharmacyClosedTextClass}>fermé</span>
+                          </>
+                        )}
+                        {" / "}
+                        {o.afternoon_opens_at ? (
+                          `AM ${o.afternoon_opens_at.slice(0, 5)}–${o.afternoon_closes_at?.slice(0, 5)}`
+                        ) : (
+                          <>
+                            AM <span className={pharmacyClosedTextClass}>fermé</span>
+                          </>
+                        )}
+                      </>
+                    ) : null}
                   </p>
                 </div>
                 <button
