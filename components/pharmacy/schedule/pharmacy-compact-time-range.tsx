@@ -1,6 +1,10 @@
 "use client";
 
 import { clsx } from "clsx";
+import {
+  pharmacyClosedCheckboxLabelClass,
+  pharmacyClosedTimeRangeShellClass,
+} from "@/lib/pharmacy-open-status-ui";
 
 /** Créneau compact : case Fermé + deux champs time natifs (sans presets). */
 export function PharmacyCompactTimeRange({
@@ -36,10 +40,10 @@ export function PharmacyCompactTimeRange({
         <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-muted-foreground whitespace-nowrap">
           {periodLabel}
         </span>
-        <label className="flex items-center gap-1 text-[10px] font-semibold text-foreground">
+        <label className={pharmacyClosedCheckboxLabelClass(closed)}>
           <input
             type="checkbox"
-            className="size-3.5 rounded border-input"
+            className="size-3.5 rounded border-input accent-rose-600"
             checked={closed}
             disabled={disabled}
             onChange={(e) => onClosedChange(e.target.checked)}

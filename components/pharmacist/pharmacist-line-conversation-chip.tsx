@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { clsx } from "clsx";
-import { X } from "lucide-react";
+import { MessageCircle, X } from "lucide-react";
 
 export type LineConvoVisual = "empty" | "patient_only" | "pharma_only" | "thread";
 
@@ -14,6 +14,93 @@ export function lineConversationVisual(patient: string, pharmacist: string): Lin
   if (p) return "patient_only";
   if (ph) return "pharma_only";
   return "empty";
+}
+
+export function lineConversationAriaLabel(visual: LineConvoVisual): string {
+  switch (visual) {
+    case "thread":
+      return "Message patient et note officine";
+    case "patient_only":
+      return "Message patient";
+    case "pharma_only":
+      return "Note officine";
+    default:
+      return "Aucun message sur ce produit";
+  }
+}
+
+/** Pastilles : 0 = vide · 1 bleu = patient · 1 vert = officine · 2 = les deux. */
+function LineConvoBadgeDots({ visual }: { visual: LineConvoVisual }) {
+  if (visual === "empty") return null;
+  if (visual === "patient_only") {
+    return (
+      <span
+        className="pointer-events-none absolute -end-0.5 -top-0.5 size-2 rounded-full bg-sky-500 shadow-sm ring-2 ring-white"
+        aria-hidden
+      />
+    );
+  }
+  if (visual === "pharma_only") {
+    return (
+      <span
+        className="pointer-events-none absolute -end-0.5 -top-0.5 size-2 rounded-full bg-emerald-600 shadow-sm ring-2 ring-white"
+        aria-hidden
+      />
+    );
+  }
+  return (
+    <span className="pointer-events-none absolute -end-1 -top-1 flex gap-px" aria-hidden>
+      <span className="size-[7px] rounded-full bg-sky-500 ring-[1.5px] ring-white" />
+      <span className="size-[7px] rounded-full bg-emerald-600 ring-[1.5px] ring-white" />
+    </span>
+  );
+}
+
+/** Bouton rond compact — à placer en tête de carte (à côté du nom / Historique). */
+export function PharmacistLineMessageButton({
+  visual,
+  open,
+  disabled,
+  onClick,
+  showReplyHint = false,
+}: {
+  visual: LineConvoVisual;
+  open: boolean;
+  disabled?: boolean;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  /** Message patient sans réponse officine — rappel visuel (édition réponse). */
+  showReplyHint?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={clsx(
+        lineConversationChipButtonClass(visual, { open, disabled }),
+        "relative shrink-0"
+      )}
+      aria-label={lineConversationAriaLabel(visual)}
+      aria-expanded={open}
+      title={lineConversationStripLabel(visual)}
+    >
+      <MessageCircle
+        className={clsx(
+          "size-3.5 shrink-0",
+          visual === "empty" ? "opacity-55" : "opacity-100"
+        )}
+        strokeWidth={visual === "empty" ? 2 : 2.35}
+        aria-hidden
+      />
+      <LineConvoBadgeDots visual={visual} />
+      {showReplyHint && visual === "patient_only" ? (
+        <span
+          className="pointer-events-none absolute -bottom-0.5 -end-0.5 size-1.5 rounded-full bg-amber-500 ring-2 ring-white"
+          aria-hidden
+        />
+      ) : null}
+    </button>
+  );
 }
 
 /** Libellé court pour la pastille / bandeau sous la ligne (4 cas). */
@@ -35,16 +122,21 @@ export function lineConversationChipButtonClass(
   opts: { open: boolean; disabled?: boolean }
 ): string {
   const base =
-    "relative inline-flex size-8 shrink-0 items-center justify-center rounded-full border transition touch-manipulation active:scale-[0.97]";
+    "relative inline-flex size-7 shrink-0 items-center justify-center rounded-full border transition touch-manipulation active:scale-[0.97] sm:size-8";
   const ring =
     visual === "thread"
-      ? "border-violet-400/90 bg-gradient-to-br from-violet-50 via-white to-emerald-50 text-violet-900 shadow-md ring-2 ring-violet-200/80"
+      ? "border-violet-400/90 bg-gradient-to-br from-violet-50 via-white to-emerald-50 text-violet-800 shadow-sm ring-2 ring-violet-200/75"
       : visual === "patient_only"
-        ? "border-sky-400/90 bg-sky-50 text-sky-900 shadow-md ring-2 ring-sky-200/90"
+        ? "border-sky-400/90 bg-sky-50 text-sky-800 shadow-sm ring-2 ring-sky-300/80"
         : visual === "pharma_only"
-          ? "border-emerald-400/85 bg-emerald-50 text-emerald-900 shadow-sm ring-1 ring-emerald-200/80"
-          : "border-slate-200/90 bg-white/95 text-slate-400 shadow-sm ring-1 ring-slate-200/70";
-  return clsx(base, ring, opts.open && "ring-offset-2 ring-offset-background", opts.disabled && "opacity-40");
+          ? "border-emerald-400/85 bg-emerald-50 text-emerald-800 shadow-sm ring-2 ring-emerald-200/70"
+          : "border-dashed border-slate-300/90 bg-slate-50/80 text-slate-400/90 shadow-sm";
+  return clsx(
+    base,
+    ring,
+    opts.open && "ring-offset-1 ring-offset-background ring-sky-400/50",
+    opts.disabled && "pointer-events-none opacity-40"
+  );
 }
 
 /** Bouton bandeau horizontal (icône + texte discret à droite). */

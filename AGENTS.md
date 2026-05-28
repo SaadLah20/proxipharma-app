@@ -46,7 +46,7 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **Auth locale (SMS / Supabase)** : tester **`/auth`** dans **Chrome ou Edge** (fenêtre système), **pas** le navigateur intégré / Simple Browser de l’IDE — stockage, cookies et requêtes vers **`*.supabase.co`** y sont souvent incomplets ; si ça marche dans Chrome, le flux est en général correct.
 
-**Fiche publique & annuaire (mai 2026)** — chrome partagé **`components/pharmacy/pharmacy-public-chrome.tsx`** ; annuaire **`components/annuaire/`** (avis sur carte, menu rayon portail) ; fiche **`pharmacy-public-profile.tsx`** + demande produits **`app/pharmacie/[id]/demande-produits/`** ; reprise **§13.31** / journal §10 session **2026-05-19 annuaire + fiche**.
+**Fiche publique & annuaire (mai 2026)** — chrome partagé **`components/pharmacy/pharmacy-public-chrome.tsx`** ; annuaire **`components/annuaire/`** (avis sur carte, menu rayon portail) ; fiche **`pharmacy-public-profile.tsx`** + demande produits **`app/pharmacie/[id]/demande-produits/`** ; badge **Ouverte** (vert) / **Fermée** et libellés « fermé » horaires = rouge uniforme **`lib/pharmacy-open-status-ui.ts`** ; reprise **§13.31** / journal §10 session **2026-05-19 annuaire + fiche**.
 
 **Auth patient (mai 2026)** — **`app/auth/page.tsx`** :
 - **Connexion** (`/auth`) : un champ **téléphone ou e-mail** + mot de passe (`lib/auth-login-identifier.ts`, `signInWithPassword`).

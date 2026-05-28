@@ -49,7 +49,12 @@ import {
 } from "@/components/pharmacy/pharmacy-request-service-links";
 import { hasPharmacyNavigation } from "@/lib/pharmacy-navigation";
 import { cn } from "@/lib/utils";
-import type { PharmacyDayScheduleLine } from "@/lib/pharmacy-profile-types";
+import type { PharmacyDayScheduleLine, PharmacyOpenStatus } from "@/lib/pharmacy-profile-types";
+import {
+  pharmacyOpenStatusInlineBadgeClass,
+  pharmacyOpenStatusOverlayBadgeClass,
+  pharmacyScheduleLineBadgeClass,
+} from "@/lib/pharmacy-open-status-ui";
 
 type TabId = "services" | "promos" | "hours" | "info";
 
@@ -64,31 +69,19 @@ function normalizeWhatsApp(value: string | null) {
   return (value ?? "").replace(/[^\d]/g, "");
 }
 
-function scheduleLineTone(line: string): "closed" | "oncall" | "open" | "meta" {
-  if (/garde/i.test(line)) return "oncall";
-  if (/fermé|férié/i.test(line)) return "closed";
-  if (/matin|après-midi|\d{1,2}h\d/i.test(line)) return "open";
-  return "meta";
-}
-
 function ScheduleLineBadge({ line }: { line: string }) {
-  const tone = scheduleLineTone(line);
-  return (
-    <span
-      className={clsx(
-        "inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium leading-snug",
-        tone === "closed" && "bg-rose-50 text-rose-900 ring-1 ring-rose-200/80",
-        tone === "oncall" && "bg-amber-50 text-amber-950 ring-1 ring-amber-200/80",
-        tone === "open" && "bg-emerald-50/90 text-emerald-950 ring-1 ring-emerald-200/70",
-        tone === "meta" && "bg-muted/50 text-foreground/85 ring-1 ring-border/60"
-      )}
-    >
-      {line}
-    </span>
-  );
+  return <span className={pharmacyScheduleLineBadgeClass(line)}>{line}</span>;
 }
 
-function PharmacyWeekScheduleView({ days, openLabel }: { days: PharmacyDayScheduleLine[]; openLabel: string }) {
+function PharmacyWeekScheduleView({
+  days,
+  openLabel,
+  openStatus,
+}: {
+  days: PharmacyDayScheduleLine[];
+  openLabel: string;
+  openStatus: PharmacyOpenStatus;
+}) {
   const today = days.find((d) => d.isToday);
 
   return (
@@ -100,7 +93,7 @@ function PharmacyWeekScheduleView({ days, openLabel }: { days: PharmacyDaySchedu
               <CalendarClock className="size-4 text-primary" aria-hidden />
               Aujourd&apos;hui · {today.weekdayLabel} {today.dateLabel}
             </p>
-            <span className="rounded-full bg-primary/12 px-2.5 py-0.5 text-[10px] font-bold text-primary">{openLabel}</span>
+            <span className={pharmacyOpenStatusInlineBadgeClass(openStatus)}>{openLabel}</span>
           </div>
           <div className="mt-2 flex flex-wrap gap-1">
             {today.lines.map((line, i) => (
@@ -262,11 +255,6 @@ export function PharmacyPublicProfile({
   const ratingLabel =
     (ratingCount ?? 0) > 0 ? `${Number(ratingAvg ?? 0).toFixed(1)} (${ratingCount} avis)` : "Pas encore d'avis";
 
-  const statusClass =
-    openState.status === "open"
-      ? "bg-emerald-500/90 text-white ring-emerald-600/50"
-      : "bg-slate-600/90 text-white ring-slate-700/50";
-
   const handleShare = async () => {
     const url = typeof window !== "undefined" ? window.location.href : "";
     try {
@@ -311,7 +299,7 @@ export function PharmacyPublicProfile({
               {pharmacyPublicLabel(pharmacy.nom)}
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className={clsx("rounded-full px-2.5 py-0.5 text-[10px] font-bold ring-1", statusClass)}>
+              <span className={pharmacyOpenStatusOverlayBadgeClass(openState.status)}>
                 {openState.openLabel}
               </span>
               {openState.onCallToday ? (
@@ -353,7 +341,11 @@ export function PharmacyPublicProfile({
               title="Horaires & gardes"
               hint="Statut du jour et planning sur les 7 prochains jours."
             />
-            <PharmacyWeekScheduleView days={weekLines} openLabel={openState.openLabel} />
+            <PharmacyWeekScheduleView
+              days={weekLines}
+              openLabel={openState.openLabel}
+              openStatus={openState.status}
+            />
           </div>
         ) : null}
 

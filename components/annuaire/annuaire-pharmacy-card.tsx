@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ArrowRight, MapPin, MessageCircle, Phone, Share2, Star } from "lucide-react";
 import { PharmacyNavigationPicker } from "@/components/pharmacy/pharmacy-navigation-picker";
 import { hasPharmacyNavigation } from "@/lib/pharmacy-navigation";
-import { clsx } from "clsx";
 import type { AnnuairePharmacyEnriched } from "@/lib/annuaire/types";
 import { formatDistanceKm } from "@/lib/annuaire/geo";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
@@ -13,6 +12,7 @@ import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import { buttonVariants } from "@/components/ui/button";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { cn } from "@/lib/utils";
+import { pharmacyOpenStatusOverlayBadgeClass } from "@/lib/pharmacy-open-status-ui";
 
 function normalizeWhatsApp(value: string | null) {
   return (value ?? "").replace(/[^\d]/g, "");
@@ -24,7 +24,6 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
   const canNavigate = hasPharmacyNavigation(pharmacy);
   const publicRef = pharmacy.public_ref?.trim() ?? "";
 
-  const statusOpen = pharmacy.open.status === "open";
   const ratingCount = pharmacy.rating_count ?? 0;
   const ratingLabel =
     ratingCount > 0
@@ -82,14 +81,7 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
         </span>
         <div className="absolute bottom-2 left-2 right-2 flex flex-wrap items-end justify-between gap-2">
           <div className="flex flex-wrap gap-1">
-            <span
-              className={clsx(
-                "rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 backdrop-blur-sm",
-                statusOpen
-                  ? "bg-emerald-500/90 text-white ring-emerald-600/40"
-                  : "bg-slate-700/85 text-white ring-slate-600/40"
-              )}
-            >
+            <span className={pharmacyOpenStatusOverlayBadgeClass(pharmacy.open.status)}>
               {pharmacy.open.openLabel}
             </span>
             {pharmacy.open.onCallNow ? (
