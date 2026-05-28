@@ -147,6 +147,18 @@ export function validatedLineLabelChipClass(label: ValidatedLineLabel): string {
   return `${base} border-slate-300/80 bg-slate-50 text-slate-800 ring-slate-200/70`;
 }
 
+/** Libellé origine côté officine (miroir patient, vocabulaire pharmacien). */
+export function validatedOriginLabelPharmacistFr(input: {
+  row: PatientLineLike;
+  requestType: string;
+  pharmacistProposedBadgeLabel: string;
+  prescriptionBadge: string | null;
+}): string {
+  const label = validatedOriginLabelFr(input);
+  if (label === "Ta demande") return "Demande patient";
+  return label;
+}
+
 export function validatedOriginLabelFr(input: {
   row: PatientLineLike;
   requestType: string;

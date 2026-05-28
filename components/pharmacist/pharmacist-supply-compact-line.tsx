@@ -3,8 +3,28 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { clsx } from "clsx";
-import { MoreVertical, Package } from "lucide-react";
+import { History, MoreVertical, Package } from "lucide-react";
+import {
+  validatedLineLabelChipClass,
+  type ValidatedLineLabel,
+} from "@/lib/patient-validated-line-labels-fr";
 import { pharmacistProposedProductBadgeFr } from "@/lib/request-display";
+
+export type PharmacistSupplyLineTier =
+  | "dispo_officine"
+  | "commande"
+  | "hors_perimetre"
+  | "retire_apres_validation";
+
+function validatedLineShellClass(tier: PharmacistSupplyLineTier, withdrawnGrey: boolean): string {
+  if (withdrawnGrey) {
+    return "border-slate-200/75 bg-slate-50/75 saturate-[0.65] opacity-[0.72]";
+  }
+  if (tier === "dispo_officine") return "border-sky-300/85 bg-white ring-1 ring-sky-200/55";
+  if (tier === "commande") return "border-teal-300/85 bg-white ring-1 ring-teal-200/55";
+  if (tier === "retire_apres_validation") return "border-red-200/85 bg-red-50/30";
+  return "border-slate-200/80 bg-white";
+}
 
 export function PharmacistSupplyCompactLine({
   header,
@@ -60,6 +80,9 @@ export function PharmacistSupplyCompactLine({
   lineOriginBadgeTone = "ordonnance",
   withdrawDisabled,
   withdrawDisabledReason,
+  supplyTier,
+  validatedLineLabels,
+  onPhotoPreview,
 }: {
   header: string | null;
   validatedName: string;
@@ -115,19 +138,26 @@ export function PharmacistSupplyCompactLine({
   lineOriginBadgeTone?: "ordonnance" | "proposed";
   withdrawDisabled: boolean;
   withdrawDisabledReason?: string | null;
+  /** Sections validées (sky / teal) — aligné cartes patient. */
+  supplyTier?: PharmacistSupplyLineTier;
+  validatedLineLabels?: ValidatedLineLabel[];
+  onPhotoPreview?: (url: string, title: string) => void;
 }) {
   const pill =
     "inline-flex min-h-8 items-center justify-center rounded-md border px-2 text-[10px] font-semibold shadow-sm transition disabled:opacity-45";
   const pillActive = "border-emerald-600 bg-emerald-600 text-white";
   const pillIdle = "border-border bg-background text-foreground hover:bg-muted/50";
 
-  const cardShell = withdrawn
-    ? "rounded-lg border border-amber-200/80 bg-amber-50/25 shadow-sm ring-1 ring-amber-100/50"
-    : !selected
-      ? "rounded-lg border border-slate-200/85 bg-white shadow-sm ring-1 ring-slate-100/60"
-      : effAvailRow === "to_order"
-        ? "rounded-lg border border-teal-200/75 bg-teal-50/25 shadow-sm ring-1 ring-teal-100/50"
-        : "rounded-lg border border-emerald-200/75 bg-emerald-50/25 shadow-sm ring-1 ring-emerald-100/50";
+  const withdrawnGrey = Boolean(supplyTier && supplyTier === "retire_apres_validation");
+  const cardShell = supplyTier
+    ? validatedLineShellClass(supplyTier, withdrawnGrey || withdrawn)
+    : withdrawn
+      ? "rounded-lg border border-amber-200/80 bg-amber-50/25 shadow-sm ring-1 ring-amber-100/50"
+      : !selected
+        ? "rounded-lg border border-slate-200/85 bg-white shadow-sm ring-1 ring-slate-100/60"
+        : effAvailRow === "to_order"
+          ? "rounded-lg border border-teal-200/75 bg-teal-50/25 shadow-sm ring-1 ring-teal-100/50"
+          : "rounded-lg border border-emerald-200/75 bg-emerald-50/25 shadow-sm ring-1 ring-emerald-100/50";
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -260,52 +290,95 @@ export function PharmacistSupplyCompactLine({
                 : null}
             </div>
 
-            <div className="relative h-[4.25rem] w-[4.25rem] shrink-0 overflow-hidden rounded-md border border-slate-200 bg-card shadow-inner sm:h-[4.5rem] sm:w-[4.5rem]">
+            <div className="relative box-border h-[3.85rem] w-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card shadow-inner sm:h-[4rem] sm:w-[4rem]">
               {thumbUrl ? (
-                <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
+                onPhotoPreview ? (
+                  <button
+                    type="button"
+                    className="size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+                    onClick={() => onPhotoPreview(thumbUrl, validatedName)}
+                    aria-label={`Agrandir la photo · ${validatedName}`}
+                  >
+                    <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
+                  </button>
+                ) : (
+                  <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
+                )
               ) : (
                 <div className="flex h-full w-full items-center justify-center">
-                  <Package className="size-6 text-muted-foreground" aria-hidden />
+                  <Package className="size-5 text-muted-foreground" aria-hidden />
                 </div>
               )}
             </div>
 
             <div className="min-w-0 flex-1 pe-10">
-              <div className="space-y-1">
+              <div className="flex min-w-0 items-start gap-1">
                 <p
-                  className="line-clamp-2 break-words text-[13px] font-semibold leading-tight text-slate-950 sm:text-[14px]"
-                  style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
+                  className={clsx(
+                    "min-w-0 flex-1 truncate pb-px text-[13px] font-semibold leading-snug text-slate-950 sm:text-[14px]",
+                    (withdrawnGrey || withdrawn) && "text-muted-foreground line-through decoration-slate-400/90"
+                  )}
+                  title={validatedName}
                 >
                   {validatedName}
                 </p>
-                {showAjoutOfficineBadge ? (
-                  <span className="inline-flex max-w-full rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                    {ajoutOfficineBadgeLabel ?? pharmacistProposedProductBadgeFr}
-                  </span>
-                ) : lineOriginBadgeLabel ? (
-                  <span
-                    className={clsx(
-                      "inline-flex max-w-full rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
-                      lineOriginBadgeTone === "ordonnance" ? "bg-amber-700" : "bg-violet-600"
-                    )}
-                  >
-                    {lineOriginBadgeLabel}
-                  </span>
-                ) : null}
+                <button
+                  type="button"
+                  disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+                  onClick={onMenuHistory}
+                  className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-sky-300/80 bg-white text-sky-800 shadow-sm hover:bg-sky-50 disabled:opacity-40"
+                  aria-label="Historique de cette ligne"
+                  title="Historique"
+                >
+                  <History className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+                </button>
               </div>
-              <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-slate-700">{availSentence}</p>
-
-              {lineConversationSlot != null || (postConfirmAmendmentBadges && postConfirmAmendmentBadges.length > 0) ? (
-                <div className="mt-1.5 flex w-full min-w-0 flex-wrap items-center gap-1.5 border-t border-border/50 pt-1.5">
-                  {lineConversationSlot}
-                  {postConfirmAmendmentBadges?.map((label) => (
-                    <span
-                      key={label}
-                      className="inline-flex max-w-full items-center rounded-md border border-slate-300/80 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
-                    >
-                      {label}
+              {validatedLineLabels && validatedLineLabels.length > 0 ? (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {validatedLineLabels.map((label) => (
+                    <span key={label.key} className={validatedLineLabelChipClass(label)}>
+                      {label.text}
                     </span>
                   ))}
+                </div>
+              ) : (
+                <>
+                  {showAjoutOfficineBadge ? (
+                    <span className="mt-1 inline-flex max-w-full rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                      {ajoutOfficineBadgeLabel ?? pharmacistProposedProductBadgeFr}
+                    </span>
+                  ) : lineOriginBadgeLabel ? (
+                    <span
+                      className={clsx(
+                        "mt-1 inline-flex max-w-full rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
+                        lineOriginBadgeTone === "ordonnance" ? "bg-amber-700" : "bg-violet-600"
+                      )}
+                    >
+                      {lineOriginBadgeLabel}
+                    </span>
+                  ) : null}
+                  <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-slate-700">{availSentence}</p>
+                </>
+              )}
+
+              {lineConversationSlot != null ||
+              (!validatedLineLabels?.length && postConfirmAmendmentBadges && postConfirmAmendmentBadges.length > 0) ? (
+                <div className="mt-1.5 flex w-full min-w-0 flex-wrap items-center gap-1.5 border-t border-border/50 pt-1.5">
+                  {lineConversationSlot}
+                  {!validatedLineLabels?.length
+                    ? postConfirmAmendmentBadges?.map((label) => (
+                        <span
+                          key={label}
+                          className="inline-flex max-w-full items-center rounded-md border border-slate-300/80 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
+                        >
+                          {label}
+                        </span>
+                      ))
+                    : null}
+                </div>
+              ) : lineConversationSlot != null ? (
+                <div className="mt-1.5 flex w-full min-w-0 flex-wrap items-center gap-1.5 border-t border-border/50 pt-1.5">
+                  {lineConversationSlot}
                 </div>
               ) : null}
             </div>

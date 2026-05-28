@@ -17,6 +17,7 @@ import {
   Phone,
   Plus,
   Search,
+  ShoppingCart,
   Trash2,
   User,
 } from "lucide-react";
@@ -123,7 +124,13 @@ import {
   PharmacistCloseRequestConfirmModal,
   type PharmacistCloseRequestSummary,
 } from "@/components/pharmacist/pharmacist-close-request-confirm-modal";
+import { PharmacistDeclareTreatedConfirmModal } from "@/components/pharmacist/pharmacist-declare-treated-confirm-modal";
 import { PharmacistClosedProductBucketsView } from "@/components/pharmacist/pharmacist-closed-product-buckets-view";
+import {
+  buildPharmacistDeclareTreatedSummary,
+  pharmacistActiveRetainedLineCount,
+  pharmacistWithdrawWouldAbandonNoPickup,
+} from "@/lib/pharmacist-declare-treated-fr";
 import {
   flattenPharmacistSupplyListEntriesStable,
   sortPharmacistSupplyRowsBySection,
@@ -139,7 +146,24 @@ import { buildPatientLineTimelineFr, postConfirmSupplyAmendmentBadgeLabelsFr } f
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { DossierHistoryListFr } from "@/components/requests/dossier-history-list-fr";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
-import { PharmacistSupplyCompactLine } from "@/components/pharmacist/pharmacist-supply-compact-line";
+import {
+  PharmacistSupplyCompactLine,
+  type PharmacistSupplyLineTier,
+} from "@/components/pharmacist/pharmacist-supply-compact-line";
+import {
+  pharmacistValidatedSectionShellClass,
+} from "@/components/pharmacist/pharmacist-validated-product-buckets";
+import {
+  buildPharmacistValidatedBucketGroups,
+  supplyTierForBucketKind,
+  type PharmacistValidatedBucketGroup,
+} from "@/lib/pharmacist-validated-bucket-layout";
+import {
+  buildPatientValidatedLineLabelsFr,
+  validatedOriginLabelPharmacistFr,
+} from "@/lib/patient-validated-line-labels-fr";
+import { patientPrescriptionLineBadge } from "@/lib/prescription-patient-labels";
+import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { RequestLineSuiviStrip } from "@/components/requests/shared/request-line-suivi-strip";
 import { type SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
 import {
@@ -1634,6 +1658,7 @@ export default function PharmacienDemandeDetailPage() {
   const [completeBusy, setCompleteBusy] = useState(false);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [declareTreatedBusy, setDeclareTreatedBusy] = useState(false);
+  const [declareTreatedModalOpen, setDeclareTreatedModalOpen] = useState(false);
   const [supplyConfirmOpen, setSupplyConfirmOpen] = useState(false);
   const [supplyConfirmBusy, setSupplyConfirmBusy] = useState(false);
   const [supplyConfirmBlocks, setSupplyConfirmBlocks] = useState<SupplyConfirmBlock[]>([]);
@@ -1641,13 +1666,17 @@ export default function PharmacienDemandeDetailPage() {
     | { kind: "unlock_modify"; rowId: string }
     | { kind: "add_line"; pick: ProductCatalogHit; reason: string; qty: number }
     | { kind: "preface_post_confirm_add"; mode: "ordonnance" | "proposed" }
-    | { kind: "withdraw_line"; rowId: string }
+    | { kind: "withdraw_line"; rowId: string; willAbandonNoPickup?: boolean }
     | { kind: "remove_proposed_line"; row: ItemRow }
     | null
   >(null);
   const [lineModifyConsent, setLineModifyConsent] = useState<Record<string, { channel: string; motive: string }>>({});
   const [supplyMenuRowId, setSupplyMenuRowId] = useState<string | null>(null);
   const [pharmaHistoryRowId, setPharmaHistoryRowId] = useState<string | null>(null);
+  const [productPhotoPreview, setProductPhotoPreview] = useState<{ url: string; title: string } | null>(null);
+  const openProductPhotoPreview = useCallback((url: string, title: string) => {
+    setProductPhotoPreview({ url: url.trim(), title: title.trim() || "Produit" });
+  }, []);
   const [supplyAmendmentBundles, setSupplyAmendmentBundles] = useState<
     { id: string; created_at: string; amendments: unknown }[]
   >([]);
@@ -3452,31 +3481,11 @@ export default function PharmacienDemandeDetailPage() {
     await load();
   };
 
-  const declarationTreatedEligible = useMemo(() => {
-    if (!request?.status || request.status !== "confirmed") return false;
-    for (const i of items) {
-      if (!i.is_selected_by_patient) continue;
-      const f = draft[i.id];
-      if (!f || f.withdrawn_after_confirm) continue;
-      const eff = effectiveAvailSupplyDraft(i, f, request?.request_type);
-      const persistedPcf = i.post_confirm_fulfillment ?? "unset";
-      const draftPcf = f.fulfillment_draft;
-      if (eff === "available" || eff === "partially_available") {
-        if (draftPcf !== "reserved") return false;
-      } else if (eff === "to_order") {
-        const eta = effectiveEtaSupplyDraft(i, f, request?.request_type);
-        if (!eta || !eta.trim()) return false;
-        const ok =
-          draftPcf === "ordered" ||
-          draftPcf === "arrived_reserved" ||
-          persistedPcf === "ordered" ||
-          persistedPcf === "arrived_reserved";
-        if (!ok) return false;
-      } else {
-        return false;
-      }
+  const declareTreatedSummary = useMemo(() => {
+    if (!request) {
+      return { reservedLines: [], orderedLines: [], otherLines: [] };
     }
-    return true;
+    return buildPharmacistDeclareTreatedSummary(items, draft, request.request_type);
   }, [request, items, draft]);
 
   const runDeclareRequestTreated = async () => {
@@ -3492,6 +3501,7 @@ export default function PharmacienDemandeDetailPage() {
       setError(rpcErr.message);
       return;
     }
+    setDeclareTreatedModalOpen(false);
     dispatchRequestDetailRefresh(id);
     await load();
   };
@@ -4054,6 +4064,14 @@ export default function PharmacienDemandeDetailPage() {
         });
         dispatchRequestDetailRefresh(id);
         await load();
+        if (pending.willAbandonNoPickup) {
+          const { error: abErr } = await supabase.rpc("pharmacist_abandon_request_no_pickup", {
+            p_request_id: id,
+          });
+          if (abErr) throw new Error(abErr.message);
+          dispatchRequestDetailRefresh(id);
+          await load();
+        }
       } else if (pending.kind === "remove_proposed_line") {
         const fill = fills[0];
         if (!fill?.channel?.trim()) throw new Error("Indiquez le canal utilisé.");
@@ -4410,28 +4428,21 @@ export default function PharmacienDemandeDetailPage() {
     type Entry = (typeof lineEntriesForList)[number];
     type Surface = "principal" | "secondary" | "neutral";
     if (!request || request.request_type === "free_consultation" || !["confirmed", "treated"].includes(request.status)) {
-      return [{ surface: "neutral" as const, entries: lineEntriesForList as Entry[] }];
+      return [{ surface: "neutral" as const, entries: lineEntriesForList as Entry[], bucketMeta: null as PharmacistValidatedBucketGroup<PatientLineLike> | null }];
     }
-    const groups: { surface: Surface; entries: Entry[] }[] = [];
-    for (const e of lineEntriesForList) {
-      if (e.header) {
-        const h = e.header.toLowerCase();
-        const surface: Surface =
-          h.includes("écart") ||
-          h.includes("non retenus") ||
-          h.includes("hors bloc") ||
-          h.includes("hors périmètre")
-            ? "secondary"
-            : "principal";
-        groups.push({ surface, entries: [e] });
-      } else if (groups.length > 0) {
-        groups[groups.length - 1].entries.push(e);
-      } else {
-        groups.push({ surface: "principal", entries: [e] });
-      }
-    }
-    return groups.length > 0 ? groups : [{ surface: "neutral" as const, entries: lineEntriesForList as Entry[] }];
-  }, [request, lineEntriesForList]);
+    const eff = rowsWithEffectiveWithdrawnForSupply(displayRows, draft);
+    const sorted = sortPharmacistSupplyRowsBySection(eff);
+    const bucketGroups = buildPharmacistValidatedBucketGroups(
+      sorted as PatientLineLike[],
+      request.status,
+      pricingConfig
+    );
+    return bucketGroups.map((g) => ({
+      surface: "neutral" as const,
+      bucketMeta: g,
+      entries: g.rows.map((row) => ({ header: null as string | null, row: row as Entry["row"] })),
+    }));
+  }, [request, lineEntriesForList, displayRows, draft, pricingConfig]);
 
   /* useMemo retiré : évite react-hooks/preserve-manual-memoization sur ce bloc (React Compiler). */
   const supplyStructuralDirty = computeSupplyStructuralDirty(
@@ -4752,8 +4763,8 @@ export default function PharmacienDemandeDetailPage() {
     usesLineWorkflow &&
     request.status === "confirmed" &&
     !respondedFrozenView &&
-    declarationTreatedEligible &&
-    canManageSupply;
+    canManageSupply &&
+    pharmacistActiveRetainedLineCount(items, draft) > 0;
 
   const showCloseCounterSticky =
     usesLineWorkflow && request.status === "treated" && !archiveFrozen && canCompleteCounter;
@@ -5111,18 +5122,26 @@ export default function PharmacienDemandeDetailPage() {
                 renderLine={(row) => renderClosedReadonlySupplyLine(row)}
               />
             ) : null}
-            {!showClosedBucketsLayout
-              ? pharmacistSupplySurfaceGroups.map((group, gi) => (
-              <div
-                key={gi}
-                className={clsx(
-                  group.surface === "principal"
-                    ? PHARMACIST_SUPPLY_SURFACE_MAIN
-                    : group.surface === "secondary"
-                      ? PHARMACIST_SUPPLY_SURFACE_SECOND
-                      : PHARMACIST_SUPPLY_SURFACE_NEUTRAL
-                )}
-              >
+            {!showClosedBucketsLayout ? (
+              <>
+                {pharmacistSupplySurfaceGroups[0]?.bucketMeta ? (
+                  <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    Produits de la commande validée
+                  </h3>
+                ) : null}
+                {pharmacistSupplySurfaceGroups.map((group, gi) => {
+                  const bucket = group.bucketMeta;
+                  const titleColor =
+                    bucket?.kind === "teal_order"
+                      ? "text-teal-950"
+                      : bucket?.kind === "amber_hors"
+                        ? "text-amber-950"
+                        : bucket?.kind === "red_ecart"
+                          ? "text-red-950"
+                          : bucket
+                            ? "text-sky-950"
+                            : "";
+                  const listBody = (
                 <ul className="flex flex-col gap-2">
                   {group.entries.map(({ header, row }) => {
               const prod = one(row.products);
@@ -5260,22 +5279,8 @@ export default function PharmacienDemandeDetailPage() {
                 const hasConsent = Boolean(lineModifyConsent[row.id]?.channel?.trim());
                 const consent = lineModifyConsent[row.id];
                 const lineCounterLocked = (row.counter_outcome ?? "unset") === "picked_up";
-                const canMarkReservedSupply =
-                  !archiveFrozen &&
-                  uiRequestStatus !== "treated" &&
-                  selected &&
-                  !withdrawnDraft &&
-                  !lineLockedTrace &&
-                  !lineCounterLocked &&
-                  (effSupply === "available" || effSupply === "partially_available");
-                const canMarkOrderedSupply =
-                  !archiveFrozen &&
-                  uiRequestStatus !== "treated" &&
-                  selected &&
-                  !withdrawnDraft &&
-                  !lineLockedTrace &&
-                  !lineCounterLocked &&
-                  effSupply === "to_order";
+                const canMarkReservedSupply = false;
+                const canMarkOrderedSupply = false;
                 const canShowArrivedReservedPill =
                   !archiveFrozen &&
                   selected &&
@@ -5283,13 +5288,33 @@ export default function PharmacienDemandeDetailPage() {
                   !lineLockedTrace &&
                   !lineCounterLocked &&
                   effSupply === "to_order" &&
-                  (f.fulfillment_draft === "ordered" || f.fulfillment_draft === "arrived_reserved");
+                  (request.status === "confirmed" || request.status === "treated");
                 const showTreatedLineSuivi = request.status === "treated" && selected && !withdrawnDraft;
                 const canMarkPickedUpCounterSupply =
                   request.status === "treated" &&
                   selected &&
                   !withdrawnDraft &&
                   !lineLockedTrace;
+                const supplyTier: PharmacistSupplyLineTier | undefined = bucket
+                  ? supplyTierForBucketKind(bucket.kind)
+                  : undefined;
+                const prescriptionBadgeForLabels =
+                  bucket && request.request_type === "prescription"
+                    ? patientPrescriptionLineBadge(request.request_type, pl, supplyAmendmentBundles)
+                    : null;
+                const validatedLineLabels = bucket
+                  ? buildPatientValidatedLineLabelsFr({
+                      row: pl,
+                      originLabel: validatedOriginLabelPharmacistFr({
+                        row: pl,
+                        requestType: request.request_type,
+                        pharmacistProposedBadgeLabel: proposedBadgeLabel,
+                        prescriptionBadge: prescriptionBadgeForLabels,
+                      }),
+                      supplyAmendmentBundles,
+                      treatedLineLabels: request.status === "treated",
+                    })
+                  : undefined;
                 const supplyAvailabilityOptions = isAjoutOfficineLine
                   ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
                   : PHARMACIST_SUPPLY_POST_CONFIRM_AVAILABILITY_OPTIONS;
@@ -5710,7 +5735,10 @@ export default function PharmacienDemandeDetailPage() {
                         if (!fd) return;
                         if (fd.fulfillment_draft === "arrived_reserved") {
                           void persistPostConfirmFulfillmentForRow(rowSnap, "ordered");
-                        } else if (fd.fulfillment_draft === "ordered") {
+                        } else if (
+                          fd.fulfillment_draft === "ordered" ||
+                          fd.fulfillment_draft === "unset"
+                        ) {
                           void persistPostConfirmFulfillmentForRow(rowSnap, "arrived_reserved");
                         }
                       }}
@@ -5770,15 +5798,22 @@ export default function PharmacienDemandeDetailPage() {
                       }}
                       onMenuWithdraw={() => {
                         setError("");
+                        const willAbandon = pharmacistWithdrawWouldAbandonNoPickup(items, draft, row.id);
                         flushSync(() => {
                           setSupplyConfirmBlocks([
                             {
                               key: `withdraw-${row.id}`,
                               title: `Écarter « ${validatedName} »`,
-                              subtitle: "Canal obligatoire ; précision optionnelle.",
+                              subtitle: willAbandon
+                                ? "Dernière ligne active : le dossier passera en « abandonnée » (aucun produit récupéré au comptoir)."
+                                : "Canal obligatoire ; précision optionnelle.",
                             },
                           ]);
-                          setSupplyConfirmPending({ kind: "withdraw_line", rowId: row.id });
+                          setSupplyConfirmPending({
+                            kind: "withdraw_line",
+                            rowId: row.id,
+                            willAbandonNoPickup: willAbandon,
+                          });
                           setSupplyConfirmOpen(true);
                         });
                         setSupplyMenuRowId(null);
@@ -5792,6 +5827,9 @@ export default function PharmacienDemandeDetailPage() {
                       withdrawDisabledReason={
                         lineCounterLocked ? "Ligne déjà enregistrée comme récupérée." : null
                       }
+                      supplyTier={supplyTier}
+                      validatedLineLabels={validatedLineLabels}
+                      onPhotoPreview={bucket ? openProductPhotoPreview : undefined}
                     />
                   </Fragment>
                 );
@@ -6028,15 +6066,22 @@ export default function PharmacienDemandeDetailPage() {
                             onClick={() => {
                               setError("");
                               const nm = validatedProductLabel(row as PatientLineLike);
+                              const willAbandon = pharmacistWithdrawWouldAbandonNoPickup(items, draft, row.id);
                               flushSync(() => {
                                 setSupplyConfirmBlocks([
                                   {
                                     key: `withdraw-${row.id}`,
                                     title: `Écarter « ${nm} »`,
-                                    subtitle: "Canal obligatoire ; précision optionnelle.",
+                                    subtitle: willAbandon
+                                      ? "Dernière ligne active : le dossier passera en « abandonnée » (aucun produit récupéré au comptoir)."
+                                      : "Canal obligatoire ; précision optionnelle.",
                                   },
                                 ]);
-                                setSupplyConfirmPending({ kind: "withdraw_line", rowId: row.id });
+                                setSupplyConfirmPending({
+                                  kind: "withdraw_line",
+                                  rowId: row.id,
+                                  willAbandonNoPickup: willAbandon,
+                                });
                                 setSupplyConfirmOpen(true);
                               });
                             }}
@@ -6598,9 +6643,84 @@ export default function PharmacienDemandeDetailPage() {
               );
               })}
                 </ul>
+                  );
+                  if (bucket) {
+                    if (bucket.collapsible) {
+                      return (
+                        <details
+                          key={bucket.kind}
+                          className={clsx("group", pharmacistValidatedSectionShellClass(bucket.kind))}
+                        >
+                          <summary
+                            className={clsx(
+                              "flex cursor-pointer list-none items-center justify-between gap-2 px-0.5 py-1 [&::-webkit-details-marker]:hidden",
+                              titleColor
+                            )}
+                          >
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              {bucket.kind === "teal_order" ? (
+                                <ShoppingCart className="size-4 shrink-0" aria-hidden />
+                              ) : (
+                                <Package className="size-4 shrink-0" aria-hidden />
+                              )}
+                              <span className="text-[11px] font-extrabold uppercase tracking-wide">{bucket.title}</span>
+                            </span>
+                            <ChevronDown
+                              className="size-3.5 shrink-0 opacity-80 transition-transform group-open:rotate-180"
+                              aria-hidden
+                            />
+                          </summary>
+                          <div className="mt-2 space-y-2 border-t border-current/15 px-0.5 pt-2">
+                            {bucket.hint ? (
+                              <p className="text-[9px] leading-snug text-muted-foreground">{bucket.hint}</p>
+                            ) : null}
+                            {listBody}
+                          </div>
+                        </details>
+                      );
+                    }
+                    return (
+                      <section
+                        key={bucket.kind}
+                        className={clsx("space-y-2", pharmacistValidatedSectionShellClass(bucket.kind))}
+                      >
+                        <div
+                          className={clsx(
+                            "flex flex-nowrap items-center justify-between gap-2 overflow-x-auto px-0.5",
+                            titleColor
+                          )}
+                        >
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            {bucket.kind === "teal_order" ? (
+                              <ShoppingCart className="size-4 shrink-0 text-teal-800" aria-hidden />
+                            ) : (
+                              <Package className="size-4 shrink-0 text-sky-700" aria-hidden />
+                            )}
+                            <h4 className="min-w-0 text-[10px] font-extrabold uppercase leading-snug tracking-wide sm:text-[11px]">
+                              {bucket.title}
+                            </h4>
+                          </div>
+                          {bucket.totalLabel ? (
+                            <p className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums opacity-90">
+                              {bucket.totalLabel}
+                            </p>
+                          ) : null}
+                        </div>
+                        {bucket.hint ? (
+                          <p className="px-0.5 text-[9px] leading-snug text-muted-foreground">{bucket.hint}</p>
+                        ) : null}
+                        {listBody}
+                      </section>
+                    );
+                  }
+                  return (
+              <div key={gi} className={PHARMACIST_SUPPLY_SURFACE_NEUTRAL}>
+                {listBody}
               </div>
-            ))
-              : null}
+                  );
+                })}
+              </>
+            ) : null}
           </div>
               </>
               ) : null}
@@ -6943,40 +7063,41 @@ export default function PharmacienDemandeDetailPage() {
             </div>
           ) : null}
 
-          <section className="mt-3 rounded-lg border border-border/60 bg-muted/15 p-2 shadow-sm">
-            <button
-              type="button"
-              onClick={() => {
-                const next = !historyOpen;
-                setHistoryOpen(next);
-                if (next && historyRows.length === 0 && !historyBusy) {
-                  void loadHistory();
-                }
-              }}
-              className="inline-flex h-9 w-full items-center justify-center rounded-md border border-border/80 bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted/50 sm:w-auto"
-            >
-              {historyOpen ? "Masquer l'historique" : "Voir l'historique du dossier"}
-            </button>
-            {historyOpen ? (
-              <div className="mt-2">
-                <DossierHistoryListFr
-                  rows={historyRows}
-                  viewerRole="pharmacien"
-                  busy={historyBusy}
-                  supplyBundles={supplyAmendmentBundles}
-                  timeline={{
-                    requestCreatedAt: request.created_at,
-                    requestSubmittedAt: request.submitted_at,
-                    requestRespondedAt: request.responded_at,
-                    requestConfirmedAt: request.confirmed_at ?? null,
-                    requestStatus: request.status,
-                    plannedVisitDate: request.patient_planned_visit_date,
-                    plannedVisitTime: request.patient_planned_visit_time,
-                  }}
-                />
-              </div>
-            ) : null}
-          </section>
+          <details
+            className="group mt-3 rounded-lg border border-sky-200/70 bg-sky-50/25 p-2 shadow-sm ring-1 ring-sky-100/60"
+            onToggle={(e) => {
+              const open = (e.currentTarget as HTMLDetailsElement).open;
+              setHistoryOpen(open);
+              if (open && historyRows.length === 0 && !historyBusy) {
+                void loadHistory();
+              }
+            }}
+          >
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-0.5 py-1 text-sky-950 [&::-webkit-details-marker]:hidden">
+              <span className="text-[11px] font-bold uppercase tracking-wide">Historique du dossier</span>
+              <ChevronDown
+                className="size-3.5 shrink-0 opacity-80 transition-transform group-open:rotate-180"
+                aria-hidden
+              />
+            </summary>
+            <div className="mt-2 border-t border-sky-200/60 pt-2">
+              <DossierHistoryListFr
+                rows={historyRows}
+                viewerRole="pharmacien"
+                busy={historyBusy}
+                supplyBundles={supplyAmendmentBundles}
+                timeline={{
+                  requestCreatedAt: request.created_at,
+                  requestSubmittedAt: request.submitted_at,
+                  requestRespondedAt: request.responded_at,
+                  requestConfirmedAt: request.confirmed_at ?? null,
+                  requestStatus: request.status,
+                  plannedVisitDate: request.patient_planned_visit_date,
+                  plannedVisitTime: request.patient_planned_visit_time,
+                }}
+              />
+            </div>
+          </details>
         </>
       ) : null}
       {lineConvoEffectiveRowId
@@ -7276,28 +7397,28 @@ export default function PharmacienDemandeDetailPage() {
       ) : null}
 
       {showBottomActionSticky || showSupplyStatsFooter || showSupplyDirtyBar ? (
-        <div className="fixed inset-x-0 bottom-0 z-[10050] flex flex-col border-t border-cyan-500/25 bg-background/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-6px_28px_rgba(15,23,42,0.12)] backdrop-blur-md">
+        <div className="fixed inset-x-0 bottom-0 z-[10050] flex flex-col border-t border-sky-500/25 bg-background/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-6px_28px_rgba(15,23,42,0.12)] backdrop-blur-md">
           {showDeclareTreatedSticky ? (
-            <div className="border-b border-cyan-500/20 px-3 py-2.5">
+            <div className="border-b border-sky-500/20 px-3 py-2.5">
               <div className="mx-auto flex max-w-3xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <p className="text-center text-[11px] leading-snug text-muted-foreground sm:flex-1 sm:text-left">
-                  Toutes les lignes retenues sont à jour (réservé / commandé selon le cas). Déclarez la demande traitée
-                  pour activer le suivi au comptoir côté patient.
+                  Quand la préparation est prête, déclarez la demande traitée. Le patient pourra suivre le passage au
+                  comptoir ; vous marquerez ensuite les réceptions en officine et les retraits ligne par ligne.
                 </p>
                 <button
                   type="button"
                   disabled={declareTreatedBusy || Boolean(requestDrift.stale)}
                   title={requestDrift.stale?.message}
-                  onClick={() => void runDeclareRequestTreated()}
-                  className="inline-flex h-11 w-full shrink-0 items-center justify-center rounded-xl bg-cyan-600 px-5 text-sm font-bold text-white shadow-md transition hover:bg-cyan-700 disabled:opacity-50 sm:w-auto sm:min-w-[200px]"
+                  onClick={() => setDeclareTreatedModalOpen(true)}
+                  className="inline-flex h-11 w-full shrink-0 items-center justify-center rounded-xl bg-sky-600 px-5 text-sm font-bold text-white shadow-md transition hover:bg-sky-700 disabled:opacity-50 sm:w-auto sm:min-w-[200px]"
                 >
-                  {declareTreatedBusy ? "En cours…" : "Déclarer la demande traitée"}
+                  Déclarer la demande traitée
                 </button>
               </div>
             </div>
           ) : null}
           {showCloseCounterSticky ? (
-            <div className="border-b border-cyan-500/20 px-3 py-2.5">
+            <div className="border-b border-sky-500/20 px-3 py-2.5">
               <div className="mx-auto flex max-w-3xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <p className="text-center text-[11px] leading-snug text-muted-foreground sm:flex-1 sm:text-left">
                   Toutes les lignes retenues sont récupérées au comptoir. Vous pouvez clôturer le dossier.
@@ -7314,12 +7435,12 @@ export default function PharmacienDemandeDetailPage() {
             </div>
           ) : null}
           {showSupplyStatsFooter ? (
-            <div className="flex justify-center border-b border-cyan-500/15 px-3 py-2">
+            <div className="flex justify-center border-b border-sky-500/15 px-3 py-2">
               <div className="flex w-full max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[11px] text-foreground">
                 <span className="font-semibold tabular-nums text-muted-foreground">
                   {supplyFooterTotals.count} produit{supplyFooterTotals.count > 1 ? "s" : ""}
                 </span>
-                <span className="font-bold tabular-nums text-cyan-950">
+                <span className="font-bold tabular-nums text-sky-950">
                   Total :{" "}
                   {supplyFooterTotals.count === 0
                     ? "—"
@@ -7385,7 +7506,9 @@ export default function PharmacienDemandeDetailPage() {
           supplyConfirmPending?.kind === "unlock_modify"
             ? "Choisissez le canal : la modification s’ouvre tout de suite (précision optionnelle possible sur la ligne)."
             : supplyConfirmPending?.kind === "withdraw_line"
-              ? "L’écart s’applique en brouillon dès le choix du canal ; journalisation à l’enregistrement du dossier."
+              ? supplyConfirmPending.willAbandonNoPickup
+                ? "Si vous confirmez, cette dernière ligne sera écartée et la demande sera enregistrée comme abandonnée (le patient n’a récupéré aucun produit). Ce n’est pas une clôture « terminée »."
+                : "L’écart est enregistré tout de suite avec le canal d’accord patient."
               : supplyConfirmPending?.kind === "remove_proposed_line"
                 ? "Le retrait est journalisé pour le patient avec le canal d’accord."
                 : supplyConfirmPending?.kind === "preface_post_confirm_add"
@@ -7406,6 +7529,16 @@ export default function PharmacienDemandeDetailPage() {
         }
         busy={supplyConfirmBusy}
         onConfirm={(fills) => void applySupplyModalConfirm(fills)}
+      />
+      <PharmacistDeclareTreatedConfirmModal
+        open={declareTreatedModalOpen}
+        busy={declareTreatedBusy}
+        summary={declareTreatedSummary}
+        onClose={() => {
+          if (declareTreatedBusy) return;
+          setDeclareTreatedModalOpen(false);
+        }}
+        onConfirm={() => void runDeclareRequestTreated()}
       />
       {closeRequestSummary ? (
         <PharmacistCloseRequestConfirmModal
@@ -7591,6 +7724,12 @@ export default function PharmacienDemandeDetailPage() {
         }
         blocks={pharmaHistoryBlocks}
         onClose={() => setPharmaHistoryRowId(null)}
+      />
+      <PatientProductPhotoPreviewModal
+        open={productPhotoPreview != null}
+        imageUrl={productPhotoPreview?.url ?? null}
+        title={productPhotoPreview?.title ?? ""}
+        onClose={() => setProductPhotoPreview(null)}
       />
       {usesLineWorkflow && sessionUserId && !isConsultation ? (
         <>
