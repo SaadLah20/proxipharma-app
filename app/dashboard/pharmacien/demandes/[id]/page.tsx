@@ -123,7 +123,13 @@ import {
   PharmacistCloseRequestConfirmModal,
   type PharmacistCloseRequestSummary,
 } from "@/components/pharmacist/pharmacist-close-request-confirm-modal";
+import { PharmacistDeclareTreatedConfirmModal } from "@/components/pharmacist/pharmacist-declare-treated-confirm-modal";
 import { PharmacistClosedProductBucketsView } from "@/components/pharmacist/pharmacist-closed-product-buckets-view";
+import {
+  buildPharmacistDeclareTreatedSummary,
+  pharmacistActiveRetainedLineCount,
+  pharmacistWithdrawWouldAbandonNoPickup,
+} from "@/lib/pharmacist-declare-treated-fr";
 import {
   flattenPharmacistSupplyListEntriesStable,
   sortPharmacistSupplyRowsBySection,
@@ -1634,6 +1640,7 @@ export default function PharmacienDemandeDetailPage() {
   const [completeBusy, setCompleteBusy] = useState(false);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [declareTreatedBusy, setDeclareTreatedBusy] = useState(false);
+  const [declareTreatedModalOpen, setDeclareTreatedModalOpen] = useState(false);
   const [supplyConfirmOpen, setSupplyConfirmOpen] = useState(false);
   const [supplyConfirmBusy, setSupplyConfirmBusy] = useState(false);
   const [supplyConfirmBlocks, setSupplyConfirmBlocks] = useState<SupplyConfirmBlock[]>([]);
@@ -1641,7 +1648,7 @@ export default function PharmacienDemandeDetailPage() {
     | { kind: "unlock_modify"; rowId: string }
     | { kind: "add_line"; pick: ProductCatalogHit; reason: string; qty: number }
     | { kind: "preface_post_confirm_add"; mode: "ordonnance" | "proposed" }
-    | { kind: "withdraw_line"; rowId: string }
+    | { kind: "withdraw_line"; rowId: string; willAbandonNoPickup?: boolean }
     | { kind: "remove_proposed_line"; row: ItemRow }
     | null
   >(null);
@@ -3452,31 +3459,11 @@ export default function PharmacienDemandeDetailPage() {
     await load();
   };
 
-  const declarationTreatedEligible = useMemo(() => {
-    if (!request?.status || request.status !== "confirmed") return false;
-    for (const i of items) {
-      if (!i.is_selected_by_patient) continue;
-      const f = draft[i.id];
-      if (!f || f.withdrawn_after_confirm) continue;
-      const eff = effectiveAvailSupplyDraft(i, f, request?.request_type);
-      const persistedPcf = i.post_confirm_fulfillment ?? "unset";
-      const draftPcf = f.fulfillment_draft;
-      if (eff === "available" || eff === "partially_available") {
-        if (draftPcf !== "reserved") return false;
-      } else if (eff === "to_order") {
-        const eta = effectiveEtaSupplyDraft(i, f, request?.request_type);
-        if (!eta || !eta.trim()) return false;
-        const ok =
-          draftPcf === "ordered" ||
-          draftPcf === "arrived_reserved" ||
-          persistedPcf === "ordered" ||
-          persistedPcf === "arrived_reserved";
-        if (!ok) return false;
-      } else {
-        return false;
-      }
+  const declareTreatedSummary = useMemo(() => {
+    if (!request) {
+      return { reservedLines: [], orderedLines: [], otherLines: [] };
     }
-    return true;
+    return buildPharmacistDeclareTreatedSummary(items, draft, request.request_type);
   }, [request, items, draft]);
 
   const runDeclareRequestTreated = async () => {
@@ -3492,6 +3479,7 @@ export default function PharmacienDemandeDetailPage() {
       setError(rpcErr.message);
       return;
     }
+    setDeclareTreatedModalOpen(false);
     dispatchRequestDetailRefresh(id);
     await load();
   };
@@ -4054,6 +4042,14 @@ export default function PharmacienDemandeDetailPage() {
         });
         dispatchRequestDetailRefresh(id);
         await load();
+        if (pending.willAbandonNoPickup) {
+          const { error: abErr } = await supabase.rpc("pharmacist_abandon_request_no_pickup", {
+            p_request_id: id,
+          });
+          if (abErr) throw new Error(abErr.message);
+          dispatchRequestDetailRefresh(id);
+          await load();
+        }
       } else if (pending.kind === "remove_proposed_line") {
         const fill = fills[0];
         if (!fill?.channel?.trim()) throw new Error("Indiquez le canal utilisé.");
@@ -4752,8 +4748,8 @@ export default function PharmacienDemandeDetailPage() {
     usesLineWorkflow &&
     request.status === "confirmed" &&
     !respondedFrozenView &&
-    declarationTreatedEligible &&
-    canManageSupply;
+    canManageSupply &&
+    pharmacistActiveRetainedLineCount(items, draft) > 0;
 
   const showCloseCounterSticky =
     usesLineWorkflow && request.status === "treated" && !archiveFrozen && canCompleteCounter;
@@ -5260,22 +5256,8 @@ export default function PharmacienDemandeDetailPage() {
                 const hasConsent = Boolean(lineModifyConsent[row.id]?.channel?.trim());
                 const consent = lineModifyConsent[row.id];
                 const lineCounterLocked = (row.counter_outcome ?? "unset") === "picked_up";
-                const canMarkReservedSupply =
-                  !archiveFrozen &&
-                  uiRequestStatus !== "treated" &&
-                  selected &&
-                  !withdrawnDraft &&
-                  !lineLockedTrace &&
-                  !lineCounterLocked &&
-                  (effSupply === "available" || effSupply === "partially_available");
-                const canMarkOrderedSupply =
-                  !archiveFrozen &&
-                  uiRequestStatus !== "treated" &&
-                  selected &&
-                  !withdrawnDraft &&
-                  !lineLockedTrace &&
-                  !lineCounterLocked &&
-                  effSupply === "to_order";
+                const canMarkReservedSupply = false;
+                const canMarkOrderedSupply = false;
                 const canShowArrivedReservedPill =
                   !archiveFrozen &&
                   selected &&
@@ -5283,7 +5265,7 @@ export default function PharmacienDemandeDetailPage() {
                   !lineLockedTrace &&
                   !lineCounterLocked &&
                   effSupply === "to_order" &&
-                  (f.fulfillment_draft === "ordered" || f.fulfillment_draft === "arrived_reserved");
+                  (request.status === "confirmed" || request.status === "treated");
                 const showTreatedLineSuivi = request.status === "treated" && selected && !withdrawnDraft;
                 const canMarkPickedUpCounterSupply =
                   request.status === "treated" &&
@@ -5710,7 +5692,10 @@ export default function PharmacienDemandeDetailPage() {
                         if (!fd) return;
                         if (fd.fulfillment_draft === "arrived_reserved") {
                           void persistPostConfirmFulfillmentForRow(rowSnap, "ordered");
-                        } else if (fd.fulfillment_draft === "ordered") {
+                        } else if (
+                          fd.fulfillment_draft === "ordered" ||
+                          fd.fulfillment_draft === "unset"
+                        ) {
                           void persistPostConfirmFulfillmentForRow(rowSnap, "arrived_reserved");
                         }
                       }}
@@ -5770,15 +5755,22 @@ export default function PharmacienDemandeDetailPage() {
                       }}
                       onMenuWithdraw={() => {
                         setError("");
+                        const willAbandon = pharmacistWithdrawWouldAbandonNoPickup(items, draft, row.id);
                         flushSync(() => {
                           setSupplyConfirmBlocks([
                             {
                               key: `withdraw-${row.id}`,
                               title: `Écarter « ${validatedName} »`,
-                              subtitle: "Canal obligatoire ; précision optionnelle.",
+                              subtitle: willAbandon
+                                ? "Dernière ligne active : le dossier passera en « abandonnée » (aucun produit récupéré au comptoir)."
+                                : "Canal obligatoire ; précision optionnelle.",
                             },
                           ]);
-                          setSupplyConfirmPending({ kind: "withdraw_line", rowId: row.id });
+                          setSupplyConfirmPending({
+                            kind: "withdraw_line",
+                            rowId: row.id,
+                            willAbandonNoPickup: willAbandon,
+                          });
                           setSupplyConfirmOpen(true);
                         });
                         setSupplyMenuRowId(null);
@@ -6028,15 +6020,22 @@ export default function PharmacienDemandeDetailPage() {
                             onClick={() => {
                               setError("");
                               const nm = validatedProductLabel(row as PatientLineLike);
+                              const willAbandon = pharmacistWithdrawWouldAbandonNoPickup(items, draft, row.id);
                               flushSync(() => {
                                 setSupplyConfirmBlocks([
                                   {
                                     key: `withdraw-${row.id}`,
                                     title: `Écarter « ${nm} »`,
-                                    subtitle: "Canal obligatoire ; précision optionnelle.",
+                                    subtitle: willAbandon
+                                      ? "Dernière ligne active : le dossier passera en « abandonnée » (aucun produit récupéré au comptoir)."
+                                      : "Canal obligatoire ; précision optionnelle.",
                                   },
                                 ]);
-                                setSupplyConfirmPending({ kind: "withdraw_line", rowId: row.id });
+                                setSupplyConfirmPending({
+                                  kind: "withdraw_line",
+                                  rowId: row.id,
+                                  willAbandonNoPickup: willAbandon,
+                                });
                                 setSupplyConfirmOpen(true);
                               });
                             }}
@@ -7281,17 +7280,17 @@ export default function PharmacienDemandeDetailPage() {
             <div className="border-b border-cyan-500/20 px-3 py-2.5">
               <div className="mx-auto flex max-w-3xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <p className="text-center text-[11px] leading-snug text-muted-foreground sm:flex-1 sm:text-left">
-                  Toutes les lignes retenues sont à jour (réservé / commandé selon le cas). Déclarez la demande traitée
-                  pour activer le suivi au comptoir côté patient.
+                  Quand la préparation est prête, déclarez la demande traitée. Le patient pourra suivre le passage au
+                  comptoir ; vous marquerez ensuite les réceptions en officine et les retraits ligne par ligne.
                 </p>
                 <button
                   type="button"
                   disabled={declareTreatedBusy || Boolean(requestDrift.stale)}
                   title={requestDrift.stale?.message}
-                  onClick={() => void runDeclareRequestTreated()}
+                  onClick={() => setDeclareTreatedModalOpen(true)}
                   className="inline-flex h-11 w-full shrink-0 items-center justify-center rounded-xl bg-cyan-600 px-5 text-sm font-bold text-white shadow-md transition hover:bg-cyan-700 disabled:opacity-50 sm:w-auto sm:min-w-[200px]"
                 >
-                  {declareTreatedBusy ? "En cours…" : "Déclarer la demande traitée"}
+                  Déclarer la demande traitée
                 </button>
               </div>
             </div>
@@ -7385,7 +7384,9 @@ export default function PharmacienDemandeDetailPage() {
           supplyConfirmPending?.kind === "unlock_modify"
             ? "Choisissez le canal : la modification s’ouvre tout de suite (précision optionnelle possible sur la ligne)."
             : supplyConfirmPending?.kind === "withdraw_line"
-              ? "L’écart s’applique en brouillon dès le choix du canal ; journalisation à l’enregistrement du dossier."
+              ? supplyConfirmPending.willAbandonNoPickup
+                ? "Si vous confirmez, cette dernière ligne sera écartée et la demande sera enregistrée comme abandonnée (le patient n’a récupéré aucun produit). Ce n’est pas une clôture « terminée »."
+                : "L’écart est enregistré tout de suite avec le canal d’accord patient."
               : supplyConfirmPending?.kind === "remove_proposed_line"
                 ? "Le retrait est journalisé pour le patient avec le canal d’accord."
                 : supplyConfirmPending?.kind === "preface_post_confirm_add"
@@ -7406,6 +7407,16 @@ export default function PharmacienDemandeDetailPage() {
         }
         busy={supplyConfirmBusy}
         onConfirm={(fills) => void applySupplyModalConfirm(fills)}
+      />
+      <PharmacistDeclareTreatedConfirmModal
+        open={declareTreatedModalOpen}
+        busy={declareTreatedBusy}
+        summary={declareTreatedSummary}
+        onClose={() => {
+          if (declareTreatedBusy) return;
+          setDeclareTreatedModalOpen(false);
+        }}
+        onConfirm={() => void runDeclareRequestTreated()}
       />
       {closeRequestSummary ? (
         <PharmacistCloseRequestConfirmModal
