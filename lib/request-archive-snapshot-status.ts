@@ -12,7 +12,13 @@ export type RequestArchiveSnapshotStatus =
 export type ArchiveSnapshotInput = {
   responded_at?: string | null;
   confirmed_at?: string | null;
-  items?: { availability_status?: string | null }[];
+  items?: {
+    availability_status?: string | null;
+    post_confirm_fulfillment?: string | null;
+    counter_outcome?: string | null;
+  }[];
+  /** Statut juste avant la fermeture (ex. `treated` → `abandoned`). */
+  terminalTransitionOldStatus?: string | null;
 };
 
 export function inferArchiveSnapshotStatus(
@@ -39,6 +45,14 @@ export function inferArchiveSnapshotStatus(
   }
 
   if (terminalStatus === "cancelled" || terminalStatus === "abandoned") {
+    const old = (ctx.terminalTransitionOldStatus ?? "").trim();
+    if (old === "treated" || old === "processing") return "treated";
+    const hadPostConfirmWork = (ctx.items ?? []).some((i) => {
+      const pcf = i.post_confirm_fulfillment ?? "unset";
+      const co = i.counter_outcome ?? "unset";
+      return pcf === "reserved" || pcf === "ordered" || pcf === "arrived_reserved" || co === "picked_up";
+    });
+    if (hadPostConfirmWork) return "treated";
     if (confirmed) return "confirmed";
     if (responded || hasLineResponse) return "responded";
     return "submitted";

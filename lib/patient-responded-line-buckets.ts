@@ -12,8 +12,7 @@ export type PatientRespondedBucketId =
   | "dispo"
   | "to_order"
   | "indispo_with_alts"
-  | "indispo_no_alts"
-  | "ajout_officine";
+  | "indispo_no_alts";
 
 export type PatientRespondedLineBuckets<T> = Record<PatientRespondedBucketId, T[]>;
 
@@ -82,15 +81,9 @@ export function bucketPatientRespondedLines<T extends RespondedLineLike>(
     to_order: [],
     indispo_with_alts: [],
     indispo_no_alts: [],
-    ajout_officine: [],
   };
 
   for (const row of items) {
-    if (isPatientRespondedAjoutOfficineLine(row, requestType, supplyAmendmentBundles)) {
-      out.ajout_officine.push(row);
-      continue;
-    }
-
     const eff = principalEffectiveStatus(row);
     if (eff === "available" || eff === "partially_available") {
       out.dispo.push(row);
@@ -126,7 +119,6 @@ export const PATIENT_RESPONDED_BUCKET_ORDER: PatientRespondedBucketId[] = [
   "to_order",
   "indispo_with_alts",
   "indispo_no_alts",
-  "ajout_officine",
 ];
 
 export function patientRespondedBucketTitleFr(id: PatientRespondedBucketId): string {
@@ -139,7 +131,5 @@ export function patientRespondedBucketTitleFr(id: PatientRespondedBucketId): str
       return "Indisponible ou en rupture — avec alternative";
     case "indispo_no_alts":
       return "Indisponible ou en rupture";
-    case "ajout_officine":
-      return "Ajouts officine";
   }
 }

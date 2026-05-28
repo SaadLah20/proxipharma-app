@@ -30,6 +30,7 @@ import {
   clearPatientDemandeProduitsDraft,
   draftLineUnitPrice,
   readPatientDemandeProduitsDraft,
+  readPatientDemandeProduitsNote,
   writePatientDemandeProduitsDraft,
   type PatientDemandeProduitsDraftLine,
 } from "@/lib/patient-demande-produits-draft";
@@ -100,6 +101,8 @@ export default function DemandeProduitsPage() {
   if (sessionReady && pharmacyId && pathname.endsWith("/demande-produits") && linesDraftKey !== prevLinesDraftKey) {
     setPrevLinesDraftKey(linesDraftKey);
     setLines(readPatientDemandeProduitsDraft(pharmacyId));
+    const prefilledNote = readPatientDemandeProduitsNote(pharmacyId);
+    if (prefilledNote) setNote(prefilledNote);
   }
 
   useEffect(() => {

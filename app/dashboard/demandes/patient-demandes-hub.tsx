@@ -11,6 +11,18 @@ import {
   PatientDemandeCard,
   type PatientRequestRow,
 } from "@/components/requests/demande-hub-ui";
+import { PatientProductDemandesDashboard } from "@/components/requests/product/patient-product-demandes-dashboard";
+import { PatientProductDemandeHubCard } from "@/components/requests/product/patient-product-demande-hub-card";
+import {
+  PATIENT_PRODUCT_HUB_SECTIONS,
+  rowsInPatientProductHubSection,
+  type PatientProductHubSectionId,
+} from "@/lib/patient-product-hub-sections";
+import {
+  patientHubListActiveFiltersSummary,
+  patientHubListHasActiveFilters,
+} from "@/lib/patient-request-hub-list-filters";
+import { productRequestPublicTheme as productTheme } from "@/lib/request-kinds/product-request-public-theme";
 import { PageShell } from "@/components/ui/compact-shell";
 import { bucketForStatusParam } from "@/lib/demandes-hub-buckets";
 import { one } from "@/lib/embed";
@@ -43,7 +55,10 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const setTab = (t: HubTab) => {
     const next = new URLSearchParams(searchParams.toString());
     next.set("vue", tabToSearch(t));
-    if (t === "dashboard") next.delete("statut");
+    if (t === "dashboard") {
+      next.delete("statut");
+      next.delete("section");
+    }
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
 
@@ -60,7 +75,14 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const dashboardChrome = useMemo(() => hubDashboardChrome(kindId, "patient"), [kindId]);
 
   const statutParam = searchParams.get("statut");
+  const sectionParam = searchParams.get("section") as PatientProductHubSectionId | null;
   const activeBucket = bucketForStatusParam(statutParam, dashboardBuckets);
+  const activeProductSection =
+    kindId === "product_request" &&
+    sectionParam &&
+    PATIENT_PRODUCT_HUB_SECTIONS.some((s) => s.id === sectionParam)
+      ? sectionParam
+      : null;
 
   const load = useCallback(async () => {
     setError("");
@@ -131,11 +153,18 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
 
   const rowsWithDashboardStatus = useMemo(() => rows.map((r) => ({ ...r, status_for_dashboard: r.status })), [rows]);
 
+  const activeProductSectionMeta = useMemo(
+    () => PATIENT_PRODUCT_HUB_SECTIONS.find((s) => s.id === activeProductSection) ?? null,
+    [activeProductSection]
+  );
+
   const filteredSorted = useMemo(() => {
     let list = rowsWithDashboardStatus;
     if (activeBucket) {
       const allow = new Set(activeBucket.statuses);
       list = list.filter((r) => allow.has((r as { status_for_dashboard?: string }).status_for_dashboard ?? r.status));
+    } else if (activeProductSection) {
+      list = rowsInPatientProductHubSection(list, activeProductSection);
     }
     if (pharmacyFilter) list = list.filter((r) => r.pharmacy_id === pharmacyFilter);
     if (refQuery.trim().length >= 2) {
@@ -156,13 +185,54 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
       const tb = new Date(b.created_at).getTime();
       return sortNewestFirst ? tb - ta : ta - tb;
     });
-  }, [rowsWithDashboardStatus, activeBucket, pharmacyFilter, refQuery, sortNewestFirst]);
+  }, [rowsWithDashboardStatus, activeBucket, activeProductSection, pharmacyFilter, refQuery, sortNewestFirst]);
+
+  const pharmacyFilterLabel = useMemo(
+    () => pharmacyOptions.find(([id]) => id === pharmacyFilter)?.[1] ?? null,
+    [pharmacyOptions, pharmacyFilter]
+  );
+
+  const listFiltersSummary = useMemo(
+    () =>
+      patientHubListActiveFiltersSummary({
+        activeBucket,
+        activeSection: activeProductSectionMeta,
+        pharmacyLabel: pharmacyFilterLabel,
+        referenceQuery: refQuery,
+        sortNewestFirst,
+      }),
+    [activeBucket, activeProductSectionMeta, pharmacyFilterLabel, refQuery, sortNewestFirst]
+  );
+
+  const listHasActiveFilters = useMemo(
+    () =>
+      patientHubListHasActiveFilters({
+        activeBucket,
+        activeSection: activeProductSectionMeta,
+        pharmacyLabel: pharmacyFilterLabel,
+        referenceQuery: refQuery,
+        sortNewestFirst,
+      }),
+    [activeBucket, activeProductSectionMeta, pharmacyFilterLabel, refQuery, sortNewestFirst]
+  );
+
+  const clearListFilters = () => {
+    setPharmacyFilter("");
+    setRefQuery("");
+    setSortNewestFirst(true);
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("vue", "liste");
+    next.delete("statut");
+    next.delete("section");
+    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
+  };
 
   const setStatutFilter = (key: string) => {
     const next = new URLSearchParams(searchParams.toString());
     next.set("vue", "liste");
     if (key === "") next.delete("statut");
     else next.set("statut", key);
+    next.delete("section");
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
 
@@ -209,20 +279,30 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
         ? "Annuaire → pharmacie → consultation libre."
         : "Annuaire → pharmacie → demande de produits.";
 
+  const isProductHub = kindId === "product_request";
+
   return (
-    <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
+    <PageShell
+      maxWidthClass="max-w-3xl"
+      className={clsx("space-y-4", isProductHub && "bg-gradient-to-b from-sky-50/40 via-slate-50 to-slate-50")}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Link href="/" className={clsx("text-xs font-medium", linkClass)}>
+          <Link
+            href="/"
+            className={clsx("text-xs font-medium", isProductHub ? productTheme.backLink : linkClass)}
+          >
             ← Annuaire
           </Link>
-          <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">{kindConfig.copy.patientHubTitle}</h1>
+          <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">
+            {kindConfig.copy.patientHubTitle}
+          </h1>
           <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">
             {kindId === "prescription"
               ? "Suivi de vos ordonnances envoyées aux pharmacies."
               : kindId === "free_consultation"
                 ? "Suivi de vos consultations libres : message, échange et proposition produits."
-                : "Suivi de vos demandes de produits auprès des pharmacies."}
+                : "Vos demandes de produits, classées par ce qui vous concerne, ce qui est chez l’officine et les archives."}
           </p>
         </div>
         <Link
@@ -270,23 +350,43 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
             </div>
           ) : (
             <div className="mt-4">
-              <DemandeStatDashboard
-                rows={rowsWithDashboardStatus}
-                buckets={dashboardBuckets}
-                basePath={hubPath}
-                dashboardTitle={dashboardChrome.title}
-                dashboardSubtitle={dashboardChrome.subtitle}
-              />
+              {isProductHub ? (
+                <PatientProductDemandesDashboard
+                  rows={rows}
+                  basePath={hubPath}
+                  unreadById={unreadById}
+                />
+              ) : (
+                <DemandeStatDashboard
+                  rows={rowsWithDashboardStatus}
+                  buckets={dashboardBuckets}
+                  basePath={hubPath}
+                  dashboardTitle={dashboardChrome.title}
+                  dashboardSubtitle={dashboardChrome.subtitle}
+                />
+              )}
             </div>
           )}
         </>
       ) : (
         <div className="mt-4 space-y-4">
-          <section className={filterShell}>
+          <section className={isProductHub ? clsx("rounded-xl border-2 p-3 shadow-sm", productTheme.shell, "bg-white/90") : filterShell}>
             <div className="flex items-center justify-between gap-2">
               <div>
-                <h2 className={clsx("text-xs font-bold uppercase tracking-wide", filterTitle)}>Filtres et recherche</h2>
-                <p className={clsx("text-[10px]", accent === "amber" ? "text-amber-900/85" : "text-sky-900/85")}>
+                <h2
+                  className={clsx(
+                    "text-xs font-bold uppercase tracking-wide",
+                    isProductHub ? "text-sky-950" : filterTitle
+                  )}
+                >
+                  Filtres et recherche
+                </h2>
+                <p
+                  className={clsx(
+                    "text-[10px]",
+                    isProductHub ? "text-sky-900/85" : accent === "amber" ? "text-amber-900/85" : "text-sky-900/85"
+                  )}
+                >
                   Saisissez une référence pour accès immédiat
                 </p>
               </div>
@@ -305,14 +405,17 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                     className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/70"
                   />
                 </label>
-                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
                   Statut
                   <select
                     value={activeBucket?.key ?? ""}
                     onChange={(e) => setStatutFilter(e.target.value)}
-                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
+                    className={clsx(
+                      "rounded-md border bg-background px-2 py-1.5 text-xs text-foreground",
+                      isProductHub ? "border-sky-200/80" : "border-input"
+                    )}
                   >
-                    <option value="">Tous</option>
+                    <option value="">Tous les statuts</option>
                     {dashboardBuckets.map((b) => (
                       <option key={b.key} value={b.key}>
                         {b.label}
@@ -347,30 +450,81 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                   </select>
                 </label>
               </div>
+            ) : listHasActiveFilters ? (
+              <div
+                className={clsx(
+                  "mt-2 rounded-lg border px-2.5 py-2 text-[11px] leading-snug",
+                  isProductHub
+                    ? "border-sky-200/80 bg-sky-50/60 text-sky-950"
+                    : accent === "amber"
+                      ? "border-amber-200/80 bg-amber-50/60 text-amber-950"
+                      : accent === "violet"
+                        ? "border-violet-200/80 bg-violet-50/60 text-violet-950"
+                        : "border-sky-200/80 bg-sky-50/60 text-sky-950"
+                )}
+              >
+                <p>
+                  <span className="font-semibold">Filtres appliqués :</span> {listFiltersSummary}
+                </p>
+                <button
+                  type="button"
+                  onClick={clearListFilters}
+                  className={clsx(
+                    "mt-1.5 text-[11px] font-semibold underline underline-offset-2",
+                    isProductHub ? "text-sky-800" : linkClass
+                  )}
+                >
+                  Tout effacer
+                </button>
+              </div>
             ) : (
-              <p className={clsx("mt-2 text-[11px]", accent === "amber" ? "text-amber-900/85" : "text-sky-900/85")}>
-                Ouvrez les filtres pour rechercher rapidement ou affiner la liste.
+              <p
+                className={clsx(
+                  "mt-2 text-[11px]",
+                  isProductHub ? "text-sky-900/85" : accent === "amber" ? "text-amber-900/85" : "text-muted-foreground"
+                )}
+              >
+                Ouvrez les filtres pour rechercher par référence, statut (envoyée, clôturée…), pharmacie ou tri.
               </p>
             )}
           </section>
 
           {filteredSorted.length === 0 ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">
-              {activeBucket?.key === "envoyees"
-                ? kindId === "prescription"
-                  ? "Aucune ordonnance en attente de réponse avec ces filtres."
-                  : kindId === "free_consultation"
-                    ? "Aucune consultation en attente de réponse avec ces filtres."
-                    : "Aucune demande en attente de réponse pharmacie avec ces filtres."
-                : activeBucket
-                  ? "Aucun résultat avec ces filtres."
-                  : "Aucun résultat."}
-            </p>
+            <div className="space-y-2 py-6 text-center text-xs text-muted-foreground">
+              <p>
+                {activeBucket?.key === "envoyees"
+                  ? kindId === "prescription"
+                    ? "Aucune ordonnance en attente de réponse avec ces filtres."
+                    : kindId === "free_consultation"
+                      ? "Aucune consultation en attente de réponse avec ces filtres."
+                      : "Aucune demande en attente de réponse pharmacie avec ces filtres."
+                  : activeProductSectionMeta
+                    ? `Aucune demande dans « ${activeProductSectionMeta.title} » avec ces filtres.`
+                    : activeBucket
+                      ? `Aucune demande au statut « ${activeBucket.label} » avec ces filtres.`
+                      : listHasActiveFilters
+                        ? "Aucun résultat avec ces filtres."
+                        : "Aucun résultat."}
+              </p>
+              {listHasActiveFilters ? (
+                <button
+                  type="button"
+                  onClick={clearListFilters}
+                  className={clsx("font-semibold underline", isProductHub ? productTheme.backLink : linkClass)}
+                >
+                  Effacer les filtres
+                </button>
+              ) : null}
+            </div>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-2.5">
               {filteredSorted.map((r) => (
                 <li key={r.id}>
-                  <PatientDemandeCard row={r} variant="list" conversationUnread={unreadById[r.id] === true} />
+                  {isProductHub ? (
+                    <PatientProductDemandeHubCard row={r} conversationUnread={unreadById[r.id] === true} />
+                  ) : (
+                    <PatientDemandeCard row={r} variant="list" conversationUnread={unreadById[r.id] === true} />
+                  )}
                 </li>
               ))}
             </ul>
