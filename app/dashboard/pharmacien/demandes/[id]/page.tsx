@@ -164,6 +164,16 @@ import {
 } from "@/lib/patient-validated-line-labels-fr";
 import { patientPrescriptionLineBadge } from "@/lib/prescription-patient-labels";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
+import { PharmacistProductRequestDossierHeader } from "@/components/requests/product/pharmacist-product-request-dossier-header";
+import {
+  PharmacistLineAlternativesTabs,
+  type PharmacistAltTabId,
+} from "@/components/pharmacist/pharmacist-line-alternatives-tabs";
+import {
+  pharmacistCanCompleteCounterClosure,
+  pharmacistCounterTrackedLines,
+  pharmacistCounterUnresolvedLines,
+} from "@/lib/pharmacist-counter-closure";
 import { RequestLineSuiviStrip } from "@/components/requests/shared/request-line-suivi-strip";
 import { type SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
 import {
@@ -1649,6 +1659,7 @@ export default function PharmacienDemandeDetailPage() {
   const [draft, setDraft] = useState<Draft>({});
   const [altRowsOpen, setAltRowsOpen] = useState<Record<string, boolean>>({});
   const [altPickerOpenFor, setAltPickerOpenFor] = useState<string | null>(null);
+  const [lineAltTabByRowId, setLineAltTabByRowId] = useState<Record<string, PharmacistAltTabId>>({});
   const [availabilityMenuRowId, setAvailabilityMenuRowId] = useState<string | null>(null);
   const [altQuery, setAltQuery] = useState("");
   const [altHits, setAltHits] = useState<ProductCatalogHit[]>([]);
@@ -3047,6 +3058,7 @@ export default function PharmacienDemandeDetailPage() {
       const prefPrice = resolveCatalogPrice(catalogHitToPricingInput(pick));
       let validationError: string | null = null;
       let added = false;
+      let addedLocalAltId: string | null = null;
       flushSync(() => {
         setPendingAlternatives((prev) => {
           const mergedExisting: AltRowDb[] = [
@@ -3063,10 +3075,12 @@ export default function PharmacienDemandeDetailPage() {
             return prev;
           }
           added = true;
+          const localAltId = newLocalAltId();
+          addedLocalAltId = localAltId;
           return [
             ...prev,
             {
-              localAltId: newLocalAltId(),
+              localAltId,
               parentItemId: parentRow.id,
               rank,
               product_id: catalogProductId,
@@ -3092,6 +3106,9 @@ export default function PharmacienDemandeDetailPage() {
       if (added) {
         resetAltPicker();
         setAltRowsOpen((prev) => ({ ...prev, [parentRow.id]: true }));
+        if (addedLocalAltId) {
+          setLineAltTabByRowId((t) => ({ ...t, [parentRow.id]: addedLocalAltId! }));
+        }
       }
       return;
     }
@@ -3146,6 +3163,7 @@ export default function PharmacienDemandeDetailPage() {
       return;
     }
 
+    const lastAlt = (altRows ?? [])[((altRows ?? []).length) - 1] as { id?: string } | undefined;
     setItems((prev) =>
       prev.map((r) =>
         r.id === parentRow.id
@@ -3153,6 +3171,9 @@ export default function PharmacienDemandeDetailPage() {
           : r
       )
     );
+    if (lastAlt?.id) {
+      setLineAltTabByRowId((t) => ({ ...t, [parentRow.id]: lastAlt.id! }));
+    }
   };
 
   const deleteAlternativeRow = async (altId: string, parentRowId?: string) => {
@@ -4679,15 +4700,19 @@ export default function PharmacienDemandeDetailPage() {
     setConversationUnread(false);
   }, []);
 
-  let canCompleteCounter = false;
-  let counterClosurePendingTracked = 0;
-  if (request && usesLineWorkflow && request.status === "treated") {
-    const selectedLines = items.filter((i) => i.is_selected_by_patient);
-    const tracked = selectedLines.filter((i) => !i.withdrawn_after_confirm);
-    const pickedPersisted = tracked.filter((i) => (i.counter_outcome ?? "unset") === "picked_up").length;
-    counterClosurePendingTracked = tracked.filter((i) => (i.counter_outcome ?? "unset") !== "picked_up").length;
-    canCompleteCounter = tracked.length > 0 && pickedPersisted === tracked.length;
-  }
+  const counterClosureEligible =
+    request &&
+    usesLineWorkflow &&
+    ["confirmed", "treated"].includes(request.status) &&
+    !archiveFrozen;
+  const counterTrackedLines = counterClosureEligible ? pharmacistCounterTrackedLines(items) : [];
+  const counterUnresolvedLines = counterClosureEligible
+    ? pharmacistCounterUnresolvedLines(counterTrackedLines)
+    : [];
+  const canCompleteCounter = counterClosureEligible
+    ? pharmacistCanCompleteCounterClosure(items)
+    : false;
+  const counterClosurePendingTracked = counterUnresolvedLines.length;
 
   if (loading) {
     return (
@@ -4766,8 +4791,7 @@ export default function PharmacienDemandeDetailPage() {
     canManageSupply &&
     pharmacistActiveRetainedLineCount(items, draft) > 0;
 
-  const showCloseCounterSticky =
-    usesLineWorkflow && request.status === "treated" && !archiveFrozen && canCompleteCounter;
+  const showCloseCounterSticky = Boolean(counterClosureEligible && canCompleteCounter);
 
   const showSupplyStatsFooter = usesLineWorkflow && Boolean(canManageSupply) && displayRows.length > 0;
   const showSupplyDirtyBar = Boolean(
@@ -4775,6 +4799,32 @@ export default function PharmacienDemandeDetailPage() {
   );
 
   const showBottomActionSticky = showDeclareTreatedSticky || showCloseCounterSticky;
+
+  const isProductRequest = request.request_type === "product_request";
+  const hideMainRequestHeader =
+    isProductRequest &&
+    usesLineWorkflow &&
+    (["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status) ||
+      pharmacistRequestIsHardStopped(request.status) ||
+      pharmacistRequestIsClosedSuccess(request.status));
+
+  let productDossierStatusHint = "";
+  if (isProductRequest) {
+    if (request.status === "submitted" || request.status === "in_review") {
+      productDossierStatusHint = "Répondez au patient puis publiez la proposition (alternatives possibles par onglet).";
+    } else if (request.status === "responded") {
+      productDossierStatusHint = "En attente de validation patient — délai 24 h après votre réponse.";
+    } else if (request.status === "confirmed") {
+      productDossierStatusHint =
+        "Commande validée — préparez les lignes, déclarez traitée quand c’est prêt, puis suivez le comptoir.";
+    } else if (request.status === "treated") {
+      productDossierStatusHint = canCompleteCounter
+        ? "Toutes les lignes actives sont réglées au comptoir — vous pouvez clôturer le dossier."
+        : counterClosurePendingTracked > 0
+          ? `Comptoir : ${counterClosurePendingTracked} ligne${counterClosurePendingTracked > 1 ? "s" : ""} encore à marquer récupérée ou à écarter.`
+          : "Marquez « Récupéré » sur chaque ligne retenue, ou écartez les produits non retirés.";
+    }
+  }
 
   let bottomChromePaddingClass = "";
   if (showBottomActionSticky && showSupplyStatsFooter) {
@@ -4811,6 +4861,20 @@ export default function PharmacienDemandeDetailPage() {
           onTab={setConsultationTab}
           conversationUnread={conversationUnread}
           productLineCount={displayRows.length}
+        />
+      ) : hideMainRequestHeader ? (
+        <PharmacistProductRequestDossierHeader
+          dossierRefLabel={displayRequestPublicRef(request) || formatShortId(request.id)}
+          patientName={patientProfile?.full_name ?? null}
+          patientRef={patientProfile?.patient_ref ?? null}
+          patientPhone={patientPhone ?? null}
+          status={request.status}
+          statusHint={productDossierStatusHint}
+          lineCount={displayRows.length}
+          selectedCount={selectedLinesActiveCount}
+          pendingCounterCount={request.status === "treated" ? pendingCounterCount : undefined}
+          conversationUnread={conversationUnread}
+          onOpenConversation={() => setConversationOpen(true)}
         />
       ) : (
         <RequestKindHeader
@@ -5169,6 +5233,8 @@ export default function PharmacienDemandeDetailPage() {
               const lineLockedTrace = co === "cancelled_at_counter";
               const canEditThisRow = showLineAndPublishEdits && !lineLockedTrace && !archiveFrozen;
               const rowAlts = normalizeAlts(row.request_item_alternatives);
+              const activeAltTab: PharmacistAltTabId = lineAltTabByRowId[row.id] ?? "principal";
+              const activeAltRow = rowAlts.find((a) => a.id === activeAltTab) ?? null;
               const chosenAltId = row.patient_chosen_alternative_id ?? null;
               const chosenAltRow = chosenAltId ? rowAlts.find((a) => a.id === chosenAltId) : null;
               const lineEditorPhotoPath = validatedBranchPhotoPath(row as PatientLineLike);
@@ -6297,45 +6363,28 @@ export default function PharmacienDemandeDetailPage() {
                     </div>
                   )}
 
-                  <div className={clsx(PHARMA_LINE_EDITOR_ALTS, "mt-1.5 border-l-[3px] border-l-teal-500/60")}>
-                    <div className="flex min-w-0 items-center gap-1.5">
-                      <button
-                        type="button"
-                        aria-expanded={isAltOpen(row.id)}
-                        onClick={() => toggleAltOpen(row.id)}
-                        className="flex min-h-9 min-w-0 flex-1 items-center justify-between gap-2 rounded-lg bg-white px-2 py-1.5 text-left ring-1 ring-teal-200/50 transition hover:bg-teal-50/30"
-                      >
-                        <span className="flex min-w-0 items-center gap-2">
-                          <Layers className="size-3.5 shrink-0 text-teal-600" strokeWidth={2} aria-hidden />
-                          <span className="truncate text-[10px] font-semibold text-teal-950">
-                            Alt. <span className="font-mono tabular-nums text-teal-700">{rowAlts.length}/3</span>
-                          </span>
-                        </span>
-                        <ChevronDown
-                          className={clsx("size-[18px] shrink-0 text-teal-600 transition-transform duration-200", isAltOpen(row.id) && "rotate-180")}
-                          aria-hidden
-                        />
-                      </button>
-                      {canEditThisRow && rowAlts.length < 3 && altPickerOpenFor !== row.id ? (
-                        <button
-                          type="button"
-                          disabled={altBusyRow === row.id}
-                          title="Ajouter une alternative"
-                          aria-label="Ajouter une alternative"
-                          onClick={() => {
-                            setAltPickerOpenFor(row.id);
-                            setAltQuery("");
-                            setAltHits([]);
-                            setAltRowsOpen((prev) => ({ ...prev, [row.id]: true }));
-                          }}
-                          className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white shadow-sm ring-1 ring-teal-500/35 transition hover:bg-teal-700 disabled:opacity-50"
-                        >
-                          <Plus className="size-5" strokeWidth={2.5} aria-hidden />
-                        </button>
-                      ) : null}
-                    </div>
-
-                    {canEditThisRow && rowAlts.length < 3 && altPickerOpenFor === row.id ? (
+                  {(canEditThisRow || rowAlts.length > 0) && showLineAndPublishEdits ? (
+                  <PharmacistLineAlternativesTabs
+                    tabs={[
+                      { id: "principal", label: "Principal" },
+                      ...rowAlts.map((alt) => ({ id: alt.id, label: `Alt. ${alt.rank}` })),
+                    ]}
+                    activeTab={activeAltTab}
+                    onTabChange={(tabId) => {
+                      setLineAltTabByRowId((prev) => ({ ...prev, [row.id]: tabId }));
+                      if (tabId !== "principal") resetAltPicker();
+                    }}
+                    canAddAlt={canEditThisRow && rowAlts.length < 3}
+                    onAddAlt={() => {
+                      setLineAltTabByRowId((prev) => ({ ...prev, [row.id]: "principal" }));
+                      setAltPickerOpenFor(row.id);
+                      setAltQuery("");
+                      setAltHits([]);
+                      setAltRowsOpen((prev) => ({ ...prev, [row.id]: true }));
+                    }}
+                    addBusy={altBusyRow === row.id}
+                  >
+                    {activeAltTab === "principal" && canEditThisRow && rowAlts.length < 3 && altPickerOpenFor === row.id ? (
                       <div className="mt-2 flex max-h-[min(52svh,20rem)] min-h-0 flex-col gap-2 overflow-hidden overscroll-y-contain rounded-xl border-2 border-teal-400/55 bg-white p-2.5 shadow-md ring-2 ring-teal-200/35">
                         <div className="flex shrink-0 items-center justify-between gap-2">
                           <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-950">
@@ -6398,15 +6447,16 @@ export default function PharmacienDemandeDetailPage() {
                           <p className="mt-1 text-[10px] text-teal-800/80">Aucun résultat.</p>
                         ) : null}
                       </div>
-                    ) : null}
-
-                    {isAltOpen(row.id) ? (
-                      <div className="mt-2 border-t border-teal-200/40 pt-2">
-                        {rowAlts.length === 0 ? (
-                          <p className="text-[10px] leading-snug text-teal-900/85">Pas encore d&apos;alternative sur cette ligne.</p>
-                        ) : (
-                          <ul className="space-y-1.5">
-                            {rowAlts.map((alt) => {
+                    ) : activeAltTab === "principal" ? (
+                      <p className="text-[10px] leading-snug text-teal-900/85">
+                        {rowAlts.length === 0
+                          ? "Aucune alternative — utilisez « Alt. » pour en proposer au patient."
+                          : `${rowAlts.length} alternative${rowAlts.length > 1 ? "s" : ""} — sélectionnez un onglet pour modifier.`}
+                      </p>
+                    ) : activeAltRow ? (
+                      <ul className="space-y-1.5">
+                            {(() => {
+                              const alt = activeAltRow;
                               const altProd = one(alt.products);
                               const altName = altProd?.name ?? "Alternative";
                               const altCatalogPu = formatPharmacyCatalogPrice(
@@ -6580,12 +6630,13 @@ export default function PharmacienDemandeDetailPage() {
                                   ) : null}
                                 </li>
                               );
-                            })}
+                            })()}
                           </ul>
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
+                    ) : (
+                      <p className="text-[10px] text-teal-900/85">Alternative introuvable — revenez à l’onglet Principal.</p>
+                    )}
+                  </PharmacistLineAlternativesTabs>
+                  ) : null}
 
                   {showInlineCounter ? (
                     <div className="border-t border-slate-100 bg-slate-50/25 px-3 py-2">
@@ -7021,11 +7072,28 @@ export default function PharmacienDemandeDetailPage() {
             ) : null
           ) : null}
 
-          {request.status === "treated" && !canCompleteCounter && items.length > 0 ? (
+          {showCloseCounterSticky ? (
+            <section className="mt-3 rounded-xl border-2 border-emerald-400/70 bg-gradient-to-br from-emerald-50/90 via-white to-teal-50/40 p-3 shadow-sm ring-1 ring-emerald-200/60">
+              <p className="text-[11px] font-semibold leading-snug text-emerald-950">
+                Toutes les lignes retenues sont réglées au comptoir. Vous pouvez clôturer le dossier — le patient verra le
+                dossier comme terminé.
+              </p>
+              <button
+                type="button"
+                disabled={completeBusy}
+                onClick={() => setCloseConfirmOpen(true)}
+                className="mt-2.5 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white shadow-md hover:bg-emerald-800 disabled:opacity-50 sm:w-auto sm:min-w-[14rem]"
+              >
+                {completeBusy ? "Clôture…" : "Clôturer le dossier"}
+              </button>
+            </section>
+          ) : counterClosureEligible && !canCompleteCounter && items.length > 0 ? (
             <p className="mt-2 rounded-lg border border-amber-200/70 bg-amber-50/50 px-2.5 py-2 text-[11px] leading-snug text-amber-950">
               {counterClosurePendingTracked > 0
                 ? "Pour clôturer le dossier, marquez « Récupéré » sur chaque ligne retenue encore au comptoir — ou écartez les produits dont le client n’a plus besoin."
-                : "La clôture s’active lorsque toutes les lignes retenues actives sont marquées récupérées au comptoir."}
+                : request.status === "confirmed"
+                  ? "Déclarez d’abord la demande traitée, puis marquez les retraits au comptoir ligne par ligne."
+                  : "La clôture s’active lorsque chaque ligne retenue est marquée récupérée, reportée ou écartée (plus de « en attente »)."}
             </p>
           ) : null}
 
