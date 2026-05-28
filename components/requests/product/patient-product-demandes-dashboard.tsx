@@ -8,7 +8,9 @@ import type { PatientRequestRow } from "@/components/requests/demande-hub-ui";
 import { PatientProductDemandeHubCard } from "@/components/requests/product/patient-product-demande-hub-card";
 import {
   countInPatientProductHubSection,
+  PATIENT_PRODUCT_HUB_DASHBOARD_PREVIEW,
   PATIENT_PRODUCT_HUB_SECTIONS,
+  patientProductHubListHref,
   pickRecentActiveProductRequests,
   rowsInPatientProductHubSection,
   type PatientProductHubSectionId,
@@ -17,24 +19,29 @@ import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-requ
 
 const SECTION_ACCENT: Record<
   PatientProductHubSectionId,
-  { border: string; badge: string; title: string }
+  { border: string; badge: string; title: string; statHover: string }
 > = {
   action_required: {
     border: "border-l-amber-500",
     badge: "bg-amber-100 text-amber-950 ring-amber-200/80",
     title: "text-amber-950",
+    statHover: "hover:bg-amber-50/80",
   },
   at_pharmacy: {
     border: "border-l-sky-500",
     badge: "bg-sky-100 text-sky-950 ring-sky-200/80",
     title: "text-sky-950",
+    statHover: "hover:bg-sky-50/80",
   },
   archives: {
     border: "border-l-slate-400",
     badge: "bg-slate-100 text-slate-800 ring-slate-200/80",
     title: "text-slate-800",
+    statHover: "hover:bg-slate-50/80",
   },
 };
+
+const SECTION_ORDER: PatientProductHubSectionId[] = ["action_required", "at_pharmacy", "archives"];
 
 function SectionBlock({
   sectionId,
@@ -42,30 +49,21 @@ function SectionBlock({
   basePath,
   unreadById,
   defaultCollapsed,
-  maxPreview = 4,
 }: {
   sectionId: PatientProductHubSectionId;
   rows: PatientRequestRow[];
   basePath: string;
   unreadById: Record<string, boolean>;
   defaultCollapsed?: boolean;
-  maxPreview?: number;
 }) {
   const section = PATIENT_PRODUCT_HUB_SECTIONS.find((s) => s.id === sectionId)!;
   const sectionRows = rowsInPatientProductHubSection(rows, sectionId);
   const count = sectionRows.length;
   const accent = SECTION_ACCENT[sectionId];
-  const preview = sectionRows.slice(0, maxPreview);
-  const router = useRouter();
+  const preview = sectionRows.slice(0, PATIENT_PRODUCT_HUB_DASHBOARD_PREVIEW);
+  const listHref = patientProductHubListHref(basePath, { sectionId });
 
   if (count === 0) return null;
-
-  const openList = () => {
-    const next = new URLSearchParams();
-    next.set("vue", "liste");
-    next.set("section", sectionId);
-    router.push(`${basePath}?${next.toString()}`, { scroll: false });
-  };
 
   const body = (
     <ul className="space-y-2">
@@ -100,15 +98,14 @@ function SectionBlock({
           </div>
           <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground sm:text-xs">{section.subtitle}</p>
         </div>
-        {count > maxPreview ? (
-          <button
-            type="button"
-            onClick={openList}
+        {count > PATIENT_PRODUCT_HUB_DASHBOARD_PREVIEW ? (
+          <Link
+            href={listHref}
             className="inline-flex shrink-0 items-center gap-0.5 rounded-lg border border-sky-300/70 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-900 hover:bg-sky-100"
           >
             Tout voir ({count})
             <ChevronRight className="size-3.5" aria-hidden />
-          </button>
+          </Link>
         ) : null}
       </div>
 
@@ -132,15 +129,25 @@ export function PatientProductDemandesDashboard({
   rows,
   basePath,
   unreadById,
+  focusSectionId = null,
 }: {
   rows: PatientRequestRow[];
   basePath: string;
   unreadById: Record<string, boolean>;
+  /** Sur le tableau de bord : n’afficher qu’un regroupement (ex. retour depuis la liste). */
+  focusSectionId?: PatientProductHubSectionId | null;
 }) {
+  const router = useRouter();
   const recent = pickRecentActiveProductRequests(rows, unreadById, 5);
   const actionCount = countInPatientProductHubSection(rows, "action_required");
   const pharmacyCount = countInPatientProductHubSection(rows, "at_pharmacy");
   const archiveCount = countInPatientProductHubSection(rows, "archives");
+
+  const visibleSections = focusSectionId ? [focusSectionId] : SECTION_ORDER;
+
+  const openSectionList = (sectionId: PatientProductHubSectionId) => {
+    router.push(patientProductHubListHref(basePath, { sectionId }), { scroll: false });
+  };
 
   return (
     <div className="space-y-4">
@@ -164,28 +171,40 @@ export function PatientProductDemandesDashboard({
           </p>
         </div>
         <div className="grid grid-cols-3 divide-x divide-sky-200/60 border-t border-sky-200/50 bg-white/80">
-          <div className="px-2 py-2.5 text-center sm:px-3">
+          <button
+            type="button"
+            onClick={() => openSectionList("action_required")}
+            className={clsx("px-2 py-2.5 text-center transition sm:px-3", SECTION_ACCENT.action_required.statHover)}
+          >
             <p className="text-lg font-bold tabular-nums text-amber-800 sm:text-xl">{actionCount}</p>
             <p className="text-[9px] font-semibold uppercase tracking-wide text-amber-900/85 sm:text-[10px]">
-              Votre action
+              À votre action
             </p>
-          </div>
-          <div className="px-2 py-2.5 text-center sm:px-3">
+          </button>
+          <button
+            type="button"
+            onClick={() => openSectionList("at_pharmacy")}
+            className={clsx("px-2 py-2.5 text-center transition sm:px-3", SECTION_ACCENT.at_pharmacy.statHover)}
+          >
             <p className="text-lg font-bold tabular-nums text-sky-800 sm:text-xl">{pharmacyCount}</p>
             <p className="text-[9px] font-semibold uppercase tracking-wide text-sky-900/85 sm:text-[10px]">
-              Officine
+              Chez la pharmacie
             </p>
-          </div>
-          <div className="px-2 py-2.5 text-center sm:px-3">
+          </button>
+          <button
+            type="button"
+            onClick={() => openSectionList("archives")}
+            className={clsx("px-2 py-2.5 text-center transition sm:px-3", SECTION_ACCENT.archives.statHover)}
+          >
             <p className="text-lg font-bold tabular-nums text-slate-700 sm:text-xl">{archiveCount}</p>
             <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-600 sm:text-[10px]">
               Archives
             </p>
-          </div>
+          </button>
         </div>
       </div>
 
-      {recent.length > 0 ? (
+      {!focusSectionId && recent.length > 0 ? (
         <section className="rounded-xl border-2 border-sky-200/70 bg-sky-50/30 p-3 ring-1 ring-sky-100/80 sm:p-3.5">
           <div className="mb-2.5 flex items-center gap-2">
             <Sparkles className="size-4 shrink-0 text-sky-700" aria-hidden />
@@ -208,34 +227,37 @@ export function PatientProductDemandesDashboard({
         </section>
       ) : null}
 
-      <SectionBlock
-        sectionId="action_required"
-        rows={rows}
-        basePath={basePath}
-        unreadById={unreadById}
-        maxPreview={5}
-      />
+      {visibleSections.map((sectionId) => (
+        <SectionBlock
+          key={sectionId}
+          sectionId={sectionId}
+          rows={rows}
+          basePath={basePath}
+          unreadById={unreadById}
+          defaultCollapsed={sectionId === "archives" && archiveCount > PATIENT_PRODUCT_HUB_DASHBOARD_PREVIEW}
+        />
+      ))}
 
-      <SectionBlock sectionId="at_pharmacy" rows={rows} basePath={basePath} unreadById={unreadById} maxPreview={5} />
-
-      <SectionBlock
-        sectionId="archives"
-        rows={rows}
-        basePath={basePath}
-        unreadById={unreadById}
-        defaultCollapsed={archiveCount > 3}
-        maxPreview={4}
-      />
-
-      <p className="text-center">
-        <Link
-          href={`${basePath}?vue=liste`}
-          className="inline-flex items-center gap-1 rounded-lg border border-sky-300/70 bg-white px-3 py-2 text-xs font-semibold text-sky-900 shadow-sm hover:bg-sky-50"
-        >
-          Voir toutes les demandes avec filtres
-          <ChevronRight className="size-4" aria-hidden />
-        </Link>
-      </p>
+      {focusSectionId ? (
+        <p className="text-center">
+          <Link
+            href={`${basePath}?vue=dashboard`}
+            className="text-xs font-semibold text-sky-800 underline"
+          >
+            ← Tout le tableau de bord
+          </Link>
+        </p>
+      ) : (
+        <p className="text-center">
+          <Link
+            href={`${basePath}?vue=liste`}
+            className="inline-flex items-center gap-1 rounded-lg border border-sky-300/70 bg-white px-3 py-2 text-xs font-semibold text-sky-900 shadow-sm hover:bg-sky-50"
+          >
+            Voir toutes les demandes avec filtres
+            <ChevronRight className="size-4" aria-hidden />
+          </Link>
+        </p>
+      )}
     </div>
   );
 }

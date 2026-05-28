@@ -14,8 +14,8 @@ import {
 import { PatientProductDemandesDashboard } from "@/components/requests/product/patient-product-demandes-dashboard";
 import { PatientProductDemandeHubCard } from "@/components/requests/product/patient-product-demande-hub-card";
 import {
+  filterPatientProductHubListRows,
   PATIENT_PRODUCT_HUB_SECTIONS,
-  rowsInPatientProductHubSection,
   type PatientProductHubSectionId,
 } from "@/lib/patient-product-hub-sections";
 import {
@@ -57,7 +57,6 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     next.set("vue", tabToSearch(t));
     if (t === "dashboard") {
       next.delete("statut");
-      next.delete("section");
     }
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
@@ -71,6 +70,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  const isProductHub = kindId === "product_request";
   const dashboardBuckets = useMemo(() => dashboardBucketsForKind(kindId, "patient"), [kindId]);
   const dashboardChrome = useMemo(() => hubDashboardChrome(kindId, "patient"), [kindId]);
 
@@ -160,11 +160,14 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
 
   const filteredSorted = useMemo(() => {
     let list = rowsWithDashboardStatus;
-    if (activeBucket) {
+    if (isProductHub) {
+      list = filterPatientProductHubListRows(list, {
+        bucketStatuses: activeBucket?.statuses ?? null,
+        sectionId: activeProductSection,
+      });
+    } else if (activeBucket) {
       const allow = new Set(activeBucket.statuses);
       list = list.filter((r) => allow.has((r as { status_for_dashboard?: string }).status_for_dashboard ?? r.status));
-    } else if (activeProductSection) {
-      list = rowsInPatientProductHubSection(list, activeProductSection);
     }
     if (pharmacyFilter) list = list.filter((r) => r.pharmacy_id === pharmacyFilter);
     if (refQuery.trim().length >= 2) {
@@ -185,7 +188,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
       const tb = new Date(b.created_at).getTime();
       return sortNewestFirst ? tb - ta : ta - tb;
     });
-  }, [rowsWithDashboardStatus, activeBucket, activeProductSection, pharmacyFilter, refQuery, sortNewestFirst]);
+  }, [rowsWithDashboardStatus, activeBucket, activeProductSection, pharmacyFilter, refQuery, sortNewestFirst, isProductHub]);
 
   const pharmacyFilterLabel = useMemo(
     () => pharmacyOptions.find(([id]) => id === pharmacyFilter)?.[1] ?? null,
@@ -232,7 +235,14 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     next.set("vue", "liste");
     if (key === "") next.delete("statut");
     else next.set("statut", key);
-    next.delete("section");
+    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
+  };
+
+  const setProductSectionFilter = (sectionId: string) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("vue", "liste");
+    if (sectionId === "") next.delete("section");
+    else next.set("section", sectionId);
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
 
@@ -278,8 +288,6 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
       : kindId === "free_consultation"
         ? "Annuaire → pharmacie → consultation libre."
         : "Annuaire → pharmacie → demande de produits.";
-
-  const isProductHub = kindId === "product_request";
 
   return (
     <PageShell
@@ -355,6 +363,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                   rows={rows}
                   basePath={hubPath}
                   unreadById={unreadById}
+                  focusSectionId={tab === "dashboard" ? activeProductSection : null}
                 />
               ) : (
                 <DemandeStatDashboard
@@ -405,6 +414,23 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                     className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/70"
                   />
                 </label>
+                {isProductHub ? (
+                  <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
+                    Regroupement
+                    <select
+                      value={activeProductSection ?? ""}
+                      onChange={(e) => setProductSectionFilter(e.target.value)}
+                      className="rounded-md border border-sky-200/80 bg-background px-2 py-1.5 text-xs text-foreground"
+                    >
+                      <option value="">Tous les regroupements</option>
+                      {PATIENT_PRODUCT_HUB_SECTIONS.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
                   Statut
                   <select
@@ -498,13 +524,15 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                     : kindId === "free_consultation"
                       ? "Aucune consultation en attente de réponse avec ces filtres."
                       : "Aucune demande en attente de réponse pharmacie avec ces filtres."
-                  : activeProductSectionMeta
-                    ? `Aucune demande dans « ${activeProductSectionMeta.title} » avec ces filtres.`
-                    : activeBucket
-                      ? `Aucune demande au statut « ${activeBucket.label} » avec ces filtres.`
-                      : listHasActiveFilters
-                        ? "Aucun résultat avec ces filtres."
-                        : "Aucun résultat."}
+                  : activeProductSectionMeta && activeBucket
+                    ? `Aucune demande pour « ${activeProductSectionMeta.title} » au statut « ${activeBucket.label} ». Essayez un seul filtre à la fois.`
+                    : activeProductSectionMeta
+                      ? `Aucune demande dans « ${activeProductSectionMeta.title} » avec ces filtres.`
+                      : activeBucket
+                        ? `Aucune demande au statut « ${activeBucket.label} » avec ces filtres.`
+                        : listHasActiveFilters
+                          ? "Aucun résultat avec ces filtres."
+                          : "Aucun résultat."}
               </p>
               {listHasActiveFilters ? (
                 <button

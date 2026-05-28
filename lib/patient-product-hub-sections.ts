@@ -15,6 +15,9 @@ export type PatientProductHubSection = {
   statuses: readonly string[];
 };
 
+/** Aperçu par bloc sur le tableau de bord patient. */
+export const PATIENT_PRODUCT_HUB_DASHBOARD_PREVIEW = 3;
+
 export const PATIENT_PRODUCT_HUB_SECTIONS: PatientProductHubSection[] = [
   {
     id: "action_required",
@@ -74,6 +77,37 @@ export function countInPatientProductHubSection<T extends PatientRequestRow>(
   sectionId: PatientProductHubSectionId
 ): number {
   return rowsInPatientProductHubSection(rows, sectionId).length;
+}
+
+/** Filtre liste : statut (bloc tableau de bord) et regroupement métier peuvent se cumuler (intersection). */
+export function filterPatientProductHubListRows<T extends PatientRequestRow>(
+  rows: T[],
+  opts: {
+    bucketStatuses?: readonly string[] | null;
+    sectionId?: PatientProductHubSectionId | null;
+  }
+): T[] {
+  let list = rows;
+  if (opts.bucketStatuses?.length) {
+    const allow = new Set(opts.bucketStatuses);
+    list = list.filter((r) => allow.has(r.status));
+  }
+  if (opts.sectionId) {
+    list = rowsInPatientProductHubSection(list, opts.sectionId);
+  }
+  return list;
+}
+
+export function patientProductHubListHref(
+  basePath: string,
+  opts: { sectionId?: PatientProductHubSectionId; statutKey?: string }
+): string {
+  const next = new URLSearchParams();
+  next.set("vue", "liste");
+  if (opts.sectionId) next.set("section", opts.sectionId);
+  if (opts.statutKey) next.set("statut", opts.statutKey);
+  const q = next.toString();
+  return q ? `${basePath}?${q}` : basePath;
 }
 
 /** 3 à 5 dossiers « récemment actifs » (hors archives). */
