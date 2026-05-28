@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
+import { Search, SlidersHorizontal } from "lucide-react";
 import { DemandeStatDashboard } from "@/components/requests/demande-stat-dashboard";
 import {
   DemandeHubTabBar,
@@ -57,6 +58,8 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     next.set("vue", tabToSearch(t));
     if (t === "dashboard") {
       next.delete("statut");
+      next.delete("section");
+      setFiltersExpandedUser(null);
     }
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
@@ -68,78 +71,100 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const [pharmacyFilter, setPharmacyFilter] = useState("");
   const [refQuery, setRefQuery] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  /** `null` = ouverture auto si filtres URL ou actifs sur la liste. */
+  const [filtersExpandedUser, setFiltersExpandedUser] = useState<boolean | null>(null);
 
   const isProductHub = kindId === "product_request";
   const dashboardBuckets = useMemo(() => dashboardBucketsForKind(kindId, "patient"), [kindId]);
   const dashboardChrome = useMemo(() => hubDashboardChrome(kindId, "patient"), [kindId]);
 
-  const statutParam = searchParams.get("statut");
-  const sectionParam = searchParams.get("section") as PatientProductHubSectionId | null;
-  const activeBucket = bucketForStatusParam(statutParam, dashboardBuckets);
+  /** Filtres URL : réservés à l’onglet liste — le tableau de bord reste toujours complet. */
+  const listStatutParam = tab === "list" ? searchParams.get("statut") : null;
+  const listSectionParam = tab === "list" ? (searchParams.get("section") as PatientProductHubSectionId | null) : null;
+  const activeBucket = bucketForStatusParam(listStatutParam, dashboardBuckets);
   const activeProductSection =
+    tab === "list" &&
     kindId === "product_request" &&
-    sectionParam &&
-    PATIENT_PRODUCT_HUB_SECTIONS.some((s) => s.id === sectionParam)
-      ? sectionParam
+    listSectionParam &&
+    PATIENT_PRODUCT_HUB_SECTIONS.some((s) => s.id === listSectionParam)
+      ? listSectionParam
       : null;
 
-  const load = useCallback(async () => {
-    setError("");
-    const { data: auth } = await supabase.auth.getSession();
-    const user = auth.session?.user;
-    if (!user) {
-      router.replace(`/auth?redirect=${encodeURIComponent(hubPath)}`);
-      return;
-    }
-
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-    if ((profile as { role?: string } | null)?.role !== "patient") {
-      setError("Cet espace est réservé aux patients.");
-      setLoading(false);
-      return;
-    }
-
-    const { data, error: re } = await supabase
-      .from("requests")
-      .select(
-        "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,request_public_ref,pharmacies(nom,ville,public_ref)," +
-          "request_items(requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient,line_source,patient_chosen_alternative_id,counter_outcome,post_confirm_fulfillment,availability_status,products(price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,unit_price))"
-      )
-      .eq("patient_id", user.id)
-      .eq("request_type", kindId)
-      .order("created_at", { ascending: false })
-      .limit(200);
-
-    if (re) {
-      setError(re.message);
-      setUnreadById({});
-    } else if (Array.isArray(data)) {
-      setRows(data as unknown as PatientRequestRow[]);
-      const ids = (data as unknown as { id: string }[]).map((r) => r.id);
-      const unreadMap: Record<string, boolean> = {};
-      if (ids.length > 0) {
-        const { data: flagData, error: unreadErr } = await supabase.rpc("request_conversation_unread_flags", {
-          p_request_ids: ids,
-        });
-        if (!unreadErr && Array.isArray(flagData)) {
-          for (const fr of flagData as { request_id: string; has_unread: boolean }[]) {
-            if (fr.request_id) unreadMap[fr.request_id] = fr.has_unread === true;
-          }
-        }
-      }
-      setUnreadById(unreadMap);
-    } else {
-      setUnreadById({});
-    }
-
-    setLoading(false);
-  }, [router, hubPath, kindId]);
+  useEffect(() => {
+    if (tab !== "dashboard") return;
+    const hasListOnlyParams = searchParams.has("statut") || searchParams.has("section");
+    if (!hasListOnlyParams) return;
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("statut");
+    next.delete("section");
+    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
+  }, [tab, searchParams, router, hubPath]);
 
   useEffect(() => {
-    const tid = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(tid);
-  }, [load]);
+    let cancelled = false;
+
+    async function loadHubRows() {
+      setError("");
+      const { data: auth } = await supabase.auth.getSession();
+      const user = auth.session?.user;
+      if (!user) {
+        router.replace(`/auth?redirect=${encodeURIComponent(hubPath)}`);
+        return;
+      }
+
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+      if ((profile as { role?: string } | null)?.role !== "patient") {
+        if (!cancelled) {
+          setError("Cet espace est réservé aux patients.");
+          setLoading(false);
+        }
+        return;
+      }
+
+      const { data, error: re } = await supabase
+        .from("requests")
+        .select(
+          "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,request_public_ref,pharmacies(nom,ville,public_ref)," +
+            "request_items(requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient,line_source,patient_chosen_alternative_id,counter_outcome,post_confirm_fulfillment,availability_status,products(price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,unit_price))"
+        )
+        .eq("patient_id", user.id)
+        .eq("request_type", kindId)
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (cancelled) return;
+
+      if (re) {
+        setError(re.message);
+        setUnreadById({});
+      } else if (Array.isArray(data)) {
+        setRows(data as unknown as PatientRequestRow[]);
+        const ids = (data as unknown as { id: string }[]).map((r) => r.id);
+        const unreadMap: Record<string, boolean> = {};
+        if (ids.length > 0) {
+          const { data: flagData, error: unreadErr } = await supabase.rpc("request_conversation_unread_flags", {
+            p_request_ids: ids,
+          });
+          if (!unreadErr && Array.isArray(flagData)) {
+            for (const fr of flagData as { request_id: string; has_unread: boolean }[]) {
+              if (fr.request_id) unreadMap[fr.request_id] = fr.has_unread === true;
+            }
+          }
+        }
+        setUnreadById(unreadMap);
+      } else {
+        setUnreadById({});
+      }
+
+      setLoading(false);
+    }
+
+    const tid = window.setTimeout(() => void loadHubRows(), 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(tid);
+    };
+  }, [router, hubPath, kindId]);
 
   const pharmacyOptions = useMemo(() => {
     const m = new Map<string, string>();
@@ -219,10 +244,15 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     [activeBucket, activeProductSectionMeta, pharmacyFilterLabel, refQuery, sortNewestFirst]
   );
 
+  const filtersAutoExpand =
+    tab === "list" && (Boolean(listStatutParam || listSectionParam) || listHasActiveFilters);
+  const filtersPanelExpanded = filtersExpandedUser ?? filtersAutoExpand;
+
   const clearListFilters = () => {
     setPharmacyFilter("");
     setRefQuery("");
     setSortNewestFirst(true);
+    setFiltersExpandedUser(null);
     const next = new URLSearchParams(searchParams.toString());
     next.set("vue", "liste");
     next.delete("statut");
@@ -359,12 +389,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
           ) : (
             <div className="mt-4">
               {isProductHub ? (
-                <PatientProductDemandesDashboard
-                  rows={rows}
-                  basePath={hubPath}
-                  unreadById={unreadById}
-                  focusSectionId={tab === "dashboard" ? activeProductSection : null}
-                />
+                <PatientProductDemandesDashboard rows={rows} basePath={hubPath} unreadById={unreadById} />
               ) : (
                 <DemandeStatDashboard
                   rows={rowsWithDashboardStatus}
@@ -379,140 +404,193 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
         </>
       ) : (
         <div className="mt-4 space-y-4">
-          <section className={isProductHub ? clsx("rounded-xl border-2 p-3 shadow-sm", productTheme.shell, "bg-white/90") : filterShell}>
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <h2
-                  className={clsx(
-                    "text-xs font-bold uppercase tracking-wide",
-                    isProductHub ? "text-sky-950" : filterTitle
-                  )}
-                >
-                  Filtres et recherche
-                </h2>
-                <p
-                  className={clsx(
-                    "text-[10px]",
-                    isProductHub ? "text-sky-900/85" : accent === "amber" ? "text-amber-900/85" : "text-sky-900/85"
-                  )}
-                >
-                  Saisissez une référence pour accès immédiat
-                </p>
-              </div>
-              <button type="button" onClick={() => setFiltersOpen((v) => !v)} className={filterBtn}>
-                {filtersOpen ? "Masquer" : "Afficher"}
-              </button>
-            </div>
-            {filtersOpen ? (
-              <div className="mt-2 grid gap-2 sm:grid-cols-2 sm:items-end lg:grid-cols-4">
-                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
-                  Référence (accès direct)
-                  <input
-                    value={refQuery}
-                    onChange={(e) => setRefQuery(e.target.value)}
-                    placeholder={refPlaceholder}
-                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/70"
-                  />
-                </label>
-                {isProductHub ? (
-                  <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
-                    Regroupement
-                    <select
-                      value={activeProductSection ?? ""}
-                      onChange={(e) => setProductSectionFilter(e.target.value)}
-                      className="rounded-md border border-sky-200/80 bg-background px-2 py-1.5 text-xs text-foreground"
+          <section
+            className={clsx(
+              "relative overflow-hidden rounded-2xl border shadow-md",
+              isProductHub
+                ? "border-slate-300/90 bg-gradient-to-br from-white via-slate-50/95 to-slate-100/80 ring-1 ring-slate-900/[0.06]"
+                : filterShell
+            )}
+          >
+            {isProductHub ? (
+              <div
+                className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-indigo-500 via-violet-500 to-slate-400"
+                aria-hidden
+              />
+            ) : null}
+            <div className={clsx("p-3.5 sm:p-4", isProductHub && "pl-4 sm:pl-5")}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-2.5">
+                  <span
+                    className={clsx(
+                      "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg shadow-sm",
+                      isProductHub
+                        ? "bg-slate-900 text-white"
+                        : accent === "amber"
+                          ? "bg-amber-600 text-white"
+                          : accent === "violet"
+                            ? "bg-violet-600 text-white"
+                            : "bg-sky-700 text-white"
+                    )}
+                  >
+                    <SlidersHorizontal className="size-4" aria-hidden />
+                  </span>
+                  <div className="min-w-0">
+                    <h2
+                      className={clsx(
+                        "text-sm font-bold tracking-tight",
+                        isProductHub ? "text-slate-900" : filterTitle
+                      )}
                     >
-                      <option value="">Tous les regroupements</option>
-                      {PATIENT_PRODUCT_HUB_SECTIONS.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.title}
+                      Recherche et filtres
+                    </h2>
+                    <p
+                      className={clsx(
+                        "mt-0.5 text-[11px] leading-snug",
+                        isProductHub ? "text-slate-600" : "text-muted-foreground"
+                      )}
+                    >
+                      Uniquement pour cette liste — le tableau de bord reste inchangé.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFiltersExpandedUser(!(filtersExpandedUser ?? filtersAutoExpand))
+                  }
+                  className={clsx(
+                    "shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-semibold shadow-sm transition",
+                    isProductHub
+                      ? "border border-slate-300/90 bg-white text-slate-800 hover:bg-slate-50"
+                      : filterBtn
+                  )}
+                >
+                  {filtersPanelExpanded ? "Réduire" : "Ouvrir"}
+                </button>
+              </div>
+
+              {filtersPanelExpanded ? (
+                <div
+                  className={clsx(
+                    "mt-3 grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4",
+                    isProductHub && "rounded-xl border border-slate-200/80 bg-white/90 p-3 shadow-inner"
+                  )}
+                >
+                  <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                      Référence dossier
+                    </span>
+                    <span className="relative block">
+                      <Search
+                        className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400"
+                        aria-hidden
+                      />
+                      <input
+                        value={refQuery}
+                        onChange={(e) => setRefQuery(e.target.value)}
+                        placeholder={refPlaceholder}
+                        className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-2.5 text-xs text-foreground shadow-sm placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/60"
+                      />
+                    </span>
+                  </label>
+                  {isProductHub ? (
+                    <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Regroupement</span>
+                      <select
+                        value={activeProductSection ?? ""}
+                        onChange={(e) => setProductSectionFilter(e.target.value)}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-foreground shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/60"
+                      >
+                        <option value="">Tous les regroupements</option>
+                        {PATIENT_PRODUCT_HUB_SECTIONS.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                  <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Statut</span>
+                    <select
+                      value={activeBucket?.key ?? ""}
+                      onChange={(e) => setStatutFilter(e.target.value)}
+                      className={clsx(
+                        "rounded-lg border bg-white px-2.5 py-2 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2",
+                        isProductHub
+                          ? "border-slate-200 focus:border-indigo-400 focus:ring-indigo-200/60"
+                          : "border-input"
+                      )}
+                    >
+                      <option value="">Tous les statuts</option>
+                      {dashboardBuckets.map((b) => (
+                        <option key={b.key} value={b.key}>
+                          {b.label}
                         </option>
                       ))}
                     </select>
                   </label>
-                ) : null}
-                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
-                  Statut
-                  <select
-                    value={activeBucket?.key ?? ""}
-                    onChange={(e) => setStatutFilter(e.target.value)}
-                    className={clsx(
-                      "rounded-md border bg-background px-2 py-1.5 text-xs text-foreground",
-                      isProductHub ? "border-sky-200/80" : "border-input"
-                    )}
-                  >
-                    <option value="">Tous les statuts</option>
-                    {dashboardBuckets.map((b) => (
-                      <option key={b.key} value={b.key}>
-                        {b.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Pharmacie
-                  <select
-                    value={pharmacyFilter}
-                    onChange={(e) => setPharmacyFilter(e.target.value)}
-                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
-                  >
-                    <option value="">Toutes</option>
-                    {pharmacyOptions.map(([id, label]) => (
-                      <option key={id} value={id}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Tri date
-                  <select
-                    value={sortNewestFirst ? "desc" : "asc"}
-                    onChange={(e) => setSortNewestFirst(e.target.value === "desc")}
-                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
-                  >
-                    <option value="desc">Plus récentes d’abord</option>
-                    <option value="asc">Plus anciennes d’abord</option>
-                  </select>
-                </label>
-              </div>
-            ) : listHasActiveFilters ? (
-              <div
-                className={clsx(
-                  "mt-2 rounded-lg border px-2.5 py-2 text-[11px] leading-snug",
-                  isProductHub
-                    ? "border-sky-200/80 bg-sky-50/60 text-sky-950"
-                    : accent === "amber"
-                      ? "border-amber-200/80 bg-amber-50/60 text-amber-950"
-                      : accent === "violet"
-                        ? "border-violet-200/80 bg-violet-50/60 text-violet-950"
-                        : "border-sky-200/80 bg-sky-50/60 text-sky-950"
-                )}
-              >
-                <p>
-                  <span className="font-semibold">Filtres appliqués :</span> {listFiltersSummary}
-                </p>
-                <button
-                  type="button"
-                  onClick={clearListFilters}
+                  <label className="flex min-w-0 flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Pharmacie</span>
+                    <select
+                      value={pharmacyFilter}
+                      onChange={(e) => setPharmacyFilter(e.target.value)}
+                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-foreground shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/60"
+                    >
+                      <option value="">Toutes</option>
+                      {pharmacyOptions.map(([id, label]) => (
+                        <option key={id} value={id}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex min-w-0 flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Tri</span>
+                    <select
+                      value={sortNewestFirst ? "desc" : "asc"}
+                      onChange={(e) => setSortNewestFirst(e.target.value === "desc")}
+                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-foreground shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/60"
+                    >
+                      <option value="desc">Plus récentes d’abord</option>
+                      <option value="asc">Plus anciennes d’abord</option>
+                    </select>
+                  </label>
+                </div>
+              ) : listHasActiveFilters ? (
+                <div
                   className={clsx(
-                    "mt-1.5 text-[11px] font-semibold underline underline-offset-2",
-                    isProductHub ? "text-sky-800" : linkClass
+                    "mt-3 rounded-xl border px-3 py-2.5 text-[11px] leading-snug",
+                    isProductHub
+                      ? "border-indigo-200/70 bg-indigo-50/50 text-slate-800"
+                      : accent === "amber"
+                        ? "border-amber-200/80 bg-amber-50/60 text-amber-950"
+                        : accent === "violet"
+                          ? "border-violet-200/80 bg-violet-50/60 text-violet-950"
+                          : "border-sky-200/80 bg-sky-50/60 text-sky-950"
                   )}
                 >
-                  Tout effacer
-                </button>
-              </div>
-            ) : (
-              <p
-                className={clsx(
-                  "mt-2 text-[11px]",
-                  isProductHub ? "text-sky-900/85" : accent === "amber" ? "text-amber-900/85" : "text-muted-foreground"
-                )}
-              >
-                Ouvrez les filtres pour rechercher par référence, statut (envoyée, clôturée…), pharmacie ou tri.
-              </p>
-            )}
+                  <p>
+                    <span className="font-semibold">Filtres actifs (liste) :</span> {listFiltersSummary}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={clearListFilters}
+                    className={clsx(
+                      "mt-1.5 text-[11px] font-semibold underline underline-offset-2",
+                      isProductHub ? "text-indigo-800" : linkClass
+                    )}
+                  >
+                    Tout effacer
+                  </button>
+                </div>
+              ) : (
+                <p className={clsx("mt-3 text-[11px] leading-snug", isProductHub ? "text-slate-600" : "text-muted-foreground")}>
+                  Référence, regroupement, statut, pharmacie ou tri — sans modifier le tableau de bord.
+                </p>
+              )}
+            </div>
           </section>
 
           {filteredSorted.length === 0 ? (

@@ -129,21 +129,16 @@ export function PatientProductDemandesDashboard({
   rows,
   basePath,
   unreadById,
-  focusSectionId = null,
 }: {
   rows: PatientRequestRow[];
   basePath: string;
   unreadById: Record<string, boolean>;
-  /** Sur le tableau de bord : n’afficher qu’un regroupement (ex. retour depuis la liste). */
-  focusSectionId?: PatientProductHubSectionId | null;
 }) {
   const router = useRouter();
   const recent = pickRecentActiveProductRequests(rows, unreadById, 5);
   const actionCount = countInPatientProductHubSection(rows, "action_required");
   const pharmacyCount = countInPatientProductHubSection(rows, "at_pharmacy");
   const archiveCount = countInPatientProductHubSection(rows, "archives");
-
-  const visibleSections = focusSectionId ? [focusSectionId] : SECTION_ORDER;
 
   const openSectionList = (sectionId: PatientProductHubSectionId) => {
     router.push(patientProductHubListHref(basePath, { sectionId }), { scroll: false });
@@ -204,7 +199,7 @@ export function PatientProductDemandesDashboard({
         </div>
       </div>
 
-      {!focusSectionId && recent.length > 0 ? (
+      {recent.length > 0 ? (
         <section className="rounded-xl border-2 border-sky-200/70 bg-sky-50/30 p-3 ring-1 ring-sky-100/80 sm:p-3.5">
           <div className="mb-2.5 flex items-center gap-2">
             <Sparkles className="size-4 shrink-0 text-sky-700" aria-hidden />
@@ -227,7 +222,7 @@ export function PatientProductDemandesDashboard({
         </section>
       ) : null}
 
-      {visibleSections.map((sectionId) => (
+      {SECTION_ORDER.map((sectionId) => (
         <SectionBlock
           key={sectionId}
           sectionId={sectionId}
@@ -238,26 +233,15 @@ export function PatientProductDemandesDashboard({
         />
       ))}
 
-      {focusSectionId ? (
-        <p className="text-center">
-          <Link
-            href={`${basePath}?vue=dashboard`}
-            className="text-xs font-semibold text-sky-800 underline"
-          >
-            ← Tout le tableau de bord
-          </Link>
-        </p>
-      ) : (
-        <p className="text-center">
-          <Link
-            href={`${basePath}?vue=liste`}
-            className="inline-flex items-center gap-1 rounded-lg border border-sky-300/70 bg-white px-3 py-2 text-xs font-semibold text-sky-900 shadow-sm hover:bg-sky-50"
-          >
-            Voir toutes les demandes avec filtres
-            <ChevronRight className="size-4" aria-hidden />
-          </Link>
-        </p>
-      )}
+      <p className="text-center">
+        <Link
+          href={`${basePath}?vue=liste`}
+          className="inline-flex items-center gap-1 rounded-lg border border-sky-300/70 bg-white px-3 py-2 text-xs font-semibold text-sky-900 shadow-sm hover:bg-sky-50"
+        >
+          Voir toutes les demandes avec filtres
+          <ChevronRight className="size-4" aria-hidden />
+        </Link>
+      </p>
     </div>
   );
 }
