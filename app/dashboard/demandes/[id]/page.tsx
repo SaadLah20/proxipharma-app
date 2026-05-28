@@ -669,7 +669,22 @@ export default function DemandeDetailPage() {
               Rafraîchir
             </button>
           </div>
-          <DossierHistoryListFr rows={historyRows} viewerRole="patient" busy={historyBusy} />
+          <DossierHistoryListFr
+            rows={historyRows}
+            viewerRole="patient"
+            busy={historyBusy}
+            supplyBundles={supplyAmendments}
+            timeline={{
+              requestCreatedAt: request.created_at,
+              requestSubmittedAt: request.submitted_at,
+              requestRespondedAt: request.responded_at,
+              requestConfirmedAt: request.confirmed_at,
+              requestStatus: request.status,
+              patientNote: productPatientNote,
+              plannedVisitDate: request.patient_planned_visit_date,
+              plannedVisitTime: request.patient_planned_visit_time,
+            }}
+          />
         </div>
       </details>
       {usesLineWorkflow && sessionUserId && !isConsultationRequest ? (

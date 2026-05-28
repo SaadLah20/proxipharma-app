@@ -1,5 +1,6 @@
 import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import {
+  counterOutcomeReasonPayload,
   patientDossierHistoryDetailParagraphsFr,
   pharmacistDossierHistoryDetailParagraphsFr,
   patientHistoryAuditDetailLines,
@@ -102,7 +103,7 @@ function headlineForSameStatusReason(
       : "Modification après validation patient";
   }
   if (r.startsWith("counter_outcome:")) {
-    const rest = r.slice("counter_outcome:".length);
+    const rest = counterOutcomeReasonPayload(r).slice("counter_outcome:".length);
     if (rest === "picked_up") return "Retrait au comptoir enregistré";
     if (rest === "unset") return "Suivi comptoir remis en attente";
     if (rest.startsWith("cancelled_at_counter")) return "Produit non retiré au comptoir";

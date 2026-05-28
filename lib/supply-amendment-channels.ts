@@ -59,23 +59,34 @@ function kindNaturalFr(kind: string | undefined, audience: "patient" | "pharmaci
   }
 }
 
+function splitAmendmentDetailFacts(detail: string): string[] {
+  const raw = detail.trim();
+  if (!raw) return [];
+  return raw
+    .split(/\s*[·•]\s*|\s+—\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 /** Une ligne d’historique = un fait (sans « · » ni « — »). */
 export function summarizeSupplyAmendmentEntryLines(
   row: SupplyAmendmentEntryJson,
   audience: "patient" | "pharmacist" = "patient"
 ): string[] {
   const lines: string[] = [];
-  const fromKind = kindNaturalFr(row.kind, audience);
-  if (fromKind) lines.push(fromKind);
   const detail = (row.detail ?? row.summary ?? "").trim();
-  if (detail && !detail.toLowerCase().includes("request_item")) {
-    const short = detail.length > 160 ? `${detail.slice(0, 157).trim()}…` : detail;
-    const head = (fromKind ?? "").toLowerCase();
-    if (!head || !short.toLowerCase().includes(head.slice(0, Math.min(12, head.length)))) {
+  const facts = detail && !detail.toLowerCase().includes("request_item") ? splitAmendmentDetailFacts(detail) : [];
+  if (facts.length > 0) {
+    for (const fact of facts) {
+      const short = fact.length > 200 ? `${fact.slice(0, 197).trim()}…` : fact;
       lines.push(short);
     }
   }
-  if (lines.length === 0) lines.push("Mise à jour enregistrée");
+  if (lines.length === 0) {
+    const fromKind = kindNaturalFr(row.kind, audience);
+    if (fromKind) lines.push(fromKind);
+    else lines.push("Mise à jour enregistrée");
+  }
   const ch = row.client_confirmation_channel ? supplyAmendChannelLabel(row.client_confirmation_channel) : null;
   const mot = row.client_motive?.trim();
   if (ch) lines.push(`Accord patient : ${ch}`);

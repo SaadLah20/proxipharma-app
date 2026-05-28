@@ -2177,6 +2177,7 @@ export function PatientProductRequestActions({
       requestSubmittedAt: requestTimelineMeta.submitted_at,
       requestRespondedAt: requestTimelineMeta.responded_at,
       requestConfirmedAt: requestTimelineMeta.confirmed_at,
+      requestStatus: status,
       supplyBundles: supplyAmendmentBundles,
       dossierHistory: dossierHistoryRows,
       pharmacistProposedOriginLabel: workflowCopy.timelinePharmacistProposedOrigin,
@@ -2185,6 +2186,7 @@ export function PatientProductRequestActions({
   }, [
     historyModalRow,
     requestTimelineMeta,
+    status,
     supplyAmendmentBundles,
     dossierHistoryRows,
     workflowCopy.timelinePharmacistProposedOrigin,
