@@ -65,6 +65,7 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 **Mise à jour 2026-05-19 — annuaire + fiche publique (UI)** :
 - **Annuaire** : hero, cartes avec **avis**, menu rayon portail, lint **`set-state-in-effect`** corrigé — `components/annuaire/`.
 - **Fiche** : chrome partagé **`pharmacy-public-chrome.tsx`** ; onglets Services / Offres / Horaires / Infos harmonisés ; demande produits + catalogue alignés.
+- **Badge Ouverte / Fermée** (mai 2026, commit **`e7540d3`**) : rouge uniforme pour **Fermée** et libellés « fermé » — **`lib/pharmacy-open-status-ui.ts`** (annuaire, fiche, édition **`horaires-garde`**).
 
 **Mise à jour 2026-05-19 — moteur de pricing officine** :
 - **SQL** : **`20260619_001`** (**appliquée**) — grille parapharmacie (PPH ± marge, règles labo/produit), PPV médicaments, RPC public + pharmacien.

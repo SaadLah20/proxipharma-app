@@ -376,6 +376,20 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
+### Session 2026-05-25 (suite 4) — Badge « Fermée » rouge uniforme (annuaire + fiche + horaires)
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commit **`e7540d3`** (pas de migration).
+
+**UI** :
+- **`lib/pharmacy-open-status-ui.ts`** — styles partagés : **Ouverte** (vert) / **Fermée** (rouge `rose`) ; lignes horaires « fermé » / « férié » ; case **Fermé** édition horaires pharmacien.
+- **Annuaire** : `annuaire-pharmacy-card.tsx` (badge couverture — plus de gris slate).
+- **Fiche publique** : `pharmacy-public-profile.tsx` (couverture + encart **Aujourd’hui** onglet Horaires).
+- **Pharmacien** : `pharmacy-compact-time-range.tsx`, `pharmacy-overrides-tab.tsx` (libellés **M fermé** / **AM fermé**).
+
+**Doc agent** : `AGENTS.md` (ligne annuaire / fiche).
+
+---
+
 ### Session 2026-05-25 — Patient demande produits : saisie publique, envoyée, répondue, validée (UI/UX)
 
 **Branche** : `fix/validated-supply-ecart-ui-modal` — commits poussés **`e37f667`** … **`aec3071`** (lot UI patient ; pas de nouvelle migration).
@@ -581,7 +595,7 @@ git checkout pilote-stable-2026-05-24
 **Fiche digitale publique** (`components/pharmacy/pharmacy-public-profile.tsx`, commit **`9862128`**) :
 - Onglets **grille 4 colonnes** (plus d’espace vide à droite).
 - Onglet **Infos** : grille contacts (`pharmacy-profile-contact-grid.tsx` — icônes **`Share2`** / **`ExternalLink`** pour Facebook/Instagram, absents de `lucide-react` 1.11), bloc adresse, titulaire, services.
-- Onglet **Horaires** : encart **Aujourd’hui** + semaine en liste avec badges (ouvert / fermé / garde / exception).
+- Onglet **Horaires** : encart **Aujourd’hui** + semaine en liste avec badges (ouvert / fermé / garde / exception). Styles fermé : **`lib/pharmacy-open-status-ui.ts`** (rouge uniforme — voir journal §10 session **2026-05-25 suite 4**).
 - **Notes patients** : `PharmacyRatingForm` — pilote **sans commentaire** ; après vote = ligne compacte **« Votre note »** + **Modifier** ; enregistrement au clic étoile.
 
 **Upload photos officine** (commit **`9862128`**, corrige retour à l’ancienne image) :
