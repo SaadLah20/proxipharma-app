@@ -35,6 +35,36 @@ function lastRequestStatusLabelFr(status: string | null): string | null {
   return bucket?.label ?? status;
 }
 
+/** Libellé court singulier pour le dernier dossier sur une carte officine (évite « Clôturées » ambigu). */
+function lastDossierStatusHintFr(status: string | null): string | null {
+  const label = lastRequestStatusLabelFr(status);
+  if (!label) return null;
+  if (label === "Clôturées") return "Clôturé";
+  if (label === "Envoyées") return "Envoyée";
+  if (label === "Annulées") return "Annulé";
+  if (label === "Expirées") return "Expiré";
+  if (label === "Abandonnées") return "Abandonné";
+  if (label.endsWith("ées")) return `${label.slice(0, -2)}ée`;
+  if (label.endsWith("és")) return `${label.slice(0, -1)}é`;
+  return label;
+}
+
+function pharmacyCardActivityLineFr(
+  lastActivityAt: string | null,
+  lastStatus: string | null,
+  activeCount: number
+): string {
+  const when = formatActivityFr(lastActivityAt);
+  if (activeCount > 0) {
+    return `Dernière activité : ${when}`;
+  }
+  const dossier = lastDossierStatusHintFr(lastStatus);
+  if (dossier) {
+    return `Dernier dossier (${dossier}) · ${when}`;
+  }
+  return `Dernière activité : ${when}`;
+}
+
 async function loadDirectoryLegacy(patientId: string): Promise<PatientPharmacyDirectoryRow[]> {
   const byId = new Map<string, PatientPharmacyDirectoryRow>();
 
@@ -343,84 +373,87 @@ export function PatientPharmaciesDirectory() {
           {filteredRows.map((r) => {
             const wa = pharmacyWhatsAppHref(r.whatsapp);
             const rating = pharmacyRatingLabelFr(r.rating_avg, r.rating_count);
-            const lastStatus = lastRequestStatusLabelFr(r.last_request_status);
+            const activityLine = pharmacyCardActivityLineFr(
+              r.last_activity_at,
+              r.last_request_status,
+              r.active_request_count
+            );
             return (
               <li key={r.pharmacy_id}>
-                <Link
-                  href={`/dashboard/patient/pharmacies/${r.pharmacy_id}`}
-                  className="group flex flex-col rounded-xl border border-border bg-card p-3 shadow-sm transition hover:border-sky-300/60 hover:shadow-md hover:ring-1 hover:ring-sky-200/50"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      {r.pharmacy_public_ref?.trim() ? (
-                        <p className="font-mono text-[11px] font-bold text-sky-900">{r.pharmacy_public_ref.trim()}</p>
-                      ) : null}
-                      <p className="truncate font-semibold text-foreground">{pharmacyDisplayName(r.nom)}</p>
-                      <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                        {r.ville?.trim() ? `${r.ville.trim()} · ` : ""}
-                        {r.adresse?.trim() || "—"}
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">{pharmacyKindLabelsFr(r.request_kinds)}</p>
+                <div className="group flex flex-col rounded-xl border border-border bg-card shadow-sm transition hover:border-sky-300/60 hover:shadow-md hover:ring-1 hover:ring-sky-200/50">
+                  <Link
+                    href={`/dashboard/patient/pharmacies/${r.pharmacy_id}`}
+                    className="flex flex-col rounded-t-xl p-3 pb-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        {r.pharmacy_public_ref?.trim() ? (
+                          <p className="font-mono text-[11px] font-bold text-sky-900">{r.pharmacy_public_ref.trim()}</p>
+                        ) : null}
+                        <p className="truncate font-semibold text-foreground">{pharmacyDisplayName(r.nom)}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                          {r.ville?.trim() ? `${r.ville.trim()} · ` : ""}
+                          {r.adresse?.trim() || "—"}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">{pharmacyKindLabelsFr(r.request_kinds)}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-sky-800" />
                     </div>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-sky-800" />
-                  </div>
 
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {r.active_request_count > 0 ? (
-                      <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-950">
-                        <Package className="h-3 w-3" />
-                        {r.active_request_count} en cours
-                      </span>
-                    ) : null}
-                    {r.request_count > 0 ? (
-                      <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        {r.request_count} dossier{r.request_count > 1 ? "s" : ""}
-                      </span>
-                    ) : null}
-                    {r.promo_reservation_count > 0 ? (
-                      <span className="inline-flex items-center gap-0.5 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-950">
-                        <Gift className="h-3 w-3" />
-                        {r.promo_reservation_count} promo
-                      </span>
-                    ) : null}
-                    {rating ? (
-                      <span className="inline-flex items-center gap-0.5 rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-900">
-                        <Star className="h-3 w-3 fill-amber-400 text-amber-500" />
-                        {rating}
-                      </span>
-                    ) : null}
-                  </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {r.active_request_count > 0 ? (
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-950">
+                          <Package className="h-3 w-3" />
+                          {r.active_request_count} en cours
+                        </span>
+                      ) : null}
+                      {r.request_count > 0 ? (
+                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          {r.request_count} dossier{r.request_count > 1 ? "s" : ""}
+                        </span>
+                      ) : null}
+                      {r.promo_reservation_count > 0 ? (
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-950">
+                          <Gift className="h-3 w-3" />
+                          {r.promo_reservation_count} promo
+                        </span>
+                      ) : null}
+                      {rating ? (
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-900">
+                          <Star className="h-3 w-3 fill-amber-400 text-amber-500" />
+                          {rating}
+                        </span>
+                      ) : null}
+                    </div>
 
-                  <p className="mt-2 text-[10px] text-muted-foreground">
-                    Dernière activité : {formatActivityFr(r.last_activity_at)}
-                    {lastStatus ? ` · ${lastStatus}` : ""}
-                  </p>
+                    <p className="mt-2 text-[10px] text-muted-foreground">{activityLine}</p>
+                  </Link>
 
-                  <div className="mt-2 flex flex-wrap gap-2 border-t border-border/60 pt-2" onClick={(e) => e.preventDefault()}>
-                    {wa ? (
-                      <a
-                        href={wa}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-medium text-sky-800 underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MessageSquare className="h-3 w-3" />
-                        WhatsApp
-                      </a>
-                    ) : null}
-                    {r.telephone ? (
-                      <a
-                        href={`tel:${r.telephone}`}
-                        className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Phone className="h-3 w-3" />
-                        {r.telephone}
-                      </a>
-                    ) : null}
-                  </div>
-                </Link>
+                  {wa || r.telephone ? (
+                    <div className="flex flex-wrap gap-2 border-t border-border/60 px-3 py-2">
+                      {wa ? (
+                        <a
+                          href={wa}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-sky-800 underline"
+                        >
+                          <MessageSquare className="h-3 w-3" />
+                          WhatsApp
+                        </a>
+                      ) : null}
+                      {r.telephone ? (
+                        <a
+                          href={`tel:${r.telephone}`}
+                          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                        >
+                          <Phone className="h-3 w-3" />
+                          {r.telephone}
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </li>
             );
           })}
