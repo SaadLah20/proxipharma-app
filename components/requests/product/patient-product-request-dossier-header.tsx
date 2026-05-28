@@ -18,6 +18,18 @@ function statusBadgeClass(status: string): string {
     return "border-sky-400/85 bg-sky-100 text-sky-950 ring-1 ring-sky-200/80";
   }
   if (status === "responded") return "border-amber-300/95 bg-amber-50 text-amber-950";
+  if (status === "expired") return "border-amber-400/90 bg-amber-100 text-amber-950 ring-1 ring-amber-200/80";
+  if (status === "cancelled") return "border-rose-400/90 bg-rose-100 text-rose-950 ring-1 ring-rose-200/80";
+  if (status === "abandoned") return "border-orange-400/90 bg-orange-100 text-orange-950 ring-1 ring-orange-200/80";
+  if (status === "partially_collected") {
+    return "border-teal-400/85 bg-teal-100 text-teal-950 ring-1 ring-teal-200/80";
+  }
+  if (status === "fully_collected") {
+    return "border-emerald-400/90 bg-emerald-100 text-emerald-950 ring-1 ring-emerald-200/80";
+  }
+  if (status === "completed") {
+    return "border-emerald-400/85 bg-emerald-100 text-emerald-950 ring-1 ring-emerald-200/80";
+  }
   if (["confirmed", "treated"].includes(status)) {
     return "border-teal-400/80 bg-teal-50 text-teal-950";
   }

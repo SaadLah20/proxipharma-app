@@ -6,6 +6,10 @@ import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
 import { historyActorLabel, requestStatusFr } from "@/lib/request-display";
 import { patientOutcomeExpiredHint } from "@/lib/request-kinds/hub-and-terminal-copy";
+import {
+  patientArchiveTerminalActorLineFr,
+  patientArchiveTerminalMotiveParagraphsFr,
+} from "@/lib/patient-archive-outcome-fr";
 import { isRequestKindId } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 
@@ -42,6 +46,13 @@ export type PatientOutcomeDetailContext = {
   lastUpdatedLabel: string | null;
   /** Libellés lignes : défaut = demande produits. */
   linesMode?: "product" | "prescription";
+  /** Clôture comptoir (completed / partially_collected / fully_collected). */
+  closedRecap?: {
+    pickedUpCount: number;
+    retainedCount: number;
+    totalLines: number;
+    closedAtLabel: string;
+  };
 };
 
 /**
@@ -72,7 +83,8 @@ export function PatientRequestOutcomeBanner({
 
   const entry = historyRows.find((h) => h.new_status === status) ?? historyRows[0] ?? null;
 
-  const paras = entry ? patientDossierHistoryDetailParagraphsFr(entry.reason) : [];
+  const paras = patientArchiveTerminalMotiveParagraphsFr(entry);
+  const actorLine = patientArchiveTerminalActorLineFr(entry);
   const statLabel = requestStatusFr[status] ?? status;
 
   const theme =
@@ -135,6 +147,12 @@ export function PatientRequestOutcomeBanner({
       <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">État du dossier · {theme.kicker}</p>
       <h2 className={clsx("mt-1 text-sm font-bold leading-snug sm:text-base", theme.title)}>{statLabel}</h2>
 
+      {actorLine && (status === "cancelled" || status === "abandoned" || status === "expired") ? (
+        <p className={clsx("mt-2 rounded-md border border-black/[0.06] bg-white/60 px-2.5 py-1.5 text-[11px] font-semibold leading-snug", theme.accent)}>
+          {actorLine}
+        </p>
+      ) : null}
+
       {detailContext ? (
         <div
           className={clsx(
@@ -144,41 +162,67 @@ export function PatientRequestOutcomeBanner({
         >
           <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Résumé</p>
           <ul className="mt-1.5 space-y-1 text-[11px] leading-snug">
-            {detailContext.pharmacyLine ? (
-              <li>
-                <span className="font-semibold text-foreground">Officine : </span>
-                {detailContext.pharmacyLine}
-              </li>
-            ) : null}
-            <li>
-              <span className="font-semibold text-foreground">
-                {detailContext.linesMode === "prescription" ? "Produits saisis : " : "Lignes : "}
-              </span>
-              {detailContext.linesMode === "prescription" ? (
-                <>
-                  {detailContext.totalLines} produit{detailContext.totalLines !== 1 ? "s" : ""} sur l’ordonnance
-                  {detailContext.retainedCount !== detailContext.totalLines ? (
+            {detailContext.closedRecap ? (
+              <>
+                <li>
+                  <span className="font-semibold text-foreground">Produits récupérés : </span>
+                  {detailContext.closedRecap.pickedUpCount} sur {detailContext.closedRecap.retainedCount} retenu
+                  {detailContext.closedRecap.retainedCount !== 1 ? "s" : ""}
+                  {detailContext.closedRecap.totalLines !== detailContext.closedRecap.retainedCount ? (
                     <span className="text-muted-foreground">
                       {" "}
-                      · {detailContext.retainedCount} retenu{detailContext.retainedCount !== 1 ? "s" : ""} lors de votre validation
+                      · {detailContext.closedRecap.totalLines} ligne
+                      {detailContext.closedRecap.totalLines !== 1 ? "s" : ""} au total
                     </span>
                   ) : null}
-                </>
-              ) : (
-                <>
-                  {detailContext.retainedCount} produit{detailContext.retainedCount !== 1 ? "s" : ""} retenu
-                  {detailContext.retainedCount !== 1 ? "s" : ""}
-                  {detailContext.totalLines !== detailContext.retainedCount ? (
-                    <span className="text-muted-foreground">
-                      {" "}
-                      · {detailContext.totalLines - detailContext.retainedCount} autre
-                      {detailContext.totalLines - detailContext.retainedCount > 1 ? "s" : ""} non retenu
-                      {detailContext.totalLines - detailContext.retainedCount > 1 ? "s" : ""}
-                    </span>
-                  ) : null}
-                </>
-              )}
-            </li>
+                </li>
+                {detailContext.closedRecap.closedAtLabel ? (
+                  <li className="tabular-nums">
+                    <span className="font-semibold text-foreground">Clôturée le : </span>
+                    {detailContext.closedRecap.closedAtLabel}
+                  </li>
+                ) : null}
+              </>
+            ) : (
+              <>
+                {detailContext.pharmacyLine ? (
+                  <li>
+                    <span className="font-semibold text-foreground">Officine : </span>
+                    {detailContext.pharmacyLine}
+                  </li>
+                ) : null}
+                <li>
+                  <span className="font-semibold text-foreground">
+                    {detailContext.linesMode === "prescription" ? "Produits saisis : " : "Lignes : "}
+                  </span>
+                  {detailContext.linesMode === "prescription" ? (
+                    <>
+                      {detailContext.totalLines} produit{detailContext.totalLines !== 1 ? "s" : ""} sur l’ordonnance
+                      {detailContext.retainedCount !== detailContext.totalLines ? (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          · {detailContext.retainedCount} retenu{detailContext.retainedCount !== 1 ? "s" : ""} lors de
+                          votre validation
+                        </span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      {detailContext.retainedCount} produit{detailContext.retainedCount !== 1 ? "s" : ""} retenu
+                      {detailContext.retainedCount !== 1 ? "s" : ""}
+                      {detailContext.totalLines !== detailContext.retainedCount ? (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          · {detailContext.totalLines - detailContext.retainedCount} autre
+                          {detailContext.totalLines - detailContext.retainedCount > 1 ? "s" : ""} non retenu
+                          {detailContext.totalLines - detailContext.retainedCount > 1 ? "s" : ""}
+                        </span>
+                      ) : null}
+                    </>
+                  )}
+                </li>
+              </>
+            )}
             {detailContext.hasConversationMessages ? (
               <li className="text-muted-foreground">Des messages d&apos;échange patient / officine sont conservés (conversation).</li>
             ) : null}
@@ -191,11 +235,11 @@ export function PatientRequestOutcomeBanner({
           </ul>
           <p className={clsx("mt-2 border-t border-black/[0.05] pt-2 text-[10px] leading-snug text-muted-foreground")}>
             {status === "cancelled"
-              ? "La pharmacie a mis fin au dossier. Conservez cette page comme trace ; le détail des produits est en lecture seule."
+              ? "Demande annulée — consultation seule. Les produits ci-dessous reprennent l’état du dossier avant fermeture."
               : status === "abandoned"
-                ? "Vous avez mis fin au parcours sur ProxiPharma pour ce dossier. Les échanges restent consultables ci-dessous."
+                ? "Demande abandonnée — consultation seule. Les produits ci-dessous reprennent l’état du dossier avant fermeture."
                 : status === "expired"
-                  ? "Sans validation de votre part dans le délai prévu, le dossier s’est fermé automatiquement."
+                  ? "Demande expirée — vous n’avez pas validé à temps. Les produits ci-dessous reprennent la réponse de la pharmacie."
                   : status === "partially_collected"
                     ? "Une partie des produits retenus a été retirée au comptoir ; le reste figure comme non retiré dans l’archive."
                     : status === "fully_collected"
@@ -226,7 +270,7 @@ export function PatientRequestOutcomeBanner({
         </p>
       ) : null}
 
-      {entry ? (
+      {entry && !actorLine && status !== "expired" ? (
         <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9px] text-muted-foreground">
           <span>
             <strong className="font-medium text-foreground">{historyActorLabel("patient", entry.reason)}</strong>

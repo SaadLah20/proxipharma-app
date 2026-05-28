@@ -24,7 +24,14 @@ import {
   getConsultationDefaultTab,
   type ConsultationDetailTab,
 } from "@/lib/consultation-detail-tabs";
-import { isPatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
+import {
+  isPatientProductArchiveStatus,
+  PatientRequestOutcomeBanner,
+} from "@/components/requests/patient-request-outcome-banner";
+import {
+  buildPatientArchiveOutcomeDetailContext,
+  findTerminalStatusHistoryEntry,
+} from "@/lib/patient-archive-outcome-fr";
 import { patientOutcomeStatusFooter } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
@@ -116,9 +123,8 @@ export default function DemandeDetailPage() {
   const [historyRows, setHistoryRows] = useState<
     { id: string; created_at: string; old_status: string | null; new_status: string; reason: string | null }[]
   >([]);
-  const [followUpBusy, setFollowUpBusy] = useState(false);
-  const [followUpErr, setFollowUpErr] = useState("");
   const [supplyAmendments, setSupplyAmendments] = useState<{ id: string; created_at: string; amendments: unknown }[]>([]);
+  const [productPatientNote, setProductPatientNote] = useState<string | null>(null);
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationUnread, setConversationUnread] = useState(false);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
@@ -190,12 +196,13 @@ export default function DemandeDetailPage() {
         (["confirmed", "treated"].includes(st) || isPatientProductArchiveStatus(st));
 
       const isPrescription = (reqRow as RequestDetail).request_type === "prescription";
+      const isProductRequest = (reqRow as RequestDetail).request_type === "product_request";
       const isConsultation = (reqRow as RequestDetail).request_type === "free_consultation";
       const needStatusHistoryConsult =
         isConsultation &&
         (["confirmed", "treated"].includes(st) || isPatientProductArchiveStatus(st));
 
-      const [itemsResult, amendmentsResult, convUnreadRes, histResult, prescriptionResult, consultationResult] =
+      const [itemsResult, amendmentsResult, convUnreadRes, histResult, prescriptionResult, consultationResult, productReqResult] =
         await Promise.all([
         supabase
           .from("request_items")
@@ -233,6 +240,9 @@ export default function DemandeDetailPage() {
               .eq("request_id", id)
               .maybeSingle()
           : Promise.resolve({ data: null, error: null } as const),
+        isProductRequest
+          ? supabase.from("product_requests").select("patient_note").eq("request_id", id).maybeSingle()
+          : Promise.resolve({ data: null, error: null } as const),
       ]);
       const unreadRow = (convUnreadRes.data as { request_id: string; has_unread: boolean }[] | null)?.find((x) => x.request_id === id);
       setConversationUnread(Boolean(unreadRow?.has_unread));
@@ -261,6 +271,12 @@ export default function DemandeDetailPage() {
         setSupplyAmendments(amendmentsResult.data as { id: string; created_at: string; amendments: unknown }[]);
       } else {
         setSupplyAmendments([]);
+      }
+
+      if (isProductRequest && productReqResult.data) {
+        setProductPatientNote((productReqResult.data as { patient_note: string | null }).patient_note);
+      } else {
+        setProductPatientNote(null);
       }
 
       if (isPrescription && prescriptionResult.data) {
@@ -357,6 +373,25 @@ export default function DemandeDetailPage() {
     return [footer, ...paras].filter((s) => s.trim().length > 0).join(" — ");
   }, [request, historyRows]);
 
+  const archiveTerminalHistoryEntry = useMemo(() => {
+    if (!request || !isPatientProductArchiveStatus(request.status)) return null;
+    return findTerminalStatusHistoryEntry(historyRows, request.status);
+  }, [request, historyRows]);
+
+  const archiveTerminalOldStatus = archiveTerminalHistoryEntry?.old_status ?? null;
+
+  const archiveOutcomeDetail = useMemo(() => {
+    if (!request || request.request_type !== "product_request") return null;
+    if (!isPatientProductArchiveStatus(request.status)) return null;
+    const ph = one(request.pharmacies);
+    return buildPatientArchiveOutcomeDetailContext({
+      terminalStatus: request.status,
+      items,
+      pharmacyName: ph?.nom ?? null,
+      historyEntry: archiveTerminalHistoryEntry,
+    });
+  }, [request, items, archiveTerminalHistoryEntry]);
+
   const handleConversationMarkedRead = useCallback(() => {
     setConversationUnread(false);
   }, []);
@@ -402,7 +437,9 @@ export default function DemandeDetailPage() {
 
   const hideMainRequestHeader =
     usesLineWorkflow &&
-    (isConsultationRequest || ["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status));
+    (isConsultationRequest ||
+      ["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status) ||
+      (request.request_type === "product_request" && showArchivedReadonly));
 
   const showConsultationTabbed =
     isConsultationRequest && consultationBrief != null && hasBottomActions && !showArchivedReadonly;
@@ -446,7 +483,8 @@ export default function DemandeDetailPage() {
           conversationUnread={conversationUnread}
           productLineCount={items.length}
         />
-      ) : !hideMainRequestHeader || showArchivedReadonly ? (
+      ) : !hideMainRequestHeader ||
+        (showArchivedReadonly && request.request_type !== "product_request") ? (
         <RequestKindHeader
           config={kindConfig}
           request={request}
@@ -457,42 +495,23 @@ export default function DemandeDetailPage() {
         />
       ) : null}
 
-      {showArchivedReadonly && request.status === "expired" && !isPrescriptionRequest ? (
-        <div className="space-y-2">
-          {followUpErr ? (
-            <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">
-              {followUpErr}
-            </p>
-          ) : null}
-          <button
-            type="button"
-            disabled={followUpBusy}
-            onClick={() => {
-              void (async () => {
-                setFollowUpErr("");
-                setFollowUpBusy(true);
-                const { data, error: rpcErr } = await supabase.rpc("patient_create_followup_from_expired_product_request", {
-                  p_expired_request_id: request.id,
-                });
-                setFollowUpBusy(false);
-                if (rpcErr) {
-                  setFollowUpErr(rpcErr.message);
-                  return;
-                }
-                const newId = typeof data === "string" ? data : Array.isArray(data) ? data[0] : null;
-                if (!newId || typeof newId !== "string") {
-                  setFollowUpErr("Réponse inattendue du serveur.");
-                  return;
-                }
-                router.push(`/dashboard/demandes/${newId}`);
-              })();
-            }}
-            className="w-full rounded-lg bg-amber-700 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-800 disabled:opacity-50"
-          >
-            {followUpBusy ? "Création…" : "Ajuster et renvoyer une nouvelle demande"}
-          </button>
-        </div>
-      ) : showArchivedReadonly && request.status === "expired" && isPrescriptionRequest ? (
+      {showArchivedReadonly &&
+      request.request_type === "product_request" &&
+      request.status !== "expired" &&
+      request.status !== "cancelled" &&
+      request.status !== "abandoned" &&
+      request.status !== "completed" &&
+      request.status !== "partially_collected" &&
+      request.status !== "fully_collected" ? (
+        <PatientRequestOutcomeBanner
+          status={request.status}
+          historyRows={historyRows}
+          detailContext={archiveOutcomeDetail}
+          requestKindId="product_request"
+        />
+      ) : null}
+
+      {showArchivedReadonly && request.status === "expired" && isPrescriptionRequest ? (
         <Link
           href="/"
           className="inline-flex w-full justify-center rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-100"
@@ -604,7 +623,9 @@ export default function DemandeDetailPage() {
             submitted_at: request.submitted_at,
             responded_at: request.responded_at,
             confirmed_at: request.confirmed_at,
+            expires_at: request.expires_at ?? null,
           }}
+          productPatientNote={productPatientNote}
           dossierHistoryRows={historyRows}
           pharmacyId={request.pharmacy_id}
           requestUpdatedAt={request.updated_at}
@@ -613,6 +634,7 @@ export default function DemandeDetailPage() {
           prescriptionNote={isPrescriptionRequest ? prescriptionNote : null}
           summaryInPageChrome={showConsultationTabbed}
           detailStale={requestDrift.stale}
+          archiveTerminalOldStatus={archiveTerminalOldStatus}
         />
         </section>
         </>
@@ -664,6 +686,9 @@ export default function DemandeDetailPage() {
             open={conversationOpen}
             onClose={() => setConversationOpen(false)}
             onMarkedRead={handleConversationMarkedRead}
+            composerDisabled={
+              showArchivedReadonly && request.request_type === "product_request"
+            }
           />
         </>
       ) : null}

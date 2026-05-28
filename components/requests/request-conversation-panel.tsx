@@ -222,6 +222,8 @@ type Props = {
   onClose: () => void;
   /** Après marquage lu (ouverture) — rafraîchir le point non lu parent */
   onMarkedRead?: () => void;
+  /** Dossier fermé (ex. expiré) : lecture seule, pas d’envoi ni retrait. */
+  composerDisabled?: boolean;
 };
 
 export function RequestConversationPanel({
@@ -231,6 +233,7 @@ export function RequestConversationPanel({
   open,
   onClose,
   onMarkedRead,
+  composerDisabled = false,
 }: Props) {
   const [rows, setRows] = useState<RequestCommentRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -400,7 +403,7 @@ export function RequestConversationPanel({
                     ) : (
                       <p className="mt-1 whitespace-pre-wrap text-foreground">{m.comment_text}</p>
                     )}
-                    {self && !deleted ? (
+                    {self && !deleted && !composerDisabled ? (
                       <div className="mt-1.5 flex justify-end">
                         <button
                           type="button"
@@ -420,29 +423,46 @@ export function RequestConversationPanel({
         </div>
 
         <div className="border-t border-border bg-muted/20 px-4 py-3">
-          {err ? (
-            <p className="mb-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] text-destructive">{err}</p>
-          ) : null}
-          <label className="block text-[10px] font-semibold text-foreground">
-            Votre message
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value.slice(0, REQUEST_CONVERSATION_MESSAGE_MAX))}
-              rows={3}
-              maxLength={REQUEST_CONVERSATION_MESSAGE_MAX}
-              placeholder="Précision, question…"
-              className="mt-1 w-full resize-y rounded-lg border border-input bg-background px-2 py-2 text-[12px] leading-relaxed text-foreground placeholder:text-muted-foreground/70"
-            />
-          </label>
-          <div className="mt-1 flex items-center justify-between gap-2">
-            <span className="text-[9px] tabular-nums text-muted-foreground">
-              {draft.length}/{REQUEST_CONVERSATION_MESSAGE_MAX}
-            </span>
-            <Button type="button" size="sm" disabled={sending || draft.trim().length === 0} onClick={() => void send()} className="h-8 gap-1 text-xs">
-              <Send className="size-3.5" aria-hidden />
-              {sending ? "Envoi…" : "Envoyer"}
-            </Button>
-          </div>
+          {composerDisabled ? (
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              Cette demande est fermée — la conversation est en lecture seule. Pour échanger à nouveau, créez une
+              nouvelle demande de produits si besoin.
+            </p>
+          ) : (
+            <>
+              {err ? (
+                <p className="mb-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] text-destructive">
+                  {err}
+                </p>
+              ) : null}
+              <label className="block text-[10px] font-semibold text-foreground">
+                Votre message
+                <textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value.slice(0, REQUEST_CONVERSATION_MESSAGE_MAX))}
+                  rows={3}
+                  maxLength={REQUEST_CONVERSATION_MESSAGE_MAX}
+                  placeholder="Précision, question…"
+                  className="mt-1 w-full resize-y rounded-lg border border-input bg-background px-2 py-2 text-[12px] leading-relaxed text-foreground placeholder:text-muted-foreground/70"
+                />
+              </label>
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <span className="text-[9px] tabular-nums text-muted-foreground">
+                  {draft.length}/{REQUEST_CONVERSATION_MESSAGE_MAX}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={sending || draft.trim().length === 0}
+                  onClick={() => void send()}
+                  className="h-8 gap-1 text-xs"
+                >
+                  <Send className="size-3.5" aria-hidden />
+                  {sending ? "Envoi…" : "Envoyer"}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

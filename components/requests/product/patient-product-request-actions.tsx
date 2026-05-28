@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
   ChevronDown,
@@ -79,8 +79,24 @@ import {
   peekPatientDemandeCatalogueReturnEdit,
   readPatientDemandeProduitsDraft,
   writePatientDemandeProduitsDraft,
+  writePatientDemandeProduitsNote,
   type PatientDemandeProduitsDraftLine,
 } from "@/lib/patient-demande-produits-draft";
+import { buildPatientDemandeProduitsDraftFromArchiveRequest } from "@/lib/patient-expired-request-draft";
+import {
+  findTerminalStatusHistoryEntry,
+  patientAbandonedDossierStatusHintFr,
+  patientCancelledDossierStatusHintFr,
+  patientClosedDossierStatusHintFr,
+  patientExpiredDossierStatusHintFr,
+  isPatientProductClosedArchiveStatus,
+} from "@/lib/patient-archive-outcome-fr";
+import {
+  bucketPatientClosedArchiveLines,
+  PATIENT_CLOSED_ARCHIVE_BUCKET_ORDER,
+  patientClosedArchiveBucketTitleFr,
+  patientClosedArchiveClosureLabelFr,
+} from "@/lib/patient-closed-archive-line-buckets";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
@@ -279,7 +295,7 @@ function validatedLineShellClass(
 }
 
 /** Cartes condensées : produits validés après confirmation (alignées répondue / envoyée). */
-function PatientValidatedCompactLineCard({
+export function PatientValidatedCompactLineCard({
   row,
   tier,
   onOpenHistory,
@@ -646,89 +662,436 @@ function patientArchiveClosureLabelFr(row: ActionItemRow): string | null {
   return null;
 }
 
-/** Dossier clôturé : produits récupérés en tête, autres groupes atténués. */
-function PatientClosedProductBucketsView({
+function validatedTierForClosedArchiveRow(row: ActionItemRow): "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation" {
+  const { dispoOfficine, aCommander, horsPerimetre } = bucketPatientValidatedLinesThreeWays([row]);
+  if (dispoOfficine.some((r) => r.id === row.id)) return "dispo_officine";
+  if (aCommander.some((r) => r.id === row.id)) return "commande";
+  if (horsPerimetre.some((r) => r.id === row.id)) return "hors_perimetre";
+  return row.withdrawn_after_confirm ? "retire_apres_validation" : "dispo_officine";
+}
+
+function closedArchiveBucketSectionClass(
+  bucketId: (typeof PATIENT_CLOSED_ARCHIVE_BUCKET_ORDER)[number]
+): string {
+  switch (bucketId) {
+    case "recuperes":
+      return "border-emerald-300/90 bg-emerald-50/40 ring-emerald-200/65";
+    case "ecartes":
+      return "border-red-200/85 bg-red-50/30 ring-red-100/70";
+    case "non_retenus":
+      return "border-sky-200/60 bg-sky-50/25 ring-sky-100/55";
+    default:
+      return "border-slate-200/80 bg-slate-50/50";
+  }
+}
+
+/** Archive patient : même disposition que l’écran « gelé » avant fermeture (lecture seule). */
+function PatientArchiveFrozenProductsView({
+  snapshotStatus,
+  terminalStatus,
   items,
+  archiveSel,
+  productsSectionTitle,
+  badgeForRow,
+  requestType,
+  supplyAmendmentBundles,
+  pricingConfig,
   onOpenLineHistory,
   onPhotoPreview,
   pharmacistProposedBadgeLabel,
-  requestType = "product_request",
-  supplyAmendmentBundles = [],
-  pricingConfig = null,
+  resolveCatalogUnitPriceForProduct,
 }: {
+  snapshotStatus: import("@/lib/request-archive-snapshot-status").RequestArchiveSnapshotStatus;
+  terminalStatus: string;
   items: ActionItemRow[];
+  archiveSel: Record<string, LineSelState>;
+  productsSectionTitle: string;
+  badgeForRow: (row: ActionItemRow) => string | undefined;
+  requestType: string;
+  supplyAmendmentBundles: { amendments: unknown }[];
+  pricingConfig: PharmacyPricingConfig | null;
   onOpenLineHistory: (itemId: string) => void;
   onPhotoPreview: (url: string, title: string) => void;
   pharmacistProposedBadgeLabel: string;
-  requestType?: string;
-  supplyAmendmentBundles?: { amendments: unknown }[];
-  pricingConfig?: PharmacyPricingConfig | null;
+  resolveCatalogUnitPriceForProduct: (
+    productId: string,
+    embed: {
+      product_type?: string | null;
+      price_pph?: number | null;
+      price_ppv?: number | null;
+      laboratory?: string | null;
+    } | null
+  ) => number | null;
 }) {
-  const recuperes = items.filter(
-    (r) => r.is_selected_by_patient && (r.counter_outcome ?? "unset") === "picked_up"
-  );
-  const nonRetenues = items.filter((r) => !r.is_selected_by_patient);
-  const ecartes = items.filter(
-    (r) => r.is_selected_by_patient && r.withdrawn_after_confirm && (r.counter_outcome ?? "unset") !== "picked_up"
-  );
-  const autresRetenus = items.filter(
-    (r) =>
-      r.is_selected_by_patient &&
-      !r.withdrawn_after_confirm &&
-      (r.counter_outcome ?? "unset") !== "picked_up"
-  );
+  const noop = () => {};
 
-  const renderList = (rows: ActionItemRow[], tier: "dispo_officine" | "retire_apres_validation") => (
-    <ul className="space-y-2">
-      {rows.map((row) => (
-        <PatientValidatedCompactLineCard
-          key={row.id}
-          row={row}
-          tier={tier}
-          onOpenHistory={() => onOpenLineHistory(row.id)}
-          requestStatusForCard="treated"
-          archiveClosureLabel={patientArchiveClosureLabelFr(row)}
-          onPhotoPreview={onPhotoPreview}
-          pharmacistProposedBadgeLabel={pharmacistProposedBadgeLabel}
-          requestType={requestType}
-          supplyAmendmentBundles={supplyAmendmentBundles}
-          pricingConfig={pricingConfig}
-        />
-      ))}
-    </ul>
+  if (snapshotStatus === "submitted" || snapshotStatus === "in_review") {
+    return (
+      <section className="mt-4 space-y-2 opacity-95">
+        <h3 className="px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+          {productsSectionTitle}
+        </h3>
+        <ul className="w-full min-w-0 space-y-1.5">
+          {items.map((row) => {
+            const prod = one(row.products);
+            const unit = validatedBranchUnitPriceMad(row, pricingConfig, row.product_id);
+            return (
+              <PatientProductRequestCompactLine
+                key={row.id}
+                line={{
+                  product_id: row.product_id,
+                  name: prod?.name ?? "Produit",
+                  photo_url: prod?.photo_url ?? null,
+                  qty: row.requested_qty,
+                  client_comment: row.client_comment ?? "",
+                  line_source: row.line_source,
+                  pharmacist_proposal_reason: row.pharmacist_proposal_reason,
+                }}
+                unitPrice={unit}
+                editMode={false}
+                onPhotoPreview={() => {
+                  const url = prod?.photo_url;
+                  if (url) onPhotoPreview(resolvePublicMediaUrl(url) ?? url, prod?.name ?? "Produit");
+                }}
+                onSetQty={noop}
+              />
+            );
+          })}
+        </ul>
+      </section>
+    );
+  }
+
+  if (snapshotStatus === "responded") {
+    const respondedBuckets = bucketPatientRespondedLines(items, requestType, supplyAmendmentBundles);
+    return (
+      <section className="mt-4 space-y-3 opacity-95">
+        <h3 className="px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+          {productsSectionTitle}
+        </h3>
+        <div className="space-y-3">
+          {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
+            const rows = respondedBuckets[bucketId];
+            if (rows.length === 0) return null;
+            return (
+              <section key={bucketId} className="space-y-2">
+                <h4 className="px-0.5 text-[10px] font-extrabold uppercase tracking-wide text-sky-900/90">
+                  {patientRespondedBucketTitleFr(bucketId)}
+                  <span className="ml-1 font-bold tabular-nums text-muted-foreground">· {rows.length}</span>
+                </h4>
+                <ul className="w-full min-w-0 space-y-2.5 overflow-visible">
+                  {rows.map((row) => (
+                    <RespondedPatientLineChooser
+                      key={row.id}
+                      row={row}
+                      selState={archiveSel[row.id] ?? emptyLineSelState()}
+                      setLineBranch={noop}
+                      setLineQty={noop}
+                      toggleLineRetention={noop}
+                      onPhotoPreview={onPhotoPreview}
+                      pharmacistProposedBadgeLabel={badgeForRow(row) ?? pharmacistProposedBadgeLabel}
+                      requestType={requestType}
+                      supplyAmendmentBundles={supplyAmendmentBundles}
+                      resolveCatalogUnitPrice={resolveCatalogUnitPriceForProduct}
+                      readOnly
+                    />
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
+
+  if (isPatientProductClosedArchiveStatus(terminalStatus)) {
+    const closedBuckets = bucketPatientClosedArchiveLines(items);
+    const pickedUpTotals = monetaryTotalsForRetainedLines(closedBuckets.recuperes, terminalStatus, pricingConfig);
+
+    const renderClosedValidatedCard = (row: ActionItemRow) => (
+      <PatientValidatedCompactLineCard
+        key={row.id}
+        row={row}
+        tier={validatedTierForClosedArchiveRow(row)}
+        onOpenHistory={() => onOpenLineHistory(row.id)}
+        requestStatusForCard={terminalStatus}
+        archiveClosureLabel={patientClosedArchiveClosureLabelFr(row)}
+        onPhotoPreview={onPhotoPreview}
+        pharmacistProposedBadgeLabel={badgeForRow(row) ?? pharmacistProposedBadgeLabel}
+        requestType={requestType}
+        supplyAmendmentBundles={supplyAmendmentBundles}
+        pricingConfig={pricingConfig}
+      />
+    );
+
+    return (
+      <section className="mt-4 space-y-3 opacity-95">
+        <h3 className="px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+          {productsSectionTitle}
+        </h3>
+
+        {PATIENT_CLOSED_ARCHIVE_BUCKET_ORDER.map((bucketId) => {
+          const rows = closedBuckets[bucketId];
+          if (rows.length === 0) return null;
+
+          if (bucketId === "non_retenus") {
+            return (
+              <details
+                key={bucketId}
+                className={clsx(
+                  "group rounded-xl border-2 ring-1",
+                  closedArchiveBucketSectionClass(bucketId)
+                )}
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-sky-950 [&::-webkit-details-marker]:hidden">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wide">
+                    {patientClosedArchiveBucketTitleFr(bucketId)}
+                    <span className="ml-1 font-bold tabular-nums text-muted-foreground">· {rows.length}</span>
+                  </span>
+                  <ChevronDown
+                    className="size-3.5 shrink-0 text-sky-700 transition-transform group-open:rotate-180"
+                    aria-hidden
+                  />
+                </summary>
+                <ul className="space-y-2 border-t border-sky-200/50 px-2.5 py-2">
+                  {rows.map((row) => (
+                    <PatientTraceNotRetainedRow
+                      key={row.id}
+                      row={row}
+                      requestType={requestType}
+                      onOpenHistory={() => onOpenLineHistory(row.id)}
+                      onPhotoPreview={onPhotoPreview}
+                    />
+                  ))}
+                </ul>
+              </details>
+            );
+          }
+
+          return (
+            <section
+              key={bucketId}
+              className={clsx("space-y-2 rounded-xl border-2 p-2 ring-1", closedArchiveBucketSectionClass(bucketId))}
+            >
+              <div className="flex flex-nowrap items-center justify-between gap-2 px-0.5">
+                <h4
+                  className={clsx(
+                    "min-w-0 text-[11px] font-extrabold uppercase tracking-wide",
+                    bucketId === "recuperes" ? "text-emerald-950" : "text-red-950"
+                  )}
+                >
+                  {patientClosedArchiveBucketTitleFr(bucketId)}
+                  <span className="ml-1 font-bold tabular-nums text-muted-foreground">· {rows.length}</span>
+                </h4>
+                {bucketId === "recuperes" ? (
+                  <p className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-emerald-900">
+                    {compactTotalMadLabel({
+                      sumKnown: pickedUpTotals.sumKnown,
+                      missingPrice: pickedUpTotals.missingPrice,
+                      empty: pickedUpTotals.count < 1,
+                    })}
+                  </p>
+                ) : null}
+              </div>
+              <ul className="space-y-2.5">
+                {rows.map((row) => renderClosedValidatedCard(row))}
+              </ul>
+            </section>
+          );
+        })}
+
+        {pickedUpTotals.count > 0 ? (
+          <div className="flex flex-nowrap items-center justify-between gap-3 rounded-lg border border-emerald-200/80 bg-white/80 px-3 py-2.5 shadow-sm">
+            <p className="text-sm font-medium text-slate-700">
+              <span className="font-bold tabular-nums text-slate-950">{pickedUpTotals.count}</span>{" "}
+              {pickedUpTotals.count > 1 ? "produits récupérés" : "produit récupéré"}
+            </p>
+            <p className="shrink-0 text-lg font-bold tabular-nums text-emerald-900">
+              {compactTotalMadLabel({
+                sumKnown: pickedUpTotals.sumKnown,
+                missingPrice: pickedUpTotals.missingPrice,
+                empty: pickedUpTotals.count < 1,
+              })}
+            </p>
+          </div>
+        ) : null}
+      </section>
+    );
+  }
+
+  const { dispoOfficine, aCommander, horsPerimetre, retireesApresValidation } =
+    bucketPatientValidatedLinesThreeWays(items);
+  const dispoRetenues = dispoOfficine.filter((r) => r.is_selected_by_patient);
+  const aCommanderRetenues = aCommander.filter((r) => r.is_selected_by_patient);
+  const horsPerimetreRetenues = horsPerimetre.filter((r) => r.is_selected_by_patient);
+  const lignesNonRetenues = items.filter((r) => !r.is_selected_by_patient);
+  const subtotalDispo = monetaryTotalsForRetainedLines(dispoRetenues, terminalStatus, pricingConfig);
+  const subtotalCommande = monetaryTotalsForRetainedLines(aCommanderRetenues, terminalStatus, pricingConfig);
+  const isTreatedSnapshot = snapshotStatus === "treated";
+  const cardStatus = isTreatedSnapshot ? "treated" : terminalStatus;
+  const totalsRetained = monetaryTotalsForRetainedLines(
+    items.filter((r) => r.is_selected_by_patient && !r.withdrawn_after_confirm),
+    terminalStatus,
+    pricingConfig
   );
 
   return (
-    <div className="space-y-3">
-      {recuperes.length > 0 ? (
-        <section className="rounded-xl border-2 border-sky-300/80 bg-gradient-to-b from-sky-50/55 via-white to-white p-2.5 shadow-md ring-1 ring-sky-200/60 sm:p-3">
-          <div className="mb-2 flex items-center gap-1.5 text-sky-950">
-            <Package className="size-4 shrink-0 text-sky-700" aria-hidden />
-            <h3 className="text-[11px] font-bold uppercase tracking-wide">
-              Produits récupérés ({recuperes.length})
-            </h3>
+    <section className="mt-4 space-y-3 opacity-95">
+      <h3 className="px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+        {productsSectionTitle}
+      </h3>
+
+      {dispoRetenues.length > 0 ? (
+        <section className="space-y-2 rounded-xl border-2 border-sky-300/90 bg-sky-50/35 p-2 ring-1 ring-sky-200/60">
+          <div className="flex flex-nowrap items-center justify-between gap-2 px-0.5 text-sky-950">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Package className="size-4 shrink-0 text-sky-700" aria-hidden />
+              <h4
+                className={clsx(
+                  "min-w-0 font-extrabold uppercase tracking-wide text-sky-950",
+                  isTreatedSnapshot ? "text-[10px] leading-snug sm:text-[11px]" : "text-[11px]"
+                )}
+              >
+                {isTreatedSnapshot
+                  ? "Produits réservés pour vous et en attente de votre passage"
+                  : `À réserver · ${dispoRetenues.length}`}
+              </h4>
+            </div>
+            <p className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-sky-800">
+              {compactTotalMadLabel({
+                sumKnown: subtotalDispo.sumKnown,
+                missingPrice: subtotalDispo.missingPrice,
+                empty: subtotalDispo.count < 1,
+              })}
+            </p>
           </div>
-          {renderList(recuperes, "dispo_officine")}
+          <ul className="space-y-2.5">
+            {dispoRetenues.map((row) => (
+              <PatientValidatedCompactLineCard
+                key={row.id}
+                row={row}
+                tier="dispo_officine"
+                onOpenHistory={() => onOpenLineHistory(row.id)}
+                requestStatusForCard={cardStatus}
+                archiveClosureLabel={patientArchiveClosureLabelFr(row)}
+                onPhotoPreview={onPhotoPreview}
+                pharmacistProposedBadgeLabel={badgeForRow(row) ?? pharmacistProposedBadgeLabel}
+                requestType={requestType}
+                supplyAmendmentBundles={supplyAmendmentBundles}
+                pricingConfig={pricingConfig}
+              />
+            ))}
+          </ul>
         </section>
       ) : null}
 
-      {autresRetenus.length > 0 ? (
-        <section className="rounded-xl border border-slate-200/80 bg-slate-50/40 p-2 opacity-90">
-          <h3 className="text-[10px] font-bold uppercase tracking-wide text-slate-700">
-            Autres produits retenus ({autresRetenus.length})
-          </h3>
-          <div className="mt-1.5">{renderList(autresRetenus, "dispo_officine")}</div>
+      {aCommanderRetenues.length > 0 ? (
+        <section className="space-y-2 rounded-xl border-2 border-teal-400/85 bg-teal-50/40 p-2 ring-1 ring-teal-200/65">
+          <div className="flex flex-nowrap items-center justify-between gap-2 px-0.5 text-teal-950">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <ShoppingCart className="size-4 shrink-0 text-teal-800" aria-hidden />
+              <h4
+                className={clsx(
+                  "min-w-0 font-extrabold uppercase tracking-wide text-teal-950",
+                  isTreatedSnapshot ? "text-[10px] leading-snug sm:text-[11px]" : "text-[11px]"
+                )}
+              >
+                {isTreatedSnapshot ? "Produits commandés pour vous" : `À commander · ${aCommanderRetenues.length}`}
+              </h4>
+            </div>
+            <p className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-teal-900">
+              {compactTotalMadLabel({
+                sumKnown: subtotalCommande.sumKnown,
+                missingPrice: subtotalCommande.missingPrice,
+                empty: subtotalCommande.count < 1,
+              })}
+            </p>
+          </div>
+          <ul className="space-y-2.5">
+            {aCommanderRetenues.map((row) => (
+              <PatientValidatedCompactLineCard
+                key={row.id}
+                row={row}
+                tier="commande"
+                onOpenHistory={() => onOpenLineHistory(row.id)}
+                requestStatusForCard={cardStatus}
+                archiveClosureLabel={patientArchiveClosureLabelFr(row)}
+                onPhotoPreview={onPhotoPreview}
+                pharmacistProposedBadgeLabel={badgeForRow(row) ?? pharmacistProposedBadgeLabel}
+                requestType={requestType}
+                supplyAmendmentBundles={supplyAmendmentBundles}
+                pricingConfig={pricingConfig}
+              />
+            ))}
+          </ul>
         </section>
       ) : null}
 
-      {nonRetenues.length > 0 ? (
-        <details className="group rounded-xl border border-slate-200/70 bg-slate-50/30 opacity-80">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold text-slate-700 marker:content-none [&::-webkit-details-marker]:hidden">
-            <span>Produits non retenus ({nonRetenues.length})</span>
-            <ChevronDown className="size-3.5 shrink-0 transition-transform group-open:rotate-180" aria-hidden />
+      {horsPerimetreRetenues.length > 0 ? (
+        <section className="space-y-2 rounded-xl border border-amber-200/80 bg-amber-50/25 p-2 ring-1 ring-amber-100/60">
+          <div className="flex items-center gap-1.5 px-0.5 text-amber-950">
+            <Layers className="size-4 shrink-0 text-amber-800" aria-hidden />
+            <h4 className="text-[11px] font-extrabold uppercase tracking-wide">Point d&apos;attention</h4>
+          </div>
+          <ul className="space-y-2.5">
+            {horsPerimetreRetenues.map((row) => (
+              <PatientValidatedCompactLineCard
+                key={row.id}
+                row={row}
+                tier="hors_perimetre"
+                onOpenHistory={() => onOpenLineHistory(row.id)}
+                requestStatusForCard={cardStatus}
+                archiveClosureLabel={patientArchiveClosureLabelFr(row)}
+                onPhotoPreview={onPhotoPreview}
+                pharmacistProposedBadgeLabel={badgeForRow(row) ?? pharmacistProposedBadgeLabel}
+                requestType={requestType}
+                supplyAmendmentBundles={supplyAmendmentBundles}
+                pricingConfig={pricingConfig}
+              />
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {retireesApresValidation.length > 0 ? (
+        <details className="group rounded-xl border border-red-200/85 bg-red-50/30 ring-1 ring-red-100/70">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-red-950 [&::-webkit-details-marker]:hidden">
+            <span className="text-[11px] font-extrabold uppercase tracking-wide">
+              Écart après validation · {retireesApresValidation.length}
+            </span>
+            <ChevronDown className="size-3.5 shrink-0 text-red-700 transition-transform group-open:rotate-180" aria-hidden />
           </summary>
-          <ul className="space-y-1 border-t border-slate-200/60 px-2 py-1.5">
-            {nonRetenues.map((row) => (
+          <div className="space-y-2 border-t border-red-200/70 px-2.5 pb-2.5 pt-2">
+            <ul className="space-y-2.5">
+              {retireesApresValidation.map((row) => (
+                <PatientValidatedCompactLineCard
+                  key={row.id}
+                  row={row}
+                  tier="retire_apres_validation"
+                  onOpenHistory={() => onOpenLineHistory(row.id)}
+                  requestStatusForCard={cardStatus}
+                  archiveClosureLabel={patientArchiveClosureLabelFr(row)}
+                  onPhotoPreview={onPhotoPreview}
+                  pharmacistProposedBadgeLabel={badgeForRow(row) ?? pharmacistProposedBadgeLabel}
+                  requestType={requestType}
+                  supplyAmendmentBundles={supplyAmendmentBundles}
+                  pricingConfig={pricingConfig}
+                />
+              ))}
+            </ul>
+          </div>
+        </details>
+      ) : null}
+
+      {lignesNonRetenues.length > 0 ? (
+        <details className="group rounded-lg border border-sky-200/60 bg-sky-50/25">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold text-sky-950 [&::-webkit-details-marker]:hidden">
+            <span>Lignes non retenues ({lignesNonRetenues.length})</span>
+            <ChevronDown className="size-3.5 shrink-0 text-sky-700 transition-transform group-open:rotate-180" aria-hidden />
+          </summary>
+          <ul className="space-y-2 border-t border-sky-200/50 px-2.5 py-2">
+            {lignesNonRetenues.map((row) => (
               <PatientTraceNotRetainedRow
                 key={row.id}
                 row={row}
@@ -741,16 +1104,22 @@ function PatientClosedProductBucketsView({
         </details>
       ) : null}
 
-      {ecartes.length > 0 ? (
-        <details className="group rounded-xl border border-amber-200/60 bg-amber-50/20 opacity-85">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold text-amber-950 marker:content-none [&::-webkit-details-marker]:hidden">
-            <span>Produits écartés après validation ({ecartes.length})</span>
-            <ChevronDown className="size-3.5 shrink-0 transition-transform group-open:rotate-180" aria-hidden />
-          </summary>
-          <div className="border-t border-amber-200/50 px-2 py-1.5">{renderList(ecartes, "retire_apres_validation")}</div>
-        </details>
+      {totalsRetained.count > 0 ? (
+        <div className="flex flex-nowrap items-center justify-between gap-3 rounded-lg border border-slate-200/80 bg-white/80 px-3 py-2.5 shadow-sm">
+          <p className="text-sm font-medium text-slate-700">
+            <span className="font-bold tabular-nums text-slate-950">{totalsRetained.count}</span>{" "}
+            {totalsRetained.count > 1 ? "produits retenus" : "produit retenu"}
+          </p>
+          <p className="shrink-0 text-lg font-bold tabular-nums text-sky-900">
+            {compactTotalMadLabel({
+              sumKnown: totalsRetained.sumKnown,
+              missingPrice: totalsRetained.missingPrice,
+              empty: totalsRetained.count < 1,
+            })}
+          </p>
+        </div>
       ) : null}
-    </div>
+    </section>
   );
 }
 
@@ -1019,7 +1388,10 @@ type Props = {
     submitted_at: string | null;
     responded_at: string | null;
     confirmed_at: string | null;
+    expires_at?: string | null;
   };
+  /** Note globale saisie à l’envoi (product_requests.patient_note). */
+  productPatientNote?: string | null;
   /** `request_status_history` (filtre audit par produit dans le modal). */
   dossierHistoryRows?: { id: string; created_at: string; old_status: string | null; new_status: string; reason: string | null }[];
   /** Pour lien annuaire + récap « envoyées ». */
@@ -1032,6 +1404,8 @@ type Props = {
   summaryInPageChrome?: boolean;
   /** Dossier modifié côté serveur pendant la saisie — actualisation requise. */
   detailStale?: { title: string; message: string } | null;
+  /** Statut DB juste avant fermeture (annulée, abandonnée, etc.). */
+  archiveTerminalOldStatus?: string | null;
 };
 
 export function buildPatientSummaryStatusHint(
@@ -1523,8 +1897,11 @@ export function PatientProductRequestActions({
   prescriptionNote = null,
   summaryInPageChrome = false,
   detailStale = null,
+  archiveTerminalOldStatus = null,
+  productPatientNote = null,
 }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const kindConfig = getRequestKindConfig(requestType);
   const workflowCopy = kindConfig.copy.workflow;
   const accent = kindConfig.theme.accent;
@@ -2283,8 +2660,20 @@ export function PatientProductRequestActions({
   }, [status, lines, resubmitBaseline]);
 
   const readOnlyArchive = isPatientProductArchiveStatus(status);
+  const uiStatus = readOnlyArchive
+    ? inferArchiveSnapshotStatus(status, {
+        responded_at: requestTimelineMeta?.responded_at,
+        confirmed_at: requestTimelineMeta?.confirmed_at,
+        items,
+        terminalTransitionOldStatus: archiveTerminalOldStatus,
+      })
+    : status;
+  const forceReadOnly = readOnlyArchive;
+  const isTreatedActiveView = status === "treated" && !forceReadOnly;
+  const showArchivePassageLine =
+    readOnlyArchive && (uiStatus === "confirmed" || uiStatus === "treated");
   const treatedPassageLine = useMemo(() => {
-    if (status !== "treated" || readOnlyArchive) return "";
+    if (!isTreatedActiveView && !showArchivePassageLine) return "";
     const dateYmd = (initialPlannedVisitDate ?? "").trim() || resolvedVisitDate;
     const timePg =
       visitTimeComposed.trim() !== ""
@@ -2292,21 +2681,21 @@ export function PatientProductRequestActions({
         : (initialPlannedVisitTime ?? null);
     return patientPlannedVisitPassageLineFr(dateYmd, timePg);
   }, [
-    status,
-    readOnlyArchive,
+    isTreatedActiveView,
+    showArchivePassageLine,
     initialPlannedVisitDate,
     initialPlannedVisitTime,
     resolvedVisitDate,
     visitTimeComposed,
   ]);
-  const uiStatus = readOnlyArchive
-    ? inferArchiveSnapshotStatus(status, {
-        responded_at: requestTimelineMeta?.responded_at,
-        confirmed_at: requestTimelineMeta?.confirmed_at,
-        items,
-      })
-    : status;
-  const forceReadOnly = readOnlyArchive;
+
+  const archiveSel = useMemo(() => {
+    if (!readOnlyArchive) return {} as Record<string, LineSelState>;
+    if (uiStatus === "confirmed" || uiStatus === "treated") {
+      return computeSelFromConfirmedItems(items);
+    }
+    return computeSelFromItems(items);
+  }, [readOnlyArchive, uiStatus, items]);
   const interactiveAllowed =
     !readOnlyArchive &&
     (status === "submitted" ||
@@ -2347,7 +2736,10 @@ export function PatientProductRequestActions({
   const canPatientRevalidateConfirmation =
     uiStatus === "confirmed" && !forceReadOnly && requestType === "product_request";
   const showProductResubmit =
-    !isPrescription && !isConsultation && (uiStatus === "submitted" || uiStatus === "in_review");
+    !forceReadOnly &&
+    !isPrescription &&
+    !isConsultation &&
+    (uiStatus === "submitted" || uiStatus === "in_review");
   const showConsultationWaiting =
     isConsultation && (uiStatus === "submitted" || uiStatus === "in_review");
   const showPrescriptionWaiting =
@@ -2370,12 +2762,10 @@ export function PatientProductRequestActions({
     (showPrescriptionWaiting && !forceReadOnly) ||
     ((showConfirm || showConfirmedCards) && !forceReadOnly);
   /** Date/heure de passage : à la validation (responded) et pour modifier après coup. */
-  const showVisitFields = showConfirm || showConfirmedCards;
+  const showVisitFields = (showConfirm || showConfirmedCards) && !forceReadOnly;
   const visitFieldsEditable = showVisitFields && !forceReadOnly;
 
   const visitTimeFr = visitTimeComposed ? formatTime24hFr(htmlTimeToPg(visitTimeComposed) ?? visitTimeComposed) : "";
-
-  const isTreatedActiveView = status === "treated" && !forceReadOnly;
 
   const dossierRefLabel = requestPublicRef?.trim() || `Dossier ${requestId.slice(0, 8)}…`;
 
@@ -2389,6 +2779,60 @@ export function PatientProductRequestActions({
     !isConsultation &&
     (showConfirm || showConfirmedCards || showProductResubmit) &&
     !forceReadOnly;
+  const useArchiveShell = forceReadOnly && !isConsultation && requestType === "product_request";
+  const isExpiredProductArchive = status === "expired" && requestType === "product_request";
+  const isCancelledProductArchive = status === "cancelled" && requestType === "product_request";
+  const isAbandonedProductArchive = status === "abandoned" && requestType === "product_request";
+  const isClosedProductArchive =
+    isPatientProductClosedArchiveStatus(status) && requestType === "product_request";
+  const isDossierTerminalArchive =
+    isExpiredProductArchive ||
+    isCancelledProductArchive ||
+    isAbandonedProductArchive ||
+    isClosedProductArchive;
+  const isResubmitDraftArchive =
+    isExpiredProductArchive || isCancelledProductArchive || isAbandonedProductArchive;
+  const terminalHistoryEntry = isDossierTerminalArchive
+    ? findTerminalStatusHistoryEntry(dossierHistoryRows, status)
+    : null;
+  const archiveDossierStatusLabel = isExpiredProductArchive
+    ? "expired"
+    : isCancelledProductArchive
+      ? "cancelled"
+      : isAbandonedProductArchive
+        ? "abandoned"
+        : isClosedProductArchive
+          ? status
+          : uiStatus;
+  const archiveDossierStatusHint = isExpiredProductArchive
+    ? patientExpiredDossierStatusHintFr({
+        expiredAt: terminalHistoryEntry?.created_at ?? null,
+        expiresAt: requestTimelineMeta?.expires_at ?? null,
+        respondedAt: requestTimelineMeta?.responded_at ?? null,
+      })
+    : isCancelledProductArchive
+      ? patientCancelledDossierStatusHintFr(terminalHistoryEntry)
+      : isAbandonedProductArchive
+        ? patientAbandonedDossierStatusHintFr(terminalHistoryEntry)
+        : isClosedProductArchive
+          ? patientClosedDossierStatusHintFr({
+              terminalStatus: status,
+              items,
+              historyEntry: terminalHistoryEntry,
+            })
+          : "Archive — consultation seule, aucune modification possible.";
+
+  const openArchiveResubmitDraft = () => {
+    if (!pharmacyId) return;
+    clearPatientDemandeProduitsDraft(pharmacyId);
+    writePatientDemandeProduitsDraft(
+      pharmacyId,
+      buildPatientDemandeProduitsDraftFromArchiveRequest(items)
+    );
+    const note = productPatientNote?.trim();
+    if (note) writePatientDemandeProduitsNote(pharmacyId, note);
+    router.push(`/pharmacie/${pharmacyId}/demande-produits`);
+  };
 
   return (
     <section
@@ -2397,9 +2841,11 @@ export function PatientProductRequestActions({
         isConsultation ? "mt-0" : "mt-2",
         isConsultation
           ? "border-violet-200/80 bg-gradient-to-b from-violet-50/40 via-white to-fuchsia-50/15"
-          : useSkyProductShell
-            ? "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
-            : "border-slate-200 bg-slate-50/95",
+          : useArchiveShell
+            ? "border-slate-200/90 bg-slate-50/75 ring-1 ring-slate-200/65"
+            : useSkyProductShell
+              ? "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
+              : "border-slate-200 bg-slate-50/95",
         needsStickyFooterPad && "pb-40",
         isConsultation && showConsultationWaiting && !needsStickyFooterPad && "pb-2"
       )}
@@ -2408,7 +2854,7 @@ export function PatientProductRequestActions({
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
       ) : null}
 
-      {latestSupplyAmendmentNotice ? (
+      {latestSupplyAmendmentNotice && !forceReadOnly ? (
         <PatientPharmaUpdateBanner whenLabel={latestSupplyAmendmentNotice.whenLabel} bundles={supplyAmendmentBundles} />
       ) : null}
 
@@ -2419,7 +2865,10 @@ export function PatientProductRequestActions({
         </p>
       ) : null}
 
-      {(showWaitingShell || showConfirm || showConfirmedCards) && pharmacyId && !summaryInPageChrome && !forceReadOnly ? (
+      {(showWaitingShell || showConfirm || showConfirmedCards || useArchiveShell) &&
+      pharmacyId &&
+      !summaryInPageChrome &&
+      !forceReadOnly ? (
         showProductResubmit || showConfirm || showConfirmedCards ? (
           <PatientProductRequestDossierHeader
             dossierRefLabel={dossierRefLabel}
@@ -2450,7 +2899,48 @@ export function PatientProductRequestActions({
         )
       ) : null}
 
-      {isTreatedActiveView ? (
+      {useArchiveShell && pharmacyId ? (
+        <PatientProductRequestDossierHeader
+          dossierRefLabel={dossierRefLabel}
+          pharmacyContact={pharmacyContact ?? null}
+          pharmacyId={pharmacyId}
+          status={isDossierTerminalArchive ? archiveDossierStatusLabel : uiStatus}
+          statusHint={archiveDossierStatusHint}
+        />
+      ) : null}
+
+      {isClosedProductArchive && pharmacyId ? (
+        <div className="mt-3 rounded-xl border-2 border-emerald-200/80 bg-gradient-to-br from-emerald-50/90 via-white to-teal-50/40 px-3 py-3 text-center shadow-sm ring-1 ring-emerald-100/80">
+          <p className="text-sm font-bold text-emerald-950">Merci pour votre confiance</p>
+          <p className="mt-1.5 text-[11px] leading-snug text-emerald-900/90">
+            Votre officine a clos ce dossier. Nous espérons que votre passage s&apos;est bien passé et vous accueillir
+            à nouveau bientôt.
+          </p>
+        </div>
+      ) : null}
+
+      {isResubmitDraftArchive && pharmacyId ? (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={openArchiveResubmitDraft}
+            className={clsx(
+              "w-full rounded-lg px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition",
+              isCancelledProductArchive && "bg-rose-700 hover:bg-rose-800",
+              isAbandonedProductArchive && "bg-orange-700 hover:bg-orange-800",
+              isExpiredProductArchive && "bg-amber-700 hover:bg-amber-800"
+            )}
+          >
+            Ajuster et renvoyer une nouvelle demande
+          </button>
+          <p className="mt-1.5 text-center text-[10px] leading-snug text-muted-foreground">
+            Ouvre une nouvelle demande chez cette officine avec vos produits préremplis — vous validez l&apos;envoi sur
+            la page suivante.
+          </p>
+        </div>
+      ) : null}
+
+      {(isTreatedActiveView || showArchivePassageLine) && treatedPassageLine ? (
         <p
           className="mt-2 rounded-lg border-2 border-sky-400/55 bg-gradient-to-r from-sky-50 via-white to-sky-50/80 px-3 py-2.5 text-center text-[13px] font-semibold leading-snug text-sky-950 shadow-sm ring-1 ring-sky-200/60 sm:text-sm"
           role="status"
@@ -2488,7 +2978,25 @@ export function PatientProductRequestActions({
         />
       ) : null}
 
-      {showConfirm ? (
+      {forceReadOnly && requestType === "product_request" && !isConsultation ? (
+        <PatientArchiveFrozenProductsView
+          snapshotStatus={uiStatus}
+          terminalStatus={status}
+          items={items}
+          archiveSel={archiveSel}
+          productsSectionTitle={workflowCopy.patientProductsSectionTitle}
+          badgeForRow={badgeForRow}
+          requestType={requestType}
+          supplyAmendmentBundles={supplyAmendmentBundles}
+          pricingConfig={pricingConfig}
+          onOpenLineHistory={setHistoryModalItemId}
+          onPhotoPreview={openProductPhotoPreview}
+          pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
+          resolveCatalogUnitPriceForProduct={resolveCatalogUnitPriceForProduct}
+        />
+      ) : null}
+
+      {showConfirm && !forceReadOnly ? (
         <div className="mt-4 space-y-3">
           {items.length > 0 ? (
             <section className="space-y-3">
@@ -2541,23 +3049,6 @@ export function PatientProductRequestActions({
             </section>
           ) : null}
         </div>
-      ) : null}
-
-      {showConfirmedCards && forceReadOnly ? (
-        <section className="mt-4 space-y-2">
-          <h3 className="px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-            {workflowCopy.patientProductsSectionTitle}
-          </h3>
-          <PatientClosedProductBucketsView
-            items={items}
-            onOpenLineHistory={setHistoryModalItemId}
-            onPhotoPreview={openProductPhotoPreview}
-            pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
-            requestType={requestType}
-            supplyAmendmentBundles={supplyAmendmentBundles}
-            pricingConfig={pricingConfig}
-          />
-        </section>
       ) : null}
 
       {showConfirmedCards && !forceReadOnly ? (

@@ -8,6 +8,7 @@ import {
   ProductRequestLineMessageIconButton,
   ProductRequestLinePrices,
   ProductRequestLineQtyPicker,
+  ProductRequestLineQtyReadonly,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 
 /** Vignette répondue un peu plus haute que le panier standard (meilleure lisibilité). */
@@ -331,6 +332,7 @@ function RespondedLineBlock({
   isProposedLine,
   ajoutOfficineLabel = "Ajout Officine",
   variantTabsAbove = false,
+  readOnly = false,
 }: {
   variant: VariantData;
   retained: boolean;
@@ -343,6 +345,8 @@ function RespondedLineBlock({
   ajoutOfficineLabel?: string;
   /** Onglets Ta demande / Alternative au-dessus — case un peu plus basse pour ne pas gêner. */
   variantTabsAbove?: boolean;
+  /** Archive (expirée / annulée en répondue) : pas de case ni changement de qté. */
+  readOnly?: boolean;
 }) {
   const unavailable = variant.cap < 1;
   /** Avec onglets : PU/Tot/qty visibles sur l’onglet consulté (comparaison), pas seulement si cette branche est cochée. */
@@ -403,7 +407,7 @@ function RespondedLineBlock({
         >
           <Ban className="size-4 text-slate-500" strokeWidth={2.25} aria-hidden />
         </span>
-      ) : (
+      ) : readOnly ? null : (
         <label
           className={cn(
             "absolute -left-2 z-20 flex size-8 touch-manipulation cursor-pointer items-center justify-center rounded-md bg-white shadow ring-1 ring-sky-400/85 active:bg-sky-50",
@@ -489,11 +493,15 @@ function RespondedLineBlock({
             </div>
             <div className="flex shrink-0 items-center justify-end gap-2">
               {showQty ? (
+                readOnly ? (
+                  <ProductRequestLineQtyReadonly qty={selQty} />
+                ) : (
                 <ProductRequestLineQtyPicker
                   qty={selQty}
                   maxQty={variant.cap}
                   onSelect={(n) => onSetQty(Math.min(variant.cap, Math.max(1, n)))}
                 />
+                )
               ) : null}
               <RespondedLineNotesButton
                 productName={variant.productName}
@@ -536,6 +544,7 @@ export type RespondedChooserProps = {
   requestType: string;
   supplyAmendmentBundles: { amendments: unknown }[];
   resolveCatalogUnitPrice?: (productId: string, prod: RespondedProdBrief | null) => number | null;
+  readOnly?: boolean;
 };
 
 export function RespondedPatientLineChooser({
@@ -549,6 +558,7 @@ export function RespondedPatientLineChooser({
   requestType,
   supplyAmendmentBundles,
   resolveCatalogUnitPrice,
+  readOnly = false,
 }: RespondedChooserProps) {
   const prod = one(row.products);
   const altList = normalizeAlternatives(row.request_item_alternatives);
@@ -564,8 +574,10 @@ export function RespondedPatientLineChooser({
 
   const [browseTab, setBrowseTab] = useState("principal");
 
-  const activeTab =
-    selState.branch === null
+  /** En lecture seule (expirée, etc.) : l’onglet consulté suit `browseTab`, pas la branche retenue figée. */
+  const activeTab = readOnly
+    ? browseTab
+    : selState.branch === null
       ? browseTab
       : selState.branch === "principal"
         ? "principal"
@@ -662,11 +674,12 @@ export function RespondedPatientLineChooser({
 
   const activeVariant = variants.find((v) => v.tabId === activeTab) ?? variants[0]!;
   const activeBranch = branchFromTab(activeTab);
-  const retainedForTab = selState.branch === activeBranch;
+  const retainedForTab = readOnly ? true : selState.branch === activeBranch;
   const displayQty = lineSelQtyForBranch(selState, activeBranch, activeVariant.cap);
 
   const onTab = (tabId: string) => {
     setBrowseTab(tabId);
+    if (readOnly) return;
     if (selState.branch !== null) {
       const branch = branchFromTab(tabId);
       const cap = maxQtyForBranch(row, branch, altList);
@@ -684,7 +697,7 @@ export function RespondedPatientLineChooser({
         ) : null}
         <RespondedLineBlock
           variant={v}
-          retained={selState.branch === "principal"}
+          retained={readOnly ? true : selState.branch === "principal"}
           selQty={lineSelQtyForBranch(selState, "principal", v.cap)}
           onToggleRetain={(on) => toggleLineRetention(row.id, on, "principal")}
           onSetQty={(qty) => setLineQty(row.id, qty, "principal")}
@@ -692,6 +705,7 @@ export function RespondedPatientLineChooser({
           requestType={requestType}
           isProposedLine={isProposedLine}
           ajoutOfficineLabel={pharmacistProposedBadgeLabel}
+          readOnly={readOnly}
         />
       </li>
     );
@@ -701,7 +715,7 @@ export function RespondedPatientLineChooser({
     <li className="w-full min-w-0 overflow-visible rounded-xl border border-sky-300/75 bg-gradient-to-b from-sky-50/55 via-sky-50/20 to-white p-2 ring-1 ring-sky-200/50">
       <div className="px-0.5 pt-1 pb-2">
         <p className="mb-2 px-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-800/85">
-          Choisir une option
+          {readOnly ? "Consulter les options" : "Choisir une option"}
         </p>
         <RespondedVariantTabs
           tabs={variants.map((v) => ({
@@ -725,6 +739,7 @@ export function RespondedPatientLineChooser({
           isProposedLine={isProposedLine && activeTab === "principal"}
           ajoutOfficineLabel={pharmacistProposedBadgeLabel}
           variantTabsAbove
+          readOnly={readOnly}
         />
       </div>
     </li>

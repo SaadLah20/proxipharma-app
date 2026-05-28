@@ -11,6 +11,14 @@ import {
   PatientDemandeCard,
   type PatientRequestRow,
 } from "@/components/requests/demande-hub-ui";
+import { PatientProductDemandesDashboard } from "@/components/requests/product/patient-product-demandes-dashboard";
+import { PatientProductDemandeHubCard } from "@/components/requests/product/patient-product-demande-hub-card";
+import {
+  PATIENT_PRODUCT_HUB_SECTIONS,
+  rowsInPatientProductHubSection,
+  type PatientProductHubSectionId,
+} from "@/lib/patient-product-hub-sections";
+import { productRequestPublicTheme as productTheme } from "@/lib/request-kinds/product-request-public-theme";
 import { PageShell } from "@/components/ui/compact-shell";
 import { bucketForStatusParam } from "@/lib/demandes-hub-buckets";
 import { one } from "@/lib/embed";
@@ -43,7 +51,10 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const setTab = (t: HubTab) => {
     const next = new URLSearchParams(searchParams.toString());
     next.set("vue", tabToSearch(t));
-    if (t === "dashboard") next.delete("statut");
+    if (t === "dashboard") {
+      next.delete("statut");
+      next.delete("section");
+    }
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
 
@@ -60,7 +71,14 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const dashboardChrome = useMemo(() => hubDashboardChrome(kindId, "patient"), [kindId]);
 
   const statutParam = searchParams.get("statut");
+  const sectionParam = searchParams.get("section") as PatientProductHubSectionId | null;
   const activeBucket = bucketForStatusParam(statutParam, dashboardBuckets);
+  const activeProductSection =
+    kindId === "product_request" &&
+    sectionParam &&
+    PATIENT_PRODUCT_HUB_SECTIONS.some((s) => s.id === sectionParam)
+      ? sectionParam
+      : null;
 
   const load = useCallback(async () => {
     setError("");
@@ -133,7 +151,9 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
 
   const filteredSorted = useMemo(() => {
     let list = rowsWithDashboardStatus;
-    if (activeBucket) {
+    if (activeProductSection) {
+      list = rowsInPatientProductHubSection(list, activeProductSection);
+    } else if (activeBucket) {
       const allow = new Set(activeBucket.statuses);
       list = list.filter((r) => allow.has((r as { status_for_dashboard?: string }).status_for_dashboard ?? r.status));
     }
@@ -156,13 +176,23 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
       const tb = new Date(b.created_at).getTime();
       return sortNewestFirst ? tb - ta : ta - tb;
     });
-  }, [rowsWithDashboardStatus, activeBucket, pharmacyFilter, refQuery, sortNewestFirst]);
+  }, [rowsWithDashboardStatus, activeBucket, activeProductSection, pharmacyFilter, refQuery, sortNewestFirst]);
 
   const setStatutFilter = (key: string) => {
     const next = new URLSearchParams(searchParams.toString());
     next.set("vue", "liste");
     if (key === "") next.delete("statut");
     else next.set("statut", key);
+    next.delete("section");
+    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
+  };
+
+  const setProductSectionFilter = (sectionId: string) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("vue", "liste");
+    if (sectionId === "") next.delete("section");
+    else next.set("section", sectionId);
+    next.delete("statut");
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
 
@@ -209,20 +239,30 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
         ? "Annuaire → pharmacie → consultation libre."
         : "Annuaire → pharmacie → demande de produits.";
 
+  const isProductHub = kindId === "product_request";
+
   return (
-    <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
+    <PageShell
+      maxWidthClass="max-w-3xl"
+      className={clsx("space-y-4", isProductHub && "bg-gradient-to-b from-sky-50/40 via-slate-50 to-slate-50")}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Link href="/" className={clsx("text-xs font-medium", linkClass)}>
+          <Link
+            href="/"
+            className={clsx("text-xs font-medium", isProductHub ? productTheme.backLink : linkClass)}
+          >
             ← Annuaire
           </Link>
-          <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">{kindConfig.copy.patientHubTitle}</h1>
+          <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">
+            {kindConfig.copy.patientHubTitle}
+          </h1>
           <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">
             {kindId === "prescription"
               ? "Suivi de vos ordonnances envoyées aux pharmacies."
               : kindId === "free_consultation"
                 ? "Suivi de vos consultations libres : message, échange et proposition produits."
-                : "Suivi de vos demandes de produits auprès des pharmacies."}
+                : "Vos demandes de produits, classées par ce qui vous concerne, ce qui est chez l’officine et les archives."}
           </p>
         </div>
         <Link
@@ -270,23 +310,43 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
             </div>
           ) : (
             <div className="mt-4">
-              <DemandeStatDashboard
-                rows={rowsWithDashboardStatus}
-                buckets={dashboardBuckets}
-                basePath={hubPath}
-                dashboardTitle={dashboardChrome.title}
-                dashboardSubtitle={dashboardChrome.subtitle}
-              />
+              {isProductHub ? (
+                <PatientProductDemandesDashboard
+                  rows={rows}
+                  basePath={hubPath}
+                  unreadById={unreadById}
+                />
+              ) : (
+                <DemandeStatDashboard
+                  rows={rowsWithDashboardStatus}
+                  buckets={dashboardBuckets}
+                  basePath={hubPath}
+                  dashboardTitle={dashboardChrome.title}
+                  dashboardSubtitle={dashboardChrome.subtitle}
+                />
+              )}
             </div>
           )}
         </>
       ) : (
         <div className="mt-4 space-y-4">
-          <section className={filterShell}>
+          <section className={isProductHub ? clsx("rounded-xl border-2 p-3 shadow-sm", productTheme.shell, "bg-white/90") : filterShell}>
             <div className="flex items-center justify-between gap-2">
               <div>
-                <h2 className={clsx("text-xs font-bold uppercase tracking-wide", filterTitle)}>Filtres et recherche</h2>
-                <p className={clsx("text-[10px]", accent === "amber" ? "text-amber-900/85" : "text-sky-900/85")}>
+                <h2
+                  className={clsx(
+                    "text-xs font-bold uppercase tracking-wide",
+                    isProductHub ? "text-sky-950" : filterTitle
+                  )}
+                >
+                  Filtres et recherche
+                </h2>
+                <p
+                  className={clsx(
+                    "text-[10px]",
+                    isProductHub ? "text-sky-900/85" : accent === "amber" ? "text-amber-900/85" : "text-sky-900/85"
+                  )}
+                >
                   Saisissez une référence pour accès immédiat
                 </p>
               </div>
@@ -305,21 +365,39 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                     className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/70"
                   />
                 </label>
-                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Statut
-                  <select
-                    value={activeBucket?.key ?? ""}
-                    onChange={(e) => setStatutFilter(e.target.value)}
-                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
-                  >
-                    <option value="">Tous</option>
-                    {dashboardBuckets.map((b) => (
-                      <option key={b.key} value={b.key}>
-                        {b.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {isProductHub ? (
+                  <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2">
+                    Regroupement
+                    <select
+                      value={activeProductSection ?? ""}
+                      onChange={(e) => setProductSectionFilter(e.target.value)}
+                      className="rounded-md border border-sky-200/80 bg-background px-2 py-1.5 text-xs text-foreground"
+                    >
+                      <option value="">Toutes les demandes actives et archives</option>
+                      {PATIENT_PRODUCT_HUB_SECTIONS.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Statut
+                    <select
+                      value={activeBucket?.key ?? ""}
+                      onChange={(e) => setStatutFilter(e.target.value)}
+                      className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
+                    >
+                      <option value="">Tous</option>
+                      {dashboardBuckets.map((b) => (
+                        <option key={b.key} value={b.key}>
+                          {b.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Pharmacie
                   <select
@@ -367,10 +445,14 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                   : "Aucun résultat."}
             </p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-2.5">
               {filteredSorted.map((r) => (
                 <li key={r.id}>
-                  <PatientDemandeCard row={r} variant="list" conversationUnread={unreadById[r.id] === true} />
+                  {isProductHub ? (
+                    <PatientProductDemandeHubCard row={r} conversationUnread={unreadById[r.id] === true} />
+                  ) : (
+                    <PatientDemandeCard row={r} variant="list" conversationUnread={unreadById[r.id] === true} />
+                  )}
                 </li>
               ))}
             </ul>

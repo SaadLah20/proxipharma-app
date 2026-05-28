@@ -40,6 +40,10 @@ function draftKey(pharmacyId: string, requestId?: string): string {
   return `proxipharma:demande-produits:${pharmacyId}`;
 }
 
+function draftNoteKey(pharmacyId: string): string {
+  return `proxipharma:demande-produits-note:${pharmacyId}`;
+}
+
 const catalogueReturnEditKey = (requestId: string) => `proxipharma:catalogue-return-edit:${requestId}`;
 
 /** À appeler après ajout depuis le catalogue en modification d’une demande existante. */
@@ -110,6 +114,36 @@ export function clearPatientDemandeProduitsDraft(pharmacyId: string, requestId?:
   if (typeof window === "undefined" || !pharmacyId) return;
   try {
     sessionStorage.removeItem(draftKey(pharmacyId, requestId));
+    if (!requestId) sessionStorage.removeItem(draftNoteKey(pharmacyId));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readPatientDemandeProduitsNote(pharmacyId: string): string {
+  if (typeof window === "undefined" || !pharmacyId) return "";
+  try {
+    return sessionStorage.getItem(draftNoteKey(pharmacyId)) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function writePatientDemandeProduitsNote(pharmacyId: string, note: string): void {
+  if (typeof window === "undefined" || !pharmacyId) return;
+  try {
+    const trimmed = note.trim();
+    if (!trimmed) sessionStorage.removeItem(draftNoteKey(pharmacyId));
+    else sessionStorage.setItem(draftNoteKey(pharmacyId), trimmed.slice(0, 2000));
+  } catch {
+    /* quota / mode privé */
+  }
+}
+
+export function clearPatientDemandeProduitsNote(pharmacyId: string): void {
+  if (typeof window === "undefined" || !pharmacyId) return;
+  try {
+    sessionStorage.removeItem(draftNoteKey(pharmacyId));
   } catch {
     /* ignore */
   }
