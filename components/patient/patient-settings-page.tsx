@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
@@ -16,7 +17,13 @@ import {
 import { PageShell } from "@/components/ui/compact-shell";
 import { ExternalNotificationPrefs } from "@/components/notifications/external-notification-prefs";
 import { PatientSettingsSection } from "@/components/patient/patient-settings-section";
+import { linkMyPhoneOnAuth } from "@/lib/auth-client-phone-link";
 import { authEmailRedirectUrl, resolveClientAppBaseUrl } from "@/lib/auth-site-url";
+import {
+  patientLoginIdentifiersListFr,
+  patientLoginMethodsFromAuthAndProfile,
+  patientLoginMethodsSummaryFr,
+} from "@/lib/patient-auth-login-methods-fr";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { supabase } from "@/lib/supabase";
 
@@ -48,8 +55,10 @@ export function PatientSettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [authPhone, setAuthPhone] = useState<string | null>(null);
+  const [authUser, setAuthUser] = useState<User | null>(null);
   const [error, setError] = useState("");
+  const [phoneLinkLoading, setPhoneLinkLoading] = useState(false);
+  const [phoneLinkMessage, setPhoneLinkMessage] = useState("");
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [recoverySaving, setRecoverySaving] = useState(false);
   const [recoveryMessage, setRecoveryMessage] = useState("");
@@ -75,7 +84,7 @@ export function PatientSettingsPage() {
 
     const { data: userData } = await supabase.auth.getUser();
     const u = userData.user;
-    setAuthPhone(u?.phone?.trim() || null);
+    setAuthUser(u ?? null);
 
     const { data: profileData, error: pe } = await supabase
       .from("profiles")
@@ -236,6 +245,33 @@ export function PatientSettingsPage() {
     void load();
   };
 
+  const loginMethods = useMemo(
+    () => patientLoginMethodsFromAuthAndProfile(authUser, profile?.whatsapp),
+    [authUser, profile?.whatsapp]
+  );
+  const loginIdentifierLines = useMemo(
+    () => patientLoginIdentifiersListFr(loginMethods),
+    [loginMethods]
+  );
+
+  const activatePhoneLogin = async () => {
+    setPhoneLinkMessage("");
+    setPhoneLinkLoading(true);
+    const result = await linkMyPhoneOnAuth();
+    setPhoneLinkLoading(false);
+    if (!result.ok) {
+      setPhoneLinkMessage(result.error ?? "Échec de l’activation.");
+      return;
+    }
+    setPhoneLinkMessage(
+      result.phone
+        ? `Connexion par téléphone activée (${result.phone}). Vous pouvez vous connecter avec ce numéro ou votre e-mail.`
+        : "Connexion par téléphone déjà active."
+    );
+    const { data: userData } = await supabase.auth.getUser();
+    setAuthUser(userData.user ?? null);
+  };
+
   if (loading) {
     return (
       <PageShell maxWidthClass="max-w-lg">
@@ -245,7 +281,7 @@ export function PatientSettingsPage() {
   }
 
   const displayName = profile?.full_name?.trim() || "Mon compte";
-  const phoneDisplay = profile?.whatsapp?.trim() || authPhone || "—";
+  const phoneDisplay = profile?.whatsapp?.trim() || loginMethods.authPhoneE164 || "—";
 
   return (
     <PageShell maxWidthClass="max-w-lg" className={clsx("space-y-4 pb-8", p.page)}>
@@ -354,20 +390,66 @@ export function PatientSettingsPage() {
             {nameMessage ? <p className="mt-1 text-[11px] text-muted-foreground">{nameMessage}</p> : null}
           </div>
 
-          <ProfileField label="Téléphone / WhatsApp" value={phoneDisplay} />
+          <ProfileField label="Téléphone / WhatsApp (contact)" value={phoneDisplay} />
           <p className="text-[11px] text-muted-foreground">
-            Identifiant de connexion : modification uniquement via le support pour le pilote.
+            Numéro pour les pharmacies et les SMS de suivi. Pour le changer, contactez le support au pilote.
           </p>
-          <ProfileField label="E-mail sur le profil" value={profile?.email?.trim() || "Non renseigné"} />
+          <ProfileField
+            label="E-mail sur le profil"
+            value={profile?.email?.trim() || loginMethods.authEmail || "Non renseigné"}
+          />
         </dl>
       </PatientSettingsSection>
 
       <PatientSettingsSection
         title="Connexion et sécurité"
-        subtitle="Mot de passe et e-mail de récupération"
+        subtitle="Identifiants, mot de passe et e-mail"
         defaultOpen
       >
         <div className="space-y-4">
+          <div className="rounded-lg border border-border/80 bg-muted/25 px-3 py-2.5">
+            <p className="text-xs font-semibold text-foreground">Comment vous connecter</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+              {patientLoginMethodsSummaryFr(loginMethods)}
+            </p>
+            {loginIdentifierLines.length > 0 ? (
+              <ul className="mt-2 space-y-0.5 text-[11px] text-foreground">
+                {loginIdentifierLines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            ) : null}
+            {loginMethods.needsPhoneAuthSync ? (
+              <div className="mt-3 space-y-2">
+                <p className="text-[11px] leading-snug text-amber-900">
+                  Votre numéro est enregistré sur le profil mais pas encore comme identifiant de connexion
+                  (cas fréquent après inscription par e-mail).
+                </p>
+                <button
+                  type="button"
+                  disabled={phoneLinkLoading}
+                  onClick={() => void activatePhoneLogin()}
+                  className={clsx(
+                    "inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold disabled:opacity-60",
+                    p.cta
+                  )}
+                >
+                  {phoneLinkLoading ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                      Activation…
+                    </>
+                  ) : (
+                    "Activer la connexion par téléphone"
+                  )}
+                </button>
+                {phoneLinkMessage ? (
+                  <p className="text-[11px] leading-snug text-muted-foreground">{phoneLinkMessage}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
           <div>
             <Link
               href="/auth/update-password"
@@ -383,9 +465,13 @@ export function PatientSettingsPage() {
           </div>
 
           <div className="border-t border-border/60 pt-4">
-            <p className="text-xs font-semibold text-foreground">E-mail de récupération (optionnel)</p>
+            <p className="text-xs font-semibold text-foreground">
+              {loginMethods.canLoginWithEmail ? "E-mail de connexion / récupération" : "E-mail de récupération (optionnel)"}
+            </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Utile pour réinitialiser un mot de passe et recevoir certaines alertes par mail.
+              {loginMethods.canLoginWithEmail
+                ? "Cet e-mail sert aussi à vous connecter et à réinitialiser votre mot de passe."
+                : "Utile pour réinitialiser un mot de passe et recevoir certaines alertes par mail."}
             </p>
             <form className="mt-3 space-y-2" onSubmit={(ev) => void saveRecoveryEmail(ev)}>
               <input
