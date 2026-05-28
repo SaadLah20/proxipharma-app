@@ -1,0 +1,301 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  ChevronRight,
+  ExternalLink,
+  Gift,
+  MapPin,
+  MessageSquare,
+  Package,
+  Phone,
+  Star,
+  Store,
+} from "lucide-react";
+import { PageShell } from "@/components/ui/compact-shell";
+import { PATIENT_DASHBOARD_BUCKETS } from "@/lib/demandes-hub-buckets";
+import {
+  formatActivityFr,
+  parsePatientPharmacyDetail,
+  patientPromoDetailPath,
+  patientRequestDetailPath,
+  pharmacyDisplayName,
+  pharmacyRatingLabelFr,
+  pharmacyWhatsAppHref,
+  promoStatusLabelFr,
+  type PatientPharmacyDetail,
+} from "@/lib/patient-pharmacy-crm";
+import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
+import { getRequestKindConfig } from "@/lib/request-kinds/registry";
+import { supabase } from "@/lib/supabase";
+
+function requestStatusLabelFr(status: string): string {
+  const bucket = PATIENT_DASHBOARD_BUCKETS.find((b) => b.statuses.includes(status));
+  if (bucket) return bucket.label;
+  return status;
+}
+
+const ACTIVE_STATUSES = new Set(["submitted", "in_review", "responded", "confirmed", "treated"]);
+
+export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [detail, setDetail] = useState<PatientPharmacyDetail | null>(null);
+
+  const load = useCallback(async () => {
+    setError("");
+    const { data: auth } = await supabase.auth.getSession();
+    const user = auth.session?.user;
+    if (!user) {
+      router.replace(`/auth?redirect=/dashboard/patient/pharmacies/${pharmacyId}`);
+      return;
+    }
+
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+    if ((profile as { role?: string } | null)?.role !== "patient") {
+      setError("Accès réservé aux patients.");
+      setLoading(false);
+      return;
+    }
+
+    const { data, error: rpcErr } = await supabase.rpc("patient_pharmacy_detail", {
+      p_pharmacy_id: pharmacyId,
+    });
+
+    if (rpcErr) {
+      if (rpcErr.message.includes("patient_pharmacy_detail")) {
+        setError("Fiche indisponible : appliquez la migration `20260626_001_patient_pharmacy_directory_crm.sql`.");
+      } else {
+        setError(rpcErr.message);
+      }
+      setDetail(null);
+    } else {
+      const parsed = parsePatientPharmacyDetail(data);
+      if (!parsed) {
+        setError("Pharmacie introuvable ou sans lien avec votre compte.");
+      } else {
+        setDetail(parsed);
+      }
+    }
+    setLoading(false);
+  }, [router, pharmacyId]);
+
+  useEffect(() => {
+    const tid = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(tid);
+  }, [load]);
+
+  const activeRequests = useMemo(
+    () => detail?.requests.filter((r) => ACTIVE_STATUSES.has(r.status)) ?? [],
+    [detail]
+  );
+
+  if (loading) {
+    return (
+      <PageShell maxWidthClass="max-w-3xl">
+        <p className="text-sm text-muted-foreground">Chargement…</p>
+      </PageShell>
+    );
+  }
+
+  if (error || !detail) {
+    return (
+      <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
+        <Link href="/dashboard/patient/pharmacies" className={`text-xs font-medium underline ${t.backLink}`}>
+          ← Mes pharmacies
+        </Link>
+        <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error || "Pharmacie introuvable."}</p>
+      </PageShell>
+    );
+  }
+
+  const { pharmacy } = detail;
+  const wa = pharmacyWhatsAppHref(pharmacy.whatsapp);
+  const rating = pharmacyRatingLabelFr(pharmacy.rating_avg, pharmacy.rating_count);
+  const publicProfileHref = `/pharmacie/${pharmacy.pharmacy_id}`;
+  const newProductRequestHref = `/pharmacie/${pharmacy.pharmacy_id}/demande-produits`;
+
+  return (
+    <PageShell maxWidthClass="max-w-3xl" className="space-y-5">
+      <Link href="/dashboard/patient/pharmacies" className={`text-xs font-medium underline ${t.backLink}`}>
+        ← Mes pharmacies
+      </Link>
+
+      <header
+        className={`rounded-2xl border p-4 text-white shadow-md ${t.headerGradient} ${t.headerBorder}`}
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/15 shadow-inner">
+            <Store className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            {pharmacy.pharmacy_public_ref?.trim() ? (
+              <p className="font-mono text-xs font-bold text-sky-50/95">{pharmacy.pharmacy_public_ref.trim()}</p>
+            ) : null}
+            <h1 className="text-lg font-bold leading-tight">{pharmacyDisplayName(pharmacy.nom)}</h1>
+            <p className={`mt-1 flex items-start gap-1 text-xs ${t.headerSubtitle}`}>
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                {pharmacy.ville?.trim() ? `${pharmacy.ville.trim()} · ` : ""}
+                {pharmacy.adresse?.trim() || "Adresse non renseignée"}
+              </span>
+            </p>
+            {rating ? (
+              <p className={`mt-1 inline-flex items-center gap-1 text-xs ${t.headerSubtitle}`}>
+                <Star className="h-3.5 w-3.5 fill-amber-300 text-amber-300" />
+                {rating}
+              </p>
+            ) : null}
+            <p className={`mt-2 text-xs ${t.headerSubtitle}`}>
+              {detail.requests.length} demande{detail.requests.length !== 1 ? "s" : ""}
+              {detail.promo_reservations.length > 0
+                ? ` · ${detail.promo_reservations.length} réservation${detail.promo_reservations.length > 1 ? "s" : ""} promo`
+                : ""}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link
+            href={publicProfileHref}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-white/95 px-3 py-2 text-xs font-semibold text-sky-900 shadow-sm hover:bg-white"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Fiche publique
+          </Link>
+          <Link
+            href={newProductRequestHref}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20"
+          >
+            <Package className="h-3.5 w-3.5" />
+            Nouvelle demande produits
+          </Link>
+          {wa ? (
+            <a
+              href={wa}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              WhatsApp
+            </a>
+          ) : null}
+          {pharmacy.telephone ? (
+            <a
+              href={`tel:${pharmacy.telephone}`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              Appeler
+            </a>
+          ) : null}
+        </div>
+      </header>
+
+      {activeRequests.length > 0 ? (
+        <section className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-3 ring-1 ring-amber-100/60">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-amber-950">Dossiers en cours</h2>
+          <ul className="mt-2 space-y-1.5">
+            {activeRequests.slice(0, 8).map((r) => (
+              <li key={r.id}>
+                <Link
+                  href={patientRequestDetailPath(r.request_type, r.id)}
+                  className="flex items-center justify-between gap-2 rounded-lg bg-background/80 px-2.5 py-2 text-sm hover:bg-background"
+                >
+                  <span className="min-w-0 truncate font-medium">
+                    {r.request_public_ref?.trim() ||
+                      getRequestKindConfig(r.request_type).theme.headerLabelShort}
+                  </span>
+                  <span className="shrink-0 text-[11px] text-amber-900">{requestStatusLabelFr(r.status)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <section className="rounded-xl border border-border bg-card shadow-sm">
+        <div className="border-b border-border px-4 py-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Package className="h-4 w-4 text-sky-700" />
+            Historique des demandes
+          </h2>
+        </div>
+        {detail.requests.length === 0 ? (
+          <p className="p-4 text-sm text-muted-foreground">Aucune demande enregistrée avec cette officine.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {detail.requests.map((r) => (
+              <li key={r.id}>
+                <Link
+                  href={patientRequestDetailPath(r.request_type, r.id)}
+                  className="flex items-center gap-3 px-4 py-3 transition hover:bg-muted/30"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-foreground">
+                      {r.request_public_ref?.trim() ||
+                        getRequestKindConfig(r.request_type).theme.headerLabelShort}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {getRequestKindConfig(r.request_type).theme.headerLabelShort} ·{" "}
+                      {requestStatusLabelFr(r.status)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Màj. {formatActivityFr(r.updated_at)}</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {detail.promo_reservations.length > 0 ? (
+        <section className="rounded-xl border border-border bg-card shadow-sm">
+          <div className="border-b border-border px-4 py-3">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Gift className="h-4 w-4 text-violet-700" />
+              Réservations packs promo
+            </h2>
+          </div>
+          <ul className="divide-y divide-border">
+            {detail.promo_reservations.map((pr) => (
+              <li key={pr.id}>
+                <Link
+                  href={patientPromoDetailPath(pr.id)}
+                  className="flex items-center gap-3 px-4 py-3 transition hover:bg-muted/30"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-foreground">
+                      {pr.public_ref?.trim() || "Réservation promo"}
+                      {pr.offer_title ? (
+                        <span className="ml-1 font-normal text-muted-foreground">· {pr.offer_title}</span>
+                      ) : null}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {promoStatusLabelFr(pr.status)} · Retrait{" "}
+                      {new Date(pr.pickup_date).toLocaleDateString("fr-FR", {
+                        timeZone: "Africa/Casablanca",
+                      })}
+                    </p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <p className="text-center text-xs text-muted-foreground">
+        <Link href="/dashboard/patient/packs-promo" className={`font-medium underline ${t.backLink}`}>
+          Toutes mes réservations promo
+        </Link>
+      </p>
+    </PageShell>
+  );
+}

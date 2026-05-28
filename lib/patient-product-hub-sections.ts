@@ -59,18 +59,18 @@ export function patientProductHubSectionForStatus(status: string): PatientProduc
   return null;
 }
 
-export function rowsInPatientProductHubSection(
-  rows: PatientRequestRow[],
+export function rowsInPatientProductHubSection<T extends PatientRequestRow>(
+  rows: T[],
   sectionId: PatientProductHubSectionId
-): PatientRequestRow[] {
+): T[] {
   const section = PATIENT_PRODUCT_HUB_SECTIONS.find((s) => s.id === sectionId);
   if (!section) return [];
   const allow = new Set(section.statuses);
   return rows.filter((r) => allow.has(r.status));
 }
 
-export function countInPatientProductHubSection(
-  rows: PatientRequestRow[],
+export function countInPatientProductHubSection<T extends PatientRequestRow>(
+  rows: T[],
   sectionId: PatientProductHubSectionId
 ): number {
   return rowsInPatientProductHubSection(rows, sectionId).length;
