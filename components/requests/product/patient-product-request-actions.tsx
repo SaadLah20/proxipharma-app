@@ -2660,14 +2660,15 @@ export function PatientProductRequestActions({
   }, [status, lines, resubmitBaseline]);
 
   const readOnlyArchive = isPatientProductArchiveStatus(status);
-  const uiStatus = readOnlyArchive
+  const archiveSnapshotStatus = readOnlyArchive
     ? inferArchiveSnapshotStatus(status, {
         responded_at: requestTimelineMeta?.responded_at,
         confirmed_at: requestTimelineMeta?.confirmed_at,
         items,
         terminalTransitionOldStatus: archiveTerminalOldStatus,
       })
-    : status;
+    : null;
+  const uiStatus = archiveSnapshotStatus ?? status;
   const forceReadOnly = readOnlyArchive;
   const isTreatedActiveView = status === "treated" && !forceReadOnly;
   const showArchivePassageLine =
@@ -2722,14 +2723,15 @@ export function PatientProductRequestActions({
     proposed: PRESCRIPTION_ADDITIONAL_PROPOSED_REASON,
     officine: pharmacistProposedProductBadgeFr,
   };
-  const badgeForRow = (row: ActionItemRow) => {
+  const badgeForRow = (row: ActionItemRow): string | undefined => {
     if (requestType === "prescription") {
       return (
         patientPrescriptionLineBadge(requestType, row, supplyAmendmentBundles) ??
-        patientLineProposedBadgeLabel(requestType, row, supplyAmendmentBundles, badgeDefaults)
+        patientLineProposedBadgeLabel(requestType, row, supplyAmendmentBundles, badgeDefaults) ??
+        undefined
       );
     }
-    return patientLineProposedBadgeLabel(requestType, row, supplyAmendmentBundles, badgeDefaults);
+    return patientLineProposedBadgeLabel(requestType, row, supplyAmendmentBundles, badgeDefaults) ?? undefined;
   };
 
   const showConfirm = uiStatus === "responded";
@@ -2978,9 +2980,9 @@ export function PatientProductRequestActions({
         />
       ) : null}
 
-      {forceReadOnly && requestType === "product_request" && !isConsultation ? (
+      {forceReadOnly && archiveSnapshotStatus && requestType === "product_request" && !isConsultation ? (
         <PatientArchiveFrozenProductsView
-          snapshotStatus={uiStatus}
+          snapshotStatus={archiveSnapshotStatus}
           terminalStatus={status}
           items={items}
           archiveSel={archiveSel}
