@@ -217,74 +217,77 @@ export function PharmacistClientsDirectory() {
             const wa = whatsappHref(r.whatsapp);
             return (
               <li key={r.patient_id}>
-                <Link
-                  href={`/dashboard/pharmacien/clients/${r.patient_id}`}
-                  className="group flex flex-col rounded-xl border border-border bg-card p-3 shadow-sm transition hover:border-primary/25 hover:shadow-md"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      {r.patient_ref?.trim() ? (
-                        <p className="font-mono text-[11px] font-bold text-emerald-900">{r.patient_ref.trim()}</p>
-                      ) : null}
-                      <p className="truncate font-semibold text-foreground">{r.full_name?.trim() || "Patient"}</p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        {requestKindLabelsFr(r.request_kinds)}
-                      </p>
+                <div className="group flex flex-col rounded-xl border border-border bg-card shadow-sm transition hover:border-primary/25 hover:shadow-md">
+                  <Link
+                    href={`/dashboard/pharmacien/clients/${r.patient_id}`}
+                    className="flex flex-col rounded-t-xl p-3 pb-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        {r.patient_ref?.trim() ? (
+                          <p className="font-mono text-[11px] font-bold text-emerald-900">{r.patient_ref.trim()}</p>
+                        ) : null}
+                        <p className="truncate font-semibold text-foreground">{r.full_name?.trim() || "Patient"}</p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          {requestKindLabelsFr(r.request_kinds)}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
                     </div>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
-                  </div>
 
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {r.active_request_count > 0 ? (
-                      <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-950">
-                        <Package className="h-3 w-3" />
-                        {r.active_request_count} actif{r.active_request_count > 1 ? "s" : ""}
-                      </span>
-                    ) : null}
-                    {r.request_count > 0 ? (
-                      <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        {r.request_count} dossier{r.request_count > 1 ? "s" : ""}
-                      </span>
-                    ) : null}
-                    {r.promo_reservation_count > 0 ? (
-                      <span className="inline-flex items-center gap-0.5 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-950">
-                        <Gift className="h-3 w-3" />
-                        {r.promo_reservation_count} promo
-                      </span>
-                    ) : null}
-                  </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {r.active_request_count > 0 ? (
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-950">
+                          <Package className="h-3 w-3" />
+                          {r.active_request_count} actif{r.active_request_count > 1 ? "s" : ""}
+                        </span>
+                      ) : null}
+                      {r.request_count > 0 ? (
+                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          {r.request_count} dossier{r.request_count > 1 ? "s" : ""}
+                        </span>
+                      ) : null}
+                      {r.promo_reservation_count > 0 ? (
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-950">
+                          <Gift className="h-3 w-3" />
+                          {r.promo_reservation_count} promo
+                        </span>
+                      ) : null}
+                    </div>
 
-                  <p className="mt-2 text-[10px] text-muted-foreground">
-                    Dernière activité : {formatActivityFr(r.last_activity_at)}
-                  </p>
+                    <p className="mt-2 text-[10px] text-muted-foreground">
+                      Dernière activité : {formatActivityFr(r.last_activity_at)}
+                    </p>
+                  </Link>
 
-                  <div className="mt-2 flex flex-wrap gap-2 border-t border-border/60 pt-2" onClick={(e) => e.preventDefault()}>
-                    {wa ? (
-                      <a
-                        href={wa}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-800 underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MessageSquare className="h-3 w-3" />
-                        WhatsApp
-                      </a>
-                    ) : null}
-                    {r.whatsapp ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <Phone className="h-3 w-3" />
-                        {r.whatsapp}
-                      </span>
-                    ) : null}
-                    {r.email ? (
-                      <span className="inline-flex items-center gap-1 truncate text-[11px] text-muted-foreground">
-                        <Mail className="h-3 w-3 shrink-0" />
-                        {r.email}
-                      </span>
-                    ) : null}
-                  </div>
-                </Link>
+                  {wa || r.whatsapp || r.email ? (
+                    <div className="flex flex-wrap gap-2 border-t border-border/60 px-3 py-2">
+                      {wa ? (
+                        <a
+                          href={wa}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-800 underline"
+                        >
+                          <MessageSquare className="h-3 w-3" />
+                          WhatsApp
+                        </a>
+                      ) : null}
+                      {r.whatsapp ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <Phone className="h-3 w-3" />
+                          {r.whatsapp}
+                        </span>
+                      ) : null}
+                      {r.email ? (
+                        <span className="inline-flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+                          <Mail className="h-3 w-3 shrink-0" />
+                          {r.email}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </li>
             );
           })}
