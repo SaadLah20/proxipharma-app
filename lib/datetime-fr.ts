@@ -49,6 +49,74 @@ export function patientPlannedVisitPassageLineFr(
   return t ? `Votre passage est prévu le ${d} à ${t}` : `Votre passage est prévu le ${d}`;
 }
 
+function parseYmdLocal(ymd: string): Date | null {
+  const parts = String(ymd).trim().split("-").map((x) => Number.parseInt(x, 10));
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
+  const [y, mo, d] = parts;
+  const dt = new Date(y, mo - 1, d);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+/** Écart temporel lisible (passage passé ou à venir). */
+export function formatRelativeToNowFr(target: Date, now = new Date()): string {
+  const diffMs = target.getTime() - now.getTime();
+  const absMs = Math.abs(diffMs);
+  const future = diffMs > 0;
+  const minutes = Math.round(absMs / 60_000);
+  if (minutes < 1) return future ? "dans un instant" : "à l'instant";
+  if (minutes < 60) {
+    const n = minutes;
+    const unit = n === 1 ? "minute" : "minutes";
+    return future ? `dans ${n} ${unit}` : `il y a ${n} ${unit}`;
+  }
+  const hours = Math.round(absMs / 3_600_000);
+  if (hours < 24) {
+    const unit = hours === 1 ? "heure" : "heures";
+    return future ? `dans ${hours} ${unit}` : `il y a ${hours} ${unit}`;
+  }
+  const days = Math.round(absMs / 86_400_000);
+  if (days < 30) {
+    const unit = days === 1 ? "jour" : "jours";
+    return future ? `dans ${days} ${unit}` : `il y a ${days} ${unit}`;
+  }
+  const months = Math.round(days / 30);
+  if (months < 12) {
+    const unit = months === 1 ? "mois" : "mois";
+    return future ? `dans ${months} ${unit}` : `il y a ${months} ${unit}`;
+  }
+  const years = Math.round(days / 365);
+  const unit = years === 1 ? "an" : "ans";
+  return future ? `dans ${years} ${unit}` : `il y a ${years} ${unit}`;
+}
+
+/** Archives patient : rappel discret du dernier passage fixé par le patient. */
+export function patientArchiveLastPlannedVisitFootnoteFr(
+  dateYmd: string | null | undefined,
+  timePg: string | null | undefined
+): { label: string; relative: string } | null {
+  const ymd = (dateYmd ?? "").trim();
+  if (!ymd) return null;
+  const datePart = formatDateShortFr(ymd, false);
+  const timePart = formatTime24hFr(timePg ?? null);
+  if (!datePart) return null;
+  const whenLabel = timePart ? `${datePart} — ${timePart}` : datePart;
+  const visitAt = parseYmdLocal(ymd);
+  if (!visitAt) {
+    return { label: `Dernière date de passage fixée par vous : ${whenLabel}`, relative: "" };
+  }
+  if (timePart) {
+    const m = String(timePg ?? "").match(/^(\d{1,2}):(\d{2})/);
+    if (m) {
+      visitAt.setHours(Math.min(23, Number.parseInt(m[1], 10)), Number.parseInt(m[2], 10), 0, 0);
+    }
+  }
+  const relative = formatRelativeToNowFr(visitAt);
+  return {
+    label: `Dernière date de passage fixée par vous : ${whenLabel}`,
+    relative,
+  };
+}
+
 /** Liste type maquette mobile : « 12 déc. 2023 10:45 » (fuseau Maroc sur le web). */
 export function formatDateTimeListCasablanca(iso: string | null | undefined): string {
   if (iso == null || String(iso).trim() === "") return "—";

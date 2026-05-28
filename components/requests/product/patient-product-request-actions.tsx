@@ -23,6 +23,7 @@ import {
   formatDateTimeShort24hFr,
   formatPlannedVisitFr,
   formatTime24hFr,
+  patientArchiveLastPlannedVisitFootnoteFr,
   patientPlannedVisitPassageLineFr,
 } from "@/lib/datetime-fr";
 import {
@@ -2673,22 +2674,27 @@ export function PatientProductRequestActions({
   const isTreatedActiveView = status === "treated" && !forceReadOnly;
   const showArchivePassageLine =
     readOnlyArchive && (uiStatus === "confirmed" || uiStatus === "treated");
-  const treatedPassageLine = useMemo(() => {
-    if (!isTreatedActiveView && !showArchivePassageLine) return "";
-    const dateYmd = (initialPlannedVisitDate ?? "").trim() || resolvedVisitDate;
-    const timePg =
+  const plannedVisitDateYmd = useMemo(
+    () => (initialPlannedVisitDate ?? "").trim() || resolvedVisitDate,
+    [initialPlannedVisitDate, resolvedVisitDate]
+  );
+  const plannedVisitTimePg = useMemo(
+    () =>
       visitTimeComposed.trim() !== ""
         ? htmlTimeToPg(visitTimeComposed)
-        : (initialPlannedVisitTime ?? null);
-    return patientPlannedVisitPassageLineFr(dateYmd, timePg);
-  }, [
-    isTreatedActiveView,
-    showArchivePassageLine,
-    initialPlannedVisitDate,
-    initialPlannedVisitTime,
-    resolvedVisitDate,
-    visitTimeComposed,
-  ]);
+        : (initialPlannedVisitTime ?? null),
+    [visitTimeComposed, initialPlannedVisitTime]
+  );
+
+  const treatedPassageLine = useMemo(() => {
+    if (!isTreatedActiveView) return "";
+    return patientPlannedVisitPassageLineFr(plannedVisitDateYmd, plannedVisitTimePg);
+  }, [isTreatedActiveView, plannedVisitDateYmd, plannedVisitTimePg]);
+
+  const archivePassageFootnote = useMemo(() => {
+    if (!showArchivePassageLine) return null;
+    return patientArchiveLastPlannedVisitFootnoteFr(plannedVisitDateYmd, plannedVisitTimePg);
+  }, [showArchivePassageLine, plannedVisitDateYmd, plannedVisitTimePg]);
 
   const archiveSel = useMemo(() => {
     if (!readOnlyArchive) return {} as Record<string, LineSelState>;
@@ -2942,12 +2948,12 @@ export function PatientProductRequestActions({
         </div>
       ) : null}
 
-      {(isTreatedActiveView || showArchivePassageLine) && treatedPassageLine ? (
+      {isTreatedActiveView && treatedPassageLine ? (
         <p
           className="mt-2 rounded-lg border-2 border-sky-400/55 bg-gradient-to-r from-sky-50 via-white to-sky-50/80 px-3 py-2.5 text-center text-[13px] font-semibold leading-snug text-sky-950 shadow-sm ring-1 ring-sky-200/60 sm:text-sm"
           role="status"
         >
-          {treatedPassageLine || "Votre date de passage sera confirmée avec la pharmacie."}
+          {treatedPassageLine}
         </p>
       ) : null}
 
@@ -2981,21 +2987,31 @@ export function PatientProductRequestActions({
       ) : null}
 
       {forceReadOnly && archiveSnapshotStatus && requestType === "product_request" && !isConsultation ? (
-        <PatientArchiveFrozenProductsView
-          snapshotStatus={archiveSnapshotStatus}
-          terminalStatus={status}
-          items={items}
-          archiveSel={archiveSel}
-          productsSectionTitle={workflowCopy.patientProductsSectionTitle}
-          badgeForRow={badgeForRow}
-          requestType={requestType}
-          supplyAmendmentBundles={supplyAmendmentBundles}
-          pricingConfig={pricingConfig}
-          onOpenLineHistory={setHistoryModalItemId}
-          onPhotoPreview={openProductPhotoPreview}
-          pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
-          resolveCatalogUnitPriceForProduct={resolveCatalogUnitPriceForProduct}
-        />
+        <>
+          <PatientArchiveFrozenProductsView
+            snapshotStatus={archiveSnapshotStatus}
+            terminalStatus={status}
+            items={items}
+            archiveSel={archiveSel}
+            productsSectionTitle={workflowCopy.patientProductsSectionTitle}
+            badgeForRow={badgeForRow}
+            requestType={requestType}
+            supplyAmendmentBundles={supplyAmendmentBundles}
+            pricingConfig={pricingConfig}
+            onOpenLineHistory={setHistoryModalItemId}
+            onPhotoPreview={openProductPhotoPreview}
+            pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
+            resolveCatalogUnitPriceForProduct={resolveCatalogUnitPriceForProduct}
+          />
+          {archivePassageFootnote ? (
+            <p className="mt-4 border-t border-slate-200/80 pt-3 text-center text-[10px] leading-relaxed text-muted-foreground">
+              <span className="block">{archivePassageFootnote.label}</span>
+              {archivePassageFootnote.relative ? (
+                <span className="mt-0.5 block text-[10px] text-slate-500/90">({archivePassageFootnote.relative})</span>
+              ) : null}
+            </p>
+          ) : null}
+        </>
       ) : null}
 
       {showConfirm && !forceReadOnly ? (
