@@ -166,7 +166,7 @@ export const patientNavMenu: PlatformNavBlock[] = [
     ],
   },
   { kind: "link", item: { href: "/dashboard/patient/pharmacies", label: "Mes pharmacies", icon: MapPin } },
-  { kind: "link", item: { href: "/dashboard/patient/parametres", label: "Paramètres", icon: Settings } },
+  { kind: "link", item: { href: "/dashboard/patient/parametres", label: "Mes paramètres", icon: Settings } },
 ];
 
 /**

@@ -14,8 +14,9 @@ export function patientHubListActiveFilterParts(input: PatientHubListFilterSumma
   const parts: string[] = [];
   if (input.activeBucket) {
     parts.push(`Statut : ${input.activeBucket.label}`);
-  } else if (input.activeSection) {
-    parts.push(`Vue : ${input.activeSection.title}`);
+  }
+  if (input.activeSection) {
+    parts.push(`Regroupement : ${input.activeSection.title}`);
   }
   if (input.pharmacyLabel) {
     parts.push(`Pharmacie : ${input.pharmacyLabel}`);

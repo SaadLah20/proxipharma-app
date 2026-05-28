@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { clsx } from "clsx";
 import { ChevronRight, Gift, MapPin, MessageSquare, Package, Phone, Search, Star, Store } from "lucide-react";
 import { PageShell } from "@/components/ui/compact-shell";
 import { one } from "@/lib/embed";
@@ -15,7 +16,7 @@ import {
   pharmacyWhatsAppHref,
   type PatientPharmacyDirectoryRow,
 } from "@/lib/patient-pharmacy-crm";
-import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
+import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { supabase } from "@/lib/supabase";
 
@@ -188,7 +189,6 @@ export function PatientPharmaciesDirectory() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [migrationNote, setMigrationNote] = useState("");
   const [rows, setRows] = useState<PatientPharmacyDirectoryRow[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("activity");
@@ -196,7 +196,6 @@ export function PatientPharmaciesDirectory() {
 
   const load = useCallback(async () => {
     setError("");
-    setMigrationNote("");
     const { data: auth } = await supabase.auth.getSession();
     const user = auth.session?.user;
     if (!user) {
@@ -214,10 +213,10 @@ export function PatientPharmaciesDirectory() {
     const { data, error: rpcErr } = await supabase.rpc("patient_pharmacy_directory_enriched");
 
     if (rpcErr) {
-      if (rpcErr.message.includes("patient_pharmacy_directory_enriched")) {
-        setMigrationNote(
-          "Liste enrichie indisponible : appliquez `20260626_001_patient_pharmacy_directory_crm.sql`. Affichage simplifié."
-        );
+      const rpcMissing =
+        rpcErr.message.includes("patient_pharmacy_directory_enriched") ||
+        rpcErr.code === "PGRST202";
+      if (rpcMissing) {
         try {
           setRows(await loadDirectoryLegacy(user.id));
         } catch (e) {
@@ -284,24 +283,24 @@ export function PatientPharmaciesDirectory() {
   }
 
   return (
-    <PageShell maxWidthClass="max-w-5xl" className="space-y-5">
-      <div className="overflow-hidden rounded-2xl border border-sky-300/50 bg-gradient-to-br from-sky-600 via-sky-600/95 to-teal-600 p-4 text-white shadow-md ring-1 ring-sky-300/40">
-        <Link href="/dashboard/demandes" className={`text-xs font-medium underline ${t.headerEyebrow}`}>
-          ← Mes demandes
+    <PageShell maxWidthClass="max-w-5xl" className={clsx("space-y-5", p.page)}>
+      <div className={p.hero}>
+        <Link href="/" className={clsx(p.backLink, "text-primary-foreground/90")}>
+          ← Annuaire
         </Link>
-        <h1 className="mt-2 flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className={clsx("mt-2 flex items-center gap-2", p.heroTitle)}>
           <Store className="h-5 w-5 shrink-0 opacity-90" />
           Mes pharmacies
         </h1>
-        <p className={`mt-1 text-xs ${t.headerSubtitle}`}>
+        <p className={clsx("mt-1", p.heroSubtitle)}>
           Officines avec lesquelles vous avez déjà échangé (demandes, ordonnances, consultations ou packs promo).
         </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-sky-200/70 bg-card p-3 shadow-sm ring-1 ring-sky-100/60">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Total</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-sky-950">{stats.total}</p>
+        <div className={p.statCard}>
+          <p className={p.statLabel}>Total</p>
+          <p className={p.statValue}>{stats.total}</p>
         </div>
         <div className="rounded-xl border border-amber-200/70 bg-card p-3 shadow-sm ring-1 ring-amber-100/50">
           <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Dossiers en cours</p>
@@ -317,12 +316,20 @@ export function PatientPharmaciesDirectory() {
         <label className="flex min-w-0 flex-1 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Recherche
           <span className="relative block">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sky-600/70" />
+            <Search
+              className={clsx(
+                "pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2",
+                p.searchIcon
+              )}
+            />
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Nom, ville, code officine…"
-              className={`w-full rounded-lg border bg-background py-2 pl-8 pr-2 text-xs font-normal normal-case tracking-normal text-foreground ${t.searchInput}`}
+              className={clsx(
+                "w-full rounded-lg border bg-background py-2 pl-8 pr-2 text-xs font-normal normal-case tracking-normal text-foreground outline-none focus-visible:ring-2",
+                p.searchInput
+              )}
             />
           </span>
         </label>
@@ -352,15 +359,11 @@ export function PatientPharmaciesDirectory() {
       </div>
 
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
-      {migrationNote && !error ? (
-        <p className="rounded-lg border border-amber-200 bg-amber-50/90 p-3 text-sm text-amber-950">{migrationNote}</p>
-      ) : null}
-
       {rows.length === 0 && !error ? (
         <p className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-          <MapPin className="mx-auto mb-2 h-8 w-8 text-sky-400/60" />
+          <MapPin className="mx-auto mb-2 h-8 w-8 text-primary/50" />
           Aucune pharmacie pour l’instant. Parcourez l’annuaire pour contacter une officine.
-          <Link href="/" className="mt-3 block font-semibold text-sky-800 underline">
+          <Link href="/" className={clsx("mt-3 block", p.link)}>
             Annuaire des pharmacies
           </Link>
         </p>
@@ -380,7 +383,12 @@ export function PatientPharmaciesDirectory() {
             );
             return (
               <li key={r.pharmacy_id}>
-                <div className="group flex flex-col rounded-xl border border-border bg-card shadow-sm transition hover:border-sky-300/60 hover:shadow-md hover:ring-1 hover:ring-sky-200/50">
+                <div
+                  className={clsx(
+                    "group flex flex-col rounded-xl border border-border bg-card shadow-sm",
+                    p.cardHover
+                  )}
+                >
                   <Link
                     href={`/dashboard/patient/pharmacies/${r.pharmacy_id}`}
                     className="flex flex-col rounded-t-xl p-3 pb-2"
@@ -397,7 +405,7 @@ export function PatientPharmaciesDirectory() {
                         </p>
                         <p className="mt-0.5 text-[11px] text-muted-foreground">{pharmacyKindLabelsFr(r.request_kinds)}</p>
                       </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-sky-800" />
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" />
                     </div>
 
                     <div className="mt-2 flex flex-wrap gap-1.5">
@@ -419,7 +427,7 @@ export function PatientPharmaciesDirectory() {
                         </span>
                       ) : null}
                       {rating ? (
-                        <span className="inline-flex items-center gap-0.5 rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-900">
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                           <Star className="h-3 w-3 fill-amber-400 text-amber-500" />
                           {rating}
                         </span>
@@ -436,7 +444,7 @@ export function PatientPharmaciesDirectory() {
                           href={wa}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] font-medium text-sky-800 underline"
+                          className={clsx("inline-flex items-center gap-1 text-[11px]", p.linkInline)}
                         >
                           <MessageSquare className="h-3 w-3" />
                           WhatsApp

@@ -27,7 +27,8 @@ import {
   promoStatusLabelFr,
   type PatientPharmacyDetail,
 } from "@/lib/patient-pharmacy-crm";
-import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
+import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
+import { clsx } from "clsx";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import { supabase } from "@/lib/supabase";
 
@@ -66,11 +67,13 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
     });
 
     if (rpcErr) {
-      if (rpcErr.message.includes("patient_pharmacy_detail")) {
-        setError("Fiche indisponible : appliquez la migration `20260626_001_patient_pharmacy_directory_crm.sql`.");
-      } else {
-        setError(rpcErr.message);
-      }
+      const rpcMissing =
+        rpcErr.message.includes("patient_pharmacy_detail") || rpcErr.code === "PGRST202";
+      setError(
+        rpcMissing
+          ? "Fiche officine temporairement indisponible. Réessayez plus tard ou contactez le support."
+          : rpcErr.message
+      );
       setDetail(null);
     } else {
       const parsed = parsePatientPharmacyDetail(data);
@@ -104,7 +107,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
   if (error || !detail) {
     return (
       <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
-        <Link href="/dashboard/patient/pharmacies" className={`text-xs font-medium underline ${t.backLink}`}>
+        <Link href="/dashboard/patient/pharmacies" className={p.backLink}>
           ← Mes pharmacies
         </Link>
         <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error || "Pharmacie introuvable."}</p>
@@ -120,23 +123,23 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
 
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-5">
-      <Link href="/dashboard/patient/pharmacies" className={`text-xs font-medium underline ${t.backLink}`}>
+      <Link href="/dashboard/patient/pharmacies" className={p.backLink}>
         ← Mes pharmacies
       </Link>
 
-      <header
-        className={`rounded-2xl border p-4 text-white shadow-md ${t.headerGradient} ${t.headerBorder}`}
-      >
+      <header className={p.hero}>
         <div className="flex items-start gap-3">
           <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/15 shadow-inner">
             <Store className="h-6 w-6" />
           </div>
           <div className="min-w-0 flex-1">
             {pharmacy.pharmacy_public_ref?.trim() ? (
-              <p className="font-mono text-xs font-bold text-sky-50/95">{pharmacy.pharmacy_public_ref.trim()}</p>
+              <p className="font-mono text-xs font-bold text-primary-foreground/95">
+                {pharmacy.pharmacy_public_ref.trim()}
+              </p>
             ) : null}
             <h1 className="text-lg font-bold leading-tight">{pharmacyDisplayName(pharmacy.nom)}</h1>
-            <p className={`mt-1 flex items-start gap-1 text-xs ${t.headerSubtitle}`}>
+            <p className={clsx("mt-1 flex items-start gap-1 text-xs", p.heroSubtitle)}>
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
                 {pharmacy.ville?.trim() ? `${pharmacy.ville.trim()} · ` : ""}
@@ -144,12 +147,12 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
               </span>
             </p>
             {rating ? (
-              <p className={`mt-1 inline-flex items-center gap-1 text-xs ${t.headerSubtitle}`}>
+              <p className={clsx("mt-1 inline-flex items-center gap-1 text-xs", p.heroSubtitle)}>
                 <Star className="h-3.5 w-3.5 fill-amber-300 text-amber-300" />
                 {rating}
               </p>
             ) : null}
-            <p className={`mt-2 text-xs ${t.headerSubtitle}`}>
+            <p className={clsx("mt-2 text-xs", p.heroSubtitle)}>
               {detail.requests.length} demande{detail.requests.length !== 1 ? "s" : ""}
               {detail.promo_reservations.length > 0
                 ? ` · ${detail.promo_reservations.length} réservation${detail.promo_reservations.length > 1 ? "s" : ""} promo`
@@ -161,7 +164,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
         <div className="mt-4 flex flex-wrap gap-2">
           <Link
             href={publicProfileHref}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-white/95 px-3 py-2 text-xs font-semibold text-sky-900 shadow-sm hover:bg-white"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary-foreground px-3 py-2 text-xs font-semibold text-primary shadow-sm hover:opacity-95"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             Fiche publique
@@ -221,7 +224,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
       <section className="rounded-xl border border-border bg-card shadow-sm">
         <div className="border-b border-border px-4 py-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Package className="h-4 w-4 text-sky-700" />
+            <Package className="h-4 w-4 text-primary" />
             Historique des demandes
           </h2>
         </div>
@@ -292,7 +295,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
       ) : null}
 
       <p className="text-center text-xs text-muted-foreground">
-        <Link href="/dashboard/patient/packs-promo" className={`font-medium underline ${t.backLink}`}>
+        <Link href="/dashboard/patient/packs-promo" className={p.linkInline}>
           Toutes mes réservations promo
         </Link>
       </p>
