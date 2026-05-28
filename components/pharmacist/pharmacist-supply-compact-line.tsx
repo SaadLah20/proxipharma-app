@@ -63,8 +63,8 @@ export function PharmacistSupplyCompactLine({
   hidePostConfirmFulfillmentPills = false,
   /** Bandeau jalons suivi (dossier traité). */
   lineSuiviSlot,
-  /** Bouton ouvrant les échanges patient / officine sur la ligne (demande validée). */
-  lineConversationSlot,
+  /** Bouton rond message produit (à côté du nom / Historique). */
+  lineMessageButton,
   /** Libellés courts post-validation (détail dans Historique produit). */
   postConfirmAmendmentBadges,
   menuOpen,
@@ -122,7 +122,7 @@ export function PharmacistSupplyCompactLine({
   treatedCounterSlot: ReactNode | null;
   hidePostConfirmFulfillmentPills?: boolean;
   lineSuiviSlot?: ReactNode;
-  lineConversationSlot?: ReactNode;
+  lineMessageButton?: ReactNode;
   postConfirmAmendmentBadges?: string[] | undefined;
   menuOpen: boolean;
   onMenuOpenChange: (open: boolean) => void;
@@ -322,6 +322,7 @@ export function PharmacistSupplyCompactLine({
                 >
                   {validatedName}
                 </p>
+                {lineMessageButton}
                 <button
                   type="button"
                   disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
@@ -361,24 +362,18 @@ export function PharmacistSupplyCompactLine({
                 </>
               )}
 
-              {lineConversationSlot != null ||
-              (!validatedLineLabels?.length && postConfirmAmendmentBadges && postConfirmAmendmentBadges.length > 0) ? (
-                <div className="mt-1.5 flex w-full min-w-0 flex-wrap items-center gap-1.5 border-t border-border/50 pt-1.5">
-                  {lineConversationSlot}
-                  {!validatedLineLabels?.length
-                    ? postConfirmAmendmentBadges?.map((label) => (
-                        <span
-                          key={label}
-                          className="inline-flex max-w-full items-center rounded-md border border-slate-300/80 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
-                        >
-                          {label}
-                        </span>
-                      ))
-                    : null}
-                </div>
-              ) : lineConversationSlot != null ? (
-                <div className="mt-1.5 flex w-full min-w-0 flex-wrap items-center gap-1.5 border-t border-border/50 pt-1.5">
-                  {lineConversationSlot}
+              {!validatedLineLabels?.length &&
+              postConfirmAmendmentBadges &&
+              postConfirmAmendmentBadges.length > 0 ? (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {postConfirmAmendmentBadges.map((label) => (
+                    <span
+                      key={label}
+                      className="inline-flex max-w-full items-center rounded-md border border-slate-300/80 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
+                    >
+                      {label}
+                    </span>
+                  ))}
                 </div>
               ) : null}
             </div>

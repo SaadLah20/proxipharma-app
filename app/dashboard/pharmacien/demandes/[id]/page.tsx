@@ -22,10 +22,9 @@ import {
   User,
 } from "lucide-react";
 import {
-  lineConversationStripButtonClass,
-  lineConversationStripLabel,
   lineConversationVisual,
   PharmacistLineConversationModal,
+  PharmacistLineMessageButton,
 } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import { RequestExitConfirmModalFr } from "@/components/requests/request-exit-confirm-modal-fr";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
@@ -165,10 +164,14 @@ import {
 import { patientPrescriptionLineBadge } from "@/lib/prescription-patient-labels";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { PharmacistProductRequestDossierHeader } from "@/components/requests/product/pharmacist-product-request-dossier-header";
+import { PharmacistAltCatalogPicker } from "@/components/pharmacist/pharmacist-alt-catalog-picker";
+import { PharmacistAlternativeLinePanel } from "@/components/pharmacist/pharmacist-alternative-line-panel";
+import { PharmacistLineAlternativesTabs } from "@/components/pharmacist/pharmacist-line-alternatives-tabs";
 import {
-  PharmacistLineAlternativesTabs,
-  type PharmacistAltTabId,
-} from "@/components/pharmacist/pharmacist-line-alternatives-tabs";
+  PHARMACIST_ALT_TAB_ADD,
+  pharmacistAltTabLabel,
+  type PharmacistLineAltTabId,
+} from "@/lib/pharmacist-line-alt-tabs";
 import {
   pharmacistCanCompleteCounterClosure,
   pharmacistCounterTrackedLines,
@@ -1659,7 +1662,7 @@ export default function PharmacienDemandeDetailPage() {
   const [draft, setDraft] = useState<Draft>({});
   const [altRowsOpen, setAltRowsOpen] = useState<Record<string, boolean>>({});
   const [altPickerOpenFor, setAltPickerOpenFor] = useState<string | null>(null);
-  const [lineAltTabByRowId, setLineAltTabByRowId] = useState<Record<string, PharmacistAltTabId>>({});
+  const [lineAltTabByRowId, setLineAltTabByRowId] = useState<Record<string, PharmacistLineAltTabId>>({});
   const [availabilityMenuRowId, setAvailabilityMenuRowId] = useState<string | null>(null);
   const [altQuery, setAltQuery] = useState("");
   const [altHits, setAltHits] = useState<ProductCatalogHit[]>([]);
@@ -2595,10 +2598,20 @@ export default function PharmacienDemandeDetailPage() {
     }
   };
 
-  const resetAltPicker = () => {
+  const clearAltPickerSearch = () => {
     setAltPickerOpenFor(null);
     setAltQuery("");
     setAltHits([]);
+  };
+
+  const resetAltPicker = (parentRowId?: string) => {
+    clearAltPickerSearch();
+    if (parentRowId) {
+      setLineAltTabByRowId((prev) => {
+        if (prev[parentRowId] !== PHARMACIST_ALT_TAB_ADD) return prev;
+        return { ...prev, [parentRowId]: "principal" };
+      });
+    }
   };
 
   const isAltOpen = (rowId: string) => altRowsOpen[rowId] ?? false;
@@ -3104,7 +3117,7 @@ export default function PharmacienDemandeDetailPage() {
         return;
       }
       if (added) {
-        resetAltPicker();
+        clearAltPickerSearch();
         setAltRowsOpen((prev) => ({ ...prev, [parentRow.id]: true }));
         if (addedLocalAltId) {
           setLineAltTabByRowId((t) => ({ ...t, [parentRow.id]: addedLocalAltId! }));
@@ -3139,7 +3152,7 @@ export default function PharmacienDemandeDetailPage() {
       setError(insErr.message);
       return;
     }
-    resetAltPicker();
+    clearAltPickerSearch();
     setAltRowsOpen((prev) => ({ ...prev, [parentRow.id]: true }));
 
     if (request?.status === "confirmed") {
@@ -3197,13 +3210,14 @@ export default function PharmacienDemandeDetailPage() {
         return;
       }
     }
-    if (altPickerOpenFor === parentRowId) resetAltPicker();
+    if (altPickerOpenFor === parentRowId) resetAltPicker(parentRowId);
 
     if (parentRowId) {
+      setLineAltTabByRowId((t) => (t[parentRowId] === altId ? { ...t, [parentRowId]: "principal" } : t));
       const { data: altRows, error: fetchErr } = await supabase
         .from("request_item_alternatives")
         .select(
-          "id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph,photo_url)"
+          "id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,product_type,price_pph,price_ppv,laboratory,photo_url)"
         )
         .eq("request_item_id", parentRowId)
         .order("rank", { ascending: true });
@@ -4645,18 +4659,12 @@ export default function PharmacienDemandeDetailPage() {
             {counterOutcomeLabelPharmacien(co, row.counter_cancel_reason)}
           </p>
         }
-        lineConversationSlot={
-          <button
-            type="button"
+        lineMessageButton={
+          <PharmacistLineMessageButton
+            visual={lineConvoVisual}
+            open={lineConvoRowId === row.id}
             onClick={() => setLineConvoRowId(row.id)}
-            className={clsx(
-              lineConversationStripButtonClass(lineConvoVisual, { open: lineConvoRowId === row.id }),
-              "min-w-0 w-full flex-1 justify-start"
-            )}
-          >
-            <MessageCircle className="size-4 shrink-0 text-teal-700" aria-hidden />
-            <span className="truncate text-[9px] font-medium">{lineConversationStripLabel(lineConvoVisual)}</span>
-          </button>
+          />
         }
         postConfirmAmendmentBadges={supplyAmendmentBadgeLabelsByItemId[row.id]}
         menuOpen={supplyMenuRowId === row.id}
@@ -4945,84 +4953,87 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      <section className="rounded-xl border border-emerald-300/60 bg-gradient-to-br from-emerald-50/85 via-white to-teal-50/40 px-2 py-1.5 shadow-sm ring-1 ring-emerald-200/45 sm:px-2.5">
-        <div className="flex gap-2 sm:items-center sm:gap-2.5">
-          <span
-            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm sm:size-8"
-            title="Client"
-            aria-hidden
-          >
-            <User className="size-3.5 sm:size-4" strokeWidth={2} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-start justify-between gap-2 gap-y-1">
-              <p className="min-w-[40%] flex-1 break-words text-[11px] font-bold leading-snug text-emerald-950 sm:text-[12px]">
-                {patientHeadingName(patientProfile, request.patient_id)}
-              </p>
-              {patientPhone || patientEmail ? (
-                <button
-                  type="button"
-                  aria-expanded={patientContactOpen}
-                  onClick={() => setPatientContactOpen((v) => !v)}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-400/70 bg-white px-1.5 py-0.5 text-[9px] font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-50 sm:px-2 sm:py-1 sm:text-[10px]"
-                >
-                  <Phone className="size-3 shrink-0 opacity-90" aria-hidden />
-                  Contacter
-                  <ChevronDown
-                    className={clsx("size-3 shrink-0 text-emerald-800/80 transition-transform", patientContactOpen && "rotate-180")}
-                    aria-hidden
-                  />
-                </button>
-              ) : null}
-            </div>
-            <p className="mt-0.5 break-all font-mono text-[9px] font-semibold tabular-nums text-emerald-950/90 sm:text-[10px]">
-              {patientProfile?.patient_ref?.trim() || `#${formatShortId(request.patient_id)}`}
-            </p>
-            {(patientPhone || patientEmail) && patientContactOpen ? (
-              <div className="mt-1.5 flex flex-wrap gap-1 border-t border-emerald-200/80 pt-1.5">
-                {patientPhone ? (
-                  <>
-                    <a
-                      href={telHref(patientPhone)}
-                      className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
-                      title={`Appeler ${patientPhone}`}
-                    >
-                      <Phone className="size-4" aria-hidden />
-                    </a>
-                    <a
-                      href={smsHref(patientPhone)}
-                      className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
-                      title="SMS"
-                    >
-                      <MessageSquare className="size-4" aria-hidden />
-                    </a>
-                    <a
-                      href={whatsappHref(patientPhone)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
-                      title="WhatsApp"
-                    >
-                      <MessageCircle className="size-4" aria-hidden />
-                    </a>
-                  </>
-                ) : null}
-                {patientEmail ? (
-                  <a
-                    href={`mailto:${patientEmail}`}
-                    className="inline-flex size-9 items-center justify-center rounded-lg border border-sky-400/70 bg-white text-sky-900 shadow-sm transition hover:bg-sky-50"
-                    title={patientEmail}
+      {!hideMainRequestHeader ? (
+        <section className="rounded-xl border border-emerald-300/60 bg-gradient-to-br from-emerald-50/85 via-white to-teal-50/40 px-2 py-1.5 shadow-sm ring-1 ring-emerald-200/45 sm:px-2.5">
+          <div className="flex gap-2 sm:items-center sm:gap-2.5">
+            <span
+              className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm sm:size-8"
+              title="Client"
+              aria-hidden
+            >
+              <User className="size-3.5 sm:size-4" strokeWidth={2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-start justify-between gap-2 gap-y-1">
+                <p className="min-w-[40%] flex-1 break-words text-[11px] font-bold leading-snug text-emerald-950 sm:text-[12px]">
+                  {patientHeadingName(patientProfile, request.patient_id)}
+                </p>
+                {patientPhone || patientEmail ? (
+                  <button
+                    type="button"
+                    aria-expanded={patientContactOpen}
+                    onClick={() => setPatientContactOpen((v) => !v)}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-400/70 bg-white px-1.5 py-0.5 text-[9px] font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-50 sm:px-2 sm:py-1 sm:text-[10px]"
                   >
-                    <Mail className="size-4" aria-hidden />
-                  </a>
+                    <Phone className="size-3 shrink-0 opacity-90" aria-hidden />
+                    Contacter
+                    <ChevronDown
+                      className={clsx("size-3 shrink-0 text-emerald-800/80 transition-transform", patientContactOpen && "rotate-180")}
+                      aria-hidden
+                    />
+                  </button>
                 ) : null}
               </div>
-            ) : null}
+              <p className="mt-0.5 break-all font-mono text-[9px] font-semibold tabular-nums text-emerald-950/90 sm:text-[10px]">
+                {patientProfile?.patient_ref?.trim() || `#${formatShortId(request.patient_id)}`}
+              </p>
+              {(patientPhone || patientEmail) && patientContactOpen ? (
+                <div className="mt-1.5 flex flex-wrap gap-1 border-t border-emerald-200/80 pt-1.5">
+                  {patientPhone ? (
+                    <>
+                      <a
+                        href={telHref(patientPhone)}
+                        className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
+                        title={`Appeler ${patientPhone}`}
+                      >
+                        <Phone className="size-4" aria-hidden />
+                      </a>
+                      <a
+                        href={smsHref(patientPhone)}
+                        className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
+                        title="SMS"
+                      >
+                        <MessageSquare className="size-4" aria-hidden />
+                      </a>
+                      <a
+                        href={whatsappHref(patientPhone)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
+                        title="WhatsApp"
+                      >
+                        <MessageCircle className="size-4" aria-hidden />
+                      </a>
+                    </>
+                  ) : null}
+                  {patientEmail ? (
+                    <a
+                      href={`mailto:${patientEmail}`}
+                      className="inline-flex size-9 items-center justify-center rounded-lg border border-sky-400/70 bg-white text-sky-900 shadow-sm transition hover:bg-sky-50"
+                      title={patientEmail}
+                    >
+                      <Mail className="size-4" aria-hidden />
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
-      {usesLineWorkflow &&
+      {!hideMainRequestHeader &&
+      usesLineWorkflow &&
       request &&
       !isPrescription &&
       !isConsultation &&
@@ -5233,8 +5244,14 @@ export default function PharmacienDemandeDetailPage() {
               const lineLockedTrace = co === "cancelled_at_counter";
               const canEditThisRow = showLineAndPublishEdits && !lineLockedTrace && !archiveFrozen;
               const rowAlts = normalizeAlts(row.request_item_alternatives);
-              const activeAltTab: PharmacistAltTabId = lineAltTabByRowId[row.id] ?? "principal";
-              const activeAltRow = rowAlts.find((a) => a.id === activeAltTab) ?? null;
+              const activeAltTab: PharmacistLineAltTabId = lineAltTabByRowId[row.id] ?? "principal";
+              const showAltPicker = activeAltTab === PHARMACIST_ALT_TAB_ADD;
+              const showPrincipalVariant = !showAltPicker && activeAltTab === "principal";
+              const activeAltRow =
+                !showAltPicker && activeAltTab !== "principal"
+                  ? rowAlts.find((a) => a.id === activeAltTab) ?? null
+                  : null;
+              const showVariantTabs = showLineAndPublishEdits && canEditThisRow && !lineLockedTrace;
               const chosenAltId = row.patient_chosen_alternative_id ?? null;
               const chosenAltRow = chosenAltId ? rowAlts.find((a) => a.id === chosenAltId) : null;
               const lineEditorPhotoPath = validatedBranchPhotoPath(row as PatientLineLike);
@@ -5733,31 +5750,6 @@ export default function PharmacienDemandeDetailPage() {
                     </div>
                   ) : null;
 
-                const lineConvoCompactSlot = (
-                  <button
-                    type="button"
-                    disabled={busy || supplyConfirmBusy || fulfillmentRpcBusyId === row.id}
-                    onClick={() => {
-                      setSupplyMenuRowId(null);
-                      setLineConvoRowId(row.id);
-                    }}
-                    className={clsx(
-                      lineConversationStripButtonClass(lineConvoVisual, {
-                        open: lineConvoRowId === row.id,
-                        disabled: busy || supplyConfirmBusy,
-                      }),
-                      "min-w-0 w-full max-w-none flex-1 justify-start"
-                    )}
-                    aria-label={`Échanges produit · ${lineConversationStripLabel(lineConvoVisual)}`}
-                    title="Notes patient et officine"
-                  >
-                    <MessageCircle className="size-4 shrink-0 text-teal-700" strokeWidth={2.4} aria-hidden />
-                    <span className="max-w-[10rem] truncate text-[9px] font-medium leading-tight sm:max-w-[12rem]">
-                      {lineConversationStripLabel(lineConvoVisual)}
-                    </span>
-                  </button>
-                );
-
                 return (
                   <Fragment key={row.id}>
                     <PharmacistSupplyCompactLine
@@ -5837,7 +5829,20 @@ export default function PharmacienDemandeDetailPage() {
                         ) : null
                       }
                       treatedCounterSlot={treatedCounterSlot}
-                      lineConversationSlot={lineConvoCompactSlot}
+                      lineMessageButton={
+                        <PharmacistLineMessageButton
+                          visual={lineConvoVisual}
+                          open={lineConvoRowId === row.id}
+                          disabled={
+                            busy || supplyConfirmBusy || fulfillmentRpcBusyId === row.id
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSupplyMenuRowId(null);
+                            setLineConvoRowId(row.id);
+                          }}
+                        />
+                      }
                       postConfirmAmendmentBadges={supplyAmendmentBadgeLabelsByItemId[row.id]}
                       menuOpen={supplyMenuRowId === row.id}
                       onMenuOpenChange={(open) => setSupplyMenuRowId(open ? row.id : null)}
@@ -5924,6 +5929,54 @@ export default function PharmacienDemandeDetailPage() {
                           : "border-l-[3px] border-l-sky-400/55"
                     )}
                   >
+                  {showVariantTabs ? (
+                    <>
+                      <PharmacistLineAlternativesTabs
+                        tabs={[
+                          { id: "principal", label: "Demande patient" },
+                          ...rowAlts.map((alt) => ({
+                            id: alt.id,
+                            label: pharmacistAltTabLabel(one(alt.products)?.name ?? null, alt.rank),
+                          })),
+                        ]}
+                        activeTab={activeAltTab}
+                        onTabChange={(tabId) => {
+                          setLineAltTabByRowId((prev) => ({ ...prev, [row.id]: tabId }));
+                          if (tabId === PHARMACIST_ALT_TAB_ADD) {
+                            setAltPickerOpenFor(row.id);
+                            setAltQuery("");
+                            setAltHits([]);
+                          } else if (tabId !== "principal") {
+                            resetAltPicker(row.id);
+                          }
+                        }}
+                        canAddAlt={rowAlts.length < 3}
+                        onAddAlt={() => {
+                          setLineAltTabByRowId((prev) => ({ ...prev, [row.id]: PHARMACIST_ALT_TAB_ADD }));
+                          setAltPickerOpenFor(row.id);
+                          setAltQuery("");
+                          setAltHits([]);
+                        }}
+                        addBusy={altBusyRow === row.id}
+                        altCount={rowAlts.length}
+                      />
+                      {showAltPicker && altPickerOpenFor === row.id ? (
+                        <PharmacistAltCatalogPicker
+                          query={altQuery}
+                          onQueryChange={setAltQuery}
+                          hits={altVisibleHits}
+                          debouncedLen={altDebounced.length}
+                          busy={altBusyRow === row.id}
+                          onSelect={(h) => void insertAlternative(row, h)}
+                          onClose={() => resetAltPicker(row.id)}
+                          pricingConfig={pricingConfig}
+                        />
+                      ) : null}
+                    </>
+                  ) : null}
+
+                  {showPrincipalVariant ? (
+                  <>
                   <div className={PHARMA_LINE_EDITOR_HEADER}>
                     <div className="flex w-[4.25rem] shrink-0 flex-col items-stretch gap-0.5 sm:w-[4.75rem]">
                       <div
@@ -5978,18 +6031,35 @@ export default function PharmacienDemandeDetailPage() {
                             </span>
                           ) : null}
                         </div>
-                        {canEditThisRow && isProposedLine ? (
-                          <button
-                            type="button"
-                            title="Retirer cette proposition"
-                            aria-label="Retirer cette proposition"
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          <PharmacistLineMessageButton
+                            visual={lineConvoVisual}
+                            open={lineConvoEffectiveRowId === row.id}
                             disabled={busy}
-                            onClick={() => void removePharmacistProposedLine(row)}
-                            className="shrink-0 rounded-lg border border-rose-200/90 bg-rose-50/90 p-1.5 text-rose-800 shadow-sm transition hover:bg-rose-100 disabled:opacity-50"
-                          >
-                            <Trash2 className="size-4" strokeWidth={2} aria-hidden />
-                          </button>
-                        ) : null}
+                            showReplyHint={
+                              lineConvoVisual === "patient_only" &&
+                              ((canEditThisRow && showLineAndPublishEdits) ||
+                                (respondedFrozenView && !lineLockedTrace))
+                            }
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setLineConvoRowId((cur) => (cur === row.id ? null : row.id));
+                            }}
+                          />
+                          {canEditThisRow && isProposedLine ? (
+                            <button
+                              type="button"
+                              title="Retirer cette proposition"
+                              aria-label="Retirer cette proposition"
+                              disabled={busy}
+                              onClick={() => void removePharmacistProposedLine(row)}
+                              className="shrink-0 rounded-lg border border-rose-200/90 bg-rose-50/90 p-1.5 text-rose-800 shadow-sm transition hover:bg-rose-100 disabled:opacity-50"
+                            >
+                              <Trash2 className="size-4" strokeWidth={2} aria-hidden />
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
                         <span
@@ -6036,53 +6106,21 @@ export default function PharmacienDemandeDetailPage() {
                             </span>
                           )
                         ) : null}
-                      </div>
-                      <div className="mt-1 flex min-w-0 items-stretch gap-2 border-t border-dotted border-border/55 pt-1.5">
-                        <button
-                          type="button"
-                          disabled={busy}
-                          className={clsx(
-                            lineConversationStripButtonClass(lineConvoVisual, {
-                              open: lineConvoEffectiveRowId === row.id,
-                              disabled: busy,
-                            }),
-                            "relative min-h-9 min-w-0 flex-1 justify-start"
-                          )}
-                          aria-label={`Échanges produit · ${lineConversationStripLabel(lineConvoVisual)}`}
-                          title="Ouvrir les messages patient et note officine"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setLineConvoRowId((cur) => (cur === row.id ? null : row.id));
-                          }}
-                        >
-                          <MessageCircle className="size-4 shrink-0 text-teal-700" strokeWidth={2.4} aria-hidden />
-                          <span className="min-w-0 flex-1 text-left text-[9px] font-medium leading-snug">
-                            {lineConversationStripLabel(lineConvoVisual)}
-                          </span>
-                          {lineConvoVisual === "patient_only" &&
-                          ((canEditThisRow && showLineAndPublishEdits) || (respondedFrozenView && !lineLockedTrace)) ? (
-                            <span
-                              className="absolute -right-0.5 -top-0.5 flex size-2 rounded-full bg-amber-500 ring-2 ring-white"
-                              aria-hidden
-                            />
-                          ) : null}
-                        </button>
-                        <div
-                          className="flex shrink-0 flex-col justify-center self-stretch border-l border-border/45 pl-2 text-end"
+                        <span
+                          className="ms-auto shrink-0 text-end tabular-nums"
                           title={
                             draftIndicativePuMad !== "—"
                               ? `Prix catalogue officine : ${draftIndicativePuMad}`
                               : undefined
                           }
                         >
-                          <span className="text-[8px] font-bold uppercase leading-none tracking-wide text-muted-foreground">
-                            PU
+                          <span className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">
+                            PU{" "}
                           </span>
-                          <span className="mt-0.5 whitespace-nowrap text-[11px] font-semibold tabular-nums leading-none text-foreground sm:text-[12px]">
+                          <span className="text-[11px] font-semibold text-foreground sm:text-[12px]">
                             {draftIndicativePuMad}
                           </span>
-                        </div>
+                        </span>
                       </div>
                       {isProposedLine && !isOrdonnancePrincipalLine ? (
                         <p className="rounded-md border border-violet-300/80 bg-gradient-to-br from-violet-200/55 to-violet-100/40 px-2 py-1 text-[10px] leading-snug text-violet-950 shadow-sm ring-1 ring-violet-300/35">
@@ -6362,280 +6400,54 @@ export default function PharmacienDemandeDetailPage() {
                       </div>
                     </div>
                   )}
+                  </>
+                  ) : null}
 
-                  {(canEditThisRow || rowAlts.length > 0) && showLineAndPublishEdits ? (
-                  <PharmacistLineAlternativesTabs
-                    tabs={[
-                      { id: "principal", label: "Principal" },
-                      ...rowAlts.map((alt) => ({ id: alt.id, label: `Alt. ${alt.rank}` })),
-                    ]}
-                    activeTab={activeAltTab}
-                    onTabChange={(tabId) => {
-                      setLineAltTabByRowId((prev) => ({ ...prev, [row.id]: tabId }));
-                      if (tabId !== "principal") resetAltPicker();
-                    }}
-                    canAddAlt={canEditThisRow && rowAlts.length < 3}
-                    onAddAlt={() => {
-                      setLineAltTabByRowId((prev) => ({ ...prev, [row.id]: "principal" }));
-                      setAltPickerOpenFor(row.id);
-                      setAltQuery("");
-                      setAltHits([]);
-                      setAltRowsOpen((prev) => ({ ...prev, [row.id]: true }));
-                    }}
-                    addBusy={altBusyRow === row.id}
-                  >
-                    {activeAltTab === "principal" && canEditThisRow && rowAlts.length < 3 && altPickerOpenFor === row.id ? (
-                      <div className="mt-2 flex max-h-[min(52svh,20rem)] min-h-0 flex-col gap-2 overflow-hidden overscroll-y-contain rounded-xl border-2 border-teal-400/55 bg-white p-2.5 shadow-md ring-2 ring-teal-200/35">
-                        <div className="flex shrink-0 items-center justify-between gap-2">
-                          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-950">
-                            <Search className="size-3.5 shrink-0 text-teal-600" aria-hidden />
-                            Catalogue alternatives
-                          </span>
-                          <button
-                            type="button"
-                            className="rounded-md px-2 py-0.5 text-[10px] font-medium text-teal-800 hover:bg-teal-100/70"
-                            onClick={resetAltPicker}
-                          >
-                            Fermer
-                          </button>
-                        </div>
-                        <div className="relative shrink-0">
-                          <Search
-                            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-teal-600/90"
-                            aria-hidden
-                          />
-                          <input
-                            type="search"
-                            value={altQuery}
-                            onChange={(e) => setAltQuery(e.target.value)}
-                            placeholder="Rechercher un produit (2 car. min.)"
-                            className="h-10 w-full rounded-xl border-2 border-teal-400/50 bg-background py-2 pl-10 pr-3 text-[13px] shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/35"
-                          />
-                        </div>
-                        {altVisibleHits.length > 0 ? (
-                          <ul className="min-h-0 flex-1 touch-pan-y space-y-0.5 overflow-y-auto overscroll-contain rounded-xl border border-border/70 bg-card p-1 shadow-inner ring-1 ring-teal-200/35 [-webkit-overflow-scrolling:touch]">
-                            {altVisibleHits.map((h) => (
-                              <li key={h.id}>
-                                <button
-                                  type="button"
-                                  disabled={altBusyRow === row.id}
-                                  onClick={() => void insertAlternative(row, h)}
-                                  className="flex w-full touch-manipulation items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] transition hover:bg-muted/65 active:bg-muted/80 disabled:opacity-50"
-                                >
-                                  <div className="relative size-11 shrink-0 overflow-hidden rounded-lg border border-teal-200/60 bg-teal-50/50">
-                                    {h.photo_url ? (
-                                      <img src={h.photo_url} alt="" className="h-full w-full object-cover" />
-                                    ) : (
-                                      <div className="flex h-full w-full items-center justify-center text-teal-600/70">
-                                        <Package className="size-5" aria-hidden />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block font-semibold leading-tight text-foreground">{h.name}</span>
-                                    {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h)) !== "—" ? (
-                                      <span className="mt-0.5 block text-[10px] font-semibold text-primary">
-                                        PU {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h))}
-                                      </span>
-                                    ) : null}
-                                  </span>
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : altDebounced.length >= 2 ? (
-                          <p className="mt-1 text-[10px] text-teal-800/80">Aucun résultat.</p>
-                        ) : null}
-                      </div>
-                    ) : activeAltTab === "principal" ? (
-                      <p className="text-[10px] leading-snug text-teal-900/85">
-                        {rowAlts.length === 0
-                          ? "Aucune alternative — utilisez « Alt. » pour en proposer au patient."
-                          : `${rowAlts.length} alternative${rowAlts.length > 1 ? "s" : ""} — sélectionnez un onglet pour modifier.`}
-                      </p>
-                    ) : activeAltRow ? (
-                      <ul className="space-y-1.5">
-                            {(() => {
-                              const alt = activeAltRow;
-                              const altProd = one(alt.products);
-                              const altName = altProd?.name ?? "Alternative";
-                              const altCatalogPu = formatPharmacyCatalogPrice(
-                                pricingConfig,
-                                productEmbedToPricingInput(
-                                  altProd
-                                    ? {
-                                        product_type: altProd.product_type ?? "parapharmacie",
-                                        price_pph: altProd.price_pph,
-                                        price_ppv: altProd.price_ppv,
-                                        laboratory: altProd.laboratory,
-                                      }
-                                    : null,
-                                  alt.product_id
-                                )
-                              );
-                              const chosenAltId = row.patient_chosen_alternative_id ?? null;
-                              const patientChoseHere =
-                                request.status === "confirmed" &&
-                                selected &&
-                                chosenAltId != null &&
-                                chosenAltId === alt.id;
-                              const showIndicatif =
-                                request.status === "confirmed" && selected && rowAlts.length > 0 && !patientChoseHere;
-                              return (
-                                <li
-                                  key={alt.id}
-                                  className={clsx(
-                                    "flex items-center justify-between gap-2 rounded-xl border px-2 py-1.5 text-[10px] shadow-sm ring-1",
-                                    patientChoseHere
-                                      ? "border-emerald-300/70 bg-emerald-50/80 ring-emerald-200/50"
-                                      : showIndicatif
-                                        ? "border-teal-200/35 bg-white/50 opacity-70 ring-transparent"
-                                        : "border-teal-200/50 bg-white/95 ring-teal-100/60"
-                                  )}
-                                >
-                                  <div className="flex min-w-0 flex-1 items-center gap-2">
-                                    <div className="size-11 shrink-0 overflow-hidden rounded-lg border border-teal-200/50 bg-teal-50/50">
-                                      {altProd?.photo_url ? (
-                                        <img
-                                        src={resolvePublicMediaUrl(altProd.photo_url) ?? altProd.photo_url}
-                                        alt={altName}
-                                        className="h-full w-full object-cover"
-                                      />
-                                      ) : (
-                                        <div className="flex h-full w-full items-center justify-center text-teal-600/70">
-                                          <Layers className="size-5" aria-hidden />
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex flex-wrap items-center gap-1">
-                                        <p className="truncate font-semibold text-teal-950">{altName}</p>
-                                        {patientChoseHere ||
-                                        (row.patient_chosen_alternative_id != null &&
-                                          row.patient_chosen_alternative_id === alt.id) ? (
-                                          <span className="shrink-0 rounded-full bg-emerald-700 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                                            ALTERNATIVE
-                                          </span>
-                                        ) : null}
-                                      </div>
-                                      <p className="mt-0.5 text-[10px] text-teal-800/85">
-                                        #{alt.rank}
-                                        {altCatalogPu !== "—" ? (
-                                          <span className="text-teal-700"> · PU {altCatalogPu}</span>
-                                        ) : null}
-                                      </p>
-                                      {canEditThisRow && showLineAndPublishEdits ? (
-                                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                                          <span className="text-[9px] font-bold uppercase tracking-wide text-teal-900/90">
-                                            Qté
-                                          </span>
-                                          <div className="inline-flex h-7 items-center overflow-hidden rounded-lg border border-teal-300/70 bg-white shadow-sm">
-                                            <button
-                                              type="button"
-                                              disabled={altBusyRow === alt.id}
-                                              className="h-full w-6 border-r border-teal-200/80 text-xs font-bold text-teal-900 disabled:opacity-40"
-                                              aria-label="Diminuer la quantité alternative"
-                                              onClick={() => {
-                                                if (isLocalAltId(alt.id)) {
-                                                  const cur = clampAlternativeAvailableQty(Number(alt.available_qty ?? 1));
-                                                  patchPendingAlternativeQty(alt.id, String(Math.max(1, cur - 1)));
-                                                } else {
-                                                  const cur = clampAlternativeAvailableQty(
-                                                    Number(altQtyDrafts[alt.id] ?? alt.available_qty ?? row.requested_qty)
-                                                  );
-                                                  setAltQtyDrafts((d) => ({ ...d, [alt.id]: String(Math.max(1, cur - 1)) }));
-                                                }
-                                              }}
-                                            >
-                                              −
-                                            </button>
-                                            <input
-                                              type="text"
-                                              inputMode="numeric"
-                                              disabled={altBusyRow === alt.id}
-                                              className="h-full w-9 border-0 bg-transparent px-0.5 text-center text-[11px] font-bold tabular-nums text-teal-950 focus:outline-none"
-                                              value={
-                                                isLocalAltId(alt.id)
-                                                  ? String(alt.available_qty ?? 1)
-                                                  : altQtyDrafts[alt.id] ?? String(alt.available_qty ?? row.requested_qty)
-                                              }
-                                              onChange={(e) => {
-                                                const v = e.target.value.replace(/[^\d]/g, "");
-                                                if (isLocalAltId(alt.id)) {
-                                                  patchPendingAlternativeQty(alt.id, v);
-                                                } else {
-                                                  setAltQtyDrafts((d) => ({ ...d, [alt.id]: v }));
-                                                }
-                                              }}
-                                              onBlur={() => {
-                                                if (isLocalAltId(alt.id)) {
-                                                  patchPendingAlternativeQty(
-                                                    alt.id,
-                                                    String(clampAlternativeAvailableQty(Number(alt.available_qty ?? 1)))
-                                                  );
-                                                  return;
-                                                }
-                                                const n = clampAlternativeAvailableQty(
-                                                  Number(altQtyDrafts[alt.id] ?? alt.available_qty ?? row.requested_qty)
-                                                );
-                                                setAltQtyDrafts((d) => ({
-                                                  ...d,
-                                                  [alt.id]: String(Math.max(1, n)),
-                                                }));
-                                              }}
-                                            />
-                                            <button
-                                              type="button"
-                                              disabled={altBusyRow === alt.id}
-                                              className="h-full w-6 border-l border-teal-200/80 text-xs font-bold text-teal-900 disabled:opacity-40"
-                                              aria-label="Augmenter la quantité alternative"
-                                              onClick={() => {
-                                                if (isLocalAltId(alt.id)) {
-                                                  const cur = clampAlternativeAvailableQty(Number(alt.available_qty ?? 1));
-                                                  patchPendingAlternativeQty(alt.id, String(clampAlternativeAvailableQty(cur + 1)));
-                                                } else {
-                                                  const cur = clampAlternativeAvailableQty(
-                                                    Number(altQtyDrafts[alt.id] ?? alt.available_qty ?? row.requested_qty)
-                                                  );
-                                                  setAltQtyDrafts((d) => ({
-                                                    ...d,
-                                                    [alt.id]: String(clampAlternativeAvailableQty(cur + 1)),
-                                                  }));
-                                                }
-                                              }}
-                                            >
-                                              +
-                                            </button>
-                                          </div>
-                                          <span className="text-[8px] text-teal-800/80 tabular-nums">
-                                            max 10
-                                          </span>
-                                        </div>
-                                      ) : (
-                                        <p className="mt-0.5 text-[10px] text-teal-800/85">
-                                          Qté <strong className="tabular-nums">{alt.available_qty ?? row.requested_qty}</strong>
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                  {canEditThisRow ? (
-                                    <button
-                                      type="button"
-                                      disabled={altBusyRow === alt.id}
-                                      onClick={() => void deleteAlternativeRow(alt.id, row.id)}
-                                      className="shrink-0 rounded-lg border border-rose-200/80 bg-rose-50/80 px-2 py-1 text-[9px] font-semibold text-rose-800 hover:bg-rose-100 disabled:opacity-50"
-                                    >
-                                      Retirer
-                                    </button>
-                                  ) : null}
-                                </li>
-                              );
-                            })()}
-                          </ul>
-                    ) : (
-                      <p className="text-[10px] text-teal-900/85">Alternative introuvable — revenez à l’onglet Principal.</p>
-                    )}
-                  </PharmacistLineAlternativesTabs>
+                  {!showAltPicker && activeAltRow ? (
+                    <PharmacistAlternativeLinePanel
+                      alt={activeAltRow}
+                      qtyBusy={altBusyRow === activeAltRow.id}
+                      qtyValue={
+                        isLocalAltId(activeAltRow.id)
+                          ? String(activeAltRow.available_qty ?? 1)
+                          : altQtyDrafts[activeAltRow.id] ?? String(activeAltRow.available_qty ?? row.requested_qty)
+                      }
+                      onQtyChange={(v) => {
+                        if (isLocalAltId(activeAltRow.id)) patchPendingAlternativeQty(activeAltRow.id, v);
+                        else setAltQtyDrafts((d) => ({ ...d, [activeAltRow.id]: v }));
+                      }}
+                      onQtyNudge={(delta) => {
+                        if (isLocalAltId(activeAltRow.id)) {
+                          const cur = clampAlternativeAvailableQty(Number(activeAltRow.available_qty ?? 1));
+                          patchPendingAlternativeQty(
+                            activeAltRow.id,
+                            String(clampAlternativeAvailableQty(cur + delta))
+                          );
+                        } else {
+                          const cur = clampAlternativeAvailableQty(
+                            Number(altQtyDrafts[activeAltRow.id] ?? activeAltRow.available_qty ?? row.requested_qty)
+                          );
+                          setAltQtyDrafts((d) => ({
+                            ...d,
+                            [activeAltRow.id]: String(clampAlternativeAvailableQty(cur + delta)),
+                          }));
+                        }
+                      }}
+                      onRemove={() => void deleteAlternativeRow(activeAltRow.id, row.id)}
+                      removeBusy={altBusyRow === activeAltRow.id}
+                      pricingConfig={pricingConfig}
+                      patientChoseThis={
+                        request.status === "confirmed" &&
+                        selected &&
+                        row.patient_chosen_alternative_id === activeAltRow.id
+                      }
+                      showIndicatif={
+                        request.status === "confirmed" &&
+                        selected &&
+                        rowAlts.length > 0 &&
+                        row.patient_chosen_alternative_id !== activeAltRow.id
+                      }
+                    />
                   ) : null}
 
                   {showInlineCounter ? (
