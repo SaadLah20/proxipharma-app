@@ -4881,8 +4881,6 @@ export default function PharmacienDemandeDetailPage() {
           lineCount={displayRows.length}
           selectedCount={selectedLinesActiveCount}
           pendingCounterCount={request.status === "treated" ? pendingCounterCount : undefined}
-          conversationUnread={conversationUnread}
-          onOpenConversation={() => setConversationOpen(true)}
         />
       ) : (
         <RequestKindHeader
@@ -5057,14 +5055,20 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      {usesLineWorkflow && request?.status === "confirmed" && !pharmacistRequestIsHardStopped(request.status) ? (
+      {!hideMainRequestHeader &&
+      usesLineWorkflow &&
+      request?.status === "confirmed" &&
+      !pharmacistRequestIsHardStopped(request.status) ? (
         <section className={clsx(PHARMA_STATUS_BANNER, "border-teal-200/70 bg-teal-50/45 text-teal-950")}>
           <p className="font-semibold text-teal-950">Validée patient</p>
           <p className="text-teal-900/88">Pastilles = enregistrement direct · écarts = barre du bas.</p>
         </section>
       ) : null}
 
-      {usesLineWorkflow && request?.status === "treated" && !pharmacistRequestIsHardStopped(request.status) ? (
+      {!hideMainRequestHeader &&
+      usesLineWorkflow &&
+      request?.status === "treated" &&
+      !pharmacistRequestIsHardStopped(request.status) ? (
         <section className={clsx(PHARMA_STATUS_BANNER, "border-violet-200/70 bg-violet-50/40 text-violet-950")}>
           <p className="font-semibold text-violet-950">Comptoir</p>
           <p className="text-violet-900/88">Marquer récupéré par ligne · autres modifs via la barre du bas.</p>
@@ -6036,11 +6040,6 @@ export default function PharmacienDemandeDetailPage() {
                             visual={lineConvoVisual}
                             open={lineConvoEffectiveRowId === row.id}
                             disabled={busy}
-                            showReplyHint={
-                              lineConvoVisual === "patient_only" &&
-                              ((canEditThisRow && showLineAndPublishEdits) ||
-                                (respondedFrozenView && !lineLockedTrace))
-                            }
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();

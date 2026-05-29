@@ -149,6 +149,10 @@ export function PharmacistSupplyCompactLine({
   const pillIdle = "border-border bg-background text-foreground hover:bg-muted/50";
 
   const withdrawnGrey = Boolean(supplyTier && supplyTier === "retire_apres_validation");
+  // Le menu (⋮) ne propose Modifier / Écarter que dans ces conditions ; sinon il ne
+  // contiendrait que « Historique » → on n'affiche alors que l'icône Historique.
+  const menuHasActions =
+    supplyMutationsEnabled && selected && !lineLockedTrace && !withdrawn && !lineCounterLocked;
   const cardShell = supplyTier
     ? validatedLineShellClass(supplyTier, withdrawnGrey || withdrawn)
     : withdrawn
@@ -216,6 +220,7 @@ export function PharmacistSupplyCompactLine({
       >
         <div className="relative flex flex-col gap-1.5">
           <div className="relative flex items-start gap-1.5">
+            {menuHasActions ? (
             <div className="pointer-events-none absolute end-1 top-1 z-10">
               <button
                 ref={anchorRef}
@@ -289,6 +294,7 @@ export function PharmacistSupplyCompactLine({
                   )
                 : null}
             </div>
+            ) : null}
 
             <div className="relative box-border h-[3.85rem] w-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card shadow-inner sm:h-[4rem] sm:w-[4rem]">
               {thumbUrl ? (
@@ -311,7 +317,7 @@ export function PharmacistSupplyCompactLine({
               )}
             </div>
 
-            <div className="min-w-0 flex-1 pe-10">
+            <div className={clsx("min-w-0 flex-1", menuHasActions && "pe-10")}>
               <div className="flex min-w-0 items-start gap-1">
                 <p
                   className={clsx(
@@ -323,16 +329,18 @@ export function PharmacistSupplyCompactLine({
                   {validatedName}
                 </p>
                 {lineMessageButton}
-                <button
-                  type="button"
-                  disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
-                  onClick={onMenuHistory}
-                  className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-sky-300/80 bg-white text-sky-800 shadow-sm hover:bg-sky-50 disabled:opacity-40"
-                  aria-label="Historique de cette ligne"
-                  title="Historique"
-                >
-                  <History className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
-                </button>
+                {!menuHasActions ? (
+                  <button
+                    type="button"
+                    disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+                    onClick={onMenuHistory}
+                    className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-sky-300/80 bg-white text-sky-800 shadow-sm hover:bg-sky-50 disabled:opacity-40"
+                    aria-label="Historique de cette ligne"
+                    title="Historique"
+                  >
+                    <History className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+                  </button>
+                ) : null}
               </div>
               {validatedLineLabels && validatedLineLabels.length > 0 ? (
                 <div className="mt-1 flex flex-wrap gap-1">
