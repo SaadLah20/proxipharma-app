@@ -1714,6 +1714,12 @@ export default function PharmacienDemandeDetailPage() {
   const [availabilityMenuRowId, setAvailabilityMenuRowId] = useState<string | null>(null);
   const [altQuery, setAltQuery] = useState("");
   const [altHits, setAltHits] = useState<ProductCatalogHit[]>([]);
+  const resetRespondedLineAltUi = useCallback(() => {
+    setLineAltTabByRowId({});
+    setAltPickerOpenFor(null);
+    setAltQuery("");
+    setAltHits([]);
+  }, []);
   const [altBusyRow, setAltBusyRow] = useState<string | null>(null);
   const [counterBusyId, setCounterBusyId] = useState<string | null>(null);
   const [fulfillmentRpcBusyId, setFulfillmentRpcBusyId] = useState<string | null>(null);
@@ -1936,6 +1942,7 @@ export default function PharmacienDemandeDetailPage() {
     setRequest(r);
     if (r.status !== "responded") {
       setRespondedEditMode(false);
+      resetRespondedLineAltUi();
     }
     const { data: contactRpc, error: patErr } = await supabase.rpc("pharmacist_patient_contact_for_request", {
       p_request_id: id,
@@ -2085,7 +2092,7 @@ export default function PharmacienDemandeDetailPage() {
       return next;
     });
     setLoading(false);
-  }, [id, router]);
+  }, [id, router, resetRespondedLineAltUi]);
 
   const requestDrift = useRequestDetailDrift(id, request?.status, "pharmacien", load);
   const { acknowledge: acknowledgeRequestDrift } = requestDrift;
@@ -2094,16 +2101,6 @@ export default function PharmacienDemandeDetailPage() {
     if (!request?.updated_at) return;
     acknowledgeRequestDrift(request.updated_at, request.status);
   }, [request?.id, request?.updated_at, request?.status, acknowledgeRequestDrift]);
-
-  /** Vue « Publiée » : sans onglets, un onglet alternatif encore en mémoire masquait la ligne principale. */
-  useEffect(() => {
-    if (request?.status === "responded" && !respondedEditMode) {
-      setLineAltTabByRowId({});
-      setAltPickerOpenFor(null);
-      setAltQuery("");
-      setAltHits([]);
-    }
-  }, [request?.status, respondedEditMode]);
 
   const persistPostConfirmFulfillmentForRow = useCallback(
     async (rowSnap: ItemRow, pcf: "unset" | "reserved" | "ordered" | "arrived_reserved") => {
@@ -3866,6 +3863,7 @@ export default function PharmacienDemandeDetailPage() {
       const { error: h } = await logHistory(id, "responded", "responded", "pharmacist_response_updated");
       if (h) throw new Error(h.message);
       setRespondedEditMode(false);
+      resetRespondedLineAltUi();
       setRespondedSaveConfirmOpen(false);
       setRespondedSaveDiffLines([]);
       await load();
@@ -4016,6 +4014,7 @@ export default function PharmacienDemandeDetailPage() {
       if (h2) throw new Error(h2.message);
       setError("");
       setRespondedEditMode(false);
+      resetRespondedLineAltUi();
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Une erreur est survenue.");
@@ -6776,6 +6775,7 @@ export default function PharmacienDemandeDetailPage() {
               onClick={() => {
                 resetDraftFromRows();
                 setRespondedEditMode(false);
+                resetRespondedLineAltUi();
                 setPendingProposalRows([]);
                 setPendingAlternatives([]);
                 setError("");
