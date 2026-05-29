@@ -1,9 +1,7 @@
 import type { DemandeStatBucket } from "@/lib/demandes-hub-buckets";
-import type { PatientProductHubSection } from "@/lib/patient-product-hub-sections";
 
 export type PatientHubListFilterSummaryInput = {
   activeBucket: DemandeStatBucket | null;
-  activeSection: PatientProductHubSection | null;
   pharmacyLabel: string | null;
   referenceQuery: string;
   sortNewestFirst: boolean;
@@ -14,9 +12,6 @@ export function patientHubListActiveFilterParts(input: PatientHubListFilterSumma
   const parts: string[] = [];
   if (input.activeBucket) {
     parts.push(`Statut : ${input.activeBucket.label}`);
-  }
-  if (input.activeSection) {
-    parts.push(`Regroupement : ${input.activeSection.title}`);
   }
   if (input.pharmacyLabel) {
     parts.push(`Pharmacie : ${input.pharmacyLabel}`);

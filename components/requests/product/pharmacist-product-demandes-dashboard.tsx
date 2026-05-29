@@ -1,11 +1,12 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { ChevronRight, Sparkles } from "lucide-react";
 import type { PharmacistRequestRow } from "@/components/requests/demande-hub-ui";
 import { PharmacistProductDemandeHubCard } from "@/components/requests/product/pharmacist-product-demande-hub-card";
+import { ProductHubDashboardKpiPanel } from "@/components/requests/product/product-hub-dashboard-kpi-panel";
 import {
   countInPharmacistProductHubSection,
   PHARMACIST_PRODUCT_HUB_DASHBOARD_PREVIEW,
@@ -15,6 +16,8 @@ import {
   rowsInPharmacistProductHubSection,
   type PharmacistProductHubSectionId,
 } from "@/lib/pharmacist-product-hub-sections";
+import { dashboardBucketsForKind } from "@/lib/request-kinds/hub-and-terminal-copy";
+import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 
 const SECTION_ACCENT: Record<
   PharmacistProductHubSectionId,
@@ -27,10 +30,10 @@ const SECTION_ACCENT: Record<
     statHover: "hover:bg-amber-50/80",
   },
   in_preparation: {
-    border: "border-l-teal-500",
-    badge: "bg-teal-100 text-teal-950 ring-teal-200/80",
-    title: "text-teal-950",
-    statHover: "hover:bg-teal-50/80",
+    border: "border-l-sky-500",
+    badge: "bg-sky-100 text-sky-950 ring-sky-200/80",
+    title: "text-sky-950",
+    statHover: "hover:bg-sky-50/80",
   },
   archives: {
     border: "border-l-slate-400",
@@ -42,25 +45,33 @@ const SECTION_ACCENT: Record<
 
 const SECTION_ORDER: PharmacistProductHubSectionId[] = ["action_required", "in_preparation", "archives"];
 
+const DASHBOARD_BUCKETS = dashboardBucketsForKind("product_request", "pharmacien");
+
+function hubSectionDomId(sectionId: PharmacistProductHubSectionId): string {
+  return `pharmacist-product-hub-section-${sectionId}`;
+}
+
 function SectionBlock({
   sectionId,
   rows,
   basePath,
   unreadById,
   defaultCollapsed,
+  footer,
 }: {
   sectionId: PharmacistProductHubSectionId;
   rows: PharmacistRequestRow[];
   basePath: string;
   unreadById: Record<string, boolean>;
   defaultCollapsed?: boolean;
+  footer?: ReactNode;
 }) {
   const section = PHARMACIST_PRODUCT_HUB_SECTIONS.find((s) => s.id === sectionId)!;
   const sectionRows = rowsInPharmacistProductHubSection(rows, sectionId);
   const count = sectionRows.length;
   const accent = SECTION_ACCENT[sectionId];
   const preview = sectionRows.slice(0, PHARMACIST_PRODUCT_HUB_DASHBOARD_PREVIEW);
-  const listHref = pharmacistProductHubListHref(basePath, { sectionId });
+  const listHref = pharmacistProductHubListHref(basePath);
 
   if (count === 0) return null;
 
@@ -76,8 +87,9 @@ function SectionBlock({
 
   return (
     <section
+      id={hubSectionDomId(sectionId)}
       className={clsx(
-        "rounded-xl border border-border/80 bg-card shadow-sm ring-1 ring-black/[0.03]",
+        "scroll-mt-4 rounded-xl border border-border/80 bg-card shadow-sm ring-1 ring-black/[0.03]",
         "border-l-4",
         accent.border
       )}
@@ -100,7 +112,7 @@ function SectionBlock({
         {count > PHARMACIST_PRODUCT_HUB_DASHBOARD_PREVIEW ? (
           <Link
             href={listHref}
-            className="inline-flex shrink-0 items-center gap-0.5 rounded-lg border border-emerald-300/70 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100"
+            className="inline-flex shrink-0 items-center gap-0.5 rounded-lg border border-sky-300/70 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-900 hover:bg-sky-100"
           >
             Tout voir ({count})
             <ChevronRight className="size-3.5" aria-hidden />
@@ -119,6 +131,7 @@ function SectionBlock({
         ) : (
           body
         )}
+        {footer ? <div className="mt-3 border-t border-border/50 pt-3">{footer}</div> : null}
       </div>
     </section>
   );
@@ -133,21 +146,36 @@ export function PharmacistProductDemandesDashboard({
   basePath: string;
   unreadById: Record<string, boolean>;
 }) {
-  const router = useRouter();
   const recent = pickRecentActivePharmacistProductRequests(rows, unreadById, 5);
   const actionCount = countInPharmacistProductHubSection(rows, "action_required");
   const prepCount = countInPharmacistProductHubSection(rows, "in_preparation");
   const archiveCount = countInPharmacistProductHubSection(rows, "archives");
 
-  const openSectionList = (sectionId: PharmacistProductHubSectionId) => {
-    router.push(pharmacistProductHubListHref(basePath, { sectionId }), { scroll: false });
+  const scrollToHubSection = (sectionId: PharmacistProductHubSectionId) => {
+    document.getElementById(hubSectionDomId(sectionId))?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  const kpiPanel = (
+    <ProductHubDashboardKpiPanel
+      rows={rows}
+      buckets={DASHBOARD_BUCKETS}
+      basePath={basePath}
+      unreadById={unreadById}
+      role="pharmacien"
+    />
+  );
 
   return (
     <div className="space-y-4">
-      <div className="overflow-hidden rounded-2xl border-2 border-emerald-300/55 bg-gradient-to-br from-emerald-50/95 via-white to-teal-50/35 shadow-md ring-1 ring-emerald-200/50">
-        <div className="bg-gradient-to-r from-emerald-700 to-teal-700 px-3.5 py-3 text-white sm:px-4 sm:py-3.5">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-100/90">
+      <div
+        className={clsx(
+          "overflow-hidden rounded-2xl border-2 shadow-md",
+          t.shell,
+          "bg-gradient-to-br from-sky-50/95 via-white to-teal-50/35"
+        )}
+      >
+        <div className={clsx("px-3.5 py-3 sm:px-4 sm:py-3.5", t.headerGradient, "text-white")}>
+          <p className={clsx("text-[10px] font-bold uppercase tracking-wide", t.headerEyebrow)}>
             Demandes de produits
           </p>
           <p className="mt-1 text-sm font-semibold leading-snug sm:text-base">
@@ -158,11 +186,12 @@ export function PharmacistProductDemandesDashboard({
                 : "Tout est à jour — consultez les archives si besoin"}
           </p>
         </div>
-        <div className="grid grid-cols-3 divide-x divide-emerald-200/60 border-t border-emerald-200/50 bg-white/80">
+        <div className="grid grid-cols-3 divide-x divide-sky-200/60 border-t border-sky-200/50 bg-white/80">
           <button
             type="button"
-            onClick={() => openSectionList("action_required")}
+            onClick={() => scrollToHubSection("action_required")}
             className={clsx("px-2 py-2.5 text-center transition sm:px-3", SECTION_ACCENT.action_required.statHover)}
+            aria-label="Aller au bloc À traiter en priorité"
           >
             <p className="text-lg font-bold tabular-nums text-amber-800 sm:text-xl">{actionCount}</p>
             <p className="text-[9px] font-semibold uppercase tracking-wide text-amber-900/85 sm:text-[10px]">
@@ -171,18 +200,20 @@ export function PharmacistProductDemandesDashboard({
           </button>
           <button
             type="button"
-            onClick={() => openSectionList("in_preparation")}
+            onClick={() => scrollToHubSection("in_preparation")}
             className={clsx("px-2 py-2.5 text-center transition sm:px-3", SECTION_ACCENT.in_preparation.statHover)}
+            aria-label="Aller au bloc Préparation validée"
           >
-            <p className="text-lg font-bold tabular-nums text-teal-800 sm:text-xl">{prepCount}</p>
-            <p className="text-[9px] font-semibold uppercase tracking-wide text-teal-900/85 sm:text-[10px]">
+            <p className="text-lg font-bold tabular-nums text-sky-800 sm:text-xl">{prepCount}</p>
+            <p className="text-[9px] font-semibold uppercase tracking-wide text-sky-900/85 sm:text-[10px]">
               Validées
             </p>
           </button>
           <button
             type="button"
-            onClick={() => openSectionList("archives")}
+            onClick={() => scrollToHubSection("archives")}
             className={clsx("px-2 py-2.5 text-center transition sm:px-3", SECTION_ACCENT.archives.statHover)}
+            aria-label="Aller au bloc Archives"
           >
             <p className="text-lg font-bold tabular-nums text-slate-700 sm:text-xl">{archiveCount}</p>
             <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-600 sm:text-[10px]">
@@ -190,15 +221,21 @@ export function PharmacistProductDemandesDashboard({
             </p>
           </button>
         </div>
+        <p className="border-t border-sky-200/50 bg-sky-50/40 px-3.5 py-2 text-[10px] leading-snug text-sky-900/80 sm:px-4">
+          Les chiffres ci-dessus font défiler la page vers un regroupement indicatif — ils ne filtrent pas la liste
+          complète.
+        </p>
       </div>
 
       {recent.length > 0 ? (
-        <section className="rounded-xl border-2 border-emerald-200/70 bg-emerald-50/30 p-3 ring-1 ring-emerald-100/80 sm:p-3.5">
+        <section className="rounded-xl border-2 border-sky-200/70 bg-sky-50/30 p-3 ring-1 ring-sky-100/80 sm:p-3.5">
           <div className="mb-2.5 flex items-center gap-2">
-            <Sparkles className="size-4 shrink-0 text-emerald-700" aria-hidden />
+            <Sparkles className="size-4 shrink-0 text-sky-700" aria-hidden />
             <div>
-              <h2 className="text-sm font-bold text-emerald-950">Reprendre rapidement</h2>
-              <p className="text-[11px] text-emerald-900/85">Dossiers récents ou messages non lus</p>
+              <h2 className="text-sm font-bold text-sky-950">Reprendre rapidement</h2>
+              <p className="text-[11px] text-sky-900/85">
+                Vos 5 derniers dossiers ouverts ou consultés — tous statuts, messages non lus en tête
+              </p>
             </div>
           </div>
           <ul className="flex gap-2.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
@@ -215,6 +252,11 @@ export function PharmacistProductDemandesDashboard({
         </section>
       ) : null}
 
+      <p className="text-[11px] leading-snug text-muted-foreground">
+        Regroupement indicatif pour prioriser votre journée — la liste complète se filtre par statut, patient ou
+        référence dossier.
+      </p>
+
       {SECTION_ORDER.map((sectionId) => (
         <SectionBlock
           key={sectionId}
@@ -222,9 +264,22 @@ export function PharmacistProductDemandesDashboard({
           rows={rows}
           basePath={basePath}
           unreadById={unreadById}
-          defaultCollapsed={sectionId === "archives"}
+          defaultCollapsed={sectionId === "archives" && archiveCount > PHARMACIST_PRODUCT_HUB_DASHBOARD_PREVIEW}
+          footer={sectionId === "archives" ? kpiPanel : undefined}
         />
       ))}
+
+      {archiveCount === 0 ? kpiPanel : null}
+
+      <p className="text-center">
+        <Link
+          href={`${basePath}?vue=liste`}
+          className="inline-flex items-center gap-1 rounded-lg border border-sky-300/70 bg-white px-3 py-2 text-xs font-semibold text-sky-900 shadow-sm hover:bg-sky-50"
+        >
+          Voir toutes les demandes (filtres par statut)
+          <ChevronRight className="size-4" aria-hidden />
+        </Link>
+      </p>
     </div>
   );
 }

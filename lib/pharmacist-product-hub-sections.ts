@@ -1,5 +1,5 @@
 /**
- * Hub pharmacien « demandes produits » — regroupement métier (miroir patient).
+ * Hub pharmacien « demandes produits » — regroupement indicatif du tableau de bord uniquement.
  */
 
 import type { PharmacistRequestRow } from "@/components/requests/demande-hub-ui";
@@ -46,14 +46,6 @@ export const PHARMACIST_PRODUCT_HUB_SECTIONS: PharmacistProductHubSection[] = [
   },
 ];
 
-const ACTIVE_STATUSES = new Set<string>([
-  "submitted",
-  "in_review",
-  "responded",
-  "confirmed",
-  "treated",
-]);
-
 export function pharmacistProductHubSectionForStatus(status: string): PharmacistProductHubSectionId | null {
   for (const s of PHARMACIST_PRODUCT_HUB_SECTIONS) {
     if ((s.statuses as readonly string[]).includes(status)) return s.id;
@@ -80,42 +72,28 @@ export function countInPharmacistProductHubSection<T extends PharmacistRequestRo
 
 export function filterPharmacistProductHubListRows<T extends PharmacistRequestRow>(
   rows: T[],
-  opts: {
-    bucketStatuses?: readonly string[] | null;
-    sectionId?: PharmacistProductHubSectionId | null;
-  }
+  opts: { bucketStatuses?: readonly string[] | null }
 ): T[] {
-  let list = rows;
-  if (opts.bucketStatuses?.length) {
-    const allow = new Set(opts.bucketStatuses);
-    list = list.filter((r) => allow.has(r.status));
-  }
-  if (opts.sectionId) {
-    list = rowsInPharmacistProductHubSection(list, opts.sectionId);
-  }
-  return list;
+  if (!opts.bucketStatuses?.length) return rows;
+  const allow = new Set(opts.bucketStatuses);
+  return rows.filter((r) => allow.has(r.status));
 }
 
-export function pharmacistProductHubListHref(
-  basePath: string,
-  opts: { sectionId?: PharmacistProductHubSectionId; statutKey?: string }
-): string {
+export function pharmacistProductHubListHref(basePath: string, opts?: { statutKey?: string }): string {
   const next = new URLSearchParams();
   next.set("vue", "liste");
-  if (opts.sectionId) next.set("section", opts.sectionId);
-  if (opts.statutKey) next.set("statut", opts.statutKey);
-  const q = next.toString();
-  return q ? `${basePath}?${q}` : basePath;
+  if (opts?.statutKey) next.set("statut", opts.statutKey);
+  return `${basePath}?${next.toString()}`;
 }
 
+/** Jusqu’à 5 dossiers récents ou consultés (tous statuts, priorité messages non lus). */
 export function pickRecentActivePharmacistProductRequests(
   rows: PharmacistRequestRow[],
   unreadById: Record<string, boolean>,
   limit = 5
 ): PharmacistRequestRow[] {
-  const cap = Math.min(5, Math.max(3, limit));
-  const candidates = rows.filter((r) => ACTIVE_STATUSES.has(r.status));
-  const scored = candidates.map((row) => {
+  const cap = Math.min(5, Math.max(1, limit));
+  const scored = rows.map((row) => {
     let score = new Date(row.updated_at ?? row.created_at).getTime();
     if (unreadById[row.id]) score += 1e15;
     if (row.status === "submitted" || row.status === "in_review") score += 6e14;

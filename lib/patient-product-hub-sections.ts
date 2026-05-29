@@ -1,5 +1,6 @@
 /**
- * Hub patient « demandes produits » — regroupement métier du tableau de bord.
+ * Hub patient « demandes produits » — regroupement indicatif du tableau de bord uniquement
+ * (pas de filtre URL ni liste ; la liste utilise les buckets statut comme les autres types).
  */
 
 import type { PatientRequestRow } from "@/components/requests/demande-hub-ui";
@@ -47,14 +48,6 @@ export const PATIENT_PRODUCT_HUB_SECTIONS: PatientProductHubSection[] = [
   },
 ];
 
-const ACTIVE_STATUSES = new Set<string>([
-  "responded",
-  "treated",
-  "submitted",
-  "in_review",
-  "confirmed",
-]);
-
 export function patientProductHubSectionForStatus(status: string): PatientProductHubSectionId | null {
   for (const s of PATIENT_PRODUCT_HUB_SECTIONS) {
     if ((s.statuses as readonly string[]).includes(status)) return s.id;
@@ -79,50 +72,36 @@ export function countInPatientProductHubSection<T extends PatientRequestRow>(
   return rowsInPatientProductHubSection(rows, sectionId).length;
 }
 
-/** Filtre liste : statut (bloc tableau de bord) et regroupement métier peuvent se cumuler (intersection). */
+/** Filtre liste : statut (buckets tableau de bord / liste), comme ordonnances et consultations. */
 export function filterPatientProductHubListRows<T extends PatientRequestRow>(
   rows: T[],
-  opts: {
-    bucketStatuses?: readonly string[] | null;
-    sectionId?: PatientProductHubSectionId | null;
-  }
+  opts: { bucketStatuses?: readonly string[] | null }
 ): T[] {
-  let list = rows;
-  if (opts.bucketStatuses?.length) {
-    const allow = new Set(opts.bucketStatuses);
-    list = list.filter((r) => allow.has(r.status));
-  }
-  if (opts.sectionId) {
-    list = rowsInPatientProductHubSection(list, opts.sectionId);
-  }
-  return list;
+  if (!opts.bucketStatuses?.length) return rows;
+  const allow = new Set(opts.bucketStatuses);
+  return rows.filter((r) => allow.has(r.status));
 }
 
-export function patientProductHubListHref(
-  basePath: string,
-  opts: { sectionId?: PatientProductHubSectionId; statutKey?: string }
-): string {
+export function patientProductHubListHref(basePath: string, opts?: { statutKey?: string }): string {
   const next = new URLSearchParams();
   next.set("vue", "liste");
-  if (opts.sectionId) next.set("section", opts.sectionId);
-  if (opts.statutKey) next.set("statut", opts.statutKey);
-  const q = next.toString();
-  return q ? `${basePath}?${q}` : basePath;
+  if (opts?.statutKey) next.set("statut", opts.statutKey);
+  return `${basePath}?${next.toString()}`;
 }
 
-/** 3 à 5 dossiers « récemment actifs » (hors archives). */
+/** Jusqu’à 5 dossiers récents ou consultés (tous statuts, priorité messages non lus). */
 export function pickRecentActiveProductRequests(
   rows: PatientRequestRow[],
   unreadById: Record<string, boolean>,
   limit = 5
 ): PatientRequestRow[] {
-  const cap = Math.min(5, Math.max(3, limit));
-  const candidates = rows.filter((r) => ACTIVE_STATUSES.has(r.status));
-  const scored = candidates.map((row) => {
+  const cap = Math.min(5, Math.max(1, limit));
+  const scored = rows.map((row) => {
     let score = new Date(row.updated_at ?? row.created_at).getTime();
     if (unreadById[row.id]) score += 1e15;
     if (row.status === "responded") score += 5e14;
     if (row.status === "treated") score += 4e14;
+    if (row.status === "submitted" || row.status === "in_review") score += 3e14;
     if (row.status === "confirmed") score += 2e14;
     return { row, score };
   });
