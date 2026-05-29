@@ -161,7 +161,7 @@ export function PharmacistSupplyCompactLine({
         ? "rounded-lg border border-slate-200/85 bg-white shadow-sm ring-1 ring-slate-100/60"
         : effAvailRow === "to_order"
           ? "rounded-lg border border-teal-200/75 bg-teal-50/25 shadow-sm ring-1 ring-teal-100/50"
-          : "rounded-lg border border-emerald-200/75 bg-emerald-50/25 shadow-sm ring-1 ring-emerald-100/50";
+          : "rounded-lg border border-sky-200/75 bg-sky-50/25 shadow-sm ring-1 ring-sky-100/50";
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
