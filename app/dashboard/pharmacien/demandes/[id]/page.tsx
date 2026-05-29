@@ -1360,6 +1360,92 @@ function buildSupplyStructuralAmends(
   return out;
 }
 
+/** True si un journal patient (canal obligatoire) sera enregistré à la confirmation. */
+function confirmedSupplySaveNeedsPatientChannel(
+  rows: ItemRow[],
+  d: Draft,
+  requestType: string,
+  proposalSnapLocal: ItemRow[],
+  removedIds: string[]
+): boolean {
+  if (proposalSnapLocal.length > 0) return true;
+  if (removedIds.length > 0) return true;
+  if (buildSupplyStructuralAmends(rows, d, requestType).length > 0) return true;
+  for (const row of rows) {
+    const fd = d[row.id];
+    if (!fd || !row.is_selected_by_patient) continue;
+    if (!row.withdrawn_after_confirm && Boolean(fd.withdrawn_after_confirm)) return true;
+  }
+  return false;
+}
+
+function assertSupplyAmendmentChannels(amends: SupplyAmendmentEntryJson[]): void {
+  for (let i = 0; i < amends.length; i++) {
+    if ((amends[i].client_confirmation_channel ?? "").trim().length < 2) {
+      throw new Error(
+        `Canal d’accord patient requis pour le journal des modifications (entrée ${i + 1}). Choisissez un canal dans la fenêtre de confirmation.`
+      );
+    }
+  }
+}
+
+function buildConfirmedSupplyAmendmentBatch(
+  rows: ItemRow[],
+  d: Draft,
+  requestType: string,
+  globalChannel: string,
+  globalMotive: string,
+  removedIds: string[]
+): SupplyAmendmentEntryJson[] {
+  const ch = globalChannel.trim();
+  const motive = globalMotive.trim();
+  const structural = buildSupplyStructuralAmends(rows, d, requestType).map((a) => ({
+    ...a,
+    client_confirmation_channel: ch,
+    client_motive: motive === "" ? null : motive,
+  }));
+
+  const withdrawAmends: SupplyAmendmentEntryJson[] = [];
+  for (const row of rows) {
+    const f = d[row.id];
+    if (!f || !row.is_selected_by_patient) continue;
+    const was = Boolean(row.withdrawn_after_confirm);
+    const next = Boolean(f.withdrawn_after_confirm);
+    if (was === next) continue;
+    if (was && !next) {
+      throw new Error(
+        `« ${one(row.products)?.name ?? "Produit"} » : la réintégration d’une ligne déjà écartée n’est plus disponible depuis cet écran.`
+      );
+    }
+    const nm = one(row.products)?.name ?? "Produit";
+    withdrawAmends.push({
+      kind: "withdraw_after_confirm",
+      request_item_id: row.id,
+      summary: `${nm} retiré avec accord patient`,
+      detail: `${nm} : ligne retirée après validation.`,
+      client_confirmation_channel: ch,
+      client_motive: motive === "" ? null : motive,
+    });
+  }
+
+  const removeProposedAmends: SupplyAmendmentEntryJson[] = [];
+  for (const rowId of removedIds) {
+    const row = rows.find((r) => r.id === rowId);
+    if (!row || row.line_source !== "pharmacist_proposed") continue;
+    const nm = one(row.products)?.name ?? "Produit";
+    removeProposedAmends.push({
+      kind: "line_removed_after_confirm",
+      request_item_id: row.id,
+      summary: `${nm} retiré après validation (proposition officine)`,
+      detail: `${nm} : proposition officine retirée du dossier validé.`,
+      client_confirmation_channel: ch,
+      client_motive: motive === "" ? null : motive,
+    });
+  }
+
+  return [...structural, ...withdrawAmends, ...removeProposedAmends];
+}
+
 function buildConfirmedSupplySaveSummaryLines(
   items: ItemRow[],
   draft: Draft,
@@ -1628,6 +1714,12 @@ export default function PharmacienDemandeDetailPage() {
   const [availabilityMenuRowId, setAvailabilityMenuRowId] = useState<string | null>(null);
   const [altQuery, setAltQuery] = useState("");
   const [altHits, setAltHits] = useState<ProductCatalogHit[]>([]);
+  const resetRespondedLineAltUi = useCallback(() => {
+    setLineAltTabByRowId({});
+    setAltPickerOpenFor(null);
+    setAltQuery("");
+    setAltHits([]);
+  }, []);
   const [altBusyRow, setAltBusyRow] = useState<string | null>(null);
   const [counterBusyId, setCounterBusyId] = useState<string | null>(null);
   const [fulfillmentRpcBusyId, setFulfillmentRpcBusyId] = useState<string | null>(null);
@@ -1850,6 +1942,7 @@ export default function PharmacienDemandeDetailPage() {
     setRequest(r);
     if (r.status !== "responded") {
       setRespondedEditMode(false);
+      resetRespondedLineAltUi();
     }
     const { data: contactRpc, error: patErr } = await supabase.rpc("pharmacist_patient_contact_for_request", {
       p_request_id: id,
@@ -1999,7 +2092,7 @@ export default function PharmacienDemandeDetailPage() {
       return next;
     });
     setLoading(false);
-  }, [id, router]);
+  }, [id, router, resetRespondedLineAltUi]);
 
   const requestDrift = useRequestDetailDrift(id, request?.status, "pharmacien", load);
   const { acknowledge: acknowledgeRequestDrift } = requestDrift;
@@ -3436,22 +3529,19 @@ export default function PharmacienDemandeDetailPage() {
     await load();
   };
 
-  const saveConfirmedAdjustmentsCore = async (
-    structuralEnriched: SupplyAmendmentEntryJson[] | null,
-    work?: {
-      items: ItemRow[];
-      draft: Draft;
-      globalChannel: string;
-      globalMotive: string;
-      removedProposedIds?: string[];
-    }
-  ) => {
+  const saveConfirmedAdjustmentsCore = async (work: {
+    items: ItemRow[];
+    draft: Draft;
+    globalChannel: string;
+    globalMotive: string;
+    removedProposedIds?: string[];
+  }) => {
     if (!request || !["confirmed", "treated"].includes(request.status) || !id) return;
-    const rows = work?.items ?? items;
-    const d = work?.draft ?? draft;
-    const globalChannel = work?.globalChannel?.trim() ?? "";
-    const globalMotive = (work?.globalMotive ?? "").trim();
-    const removedIds = work?.removedProposedIds ?? [];
+    const rows = work.items;
+    const d = work.draft;
+    const globalChannel = work.globalChannel.trim();
+    const globalMotive = work.globalMotive.trim();
+    const removedIds = work.removedProposedIds ?? [];
     setBusy(true);
     setError("");
     try {
@@ -3474,11 +3564,6 @@ export default function PharmacienDemandeDetailPage() {
           request.request_type,
           request.status
         );
-        const nextSelectedQty =
-          row.is_selected_by_patient && !f.withdrawn_after_confirm
-            ? validatedQtySave
-            : row.selected_qty;
-        payload.available_qty = validatedQtySave;
         const inf = inferredAvailabilityForPostConfirmClamp(row, payload.availability_status);
         if (!f.withdrawn_after_confirm && inf === "to_order") {
           const eta = effectiveEtaSupplyDraft(row, f, request.request_type);
@@ -3488,13 +3573,48 @@ export default function PharmacienDemandeDetailPage() {
             );
           }
         }
+      }
+
+      const allAmends = buildConfirmedSupplyAmendmentBatch(
+        rows,
+        d,
+        request.request_type,
+        globalChannel,
+        globalMotive,
+        removedIds
+      );
+      assertSupplyAmendmentChannels(allAmends);
+      if (allAmends.length > 0) {
+        const { error: rpcA } = await supabase.rpc("pharmacist_record_supply_amendments", {
+          p_request_id: id,
+          p_amendments: allAmends,
+        });
+        if (rpcA) throw new Error(rpcA.message);
+      }
+
+      for (const row of rows) {
+        const f = d[row.id];
+        if (!f?.availability_status) continue;
+        const validatedQtySave = draftValidatedQtyForSave(f, row);
+        const fForPayload: ItemDraft = { ...f, available_qty: String(validatedQtySave) };
+        const payload = buildRequestItemUpdatePayloadForPharmacistSave(
+          fForPayload,
+          row,
+          request.request_type,
+          request.status
+        );
+        const nextSelectedQty =
+          row.is_selected_by_patient && !f.withdrawn_after_confirm
+            ? validatedQtySave
+            : row.selected_qty;
+        payload.available_qty = validatedQtySave;
+        const inf = inferredAvailabilityForPostConfirmClamp(row, payload.availability_status);
         let pcf: "unset" | "reserved" | "ordered" | "arrived_reserved" = f.fulfillment_draft;
         if (f.withdrawn_after_confirm) {
           pcf = "unset";
         } else {
           pcf = clampFulfillmentDraftToInferred(pcf, inf);
         }
-        /* Colonne DB NOT NULL (enum, défaut 'unset') : ne jamais envoyer null. */
         const pcfDb: "unset" | "reserved" | "ordered" | "arrived_reserved" = pcf;
         const { error: up } = await supabase
           .from("request_items")
@@ -3523,6 +3643,17 @@ export default function PharmacienDemandeDetailPage() {
             .eq("request_item_id", row.id);
           if (altUpd) throw new Error(altUpd.message);
         }
+      }
+
+      for (const rowId of removedIds) {
+        const row = rows.find((r) => r.id === rowId);
+        if (!row || row.line_source !== "pharmacist_proposed") continue;
+        const { error: delErr } = await supabase
+          .from("request_items")
+          .delete()
+          .eq("id", row.id)
+          .eq("line_source", "pharmacist_proposed");
+        if (delErr) throw new Error(delErr.message);
       }
 
       for (const row of rows) {
@@ -3566,59 +3697,6 @@ export default function PharmacienDemandeDetailPage() {
       const histReason = audit ? stringifyPharmaConfirmAudit(audit) : "pharmacist_adjustments_after_confirmation";
       const { error: h } = await logHistory(id, request.status, request.status, histReason);
       if (h) throw new Error(h.message);
-
-      const withdrawAmends: SupplyAmendmentEntryJson[] = [];
-      for (const row of rows) {
-        const f = d[row.id];
-        if (!f || !row.is_selected_by_patient) continue;
-        const was = Boolean(row.withdrawn_after_confirm);
-        const next = Boolean(f.withdrawn_after_confirm);
-        if (was === next) continue;
-        if (was && !next) {
-          throw new Error(
-            `« ${one(row.products)?.name ?? "Produit"} » : la réintégration d’une ligne déjà écartée n’est plus disponible depuis cet écran.`
-          );
-        }
-        const nm = one(row.products)?.name ?? "Produit";
-        withdrawAmends.push({
-          kind: "withdraw_after_confirm",
-          request_item_id: row.id,
-          summary: `${nm} retiré avec accord patient`,
-          detail: `${nm} : ligne retirée après validation.`,
-          client_confirmation_channel: globalChannel,
-          client_motive: globalMotive === "" ? null : globalMotive,
-        });
-      }
-
-      const removeProposedAmends: SupplyAmendmentEntryJson[] = [];
-      for (const rowId of removedIds) {
-        const row = rows.find((r) => r.id === rowId);
-        if (!row || row.line_source !== "pharmacist_proposed") continue;
-        const nm = one(row.products)?.name ?? "Produit";
-        removeProposedAmends.push({
-          kind: "line_removed_after_confirm",
-          request_item_id: row.id,
-          summary: `${nm} retiré après validation (proposition officine)`,
-          detail: `${nm} : proposition officine retirée du dossier validé.`,
-          client_confirmation_channel: globalChannel,
-          client_motive: globalMotive === "" ? null : globalMotive,
-        });
-        const { error: delErr } = await supabase
-          .from("request_items")
-          .delete()
-          .eq("id", row.id)
-          .eq("line_source", "pharmacist_proposed");
-        if (delErr) throw new Error(delErr.message);
-      }
-
-      const allAmends = [...(structuralEnriched ?? []), ...withdrawAmends, ...removeProposedAmends];
-      if (allAmends.length > 0) {
-        const { error: rpcA } = await supabase.rpc("pharmacist_record_supply_amendments", {
-          p_request_id: id,
-          p_amendments: allAmends,
-        });
-        if (rpcA) throw new Error(rpcA.message);
-      }
 
       dispatchRequestDetailRefresh(id);
       await load();
@@ -3672,13 +3750,20 @@ export default function PharmacienDemandeDetailPage() {
     if (!request || !id) return;
     const channel = supplySaveGlobalChannel.trim();
     const motive = supplySaveGlobalMotive.trim();
-    if (!channel) {
-      setError("Indiquez le canal d’accord patient pour l’ensemble des modifications.");
-      return;
-    }
     const proposalSnapLocal = pendingProposalRows.filter((r) => isLocalProposedItemId(r.id));
     const altSnap = [...pendingAlternatives];
     const removedSnap = [...removedPersistedProposedIds];
+    const needsAmendJournal = confirmedSupplySaveNeedsPatientChannel(
+      items,
+      draft,
+      request.request_type,
+      proposalSnapLocal,
+      removedSnap
+    );
+    if (needsAmendJournal && !channel) {
+      setError("Indiquez le canal d’accord patient pour l’ensemble des modifications.");
+      return;
+    }
     for (const row of items) {
       const fd = draft[row.id];
       if (!fd || !row.is_selected_by_patient) continue;
@@ -3691,16 +3776,6 @@ export default function PharmacienDemandeDetailPage() {
         return;
       }
     }
-    const structuralBefore = buildSupplyStructuralAmends(items, draft, request.request_type);
-    const needsAmendJournal =
-      structuralBefore.length > 0 ||
-      removedSnap.length > 0 ||
-      proposalSnapLocal.length > 0 ||
-      items.some((row) => {
-        const fd = draft[row.id];
-        if (!fd || !row.is_selected_by_patient) return false;
-        return !row.withdrawn_after_confirm && Boolean(fd.withdrawn_after_confirm);
-      });
     try {
       let workItems = [...items];
       let workDraft: Draft = { ...draft };
@@ -3723,16 +3798,7 @@ export default function PharmacienDemandeDetailPage() {
         setPendingAlternatives([]);
       }
 
-      const enriched: SupplyAmendmentEntryJson[] | null =
-        structuralBefore.length > 0
-          ? structuralBefore.map((a) => ({
-              ...a,
-              client_confirmation_channel: channel,
-              client_motive: motive === "" ? null : motive,
-            }))
-          : null;
-
-      await saveConfirmedAdjustmentsCore(enriched, {
+      await saveConfirmedAdjustmentsCore({
         items: workItems,
         draft: workDraft,
         globalChannel: channel,
@@ -3797,6 +3863,7 @@ export default function PharmacienDemandeDetailPage() {
       const { error: h } = await logHistory(id, "responded", "responded", "pharmacist_response_updated");
       if (h) throw new Error(h.message);
       setRespondedEditMode(false);
+      resetRespondedLineAltUi();
       setRespondedSaveConfirmOpen(false);
       setRespondedSaveDiffLines([]);
       await load();
@@ -3947,6 +4014,7 @@ export default function PharmacienDemandeDetailPage() {
       if (h2) throw new Error(h2.message);
       setError("");
       setRespondedEditMode(false);
+      resetRespondedLineAltUi();
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Une erreur est survenue.");
@@ -4877,14 +4945,15 @@ export default function PharmacienDemandeDetailPage() {
               const lineLockedTrace = co === "cancelled_at_counter";
               const canEditThisRow = showLineAndPublishEdits && !lineLockedTrace && !archiveFrozen;
               const rowAlts = normalizeAlts(row.request_item_alternatives);
-              const activeAltTab: PharmacistLineAltTabId = lineAltTabByRowId[row.id] ?? "principal";
-              const showAltPicker = activeAltTab === PHARMACIST_ALT_TAB_ADD;
+              const showVariantTabs = showLineAndPublishEdits && canEditThisRow && !lineLockedTrace;
+              const storedAltTab: PharmacistLineAltTabId = lineAltTabByRowId[row.id] ?? "principal";
+              const activeAltTab: PharmacistLineAltTabId = showVariantTabs ? storedAltTab : "principal";
+              const showAltPicker = showVariantTabs && activeAltTab === PHARMACIST_ALT_TAB_ADD;
               const showPrincipalVariant = !showAltPicker && activeAltTab === "principal";
               const activeAltRow =
-                !showAltPicker && activeAltTab !== "principal"
+                showVariantTabs && !showAltPicker && activeAltTab !== "principal"
                   ? rowAlts.find((a) => a.id === activeAltTab) ?? null
                   : null;
-              const showVariantTabs = showLineAndPublishEdits && canEditThisRow && !lineLockedTrace;
               const chosenAltId = row.patient_chosen_alternative_id ?? null;
               const chosenAltRow = chosenAltId ? rowAlts.find((a) => a.id === chosenAltId) : null;
               const lineEditorPhotoPath = validatedBranchPhotoPath(row as PatientLineLike);
@@ -6706,6 +6775,7 @@ export default function PharmacienDemandeDetailPage() {
               onClick={() => {
                 resetDraftFromRows();
                 setRespondedEditMode(false);
+                resetRespondedLineAltUi();
                 setPendingProposalRows([]);
                 setPendingAlternatives([]);
                 setError("");
@@ -6818,7 +6888,8 @@ export default function PharmacienDemandeDetailPage() {
               Confirmer l’enregistrement
             </h2>
             <p className="mt-2 text-center text-[11px] leading-snug text-muted-foreground">
-              Canal d’accord patient pour l’ensemble des modifications — vérifiez le résumé avant de valider.
+              Vérifiez le résumé avant de valider. Le canal patient est obligatoire lorsque la modification doit être
+              notifiée au patient (ajustement officine, retrait, ajout).
             </p>
             <div className="mt-3 space-y-2 rounded-lg border border-cyan-200/70 bg-cyan-50/35 p-2.5">
               <label className="block text-[10px] font-semibold text-cyan-950">

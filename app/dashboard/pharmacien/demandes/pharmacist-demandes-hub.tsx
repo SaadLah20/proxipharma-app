@@ -13,11 +13,9 @@ import {
 } from "@/components/requests/demande-hub-ui";
 import { PharmacistProductDemandesDashboard } from "@/components/requests/product/pharmacist-product-demandes-dashboard";
 import { PharmacistProductDemandeHubCard } from "@/components/requests/product/pharmacist-product-demande-hub-card";
-import {
-  filterPharmacistProductHubListRows,
-  PHARMACIST_PRODUCT_HUB_SECTIONS,
-  type PharmacistProductHubSectionId,
-} from "@/lib/pharmacist-product-hub-sections";
+import { ProductHubListResultsBar } from "@/components/requests/product/product-hub-list-results-bar";
+import { filterPharmacistProductHubListRows } from "@/lib/pharmacist-product-hub-sections";
+import { productRequestPublicTheme as productTheme } from "@/lib/request-kinds/product-request-public-theme";
 import { PageShell } from "@/components/ui/compact-shell";
 import { bucketForStatusParam } from "@/lib/demandes-hub-buckets";
 import { dashboardBucketsForKind, hubDashboardChrome } from "@/lib/request-kinds/hub-and-terminal-copy";
@@ -71,15 +69,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   const dashboardChrome = useMemo(() => hubDashboardChrome(kindId, "pharmacien"), [kindId]);
 
   const listStatutParam = tab === "list" ? searchParams.get("statut") : null;
-  const listSectionParam = tab === "list" ? (searchParams.get("section") as PharmacistProductHubSectionId | null) : null;
   const activeBucket = bucketForStatusParam(listStatutParam, dashboardBuckets);
-  const activeProductSection =
-    tab === "list" &&
-    isProductHub &&
-    listSectionParam &&
-    PHARMACIST_PRODUCT_HUB_SECTIONS.some((s) => s.id === listSectionParam)
-      ? listSectionParam
-      : null;
 
   useEffect(() => {
     if (tab !== "dashboard") return;
@@ -216,7 +206,6 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
     if (isProductHub) {
       list = filterPharmacistProductHubListRows(list, {
         bucketStatuses: activeBucket?.statuses ?? null,
-        sectionId: activeProductSection,
       });
     } else if (activeBucket) {
       const allow = new Set(activeBucket.statuses);
@@ -244,7 +233,6 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   }, [
     rowsWithDashboardStatus,
     activeBucket,
-    activeProductSection,
     isProductHub,
     patientFilter,
     refQuery,
@@ -262,30 +250,28 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
 
-  const setProductSectionFilter = (sectionId: string) => {
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("vue", "liste");
-    if (sectionId === "") next.delete("section");
-    else next.set("section", sectionId);
-    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
-  };
-
   const linkClass =
     accent === "amber"
       ? "text-amber-900 underline"
       : accent === "violet"
         ? "text-violet-900 underline"
-        : "text-emerald-900 underline";
+        : isProductHub
+          ? productTheme.backLink
+          : "text-emerald-900 underline";
   const filterShell =
     accent === "amber"
       ? "rounded-lg border border-amber-200/80 bg-amber-50/35 p-2.5 shadow-sm ring-1 ring-amber-200/40"
-      : "rounded-lg border border-emerald-200/80 bg-emerald-50/35 p-2.5 shadow-sm ring-1 ring-emerald-200/40";
-  const filterTitle = accent === "amber" ? "text-amber-950" : "text-emerald-950";
-  const filterSub = accent === "amber" ? "text-amber-900/85" : "text-emerald-900/85";
+      : isProductHub
+        ? "rounded-xl border-2 border-sky-100 bg-sky-50/50 p-3 shadow-sm"
+        : "rounded-lg border border-emerald-200/80 bg-emerald-50/35 p-2.5 shadow-sm ring-1 ring-emerald-200/40";
+  const filterTitle = accent === "amber" ? "text-amber-950" : isProductHub ? "text-sky-950" : "text-emerald-950";
+  const filterSub = accent === "amber" ? "text-amber-900/85" : isProductHub ? "text-muted-foreground" : "text-emerald-900/85";
   const filterBtn =
     accent === "amber"
       ? "rounded-md border border-amber-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-900 shadow-sm hover:bg-amber-50"
-      : "rounded-md border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-900 shadow-sm hover:bg-emerald-50";
+      : isProductHub
+        ? "rounded-md border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-900 shadow-sm hover:bg-sky-50"
+        : "rounded-md border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-900 shadow-sm hover:bg-emerald-50";
 
   if (loading) {
     return (
@@ -307,7 +293,10 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   }
 
   return (
-    <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
+    <PageShell
+      maxWidthClass="max-w-3xl"
+      className={clsx("space-y-4", isProductHub && "bg-gradient-to-b from-sky-50/40 via-slate-50 to-slate-50")}
+    >
       <Link href="/dashboard/pharmacien" className={clsx("text-xs font-medium", linkClass)}>
         ← Tableau de bord
       </Link>
@@ -317,7 +306,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
           ? "Ordonnances reçues : tableau de bord et liste — lire le scan et saisir les produits."
           : kindId === "free_consultation"
             ? "Consultations libres reçues : lire le message, échanger puis proposer des produits."
-            : "Demandes de produits : tableau de bord et liste — traiter les dossiers depuis votre officine."}
+            : "Tableau de bord avec repères visuels ; liste complète filtrable par statut, patient ou référence."}
       </p>
 
       <div className="mt-1">
@@ -361,14 +350,22 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
             </div>
           ) : (
             <div className="mt-4">
-              <DemandeStatDashboard
-                rows={rowsWithDashboardStatus}
-                buckets={dashboardBuckets}
-                basePath={hubPath}
-                density="compact"
-                dashboardTitle={dashboardChrome.title}
-                dashboardSubtitle={dashboardChrome.subtitle}
-              />
+              {isProductHub ? (
+                <PharmacistProductDemandesDashboard
+                  rows={rows}
+                  basePath={hubPath}
+                  unreadById={unreadById}
+                />
+              ) : (
+                <DemandeStatDashboard
+                  rows={rowsWithDashboardStatus}
+                  buckets={dashboardBuckets}
+                  basePath={hubPath}
+                  density="compact"
+                  dashboardTitle={dashboardChrome.title}
+                  dashboardSubtitle={dashboardChrome.subtitle}
+                />
+              )}
             </div>
           )}
         </>
@@ -414,23 +411,6 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
                 ))}
               </select>
             </label>
-            {isProductHub ? (
-              <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Regroupement
-                <select
-                  value={activeProductSection ?? ""}
-                  onChange={(e) => setProductSectionFilter(e.target.value)}
-                  className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
-                >
-                  <option value="">Toutes sections</option>
-                  {PHARMACIST_PRODUCT_HUB_SECTIONS.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
             <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Patient
               <select
@@ -459,11 +439,26 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
             </label>
           </div>
             ) : (
-              <p className="mt-2 text-[11px] text-emerald-900/85">
+              <p className={clsx("mt-2 text-[11px]", isProductHub ? "text-muted-foreground" : "text-emerald-900/85")}>
                 Ouvrez les filtres pour retrouver rapidement un dossier client.
               </p>
             )}
           </section>
+
+          {isProductHub ? (
+            <ProductHubListResultsBar filteredCount={filteredSorted.length} totalCount={rows.length} />
+          ) : (
+            <p className="text-[11px] font-semibold tabular-nums text-muted-foreground" role="status">
+              {filteredSorted.length === 0
+                ? "Aucun dossier affiché"
+                : `${filteredSorted.length} dossier${filteredSorted.length > 1 ? "s" : ""} affiché${filteredSorted.length > 1 ? "s" : ""}`}
+              {filteredSorted.length !== rows.length && rows.length > 0
+                ? ` sur ${rows.length} au total`
+                : rows.length > 0
+                  ? " (liste complète)"
+                  : ""}
+            </p>
+          )}
 
           {filteredSorted.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">

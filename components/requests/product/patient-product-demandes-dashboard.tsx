@@ -1,7 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { ChevronRight, Sparkles } from "lucide-react";
 import type { PatientRequestRow } from "@/components/requests/demande-hub-ui";
@@ -15,7 +15,11 @@ import {
   rowsInPatientProductHubSection,
   type PatientProductHubSectionId,
 } from "@/lib/patient-product-hub-sections";
+import { ProductHubDashboardKpiPanel } from "@/components/requests/product/product-hub-dashboard-kpi-panel";
+import { dashboardBucketsForKind } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
+
+const DASHBOARD_BUCKETS = dashboardBucketsForKind("product_request", "patient");
 
 const SECTION_ACCENT: Record<
   PatientProductHubSectionId,
@@ -43,25 +47,31 @@ const SECTION_ACCENT: Record<
 
 const SECTION_ORDER: PatientProductHubSectionId[] = ["action_required", "at_pharmacy", "archives"];
 
+function hubSectionDomId(sectionId: PatientProductHubSectionId): string {
+  return `patient-product-hub-section-${sectionId}`;
+}
+
 function SectionBlock({
   sectionId,
   rows,
   basePath,
   unreadById,
   defaultCollapsed,
+  footer,
 }: {
   sectionId: PatientProductHubSectionId;
   rows: PatientRequestRow[];
   basePath: string;
   unreadById: Record<string, boolean>;
   defaultCollapsed?: boolean;
+  footer?: ReactNode;
 }) {
   const section = PATIENT_PRODUCT_HUB_SECTIONS.find((s) => s.id === sectionId)!;
   const sectionRows = rowsInPatientProductHubSection(rows, sectionId);
   const count = sectionRows.length;
   const accent = SECTION_ACCENT[sectionId];
   const preview = sectionRows.slice(0, PATIENT_PRODUCT_HUB_DASHBOARD_PREVIEW);
-  const listHref = patientProductHubListHref(basePath, { sectionId });
+  const listHref = patientProductHubListHref(basePath);
 
   if (count === 0) return null;
 
@@ -77,8 +87,9 @@ function SectionBlock({
 
   return (
     <section
+      id={hubSectionDomId(sectionId)}
       className={clsx(
-        "rounded-xl border border-border/80 bg-card shadow-sm ring-1 ring-black/[0.03]",
+        "scroll-mt-4 rounded-xl border border-border/80 bg-card shadow-sm ring-1 ring-black/[0.03]",
         "border-l-4",
         accent.border
       )}
@@ -120,6 +131,7 @@ function SectionBlock({
         ) : (
           body
         )}
+        {footer ? <div className="mt-3 border-t border-border/50 pt-3">{footer}</div> : null}
       </div>
     </section>
   );
@@ -134,15 +146,24 @@ export function PatientProductDemandesDashboard({
   basePath: string;
   unreadById: Record<string, boolean>;
 }) {
-  const router = useRouter();
   const recent = pickRecentActiveProductRequests(rows, unreadById, 5);
   const actionCount = countInPatientProductHubSection(rows, "action_required");
   const pharmacyCount = countInPatientProductHubSection(rows, "at_pharmacy");
   const archiveCount = countInPatientProductHubSection(rows, "archives");
 
-  const openSectionList = (sectionId: PatientProductHubSectionId) => {
-    router.push(patientProductHubListHref(basePath, { sectionId }), { scroll: false });
+  const scrollToHubSection = (sectionId: PatientProductHubSectionId) => {
+    document.getElementById(hubSectionDomId(sectionId))?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  const kpiPanel = (
+    <ProductHubDashboardKpiPanel
+      rows={rows}
+      buckets={DASHBOARD_BUCKETS}
+      basePath={basePath}
+      unreadById={unreadById}
+      role="patient"
+    />
+  );
 
   return (
     <div className="space-y-4">
@@ -168,8 +189,9 @@ export function PatientProductDemandesDashboard({
         <div className="grid grid-cols-3 divide-x divide-sky-200/60 border-t border-sky-200/50 bg-white/80">
           <button
             type="button"
-            onClick={() => openSectionList("action_required")}
+            onClick={() => scrollToHubSection("action_required")}
             className={clsx("px-2 py-2.5 text-center transition sm:px-3", SECTION_ACCENT.action_required.statHover)}
+            aria-label="Aller au bloc À votre action"
           >
             <p className="text-lg font-bold tabular-nums text-amber-800 sm:text-xl">{actionCount}</p>
             <p className="text-[9px] font-semibold uppercase tracking-wide text-amber-900/85 sm:text-[10px]">
@@ -178,8 +200,9 @@ export function PatientProductDemandesDashboard({
           </button>
           <button
             type="button"
-            onClick={() => openSectionList("at_pharmacy")}
+            onClick={() => scrollToHubSection("at_pharmacy")}
             className={clsx("px-2 py-2.5 text-center transition sm:px-3", SECTION_ACCENT.at_pharmacy.statHover)}
+            aria-label="Aller au bloc Chez la pharmacie"
           >
             <p className="text-lg font-bold tabular-nums text-sky-800 sm:text-xl">{pharmacyCount}</p>
             <p className="text-[9px] font-semibold uppercase tracking-wide text-sky-900/85 sm:text-[10px]">
@@ -188,8 +211,9 @@ export function PatientProductDemandesDashboard({
           </button>
           <button
             type="button"
-            onClick={() => openSectionList("archives")}
+            onClick={() => scrollToHubSection("archives")}
             className={clsx("px-2 py-2.5 text-center transition sm:px-3", SECTION_ACCENT.archives.statHover)}
+            aria-label="Aller au bloc Archives"
           >
             <p className="text-lg font-bold tabular-nums text-slate-700 sm:text-xl">{archiveCount}</p>
             <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-600 sm:text-[10px]">
@@ -197,6 +221,10 @@ export function PatientProductDemandesDashboard({
             </p>
           </button>
         </div>
+        <p className="border-t border-sky-200/50 bg-sky-50/40 px-3.5 py-2 text-[10px] leading-snug text-sky-900/80 sm:px-4">
+          Les chiffres ci-dessus font défiler la page vers un regroupement indicatif — ils ne filtrent pas la liste
+          complète.
+        </p>
       </div>
 
       {recent.length > 0 ? (
@@ -205,7 +233,9 @@ export function PatientProductDemandesDashboard({
             <Sparkles className="size-4 shrink-0 text-sky-700" aria-hidden />
             <div>
               <h2 className="text-sm font-bold text-sky-950">Reprendre rapidement</h2>
-              <p className="text-[11px] text-sky-900/85">Dossiers récemment mis à jour ou à traiter en priorité</p>
+              <p className="text-[11px] text-sky-900/85">
+                Vos 5 derniers dossiers ouverts ou consultés — tous statuts, messages non lus en tête
+              </p>
             </div>
           </div>
           <ul className="flex gap-2.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
@@ -222,6 +252,11 @@ export function PatientProductDemandesDashboard({
         </section>
       ) : null}
 
+      <p className="text-[11px] leading-snug text-muted-foreground">
+        Regroupement indicatif pour vous orienter — la liste « Toutes les demandes » se filtre uniquement par statut,
+        pharmacie ou référence.
+      </p>
+
       {SECTION_ORDER.map((sectionId) => (
         <SectionBlock
           key={sectionId}
@@ -230,15 +265,18 @@ export function PatientProductDemandesDashboard({
           basePath={basePath}
           unreadById={unreadById}
           defaultCollapsed={sectionId === "archives" && archiveCount > PATIENT_PRODUCT_HUB_DASHBOARD_PREVIEW}
+          footer={sectionId === "archives" ? kpiPanel : undefined}
         />
       ))}
+
+      {archiveCount === 0 ? kpiPanel : null}
 
       <p className="text-center">
         <Link
           href={`${basePath}?vue=liste`}
           className="inline-flex items-center gap-1 rounded-lg border border-sky-300/70 bg-white px-3 py-2 text-xs font-semibold text-sky-900 shadow-sm hover:bg-sky-50"
         >
-          Voir toutes les demandes avec filtres
+          Voir toutes les demandes (filtres par statut)
           <ChevronRight className="size-4" aria-hidden />
         </Link>
       </p>

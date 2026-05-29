@@ -356,8 +356,8 @@ git checkout pilote-stable-2026-05-24
 **Branche** : `fix/validated-supply-ecart-ui-modal` — commits poussés **`4c555da`** … **`cce3d15`** (pas de nouvelle migration sur le lot hub/paramètres ; **Mes pharmacies** = **`20260626_001`**).
 
 **Hub demandes produits** (`/dashboard/demandes`) :
-- **Tableau de bord** : regroupements métier **`lib/patient-product-hub-sections.ts`** — **À votre action** (`responded`, `treated`), **Chez la pharmacie** (`submitted`, `in_review`, `confirmed`), **Archives** (terminés + brouillon) ; **`PatientProductDemandesDashboard`** — **3** cartes max par bloc, lien **Tout voir (N)** → liste avec `?vue=liste&section=…` ; compteurs en tête cliquables ; bandeau **Reprendre rapidement**.
-- **Liste** (`patient-demandes-hub.tsx`) : filtre **Statut** (buckets existants) + **Regroupement** **cumulables** (intersection via **`filterPatientProductHubListRows`**) ; résumé filtres (`lib/patient-request-hub-list-filters.ts`) ; message explicite si combinaison vide.
+- **Tableau de bord** : regroupements **indicatifs** (dashboard seulement) **`lib/patient-product-hub-sections.ts`** — **À votre action**, **Chez la pharmacie**, **Archives** ; **`PatientProductDemandesDashboard`** — **3** cartes max, **Tout voir** → `?vue=liste` ; compteurs = scroll vers le bloc ; **Reprendre rapidement** = 5 derniers dossiers (tous statuts).
+- **Liste** (`patient-demandes-hub.tsx`) : filtre **Statut** (buckets) + pharmacie / réf. / tri — **pas** de regroupement URL ; **`filterPatientProductHubListRows`** = statut seul.
 - **Archives / terminés** (`4c555da`) : **`PatientRequestOutcomeBanner`** + **`ReadonlyArchivedProductBucketsView`** ; répondue sans propositions officine post-envoi.
 
 **Mes pharmacies** (`b1e9b9d`, **`3f6fed5`**) :

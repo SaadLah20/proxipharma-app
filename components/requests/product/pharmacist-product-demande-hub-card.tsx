@@ -67,7 +67,7 @@ export function PharmacistProductDemandeHubCard({
               <RequestStatusBadge status={row.status} role="pharmacien" />
               {conversationUnread ? (
                 <span
-                  className="inline-flex items-center rounded-full bg-emerald-600 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-white"
+                  className="inline-flex items-center rounded-full bg-sky-600 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-white"
                   title="Conversation non lue"
                 >
                   Message

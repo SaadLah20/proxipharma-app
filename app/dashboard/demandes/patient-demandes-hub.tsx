@@ -14,11 +14,8 @@ import {
 } from "@/components/requests/demande-hub-ui";
 import { PatientProductDemandesDashboard } from "@/components/requests/product/patient-product-demandes-dashboard";
 import { PatientProductDemandeHubCard } from "@/components/requests/product/patient-product-demande-hub-card";
-import {
-  filterPatientProductHubListRows,
-  PATIENT_PRODUCT_HUB_SECTIONS,
-  type PatientProductHubSectionId,
-} from "@/lib/patient-product-hub-sections";
+import { ProductHubListResultsBar } from "@/components/requests/product/product-hub-list-results-bar";
+import { filterPatientProductHubListRows } from "@/lib/patient-product-hub-sections";
 import {
   patientHubListActiveFiltersSummary,
   patientHubListHasActiveFilters,
@@ -80,15 +77,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
 
   /** Filtres URL : réservés à l’onglet liste — le tableau de bord reste toujours complet. */
   const listStatutParam = tab === "list" ? searchParams.get("statut") : null;
-  const listSectionParam = tab === "list" ? (searchParams.get("section") as PatientProductHubSectionId | null) : null;
   const activeBucket = bucketForStatusParam(listStatutParam, dashboardBuckets);
-  const activeProductSection =
-    tab === "list" &&
-    kindId === "product_request" &&
-    listSectionParam &&
-    PATIENT_PRODUCT_HUB_SECTIONS.some((s) => s.id === listSectionParam)
-      ? listSectionParam
-      : null;
 
   useEffect(() => {
     if (tab !== "dashboard") return;
@@ -178,17 +167,11 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
 
   const rowsWithDashboardStatus = useMemo(() => rows.map((r) => ({ ...r, status_for_dashboard: r.status })), [rows]);
 
-  const activeProductSectionMeta = useMemo(
-    () => PATIENT_PRODUCT_HUB_SECTIONS.find((s) => s.id === activeProductSection) ?? null,
-    [activeProductSection]
-  );
-
   const filteredSorted = useMemo(() => {
     let list = rowsWithDashboardStatus;
     if (isProductHub) {
       list = filterPatientProductHubListRows(list, {
         bucketStatuses: activeBucket?.statuses ?? null,
-        sectionId: activeProductSection,
       });
     } else if (activeBucket) {
       const allow = new Set(activeBucket.statuses);
@@ -213,7 +196,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
       const tb = new Date(b.created_at).getTime();
       return sortNewestFirst ? tb - ta : ta - tb;
     });
-  }, [rowsWithDashboardStatus, activeBucket, activeProductSection, pharmacyFilter, refQuery, sortNewestFirst, isProductHub]);
+  }, [rowsWithDashboardStatus, activeBucket, pharmacyFilter, refQuery, sortNewestFirst, isProductHub]);
 
   const pharmacyFilterLabel = useMemo(
     () => pharmacyOptions.find(([id]) => id === pharmacyFilter)?.[1] ?? null,
@@ -224,28 +207,25 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     () =>
       patientHubListActiveFiltersSummary({
         activeBucket,
-        activeSection: activeProductSectionMeta,
         pharmacyLabel: pharmacyFilterLabel,
         referenceQuery: refQuery,
         sortNewestFirst,
       }),
-    [activeBucket, activeProductSectionMeta, pharmacyFilterLabel, refQuery, sortNewestFirst]
+    [activeBucket, pharmacyFilterLabel, refQuery, sortNewestFirst]
   );
 
   const listHasActiveFilters = useMemo(
     () =>
       patientHubListHasActiveFilters({
         activeBucket,
-        activeSection: activeProductSectionMeta,
         pharmacyLabel: pharmacyFilterLabel,
         referenceQuery: refQuery,
         sortNewestFirst,
       }),
-    [activeBucket, activeProductSectionMeta, pharmacyFilterLabel, refQuery, sortNewestFirst]
+    [activeBucket, pharmacyFilterLabel, refQuery, sortNewestFirst]
   );
 
-  const filtersAutoExpand =
-    tab === "list" && (Boolean(listStatutParam || listSectionParam) || listHasActiveFilters);
+  const filtersAutoExpand = tab === "list" && (Boolean(listStatutParam) || listHasActiveFilters);
   const filtersPanelExpanded = filtersExpandedUser ?? filtersAutoExpand;
 
   const clearListFilters = () => {
@@ -265,14 +245,6 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     next.set("vue", "liste");
     if (key === "") next.delete("statut");
     else next.set("statut", key);
-    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
-  };
-
-  const setProductSectionFilter = (sectionId: string) => {
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("vue", "liste");
-    if (sectionId === "") next.delete("section");
-    else next.set("section", sectionId);
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
 
@@ -340,7 +312,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
               ? "Suivi de vos ordonnances envoyées aux pharmacies."
               : kindId === "free_consultation"
                 ? "Suivi de vos consultations libres : message, échange et proposition produits."
-                : "Vos demandes de produits, classées par ce qui vous concerne, ce qui est chez l’officine et les archives."}
+                : "Tableau de bord avec repères visuels ; liste complète filtrable par statut, pharmacie ou référence."}
           </p>
         </div>
         <Link
@@ -404,194 +376,141 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
         </>
       ) : (
         <div className="mt-4 space-y-4">
-          <section
-            className={clsx(
-              "relative overflow-hidden rounded-2xl border shadow-md",
-              isProductHub
-                ? "border-slate-300/90 bg-gradient-to-br from-white via-slate-50/95 to-slate-100/80 ring-1 ring-slate-900/[0.06]"
-                : filterShell
-            )}
-          >
-            {isProductHub ? (
-              <div
-                className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-indigo-500 via-violet-500 to-slate-400"
-                aria-hidden
-              />
-            ) : null}
-            <div className={clsx("p-3.5 sm:p-4", isProductHub && "pl-4 sm:pl-5")}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-start gap-2.5">
-                  <span
-                    className={clsx(
-                      "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg shadow-sm",
-                      isProductHub
-                        ? "bg-slate-900 text-white"
-                        : accent === "amber"
-                          ? "bg-amber-600 text-white"
-                          : accent === "violet"
-                            ? "bg-violet-600 text-white"
-                            : "bg-sky-700 text-white"
-                    )}
-                  >
-                    <SlidersHorizontal className="size-4" aria-hidden />
-                  </span>
-                  <div className="min-w-0">
-                    <h2
-                      className={clsx(
-                        "text-sm font-bold tracking-tight",
-                        isProductHub ? "text-slate-900" : filterTitle
-                      )}
-                    >
-                      Recherche et filtres
-                    </h2>
-                    <p
-                      className={clsx(
-                        "mt-0.5 text-[11px] leading-snug",
-                        isProductHub ? "text-slate-600" : "text-muted-foreground"
-                      )}
-                    >
-                      Uniquement pour cette liste — le tableau de bord reste inchangé.
-                    </p>
-                  </div>
+          <section className={filterShell}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-start gap-2.5">
+                <span
+                  className={clsx(
+                    "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg shadow-sm",
+                    accent === "amber"
+                      ? "bg-amber-600 text-white"
+                      : accent === "violet"
+                        ? "bg-violet-600 text-white"
+                        : "bg-sky-700 text-white"
+                  )}
+                >
+                  <SlidersHorizontal className="size-4" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <h2 className={clsx("text-sm font-bold tracking-tight", filterTitle)}>Recherche et filtres</h2>
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                    Uniquement pour cette liste — le tableau de bord reste inchangé.
+                  </p>
                 </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFiltersExpandedUser(!(filtersExpandedUser ?? filtersAutoExpand))}
+                className={filterBtn}
+              >
+                {filtersPanelExpanded ? "Réduire" : "Ouvrir"}
+              </button>
+            </div>
+
+            {filtersPanelExpanded ? (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4">
+                <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    Référence dossier
+                  </span>
+                  <span className="relative block">
+                    <Search
+                      className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60"
+                      aria-hidden
+                    />
+                    <input
+                      value={refQuery}
+                      onChange={(e) => setRefQuery(e.target.value)}
+                      placeholder={refPlaceholder}
+                      className="w-full rounded-lg border border-input bg-background py-2 pl-8 pr-2.5 text-xs text-foreground shadow-sm placeholder:text-muted-foreground/70 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200/60"
+                    />
+                  </span>
+                </label>
+                <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Statut</span>
+                  <select
+                    value={activeBucket?.key ?? ""}
+                    onChange={(e) => setStatutFilter(e.target.value)}
+                    className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
+                  >
+                    <option value="">Tous les statuts</option>
+                    {dashboardBuckets.map((b) => (
+                      <option key={b.key} value={b.key}>
+                        {b.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Pharmacie</span>
+                  <select
+                    value={pharmacyFilter}
+                    onChange={(e) => setPharmacyFilter(e.target.value)}
+                    className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
+                  >
+                    <option value="">Toutes</option>
+                    {pharmacyOptions.map(([id, label]) => (
+                      <option key={id} value={id}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Tri</span>
+                  <select
+                    value={sortNewestFirst ? "desc" : "asc"}
+                    onChange={(e) => setSortNewestFirst(e.target.value === "desc")}
+                    className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
+                  >
+                    <option value="desc">Plus récentes d’abord</option>
+                    <option value="asc">Plus anciennes d’abord</option>
+                  </select>
+                </label>
+              </div>
+            ) : listHasActiveFilters ? (
+              <div
+                className={clsx(
+                  "mt-3 rounded-xl border px-3 py-2.5 text-[11px] leading-snug",
+                  accent === "amber"
+                    ? "border-amber-200/80 bg-amber-50/60 text-amber-950"
+                    : accent === "violet"
+                      ? "border-violet-200/80 bg-violet-50/60 text-violet-950"
+                      : "border-sky-200/80 bg-sky-50/60 text-sky-950"
+                )}
+              >
+                <p>
+                  <span className="font-semibold">Filtres actifs (liste) :</span> {listFiltersSummary}
+                </p>
                 <button
                   type="button"
-                  onClick={() =>
-                    setFiltersExpandedUser(!(filtersExpandedUser ?? filtersAutoExpand))
-                  }
-                  className={clsx(
-                    "shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-semibold shadow-sm transition",
-                    isProductHub
-                      ? "border border-slate-300/90 bg-white text-slate-800 hover:bg-slate-50"
-                      : filterBtn
-                  )}
+                  onClick={clearListFilters}
+                  className={clsx("mt-1.5 text-[11px] font-semibold underline underline-offset-2", linkClass)}
                 >
-                  {filtersPanelExpanded ? "Réduire" : "Ouvrir"}
+                  Tout effacer
                 </button>
               </div>
-
-              {filtersPanelExpanded ? (
-                <div
-                  className={clsx(
-                    "mt-3 grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4",
-                    isProductHub && "rounded-xl border border-slate-200/80 bg-white/90 p-3 shadow-inner"
-                  )}
-                >
-                  <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                      Référence dossier
-                    </span>
-                    <span className="relative block">
-                      <Search
-                        className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400"
-                        aria-hidden
-                      />
-                      <input
-                        value={refQuery}
-                        onChange={(e) => setRefQuery(e.target.value)}
-                        placeholder={refPlaceholder}
-                        className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-2.5 text-xs text-foreground shadow-sm placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/60"
-                      />
-                    </span>
-                  </label>
-                  {isProductHub ? (
-                    <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Regroupement</span>
-                      <select
-                        value={activeProductSection ?? ""}
-                        onChange={(e) => setProductSectionFilter(e.target.value)}
-                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-foreground shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/60"
-                      >
-                        <option value="">Tous les regroupements</option>
-                        {PATIENT_PRODUCT_HUB_SECTIONS.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.title}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : null}
-                  <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Statut</span>
-                    <select
-                      value={activeBucket?.key ?? ""}
-                      onChange={(e) => setStatutFilter(e.target.value)}
-                      className={clsx(
-                        "rounded-lg border bg-white px-2.5 py-2 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2",
-                        isProductHub
-                          ? "border-slate-200 focus:border-indigo-400 focus:ring-indigo-200/60"
-                          : "border-input"
-                      )}
-                    >
-                      <option value="">Tous les statuts</option>
-                      {dashboardBuckets.map((b) => (
-                        <option key={b.key} value={b.key}>
-                          {b.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="flex min-w-0 flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Pharmacie</span>
-                    <select
-                      value={pharmacyFilter}
-                      onChange={(e) => setPharmacyFilter(e.target.value)}
-                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-foreground shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/60"
-                    >
-                      <option value="">Toutes</option>
-                      {pharmacyOptions.map(([id, label]) => (
-                        <option key={id} value={id}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="flex min-w-0 flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Tri</span>
-                    <select
-                      value={sortNewestFirst ? "desc" : "asc"}
-                      onChange={(e) => setSortNewestFirst(e.target.value === "desc")}
-                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-foreground shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/60"
-                    >
-                      <option value="desc">Plus récentes d’abord</option>
-                      <option value="asc">Plus anciennes d’abord</option>
-                    </select>
-                  </label>
-                </div>
-              ) : listHasActiveFilters ? (
-                <div
-                  className={clsx(
-                    "mt-3 rounded-xl border px-3 py-2.5 text-[11px] leading-snug",
-                    isProductHub
-                      ? "border-indigo-200/70 bg-indigo-50/50 text-slate-800"
-                      : accent === "amber"
-                        ? "border-amber-200/80 bg-amber-50/60 text-amber-950"
-                        : accent === "violet"
-                          ? "border-violet-200/80 bg-violet-50/60 text-violet-950"
-                          : "border-sky-200/80 bg-sky-50/60 text-sky-950"
-                  )}
-                >
-                  <p>
-                    <span className="font-semibold">Filtres actifs (liste) :</span> {listFiltersSummary}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={clearListFilters}
-                    className={clsx(
-                      "mt-1.5 text-[11px] font-semibold underline underline-offset-2",
-                      isProductHub ? "text-indigo-800" : linkClass
-                    )}
-                  >
-                    Tout effacer
-                  </button>
-                </div>
-              ) : (
-                <p className={clsx("mt-3 text-[11px] leading-snug", isProductHub ? "text-slate-600" : "text-muted-foreground")}>
-                  Référence, regroupement, statut, pharmacie ou tri — sans modifier le tableau de bord.
-                </p>
-              )}
-            </div>
+            ) : (
+              <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
+                Référence, statut, pharmacie ou tri — sans modifier le tableau de bord.
+              </p>
+            )}
           </section>
+
+          {isProductHub ? (
+            <ProductHubListResultsBar filteredCount={filteredSorted.length} totalCount={rows.length} />
+          ) : (
+            <p className="text-[11px] font-semibold tabular-nums text-muted-foreground" role="status">
+              {filteredSorted.length === 0
+                ? "Aucun dossier affiché"
+                : `${filteredSorted.length} dossier${filteredSorted.length > 1 ? "s" : ""} affiché${filteredSorted.length > 1 ? "s" : ""}`}
+              {filteredSorted.length !== rows.length && rows.length > 0
+                ? ` sur ${rows.length} au total`
+                : rows.length > 0
+                  ? " (liste complète)"
+                  : ""}
+            </p>
+          )}
 
           {filteredSorted.length === 0 ? (
             <div className="space-y-2 py-6 text-center text-xs text-muted-foreground">
@@ -602,15 +521,11 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                     : kindId === "free_consultation"
                       ? "Aucune consultation en attente de réponse avec ces filtres."
                       : "Aucune demande en attente de réponse pharmacie avec ces filtres."
-                  : activeProductSectionMeta && activeBucket
-                    ? `Aucune demande pour « ${activeProductSectionMeta.title} » au statut « ${activeBucket.label} ». Essayez un seul filtre à la fois.`
-                    : activeProductSectionMeta
-                      ? `Aucune demande dans « ${activeProductSectionMeta.title} » avec ces filtres.`
-                      : activeBucket
-                        ? `Aucune demande au statut « ${activeBucket.label} » avec ces filtres.`
-                        : listHasActiveFilters
-                          ? "Aucun résultat avec ces filtres."
-                          : "Aucun résultat."}
+                  : activeBucket
+                    ? `Aucune demande au statut « ${activeBucket.label} » avec ces filtres.`
+                    : listHasActiveFilters
+                      ? "Aucun résultat avec ces filtres."
+                      : "Aucun résultat."}
               </p>
               {listHasActiveFilters ? (
                 <button
