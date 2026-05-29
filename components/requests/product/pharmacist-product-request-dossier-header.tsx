@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { clsx } from "clsx";
-import { MessageCircle, Phone, User } from "lucide-react";
+import { Info, MessageCircle, Phone, User } from "lucide-react";
+import { PatientProductRequestJourneyModal } from "@/components/requests/product/patient-product-request-journey-modal";
 import { requestStatusFr } from "@/lib/request-display";
 
 function phoneDigits(raw: string): string {
@@ -46,6 +48,7 @@ export function PharmacistProductRequestDossierHeader({
   selectedCount?: number;
   pendingCounterCount?: number;
 }) {
+  const [journeyOpen, setJourneyOpen] = useState(false);
   const statusLabel = requestStatusFr[status] ?? status;
   const patientLine = patientName?.trim()
     ? patientRef?.trim()
@@ -54,64 +57,83 @@ export function PharmacistProductRequestDossierHeader({
     : patientRef?.trim() ?? "Patient";
 
   return (
-    <header
-      className={clsx(
-        "w-full min-w-0 max-w-full overflow-hidden rounded-xl border-2 shadow-md",
-        "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
-      )}
-    >
-      <div className="border-b border-sky-200/70 px-3 py-2 sm:px-3.5">
-        <p className="text-[11px] font-bold leading-tight text-sky-950 sm:text-xs">
-          <span className="uppercase tracking-wide text-sky-800/90">Demande de produits</span>
-          <span className="mx-1.5 font-normal text-sky-600/80" aria-hidden>
-            ·
-          </span>
-          <span className="font-mono text-[13px] tabular-nums text-foreground sm:text-sm">N° {dossierRefLabel}</span>
-        </p>
-      </div>
+    <>
+      <header
+        className={clsx(
+          "w-full min-w-0 max-w-full overflow-hidden rounded-xl border-2 shadow-md",
+          "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
+        )}
+      >
+        <div className="border-b border-sky-200/70 px-3 py-2 sm:px-3.5">
+          <p className="text-[11px] font-bold leading-tight text-sky-950 sm:text-xs">
+            <span className="uppercase tracking-wide text-sky-800/90">Demande de produits</span>
+            <span className="mx-1.5 font-normal text-sky-600/80" aria-hidden>
+              ·
+            </span>
+            <span className="font-mono text-[13px] tabular-nums text-foreground sm:text-sm">N° {dossierRefLabel}</span>
+          </p>
+        </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200/70 px-3 py-2 sm:px-3.5">
-        <p className="flex min-w-0 flex-1 items-center gap-1.5 truncate pb-px text-sm font-bold leading-snug text-foreground">
-          <User className="size-4 shrink-0 text-sky-700" aria-hidden />
-          <span className="truncate" title={patientLine}>
-            {patientLine}
-          </span>
-        </p>
-        {patientPhone ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-            <a
-              href={`tel:${patientPhone.replace(/\s/g, "")}`}
-              className="inline-flex size-8 items-center justify-center rounded-lg border border-sky-300/80 bg-white text-sky-800 shadow-sm hover:bg-sky-50"
-              title={`Appeler ${patientPhone}`}
-              aria-label="Appeler le patient"
-            >
-              <Phone className="size-3.5" aria-hidden />
-            </a>
-            <a
-              href={`https://wa.me/${phoneDigits(patientPhone)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex size-8 items-center justify-center rounded-lg border border-emerald-500/80 bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
-              title={`WhatsApp ${patientPhone}`}
-              aria-label="Contacter le patient sur WhatsApp"
-            >
-              <MessageCircle className="size-3.5" aria-hidden />
-            </a>
-          </div>
-        ) : null}
-      </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200/70 px-3 py-2 sm:px-3.5">
+          <p className="flex min-w-0 flex-1 items-center gap-1.5 truncate pb-px text-sm font-bold leading-snug text-foreground">
+            <User className="size-4 shrink-0 text-sky-700" aria-hidden />
+            <span className="truncate" title={patientLine}>
+              {patientLine}
+            </span>
+          </p>
+          {patientPhone ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+              <a
+                href={`tel:${patientPhone.replace(/\s/g, "")}`}
+                className="inline-flex size-8 items-center justify-center rounded-lg border border-sky-300/80 bg-white text-sky-800 shadow-sm hover:bg-sky-50"
+                title={`Appeler ${patientPhone}`}
+                aria-label="Appeler le patient"
+              >
+                <Phone className="size-3.5" aria-hidden />
+              </a>
+              <a
+                href={`https://wa.me/${phoneDigits(patientPhone)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex size-8 items-center justify-center rounded-lg border border-emerald-500/80 bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
+                title={`WhatsApp ${patientPhone}`}
+                aria-label="Contacter le patient sur WhatsApp"
+              >
+                <MessageCircle className="size-3.5" aria-hidden />
+              </a>
+            </div>
+          ) : null}
+        </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 sm:px-3.5">
-        <span
-          className={clsx(
-            "inline-flex max-w-full items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-            statusBadgeClass(status)
+        <div className="flex flex-wrap items-start gap-2 px-3 py-2 sm:px-3.5">
+          <span
+            className={clsx(
+              "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold leading-tight shadow-sm",
+              statusBadgeClass(status)
+            )}
+          >
+            {statusLabel}
+          </span>
+          {statusHint ? (
+            <p className="min-w-0 flex-1 text-[11px] leading-snug text-sky-950/90">{statusHint}</p>
+          ) : (
+            <span className="min-w-0 flex-1" aria-hidden />
           )}
-        >
-          {statusLabel}
-        </span>
-        <div className="flex flex-wrap gap-1 text-[9px] font-medium text-muted-foreground">
-          <span className="rounded-md bg-muted/80 px-1.5 py-px text-foreground">{lineCount} ligne{lineCount !== 1 ? "s" : ""}</span>
+          <button
+            type="button"
+            onClick={() => setJourneyOpen(true)}
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-sky-300/80 bg-white text-sky-700 shadow-sm transition hover:bg-sky-50 hover:text-sky-900"
+            aria-label="Voir le parcours complet d'une demande de produits"
+            title="Parcours de la demande"
+          >
+            <Info className="size-4" strokeWidth={2.25} aria-hidden />
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-1 border-t border-sky-200/60 px-3 py-1.5 text-[9px] font-medium text-muted-foreground sm:px-3.5">
+          <span className="rounded-md bg-muted/80 px-1.5 py-px text-foreground">
+            {lineCount} ligne{lineCount !== 1 ? "s" : ""}
+          </span>
           {selectedCount != null && selectedCount > 0 ? (
             <span className="rounded-md bg-muted/80 px-1.5 py-px text-foreground">
               {selectedCount} retenu{selectedCount !== 1 ? "s" : ""}
@@ -123,13 +145,9 @@ export function PharmacistProductRequestDossierHeader({
             </span>
           ) : null}
         </div>
-      </div>
+      </header>
 
-      {statusHint ? (
-        <p className="border-t border-sky-200/60 px-3 py-2 text-[11px] leading-snug text-sky-950/90 sm:px-3.5">
-          {statusHint}
-        </p>
-      ) : null}
-    </header>
+      <PatientProductRequestJourneyModal open={journeyOpen} currentStatus={status} onClose={() => setJourneyOpen(false)} />
+    </>
   );
 }

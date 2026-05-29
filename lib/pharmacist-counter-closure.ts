@@ -19,10 +19,9 @@ export function pharmacistCounterUnresolvedLines<T extends CounterClosureLine>(t
   });
 }
 
+/** Clôture possible dès qu’au moins une ligne retenue est marquée récupérée (les autres seront écartées à la clôture). */
 export function pharmacistCanCompleteCounterClosure<T extends CounterClosureLine>(items: T[]): boolean {
-  const tracked = pharmacistCounterTrackedLines(items);
-  if (tracked.length === 0) return false;
-  return pharmacistCounterUnresolvedLines(tracked).length === 0;
+  return pharmacistCounterPickedUpCount(items) > 0;
 }
 
 export function pharmacistCounterPickedUpCount<T extends CounterClosureLine>(items: T[]): number {

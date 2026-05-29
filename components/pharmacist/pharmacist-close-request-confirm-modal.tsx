@@ -98,8 +98,8 @@ function CloseRequestDialogPanel({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2.5 sm:px-4">
         <p className="text-[11px] leading-snug text-muted-foreground">
-          Vérifiez l’état du dossier avant clôture définitive. Les lignes non récupérées au comptoir restent visibles dans
-          l’historique.
+          Vérifiez l’état du dossier avant clôture définitive. Les lignes retenues non marquées « Récupéré » seront
+          automatiquement écartées à la clôture.
         </p>
         <ul className="mt-3 space-y-1.5 text-[11px] leading-snug text-foreground">
           <li>
@@ -135,8 +135,10 @@ function CloseRequestDialogPanel({
         </ul>
         {summary.hasPartialPickupWarning ? (
           <p className="mt-3 rounded-lg border border-amber-300/80 bg-amber-50/70 px-2.5 py-2 text-[10px] leading-snug text-amber-950">
-            Certaines lignes retenues ne sont pas marquées « Récupéré ». Vous pouvez clôturer si le client n’a plus besoin
-            de ces produits — sinon marquez-les récupérées ou écartez-les avant de clôturer.
+            {summary.pickedUpCount} produit{summary.pickedUpCount > 1 ? "s" : ""} récupéré — {summary.pendingPickupCount} autre
+            {summary.pendingPickupCount > 1 ? "s" : ""} sera
+            {summary.pendingPickupCount > 1 ? "ont" : ""} écarté{summary.pendingPickupCount > 1 ? "s" : ""} automatiquement
+            à la clôture.
           </p>
         ) : null}
       </div>

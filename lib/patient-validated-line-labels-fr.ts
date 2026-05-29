@@ -135,7 +135,7 @@ export function validatedLineLabelChipClass(label: ValidatedLineLabel): string {
   if (label.tone === "origin") {
     const t = label.text;
     if (t === "Alternative") return `${base} border-teal-500/70 bg-teal-700 text-white ring-teal-600/40`;
-    if (t === "Ta demande") return `${base} border-sky-500/70 bg-sky-700 text-white ring-sky-600/40`;
+    if (t === "Ta demande" || t === "Demande patient") return `${base} border-sky-500/70 bg-sky-700 text-white ring-sky-600/40`;
     if (t === "Ordonnance" || t.startsWith("Ordonnance")) return `${base} border-amber-500/70 bg-amber-700 text-white ring-amber-600/40`;
     return `${base} border-violet-500/70 bg-violet-700 text-white ring-violet-600/40`;
   }

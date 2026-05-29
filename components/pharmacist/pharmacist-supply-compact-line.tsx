@@ -219,83 +219,7 @@ export function PharmacistSupplyCompactLine({
         )}
       >
         <div className="relative flex flex-col gap-1.5">
-          <div className="relative flex items-start gap-1.5">
-            {menuHasActions ? (
-            <div className="pointer-events-none absolute end-1 top-1 z-10">
-              <button
-                ref={anchorRef}
-                type="button"
-                disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
-                aria-expanded={menuOpen}
-                aria-haspopup="menu"
-                aria-label="Actions ligne"
-                onClick={() => onMenuOpenChange(!menuOpen)}
-                className="pointer-events-auto inline-flex size-8 items-center justify-center rounded-lg border border-slate-300/90 bg-white/95 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
-              >
-                <MoreVertical className="size-4" strokeWidth={2} aria-hidden />
-              </button>
-              {menuOpen && menuPos
-                ? createPortal(
-                    <ul
-                      data-pharma-supply-menu
-                      className="fixed z-[10120] min-w-[11rem] overflow-hidden rounded-lg border border-border bg-card py-0.5 text-[11px] shadow-lg"
-                      style={{ top: menuPos.top, left: menuPos.left }}
-                      role="menu"
-                    >
-                      {supplyMutationsEnabled && selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
-                        <li role="none">
-                          <button
-                            type="button"
-                            role="menuitem"
-                            disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
-                            className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
-                            onClick={() => {
-                              onMenuOpenChange(false);
-                              onMenuModify();
-                            }}
-                          >
-                            {hasModifyConsent ? "Modifier la ligne…" : "Modifier (accord patient)…"}
-                          </button>
-                        </li>
-                      ) : null}
-                      {supplyMutationsEnabled && selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
-                        <li role="none">
-                          <button
-                            type="button"
-                            role="menuitem"
-                            disabled={busy || supplyConfirmBusy || withdrawDisabled}
-                            title={withdrawDisabled ? withdrawDisabledReason ?? undefined : undefined}
-                            className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
-                            onClick={() => {
-                              onMenuOpenChange(false);
-                              onMenuWithdraw();
-                            }}
-                          >
-                            Écarter la ligne…
-                          </button>
-                        </li>
-                      ) : null}
-                      <li role="none">
-                        <button
-                          type="button"
-                          role="menuitem"
-                          disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
-                          className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
-                          onClick={() => {
-                            onMenuOpenChange(false);
-                            onMenuHistory();
-                          }}
-                        >
-                          Historique produit
-                        </button>
-                      </li>
-                    </ul>,
-                    document.body
-                  )
-                : null}
-            </div>
-            ) : null}
-
+          <div className="flex items-start gap-1.5">
             <div className="relative box-border h-[3.85rem] w-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card shadow-inner sm:h-[4rem] sm:w-[4rem]">
               {thumbUrl ? (
                 onPhotoPreview ? (
@@ -317,8 +241,8 @@ export function PharmacistSupplyCompactLine({
               )}
             </div>
 
-            <div className={clsx("min-w-0 flex-1", menuHasActions && "pe-10")}>
-              <div className="flex min-w-0 items-start gap-1">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-start gap-1.5">
                 <p
                   className={clsx(
                     "min-w-0 flex-1 truncate pb-px text-[13px] font-semibold leading-snug text-slate-950 sm:text-[14px]",
@@ -328,19 +252,95 @@ export function PharmacistSupplyCompactLine({
                 >
                   {validatedName}
                 </p>
-                {lineMessageButton}
-                {!menuHasActions ? (
-                  <button
-                    type="button"
-                    disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
-                    onClick={onMenuHistory}
-                    className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-sky-300/80 bg-white text-sky-800 shadow-sm hover:bg-sky-50 disabled:opacity-40"
-                    aria-label="Historique de cette ligne"
-                    title="Historique"
-                  >
-                    <History className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
-                  </button>
-                ) : null}
+                <div className="flex shrink-0 flex-col items-center gap-1">
+                  {lineMessageButton}
+                  {menuHasActions ? (
+                    <>
+                      <button
+                        ref={anchorRef}
+                        type="button"
+                        disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+                        aria-expanded={menuOpen}
+                        aria-haspopup="menu"
+                        aria-label="Actions ligne"
+                        onClick={() => onMenuOpenChange(!menuOpen)}
+                        className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-300/90 bg-white/95 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
+                      >
+                        <MoreVertical className="size-4" strokeWidth={2} aria-hidden />
+                      </button>
+                      {menuOpen && menuPos
+                        ? createPortal(
+                            <ul
+                              data-pharma-supply-menu
+                              className="fixed z-[10120] min-w-[11rem] overflow-hidden rounded-lg border border-border bg-card py-0.5 text-[11px] shadow-lg"
+                              style={{ top: menuPos.top, left: menuPos.left }}
+                              role="menu"
+                            >
+                              {supplyMutationsEnabled && selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
+                                <li role="none">
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+                                    className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
+                                    onClick={() => {
+                                      onMenuOpenChange(false);
+                                      onMenuModify();
+                                    }}
+                                  >
+                                    Modifier la ligne…
+                                  </button>
+                                </li>
+                              ) : null}
+                              {supplyMutationsEnabled && selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
+                                <li role="none">
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    disabled={busy || supplyConfirmBusy || withdrawDisabled}
+                                    title={withdrawDisabled ? withdrawDisabledReason ?? undefined : undefined}
+                                    className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
+                                    onClick={() => {
+                                      onMenuOpenChange(false);
+                                      onMenuWithdraw();
+                                    }}
+                                  >
+                                    Écarter la ligne…
+                                  </button>
+                                </li>
+                              ) : null}
+                              <li role="none">
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+                                  className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
+                                  onClick={() => {
+                                    onMenuOpenChange(false);
+                                    onMenuHistory();
+                                  }}
+                                >
+                                  Historique produit
+                                </button>
+                              </li>
+                            </ul>,
+                            document.body
+                          )
+                        : null}
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+                      onClick={onMenuHistory}
+                      className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-sky-300/80 bg-white text-sky-800 shadow-sm hover:bg-sky-50 disabled:opacity-40"
+                      aria-label="Historique de cette ligne"
+                      title="Historique"
+                    >
+                      <History className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+                    </button>
+                  )}
+                </div>
               </div>
               {validatedLineLabels && validatedLineLabels.length > 0 ? (
                 <div className="mt-1 flex flex-wrap gap-1">
