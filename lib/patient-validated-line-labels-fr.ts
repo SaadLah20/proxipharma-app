@@ -10,7 +10,7 @@ import {
   isRequestItemAddedAfterPatientConfirmation,
 } from "@/lib/supply-line-post-confirm";
 
-export type ValidatedLineLabelTone = "origin" | "status" | "event" | "reception" | "arrived";
+export type ValidatedLineLabelTone = "origin" | "status" | "event" | "reception" | "arrived" | "collected";
 
 export type ValidatedLineLabel = {
   key: string;
@@ -80,10 +80,14 @@ export function buildPatientValidatedLineLabelsFr(input: {
     isRequestItemAddedAfterPatientConfirmation(row.id, supplyAmendmentBundles);
 
   const closure = archiveClosureLabel?.trim();
+  const pickedUp = (row.counter_outcome ?? "unset") === "picked_up";
   if (closure) {
     out.push({ key: "closure", text: closure, tone: "status" });
   } else if (withdrawn) {
     out.push({ key: "ecart", text: "Écarté par la pharmacie", tone: "event" });
+  } else if (pickedUp) {
+    // Le pharmacien a remis le produit au comptoir : libellé « Récupéré » côté patient.
+    out.push({ key: "collected", text: "Récupéré", tone: "collected" });
   } else {
     const status = fulfillmentStatusLabelFr(row, treatedLineLabels);
     if (status && !(treatedLineLabels && TREATED_OMIT_STATUS_RE.test(status))) {
@@ -137,6 +141,9 @@ export function validatedLineLabelChipClass(label: ValidatedLineLabel): string {
   }
   if (label.tone === "reception" || label.key === "reception") {
     return `${base} border-teal-400/90 bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-sm ring-teal-300/55`;
+  }
+  if (label.tone === "collected" || label.text === "Récupéré") {
+    return `${base} border-emerald-500/90 bg-emerald-700 text-white shadow-sm ring-emerald-400/55`;
   }
   if (label.tone === "arrived" || label.text === "Reçu en officine") {
     return `${base} border-emerald-400/90 bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-sm ring-emerald-300/55`;
