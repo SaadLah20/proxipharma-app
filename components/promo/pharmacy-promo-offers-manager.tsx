@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { Gift, Package, Plus } from "lucide-react";
+import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
+import { platformDashboardChrome as chrome } from "@/lib/platform-dashboard-chrome";
 import { ScheduleToast, type ScheduleToastTone } from "@/components/pharmacy/schedule/schedule-toast";
 import { PromoProductPicker, PromoCompactLinesList } from "@/components/promo/promo-product-picker";
 import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
@@ -260,21 +262,16 @@ export function PharmacyPromoOffersManager() {
 
   return (
     <PageShell maxWidthClass="max-w-4xl" className="space-y-4">
-      <div>
-        <Link href="/dashboard/pharmacien" className="text-xs font-medium text-primary underline">
-          ← Tableau de bord
-        </Link>
-        <h1 className="mt-2 text-lg font-bold">Offres et promos</h1>
-        <p className="text-xs text-muted-foreground">
-          Créez des packs promo (max. 5 produits + 5 cadeaux). Publiez pour les afficher sur votre fiche publique.
-        </p>
-        <Link
-          href="/dashboard/pharmacien/reservations-packs"
-          className="mt-2 inline-flex text-sm font-semibold text-amber-800 underline"
-        >
-          Réservations de packs →
-        </Link>
-      </div>
+      <PharmacistAccountPageHeader
+        eyebrow="Officine & visibilité"
+        title="Offres et promos"
+        subtitle="Créez des packs promo (max. 5 produits + 5 cadeaux) publiés sur votre fiche."
+        trailing={
+          <Link href="/dashboard/pharmacien/reservations-packs" className={chrome.ctaOutline}>
+            Réservations packs
+          </Link>
+        }
+      />
 
       <ScheduleToast message={toast.message} tone={toast.tone} onDismiss={() => setToast({ message: "", tone: "info" })} />
 

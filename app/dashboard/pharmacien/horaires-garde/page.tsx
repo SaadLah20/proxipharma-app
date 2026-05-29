@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarOff, CalendarRange, Clock } from "lucide-react";
+import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
 import { PharmacySegmentTabs } from "@/components/pharmacy/pharmacy-segment-tabs";
 import {
@@ -63,6 +64,7 @@ export default function PharmacienHorairesGardePage() {
   const [toast, setToast] = useState<{ message: string; tone: ScheduleToastTone }>({ message: "", tone: "info" });
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pharmacyNom, setPharmacyNom] = useState("");
 
   const showHint = useCallback((message: string, tone: ScheduleToastTone = "info") => {
     setToast({ message, tone });
@@ -231,16 +233,14 @@ export default function PharmacienHorairesGardePage() {
 
   return (
     <PageShell maxWidthClass="max-w-4xl" className="space-y-4">
-      <div>
-        <Link href="/dashboard/pharmacien/ma-fiche" className="text-xs font-medium text-primary underline">
-          ← Ma fiche
-        </Link>
-        <h1 className="mt-2 text-lg font-bold">Horaires et garde</h1>
-        <p className="text-xs text-muted-foreground">
-          Planning affiché sur votre fiche publique. Après enregistrement, testez sur la preview Vercel puis mergez la PR
-          quand tout est bon.
-        </p>
-      </div>
+      <PharmacistAccountPageHeader
+        eyebrow="Officine & visibilité"
+        title="Horaires et garde"
+        subtitle="Planning affiché sur votre fiche publique (semaine, exceptions, périodes de garde)."
+        pharmacyName={pharmacyNom || undefined}
+        backHref="/dashboard/pharmacien/ma-fiche"
+        backLabel="← Ma fiche publique"
+      />
 
       <ScheduleToast
         message={toast.message}

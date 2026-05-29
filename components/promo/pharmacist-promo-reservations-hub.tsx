@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
+import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
+import { platformDashboardChrome as chrome } from "@/lib/platform-dashboard-chrome";
 import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
 import { supabase } from "@/lib/supabase";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
@@ -110,21 +112,16 @@ export function PharmacistPromoReservationsHub() {
 
   return (
     <PageShell maxWidthClass="max-w-4xl" className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <Link href="/dashboard/pharmacien" className="text-xs font-medium text-sky-800 underline">
-            ← Tableau de bord
+      <PharmacistAccountPageHeader
+        eyebrow="Dossiers & réservations"
+        title="Réservations packs promo"
+        subtitle="Demandes de réservation sur vos offres promo publiées."
+        trailing={
+          <Link href="/dashboard/pharmacien/offres-promos" className={chrome.ctaOutline}>
+            Offres et promos
           </Link>
-          <h1 className="mt-2 text-lg font-bold">Réservations packs</h1>
-          <p className="text-xs text-muted-foreground">Demandes de réservation sur vos offres promo publiées.</p>
-        </div>
-        <Link
-          href="/dashboard/pharmacien/offres-promos"
-          className="shrink-0 rounded-md border px-3 py-1.5 text-xs font-semibold shadow-sm hover:bg-muted/50"
-        >
-          Offres et promos
-        </Link>
-      </div>
+        }
+      />
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
 
       {submittedCount > 0 ? (

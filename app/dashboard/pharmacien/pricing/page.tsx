@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
 import { PharmacistPricingManager } from "@/components/pharmacist/pricing/pharmacist-pricing-manager";
 import { supabase } from "@/lib/supabase";
@@ -43,15 +43,11 @@ export default function PharmacienPricingPage() {
 
   return (
     <PageShell maxWidthClass="max-w-4xl" className="space-y-4">
-      <div>
-        <Link href="/dashboard/pharmacien" className="text-xs font-medium text-sky-800 underline">
-          ← Tableau de bord
-        </Link>
-        <h1 className="mt-2 text-lg font-bold text-foreground">Moteur de pricing</h1>
-        <p className="text-xs text-muted-foreground">
-          Grille parapharmacie (PPH ± marge), règles par laboratoire ou par produit. Médicaments : PPV catalogue fixe.
-        </p>
-      </div>
+      <PharmacistAccountPageHeader
+        eyebrow="Officine & visibilité"
+        title="Moteur de pricing"
+        subtitle="Grille parapharmacie (PPH ± marge), règles par laboratoire ou par produit. Médicaments : PPV catalogue fixe."
+      />
       <PharmacistPricingManager />
     </PageShell>
   );

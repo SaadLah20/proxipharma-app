@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import {
   AlertCircle,
-  Building2,
   ClipboardList,
   Eye,
   Gift,
@@ -15,6 +14,7 @@ import {
   Package,
   Phone,
   RefreshCw,
+  Settings,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -30,6 +30,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
 import {
   PHARMACIST_DASHBOARD_BUCKETS,
@@ -227,52 +228,55 @@ export function PharmacistDashboard() {
     );
   }
 
+  const periodControls = (
+    <>
+      <div
+        className="flex rounded-lg border border-border bg-muted/30 p-0.5"
+        role="group"
+        aria-label="Période d’analyse"
+      >
+        {PERIOD_OPTIONS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            onClick={() => setPeriod(preset)}
+            className={clsx(
+              "rounded-md px-2.5 py-1.5 text-xs font-semibold transition",
+              period === preset
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {preset === "7d" ? "7 j" : preset === "30d" ? "30 j" : "90 j"}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        disabled={refreshing}
+        onClick={() => {
+          setRefreshing(true);
+          void load();
+        }}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold shadow-sm hover:bg-muted/50 disabled:opacity-60"
+      >
+        <RefreshCw className={clsx("h-3.5 w-3.5", refreshing && "animate-spin")} />
+        Actualiser
+      </button>
+    </>
+  );
+
   return (
     <PageShell maxWidthClass="max-w-6xl" className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">Tableau de bord</h1>
-          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Building2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            {pharmacyNom}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div
-            className="flex rounded-lg border border-border bg-muted/30 p-0.5"
-            role="group"
-            aria-label="Période d’analyse"
-          >
-            {PERIOD_OPTIONS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPeriod(p)}
-                className={clsx(
-                  "rounded-md px-2.5 py-1.5 text-xs font-semibold transition",
-                  period === p
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {p === "7d" ? "7 j" : p === "30d" ? "30 j" : "90 j"}
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            disabled={refreshing}
-            onClick={() => {
-              setRefreshing(true);
-              void load();
-            }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold shadow-sm hover:bg-muted/50 disabled:opacity-60"
-          >
-            <RefreshCw className={clsx("h-3.5 w-3.5", refreshing && "animate-spin")} />
-            Actualiser
-          </button>
-        </div>
-      </div>
+      <PharmacistAccountPageHeader
+        eyebrow="Espace pharmacien"
+        title="Tableau de bord"
+        subtitle="Vue d’ensemble de l’activité, des dossiers et de la visibilité de votre officine."
+        pharmacyName={pharmacyNom}
+        backHref="/"
+        backLabel="← Annuaire"
+        trailing={periodControls}
+      />
 
       <p className="text-[11px] text-muted-foreground">
         Période : <span className="font-medium text-foreground">{dashboardPeriodLabel(period)}</span>
@@ -511,6 +515,7 @@ export function PharmacistDashboard() {
                 { href: "/dashboard/pharmacien/ruptures-marche", label: "Ruptures marché", icon: AlertCircle },
                 { href: "/dashboard/pharmacien/clients", label: "Clients", icon: Users },
                 { href: "/dashboard/pharmacien/visites-interactions", label: "Journal visites", icon: Eye },
+                { href: "/dashboard/pharmacien/parametres", label: "Mes paramètres", icon: Settings },
               ].map(({ href, label, icon: Icon }) => (
                 <Link
                   key={href}
