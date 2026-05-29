@@ -27,6 +27,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
 import {
   formatChartDayFr,
@@ -206,50 +207,47 @@ export function PharmacistProfileAnalytics() {
     );
   }
 
+  const periodControls = (
+    <>
+      <div className="flex rounded-lg border border-border bg-muted/30 p-0.5" role="group" aria-label="Période">
+        {PERIOD_OPTIONS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            onClick={() => setPeriod(preset)}
+            className={clsx(
+              "rounded-md px-2.5 py-1.5 text-xs font-semibold transition",
+              period === preset ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {preset === "7d" ? "7 j" : preset === "30d" ? "30 j" : "90 j"}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        disabled={refreshing}
+        onClick={() => {
+          setRefreshing(true);
+          void load();
+        }}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold shadow-sm hover:bg-muted/50 disabled:opacity-60"
+      >
+        <RefreshCw className={clsx("h-3.5 w-3.5", refreshing && "animate-spin")} />
+        Actualiser
+      </button>
+    </>
+  );
+
   return (
     <PageShell maxWidthClass="max-w-6xl" className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link href="/dashboard/pharmacien" className="text-xs font-medium text-emerald-900 underline">
-            ← Tableau de bord
-          </Link>
-          <h1 className="mt-2 text-xl font-bold tracking-tight text-foreground">Visites & interactions</h1>
-          <p className="mt-1 max-w-xl text-xs text-muted-foreground">
-            Analytics de votre fiche publique : audiences, clics contact, dossiers et réservations promo — par période
-            et par client identifié.
-          </p>
-          <p className="mt-1 text-xs font-medium text-emerald-900">{pharmacyNom}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-lg border border-border bg-muted/30 p-0.5" role="group" aria-label="Période">
-            {PERIOD_OPTIONS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPeriod(p)}
-                className={clsx(
-                  "rounded-md px-2.5 py-1.5 text-xs font-semibold transition",
-                  period === p ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {p === "7d" ? "7 j" : p === "30d" ? "30 j" : "90 j"}
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            disabled={refreshing}
-            onClick={() => {
-              setRefreshing(true);
-              void load();
-            }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold shadow-sm hover:bg-muted/50 disabled:opacity-60"
-          >
-            <RefreshCw className={clsx("h-3.5 w-3.5", refreshing && "animate-spin")} />
-            Actualiser
-          </button>
-        </div>
-      </div>
+      <PharmacistAccountPageHeader
+        eyebrow="Officine & visibilité"
+        title="Visites et interactions"
+        subtitle="Analytics de votre fiche publique : audiences, clics contact, dossiers et réservations promo."
+        pharmacyName={pharmacyNom}
+        trailing={periodControls}
+      />
 
       <div className="flex flex-wrap gap-2 rounded-xl border border-border/80 bg-muted/20 p-3">
         <label className="flex min-w-[10rem] flex-1 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">

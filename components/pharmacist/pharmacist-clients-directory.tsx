@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { ChevronRight, Gift, Mail, MessageSquare, Package, Phone, Search, Users } from "lucide-react";
+import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
+import { platformDashboardChrome as chrome } from "@/lib/platform-dashboard-chrome";
 import {
   formatActivityFr,
   requestKindLabelsFr,
@@ -43,6 +45,7 @@ export function PharmacistClientsDirectory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("activity");
   const [onlyActive, setOnlyActive] = useState(false);
+  const [pharmacyNom, setPharmacyNom] = useState("");
 
   const load = useCallback(async () => {
     setError("");
@@ -59,6 +62,17 @@ export function PharmacistClientsDirectory() {
       setError("Cet écran est réservé aux pharmaciens.");
       setLoading(false);
       return;
+    }
+
+    const { data: staff } = await supabase
+      .from("pharmacy_staff")
+      .select("pharmacy_id")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle();
+    if (staff?.pharmacy_id) {
+      const { data: ph } = await supabase.from("pharmacies").select("nom").eq("id", staff.pharmacy_id).maybeSingle();
+      setPharmacyNom(((ph as { nom?: string } | null)?.nom ?? "").trim());
     }
 
     const { data, error: rpcErr } = await supabase.rpc("pharmacist_patient_directory_enriched_for_my_pharmacy");
@@ -132,43 +146,41 @@ export function PharmacistClientsDirectory() {
 
   return (
     <PageShell maxWidthClass="max-w-5xl" className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link href="/dashboard/pharmacien" className="text-xs font-medium text-emerald-900 underline">
-            ← Tableau de bord
-          </Link>
-          <h1 className="mt-2 text-xl font-bold tracking-tight text-foreground">Clients</h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Patients ayant interagi avec votre officine (demandes ou réservations promo).
-          </p>
-        </div>
-      </div>
+      <PharmacistAccountPageHeader
+        eyebrow="Officine & visibilité"
+        title="Clients"
+        subtitle="Patients ayant interagi avec votre officine (demandes ou réservations promo)."
+        pharmacyName={pharmacyNom || undefined}
+      />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Total</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums">{stats.total}</p>
+        <div className={chrome.statCard}>
+          <p className={chrome.statLabel}>Total</p>
+          <p className={chrome.statValue}>{stats.total}</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Dossiers actifs</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-amber-900">{stats.activePatients}</p>
+        <div className={chrome.statCard}>
+          <p className={chrome.statLabel}>Dossiers actifs</p>
+          <p className={clsx(chrome.statValue, "text-amber-900")}>{stats.activePatients}</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Avec pack promo</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-violet-900">{stats.withPromo}</p>
+        <div className={chrome.statCard}>
+          <p className={chrome.statLabel}>Avec pack promo</p>
+          <p className={clsx(chrome.statValue, "text-violet-900")}>{stats.withPromo}</p>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className={clsx(chrome.filterShell, "flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between")}>
         <label className="flex min-w-0 flex-1 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Recherche
           <span className="relative block">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search className={clsx("pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2", chrome.searchIcon)} />
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Code client, nom, téléphone…"
-              className="w-full rounded-lg border border-input bg-background py-2 pl-8 pr-2 text-xs font-normal normal-case tracking-normal text-foreground"
+              className={clsx(
+                "w-full rounded-lg border border-input bg-background py-2 pl-8 pr-2 text-xs font-normal normal-case tracking-normal text-foreground",
+                chrome.searchInput
+              )}
             />
           </span>
         </label>

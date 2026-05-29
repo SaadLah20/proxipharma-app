@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { clsx } from "clsx";
 import { useRouter } from "next/navigation";
 import {
   Building2,
@@ -15,7 +16,9 @@ import {
   MapPin,
   MessageSquareText,
 } from "lucide-react";
+import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { CompactCard, CompactCardBody, PageShell } from "@/components/ui/compact-shell";
+import { platformDashboardChrome as chrome } from "@/lib/platform-dashboard-chrome";
 import { PharmacyFormField } from "@/components/pharmacy/pharmacy-form-field";
 import { PharmacyImageUploadField } from "@/components/pharmacy/pharmacy-image-upload-field";
 import { PharmacySegmentTabs } from "@/components/pharmacy/pharmacy-segment-tabs";
@@ -270,32 +273,25 @@ export function PharmacyMaFichePage() {
   return (
     <PageShell maxWidthClass="max-w-4xl" className="space-y-4 pb-28">
       <header className="space-y-3">
-        <Link
-          href="/dashboard/pharmacien"
-          className="inline-flex items-center gap-1 text-xs font-medium text-primary underline"
-        >
-          ← Tableau de bord
-        </Link>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-lg font-bold tracking-tight">Ma fiche pharmacie</h1>
-            <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
-              Contenu affiché sur votre fiche publique (onglet Informations et en-tête). Enregistrez puis vérifiez
-              sur la preview.
-            </p>
-          </div>
-          {pharmacyId ? (
-            <Link
-              href={`/pharmacie/${pharmacyId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-900"
-            >
-              <ExternalLink className="size-3.5" aria-hidden />
-              Aperçu public
-            </Link>
-          ) : null}
-        </div>
+        <PharmacistAccountPageHeader
+          eyebrow="Officine & visibilité"
+          title="Ma fiche publique"
+          subtitle="Contenu affiché sur votre fiche publique (onglet Informations et en-tête)."
+          pharmacyName={contactForm.nom.trim() || undefined}
+          trailing={
+            pharmacyId ? (
+              <Link
+                href={`/pharmacie/${pharmacyId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={clsx("inline-flex min-h-10 items-center gap-1.5 px-3 py-2", chrome.ctaOutline)}
+              >
+                <ExternalLink className="size-3.5" aria-hidden />
+                Aperçu public
+              </Link>
+            ) : null
+          }
+        />
 
         <Link
           href="/dashboard/pharmacien/horaires-garde"

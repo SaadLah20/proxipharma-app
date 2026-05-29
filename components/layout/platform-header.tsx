@@ -214,7 +214,7 @@ export const pharmacienNavMenu: PlatformNavBlock[] = [
     kind: "link",
     item: { href: "/dashboard/pharmacien/pricing", label: "Moteur de pricing", icon: Calculator },
   },
-  { kind: "link", item: { href: "/dashboard/pharmacien/parametres", label: "Paramètres", icon: Settings } },
+  { kind: "link", item: { href: "/dashboard/pharmacien/parametres", label: "Mes paramètres", icon: Settings } },
 ];
 
 export const patientNavLinks = flattenNavBlocks(patientNavMenu);

@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { ChevronDown, Package, PackageCheck, Search } from "lucide-react";
+import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
+import { platformDashboardChrome as chrome } from "@/lib/platform-dashboard-chrome";
 import {
   CatalogProductPhotoThumb,
   PatientProductPhotoPreviewModal,
@@ -308,33 +310,23 @@ export function PharmacistMarketShortageHub() {
 
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
-      <div>
-        <Link href="/dashboard/pharmacien" className="text-xs font-medium text-sky-800 underline">
-          ← Tableau de bord
-        </Link>
-        <div className="mt-2 flex items-start gap-2">
-          <Package className="mt-0.5 size-5 shrink-0 text-amber-800" aria-hidden />
-          <div>
-            <h1 className="text-lg font-bold text-foreground">Produits en rupture</h1>
-            <p className="text-xs text-muted-foreground">
-              Produits pour lesquels vous avez indiqué « rupture de marché ». Lorsqu&apos;un produit redevient
-              disponible, les patients concernés (réponse rupture, 2 derniers mois) sont notifiés.
-            </p>
-          </div>
-        </div>
-      </div>
+      <PharmacistAccountPageHeader
+        eyebrow="Suivi approvisionnement"
+        title="Produits en rupture"
+        subtitle="Ruptures de marché déclarées — notifiez les patients quand le produit redevient disponible."
+      />
 
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
       {success ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{success}</p> : null}
 
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <div className={clsx("relative", chrome.filterShell)}>
+        <Search className={clsx("pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2", chrome.searchIcon)} />
         <input
           type="search"
           placeholder="Rechercher produit, dossier, patient…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-input py-2.5 pl-9 pr-3 text-sm"
+          className={clsx("w-full rounded-lg border border-input bg-background py-2.5 pl-9 pr-3 text-sm", chrome.searchInput)}
         />
       </div>
 

@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
-import { ChevronDown, Package, Search, Truck } from "lucide-react";
+import { ChevronDown, Package, Search } from "lucide-react";
+import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
+import { platformDashboardChrome as chrome } from "@/lib/platform-dashboard-chrome";
 import { supabase } from "@/lib/supabase";
 import { formatDateShortFr } from "@/lib/datetime-fr";
 import { dispatchRequestDetailRefresh } from "@/lib/request-detail-refresh-bus";
@@ -414,21 +416,11 @@ export function PharmacistOrderedProductsHub() {
 
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
-      <div>
-        <Link href="/dashboard/pharmacien" className="text-xs font-medium text-sky-800 underline">
-          ← Tableau de bord
-        </Link>
-        <div className="mt-2 flex items-start gap-2">
-          <Truck className="mt-0.5 size-5 shrink-0 text-emerald-800" aria-hidden />
-          <div>
-            <h1 className="text-lg font-bold text-foreground">Produits commandés</h1>
-            <p className="text-xs text-muted-foreground">
-              Toutes les lignes validées « à commander » ou « commandées » (demandes produits, ordonnances,
-              consultations). Marquez la réception fournisseur une fois pour toutes les demandes concernées.
-            </p>
-          </div>
-        </div>
-      </div>
+      <PharmacistAccountPageHeader
+        eyebrow="Suivi approvisionnement"
+        title="Produits commandés"
+        subtitle="Lignes validées « à commander » ou « commandées » — marquez la réception fournisseur pour toutes les demandes concernées."
+      />
 
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
 
@@ -461,14 +453,14 @@ export function PharmacistOrderedProductsHub() {
         </button>
       </div>
 
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <div className={clsx("relative", chrome.filterShell)}>
+        <Search className={clsx("pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2", chrome.searchIcon)} />
         <input
           type="search"
           placeholder="Rechercher produit, réf. dossier, patient…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-input py-2.5 pl-9 pr-3 text-sm"
+          className={clsx("w-full rounded-lg border border-input bg-background py-2.5 pl-9 pr-3 text-sm", chrome.searchInput)}
         />
       </div>
 
