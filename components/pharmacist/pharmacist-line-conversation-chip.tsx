@@ -62,14 +62,11 @@ export function PharmacistLineMessageButton({
   open,
   disabled,
   onClick,
-  showReplyHint = false,
 }: {
   visual: LineConvoVisual;
   open: boolean;
   disabled?: boolean;
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
-  /** Message patient sans réponse officine — rappel visuel (édition réponse). */
-  showReplyHint?: boolean;
 }) {
   return (
     <button
@@ -93,12 +90,6 @@ export function PharmacistLineMessageButton({
         aria-hidden
       />
       <LineConvoBadgeDots visual={visual} />
-      {showReplyHint && visual === "patient_only" ? (
-        <span
-          className="pointer-events-none absolute -bottom-0.5 -end-0.5 size-1.5 rounded-full bg-amber-500 ring-2 ring-white"
-          aria-hidden
-        />
-      ) : null}
     </button>
   );
 }

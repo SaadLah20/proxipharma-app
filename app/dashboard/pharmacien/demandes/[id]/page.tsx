@@ -1727,6 +1727,9 @@ export default function PharmacienDemandeDetailPage() {
   const [supplySaveConfirmLines, setSupplySaveConfirmLines] = useState<string[]>([]);
   const respondedEditBaselineRef = useRef<RespondedEditSnapshot | null>(null);
   const prevRespondedEditMode = useRef(false);
+  /** Statut sous lequel le brouillon courant a été construit : un changement (ex. responded → confirmed)
+   *  reconstruit le brouillon à neuf au lieu de préserver des valeurs périmées (faux « modifications »). */
+  const draftBuiltForStatusRef = useRef<string | null>(null);
   /** Modal échanges patient / officine sur une ligne (id `request_items`). */
   const [lineConvoRowId, setLineConvoRowId] = useState<string | null>(null);
   /** Lignes proposées / alternatives encore non écrites en base tant que réponse pas publiée ou enregistrée (hors `confirmed`). */
@@ -2024,12 +2027,18 @@ export default function PharmacienDemandeDetailPage() {
       (dossierHist as { created_at: string; old_status: string | null; new_status: string; reason: string | null }[]) ?? []
     );
 
-    /** Ne pas réécraser le brouillon des lignes encore présentes (ex. après insert ligne proposée + reload). */
+    /** Ne pas réécraser le brouillon des lignes encore présentes (ex. après insert ligne proposée + reload).
+     *  Mais si le statut a changé (ex. responded → confirmed après validation patient), repartir d'un
+     *  brouillon neuf : sinon des valeurs de l'ancien statut feraient apparaître la barre « Enregistrer ». */
+    const statusChangedSincePrevDraft = draftBuiltForStatusRef.current !== r.status;
+    draftBuiltForStatusRef.current = r.status;
     setDraft((prev) => {
       const next: Draft = {};
       for (const row of list) {
         const built = buildItemDraftFromRow(row, r.status, r.request_type);
-        next[row.id] = mergeItemDraftOnReload(row, built, prev[row.id], r.status);
+        next[row.id] = statusChangedSincePrevDraft
+          ? built
+          : mergeItemDraftOnReload(row, built, prev[row.id], r.status);
       }
       return next;
     });
@@ -4792,19 +4801,21 @@ export default function PharmacienDemandeDetailPage() {
     else if (co === "picked_up") pickedUpCount += 1;
   }
 
+  const showSupplyDirtyBar = Boolean(
+    canManageSupply && supplyStructuralDirty && !ordonnanceQuickAddOpen && !requestDrift.stale
+  );
+
   const showDeclareTreatedSticky =
     usesLineWorkflow &&
     request.status === "confirmed" &&
     !respondedFrozenView &&
     canManageSupply &&
+    !showSupplyDirtyBar &&
     pharmacistActiveRetainedLineCount(items, draft) > 0;
 
   const showCloseCounterSticky = Boolean(counterClosureEligible && canCompleteCounter);
 
   const showSupplyStatsFooter = usesLineWorkflow && Boolean(canManageSupply) && displayRows.length > 0;
-  const showSupplyDirtyBar = Boolean(
-    canManageSupply && supplyStructuralDirty && !ordonnanceQuickAddOpen && !requestDrift.stale
-  );
 
   const showBottomActionSticky = showDeclareTreatedSticky || showCloseCounterSticky;
 
@@ -4881,8 +4892,6 @@ export default function PharmacienDemandeDetailPage() {
           lineCount={displayRows.length}
           selectedCount={selectedLinesActiveCount}
           pendingCounterCount={request.status === "treated" ? pendingCounterCount : undefined}
-          conversationUnread={conversationUnread}
-          onOpenConversation={() => setConversationOpen(true)}
         />
       ) : (
         <RequestKindHeader
@@ -5057,14 +5066,20 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      {usesLineWorkflow && request?.status === "confirmed" && !pharmacistRequestIsHardStopped(request.status) ? (
+      {!hideMainRequestHeader &&
+      usesLineWorkflow &&
+      request?.status === "confirmed" &&
+      !pharmacistRequestIsHardStopped(request.status) ? (
         <section className={clsx(PHARMA_STATUS_BANNER, "border-teal-200/70 bg-teal-50/45 text-teal-950")}>
           <p className="font-semibold text-teal-950">Validée patient</p>
           <p className="text-teal-900/88">Pastilles = enregistrement direct · écarts = barre du bas.</p>
         </section>
       ) : null}
 
-      {usesLineWorkflow && request?.status === "treated" && !pharmacistRequestIsHardStopped(request.status) ? (
+      {!hideMainRequestHeader &&
+      usesLineWorkflow &&
+      request?.status === "treated" &&
+      !pharmacistRequestIsHardStopped(request.status) ? (
         <section className={clsx(PHARMA_STATUS_BANNER, "border-violet-200/70 bg-violet-50/40 text-violet-950")}>
           <p className="font-semibold text-violet-950">Comptoir</p>
           <p className="text-violet-900/88">Marquer récupéré par ligne · autres modifs via la barre du bas.</p>
@@ -6036,11 +6051,6 @@ export default function PharmacienDemandeDetailPage() {
                             visual={lineConvoVisual}
                             open={lineConvoEffectiveRowId === row.id}
                             disabled={busy}
-                            showReplyHint={
-                              lineConvoVisual === "patient_only" &&
-                              ((canEditThisRow && showLineAndPublishEdits) ||
-                                (respondedFrozenView && !lineLockedTrace))
-                            }
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
@@ -7279,18 +7289,21 @@ export default function PharmacienDemandeDetailPage() {
       {showBottomActionSticky || showSupplyStatsFooter || showSupplyDirtyBar ? (
         <div className="fixed inset-x-0 bottom-0 z-[10050] flex flex-col border-t border-sky-500/25 bg-background/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-6px_28px_rgba(15,23,42,0.12)] backdrop-blur-md">
           {showDeclareTreatedSticky ? (
-            <div className="border-b border-sky-500/20 px-3 py-2.5">
-              <div className="mx-auto flex max-w-3xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <p className="text-center text-[11px] leading-snug text-muted-foreground sm:flex-1 sm:text-left">
-                  Quand la préparation est prête, déclarez la demande traitée. Le patient pourra suivre le passage au
-                  comptoir ; vous marquerez ensuite les réceptions en officine et les retraits ligne par ligne.
-                </p>
+            <div className="border-b border-sky-500/20 px-3 py-2">
+              <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-foreground">
+                  Préparation prête ?
+                  <InfoHint label="À propos de « Déclarer la demande traitée »" placement="up">
+                    Quand la préparation est prête, déclarez la demande traitée. Le patient pourra suivre le passage au
+                    comptoir ; vous marquerez ensuite les réceptions en officine et les retraits ligne par ligne.
+                  </InfoHint>
+                </span>
                 <button
                   type="button"
                   disabled={declareTreatedBusy || Boolean(requestDrift.stale)}
                   title={requestDrift.stale?.message}
                   onClick={() => setDeclareTreatedModalOpen(true)}
-                  className="inline-flex h-11 w-full shrink-0 items-center justify-center rounded-xl bg-sky-600 px-5 text-sm font-bold text-white shadow-md transition hover:bg-sky-700 disabled:opacity-50 sm:w-auto sm:min-w-[200px]"
+                  className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-sky-600 px-5 text-sm font-bold text-white shadow-md transition hover:bg-sky-700 disabled:opacity-50 sm:min-w-[200px]"
                 >
                   Déclarer la demande traitée
                 </button>
