@@ -93,13 +93,8 @@ export function patientHistoryAuditDetailLines(
     if (qtyChanged) {
       out.push(
         ph
-          ? `Quantité officine : ${L.oldAvailQty ?? "—"} → ${L.newAvailQty}`
-          : `Quantité proposée par la pharmacie : ${L.oldAvailQty ?? "—"} → ${L.newAvailQty}`
-      );
-      out.push(
-        ph
-          ? `Quantité validée par le patient : ${L.validatedQty}`
-          : `Quantité que vous aviez validée : ${L.validatedQty}`
+          ? `Quantité : ${L.oldAvailQty ?? "—"} → ${L.newAvailQty}`
+          : `Quantité : ${L.oldAvailQty ?? "—"} → ${L.newAvailQty}`
       );
     }
     if (availChanged) {
@@ -108,11 +103,7 @@ export function patientHistoryAuditDetailLines(
       out.push(`Disponibilité : ${ol} → ${nl}`);
     }
     if (!qtyChanged && !availChanged) {
-      out.push(
-        ph
-          ? `Mise à jour enregistrée (quantité validée patient : ${L.validatedQty})`
-          : `Mise à jour enregistrée (quantité validée : ${L.validatedQty})`
-      );
+      out.push(ph ? "Modification enregistrée." : "Mise à jour enregistrée.");
     }
   }
   return out;
