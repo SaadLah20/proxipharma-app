@@ -23,21 +23,28 @@ export function PharmacistAccountPageHeader({
   trailing?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div className="min-w-0 flex-1 space-y-3">
-        <Link href={backHref} className={p.backLink}>
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <Link href={backHref} className={clsx(p.backLink, "shrink-0 self-start")}>
           {backLabel}
         </Link>
-        <header className={p.hero}>
-          <p className={p.heroEyebrow}>{eyebrow}</p>
-          <h1 className={p.heroTitle}>{title}</h1>
-          {subtitle ? <p className={clsx("mt-1.5 max-w-2xl leading-relaxed", p.heroSubtitle)}>{subtitle}</p> : null}
-          {pharmacyName?.trim() ? (
-            <p className={clsx("mt-2 truncate text-sm font-semibold", p.heroSubtitle)}>{pharmacyName.trim()}</p>
-          ) : null}
-        </header>
+        {trailing ? (
+          <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto sm:justify-end">
+            {trailing}
+          </div>
+        ) : null}
       </div>
-      {trailing ? <div className="flex shrink-0 flex-wrap items-center gap-2">{trailing}</div> : null}
+
+      <header className={clsx(p.hero, "w-full")}>
+        <p className={p.heroEyebrow}>{eyebrow}</p>
+        <h1 className={clsx(p.heroTitle, "break-words text-lg leading-snug sm:text-xl")}>{title}</h1>
+        {subtitle ? (
+          <p className={clsx("mt-1.5 max-w-2xl break-words leading-relaxed", p.heroSubtitle)}>{subtitle}</p>
+        ) : null}
+        {pharmacyName?.trim() ? (
+          <p className={clsx("mt-2 break-words text-sm font-semibold", p.heroSubtitle)}>{pharmacyName.trim()}</p>
+        ) : null}
+      </header>
     </div>
   );
 }

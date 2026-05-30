@@ -273,7 +273,7 @@ export function PharmacyMaFichePage() {
   }
 
   return (
-    <PageShell maxWidthClass="max-w-4xl" className={clsx("space-y-4", stickyFooterPadClass("standard"))}>
+    <PageShell maxWidthClass="max-w-4xl" className={clsx("space-y-4", stickyFooterPadClass("tall"))}>
       <header className="space-y-3">
         <PharmacistAccountPageHeader
           eyebrow="Officine & visibilité"
@@ -316,7 +316,7 @@ export function PharmacyMaFichePage() {
           active={tab}
           onChange={setTab}
           ariaLabel="Sections de la fiche"
-          columnClass="grid-cols-5"
+          columnClass="sm:grid-cols-5"
         />
 
         <CompactCardBody className="space-y-4">

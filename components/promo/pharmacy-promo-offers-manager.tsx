@@ -292,9 +292,9 @@ export function PharmacyPromoOffersManager() {
               const pending = pendingByOffer.get(o.id) ?? 0;
               return (
               <li key={o.id} className="rounded-xl border bg-card p-3 shadow-sm">
-                <div className="flex items-start justify-between gap-2">
+                <div className="space-y-2">
                   <div>
-                    <p className="font-bold text-sm">{o.title}</p>
+                    <p className="break-words text-sm font-bold">{o.title}</p>
                     <p className="text-[11px] text-muted-foreground">
                       −{o.discount_percent} % · {formatPromoValidityFr(o.valid_from, o.valid_until)}
                     </p>
@@ -322,8 +322,12 @@ export function PharmacyPromoOffersManager() {
                       ) : null}
                     </div>
                   </div>
-                  <div className="flex shrink-0 flex-col gap-1">
-                    <button type="button" className="text-xs font-semibold text-primary underline" onClick={() => void startEdit(o.id)}>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border/60 pt-2">
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-primary underline"
+                      onClick={() => void startEdit(o.id)}
+                    >
                       Modifier
                     </button>
                     {o.status === "published" ? (
