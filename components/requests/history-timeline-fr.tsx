@@ -2,6 +2,7 @@
 
 import { clsx } from "clsx";
 import type { FormattedHistoryEventFr, HistoryActorTone } from "@/lib/request-history-fr";
+import type { LineHistoryPhase } from "@/lib/product-line-history/types";
 
 export type HistoryTimelineBlockFr = {
   id: string;
@@ -12,6 +13,9 @@ export type HistoryTimelineBlockFr = {
   actorLabel: string;
   actorTone?: HistoryActorTone;
   isCurrent?: boolean;
+  phase?: LineHistoryPhase;
+  phaseLabel?: string;
+  isPhaseStart?: boolean;
 };
 
 function actorToneClasses(tone: HistoryActorTone | undefined, isCurrent?: boolean): string {
@@ -41,6 +45,25 @@ function actorBadgeClasses(tone: HistoryActorTone | undefined): string {
   }
 }
 
+function phaseAccentClasses(phase: LineHistoryPhase | undefined): string {
+  switch (phase) {
+    case "origin":
+      return "text-sky-800/90";
+    case "response":
+      return "text-violet-800/90";
+    case "validation":
+      return "text-indigo-800/90";
+    case "preparation":
+      return "text-amber-900/85";
+    case "counter":
+      return "text-teal-800/90";
+    case "epilogue":
+      return "text-emerald-800/90";
+    default:
+      return "text-muted-foreground";
+  }
+}
+
 function blocksFromDossierEvents(events: FormattedHistoryEventFr[]): HistoryTimelineBlockFr[] {
   return events.map((e) => ({
     id: e.id,
@@ -59,11 +82,14 @@ export function HistoryTimelineFr({
   dossierEvents,
   emptyLabel = "Aucun événement à afficher pour le moment.",
   className,
+  showPhaseChapters = true,
 }: {
   blocks?: HistoryTimelineBlockFr[];
   dossierEvents?: FormattedHistoryEventFr[];
   emptyLabel?: string;
   className?: string;
+  /** Affiche les en-têtes de chapitre (Début, Réponse, Préparation…). */
+  showPhaseChapters?: boolean;
 }) {
   const list = blocks ?? (dossierEvents ? blocksFromDossierEvents(dossierEvents) : []);
 
@@ -71,10 +97,22 @@ export function HistoryTimelineFr({
     return <p className="text-[12px] leading-snug text-muted-foreground">{emptyLabel}</p>;
   }
 
+  const hasPhases = showPhaseChapters && list.some((b) => b.phase && b.isPhaseStart);
+
   return (
     <ol className={clsx("relative ms-1.5 space-y-2.5 border-s border-border/80 ps-4", className)}>
       {list.map((b) => (
         <li key={b.id} className="relative">
+          {hasPhases && b.isPhaseStart && b.phaseLabel ? (
+            <p
+              className={clsx(
+                "-ms-4 mb-1.5 text-[9px] font-bold uppercase tracking-wider",
+                phaseAccentClasses(b.phase)
+              )}
+            >
+              {b.phaseLabel}
+            </p>
+          ) : null}
           <span
             className={clsx(
               "absolute -start-[21px] top-3 size-2.5 rounded-full border-2 bg-background shadow-sm",
@@ -90,12 +128,14 @@ export function HistoryTimelineFr({
           >
             <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
               <h4 className="min-w-0 flex-1 text-[12px] font-semibold leading-snug">{b.title}</h4>
-              <time
-                className="shrink-0 text-[10px] font-medium tabular-nums text-muted-foreground"
-                dateTime={b.atIso ?? undefined}
-              >
-                {b.atLabel}
-              </time>
+              {!b.isCurrent && b.atLabel ? (
+                <time
+                  className="shrink-0 text-[10px] font-medium tabular-nums text-muted-foreground"
+                  dateTime={b.atIso ?? undefined}
+                >
+                  {b.atLabel}
+                </time>
+              ) : null}
             </div>
             <p className="mt-1.5">
               <span

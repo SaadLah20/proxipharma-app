@@ -55,8 +55,10 @@ function mapAmendmentBadgeFr(raw: string): string | null {
     case "Ajouté par la pharmacie":
       return "Ajouté par la pharmacie";
     case "Retiré par la pharmacie":
-    case "Retiré de la commande active":
-      return "Écarté par la pharmacie";
+    case "Écarté de la commande active":
+      return "Écarté";
+    case "Récupéré au comptoir":
+      return "Récupéré au comptoir";
     default:
       return null;
   }
