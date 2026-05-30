@@ -36,30 +36,45 @@ function effectiveWithdrawnAfterConfirm(
   return Boolean(row.withdrawn_after_confirm) || Boolean(fd?.withdrawn_after_confirm);
 }
 
+const POST_PATIENT_VALIDATION_STATUSES = new Set(["confirmed", "treated", "completed"]);
+
 /**
  * Une occurrence de `product_id` bloque un nouvel ajout (proposé ou alternative)
- * tant que la ligne parente est encore **retenue** à la validation initiale
- * (`is_selected_by_patient`) et **non écartée** (`withdrawn_after_confirm`).
+ * tant que la ligne parente est encore **active** :
+ * - avant validation patient : toute ligne du dossier (rien n’est encore « non retenue » ni « écartée ») ;
+ * - après validation : ligne **retenue** (`is_selected_by_patient`) et **non écartée** (`withdrawn_after_confirm`).
  */
 export function pharmacistRequestLineProductOccupancyBlocks(
   row: PharmacistRequestCatalogBlockRow,
-  draft?: Record<string, PharmacistRequestCatalogBlockDraft | undefined>
+  draft?: Record<string, PharmacistRequestCatalogBlockDraft | undefined>,
+  requestStatus?: string | null
 ): boolean {
-  return Boolean(row.is_selected_by_patient) && !effectiveWithdrawnAfterConfirm(row, draft);
+  if (effectiveWithdrawnAfterConfirm(row, draft)) return false;
+  const postPatientValidation =
+    requestStatus != null && POST_PATIENT_VALIDATION_STATUSES.has(requestStatus);
+  if (!postPatientValidation) return true;
+  return Boolean(row.is_selected_by_patient);
 }
 
 /** `true` si le produit catalogue est déjà présent sur une ligne/alternative encore bloquante. */
 export function pharmacistRequestCatalogProductIdBlocked(
   productId: string,
   rows: readonly PharmacistRequestCatalogBlockRow[],
-  draft?: Record<string, PharmacistRequestCatalogBlockDraft | undefined>
+  draft?: Record<string, PharmacistRequestCatalogBlockDraft | undefined>,
+  requestStatus?: string | null
 ): boolean {
   for (const row of rows) {
-    if (row.product_id === productId && pharmacistRequestLineProductOccupancyBlocks(row, draft)) {
+    if (
+      row.product_id === productId &&
+      pharmacistRequestLineProductOccupancyBlocks(row, draft, requestStatus)
+    ) {
       return true;
     }
     for (const alt of normalizeAlternatives(row.request_item_alternatives)) {
-      if (alt.product_id === productId && pharmacistRequestLineProductOccupancyBlocks(row, draft)) {
+      if (
+        alt.product_id === productId &&
+        pharmacistRequestLineProductOccupancyBlocks(row, draft, requestStatus)
+      ) {
         return true;
       }
     }

@@ -102,10 +102,11 @@ export default function DemandeProduitsCataloguePage() {
     void run();
   }, [sessionReady]);
 
-  const filtered = useMemo(
-    () => filterCatalogProductsLocal(products, filterQuery),
-    [products, filterQuery]
-  );
+  const filtered = useMemo(() => {
+    const matched = filterCatalogProductsLocal(products, filterQuery);
+    if (cartProductIds.size === 0) return matched;
+    return matched.filter((p) => !cartProductIds.has(p.id));
+  }, [products, filterQuery, cartProductIds]);
 
   const toggleSelect = (productId: string) => {
     if (cartProductIds.has(productId)) return;

@@ -6,6 +6,8 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
+  filterCatalogHitsExcludingProductIds,
+  productIdsFromLineProductIds,
   productNameOrLaboratoryIlikeOr,
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
@@ -112,7 +114,11 @@ export default function DemandeProduitsPage() {
   }, [lines, pharmacyId, sessionReady, pathname]);
 
   const debouncedQuery = useMemo(() => query.trim(), [query]);
-  const visibleHits = debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS ? [] : hits;
+  const occupiedProductIds = useMemo(() => productIdsFromLineProductIds(lines), [lines]);
+  const visibleHits = useMemo(() => {
+    if (debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) return [];
+    return filterCatalogHitsExcludingProductIds(hits, occupiedProductIds);
+  }, [debouncedQuery, hits, occupiedProductIds]);
 
   useEffect(() => {
     if (debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
