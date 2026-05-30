@@ -24,9 +24,7 @@ export function patientLineProposedBadgeLabel(
   defaults: { ordonnance: string; proposed: string; officine: string }
 ): string | null {
   if (isRequestItemAddedAfterPatientConfirmation(row.id, amendmentBundles)) {
-    return requestType === "prescription"
-      ? POST_CONFIRM_LINE_ADDED_BADGE_FR
-      : defaults.officine || POST_CONFIRM_LINE_ADDED_BADGE_FR;
+    return POST_CONFIRM_LINE_ADDED_BADGE_FR;
   }
   if (requestType === "prescription") {
     if (isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)) {

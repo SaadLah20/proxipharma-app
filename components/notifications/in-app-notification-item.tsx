@@ -14,7 +14,10 @@ import {
   CalendarClock,
   CheckCircle2,
   ClipboardList,
+  Gift,
+  MessageSquare,
   Package,
+  PackageCheck,
   UserRound,
   XCircle,
 } from "lucide-react";
@@ -29,16 +32,28 @@ function NotificationGlyph({
 }) {
   const t = (eventType ?? "").toLowerCase();
   const cls = clsx(compact ? "h-4 w-4" : "h-5 w-5");
-  if (t.includes("confirmed") || t.includes("completed")) {
+  if (t.includes("promo_reservation")) {
+    return <Gift className={cls} strokeWidth={2} />;
+  }
+  if (t.includes("conversation") || t.includes("message")) {
+    return <MessageSquare className={cls} strokeWidth={2} />;
+  }
+  if (t.includes("post_confirm_product_arrived") || t.includes("market_shortage")) {
+    return <PackageCheck className={cls} strokeWidth={2} />;
+  }
+  if (t.includes("confirmed") || t.includes("completed") || t.includes("collected")) {
     return <CheckCircle2 className={cls} strokeWidth={2} />;
+  }
+  if (t.includes("treated")) {
+    return <PackageCheck className={cls} strokeWidth={2} />;
   }
   if (t.includes("submitted")) {
     return <ClipboardList className={cls} strokeWidth={2} />;
   }
-  if (t.includes("cancelled") || t.includes("abandoned") || t.includes("expired")) {
+  if (t.includes("cancelled") || t.includes("abandoned") || t.includes("expired") || t.includes("unavailable")) {
     return <XCircle className={cls} strokeWidth={2} />;
   }
-  if (t.includes("responded")) {
+  if (t.includes("responded") || t.includes("reminder")) {
     return <Package className={cls} strokeWidth={2} />;
   }
   if (t.includes("in_review")) {

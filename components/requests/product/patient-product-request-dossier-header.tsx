@@ -42,12 +42,14 @@ export function PatientProductRequestDossierHeader({
   pharmacyId,
   status,
   statusHint,
+  statusDetail,
 }: {
   dossierRefLabel: string;
   pharmacyContact: PatientPharmacyContactInfo | null;
   pharmacyId: string;
   status: string;
   statusHint: string;
+  statusDetail?: string | null;
 }) {
   const [journeyOpen, setJourneyOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
@@ -72,10 +74,13 @@ export function PatientProductRequestDossierHeader({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200/70 px-3 py-2 sm:px-3.5">
-          <p className="min-w-0 flex-1 truncate pb-px text-sm font-bold leading-snug text-foreground" title={phLabel}>
-            {phLabel}
-          </p>
+        <div className="flex flex-col gap-2 border-b border-sky-200/70 px-3 py-2 sm:flex-row sm:items-start sm:justify-between sm:px-3.5">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold leading-snug text-foreground break-words">{phLabel}</p>
+            {pharmacyContact?.ville?.trim() ? (
+              <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">{pharmacyContact.ville.trim()}</p>
+            ) : null}
+          </div>
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
             {pharmacyContact ? (
               <button
@@ -110,15 +115,20 @@ export function PatientProductRequestDossierHeader({
             type="button"
             onClick={() => setJourneyOpen(true)}
             className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-sky-300/80 bg-white text-sky-700 shadow-sm transition hover:bg-sky-50 hover:text-sky-900"
-            aria-label="Voir le parcours complet d'une demande de produits"
-            title="Parcours de la demande"
+            aria-label="Voir le détail du statut et le parcours de la demande"
+            title="Détail et parcours"
           >
             <Info className="size-4" strokeWidth={2.25} aria-hidden />
           </button>
         </div>
       </header>
 
-      <PatientProductRequestJourneyModal open={journeyOpen} currentStatus={status} onClose={() => setJourneyOpen(false)} />
+      <PatientProductRequestJourneyModal
+        open={journeyOpen}
+        currentStatus={status}
+        statusDetail={statusDetail}
+        onClose={() => setJourneyOpen(false)}
+      />
 
       {contactOpen && pharmacyContact ? (
         <div className="fixed inset-0 z-[65] flex items-end justify-center p-3 sm:items-center">

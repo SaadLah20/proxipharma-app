@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
 import { cn } from "@/lib/utils";
+import { STICKY_FOOTER_FAB_DEFAULT_BOTTOM_PX } from "@/lib/platform-sticky-footer";
 import {
   type RequestCommentRow,
   conversationAuthorLabelFr,
@@ -174,11 +175,14 @@ export function RequestConversationFabDock({
     onOpen();
   };
 
-  const defaultInset = { right: 16, bottom: 96 };
+  const defaultInset = { right: 16, bottom: STICKY_FOOTER_FAB_DEFAULT_BOTTOM_PX };
   const style =
     inset != null
       ? { right: inset.right, bottom: inset.bottom }
-      : { right: defaultInset.right, bottom: defaultInset.bottom };
+      : {
+          right: defaultInset.right,
+          bottom: `max(${defaultInset.bottom}px, calc(5.5rem + env(safe-area-inset-bottom)))`,
+        };
 
   return (
     <div

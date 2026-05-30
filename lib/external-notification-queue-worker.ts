@@ -5,10 +5,14 @@ import { appendSmsRequestLinkIfEnabled } from "@/lib/sms-request-short-link";
 
 export type ExternalNotificationChannel = "email" | "sms";
 
-/** SMS pilote patient : réponse officine + dossier traité uniquement. */
+/** SMS pilote patient : événements à fort impact métier. */
 export const SMS_PATIENT_EVENT_TYPES = new Set<string>([
   "request_status:responded",
   "request_status:treated",
+  "request_status:expired",
+  "request_event:post_confirm_product_arrived",
+  "request_event:market_shortage_product_available",
+  "request_event:responded_expiry_reminder",
 ]);
 
 function trimSmsSegment(s: string, max: number): string {
@@ -85,6 +89,14 @@ export function buildOutboundNotificationText(args: {
       text = `ProxiPharma: ${pharma} a repondu. Dossier ${ref}.`;
     } else if (args.row.event_type === "request_status:treated") {
       text = `ProxiPharma: ${pharma} a traite le dossier ${ref}.`;
+    } else if (args.row.event_type === "request_status:expired") {
+      text = `ProxiPharma: delai depasse dossier ${ref}.`;
+    } else if (args.row.event_type === "request_event:post_confirm_product_arrived") {
+      text = `ProxiPharma: produit recu chez ${pharma}. Dossier ${ref}.`;
+    } else if (args.row.event_type === "request_event:market_shortage_product_available") {
+      text = `ProxiPharma: produit dispo chez ${pharma}. Dossier ${ref}.`;
+    } else if (args.row.event_type === "request_event:responded_expiry_reminder") {
+      text = `ProxiPharma: rappel validation dossier ${ref} chez ${pharma}.`;
     } else {
       text = trimSmsSegment(`ProxiPharma - ${subject}`, 155);
     }

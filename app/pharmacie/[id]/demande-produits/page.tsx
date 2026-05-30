@@ -6,6 +6,8 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
+  filterCatalogHitsExcludingProductIds,
+  productIdsFromLineProductIds,
   productNameOrLaboratoryIlikeOr,
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
@@ -22,6 +24,11 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { cn } from "@/lib/utils";
+import {
+  PlatformStickyFooter,
+  PlatformStickyFooterSummaryRow,
+} from "@/components/layout/platform-sticky-footer";
+import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX, REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
@@ -112,7 +119,11 @@ export default function DemandeProduitsPage() {
   }, [lines, pharmacyId, sessionReady, pathname]);
 
   const debouncedQuery = useMemo(() => query.trim(), [query]);
-  const visibleHits = debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS ? [] : hits;
+  const occupiedProductIds = useMemo(() => productIdsFromLineProductIds(lines), [lines]);
+  const visibleHits = useMemo(() => {
+    if (debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) return [];
+    return filterCatalogHitsExcludingProductIds(hits, occupiedProductIds);
+  }, [debouncedQuery, hits, occupiedProductIds]);
 
   useEffect(() => {
     if (debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
@@ -325,7 +336,7 @@ export default function DemandeProduitsPage() {
   }
 
   return (
-    <main className="min-h-screen touch-pan-y bg-background p-4 pb-28 text-foreground antialiased sm:p-5 sm:pb-32">
+    <main className={cn("min-h-screen touch-pan-y bg-background p-4 text-foreground antialiased sm:p-5", stickyFooterPadClass("compact"))}>
       <div className="mx-auto max-w-lg space-y-3">
         <PharmacyPublicBackLink href={`/pharmacie/${pharmacyId}`} className={t.backLink}>
           Fiche officine
@@ -447,29 +458,23 @@ export default function DemandeProduitsPage() {
         </Link>
       </div>
 
-      <div
-        className={cn(
-          "fixed inset-x-0 bottom-0 z-30 border-t bg-card/98 py-2.5 shadow-[0_-4px_20px_rgba(15,23,42,0.06)] backdrop-blur supports-[backdrop-filter]:bg-card/95",
-          t.footerBorder
-        )}
-      >
-        <div className="mx-auto flex max-w-lg items-center justify-between gap-4 px-4 sm:px-5">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-bold tabular-nums text-foreground">{lines.length}</span>{" "}
-            <span className="font-medium">{lines.length > 1 ? "produits" : "produit"}</span>
-          </p>
-          <p className="inline-flex items-baseline gap-1 text-base font-bold text-foreground">
-            <span className="text-muted-foreground">Total</span>
-            <span className={t.price}>
-              <PriceDhInline
-                value={totalAmount}
-                amountClassName={cn("font-bold", t.price)}
-                suffixClassName="font-bold text-sky-600/80"
-              />
-            </span>
-          </p>
-        </div>
-      </div>
+      <PlatformStickyFooter tone="sky" className={t.footerBorder}>
+        <PlatformStickyFooterSummaryRow
+          left={
+            <>
+              <span className="font-bold tabular-nums text-foreground">{lines.length}</span>{" "}
+              {lines.length > 1 ? "produits" : "produit"}
+            </>
+          }
+          right={
+            <PriceDhInline
+              value={totalAmount}
+              amountClassName={cn("font-bold", t.price)}
+              suffixClassName="font-bold text-sky-600/80"
+            />
+          }
+        />
+      </PlatformStickyFooter>
 
       <PatientDemandeSendConfirmModal
         open={sendConfirmOpen}

@@ -21,7 +21,7 @@ export function ExternalNotificationPrefs({
   appearance = "default",
 }: {
   userId: string | null;
-  /** SMS réservé aux patients (répondu / traité). */
+  /** SMS réservé aux patients (événements dossier à fort impact). */
   variant?: "patient" | "pharmacien";
   /** `settings` : intégré dans la page paramètres patient (style sobre). */
   appearance?: "default" | "settings";
@@ -95,8 +95,8 @@ export function ExternalNotificationPrefs({
         {showSms ? (
           <>
             {isSettings
-              ? "Mêmes alertes que dans l’app : e-mail si votre profil a une adresse, SMS si votre numéro est renseigné (réponse pharmacie ou dossier traité)."
-              : "En plus des notifications dans ProxiPharma, vous pouvez activer l'envoi par e-mail (mêmes alertes que dans l'app) ou par SMS pour deux cas seulement : réponse de la pharmacie sur votre demande, et demande marquée traitée — lorsque votre profil contient une adresse e-mail ou un numéro mobile (champ WhatsApp, format international)."}
+              ? "E-mail : mêmes alertes que dans l’app si votre profil a une adresse. SMS : réponse officine, rappel avant expiration, dossier traité, produit reçu ou de nouveau disponible, dossier expiré — si votre numéro est renseigné."
+              : "En plus des notifications dans ProxiPharma, vous pouvez activer l'e-mail (mêmes alertes que dans l'app) ou le SMS pour les étapes importantes de vos dossiers : réponse pharmacie, rappel de validation, préparation terminée, produit reçu, rupture disponible, expiration — lorsque votre profil contient une adresse e-mail ou un numéro mobile (champ WhatsApp, format international)."}
           </>
         ) : (
           <>

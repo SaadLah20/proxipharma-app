@@ -1,3 +1,5 @@
+import { supplyAmendmentBodyFact } from "@/lib/product-line-history/line-event-labels-fr";
+
 /** Canaux communiqués par le pharmacien (confirmation préalable du client). Valeurs envoyées telles quelles en base (`client_confirmation_channel`). */
 export type SupplyAmendClientChannelSlug =
   | "phone_call"
@@ -34,35 +36,13 @@ export type SupplyAmendmentEntryJson = {
   client_motive?: string | null;
 };
 
-function kindNaturalFr(kind: string | undefined, audience: "patient" | "pharmacist"): string | null {
-  const ph = audience === "pharmacist";
-  switch (kind) {
-    case "withdraw_after_confirm":
-      return ph
-        ? "Produit retiré de la commande active (accord patient)"
-        : "Retiré de votre commande après validation";
-    case "reintegrate_after_confirm":
-    case "reintegrate":
-      return ph ? "Produit réintégré dans la commande" : "Réintégré dans votre commande";
-    case "validated_qty_change":
-      return ph ? "Quantité validée ajustée" : "Quantité validée modifiée";
-    case "line_added_after_confirm":
-      return ph ? "Produit ajouté après validation patient" : "Produit ajouté par la pharmacie";
-    case "line_removed_after_confirm":
-      return ph ? "Produit retiré après validation" : "Produit retiré par la pharmacie";
-    case "line_brought_to_reserve_after_validation":
-      return ph ? "Passage en « à réserver »" : "Replacé en réservation en officine";
-    case "line_adjust_supply":
-      return ph ? "Disponibilité ou quantité modifiée" : "Disponibilité ou quantité modifiée";
-    default:
-      return null;
-  }
-}
-
 function splitAmendmentDetailFacts(detail: string): string[] {
   const raw = detail.trim();
   if (!raw) return [];
-  return raw
+  const withoutProductPrefix = raw.includes(" — ")
+    ? raw.slice(raw.indexOf(" — ") + 3).trim() || raw
+    : raw;
+  return withoutProductPrefix
     .split(/\s*[·•]\s*|\s+—\s+/)
     .map((s) => s.trim())
     .filter(Boolean);
@@ -83,7 +63,7 @@ export function summarizeSupplyAmendmentEntryLines(
     }
   }
   if (lines.length === 0) {
-    const fromKind = kindNaturalFr(row.kind, audience);
+    const fromKind = supplyAmendmentBodyFact(row.kind, audience);
     if (fromKind) lines.push(fromKind);
     else lines.push("Mise à jour enregistrée");
   }

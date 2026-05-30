@@ -24,6 +24,8 @@ export type PatientLineLike = {
   counter_cancel_detail?: string | null;
   post_confirm_fulfillment?: string | null;
   withdrawn_after_confirm?: boolean | null;
+  /** Horodatage dernière mise à jour ligne (écarts, comptoir…). */
+  updated_at?: string | null;
   products?:
     | {
         name?: string | null;

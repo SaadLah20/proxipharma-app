@@ -41,8 +41,13 @@ import { plannedVisitWindow } from "@/lib/planned-visit";
 import {
   bucketPatientRespondedLines,
   PATIENT_RESPONDED_BUCKET_ORDER,
-  patientRespondedBucketTitleFr,
 } from "@/lib/patient-responded-line-buckets";
+import { PatientRespondedBucketSection } from "@/components/requests/product/patient-responded-bucket-section";
+import {
+  PlatformStickyFooter,
+  PlatformStickyFooterSummaryRow,
+} from "@/components/layout/platform-sticky-footer";
+import { stickyFooterPadClass, type StickyFooterPadTier } from "@/lib/platform-sticky-footer";
 import {
   bucketPatientValidatedLinesThreeWays,
   type PatientLineLike,
@@ -84,12 +89,17 @@ import {
   type PatientDemandeProduitsDraftLine,
 } from "@/lib/patient-demande-produits-draft";
 import { buildPatientDemandeProduitsDraftFromArchiveRequest } from "@/lib/patient-expired-request-draft";
+import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import {
   findTerminalStatusHistoryEntry,
   patientAbandonedDossierStatusHintFr,
+  patientAbandonedDossierStatusHintShortFr,
   patientCancelledDossierStatusHintFr,
+  patientCancelledDossierStatusHintShortFr,
   patientClosedDossierStatusHintFr,
+  patientClosedDossierStatusHintShortFr,
   patientExpiredDossierStatusHintFr,
+  patientExpiredDossierStatusHintShortFr,
   isPatientProductClosedArchiveStatus,
 } from "@/lib/patient-archive-outcome-fr";
 import {
@@ -101,6 +111,8 @@ import {
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
+  filterCatalogHitsExcludingProductIds,
+  productIdsFromLineProductIds,
   productNameOrLaboratoryIlikeOr,
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
@@ -770,16 +782,12 @@ function PatientArchiveFrozenProductsView({
         <h3 className="px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
           {productsSectionTitle}
         </h3>
-        <div className="space-y-3">
+        <div className="space-y-4">
           {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
             const rows = respondedBuckets[bucketId];
             if (rows.length === 0) return null;
             return (
-              <section key={bucketId} className="space-y-2">
-                <h4 className="px-0.5 text-[10px] font-extrabold uppercase tracking-wide text-sky-900/90">
-                  {patientRespondedBucketTitleFr(bucketId)}
-                  <span className="ml-1 font-bold tabular-nums text-muted-foreground">· {rows.length}</span>
-                </h4>
+              <PatientRespondedBucketSection key={bucketId} bucketId={bucketId} count={rows.length}>
                 <ul className="w-full min-w-0 space-y-2.5 overflow-visible">
                   {rows.map((row) => (
                     <RespondedPatientLineChooser
@@ -798,7 +806,7 @@ function PatientArchiveFrozenProductsView({
                     />
                   ))}
                 </ul>
-              </section>
+              </PatientRespondedBucketSection>
             );
           })}
         </div>
@@ -1302,17 +1310,17 @@ export function PatientSentEnvoyeeSummaryCard({
   accent?: RequestKindAccent;
 }) {
   const ph = pharmacyContact;
-  const titleLine =
-    ph?.nom?.trim() != null && ph.nom.trim() !== ""
-      ? `${ph.nom.trim()}${ph.ville?.trim() ? ` · ${ph.ville.trim()}` : ""}`
-      : "Officine";
+  const phName =
+    ph?.nom?.trim() != null && ph.nom.trim() !== "" ? pharmacyPublicLabel(ph.nom.trim()) : "Officine";
+  const phVille = ph?.ville?.trim() || null;
   const phRef = ph?.public_ref?.trim();
   const t = summaryThemeClasses(accent);
   return (
     <div className={t.shell}>
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1 border-b border-sky-200/70 pb-1.5">
         <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="text-[11px] font-bold leading-tight text-sky-950">{titleLine}</p>
+          <p className="text-[11px] font-bold leading-snug break-words text-sky-950">{phName}</p>
+          {phVille ? <p className="text-[10px] font-medium text-sky-800/85">{phVille}</p> : null}
           {phRef ? (
             <p className="text-[9px] text-sky-900/90">
               <span className="font-mono font-semibold text-foreground">Off. {phRef}</span>
@@ -1412,20 +1420,37 @@ type Props = {
 export function buildPatientSummaryStatusHint(
   status: string,
   requestType: string,
-  workflow: ReturnType<typeof getRequestKindWorkflowCopy>
+  _workflow: ReturnType<typeof getRequestKindWorkflowCopy>
 ): string {
-  if (status === "responded") return "Un choix par produit, puis date de passage et validation.";
+  if (status === "responded") return "Validez votre choix et votre date de passage.";
   if (status === "confirmed") {
     return requestType === "prescription"
-      ? "La pharmacie prépare votre commande selon les produits saisis sur l’ordonnance."
-      : "Ta pharmacie prépare ta commande (mise de côté et commandes fournisseur selon les produits). Les mises à jour restent visibles sur cette page.";
+      ? "Préparation en cours selon l'ordonnance."
+      : "Préparation en cours à l'officine.";
+  }
+  if (status === "treated") return "Passez à l'officine pour retirer vos produits.";
+  if (status === "in_review") return "L'officine examine votre demande.";
+  return "Demande envoyée — en attente de réponse.";
+}
+
+/** Détail affiché dans le modal (i) du bandeau dossier. */
+export function buildPatientSummaryStatusDetail(
+  status: string,
+  requestType: string,
+  workflow: ReturnType<typeof getRequestKindWorkflowCopy>
+): string | null {
+  if (status === "responded") {
+    return "Pour chaque produit : garder ou non, quantité, alternative éventuelle, puis date de passage et validation.";
+  }
+  if (status === "confirmed") {
+    return requestType === "prescription"
+      ? "La pharmacie prépare votre commande selon les produits saisis sur l'ordonnance. Les mises à jour restent visibles sur cette page."
+      : "Votre pharmacie prépare la commande (mise de côté et commandes fournisseur selon les produits). Les mises à jour restent visibles sur cette page.";
   }
   if (status === "treated") {
-    return "Tu peux passer à l’officine pour retirer les produits réservés et ceux commandés déjà reçus. Le suivi par produit est indiqué sur chaque carte.";
+    return "Vous pouvez passer à l'officine pour retirer les produits réservés et ceux commandés déjà reçus. Le suivi par produit est indiqué sur chaque carte.";
   }
-  if (status === "in_review") {
-    return workflow.patientWaitingInReviewHint;
-  }
+  if (status === "in_review") return workflow.patientWaitingInReviewHint;
   return workflow.patientWaitingSubmittedHint;
 }
 
@@ -2193,7 +2218,10 @@ export function PatientProductRequestActions({
     workflowCopy.patientLineOriginLabel,
   ]);
 
-  const visibleHits = debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS ? [] : hits;
+  const visibleHits = useMemo(() => {
+    if (debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) return [];
+    return filterCatalogHitsExcludingProductIds(hits, productIdsFromLineProductIds(lines));
+  }, [debouncedQuery, hits, lines]);
   const resubmitTotal = useMemo(
     () => lines.reduce((sum, l) => sum + (resubmitLineUnitPrice(l) ?? 0) * l.qty, 0),
     [lines]
@@ -2771,6 +2799,14 @@ export function PatientProductRequestActions({
     showProductResubmit ||
     (showPrescriptionWaiting && !forceReadOnly) ||
     ((showConfirm || showConfirmedCards) && !forceReadOnly);
+
+  const stickyFooterPadTier: StickyFooterPadTier = !needsStickyFooterPad
+    ? "none"
+    : showProductResubmit && editMode
+      ? "tall"
+      : showPrescriptionWaiting && prescriptionEditMode
+        ? "tall"
+        : "standard";
   /** Date/heure de passage : à la validation (responded) et pour modifier après coup. */
   const showVisitFields = (showConfirm || showConfirmedCards) && !forceReadOnly;
   const visitFieldsEditable = showVisitFields && !forceReadOnly;
@@ -2815,6 +2851,15 @@ export function PatientProductRequestActions({
           ? status
           : uiStatus;
   const archiveDossierStatusHint = isExpiredProductArchive
+    ? patientExpiredDossierStatusHintShortFr()
+    : isCancelledProductArchive
+      ? patientCancelledDossierStatusHintShortFr()
+      : isAbandonedProductArchive
+        ? patientAbandonedDossierStatusHintShortFr()
+        : isClosedProductArchive
+          ? patientClosedDossierStatusHintShortFr({ terminalStatus: status, items })
+          : "Archive — consultation seule.";
+  const archiveDossierStatusDetail = isExpiredProductArchive
     ? patientExpiredDossierStatusHintFr({
         expiredAt: terminalHistoryEntry?.created_at ?? null,
         expiresAt: requestTimelineMeta?.expires_at ?? null,
@@ -2856,7 +2901,7 @@ export function PatientProductRequestActions({
             : useSkyProductShell
               ? "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
               : "border-slate-200 bg-slate-50/95",
-        needsStickyFooterPad && "pb-40",
+        stickyFooterPadClass(stickyFooterPadTier),
         isConsultation && showConsultationWaiting && !needsStickyFooterPad && "pb-2"
       )}
     >
@@ -2886,6 +2931,7 @@ export function PatientProductRequestActions({
             pharmacyId={pharmacyId}
             status={showConfirm ? "responded" : status}
             statusHint={buildPatientSummaryStatusHint(showConfirm ? "responded" : status, requestType, workflowCopy)}
+            statusDetail={buildPatientSummaryStatusDetail(showConfirm ? "responded" : status, requestType, workflowCopy)}
           />
         ) : (
           <PatientSentEnvoyeeSummaryCard
@@ -2916,6 +2962,7 @@ export function PatientProductRequestActions({
           pharmacyId={pharmacyId}
           status={isDossierTerminalArchive ? archiveDossierStatusLabel : uiStatus}
           statusHint={archiveDossierStatusHint}
+          statusDetail={archiveDossierStatusDetail}
         />
       ) : null}
 
@@ -3045,22 +3092,16 @@ export function PatientProductRequestActions({
                   />
                 );
                 return (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
                       const rows = respondedBuckets[bucketId];
                       if (rows.length === 0) return null;
                       return (
-                        <section key={bucketId} className="space-y-2">
-                          <h4 className="px-0.5 text-[10px] font-extrabold uppercase tracking-wide text-sky-900/90">
-                            {patientRespondedBucketTitleFr(bucketId)}
-                            <span className="ml-1 font-bold tabular-nums text-muted-foreground">
-                              · {rows.length}
-                            </span>
-                          </h4>
+                        <PatientRespondedBucketSection key={bucketId} bucketId={bucketId} count={rows.length}>
                           <ul className="w-full min-w-0 space-y-2.5 overflow-visible">
                             {rows.map((row) => renderRespondedLine(row))}
                           </ul>
-                        </section>
+                        </PatientRespondedBucketSection>
                       );
                     })}
                   </div>
@@ -3552,18 +3593,17 @@ export function PatientProductRequestActions({
       </div>
 
       {showProductResubmit ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
-          <div className="mx-auto flex max-w-lg flex-col gap-2.5">
-            <div className="flex flex-nowrap items-center justify-between gap-3">
-              <p className="min-w-0 shrink text-sm font-medium text-slate-700 sm:text-base">
-                <span className="font-bold tabular-nums text-slate-950">{lines.length}</span>{" "}
-                produit{lines.length > 1 ? "s" : ""}
-              </p>
-              <div className="shrink-0 text-right">
-                <p className="sr-only">Total indicatif, prix catalogue pharmacie</p>
-                <p className="text-lg font-bold tabular-nums text-sky-900 sm:text-xl">{formatPriceDh(resubmitTotal)}</p>
-              </div>
-            </div>
+        <PlatformStickyFooter tone="slate">
+          <div className="flex flex-col gap-2">
+            <PlatformStickyFooterSummaryRow
+              left={
+                <>
+                  <span className="font-bold tabular-nums text-foreground">{lines.length}</span>{" "}
+                  produit{lines.length > 1 ? "s" : ""}
+                </>
+              }
+              right={formatPriceDh(resubmitTotal)}
+            />
             {!editMode ? (
               <div className="flex flex-col gap-2">
                 <button
@@ -3613,12 +3653,12 @@ export function PatientProductRequestActions({
               </div>
             )}
           </div>
-        </div>
+        </PlatformStickyFooter>
       ) : null}
 
       {showPrescriptionWaiting && !forceReadOnly ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
-          <div className="mx-auto flex max-w-lg flex-col gap-2.5">
+        <PlatformStickyFooter tone="slate">
+          <div className="flex flex-col gap-1.5">
             {!prescriptionEditMode ? (
               <div className="flex flex-col gap-2">
                 <button
@@ -3660,52 +3700,56 @@ export function PatientProductRequestActions({
               </div>
             )}
           </div>
-        </div>
+        </PlatformStickyFooter>
       ) : null}
 
       {showConfirm && !forceReadOnly ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
-          <div className="mx-auto flex max-w-lg flex-col gap-2.5">
-            <div className="flex flex-nowrap items-center justify-between gap-3">
-              <p className="min-w-0 shrink text-sm font-medium text-slate-700 sm:text-base">
-                <span className="font-bold tabular-nums text-slate-950">{confirmSelectionSummary.count}</span>{" "}
-                {confirmSelectionSummary.count > 1 ? "lignes retenues" : "ligne retenue"}
-              </p>
-              <p className="shrink-0 text-lg font-bold tabular-nums text-sky-900 sm:text-xl">
-                {confirmSelectionSummary.total > 0 ? `${confirmSelectionSummary.total.toFixed(2)} MAD` : "—"}
-              </p>
-            </div>
+        <PlatformStickyFooter tone="sky">
+          <div className="flex flex-col gap-2">
+            <PlatformStickyFooterSummaryRow
+              left={
+                <>
+                  <span className="font-bold tabular-nums text-foreground">{confirmSelectionSummary.count}</span>{" "}
+                  {confirmSelectionSummary.count > 1 ? "lignes retenues" : "ligne retenue"}
+                </>
+              }
+              right={
+                confirmSelectionSummary.total > 0
+                  ? `${confirmSelectionSummary.total.toFixed(2)} MAD`
+                  : "—"
+              }
+            />
             <button
               type="button"
               disabled={busyAction !== "" || visitWin.missingEtaOnToOrder}
               onClick={openConfirmReview}
-              className="flex h-11 w-full items-center justify-center rounded-xl bg-primary px-4 text-base font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50"
+              className="flex h-10 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50"
             >
               Valider ma demande
             </button>
           </div>
-        </div>
+        </PlatformStickyFooter>
       ) : null}
 
       {showConfirmedCards && !forceReadOnly ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
-          <div className="mx-auto flex max-w-lg flex-col gap-2.5">
+        <PlatformStickyFooter tone="sky">
+          <div className="flex flex-col gap-2">
             {!confirmedRevalidationMode ? (
               <>
-                <div className="flex flex-nowrap items-center justify-between gap-3">
-                  <p className="min-w-0 shrink text-sm font-medium text-slate-700 sm:text-base">
-                    <span className="font-bold tabular-nums text-slate-950">{totalsRetained.count}</span>{" "}
-                    {totalsRetained.count > 1 ? "produits retenus" : "produit retenu"}
-                  </p>
-                  <p className="shrink-0 whitespace-nowrap text-lg font-bold tabular-nums text-sky-900 sm:text-xl">
-                    {totalRetainedGrandLabel}
-                  </p>
-                </div>
+                <PlatformStickyFooterSummaryRow
+                  left={
+                    <>
+                      <span className="font-bold tabular-nums text-foreground">{totalsRetained.count}</span>{" "}
+                      {totalsRetained.count > 1 ? "produits retenus" : "produit retenu"}
+                    </>
+                  }
+                  right={totalRetainedGrandLabel}
+                />
                 <button
                   type="button"
                   disabled={busyAction !== "" || !visitPassageDirty || Boolean(detailStale)}
                   onClick={() => void runUpdateVisit()}
-                  className="w-full shrink-0 rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50 sm:ms-auto sm:w-auto sm:min-w-[220px]"
+                  className="flex h-10 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50"
                 >
                   {busyAction === "visit" ? "Mise à jour…" : "Mettre à jour ma date de passage"}
                 </button>
@@ -3731,7 +3775,7 @@ export function PatientProductRequestActions({
               </div>
             )}
           </div>
-        </div>
+        </PlatformStickyFooter>
       ) : null}
 
       {confirmReviewOpen && confirmReviewSnap ? (
