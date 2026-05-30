@@ -87,7 +87,7 @@ function PharmacyWeekScheduleView({
   return (
     <div className="space-y-3">
       {today ? (
-        <div className={cn(pharmacyPublicCard, "border-primary/25 bg-gradient-to-br from-primary/8 via-card to-emerald-50/20 p-3 ring-1 ring-primary/10")}>
+        <div className={cn(pharmacyPublicCard, "border-border/80 bg-card p-4")}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="flex items-center gap-1.5 text-[11px] font-bold text-foreground">
               <CalendarClock className="size-4 text-primary" aria-hidden />
@@ -270,7 +270,7 @@ export function PharmacyPublicProfile({
 
   return (
     <article className={cn("overflow-hidden", pharmacyPublicCard, "shadow-md ring-1 ring-black/5")}>
-      <div className="relative w-full overflow-hidden bg-gradient-to-br from-sky-700/20 via-slate-100 to-teal-600/15">
+      <div className="relative w-full overflow-hidden bg-muted/40">
         <div className="aspect-[21/9] w-full">
           {coverUrl ? (
             <img src={coverUrl} alt="" className="h-full w-full object-cover object-center" />

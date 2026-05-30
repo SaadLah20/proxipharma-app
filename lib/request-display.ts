@@ -108,31 +108,23 @@ export function pharmacistRequestIsClosedSuccess(status: string): boolean {
 /** Badge visuel par statut (couleurs type produit). */
 export function requestStatusBadgeClass(status: string): string {
   switch (status) {
-    case "submitted":
-    case "in_review":
-      return "bg-sky-100 text-sky-950 ring-1 ring-sky-200/80";
     case "responded":
-      return "bg-amber-100 text-amber-950 ring-1 ring-amber-200/80";
+      return "bg-amber-50 text-amber-950 border border-amber-200/80";
     case "confirmed":
-      return "bg-violet-100 text-violet-950 ring-1 ring-violet-200/80";
-    case "processing":
-      return "bg-indigo-100 text-indigo-950 ring-1 ring-indigo-200/80";
     case "treated":
-      return "bg-cyan-100 text-cyan-950 ring-1 ring-cyan-200/80";
+    case "processing":
     case "in_progress_virtual":
-      return "bg-violet-100 text-violet-950 ring-1 ring-violet-200/80";
+      return "bg-muted text-foreground border border-border/80";
     case "completed":
     case "partially_collected":
     case "fully_collected":
-      return "bg-emerald-100 text-emerald-950 ring-1 ring-emerald-200/80";
+      return "bg-emerald-50 text-emerald-950 border border-emerald-200/80";
     case "cancelled":
     case "abandoned":
     case "expired":
-      return "bg-slate-200 text-slate-800 ring-1 ring-slate-300/90";
-    case "draft":
-      return "bg-gray-100 text-gray-700 ring-1 ring-gray-200";
+      return "bg-muted text-muted-foreground border border-border/80";
     default:
-      return "bg-gray-100 text-gray-800 ring-1 ring-gray-200";
+      return "bg-muted text-foreground border border-border/80";
   }
 }
 

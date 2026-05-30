@@ -17,34 +17,10 @@ import { one } from "@/lib/embed";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { clsx } from "clsx";
 
-function demandeCardShell(status: string, role: "patient" | "pharmacien", accent: RequestKindAccent = "sky"): string {
-  const closed = ["completed", "cancelled", "abandoned", "expired", "partially_collected", "fully_collected", "draft"];
-  const pharma = role === "pharmacien";
-  if (closed.includes(status)) {
-    return "rounded-lg border border-border/85 bg-card shadow-sm ring-1 ring-border/50 transition hover:border-border/70 hover:shadow-md";
-  }
-  if (status === "responded") {
-    return "rounded-lg border border-amber-200/80 bg-amber-50/35 shadow-sm ring-1 ring-amber-100/60 transition hover:border-amber-300/70 hover:shadow-md";
-  }
-  if (status === "confirmed") {
-    if (accent === "amber") {
-      return "rounded-lg border border-amber-200/75 bg-amber-50/30 shadow-sm ring-1 ring-amber-100/55 transition hover:border-amber-300/65 hover:shadow-md";
-    }
-    return "rounded-lg border border-emerald-200/75 bg-emerald-50/30 shadow-sm ring-1 ring-emerald-100/55 transition hover:border-emerald-300/65 hover:shadow-md";
-  }
-  if (status === "treated") {
-    if (accent === "amber") {
-      return "rounded-lg border border-amber-200/75 bg-amber-50/25 shadow-sm ring-1 ring-amber-100/50 transition hover:border-amber-300/60 hover:shadow-md";
-    }
-    return "rounded-lg border border-violet-200/70 bg-violet-50/25 shadow-sm ring-1 ring-violet-100/50 transition hover:border-violet-300/60 hover:shadow-md";
-  }
-  if (accent === "amber") {
-    return "rounded-lg border border-amber-200/75 bg-amber-50/25 shadow-sm ring-1 ring-amber-100/50 transition hover:border-amber-300/60 hover:shadow-md";
-  }
-  if (accent === "violet") {
-    return "rounded-lg border border-violet-200/70 bg-violet-50/25 shadow-sm ring-1 ring-violet-100/50 transition hover:border-violet-300/60 hover:shadow-md";
-  }
-  return "rounded-lg border border-sky-200/75 bg-sky-50/25 shadow-sm ring-1 ring-sky-100/50 transition hover:border-sky-300/60 hover:shadow-md";
+import { neutralCardShell } from "@/lib/design-system/request-kind-accent";
+
+function demandeCardShell(_status: string, _role: "patient" | "pharmacien", _accent: RequestKindAccent = "sky"): string {
+  return `${neutralCardShell} rounded-xl`;
 }
 
 function patientCardLineBadge(row: PatientRequestRow, summary: ReturnType<typeof summarizeRequestForPatientCard>): string {

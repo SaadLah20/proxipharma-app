@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import {
   AlertCircle,
+  ChevronDown,
   ClipboardList,
   Eye,
   Gift,
@@ -32,6 +33,7 @@ import {
 } from "recharts";
 import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
+import { dsShell } from "@/lib/design-system/tokens";
 import {
   PHARMACIST_DASHBOARD_BUCKETS,
   countRequestsInPharmacistBucket,
@@ -47,40 +49,25 @@ import {
 import { isPharmacyEngagementTableUnavailable } from "@/lib/pharmacy-engagement";
 import { supabase } from "@/lib/supabase";
 
-function KpiCard({
+function ActionTile({
   icon: Icon,
   label,
   value,
   hint,
   href,
-  tone = "slate",
 }: {
   icon: typeof Eye;
   label: string;
   value: string | number;
   hint?: string;
-  href?: string;
-  tone?: "slate" | "emerald" | "sky" | "amber" | "violet" | "rose";
+  href: string;
 }) {
-  const ring =
-    tone === "emerald"
-      ? "from-emerald-500/15 to-emerald-600/5"
-      : tone === "sky"
-        ? "from-sky-500/15 to-sky-600/5"
-        : tone === "amber"
-          ? "from-amber-500/15 to-amber-600/5"
-          : tone === "violet"
-            ? "from-violet-500/15 to-violet-600/5"
-            : tone === "rose"
-              ? "from-rose-500/15 to-rose-600/5"
-              : "from-slate-500/10 to-slate-600/5";
-
-  const inner = (
-    <div
+  return (
+    <Link
+      href={href}
       className={clsx(
-        "relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br p-4 shadow-sm transition",
-        ring,
-        href && "hover:border-primary/30 hover:shadow-md"
+        dsShell.cardInteractive,
+        "block p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -89,8 +76,37 @@ function KpiCard({
           <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{value}</p>
           {hint ? <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{hint}</p> : null}
         </div>
-        <div className="rounded-xl bg-background/80 p-2 shadow-inner">
-          <Icon className="h-5 w-5 text-foreground/80" strokeWidth={2} />
+        <div className="rounded-xl border border-border/60 bg-muted/40 p-2">
+          <Icon className="h-5 w-5 text-muted-foreground" strokeWidth={2} />
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  hint,
+  href,
+}: {
+  icon: typeof Eye;
+  label: string;
+  value: string | number;
+  hint?: string;
+  href?: string;
+}) {
+  const inner = (
+    <div className={clsx(dsShell.card, "p-4", href && "transition hover:border-border hover:shadow-md")}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{value}</p>
+          {hint ? <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{hint}</p> : null}
+        </div>
+        <div className="rounded-xl border border-border/60 bg-muted/40 p-2">
+          <Icon className="h-5 w-5 text-muted-foreground" strokeWidth={2} />
         </div>
       </div>
     </div>
@@ -202,9 +218,9 @@ export function PharmacistDashboard() {
     if (!snapshot) return [];
     const t = snapshot.requests.by_type;
     return [
-      { name: "Produits", value: t.product_request ?? 0, fill: "#0ea5e9" },
-      { name: "Ordonnances", value: t.prescription ?? 0, fill: "#8b5cf6" },
-      { name: "Consultations", value: t.free_consultation ?? 0, fill: "#10b981" },
+      { name: "Produits", value: t.product_request ?? 0, fill: "hsl(var(--primary))" },
+      { name: "Ordonnances", value: t.prescription ?? 0, fill: "hsl(var(--muted-foreground))" },
+      { name: "Consultations", value: t.free_consultation ?? 0, fill: "hsl(var(--foreground) / 0.45)" },
     ].filter((x) => x.value > 0);
   }, [snapshot]);
 
@@ -214,6 +230,15 @@ export function PharmacistDashboard() {
       ...b,
       count: countRequestsInPharmacistBucket(snapshot.requests.by_status, b.key),
     })).filter((b) => b.count > 0 || ["envoyees", "repondues", "validees_traitees"].includes(b.key));
+  }, [snapshot]);
+
+  const primaryCounts = useMemo(() => {
+    if (!snapshot) return null;
+    return {
+      aRepondre: countRequestsInPharmacistBucket(snapshot.requests.by_status, "envoyees"),
+      valideesEnCours: countRequestsInPharmacistBucket(snapshot.requests.by_status, "validees_traitees"),
+      comptoir: countRequestsInPharmacistBucket(snapshot.requests.by_status, "traitee_retrait"),
+    };
   }, [snapshot]);
 
   const contactClicks = snapshot
@@ -290,222 +315,38 @@ export function PharmacistDashboard() {
         <p className="rounded-lg border border-amber-200 bg-amber-50/90 p-3 text-sm text-amber-950">{engagementNote}</p>
       ) : null}
 
-      {snapshot ? (
+      {snapshot && primaryCounts ? (
         <>
-          <section aria-labelledby="kpi-prioritaires">
-            <h2 id="kpi-prioritaires" className="sr-only">
-              Indicateurs prioritaires
+          <section aria-labelledby="actions-prioritaires">
+            <h2 id="actions-prioritaires" className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              Actions prioritaires
             </h2>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <KpiCard
+            <div className="grid gap-3 sm:grid-cols-3">
+              <ActionTile
                 icon={AlertCircle}
-                label="À traiter"
-                value={snapshot.requests.needs_action}
-                hint="Envoyées, en cours ou attente client"
+                label="À répondre"
+                value={primaryCounts.aRepondre}
+                hint="Envoyées · à prendre en charge"
                 href="/dashboard/pharmacien/demandes?vue=liste&statut=envoyees"
-                tone="amber"
               />
-              <KpiCard
+              <ActionTile
                 icon={ClipboardList}
-                label="Suivi post-validation"
-                value={snapshot.requests.awaiting_pickup}
-                hint="Validées ou traitées · comptoir"
+                label="Validées en cours"
+                value={primaryCounts.valideesEnCours}
+                hint="Réservé / commandé · jusqu’à traitée"
                 href="/dashboard/pharmacien/demandes?vue=liste&statut=validees_traitees"
-                tone="emerald"
               />
-              <KpiCard
-                icon={TrendingUp}
-                label="Nouvelles demandes"
-                value={snapshot.requests.new_in_period}
-                hint={`Tous types · ${dashboardPeriodLabel(period).toLowerCase()}`}
-                tone="sky"
-              />
-              <KpiCard
-                icon={Gift}
-                label="Réservations promo"
-                value={snapshot.promo_reservations.pending}
-                hint={
-                  snapshot.promo_reservations.new_in_period > 0
-                    ? `${snapshot.promo_reservations.new_in_period} nouvelle(s) sur la période`
-                    : "En attente de confirmation"
-                }
-                href="/dashboard/pharmacien/reservations-packs"
-                tone="violet"
-              />
-            </div>
-          </section>
-
-          <section aria-labelledby="kpi-audience">
-            <h2 id="kpi-audience" className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Visibilité & patients
-            </h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <KpiCard
-                icon={Eye}
-                label="Vues fiche"
-                value={snapshot.engagement.profile_views}
-                hint="Page publique & annuaire"
-                href="/dashboard/pharmacien/visites-interactions"
-                tone="sky"
-              />
-              <KpiCard
-                icon={MousePointerClick}
-                label="Clics contact"
-                value={contactClicks}
-                hint={`Tél. ${snapshot.engagement.phone_clicks} · WhatsApp ${snapshot.engagement.whatsapp_clicks}`}
-                href="/dashboard/pharmacien/visites-interactions"
-                tone="emerald"
-              />
-              <KpiCard
-                icon={Users}
-                label="Clients"
-                value={snapshot.clients.distinct_total}
-                hint={
-                  snapshot.clients.new_in_period > 0
-                    ? `+${snapshot.clients.new_in_period} actif(s) sur la période`
-                    : "Ayant interagi avec l’officine"
-                }
-                href="/dashboard/pharmacien/clients"
-                tone="violet"
-              />
-              <KpiCard
+              <ActionTile
                 icon={Package}
-                label="Dossiers actifs"
-                value={snapshot.requests.active_total}
-                hint="Tous types confondus"
-                tone="slate"
+                label="Comptoir"
+                value={primaryCounts.comptoir}
+                hint="Traitées · retrait ligne à ligne"
+                href="/dashboard/pharmacien/demandes?vue=liste&statut=traitee_retrait"
               />
             </div>
           </section>
 
-          <div className="grid gap-4 xl:grid-cols-5">
-            <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm xl:col-span-3">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h2 className="text-sm font-semibold text-foreground">Évolution</h2>
-                  <p className="text-[11px] text-muted-foreground">
-                    Vues, clics contact et nouvelles demandes par jour ({dashboardPeriodLabel(period).toLowerCase()}).
-                  </p>
-                </div>
-                <Phone className="h-4 w-4 shrink-0 text-muted-foreground/60" aria-hidden />
-              </div>
-              <div className="mt-4 h-72 w-full min-w-0">
-                {chartEvolution.length === 0 ? (
-                  <p className="flex h-full items-center justify-center text-sm text-muted-foreground">Aucune donnée sur la période.</p>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartEvolution} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="day" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={28} />
-                      <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Line type="monotone" dataKey="vues" name="Vues fiche" stroke="#0ea5e9" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="clics" name="Clics contact" stroke="#10b981" strokeWidth={2} dot={false} />
-                      <Line
-                        type="monotone"
-                        dataKey="demandes"
-                        name="Nouv. demandes"
-                        stroke="#8b5cf6"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-4 xl:col-span-2">
-              <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm">
-                <h2 className="text-sm font-semibold text-foreground">Demandes par type</h2>
-                <p className="text-[11px] text-muted-foreground">Créées sur la période sélectionnée.</p>
-                <div className="mt-3 h-44 w-full min-w-0">
-                  {chartRequestsByType.length === 0 ? (
-                    <p className="flex h-full items-center justify-center text-xs text-muted-foreground">Aucune demande créée.</p>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartRequestsByType} layout="vertical" margin={{ top: 4, right: 8, left: 4, bottom: 4 }}>
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-muted" />
-                        <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} />
-                        <YAxis type="category" dataKey="name" width={88} tick={{ fontSize: 10 }} />
-                        <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-                        <Bar dataKey="value" radius={[0, 6, 6, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-                <ul className="mt-2 space-y-1 border-t border-border/60 pt-2">
-                  {(["product_request", "prescription", "free_consultation"] as const).map((kind) => (
-                    <li key={kind} className="flex items-center justify-between text-xs">
-                      <Link href={requestTypeHubPath(kind)} className="font-medium text-emerald-900 underline">
-                        {requestTypeLabelFr(kind)}
-                      </Link>
-                      <span className="tabular-nums text-muted-foreground">{snapshot.requests.by_type[kind] ?? 0}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm">
-                <h2 className="text-sm font-semibold text-foreground">Entonnoir audience</h2>
-                <p className="text-[11px] text-muted-foreground">Intérêt public → contact → dossiers à traiter.</p>
-                <ul className="mt-3 space-y-2">
-                  {[
-                    { label: "Vues fiche", value: snapshot.engagement.profile_views, pct: 100 },
-                    {
-                      label: "Clics contact",
-                      value: contactClicks,
-                      pct: snapshot.engagement.profile_views
-                        ? Math.min(100, Math.round((contactClicks / snapshot.engagement.profile_views) * 100))
-                        : 0,
-                    },
-                    {
-                      label: "À traiter",
-                      value: snapshot.requests.needs_action,
-                      pct: contactClicks
-                        ? Math.min(100, Math.round((snapshot.requests.needs_action / contactClicks) * 100))
-                        : 0,
-                    },
-                  ].map((row) => (
-                    <li key={row.label}>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">{row.label}</span>
-                        <span className="font-semibold tabular-nums">{row.value}</span>
-                      </div>
-                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-primary/70 transition-all"
-                          style={{ width: `${Math.max(row.value > 0 ? 8 : 0, row.pct)}%` }}
-                        />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {bucketCounts.length > 0 ? (
-            <section className="rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.05] p-4 shadow-sm">
-              <h2 className="text-sm font-semibold text-foreground">Répartition des dossiers</h2>
-              <p className="text-[11px] text-muted-foreground">Toucher un bloc pour ouvrir le hub filtré (produits).</p>
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                {bucketCounts.map((b) => (
-                  <Link
-                    key={b.key}
-                    href={`/dashboard/pharmacien/demandes?vue=liste&statut=${b.key}`}
-                    className="rounded-xl border border-border/80 bg-background/80 px-3 py-2.5 text-left transition hover:border-primary/25 hover:bg-muted/30"
-                  >
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{b.label}</p>
-                    <p className="mt-0.5 text-xl font-bold tabular-nums text-foreground">{b.count}</p>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          <section className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm">
+          <section className={clsx(dsShell.card, "p-4")}>
             <h2 className="text-sm font-semibold text-foreground">Accès rapides</h2>
             <div className="mt-3 flex flex-wrap gap-2">
               {[
@@ -528,6 +369,230 @@ export function PharmacistDashboard() {
               ))}
             </div>
           </section>
+
+          <details className={clsx(dsShell.card, "group overflow-hidden")}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 [&::-webkit-details-marker]:hidden">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Statistiques détaillées</h2>
+                <p className="text-[11px] text-muted-foreground">
+                  Audience, évolution, répartition des dossiers · {dashboardPeriodLabel(period).toLowerCase()}
+                </p>
+              </div>
+              <ChevronDown
+                className="h-4 w-4 shrink-0 text-muted-foreground transition group-open:rotate-180"
+                aria-hidden
+              />
+            </summary>
+
+            <div className="space-y-6 border-t border-border/60 p-4">
+              <section aria-labelledby="kpi-prioritaires">
+                <h3 id="kpi-prioritaires" className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Indicateurs dossiers
+                </h3>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <KpiCard
+                    icon={AlertCircle}
+                    label="À traiter"
+                    value={snapshot.requests.needs_action}
+                    hint="Envoyées, en cours ou attente client"
+                    href="/dashboard/pharmacien/demandes?vue=liste&statut=envoyees"
+                  />
+                  <KpiCard
+                    icon={ClipboardList}
+                    label="Suivi post-validation"
+                    value={snapshot.requests.awaiting_pickup}
+                    hint="Validées ou traitées · comptoir"
+                    href="/dashboard/pharmacien/demandes?vue=liste&statut=validees_traitees"
+                  />
+                  <KpiCard
+                    icon={TrendingUp}
+                    label="Nouvelles demandes"
+                    value={snapshot.requests.new_in_period}
+                    hint={`Tous types · ${dashboardPeriodLabel(period).toLowerCase()}`}
+                  />
+                  <KpiCard
+                    icon={Gift}
+                    label="Réservations promo"
+                    value={snapshot.promo_reservations.pending}
+                    hint={
+                      snapshot.promo_reservations.new_in_period > 0
+                        ? `${snapshot.promo_reservations.new_in_period} nouvelle(s) sur la période`
+                        : "En attente de confirmation"
+                    }
+                    href="/dashboard/pharmacien/reservations-packs"
+                  />
+                </div>
+              </section>
+
+              <section aria-labelledby="kpi-audience">
+                <h3 id="kpi-audience" className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Visibilité & patients
+                </h3>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <KpiCard
+                    icon={Eye}
+                    label="Vues fiche"
+                    value={snapshot.engagement.profile_views}
+                    hint="Page publique & annuaire"
+                    href="/dashboard/pharmacien/visites-interactions"
+                  />
+                  <KpiCard
+                    icon={MousePointerClick}
+                    label="Clics contact"
+                    value={contactClicks}
+                    hint={`Tél. ${snapshot.engagement.phone_clicks} · WhatsApp ${snapshot.engagement.whatsapp_clicks}`}
+                    href="/dashboard/pharmacien/visites-interactions"
+                  />
+                  <KpiCard
+                    icon={Users}
+                    label="Clients"
+                    value={snapshot.clients.distinct_total}
+                    hint={
+                      snapshot.clients.new_in_period > 0
+                        ? `+${snapshot.clients.new_in_period} actif(s) sur la période`
+                        : "Ayant interagi avec l’officine"
+                    }
+                    href="/dashboard/pharmacien/clients"
+                  />
+                  <KpiCard
+                    icon={Package}
+                    label="Dossiers actifs"
+                    value={snapshot.requests.active_total}
+                    hint="Tous types confondus"
+                  />
+                </div>
+              </section>
+
+              <div className="grid gap-4 xl:grid-cols-5">
+                <div className={clsx(dsShell.card, "p-4 xl:col-span-3")}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">Évolution</h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Vues, clics contact et nouvelles demandes par jour ({dashboardPeriodLabel(period).toLowerCase()}).
+                      </p>
+                    </div>
+                    <Phone className="h-4 w-4 shrink-0 text-muted-foreground/60" aria-hidden />
+                  </div>
+                  <div className="mt-4 h-72 w-full min-w-0">
+                    {chartEvolution.length === 0 ? (
+                      <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                        Aucune donnée sur la période.
+                      </p>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartEvolution} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="day" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={28} />
+                          <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                          <Line type="monotone" dataKey="vues" name="Vues fiche" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="clics" name="Clics contact" stroke="hsl(var(--muted-foreground))" strokeWidth={2} dot={false} />
+                          <Line
+                            type="monotone"
+                            dataKey="demandes"
+                            name="Nouv. demandes"
+                            stroke="hsl(var(--foreground) / 0.5)"
+                            strokeWidth={2}
+                            dot={false}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4 xl:col-span-2">
+                  <div className={clsx(dsShell.card, "p-4")}>
+                    <h3 className="text-sm font-semibold text-foreground">Demandes par type</h3>
+                    <p className="text-[11px] text-muted-foreground">Créées sur la période sélectionnée.</p>
+                    <div className="mt-3 h-44 w-full min-w-0">
+                      {chartRequestsByType.length === 0 ? (
+                        <p className="flex h-full items-center justify-center text-xs text-muted-foreground">Aucune demande créée.</p>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={chartRequestsByType} layout="vertical" margin={{ top: 4, right: 8, left: 4, bottom: 4 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-muted" />
+                            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} />
+                            <YAxis type="category" dataKey="name" width={88} tick={{ fontSize: 10 }} />
+                            <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
+                            <Bar dataKey="value" radius={[0, 6, 6, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                    <ul className="mt-2 space-y-1 border-t border-border/60 pt-2">
+                      {(["product_request", "prescription", "free_consultation"] as const).map((kind) => (
+                        <li key={kind} className="flex items-center justify-between text-xs">
+                          <Link href={requestTypeHubPath(kind)} className="font-medium text-primary underline">
+                            {requestTypeLabelFr(kind)}
+                          </Link>
+                          <span className="tabular-nums text-muted-foreground">{snapshot.requests.by_type[kind] ?? 0}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className={clsx(dsShell.card, "p-4")}>
+                    <h3 className="text-sm font-semibold text-foreground">Entonnoir audience</h3>
+                    <p className="text-[11px] text-muted-foreground">Intérêt public → contact → dossiers à traiter.</p>
+                    <ul className="mt-3 space-y-2">
+                      {[
+                        { label: "Vues fiche", value: snapshot.engagement.profile_views, pct: 100 },
+                        {
+                          label: "Clics contact",
+                          value: contactClicks,
+                          pct: snapshot.engagement.profile_views
+                            ? Math.min(100, Math.round((contactClicks / snapshot.engagement.profile_views) * 100))
+                            : 0,
+                        },
+                        {
+                          label: "À traiter",
+                          value: snapshot.requests.needs_action,
+                          pct: contactClicks
+                            ? Math.min(100, Math.round((snapshot.requests.needs_action / contactClicks) * 100))
+                            : 0,
+                        },
+                      ].map((row) => (
+                        <li key={row.label}>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">{row.label}</span>
+                            <span className="font-semibold tabular-nums">{row.value}</span>
+                          </div>
+                          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full rounded-full bg-primary/70 transition-all"
+                              style={{ width: `${Math.max(row.value > 0 ? 8 : 0, row.pct)}%` }}
+                            />
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {bucketCounts.length > 0 ? (
+                <section className={clsx(dsShell.card, "p-4")}>
+                  <h3 className="text-sm font-semibold text-foreground">Répartition des dossiers</h3>
+                  <p className="text-[11px] text-muted-foreground">Toucher un bloc pour ouvrir le hub filtré (produits).</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                    {bucketCounts.map((b) => (
+                      <Link
+                        key={b.key}
+                        href={`/dashboard/pharmacien/demandes?vue=liste&statut=${b.key}`}
+                        className="rounded-xl border border-border/80 bg-background/80 px-3 py-2.5 text-left transition hover:border-primary/25 hover:bg-muted/30"
+                      >
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{b.label}</p>
+                        <p className="mt-0.5 text-xl font-bold tabular-nums text-foreground">{b.count}</p>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          </details>
         </>
       ) : !error ? (
         <p className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">

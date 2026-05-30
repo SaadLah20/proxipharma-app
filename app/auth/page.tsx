@@ -49,7 +49,7 @@ import { cn } from "@/lib/utils";
 // Débogage auth / OTP SMS : Chrome (navigateur externe), pas l’aperçu intégré à l’IDE — voir AGENTS.md.
 
 const fieldClass =
-  "w-full rounded-xl border border-input bg-card px-3 py-2.5 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
+  "w-full min-h-11 rounded-xl border border-input bg-card px-3 py-2.5 text-[15px] text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
 
 type SignupStep = "form" | "otp" | "password";
 
@@ -726,7 +726,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
         Retour à l&apos;annuaire
       </Link>
 
-      <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06] p-5 shadow-sm sm:p-6">
+      <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm sm:p-6">
         <div className="mb-5 flex items-start gap-3">
           <span
             className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary"

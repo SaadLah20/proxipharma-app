@@ -42,7 +42,7 @@ export function PharmacistAccountPageHeader({
           <p className={clsx("mt-1.5 max-w-2xl break-words leading-relaxed", p.heroSubtitle)}>{subtitle}</p>
         ) : null}
         {pharmacyName?.trim() ? (
-          <p className={clsx("mt-2 break-words text-sm font-semibold", p.heroSubtitle)}>{pharmacyName.trim()}</p>
+          <p className="mt-2 break-words text-sm font-semibold text-foreground">{pharmacyName.trim()}</p>
         ) : null}
       </header>
     </div>

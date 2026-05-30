@@ -18,6 +18,7 @@ import {
 import { clsx } from "clsx";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { neutralBucketSectionShell, neutralCardShell } from "@/lib/design-system/request-kind-accent";
 import {
   formatDateShortFr,
   formatDateTimeShort24hFr,
@@ -952,14 +953,14 @@ function PatientArchiveFrozenProductsView({
       </h3>
 
       {dispoRetenues.length > 0 ? (
-        <section className="space-y-2 rounded-xl border-2 border-sky-300/90 bg-sky-50/35 p-2 ring-1 ring-sky-200/60">
-          <div className="flex flex-nowrap items-center justify-between gap-2 px-0.5 text-sky-950">
+        <section className={neutralBucketSectionShell}>
+          <div className="flex flex-nowrap items-center justify-between gap-2 px-0.5 text-foreground">
             <div className="flex min-w-0 items-center gap-1.5">
-              <Package className="size-4 shrink-0 text-sky-700" aria-hidden />
+              <Package className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <h4
                 className={clsx(
-                  "min-w-0 font-extrabold uppercase tracking-wide text-sky-950",
-                  isTreatedSnapshot ? "text-[10px] leading-snug sm:text-[11px]" : "text-[11px]"
+                  "min-w-0 text-xs font-extrabold uppercase tracking-wide text-foreground sm:text-sm",
+                  isTreatedSnapshot && "leading-snug"
                 )}
               >
                 {isTreatedSnapshot
@@ -967,7 +968,7 @@ function PatientArchiveFrozenProductsView({
                   : `À réserver · ${dispoRetenues.length}`}
               </h4>
             </div>
-            <p className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-sky-800">
+            <p className="shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums text-muted-foreground">
               {compactTotalMadLabel({
                 sumKnown: subtotalDispo.sumKnown,
                 missingPrice: subtotalDispo.missingPrice,
@@ -996,20 +997,20 @@ function PatientArchiveFrozenProductsView({
       ) : null}
 
       {aCommanderRetenues.length > 0 ? (
-        <section className="space-y-2 rounded-xl border-2 border-teal-400/85 bg-teal-50/40 p-2 ring-1 ring-teal-200/65">
-          <div className="flex flex-nowrap items-center justify-between gap-2 px-0.5 text-teal-950">
+        <section className={neutralBucketSectionShell}>
+          <div className="flex flex-nowrap items-center justify-between gap-2 px-0.5 text-foreground">
             <div className="flex min-w-0 items-center gap-1.5">
-              <ShoppingCart className="size-4 shrink-0 text-teal-800" aria-hidden />
+              <ShoppingCart className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <h4
                 className={clsx(
-                  "min-w-0 font-extrabold uppercase tracking-wide text-teal-950",
-                  isTreatedSnapshot ? "text-[10px] leading-snug sm:text-[11px]" : "text-[11px]"
+                  "min-w-0 text-xs font-extrabold uppercase tracking-wide text-foreground sm:text-sm",
+                  isTreatedSnapshot && "leading-snug"
                 )}
               >
                 {isTreatedSnapshot ? "Produits commandés pour vous" : `À commander · ${aCommanderRetenues.length}`}
               </h4>
             </div>
-            <p className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-teal-900">
+            <p className="shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums text-muted-foreground">
               {compactTotalMadLabel({
                 sumKnown: subtotalCommande.sumKnown,
                 missingPrice: subtotalCommande.missingPrice,
@@ -1038,10 +1039,12 @@ function PatientArchiveFrozenProductsView({
       ) : null}
 
       {horsPerimetreRetenues.length > 0 ? (
-        <section className="space-y-2 rounded-xl border border-amber-200/80 bg-amber-50/25 p-2 ring-1 ring-amber-100/60">
-          <div className="flex items-center gap-1.5 px-0.5 text-amber-950">
-            <Layers className="size-4 shrink-0 text-amber-800" aria-hidden />
-            <h4 className="text-[11px] font-extrabold uppercase tracking-wide">Point d&apos;attention</h4>
+        <section className={neutralBucketSectionShell}>
+          <div className="flex items-center gap-1.5 px-0.5 text-foreground">
+            <Layers className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <h4 className="text-xs font-extrabold uppercase tracking-wide text-foreground sm:text-sm">
+              Point d&apos;attention
+            </h4>
           </div>
           <ul className="space-y-2.5">
             {horsPerimetreRetenues.map((row) => (
@@ -1064,14 +1067,14 @@ function PatientArchiveFrozenProductsView({
       ) : null}
 
       {retireesApresValidation.length > 0 ? (
-        <details className="group rounded-xl border border-red-200/85 bg-red-50/30 ring-1 ring-red-100/70">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-red-950 [&::-webkit-details-marker]:hidden">
-            <span className="text-[11px] font-extrabold uppercase tracking-wide">
+        <details className="group rounded-xl border border-border/80 bg-card shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-foreground [&::-webkit-details-marker]:hidden">
+            <span className="text-xs font-extrabold uppercase tracking-wide sm:text-sm">
               Écart après validation · {retireesApresValidation.length}
             </span>
-            <ChevronDown className="size-3.5 shrink-0 text-red-700 transition-transform group-open:rotate-180" aria-hidden />
+            <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
           </summary>
-          <div className="space-y-2 border-t border-red-200/70 px-2.5 pb-2.5 pt-2">
+          <div className="space-y-2 border-t border-border/60 px-2.5 pb-2.5 pt-2">
             <ul className="space-y-2.5">
               {retireesApresValidation.map((row) => (
                 <PatientValidatedCompactLineCard
@@ -1094,12 +1097,12 @@ function PatientArchiveFrozenProductsView({
       ) : null}
 
       {lignesNonRetenues.length > 0 ? (
-        <details className="group rounded-lg border border-sky-200/60 bg-sky-50/25">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold text-sky-950 [&::-webkit-details-marker]:hidden">
+        <details className="group rounded-xl border border-border/80 bg-card shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-xs font-semibold text-foreground [&::-webkit-details-marker]:hidden">
             <span>Lignes non retenues ({lignesNonRetenues.length})</span>
-            <ChevronDown className="size-3.5 shrink-0 text-sky-700 transition-transform group-open:rotate-180" aria-hidden />
+            <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
           </summary>
-          <ul className="space-y-2 border-t border-sky-200/50 px-2.5 py-2">
+          <ul className="space-y-2 border-t border-border/60 px-2.5 py-2">
             {lignesNonRetenues.map((row) => (
               <PatientTraceNotRetainedRow
                 key={row.id}
@@ -1361,7 +1364,7 @@ export function PatientSentEnvoyeeSummaryCard({
         </span>
       </p>
       <div className="mt-1.5 flex flex-wrap items-start gap-2">
-        <span className="shrink-0 rounded-full border border-amber-300/90 bg-amber-50 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-amber-950">
+        <span className="shrink-0 rounded-full border border-amber-300/90 bg-amber-50 px-1.5 py-px text-xs font-bold uppercase tracking-wide text-amber-950">
           {requestStatusFr[status] ?? status}
         </span>
         <p className={clsx("min-w-0 flex-1 text-[9px] leading-snug", t.hint)}>{statusHint}</p>
@@ -2899,7 +2902,7 @@ export function PatientProductRequestActions({
           : useArchiveShell
             ? "border-slate-200/90 bg-slate-50/75 ring-1 ring-slate-200/65"
             : useSkyProductShell
-              ? "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
+              ? cn(neutralCardShell, "border-2 p-2.5 sm:p-3")
               : "border-slate-200 bg-slate-50/95",
         stickyFooterPadClass(stickyFooterPadTier),
         isConsultation && showConsultationWaiting && !needsStickyFooterPad && "pb-2"
@@ -2999,7 +3002,7 @@ export function PatientProductRequestActions({
 
       {isTreatedActiveView && treatedPassageLine ? (
         <p
-          className="mt-2 rounded-lg border-2 border-sky-400/55 bg-gradient-to-r from-sky-50 via-white to-sky-50/80 px-3 py-2.5 text-center text-[13px] font-semibold leading-snug text-sky-950 shadow-sm ring-1 ring-sky-200/60 sm:text-sm"
+          className="mt-2 rounded-lg border border-border/80 bg-muted/30 px-3 py-2.5 text-center text-sm font-semibold leading-snug text-foreground shadow-sm"
           role="status"
         >
           {treatedPassageLine}
@@ -3161,16 +3164,14 @@ export function PatientProductRequestActions({
                 {workflowCopy.patientProductsSectionTitle}
               </h3>
               {dispoRetenues.length > 0 ? (
-                <section className="space-y-2 rounded-xl border-2 border-sky-300/90 bg-sky-50/35 p-2 ring-1 ring-sky-200/60">
-                  <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto px-0.5 text-sky-950">
+                <section className={neutralBucketSectionShell}>
+                  <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto px-0.5 text-foreground">
                     <div className="flex min-w-0 items-center gap-1.5">
-                      <Package className="size-4 shrink-0 text-sky-700" aria-hidden />
+                      <Package className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                       <h4
                         className={clsx(
-                          "min-w-0 font-extrabold uppercase tracking-wide text-sky-950",
-                          isTreatedProductsView
-                            ? "text-[10px] leading-snug sm:text-[11px]"
-                            : "text-[11px]"
+                          "min-w-0 text-xs font-extrabold uppercase tracking-wide text-foreground sm:text-sm",
+                          isTreatedProductsView && "leading-snug"
                         )}
                       >
                         {isTreatedProductsView
@@ -3178,7 +3179,7 @@ export function PatientProductRequestActions({
                           : `À réserver · ${dispoRetenues.length}`}
                       </h4>
                     </div>
-                    <p className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-sky-800">
+                    <p className="shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums text-muted-foreground">
                       {compactTotalMadLabel({
                         sumKnown: subtotalDispo.sumKnown,
                         missingPrice: subtotalDispo.missingPrice,
@@ -3206,16 +3207,14 @@ export function PatientProductRequestActions({
               ) : null}
 
               {aCommanderRetenues.length > 0 ? (
-                <section className="space-y-2 rounded-xl border-2 border-teal-400/85 bg-teal-50/40 p-2 ring-1 ring-teal-200/65">
-                  <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto px-0.5 text-teal-950">
+                <section className={neutralBucketSectionShell}>
+                  <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto px-0.5 text-foreground">
                     <div className="flex min-w-0 items-center gap-1.5">
-                      <ShoppingCart className="size-4 shrink-0 text-teal-800" aria-hidden />
+                      <ShoppingCart className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                       <h4
                         className={clsx(
-                          "min-w-0 font-extrabold uppercase tracking-wide text-teal-950",
-                          isTreatedProductsView
-                            ? "text-[10px] leading-snug sm:text-[11px]"
-                            : "text-[11px]"
+                          "min-w-0 text-xs font-extrabold uppercase tracking-wide text-foreground sm:text-sm",
+                          isTreatedProductsView && "leading-snug"
                         )}
                       >
                         {isTreatedProductsView
@@ -3223,7 +3222,7 @@ export function PatientProductRequestActions({
                           : `À commander · ${aCommanderRetenues.length}`}
                       </h4>
                     </div>
-                    <p className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-teal-900">
+                    <p className="shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums text-muted-foreground">
                       {compactTotalMadLabel({
                         sumKnown: subtotalCommande.sumKnown,
                         missingPrice: subtotalCommande.missingPrice,
@@ -3251,12 +3250,14 @@ export function PatientProductRequestActions({
               ) : null}
 
               {horsPerimetreRetenues.length > 0 ? (
-                <section className="space-y-2 rounded-xl border border-amber-200/80 bg-amber-50/25 p-2 ring-1 ring-amber-100/60">
-                  <div className="flex items-center gap-1.5 px-0.5 text-amber-950">
-                    <Layers className="size-4 shrink-0 text-amber-800" aria-hidden />
-                    <h4 className="text-[11px] font-extrabold uppercase tracking-wide">Point d&apos;attention</h4>
+                <section className={neutralBucketSectionShell}>
+                  <div className="flex items-center gap-1.5 px-0.5 text-foreground">
+                    <Layers className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <h4 className="text-xs font-extrabold uppercase tracking-wide text-foreground sm:text-sm">
+                      Point d&apos;attention
+                    </h4>
                   </div>
-                  <p className="px-0.5 text-[9px] leading-snug text-muted-foreground">
+                  <p className="px-0.5 text-xs leading-snug text-muted-foreground">
                     À confirmer avec l&apos;officine si besoin.
                   </p>
                   <ul className="space-y-2.5">
@@ -3279,18 +3280,18 @@ export function PatientProductRequestActions({
               ) : null}
 
               {retireesApresValidation.length > 0 ? (
-                <details className="group rounded-xl border border-red-200/85 bg-red-50/30 ring-1 ring-red-100/70">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-red-950 [&::-webkit-details-marker]:hidden">
+                <details className="group rounded-xl border border-border/80 bg-card shadow-sm">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-foreground [&::-webkit-details-marker]:hidden">
                     <span className="flex min-w-0 items-center gap-1.5">
-                      <Layers className="size-4 shrink-0 text-red-700" aria-hidden />
-                      <span className="text-[11px] font-extrabold uppercase tracking-wide">
+                      <Layers className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="text-xs font-extrabold uppercase tracking-wide sm:text-sm">
                         Écart après validation · {retireesApresValidation.length}
                       </span>
                     </span>
-                    <ChevronDown className="size-3.5 shrink-0 text-red-700 transition-transform group-open:rotate-180" aria-hidden />
+                    <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
                   </summary>
-                  <div className="space-y-2 border-t border-red-200/70 px-2.5 pb-2.5 pt-2">
-                    <p className="text-[9px] leading-snug text-red-900/85">
+                  <div className="space-y-2 border-t border-border/60 px-2.5 pb-2.5 pt-2">
+                    <p className="text-xs leading-snug text-muted-foreground">
                       Retrait convenu avec la pharmacie — trace uniquement.
                     </p>
                     <ul className="space-y-2.5">
@@ -3314,12 +3315,12 @@ export function PatientProductRequestActions({
               ) : null}
 
               {lignesNonRetenues.length > 0 ? (
-                <details className="group rounded-lg border border-sky-200/60 bg-sky-50/25">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold text-sky-950 [&::-webkit-details-marker]:hidden">
+                <details className="group rounded-xl border border-border/80 bg-card shadow-sm">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-xs font-semibold text-foreground [&::-webkit-details-marker]:hidden">
                     <span>Lignes non retenues ({lignesNonRetenues.length})</span>
-                    <ChevronDown className="size-3.5 shrink-0 text-sky-700 transition-transform group-open:rotate-180" aria-hidden />
+                    <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
                   </summary>
-                  <ul className="space-y-2 border-t border-sky-200/50 px-2.5 py-2">
+                  <ul className="space-y-2 border-t border-border/60 px-2.5 py-2">
                     {lignesNonRetenues.map((row) => (
                       <PatientTraceNotRetainedRow
                         key={row.id}
@@ -3799,15 +3800,15 @@ export function PatientProductRequestActions({
             onClick={(e) => e.stopPropagation()}
           >
             <div className={cn("shrink-0 border-b px-3 py-2.5", productRequestTheme.modalHeader)}>
-              <h2 id="confirm-review-title" className="text-center text-sm font-bold leading-snug text-sky-950 sm:text-base">
+              <h2 id="confirm-review-title" className="text-center text-sm font-bold leading-snug text-foreground sm:text-base">
                 {confirmReviewMode === "revalidation" ? "Enregistrer ma validation" : "Confirmer ta sélection"}
               </h2>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-gradient-to-b from-sky-50/20 via-white to-muted/15 px-2.5 py-2.5 sm:px-3 [-webkit-overflow-scrolling:touch]">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-muted/15 px-2.5 py-2.5 sm:px-3 [-webkit-overflow-scrolling:touch]">
               {confirmReviewMode === "initial" ? (
                 <div className={cn("rounded-lg border px-2 py-1.5", productRequestTheme.modalHighlight)}>
-                  <p className={cn("text-[8px] font-bold uppercase tracking-wide", productRequestTheme.modalLabel)}>
+                  <p className={cn("text-xs font-bold uppercase tracking-wide", productRequestTheme.modalLabel)}>
                     Passage
                   </p>
                   <p className="mt-0.5 text-[11px] font-medium leading-snug text-foreground">
@@ -3822,9 +3823,9 @@ export function PatientProductRequestActions({
 
               {confirmReserveLines.length > 0 ? (
                 <div className="mt-3">
-                  <div className="mb-1.5 flex items-center gap-1.5 rounded-md border border-sky-200/80 bg-sky-50/80 px-2 py-1">
-                    <Package className="size-3.5 shrink-0 text-sky-800" aria-hidden />
-                    <p className="text-[9px] font-bold uppercase tracking-wide text-sky-950">À réserver</p>
+                  <div className="mb-1.5 flex items-center gap-1.5 rounded-md border border-border/80 bg-card px-2 py-1">
+                    <Package className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                    <p className="text-xs font-bold uppercase tracking-wide text-foreground">À réserver</p>
                   </div>
                   <ul className="space-y-1.5">
                     {confirmReserveLines.map((line) => (
@@ -3835,7 +3836,7 @@ export function PatientProductRequestActions({
                       />
                     ))}
                   </ul>
-                  <p className="mt-2 text-right text-[11px] leading-snug font-medium text-sky-900/90">
+                  <p className="mt-2 text-right text-xs leading-snug font-medium text-muted-foreground">
                     {formatBlockSubtotalLabel(confirmReserveLines)}
                   </p>
                 </div>
@@ -3843,9 +3844,9 @@ export function PatientProductRequestActions({
 
               {confirmOrderLines.length > 0 ? (
                 <div className="mt-3">
-                  <div className="mb-1.5 flex items-center gap-1.5 rounded-md border border-teal-200/85 bg-teal-50/70 px-2 py-1">
-                    <ShoppingCart className="size-3.5 shrink-0 text-teal-950" aria-hidden />
-                    <p className="text-[9px] font-bold uppercase tracking-wide text-teal-950">À commander</p>
+                  <div className="mb-1.5 flex items-center gap-1.5 rounded-md border border-border/80 bg-card px-2 py-1">
+                    <ShoppingCart className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                    <p className="text-xs font-bold uppercase tracking-wide text-foreground">À commander</p>
                   </div>
                   <ul className="space-y-1.5">
                     {confirmOrderLines.map((line) => (
@@ -3856,7 +3857,7 @@ export function PatientProductRequestActions({
                       />
                     ))}
                   </ul>
-                  <p className="mt-2 text-right text-[11px] leading-snug font-medium text-teal-900/88">
+                  <p className="mt-2 text-right text-xs leading-snug font-medium text-muted-foreground">
                     {formatBlockSubtotalLabel(confirmOrderLines)}
                   </p>
                 </div>
@@ -3864,7 +3865,7 @@ export function PatientProductRequestActions({
 
               {confirmSkippedLines.length > 0 ? (
                 <div className="mt-3 rounded-lg border border-slate-200/90 bg-slate-50/90 px-2 py-2 ring-1 ring-slate-200/50">
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-700">Non retenus (information)</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground">Non retenus (information)</p>
                   <ul className="mt-1.5 space-y-1">
                     {confirmSkippedLines.map((s) => (
                       <li
@@ -3875,7 +3876,7 @@ export function PatientProductRequestActions({
                         {s.skipLabel ? (
                           <span
                             className={clsx(
-                              "shrink-0 rounded px-1 py-px text-[8px] font-semibold uppercase",
+                              "shrink-0 rounded px-1 py-px text-xs font-semibold uppercase",
                               s.skipLabel === "Ordonnance" || s.skipLabel === "Produit proposé par la pharmacie"
                                 ? "bg-amber-100 text-amber-950"
                                 : "bg-violet-100 text-violet-900"
@@ -3884,7 +3885,7 @@ export function PatientProductRequestActions({
                             {s.skipLabel}
                           </span>
                         ) : s.isProposed ? (
-                          <span className="shrink-0 rounded bg-violet-100 px-1 py-px text-[8px] font-semibold uppercase text-violet-900">
+                          <span className="shrink-0 rounded bg-violet-100 px-1 py-px text-xs font-semibold uppercase text-violet-900">
                             Proposition
                           </span>
                         ) : (
@@ -3899,17 +3900,17 @@ export function PatientProductRequestActions({
               {(() => {
                 const grand = blockMonetarySummary(confirmAllPreviewLines);
                 return (
-                  <div className="mt-4 rounded-xl border-2 border-sky-400/55 bg-gradient-to-br from-sky-50 via-white to-sky-100/70 px-3 py-3 shadow-md ring-2 ring-sky-200/50">
-                    <p className="text-center text-[10px] font-bold uppercase tracking-wide text-sky-800">
+                  <div className={cn(neutralBucketSectionShell, "mt-4")}>
+                    <p className="text-center text-xs font-bold uppercase tracking-wide text-muted-foreground">
                       Total de votre sélection
                     </p>
-                    <p className="mt-1.5 text-center text-2xl font-bold leading-none tabular-nums text-sky-950 sm:text-[1.65rem]">
+                    <p className="mt-1.5 text-center text-2xl font-bold leading-none tabular-nums text-foreground sm:text-[1.65rem]">
                       {grand.missingUnitPrice && grand.sumKnown === 0
                         ? "—"
                         : `${grand.sumKnown.toFixed(2)} MAD`}
                     </p>
                     {grand.missingUnitPrice ? (
-                      <p className="mt-1.5 text-center text-[10px] leading-snug text-sky-900/85">
+                      <p className="mt-1.5 text-center text-xs leading-snug text-muted-foreground">
                         Total partiel — certains prix unitaires manquent.
                       </p>
                     ) : null}

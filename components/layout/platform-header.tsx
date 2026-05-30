@@ -527,7 +527,7 @@ export function PlatformHeader() {
           className="group flex shrink-0 items-center gap-2 text-lg font-bold tracking-tight text-white"
         >
           <span
-            className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-sky-200 ring-1 ring-white/15 transition group-hover:bg-white/15"
+            className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-white/90 ring-1 ring-white/15 transition group-hover:bg-white/15"
             aria-hidden
           >
             <Cross className="size-[1.125rem]" strokeWidth={2.25} />

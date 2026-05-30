@@ -1,6 +1,7 @@
 "use client";
 
 import { clsx } from "clsx";
+import { RequestKindIndicator, RequestKindRail } from "@/components/ui/request-kind-indicator";
 import { formatDateShortCasablancaWithTime24hFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import type { RequestKindConfig } from "@/lib/request-kinds/types";
@@ -52,27 +53,8 @@ export function RequestKindHeader({
   viewerRole = "patient",
   statusDetail = null,
 }: RequestKindHeaderProps) {
-  const shellClass =
-    viewerRole === "pharmacien" && config.capabilities.workflowEnabled && config.theme.headerShellForStatus
-      ? config.theme.headerShellForStatus(request.status)
-      : config.theme.headerShellDefault;
-
   const showLineBadge =
     lineCount != null && config.capabilities.patientCreatesItems && config.id === "product_request";
-
-  const labelAccent =
-    config.theme.accent === "amber"
-      ? "text-amber-950/90"
-      : config.theme.accent === "violet"
-        ? "text-violet-950/90"
-        : "text-sky-950/85";
-
-  const lineBadgeBorder =
-    config.theme.accent === "amber"
-      ? "border-amber-200/90 text-amber-950"
-      : config.theme.accent === "violet"
-        ? "border-violet-200/90 text-violet-950"
-        : "border-sky-200/90 text-sky-950";
 
   function patientStatusBadgeClass(status: string): string {
     if (config.id === "product_request") return patientProductStatusBadgeClass(status);
@@ -91,22 +73,15 @@ export function RequestKindHeader({
       : requestStatusBadgeClass(request.status);
 
   return (
-    <header className={shellClass}>
+    <RequestKindRail kindId={config.id} className="mt-2 px-3 py-3 sm:px-4">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] sm:gap-x-2 sm:text-xs">
-          <span className={clsx("shrink-0 text-[10px] font-bold uppercase tracking-wide sm:text-[11px]", labelAccent)}>
-            {config.theme.headerLabelShort}
-          </span>
-          <span className="font-mono text-[12px] font-semibold text-foreground sm:text-[13px]">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1 text-xs sm:gap-x-2">
+          <RequestKindIndicator kindId={config.id} label={config.theme.headerLabelShort} />
+          <span className="font-mono text-xs font-semibold text-foreground sm:text-[13px]">
             {displayRequestPublicRef(request)}
           </span>
           {showLineBadge && lineCount != null ? (
-            <span
-              className={clsx(
-                "shrink-0 rounded-full border bg-white/90 px-1.5 py-0.5 text-[9px] font-bold tabular-nums",
-                lineBadgeBorder
-              )}
-            >
+            <span className="shrink-0 rounded-full border border-border/80 bg-muted/40 px-1.5 py-0.5 text-xs font-bold tabular-nums text-foreground">
               {lineCount} ligne{lineCount > 1 ? "s" : ""}
             </span>
           ) : null}
@@ -138,7 +113,7 @@ export function RequestKindHeader({
         <div className="flex shrink-0 items-center sm:ms-auto">
           <span
             className={clsx(
-              "inline-flex max-w-[min(100%,16rem)] justify-center truncate rounded-full border px-2 py-0.5 text-center text-[10px] font-bold leading-tight shadow-sm sm:max-w-[14rem]",
+              "inline-flex max-w-[min(100%,16rem)] justify-center truncate rounded-full border px-2 py-0.5 text-center text-xs font-bold leading-tight shadow-sm sm:max-w-[14rem]",
               statusBadgeClass
             )}
             title={(requestStatusFr[request.status] ?? request.status) + ""}
@@ -148,8 +123,8 @@ export function RequestKindHeader({
         </div>
       </div>
       {statusDetail?.trim() ? (
-        <p className="mt-2 border-t border-border/50 pt-2 text-[11px] leading-snug text-muted-foreground">{statusDetail}</p>
+        <p className="mt-2 border-t border-border/50 pt-2 text-xs leading-snug text-muted-foreground">{statusDetail}</p>
       ) : null}
-    </header>
+    </RequestKindRail>
   );
 }

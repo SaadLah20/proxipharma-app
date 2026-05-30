@@ -8,6 +8,7 @@ import {
   PatientPharmacyQuickContact,
   type PatientPharmacyContactInfo,
 } from "@/components/requests/product/patient-pharmacy-quick-contact";
+import { RequestKindIndicator, RequestKindRail } from "@/components/ui/request-kind-indicator";
 import { requestStatusFr } from "@/lib/request-display";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
@@ -36,6 +37,9 @@ function statusBadgeClass(status: string): string {
   return "border-slate-300/80 bg-slate-50 text-slate-800";
 }
 
+const actionBtnClass =
+  "inline-flex h-8 items-center rounded-lg border border-border/80 bg-card px-2.5 text-xs font-semibold text-foreground shadow-sm transition hover:bg-muted/40";
+
 export function PatientProductRequestDossierHeader({
   dossierRefLabel,
   pharmacyContact,
@@ -58,70 +62,60 @@ export function PatientProductRequestDossierHeader({
 
   return (
     <>
-      <header
-        className={cn(
-          "w-full min-w-0 max-w-full overflow-hidden rounded-xl border-2 shadow-md",
-          "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
-        )}
+      <RequestKindRail
+        kindId="product_request"
+        className="w-full min-w-0 max-w-full overflow-hidden px-3 py-0 sm:px-3.5"
       >
-        <div className="border-b border-sky-200/70 px-3 py-2 sm:px-3.5">
-          <p className="text-[11px] font-bold leading-tight text-sky-950 sm:text-xs">
-            <span className="uppercase tracking-wide text-sky-800/90">Demande de produits</span>
-            <span className="mx-1.5 font-normal text-sky-600/80" aria-hidden>
-              ·
+        <div className="border-b border-border/60 py-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <RequestKindIndicator kindId="product_request" label="Demande de produits" />
+            <span className="font-mono text-xs font-semibold tabular-nums text-foreground sm:text-sm">
+              N° {dossierRefLabel}
             </span>
-            <span className="font-mono text-[13px] tabular-nums text-foreground sm:text-sm">N° {dossierRefLabel}</span>
-          </p>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-2 border-b border-sky-200/70 px-3 py-2 sm:flex-row sm:items-start sm:justify-between sm:px-3.5">
+        <div className="flex flex-col gap-2 border-b border-border/60 py-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold leading-snug text-foreground break-words">{phLabel}</p>
             {pharmacyContact?.ville?.trim() ? (
-              <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">{pharmacyContact.ville.trim()}</p>
+              <p className="mt-0.5 text-xs font-medium text-muted-foreground">{pharmacyContact.ville.trim()}</p>
             ) : null}
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
             {pharmacyContact ? (
-              <button
-                type="button"
-                onClick={() => setContactOpen(true)}
-                className="inline-flex h-8 items-center rounded-lg border border-sky-400/70 bg-white px-2.5 text-[11px] font-bold text-sky-900 shadow-sm transition hover:bg-sky-50"
-              >
+              <button type="button" onClick={() => setContactOpen(true)} className={actionBtnClass}>
                 Contacter
               </button>
             ) : null}
-            <Link
-              href={`/pharmacie/${pharmacyId}`}
-              className="inline-flex h-8 items-center gap-1 rounded-lg border border-sky-400/70 bg-white px-2.5 text-[11px] font-bold text-sky-900 shadow-sm transition hover:bg-sky-50"
-            >
+            <Link href={`/pharmacie/${pharmacyId}`} className={cn(actionBtnClass, "gap-1")}>
               <MapPin className="size-3.5 shrink-0 opacity-80" aria-hidden />
               Voir la fiche
             </Link>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-start gap-2 px-3 py-2 sm:px-3.5">
+        <div className="flex flex-wrap items-start gap-2 py-2">
           <span
             className={cn(
-              "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold leading-tight shadow-sm",
+              "shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold leading-tight shadow-sm",
               statusBadgeClass(status)
             )}
           >
             {statusLabel}
           </span>
-          <p className="min-w-0 flex-1 text-[11px] leading-snug text-sky-950/90">{statusHint}</p>
+          <p className="min-w-0 flex-1 text-xs leading-snug text-muted-foreground">{statusHint}</p>
           <button
             type="button"
             onClick={() => setJourneyOpen(true)}
-            className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-sky-300/80 bg-white text-sky-700 shadow-sm transition hover:bg-sky-50 hover:text-sky-900"
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-border/80 bg-card text-muted-foreground shadow-sm transition hover:bg-muted/40 hover:text-foreground"
             aria-label="Voir le détail du statut et le parcours de la demande"
             title="Détail et parcours"
           >
             <Info className="size-4" strokeWidth={2.25} aria-hidden />
           </button>
         </div>
-      </header>
+      </RequestKindRail>
 
       <PatientProductRequestJourneyModal
         open={journeyOpen}

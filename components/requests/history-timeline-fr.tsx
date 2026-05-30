@@ -19,29 +19,29 @@ export type HistoryTimelineBlockFr = {
 };
 
 function actorToneClasses(tone: HistoryActorTone | undefined, isCurrent?: boolean): string {
-  if (isCurrent) return "border-emerald-300/90 bg-emerald-50 text-emerald-950";
+  if (isCurrent) return "border-emerald-200/80 bg-emerald-50/50 text-foreground";
   switch (tone) {
     case "patient":
-      return "border-sky-300/85 bg-sky-50/90 text-sky-950";
+      return "border-border/80 bg-card text-foreground";
     case "pharmacy":
-      return "border-violet-300/80 bg-violet-50/85 text-violet-950";
+      return "border-border/80 bg-card text-foreground";
     case "system":
-      return "border-slate-300/80 bg-slate-50/90 text-slate-800";
+      return "border-border/80 bg-muted/30 text-foreground";
     default:
-      return "border-border/80 bg-muted/25 text-foreground";
+      return "border-border/80 bg-card text-foreground";
   }
 }
 
 function actorBadgeClasses(tone: HistoryActorTone | undefined): string {
   switch (tone) {
     case "patient":
-      return "bg-sky-700 text-white";
+      return "bg-muted text-foreground";
     case "pharmacy":
-      return "bg-violet-700 text-white";
+      return "bg-primary text-primary-foreground";
     case "system":
-      return "bg-slate-600 text-white";
+      return "bg-muted text-muted-foreground";
     default:
-      return "bg-muted-foreground text-background";
+      return "bg-muted text-foreground";
   }
 }
 

@@ -1,19 +1,6 @@
 import type { RequestKindConfig } from "@/lib/request-kinds/types";
 import { PRESCRIPTION_ORDONNANCE_SOURCING_LABEL } from "@/lib/prescription-pharmacist-lines";
-
-function prescriptionHeaderShellForStatus(status: string): string {
-  const base = "mt-2 rounded-xl border-2 px-2.5 py-1.5 shadow-sm sm:px-3";
-  if (["submitted", "in_review"].includes(status)) {
-    return `${base} border-amber-400/50 bg-gradient-to-br from-amber-500/14 via-white to-orange-50/30 ring-1 ring-amber-300/45`;
-  }
-  if (status === "responded") {
-    return `${base} border-amber-400/55 bg-gradient-to-br from-amber-50/60 via-white to-orange-50/28 ring-1 ring-amber-200/55`;
-  }
-  if (["confirmed", "treated", "completed", "partially_collected", "fully_collected"].includes(status)) {
-    return `${base} border-amber-300/55 bg-gradient-to-br from-amber-50/50 via-white to-orange-50/25 ring-1 ring-amber-200/50`;
-  }
-  return `${base} border-amber-300/45 bg-gradient-to-b from-white to-amber-50/35 ring-1 ring-amber-200/45`;
-}
+import { neutralHeaderShell, neutralHeaderShellForStatus } from "@/lib/design-system/request-kind-accent";
 
 export const prescriptionRequestKindConfig: RequestKindConfig = {
   id: "prescription",
@@ -28,11 +15,10 @@ export const prescriptionRequestKindConfig: RequestKindConfig = {
   theme: {
     accent: "amber",
     headerLabelShort: "Ordonnance",
-    patientBackLinkClass: "text-amber-900",
-    pharmacistBackLinkClass: "text-amber-900",
-    headerShellDefault:
-      "mt-2 rounded-xl border-2 border-amber-300/50 bg-gradient-to-br from-amber-50/90 via-white to-orange-50/20 px-2.5 py-1.5 shadow-md shadow-amber-900/[0.06] ring-1 ring-amber-200/55 sm:px-3",
-    headerShellForStatus: prescriptionHeaderShellForStatus,
+    patientBackLinkClass: "text-primary font-medium underline underline-offset-2",
+    pharmacistBackLinkClass: "text-primary font-medium underline underline-offset-2",
+    headerShellDefault: neutralHeaderShell,
+    headerShellForStatus: neutralHeaderShellForStatus,
   },
   capabilities: {
     workflowEnabled: true,

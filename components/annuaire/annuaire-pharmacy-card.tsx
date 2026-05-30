@@ -102,104 +102,107 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
         </div>
       </Link>
 
-      <div className="grid grid-cols-3 gap-1 border-b border-border/60 p-2">
-        <a
-          href={pharmacy.telephone ? `tel:${pharmacy.telephone}` : undefined}
-          aria-disabled={!pharmacy.telephone}
-          onClick={(e) => {
-            if (!pharmacy.telephone) e.preventDefault();
-            else
-              trackPharmacyEngagement({
-                pharmacyId: pharmacy.id,
-                eventType: "phone_click",
-                source: "annuaire",
-              });
-          }}
-          className={cn(
-            "flex flex-col items-center gap-0.5 rounded-lg border border-sky-200/80 bg-sky-50/90 py-2 text-[10px] font-bold text-sky-950 transition hover:bg-sky-100",
-            !pharmacy.telephone && "pointer-events-none opacity-45"
-          )}
-        >
-          <Phone className="size-4" aria-hidden />
-          Appeler
-        </a>
-        <a
-          href={wa ? `https://wa.me/${wa}` : undefined}
-          target={wa ? "_blank" : undefined}
-          rel={wa ? "noreferrer" : undefined}
-          aria-disabled={!wa}
-          onClick={(e) => {
-            if (!wa) e.preventDefault();
-            else
-              trackPharmacyEngagement({
-                pharmacyId: pharmacy.id,
-                eventType: "whatsapp_click",
-                source: "annuaire",
-              });
-          }}
-          className={cn(
-            "flex flex-col items-center gap-0.5 rounded-lg border border-emerald-200/80 bg-emerald-50/90 py-2 text-[10px] font-bold text-emerald-950 transition hover:bg-emerald-100",
-            !wa && "pointer-events-none opacity-45"
-          )}
-        >
-          <MessageCircle className="size-4" aria-hidden />
-          WhatsApp
-        </a>
-        <PharmacyNavigationPicker
-          pharmacy={{
-            pharmacyId: pharmacy.id,
-            nom: pharmacy.nom,
-            adresse: pharmacy.adresse,
-            ville: pharmacy.ville,
-            latitude: pharmacy.latitude,
-            longitude: pharmacy.longitude,
-            maps_url: pharmacy.maps_url,
-          }}
-          source="annuaire"
-          variant="annuaire"
-          disabledClassName={!canNavigate ? "pointer-events-none opacity-45" : undefined}
-        />
-      </div>
-
-      <div className="space-y-1.5 p-3 pt-2">
+      <div className="space-y-3 p-4">
         <div className="flex items-center gap-2">
           <div
             className="flex min-w-0 flex-1 items-baseline gap-1.5"
             title={publicRef ? `${pharmacyPublicLabel(pharmacy.nom)} · ${publicRef}` : pharmacyPublicLabel(pharmacy.nom)}
           >
-            <h2 className="min-w-0 truncate text-base font-bold leading-tight text-foreground">
+            <h2 className="min-w-0 truncate text-base font-bold leading-tight text-foreground sm:text-lg">
               {pharmacyPublicLabel(pharmacy.nom)}
             </h2>
             {publicRef ? (
-              <span className="shrink-0 font-mono text-[10px] font-bold tabular-nums text-primary">{publicRef}</span>
+              <span className="shrink-0 font-mono text-xs font-semibold tabular-nums text-muted-foreground">
+                {publicRef}
+              </span>
             ) : null}
           </div>
           <button
             type="button"
             onClick={(e) => void handleShare(e)}
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-muted/40 text-foreground transition hover:bg-muted/70"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/80 bg-muted/30 text-foreground transition hover:bg-muted/50"
             aria-label={`Partager ${pharmacyPublicLabel(pharmacy.nom)}`}
           >
-            <Share2 className="size-3.5" aria-hidden />
+            <Share2 className="size-4" aria-hidden />
           </button>
         </div>
-        <p className="flex items-start gap-1.5 text-xs leading-snug text-muted-foreground">
-          <MapPin className="mt-0.5 size-3.5 shrink-0 text-primary/70" aria-hidden />
+        <p className="flex items-start gap-1.5 text-sm leading-snug text-muted-foreground">
+          <MapPin className="mt-0.5 size-4 shrink-0 text-primary/70" aria-hidden />
           <span>
             {pharmacy.adresse}
             {pharmacy.ville ? `, ${pharmacy.ville}` : ""}
           </span>
         </p>
         {!pharmacy.hasValidLocation ? (
-          <p className="text-[10px] text-amber-800">Position GPS non renseignée — tri par distance indisponible.</p>
+          <p className="text-xs text-muted-foreground">Position GPS non renseignée.</p>
         ) : null}
         <Link
           href={`/pharmacie/${pharmacy.id}`}
-          className={cn(buttonVariants({ size: "sm" }), "h-9 w-full gap-1.5 text-xs font-semibold")}
+          className={cn(buttonVariants({ size: "touch" }), "w-full gap-2")}
         >
-          Voir la fiche
-          <ArrowRight className="size-3.5" aria-hidden />
+          Voir la pharmacie
+          <ArrowRight className="size-4" aria-hidden />
         </Link>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href={pharmacy.telephone ? `tel:${pharmacy.telephone}` : undefined}
+            aria-disabled={!pharmacy.telephone}
+            onClick={(e) => {
+              if (!pharmacy.telephone) e.preventDefault();
+              else
+                trackPharmacyEngagement({
+                  pharmacyId: pharmacy.id,
+                  eventType: "phone_click",
+                  source: "annuaire",
+                });
+            }}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "h-10 flex-1 min-w-[88px] gap-1.5 text-xs",
+              !pharmacy.telephone && "pointer-events-none opacity-45"
+            )}
+          >
+            <Phone className="size-4" aria-hidden />
+            Appeler
+          </a>
+          <a
+            href={wa ? `https://wa.me/${wa}` : undefined}
+            target={wa ? "_blank" : undefined}
+            rel={wa ? "noreferrer" : undefined}
+            aria-disabled={!wa}
+            onClick={(e) => {
+              if (!wa) e.preventDefault();
+              else
+                trackPharmacyEngagement({
+                  pharmacyId: pharmacy.id,
+                  eventType: "whatsapp_click",
+                  source: "annuaire",
+                });
+            }}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "h-10 flex-1 min-w-[88px] gap-1.5 text-xs",
+              !wa && "pointer-events-none opacity-45"
+            )}
+          >
+            <MessageCircle className="size-4" aria-hidden />
+            WhatsApp
+          </a>
+          <PharmacyNavigationPicker
+            pharmacy={{
+              pharmacyId: pharmacy.id,
+              nom: pharmacy.nom,
+              adresse: pharmacy.adresse,
+              ville: pharmacy.ville,
+              latitude: pharmacy.latitude,
+              longitude: pharmacy.longitude,
+              maps_url: pharmacy.maps_url,
+            }}
+            source="annuaire"
+            variant="annuaire"
+            disabledClassName={!canNavigate ? "pointer-events-none opacity-45" : undefined}
+          />
+        </div>
       </div>
     </article>
   );

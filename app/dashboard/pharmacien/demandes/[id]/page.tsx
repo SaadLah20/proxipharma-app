@@ -4818,9 +4818,9 @@ export default function PharmacienDemandeDetailPage() {
       !isConsultation &&
       ["submitted", "in_review"].includes(request.status) &&
       !pharmacistRequestIsHardStopped(request.status) ? (
-        <section className={clsx(PHARMA_STATUS_BANNER, "border-sky-200/70 bg-sky-50/50 text-sky-950")}>
-          <p className="font-semibold text-sky-950">À traiter</p>
-          <p className="text-sky-900/88">Dispo, qtés, alternatives — puis publier.</p>
+        <section className={clsx(PHARMA_STATUS_BANNER, "border-border/80 bg-card text-foreground")}>
+          <p className="font-semibold text-foreground">À traiter</p>
+          <p className="text-muted-foreground">Dispo, qtés, alternatives — puis publier.</p>
         </section>
       ) : null}
 
@@ -4830,9 +4830,9 @@ export default function PharmacienDemandeDetailPage() {
       isConsultation &&
       ["submitted", "in_review"].includes(request.status) &&
       !pharmacistRequestIsHardStopped(request.status) ? (
-        <section className={clsx(PHARMA_STATUS_BANNER, "border-violet-200/70 bg-violet-50/45 text-violet-950")}>
-          <p className="font-semibold text-violet-950">Consultation</p>
-          <p className="text-violet-900/88">Conversation ou produits — puis publier.</p>
+        <section className={clsx(PHARMA_STATUS_BANNER, "border-border/80 bg-card text-foreground")}>
+          <p className="font-semibold text-foreground">Consultation</p>
+          <p className="text-muted-foreground">Conversation ou produits — puis publier.</p>
         </section>
       ) : null}
 
@@ -4840,9 +4840,9 @@ export default function PharmacienDemandeDetailPage() {
       usesLineWorkflow &&
       request?.status === "confirmed" &&
       !pharmacistRequestIsHardStopped(request.status) ? (
-        <section className={clsx(PHARMA_STATUS_BANNER, "border-teal-200/70 bg-teal-50/45 text-teal-950")}>
-          <p className="font-semibold text-teal-950">Validée patient</p>
-          <p className="text-teal-900/88">Pastilles = enregistrement direct · écarts = barre du bas.</p>
+        <section className={clsx(PHARMA_STATUS_BANNER, "border-border/80 bg-card text-foreground")}>
+          <p className="font-semibold text-foreground">Validée patient</p>
+          <p className="text-muted-foreground">Pastilles = enregistrement direct · écarts = barre du bas.</p>
         </section>
       ) : null}
 
@@ -4850,26 +4850,26 @@ export default function PharmacienDemandeDetailPage() {
       usesLineWorkflow &&
       request?.status === "treated" &&
       !pharmacistRequestIsHardStopped(request.status) ? (
-        <section className={clsx(PHARMA_STATUS_BANNER, "border-violet-200/70 bg-violet-50/40 text-violet-950")}>
-          <p className="font-semibold text-violet-950">Comptoir</p>
-          <p className="text-violet-900/88">Marquer récupéré par ligne · autres modifs via la barre du bas.</p>
+        <section className={clsx(PHARMA_STATUS_BANNER, "border-border/80 bg-card text-foreground")}>
+          <p className="font-semibold text-foreground">Comptoir</p>
+          <p className="text-muted-foreground">Marquer récupéré par ligne · autres modifs via la barre du bas.</p>
         </section>
       ) : null}
 
       {respondedEditMode && request?.status === "responded" && usesLineWorkflow ? (
         <section
           id="pharma-demande-mode-edition"
-          className="sticky top-0 z-20 rounded-lg border border-amber-300/80 bg-amber-50/90 px-2.5 py-1.5 text-center text-[10px] shadow-sm ring-1 ring-amber-200/50"
+          className="sticky top-0 z-20 rounded-lg border border-border/80 bg-card px-2.5 py-1.5 text-center text-[10px] shadow-sm"
         >
-          <p className="font-bold text-amber-950">Modification</p>
-          <p className="text-amber-900/85">Visible patient après enregistrement.</p>
+          <p className="font-bold text-foreground">Modification</p>
+          <p className="text-muted-foreground">Visible patient après enregistrement.</p>
         </section>
       ) : null}
 
       {respondedFrozenView && usesLineWorkflow ? (
-        <section className={clsx(PHARMA_STATUS_BANNER, "border-amber-200/70 bg-amber-50/55 text-amber-950")}>
+        <section className={clsx(PHARMA_STATUS_BANNER, "border-border/80 bg-card text-foreground")}>
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-            <span className="shrink-0 rounded-full border border-amber-300/80 bg-white px-1.5 py-px text-[8px] font-bold uppercase text-amber-950">
+            <span className="shrink-0 rounded-full border border-border/80 bg-muted px-1.5 py-px text-[8px] font-bold uppercase text-foreground">
               Publiée
             </span>
             <p className="min-w-0 flex-1 tabular-nums">
@@ -4883,12 +4883,12 @@ export default function PharmacienDemandeDetailPage() {
       ) : null}
 
       {requestDrift.stale ? (
-        <div className="rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">
+        <div className="rounded-lg border border-border/80 bg-card p-3 text-[11px] text-foreground shadow-sm">
           <p className="font-bold">{requestDrift.stale.title}</p>
-          <p className="mt-1 leading-snug">{requestDrift.stale.message}</p>
+          <p className="mt-1 leading-snug text-muted-foreground">{requestDrift.stale.message}</p>
           <button
             type="button"
-            className="mt-2 inline-flex min-h-9 items-center justify-center rounded-lg border border-amber-500/80 bg-white px-3 font-semibold text-amber-950 hover:bg-amber-50"
+            className="mt-2 inline-flex min-h-9 items-center justify-center rounded-lg border border-border bg-card px-3 font-semibold text-foreground hover:bg-muted/50"
             onClick={() => void requestDrift.refresh()}
           >
             Actualiser la page
@@ -6578,7 +6578,7 @@ export default function PharmacienDemandeDetailPage() {
           ) : null}
 
           {respondedFrozenView ? (
-            <section className="mt-3 space-y-2 rounded-xl border border-amber-200/85 bg-amber-50/50 p-2.5 shadow-sm sm:mt-4 sm:p-3">
+            <section className="mt-3 space-y-2 rounded-xl border border-border/80 bg-card p-2.5 shadow-sm sm:mt-4 sm:p-3">
               <button
                 type="button"
                 onClick={() => {
@@ -6700,7 +6700,7 @@ export default function PharmacienDemandeDetailPage() {
           ) : null}
 
           <details
-            className="group mt-3 rounded-lg border border-sky-200/70 bg-sky-50/25 p-2 shadow-sm ring-1 ring-sky-100/60"
+            className="group mt-3 rounded-lg border border-border/80 bg-card p-2 shadow-sm"
             onToggle={(e) => {
               const open = (e.currentTarget as HTMLDetailsElement).open;
               setHistoryOpen(open);
@@ -6709,7 +6709,7 @@ export default function PharmacienDemandeDetailPage() {
               }
             }}
           >
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-0.5 py-1 text-sky-950 [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-0.5 py-1 text-foreground [&::-webkit-details-marker]:hidden">
               <span className="text-[11px] font-bold uppercase tracking-wide">Historique du dossier</span>
               <ChevronDown
                 className="size-3.5 shrink-0 opacity-80 transition-transform group-open:rotate-180"

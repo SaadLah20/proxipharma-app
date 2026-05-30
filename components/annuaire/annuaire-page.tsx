@@ -214,25 +214,17 @@ export function AnnuairePage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
-      <section className="relative z-20 border-b border-primary/15 text-white shadow-md">
-        <div
-          className="pointer-events-none absolute inset-0 bg-cover bg-left bg-no-repeat sm:bg-[center_left_20%]"
-          style={{ backgroundImage: "url(/brand/annuaire-hero.png)" }}
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-emerald-950/92 via-emerald-900/78 to-emerald-900/25 sm:from-emerald-950/88 sm:via-emerald-900/55"
-          aria-hidden
-        />
-        <div className="relative mx-auto max-w-5xl px-4 py-4 sm:px-5 sm:py-5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-100/90">ProxiPharma</p>
-          <h1 className="mt-0.5 text-lg font-bold tracking-tight sm:text-xl">Annuaire interactif des pharmacies</h1>
-          <p className="mt-1.5 max-w-2xl text-xs leading-snug text-emerald-50/95 sm:text-sm sm:leading-relaxed">
-            Consultez les officines, appelez ou écrivez en un clic, et lancez vos demandes depuis la fiche — sans
-            intermédiaire.
+      <section className="relative z-20 border-b border-border/80 bg-card shadow-sm">
+        <div className="mx-auto max-w-5xl px-4 py-5 sm:px-5 sm:py-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">ProxiPharma</p>
+          <h1 className="mt-1 text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+            Annuaire des pharmacies
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            Trouvez une officine, consultez la fiche et lancez une demande en quelques clics.
           </p>
 
-          <div className="relative z-10 mt-3 space-y-2 overflow-visible rounded-xl border border-white/20 bg-white/10 p-2.5 shadow-inner ring-1 ring-white/15 backdrop-blur-sm sm:p-3">
+          <div className="relative z-10 mt-4 space-y-2 overflow-visible rounded-xl border border-border/80 bg-background p-3 shadow-sm sm:p-4">
             <label className="block">
               <span className="sr-only">Rechercher une pharmacie</span>
               <span className="relative block">

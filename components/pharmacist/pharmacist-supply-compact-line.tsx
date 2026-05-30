@@ -4,11 +4,13 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { clsx } from "clsx";
 import { History, MoreVertical, Package } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   validatedLineLabelChipClass,
   type ValidatedLineLabel,
 } from "@/lib/patient-validated-line-labels-fr";
 import { pharmacistProposedProductBadgeFr } from "@/lib/request-display";
+import { dsShell } from "@/lib/design-system/tokens";
 
 export type PharmacistSupplyLineTier =
   | "dispo_officine"
@@ -18,12 +20,10 @@ export type PharmacistSupplyLineTier =
 
 function validatedLineShellClass(tier: PharmacistSupplyLineTier, withdrawnGrey: boolean): string {
   if (withdrawnGrey) {
-    return "border-slate-200/75 bg-slate-50/75 saturate-[0.65] opacity-[0.72]";
+    return "border-border/60 bg-muted/30 saturate-[0.65] opacity-[0.72]";
   }
-  if (tier === "dispo_officine") return "border-sky-300/85 bg-white ring-1 ring-sky-200/55";
-  if (tier === "commande") return "border-teal-300/85 bg-white ring-1 ring-teal-200/55";
-  if (tier === "retire_apres_validation") return "border-red-200/85 bg-red-50/30";
-  return "border-slate-200/80 bg-white";
+  if (tier === "retire_apres_validation") return "border-border/80 bg-muted/20";
+  return "border-border/80 bg-card";
 }
 
 export function PharmacistSupplyCompactLine({
@@ -77,7 +77,6 @@ export function PharmacistSupplyCompactLine({
   ajoutOfficineBadgeLabel,
   /** Badge origine ligne (Ordonnance / Proposé) — distinct de l’ajout post-validation. */
   lineOriginBadgeLabel,
-  lineOriginBadgeTone = "ordonnance",
   withdrawDisabled,
   withdrawDisabledReason,
   supplyTier,
@@ -156,12 +155,10 @@ export function PharmacistSupplyCompactLine({
   const cardShell = supplyTier
     ? validatedLineShellClass(supplyTier, withdrawnGrey || withdrawn)
     : withdrawn
-      ? "rounded-lg border border-amber-200/80 bg-amber-50/25 shadow-sm ring-1 ring-amber-100/50"
+      ? clsx(dsShell.card, "opacity-[0.82]")
       : !selected
-        ? "rounded-lg border border-slate-200/85 bg-white shadow-sm ring-1 ring-slate-100/60"
-        : effAvailRow === "to_order"
-          ? "rounded-lg border border-teal-200/75 bg-teal-50/25 shadow-sm ring-1 ring-teal-100/50"
-          : "rounded-lg border border-sky-200/75 bg-sky-50/25 shadow-sm ring-1 ring-sky-100/50";
+        ? dsShell.card
+        : dsShell.card;
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -213,7 +210,7 @@ export function PharmacistSupplyCompactLine({
       ) : null}
       <li
         className={clsx(
-          "list-none overflow-hidden px-2 py-1.5 sm:px-2.5 sm:py-2",
+          "list-none overflow-hidden rounded-xl px-2 py-1.5 sm:px-2.5 sm:py-2",
           cardShell,
           withdrawn && "opacity-[0.82] saturate-[0.72]"
         )}
@@ -353,20 +350,15 @@ export function PharmacistSupplyCompactLine({
               ) : (
                 <>
                   {showAjoutOfficineBadge ? (
-                    <span className="mt-1 inline-flex max-w-full rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                    <Badge variant="outline" className="mt-1 max-w-full text-[10px] uppercase">
                       {ajoutOfficineBadgeLabel ?? pharmacistProposedProductBadgeFr}
-                    </span>
+                    </Badge>
                   ) : lineOriginBadgeLabel ? (
-                    <span
-                      className={clsx(
-                        "mt-1 inline-flex max-w-full rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
-                        lineOriginBadgeTone === "ordonnance" ? "bg-amber-700" : "bg-violet-600"
-                      )}
-                    >
+                    <Badge variant="outline" className="mt-1 max-w-full text-[10px] uppercase">
                       {lineOriginBadgeLabel}
-                    </span>
+                    </Badge>
                   ) : null}
-                  <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-slate-700">{availSentence}</p>
+                  <p className="mt-1 line-clamp-3 text-sm leading-snug text-muted-foreground">{availSentence}</p>
                 </>
               )}
 
@@ -375,41 +367,38 @@ export function PharmacistSupplyCompactLine({
               postConfirmAmendmentBadges.length > 0 ? (
                 <div className="mt-1 flex flex-wrap gap-1">
                   {postConfirmAmendmentBadges.map((label) => (
-                    <span
-                      key={label}
-                      className="inline-flex max-w-full items-center rounded-md border border-slate-300/80 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
-                    >
+                    <Badge key={label} variant="outline" className="max-w-full text-[10px] uppercase">
                       {label}
-                    </span>
+                    </Badge>
                   ))}
                 </div>
               ) : null}
             </div>
           </div>
 
-          <div className="flex min-w-0 flex-nowrap items-baseline justify-between gap-x-2 border-t border-border/45 pt-1.5 text-[12px] font-medium tabular-nums text-slate-800 sm:text-[13px]">
+          <div className="flex min-w-0 flex-nowrap items-baseline justify-between gap-x-2 border-t border-border/45 pt-1.5 text-sm tabular-nums text-foreground">
             <div className="min-w-0 shrink-0 whitespace-nowrap text-start">
-              <span className="text-slate-500">PU</span>{" "}
-              <strong className="font-semibold text-slate-900">{unitLabel}</strong>
+              <span className="text-muted-foreground">PU</span>{" "}
+              <strong className="font-semibold">{unitLabel}</strong>
             </div>
             <div className="min-w-0 flex-1 text-center">
               <span className="inline-flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0">
                 {ordonnancePrescribedQty != null ? (
                   <span className="inline-flex items-baseline gap-1">
-                    <span className="text-slate-500">Prescrit</span>
-                    <strong className="font-semibold text-amber-950 tabular-nums">{ordonnancePrescribedQty}</strong>
+                    <span className="text-muted-foreground">Prescrit</span>
+                    <strong className="font-semibold tabular-nums">{ordonnancePrescribedQty}</strong>
                   </span>
                 ) : null}
                 <span className="inline-flex items-baseline gap-1">
-                  <span className="text-slate-500">{ordonnancePrescribedQty != null ? "Retenu" : "Qté"}</span>
-                  <strong className="font-semibold text-slate-900 tabular-nums">{validatedQty}</strong>
+                  <span className="text-muted-foreground">{ordonnancePrescribedQty != null ? "Retenu" : "Qté"}</span>
+                  <strong className="font-semibold tabular-nums">{validatedQty}</strong>
                 </span>
               </span>
             </div>
             <div className="min-w-0 shrink-0 whitespace-nowrap text-end">
               <span className="inline-flex items-baseline justify-end gap-1">
-                <span className="text-slate-500">Total</span>
-                <strong className={clsx("font-semibold text-sky-900", withdrawn && "line-through decoration-muted-foreground/70")}>
+                <span className="text-muted-foreground">Total</span>
+                <strong className={clsx("font-semibold", withdrawn && "line-through decoration-muted-foreground/70")}>
                   {totalLabel}
                 </strong>
               </span>
@@ -454,9 +443,7 @@ export function PharmacistSupplyCompactLine({
                   onClick={onToggleArrivedReserved}
                   className={clsx(
                     pill,
-                    fulfillmentDraft === "arrived_reserved"
-                      ? "border-teal-700 bg-teal-600 text-white"
-                      : "border-teal-400/80 bg-background text-teal-950 hover:bg-teal-50/80"
+                    fulfillmentDraft === "arrived_reserved" ? pillActive : pillIdle
                   )}
                 >
                   {fulfillmentDraft === "arrived_reserved" ? "Reçu en officine" : "Marquer reçu en officine"}
@@ -467,12 +454,7 @@ export function PharmacistSupplyCompactLine({
                   type="button"
                   disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy || counterOutcomeBusy}
                   onClick={onMarkPickedUpCounter}
-                  className={clsx(
-                    pill,
-                    counterPickupActive
-                      ? pillActive
-                      : "border-violet-500/70 bg-violet-50 text-violet-950 hover:bg-violet-100/90"
-                  )}
+                  className={clsx(pill, counterPickupActive ? pillActive : pillIdle)}
                 >
                   {counterPickupActive ? "Récupéré" : "Marquer récupéré"}
                 </button>
