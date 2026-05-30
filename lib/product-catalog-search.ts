@@ -21,3 +21,20 @@ export function productNameOrLaboratoryIlikeOr(sanitized: string): string {
   const p = `%${sanitized}%`;
   return `name.ilike.${p},laboratory.ilike.${p}`;
 }
+
+export type ProductCatalogHitWithId = { id: string };
+
+/** Retire les produits déjà présents dans une liste active (panier / lignes dossier). */
+export function filterCatalogHitsExcludingProductIds<T extends ProductCatalogHitWithId>(
+  hits: readonly T[],
+  occupiedProductIds: ReadonlySet<string>
+): T[] {
+  if (occupiedProductIds.size === 0) return [...hits];
+  return hits.filter((h) => !occupiedProductIds.has(h.id));
+}
+
+export function productIdsFromLineProductIds(
+  lines: readonly { product_id: string }[]
+): Set<string> {
+  return new Set(lines.map((l) => l.product_id));
+}

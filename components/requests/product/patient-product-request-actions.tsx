@@ -101,6 +101,8 @@ import {
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
+  filterCatalogHitsExcludingProductIds,
+  productIdsFromLineProductIds,
   productNameOrLaboratoryIlikeOr,
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
@@ -2193,7 +2195,10 @@ export function PatientProductRequestActions({
     workflowCopy.patientLineOriginLabel,
   ]);
 
-  const visibleHits = debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS ? [] : hits;
+  const visibleHits = useMemo(() => {
+    if (debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) return [];
+    return filterCatalogHitsExcludingProductIds(hits, productIdsFromLineProductIds(lines));
+  }, [debouncedQuery, hits, lines]);
   const resubmitTotal = useMemo(
     () => lines.reduce((sum, l) => sum + (resubmitLineUnitPrice(l) ?? 0) * l.qty, 0),
     [lines]

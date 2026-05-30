@@ -1846,10 +1846,14 @@ export default function PharmacienDemandeDetailPage() {
     return mergePendingAlternativesOntoRows(withSynthetic, pendingAlternatives);
   }, [items, hideStaleServerPharmacistProposals, pendingProposalRows, pendingAlternatives]);
 
+  const catalogBlockRequestStatus = request?.status ?? null;
+
   const propVisibleHits = useMemo(() => {
     if (!propCatalogSearchActive || propDebounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) return [];
-    return propHits.filter((h) => !pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft));
-  }, [propCatalogSearchActive, propDebounced, propHits, displayRows, draft]);
+    return propHits.filter(
+      (h) => !pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft, catalogBlockRequestStatus)
+    );
+  }, [propCatalogSearchActive, propDebounced, propHits, displayRows, draft, catalogBlockRequestStatus]);
 
   const altPickerParentRow = useMemo(
     () => (altPickerOpenFor ? displayRows.find((r) => r.id === altPickerOpenFor) ?? null : null),
@@ -1863,9 +1867,9 @@ export default function PharmacienDemandeDetailPage() {
     return altHits.filter((h) => {
       if (parent && h.id === parent.product_id) return false;
       if (parent && parentAlts.some((a) => a.product_id === h.id)) return false;
-      return !pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft);
+      return !pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft, catalogBlockRequestStatus);
     });
-  }, [altDebounced, altHits, altPickerParentRow, displayRows, draft]);
+  }, [altDebounced, altHits, altPickerParentRow, displayRows, draft, catalogBlockRequestStatus]);
 
   const ordonnanceAltVisibleHits = useMemo(() => {
     const pickId = ordonnanceQuickAddPick?.id;
@@ -1873,9 +1877,16 @@ export default function PharmacienDemandeDetailPage() {
       (h) =>
         h.id !== pickId &&
         !ordonnanceQuickAlternatives.some((a) => a.id === h.id) &&
-        !pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft)
+        !pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft, catalogBlockRequestStatus)
     );
-  }, [ordonnanceAltHits, ordonnanceQuickAddPick?.id, ordonnanceQuickAlternatives, displayRows, draft]);
+  }, [
+    ordonnanceAltHits,
+    ordonnanceQuickAddPick?.id,
+    ordonnanceQuickAlternatives,
+    displayRows,
+    draft,
+    catalogBlockRequestStatus,
+  ]);
 
   const ordonnanceLineCount = useMemo(() => {
     if (!request || request.request_type !== "prescription") return 0;
@@ -2856,7 +2867,7 @@ export default function PharmacienDemandeDetailPage() {
       }
     }
     const expectedDateValue = needsEta && etaYmd ? etaYmd : null;
-    if (pharmacistRequestCatalogProductIdBlocked(pick.id, displayRows, draft)) {
+    if (pharmacistRequestCatalogProductIdBlocked(pick.id, displayRows, draft, catalogBlockRequestStatus)) {
       setError(pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null));
       return;
     }
@@ -2919,7 +2930,7 @@ export default function PharmacienDemandeDetailPage() {
                 altValidationError = "Cette alternative figure déjà sur cette ligne.";
                 return prev;
               }
-              if (pharmacistRequestCatalogProductIdBlocked(alt.id, displayRows, draft)) {
+              if (pharmacistRequestCatalogProductIdBlocked(alt.id, displayRows, draft, catalogBlockRequestStatus)) {
                 altValidationError = pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null);
                 return prev;
               }
@@ -3002,7 +3013,7 @@ export default function PharmacienDemandeDetailPage() {
       let rank = 1;
       for (const alt of altPicks.slice(0, 3)) {
         if (alt.id === pick.id) continue;
-        if (pharmacistRequestCatalogProductIdBlocked(alt.id, displayRows, draft)) {
+        if (pharmacistRequestCatalogProductIdBlocked(alt.id, displayRows, draft, catalogBlockRequestStatus)) {
           setPropBusy(false);
           setError(pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null));
           return;
@@ -3052,7 +3063,7 @@ export default function PharmacienDemandeDetailPage() {
       setError("Choisis un produit différent de la ligne principale.");
       return;
     }
-    if (pharmacistRequestCatalogProductIdBlocked(catalogProductId, displayRows, draft)) {
+    if (pharmacistRequestCatalogProductIdBlocked(catalogProductId, displayRows, draft, catalogBlockRequestStatus)) {
       setError(pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null));
       return;
     }
@@ -7107,7 +7118,7 @@ export default function PharmacienDemandeDetailPage() {
           onAddAlternative={(h) => {
             if (ordonnanceQuickAlternatives.length >= 3) return;
             if (h.id === ordonnanceQuickAddPick?.id) return;
-            if (pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft)) {
+            if (pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft, catalogBlockRequestStatus)) {
               setError(pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null));
               return;
             }
