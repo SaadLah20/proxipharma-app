@@ -41,8 +41,8 @@ import { plannedVisitWindow } from "@/lib/planned-visit";
 import {
   bucketPatientRespondedLines,
   PATIENT_RESPONDED_BUCKET_ORDER,
-  patientRespondedBucketTitleFr,
 } from "@/lib/patient-responded-line-buckets";
+import { PatientRespondedBucketSection } from "@/components/requests/product/patient-responded-bucket-section";
 import {
   bucketPatientValidatedLinesThreeWays,
   type PatientLineLike,
@@ -772,16 +772,12 @@ function PatientArchiveFrozenProductsView({
         <h3 className="px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
           {productsSectionTitle}
         </h3>
-        <div className="space-y-3">
+        <div className="space-y-4">
           {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
             const rows = respondedBuckets[bucketId];
             if (rows.length === 0) return null;
             return (
-              <section key={bucketId} className="space-y-2">
-                <h4 className="px-0.5 text-[10px] font-extrabold uppercase tracking-wide text-sky-900/90">
-                  {patientRespondedBucketTitleFr(bucketId)}
-                  <span className="ml-1 font-bold tabular-nums text-muted-foreground">· {rows.length}</span>
-                </h4>
+              <PatientRespondedBucketSection key={bucketId} bucketId={bucketId} count={rows.length}>
                 <ul className="w-full min-w-0 space-y-2.5 overflow-visible">
                   {rows.map((row) => (
                     <RespondedPatientLineChooser
@@ -800,7 +796,7 @@ function PatientArchiveFrozenProductsView({
                     />
                   ))}
                 </ul>
-              </section>
+              </PatientRespondedBucketSection>
             );
           })}
         </div>
@@ -3050,22 +3046,16 @@ export function PatientProductRequestActions({
                   />
                 );
                 return (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
                       const rows = respondedBuckets[bucketId];
                       if (rows.length === 0) return null;
                       return (
-                        <section key={bucketId} className="space-y-2">
-                          <h4 className="px-0.5 text-[10px] font-extrabold uppercase tracking-wide text-sky-900/90">
-                            {patientRespondedBucketTitleFr(bucketId)}
-                            <span className="ml-1 font-bold tabular-nums text-muted-foreground">
-                              · {rows.length}
-                            </span>
-                          </h4>
+                        <PatientRespondedBucketSection key={bucketId} bucketId={bucketId} count={rows.length}>
                           <ul className="w-full min-w-0 space-y-2.5 overflow-visible">
                             {rows.map((row) => renderRespondedLine(row))}
                           </ul>
-                        </section>
+                        </PatientRespondedBucketSection>
                       );
                     })}
                   </div>
