@@ -30,11 +30,22 @@ async function handleCron(req: Request) {
     return Response.json({ ok: false, error: error.message }, { status: 500 });
   }
 
+  const { data: reminded, error: remindError } = await supabase.rpc("remind_unvalidated_responded_requests", {
+    p_responded_silence: silence,
+    p_reminder_before: "4 hours",
+  });
+
+  if (remindError) {
+    return Response.json({ ok: false, error: remindError.message }, { status: 500 });
+  }
+
   const expiredCount = typeof data === "number" ? data : Number(data);
+  const remindedCount = typeof reminded === "number" ? reminded : Number(reminded);
 
   return Response.json({
     ok: true,
     expiredCount: Number.isFinite(expiredCount) ? expiredCount : 0,
+    remindedCount: Number.isFinite(remindedCount) ? remindedCount : 0,
     silence,
   });
 }
