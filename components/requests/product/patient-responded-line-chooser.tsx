@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Ban, Package, X } from "lucide-react";
+import { Ban, Check, Package, X } from "lucide-react";
 import {
   PRODUCT_REQUEST_LINE_CARD_SHELL,
   ProductRequestLineMessageIconButton,
@@ -274,11 +274,14 @@ type VariantData = {
 function RespondedVariantTabs({
   tabs,
   activeTab,
+  selectedTabId,
   onTab,
   className,
 }: {
   tabs: { id: string; label: string; retainable: boolean }[];
   activeTab: string;
+  /** Onglet dont la branche est cochée par le patient (`null` = aucune). */
+  selectedTabId: string | null;
   onTab: (id: string) => void;
   className?: string;
 }) {
@@ -292,28 +295,56 @@ function RespondedVariantTabs({
       aria-label="Options pour ce produit"
     >
       {tabs.map((tab) => {
-        const active = tab.id === activeTab;
+        const isViewing = tab.id === activeTab;
+        const isSelected = selectedTabId === tab.id;
         const dim = !tab.retainable;
         return (
           <button
             key={tab.id}
             type="button"
             role="tab"
-            aria-selected={active}
-            title={dim ? "Non retenable — rupture ou indisponible" : undefined}
+            aria-selected={isViewing}
+            title={
+              dim
+                ? "Non retenable — rupture ou indisponible"
+                : isSelected
+                  ? isViewing
+                    ? "Option retenue — affichée"
+                    : "Option retenue — cliquez pour la revoir"
+                  : undefined
+            }
             className={cn(
-              "shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold leading-tight shadow-sm transition",
-              active
-                ? dim
-                  ? "border-slate-300 bg-slate-100 text-slate-600 ring-1 ring-slate-200/90"
-                  : "border-sky-500 bg-white text-sky-950 ring-2 ring-sky-300/70"
-                : dim
-                  ? "border-slate-200/90 bg-slate-50/90 text-slate-500 line-through decoration-slate-400/80"
-                  : "border-sky-300/80 bg-sky-100/90 text-sky-900 hover:border-sky-400 hover:bg-white"
+              "inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold leading-tight shadow-sm transition",
+              dim &&
+                "border-slate-200/90 bg-slate-50/90 text-slate-500 line-through decoration-slate-400/80",
+              !dim &&
+                isSelected &&
+                isViewing &&
+                "border-emerald-500 bg-emerald-50/95 text-emerald-950 ring-2 ring-emerald-300/75",
+              !dim &&
+                isSelected &&
+                !isViewing &&
+                "border-emerald-400/80 bg-emerald-50/80 text-emerald-900 ring-1 ring-emerald-200/70",
+              !dim &&
+                !isSelected &&
+                isViewing &&
+                "border-sky-500 bg-white text-sky-950 ring-2 ring-sky-300/70",
+              !dim &&
+                !isSelected &&
+                !isViewing &&
+                "border-sky-300/80 bg-sky-100/90 text-sky-900 hover:border-sky-400 hover:bg-white"
             )}
             onClick={() => onTab(tab.id)}
           >
-            {tab.label}
+            {isSelected && !dim ? (
+              <Check className="size-3 shrink-0 text-emerald-700" strokeWidth={2.75} aria-hidden />
+            ) : null}
+            <span>{tab.label}</span>
+            {isSelected && !dim && !isViewing ? (
+              <span className="rounded bg-emerald-600/90 px-1 py-px text-[7px] font-extrabold uppercase tracking-wide text-white">
+                Retenue
+              </span>
+            ) : null}
           </button>
         );
       })}
@@ -574,14 +605,11 @@ export function RespondedPatientLineChooser({
 
   const [browseTab, setBrowseTab] = useState("principal");
 
-  /** En lecture seule (expirée, etc.) : l’onglet consulté suit `browseTab`, pas la branche retenue figée. */
-  const activeTab = readOnly
-    ? browseTab
-    : selState.branch === null
-      ? browseTab
-      : selState.branch === "principal"
-        ? "principal"
-        : selState.branch;
+  /** Onglet consulté (navigation libre, indépendante de la branche cochée). */
+  const activeTab = browseTab;
+
+  const selectedTabId: string | null =
+    selState.branch === null ? null : selState.branch === "principal" ? "principal" : selState.branch;
 
   const buildPrincipalVariant = (): VariantData => {
     const stockQty =
@@ -679,13 +707,6 @@ export function RespondedPatientLineChooser({
 
   const onTab = (tabId: string) => {
     setBrowseTab(tabId);
-    if (readOnly) return;
-    if (selState.branch !== null) {
-      const branch = branchFromTab(tabId);
-      const cap = maxQtyForBranch(row, branch, altList);
-      if (cap > 0) setLineBranch(row.id, branch);
-      else setLineBranch(row.id, null);
-    }
   };
 
   if (!hasAlts) {
@@ -724,6 +745,7 @@ export function RespondedPatientLineChooser({
             retainable: v.cap > 0,
           }))}
           activeTab={activeTab}
+          selectedTabId={selectedTabId}
           onTab={onTab}
         />
       </div>
