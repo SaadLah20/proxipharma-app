@@ -71,12 +71,12 @@ export function PatientProductDemandeHubCard({
             </div>
 
             <div>
-              <p className="truncate text-sm font-bold leading-tight text-foreground sm:text-[15px]">
+              <p className="text-sm font-bold leading-snug break-words text-foreground sm:text-[15px]">
                 {ph?.nom ? pharmacyPublicLabel(ph.nom) : "Pharmacie"}
-                {ph?.ville ? (
-                  <span className="ml-1 text-[12px] font-semibold text-muted-foreground">· {ph.ville}</span>
-                ) : null}
               </p>
+              {ph?.ville ? (
+                <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">{ph.ville}</p>
+              ) : null}
               <p className="mt-0.5 font-mono text-[11px] font-semibold text-sky-900/90">{refVisuel}</p>
             </div>
 
