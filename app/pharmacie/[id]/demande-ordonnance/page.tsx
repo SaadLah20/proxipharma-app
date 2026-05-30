@@ -6,6 +6,8 @@ import { useParams, useRouter } from "next/navigation";
 import { Camera, FileImage, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { PlatformStickyFooter } from "@/components/layout/platform-sticky-footer";
+import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
 import { cn } from "@/lib/utils";
 import {
   compressImageFileForPrescription,
@@ -198,7 +200,12 @@ export default function DemandeOrdonnancePage() {
   }
 
   return (
-    <main className="min-h-screen touch-pan-y bg-gradient-to-b from-amber-50/80 to-slate-50 p-4 pb-32 text-slate-900 antialiased sm:p-5">
+    <main
+      className={cn(
+        "min-h-screen touch-pan-y bg-gradient-to-b from-amber-50/80 to-slate-50 p-4 text-slate-900 antialiased sm:p-5",
+        stickyFooterPadClass("standard")
+      )}
+    >
       <div className="mx-auto max-w-lg">
         <Link
           href={`/pharmacie/${pharmacyId}`}
@@ -316,26 +323,27 @@ export default function DemandeOrdonnancePage() {
             {feedback.text}
           </p>
         ) : null}
+      </div>
 
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-amber-200/80 bg-white/95 p-4 backdrop-blur sm:static sm:mt-6 sm:border-0 sm:bg-transparent sm:p-0">
-          <Button
-            type="button"
-            className="h-12 w-full bg-amber-700 text-base font-semibold hover:bg-amber-800"
-            disabled={submitLoading}
-            onClick={() => {
-              const err = validate();
-              if (err) {
-                setFeedback({ type: "err", text: err });
-                return;
-              }
-              setConfirmOpen(true);
-            }}
-          >
-            {submitLoading ? "Envoi…" : "Envoyer l’ordonnance"}
-          </Button>
-        </div>
+      <PlatformStickyFooter tone="amber" zIndex={10020}>
+        <Button
+          type="button"
+          className="h-10 w-full bg-amber-700 text-sm font-semibold hover:bg-amber-800"
+          disabled={submitLoading}
+          onClick={() => {
+            const err = validate();
+            if (err) {
+              setFeedback({ type: "err", text: err });
+              return;
+            }
+            setConfirmOpen(true);
+          }}
+        >
+          {submitLoading ? "Envoi…" : "Envoyer l’ordonnance"}
+        </Button>
+      </PlatformStickyFooter>
 
-        {confirmOpen ? (
+      {confirmOpen ? (
           <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 p-4 sm:items-center">
             <div
               className="w-full max-w-md rounded-2xl border border-amber-200 bg-white p-4 shadow-xl"
@@ -362,7 +370,6 @@ export default function DemandeOrdonnancePage() {
             </div>
           </div>
         ) : null}
-      </div>
     </main>
   );
 }

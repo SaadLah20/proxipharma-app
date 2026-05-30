@@ -112,6 +112,12 @@ import {
 } from "@/lib/product-catalog-search";
 import { PageShell } from "@/components/ui/compact-shell";
 import {
+  PlatformStickyFooter,
+  PlatformStickyFooterStack,
+  PlatformStickyFooterStackRow,
+} from "@/components/layout/platform-sticky-footer";
+import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
+import {
   PHARMA_LINE_EDITOR_ALTS,
   PHARMA_LINE_EDITOR_CARD,
   PHARMA_LINE_EDITOR_CONTROLS,
@@ -4542,19 +4548,20 @@ export default function PharmacienDemandeDetailPage() {
     }
   }
 
+  const showMainSupplyFooter =
+    !respondedEditMode && (showBottomActionSticky || showSupplyStatsFooter || showSupplyDirtyBar);
+
   let bottomChromePaddingClass = "";
-  if (showBottomActionSticky && showSupplyStatsFooter) {
-    bottomChromePaddingClass = showSupplyDirtyBar ? "pb-44 sm:pb-[10.5rem]" : "pb-32 sm:pb-[8.75rem]";
+  if (respondedEditMode) {
+    bottomChromePaddingClass = stickyFooterPadClass("pharmaEdit");
+  } else if (showBottomActionSticky && showSupplyStatsFooter) {
+    bottomChromePaddingClass = stickyFooterPadClass(showSupplyDirtyBar ? "pharmaTriple" : "pharmaDouble");
   } else if (showBottomActionSticky) {
-    bottomChromePaddingClass = showSupplyDirtyBar ? "pb-36 sm:pb-40" : "pb-24 sm:pb-[5.5rem]";
+    bottomChromePaddingClass = stickyFooterPadClass(showSupplyDirtyBar ? "pharmaDouble" : "pharmaSingle");
   } else if (showSupplyStatsFooter) {
-    bottomChromePaddingClass = showSupplyDirtyBar ? "pb-28 sm:pb-32" : "pb-14 sm:pb-16";
+    bottomChromePaddingClass = stickyFooterPadClass(showSupplyDirtyBar ? "pharmaDouble" : "compact");
   } else if (showSupplyDirtyBar) {
-    bottomChromePaddingClass = "pb-24 sm:pb-28";
-  } else if (request.status === "treated" && !archiveFrozen) {
-    bottomChromePaddingClass = "pb-20 sm:pb-24";
-  } else if (canManageSupply) {
-    bottomChromePaddingClass = showSupplyDirtyBar ? "pb-28 sm:pb-32" : "pb-20 sm:pb-24";
+    bottomChromePaddingClass = stickyFooterPadClass("pharmaSingle");
   }
 
   return (
@@ -4563,7 +4570,6 @@ export default function PharmacienDemandeDetailPage() {
       className={clsx(
         "space-y-2 sm:space-y-3",
         usesLineWorkflow && "bg-slate-50",
-        canManageResponded && respondedEditMode && request?.status === "responded" && "pb-28 sm:pb-24",
         bottomChromePaddingClass
       )}
     >
@@ -6778,8 +6784,8 @@ export default function PharmacienDemandeDetailPage() {
         </div>
       ) : null}
       {canManageResponded && respondedEditMode ? (
-        <div className="fixed inset-x-0 bottom-0 z-[10040] border-t border-amber-400/80 bg-background/95 px-3 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] shadow-[0_-6px_28px_rgba(15,23,42,0.12)] backdrop-blur-md sm:px-4">
-          <div className="mx-auto flex max-w-3xl flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
+        <PlatformStickyFooter tone="amber" width="3xl" zIndex={10050}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
             <button
               type="button"
               disabled={busy}
@@ -6814,7 +6820,7 @@ export default function PharmacienDemandeDetailPage() {
               Enregistrer
             </button>
           </div>
-        </div>
+        </PlatformStickyFooter>
       ) : null}
       {respondedSaveConfirmOpen ? (
         <div
@@ -6974,11 +6980,11 @@ export default function PharmacienDemandeDetailPage() {
         </div>
       ) : null}
 
-      {showBottomActionSticky || showSupplyStatsFooter || showSupplyDirtyBar ? (
-        <div className="fixed inset-x-0 bottom-0 z-[10050] flex flex-col border-t border-sky-500/25 bg-background/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-6px_28px_rgba(15,23,42,0.12)] backdrop-blur-md">
+      {showMainSupplyFooter ? (
+        <PlatformStickyFooterStack tone="sky">
           {showDeclareTreatedSticky ? (
-            <div className="border-b border-sky-500/20 px-3 py-2">
-              <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+            <PlatformStickyFooterStackRow compact>
+              <div className="flex items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-foreground">
                   Préparation prête ?
                   <InfoHint label="À propos de « Déclarer la demande traitée »" placement="up">
@@ -6991,16 +6997,16 @@ export default function PharmacienDemandeDetailPage() {
                   disabled={declareTreatedBusy || Boolean(requestDrift.stale)}
                   title={requestDrift.stale?.message}
                   onClick={() => setDeclareTreatedModalOpen(true)}
-                  className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-sky-600 px-5 text-sm font-bold text-white shadow-md transition hover:bg-sky-700 disabled:opacity-50 sm:min-w-[200px]"
+                  className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-sky-600 px-4 text-sm font-bold text-white shadow-md transition hover:bg-sky-700 disabled:opacity-50 sm:min-w-[11rem]"
                 >
                   Déclarer la demande traitée
                 </button>
               </div>
-            </div>
+            </PlatformStickyFooterStackRow>
           ) : null}
           {showCloseCounterSticky ? (
-            <div className="border-b border-sky-500/20 px-3 py-2.5">
-              <div className="mx-auto flex max-w-3xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <PlatformStickyFooterStackRow>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <p className="text-center text-[11px] leading-snug text-muted-foreground sm:flex-1 sm:text-left">
                   Au moins un produit est récupéré — vous pouvez clôturer (les autres seront écartés).
                 </p>
@@ -7008,16 +7014,16 @@ export default function PharmacienDemandeDetailPage() {
                   type="button"
                   disabled={completeBusy}
                   onClick={() => setCloseConfirmOpen(true)}
-                  className="inline-flex h-11 w-full shrink-0 items-center justify-center rounded-xl bg-foreground px-5 text-sm font-bold text-background shadow-md transition hover:opacity-90 disabled:opacity-50 sm:w-auto sm:min-w-[200px]"
+                  className="inline-flex h-10 w-full shrink-0 items-center justify-center rounded-xl bg-foreground px-4 text-sm font-bold text-background shadow-md transition hover:opacity-90 disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
                 >
                   {completeBusy ? "Clôture…" : "Clôturer le dossier"}
                 </button>
               </div>
-            </div>
+            </PlatformStickyFooterStackRow>
           ) : null}
           {showSupplyStatsFooter ? (
-            <div className="flex justify-center border-b border-sky-500/15 px-3 py-2">
-              <div className="flex w-full max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[11px] text-foreground">
+            <PlatformStickyFooterStackRow compact bordered={showDeclareTreatedSticky || showCloseCounterSticky}>
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[11px] text-foreground">
                 <span className="font-semibold tabular-nums text-muted-foreground">
                   {supplyFooterTotals.count} produit{supplyFooterTotals.count > 1 ? "s" : ""}
                 </span>
@@ -7036,16 +7042,16 @@ export default function PharmacienDemandeDetailPage() {
                   ) : null}
                 </span>
               </div>
-            </div>
+            </PlatformStickyFooterStackRow>
           ) : null}
           {showSupplyDirtyBar ? (
-            <div className="border-t border-sky-500/35 bg-background/98 px-3 py-2.5 sm:px-4">
-              <div className="mx-auto flex max-w-3xl flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
+            <PlatformStickyFooterStackRow bordered={false}>
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => cancelConfirmedSupplyEdits()}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-sky-400/90 bg-white px-4 py-2.5 text-sm font-semibold text-sky-950 shadow-sm transition hover:bg-sky-50/90 disabled:opacity-50 sm:order-1 sm:w-auto sm:min-w-[9rem]"
+                  className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-sky-400/90 bg-white px-4 text-sm font-semibold text-sky-950 shadow-sm transition hover:bg-sky-50/90 disabled:opacity-50 sm:order-1 sm:w-auto sm:min-w-[9rem]"
                 >
                   Annuler
                 </button>
@@ -7053,14 +7059,14 @@ export default function PharmacienDemandeDetailPage() {
                   type="button"
                   disabled={busy}
                   onClick={() => startSaveConfirmedAdjustments()}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-sky-800 bg-sky-950 px-4 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-sky-900 disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
+                  className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-sky-800 bg-sky-950 px-4 text-sm font-bold text-white shadow-md transition hover:bg-sky-900 disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
                 >
                   {busy ? "Enregistrement…" : "Enregistrer les modifications"}
                 </button>
               </div>
-            </div>
+            </PlatformStickyFooterStackRow>
           ) : null}
-        </div>
+        </PlatformStickyFooterStack>
       ) : null}
 
       <PharmacistDeclareTreatedConfirmModal

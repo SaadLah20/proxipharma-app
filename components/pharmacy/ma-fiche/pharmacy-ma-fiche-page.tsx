@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { CompactCard, CompactCardBody, PageShell } from "@/components/ui/compact-shell";
+import { PlatformStickyFooter } from "@/components/layout/platform-sticky-footer";
+import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
 import { platformDashboardChrome as chrome } from "@/lib/platform-dashboard-chrome";
 import { PharmacyFormField } from "@/components/pharmacy/pharmacy-form-field";
 import { PharmacyImageUploadField } from "@/components/pharmacy/pharmacy-image-upload-field";
@@ -271,7 +273,7 @@ export function PharmacyMaFichePage() {
   }
 
   return (
-    <PageShell maxWidthClass="max-w-4xl" className="space-y-4 pb-28">
+    <PageShell maxWidthClass="max-w-4xl" className={clsx("space-y-4", stickyFooterPadClass("standard"))}>
       <header className="space-y-3">
         <PharmacistAccountPageHeader
           eyebrow="Officine & visibilité"
@@ -477,13 +479,13 @@ export function PharmacyMaFichePage() {
         </CompactCardBody>
       </CompactCard>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 px-3 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
-        <div className="mx-auto flex max-w-4xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <PlatformStickyFooter tone="neutral" width="3xl" innerClassName="!max-w-4xl">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <button
             type="button"
             disabled={busy}
             onClick={() => void save()}
-            className="min-h-12 w-full rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground shadow-sm disabled:opacity-50 sm:min-h-11 sm:w-auto sm:min-w-[12rem]"
+            className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground shadow-sm disabled:opacity-50 sm:w-auto sm:min-w-[12rem]"
           >
             {busy ? "Enregistrement…" : "Enregistrer la fiche"}
           </button>
@@ -492,14 +494,14 @@ export function PharmacyMaFichePage() {
               href={`/pharmacie/${pharmacyId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 text-center text-sm font-semibold text-emerald-800 underline"
+              className="inline-flex h-10 items-center justify-center gap-1.5 text-center text-sm font-semibold text-emerald-800 underline"
             >
               Voir la fiche publique
               <ExternalLink className="size-3.5" aria-hidden />
             </Link>
           ) : null}
         </div>
-      </div>
+      </PlatformStickyFooter>
     </PageShell>
   );
 }
