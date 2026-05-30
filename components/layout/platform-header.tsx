@@ -459,6 +459,43 @@ export function PlatformHeader() {
   }, [loadProfileAndNotifs]);
 
   useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`header-notifs-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "app_notifications",
+          filter: `recipient_id=eq.${userId}`,
+        },
+        () => {
+          void loadProfileAndNotifs(userId);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "promo_in_app_notifications",
+          filter: `recipient_id=eq.${userId}`,
+        },
+        () => {
+          void loadProfileAndNotifs(userId);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [loadProfileAndNotifs, session?.user?.id]);
+
+  useEffect(() => {
     if (!profileOpen && !notifOpen) return;
     const onDoc = (e: MouseEvent) => {
       const el = wrapRef.current;
