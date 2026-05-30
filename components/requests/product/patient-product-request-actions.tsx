@@ -44,6 +44,11 @@ import {
 } from "@/lib/patient-responded-line-buckets";
 import { PatientRespondedBucketSection } from "@/components/requests/product/patient-responded-bucket-section";
 import {
+  PlatformStickyFooter,
+  PlatformStickyFooterSummaryRow,
+} from "@/components/layout/platform-sticky-footer";
+import { stickyFooterPadClass, type StickyFooterPadTier } from "@/lib/platform-sticky-footer";
+import {
   bucketPatientValidatedLinesThreeWays,
   type PatientLineLike,
   validatedBranchUnitPriceMad,
@@ -2772,6 +2777,14 @@ export function PatientProductRequestActions({
     showProductResubmit ||
     (showPrescriptionWaiting && !forceReadOnly) ||
     ((showConfirm || showConfirmedCards) && !forceReadOnly);
+
+  const stickyFooterPadTier: StickyFooterPadTier = !needsStickyFooterPad
+    ? "none"
+    : showProductResubmit && editMode
+      ? "tall"
+      : showPrescriptionWaiting && prescriptionEditMode
+        ? "tall"
+        : "standard";
   /** Date/heure de passage : à la validation (responded) et pour modifier après coup. */
   const showVisitFields = (showConfirm || showConfirmedCards) && !forceReadOnly;
   const visitFieldsEditable = showVisitFields && !forceReadOnly;
@@ -2857,7 +2870,7 @@ export function PatientProductRequestActions({
             : useSkyProductShell
               ? "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
               : "border-slate-200 bg-slate-50/95",
-        needsStickyFooterPad && "pb-40",
+        stickyFooterPadClass(stickyFooterPadTier),
         isConsultation && showConsultationWaiting && !needsStickyFooterPad && "pb-2"
       )}
     >
@@ -3547,18 +3560,17 @@ export function PatientProductRequestActions({
       </div>
 
       {showProductResubmit ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
-          <div className="mx-auto flex max-w-lg flex-col gap-2.5">
-            <div className="flex flex-nowrap items-center justify-between gap-3">
-              <p className="min-w-0 shrink text-sm font-medium text-slate-700 sm:text-base">
-                <span className="font-bold tabular-nums text-slate-950">{lines.length}</span>{" "}
-                produit{lines.length > 1 ? "s" : ""}
-              </p>
-              <div className="shrink-0 text-right">
-                <p className="sr-only">Total indicatif, prix catalogue pharmacie</p>
-                <p className="text-lg font-bold tabular-nums text-sky-900 sm:text-xl">{formatPriceDh(resubmitTotal)}</p>
-              </div>
-            </div>
+        <PlatformStickyFooter tone="slate">
+          <div className="flex flex-col gap-2">
+            <PlatformStickyFooterSummaryRow
+              left={
+                <>
+                  <span className="font-bold tabular-nums text-foreground">{lines.length}</span>{" "}
+                  produit{lines.length > 1 ? "s" : ""}
+                </>
+              }
+              right={formatPriceDh(resubmitTotal)}
+            />
             {!editMode ? (
               <div className="flex flex-col gap-2">
                 <button
@@ -3608,12 +3620,12 @@ export function PatientProductRequestActions({
               </div>
             )}
           </div>
-        </div>
+        </PlatformStickyFooter>
       ) : null}
 
       {showPrescriptionWaiting && !forceReadOnly ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
-          <div className="mx-auto flex max-w-lg flex-col gap-2.5">
+        <PlatformStickyFooter tone="slate">
+          <div className="flex flex-col gap-1.5">
             {!prescriptionEditMode ? (
               <div className="flex flex-col gap-2">
                 <button
@@ -3655,52 +3667,56 @@ export function PatientProductRequestActions({
               </div>
             )}
           </div>
-        </div>
+        </PlatformStickyFooter>
       ) : null}
 
       {showConfirm && !forceReadOnly ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
-          <div className="mx-auto flex max-w-lg flex-col gap-2.5">
-            <div className="flex flex-nowrap items-center justify-between gap-3">
-              <p className="min-w-0 shrink text-sm font-medium text-slate-700 sm:text-base">
-                <span className="font-bold tabular-nums text-slate-950">{confirmSelectionSummary.count}</span>{" "}
-                {confirmSelectionSummary.count > 1 ? "lignes retenues" : "ligne retenue"}
-              </p>
-              <p className="shrink-0 text-lg font-bold tabular-nums text-sky-900 sm:text-xl">
-                {confirmSelectionSummary.total > 0 ? `${confirmSelectionSummary.total.toFixed(2)} MAD` : "—"}
-              </p>
-            </div>
+        <PlatformStickyFooter tone="sky">
+          <div className="flex flex-col gap-2">
+            <PlatformStickyFooterSummaryRow
+              left={
+                <>
+                  <span className="font-bold tabular-nums text-foreground">{confirmSelectionSummary.count}</span>{" "}
+                  {confirmSelectionSummary.count > 1 ? "lignes retenues" : "ligne retenue"}
+                </>
+              }
+              right={
+                confirmSelectionSummary.total > 0
+                  ? `${confirmSelectionSummary.total.toFixed(2)} MAD`
+                  : "—"
+              }
+            />
             <button
               type="button"
               disabled={busyAction !== "" || visitWin.missingEtaOnToOrder}
               onClick={openConfirmReview}
-              className="flex h-11 w-full items-center justify-center rounded-xl bg-primary px-4 text-base font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50"
+              className="flex h-10 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50"
             >
               Valider ma demande
             </button>
           </div>
-        </div>
+        </PlatformStickyFooter>
       ) : null}
 
       {showConfirmedCards && !forceReadOnly ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white/98 px-4 py-3 shadow-[0_-6px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/95">
-          <div className="mx-auto flex max-w-lg flex-col gap-2.5">
+        <PlatformStickyFooter tone="sky">
+          <div className="flex flex-col gap-2">
             {!confirmedRevalidationMode ? (
               <>
-                <div className="flex flex-nowrap items-center justify-between gap-3">
-                  <p className="min-w-0 shrink text-sm font-medium text-slate-700 sm:text-base">
-                    <span className="font-bold tabular-nums text-slate-950">{totalsRetained.count}</span>{" "}
-                    {totalsRetained.count > 1 ? "produits retenus" : "produit retenu"}
-                  </p>
-                  <p className="shrink-0 whitespace-nowrap text-lg font-bold tabular-nums text-sky-900 sm:text-xl">
-                    {totalRetainedGrandLabel}
-                  </p>
-                </div>
+                <PlatformStickyFooterSummaryRow
+                  left={
+                    <>
+                      <span className="font-bold tabular-nums text-foreground">{totalsRetained.count}</span>{" "}
+                      {totalsRetained.count > 1 ? "produits retenus" : "produit retenu"}
+                    </>
+                  }
+                  right={totalRetainedGrandLabel}
+                />
                 <button
                   type="button"
                   disabled={busyAction !== "" || !visitPassageDirty || Boolean(detailStale)}
                   onClick={() => void runUpdateVisit()}
-                  className="w-full shrink-0 rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50 sm:ms-auto sm:w-auto sm:min-w-[220px]"
+                  className="flex h-10 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50"
                 >
                   {busyAction === "visit" ? "Mise à jour…" : "Mettre à jour ma date de passage"}
                 </button>
@@ -3726,7 +3742,7 @@ export function PatientProductRequestActions({
               </div>
             )}
           </div>
-        </div>
+        </PlatformStickyFooter>
       ) : null}
 
       {confirmReviewOpen && confirmReviewSnap ? (

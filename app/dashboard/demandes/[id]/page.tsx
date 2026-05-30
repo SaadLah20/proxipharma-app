@@ -466,12 +466,7 @@ export default function DemandeDetailPage() {
   }
 
   return (
-    <PageShell
-      className={clsx(
-        "min-w-0 max-w-full space-y-3 bg-slate-50",
-        hideMainRequestHeader && "pb-56"
-      )}
-    >
+    <PageShell className="min-w-0 max-w-full space-y-3 bg-slate-50">
       <RequestDetailBackLink config={kindConfig} viewerRole="patient" />
 
       {showConsultationTabbed ? (

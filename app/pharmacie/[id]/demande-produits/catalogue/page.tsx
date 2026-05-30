@@ -21,6 +21,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { cn } from "@/lib/utils";
+import {
+  PlatformStickyFooter,
+} from "@/components/layout/platform-sticky-footer";
+import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
@@ -153,7 +157,7 @@ export default function DemandeProduitsCataloguePage() {
   }
 
   return (
-    <main className="min-h-screen touch-pan-y bg-background p-4 pb-24 text-foreground antialiased sm:p-5 sm:pb-28">
+    <main className={cn("min-h-screen touch-pan-y bg-background p-4 text-foreground antialiased sm:p-5", stickyFooterPadClass("standard"))}>
       <div className="mx-auto max-w-lg space-y-3">
         <PharmacyPublicBackLink href={backHref} className={t.backLink}>
           {backLabel}
@@ -259,24 +263,17 @@ export default function DemandeProduitsCataloguePage() {
         </section>
       </div>
 
-      <div
-        className={cn(
-          "fixed inset-x-0 bottom-0 z-30 border-t bg-card/98 py-2.5 shadow-[0_-4px_20px_rgba(15,23,42,0.06)] backdrop-blur supports-[backdrop-filter]:bg-card/95",
-          t.footerBorder
-        )}
-      >
-        <div className="mx-auto max-w-lg px-4 sm:px-5">
-          <Button
-            type="button"
-            size="lg"
-            disabled={selectedCount === 0 || adding}
-            className={cn("h-12 w-full text-base font-semibold", t.cta)}
-            onClick={() => addSelectedAndReturn()}
-          >
-            {addButtonLabel}
-          </Button>
-        </div>
-      </div>
+      <PlatformStickyFooter tone="sky" className={t.footerBorder}>
+        <Button
+          type="button"
+          size="lg"
+          disabled={selectedCount === 0 || adding}
+          className={cn("h-11 w-full text-sm font-semibold", t.cta)}
+          onClick={() => addSelectedAndReturn()}
+        >
+          {addButtonLabel}
+        </Button>
+      </PlatformStickyFooter>
 
       <PatientProductPhotoPreviewModal
         open={photoPreview != null}
