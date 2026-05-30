@@ -49,7 +49,7 @@ export function LineHistoryModalFr({
             <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Historique du produit</p>
             <p className="truncate text-[12px] font-semibold leading-tight">{title}</p>
             <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
-              Du plus ancien au plus récent — chaque étape avec ses détails.
+              Étapes de ce produit uniquement — du plus ancien au plus récent.
             </p>
           </div>
           <button type="button" onClick={onClose} className="shrink-0 rounded-lg p-1 text-foreground hover:bg-muted" aria-label="Fermer">

@@ -292,6 +292,19 @@ function rowsWithEffectiveWithdrawnForSupply(rows: ItemRow[], d: Draft): ItemRow
   });
 }
 
+/** Ajouts officine en brouillon : dispo / date lues depuis le draft pour le classement en liste. */
+function rowForValidatedSupplyBucket(row: ItemRow, d: Draft): PatientLineLike {
+  if (!isLocalProposedItemId(row.id)) return row as PatientLineLike;
+  const f = d[row.id];
+  if (!f) return row as PatientLineLike;
+  const eta = f.expected_availability_date?.trim();
+  return {
+    ...(row as PatientLineLike),
+    availability_status: f.availability_status ?? row.availability_status,
+    expected_availability_date: eta !== "" ? eta : row.expected_availability_date,
+  };
+}
+
 type ProductCatalogHit = {
   id: string;
   name: string;
@@ -2953,6 +2966,9 @@ export default function PharmacienDemandeDetailPage() {
         ...prev,
         [syntheticId]: buildItemDraftFromRow(syntheticRow, request?.status ?? null, request?.request_type),
       }));
+      if (["confirmed", "treated"].includes(request?.status ?? "")) {
+        setSupplyEditOpenRowIds((prev) => ({ ...prev, [syntheticId]: true }));
+      }
       const altPicks = opts?.alternatives ?? [];
       if (altPicks.length > 0) {
         let altValidationError: string | null = null;
@@ -4218,16 +4234,20 @@ export default function PharmacienDemandeDetailPage() {
     const eff = rowsWithEffectiveWithdrawnForSupply(displayRows, draft).filter(
       (r) => !removedPersistedProposedIds.includes(r.id)
     );
-    const sorted = sortPharmacistSupplyRowsBySection(eff);
+    const forBuckets = eff.map((row) => rowForValidatedSupplyBucket(row, draft));
+    const sorted = sortPharmacistSupplyRowsBySection(forBuckets);
     const bucketGroups = buildPharmacistValidatedBucketGroups(
-      sorted as PatientLineLike[],
+      sorted,
       request.status,
       pricingConfig
     );
     return bucketGroups.map((g) => ({
       surface: "neutral" as const,
       bucketMeta: g,
-      entries: g.rows.map((row) => ({ header: null as string | null, row: row as Entry["row"] })),
+      entries: g.rows.map((row) => {
+        const sourceRow = eff.find((r) => r.id === row.id) ?? (row as ItemRow);
+        return { header: null as string | null, row: sourceRow as Entry["row"] };
+      }),
     }));
   }, [request, lineEntriesForList, displayRows, draft, pricingConfig, removedPersistedProposedIds]);
 
@@ -6410,8 +6430,8 @@ export default function PharmacienDemandeDetailPage() {
                 </button>
               )}
               {propOpen || isConsultation ? (
-                <div className="mt-2 flex max-h-[min(52svh,22rem)] min-h-0 flex-col gap-2 overflow-hidden overscroll-y-contain">
-                  <label className="block shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <div className="mt-2 max-h-[min(56svh,28rem)] touch-pan-y space-y-2 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Motif
                     <textarea
                       rows={2}
@@ -6421,7 +6441,7 @@ export default function PharmacienDemandeDetailPage() {
                       className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
                     />
                   </label>
-                  <label className="block shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Quantité
                     <div className="mt-1 flex h-8 w-32 items-center overflow-hidden rounded-md border border-input bg-background">
                       <button
@@ -6451,7 +6471,7 @@ export default function PharmacienDemandeDetailPage() {
                     </div>
                   </label>
                   {request && ["confirmed", "treated"].includes(request.status) && !isPrescription ? (
-                    <div className="shrink-0 space-y-2 rounded-lg border border-violet-200/60 bg-violet-50/40 p-2">
+                    <div className="space-y-2 rounded-lg border border-violet-200/60 bg-violet-50/40 p-2">
                       <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Disponibilité (avant enregistrement)
                         <select
@@ -6484,7 +6504,7 @@ export default function PharmacienDemandeDetailPage() {
                       </p>
                     </div>
                   ) : null}
-                  <div className="relative shrink-0">
+                  <div className="relative">
                     <Search
                       className="pointer-events-none absolute left-3 top-1/2 size-[1.125rem] -translate-y-1/2 text-violet-600"
                       aria-hidden
@@ -6497,19 +6517,35 @@ export default function PharmacienDemandeDetailPage() {
                       className="h-11 w-full rounded-xl border-2 border-violet-400/70 bg-white py-2 pl-10 pr-3 text-[13px] shadow-sm ring-2 ring-violet-200/50 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/35"
                     />
                   </div>
+                  {propAvailability === "to_order" &&
+                  request &&
+                  ["confirmed", "treated"].includes(request.status) &&
+                  !propExpectedDate.trim() &&
+                  propDebounced.length >= PRODUCT_CATALOG_SEARCH_MIN_CHARS ? (
+                    <p className="rounded-md border border-amber-200/80 bg-amber-50/80 px-2 py-1.5 text-[11px] leading-snug text-amber-950">
+                      Choisissez d&apos;abord la date de réception prévue, puis le produit dans la liste.
+                    </p>
+                  ) : null}
                   {propVisibleHits.length > 0 ? (
-                    <ul className="min-h-0 flex-1 touch-pan-y space-y-0.5 overflow-y-auto overscroll-contain rounded-md border border-border/60 bg-muted/20 p-1 [-webkit-overflow-scrolling:touch]">
-                      {propVisibleHits.map((h) => (
+                    <ul className="space-y-0.5 rounded-md border border-border/60 bg-muted/20 p-1">
+                      {propVisibleHits.map((h) => {
+                        const needsEtaBeforePick =
+                          request &&
+                          ["confirmed", "treated"].includes(request.status) &&
+                          !isPrescription &&
+                          propAvailability === "to_order" &&
+                          !propExpectedDate.trim();
+                        return (
                         <li key={h.id}>
                           <button
                             type="button"
-                            disabled={propBusy}
+                            disabled={propBusy || Boolean(needsEtaBeforePick)}
                             onClick={() =>
                               void insertPharmacistProposedLine(h, {
                                 lineKind: isPrescription ? "proposed" : undefined,
                               })
                             }
-                            className="flex w-full touch-manipulation items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-card disabled:opacity-50"
+                            className="flex w-full touch-manipulation items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-card disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <div className="relative size-11 shrink-0 overflow-hidden rounded-lg border border-violet-200/60 bg-violet-50/50">
                               {h.photo_url ? (
@@ -6530,7 +6566,8 @@ export default function PharmacienDemandeDetailPage() {
                             </span>
                           </button>
                         </li>
-                      ))}
+                        );
+                      })}
                     </ul>
                   ) : propDebounced.length >= 2 ? (
                     <p className="text-[11px] text-muted-foreground">Aucun résultat.</p>

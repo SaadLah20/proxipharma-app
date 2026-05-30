@@ -62,7 +62,10 @@ function kindNaturalFr(kind: string | undefined, audience: "patient" | "pharmaci
 function splitAmendmentDetailFacts(detail: string): string[] {
   const raw = detail.trim();
   if (!raw) return [];
-  return raw
+  const withoutProductPrefix = raw.includes(" — ")
+    ? raw.slice(raw.indexOf(" — ") + 3).trim() || raw
+    : raw;
+  return withoutProductPrefix
     .split(/\s*[·•]\s*|\s+—\s+/)
     .map((s) => s.trim())
     .filter(Boolean);
