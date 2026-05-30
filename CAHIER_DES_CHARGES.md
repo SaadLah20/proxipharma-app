@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (cas courant apres synchro infra) → utiliser uniquement la **phrase d ouverture** du **§13.34** (dernier lot : hub demandes produits + **Mes pharmacies** + **Mes paramètres** ; §4.6 détails patient largement faits) ; la **tache precise** est donnée dans le message suivant ou dans la meme conversation.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260630_001`**) → utiliser uniquement la **phrase d ouverture** du **§13.34** (dernier lot : pharmacien **Mes parametres** + charte compte/officine + hub produits sky + post-valide/cloture partielle ; patient §4.6 largement fait) ; la **tache precise** est donnee dans le message suivant ou dans la meme conversation.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** : pour **vider toutes les demandes** en environnement de test → `scripts/clear-all-requests.mjs` (`.env.local` avec `SUPABASE_SERVICE_ROLE_KEY`) ou SQL `supabase/scripts/clear-all-requests.sql` dans l’éditeur Supabase. **Doublons patient** (même téléphone, 2× `auth.users`) en pilote : reset demandes + suppression des comptes Auth puis nouvelle inscription. Plan de tests E2E demandes produits → fichier Canvas Cursor `canvases/product-requests-e2e-test-plan.canvas.tsx` (mention §13.5).
@@ -348,6 +348,51 @@ git checkout pilote-stable-2026-05-24
 **Branche de travail après retour** : `git switch -c reprise-depuis-stable-2026-05-24`
 
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
+
+---
+
+### Session 2026-05-30 — Refonte UX Glovo-like (en pause, branche séparée)
+
+**Branche refonte** : **`design/ux-refonte-2026`** — commits **`3b189a7`** (design system + charte app entière), **`89b35d1`** (pastille type saisie publique produits). **Non mergée** dans **`main`** ni dans **`fix/validated-supply-ecart-ui-modal`**.
+
+**Livré sur la branche refonte** (preview uniquement) :
+- **`lib/design-system/`** (tokens, accents type demande) · composants **`components/ui/`** (`ListRow`, `PageHeader`, `StickyActionBar`, …).
+- **`docs/DESIGN-SYSTEM.md`**, **`docs/UX-REFONTE-CHECKLIST.md`** — parcours test preview (public, patient, pharmacien).
+- Couverture : annuaire, fiche, auth, saisies publiques, hubs/détails patient & pharmacien, compte, promos — **pas de migration SQL**.
+
+**Test preview** : PR **`design/ux-refonte-2026`** → **`main`** sur GitHub → lien **Visit Preview** (Vercel). **Ne pas merger** tant que la refonte n’est pas validée.
+
+**Décision** : refonte **mise en pause** ; travail courant / merge prod = branche **`fix/validated-supply-ecart-ui-modal`** (charte actuelle sky/amber).
+
+**Phrase de reprise (contexte seul, sans tâche)** : **§13.35**. Reprise travail refonte : repartir de **`design/ux-refonte-2026`**.
+
+---
+
+### Session 2026-05-29 — Pharmacien : Mes paramètres, charte compte/officine, hub produits, post-validé
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits poussés **`566f4a5`** … **`ee2eb02`** (derniers : **`378f6b5`** lint vue répondue ; **`6146ef4`** hub pharmacien sky + KPIs ; **`ee2eb02`** paramètres + en-têtes charte).
+
+**Supabase (pilote)** : **toutes les migrations Git appliquées** jusqu’à **`20260630_001_partial_counter_closure.sql`** (dont **`20260625_001`** revalidation patient, **`20260626_001`** CRM pharmacies patient, **`20260628_*`** traitée / abandon, **`20260629_*`** fulfillment + notifs, **`20260630_001`** clôture comptoir partielle).
+
+**Mes paramètres pharmacien** (`ee2eb02`) :
+- **`/dashboard/pharmacien/parametres`** · **`components/pharmacist/pharmacist-settings-page.tsx`** — sections repliables (**`PharmacistSettingsSection`** = alias patient) : profil (nom modifiable), **Mon officine** (raccourcis fiche / horaires / pricing / promos / aperçu public), connexion/sécurité (MDP, e-mail, compte admin provisionné), notifications (**`ExternalNotificationPrefs`** `variant="pharmacien"` `appearance="settings"`), raccourcis hubs, déconnexion (pas d’auto-suppression compte — admin pilote).
+- Menu header : **Mes paramètres** (`platform-header.tsx`).
+
+**Charte compte / officine** (`ee2eb02`) — **`lib/platform-dashboard-chrome.ts`** (primary, pas sky dossiers) + **`PharmacistAccountPageHeader`** :
+- Tableau de bord, **Clients**, **Produits commandés**, **Ruptures**, **Ma fiche**, **Horaires et garde**, **Pricing**, **Offres promos**, **Réservations packs**, **Visites et interactions**.
+
+**Hub demandes produits pharmacien** (`6146ef4`) :
+- **`PharmacistProductDemandesDashboard`** — thème **sky**, KPIs sous Archives, compteur liste **Toutes les demandes** ; regroupements indicatifs (scroll, pas filtre URL) ; **Reprendre rapidement** = 5 derniers dossiers — aligné patient (`lib/pharmacist-product-hub-sections.ts`).
+
+**Détail pharmacien post-validé / répondue** (lots **`566f4a5`**, **`378f6b5`**) :
+- Workflow **brouillon différé** + footer **Enregistrer** ; modale canal unique pour amendements ; ordre save **amendements puis lignes** (évite erreur canal avec données déjà en base).
+- Vue **répondue figée** : alternatives en lecture seule (`effectiveAltTab` → principal) ; reset onglets alt via **`resetRespondedLineAltUi`** (pas de `useEffect`+`setState` — CI **`react-hooks/set-state-in-effect`**).
+- **Clôture comptoir partielle** : **`lib/pharmacist-counter-closure.ts`**, **`PharmacistCloseRequestConfirmModal`**, migration **`20260630_001`** (auto-écart lignes non récupérées si ≥1 `picked_up`).
+- En-tête dossier : statut + détail + bouton parcours ; pastilles sur rangée dédiée ; **`InfoHint`** viewport-safe.
+
+**Phrase de reprise** : **§13.34**.
+
+**Prochain jalon** : retours terrain preview ; §4.6 pharmacien **envoyée** / **ordonnances** / **consultations** si écarts ; finitions UX mineures hubs ordonnances/consultations.
 
 ---
 
@@ -1566,6 +1611,14 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260620_001_fix_pharmacist_profile_analytics_journal_cte.sql`
   - `supabase/migrations/20260621_001_pharmacies_statut_check_align.sql`
   - `supabase/migrations/20260622_001_pharmacy_titular_public.sql` (**titular_public** + backfill titulaire)
+  - `supabase/migrations/20260625_001_patient_update_confirmation_optimistic.sql` (**`patient_update_confirmation`** + verrou **`p_expected_updated_at`**)
+  - `supabase/migrations/20260626_001_patient_pharmacy_directory_crm.sql` (annuaire patient **Mes pharmacies**)
+  - `supabase/migrations/20260627_001_skip_conversation_notif_initial_submission_message.sql`
+  - `supabase/migrations/20260628_001_pharmacist_mark_request_treated_relaxed.sql` · **`20260628_002_pharmacist_abandon_request_no_pickup.sql`**
+  - `supabase/migrations/20260629_001_relax_arrived_reserved_no_prior_ordered.sql` · **`20260629_002_no_treated_notif_on_treated_update.sql`**
+  - `supabase/migrations/20260630_001_partial_counter_closure.sql` (**clôture comptoir** si ≥1 ligne **`picked_up`** — auto-écart des autres lignes retenues)
+
+**Pilote (état infra 2026-05-29)** : l’utilisateur confirme que **toutes les migrations ci-dessus sont appliquées** sur Supabase — pas de rappel « appliquer » en reprise sauf nouveau fichier sous `supabase/migrations/`.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -1584,6 +1637,8 @@ Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-
 - **`/admin`** : onboarding officine + pharmacien (**`AdminOnboardPharmacyForm`**, MDP provisoire copié manuellement).
 - **`/dashboard/pharmacien/offres-promos`** + **`/dashboard/pharmacien/reservations-packs`** ; **`/dashboard/patient/packs-promo`** — workflow packs promo (après **`20260610_001`**).
 - **`/dashboard/pharmacien/pricing`** — moteur de pricing officine (**`20260619_001`**, appliquée).
+- **`/dashboard/pharmacien/parametres`** — **Mes paramètres** pharmacien (**`pharmacist-settings-page.tsx`**, charte **`platform-dashboard-chrome`**).
+- **Hub produits pharmacien** : **`/dashboard/pharmacien/demandes`** — dashboard sky + KPIs + compteur liste (**`PharmacistProductDemandesDashboard`**).
 - **`/pharmacie/[id]/demande-produits`**: création demande **`submitted`**
 - **`/dashboard`** (résumé / routage rôle), **`/dashboard/demandes`** (hub + **filtre par réf.** + codes **`request_public_ref`** sur cartes), **`/dashboard/demandes/[id]`** (ref mémorable + code officine en détail)
 - **`/dashboard/demandes`** (vue liste) : refonte UX des filtres/cartes ; suppression bouton copie ; compteurs et montants contextualisés (`responded` vs validé/en traitement/clôturé) ; statut intermédiaire UI **En traitement** (virtuel : `confirmed` + **`post_confirm_fulfillment`** `reserved`/`ordered`, migration **`20260507_005`**)
@@ -1829,9 +1884,15 @@ Voir **§13.34**.
 
 Voir **§13.34**.
 
-### 13.34) Phrase de reprise (recommandée — après session **2026-05-25** hub compte patient)
+### 13.34) Phrase de reprise (recommandée — après session **2026-05-29** pharmacien compte + post-validé)
 
-**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`4c555da`** … **`cce3d15`** : hub demandes produits — sections **À votre action** / **Chez la pharmacie** / **Archives** (3 aperçus + **Tout voir**), filtres liste **statut** + **regroupement** cumulables, terminés en lecture seule ; **Mes pharmacies** + **`20260626_001`** ; **Mes paramètres** + **`POST /api/patient/delete-account`** ; chrome compte **`lib/platform-dashboard-chrome.ts`** ; détails dossier **envoyée→traitée** déjà en place — §10 sessions **2026-05-25**). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.4**, **§4.6**, **§10**, §11. Supabase : **`20260626_001`** (CRM pharmacies patient) et **`20260625_001`** (revalidation **`patient_update_confirmation`**) si pas encore appliqués. Fichiers hub : `app/dashboard/demandes/patient-demandes-hub.tsx`, `components/requests/product/patient-product-demandes-dashboard.tsx`, `lib/patient-product-hub-sections.ts` ; détail : `patient-product-request-actions.tsx`. **Fait** : parcours patient §4.6 (détail) + hub compte. **À faire ensuite** : finitions UX patient si retours ; **pharmacien** §4.6 **envoyée** puis **répondue**. Tag stable **`pilote-stable-2026-05-24`** → **`0c4f0e7`** (§10.1). Je te donne la tâche précise ou les retours terrain. »**
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`566f4a5`** … **`ee2eb02`** : pharmacien **Mes paramètres** `pharmacist-settings-page.tsx` + **`PharmacistAccountPageHeader`** / charte **`platform-dashboard-chrome`** sur tableau de bord, clients, supply, fiche, promos, analytics ; hub produits pharmacien **sky** + KPIs + compteur liste ; détail post-validé **brouillon** + modale canal unique + clôture partielle **`20260630_001`** / **`lib/pharmacist-counter-closure.ts`** ; vue **répondue** alternatives lecture seule + lint **`378f6b5`**). Patient : hub demandes + **Mes pharmacies** + **Mes paramètres** + parcours §4.6 **envoyée→traitée** — §10 **2026-05-25** / **2026-05-29**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.4**, **§4.6**, **§10**, §11. **Supabase pilote : toutes les migrations appliquées** (dernière **`20260630_001`**) — ne pas redemander d’appliquer sauf nouveau fichier SQL. Fichiers clés pharmacien : `app/dashboard/pharmacien/demandes/[id]/page.tsx`, `pharmacist-supply-compact-line.tsx`, `pharmacist-settings-page.tsx`, `pharmacist-product-demandes-dashboard.tsx`. **Prochain jalon** : retours preview ; §4.6 pharmacien **envoyée** / ordonnances / consultations si besoin. Tag stable **`pilote-stable-2026-05-24`** → **`0c4f0e7`** (§10.1). Je te donne la tâche précise ou les retours terrain. »**
+
+### 13.35) Phrase d’ouverture **contexte seul** (recommandée — mai 2026, refonte en pause)
+
+À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
+
+**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot **`ee2eb02`**, journal §10 session **2026-05-29**). Refonte UX Glovo-like sur branche séparée **`design/ux-refonte-2026`** (commits **`3b189a7`**, **`89b35d1`**) — **non mergée**, **en pause** ; preview via PR vers `main` si besoin (`docs/UX-REFONTE-CHECKLIST.md`). Supabase pilote : migrations appliquées jusqu’à **`20260630_001`**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.35**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
