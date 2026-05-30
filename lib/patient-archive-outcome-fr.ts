@@ -19,6 +19,11 @@ export function findTerminalStatusHistoryEntry(
   return rows.find((h) => h.new_status === terminalStatus) ?? null;
 }
 
+/** Phrase courte du bandeau dossier (statut Expirée). */
+export function patientExpiredDossierStatusHintShortFr(): string {
+  return "Délai de validation dépassé.";
+}
+
 /** Texte du bandeau dossier (statut Expirée) côté patient. */
 export function patientExpiredDossierStatusHintFr(input: {
   expiredAt?: string | null;
@@ -34,6 +39,11 @@ export function patientExpiredDossierStatusHintFr(input: {
   return "Vous n'avez pas validé cette demande dans le délai de 24 h après la réponse de l'officine. Elle a été expirée automatiquement.";
 }
 
+/** Phrase courte du bandeau dossier (statut Annulée). */
+export function patientCancelledDossierStatusHintShortFr(): string {
+  return "Demande annulée.";
+}
+
 /** Texte du bandeau dossier (statut Annulée) — qui, quand, motif. */
 export function patientCancelledDossierStatusHintFr(entry: ArchiveHistoryRow | null): string {
   const actorLine = patientArchiveTerminalActorLineFr(entry);
@@ -47,6 +57,11 @@ export function patientCancelledDossierStatusHintFr(entry: ArchiveHistoryRow | n
     return `Demande annulée.${motive} Les produits ci-dessous reprennent l'état du dossier avant annulation.`;
   }
   return "Demande annulée. Les produits ci-dessous reprennent l'état du dossier avant annulation.";
+}
+
+/** Phrase courte du bandeau dossier (statut Abandonnée). */
+export function patientAbandonedDossierStatusHintShortFr(): string {
+  return "Demande abandonnée.";
 }
 
 /** Texte du bandeau dossier (statut Abandonnée) — qui, quand, motif. */
@@ -83,6 +98,24 @@ type ClosedRecapItem = {
   is_selected_by_patient: boolean;
   counter_outcome?: string | null;
 };
+
+/** Phrase courte du bandeau dossier (clôture comptoir). */
+export function patientClosedDossierStatusHintShortFr(input: {
+  terminalStatus: PatientProductClosedArchiveStatus;
+  items: ClosedRecapItem[];
+}): string {
+  const retainedCount = input.items.filter((r) => r.is_selected_by_patient).length;
+  const pickedUpCount = input.items.filter(
+    (r) => r.is_selected_by_patient && (r.counter_outcome ?? "unset") === "picked_up"
+  ).length;
+  if (input.terminalStatus === "fully_collected") {
+    return "Dossier clôturé — tout a été récupéré.";
+  }
+  if (input.terminalStatus === "partially_collected") {
+    return `Dossier clôturé — ${pickedUpCount} sur ${retainedCount} récupéré${pickedUpCount !== 1 ? "s" : ""}.`;
+  }
+  return "Dossier clôturé par votre officine.";
+}
 
 /** Texte du bandeau dossier (clôture comptoir) — récap + contexte. */
 export function patientClosedDossierStatusHintFr(input: {

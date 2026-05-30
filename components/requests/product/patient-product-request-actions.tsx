@@ -89,12 +89,17 @@ import {
   type PatientDemandeProduitsDraftLine,
 } from "@/lib/patient-demande-produits-draft";
 import { buildPatientDemandeProduitsDraftFromArchiveRequest } from "@/lib/patient-expired-request-draft";
+import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import {
   findTerminalStatusHistoryEntry,
   patientAbandonedDossierStatusHintFr,
+  patientAbandonedDossierStatusHintShortFr,
   patientCancelledDossierStatusHintFr,
+  patientCancelledDossierStatusHintShortFr,
   patientClosedDossierStatusHintFr,
+  patientClosedDossierStatusHintShortFr,
   patientExpiredDossierStatusHintFr,
+  patientExpiredDossierStatusHintShortFr,
   isPatientProductClosedArchiveStatus,
 } from "@/lib/patient-archive-outcome-fr";
 import {
@@ -1305,17 +1310,17 @@ export function PatientSentEnvoyeeSummaryCard({
   accent?: RequestKindAccent;
 }) {
   const ph = pharmacyContact;
-  const titleLine =
-    ph?.nom?.trim() != null && ph.nom.trim() !== ""
-      ? `${ph.nom.trim()}${ph.ville?.trim() ? ` · ${ph.ville.trim()}` : ""}`
-      : "Officine";
+  const phName =
+    ph?.nom?.trim() != null && ph.nom.trim() !== "" ? pharmacyPublicLabel(ph.nom.trim()) : "Officine";
+  const phVille = ph?.ville?.trim() || null;
   const phRef = ph?.public_ref?.trim();
   const t = summaryThemeClasses(accent);
   return (
     <div className={t.shell}>
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1 border-b border-sky-200/70 pb-1.5">
         <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="text-[11px] font-bold leading-tight text-sky-950">{titleLine}</p>
+          <p className="text-[11px] font-bold leading-snug break-words text-sky-950">{phName}</p>
+          {phVille ? <p className="text-[10px] font-medium text-sky-800/85">{phVille}</p> : null}
           {phRef ? (
             <p className="text-[9px] text-sky-900/90">
               <span className="font-mono font-semibold text-foreground">Off. {phRef}</span>
@@ -1415,20 +1420,37 @@ type Props = {
 export function buildPatientSummaryStatusHint(
   status: string,
   requestType: string,
-  workflow: ReturnType<typeof getRequestKindWorkflowCopy>
+  _workflow: ReturnType<typeof getRequestKindWorkflowCopy>
 ): string {
-  if (status === "responded") return "Un choix par produit, puis date de passage et validation.";
+  if (status === "responded") return "Validez votre choix et votre date de passage.";
   if (status === "confirmed") {
     return requestType === "prescription"
-      ? "La pharmacie prépare votre commande selon les produits saisis sur l’ordonnance."
-      : "Ta pharmacie prépare ta commande (mise de côté et commandes fournisseur selon les produits). Les mises à jour restent visibles sur cette page.";
+      ? "Préparation en cours selon l'ordonnance."
+      : "Préparation en cours à l'officine.";
+  }
+  if (status === "treated") return "Passez à l'officine pour retirer vos produits.";
+  if (status === "in_review") return "L'officine examine votre demande.";
+  return "Demande envoyée — en attente de réponse.";
+}
+
+/** Détail affiché dans le modal (i) du bandeau dossier. */
+export function buildPatientSummaryStatusDetail(
+  status: string,
+  requestType: string,
+  workflow: ReturnType<typeof getRequestKindWorkflowCopy>
+): string | null {
+  if (status === "responded") {
+    return "Pour chaque produit : garder ou non, quantité, alternative éventuelle, puis date de passage et validation.";
+  }
+  if (status === "confirmed") {
+    return requestType === "prescription"
+      ? "La pharmacie prépare votre commande selon les produits saisis sur l'ordonnance. Les mises à jour restent visibles sur cette page."
+      : "Votre pharmacie prépare la commande (mise de côté et commandes fournisseur selon les produits). Les mises à jour restent visibles sur cette page.";
   }
   if (status === "treated") {
-    return "Tu peux passer à l’officine pour retirer les produits réservés et ceux commandés déjà reçus. Le suivi par produit est indiqué sur chaque carte.";
+    return "Vous pouvez passer à l'officine pour retirer les produits réservés et ceux commandés déjà reçus. Le suivi par produit est indiqué sur chaque carte.";
   }
-  if (status === "in_review") {
-    return workflow.patientWaitingInReviewHint;
-  }
+  if (status === "in_review") return workflow.patientWaitingInReviewHint;
   return workflow.patientWaitingSubmittedHint;
 }
 
@@ -2829,6 +2851,15 @@ export function PatientProductRequestActions({
           ? status
           : uiStatus;
   const archiveDossierStatusHint = isExpiredProductArchive
+    ? patientExpiredDossierStatusHintShortFr()
+    : isCancelledProductArchive
+      ? patientCancelledDossierStatusHintShortFr()
+      : isAbandonedProductArchive
+        ? patientAbandonedDossierStatusHintShortFr()
+        : isClosedProductArchive
+          ? patientClosedDossierStatusHintShortFr({ terminalStatus: status, items })
+          : "Archive — consultation seule.";
+  const archiveDossierStatusDetail = isExpiredProductArchive
     ? patientExpiredDossierStatusHintFr({
         expiredAt: terminalHistoryEntry?.created_at ?? null,
         expiresAt: requestTimelineMeta?.expires_at ?? null,
@@ -2900,6 +2931,7 @@ export function PatientProductRequestActions({
             pharmacyId={pharmacyId}
             status={showConfirm ? "responded" : status}
             statusHint={buildPatientSummaryStatusHint(showConfirm ? "responded" : status, requestType, workflowCopy)}
+            statusDetail={buildPatientSummaryStatusDetail(showConfirm ? "responded" : status, requestType, workflowCopy)}
           />
         ) : (
           <PatientSentEnvoyeeSummaryCard
@@ -2930,6 +2962,7 @@ export function PatientProductRequestActions({
           pharmacyId={pharmacyId}
           status={isDossierTerminalArchive ? archiveDossierStatusLabel : uiStatus}
           statusHint={archiveDossierStatusHint}
+          statusDetail={archiveDossierStatusDetail}
         />
       ) : null}
 

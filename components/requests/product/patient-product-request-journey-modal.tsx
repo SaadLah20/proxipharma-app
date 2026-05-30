@@ -42,10 +42,12 @@ const STEPS = [
 export function PatientProductRequestJourneyModal({
   open,
   currentStatus,
+  statusDetail,
   onClose,
 }: {
   open: boolean;
   currentStatus: string;
+  statusDetail?: string | null;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -109,6 +111,12 @@ export function PatientProductRequestJourneyModal({
             <X className="size-5" />
           </button>
         </div>
+        {statusDetail?.trim() ? (
+          <div className="shrink-0 border-b bg-sky-50/60 px-4 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-sky-800">À propos de ce dossier</p>
+            <p className="mt-1 text-xs leading-relaxed text-sky-950/90">{statusDetail.trim()}</p>
+          </div>
+        ) : null}
         <ol className="min-h-0 flex-1 space-y-0 overflow-y-auto px-4 py-3">
           {STEPS.map((step, i) => {
             const done = i < activeIndex;
