@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ChevronDown, LayoutGrid, MessageCircle, MessageSquare, Package, Search, Trash2, X } from "lucide-react";
 import { PharmacyFlowHero } from "@/components/pharmacy/pharmacy-public-chrome";
+import { RequestKindIndicator } from "@/components/ui/request-kind-indicator";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
@@ -509,6 +510,7 @@ export function ProductRequestHeaderSearch({
         title={pharmacyLabel}
         subtitle="Recherchez, ajoutez vos produits et envoyez la liste à l'officine."
         icon={Package}
+        kindIndicator={<RequestKindIndicator kindId="product_request" />}
       />
       <div className={cn("border-t bg-card px-3 pb-3 pt-2.5 sm:px-4", t.searchDivider)}>
         <div className="flex items-stretch gap-2">
