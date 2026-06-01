@@ -1233,55 +1233,21 @@ function PatientSentLineNotesModalFr({
   );
 }
 
-function summaryThemeClasses(accent: RequestKindAccent) {
-  if (accent === "amber") {
-    return {
-      shell: "mb-2 rounded-lg border border-amber-200/60 bg-amber-50/30 px-2 py-1.5 text-[10px] leading-snug shadow-sm sm:px-2.5",
-      borderB: "border-amber-200/70",
-      borderB2: "border-amber-200/60",
-      title: "text-amber-950",
-      meta: "text-amber-900/90",
-      chip: "border-amber-300/60 text-amber-900",
-      link: "text-amber-800",
-      contactBtn: "border-amber-400/70 text-amber-950 hover:bg-amber-50",
-      contactIcon: "text-amber-700",
-      contactPanel: "border-amber-200 ring-amber-200/60",
-      metaRow: "text-amber-950/88",
-      metaLabel: "text-amber-900/90",
-      hint: "text-amber-950/90",
-    };
-  }
-  if (accent === "violet") {
-    return {
-      shell: "mb-2 rounded-lg border border-violet-200/60 bg-violet-50/30 px-2 py-1.5 text-[10px] leading-snug shadow-sm sm:px-2.5",
-      borderB: "border-violet-200/70",
-      borderB2: "border-violet-200/60",
-      title: "text-violet-950",
-      meta: "text-violet-900/90",
-      chip: "border-violet-300/60 text-violet-900",
-      link: "text-violet-800",
-      contactBtn: "border-violet-400/70 text-violet-950 hover:bg-violet-50",
-      contactIcon: "text-violet-700",
-      contactPanel: "border-violet-200 ring-violet-200/60",
-      metaRow: "text-violet-950/88",
-      metaLabel: "text-violet-900/90",
-      hint: "text-violet-950/90",
-    };
-  }
+function summaryThemeClasses(_accent: RequestKindAccent) {
   return {
-    shell: "mb-2 rounded-lg border border-sky-200/60 bg-sky-50/30 px-2 py-1.5 text-[10px] leading-snug shadow-sm sm:px-2.5",
-    borderB: "border-sky-200/70",
-    borderB2: "border-sky-200/60",
-    title: "text-sky-950",
-    meta: "text-sky-900/90",
-    chip: "border-sky-300/60 text-sky-900",
-    link: "text-sky-800",
-    contactBtn: "border-sky-400/70 text-sky-950 hover:bg-sky-50",
-    contactIcon: "text-sky-700",
-    contactPanel: "border-sky-200 ring-sky-200/60",
-    metaRow: "text-sky-950/88",
-    metaLabel: "text-sky-900/90",
-    hint: "text-sky-950/90",
+    shell: "mb-2 rounded-lg border border-border bg-muted/25 px-2 py-1.5 text-[10px] leading-snug shadow-sm sm:px-2.5",
+    borderB: "border-border",
+    borderB2: "border-border/80",
+    title: "text-foreground",
+    meta: "text-muted-foreground",
+    chip: "border-border text-foreground",
+    link: "text-primary",
+    contactBtn: "border-border text-foreground hover:bg-muted/40",
+    contactIcon: "text-muted-foreground",
+    contactPanel: "border-border ring-border/60",
+    metaRow: "text-foreground",
+    metaLabel: "text-muted-foreground",
+    hint: "text-foreground",
   };
 }
 
@@ -2494,15 +2460,6 @@ export function PatientProductRequestActions({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [confirmReviewOpen, closeConfirmReview]);
-
-  useEffect(() => {
-    if (!confirmReviewOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [confirmReviewOpen]);
 
   const performConfirmAfterReview = async () => {
     if (!confirmReviewSnap) return;

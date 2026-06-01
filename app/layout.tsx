@@ -32,8 +32,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
+    <html lang="fr" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className="flex min-h-screen flex-col bg-background text-foreground">
         <PlatformChrome>{children}</PlatformChrome>
       </body>
     </html>

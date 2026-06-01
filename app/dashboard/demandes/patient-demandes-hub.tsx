@@ -294,7 +294,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   return (
     <PageShell
       maxWidthClass="max-w-3xl"
-      className={clsx("space-y-4", isProductHub && "bg-gradient-to-b from-sky-50/40 via-slate-50 to-slate-50")}
+      className="space-y-4"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>

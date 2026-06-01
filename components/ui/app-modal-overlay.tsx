@@ -3,6 +3,7 @@
 import { clsx } from "clsx";
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { lockBodyScroll } from "@/lib/ui-body-scroll-lock";
 import { Z_MODAL_OVERLAY } from "@/lib/ui-z-index";
 
 const noOpSubscribe = () => () => {};
@@ -40,13 +41,7 @@ export function AppModalOverlay({
 
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.body.dataset.modalOpen = "true";
-    return () => {
-      document.body.style.overflow = prev;
-      delete document.body.dataset.modalOpen;
-    };
+    return lockBodyScroll();
   }, [open]);
 
   if (!open || !clientMounted) return null;

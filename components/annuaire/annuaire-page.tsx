@@ -205,7 +205,7 @@ export function AnnuairePage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-[50vh] flex-1 flex-col items-center justify-center gap-3 bg-background p-6">
+      <main className="flex min-h-[50vh] flex-col items-center justify-center gap-3 bg-background p-6">
         <Loader2 className="size-8 animate-spin text-primary" aria-hidden />
         <p className="text-sm font-medium text-foreground">Chargement de l&apos;annuaire…</p>
       </main>
@@ -213,7 +213,7 @@ export function AnnuairePage() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-background">
+    <div className="flex flex-col bg-background">
       <section className="relative z-20 border-b border-primary/15 text-white shadow-md">
         <div
           className="pointer-events-none absolute inset-0 bg-cover bg-left bg-no-repeat sm:bg-[center_left_20%]"
@@ -300,7 +300,7 @@ export function AnnuairePage() {
         ) : null}
       </p>
 
-      <main className="relative z-0 mx-auto w-full max-w-5xl flex-1 px-4 pb-5 pt-3 sm:px-5">
+      <main className="relative z-0 mx-auto w-full max-w-5xl px-4 pb-5 pt-3 sm:px-5">
         {errorMessage ? (
           <p className="mb-4 rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
             {errorMessage}

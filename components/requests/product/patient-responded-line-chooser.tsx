@@ -14,6 +14,8 @@ import {
 /** Vignette répondue un peu plus haute que le panier standard (meilleure lisibilité). */
 const RESPONDED_LINE_THUMB =
   "box-border size-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
+import { uiMetaLabel, uiSecondaryLabel } from "@/lib/ui-label-styles";
+import { uiSurfaceCard } from "@/lib/ui-surfaces";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternative-qty-rules";
@@ -83,7 +85,7 @@ function lineBadgeLabelFr(opts: {
 /** Date de réception (produit à commander). */
 function RespondedReceptionBadgeFr({ dateYmd }: { dateYmd: string }) {
   return (
-    <span className="inline-flex max-w-full shrink-0 items-center rounded border border-amber-500/70 bg-amber-100 px-1 py-px text-[8px] font-bold leading-tight text-amber-950">
+    <span className={uiMetaLabel}>
       Réc. {formatDateShortFr(dateYmd)}
     </span>
   );
@@ -420,10 +422,8 @@ function RespondedLineBlock({
         unavailable &&
           "bg-slate-50/95 saturate-[0.72] [&_img]:opacity-90",
         notRetained && !unavailable && "bg-slate-50/75",
-        retained && !unavailable && !isProposedBlock && "bg-white ring-1 ring-sky-200/50",
-        retained && !unavailable && isProposedBlock && "bg-white ring-1 ring-violet-200/45",
-        !retained && !unavailable && !isProposedBlock && "bg-white",
-        !retained && !unavailable && isProposedBlock && "bg-violet-50/25"
+        retained && !unavailable && "bg-card ring-1 ring-border/80",
+        !retained && !unavailable && "bg-card"
       )}
       title={unavailable ? "Non retenable — rupture ou indisponible" : undefined}
     >
@@ -475,24 +475,18 @@ function RespondedLineBlock({
           {isProposedBlock ? (
             <p
               className={cn(
-                "line-clamp-3 rounded-md px-2 py-1.5 text-[10px] leading-snug",
-                unavailable
-                  ? "bg-slate-100/90 text-slate-600 ring-1 ring-slate-200/80"
-                  : notRetained
-                    ? "bg-violet-50/60 text-violet-900/70 ring-1 ring-violet-100/80"
-                    : "bg-violet-50/95 text-violet-950 ring-1 ring-violet-200/60"
+                "line-clamp-3 rounded-md border border-border bg-muted/25 px-2 py-1.5 text-[10px] leading-snug text-foreground",
+                unavailable && "text-muted-foreground"
               )}
             >
-              <span className="mr-1.5 inline-flex max-w-full shrink-0 items-center rounded bg-violet-700 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide leading-tight text-white">
-                {ajoutOfficineLabel}
-              </span>
+              <span className={cn("mr-1.5", uiSecondaryLabel)}>{ajoutOfficineLabel}</span>
               {variant.proposalReason ? (
                 <>
-                  <span className="font-semibold text-violet-800">Motif · </span>
+                  <span className="font-semibold text-muted-foreground">Motif · </span>
                   {variant.proposalReason}
                 </>
               ) : (
-                <span className="italic text-violet-800/80">Motif non renseigné par l&apos;officine</span>
+                <span className="italic text-muted-foreground">Motif non renseigné par l&apos;officine</span>
               )}
             </p>
           ) : null}
@@ -714,7 +708,7 @@ export function RespondedPatientLineChooser({
     return (
       <li className="w-full min-w-0">
         {requestType === "prescription" && isOrdonnancePrincipal ? (
-          <p className="mb-1 text-[10px] font-semibold text-amber-900">{PRESCRIPTION_ORDONNANCE_SOURCING_LABEL}</p>
+          <p className="mb-1 text-[10px] font-semibold text-muted-foreground">{PRESCRIPTION_ORDONNANCE_SOURCING_LABEL}</p>
         ) : null}
         <RespondedLineBlock
           variant={v}
@@ -733,9 +727,9 @@ export function RespondedPatientLineChooser({
   }
 
   return (
-    <li className="w-full min-w-0 overflow-visible rounded-xl border border-sky-300/75 bg-gradient-to-b from-sky-50/55 via-sky-50/20 to-white p-2 ring-1 ring-sky-200/50">
+    <li className={cn("w-full min-w-0 overflow-visible p-2", uiSurfaceCard)}>
       <div className="px-0.5 pt-1 pb-2">
-        <p className="mb-2 px-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-800/85">
+        <p className="mb-2 px-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
           {readOnly ? "Consulter les options" : "Choisir une option"}
         </p>
         <RespondedVariantTabs

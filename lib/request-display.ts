@@ -105,34 +105,37 @@ export function pharmacistRequestIsClosedSuccess(status: string): boolean {
   return status === "completed" || status === "partially_collected" || status === "fully_collected";
 }
 
-/** Badge visuel par statut (couleurs type produit). */
+const STATUS_BADGE_BASE =
+  "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-tight";
+
+/** Badge visuel par statut — seule zone où la couleur suit le statut métier. */
 export function requestStatusBadgeClass(status: string): string {
   switch (status) {
     case "submitted":
     case "in_review":
-      return "bg-sky-100 text-sky-950 ring-1 ring-sky-200/80";
+      return `${STATUS_BADGE_BASE} border-sky-200 bg-sky-50 text-sky-900`;
     case "responded":
-      return "bg-amber-100 text-amber-950 ring-1 ring-amber-200/80";
+      return `${STATUS_BADGE_BASE} border-amber-200 bg-amber-50 text-amber-900`;
     case "confirmed":
-      return "bg-violet-100 text-violet-950 ring-1 ring-violet-200/80";
+      return `${STATUS_BADGE_BASE} border-violet-200 bg-violet-50 text-violet-900`;
     case "processing":
-      return "bg-indigo-100 text-indigo-950 ring-1 ring-indigo-200/80";
+      return `${STATUS_BADGE_BASE} border-indigo-200 bg-indigo-50 text-indigo-900`;
     case "treated":
-      return "bg-cyan-100 text-cyan-950 ring-1 ring-cyan-200/80";
+      return `${STATUS_BADGE_BASE} border-cyan-200 bg-cyan-50 text-cyan-900`;
     case "in_progress_virtual":
-      return "bg-violet-100 text-violet-950 ring-1 ring-violet-200/80";
+      return `${STATUS_BADGE_BASE} border-violet-200 bg-violet-50 text-violet-900`;
     case "completed":
     case "partially_collected":
     case "fully_collected":
-      return "bg-emerald-100 text-emerald-950 ring-1 ring-emerald-200/80";
+      return `${STATUS_BADGE_BASE} border-emerald-200 bg-emerald-50 text-emerald-900`;
     case "cancelled":
     case "abandoned":
     case "expired":
-      return "bg-slate-200 text-slate-800 ring-1 ring-slate-300/90";
+      return `${STATUS_BADGE_BASE} border-slate-200 bg-slate-100 text-slate-800`;
     case "draft":
-      return "bg-gray-100 text-gray-700 ring-1 ring-gray-200";
+      return `${STATUS_BADGE_BASE} border-border bg-muted/50 text-muted-foreground`;
     default:
-      return "bg-gray-100 text-gray-800 ring-1 ring-gray-200";
+      return `${STATUS_BADGE_BASE} border-border bg-muted/50 text-foreground`;
   }
 }
 

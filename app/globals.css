@@ -49,24 +49,24 @@
 }
 
 :root {
-  /* Thème « officine / santé » : teintes rassurantes, contraste lecture */
-  --background: oklch(0.988 0.006 195);
-  --foreground: oklch(0.235 0.045 255);
-  --card: oklch(0.998 0.004 195);
-  --card-foreground: oklch(0.235 0.045 255);
-  --popover: oklch(0.998 0.004 195);
-  --popover-foreground: oklch(0.235 0.045 255);
+  /* Fond blanc neutre — accent primary conservé pour CTA et liens */
+  --background: oklch(0.995 0.002 255);
+  --foreground: oklch(0.22 0.02 255);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.02 255);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.02 255);
   --primary: oklch(0.5 0.11 195);
   --primary-foreground: oklch(0.995 0 0);
-  --secondary: oklch(0.965 0.025 195);
-  --secondary-foreground: oklch(0.3 0.06 195);
-  --muted: oklch(0.962 0.015 195);
-  --muted-foreground: oklch(0.46 0.035 255);
-  --accent: oklch(0.945 0.04 190);
-  --accent-foreground: oklch(0.3 0.06 195);
+  --secondary: oklch(0.97 0.004 255);
+  --secondary-foreground: oklch(0.32 0.03 255);
+  --muted: oklch(0.965 0.004 255);
+  --muted-foreground: oklch(0.48 0.02 255);
+  --accent: oklch(0.96 0.008 255);
+  --accent-foreground: oklch(0.32 0.03 255);
   --destructive: oklch(0.52 0.2 27);
-  --border: oklch(0.9 0.02 195);
-  --input: oklch(0.9 0.02 195);
+  --border: oklch(0.91 0.006 255);
+  --input: oklch(0.91 0.006 255);
   --ring: oklch(0.5 0.11 195);
   --chart-1: oklch(0.72 0.12 195);
   --chart-2: oklch(0.62 0.1 200);

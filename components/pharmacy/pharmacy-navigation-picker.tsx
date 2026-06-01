@@ -9,6 +9,7 @@ import {
   type NavigationProviderLink,
 } from "@/lib/pharmacy-navigation";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
+import { lockBodyScroll } from "@/lib/ui-body-scroll-lock";
 
 export type PharmacyNavigationTarget = {
   pharmacyId?: string;
@@ -62,11 +63,10 @@ export function PharmacyNavigationPicker({
       if (e.key === "Escape") close();
     };
     document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releaseScroll = lockBodyScroll();
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
+      releaseScroll();
     };
   }, [open, close]);
 
