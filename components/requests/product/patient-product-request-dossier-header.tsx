@@ -8,12 +8,12 @@ import {
   PatientPharmacyQuickContact,
   type PatientPharmacyContactInfo,
 } from "@/components/requests/product/patient-pharmacy-quick-contact";
+import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
 import { requestStatusBadgeClass, requestStatusFr } from "@/lib/request-display";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { uiDossierHeaderShell } from "@/lib/ui-surfaces";
 import { uiActionBtnCompactOutline } from "@/lib/ui-action-buttons";
-import { uiEyebrowLabel } from "@/lib/ui-label-styles";
 import { cn } from "@/lib/utils";
 
 export function PatientProductRequestDossierHeader({
@@ -23,6 +23,8 @@ export function PatientProductRequestDossierHeader({
   status,
   statusHint,
   statusDetail,
+  submittedAt,
+  createdAt,
 }: {
   dossierRefLabel: string;
   pharmacyContact: PatientPharmacyContactInfo | null;
@@ -30,6 +32,8 @@ export function PatientProductRequestDossierHeader({
   status: string;
   statusHint: string;
   statusDetail?: string | null;
+  submittedAt?: string | null;
+  createdAt?: string | null;
 }) {
   const [journeyOpen, setJourneyOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
@@ -40,13 +44,12 @@ export function PatientProductRequestDossierHeader({
     <>
       <header className={uiDossierHeaderShell}>
         <div className="border-b border-border px-3 py-2 sm:px-3.5">
-          <p className="text-[11px] font-bold leading-tight text-foreground sm:text-xs">
-            <span className={uiEyebrowLabel}>Demande de produits</span>
-            <span className="mx-1.5 font-normal text-muted-foreground" aria-hidden>
-              ·
-            </span>
-            <span className="font-mono text-[13px] tabular-nums text-foreground sm:text-sm">N° {dossierRefLabel}</span>
-          </p>
+          <DossierHeaderRequestLine
+            kindLabel="Demande"
+            dossierRefLabel={dossierRefLabel}
+            submittedAt={submittedAt}
+            createdAt={createdAt}
+          />
         </div>
 
         <div className="flex flex-col gap-2 border-b border-border px-3 py-2 sm:flex-row sm:items-start sm:justify-between sm:px-3.5">

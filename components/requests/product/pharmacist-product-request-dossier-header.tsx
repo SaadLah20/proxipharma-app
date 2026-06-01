@@ -4,10 +4,10 @@ import { useState } from "react";
 import { clsx } from "clsx";
 import { Info, MessageCircle, Phone, User } from "lucide-react";
 import { PatientProductRequestJourneyModal } from "@/components/requests/product/patient-product-request-journey-modal";
+import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
 import { requestStatusBadgeClass, requestStatusFr } from "@/lib/request-display";
 import { uiDossierHeaderShell } from "@/lib/ui-surfaces";
 import { uiActionBtnCompactOutline } from "@/lib/ui-action-buttons";
-import { uiEyebrowLabel } from "@/lib/ui-label-styles";
 
 function phoneDigits(raw: string): string {
   return raw.replace(/\D/g, "");
@@ -23,6 +23,8 @@ export function PharmacistProductRequestDossierHeader({
   lineCount,
   selectedCount,
   pendingCounterCount,
+  submittedAt,
+  createdAt,
 }: {
   dossierRefLabel: string;
   patientName: string | null;
@@ -33,6 +35,8 @@ export function PharmacistProductRequestDossierHeader({
   lineCount: number;
   selectedCount?: number;
   pendingCounterCount?: number;
+  submittedAt?: string | null;
+  createdAt?: string | null;
 }) {
   const [journeyOpen, setJourneyOpen] = useState(false);
   const statusLabel = requestStatusFr[status] ?? status;
@@ -46,17 +50,16 @@ export function PharmacistProductRequestDossierHeader({
     <>
       <header className={uiDossierHeaderShell}>
         <div className="border-b border-border px-3 py-2 sm:px-3.5">
-          <p className="text-[11px] font-bold leading-tight text-foreground sm:text-xs">
-            <span className={uiEyebrowLabel}>Demande de produits</span>
-            <span className="mx-1.5 font-normal text-muted-foreground" aria-hidden>
-              ·
-            </span>
-            <span className="font-mono text-[13px] tabular-nums text-foreground sm:text-sm">N° {dossierRefLabel}</span>
-          </p>
+          <DossierHeaderRequestLine
+            kindLabel="Demande"
+            dossierRefLabel={dossierRefLabel}
+            submittedAt={submittedAt}
+            createdAt={createdAt}
+          />
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2 sm:px-3.5">
-          <p className="flex min-w-0 flex-1 items-center gap-1.5 truncate pb-px text-sm font-bold leading-snug text-foreground">
+          <p className="flex min-w-0 flex-1 items-center gap-1.5 pb-px text-sm font-bold leading-snug text-foreground">
             <User className="size-4 shrink-0 text-muted-foreground" aria-hidden />
             <span className="truncate" title={patientLine}>
               {patientLine}
