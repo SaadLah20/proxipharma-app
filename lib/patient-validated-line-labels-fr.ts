@@ -64,6 +64,20 @@ function mapAmendmentBadgeFr(raw: string): string | null {
   }
 }
 
+function isDefaultPatientOriginLabel(label: string): boolean {
+  return label === "Ta demande" || label === "Demande patient";
+}
+
+function isRedundantSectionStatusLabel(
+  status: string,
+  sectionBucket?: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation"
+): boolean {
+  if (!sectionBucket) return false;
+  if (sectionBucket === "dispo_officine" && status === "À réserver par la pharmacie") return true;
+  if (sectionBucket === "commande" && status === "À commander") return true;
+  return false;
+}
+
 /** Libellés carte validée : origine + statut préparation + événements officine, sans redondance. */
 export function buildPatientValidatedLineLabelsFr(input: {
   row: PatientLineLike;
@@ -72,9 +86,15 @@ export function buildPatientValidatedLineLabelsFr(input: {
   archiveClosureLabel?: string | null;
   /** Demande traitée : pas de pastilles « réservé / commandé » (déjà dans les blocs). */
   treatedLineLabels?: boolean;
+  /** Groupe d’affichage : masque les libellés déjà portés par le titre de section. */
+  sectionBucket?: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation";
 }): ValidatedLineLabel[] {
-  const { row, originLabel, supplyAmendmentBundles, archiveClosureLabel, treatedLineLabels } = input;
-  const out: ValidatedLineLabel[] = [{ key: "origin", text: originLabel, tone: "origin" }];
+  const { row, originLabel, supplyAmendmentBundles, archiveClosureLabel, treatedLineLabels, sectionBucket } =
+    input;
+  const out: ValidatedLineLabel[] = [];
+  if (!isDefaultPatientOriginLabel(originLabel)) {
+    out.push({ key: "origin", text: originLabel, tone: "origin" });
+  }
 
   const withdrawn = Boolean(row.withdrawn_after_confirm);
   const ajoutOrigin =
@@ -92,7 +112,11 @@ export function buildPatientValidatedLineLabelsFr(input: {
     out.push({ key: "collected", text: "Récupéré", tone: "collected" });
   } else {
     const status = fulfillmentStatusLabelFr(row, treatedLineLabels);
-    if (status && !(treatedLineLabels && TREATED_OMIT_STATUS_RE.test(status))) {
+    if (
+      status &&
+      !(treatedLineLabels && TREATED_OMIT_STATUS_RE.test(status)) &&
+      !isRedundantSectionStatusLabel(status, sectionBucket)
+    ) {
       out.push({
         key: status === "Reçu en officine" ? "arrived" : "status",
         text: status,
