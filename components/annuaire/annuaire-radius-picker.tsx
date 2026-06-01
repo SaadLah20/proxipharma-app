@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createPortal } from "react-dom";
 import { ChevronDown, Loader2, MapPinned } from "lucide-react";
 import { clsx } from "clsx";
+import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
 
 export const ANNUAIRE_RADIUS_KM_OPTIONS = [2, 5, 10, 25] as const;
 export type AnnuaireRadiusKm = (typeof ANNUAIRE_RADIUS_KM_OPTIONS)[number];
@@ -16,17 +17,19 @@ function RadiusModeLabel({
   mode,
   variant,
   selected,
+  onLightPanel = true,
 }: {
   mode: AnnuaireRadiusMode;
   variant: "button" | "menu";
   selected?: boolean;
+  onLightPanel?: boolean;
 }) {
   if (mode === "all") {
     return <span>Toutes</span>;
   }
 
   const maxClass =
-    variant === "button"
+    variant === "button" && !onLightPanel
       ? "font-medium text-amber-200/95"
       : selected
         ? "font-medium text-primary/70"
@@ -54,11 +57,14 @@ export function AnnuaireRadiusPicker({
   loading,
   inRadiusCount,
   onSelect,
+  onLightPanel = true,
 }: {
   mode: AnnuaireRadiusMode;
   loading: boolean;
   inRadiusCount?: number;
   onSelect: (next: AnnuaireRadiusMode) => void;
+  /** Panneau recherche blanc (défaut) vs ancien style sur bandeau vert. */
+  onLightPanel?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<MenuPos | null>(null);
@@ -164,19 +170,24 @@ export function AnnuaireRadiusPicker({
           disabled={loading}
           onClick={toggleOpen}
           className={clsx(
-            "inline-flex min-h-8 items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold leading-none shadow-sm transition",
-            "border-white/35 bg-white/15 text-white hover:bg-white/25",
+            uiActionBtnFilterToggle("min-h-8 gap-1 py-1 leading-none"),
+            onLightPanel
+              ? "text-foreground"
+              : "border-white/35 bg-white/15 text-white hover:bg-white/25",
             "disabled:cursor-wait disabled:opacity-70",
-            open && "bg-white/25 ring-2 ring-white/40"
+            open &&
+              (onLightPanel
+                ? "border-primary/40 bg-primary/5 ring-2 ring-primary/20"
+                : "bg-white/25 ring-2 ring-white/40")
           )}
         >
           {loading ? (
-            <Loader2 className="size-3 animate-spin" aria-hidden />
+            <Loader2 className="size-3 animate-spin text-primary" aria-hidden />
           ) : (
-            <MapPinned className="size-3 shrink-0 opacity-90" aria-hidden />
+            <MapPinned className="size-3 shrink-0 text-primary" aria-hidden />
           )}
           <span className="whitespace-nowrap">
-            Rayon&nbsp;: <RadiusModeLabel mode={mode} variant="button" />
+            Rayon&nbsp;: <RadiusModeLabel mode={mode} variant="button" onLightPanel={onLightPanel} />
           </span>
           <ChevronDown className={clsx("size-3 opacity-80 transition", open && "rotate-180")} aria-hidden />
         </button>
