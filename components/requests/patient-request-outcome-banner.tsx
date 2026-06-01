@@ -89,77 +89,30 @@ export function PatientRequestOutcomeBanner({
 
   const theme =
     status === "cancelled"
-      ? {
-          border: "border-rose-300/85",
-          bg: "bg-gradient-to-br from-rose-50/95 via-white to-rose-50/30",
-          title: "text-rose-950",
-          accent: "text-rose-900/90",
-          kicker: "Annulation",
-        }
+      ? { title: "text-rose-950", accent: "text-rose-900/90", kicker: "Annulation" }
       : status === "abandoned"
-        ? {
-            border: "border-orange-300/80",
-            bg: "bg-gradient-to-br from-orange-50/90 via-white to-amber-50/35",
-            title: "text-orange-950",
-            accent: "text-orange-950/88",
-            kicker: "Abandon",
-          }
+        ? { title: "text-orange-950", accent: "text-orange-950/88", kicker: "Abandon" }
         : status === "expired"
-          ? {
-              border: "border-amber-300/85",
-              bg: "bg-gradient-to-br from-amber-50/95 via-white to-amber-50/40",
-              title: "text-amber-950",
-              accent: "text-amber-950/90",
-              kicker: "Expiration",
-            }
+          ? { title: "text-amber-950", accent: "text-amber-950/90", kicker: "Expiration" }
           : status === "partially_collected"
-            ? {
-                border: "border-teal-300/80",
-                bg: "bg-gradient-to-br from-teal-50/90 via-white to-cyan-50/35",
-                title: "text-teal-950",
-                accent: "text-teal-950/90",
-                kicker: "Retrait partiel",
-              }
+            ? { title: "text-teal-950", accent: "text-teal-950/90", kicker: "Retrait partiel" }
             : status === "fully_collected"
-              ? {
-                  border: "border-emerald-300/85",
-                  bg: "bg-gradient-to-br from-emerald-50/92 via-white to-teal-50/40",
-                  title: "text-emerald-950",
-                  accent: "text-emerald-950/90",
-                  kicker: "Tout retiré",
-                }
-              : {
-                  border: "border-emerald-300/85",
-                  bg: "bg-gradient-to-br from-emerald-50/92 via-white to-teal-50/35",
-                  title: "text-emerald-950",
-                  accent: "text-emerald-950/90",
-                  kicker: "Clôture",
-                };
+              ? { title: "text-emerald-950", accent: "text-emerald-950/90", kicker: "Tout retiré" }
+              : { title: "text-emerald-950", accent: "text-emerald-950/90", kicker: "Clôture" };
 
   return (
-    <section
-      className={clsx(
-        "rounded-xl border-2 px-3 py-2.5 shadow-md shadow-black/[0.04] ring-1 ring-black/[0.03]",
-        theme.border,
-        theme.bg
-      )}
-    >
+    <section className="rounded-xl border border-border bg-card px-3 py-2.5 shadow-sm">
       <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">État du dossier · {theme.kicker}</p>
       <h2 className={clsx("mt-1 text-sm font-bold leading-snug sm:text-base", theme.title)}>{statLabel}</h2>
 
       {actorLine && (status === "cancelled" || status === "abandoned" || status === "expired") ? (
-        <p className={clsx("mt-2 rounded-md border border-black/[0.06] bg-white/60 px-2.5 py-1.5 text-[11px] font-semibold leading-snug", theme.accent)}>
+        <p className={clsx("mt-2 rounded-md border border-border bg-muted/25 px-2.5 py-1.5 text-[11px] font-semibold leading-snug", theme.accent)}>
           {actorLine}
         </p>
       ) : null}
 
       {detailContext ? (
-        <div
-          className={clsx(
-            "mt-2.5 rounded-lg border border-black/[0.06] bg-white/55 px-2.5 py-2 shadow-sm ring-1 ring-black/[0.03] backdrop-blur-[1px] sm:px-3",
-            theme.accent
-          )}
-        >
+        <div className={clsx("mt-2.5 rounded-lg border border-border bg-muted/20 px-2.5 py-2 sm:px-3", theme.accent)}>
           <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Résumé</p>
           <ul className="mt-1.5 space-y-1 text-[11px] leading-snug">
             {detailContext.closedRecap ? (
@@ -233,7 +186,7 @@ export function PatientRequestOutcomeBanner({
               </li>
             ) : null}
           </ul>
-          <p className={clsx("mt-2 border-t border-black/[0.05] pt-2 text-[10px] leading-snug text-muted-foreground")}>
+          <p className="mt-2 border-t border-border/60 pt-2 text-[10px] leading-snug text-muted-foreground">
             {status === "cancelled"
               ? "Demande annulée — consultation seule. Les produits ci-dessous reprennent l’état du dossier avant fermeture."
               : status === "abandoned"
