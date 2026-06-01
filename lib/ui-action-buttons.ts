@@ -95,3 +95,11 @@ export function uiAnnuaireQuickAction(className?: string) {
 export function uiAnnuairePaginationBtn(className?: string) {
   return uiBtn("outline", "sm", cn("gap-1 px-2.5 py-1.5", className));
 }
+
+/** Actions sur la photo (annuaire) — icône seule, fond clair pour lisibilité. */
+export function uiAnnuaireActionOverlayBtn(className?: string) {
+  return cn(
+    "inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/92 text-foreground shadow-md ring-1 ring-black/10 backdrop-blur-sm transition hover:bg-white",
+    className
+  );
+}
