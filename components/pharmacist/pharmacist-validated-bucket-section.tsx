@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { clsx } from "clsx";
 import { ChevronDown } from "lucide-react";
+import type { PatientLineLike } from "@/lib/patient-confirmed-line-buckets";
 import type {
   PharmacistValidatedBucketGroup,
   PharmacistValidatedBucketKind,
@@ -22,11 +23,14 @@ export function pharmacistValidatedBucketHeaderClass(kind: PharmacistValidatedBu
 }
 
 /** Titre de groupe seul (couleur sémantique) — lignes en liste `divide-y`, aligné patient. */
-export function PharmacistValidatedBucketSection({
+export function PharmacistValidatedBucketSection<T extends PatientLineLike>({
   group,
   children,
 }: {
-  group: Pick<PharmacistValidatedBucketGroup<unknown>, "kind" | "title" | "hint" | "totalLabel" | "collapsible" | "rows">;
+  group: Pick<
+    PharmacistValidatedBucketGroup<T>,
+    "kind" | "title" | "hint" | "totalLabel" | "collapsible" | "rows"
+  >;
   children: ReactNode;
 }) {
   const titleColor = pharmacistValidatedBucketHeaderClass(group.kind);
