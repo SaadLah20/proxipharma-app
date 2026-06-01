@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 
 export type PharmacistCloseRequestSummary = {
   retainedCount: number;
@@ -57,17 +57,16 @@ export function PharmacistCloseRequestConfirmModal({
 
   if (!open || !clientMounted) return null;
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[10060] flex items-end justify-center pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
+  return (
+    <AppModalOverlay
+      open={open}
       aria-labelledby="ph-close-request-title"
+      onBackdropClick={() => {
+        if (!busy) onClose();
+      }}
     >
-      <button type="button" className="absolute inset-0 bg-black/50" aria-label="Fermer" onClick={() => !busy && onClose()} />
       <CloseRequestDialogPanel busy={busy} summary={summary} onClose={onClose} onConfirm={onConfirm} />
-    </div>,
-    document.body
+    </AppModalOverlay>
   );
 }
 

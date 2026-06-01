@@ -351,20 +351,28 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
-### Session 2026-05-30 — Refonte UX Glovo-like (en pause, branche séparée)
+### Session 2026-06-01 — Abandon refonte UX Glovo-like (branche supprimée)
 
-**Branche refonte** : **`design/ux-refonte-2026`** — commits **`3b189a7`** (design system + charte app entière), **`89b35d1`** (pastille type saisie publique produits). **Non mergée** dans **`main`** ni dans **`fix/validated-supply-ecart-ui-modal`**.
+**Décision** : la refonte « big bang » Glovo-like est **abandonnée** — ne pas la reprendre ni la merger.
 
-**Livré sur la branche refonte** (preview uniquement) :
+**Actions** :
+- Branche distante **`design/ux-refonte-2026`** **supprimée** sur GitHub (commits historiques **`3b189a7`**, **`89b35d1`** uniquement sur l’historique Git si besoin de consultation : `git fetch origin` puis `git log origin/design/ux-refonte-2026` ne fonctionne plus ; utiliser les SHA ou le reflog distant côté admin GitHub si récupération nécessaire).
+- **UI/UX à venir** : affinages **écran par écran** sur **`fix/validated-supply-ecart-ui-modal`** (preview PR habituelle), charte actuelle sky/amber/violet selon type de demande.
+
+**Phrase de reprise (contexte seul)** : **§13.35**.
+
+---
+
+### Session 2026-05-30 — Refonte UX Glovo-like (archivée — abandonnée 2026-06-01)
+
+**Branche refonte** (historique) : **`design/ux-refonte-2026`** — commits **`3b189a7`**, **`89b35d1`**. **Jamais mergée** ; branche distante **supprimée** le **2026-06-01**.
+
+**Livré sur la branche refonte** (preview uniquement, non retenu en prod) :
 - **`lib/design-system/`** (tokens, accents type demande) · composants **`components/ui/`** (`ListRow`, `PageHeader`, `StickyActionBar`, …).
 - **`docs/DESIGN-SYSTEM.md`**, **`docs/UX-REFONTE-CHECKLIST.md`** — parcours test preview (public, patient, pharmacien).
 - Couverture : annuaire, fiche, auth, saisies publiques, hubs/détails patient & pharmacien, compte, promos — **pas de migration SQL**.
 
-**Test preview** : PR **`design/ux-refonte-2026`** → **`main`** sur GitHub → lien **Visit Preview** (Vercel). **Ne pas merger** tant que la refonte n’est pas validée.
-
-**Décision** : refonte **mise en pause** ; travail courant / merge prod = branche **`fix/validated-supply-ecart-ui-modal`** (charte actuelle sky/amber).
-
-**Phrase de reprise (contexte seul, sans tâche)** : **§13.35**. Reprise travail refonte : repartir de **`design/ux-refonte-2026`**.
+**Décision finale** : voir session **2026-06-01** ci-dessus. Travail courant / merge prod = **`fix/validated-supply-ecart-ui-modal`**.
 
 ---
 
@@ -1888,11 +1896,11 @@ Voir **§13.34**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`566f4a5`** … **`ee2eb02`** : pharmacien **Mes paramètres** `pharmacist-settings-page.tsx` + **`PharmacistAccountPageHeader`** / charte **`platform-dashboard-chrome`** sur tableau de bord, clients, supply, fiche, promos, analytics ; hub produits pharmacien **sky** + KPIs + compteur liste ; détail post-validé **brouillon** + modale canal unique + clôture partielle **`20260630_001`** / **`lib/pharmacist-counter-closure.ts`** ; vue **répondue** alternatives lecture seule + lint **`378f6b5`**). Patient : hub demandes + **Mes pharmacies** + **Mes paramètres** + parcours §4.6 **envoyée→traitée** — §10 **2026-05-25** / **2026-05-29**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.4**, **§4.6**, **§10**, §11. **Supabase pilote : toutes les migrations appliquées** (dernière **`20260630_001`**) — ne pas redemander d’appliquer sauf nouveau fichier SQL. Fichiers clés pharmacien : `app/dashboard/pharmacien/demandes/[id]/page.tsx`, `pharmacist-supply-compact-line.tsx`, `pharmacist-settings-page.tsx`, `pharmacist-product-demandes-dashboard.tsx`. **Prochain jalon** : retours preview ; §4.6 pharmacien **envoyée** / ordonnances / consultations si besoin. Tag stable **`pilote-stable-2026-05-24`** → **`0c4f0e7`** (§10.1). Je te donne la tâche précise ou les retours terrain. »**
 
-### 13.35) Phrase d’ouverture **contexte seul** (recommandée — mai 2026, refonte en pause)
+### 13.35) Phrase d’ouverture **contexte seul** (recommandée — juin 2026)
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot **`ee2eb02`**, journal §10 session **2026-05-29**). Refonte UX Glovo-like sur branche séparée **`design/ux-refonte-2026`** (commits **`3b189a7`**, **`89b35d1`**) — **non mergée**, **en pause** ; preview via PR vers `main` si besoin (`docs/UX-REFONTE-CHECKLIST.md`). Supabase pilote : migrations appliquées jusqu’à **`20260630_001`**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.35**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot **`ee2eb02`**, journal §10 session **2026-05-29**). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations appliquées jusqu’à **`20260630_001`**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.35**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 

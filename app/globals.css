@@ -131,3 +131,9 @@
     @apply font-sans;
   }
 }
+
+/* Modale ouverte : masquer les footers sticky restés dans le DOM (filet de sécurité). */
+body[data-modal-open] [data-sticky-footer] {
+  visibility: hidden;
+  pointer-events: none;
+}

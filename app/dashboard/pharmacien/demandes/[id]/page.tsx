@@ -111,6 +111,8 @@ import {
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
 import { PageShell } from "@/components/ui/compact-shell";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
+import { Z_STICKY_FOOTER } from "@/lib/ui-z-index";
 import {
   PlatformStickyFooter,
   PlatformStickyFooterStack,
@@ -4631,6 +4633,17 @@ export default function PharmacienDemandeDetailPage() {
     bottomChromePaddingClass = stickyFooterPadClass("pharmaSingle");
   }
 
+  const stickyFooterObscured =
+    publishConfirmOpen ||
+    respondedSaveConfirmOpen ||
+    supplySaveConfirmOpen ||
+    declareTreatedModalOpen ||
+    closeConfirmOpen ||
+    cancelModalOpen ||
+    ordonnanceQuickAddOpen ||
+    pharmaHistoryRowId != null ||
+    conversationOpen;
+
   return (
     <PageShell
       maxWidthClass="max-w-3xl"
@@ -6766,17 +6779,16 @@ export default function PharmacienDemandeDetailPage() {
           })()
         : null}
       {publishConfirmOpen ? (
-        <div
-          className="fixed inset-0 z-[10060] flex items-end justify-center overflow-y-auto bg-black/45 p-3 backdrop-blur-[1px] sm:items-center"
-          role="dialog"
-          aria-modal="true"
+        <AppModalOverlay
+          open
           aria-labelledby="publish-confirm-title"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !busy) setPublishConfirmOpen(false);
+          className="overflow-y-auto p-3 sm:items-center"
+          onBackdropClick={() => {
+            if (!busy) setPublishConfirmOpen(false);
           }}
         >
           <div
-            className="flex max-h-[min(92vh,36rem)] w-full max-w-lg flex-col rounded-2xl border border-emerald-200/90 bg-card p-4 shadow-2xl ring-1 ring-emerald-900/10 sm:max-w-xl sm:p-5"
+            className="relative z-10 flex max-h-[min(92vh,36rem)] w-full max-w-lg flex-col rounded-2xl border border-emerald-200/90 bg-card p-4 shadow-2xl ring-1 ring-emerald-900/10 sm:max-w-xl sm:p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="publish-confirm-title" className="shrink-0 text-center text-sm font-bold text-emerald-950">
@@ -6865,9 +6877,9 @@ export default function PharmacienDemandeDetailPage() {
               </button>
             </div>
           </div>
-        </div>
+        </AppModalOverlay>
       ) : null}
-      {canManageResponded && respondedEditMode ? (
+      {canManageResponded && respondedEditMode && !stickyFooterObscured ? (
         <PlatformStickyFooter tone="amber" width="3xl" zIndex={10050}>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
             <button
@@ -6907,20 +6919,19 @@ export default function PharmacienDemandeDetailPage() {
         </PlatformStickyFooter>
       ) : null}
       {respondedSaveConfirmOpen ? (
-        <div
-          className="fixed inset-0 z-[10058] flex items-end justify-center overflow-y-auto bg-black/45 p-3 backdrop-blur-[1px] sm:items-center"
-          role="dialog"
-          aria-modal="true"
+        <AppModalOverlay
+          open
           aria-labelledby="responded-save-confirm-title"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !busy) {
+          className="overflow-y-auto p-3 sm:items-center"
+          onBackdropClick={() => {
+            if (!busy) {
               setRespondedSaveConfirmOpen(false);
               setRespondedSaveDiffLines([]);
             }
           }}
         >
           <div
-            className="flex max-h-[min(88vh,28rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-amber-200/90 bg-card p-4 shadow-2xl ring-1 ring-amber-900/10"
+            className="relative z-10 flex max-h-[min(88vh,28rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-amber-200/90 bg-card p-4 shadow-2xl ring-1 ring-amber-900/10"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="responded-save-confirm-title" className="text-center text-sm font-bold text-amber-950">
@@ -6965,24 +6976,23 @@ export default function PharmacienDemandeDetailPage() {
               </button>
             </div>
           </div>
-        </div>
+        </AppModalOverlay>
       ) : null}
 
       {supplySaveConfirmOpen ? (
-        <div
-          className="fixed inset-0 z-[10059] flex items-end justify-center overflow-y-auto bg-black/45 p-3 backdrop-blur-[1px] sm:items-center"
-          role="dialog"
-          aria-modal="true"
+        <AppModalOverlay
+          open
           aria-labelledby="supply-save-confirm-title"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !busy) {
+          className="overflow-y-auto p-3 sm:items-center"
+          onBackdropClick={() => {
+            if (!busy) {
               setSupplySaveConfirmOpen(false);
               setSupplySaveConfirmLines([]);
             }
           }}
         >
           <div
-            className="flex max-h-[min(92vh,34rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-cyan-200/90 bg-card p-4 shadow-2xl ring-1 ring-cyan-900/10"
+            className="relative z-10 flex max-h-[min(92vh,34rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-cyan-200/90 bg-card p-4 shadow-2xl ring-1 ring-cyan-900/10"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="supply-save-confirm-title" className="text-center text-sm font-bold text-cyan-950">
@@ -7064,10 +7074,10 @@ export default function PharmacienDemandeDetailPage() {
               </button>
             </div>
           </div>
-        </div>
+        </AppModalOverlay>
       ) : null}
 
-      {showMainSupplyFooter ? (
+      {showMainSupplyFooter && !stickyFooterObscured ? (
         <PlatformStickyFooterStack tone="sky">
           {showDeclareTreatedSticky ? (
             <PlatformStickyFooterStackRow compact>

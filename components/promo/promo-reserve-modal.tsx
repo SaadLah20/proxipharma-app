@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { todayIsoCasablanca, maxPickupDateIso } from "@/lib/promo/dates";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 
 /** Formulaire monté/démonté avec la modale — état initial sans useEffect (ESLint set-state-in-effect). */
 function PromoReserveForm({
@@ -123,14 +124,10 @@ export function PromoReserveModal({
   onClose: () => void;
   onSuccess: (reservationId: string) => void;
 }) {
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 sm:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <AppModalOverlay
+      open={open}
+      onBackdropClick={onClose}
     >
       <PromoReserveForm
         key={offerId}
@@ -139,6 +136,6 @@ export function PromoReserveModal({
         onClose={onClose}
         onSuccess={onSuccess}
       />
-    </div>
+    </AppModalOverlay>
   );
 }

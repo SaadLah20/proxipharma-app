@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessagesSquare, Send, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
 import { cn } from "@/lib/utils";
 import { STICKY_FOOTER_FAB_DEFAULT_BOTTOM_PX } from "@/lib/platform-sticky-footer";
@@ -188,7 +189,7 @@ export function RequestConversationFabDock({
     <div
       ref={fabRef}
       style={style}
-      className="pointer-events-auto fixed z-[10060] isolate flex size-14 items-center justify-center sm:size-16"
+      className="pointer-events-auto fixed z-50 isolate flex size-14 items-center justify-center sm:size-16"
     >
       <button
         type="button"
@@ -338,13 +339,7 @@ export function RequestConversationPanel({
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[10080] flex items-end justify-center pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center sm:p-4 sm:pb-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Conversation sur la demande"
-    >
-      <button type="button" className="absolute inset-0 bg-black/50" aria-label="Fermer" onClick={onClose} />
+    <AppModalOverlay open={open} aria-label="Conversation sur la demande" onBackdropClick={onClose}>
       <div className="relative z-10 flex max-h-[min(calc(100dvh-3.5rem),44rem)] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:max-h-[min(92dvh,44rem)] sm:rounded-2xl">
         <div
           className={cn(
@@ -469,6 +464,6 @@ export function RequestConversationPanel({
           )}
         </div>
       </div>
-    </div>
+    </AppModalOverlay>
   );
 }

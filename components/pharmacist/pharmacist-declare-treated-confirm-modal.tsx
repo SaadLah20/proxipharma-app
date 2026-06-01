@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import type { PharmacistDeclareTreatedSummaryFr } from "@/lib/pharmacist-declare-treated-fr";
 
 type Props = {
@@ -62,14 +62,14 @@ export function PharmacistDeclareTreatedConfirmModal({ open, busy, summary, onCl
   const total =
     summary.reservedLines.length + summary.orderedLines.length + summary.otherLines.length;
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[10060] flex items-end justify-center pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
+  return (
+    <AppModalOverlay
+      open={open}
       aria-labelledby="ph-declare-treated-title"
+      onBackdropClick={() => {
+        if (!busy) onClose();
+      }}
     >
-      <button type="button" className="absolute inset-0 bg-black/50" aria-label="Fermer" onClick={() => !busy && onClose()} />
       <div className="relative z-10 flex max-h-[min(92dvh,40rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-2xl">
         <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border px-3 py-2.5 sm:px-4">
           <div className="min-w-0 flex-1">
@@ -133,7 +133,6 @@ export function PharmacistDeclareTreatedConfirmModal({ open, busy, summary, onCl
           </button>
         </div>
       </div>
-    </div>,
-    document.body
+    </AppModalOverlay>
   );
 }
