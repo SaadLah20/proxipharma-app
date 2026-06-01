@@ -5,8 +5,11 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ChevronDown, LayoutGrid, MessageCircle, MessageSquare, Package, Search, Trash2, X } from "lucide-react";
-import { PharmacyFlowHero } from "@/components/pharmacy/pharmacy-public-chrome";
+import { PharmacyFlowHero, pharmacyPublicCard, PharmacyPublicSectionTitle } from "@/components/pharmacy/pharmacy-public-chrome";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { Button } from "@/components/ui/button";
+import { uiActionBtnFull, uiActionBtnFullOutline } from "@/lib/ui-action-buttons";
+import { uiSurfaceCard } from "@/lib/ui-surfaces";
 import { cn } from "@/lib/utils";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
@@ -18,9 +21,66 @@ export const PRODUCT_REQUEST_LINE_THUMB =
 /** Alias compat (lecture seule / grilles). */
 export const PRODUCT_REQUEST_LINE_BLOCK_H = "min-h-14";
 /** Contour discret sans changer la boîte de contenu (ombre interne). */
-export const PRODUCT_REQUEST_LINE_CARD_SHELL =
-  "rounded-lg border border-border/80 bg-card";
+export const PRODUCT_REQUEST_LINE_CARD_SHELL = cn(uiSurfaceCard, "p-1");
 const THUMB = PRODUCT_REQUEST_LINE_THUMB;
+
+/** Section de page (saisie publique / catalogue) — titres alignés charte globale. */
+export function ProductRequestSection({
+  title,
+  hint,
+  badge,
+  children,
+  className,
+}: {
+  title: string;
+  hint?: string;
+  badge?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn("space-y-2", className)}>
+      <div className="flex items-start justify-between gap-2 px-0.5">
+        <PharmacyPublicSectionTitle title={title} hint={hint} className="mb-0 min-w-0 flex-1" />
+        {badge ?? null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export function ProductRequestMessageCard({
+  note,
+  onNoteChange,
+  maxLength,
+  fieldFocus = t.focus,
+}: {
+  note: string;
+  onNoteChange: (value: string) => void;
+  maxLength: number;
+  fieldFocus?: string;
+}) {
+  return (
+    <section className={cn(pharmacyPublicCard, "p-3 sm:p-4", t.messageCard)}>
+      <PharmacyPublicSectionTitle title="Message pour la pharmacie (facultatif)" className="mb-2" />
+      <textarea
+        value={note}
+        onChange={(e) => onNoteChange(e.target.value.slice(0, maxLength))}
+        rows={3}
+        maxLength={maxLength}
+        className={cn(
+          "w-full rounded-xl border bg-background px-3 py-3 text-sm leading-relaxed placeholder:text-muted-foreground",
+          t.messageInput,
+          fieldFocus
+        )}
+        placeholder="Ex. précisions utiles pour l'officine…"
+      />
+      <p className="mt-1 text-right text-[10px] tabular-nums text-muted-foreground">
+        {note.length}/{maxLength}
+      </p>
+    </section>
+  );
+}
 
 function ProductRequestLinePu({ unitPrice }: { unitPrice: number | null }) {
   return (
@@ -378,8 +438,8 @@ export function ProductRequestSearchExplorerRow({
   searchSlot?: ReactNode;
 }) {
   return (
-    <div className={cn("overflow-hidden rounded-2xl border bg-card shadow-sm", t.shell)}>
-      <div className="flex items-stretch gap-2 px-3 py-2.5 sm:px-3.5">
+    <div className={cn(pharmacyPublicCard, "overflow-hidden p-0", t.shell)}>
+      <div className="flex items-stretch gap-2 px-3 py-3 sm:px-4">
         <div className="relative min-w-0 flex-1">
           <Search
             className={cn("pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2", t.searchIcon)}
@@ -453,7 +513,7 @@ export function ProductRequestExplorerSearchBar({
   placeholder?: string;
 }) {
   return (
-    <div className={cn("overflow-hidden rounded-2xl border bg-card shadow-md", t.shell)}>
+    <div className={cn(pharmacyPublicCard, "overflow-hidden p-0", t.shell)}>
       <div className="relative px-3 py-3 sm:px-4">
         <Search
           className={cn("pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 sm:left-4", t.searchIcon)}
@@ -496,21 +556,16 @@ export function ProductRequestHeaderSearch({
   searchSlot: React.ReactNode;
 }) {
   return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-2xl border bg-card text-card-foreground shadow-md",
-        t.shell
-      )}
-    >
+    <div className={cn(pharmacyPublicCard, "overflow-hidden p-0 text-card-foreground", t.shell)}>
       <PharmacyFlowHero
         theme="productRequest"
         embedded
         eyebrow="Demande de produits"
         title={pharmacyLabel}
-        subtitle="Recherchez, ajoutez vos produits et envoyez la liste à l'officine."
+        subtitle="Recherchez un produit, ajoutez-le à votre liste, puis envoyez la demande à l'officine."
         icon={Package}
       />
-      <div className={cn("border-t bg-card px-3 pb-3 pt-2.5 sm:px-4", t.searchDivider)}>
+      <div className={cn("border-t bg-card px-3 pb-3 pt-3 sm:px-4", t.searchDivider)}>
         <div className="flex items-stretch gap-2">
           <div className="relative min-w-0 flex-1">
             <Search
@@ -566,7 +621,7 @@ export function ProductRequestCatalogHitRow({
     <li>
       <div
         className={cn(
-          "flex h-[3.75rem] items-center gap-2 rounded-xl border border-border/70 bg-muted/20 px-2 py-1 transition hover:bg-muted/35",
+          "flex h-[3.75rem] items-center gap-2 rounded-xl border border-border/80 bg-card px-2 py-1 shadow-sm transition",
           t.hitHover
         )}
       >
@@ -678,17 +733,16 @@ export function PatientLineCommentModal({
   onClose: () => void;
   onSave: () => void;
 }) {
-  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[50] flex items-end justify-center p-3 sm:items-center">
-      <button type="button" className="absolute inset-0 bg-black/45" aria-label="Fermer" onClick={onClose} />
+    <AppModalOverlay open={open} onBackdropClick={onClose} aria-labelledby="line-comment-title">
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="line-comment-title"
-        className={cn("relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border bg-card shadow-2xl", t.modalShell)}
+        className={cn(
+          "w-full max-w-sm overflow-hidden rounded-2xl border bg-card shadow-2xl sm:max-h-[min(88dvh,560px)]",
+          t.modalShell
+        )}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className={cn("flex items-start justify-between gap-2 border-b px-4 py-3", t.modalHeader)}>
+        <div className={cn("flex items-start justify-between gap-2 border-b px-4 py-3.5", t.modalHeader)}>
           <div className="min-w-0">
             <h2 id="line-comment-title" className="text-sm font-bold text-foreground">
               Note sur le produit
@@ -725,12 +779,12 @@ export function PatientLineCommentModal({
           <Button type="button" variant="outline" className="h-10 flex-1 font-semibold" onClick={onClose}>
             Annuler
           </Button>
-          <Button type="button" className={cn("h-10 flex-1 font-semibold", t.cta)} onClick={onSave}>
+          <Button type="button" className={cn(uiActionBtnFull("h-10 flex-1"), t.cta)} onClick={onSave}>
             Enregistrer
           </Button>
         </div>
       </div>
-    </div>
+    </AppModalOverlay>
   );
 }
 
@@ -755,24 +809,20 @@ export function PatientDemandeSendConfirmModal({
   onConfirm: () => void;
   onPhotoPreview: (url: string, title: string) => void;
 }) {
-  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[45] flex items-end justify-center p-3 sm:items-center">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/50"
-        aria-label="Fermer"
-        disabled={submitLoading}
-        onClick={() => !submitLoading && onClose()}
-      />
+    <AppModalOverlay
+      open={open}
+      onBackdropClick={() => {
+        if (!submitLoading) onClose();
+      }}
+      aria-labelledby="send-confirm-title"
+    >
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="send-confirm-title"
         className={cn(
-          "relative z-10 flex max-h-[min(88dvh,560px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl",
+          "flex max-h-[min(88dvh,560px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl",
           t.modalShell
         )}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className={cn("border-b px-4 py-3.5", t.modalHeader)}>
           <div className="flex items-start justify-between gap-2">
@@ -886,7 +936,7 @@ export function PatientDemandeSendConfirmModal({
             </Button>
             <Button
               type="button"
-              className={cn("h-11 flex-1 font-semibold", t.cta)}
+              className={cn(uiActionBtnFull("h-11 flex-1"), t.cta)}
               disabled={submitLoading}
               onClick={onConfirm}
             >
@@ -895,6 +945,6 @@ export function PatientDemandeSendConfirmModal({
           </div>
         </div>
       </div>
-    </div>
+    </AppModalOverlay>
   );
 }

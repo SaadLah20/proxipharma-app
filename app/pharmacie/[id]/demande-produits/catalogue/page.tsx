@@ -13,19 +13,19 @@ import {
   type PatientDemandeProduitsCatalogProduct,
   writePatientDemandeProduitsDraft,
 } from "@/lib/patient-demande-produits-draft";
-import { PharmacyPublicBackLink } from "@/components/pharmacy/pharmacy-public-chrome";
+import { PharmacyPublicBackLink, pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
 import {
   PriceDhInline,
   ProductRequestExplorerSearchBar,
+  ProductRequestSection,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import { Button } from "@/components/ui/button";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { cn } from "@/lib/utils";
-import {
-  PlatformStickyFooter,
-} from "@/components/layout/platform-sticky-footer";
+import { PlatformStickyFooter } from "@/components/layout/platform-sticky-footer";
 import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
+import { uiActionBtnFull } from "@/lib/ui-action-buttons";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 
@@ -157,110 +157,121 @@ export default function DemandeProduitsCataloguePage() {
   }
 
   return (
-    <main className={cn("min-h-screen touch-pan-y bg-background p-4 text-foreground antialiased sm:p-5", stickyFooterPadClass("standard"))}>
-      <div className="mx-auto max-w-lg space-y-3">
-        <PharmacyPublicBackLink href={backHref} className={t.backLink}>
+    <main
+      className={cn(
+        "min-h-screen touch-pan-y bg-background text-foreground antialiased",
+        stickyFooterPadClass("standard")
+      )}
+    >
+      <div className="mx-auto max-w-lg space-y-4 px-4 py-4 sm:px-5 sm:py-5">
+        <PharmacyPublicBackLink href={backHref} className={cn("mb-0", t.backLink)}>
           {backLabel}
         </PharmacyPublicBackLink>
 
-        <ProductRequestExplorerSearchBar
-          query={filterQuery}
-          onQueryChange={setFilterQuery}
-          fieldFocus={fieldFocus}
-        />
+        <ProductRequestSection
+          title="Explorer le catalogue"
+          hint="Filtrez par nom ou laboratoire, puis cochez les produits à ajouter."
+          badge={
+            selectedCount > 0 ? (
+              <span className={cn("shrink-0", t.sectionBadge)}>{selectedCount} coché{selectedCount > 1 ? "s" : ""}</span>
+            ) : null
+          }
+        >
+          <ProductRequestExplorerSearchBar query={filterQuery} onQueryChange={setFilterQuery} fieldFocus={fieldFocus} />
 
-        <section className={cn("overflow-hidden rounded-2xl border bg-card shadow-md", t.shell)}>
-          {loadError ? <p className="px-3 py-3 text-sm text-destructive">{loadError}</p> : null}
-          {loading ? (
-            <p className="px-3 py-6 text-center text-sm text-muted-foreground">Chargement…</p>
-          ) : filtered.length === 0 ? (
-            <p className="px-3 py-6 text-center text-sm text-muted-foreground">Aucun produit trouvé.</p>
-          ) : (
-            <ul className="max-h-[min(58dvh,520px)] divide-y divide-border/50 overflow-y-auto">
-              {filtered.map((p) => {
-                const inCart = cartProductIds.has(p.id);
-                const checked = !inCart && selectedIds.has(p.id);
-                const unitPrice = resolveCatalogPrice(catalogHitToPricingInput(p));
-                return (
-                  <li key={p.id}>
-                    <div
-                      className={cn(
-                        "flex min-h-14 items-stretch gap-2 px-3 py-2 transition",
-                        inCart ? "bg-muted/30 opacity-80" : checked ? "bg-sky-50/50" : "hover:bg-muted/20"
-                      )}
-                    >
-                      <button
-                        type="button"
-                        disabled={inCart}
-                        onClick={() => toggleSelect(p.id)}
+          <div className={cn(pharmacyPublicCard, "mt-2 overflow-hidden p-0", t.shell)}>
+            {loadError ? <p className="px-3 py-3 text-sm text-destructive">{loadError}</p> : null}
+            {loading ? (
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">Chargement…</p>
+            ) : filtered.length === 0 ? (
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">Aucun produit trouvé.</p>
+            ) : (
+              <ul className="max-h-[min(58dvh,520px)] divide-y divide-border/60 overflow-y-auto">
+                {filtered.map((p) => {
+                  const inCart = cartProductIds.has(p.id);
+                  const checked = !inCart && selectedIds.has(p.id);
+                  const unitPrice = resolveCatalogPrice(catalogHitToPricingInput(p));
+                  return (
+                    <li key={p.id}>
+                      <div
                         className={cn(
-                          "flex size-9 shrink-0 self-center items-center justify-center rounded-lg border-2 transition",
-                          inCart
-                            ? "border-border/60 bg-muted"
-                            : checked
-                              ? "border-sky-600 bg-sky-600 text-white"
-                              : "border-border/80 bg-card hover:border-sky-400"
+                          "flex min-h-14 items-stretch gap-2 px-3 py-2 transition",
+                          inCart ? "bg-muted/25 opacity-80" : checked ? "bg-sky-50/40" : "hover:bg-muted/20"
                         )}
-                        aria-label={
-                          inCart
-                            ? `${p.name} — déjà dans la demande`
-                            : checked
-                              ? `Désélectionner ${p.name}`
-                              : `Sélectionner ${p.name}`
-                        }
-                        aria-pressed={inCart ? undefined : checked}
                       >
-                        {inCart ? null : checked ? <Check className="size-4" strokeWidth={2.5} /> : null}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!p.photo_url}
-                        className={cn(
-                          THUMB,
-                          "self-center",
-                          p.photo_url ? cn("cursor-zoom-in", t.photoRing) : "cursor-default opacity-80"
-                        )}
-                        aria-label={p.photo_url ? `Agrandir la photo · ${p.name}` : "Pas de photo catalogue"}
-                        onClick={(ev) => {
-                          ev.stopPropagation();
-                          if (p.photo_url) setPhotoPreview({ url: p.photo_url, title: p.name });
-                        }}
-                      >
-                        {p.photo_url ? (
-                          <img src={p.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
-                        ) : (
-                          <span className="flex h-full w-full items-center justify-center">
-                            <Package className="size-5 text-muted-foreground" aria-hidden />
-                          </span>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={inCart}
-                        onClick={() => toggleSelect(p.id)}
-                        className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-0.5 text-left disabled:cursor-not-allowed"
-                      >
-                        <p className="truncate text-[13px] font-semibold leading-tight text-foreground" title={p.name}>
-                          {p.name}
-                        </p>
-                        <p className={cn("text-xs font-semibold leading-none", t.price)}>
-                          <PriceDhInline
-                            value={unitPrice}
-                            amountClassName={cn("font-semibold", t.price)}
-                            suffixClassName="text-[10px] font-semibold text-sky-600/70"
-                          />
-                        </p>
-                        {inCart ? (
-                          <span className="text-[10px] font-medium text-muted-foreground">Déjà dans la demande</span>
-                        ) : null}
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
+                        <button
+                          type="button"
+                          disabled={inCart}
+                          onClick={() => toggleSelect(p.id)}
+                          className={cn(
+                            "flex size-9 shrink-0 self-center items-center justify-center rounded-lg border-2 transition",
+                            inCart
+                              ? "border-border/60 bg-muted"
+                              : checked
+                                ? "border-sky-600 bg-sky-600 text-white"
+                                : "border-border/80 bg-card hover:border-sky-400/60"
+                          )}
+                          aria-label={
+                            inCart
+                              ? `${p.name} — déjà dans la demande`
+                              : checked
+                                ? `Désélectionner ${p.name}`
+                                : `Sélectionner ${p.name}`
+                          }
+                          aria-pressed={inCart ? undefined : checked}
+                        >
+                          {inCart ? null : checked ? <Check className="size-4" strokeWidth={2.5} /> : null}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!p.photo_url}
+                          className={cn(
+                            THUMB,
+                            "self-center",
+                            p.photo_url ? cn("cursor-zoom-in", t.photoRing) : "cursor-default opacity-80"
+                          )}
+                          aria-label={p.photo_url ? `Agrandir la photo · ${p.name}` : "Pas de photo catalogue"}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            if (p.photo_url) setPhotoPreview({ url: p.photo_url, title: p.name });
+                          }}
+                        >
+                          {p.photo_url ? (
+                            <img src={p.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
+                          ) : (
+                            <span className="flex h-full w-full items-center justify-center">
+                              <Package className="size-5 text-muted-foreground" aria-hidden />
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={inCart}
+                          onClick={() => toggleSelect(p.id)}
+                          className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-0.5 text-left disabled:cursor-not-allowed"
+                        >
+                          <p className="truncate text-[13px] font-semibold leading-tight text-foreground" title={p.name}>
+                            {p.name}
+                          </p>
+                          <p className={cn("text-xs font-semibold leading-none", t.price)}>
+                            <PriceDhInline
+                              value={unitPrice}
+                              amountClassName={cn("font-semibold", t.price)}
+                              suffixClassName="text-[10px] font-semibold text-sky-700/70"
+                            />
+                          </p>
+                          {inCart ? (
+                            <span className="text-[10px] font-medium text-muted-foreground">Déjà dans la demande</span>
+                          ) : null}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </ProductRequestSection>
       </div>
 
       <PlatformStickyFooter tone="sky" className={t.footerBorder}>
@@ -268,7 +279,7 @@ export default function DemandeProduitsCataloguePage() {
           type="button"
           size="lg"
           disabled={selectedCount === 0 || adding}
-          className={cn("h-11 w-full text-sm font-semibold", t.cta)}
+          className={cn(uiActionBtnFull("h-11 text-sm"), t.cta)}
           onClick={() => addSelectedAndReturn()}
         >
           {addButtonLabel}
