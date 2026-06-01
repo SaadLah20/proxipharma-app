@@ -10,7 +10,7 @@ import { formatDistanceKm } from "@/lib/annuaire/geo";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import { buttonVariants } from "@/components/ui/button";
-import { uiAnnuaireActionOverlayBtn } from "@/lib/ui-action-buttons";
+import { uiAnnuaireQuickAction } from "@/lib/ui-action-buttons";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { cn } from "@/lib/utils";
 import {
@@ -22,7 +22,7 @@ function normalizeWhatsApp(value: string | null) {
   return (value ?? "").replace(/[^\d]/g, "");
 }
 
-function AnnuaireCardPhotoActions({
+function AnnuaireCardQuickActions({
   pharmacy,
   wa,
   canNavigate,
@@ -36,15 +36,11 @@ function AnnuaireCardPhotoActions({
   const label = pharmacyPublicLabel(pharmacy.nom);
 
   return (
-    <div
-      className="absolute inset-y-0 right-0 z-10 flex w-11 flex-col items-center justify-center gap-0.5 py-2 pe-2"
-      onClick={(e) => e.stopPropagation()}
-    >
+    <div className="grid grid-cols-4 gap-1.5" onClick={(e) => e.stopPropagation()}>
       <a
         href={pharmacy.telephone ? `tel:${pharmacy.telephone}` : undefined}
         aria-disabled={!pharmacy.telephone}
         aria-label={pharmacy.telephone ? `Appeler ${label}` : "Téléphone non renseigné"}
-        title="Appeler"
         onClick={(e) => {
           if (!pharmacy.telephone) e.preventDefault();
           else
@@ -54,9 +50,10 @@ function AnnuaireCardPhotoActions({
               source: "annuaire",
             });
         }}
-        className={cn(uiAnnuaireActionOverlayBtn(), !pharmacy.telephone && "pointer-events-none opacity-45")}
+        className={cn(uiAnnuaireQuickAction(), !pharmacy.telephone && "pointer-events-none opacity-45")}
       >
-        <Phone className="size-3.5" aria-hidden />
+        <Phone className="size-4" aria-hidden />
+        Appeler
       </a>
       <a
         href={wa ? `https://wa.me/${wa}` : undefined}
@@ -64,7 +61,6 @@ function AnnuaireCardPhotoActions({
         rel={wa ? "noreferrer" : undefined}
         aria-disabled={!wa}
         aria-label={wa ? `WhatsApp ${label}` : "WhatsApp non renseigné"}
-        title="WhatsApp"
         onClick={(e) => {
           if (!wa) e.preventDefault();
           else
@@ -74,9 +70,10 @@ function AnnuaireCardPhotoActions({
               source: "annuaire",
             });
         }}
-        className={cn(uiAnnuaireActionOverlayBtn(), !wa && "pointer-events-none opacity-45")}
+        className={cn(uiAnnuaireQuickAction(), !wa && "pointer-events-none opacity-45")}
       >
-        <MessageCircle className="size-3.5" aria-hidden />
+        <MessageCircle className="size-4" aria-hidden />
+        WhatsApp
       </a>
       <PharmacyNavigationPicker
         pharmacy={{
@@ -89,17 +86,18 @@ function AnnuaireCardPhotoActions({
           maps_url: pharmacy.maps_url,
         }}
         source="annuaire"
-        variant="annuaire-rail"
+        variant="annuaire"
         disabledClassName={!canNavigate ? "pointer-events-none opacity-45" : undefined}
+        className={!canNavigate ? "pointer-events-none opacity-45" : undefined}
       />
       <button
         type="button"
         onClick={onShare}
-        className={uiAnnuaireActionOverlayBtn()}
+        className={uiAnnuaireQuickAction()}
         aria-label={`Partager ${label}`}
-        title="Partager"
       >
-        <Share2 className="size-3.5" aria-hidden />
+        <Share2 className="size-4" aria-hidden />
+        Partager
       </button>
     </div>
   );
@@ -138,12 +136,9 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
   return (
     <article
       className={cn(
-        "overflow-hidden rounded-2xl border bg-card text-card-foreground shadow-sm transition hover:shadow-md",
-        pharmacy.open.onCallNow
-          ? "border-amber-400/70 ring-2 ring-amber-300/40 hover:border-amber-400/80"
-          : pharmacy.open.onCallToday
-            ? "border-amber-300/50 ring-1 ring-amber-200/35 hover:border-amber-300/65"
-            : "border-border hover:border-primary/25"
+        "overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm transition hover:border-primary/20 hover:shadow-md",
+        pharmacy.open.onCallNow && "border-l-4 border-l-amber-500",
+        !pharmacy.open.onCallNow && pharmacy.open.onCallToday && "border-l-4 border-l-amber-300"
       )}
     >
       <div className="relative aspect-[2.15/1] min-h-[6.25rem] overflow-hidden border-b border-border/60 sm:aspect-[2.25/1]">
@@ -170,11 +165,11 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
             </div>
           )}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
-          <span className="absolute left-2 top-2 z-[1] inline-flex max-w-[calc(100%-3.25rem)] items-center gap-0.5 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+          <span className="absolute left-2 top-2 z-[1] inline-flex max-w-[calc(100%-1rem)] items-center gap-0.5 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
             <Star className="size-3 shrink-0 fill-amber-300 text-amber-300" aria-hidden />
             <span className="truncate">{ratingLabel}</span>
           </span>
-          <div className="absolute bottom-2 left-2 right-12 z-[1] flex flex-wrap items-end justify-between gap-1.5">
+          <div className="absolute bottom-2 left-2 right-2 z-[1] flex flex-wrap items-end justify-between gap-1.5">
             <div className="flex max-w-full flex-wrap gap-1">
               <span className={pharmacyOpenStatusOverlayBadgeClass(pharmacy.open.status)}>
                 {pharmacy.open.openLabel}
@@ -192,16 +187,9 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
             ) : null}
           </div>
         </Link>
-
-        <AnnuaireCardPhotoActions
-          pharmacy={pharmacy}
-          wa={wa}
-          canNavigate={canNavigate}
-          onShare={(e) => void handleShare(e)}
-        />
       </div>
 
-      <div className="space-y-1.5 p-3 pt-2">
+      <div className="space-y-2 p-3 pt-2">
         <div
           className="flex min-w-0 items-baseline gap-1.5 pe-1"
           title={publicRef ? `${pharmacyPublicLabel(pharmacy.nom)} · ${publicRef}` : pharmacyPublicLabel(pharmacy.nom)}
@@ -223,6 +211,14 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
         {!pharmacy.hasValidLocation ? (
           <p className="text-[10px] text-muted-foreground">Position GPS non renseignée — tri par distance indisponible.</p>
         ) : null}
+
+        <AnnuaireCardQuickActions
+          pharmacy={pharmacy}
+          wa={wa}
+          canNavigate={canNavigate}
+          onShare={(e) => void handleShare(e)}
+        />
+
         <Link
           href={`/pharmacie/${pharmacy.id}`}
           className={cn(buttonVariants({ size: "sm" }), "h-9 w-full gap-1.5 text-xs font-semibold")}

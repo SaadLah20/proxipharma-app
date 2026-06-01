@@ -520,7 +520,10 @@ export function PlatformHeader() {
   const showNotifs = Boolean(session);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-800/90 bg-slate-900 text-slate-100 shadow-md">
+    <header
+      data-proxipharma-platform-header
+      className="fixed inset-x-0 top-0 z-50 border-b border-slate-800/90 bg-slate-900 text-slate-100 shadow-md"
+    >
       <div className="mx-auto flex h-[3.25rem] max-w-6xl items-center justify-between gap-3 px-4 sm:h-14 sm:px-5">
         <Link
           href="/"

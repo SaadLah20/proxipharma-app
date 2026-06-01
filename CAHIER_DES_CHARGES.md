@@ -351,6 +351,31 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
+### Session 2026-06-01 (suite 3) — Annuaire : chrome unifié, barre sticky, cartes allégées
+
+**Livré** (branche **`fix/validated-supply-ecart-ui-modal`**, pas de migration SQL) :
+- **Mobile** : plus de grand hero vert — titre court + **recherche/filtres sticky** sous `PlatformHeader` (`top-[3.25rem]` / `sm:top-14`) ; compteur **dans** la barre outils.
+- **Desktop (`sm+`)** : bandeau **slate-900** aligné au header global, image hero en filigrine (~18 % opacité), texte d’accroche court.
+- **Cartes** : actions Appeler / WhatsApp / Itinéraire / Partager en **grille sous l’adresse** (plus de rail sur la photo) ; garde = **badge** + filet ambre à gauche (plus d’anneau doré sur toute la carte).
+
+**Fichiers** : `components/annuaire/annuaire-page.tsx`, `components/annuaire/annuaire-pharmacy-card.tsx`.
+
+---
+
+### Session 2026-06-01 (suite 2) — FAB Conversation déplaçable (détail dossier)
+
+**Livré** (branche **`fix/validated-supply-ecart-ui-modal`**, pas de migration SQL) :
+- Bouton rond **Conversation** (`RequestConversationFabDock`) sur détail patient et pharmacien **`/dashboard/.../demandes/[id]`** : **glisser** pour repositionner sur toute la zone visible ; position mémorisée en **sessionStorage** (`proxipharma:conversationFabInset`).
+- **Limite haute** = bas du bandeau fixe **`PlatformHeader`** (attribut **`data-proxipharma-platform-header`** sur `platform-header.tsx`) ; marges ~8px sur les bords ; calque **`z-[10050]`** (`Z_FLOATING_ABOVE_STICKY_FOOTER`) — au-dessus des footers sticky dossier, **sous** les modales (`11000`).
+- **Position initiale** : au-dessus du footer sticky du dossier (`stickyFooterFabMinBottomPx` / `lib/platform-sticky-footer.ts`) ; après déplacement, le bouton peut être posé plus bas (y compris au-dessus du footer grâce au z-index).
+- Clamp partagé : **`lib/conversation-fab-position.ts`** (`clampConversationFabInset`, `platformHeaderBottomPx`).
+
+**Fichiers clés** : `components/requests/request-conversation-panel.tsx`, `lib/conversation-fab-position.ts`, `components/layout/platform-header.tsx`.
+
+**Hors périmètre** : **consultation libre** = messagerie **inline** (pas de FAB) ; **notes par ligne** = `pharmacist-line-conversation-chip` (non déplaçable).
+
+---
+
 ### Session 2026-06-01 — Abandon refonte UX Glovo-like (branche supprimée)
 
 **Décision** : la refonte « big bang » Glovo-like est **abandonnée** — ne pas la reprendre ni la merger.
