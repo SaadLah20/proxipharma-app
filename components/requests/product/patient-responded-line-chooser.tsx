@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
-import { Check, Package, X } from "lucide-react";
+import { Package, X } from "lucide-react";
 import {
   ProductRequestLineMessageIconButton,
   ProductRequestLinePrices,
@@ -249,61 +249,95 @@ function RespondedVariantTabs({
   onTab: (id: string) => void;
   className?: string;
 }) {
+  const activeMeta = tabs.find((t) => t.id === activeTab) ?? tabs[0];
+  const selectedMeta = selectedTabId ? tabs.find((t) => t.id === selectedTabId) : null;
+  const viewingLabel = activeMeta?.label ?? "Option";
+  const choiceLabel = selectedMeta?.label ?? null;
+
   return (
-    <div
-      className={cn(
-        "flex gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [-webkit-overflow-scrolling:touch]",
-        className
-      )}
-      role="tablist"
-      aria-label="Options pour ce produit"
-    >
-      {tabs.map((tab) => {
-        const isViewing = tab.id === activeTab;
-        const isSelected = selectedTabId === tab.id;
-        const dim = !tab.retainable;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={isViewing}
-            title={
-              dim
-                ? "Non retenable — rupture ou indisponible"
-                : isSelected
-                  ? isViewing
-                    ? "Option retenue — affichée"
-                    : "Option retenue — cliquez pour la revoir"
-                  : undefined
-            }
-            className={cn(
-              "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold leading-tight transition",
-              dim && "border-transparent bg-transparent text-slate-400 line-through",
-              !dim &&
-                isSelected &&
-                "border-emerald-500/90 bg-emerald-50 text-emerald-950",
-              !dim &&
-                !isSelected &&
-                isViewing &&
-                "border-foreground/25 bg-white text-foreground",
-              !dim &&
-                !isSelected &&
-                !isViewing &&
-                "border-transparent bg-muted/30 text-muted-foreground hover:bg-muted/50"
-            )}
-            onClick={() => onTab(tab.id)}
-          >
-            {isSelected && !dim ? (
-              <Check className="size-3 shrink-0 text-emerald-700" strokeWidth={2.75} aria-hidden />
+    <div className={cn("min-w-0 space-y-1.5", className)}>
+      <div
+        className="grid min-w-0 gap-1"
+        style={{ gridTemplateColumns: `repeat(${Math.max(tabs.length, 1)}, minmax(0, 1fr))` }}
+        role="tablist"
+        aria-label="Options pour ce produit"
+      >
+        {tabs.map((tab) => {
+          const isViewing = tab.id === activeTab;
+          const isSelected = selectedTabId === tab.id;
+          const dim = !tab.retainable;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={isViewing}
+              aria-current={isViewing ? "true" : undefined}
+              title={
+                dim
+                  ? "Non retenable — rupture ou indisponible"
+                  : isSelected
+                    ? isViewing
+                      ? "Votre choix — affiché"
+                      : "Votre choix — cliquez pour afficher"
+                    : isViewing
+                      ? "Consulté — pas votre choix"
+                      : "Cliquez pour consulter"
+              }
+              className={cn(
+                "flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-1.5 text-center transition",
+                dim && "border-transparent bg-transparent text-slate-400 line-through",
+                !dim &&
+                  isViewing &&
+                  "border-foreground/30 bg-white text-foreground shadow-sm ring-1 ring-foreground/10",
+                !dim &&
+                  !isViewing &&
+                  "border-transparent bg-muted/25 text-muted-foreground hover:bg-muted/45",
+                !dim && isSelected && !isViewing && "border-emerald-400/50 bg-emerald-50/40"
+              )}
+              onClick={() => onTab(tab.id)}
+            >
+              <span className="w-full truncate text-[10px] font-semibold leading-tight">{tab.label}</span>
+              {!dim ? (
+                <span
+                  className={cn(
+                    "size-1.5 shrink-0 rounded-full",
+                    isSelected ? "bg-emerald-600" : "bg-transparent ring-1 ring-muted-foreground/35"
+                  )}
+                  aria-hidden
+                />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[10px] leading-snug text-muted-foreground" aria-live="polite">
+        {selectedMeta && !selectedMeta.retainable ? (
+          <>
+            Consulté : <span className="font-semibold text-foreground">{viewingLabel}</span>
+            {" · "}
+            <span className="text-slate-500">aucune option retenable</span>
+          </>
+        ) : choiceLabel && choiceLabel !== viewingLabel ? (
+          <>
+            Consulté : <span className="font-semibold text-foreground">{viewingLabel}</span>
+            {" · "}
+            Votre choix : <span className="font-semibold text-emerald-800">{choiceLabel}</span>
+          </>
+        ) : choiceLabel ? (
+          <>
+            Votre choix : <span className="font-semibold text-emerald-800">{choiceLabel}</span>
+            {activeTab === selectedTabId ? (
+              <span className="text-muted-foreground"> (affiché)</span>
             ) : null}
-            <span>{tab.label}</span>
-            {isSelected && !dim && !isViewing ? (
-              <span className="text-[9px] font-bold uppercase tracking-wide text-emerald-700">· retenue</span>
-            ) : null}
-          </button>
-        );
-      })}
+          </>
+        ) : (
+          <>
+            Consulté : <span className="font-semibold text-foreground">{viewingLabel}</span>
+            <span className="text-muted-foreground"> — utilisez « Retenir » pour choisir</span>
+          </>
+        )}
+      </p>
     </div>
   );
 }
@@ -613,7 +647,7 @@ export function RespondedPatientLineChooser({
         : null;
     return {
       tabId: alt.id,
-      tabLabel: `Alternative ${index + 1}`,
+      tabLabel: `Alt. ${index + 1}`,
       badgeLabel: "Alternative",
       productName: altProd?.name ?? "Alternative",
       photoUrl: resolvePublicMediaUrl(altProd?.photo_url ?? null),
