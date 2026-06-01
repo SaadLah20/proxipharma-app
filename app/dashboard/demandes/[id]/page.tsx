@@ -198,15 +198,13 @@ export default function DemandeDetailPage() {
       type ReqRowMinimal = RequestDetail & { request_type?: string; status?: string };
       const r = reqRow as ReqRowMinimal;
       const st = String(r.status);
-      const needStatusHistory =
-        r.request_type === "product_request" &&
-        (["confirmed", "treated"].includes(st) || isPatientProductArchiveStatus(st));
-
       const isPrescription = (reqRow as RequestDetail).request_type === "prescription";
       const isProductRequest = (reqRow as RequestDetail).request_type === "product_request";
       const isConsultation = (reqRow as RequestDetail).request_type === "free_consultation";
-      const needStatusHistoryConsult =
-        isConsultation &&
+      const usesLineWorkflowRequest =
+        isProductRequest || isPrescription || isConsultation;
+      const needStatusHistory =
+        usesLineWorkflowRequest &&
         (["confirmed", "treated"].includes(st) || isPatientProductArchiveStatus(st));
 
       const [itemsResult, amendmentsResult, convUnreadRes, histResult, prescriptionResult, consultationResult, productReqResult] =
@@ -225,7 +223,7 @@ export default function DemandeDetailPage() {
           .order("created_at", { ascending: false })
           .limit(40),
         supabase.rpc("request_conversation_unread_flags", { p_request_ids: [id] }),
-        needStatusHistory || needStatusHistoryConsult
+        needStatusHistory
           ? supabase
               .from("request_status_history")
               .select("id,created_at,old_status,new_status,reason")
@@ -253,7 +251,7 @@ export default function DemandeDetailPage() {
       ]);
       const unreadRow = (convUnreadRes.data as { request_id: string; has_unread: boolean }[] | null)?.find((x) => x.request_id === id);
       setConversationUnread(Boolean(unreadRow?.has_unread));
-      if ((needStatusHistory || needStatusHistoryConsult) && !histResult.error && Array.isArray(histResult.data)) {
+      if (needStatusHistory && !histResult.error && Array.isArray(histResult.data)) {
         setHistoryRows(
           histResult.data as {
             id: string;
@@ -263,7 +261,7 @@ export default function DemandeDetailPage() {
             reason: string | null;
           }[]
         );
-      } else if (!needStatusHistory && !needStatusHistoryConsult) {
+      } else if (!needStatusHistory) {
         setHistoryRows([]);
       }
 
@@ -454,7 +452,10 @@ export default function DemandeDetailPage() {
       (request.request_type === "product_request" && showArchivedReadonly));
 
   const showConsultationTabbed =
-    isConsultationRequest && consultationBrief != null && hasBottomActions && !showArchivedReadonly;
+    isConsultationRequest &&
+    consultationBrief != null &&
+    ["submitted", "in_review"].includes(request.status) &&
+    !showArchivedReadonly;
 
   const dossierRefLabel =
     displayRequestPublicRef(request) || `Dossier ${request.id.slice(0, 8)}…`;
@@ -701,7 +702,9 @@ export default function DemandeDetailPage() {
           />
         </div>
       </details>
-      {usesLineWorkflow && sessionUserId && !isConsultationRequest ? (
+      {usesLineWorkflow &&
+      sessionUserId &&
+      (!isConsultationRequest || !["submitted", "in_review"].includes(request.status)) ? (
         <>
           <RequestConversationFabDock
             hasUnread={conversationUnread}

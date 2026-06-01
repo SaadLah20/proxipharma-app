@@ -2696,8 +2696,12 @@ export function PatientProductRequestActions({
   };
 
   const showConfirm = uiStatus === "responded";
+  const usesLineWorkflowUi =
+    requestType === "product_request" ||
+    requestType === "prescription" ||
+    requestType === "free_consultation";
   const canPatientRevalidateConfirmation =
-    uiStatus === "confirmed" && !forceReadOnly && requestType === "product_request";
+    uiStatus === "confirmed" && !forceReadOnly && usesLineWorkflowUi;
   const showProductResubmit =
     !forceReadOnly &&
     !isPrescription &&
@@ -2747,19 +2751,16 @@ export function PatientProductRequestActions({
   const confirmSkippedLines = confirmReviewSnap?.skippedLines ?? [];
 
   const useNeutralProductDossierShell =
-    !isConsultation && !forceReadOnly && (showConfirm || showConfirmedCards);
+    !forceReadOnly && (showConfirm || showConfirmedCards);
   const useCompactPassageBlock = useNeutralProductDossierShell;
   const useSkyProductShell =
-    !isConsultation &&
-    !useNeutralProductDossierShell &&
-    showProductResubmit &&
-    !forceReadOnly;
-  const useArchiveShell = forceReadOnly && !isConsultation && requestType === "product_request";
-  const isExpiredProductArchive = status === "expired" && requestType === "product_request";
-  const isCancelledProductArchive = status === "cancelled" && requestType === "product_request";
-  const isAbandonedProductArchive = status === "abandoned" && requestType === "product_request";
+    !useNeutralProductDossierShell && showProductResubmit && !forceReadOnly;
+  const useArchiveShell = forceReadOnly && usesLineWorkflowUi;
+  const isExpiredProductArchive = status === "expired" && usesLineWorkflowUi;
+  const isCancelledProductArchive = status === "cancelled" && usesLineWorkflowUi;
+  const isAbandonedProductArchive = status === "abandoned" && usesLineWorkflowUi;
   const isClosedProductArchive =
-    isPatientProductClosedArchiveStatus(status) && requestType === "product_request";
+    isPatientProductClosedArchiveStatus(status) && usesLineWorkflowUi;
   const isDossierTerminalArchive =
     isExpiredProductArchive ||
     isCancelledProductArchive ||
@@ -2963,7 +2964,7 @@ export function PatientProductRequestActions({
         />
       ) : null}
 
-      {forceReadOnly && archiveSnapshotStatus && requestType === "product_request" && !isConsultation ? (
+      {forceReadOnly && archiveSnapshotStatus && usesLineWorkflowUi ? (
         <>
           <PatientArchiveFrozenProductsView
             snapshotStatus={archiveSnapshotStatus}
@@ -3470,7 +3471,7 @@ export function PatientProductRequestActions({
           )
         ) : null}
 
-        {showConfirmedCards && !showConfirm && !isConsultation ? (
+        {showConfirmedCards && !showConfirm && usesLineWorkflowUi ? (
           <p className="mt-3 rounded-lg border border-border bg-muted/20 px-2.5 py-2 text-[10px] leading-snug text-muted-foreground">
             Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
             <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
