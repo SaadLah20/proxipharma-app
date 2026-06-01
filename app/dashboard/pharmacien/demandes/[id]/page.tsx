@@ -1173,7 +1173,11 @@ function mergeItemDraftOnReload(
   };
 }
 
-/** Après flush des propositions locales : réassocie le brouillon aux `request_items` persistés. */
+/**
+ * Après flush des propositions locales : réassocie le brouillon aux `request_items` persistés.
+ * Conserve les saisies en cours (y compris lignes avec alternative retenue) — ne pas réappliquer
+ * `mergeItemDraftOnReload` qui réinjecte la dispo persistée et efface les autres modifications simultanées.
+ */
 function mergeDraftAfterLocalProposalFlush(
   freshItems: ItemRow[],
   prevDraft: Draft,
@@ -1186,9 +1190,63 @@ function mergeDraftAfterLocalProposalFlush(
     const localId = serverToLocal.get(row.id);
     const prev = localId ? prevDraft[localId] : prevDraft[row.id];
     const built = buildItemDraftFromRow(row, requestStatus);
-    next[row.id] = mergeItemDraftOnReload(row, built, prev, requestStatus);
+    if (!prev) {
+      next[row.id] = built;
+      continue;
+    }
+    next[row.id] = {
+      ...built,
+      ...prev,
+      withdrawn_after_confirm: prev.withdrawn_after_confirm,
+      availability_status: prev.availability_status,
+      available_qty: prev.available_qty,
+      unit_price: prev.unit_price,
+      pharmacist_comment: prev.pharmacist_comment,
+      expected_availability_date: prev.expected_availability_date,
+      selected_qty_str: prev.selected_qty_str,
+      fulfillment_draft: prev.fulfillment_draft ?? built.fulfillment_draft,
+      counter_outcome_draft: prev.counter_outcome_draft ?? built.counter_outcome_draft,
+      counter_cancel_reason_draft: prev.counter_cancel_reason_draft ?? built.counter_cancel_reason_draft,
+      counter_cancel_detail_draft: prev.counter_cancel_detail_draft ?? built.counter_cancel_detail_draft,
+    };
   }
   return next;
+}
+
+/** Amendements « ajout après validation » pour un lot unique (après insert, avant journal global). */
+function buildLineAddedAmendmentsFromProposalFlush(
+  proposalSnap: ItemRow[],
+  workItems: ItemRow[],
+  idMap: Map<string, string>,
+  requestType: string,
+  channel: string,
+  motive: string
+): SupplyAmendmentEntryJson[] {
+  const out: SupplyAmendmentEntryJson[] = [];
+  for (const localRow of proposalSnap) {
+    const serverId = idMap.get(localRow.id);
+    if (!serverId) continue;
+    const persisted = workItems.find((r) => r.id === serverId);
+    if (!persisted) continue;
+    const nm = validatedProductLabel(persisted as PatientLineLike);
+    const qty = Math.max(
+      1,
+      Math.floor(Number(persisted.selected_qty ?? persisted.available_qty ?? persisted.requested_qty) || 1)
+    );
+    const mode: "ordonnance" | "proposed" =
+      requestType === "prescription" && localRow.line_source === "patient_request" ? "ordonnance" : "proposed";
+    out.push(
+      buildLineAddedAfterConfirmAmendment({
+        requestItemId: serverId,
+        productName: nm,
+        qty,
+        mode,
+        channel,
+        motive,
+      })
+    );
+  }
+  return out;
 }
 
 function computeSupplyStructuralDirty(
@@ -3604,6 +3662,8 @@ export default function PharmacienDemandeDetailPage() {
     globalChannel: string;
     globalMotive: string;
     removedProposedIds?: string[];
+    /** Ajouts flushés juste avant : journalisés dans le même RPC que le reste. */
+    lineAddedAmends?: SupplyAmendmentEntryJson[];
   }) => {
     if (!request || !["confirmed", "treated"].includes(request.status) || !id) return;
     const rows = work.items;
@@ -3644,14 +3704,17 @@ export default function PharmacienDemandeDetailPage() {
         }
       }
 
-      const allAmends = buildConfirmedSupplyAmendmentBatch(
-        rows,
-        d,
-        request.request_type,
-        globalChannel,
-        globalMotive,
-        removedIds
-      );
+      const allAmends = [
+        ...buildConfirmedSupplyAmendmentBatch(
+          rows,
+          d,
+          request.request_type,
+          globalChannel,
+          globalMotive,
+          removedIds
+        ),
+        ...(work.lineAddedAmends ?? []),
+      ];
       assertSupplyAmendmentChannels(allAmends);
       if (allAmends.length > 0) {
         const { error: rpcA } = await supabase.rpc("pharmacist_record_supply_amendments", {
@@ -3858,12 +3921,10 @@ export default function PharmacienDemandeDetailPage() {
       let workItems = [...items];
       let workDraft: Draft = { ...draft };
 
+      let lineAddedAmends: SupplyAmendmentEntryJson[] = [];
+
       if (proposalSnapLocal.length > 0) {
-        const idMap = await flushDeferredOfficineAdds(workDraft, proposalSnapLocal, altSnap, {
-          recordAddsAfterConfirm: needsAmendJournal
-            ? { requestId: id, channel, motive }
-            : undefined,
-        });
+        const idMap = await flushDeferredOfficineAdds(workDraft, proposalSnapLocal, altSnap);
         const { data: freshData, error: freshErr } = await supabase
           .from("request_items")
           .select(PHARMA_REQUEST_ITEMS_SELECT)
@@ -3872,6 +3933,16 @@ export default function PharmacienDemandeDetailPage() {
         if (freshErr) throw new Error(freshErr.message);
         workItems = (freshData as ItemRow[]) ?? [];
         workDraft = mergeDraftAfterLocalProposalFlush(workItems, workDraft, idMap, request?.status ?? null);
+        if (needsAmendJournal) {
+          lineAddedAmends = buildLineAddedAmendmentsFromProposalFlush(
+            proposalSnapLocal,
+            workItems,
+            idMap,
+            request.request_type,
+            channel,
+            motive
+          );
+        }
       }
 
       workDraft = mergeChosenAltQtyDraftsIntoWorkDraft(workItems, workDraft, altQtyDrafts);
@@ -3882,6 +3953,7 @@ export default function PharmacienDemandeDetailPage() {
         globalChannel: channel,
         globalMotive: motive,
         removedProposedIds: removedSnap,
+        lineAddedAmends,
       });
 
       setPendingProposalRows([]);

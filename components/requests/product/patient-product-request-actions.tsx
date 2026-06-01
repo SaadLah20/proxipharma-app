@@ -2846,10 +2846,6 @@ export function PatientProductRequestActions({
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
       ) : null}
 
-      {latestSupplyAmendmentNotice && !forceReadOnly ? (
-        <PatientPharmaUpdateBanner whenLabel={latestSupplyAmendmentNotice.whenLabel} bundles={supplyAmendmentBundles} />
-      ) : null}
-
       {showConsultationWaiting && items.length === 0 ? (
         <p className="mb-2 rounded-lg border border-violet-200/70 bg-white/80 px-2.5 py-2 text-[11px] leading-snug text-violet-950">
           La pharmacie n&apos;a pas encore proposé de produit. Consultez l&apos;onglet <strong>Conversation</strong> pour
@@ -2893,6 +2889,10 @@ export function PatientProductRequestActions({
             accent={accent}
           />
         )
+      ) : null}
+
+      {latestSupplyAmendmentNotice && !forceReadOnly ? (
+        <PatientPharmaUpdateBanner whenLabel={latestSupplyAmendmentNotice.whenLabel} bundles={supplyAmendmentBundles} />
       ) : null}
 
       {useArchiveShell && pharmacyId ? (
