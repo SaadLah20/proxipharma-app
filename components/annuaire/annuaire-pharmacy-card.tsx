@@ -2,7 +2,7 @@
 
 import type { MouseEvent } from "react";
 import Link from "next/link";
-import { ArrowRight, MapPin, MessageCircle, Phone, Share2, Star } from "lucide-react";
+import { ArrowRight, MapPin, MessageCircle, Phone, Share2, ShieldAlert, Star } from "lucide-react";
 import { PharmacyNavigationPicker } from "@/components/pharmacy/pharmacy-navigation-picker";
 import { hasPharmacyNavigation } from "@/lib/pharmacy-navigation";
 import type { AnnuairePharmacyEnriched } from "@/lib/annuaire/types";
@@ -11,10 +11,13 @@ import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import { buttonVariants } from "@/components/ui/button";
 import { uiAnnuaireQuickAction } from "@/lib/ui-action-buttons";
-import { uiMetaLabel } from "@/lib/ui-label-styles";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { cn } from "@/lib/utils";
-import { pharmacyOpenStatusOverlayBadgeClass } from "@/lib/pharmacy-open-status-ui";
+import {
+  pharmacyOnCallCardBannerClass,
+  pharmacyOnCallOverlayBadgeClass,
+  pharmacyOpenStatusOverlayBadgeClass,
+} from "@/lib/pharmacy-open-status-ui";
 
 function normalizeWhatsApp(value: string | null) {
   return (value ?? "").replace(/[^\d]/g, "");
@@ -51,7 +54,16 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
   };
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm transition hover:border-primary/25 hover:shadow-md">
+    <article
+      className={cn(
+        "overflow-hidden rounded-2xl border bg-card text-card-foreground shadow-sm transition hover:shadow-md",
+        pharmacy.open.onCallNow
+          ? "border-amber-400/70 ring-2 ring-amber-300/40 hover:border-amber-400/80"
+          : pharmacy.open.onCallToday
+            ? "border-amber-300/50 ring-1 ring-amber-200/35 hover:border-amber-300/65"
+            : "border-border hover:border-primary/25"
+      )}
+    >
       <Link
         href={`/pharmacie/${pharmacy.id}`}
         className="group relative block w-full overflow-hidden bg-muted/30"
@@ -87,9 +99,9 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
               {pharmacy.open.openLabel}
             </span>
             {pharmacy.open.onCallNow ? (
-              <span className={cn(uiMetaLabel, "border-white/30 bg-black/40 text-white")}>En garde</span>
+              <span className={pharmacyOnCallOverlayBadgeClass(true)}>En garde</span>
             ) : pharmacy.open.onCallToday ? (
-              <span className={cn(uiMetaLabel, "border-white/30 bg-black/40 text-white")}>Garde auj.</span>
+              <span className={pharmacyOnCallOverlayBadgeClass(false)}>Garde auj.</span>
             ) : null}
           </div>
           {pharmacy.distanceKm != null ? (
@@ -154,6 +166,19 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
       </div>
 
       <div className="space-y-1.5 p-3 pt-2">
+        {pharmacy.open.onCallNow || pharmacy.open.onCallToday ? (
+          <div
+            className={pharmacyOnCallCardBannerClass(pharmacy.open.onCallNow)}
+            role="status"
+          >
+            <ShieldAlert className="size-3.5 shrink-0 opacity-90" aria-hidden />
+            <span>
+              {pharmacy.open.onCallNow
+                ? "Pharmacie de garde — ouverte en permanence"
+                : "Pharmacie de garde aujourd'hui"}
+            </span>
+          </div>
+        ) : null}
         <div className="flex items-center gap-2">
           <div
             className="flex min-w-0 flex-1 items-baseline gap-1.5"

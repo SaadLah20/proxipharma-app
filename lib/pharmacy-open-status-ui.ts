@@ -4,6 +4,26 @@ import type { PharmacyOpenStatus } from "@/lib/pharmacy-profile-types";
 /** Texte / libellé « fermé » (créneau, horaires exception) — rouge uniforme. */
 export const pharmacyClosedTextClass = "font-semibold text-rose-700";
 
+/** Badge « de garde » sur la photo (annuaire, fiche) — doit ressortir clairement. */
+export function pharmacyOnCallOverlayBadgeClass(now: boolean): string {
+  return clsx(
+    "inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide shadow-md ring-2 backdrop-blur-[2px]",
+    now
+      ? "bg-amber-400 text-amber-950 ring-amber-100/90"
+      : "bg-amber-300/95 text-amber-950 ring-amber-50/80"
+  );
+}
+
+/** Bandeau sous le nom (carte annuaire) quand l’officine est de garde. */
+export function pharmacyOnCallCardBannerClass(now: boolean): string {
+  return clsx(
+    "flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] font-bold leading-snug",
+    now
+      ? "border-amber-300/90 bg-gradient-to-r from-amber-100 via-amber-50 to-amber-100/80 text-amber-950 shadow-sm ring-1 ring-amber-200/70"
+      : "border-amber-200/80 bg-amber-50/90 text-amber-900 ring-1 ring-amber-200/50"
+  );
+}
+
 /** Badge statut sur photo (annuaire, couverture fiche publique). */
 export function pharmacyOpenStatusOverlayBadgeClass(status: PharmacyOpenStatus): string {
   return clsx(
