@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
 import { cn } from "@/lib/utils";
+import {
+  CONVERSATION_FAB_SIZE_PX,
+  clampConversationFabInset,
+} from "@/lib/conversation-fab-position";
 import { STICKY_FOOTER_FAB_DEFAULT_BOTTOM_PX } from "@/lib/platform-sticky-footer";
 import { Z_FLOATING_ABOVE_STICKY_FOOTER } from "@/lib/ui-z-index";
 import {
@@ -16,12 +20,6 @@ import {
 } from "@/lib/request-conversation";
 
 const CONVERSATION_FAB_POS_KEY = "proxipharma:conversationFabInset";
-/** Taille max du FAB (sm:size-16) pour le clamp sans lire le ref au rendu. */
-const CONVERSATION_FAB_SIZE_PX = 64;
-
-function clamp(n: number, lo: number, hi: number) {
-  return Math.min(hi, Math.max(lo, n));
-}
 
 function readFabInset(): { right: number; bottom: number } | null {
   if (typeof window === "undefined") return null;
@@ -70,10 +68,14 @@ export function RequestConversationFabDock({
     dragging: boolean;
   } | null>(null);
 
-  const clampFabBottom = useCallback(
-    (bottom: number) => {
-      if (typeof window === "undefined") return Math.max(bottom, minBottomPx);
-      return clamp(bottom, minBottomPx, window.innerHeight - CONVERSATION_FAB_SIZE_PX - 8);
+  const clampFabPosition = useCallback(
+    (right: number, bottom: number, enforceMinBottom = false) => {
+      const el = fabRef.current;
+      const w = el?.offsetWidth ?? CONVERSATION_FAB_SIZE_PX;
+      const h = el?.offsetHeight ?? CONVERSATION_FAB_SIZE_PX;
+      return clampConversationFabInset(right, bottom, w, h, minBottomPx, {
+        enforceMinBottom,
+      });
     },
     [minBottomPx]
   );
@@ -81,29 +83,33 @@ export function RequestConversationFabDock({
   const [inset, setInset] = useState<{ right: number; bottom: number } | null>(() => {
     const saved = readFabInset();
     if (!saved || typeof window === "undefined") return null;
-    return { right: saved.right, bottom: Math.max(saved.bottom, minBottomPx) };
+    return clampConversationFabInset(
+      saved.right,
+      saved.bottom,
+      CONVERSATION_FAB_SIZE_PX,
+      CONVERSATION_FAB_SIZE_PX,
+      minBottomPx,
+      { enforceMinBottom: false }
+    );
   });
 
   useEffect(() => {
     const onResize = () => {
       const el = fabRef.current;
       if (!el) return;
-      const w = el.offsetWidth;
       const rect = el.getBoundingClientRect();
-      let right = window.innerWidth - rect.right;
-      let bottom = window.innerHeight - rect.bottom;
-      right = clamp(right, 8, window.innerWidth - w - 8);
-      bottom = clampFabBottom(bottom);
+      const right = window.innerWidth - rect.right;
+      const bottom = window.innerHeight - rect.bottom;
       setInset((prev) => {
-        if (prev?.right === right && prev.bottom === bottom) return prev;
-        const pos = { right, bottom };
+        const pos = clampFabPosition(right, bottom, false);
+        if (prev?.right === pos.right && prev.bottom === pos.bottom) return prev;
         writeFabInset(pos);
         return pos;
       });
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [clampFabBottom]);
+  }, [clampFabPosition]);
 
   const toneRing =
     tone === "pharmacien"
@@ -137,11 +143,7 @@ export function RequestConversationFabDock({
       if (dx * dx + dy * dy < 225) return;
       s.dragging = true;
     }
-    const w = fabRef.current?.offsetWidth ?? 48;
-    setInset({
-      right: clamp(s.startRight - dx, 8, window.innerWidth - w - 8),
-      bottom: clampFabBottom(s.startBottom - dy),
-    });
+    setInset(clampFabPosition(s.startRight - dx, s.startBottom - dy, false));
     if (s.dragging) e.preventDefault();
   };
 
@@ -160,10 +162,11 @@ export function RequestConversationFabDock({
       const el = fabRef.current;
       if (el) {
         const rect = el.getBoundingClientRect();
-        const pos = {
-          right: window.innerWidth - rect.right,
-          bottom: clampFabBottom(window.innerHeight - rect.bottom),
-        };
+        const pos = clampFabPosition(
+          window.innerWidth - rect.right,
+          window.innerHeight - rect.bottom,
+          false
+        );
         setInset(pos);
         writeFabInset(pos);
       }
@@ -192,22 +195,36 @@ export function RequestConversationFabDock({
     onOpen();
   };
 
-  const defaultInset = { right: 16, bottom: minBottomPx };
-  const fabBottomPx = inset != null ? clampFabBottom(inset.bottom) : null;
-  const style =
-    inset != null && fabBottomPx != null
-      ? { right: inset.right, bottom: fabBottomPx }
-      : {
-          right: defaultInset.right,
-          bottom: `calc(${minBottomPx}px + env(safe-area-inset-bottom, 0px))`,
-        };
+  const defaultInset = clampConversationFabInset(
+    16,
+    minBottomPx,
+    CONVERSATION_FAB_SIZE_PX,
+    CONVERSATION_FAB_SIZE_PX,
+    minBottomPx,
+    { enforceMinBottom: true }
+  );
+  const displayInset =
+    inset != null
+      ? clampConversationFabInset(
+          inset.right,
+          inset.bottom,
+          CONVERSATION_FAB_SIZE_PX,
+          CONVERSATION_FAB_SIZE_PX,
+          minBottomPx,
+          { enforceMinBottom: false }
+        )
+      : defaultInset;
+  const style = {
+    right: displayInset.right,
+    bottom: displayInset.bottom,
+  };
 
   return (
     <div
       ref={fabRef}
       style={style}
       className={cn(
-        "pointer-events-auto fixed isolate flex size-14 items-center justify-center sm:size-16",
+        "pointer-events-auto fixed isolate flex size-14 touch-none items-center justify-center sm:size-16",
         Z_FLOATING_ABOVE_STICKY_FOOTER
       )}
     >

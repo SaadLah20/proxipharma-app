@@ -22,6 +22,29 @@ import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { supabase } from "@/lib/supabase";
 import { uiSurfaceCard } from "@/lib/ui-surfaces";
 
+function AnnuaireResultsCount({
+  filteredCount,
+  totalCount,
+  searchQuery,
+  radiusEnabled,
+  inRadiusCount,
+}: {
+  filteredCount: number;
+  totalCount: number;
+  searchQuery: string;
+  radiusEnabled: boolean;
+  inRadiusCount: number | undefined;
+}) {
+  return (
+    <p className="text-[11px] text-muted-foreground sm:text-xs">
+      <span className="font-semibold text-foreground">{filteredCount}</span> officine
+      {filteredCount !== 1 ? "s" : ""}
+      {searchQuery.trim().length >= 2 ? ` (sur ${totalCount})` : ""}
+      {radiusEnabled && inRadiusCount != null ? <span> · {inRadiusCount} dans le rayon</span> : null}
+    </p>
+  );
+}
+
 export function AnnuairePage() {
   const [pharmacies, setPharmacies] = useState<AnnuairePharmacyRow[]>([]);
   const [scheduleMap, setScheduleMap] = useState<Awaited<ReturnType<typeof loadScheduleBundlesByPharmacyIds>>>(
@@ -205,6 +228,75 @@ export function AnnuairePage() {
     }
   };
 
+  const resultsCountProps = {
+    filteredCount: filtered.length,
+    totalCount: pharmacies.length,
+    searchQuery,
+    radiusEnabled,
+    inRadiusCount,
+  };
+
+  const searchToolbar = (
+    <div className="space-y-2">
+      <label className="block">
+        <span className="sr-only">Rechercher une pharmacie</span>
+        <span className="relative block">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Nom, ville, adresse ou code officine…"
+            className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-2.5 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+          />
+        </span>
+      </label>
+
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-x-2.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] text-foreground sm:text-xs">
+            <input
+              type="checkbox"
+              checked={filterOpen}
+              onChange={(e) => setFilterOpen(e.target.checked)}
+              className="size-3.5 shrink-0 rounded border-border accent-primary"
+            />
+            <span className="font-semibold whitespace-nowrap">Ouvertes</span>
+          </label>
+          <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] text-foreground sm:text-xs">
+            <input
+              type="checkbox"
+              checked={filterOnCall}
+              onChange={(e) => setFilterOnCall(e.target.checked)}
+              className="size-3.5 shrink-0 rounded border-border accent-primary"
+            />
+            <span className="font-semibold whitespace-nowrap">En garde</span>
+          </label>
+          {schedulesLoading ? (
+            <span className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground">Horaires…</span>
+          ) : null}
+        </div>
+
+        <AnnuaireRadiusPicker
+          mode={radiusMode}
+          loading={locationLoading}
+          inRadiusCount={inRadiusCount}
+          onSelect={(next) => void handleRadiusSelect(next)}
+        />
+      </div>
+
+      <AnnuaireResultsCount {...resultsCountProps} />
+
+      {locationError ? (
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-[10px] font-medium text-destructive">
+          {locationError}
+        </p>
+      ) : null}
+    </div>
+  );
+
   if (loading) {
     return (
       <main className="flex min-h-[50vh] flex-col items-center justify-center gap-3 bg-background p-6">
@@ -216,93 +308,37 @@ export function AnnuairePage() {
 
   return (
     <div className="flex flex-col bg-background">
-      <section className="relative z-20 border-b border-primary/15 text-white shadow-md">
+      <section
+        className="relative hidden border-b border-emerald-800/40 bg-slate-900 text-white sm:block"
+        aria-hidden={false}
+      >
         <div
-          className="pointer-events-none absolute inset-0 bg-cover bg-left bg-no-repeat sm:bg-[center_left_20%]"
+          className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-[0.18]"
           style={{ backgroundImage: "url(/brand/annuaire-hero.png)" }}
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-emerald-950/92 via-emerald-900/78 to-emerald-900/25 sm:from-emerald-950/88 sm:via-emerald-900/55"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-800/80"
           aria-hidden
         />
-        <div className="relative mx-auto max-w-5xl px-4 py-4 sm:px-5 sm:py-5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-100/90">ProxiPharma</p>
-          <h1 className="mt-0.5 text-lg font-bold tracking-tight sm:text-xl">Annuaire interactif des pharmacies</h1>
-          <p className="mt-1.5 max-w-2xl text-xs leading-snug text-emerald-50/95 sm:text-sm sm:leading-relaxed">
-            Consultez les officines, appelez ou écrivez en un clic, et lancez vos demandes depuis la fiche — sans
-            intermédiaire.
+        <div className="relative mx-auto max-w-5xl px-5 py-4">
+          <h1 className="text-xl font-bold tracking-tight">Annuaire des pharmacies</h1>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-300">
+            Trouvez une officine, contactez-la ou lancez une demande depuis sa fiche.
           </p>
-
-          <div className="relative z-10 mt-3 space-y-2 overflow-visible rounded-xl border border-white/25 bg-white/95 p-2.5 shadow-lg ring-1 ring-black/5 sm:p-3">
-            <label className="block">
-              <span className="sr-only">Rechercher une pharmacie</span>
-              <span className="relative block">
-                <Search
-                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden
-                />
-                <input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Nom, ville, adresse ou code officine…"
-                  className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-2.5 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
-                />
-              </span>
-            </label>
-
-            <div className="flex items-center gap-2 overflow-visible">
-              <div className="flex min-w-0 flex-1 items-center gap-x-2.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] text-foreground sm:text-xs">
-                  <input
-                    type="checkbox"
-                    checked={filterOpen}
-                    onChange={(e) => setFilterOpen(e.target.checked)}
-                    className="size-3.5 shrink-0 rounded border-border accent-primary"
-                  />
-                  <span className="font-semibold whitespace-nowrap">Ouvertes</span>
-                </label>
-                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] text-foreground sm:text-xs">
-                  <input
-                    type="checkbox"
-                    checked={filterOnCall}
-                    onChange={(e) => setFilterOnCall(e.target.checked)}
-                    className="size-3.5 shrink-0 rounded border-border accent-primary"
-                  />
-                  <span className="font-semibold whitespace-nowrap">En garde</span>
-                </label>
-                {schedulesLoading ? (
-                  <span className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground">Horaires…</span>
-                ) : null}
-              </div>
-
-              <AnnuaireRadiusPicker
-                mode={radiusMode}
-                loading={locationLoading}
-                inRadiusCount={inRadiusCount}
-                onSelect={(next) => void handleRadiusSelect(next)}
-              />
-            </div>
-
-            {locationError ? (
-              <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-[10px] font-medium text-destructive">
-                {locationError}
-              </p>
-            ) : null}
-          </div>
         </div>
       </section>
 
-      <p className="mx-auto max-w-5xl px-4 pt-2 text-[11px] text-muted-foreground sm:px-5">
-        <span className="font-semibold text-foreground">{filtered.length}</span> officine
-        {filtered.length !== 1 ? "s" : ""}
-        {searchQuery.trim().length >= 2 ? ` (sur ${pharmacies.length})` : ""}
-        {radiusEnabled && inRadiusCount != null ? (
-          <span> · {inRadiusCount} dans le rayon</span>
-        ) : null}
-      </p>
+      <div className="sticky top-[3.25rem] z-30 border-b border-border bg-background/95 shadow-sm backdrop-blur-sm supports-[backdrop-filter]:bg-background/90 sm:top-14">
+        <div className="mx-auto max-w-5xl px-4 py-2.5 sm:px-5 sm:py-3">
+          <h1 className="mb-2 text-base font-bold tracking-tight text-foreground sm:hidden">
+            Annuaire des pharmacies
+          </h1>
+          {searchToolbar}
+        </div>
+      </div>
 
-      <main className="relative z-0 mx-auto w-full max-w-5xl px-4 pb-5 pt-3 sm:px-5">
+      <main className="relative z-0 mx-auto w-full max-w-5xl px-4 pb-5 pt-4 sm:px-5">
         {errorMessage ? (
           <p className="mb-4 rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
             {errorMessage}

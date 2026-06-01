@@ -60,6 +60,8 @@ export function stickyFooterScrollSpacerClass(tier: StickyFooterPadTier): string
 /** Décalage par défaut du FAB Messages sans footer sticky (pages hub, etc.). */
 export const STICKY_FOOTER_FAB_DEFAULT_BOTTOM_PX = 24;
 
+/** Marge basse **par défaut** du FAB Conversation (position initiale). Après glissement, le clamp autorise le bord bas de l’écran — voir `lib/conversation-fab-position.ts`. */
+
 /** Marge basse minimale du FAB (px) pour rester au-dessus du footer sticky. */
 const FAB_MIN_BOTTOM_PX: Record<StickyFooterPadTier, number> = {
   none: STICKY_FOOTER_FAB_DEFAULT_BOTTOM_PX,
