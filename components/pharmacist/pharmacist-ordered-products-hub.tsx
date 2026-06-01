@@ -7,6 +7,7 @@ import { clsx } from "clsx";
 import { ChevronDown, Package, Search } from "lucide-react";
 import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { platformDashboardChrome as chrome } from "@/lib/platform-dashboard-chrome";
 import { supabase } from "@/lib/supabase";
 import { formatDateShortFr } from "@/lib/datetime-fr";
@@ -110,13 +111,8 @@ function ArrivalModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[10050] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="arrival-modal-title"
-    >
-      <div className="max-h-[90vh] w-full max-w-lg overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-2xl">
+    <AppModalOverlay open aria-labelledby="arrival-modal-title" className="p-0 sm:p-4" onBackdropClick={onClose}>
+      <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-2xl">
         <div className="border-b border-border px-4 py-3">
           <h2 id="arrival-modal-title" className="text-sm font-bold text-foreground">
             {mode === "arrive" ? "Marquer reçu en officine" : "Annuler la réception"}
@@ -218,7 +214,7 @@ function ArrivalModal({
           </button>
         </div>
       </div>
-    </div>
+    </AppModalOverlay>
   );
 }
 

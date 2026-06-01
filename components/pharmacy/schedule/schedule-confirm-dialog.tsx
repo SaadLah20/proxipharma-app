@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 
 export function ScheduleConfirmDialog({
   open,
@@ -21,15 +22,13 @@ export function ScheduleConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 sm:items-center">
+    <AppModalOverlay open={open} onBackdropClick={onCancel}>
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="schedule-dialog-title"
-        className="w-full max-w-md rounded-2xl border border-border bg-card p-4 shadow-xl"
+        className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-4 shadow-xl"
       >
         <h2 id="schedule-dialog-title" className="text-base font-bold text-foreground">
           {title}
@@ -54,6 +53,6 @@ export function ScheduleConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </AppModalOverlay>
   );
 }

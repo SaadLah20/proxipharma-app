@@ -17,7 +17,9 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { Button } from "@/components/ui/button";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { cn } from "@/lib/utils";
+import { Z_STICKY_FOOTER } from "@/lib/ui-z-index";
 import {
   formatDateShortFr,
   formatDateTimeShort24hFr,
@@ -2889,6 +2891,12 @@ export function PatientProductRequestActions({
     router.push(`/pharmacie/${pharmacyId}/demande-produits`);
   };
 
+  const stickyFooterObscured =
+    confirmReviewOpen ||
+    resubmitConfirmOpen ||
+    exitModalOpen ||
+    historyModalItemId !== null;
+
   return (
     <section
       className={clsx(
@@ -3592,7 +3600,7 @@ export function PatientProductRequestActions({
         ) : null}
       </div>
 
-      {showProductResubmit ? (
+      {showProductResubmit && !stickyFooterObscured ? (
         <PlatformStickyFooter tone="slate">
           <div className="flex flex-col gap-2">
             <PlatformStickyFooterSummaryRow
@@ -3656,7 +3664,7 @@ export function PatientProductRequestActions({
         </PlatformStickyFooter>
       ) : null}
 
-      {showPrescriptionWaiting && !forceReadOnly ? (
+      {showPrescriptionWaiting && !forceReadOnly && !stickyFooterObscured ? (
         <PlatformStickyFooter tone="slate">
           <div className="flex flex-col gap-1.5">
             {!prescriptionEditMode ? (
@@ -3703,7 +3711,7 @@ export function PatientProductRequestActions({
         </PlatformStickyFooter>
       ) : null}
 
-      {showConfirm && !forceReadOnly ? (
+      {showConfirm && !forceReadOnly && !stickyFooterObscured ? (
         <PlatformStickyFooter tone="sky">
           <div className="flex flex-col gap-2">
             <PlatformStickyFooterSummaryRow
@@ -3731,7 +3739,7 @@ export function PatientProductRequestActions({
         </PlatformStickyFooter>
       ) : null}
 
-      {showConfirmedCards && !forceReadOnly ? (
+      {showConfirmedCards && !forceReadOnly && !stickyFooterObscured ? (
         <PlatformStickyFooter tone="sky">
           <div className="flex flex-col gap-2">
             {!confirmedRevalidationMode ? (
@@ -3779,15 +3787,14 @@ export function PatientProductRequestActions({
       ) : null}
 
       {confirmReviewOpen && confirmReviewSnap ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/45 p-2 sm:items-center sm:p-4">
-          <button
-            type="button"
-            className="fixed inset-0 cursor-default"
-            aria-label="Fermer le récapitulatif"
-            onClick={() => {
-              if (busyAction !== "confirm") closeConfirmReview();
-            }}
-          />
+        <AppModalOverlay
+          open
+          aria-labelledby="confirm-review-title"
+          className="overflow-y-auto p-2 sm:items-center sm:p-4"
+          onBackdropClick={() => {
+            if (busyAction !== "confirm") closeConfirmReview();
+          }}
+        >
           <div
             role="dialog"
             aria-modal="true"
@@ -3946,18 +3953,17 @@ export function PatientProductRequestActions({
               </div>
             </div>
           </div>
-        </div>
+        </AppModalOverlay>
       ) : null}
 
       {showProductResubmit && resubmitConfirmOpen ? (
-        <div className="fixed inset-0 z-[55] flex items-end justify-center p-3 sm:items-center">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/50"
-            aria-label="Fermer"
-            disabled={busyAction === "resubmit" || Boolean(detailStale)}
-            onClick={() => busyAction !== "resubmit" && setResubmitConfirmOpen(false)}
-          />
+        <AppModalOverlay
+          open
+          aria-labelledby="resubmit-confirm-title"
+          onBackdropClick={() => {
+            if (busyAction !== "resubmit" && !detailStale) setResubmitConfirmOpen(false);
+          }}
+        >
           <div
             role="dialog"
             aria-modal="true"
@@ -4063,7 +4069,7 @@ export function PatientProductRequestActions({
               </div>
             </div>
           </div>
-        </div>
+        </AppModalOverlay>
       ) : null}
 
       <LineHistoryModalFr

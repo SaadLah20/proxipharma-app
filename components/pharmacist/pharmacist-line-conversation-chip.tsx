@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
-import { createPortal } from "react-dom";
 import { clsx } from "clsx";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { MessageCircle, X } from "lucide-react";
 
 export type LineConvoVisual = "empty" | "patient_only" | "pharma_only" | "thread";
@@ -187,7 +187,7 @@ export function PharmacistLineConversationModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onOpenChange]);
 
-  if (!open || typeof document === "undefined") return null;
+  if (!open) return null;
 
   const noteTrimmed = pharmacistDraft.trim();
   const canConfirmNote = allowEdit || showPersistButton;
@@ -198,12 +198,14 @@ export function PharmacistLineConversationModal({
     onOpenChange(false);
   };
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[10055] flex items-end justify-center overflow-y-auto overscroll-y-contain bg-black/45 p-3 backdrop-blur-[1px] sm:items-center"
+  return (
+    <AppModalOverlay
+      open={open}
       role="presentation"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !persistBusy) onOpenChange(false);
+      aria-modal={false}
+      className="overflow-y-auto overscroll-y-contain p-3 sm:items-center"
+      onBackdropClick={() => {
+        if (!persistBusy) onOpenChange(false);
       }}
     >
       <div
@@ -212,7 +214,7 @@ export function PharmacistLineConversationModal({
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[min(88vh,32rem)] w-full max-w-md touch-manipulation flex-col overflow-hidden rounded-2xl border border-border/90 bg-card py-2.5 shadow-2xl ring-1 ring-black/10"
+        className="relative z-10 flex max-h-[min(88vh,32rem)] w-full max-w-md touch-manipulation flex-col overflow-hidden rounded-2xl border border-border/90 bg-card py-2.5 shadow-2xl ring-1 ring-black/10"
       >
         <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border/60 px-3 pb-2">
           <div className="min-w-0">
@@ -296,7 +298,6 @@ export function PharmacistLineConversationModal({
           </div>
         ) : null}
       </div>
-    </div>,
-    document.body
+    </AppModalOverlay>
   );
 }

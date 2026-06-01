@@ -9,6 +9,7 @@ import {
   clampOrdonnanceRequestedQty,
   inferOrdonnanceLineAvailabilityStatus,
 } from "@/lib/prescription-ordonnance-line-qty";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 
 export type OrdonnanceCatalogHit = {
   id: string;
@@ -179,15 +180,14 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
     !(availability === "to_order" && availParsed < 1);
 
   return (
-    <div
-      className="fixed inset-0 z-[10100] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
+    <AppModalOverlay
+      open={open}
       aria-label="Ajouter un produit ordonnance"
-      onClick={onClose}
+      className="p-0 sm:p-4"
+      onBackdropClick={onClose}
     >
       <div
-        className="flex max-h-[min(92svh,680px)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-amber-200/80 bg-white shadow-2xl ring-1 ring-amber-200/50 sm:rounded-2xl"
+        className="relative z-10 flex max-h-[min(92svh,680px)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-amber-200/80 bg-white shadow-2xl ring-1 ring-amber-200/50 sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-start justify-between gap-2 border-b border-amber-100 bg-gradient-to-r from-amber-50/90 to-white px-3 py-2.5">
@@ -464,7 +464,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </AppModalOverlay>
   );
 }
 

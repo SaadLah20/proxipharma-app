@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
 import { clsx } from "clsx";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { X } from "lucide-react";
 import { SUPPLY_AMEND_CHANNEL_OPTIONS, type SupplyAmendClientChannelSlug } from "@/lib/supply-amendment-channels";
 
@@ -66,12 +66,7 @@ function PharmacistSupplyAmendmentConfirmModalInner({
     fills.some((row, i) => !row || !blocks[i] || !row.channel?.trim());
 
   const shell = (
-    <div
-      className="fixed inset-0 z-[10060] flex items-end justify-center pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      <button type="button" className="absolute inset-0 bg-black/50" aria-label="Fermer" onClick={() => !busy && onClose()} />
+    <AppModalOverlay open onBackdropClick={() => !busy && onClose()}>
       <div className="relative z-10 flex max-h-[min(92dvh,40rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-2xl">
         <div className="shrink-0 flex items-start justify-between gap-2 border-b border-border px-3 py-2.5">
           <div className="min-w-0 flex-1">
@@ -169,11 +164,11 @@ function PharmacistSupplyAmendmentConfirmModalInner({
           </button>
         </div>
       </div>
-    </div>
+    </AppModalOverlay>
   );
 
   if (!clientMounted) return null;
-  return createPortal(shell, document.body);
+  return shell;
 }
 
 export function PharmacistSupplyAmendmentConfirmModal({ open, blocks, ...rest }: ModalProps) {

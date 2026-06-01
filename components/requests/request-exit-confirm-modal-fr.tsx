@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import {
   PATIENT_CANCEL_REASON_CODES,
   PATIENT_CANCEL_REASON_LABELS,
@@ -113,12 +114,7 @@ export function RequestExitConfirmModalFr({
   );
 
   return (
-    <div
-      className="fixed inset-0 z-[10080] flex items-end justify-center pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      <button type="button" className="absolute inset-0 bg-black/50" aria-label="Fermer" disabled={busy} onClick={onClose} />
+    <AppModalOverlay open={open} onBackdropClick={() => !busy && onClose()}>
       <div className="relative z-10 flex max-h-[min(92dvh,32rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:max-h-[min(90dvh,32rem)] sm:rounded-2xl">
         <div className="flex items-start justify-between gap-2 border-b border-border px-3 py-2.5">
           <div className="min-w-0 flex-1">
@@ -240,6 +236,6 @@ export function RequestExitConfirmModalFr({
           )}
         </div>
       </div>
-    </div>
+    </AppModalOverlay>
   );
 }
