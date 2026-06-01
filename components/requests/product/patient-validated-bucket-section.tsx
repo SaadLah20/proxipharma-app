@@ -27,15 +27,13 @@ export function PatientValidatedBucketSection({
   children,
 }: Props) {
   const title = patientValidatedBucketTitleFr(bucketId, isTreatedView);
-  const isLongTreatedTitle = isTreatedView && bucketId !== "hors_perimetre";
 
   return (
     <section className="w-full min-w-0 space-y-2">
       <div className="flex flex-nowrap items-baseline justify-between gap-2 px-0.5">
         <h4
           className={clsx(
-            "min-w-0 font-extrabold uppercase tracking-wide",
-            isLongTreatedTitle ? "text-[10px] leading-snug sm:text-[11px]" : "text-[13px] sm:text-sm",
+            "min-w-0 text-[13px] font-extrabold uppercase tracking-wide sm:text-sm",
             patientValidatedBucketHeaderClass(bucketId)
           )}
         >
