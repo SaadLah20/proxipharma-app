@@ -70,11 +70,15 @@ function isDefaultPatientOriginLabel(label: string): boolean {
 
 function isRedundantSectionStatusLabel(
   status: string,
-  sectionBucket?: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation"
+  sectionBucket?: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation",
+  treatedLineLabels?: boolean
 ): boolean {
   if (!sectionBucket) return false;
   if (sectionBucket === "dispo_officine" && status === "À réserver par la pharmacie") return true;
   if (sectionBucket === "commande" && status === "À commander") return true;
+  if (treatedLineLabels && sectionBucket === "dispo_officine" && status === "En attente de votre passage") {
+    return true;
+  }
   return false;
 }
 
@@ -115,7 +119,7 @@ export function buildPatientValidatedLineLabelsFr(input: {
     if (
       status &&
       !(treatedLineLabels && TREATED_OMIT_STATUS_RE.test(status)) &&
-      !isRedundantSectionStatusLabel(status, sectionBucket)
+      !isRedundantSectionStatusLabel(status, sectionBucket, treatedLineLabels)
     ) {
       out.push({
         key: status === "Reçu en officine" ? "arrived" : "status",

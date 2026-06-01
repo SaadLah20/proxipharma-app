@@ -10,7 +10,7 @@ type Props = {
   onMinuteChange: (v: string) => void;
   disabled?: boolean;
   className?: string;
-  /** `unified` : heures + minutes dans un seul champ visuel (séparation invisible). */
+  /** `unified` : heures + minutes dans un seul champ visuel avec séparateur « : ». */
   appearance?: "split" | "unified";
 };
 
@@ -96,7 +96,7 @@ export function PlannedVisitTimeInput({
   );
 
   const unifiedInputClass =
-    "min-w-0 flex-1 border-0 bg-transparent p-0 text-center text-[15px] font-bold tabular-nums text-foreground focus:outline-none disabled:cursor-default";
+    "w-9 shrink-0 border-0 bg-transparent p-0 text-center text-[15px] font-bold tabular-nums text-foreground focus:outline-none disabled:cursor-default";
 
   if (appearance === "unified") {
     return (
@@ -118,9 +118,15 @@ export function PlannedVisitTimeInput({
               e.target.select();
             }}
             onBlur={() => setFocusSeg((s) => (s === "hour" ? null : s))}
-            className={clsx(unifiedInputClass, "px-1")}
+            className={unifiedInputClass}
             aria-label="Heures"
           />
+          <span
+            className="shrink-0 select-none px-0.5 text-[15px] font-bold tabular-nums text-muted-foreground"
+            aria-hidden
+          >
+            :
+          </span>
           <input
             ref={minuteRef}
             id={minuteId}
@@ -140,7 +146,7 @@ export function PlannedVisitTimeInput({
               onMinuteBlur();
               setFocusSeg((s) => (s === "minute" ? null : s));
             }}
-            className={clsx(unifiedInputClass, "px-1")}
+            className={unifiedInputClass}
             aria-label="Minutes"
           />
         </div>

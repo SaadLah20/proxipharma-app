@@ -2981,15 +2981,6 @@ export function PatientProductRequestActions({
         </div>
       ) : null}
 
-      {isTreatedActiveView && treatedPassageLine ? (
-        <p
-          className="mt-2 rounded-xl border border-border bg-muted/25 px-3 py-2.5 text-center text-[13px] font-semibold leading-snug text-foreground sm:text-sm"
-          role="status"
-        >
-          {treatedPassageLine}
-        </p>
-      ) : null}
-
       {showPrescriptionWaiting && prescriptionPaths ? (
         <PatientPrescriptionEditablePanel
           ref={prescriptionPanelRef}
@@ -3437,7 +3428,14 @@ export function PatientProductRequestActions({
                 </div>
               </div>
             ) : (
-              <p className="text-xs font-bold text-foreground">Passage en officine</p>
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-foreground">Passage en officine</p>
+                {isTreatedActiveView && treatedPassageLine ? (
+                  <p className="text-[11px] font-semibold leading-snug text-foreground" role="status">
+                    {treatedPassageLine}
+                  </p>
+                ) : null}
+              </div>
             )}
             <div
               className={clsx(
@@ -3729,7 +3727,13 @@ export function PatientProductRequestActions({
                   left={
                     <>
                       <span className="font-bold tabular-nums text-foreground">{totalsRetained.count}</span>{" "}
-                      {totalsRetained.count > 1 ? "produits retenus" : "produit retenu"}
+                      {isTreatedActiveView
+                        ? totalsRetained.count > 1
+                          ? "produits à retirer"
+                          : "produit à retirer"
+                        : totalsRetained.count > 1
+                          ? "produits retenus"
+                          : "produit retenu"}
                     </>
                   }
                   right={totalRetainedGrandLabel}
@@ -3740,7 +3744,11 @@ export function PatientProductRequestActions({
                   onClick={() => void runUpdateVisit()}
                   className={uiActionBtnFull("flex items-center justify-center")}
                 >
-                  {busyAction === "visit" ? "Mise à jour…" : "Mettre à jour ma date de passage"}
+                  {busyAction === "visit"
+                    ? "Mise à jour…"
+                    : isTreatedActiveView
+                      ? "Mettre à jour mon passage"
+                      : "Mettre à jour ma date de passage"}
                 </button>
               </>
             ) : (

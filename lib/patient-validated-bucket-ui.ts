@@ -8,10 +8,10 @@ export function patientValidatedBucketTitleFr(
 ): string {
   if (isTreatedView) {
     if (id === "dispo_officine") {
-      return "Produits réservés pour vous et en attente de votre passage";
+      return "Réservés pour vous";
     }
     if (id === "commande") {
-      return "Produits commandés pour vous";
+      return "Commandés pour vous";
     }
   }
   switch (id) {
