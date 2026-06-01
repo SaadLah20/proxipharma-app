@@ -80,13 +80,21 @@ export function PharmacyFlowHero({
         {eyebrow}
       </p>
       {isProduct ? (
-        <div className="mt-2 min-w-0">
-          <h1 className="text-xl font-bold leading-tight tracking-tight sm:text-2xl">{title}</h1>
-          {subtitle ? (
-            <p className={cn("mt-1.5 max-w-prose text-xs leading-snug", productRequestPublicTheme.headerSubtitle)}>
-              {subtitle}
-            </p>
-          ) : null}
+        <div className="mt-2 flex items-start gap-3">
+          <span
+            className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/15 shadow-inner backdrop-blur-sm"
+            aria-hidden
+          >
+            <Icon className="size-5 text-white" strokeWidth={2.25} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-bold leading-tight tracking-tight sm:text-xl">{title}</h1>
+            {subtitle ? (
+              <p className={cn("mt-1 max-w-prose text-xs leading-snug", productRequestPublicTheme.headerSubtitle)}>
+                {subtitle}
+              </p>
+            ) : null}
+          </div>
         </div>
       ) : (
         <div className="mt-2 flex items-start gap-3">

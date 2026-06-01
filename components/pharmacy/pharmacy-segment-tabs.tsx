@@ -9,28 +9,36 @@ export type PharmacySegmentTab<T extends string> = {
   icon: LucideIcon;
 };
 
+const GRID_COLS_BY_COUNT: Record<number, string> = {
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+  4: "grid-cols-4",
+  5: "grid-cols-5",
+};
+
 export function PharmacySegmentTabs<T extends string>({
   tabs,
   active,
   onChange,
   ariaLabel,
-  columnClass = "sm:grid-cols-4",
+  columnClass,
 }: {
   tabs: PharmacySegmentTab<T>[];
   active: T;
   onChange: (id: T) => void;
   ariaLabel: string;
-  /** ex. `sm:grid-cols-5` pour le nombre d’onglets sur écran large */
+  /** Override ex. `grid-cols-5` — sinon dérivé du nombre d’onglets */
   columnClass?: string;
 }) {
+  const gridCols =
+    columnClass ?? GRID_COLS_BY_COUNT[tabs.length] ?? "grid-cols-4";
+
   return (
-    <div className="border-b border-border bg-muted/15">
+    <div className="border-b border-border bg-card">
       <nav
-        className={clsx(
-          "flex w-full gap-0 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:overflow-visible",
-          columnClass
-        )}
+        className={clsx("grid w-full", gridCols)}
         aria-label={ariaLabel}
+        role="tablist"
       >
         {tabs.map((t) => {
           const Icon = t.icon;
@@ -39,16 +47,21 @@ export function PharmacySegmentTabs<T extends string>({
             <button
               key={t.id}
               type="button"
+              role="tab"
+              aria-selected={isActive}
               onClick={() => onChange(t.id)}
               className={clsx(
-                "flex min-h-11 min-w-[4.75rem] shrink-0 flex-col items-center justify-center gap-0.5 px-2 py-2.5 text-[9px] font-bold uppercase tracking-wide transition sm:min-w-0 sm:flex-1 sm:flex-row sm:gap-1.5 sm:px-2 sm:text-[10px]",
+                "flex min-h-[3.5rem] w-full min-w-0 flex-col items-center justify-center gap-1 border-b-[3px] px-1 py-2.5 text-[11px] font-semibold leading-tight transition sm:min-h-[3.75rem] sm:text-xs",
                 isActive
-                  ? "bg-card text-primary shadow-[0_-1px_0_0_hsl(var(--border))] ring-1 ring-inset ring-border/80"
-                  : "text-muted-foreground hover:bg-card/60 hover:text-foreground"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-transparent text-muted-foreground hover:bg-muted/30 hover:text-foreground"
               )}
             >
-              <Icon className={clsx("size-4 shrink-0", isActive ? "text-primary" : "opacity-70")} aria-hidden />
-              <span className="max-w-[5.5rem] text-center leading-tight sm:max-w-none">{t.label}</span>
+              <Icon
+                className={clsx("size-[1.125rem] shrink-0 sm:size-5", isActive ? "text-primary" : "opacity-75")}
+                aria-hidden
+              />
+              <span className="max-w-full truncate text-center">{t.label}</span>
             </button>
           );
         })}

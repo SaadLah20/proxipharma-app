@@ -316,7 +316,7 @@ export function PharmacyMaFichePage() {
           active={tab}
           onChange={setTab}
           ariaLabel="Sections de la fiche"
-          columnClass="sm:grid-cols-5"
+          columnClass="grid-cols-5"
         />
 
         <CompactCardBody className="space-y-4">

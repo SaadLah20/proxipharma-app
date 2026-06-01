@@ -12,7 +12,7 @@ import {
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
 import { supabase } from "@/lib/supabase";
-import { PharmacyPublicBackLink, pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
+import { PharmacyPublicBackLink } from "@/components/pharmacy/pharmacy-public-chrome";
 import {
   PatientDemandeSendConfirmModal,
   PatientLineCommentModal,
@@ -20,8 +20,10 @@ import {
   ProductRequestCartLineRow,
   ProductRequestCatalogHitRow,
   ProductRequestHeaderSearch,
+  ProductRequestMessageCard,
+  ProductRequestSection,
 } from "@/components/pharmacy/patient-demande-produits-ui";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { cn } from "@/lib/utils";
 import {
@@ -33,6 +35,7 @@ import { PATIENT_PRODUCT_LINE_COMMENT_MAX, REQUEST_CONVERSATION_MESSAGE_MAX } fr
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
+import { uiActionBtnFull, uiActionBtnFullOutline } from "@/lib/ui-action-buttons";
 import {
   clearPatientDemandeProduitsDraft,
   draftLineUnitPrice,
@@ -129,7 +132,7 @@ export default function DemandeProduitsPage() {
     if (debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
       return;
     }
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       const run = async () => {
         const sanitized = sanitizeProductSearchQuery(debouncedQuery);
         if (sanitized.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
@@ -158,7 +161,7 @@ export default function DemandeProduitsPage() {
       };
       void run();
     }, 280);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [debouncedQuery]);
 
   const addProduct = useCallback(
@@ -336,9 +339,14 @@ export default function DemandeProduitsPage() {
   }
 
   return (
-    <main className={cn("min-h-screen touch-pan-y bg-background p-4 text-foreground antialiased sm:p-5", stickyFooterPadClass("compact"))}>
-      <div className="mx-auto max-w-lg space-y-3">
-        <PharmacyPublicBackLink href={`/pharmacie/${pharmacyId}`} className={t.backLink}>
+    <main
+      className={cn(
+        "min-h-screen touch-pan-y bg-background text-foreground antialiased",
+        stickyFooterPadClass("standard")
+      )}
+    >
+      <div className="mx-auto max-w-lg space-y-4 px-4 py-4 sm:px-5 sm:py-5">
+        <PharmacyPublicBackLink href={`/pharmacie/${pharmacyId}`} className={cn("mb-0", t.backLink)}>
           Fiche officine
         </PharmacyPublicBackLink>
 
@@ -377,52 +385,57 @@ export default function DemandeProduitsPage() {
           }
         />
 
-        {lines.length === 0 ? (
-          <p className="px-0.5 text-sm text-muted-foreground">Ajoutez un produit pour continuer.</p>
-        ) : (
-          <ul className="w-full min-w-0 space-y-1.5">
-            {lines.map((l) => (
-              <ProductRequestCartLineRow
-                key={l.product_id}
-                line={l}
-                unitPrice={draftLineUnitPrice(l)}
-                onRemove={() => removeLine(l.product_id)}
-                onPhotoPreview={() => {
-                  if (l.photo_url) setPhotoPreview({ url: l.photo_url, title: l.name });
-                }}
-                onSetQty={(qty) => setQty(l.product_id, qty)}
-                onOpenComment={() =>
-                  setLineCommentModal({
-                    productId: l.product_id,
-                    productName: l.name,
-                    draft: l.client_comment ?? "",
-                  })
-                }
-                hasComment={Boolean(l.client_comment?.trim())}
-              />
-            ))}
-          </ul>
-        )}
+        <ProductRequestSection
+          title="Votre sélection"
+          hint={
+            lines.length === 0
+              ? "Les produits ajoutés depuis la recherche ou l’explorateur apparaissent ici."
+              : "Quantité et message par produit si besoin."
+          }
+          badge={
+            lines.length > 0 ? (
+              <span className={cn("shrink-0", t.sectionBadge)}>
+                {lines.length} {lines.length > 1 ? "produits" : "produit"}
+              </span>
+            ) : null
+          }
+        >
+          {lines.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border/80 bg-muted/15 px-3 py-4 text-center text-sm text-muted-foreground">
+              Aucun produit pour l’instant — utilisez la recherche ci-dessus ou le bouton Explorer.
+            </p>
+          ) : (
+            <ul className="w-full min-w-0 space-y-2">
+              {lines.map((l) => (
+                <ProductRequestCartLineRow
+                  key={l.product_id}
+                  line={l}
+                  unitPrice={draftLineUnitPrice(l)}
+                  onRemove={() => removeLine(l.product_id)}
+                  onPhotoPreview={() => {
+                    if (l.photo_url) setPhotoPreview({ url: l.photo_url, title: l.name });
+                  }}
+                  onSetQty={(qty) => setQty(l.product_id, qty)}
+                  onOpenComment={() =>
+                    setLineCommentModal({
+                      productId: l.product_id,
+                      productName: l.name,
+                      draft: l.client_comment ?? "",
+                    })
+                  }
+                  hasComment={Boolean(l.client_comment?.trim())}
+                />
+              ))}
+            </ul>
+          )}
+        </ProductRequestSection>
 
-        <section className={cn(pharmacyPublicCard, "p-3 shadow-md sm:p-4", t.messageCard)}>
-          <h2 className="text-sm font-bold text-foreground">Message pour la pharmacie</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">Facultatif · visible dans la conversation après envoi.</p>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value.slice(0, REQUEST_CONVERSATION_MESSAGE_MAX))}
-            rows={3}
-            maxLength={REQUEST_CONVERSATION_MESSAGE_MAX}
-            className={cn(
-              "mt-2.5 w-full rounded-xl border-2 bg-background px-3 py-3 text-base leading-relaxed placeholder:text-muted-foreground [touch-action:pan-x_pan-y]",
-              t.messageInput,
-              fieldFocus
-            )}
-            placeholder="Ex. précisions utiles pour l’officine…"
-          />
-          <p className="mt-1 text-right text-[10px] tabular-nums text-muted-foreground">
-            {note.length}/{REQUEST_CONVERSATION_MESSAGE_MAX}
-          </p>
-        </section>
+        <ProductRequestMessageCard
+          note={note}
+          onNoteChange={setNote}
+          maxLength={REQUEST_CONVERSATION_MESSAGE_MAX}
+          fieldFocus={fieldFocus}
+        />
 
         {feedback ? (
           <div
@@ -432,48 +445,44 @@ export default function DemandeProduitsPage() {
                 ? t.feedbackOk
                 : "border-destructive/30 bg-destructive/10 text-destructive"
             )}
+            role="alert"
           >
             {feedback.text}
           </div>
         ) : null}
 
-        <Button
-          type="button"
-          size="lg"
-          disabled={submitLoading || lines.length === 0}
-          className={cn("h-12 w-full text-base font-semibold", t.cta)}
-          onClick={() => openSendConfirm()}
-        >
-          {submitLoading ? "Envoi…" : "Envoyer la demande"}
-        </Button>
-
-        <Link
-          href="/dashboard/demandes"
-          className={cn(
-            buttonVariants({ variant: "outline", size: "lg" }),
-            "flex h-11 w-full items-center justify-center text-sm font-semibold"
-          )}
-        >
+        <Link href="/dashboard/demandes" className={uiActionBtnFullOutline("flex h-11 items-center justify-center")}>
           Mes demandes de produits
         </Link>
       </div>
 
       <PlatformStickyFooter tone="sky" className={t.footerBorder}>
-        <PlatformStickyFooterSummaryRow
-          left={
-            <>
-              <span className="font-bold tabular-nums text-foreground">{lines.length}</span>{" "}
-              {lines.length > 1 ? "produits" : "produit"}
-            </>
-          }
-          right={
-            <PriceDhInline
-              value={totalAmount}
-              amountClassName={cn("font-bold", t.price)}
-              suffixClassName="font-bold text-sky-600/80"
-            />
-          }
-        />
+        <div className="space-y-2">
+          <PlatformStickyFooterSummaryRow
+            left={
+              <>
+                <span className="font-bold tabular-nums text-foreground">{lines.length}</span>{" "}
+                {lines.length > 1 ? "produits" : "produit"}
+              </>
+            }
+            right={
+              <PriceDhInline
+                value={totalAmount}
+                amountClassName={cn("font-bold", t.price)}
+                suffixClassName="font-bold text-sky-700/80"
+              />
+            }
+          />
+          <Button
+            type="button"
+            size="lg"
+            disabled={submitLoading || lines.length === 0}
+            className={cn(uiActionBtnFull("h-11 text-base"), t.cta)}
+            onClick={() => openSendConfirm()}
+          >
+            {submitLoading ? "Envoi…" : "Envoyer la demande"}
+          </Button>
+        </div>
       </PlatformStickyFooter>
 
       <PatientDemandeSendConfirmModal
