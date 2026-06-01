@@ -4597,7 +4597,10 @@ export default function PharmacienDemandeDetailPage() {
   const proposedBadgeLabel = workflowCopy.pharmacistProposedBadge;
 
   const showConsultationTabbed =
-    isConsultation && consultationBrief != null && !pharmacistRequestIsHardStopped(request.status);
+    isConsultation &&
+    consultationBrief != null &&
+    !pharmacistRequestIsHardStopped(request.status) &&
+    ["submitted", "in_review"].includes(request.status);
   const consultationDossierRef =
     displayRequestPublicRef(request) || `Dossier ${request.id.slice(0, 8)}…`;
   const consultationSeed =
@@ -4660,29 +4663,37 @@ export default function PharmacienDemandeDetailPage() {
 
   const isProductRequest = request.request_type === "product_request";
   const hideMainRequestHeader =
-    isProductRequest &&
     usesLineWorkflow &&
     (["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status) ||
       pharmacistRequestIsHardStopped(request.status) ||
       pharmacistRequestIsClosedSuccess(request.status));
 
-  let productDossierStatusHint = "";
-  if (isProductRequest) {
+  let dossierStatusHint = "";
+  if (usesLineWorkflow && hideMainRequestHeader) {
     if (request.status === "submitted" || request.status === "in_review") {
-      productDossierStatusHint = "Répondez au patient puis publiez la proposition (alternatives possibles par onglet).";
+      if (isPrescription) {
+        dossierStatusHint =
+          "Consultez l’ordonnance, saisissez chaque produit (qté prescrite et dispo), puis publiez la réponse.";
+      } else if (isConsultation) {
+        dossierStatusHint =
+          "Échangez avec le patient ou saisissez des produits proposés, puis publiez la réponse.";
+      } else {
+        dossierStatusHint =
+          "Répondez au patient puis publiez la proposition (alternatives possibles par onglet).";
+      }
     } else if (request.status === "responded") {
-      productDossierStatusHint = "En attente de validation patient — délai 24 h après votre réponse.";
+      dossierStatusHint = "En attente de validation patient — délai 24 h après votre réponse.";
     } else if (request.status === "confirmed") {
-      productDossierStatusHint =
+      dossierStatusHint =
         "Commande validée — préparez les lignes, déclarez traitée quand c’est prêt, puis suivez le comptoir.";
     } else if (request.status === "treated") {
       const pickedN = pharmacistCounterPickedUpCount(items);
-      productDossierStatusHint = canCompleteCounter
+      dossierStatusHint = canCompleteCounter
         ? pickedN > 0 && counterClosurePendingTracked > 0
           ? `${pickedN} produit${pickedN > 1 ? "s" : ""} récupéré${pickedN > 1 ? "s" : ""} — vous pouvez clôturer (les non récupérés seront écartés).`
           : "Au moins un produit récupéré — vous pouvez clôturer le dossier."
         : counterClosurePendingTracked > 0
-          ? `Comptoir : marquez au moins un produit « Récupéré » pour pouvoir clôturer.`
+          ? "Comptoir : marquez au moins un produit « Récupéré » pour pouvoir clôturer."
           : "Marquez « Récupéré » sur au moins une ligne retenue pour clôturer le dossier.";
     }
   }
@@ -4719,7 +4730,7 @@ export default function PharmacienDemandeDetailPage() {
       maxWidthClass="max-w-3xl"
       className={clsx(
         "space-y-2 sm:space-y-3",
-        usesLineWorkflow && !isProductRequest && "bg-slate-50",
+        usesLineWorkflow && !hideMainRequestHeader && "bg-slate-50",
         bottomChromePaddingClass
       )}
     >
@@ -4737,19 +4748,38 @@ export default function PharmacienDemandeDetailPage() {
           createdAt={request.created_at}
         />
       ) : hideMainRequestHeader ? (
-        <PharmacistProductRequestDossierHeader
-          dossierRefLabel={displayRequestPublicRef(request) || formatShortId(request.id)}
-          patientName={patientProfile?.full_name ?? null}
-          patientRef={patientProfile?.patient_ref ?? null}
-          patientPhone={patientPhone ?? null}
-          status={request.status}
-          statusHint={productDossierStatusHint}
-          lineCount={displayRows.length}
-          selectedCount={selectedLinesActiveCount}
-          pendingCounterCount={request.status === "treated" ? pendingCounterCount : undefined}
-          submittedAt={request.submitted_at}
-          createdAt={request.created_at}
-        />
+        <>
+          <PharmacistProductRequestDossierHeader
+            dossierRefLabel={displayRequestPublicRef(request) || formatShortId(request.id)}
+            patientName={patientProfile?.full_name ?? null}
+            patientRef={patientProfile?.patient_ref ?? null}
+            patientPhone={patientPhone ?? null}
+            status={request.status}
+            statusHint={dossierStatusHint}
+            lineCount={displayRows.length}
+            selectedCount={selectedLinesActiveCount}
+            pendingCounterCount={request.status === "treated" ? pendingCounterCount : undefined}
+            submittedAt={request.submitted_at}
+            createdAt={request.created_at}
+          />
+          {isPrescription && ["submitted", "in_review"].includes(request.status) ? (
+            <section className="rounded-lg border border-amber-300/70 bg-amber-50/45 px-3 py-2 text-[11px] leading-snug text-amber-950 shadow-sm">
+              <p className="font-semibold">Saisie depuis l&apos;ordonnance</p>
+              <p className="mt-0.5 text-amber-900/88">
+                Ouvrez le scan, ajoutez chaque produit (qté prescrite + qté dispo), puis publiez. Les propositions
+                complémentaires restent en « Proposé ».
+              </p>
+            </section>
+          ) : null}
+          {isConsultation && ["submitted", "in_review"].includes(request.status) ? (
+            <section className="rounded-lg border border-violet-300/70 bg-violet-50/45 px-3 py-2 text-[11px] leading-snug text-violet-950 shadow-sm">
+              <p className="font-semibold">Consultation en cours</p>
+              <p className="mt-0.5 text-violet-900/88">
+                Échangez dans l&apos;onglet Conversation, puis saisissez les produits proposés avant publication.
+              </p>
+            </section>
+          ) : null}
+        </>
       ) : (
         <RequestKindHeader
           config={kindConfig}
@@ -4924,7 +4954,6 @@ export default function PharmacienDemandeDetailPage() {
       ) : null}
 
       {!hideMainRequestHeader &&
-      !isProductRequest &&
       usesLineWorkflow &&
       request?.status === "confirmed" &&
       !pharmacistRequestIsHardStopped(request.status) ? (
@@ -4935,7 +4964,6 @@ export default function PharmacienDemandeDetailPage() {
       ) : null}
 
       {!hideMainRequestHeader &&
-      !isProductRequest &&
       usesLineWorkflow &&
       request?.status === "treated" &&
       !pharmacistRequestIsHardStopped(request.status) ? (
@@ -7371,7 +7399,9 @@ export default function PharmacienDemandeDetailPage() {
         title={productPhotoPreview?.title ?? ""}
         onClose={() => setProductPhotoPreview(null)}
       />
-      {usesLineWorkflow && sessionUserId && !isConsultation ? (
+      {usesLineWorkflow &&
+      sessionUserId &&
+      (!isConsultation || !["submitted", "in_review"].includes(request.status)) ? (
         <>
           <RequestConversationFabDock
             hasUnread={conversationUnread}
