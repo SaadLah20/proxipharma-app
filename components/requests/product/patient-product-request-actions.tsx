@@ -22,12 +22,12 @@ import { cn } from "@/lib/utils";
 import {
   uiActionBtnDestructiveWide,
   uiActionBtnFullDestructive,
-  uiActionBtnFlexOutline,
+  uiActionBtnFlexCancel,
   uiActionBtnFlexPrimary,
+  uiActionBtnFlexRow,
   uiActionBtnFull,
   uiActionBtnFullOutline,
   uiActionBtnFullSecondary,
-  uiActionBtnModalFlexOutline,
   uiActionBtnModalFlexPrimary,
   uiActionBtnModalOutline,
   uiActionBtnModalPrimary,
@@ -62,7 +62,10 @@ import {
   PlatformStickyFooter,
   PlatformStickyFooterSummaryRow,
 } from "@/components/layout/platform-sticky-footer";
-import { stickyFooterPadClass, type StickyFooterPadTier } from "@/lib/platform-sticky-footer";
+import {
+  stickyFooterScrollSpacerClass,
+  type StickyFooterPadTier,
+} from "@/lib/platform-sticky-footer";
 import {
   bucketPatientValidatedLinesThreeWays,
   type PatientLineLike,
@@ -84,6 +87,7 @@ import {
   ProductRequestSearchExplorerRow,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import { PatientProductRequestDossierHeader } from "@/components/requests/product/patient-product-request-dossier-header";
+import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
 import { PatientProductRequestCompactLine } from "@/components/requests/product/patient-product-request-compact-line";
 import { PatientPharmaUpdateBanner } from "@/components/requests/product/patient-pharma-update-banner";
 import { RespondedPatientLineChooser } from "@/components/requests/product/patient-responded-line-chooser";
@@ -1272,6 +1276,7 @@ export function PatientSentEnvoyeeSummaryCard({
   status,
   createdAt,
   updatedAt,
+  submittedAt,
   kindLabel: _kindLabel,
   refShort,
   statusHint,
@@ -1285,6 +1290,7 @@ export function PatientSentEnvoyeeSummaryCard({
   status: string;
   createdAt: string;
   updatedAt: string;
+  submittedAt?: string | null;
   kindLabel: string;
   refShort: string;
   statusHint: string;
@@ -1298,7 +1304,15 @@ export function PatientSentEnvoyeeSummaryCard({
   const t = summaryThemeClasses(accent);
   return (
     <div className={t.shell}>
-      <div className="flex flex-wrap items-start gap-x-2 gap-y-1 border-b border-sky-200/70 pb-1.5">
+      <div className="border-b border-sky-200/70 pb-1.5">
+        <DossierHeaderRequestLine
+          kindLabel={_kindLabel}
+          dossierRefLabel={dossierRefLabel}
+          submittedAt={submittedAt}
+          createdAt={createdAt}
+          className="text-sky-950"
+        />
+        <div className="mt-1.5 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1 space-y-0.5">
           <p className="text-[11px] font-bold leading-snug break-words text-sky-950">{phName}</p>
           {phVille ? <p className="text-[10px] font-medium text-sky-800/85">{phVille}</p> : null}
@@ -1325,21 +1339,10 @@ export function PatientSentEnvoyeeSummaryCard({
             </div>
           </details>
         ) : null}
+        </div>
       </div>
       <p className={clsx("mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 border-b pb-1.5 text-[9px] tabular-nums", t.borderB2, t.metaRow)}>
-        <span className="font-mono font-semibold text-foreground">
-          {refShort} {dossierRefLabel}
-        </span>
-        <span aria-hidden>·</span>
         <span className="font-semibold">{lineCountLabel}</span>
-        <span aria-hidden>·</span>
-        <span className="font-medium text-foreground">
-          {updatedAt?.trim() && updatedAt !== createdAt
-            ? formatDateTimeShort24hFr(updatedAt)
-            : createdAt
-              ? formatDateTimeShort24hFr(createdAt)
-              : "—"}
-        </span>
       </p>
       <div className="mt-1.5 flex flex-wrap items-start gap-2">
         <span className="shrink-0 rounded-full border border-amber-300/90 bg-amber-50 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-amber-950">
@@ -2774,9 +2777,9 @@ export function PatientProductRequestActions({
 
   const stickyFooterPadTier: StickyFooterPadTier = !needsStickyFooterPad
     ? "none"
-    : showProductResubmit && editMode
-      ? "tall"
-      : showPrescriptionWaiting && prescriptionEditMode
+    : showProductResubmit
+      ? "resubmit"
+      : showPrescriptionWaiting
         ? "tall"
         : "standard";
   /** Date/heure de passage : à la validation (responded) et pour modifier après coup. */
@@ -2868,6 +2871,7 @@ export function PatientProductRequestActions({
     historyModalItemId !== null;
 
   return (
+    <>
     <section
       className={clsx(
         "touch-pan-y w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border-2 p-2.5 sm:p-3",
@@ -2879,7 +2883,6 @@ export function PatientProductRequestActions({
             : useSkyProductShell
               ? "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
               : "border-slate-200 bg-slate-50/95",
-        stickyFooterPadClass(stickyFooterPadTier),
         isConsultation && showConsultationWaiting && !needsStickyFooterPad && "pb-2"
       )}
     >
@@ -2910,6 +2913,8 @@ export function PatientProductRequestActions({
             status={showConfirm ? "responded" : status}
             statusHint={buildPatientSummaryStatusHint(showConfirm ? "responded" : status, requestType, workflowCopy)}
             statusDetail={buildPatientSummaryStatusDetail(showConfirm ? "responded" : status, requestType, workflowCopy)}
+            submittedAt={requestTimelineMeta?.submitted_at}
+            createdAt={requestTimelineMeta?.created_at}
           />
         ) : (
           <PatientSentEnvoyeeSummaryCard
@@ -2925,6 +2930,7 @@ export function PatientProductRequestActions({
             status={status}
             createdAt={requestTimelineMeta?.created_at ?? ""}
             updatedAt={requestUpdatedAt ?? requestTimelineMeta?.created_at ?? ""}
+            submittedAt={requestTimelineMeta?.submitted_at}
             kindLabel={workflowCopy.patientSummaryKindLabel}
             refShort={workflowCopy.patientSummaryRefShort}
             statusHint={buildPatientSummaryStatusHint(status, requestType, workflowCopy)}
@@ -2941,6 +2947,8 @@ export function PatientProductRequestActions({
           status={isDossierTerminalArchive ? archiveDossierStatusLabel : uiStatus}
           statusHint={archiveDossierStatusHint}
           statusDetail={archiveDossierStatusDetail}
+          submittedAt={requestTimelineMeta?.submitted_at}
+          createdAt={requestTimelineMeta?.created_at}
         />
       ) : null}
 
@@ -3569,6 +3577,11 @@ export function PatientProductRequestActions({
           </div>
         ) : null}
       </div>
+    </section>
+
+      {needsStickyFooterPad && !stickyFooterObscured ? (
+        <div className={stickyFooterScrollSpacerClass(stickyFooterPadTier)} aria-hidden />
+      ) : null}
 
       {showProductResubmit && !stickyFooterObscured ? (
         <PlatformStickyFooter tone="slate">
@@ -3608,7 +3621,7 @@ export function PatientProductRequestActions({
                 ) : null}
               </div>
             ) : (
-              <div className="flex gap-2">
+              <div className={uiActionBtnFlexRow()}>
                 <button
                   type="button"
                   disabled={busyAction !== ""}
@@ -3616,9 +3629,9 @@ export function PatientProductRequestActions({
                     resetResubmitDraft();
                     setEditMode(false);
                   }}
-                  className={uiActionBtnFlexOutline()}
+                  className={uiActionBtnFlexCancel()}
                 >
-                  Annuler les changements
+                  Annuler
                 </button>
                 <button
                   type="button"
@@ -3658,12 +3671,12 @@ export function PatientProductRequestActions({
                 </button>
               </div>
             ) : (
-              <div className="flex gap-2">
+              <div className={uiActionBtnFlexRow()}>
                 <button
                   type="button"
                   disabled={busyAction !== "" || prescriptionPanelBusy}
                   onClick={() => prescriptionPanelRef.current?.cancelEdit()}
-                  className={uiActionBtnFlexOutline()}
+                  className={uiActionBtnFlexCancel()}
                 >
                   Annuler
                 </button>
@@ -3733,14 +3746,14 @@ export function PatientProductRequestActions({
                 </button>
               </>
             ) : (
-              <div className="flex gap-2">
+              <div className={uiActionBtnFlexRow()}>
                 <button
                   type="button"
                   disabled={busyAction !== ""}
                   onClick={cancelConfirmedRevalidation}
-                  className={uiActionBtnFlexOutline()}
+                  className={uiActionBtnFlexCancel()}
                 >
-                  Annuler les changements
+                  Annuler
                 </button>
                 <button
                   type="button"
@@ -4016,12 +4029,12 @@ export function PatientProductRequestActions({
                 <span className="text-sm font-bold text-slate-800">TOTAL</span>
                 <span className="text-lg font-bold tabular-nums text-sky-900">{formatPriceDh(resubmitTotal)}</span>
               </div>
-              <div className="mt-2 flex gap-2">
+              <div className={cn("mt-2", uiActionBtnFlexRow())}>
                 <button
                   type="button"
                   disabled={busyAction === "resubmit" || Boolean(detailStale)}
                   onClick={() => setResubmitConfirmOpen(false)}
-                  className={uiActionBtnModalFlexOutline()}
+                  className={uiActionBtnFlexCancel()}
                 >
                   Annuler
                 </button>
@@ -4046,6 +4059,6 @@ export function PatientProductRequestActions({
         onClose={() => setHistoryModalItemId(null)}
       />
       {productPhotoPreviewModal}
-    </section>
+    </>
   );
 }

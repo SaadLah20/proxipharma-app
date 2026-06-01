@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { Check, Circle, Info, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { cn } from "@/lib/utils";
 
@@ -79,16 +80,13 @@ export function PatientProductRequestJourneyModal({
                 : 0;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center p-3 sm:items-center">
-      <button type="button" className="absolute inset-0 bg-black/45" aria-label="Fermer" onClick={onClose} />
+    <AppModalOverlay open aria-labelledby="product-journey-title" onBackdropClick={onClose}>
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="product-journey-title"
         className={cn(
-          "relative z-10 flex max-h-[min(88dvh,520px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl",
+          "flex max-h-[min(88dvh,520px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl sm:mx-auto",
           t.modalShell
         )}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className={cn("flex shrink-0 items-start justify-between gap-2 border-b px-4 py-3", t.modalHeader)}>
           <div className="flex min-w-0 items-start gap-2">
@@ -165,6 +163,6 @@ export function PatientProductRequestJourneyModal({
           </Button>
         </div>
       </div>
-    </div>
+    </AppModalOverlay>
   );
 }

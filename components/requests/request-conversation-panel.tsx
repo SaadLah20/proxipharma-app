@@ -8,6 +8,7 @@ import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
 import { cn } from "@/lib/utils";
 import { STICKY_FOOTER_FAB_DEFAULT_BOTTOM_PX } from "@/lib/platform-sticky-footer";
+import { Z_FLOATING_ABOVE_STICKY_FOOTER } from "@/lib/ui-z-index";
 import {
   type RequestCommentRow,
   conversationAuthorLabelFr,
@@ -15,6 +16,8 @@ import {
 } from "@/lib/request-conversation";
 
 const CONVERSATION_FAB_POS_KEY = "proxipharma:conversationFabInset";
+/** Taille max du FAB (sm:size-16) pour le clamp sans lire le ref au rendu. */
+const CONVERSATION_FAB_SIZE_PX = 64;
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.min(hi, Math.max(lo, n));
@@ -48,10 +51,13 @@ export function RequestConversationFabDock({
   hasUnread,
   onOpen,
   tone,
+  /** Marge basse minimale (px) pour dégager le footer sticky du dossier. */
+  minBottomPx = STICKY_FOOTER_FAB_DEFAULT_BOTTOM_PX,
 }: {
   hasUnread: boolean;
   onOpen: () => void;
   tone: "patient" | "pharmacien" | "consultation";
+  minBottomPx?: number;
 }) {
   const fabRef = useRef<HTMLDivElement>(null);
   const suppressClickRef = useRef(false);
@@ -64,19 +70,30 @@ export function RequestConversationFabDock({
     dragging: boolean;
   } | null>(null);
 
-  const [inset, setInset] = useState<{ right: number; bottom: number } | null>(() => readFabInset());
+  const clampFabBottom = useCallback(
+    (bottom: number) => {
+      if (typeof window === "undefined") return Math.max(bottom, minBottomPx);
+      return clamp(bottom, minBottomPx, window.innerHeight - CONVERSATION_FAB_SIZE_PX - 8);
+    },
+    [minBottomPx]
+  );
+
+  const [inset, setInset] = useState<{ right: number; bottom: number } | null>(() => {
+    const saved = readFabInset();
+    if (!saved || typeof window === "undefined") return null;
+    return { right: saved.right, bottom: Math.max(saved.bottom, minBottomPx) };
+  });
 
   useEffect(() => {
     const onResize = () => {
       const el = fabRef.current;
       if (!el) return;
       const w = el.offsetWidth;
-      const h = el.offsetHeight;
       const rect = el.getBoundingClientRect();
       let right = window.innerWidth - rect.right;
       let bottom = window.innerHeight - rect.bottom;
       right = clamp(right, 8, window.innerWidth - w - 8);
-      bottom = clamp(bottom, 8, window.innerHeight - h - 8);
+      bottom = clampFabBottom(bottom);
       setInset((prev) => {
         if (prev?.right === right && prev.bottom === bottom) return prev;
         const pos = { right, bottom };
@@ -86,7 +103,7 @@ export function RequestConversationFabDock({
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
+  }, [clampFabBottom]);
 
   const toneRing =
     tone === "pharmacien"
@@ -121,10 +138,9 @@ export function RequestConversationFabDock({
       s.dragging = true;
     }
     const w = fabRef.current?.offsetWidth ?? 48;
-    const h = fabRef.current?.offsetHeight ?? 48;
     setInset({
       right: clamp(s.startRight - dx, 8, window.innerWidth - w - 8),
-      bottom: clamp(s.startBottom - dy, 8, window.innerHeight - h - 8),
+      bottom: clampFabBottom(s.startBottom - dy),
     });
     if (s.dragging) e.preventDefault();
   };
@@ -146,7 +162,7 @@ export function RequestConversationFabDock({
         const rect = el.getBoundingClientRect();
         const pos = {
           right: window.innerWidth - rect.right,
-          bottom: window.innerHeight - rect.bottom,
+          bottom: clampFabBottom(window.innerHeight - rect.bottom),
         };
         setInset(pos);
         writeFabInset(pos);
@@ -176,20 +192,24 @@ export function RequestConversationFabDock({
     onOpen();
   };
 
-  const defaultInset = { right: 16, bottom: STICKY_FOOTER_FAB_DEFAULT_BOTTOM_PX };
+  const defaultInset = { right: 16, bottom: minBottomPx };
+  const fabBottomPx = inset != null ? clampFabBottom(inset.bottom) : null;
   const style =
-    inset != null
-      ? { right: inset.right, bottom: inset.bottom }
+    inset != null && fabBottomPx != null
+      ? { right: inset.right, bottom: fabBottomPx }
       : {
           right: defaultInset.right,
-          bottom: `max(${defaultInset.bottom}px, calc(5.5rem + env(safe-area-inset-bottom)))`,
+          bottom: `calc(${minBottomPx}px + env(safe-area-inset-bottom, 0px))`,
         };
 
   return (
     <div
       ref={fabRef}
       style={style}
-      className="pointer-events-auto fixed z-50 isolate flex size-14 items-center justify-center sm:size-16"
+      className={cn(
+        "pointer-events-auto fixed isolate flex size-14 items-center justify-center sm:size-16",
+        Z_FLOATING_ABOVE_STICKY_FOOTER
+      )}
     >
       <button
         type="button"

@@ -35,6 +35,12 @@ import {
 } from "@/lib/patient-archive-outcome-fr";
 import { patientOutcomeStatusFooter } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
+import {
+  patientDetailStickyFooterPadTier,
+  stickyFooterFabMinBottomPx,
+  stickyFooterPadClass,
+  stickyFooterScrollMarginClass,
+} from "@/lib/platform-sticky-footer";
 import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
 import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
 import type { ConsultationImagePaths } from "@/lib/consultation-media";
@@ -426,6 +432,11 @@ export default function DemandeDetailPage() {
   const activeLineStatuses = ["submitted", "in_review", "responded", "confirmed", "treated"] as const;
   const hasBottomActions =
     usesLineWorkflow && activeLineStatuses.includes(request.status as (typeof activeLineStatuses)[number]);
+  const detailStickyFooterTier = patientDetailStickyFooterPadTier(request.request_type, request.status);
+  const detailStickyFooterPad = hasBottomActions ? stickyFooterPadClass(detailStickyFooterTier) : "";
+  const conversationFabMinBottomPx = stickyFooterFabMinBottomPx(
+    hasBottomActions ? detailStickyFooterTier : "none"
+  );
   const isPrescriptionRequest = request.request_type === "prescription";
   const isConsultationRequest = request.request_type === "free_consultation";
   const consultationEditable =
@@ -467,7 +478,7 @@ export default function DemandeDetailPage() {
   }
 
   return (
-    <PageShell className="min-w-0 max-w-full space-y-3 bg-slate-50">
+    <PageShell className={clsx("min-w-0 max-w-full space-y-3 bg-slate-50", detailStickyFooterPad)}>
       <RequestDetailBackLink config={kindConfig} viewerRole="patient" />
 
       {showConsultationTabbed ? (
@@ -478,6 +489,8 @@ export default function DemandeDetailPage() {
           onTab={setConsultationTab}
           conversationUnread={conversationUnread}
           productLineCount={items.length}
+          submittedAt={request.submitted_at}
+          createdAt={request.created_at}
         />
       ) : !hideMainRequestHeader ||
         (showArchivedReadonly && request.request_type !== "product_request") ? (
@@ -640,7 +653,12 @@ export default function DemandeDetailPage() {
         </p>
       ) : null}
 
-      <details className="group scroll-mb-44 rounded-xl border border-border/80 bg-card shadow-sm">
+      <details
+        className={clsx(
+          "group rounded-xl border border-border/80 bg-card shadow-sm",
+          hasBottomActions ? stickyFooterScrollMarginClass(detailStickyFooterTier) : "scroll-mb-8"
+        )}
+      >
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 marker:content-none [&::-webkit-details-marker]:hidden sm:px-3">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Historique du dossier</span>
@@ -689,6 +707,7 @@ export default function DemandeDetailPage() {
             hasUnread={conversationUnread}
             onOpen={() => setConversationOpen(true)}
             tone="patient"
+            minBottomPx={conversationFabMinBottomPx}
           />
           <RequestConversationPanel
             requestId={request.id}

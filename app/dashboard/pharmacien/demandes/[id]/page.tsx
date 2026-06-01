@@ -4663,6 +4663,8 @@ export default function PharmacienDemandeDetailPage() {
           onTab={setConsultationTab}
           conversationUnread={conversationUnread}
           productLineCount={displayRows.length}
+          submittedAt={request.submitted_at}
+          createdAt={request.created_at}
         />
       ) : hideMainRequestHeader ? (
         <PharmacistProductRequestDossierHeader
@@ -4675,6 +4677,8 @@ export default function PharmacienDemandeDetailPage() {
           lineCount={displayRows.length}
           selectedCount={selectedLinesActiveCount}
           pendingCounterCount={request.status === "treated" ? pendingCounterCount : undefined}
+          submittedAt={request.submitted_at}
+          createdAt={request.created_at}
         />
       ) : (
         <RequestKindHeader

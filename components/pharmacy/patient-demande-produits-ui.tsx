@@ -426,7 +426,7 @@ export function ProductRequestSearchExplorerRow({
   explorerHref,
   onExplorerNavigate,
   fieldFocus = t.focus,
-  placeholder = "Nom ou laboratoire (2 car. min.)…",
+  placeholder = "Chercher un produit",
   searchSlot,
 }: {
   query: string;
@@ -452,7 +452,7 @@ export function ProductRequestSearchExplorerRow({
             placeholder={placeholder}
             aria-label={placeholder}
             className={cn(
-              "h-10 w-full rounded-xl border-2 bg-background py-2 pl-9 pr-3 text-[15px] leading-normal shadow-sm placeholder:text-muted-foreground",
+              "h-10 w-full rounded-xl border-2 bg-background py-2 pl-9 pr-3 text-sm leading-normal shadow-sm placeholder:text-muted-foreground",
               t.searchInput,
               fieldFocus
             )}
@@ -505,7 +505,7 @@ export function ProductRequestExplorerSearchBar({
   query,
   onQueryChange,
   fieldFocus,
-  placeholder = "Filtrer par nom ou laboratoire…",
+  placeholder = "Chercher un produit",
 }: {
   query: string;
   onQueryChange: (v: string) => void;
@@ -526,7 +526,7 @@ export function ProductRequestExplorerSearchBar({
           placeholder={placeholder}
           aria-label={placeholder}
           className={cn(
-            "h-11 w-full rounded-xl border-2 bg-background py-2 pl-10 pr-3 text-base leading-normal shadow-sm placeholder:text-muted-foreground",
+            "h-11 w-full rounded-xl border-2 bg-background py-2 pl-10 pr-3 text-sm leading-normal shadow-sm placeholder:text-muted-foreground",
             t.searchInput,
             fieldFocus
           )}
@@ -576,10 +576,10 @@ export function ProductRequestHeaderSearch({
               type="search"
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
-              placeholder="Nom ou laboratoire (2 car. min.)…"
-              aria-label="Rechercher un produit par nom ou laboratoire"
+              placeholder="Chercher un produit"
+              aria-label="Chercher un produit"
               className={cn(
-                "h-11 w-full rounded-xl border-2 bg-background py-2 pl-10 pr-3 text-base leading-normal shadow-sm placeholder:text-muted-foreground",
+                "h-11 w-full rounded-xl border-2 bg-background py-2 pl-10 pr-3 text-sm leading-normal shadow-sm placeholder:text-muted-foreground",
                 t.searchInput,
                 fieldFocus
               )}

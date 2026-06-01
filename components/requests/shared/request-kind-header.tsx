@@ -1,7 +1,7 @@
 "use client";
 
 import { clsx } from "clsx";
-import { formatDateShortCasablancaWithTime24hFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
+import { formatDossierSentAtCompactFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import type { RequestKindConfig } from "@/lib/request-kinds/types";
 import { requestStatusBadgeClass, requestStatusFr } from "@/lib/request-display";
@@ -60,9 +60,9 @@ export function RequestKindHeader({
             ·
           </span>
           <span className="text-muted-foreground">
-            Envoyée{" "}
+            Envoyée le{" "}
             <span className="font-semibold tabular-nums text-foreground">
-              {formatDateShortCasablancaWithTime24hFr(request.submitted_at ?? request.created_at)}
+              {formatDossierSentAtCompactFr(request.submitted_at ?? request.created_at)}
             </span>
           </span>
           {showPlannedVisit ? (

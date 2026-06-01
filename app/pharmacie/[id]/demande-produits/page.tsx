@@ -342,7 +342,7 @@ export default function DemandeProduitsPage() {
     <main
       className={cn(
         "min-h-screen touch-pan-y bg-background text-foreground antialiased",
-        stickyFooterPadClass("standard")
+        stickyFooterPadClass("tall")
       )}
     >
       <div className="mx-auto max-w-lg space-y-4 px-4 py-4 sm:px-5 sm:py-5">

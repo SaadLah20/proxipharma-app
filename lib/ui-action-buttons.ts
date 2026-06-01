@@ -30,12 +30,33 @@ export function uiActionBtnFullDestructive(className?: string) {
   return uiBtn("destructive", "lg", cn("h-10 w-full", className));
 }
 
+/** Sous-titre long (ex. « Enregistrer les modifications ») — autorise le retour à la ligne. */
+const UI_ACTION_BTN_FLEX =
+  "h-auto min-h-10 min-w-0 flex-1 shrink whitespace-normal px-2 py-2 text-center text-[11px] leading-snug sm:px-2.5 sm:text-xs";
+
+/** Paire Annuler (gauche) + action principale (droite) dans un footer étroit. */
+export function uiActionBtnFlexRow(className?: string) {
+  return cn("flex flex-row items-stretch gap-2", className);
+}
+
+/** Bouton court à gauche (ex. « Annuler »). */
+export function uiActionBtnFlexCancel(className?: string) {
+  return uiBtn(
+    "outline",
+    "lg",
+    cn(
+      "h-10 min-h-10 w-auto shrink-0 flex-none whitespace-nowrap px-3 text-xs sm:px-3.5 sm:text-sm",
+      className
+    )
+  );
+}
+
 export function uiActionBtnFlexPrimary(className?: string) {
-  return uiBtn("default", "lg", cn("h-10 min-w-0 flex-1", className));
+  return uiBtn("default", "lg", cn(UI_ACTION_BTN_FLEX, className));
 }
 
 export function uiActionBtnFlexOutline(className?: string) {
-  return uiBtn("outline", "lg", cn("h-10 min-w-0 flex-1", className));
+  return uiBtn("outline", "lg", cn(UI_ACTION_BTN_FLEX, className));
 }
 
 /** Pied de modale (Retour / Confirmer). */
@@ -48,11 +69,11 @@ export function uiActionBtnModalPrimary(className?: string) {
 }
 
 export function uiActionBtnModalFlexOutline(className?: string) {
-  return uiBtn("outline", "lg", cn("h-10 flex-1", className));
+  return uiBtn("outline", "lg", cn(UI_ACTION_BTN_FLEX, className));
 }
 
 export function uiActionBtnModalFlexPrimary(className?: string) {
-  return uiBtn("default", "lg", cn("h-10 flex-1", className));
+  return uiBtn("default", "lg", cn(UI_ACTION_BTN_FLEX, className));
 }
 
 /** Filtres hub liste (Ouvrir / Réduire). */
