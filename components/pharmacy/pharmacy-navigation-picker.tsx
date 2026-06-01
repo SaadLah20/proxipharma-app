@@ -10,7 +10,7 @@ import {
 } from "@/lib/pharmacy-navigation";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import { lockBodyScroll } from "@/lib/ui-body-scroll-lock";
-import { uiAnnuaireQuickAction } from "@/lib/ui-action-buttons";
+import { uiAnnuaireActionOverlayBtn, uiAnnuaireQuickAction } from "@/lib/ui-action-buttons";
 
 export type PharmacyNavigationTarget = {
   pharmacyId?: string;
@@ -27,7 +27,7 @@ type Props = {
   source: "annuaire" | "profile";
   className?: string;
   /** Style bouton annuaire (icône + libellé court). */
-  variant?: "annuaire" | "inline";
+  variant?: "annuaire" | "annuaire-rail" | "inline";
   disabledClassName?: string;
   /** Modal contrôlée depuis l’extérieur (ex. grille contact fiche). */
   open?: boolean;
@@ -89,17 +89,23 @@ export function PharmacyNavigationPicker({
   };
 
   const triggerClass =
-    variant === "annuaire"
+    variant === "annuaire-rail"
       ? clsx(
-          uiAnnuaireQuickAction(),
+          uiAnnuaireActionOverlayBtn(),
           !canNavigate && (disabledClassName ?? "pointer-events-none opacity-45"),
           className
         )
-      : clsx(
-          uiAnnuaireQuickAction("inline-flex flex-row items-center gap-1.5 px-3 py-2 text-xs"),
-          !canNavigate && "opacity-45",
-          className
-        );
+      : variant === "annuaire"
+        ? clsx(
+            uiAnnuaireQuickAction(),
+            !canNavigate && (disabledClassName ?? "pointer-events-none opacity-45"),
+            className
+          )
+        : clsx(
+            uiAnnuaireQuickAction("inline-flex flex-row items-center gap-1.5 px-3 py-2 text-xs"),
+            !canNavigate && "opacity-45",
+            className
+          );
 
   return (
     <>
@@ -112,8 +118,18 @@ export function PharmacyNavigationPicker({
           aria-haspopup="dialog"
           aria-expanded={open}
         >
-          <Navigation className="size-4" aria-hidden />
-          {variant === "annuaire" ? "Itinéraire" : "Y aller"}
+          {variant === "annuaire-rail" ? (
+            <MapPin className="size-3.5" aria-hidden />
+          ) : (
+            <Navigation className="size-4" aria-hidden />
+          )}
+          {variant === "annuaire-rail" ? (
+            <span className="sr-only">Localisation</span>
+          ) : variant === "annuaire" ? (
+            "Itinéraire"
+          ) : (
+            "Y aller"
+          )}
         </button>
       ) : null}
 
