@@ -295,7 +295,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   return (
     <PageShell
       maxWidthClass="max-w-3xl"
-      className={clsx("space-y-4", isProductHub && "bg-gradient-to-b from-sky-50/40 via-slate-50 to-slate-50")}
+      className="space-y-4"
     >
       <Link href="/dashboard/pharmacien" className={clsx("text-xs font-medium", linkClass)}>
         ← Tableau de bord

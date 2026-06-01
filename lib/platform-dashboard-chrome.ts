@@ -5,11 +5,10 @@
 export const platformDashboardChrome = {
   page: "bg-background",
   backLink: "text-xs font-medium text-primary underline underline-offset-2",
-  hero:
-    "overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary via-primary/95 to-primary/85 p-4 text-primary-foreground shadow-md",
-  heroEyebrow: "text-[10px] font-bold uppercase tracking-[0.12em] text-primary-foreground/90",
-  heroTitle: "text-xl font-bold tracking-tight",
-  heroSubtitle: "text-xs text-primary-foreground/95",
+  hero: "overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm",
+  heroEyebrow: "text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground",
+  heroTitle: "text-xl font-bold tracking-tight text-foreground",
+  heroSubtitle: "text-xs text-muted-foreground",
   statCard: "rounded-xl border border-border bg-card p-3 shadow-sm ring-1 ring-primary/10",
   statValue: "mt-1 text-2xl font-bold tabular-nums text-foreground",
   statLabel: "text-[10px] font-bold uppercase tracking-wide text-muted-foreground",

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { clsx } from "clsx";
 import { BarChart3 } from "lucide-react";
 import { countInBucket, type DemandeStatBucket } from "@/lib/demandes-hub-buckets";
-import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
+import { uiSurfaceCard } from "@/lib/ui-surfaces";
 
 type HubRow = { id: string; status: string; status_for_dashboard?: string };
 
@@ -40,35 +40,29 @@ export function ProductHubDashboardKpiPanel({
   }));
 
   return (
-    <section
-      className={clsx(
-        "rounded-xl border-2 p-3 shadow-sm ring-1 sm:p-3.5",
-        t.shell,
-        "bg-gradient-to-br from-sky-50/50 via-white to-slate-50/40"
-      )}
-    >
+    <section className={clsx(uiSurfaceCard, "p-3 sm:p-3.5")}>
       <div className="mb-3 flex items-start gap-2">
-        <BarChart3 className="mt-0.5 size-4 shrink-0 text-sky-700" aria-hidden />
+        <BarChart3 className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
         <div>
-          <h3 className="text-sm font-bold text-sky-950">Synthèse des dossiers</h3>
-          <p className="mt-0.5 text-[11px] leading-snug text-sky-900/80">
+          <h3 className="text-sm font-bold text-foreground">Synthèse des dossiers</h3>
+          <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
             Répartition par statut — touchez un chiffre pour ouvrir la liste filtrée.
           </p>
         </div>
       </div>
 
       <div className="mb-3 grid grid-cols-3 gap-2">
-        <div className="rounded-lg border border-sky-200/70 bg-white/90 px-2 py-2 text-center shadow-sm">
-          <p className="text-lg font-bold tabular-nums text-sky-950">{total}</p>
-          <p className="text-[9px] font-semibold uppercase tracking-wide text-sky-800/85">Total</p>
+        <div className="rounded-lg border border-border bg-muted/20 px-2 py-2 text-center">
+          <p className="text-lg font-bold tabular-nums text-foreground">{total}</p>
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Total</p>
         </div>
-        <div className="rounded-lg border border-sky-200/70 bg-white/90 px-2 py-2 text-center shadow-sm">
-          <p className="text-lg font-bold tabular-nums text-sky-950">{activeCount}</p>
-          <p className="text-[9px] font-semibold uppercase tracking-wide text-sky-800/85">En cours</p>
+        <div className="rounded-lg border border-border bg-muted/20 px-2 py-2 text-center">
+          <p className="text-lg font-bold tabular-nums text-foreground">{activeCount}</p>
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">En cours</p>
         </div>
-        <div className="rounded-lg border border-sky-200/70 bg-white/90 px-2 py-2 text-center shadow-sm">
-          <p className="text-lg font-bold tabular-nums text-sky-950">{unreadCount}</p>
-          <p className="text-[9px] font-semibold uppercase tracking-wide text-sky-800/85">
+        <div className="rounded-lg border border-border bg-muted/20 px-2 py-2 text-center">
+          <p className="text-lg font-bold tabular-nums text-foreground">{unreadCount}</p>
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
             {role === "pharmacien" ? "Messages non lus" : "Non lus"}
           </p>
         </div>
@@ -82,7 +76,7 @@ export function ProductHubDashboardKpiPanel({
             className={clsx(
               "rounded-lg border px-2 py-1.5 text-left transition hover:-translate-y-px hover:shadow-sm",
               count > 0
-                ? "border-sky-300/80 bg-white ring-1 ring-sky-100/80 hover:bg-sky-50/80"
+                ? "border-border bg-card hover:bg-muted/40"
                 : "border-border/60 bg-muted/20 opacity-75 hover:opacity-100"
             )}
           >
