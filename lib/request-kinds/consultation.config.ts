@@ -1,4 +1,5 @@
 import type { RequestKindConfig } from "@/lib/request-kinds/types";
+import { uiHeaderShell } from "@/lib/ui-surfaces";
 
 export const consultationRequestKindConfig: RequestKindConfig = {
   id: "free_consultation",
@@ -13,10 +14,9 @@ export const consultationRequestKindConfig: RequestKindConfig = {
   theme: {
     accent: "violet",
     headerLabelShort: "Consultation",
-    patientBackLinkClass: "text-violet-900",
-    pharmacistBackLinkClass: "text-violet-900",
-    headerShellDefault:
-      "mt-2 rounded-xl border-2 border-violet-300/45 bg-gradient-to-br from-violet-50/90 via-white to-fuchsia-50/20 px-2.5 py-1.5 shadow-md shadow-violet-900/[0.06] ring-1 ring-violet-200/55 sm:px-3",
+    patientBackLinkClass: "text-foreground",
+    pharmacistBackLinkClass: "text-foreground",
+    headerShellDefault: uiHeaderShell,
   },
   capabilities: {
     workflowEnabled: true,

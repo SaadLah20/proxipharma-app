@@ -16,7 +16,7 @@ export function ProductHubListResultsBar({
   return (
     <p
       className={clsx(
-        "rounded-lg border border-sky-200/80 bg-sky-50/60 px-3 py-2 text-[11px] font-semibold tabular-nums text-sky-950",
+        "rounded-lg border border-border bg-muted/30 px-3 py-2 text-[11px] font-semibold tabular-nums text-foreground",
         className
       )}
       role="status"

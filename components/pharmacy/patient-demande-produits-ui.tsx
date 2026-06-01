@@ -19,7 +19,7 @@ export const PRODUCT_REQUEST_LINE_THUMB =
 export const PRODUCT_REQUEST_LINE_BLOCK_H = "min-h-14";
 /** Contour discret sans changer la boîte de contenu (ombre interne). */
 export const PRODUCT_REQUEST_LINE_CARD_SHELL =
-  "rounded-lg [box-shadow:inset_0_0_0_1px_rgba(14,165,233,0.22)]";
+  "rounded-lg border border-border/80 bg-card";
 const THUMB = PRODUCT_REQUEST_LINE_THUMB;
 
 function ProductRequestLinePu({ unitPrice }: { unitPrice: number | null }) {

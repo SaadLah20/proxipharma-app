@@ -8,33 +8,12 @@ import {
   PatientPharmacyQuickContact,
   type PatientPharmacyContactInfo,
 } from "@/components/requests/product/patient-pharmacy-quick-contact";
-import { requestStatusFr } from "@/lib/request-display";
+import { requestStatusBadgeClass, requestStatusFr } from "@/lib/request-display";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
+import { uiDossierHeaderShell } from "@/lib/ui-surfaces";
+import { uiEyebrowLabel } from "@/lib/ui-label-styles";
 import { cn } from "@/lib/utils";
-
-function statusBadgeClass(status: string): string {
-  if (["submitted", "in_review"].includes(status)) {
-    return "border-sky-400/85 bg-sky-100 text-sky-950 ring-1 ring-sky-200/80";
-  }
-  if (status === "responded") return "border-amber-300/95 bg-amber-50 text-amber-950";
-  if (status === "expired") return "border-amber-400/90 bg-amber-100 text-amber-950 ring-1 ring-amber-200/80";
-  if (status === "cancelled") return "border-rose-400/90 bg-rose-100 text-rose-950 ring-1 ring-rose-200/80";
-  if (status === "abandoned") return "border-orange-400/90 bg-orange-100 text-orange-950 ring-1 ring-orange-200/80";
-  if (status === "partially_collected") {
-    return "border-teal-400/85 bg-teal-100 text-teal-950 ring-1 ring-teal-200/80";
-  }
-  if (status === "fully_collected") {
-    return "border-emerald-400/90 bg-emerald-100 text-emerald-950 ring-1 ring-emerald-200/80";
-  }
-  if (status === "completed") {
-    return "border-emerald-400/85 bg-emerald-100 text-emerald-950 ring-1 ring-emerald-200/80";
-  }
-  if (["confirmed", "treated"].includes(status)) {
-    return "border-teal-400/80 bg-teal-50 text-teal-950";
-  }
-  return "border-slate-300/80 bg-slate-50 text-slate-800";
-}
 
 export function PatientProductRequestDossierHeader({
   dossierRefLabel,
@@ -58,23 +37,18 @@ export function PatientProductRequestDossierHeader({
 
   return (
     <>
-      <header
-        className={cn(
-          "w-full min-w-0 max-w-full overflow-hidden rounded-xl border-2 shadow-md",
-          "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
-        )}
-      >
-        <div className="border-b border-sky-200/70 px-3 py-2 sm:px-3.5">
-          <p className="text-[11px] font-bold leading-tight text-sky-950 sm:text-xs">
-            <span className="uppercase tracking-wide text-sky-800/90">Demande de produits</span>
-            <span className="mx-1.5 font-normal text-sky-600/80" aria-hidden>
+      <header className={uiDossierHeaderShell}>
+        <div className="border-b border-border px-3 py-2 sm:px-3.5">
+          <p className="text-[11px] font-bold leading-tight text-foreground sm:text-xs">
+            <span className={uiEyebrowLabel}>Demande de produits</span>
+            <span className="mx-1.5 font-normal text-muted-foreground" aria-hidden>
               ·
             </span>
             <span className="font-mono text-[13px] tabular-nums text-foreground sm:text-sm">N° {dossierRefLabel}</span>
           </p>
         </div>
 
-        <div className="flex flex-col gap-2 border-b border-sky-200/70 px-3 py-2 sm:flex-row sm:items-start sm:justify-between sm:px-3.5">
+        <div className="flex flex-col gap-2 border-b border-border px-3 py-2 sm:flex-row sm:items-start sm:justify-between sm:px-3.5">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold leading-snug text-foreground break-words">{phLabel}</p>
             {pharmacyContact?.ville?.trim() ? (
@@ -86,14 +60,14 @@ export function PatientProductRequestDossierHeader({
               <button
                 type="button"
                 onClick={() => setContactOpen(true)}
-                className="inline-flex h-8 items-center rounded-lg border border-sky-400/70 bg-white px-2.5 text-[11px] font-bold text-sky-900 shadow-sm transition hover:bg-sky-50"
+                className="inline-flex h-8 items-center rounded-lg border border-border bg-card px-2.5 text-[11px] font-bold text-foreground shadow-sm transition hover:bg-muted/40"
               >
                 Contacter
               </button>
             ) : null}
             <Link
               href={`/pharmacie/${pharmacyId}`}
-              className="inline-flex h-8 items-center gap-1 rounded-lg border border-sky-400/70 bg-white px-2.5 text-[11px] font-bold text-sky-900 shadow-sm transition hover:bg-sky-50"
+              className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-card px-2.5 text-[11px] font-bold text-foreground shadow-sm transition hover:bg-muted/40"
             >
               <MapPin className="size-3.5 shrink-0 opacity-80" aria-hidden />
               Voir la fiche
@@ -102,19 +76,12 @@ export function PatientProductRequestDossierHeader({
         </div>
 
         <div className="flex flex-wrap items-start gap-2 px-3 py-2 sm:px-3.5">
-          <span
-            className={cn(
-              "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold leading-tight shadow-sm",
-              statusBadgeClass(status)
-            )}
-          >
-            {statusLabel}
-          </span>
-          <p className="min-w-0 flex-1 text-[11px] leading-snug text-sky-950/90">{statusHint}</p>
+          <span className={cn("shrink-0 shadow-sm", requestStatusBadgeClass(status))}>{statusLabel}</span>
+          <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">{statusHint}</p>
           <button
             type="button"
             onClick={() => setJourneyOpen(true)}
-            className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-sky-300/80 bg-white text-sky-700 shadow-sm transition hover:bg-sky-50 hover:text-sky-900"
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition hover:bg-muted/40 hover:text-foreground"
             aria-label="Voir le détail du statut et le parcours de la demande"
             title="Détail et parcours"
           >
