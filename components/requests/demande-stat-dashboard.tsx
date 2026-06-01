@@ -33,9 +33,9 @@ export function DemandeStatDashboard({
   rows,
   buckets,
   basePath,
-  density = "default",
-  dashboardTitle = "Vue rapide",
-  dashboardSubtitle = "Toucher un bloc pour filtrer",
+  density = "compact",
+  dashboardTitle = "8 statuts",
+  dashboardSubtitle = "Toucher un bloc pour ouvrir la liste filtrée — barres = volume relatif",
 }: {
   rows: Row[];
   buckets: DemandeStatBucket[];
@@ -58,9 +58,11 @@ export function DemandeStatDashboard({
     >
       {dashboardTitle || dashboardSubtitle ? (
         <div className={clsx("px-0.5", compact ? "mb-1.5" : "mb-2")}>
-          <h2 className="text-[11px] font-bold uppercase tracking-wide text-foreground">{dashboardTitle}</h2>
+          <h2 className={clsx("font-bold text-foreground", compact ? "text-sm" : "text-base")}>{dashboardTitle}</h2>
           {dashboardSubtitle ? (
-            <p className={clsx("text-muted-foreground", compact ? "text-[9px]" : "text-[10px]")}>{dashboardSubtitle}</p>
+            <p className={clsx("text-muted-foreground", compact ? "text-[10px] leading-snug" : "text-[11px]")}>
+              {dashboardSubtitle}
+            </p>
           ) : null}
         </div>
       ) : null}
@@ -103,8 +105,15 @@ export function DemandeStatDashboard({
             >
               {b.label}
             </p>
-            {!compact && b.hint ? (
-              <p className="mt-0.5 line-clamp-1 text-[9px] leading-snug text-muted-foreground">{b.hint}</p>
+            {b.hint ? (
+              <p
+                className={clsx(
+                  "line-clamp-1 leading-snug text-muted-foreground",
+                  compact ? "mt-0.5 text-[8px]" : "mt-0.5 text-[9px]"
+                )}
+              >
+                {b.hint}
+              </p>
             ) : null}
             <div className={clsx("w-full overflow-hidden rounded-full bg-muted", compact ? "mt-1 h-1" : "mt-2 h-1.5")}>
               <div

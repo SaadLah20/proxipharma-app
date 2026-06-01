@@ -86,22 +86,13 @@ export function dashboardBucketsForKind(
 }
 
 export function hubDashboardChrome(
-  kindId: RequestKindId,
-  role: "patient" | "pharmacien"
+  _kindId: RequestKindId,
+  _role: "patient" | "pharmacien"
 ): { title: string; subtitle: string } {
-  if (kindId === "prescription") {
-    return role === "patient"
-      ? { title: "Vue rapide", subtitle: "Toucher un bloc pour filtrer" }
-      : { title: "Vue rapide", subtitle: "Toucher un bloc pour filtrer" };
-  }
-  if (kindId === "free_consultation") {
-    return role === "patient"
-      ? { title: "Vue rapide", subtitle: "Toucher un bloc pour filtrer" }
-      : { title: "Vue rapide", subtitle: "Toucher un bloc pour filtrer" };
-  }
-  return role === "patient"
-    ? { title: "Vue rapide", subtitle: "Toucher un bloc pour filtrer" }
-    : { title: "Vue rapide", subtitle: "Toucher un bloc pour filtrer" };
+  return {
+    title: "8 statuts",
+    subtitle: "Toucher un bloc pour ouvrir la liste filtrée — barres = volume relatif",
+  };
 }
 
 export function patientArchiveIntroCopy(

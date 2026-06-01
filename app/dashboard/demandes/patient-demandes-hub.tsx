@@ -5,14 +5,13 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
 import { Search, SlidersHorizontal } from "lucide-react";
-import { DemandeStatDashboard } from "@/components/requests/demande-stat-dashboard";
+import { RequestKindHubDashboard } from "@/components/requests/hub/request-kind-hub-dashboard";
 import {
   DemandeHubTabBar,
   type HubTab,
   PatientDemandeCard,
   type PatientRequestRow,
 } from "@/components/requests/demande-hub-ui";
-import { PatientProductDemandesDashboard } from "@/components/requests/product/patient-product-demandes-dashboard";
 import { PatientProductDemandeHubCard } from "@/components/requests/product/patient-product-demande-hub-card";
 import { ProductHubListResultsBar } from "@/components/requests/product/product-hub-list-results-bar";
 import { filterPatientProductHubListRows } from "@/lib/patient-product-hub-sections";
@@ -24,7 +23,7 @@ import { productRequestPublicTheme as productTheme } from "@/lib/request-kinds/p
 import { PageShell } from "@/components/ui/compact-shell";
 import { bucketForStatusParam } from "@/lib/demandes-hub-buckets";
 import { one } from "@/lib/embed";
-import { dashboardBucketsForKind, hubDashboardChrome } from "@/lib/request-kinds/hub-and-terminal-copy";
+import { dashboardBucketsForKind } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
@@ -75,7 +74,6 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
 
   const isProductHub = kindId === "product_request";
   const dashboardBuckets = useMemo(() => dashboardBucketsForKind(kindId, "patient"), [kindId]);
-  const dashboardChrome = useMemo(() => hubDashboardChrome(kindId, "patient"), [kindId]);
 
   /** Filtres URL : réservés à l’onglet liste — le tableau de bord reste toujours complet. */
   const listStatutParam = tab === "list" ? searchParams.get("statut") : null;
@@ -350,17 +348,13 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
             </div>
           ) : (
             <div className="mt-4">
-              {isProductHub ? (
-                <PatientProductDemandesDashboard rows={rows} basePath={hubPath} unreadById={unreadById} />
-              ) : (
-                <DemandeStatDashboard
-                  rows={rowsWithDashboardStatus}
-                  buckets={dashboardBuckets}
-                  basePath={hubPath}
-                  dashboardTitle={dashboardChrome.title}
-                  dashboardSubtitle={dashboardChrome.subtitle}
-                />
-              )}
+              <RequestKindHubDashboard
+                kindId={kindId}
+                role="patient"
+                rows={rows}
+                basePath={hubPath}
+                unreadById={unreadById}
+              />
             </div>
           )}
         </>

@@ -4,21 +4,20 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
-import { DemandeStatDashboard } from "@/components/requests/demande-stat-dashboard";
+import { RequestKindHubDashboard } from "@/components/requests/hub/request-kind-hub-dashboard";
 import {
   DemandeHubTabBar,
   type HubTab,
   PharmacistDemandeCard,
   type PharmacistRequestRow,
 } from "@/components/requests/demande-hub-ui";
-import { PharmacistProductDemandesDashboard } from "@/components/requests/product/pharmacist-product-demandes-dashboard";
 import { PharmacistProductDemandeHubCard } from "@/components/requests/product/pharmacist-product-demande-hub-card";
 import { ProductHubListResultsBar } from "@/components/requests/product/product-hub-list-results-bar";
 import { filterPharmacistProductHubListRows } from "@/lib/pharmacist-product-hub-sections";
 import { productRequestPublicTheme as productTheme } from "@/lib/request-kinds/product-request-public-theme";
 import { PageShell } from "@/components/ui/compact-shell";
 import { bucketForStatusParam } from "@/lib/demandes-hub-buckets";
-import { dashboardBucketsForKind, hubDashboardChrome } from "@/lib/request-kinds/hub-and-terminal-copy";
+import { dashboardBucketsForKind } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
@@ -66,7 +65,6 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const dashboardBuckets = useMemo(() => dashboardBucketsForKind(kindId, "pharmacien"), [kindId]);
-  const dashboardChrome = useMemo(() => hubDashboardChrome(kindId, "pharmacien"), [kindId]);
 
   const listStatutParam = tab === "list" ? searchParams.get("statut") : null;
   const activeBucket = bucketForStatusParam(listStatutParam, dashboardBuckets);
@@ -350,22 +348,13 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
             </div>
           ) : (
             <div className="mt-4">
-              {isProductHub ? (
-                <PharmacistProductDemandesDashboard
-                  rows={rows}
-                  basePath={hubPath}
-                  unreadById={unreadById}
-                />
-              ) : (
-                <DemandeStatDashboard
-                  rows={rowsWithDashboardStatus}
-                  buckets={dashboardBuckets}
-                  basePath={hubPath}
-                  density="compact"
-                  dashboardTitle={dashboardChrome.title}
-                  dashboardSubtitle={dashboardChrome.subtitle}
-                />
-              )}
+              <RequestKindHubDashboard
+                kindId={kindId}
+                role="pharmacien"
+                rows={rows}
+                basePath={hubPath}
+                unreadById={unreadById}
+              />
             </div>
           )}
         </>
