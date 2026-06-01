@@ -812,6 +812,7 @@ function PatientArchiveFrozenProductsView({
                     <RespondedPatientLineChooser
                       key={row.id}
                       row={row}
+                      bucketId={bucketId}
                       selState={archiveSel[row.id] ?? emptyLineSelState()}
                       setLineBranch={noop}
                       setLineQty={noop}
@@ -2796,8 +2797,10 @@ export function PatientProductRequestActions({
   const confirmAllPreviewLines = confirmReviewSnap?.preview ?? [];
   const confirmSkippedLines = confirmReviewSnap?.skippedLines ?? [];
 
+  const useRespondedValidationShell = showConfirm && !forceReadOnly;
   const useSkyProductShell =
     !isConsultation &&
+    !useRespondedValidationShell &&
     (showConfirm || showConfirmedCards || showProductResubmit) &&
     !forceReadOnly;
   const useArchiveShell = forceReadOnly && !isConsultation && requestType === "product_request";
@@ -2878,11 +2881,13 @@ export function PatientProductRequestActions({
         isConsultation ? "mt-0" : "mt-2",
         isConsultation
           ? "border-violet-200/80 bg-gradient-to-b from-violet-50/40 via-white to-fuchsia-50/15"
-          : useArchiveShell
-            ? "border-slate-200/90 bg-slate-50/75 ring-1 ring-slate-200/65"
-            : useSkyProductShell
-              ? "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
-              : "border-slate-200 bg-slate-50/95",
+          : useRespondedValidationShell
+            ? "mt-2 border-0 bg-transparent p-0 shadow-none ring-0"
+            : useArchiveShell
+              ? "border-slate-200/90 bg-slate-50/75 ring-1 ring-slate-200/65"
+              : useSkyProductShell
+                ? "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
+                : "border-slate-200 bg-slate-50/95",
         isConsultation && showConsultationWaiting && !needsStickyFooterPad && "pb-2"
       )}
     >
@@ -3050,50 +3055,45 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirm && !forceReadOnly ? (
-        <div className="mt-4 space-y-3">
+        <div className="mt-3 w-full min-w-0">
           {items.length > 0 ? (
-            <section className="space-y-3">
-              <h3 className="px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                {workflowCopy.patientProductsSectionTitle}
-              </h3>
-              {(() => {
-                const respondedBuckets = bucketPatientRespondedLines(
-                  items,
-                  requestType,
-                  supplyAmendmentBundles
-                );
-                const renderRespondedLine = (row: ActionItemRow) => (
-                  <RespondedPatientLineChooser
-                    key={row.id}
-                    row={row}
-                    selState={sel[row.id] ?? emptyLineSelState()}
-                    setLineBranch={setLineBranch}
-                    setLineQty={setLineQty}
-                    toggleLineRetention={toggleLineRetention}
-                    onPhotoPreview={openProductPhotoPreview}
-                    pharmacistProposedBadgeLabel={badgeForRow(row) ?? "Ajout Officine"}
-                    requestType={requestType}
-                    supplyAmendmentBundles={supplyAmendmentBundles}
-                    resolveCatalogUnitPrice={resolveCatalogUnitPriceForProduct}
-                  />
-                );
-                return (
-                  <div className="space-y-4">
-                    {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
-                      const rows = respondedBuckets[bucketId];
-                      if (rows.length === 0) return null;
-                      return (
-                        <PatientRespondedBucketSection key={bucketId} bucketId={bucketId} count={rows.length}>
-                          <ul className="w-full min-w-0 space-y-2.5 overflow-visible">
-                            {rows.map((row) => renderRespondedLine(row))}
-                          </ul>
-                        </PatientRespondedBucketSection>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-            </section>
+            (() => {
+              const respondedBuckets = bucketPatientRespondedLines(
+                items,
+                requestType,
+                supplyAmendmentBundles
+              );
+              return (
+                <div className="w-full min-w-0 space-y-5 px-0.5">
+                  {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
+                    const rows = respondedBuckets[bucketId];
+                    if (rows.length === 0) return null;
+                    return (
+                      <PatientRespondedBucketSection key={bucketId} bucketId={bucketId} count={rows.length}>
+                        <ul className="w-full min-w-0 divide-y divide-border/50 overflow-visible">
+                          {rows.map((row) => (
+                            <RespondedPatientLineChooser
+                              key={row.id}
+                              row={row}
+                              bucketId={bucketId}
+                              selState={sel[row.id] ?? emptyLineSelState()}
+                              setLineBranch={setLineBranch}
+                              setLineQty={setLineQty}
+                              toggleLineRetention={toggleLineRetention}
+                              onPhotoPreview={openProductPhotoPreview}
+                              pharmacistProposedBadgeLabel={badgeForRow(row) ?? "Ajout Officine"}
+                              requestType={requestType}
+                              supplyAmendmentBundles={supplyAmendmentBundles}
+                              resolveCatalogUnitPrice={resolveCatalogUnitPriceForProduct}
+                            />
+                          ))}
+                        </ul>
+                      </PatientRespondedBucketSection>
+                    );
+                  })}
+                </div>
+              );
+            })()
           ) : null}
         </div>
       ) : null}
@@ -3101,20 +3101,28 @@ export function PatientProductRequestActions({
       {showConfirmedCards && !forceReadOnly ? (
         (() => {
           if (confirmedRevalidationMode && status === "confirmed") {
+            const revalBuckets = bucketPatientRespondedLines(
+              items,
+              requestType,
+              supplyAmendmentBundles
+            );
+            const bucketForRow = (rowId: string): (typeof PATIENT_RESPONDED_BUCKET_ORDER)[number] => {
+              for (const bid of PATIENT_RESPONDED_BUCKET_ORDER) {
+                if (revalBuckets[bid].some((r) => r.id === rowId)) return bid;
+              }
+              return "available";
+            };
             return (
               <section className="mt-4 space-y-2.5">
                 <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                   Modifier ma validation
                 </h3>
-                <p className="px-0.5 text-[10px] leading-snug text-muted-foreground">
-                  Tant que la pharmacie n&apos;a pas déclaré la demande traitée, vous pouvez ajuster vos choix (quantités,
-                  alternatives).
-                </p>
-                <ul className="w-full min-w-0 space-y-2.5 overflow-visible">
+                <ul className="w-full min-w-0 divide-y divide-border/50 overflow-visible">
                   {items.map((row) => (
                     <RespondedPatientLineChooser
                       key={row.id}
                       row={row}
+                      bucketId={bucketForRow(row.id)}
                       selState={sel[row.id] ?? emptyLineSelState()}
                       setLineBranch={setLineBranch}
                       setLineQty={setLineQty}
@@ -3433,73 +3441,96 @@ export function PatientProductRequestActions({
         {showVisitFields ? (
           <div
             className={clsx(
-              "rounded-xl border-2 p-2.5 shadow-md sm:p-3",
-              visitFieldsEditable
-                ? "border-primary/35 bg-gradient-to-br from-primary/[0.12] via-background to-primary/[0.06] ring-1 ring-primary/25"
-                : "border-slate-200/90 bg-slate-50/80 ring-1 ring-slate-200/50"
+              "mt-4 space-y-2 border-t border-border/60 pt-3",
+              !useRespondedValidationShell &&
+                "rounded-xl border-2 p-2.5 shadow-md sm:p-3",
+              !useRespondedValidationShell &&
+                visitFieldsEditable &&
+                "border-primary/35 bg-gradient-to-br from-primary/[0.12] via-background to-primary/[0.06] ring-1 ring-primary/25",
+              !useRespondedValidationShell &&
+                !visitFieldsEditable &&
+                "border-slate-200/90 bg-slate-50/80 ring-1 ring-slate-200/50"
             )}
           >
-            <div className="flex items-center gap-2">
-              <span
+            {!useRespondedValidationShell ? (
+              <div className="flex items-center gap-2">
+                <span
+                  className={clsx(
+                    "flex size-9 shrink-0 items-center justify-center rounded-lg shadow-sm ring-1",
+                    visitFieldsEditable
+                      ? "bg-primary/15 text-primary ring-primary/20"
+                      : "bg-slate-200/80 text-slate-600 ring-slate-200/80"
+                  )}
+                >
+                  <Calendar className="size-4" strokeWidth={2} aria-hidden />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-foreground">
+                    Date de passage
+                  </p>
+                  <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+                    {visitFieldsEditable
+                      ? "Indique quand tu prévois de passer à l'officine."
+                      : "Consultation seule — ce dossier n'accepte plus de modification."}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs font-bold text-foreground">Passage en officine</p>
+            )}
+            <div
+              className={clsx(
+                "flex gap-2",
+                useRespondedValidationShell ? "flex-row items-stretch" : "flex-col sm:flex-row sm:items-stretch"
+              )}
+            >
+              <label className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="text-[11px] font-semibold text-foreground">
+                  Date {visitFieldsEditable && showConfirm ? <span className="text-destructive">*</span> : null}
+                </span>
+                <input
+                  type="date"
+                  min={visitWin.minYmd}
+                  max={visitWin.maxYmd}
+                  value={resolvedVisitDate}
+                  onChange={(e) => setVisitDate(e.target.value)}
+                  disabled={!visitFieldsEditable}
+                  readOnly={!visitFieldsEditable}
+                  className="block min-h-[2.75rem] w-full rounded-lg border-2 border-input bg-background px-2 py-2 text-[13px] font-semibold tabular-nums shadow-inner disabled:cursor-default disabled:opacity-90"
+                  required={showConfirm && visitFieldsEditable}
+                />
+              </label>
+              <div
                 className={clsx(
-                  "flex size-9 shrink-0 items-center justify-center rounded-lg shadow-sm ring-1",
-                  visitFieldsEditable
-                    ? "bg-primary/15 text-primary ring-primary/20"
-                    : "bg-slate-200/80 text-slate-600 ring-slate-200/80"
+                  "flex shrink-0 flex-col gap-1",
+                  useRespondedValidationShell ? "w-[6.75rem] sm:w-[7.25rem]" : "w-full sm:w-[8.25rem]"
                 )}
               >
-                <Calendar className="size-4" strokeWidth={2} aria-hidden />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-foreground">
-                  Date de passage {showConfirm && visitFieldsEditable ? (
-                    <span className="text-destructive">*</span>
-                  ) : null}
-                </p>
-                <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
-                  {visitFieldsEditable
-                    ? "Indique quand tu prévois de passer à l'officine."
-                    : "Consultation seule — ce dossier n'accepte plus de modification."}
-                </p>
+                <span className="text-[11px] font-semibold text-foreground">
+                  Heure{" "}
+                  <span className="font-normal text-muted-foreground">(facultatif)</span>
+                </span>
+                <PlannedVisitTimeInput
+                  hour={visitHour}
+                  minute={visitMinute}
+                  onHourChange={setVisitHour}
+                  onMinuteChange={setVisitMinute}
+                  disabled={!visitFieldsEditable}
+                  appearance={useRespondedValidationShell ? "unified" : "split"}
+                  className="w-full"
+                />
               </div>
             </div>
-            <label className="mt-2.5 block text-[11px] font-semibold text-foreground">
-              <span className="sr-only">Date</span>
-              <input
-                type="date"
-                min={visitWin.minYmd}
-                max={visitWin.maxYmd}
-                value={resolvedVisitDate}
-                onChange={(e) => setVisitDate(e.target.value)}
-                disabled={!visitFieldsEditable}
-                readOnly={!visitFieldsEditable}
-                className="mt-1 block w-full rounded-lg border-2 border-input bg-background px-2 py-2 text-[13px] font-semibold tabular-nums shadow-inner disabled:cursor-default disabled:opacity-90"
-                required={showConfirm && visitFieldsEditable}
-              />
-            </label>
-            <div className="mt-2">
-              <PlannedVisitTimeInput
-                hour={visitHour}
-                minute={visitMinute}
-                onHourChange={setVisitHour}
-                onMinuteChange={setVisitMinute}
-                disabled={!visitFieldsEditable}
-              />
-            </div>
             {visitTimeFr ? (
-              <span className="mt-2 block text-[10px] font-medium text-muted-foreground">Enregistré : {visitTimeFr}</span>
+              <span className="block text-[10px] font-medium text-muted-foreground">Enregistré : {visitTimeFr}</span>
             ) : null}
-            {visitFieldsEditable && showConfirmedCards && status === "confirmed" ? (
-              <p className="mt-2 text-[10px] leading-snug text-primary/90">
+            {!useRespondedValidationShell && visitFieldsEditable && showConfirmedCards && status === "confirmed" ? (
+              <p className="text-[10px] leading-snug text-primary/90">
                 La pharmacie voit les changements sur la demande.
               </p>
-            ) : visitFieldsEditable && isTreatedActiveView ? (
-              <p className="mt-2 text-[10px] leading-snug text-sky-900/85">
+            ) : !useRespondedValidationShell && visitFieldsEditable && isTreatedActiveView ? (
+              <p className="text-[10px] leading-snug text-sky-900/85">
                 La pharmacie est informée si vous modifiez votre passage (bouton en bas de l&apos;écran).
-              </p>
-            ) : visitFieldsEditable && showConfirm ? (
-              <p className="mt-2 text-[10px] leading-snug text-sky-900/85">
-                Ces informations seront transmises avec ta validation.
               </p>
             ) : null}
           </div>
@@ -3519,13 +3550,11 @@ export function PatientProductRequestActions({
           )
         ) : null}
 
-        {showConfirm || showConfirmedCards ? (
-          !isConsultation ? (
-            <p className="mt-3 rounded-lg border border-sky-200/70 bg-white/90 px-2.5 py-2 text-[10px] leading-snug text-sky-950 shadow-sm">
-              Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
-              <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
-            </p>
-          ) : null
+        {showConfirmedCards && !showConfirm && !isConsultation ? (
+          <p className="mt-3 rounded-lg border border-sky-200/70 bg-white/90 px-2.5 py-2 text-[10px] leading-snug text-sky-950 shadow-sm">
+            Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
+            <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
+          </p>
         ) : null}
 
         {showPatientExitCTA ? (

@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
-import { Ban, Check, Package, X } from "lucide-react";
+import { Check, Package, X } from "lucide-react";
 import {
-  PRODUCT_REQUEST_LINE_CARD_SHELL,
   ProductRequestLineMessageIconButton,
   ProductRequestLinePrices,
   ProductRequestLineQtyPicker,
@@ -15,10 +13,9 @@ import {
 const RESPONDED_LINE_THUMB =
   "box-border size-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
 import { uiActionBtnModalDismiss } from "@/lib/ui-action-buttons";
-import { uiMetaLabel, uiSecondaryLabel } from "@/lib/ui-label-styles";
-import { uiSurfaceCard } from "@/lib/ui-surfaces";
-import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
-import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
+import { uiSecondaryLabel } from "@/lib/ui-label-styles";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
+import type { PatientRespondedBucketId } from "@/lib/patient-responded-line-buckets";
 import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternative-qty-rules";
 import { formatDateShortFr } from "@/lib/datetime-fr";
 import {
@@ -83,76 +80,52 @@ function lineBadgeLabelFr(opts: {
   return "Ta demande";
 }
 
-/** Date de réception (produit à commander). */
-function RespondedReceptionBadgeFr({ dateYmd }: { dateYmd: string }) {
-  return (
-    <span className={uiMetaLabel}>
-      Réc. {formatDateShortFr(dateYmd)}
-    </span>
-  );
-}
-
 function RespondedLineQtyMeta({
+  bucketId,
+  isAlt,
   showRequested,
   requestedQty,
-  stockQty,
-  availabilityStatus,
   expectedDate,
-  requestType,
-  isProposedLine,
 }: {
+  bucketId: PatientRespondedBucketId;
+  isAlt: boolean;
   showRequested: boolean;
   requestedQty: number;
-  stockQty: number | null;
-  availabilityStatus: string | null;
   expectedDate: string | null;
-  requestType: string;
-  isProposedLine: boolean;
 }) {
-  let inferredKey = availabilityStatus ?? "available";
-  if (showRequested && stockQty != null) {
-    try {
-      inferredKey = inferAvailabilityStatusFromQty({
-        status: availabilityStatus ?? "available",
-        availableQty: stockQty,
-        requestedQty,
-        isProposedLine:
-          (requestType === "product_request" && isProposedLine) || requestType === "free_consultation",
-      });
-    } catch {
-      inferredKey = availabilityStatus ?? "available";
-    }
+  if (bucketId === "to_order") {
+    return (
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        {showRequested ? (
+          <span className="text-[10px] text-muted-foreground">
+            Qté demandée{" "}
+            <strong className="tabular-nums text-foreground">{requestedQty}</strong>
+          </span>
+        ) : null}
+        {expectedDate ? (
+          <span className="text-[11px] font-semibold leading-snug text-teal-900">
+            Réception prévue · {formatDateShortFr(expectedDate)}
+          </span>
+        ) : (
+          <span className="text-[11px] font-medium text-teal-800/90">Date de réception à confirmer</span>
+        )}
+      </div>
+    );
   }
-  const availUi = availabilityStatusUi(inferredKey);
-  const AvailIcon = availUi.Icon;
 
+  if (bucketId === "indispo_with_alts" || bucketId === "indispo_no_alts") {
+    if (isAlt || !showRequested) return null;
+    return (
+      <p className="text-[10px] text-muted-foreground">
+        Qté demandée <strong className="tabular-nums text-foreground">{requestedQty}</strong>
+      </p>
+    );
+  }
+
+  if (!showRequested) return null;
   return (
-    <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] leading-none text-muted-foreground">
-      {showRequested ? (
-        <span className="whitespace-nowrap">
-          Dem. <strong className="tabular-nums text-foreground">{requestedQty}</strong>
-        </span>
-      ) : null}
-      {stockQty != null ? (
-        <span className="whitespace-nowrap">
-          Stk <strong className="tabular-nums text-foreground">{stockQty}</strong>
-        </span>
-      ) : null}
-      {availabilityStatus ? (
-        <span
-          className={cn(
-            "inline-flex max-w-[9.5rem] min-w-0 items-center gap-0.5 rounded-full px-1 py-px text-[8px] font-semibold leading-tight ring-1",
-            availUi.badgeClass
-          )}
-          title={availUi.label}
-        >
-          <AvailIcon className="size-2 shrink-0" aria-hidden />
-          <span className="truncate">{availUi.label}</span>
-        </span>
-      ) : null}
-      {availabilityStatus === "to_order" && expectedDate ? (
-        <RespondedReceptionBadgeFr dateYmd={expectedDate} />
-      ) : null}
+    <p className="text-[10px] text-muted-foreground">
+      Qté demandée <strong className="tabular-nums text-foreground">{requestedQty}</strong>
     </p>
   );
 }
@@ -184,20 +157,10 @@ function RespondedLineNotesButton({
   return (
     <>
       <ProductRequestLineMessageIconButton hasComment={hasNotes} onClick={() => setOpen(true)} />
-      {open && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-3 backdrop-blur-[1px] sm:items-center"
-              role="presentation"
-              onClick={(e) => {
-                if (e.target === e.currentTarget) setOpen(false);
-              }}
-            >
+      {open ? (
+        <AppModalOverlay open aria-labelledby={titleId} onBackdropClick={() => setOpen(false)}>
               <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby={titleId}
-                className={cn("max-h-[min(80vh,20rem)] w-full max-w-sm overflow-hidden rounded-2xl border bg-card shadow-2xl", t.modalShell)}
+                className={cn("max-h-[min(80vh,20rem)] w-full max-w-sm overflow-hidden rounded-2xl border bg-card shadow-2xl sm:mx-auto", t.modalShell)}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className={cn("flex items-start justify-between gap-2 border-b px-3 py-2", t.modalHeader)}>
@@ -245,10 +208,8 @@ function RespondedLineNotesButton({
                   </button>
                 </div>
               </div>
-            </div>,
-            document.body
-          )
-        : null}
+        </AppModalOverlay>
+      ) : null}
     </>
   );
 }
@@ -317,25 +278,19 @@ function RespondedVariantTabs({
                   : undefined
             }
             className={cn(
-              "inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold leading-tight shadow-sm transition",
-              dim &&
-                "border-slate-200/90 bg-slate-50/90 text-slate-500 line-through decoration-slate-400/80",
+              "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold leading-tight transition",
+              dim && "border-transparent bg-transparent text-slate-400 line-through",
               !dim &&
                 isSelected &&
-                isViewing &&
-                "border-emerald-500 bg-emerald-50/95 text-emerald-950 ring-2 ring-emerald-300/75",
-              !dim &&
-                isSelected &&
-                !isViewing &&
-                "border-emerald-400/80 bg-emerald-50/80 text-emerald-900 ring-1 ring-emerald-200/70",
+                "border-emerald-500/90 bg-emerald-50 text-emerald-950",
               !dim &&
                 !isSelected &&
                 isViewing &&
-                "border-sky-500 bg-white text-sky-950 ring-2 ring-sky-300/70",
+                "border-foreground/25 bg-white text-foreground",
               !dim &&
                 !isSelected &&
                 !isViewing &&
-                "border-sky-300/80 bg-sky-100/90 text-sky-900 hover:border-sky-400 hover:bg-white"
+                "border-transparent bg-muted/30 text-muted-foreground hover:bg-muted/50"
             )}
             onClick={() => onTab(tab.id)}
           >
@@ -344,14 +299,53 @@ function RespondedVariantTabs({
             ) : null}
             <span>{tab.label}</span>
             {isSelected && !dim && !isViewing ? (
-              <span className="rounded bg-emerald-600/90 px-1 py-px text-[7px] font-extrabold uppercase tracking-wide text-white">
-                Retenue
-              </span>
+              <span className="text-[9px] font-bold uppercase tracking-wide text-emerald-700">· retenue</span>
             ) : null}
           </button>
         );
       })}
     </div>
+  );
+}
+
+function RespondedRetainControl({
+  retained,
+  unavailable,
+  readOnly,
+  onToggle,
+}: {
+  retained: boolean;
+  unavailable: boolean;
+  readOnly: boolean;
+  onToggle: (on: boolean) => void;
+}) {
+  if (unavailable) {
+    return (
+      <span className="shrink-0 text-[10px] font-semibold text-slate-500">Non retenable</span>
+    );
+  }
+  if (readOnly) {
+    return retained ? (
+      <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+        Retenu
+      </span>
+    ) : null;
+  }
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={retained}
+      onClick={() => onToggle(!retained)}
+      className={cn(
+        "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold transition",
+        retained
+          ? "bg-emerald-600 text-white shadow-sm"
+          : "border border-border bg-background text-foreground hover:bg-muted/50"
+      )}
+    >
+      {retained ? "Retenu" : "Retenir"}
+    </button>
   );
 }
 
@@ -367,6 +361,7 @@ function RespondedLineBlock({
   ajoutOfficineLabel = "Ajout Officine",
   variantTabsAbove = false,
   readOnly = false,
+  bucketId,
 }: {
   variant: VariantData;
   retained: boolean;
@@ -381,6 +376,7 @@ function RespondedLineBlock({
   variantTabsAbove?: boolean;
   /** Archive (expirée / annulée en répondue) : pas de case ni changement de qté. */
   readOnly?: boolean;
+  bucketId: PatientRespondedBucketId;
 }) {
   const unavailable = variant.cap < 1;
   /** Avec onglets : PU/Tot/qty visibles sur l’onglet consulté (comparaison), pas seulement si cette branche est cochée. */
@@ -418,115 +414,78 @@ function RespondedLineBlock({
   return (
     <div
       className={cn(
-        "relative w-full min-w-0 overflow-visible px-2 py-2.5 transition",
-        PRODUCT_REQUEST_LINE_CARD_SHELL,
-        unavailable &&
-          "bg-slate-50/95 saturate-[0.72] [&_img]:opacity-90",
-        notRetained && !unavailable && "bg-slate-50/75",
-        retained && !unavailable && "bg-card ring-1 ring-border/80",
-        !retained && !unavailable && "bg-card"
+        "w-full min-w-0 border-b border-border/55 py-3 transition last:border-b-0",
+        retained && !unavailable && "bg-emerald-50/40",
+        unavailable && "bg-muted/15 saturate-[0.85] [&_img]:opacity-90",
+        notRetained && !unavailable && !variantTabsAbove && "opacity-75"
       )}
-      title={unavailable ? "Non retenable — rupture ou indisponible" : undefined}
     >
-      {unavailable ? (
-        <span
-          className={cn(
-            "absolute -left-2 z-20 flex size-8 items-center justify-center rounded-md bg-slate-100 shadow ring-1 ring-slate-300/90",
-            variantTabsAbove ? "top-1.5" : "-top-2"
-          )}
-          role="img"
-          aria-label="Non retenable — rupture ou indisponible"
-        >
-          <Ban className="size-4 text-slate-500" strokeWidth={2.25} aria-hidden />
-        </span>
-      ) : readOnly ? null : (
-        <label
-          className={cn(
-            "absolute -left-2 z-20 flex size-8 touch-manipulation cursor-pointer items-center justify-center rounded-md bg-white shadow ring-1 ring-sky-400/85 active:bg-sky-50",
-            variantTabsAbove ? "top-1.5" : "-top-2"
-          )}
-        >
-          <input
-            type="checkbox"
-            className="size-4 shrink-0 rounded border-2 border-sky-600 text-sky-600 accent-sky-600"
-            checked={retained}
-            onChange={(e) => onToggleRetain(e.target.checked)}
-            onClick={(e) => e.stopPropagation()}
-            aria-label={retained ? "Ne plus retenir cette ligne" : "Retenir cette ligne"}
-          />
-        </label>
-      )}
-      <div className="flex items-start gap-2.5 pe-1">
-        <div className={cn(RESPONDED_LINE_THUMB, "shrink-0 self-center", unavailable && "opacity-95")}>
-          {thumbInner}
-        </div>
+      <div className="flex items-start gap-2.5">
+        <div className={cn(RESPONDED_LINE_THUMB, "shrink-0")}>{thumbInner}</div>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-visible py-0.5">
-          <p
-            className={cn(
-              "min-w-0 truncate pb-px pe-1 text-[13px] font-semibold leading-snug",
-              unavailable ? "text-slate-600" : "text-foreground",
-              notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
-            )}
-            title={variant.productName}
-          >
-            {variant.productName}
-          </p>
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="flex items-start justify-between gap-2">
+            <p
+              className={cn(
+                "min-w-0 flex-1 text-[13px] font-semibold leading-snug",
+                unavailable ? "text-slate-600" : "text-foreground",
+                notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
+              )}
+              title={variant.productName}
+            >
+              {variant.productName}
+            </p>
+            <RespondedRetainControl
+              retained={retained}
+              unavailable={unavailable}
+              readOnly={readOnly}
+              onToggle={onToggleRetain}
+            />
+          </div>
 
           {isProposedBlock ? (
             <p
               className={cn(
-                "line-clamp-3 rounded-md border border-border bg-muted/25 px-2 py-1.5 text-[10px] leading-snug text-foreground",
-                unavailable && "text-muted-foreground"
+                "line-clamp-2 text-[10px] leading-snug text-muted-foreground",
+                unavailable && "opacity-90"
               )}
             >
-              <span className={cn("mr-1.5", uiSecondaryLabel)}>{ajoutOfficineLabel}</span>
+              <span className={cn("font-semibold text-foreground/90", uiSecondaryLabel)}>
+                {ajoutOfficineLabel}
+              </span>
               {variant.proposalReason ? (
-                <>
-                  <span className="font-semibold text-muted-foreground">Motif · </span>
-                  {variant.proposalReason}
-                </>
+                <> — {variant.proposalReason}</>
               ) : (
-                <span className="italic text-muted-foreground">Motif non renseigné par l&apos;officine</span>
+                <span className="italic"> — motif non renseigné</span>
               )}
             </p>
           ) : null}
 
-          <div className={cn(notRetained && !unavailable && "opacity-85")}>
-            <RespondedLineQtyMeta
-              showRequested={variant.showRequested}
-              requestedQty={variant.requestedQty}
-              stockQty={variant.stockQty}
-              availabilityStatus={variant.availabilityStatus}
-              expectedDate={variant.expectedDate}
-              requestType={requestType}
-              isProposedLine={isProposedLine}
-            />
-          </div>
+          <RespondedLineQtyMeta
+            bucketId={bucketId}
+            isAlt={variant.branch !== "principal"}
+            showRequested={variant.showRequested}
+            requestedQty={variant.requestedQty}
+            expectedDate={variant.expectedDate}
+          />
 
-          <div
-            className={cn(
-              "flex min-h-9 w-full items-center justify-between gap-3 overflow-visible pt-0.5",
-              unavailable && "opacity-95",
-              notRetained && !unavailable && "opacity-85"
-            )}
-          >
-            <div className="min-w-0 max-w-[48%] shrink-0 leading-none">
+          <div className="flex min-h-9 w-full items-end justify-between gap-2 pt-0.5">
+            <div className="min-w-0 shrink leading-none">
               <ProductRequestLinePrices
                 unitPrice={unit}
                 totalValue={showQty && total != null ? total : null}
               />
             </div>
-            <div className="flex shrink-0 items-center justify-end gap-2">
+            <div className="flex shrink-0 items-center justify-end gap-1.5">
               {showQty ? (
                 readOnly ? (
                   <ProductRequestLineQtyReadonly qty={selQty} />
                 ) : (
-                <ProductRequestLineQtyPicker
-                  qty={selQty}
-                  maxQty={variant.cap}
-                  onSelect={(n) => onSetQty(Math.min(variant.cap, Math.max(1, n)))}
-                />
+                  <ProductRequestLineQtyPicker
+                    qty={selQty}
+                    maxQty={variant.cap}
+                    onSelect={(n) => onSetQty(Math.min(variant.cap, Math.max(1, n)))}
+                  />
                 )
               ) : null}
               <RespondedLineNotesButton
@@ -571,6 +530,7 @@ export type RespondedChooserProps = {
   supplyAmendmentBundles: { amendments: unknown }[];
   resolveCatalogUnitPrice?: (productId: string, prod: RespondedProdBrief | null) => number | null;
   readOnly?: boolean;
+  bucketId: PatientRespondedBucketId;
 };
 
 export function RespondedPatientLineChooser({
@@ -585,6 +545,7 @@ export function RespondedPatientLineChooser({
   supplyAmendmentBundles,
   resolveCatalogUnitPrice,
   readOnly = false,
+  bucketId,
 }: RespondedChooserProps) {
   const prod = one(row.products);
   const altList = normalizeAlternatives(row.request_item_alternatives);
@@ -722,17 +683,15 @@ export function RespondedPatientLineChooser({
           isProposedLine={isProposedLine}
           ajoutOfficineLabel={pharmacistProposedBadgeLabel}
           readOnly={readOnly}
+          bucketId={bucketId}
         />
       </li>
     );
   }
 
   return (
-    <li className={cn("w-full min-w-0 overflow-visible p-2", uiSurfaceCard)}>
-      <div className="px-0.5 pt-1 pb-2">
-        <p className="mb-2 px-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {readOnly ? "Consulter les options" : "Choisir une option"}
-        </p>
+    <li className="w-full min-w-0 overflow-visible border-b border-border/55 py-2 last:border-b-0">
+      <div className="pb-2">
         <RespondedVariantTabs
           tabs={variants.map((v) => ({
             id: v.tabId,
@@ -744,7 +703,7 @@ export function RespondedPatientLineChooser({
           onTab={onTab}
         />
       </div>
-      <div className="px-0.5 pb-1">
+      <div>
         <RespondedLineBlock
           variant={activeVariant}
           retained={retainedForTab}
@@ -757,6 +716,7 @@ export function RespondedPatientLineChooser({
           ajoutOfficineLabel={pharmacistProposedBadgeLabel}
           variantTabsAbove
           readOnly={readOnly}
+          bucketId={bucketId}
         />
       </div>
     </li>
