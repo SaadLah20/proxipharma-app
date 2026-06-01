@@ -2461,15 +2461,6 @@ export function PatientProductRequestActions({
     return () => window.removeEventListener("keydown", onKey);
   }, [confirmReviewOpen, closeConfirmReview]);
 
-  useEffect(() => {
-    if (!confirmReviewOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [confirmReviewOpen]);
-
   const performConfirmAfterReview = async () => {
     if (!confirmReviewSnap) return;
     if (detailStale) {
