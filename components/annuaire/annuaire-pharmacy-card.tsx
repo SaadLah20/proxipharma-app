@@ -10,6 +10,8 @@ import { formatDistanceKm } from "@/lib/annuaire/geo";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import { buttonVariants } from "@/components/ui/button";
+import { uiAnnuaireQuickAction } from "@/lib/ui-action-buttons";
+import { uiMetaLabel } from "@/lib/ui-label-styles";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { cn } from "@/lib/utils";
 import { pharmacyOpenStatusOverlayBadgeClass } from "@/lib/pharmacy-open-status-ui";
@@ -49,10 +51,10 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
   };
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-border/90 bg-card text-card-foreground shadow-sm transition hover:border-primary/20 hover:shadow-md">
+    <article className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm transition hover:border-primary/25 hover:shadow-md">
       <Link
         href={`/pharmacie/${pharmacy.id}`}
-        className="group relative block w-full overflow-hidden bg-gradient-to-br from-sky-700/15 via-muted/40 to-teal-600/10"
+        className="group relative block w-full overflow-hidden bg-muted/30"
         onClick={() =>
           trackPharmacyEngagement({
             pharmacyId: pharmacy.id,
@@ -69,7 +71,7 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
               className="h-full w-full object-cover object-center transition duration-300 group-hover:scale-[1.02]"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 to-teal-500/10">
+            <div className="flex h-full w-full items-center justify-center bg-muted/40">
               <span className="text-4xl font-bold text-primary/30">{pharmacy.nom.charAt(0)}</span>
             </div>
           )}
@@ -85,13 +87,9 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
               {pharmacy.open.openLabel}
             </span>
             {pharmacy.open.onCallNow ? (
-              <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-amber-950">
-                En garde
-              </span>
+              <span className={cn(uiMetaLabel, "border-white/30 bg-black/40 text-white")}>En garde</span>
             ) : pharmacy.open.onCallToday ? (
-              <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-[10px] font-bold text-amber-950">
-                Garde auj.
-              </span>
+              <span className={cn(uiMetaLabel, "border-white/30 bg-black/40 text-white")}>Garde auj.</span>
             ) : null}
           </div>
           {pharmacy.distanceKm != null ? (
@@ -115,10 +113,7 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
                 source: "annuaire",
               });
           }}
-          className={cn(
-            "flex flex-col items-center gap-0.5 rounded-lg border border-sky-200/80 bg-sky-50/90 py-2 text-[10px] font-bold text-sky-950 transition hover:bg-sky-100",
-            !pharmacy.telephone && "pointer-events-none opacity-45"
-          )}
+          className={cn(uiAnnuaireQuickAction(), !pharmacy.telephone && "pointer-events-none opacity-45")}
         >
           <Phone className="size-4" aria-hidden />
           Appeler
@@ -137,10 +132,7 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
                 source: "annuaire",
               });
           }}
-          className={cn(
-            "flex flex-col items-center gap-0.5 rounded-lg border border-emerald-200/80 bg-emerald-50/90 py-2 text-[10px] font-bold text-emerald-950 transition hover:bg-emerald-100",
-            !wa && "pointer-events-none opacity-45"
-          )}
+          className={cn(uiAnnuaireQuickAction(), !wa && "pointer-events-none opacity-45")}
         >
           <MessageCircle className="size-4" aria-hidden />
           WhatsApp
@@ -191,7 +183,7 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
           </span>
         </p>
         {!pharmacy.hasValidLocation ? (
-          <p className="text-[10px] text-amber-800">Position GPS non renseignée — tri par distance indisponible.</p>
+          <p className="text-[10px] text-muted-foreground">Position GPS non renseignée — tri par distance indisponible.</p>
         ) : null}
         <Link
           href={`/pharmacie/${pharmacy.id}`}

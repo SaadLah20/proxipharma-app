@@ -79,3 +79,19 @@ export function uiActionBtnSmDestructive(className?: string) {
 export function uiActionBtnModalDismiss(className?: string) {
   return uiBtn("outline", "lg", cn("h-9 w-full", className));
 }
+
+/** Actions rapides carte annuaire (Appeler, WhatsApp, Itinéraire). */
+export function uiAnnuaireQuickAction(className?: string) {
+  return uiBtn(
+    "outline",
+    "sm",
+    cn(
+      "h-auto flex-col gap-0.5 rounded-lg py-2 text-[10px] font-bold shadow-sm",
+      className
+    )
+  );
+}
+
+export function uiAnnuairePaginationBtn(className?: string) {
+  return uiBtn("outline", "sm", cn("gap-1 px-2.5 py-1.5", className));
+}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Search } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { AnnuaireFooter } from "@/components/annuaire/annuaire-footer";
 import { AnnuairePagination } from "@/components/annuaire/annuaire-pagination";
 import { AnnuairePharmacyCard } from "@/components/annuaire/annuaire-pharmacy-card";
@@ -19,6 +20,7 @@ import {
 import { ANNUAIRE_PAGE_SIZE, type AnnuairePharmacyEnriched, type AnnuairePharmacyRow } from "@/lib/annuaire/types";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { supabase } from "@/lib/supabase";
+import { uiSurfaceCard } from "@/lib/ui-surfaces";
 
 export function AnnuairePage() {
   const [pharmacies, setPharmacies] = useState<AnnuairePharmacyRow[]>([]);
@@ -232,45 +234,45 @@ export function AnnuairePage() {
             intermédiaire.
           </p>
 
-          <div className="relative z-10 mt-3 space-y-2 overflow-visible rounded-xl border border-white/20 bg-white/10 p-2.5 shadow-inner ring-1 ring-white/15 backdrop-blur-sm sm:p-3">
+          <div className="relative z-10 mt-3 space-y-2 overflow-visible rounded-xl border border-white/25 bg-white/95 p-2.5 shadow-lg ring-1 ring-black/5 sm:p-3">
             <label className="block">
               <span className="sr-only">Rechercher une pharmacie</span>
               <span className="relative block">
                 <Search
-                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-emerald-900/50"
+                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                   aria-hidden
                 />
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Nom, ville, adresse ou code officine…"
-                  className="w-full rounded-lg border border-white/40 bg-white py-2 pl-9 pr-2.5 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-white/60"
+                  className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-2.5 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
                 />
               </span>
             </label>
 
             <div className="flex items-center gap-2 overflow-visible">
               <div className="flex min-w-0 flex-1 items-center gap-x-2.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] text-emerald-50 sm:text-xs">
+                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] text-foreground sm:text-xs">
                   <input
                     type="checkbox"
                     checked={filterOpen}
                     onChange={(e) => setFilterOpen(e.target.checked)}
-                    className="size-3.5 shrink-0 rounded border-white/50 bg-white/90 accent-emerald-700"
+                    className="size-3.5 shrink-0 rounded border-border accent-primary"
                   />
                   <span className="font-semibold whitespace-nowrap">Ouvertes</span>
                 </label>
-                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] text-emerald-50 sm:text-xs">
+                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] text-foreground sm:text-xs">
                   <input
                     type="checkbox"
                     checked={filterOnCall}
                     onChange={(e) => setFilterOnCall(e.target.checked)}
-                    className="size-3.5 shrink-0 rounded border-white/50 bg-white/90 accent-emerald-700"
+                    className="size-3.5 shrink-0 rounded border-border accent-primary"
                   />
                   <span className="font-semibold whitespace-nowrap">En garde</span>
                 </label>
                 {schedulesLoading ? (
-                  <span className="shrink-0 whitespace-nowrap text-[10px] text-emerald-100/80">Horaires…</span>
+                  <span className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground">Horaires…</span>
                 ) : null}
               </div>
 
@@ -283,7 +285,7 @@ export function AnnuairePage() {
             </div>
 
             {locationError ? (
-              <p className="rounded-lg bg-amber-400/20 px-2 py-1 text-[10px] font-medium text-amber-50 ring-1 ring-amber-200/30">
+              <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-[10px] font-medium text-destructive">
                 {locationError}
               </p>
             ) : null}
@@ -325,7 +327,7 @@ export function AnnuairePage() {
             </div>
           </>
         ) : (
-          <p className="rounded-xl border border-dashed border-border bg-muted/15 py-16 text-center text-sm text-muted-foreground">
+          <p className={cn(uiSurfaceCard, "py-16 text-center text-sm text-muted-foreground")}>
             Aucune pharmacie ne correspond à vos critères.
           </p>
         )}
