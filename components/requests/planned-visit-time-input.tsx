@@ -10,6 +10,8 @@ type Props = {
   onMinuteChange: (v: string) => void;
   disabled?: boolean;
   className?: string;
+  /** `unified` : heures + minutes dans un seul champ visuel (séparation invisible). */
+  appearance?: "split" | "unified";
 };
 
 function clampHour(raw: string): string {
@@ -33,6 +35,7 @@ export function PlannedVisitTimeInput({
   onMinuteChange,
   disabled = false,
   className,
+  appearance = "split",
 }: Props) {
   const hourRef = useRef<HTMLInputElement>(null);
   const minuteRef = useRef<HTMLInputElement>(null);
@@ -85,6 +88,65 @@ export function PlannedVisitTimeInput({
       active ? "border-primary/50 ring-1 ring-primary/25" : "border-input",
       disabled && "cursor-default opacity-90"
     );
+
+  const unifiedShellClass = clsx(
+    "flex h-full min-h-[2.75rem] w-full min-w-0 items-center justify-center gap-0 overflow-hidden rounded-lg border-2 bg-background px-2 shadow-inner transition",
+    focusSeg ? "border-primary/50 ring-1 ring-primary/25" : "border-input",
+    disabled && "cursor-default opacity-90"
+  );
+
+  const unifiedInputClass =
+    "min-w-0 flex-1 border-0 bg-transparent p-0 text-center text-[15px] font-bold tabular-nums text-foreground focus:outline-none disabled:cursor-default";
+
+  if (appearance === "unified") {
+    return (
+      <div className={clsx("flex min-h-[2.75rem] min-w-0 flex-1 flex-col", className)}>
+        <div className={unifiedShellClass} role="group" aria-label="Heure de passage">
+          <input
+            ref={hourRef}
+            id={hourId}
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="18"
+            maxLength={2}
+            disabled={disabled}
+            value={hour}
+            onChange={(e) => onHourInput(e.target.value)}
+            onFocus={(e) => {
+              setFocusSeg("hour");
+              e.target.select();
+            }}
+            onBlur={() => setFocusSeg((s) => (s === "hour" ? null : s))}
+            className={clsx(unifiedInputClass, "px-1")}
+            aria-label="Heures"
+          />
+          <input
+            ref={minuteRef}
+            id={minuteId}
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="00"
+            maxLength={2}
+            disabled={disabled}
+            value={minute}
+            onChange={(e) => onMinuteInput(e.target.value)}
+            onFocus={(e) => {
+              setFocusSeg("minute");
+              e.target.select();
+            }}
+            onBlur={() => {
+              onMinuteBlur();
+              setFocusSeg((s) => (s === "minute" ? null : s));
+            }}
+            className={clsx(unifiedInputClass, "px-1")}
+            aria-label="Minutes"
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={clsx("grid grid-cols-2 gap-2", className)}>
