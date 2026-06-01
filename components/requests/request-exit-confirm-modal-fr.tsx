@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import {
+  uiActionBtnSmDestructive,
+  uiActionBtnSmOutline,
+  uiActionBtnSmPrimary,
+} from "@/lib/ui-action-buttons";
+import {
   PATIENT_CANCEL_REASON_CODES,
   PATIENT_CANCEL_REASON_LABELS,
   type PatientCancelReasonCode,
@@ -178,7 +183,7 @@ export function RequestExitConfirmModalFr({
                   type="button"
                   disabled={busy}
                   onClick={onClose}
-                  className="rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold hover:bg-muted/60"
+                  className={uiActionBtnSmOutline()}
                 >
                   Retour
                 </button>
@@ -186,7 +191,7 @@ export function RequestExitConfirmModalFr({
                   type="button"
                   disabled={busy || (isPatient ? !otherOk : !pharmaOk)}
                   onClick={() => goStep2()}
-                  className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-45"
+                  className={uiActionBtnSmPrimary()}
                 >
                   Continuer
                 </button>
@@ -210,7 +215,7 @@ export function RequestExitConfirmModalFr({
                   type="button"
                   disabled={busy}
                   onClick={() => setStep(1)}
-                  className="rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold hover:bg-muted/60"
+                  className={uiActionBtnSmOutline()}
                 >
                   Modifier
                 </button>
@@ -218,7 +223,7 @@ export function RequestExitConfirmModalFr({
                   type="button"
                   disabled={busy}
                   onClick={() => void (isPatient ? finalPatient() : finalPharmacist())}
-                  className="rounded-lg border border-destructive/50 bg-destructive/15 px-3 py-2 text-xs font-semibold text-destructive disabled:opacity-45"
+                  className={uiActionBtnSmDestructive()}
                 >
                   {busy ? "En cours…" : isBefore ? "Confirmer l’annulation" : isPatient ? "Confirmer l’abandon" : "Confirmer l’annulation officine"}
                 </button>

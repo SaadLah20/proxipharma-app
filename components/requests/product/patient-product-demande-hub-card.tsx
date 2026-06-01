@@ -9,6 +9,7 @@ import { patientProductHubCardContextFr } from "@/lib/patient-product-hub-sectio
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { one } from "@/lib/embed";
 import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
+import { uiSecondaryLabel } from "@/lib/ui-label-styles";
 
 /** Carte hub uniforme — le statut porte la couleur (badge), pas toute la carte. */
 function cardShell(_status: string): string {
@@ -40,10 +41,7 @@ export function PatientProductDemandeHubCard({
             <div className="flex flex-wrap items-center gap-1.5">
               <RequestStatusBadge status={row.status} role="patient" />
               {conversationUnread ? (
-                <span
-                  className="inline-flex items-center rounded-full bg-sky-600 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-white"
-                  title="Conversation non lue"
-                >
+                <span className={uiSecondaryLabel} title="Conversation non lue">
                   Message
                 </span>
               ) : null}

@@ -8,6 +8,7 @@ import { displayRequestPublicRef } from "@/lib/public-ref";
 import { pharmacistProductHubCardContextFr } from "@/lib/pharmacist-product-hub-sections";
 import { formatShortId } from "@/lib/request-display";
 import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
+import { uiSecondaryLabel } from "@/lib/ui-label-styles";
 
 function cardShell(_status: string): string {
   return "rounded-xl border border-border bg-card shadow-sm ring-1 ring-black/[0.02]";
@@ -42,10 +43,7 @@ export function PharmacistProductDemandeHubCard({
             <div className="flex flex-wrap items-center gap-1.5">
               <RequestStatusBadge status={row.status} role="pharmacien" />
               {conversationUnread ? (
-                <span
-                  className="inline-flex items-center rounded-full bg-sky-600 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-white"
-                  title="Conversation non lue"
-                >
+                <span className={uiSecondaryLabel} title="Conversation non lue">
                   Message
                 </span>
               ) : null}

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { clsx } from "clsx";
 import { useParams, useRouter } from "next/navigation";
 import { PageShell } from "@/components/ui/compact-shell";
+import { uiActionBtnFilterToggle, uiActionBtnFullOutline } from "@/lib/ui-action-buttons";
 import { supabase } from "@/lib/supabase";
 import { DossierHistoryListFr } from "@/components/requests/dossier-history-list-fr";
 import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
@@ -509,7 +510,7 @@ export default function DemandeDetailPage() {
       {showArchivedReadonly && request.status === "expired" && isPrescriptionRequest ? (
         <Link
           href="/"
-          className="inline-flex w-full justify-center rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-100"
+          className={uiActionBtnFullOutline("inline-flex w-full justify-center")}
         >
           Annuaire — envoyer une nouvelle ordonnance
         </Link>
@@ -551,7 +552,7 @@ export default function DemandeDetailPage() {
             <p className="mt-1 leading-snug">{requestDrift.stale.message}</p>
             <button
               type="button"
-              className="mt-2 inline-flex min-h-9 items-center justify-center rounded-lg border border-amber-500/80 bg-white px-3 font-semibold text-amber-950 hover:bg-amber-50"
+              className={uiActionBtnFilterToggle("mt-2")}
               onClick={() => void requestDrift.refresh()}
             >
               Actualiser la page

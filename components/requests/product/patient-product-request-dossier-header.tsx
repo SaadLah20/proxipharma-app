@@ -12,6 +12,7 @@ import { requestStatusBadgeClass, requestStatusFr } from "@/lib/request-display"
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { uiDossierHeaderShell } from "@/lib/ui-surfaces";
+import { uiActionBtnCompactOutline } from "@/lib/ui-action-buttons";
 import { uiEyebrowLabel } from "@/lib/ui-label-styles";
 import { cn } from "@/lib/utils";
 
@@ -60,14 +61,14 @@ export function PatientProductRequestDossierHeader({
               <button
                 type="button"
                 onClick={() => setContactOpen(true)}
-                className="inline-flex h-8 items-center rounded-lg border border-border bg-card px-2.5 text-[11px] font-bold text-foreground shadow-sm transition hover:bg-muted/40"
+                className={uiActionBtnCompactOutline()}
               >
                 Contacter
               </button>
             ) : null}
             <Link
               href={`/pharmacie/${pharmacyId}`}
-              className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-card px-2.5 text-[11px] font-bold text-foreground shadow-sm transition hover:bg-muted/40"
+              className={cn(uiActionBtnCompactOutline(), "inline-flex items-center gap-1")}
             >
               <MapPin className="size-3.5 shrink-0 opacity-80" aria-hidden />
               Voir la fiche
