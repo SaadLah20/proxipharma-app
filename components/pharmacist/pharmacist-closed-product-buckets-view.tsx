@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ChevronDown, Package } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import {
   partitionClosedRequestProductLines,
   type ClosedLinePartitionInput,
@@ -12,7 +12,47 @@ type Props<T extends ClosedLinePartitionInput> = {
   renderLine: (row: T, opts: { variant: "recupere" | "autre" | "ecarte" | "nonRetenu" }) => ReactNode;
 };
 
-/** Dossier clôturé pharmacien : même découpage que côté patient. */
+function ClosedBucketSection({
+  title,
+  titleClass,
+  count,
+  collapsible,
+  children,
+}: {
+  title: string;
+  titleClass: string;
+  count: number;
+  collapsible?: boolean;
+  children: ReactNode;
+}) {
+  const titleEl = (
+    <h3 className={`text-[13px] font-extrabold uppercase tracking-wide sm:text-sm ${titleClass}`}>
+      {title}
+      <span className="ml-1.5 tabular-nums font-bold opacity-75">({count})</span>
+    </h3>
+  );
+
+  if (collapsible) {
+    return (
+      <details className="group w-full min-w-0 space-y-2">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-0.5 py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
+          {titleEl}
+          <ChevronDown className="size-3.5 shrink-0 opacity-80 transition-transform group-open:rotate-180" aria-hidden />
+        </summary>
+        <div className="pt-1">{children}</div>
+      </details>
+    );
+  }
+
+  return (
+    <section className="w-full min-w-0 space-y-2">
+      {titleEl}
+      {children}
+    </section>
+  );
+}
+
+/** Dossier clôturé pharmacien : même découpage et présentation que côté patient. */
 export function PharmacistClosedProductBucketsView<T extends ClosedLinePartitionInput>({
   items,
   renderLine,
@@ -20,62 +60,63 @@ export function PharmacistClosedProductBucketsView<T extends ClosedLinePartition
   const { recuperes, nonRetenues, ecartes, autresRetenus } = partitionClosedRequestProductLines(items);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {recuperes.length > 0 ? (
-        <section className="rounded-xl border-2 border-emerald-300/80 bg-gradient-to-b from-emerald-50/55 via-white to-white p-2.5 shadow-md ring-1 ring-emerald-200/60 sm:p-3">
-          <div className="mb-2 flex items-center gap-1.5 text-emerald-950">
-            <Package className="size-4 shrink-0 text-emerald-700" aria-hidden />
-            <h3 className="text-[11px] font-bold uppercase tracking-wide">
-              Produits récupérés ({recuperes.length})
-            </h3>
-          </div>
-          <ul className="flex flex-col gap-2">
+        <ClosedBucketSection title="Produits récupérés" titleClass="text-emerald-950" count={recuperes.length}>
+          <ul className="flex w-full min-w-0 flex-col divide-y divide-border/50 overflow-visible">
             {recuperes.map((row) => (
-              <li key={row.id}>{renderLine(row, { variant: "recupere" })}</li>
+              <li key={row.id} className="list-none">
+                {renderLine(row, { variant: "recupere" })}
+              </li>
             ))}
           </ul>
-        </section>
+        </ClosedBucketSection>
       ) : null}
 
       {autresRetenus.length > 0 ? (
-        <section className="rounded-xl border border-slate-200/80 bg-slate-50/40 p-2 opacity-90">
-          <h3 className="text-[10px] font-bold uppercase tracking-wide text-slate-700">
-            Autres produits retenus ({autresRetenus.length})
-          </h3>
-          <ul className="mt-1.5 flex flex-col gap-2">
+        <ClosedBucketSection title="Autres produits retenus" titleClass="text-slate-800" count={autresRetenus.length}>
+          <ul className="flex w-full min-w-0 flex-col divide-y divide-border/50 overflow-visible">
             {autresRetenus.map((row) => (
-              <li key={row.id}>{renderLine(row, { variant: "autre" })}</li>
+              <li key={row.id} className="list-none">
+                {renderLine(row, { variant: "autre" })}
+              </li>
             ))}
           </ul>
-        </section>
+        </ClosedBucketSection>
       ) : null}
 
       {nonRetenues.length > 0 ? (
-        <details className="group rounded-xl border border-slate-200/70 bg-slate-50/30 opacity-80">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold text-slate-700 marker:content-none [&::-webkit-details-marker]:hidden">
-            <span>Produits non retenus ({nonRetenues.length})</span>
-            <ChevronDown className="size-3.5 shrink-0 transition-transform group-open:rotate-180" aria-hidden />
-          </summary>
-          <ul className="flex flex-col gap-2 border-t border-slate-200/60 px-2 py-1.5">
+        <ClosedBucketSection
+          title="Produits non retenus"
+          titleClass="text-slate-700"
+          count={nonRetenues.length}
+          collapsible
+        >
+          <ul className="flex w-full min-w-0 flex-col divide-y divide-border/50 overflow-visible">
             {nonRetenues.map((row) => (
-              <li key={row.id}>{renderLine(row, { variant: "nonRetenu" })}</li>
+              <li key={row.id} className="list-none">
+                {renderLine(row, { variant: "nonRetenu" })}
+              </li>
             ))}
           </ul>
-        </details>
+        </ClosedBucketSection>
       ) : null}
 
       {ecartes.length > 0 ? (
-        <details className="group rounded-xl border border-amber-200/60 bg-amber-50/20 opacity-85">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold text-amber-950 marker:content-none [&::-webkit-details-marker]:hidden">
-            <span>Produits écartés après validation ({ecartes.length})</span>
-            <ChevronDown className="size-3.5 shrink-0 transition-transform group-open:rotate-180" aria-hidden />
-          </summary>
-          <ul className="flex flex-col gap-2 border-t border-amber-200/50 px-2 py-1.5">
+        <ClosedBucketSection
+          title="Écartés après validation"
+          titleClass="text-amber-950"
+          count={ecartes.length}
+          collapsible
+        >
+          <ul className="flex w-full min-w-0 flex-col divide-y divide-border/50 overflow-visible">
             {ecartes.map((row) => (
-              <li key={row.id}>{renderLine(row, { variant: "ecarte" })}</li>
+              <li key={row.id} className="list-none">
+                {renderLine(row, { variant: "ecarte" })}
+              </li>
             ))}
           </ul>
-        </details>
+        </ClosedBucketSection>
       ) : null}
     </div>
   );

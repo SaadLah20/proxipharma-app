@@ -16,14 +16,11 @@ export type PharmacistSupplyLineTier =
   | "hors_perimetre"
   | "retire_apres_validation";
 
-function validatedLineShellClass(tier: PharmacistSupplyLineTier, withdrawnGrey: boolean): string {
-  if (withdrawnGrey) {
-    return "border-slate-200/75 bg-slate-50/75 saturate-[0.65] opacity-[0.72]";
+function validatedLineRowClass(tier: PharmacistSupplyLineTier, withdrawnGrey: boolean): string {
+  if (withdrawnGrey || tier === "retire_apres_validation") {
+    return "bg-muted/15 saturate-[0.65] opacity-[0.72]";
   }
-  if (tier === "dispo_officine") return "border-sky-300/85 bg-white ring-1 ring-sky-200/55";
-  if (tier === "commande") return "border-teal-300/85 bg-white ring-1 ring-teal-200/55";
-  if (tier === "retire_apres_validation") return "border-red-200/85 bg-red-50/30";
-  return "border-slate-200/80 bg-white";
+  return "";
 }
 
 export function PharmacistSupplyCompactLine({
@@ -154,7 +151,7 @@ export function PharmacistSupplyCompactLine({
   const menuHasActions =
     supplyMutationsEnabled && selected && !lineLockedTrace && !withdrawn && !lineCounterLocked;
   const cardShell = supplyTier
-    ? validatedLineShellClass(supplyTier, withdrawnGrey || withdrawn)
+    ? validatedLineRowClass(supplyTier, withdrawnGrey || withdrawn)
     : withdrawn
       ? "rounded-lg border border-amber-200/80 bg-amber-50/25 shadow-sm ring-1 ring-amber-100/50"
       : !selected
@@ -213,8 +210,8 @@ export function PharmacistSupplyCompactLine({
       ) : null}
       <li
         className={clsx(
-          "list-none overflow-hidden px-2 py-1.5 sm:px-2.5 sm:py-2",
-          cardShell,
+          "list-none w-full min-w-0 overflow-visible py-3",
+          supplyTier ? clsx("border-b border-border/55 last:border-b-0", cardShell) : clsx("overflow-hidden rounded-lg px-2 py-1.5 sm:px-2.5 sm:py-2", cardShell),
           withdrawn && "opacity-[0.82] saturate-[0.72]"
         )}
       >
