@@ -156,9 +156,7 @@ import {
   PharmacistSupplyCompactLine,
   type PharmacistSupplyLineTier,
 } from "@/components/pharmacist/pharmacist-supply-compact-line";
-import {
-  pharmacistValidatedSectionShellClass,
-} from "@/components/pharmacist/pharmacist-validated-product-buckets";
+import { PharmacistValidatedBucketSection } from "@/components/pharmacist/pharmacist-validated-bucket-section";
 import {
   buildPharmacistValidatedBucketGroups,
   supplyTierForBucketKind,
@@ -4721,7 +4719,7 @@ export default function PharmacienDemandeDetailPage() {
       maxWidthClass="max-w-3xl"
       className={clsx(
         "space-y-2 sm:space-y-3",
-        usesLineWorkflow && "bg-slate-50",
+        usesLineWorkflow && !isProductRequest && "bg-slate-50",
         bottomChromePaddingClass
       )}
     >
@@ -4926,6 +4924,7 @@ export default function PharmacienDemandeDetailPage() {
       ) : null}
 
       {!hideMainRequestHeader &&
+      !isProductRequest &&
       usesLineWorkflow &&
       request?.status === "confirmed" &&
       !pharmacistRequestIsHardStopped(request.status) ? (
@@ -4936,6 +4935,7 @@ export default function PharmacienDemandeDetailPage() {
       ) : null}
 
       {!hideMainRequestHeader &&
+      !isProductRequest &&
       usesLineWorkflow &&
       request?.status === "treated" &&
       !pharmacistRequestIsHardStopped(request.status) ? (
@@ -5080,18 +5080,8 @@ export default function PharmacienDemandeDetailPage() {
                 ) : null}
                 {pharmacistSupplySurfaceGroups.map((group, gi) => {
                   const bucket = group.bucketMeta;
-                  const titleColor =
-                    bucket?.kind === "teal_order"
-                      ? "text-teal-950"
-                      : bucket?.kind === "amber_hors"
-                        ? "text-amber-950"
-                        : bucket?.kind === "red_ecart"
-                          ? "text-red-950"
-                          : bucket
-                            ? "text-sky-950"
-                            : "";
                   const listBody = (
-                <ul className="flex flex-col gap-2">
+                <ul className="flex w-full min-w-0 flex-col divide-y divide-border/50 overflow-visible">
                   {group.entries.map(({ header, row }) => {
               const prod = one(row.products);
               const f = draft[row.id];
@@ -5730,7 +5720,7 @@ export default function PharmacienDemandeDetailPage() {
                     <>
                       <PharmacistLineAlternativesTabs
                         tabs={[
-                          { id: "principal", label: "Demande patient" },
+                          { id: "principal", label: "Demande" },
                           ...rowAlts.map((alt) => ({
                             id: alt.id,
                             label: pharmacistAltTabLabel(one(alt.products)?.name ?? null, alt.rank),
@@ -6336,76 +6326,14 @@ export default function PharmacienDemandeDetailPage() {
                 </ul>
                   );
                   if (bucket) {
-                    if (bucket.collapsible) {
-                      return (
-                        <details
-                          key={bucket.kind}
-                          className={clsx("group", pharmacistValidatedSectionShellClass(bucket.kind))}
-                        >
-                          <summary
-                            className={clsx(
-                              "flex cursor-pointer list-none items-center justify-between gap-2 px-0.5 py-1 [&::-webkit-details-marker]:hidden",
-                              titleColor
-                            )}
-                          >
-                            <span className="flex min-w-0 items-center gap-1.5">
-                              {bucket.kind === "teal_order" ? (
-                                <ShoppingCart className="size-4 shrink-0" aria-hidden />
-                              ) : (
-                                <Package className="size-4 shrink-0" aria-hidden />
-                              )}
-                              <span className="text-[11px] font-extrabold uppercase tracking-wide">{bucket.title}</span>
-                            </span>
-                            <ChevronDown
-                              className="size-3.5 shrink-0 opacity-80 transition-transform group-open:rotate-180"
-                              aria-hidden
-                            />
-                          </summary>
-                          <div className="mt-2 space-y-2 border-t border-current/15 px-0.5 pt-2">
-                            {bucket.hint ? (
-                              <p className="text-[9px] leading-snug text-muted-foreground">{bucket.hint}</p>
-                            ) : null}
-                            {listBody}
-                          </div>
-                        </details>
-                      );
-                    }
                     return (
-                      <section
-                        key={bucket.kind}
-                        className={clsx("space-y-2", pharmacistValidatedSectionShellClass(bucket.kind))}
-                      >
-                        <div
-                          className={clsx(
-                            "flex flex-nowrap items-center justify-between gap-2 overflow-x-auto px-0.5",
-                            titleColor
-                          )}
-                        >
-                          <div className="flex min-w-0 items-center gap-1.5">
-                            {bucket.kind === "teal_order" ? (
-                              <ShoppingCart className="size-4 shrink-0 text-teal-800" aria-hidden />
-                            ) : (
-                              <Package className="size-4 shrink-0 text-sky-700" aria-hidden />
-                            )}
-                            <h4 className="min-w-0 text-[10px] font-extrabold uppercase leading-snug tracking-wide sm:text-[11px]">
-                              {bucket.title}
-                            </h4>
-                          </div>
-                          {bucket.totalLabel ? (
-                            <p className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums opacity-90">
-                              {bucket.totalLabel}
-                            </p>
-                          ) : null}
-                        </div>
-                        {bucket.hint ? (
-                          <p className="px-0.5 text-[9px] leading-snug text-muted-foreground">{bucket.hint}</p>
-                        ) : null}
+                      <PharmacistValidatedBucketSection key={bucket.kind} group={bucket}>
                         {listBody}
-                      </section>
+                      </PharmacistValidatedBucketSection>
                     );
                   }
                   return (
-              <div key={gi} className={PHARMACIST_SUPPLY_SURFACE_NEUTRAL}>
+              <div key={gi} className="w-full min-w-0">
                 {listBody}
               </div>
                   );

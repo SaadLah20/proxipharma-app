@@ -71,9 +71,7 @@ export function buildPharmacistValidatedBucketGroups<T extends PatientLineLike>(
     const sub = monetaryTotalsForRetainedLines(dispoRetenues, requestStatus, pricingConfig);
     groups.push({
       kind: "sky_reserve",
-      title: isTreated
-        ? "Produits réservés pour le patient — en attente de passage"
-        : `À réserver · ${dispoRetenues.length}`,
+      title: isTreated ? "Réservés — passage en attente" : "À réserver",
       totalLabel: compactTotalMadLabel({
         sumKnown: sub.sumKnown,
         missingPrice: sub.missingPrice,
@@ -87,7 +85,7 @@ export function buildPharmacistValidatedBucketGroups<T extends PatientLineLike>(
     const sub = monetaryTotalsForRetainedLines(aCommanderRetenues, requestStatus, pricingConfig);
     groups.push({
       kind: "teal_order",
-      title: isTreated ? "Produits commandés pour le patient" : `À commander · ${aCommanderRetenues.length}`,
+      title: isTreated ? "Commandés pour le patient" : "À commander",
       totalLabel: compactTotalMadLabel({
         sumKnown: sub.sumKnown,
         missingPrice: sub.missingPrice,
@@ -109,7 +107,7 @@ export function buildPharmacistValidatedBucketGroups<T extends PatientLineLike>(
   if (retireesApresValidation.length > 0) {
     groups.push({
       kind: "red_ecart",
-      title: `Écart après validation · ${retireesApresValidation.length}`,
+      title: "Écart après validation",
       hint: "Retrait convenu avec le patient — trace conservée.",
       rows: retireesApresValidation,
       collapsible: true,
@@ -119,7 +117,7 @@ export function buildPharmacistValidatedBucketGroups<T extends PatientLineLike>(
   if (lignesNonRetenues.length > 0) {
     groups.push({
       kind: "sky_nonretenus",
-      title: `Lignes non retenues · ${lignesNonRetenues.length}`,
+      title: "Lignes non retenues",
       rows: lignesNonRetenues,
       collapsible: true,
     });
