@@ -21,6 +21,17 @@ export function patientClosedArchiveBucketTitleFr(id: PatientClosedArchiveLineBu
   }
 }
 
+export function patientClosedArchiveBucketHeaderClass(id: PatientClosedArchiveLineBucketId): string {
+  switch (id) {
+    case "recuperes":
+      return "text-emerald-950";
+    case "ecartes":
+      return "text-red-900";
+    case "non_retenus":
+      return "text-muted-foreground";
+  }
+}
+
 type ClosedArchiveLineLike = {
   is_selected_by_patient: boolean;
   counter_outcome?: string | null;
