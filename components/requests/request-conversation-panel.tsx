@@ -16,6 +16,8 @@ import {
 } from "@/lib/request-conversation";
 
 const CONVERSATION_FAB_POS_KEY = "proxipharma:conversationFabInset";
+/** Taille max du FAB (sm:size-16) pour le clamp sans lire le ref au rendu. */
+const CONVERSATION_FAB_SIZE_PX = 64;
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.min(hi, Math.max(lo, n));
@@ -70,8 +72,8 @@ export function RequestConversationFabDock({
 
   const clampFabBottom = useCallback(
     (bottom: number) => {
-      const h = fabRef.current?.offsetHeight ?? 56;
-      return clamp(bottom, minBottomPx, window.innerHeight - h - 8);
+      if (typeof window === "undefined") return Math.max(bottom, minBottomPx);
+      return clamp(bottom, minBottomPx, window.innerHeight - CONVERSATION_FAB_SIZE_PX - 8);
     },
     [minBottomPx]
   );
@@ -83,22 +85,10 @@ export function RequestConversationFabDock({
   });
 
   useEffect(() => {
-    setInset((prev) => {
-      if (prev == null) return prev;
-      const bottom = clampFabBottom(prev.bottom);
-      if (bottom === prev.bottom) return prev;
-      const pos = { right: prev.right, bottom };
-      writeFabInset(pos);
-      return pos;
-    });
-  }, [clampFabBottom, minBottomPx]);
-
-  useEffect(() => {
     const onResize = () => {
       const el = fabRef.current;
       if (!el) return;
       const w = el.offsetWidth;
-      const h = el.offsetHeight;
       const rect = el.getBoundingClientRect();
       let right = window.innerWidth - rect.right;
       let bottom = window.innerHeight - rect.bottom;
@@ -148,7 +138,6 @@ export function RequestConversationFabDock({
       s.dragging = true;
     }
     const w = fabRef.current?.offsetWidth ?? 48;
-    const h = fabRef.current?.offsetHeight ?? 48;
     setInset({
       right: clamp(s.startRight - dx, 8, window.innerWidth - w - 8),
       bottom: clampFabBottom(s.startBottom - dy),
@@ -204,9 +193,10 @@ export function RequestConversationFabDock({
   };
 
   const defaultInset = { right: 16, bottom: minBottomPx };
+  const fabBottomPx = inset != null ? clampFabBottom(inset.bottom) : null;
   const style =
-    inset != null
-      ? { right: inset.right, bottom: inset.bottom }
+    inset != null && fabBottomPx != null
+      ? { right: inset.right, bottom: fabBottomPx }
       : {
           right: defaultInset.right,
           bottom: `calc(${minBottomPx}px + env(safe-area-inset-bottom, 0px))`,

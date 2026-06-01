@@ -22,12 +22,12 @@ import { cn } from "@/lib/utils";
 import {
   uiActionBtnDestructiveWide,
   uiActionBtnFullDestructive,
-  uiActionBtnFlexOutline,
+  uiActionBtnFlexCancel,
   uiActionBtnFlexPrimary,
+  uiActionBtnFlexRow,
   uiActionBtnFull,
   uiActionBtnFullOutline,
   uiActionBtnFullSecondary,
-  uiActionBtnModalFlexOutline,
   uiActionBtnModalFlexPrimary,
   uiActionBtnModalOutline,
   uiActionBtnModalPrimary,
@@ -3621,7 +3621,7 @@ export function PatientProductRequestActions({
                 ) : null}
               </div>
             ) : (
-              <div className="flex gap-2">
+              <div className={uiActionBtnFlexRow()}>
                 <button
                   type="button"
                   disabled={busyAction !== ""}
@@ -3629,9 +3629,9 @@ export function PatientProductRequestActions({
                     resetResubmitDraft();
                     setEditMode(false);
                   }}
-                  className={uiActionBtnFlexOutline()}
+                  className={uiActionBtnFlexCancel()}
                 >
-                  Annuler les changements
+                  Annuler
                 </button>
                 <button
                   type="button"
@@ -3671,12 +3671,12 @@ export function PatientProductRequestActions({
                 </button>
               </div>
             ) : (
-              <div className="flex gap-2">
+              <div className={uiActionBtnFlexRow()}>
                 <button
                   type="button"
                   disabled={busyAction !== "" || prescriptionPanelBusy}
                   onClick={() => prescriptionPanelRef.current?.cancelEdit()}
-                  className={uiActionBtnFlexOutline()}
+                  className={uiActionBtnFlexCancel()}
                 >
                   Annuler
                 </button>
@@ -3746,14 +3746,14 @@ export function PatientProductRequestActions({
                 </button>
               </>
             ) : (
-              <div className="flex gap-2">
+              <div className={uiActionBtnFlexRow()}>
                 <button
                   type="button"
                   disabled={busyAction !== ""}
                   onClick={cancelConfirmedRevalidation}
-                  className={uiActionBtnFlexOutline()}
+                  className={uiActionBtnFlexCancel()}
                 >
-                  Annuler les changements
+                  Annuler
                 </button>
                 <button
                   type="button"
@@ -4029,12 +4029,12 @@ export function PatientProductRequestActions({
                 <span className="text-sm font-bold text-slate-800">TOTAL</span>
                 <span className="text-lg font-bold tabular-nums text-sky-900">{formatPriceDh(resubmitTotal)}</span>
               </div>
-              <div className="mt-2 flex gap-2">
+              <div className={cn("mt-2", uiActionBtnFlexRow())}>
                 <button
                   type="button"
                   disabled={busyAction === "resubmit" || Boolean(detailStale)}
                   onClick={() => setResubmitConfirmOpen(false)}
-                  className={uiActionBtnModalFlexOutline()}
+                  className={uiActionBtnFlexCancel()}
                 >
                   Annuler
                 </button>

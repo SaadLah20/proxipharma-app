@@ -9,6 +9,7 @@ import {
   type PatientPharmacyContactInfo,
 } from "@/components/requests/product/patient-pharmacy-quick-contact";
 import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { requestStatusBadgeClass, requestStatusFr } from "@/lib/request-display";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
@@ -102,24 +103,23 @@ export function PatientProductRequestDossierHeader({
       />
 
       {contactOpen && pharmacyContact ? (
-        <div className="fixed inset-0 z-[65] flex items-end justify-center p-3 sm:items-center">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40"
-            aria-label="Fermer"
-            onClick={() => setContactOpen(false)}
-          />
+        <AppModalOverlay
+          open
+          aria-labelledby="contact-pharmacy-title"
+          onBackdropClick={() => setContactOpen(false)}
+        >
           <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="contact-pharmacy-title"
-            className={cn("relative z-10 w-full max-w-sm rounded-2xl border bg-card p-4 shadow-2xl", t.modalShell)}
+            className={cn(
+              "w-full max-w-sm rounded-2xl border bg-card p-4 shadow-2xl sm:mx-auto",
+              t.modalShell
+            )}
+            onClick={(e) => e.stopPropagation()}
           >
             <h2 id="contact-pharmacy-title" className="text-sm font-bold text-foreground">
               Contacter {phLabel}
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">Réf. dossier {dossierRefLabel}</p>
-            <div className="mt-3">
+            <div className="mt-3 pb-1">
               <PatientPharmacyQuickContact
                 pharmacy={pharmacyContact}
                 requestRef={dossierRefLabel}
@@ -134,7 +134,7 @@ export function PatientProductRequestDossierHeader({
               Fermer
             </button>
           </div>
-        </div>
+        </AppModalOverlay>
       ) : null}
     </>
   );
