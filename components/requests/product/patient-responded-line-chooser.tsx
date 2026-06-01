@@ -14,6 +14,7 @@ import {
 /** Vignette répondue un peu plus haute que le panier standard (meilleure lisibilité). */
 const RESPONDED_LINE_THUMB =
   "box-border size-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
+import { uiActionBtnModalDismiss } from "@/lib/ui-action-buttons";
 import { uiMetaLabel, uiSecondaryLabel } from "@/lib/ui-label-styles";
 import { uiSurfaceCard } from "@/lib/ui-surfaces";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
@@ -237,7 +238,7 @@ function RespondedLineNotesButton({
                 <div className="border-t border-border/60 px-3 py-2">
                   <button
                     type="button"
-                    className="h-9 w-full rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                    className={uiActionBtnModalDismiss()}
                     onClick={() => setOpen(false)}
                   >
                     Fermer

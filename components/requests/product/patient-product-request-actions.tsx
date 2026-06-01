@@ -19,6 +19,19 @@ import { clsx } from "clsx";
 import { Button } from "@/components/ui/button";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { cn } from "@/lib/utils";
+import {
+  uiActionBtnDestructiveWide,
+  uiActionBtnFullDestructive,
+  uiActionBtnFlexOutline,
+  uiActionBtnFlexPrimary,
+  uiActionBtnFull,
+  uiActionBtnFullOutline,
+  uiActionBtnFullSecondary,
+  uiActionBtnModalFlexOutline,
+  uiActionBtnModalFlexPrimary,
+  uiActionBtnModalOutline,
+  uiActionBtnModalPrimary,
+} from "@/lib/ui-action-buttons";
 import { Z_STICKY_FOOTER } from "@/lib/ui-z-index";
 import {
   formatDateShortFr,
@@ -3520,7 +3533,7 @@ export function PatientProductRequestActions({
                 type="button"
                 disabled={busyAction !== "" || Boolean(detailStale)}
                 onClick={startConfirmedRevalidation}
-                className="mx-auto mb-3 flex min-h-[2.75rem] min-w-[min(100%,14rem)] max-w-md items-center justify-center gap-2 rounded-lg border border-amber-500/80 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-950 shadow-sm hover:bg-amber-100/90 disabled:opacity-50"
+                className={uiActionBtnFullSecondary("mb-3 flex items-center justify-center")}
               >
                 <Pencil size={16} aria-hidden />
                 Modifier ma validation
@@ -3538,7 +3551,7 @@ export function PatientProductRequestActions({
                 );
                 setExitModalOpen(true);
               }}
-              className="mx-auto flex min-h-[2.75rem] min-w-[min(100%,14rem)] max-w-md items-center justify-center rounded-lg border border-rose-300/70 bg-rose-50/80 px-4 py-2.5 text-sm font-semibold text-rose-950 shadow-sm hover:bg-rose-100/90 disabled:opacity-50"
+              className={uiActionBtnDestructiveWide("flex items-center justify-center")}
             >
               {patientExitPrimaryLabel}
             </button>
@@ -3578,7 +3591,7 @@ export function PatientProductRequestActions({
                     window.scrollTo({ top: 0, behavior: "smooth" });
                     setEditMode(true);
                   }}
-                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-amber-500/80 bg-amber-50 px-3 text-sm font-semibold text-amber-950 shadow-sm hover:bg-amber-100/90 disabled:opacity-50"
+                  className={uiActionBtnFullOutline("flex items-center justify-center")}
                 >
                   <Pencil size={16} aria-hidden />
                   Modifier
@@ -3588,7 +3601,7 @@ export function PatientProductRequestActions({
                     type="button"
                     disabled={busyAction !== "" || lines.length === 0}
                     onClick={() => openResubmitConfirm()}
-                    className="h-9 w-full rounded-md border border-amber-600 bg-amber-600/95 text-xs font-semibold text-white shadow-sm hover:bg-amber-700 disabled:opacity-50"
+                    className={uiActionBtnFull("h-9 text-xs")}
                   >
                     {busyAction === "resubmit" ? "Envoi…" : "Renvoyer à la pharmacie"}
                   </button>
@@ -3603,7 +3616,7 @@ export function PatientProductRequestActions({
                     resetResubmitDraft();
                     setEditMode(false);
                   }}
-                  className="h-10 min-w-0 flex-1 rounded-lg border border-slate-300/90 bg-white px-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                  className={uiActionBtnFlexOutline()}
                 >
                   Annuler les changements
                 </button>
@@ -3611,7 +3624,7 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction !== "" || !resubmitDirty || lines.length === 0}
                   onClick={() => openResubmitConfirm()}
-                  className="h-10 min-w-0 flex-1 rounded-lg bg-primary px-2 text-sm font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-45"
+                  className={uiActionBtnFlexPrimary()}
                 >
                   {busyAction === "resubmit" ? "Enregistrement…" : "Enregistrer les modifications"}
                 </button>
@@ -3630,7 +3643,7 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction !== "" || prescriptionPanelBusy}
                   onClick={() => prescriptionPanelRef.current?.startEdit()}
-                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-amber-500/80 bg-amber-50 px-3 text-sm font-semibold text-amber-950 shadow-sm hover:bg-amber-100/90 disabled:opacity-50"
+                  className={uiActionBtnFullOutline("flex items-center justify-center")}
                 >
                   <Pencil size={16} aria-hidden />
                   Modifier
@@ -3639,7 +3652,7 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction !== "" || prescriptionPanelBusy}
                   onClick={() => prescriptionPanelRef.current?.openCancelOrdonnance()}
-                  className="h-10 w-full rounded-lg border border-rose-300/70 bg-rose-50/80 px-3 text-sm font-semibold text-rose-950 shadow-sm hover:bg-rose-100/90 disabled:opacity-50"
+                  className={uiActionBtnFullDestructive()}
                 >
                   {workflowCopy.patientCancelWhileWaitingLabel}
                 </button>
@@ -3650,7 +3663,7 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction !== "" || prescriptionPanelBusy}
                   onClick={() => prescriptionPanelRef.current?.cancelEdit()}
-                  className="h-10 flex-1 rounded-lg border-2 border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                  className={uiActionBtnFlexOutline()}
                 >
                   Annuler
                 </button>
@@ -3658,7 +3671,7 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction !== "" || prescriptionPanelBusy || !prescriptionPanelCanSave}
                   onClick={() => void prescriptionPanelRef.current?.save()}
-                  className="h-10 flex-1 rounded-lg border border-amber-600 bg-amber-600/95 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 disabled:opacity-50"
+                  className={uiActionBtnFlexPrimary()}
                 >
                   {prescriptionPanelBusy ? "Enregistrement…" : "Enregistrer les modifications"}
                 </button>
@@ -3688,7 +3701,7 @@ export function PatientProductRequestActions({
               type="button"
               disabled={busyAction !== "" || visitWin.missingEtaOnToOrder}
               onClick={openConfirmReview}
-              className="flex h-10 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50"
+              className={uiActionBtnFull("flex items-center justify-center")}
             >
               Valider ma demande
             </button>
@@ -3714,7 +3727,7 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction !== "" || !visitPassageDirty || Boolean(detailStale)}
                   onClick={() => void runUpdateVisit()}
-                  className="flex h-10 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-md transition hover:opacity-95 disabled:opacity-50"
+                  className={uiActionBtnFull("flex items-center justify-center")}
                 >
                   {busyAction === "visit" ? "Mise à jour…" : "Mettre à jour ma date de passage"}
                 </button>
@@ -3725,7 +3738,7 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction !== ""}
                   onClick={cancelConfirmedRevalidation}
-                  className="h-10 min-w-0 flex-1 rounded-lg border border-slate-300/90 bg-white px-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                  className={uiActionBtnFlexOutline()}
                 >
                   Annuler les changements
                 </button>
@@ -3733,7 +3746,7 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction !== "" || Boolean(detailStale)}
                   onClick={openConfirmedRevalidationReview}
-                  className="h-10 min-w-0 flex-1 rounded-lg border border-amber-600 bg-amber-600/95 px-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-45"
+                  className={uiActionBtnFlexPrimary("disabled:cursor-not-allowed")}
                 >
                   {busyAction === "confirm" ? "Enregistrement…" : "Enregistrer les modifications"}
                 </button>
@@ -3888,7 +3901,7 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction === "confirm" || Boolean(detailStale)}
                   onClick={closeConfirmReview}
-                  className="w-full rounded-xl border border-border bg-card px-3 py-2 text-[12px] font-semibold text-foreground shadow-sm transition hover:bg-muted/60 disabled:opacity-50 sm:order-1 sm:w-auto"
+                  className={uiActionBtnModalOutline("px-3 py-2 text-[12px] disabled:opacity-50")}
                 >
                   Retour
                 </button>
@@ -3896,10 +3909,7 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction === "confirm" || Boolean(detailStale)}
                   onClick={() => void performConfirmAfterReview()}
-                  className={cn(
-                    "w-full rounded-xl px-3 py-2 text-[12px] font-semibold shadow-sm transition hover:opacity-95 disabled:opacity-50 sm:order-2 sm:w-auto sm:min-w-[180px]",
-                    productRequestTheme.cta
-                  )}
+                  className={uiActionBtnModalPrimary("px-3 py-2 text-[12px] disabled:opacity-50")}
                 >
                   {busyAction === "confirm"
                     ? "Enregistrement…"
@@ -4011,7 +4021,7 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction === "resubmit" || Boolean(detailStale)}
                   onClick={() => setResubmitConfirmOpen(false)}
-                  className="h-10 flex-1 rounded-xl border-2 border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                  className={uiActionBtnModalFlexOutline()}
                 >
                   Annuler
                 </button>
@@ -4019,7 +4029,7 @@ export function PatientProductRequestActions({
                   type="button"
                   disabled={busyAction === "resubmit" || Boolean(detailStale)}
                   onClick={() => void executeResubmit()}
-                  className="h-10 flex-1 rounded-xl bg-amber-600 text-sm font-semibold text-white shadow-md hover:bg-amber-700 disabled:opacity-50"
+                  className={uiActionBtnModalFlexPrimary()}
                 >
                   {busyAction === "resubmit" ? "Envoi…" : "Confirmer le renvoi"}
                 </button>

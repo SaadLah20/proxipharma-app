@@ -10,6 +10,7 @@ import {
 } from "@/lib/pharmacy-navigation";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import { lockBodyScroll } from "@/lib/ui-body-scroll-lock";
+import { uiAnnuaireQuickAction } from "@/lib/ui-action-buttons";
 
 export type PharmacyNavigationTarget = {
   pharmacyId?: string;
@@ -90,12 +91,12 @@ export function PharmacyNavigationPicker({
   const triggerClass =
     variant === "annuaire"
       ? clsx(
-          "flex flex-col items-center gap-0.5 rounded-lg border border-teal-200/80 bg-teal-50/90 py-2 text-[10px] font-bold text-teal-950 transition hover:bg-teal-100",
+          uiAnnuaireQuickAction(),
           !canNavigate && (disabledClassName ?? "pointer-events-none opacity-45"),
           className
         )
       : clsx(
-          "inline-flex items-center gap-1.5 rounded-lg border border-teal-200/80 bg-teal-50/90 px-3 py-2 text-xs font-semibold text-teal-950 hover:bg-teal-100",
+          uiAnnuaireQuickAction("inline-flex flex-row items-center gap-1.5 px-3 py-2 text-xs"),
           !canNavigate && "opacity-45",
           className
         );

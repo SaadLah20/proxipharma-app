@@ -1,6 +1,8 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { uiAnnuairePaginationBtn } from "@/lib/ui-action-buttons";
+import { uiSurfaceCard } from "@/lib/ui-surfaces";
 import { cn } from "@/lib/utils";
 
 export function AnnuairePagination({
@@ -23,7 +25,7 @@ export function AnnuairePagination({
 
   return (
     <nav
-      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/80 bg-card px-3 py-2.5 shadow-sm"
+      className={cn(uiSurfaceCard, "flex flex-wrap items-center justify-between gap-3 px-3 py-2.5")}
       aria-label="Pagination de l’annuaire"
     >
       <p className="text-xs text-muted-foreground">
@@ -37,10 +39,7 @@ export function AnnuairePagination({
           type="button"
           disabled={page <= 1}
           onClick={() => onPage(page - 1)}
-          className={cn(
-            "inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold transition",
-            page <= 1 ? "cursor-not-allowed opacity-40" : "hover:bg-muted/60"
-          )}
+          className={cn(uiAnnuairePaginationBtn(), page <= 1 && "cursor-not-allowed opacity-40")}
         >
           <ChevronLeft className="size-3.5" />
           Préc.
@@ -52,10 +51,7 @@ export function AnnuairePagination({
           type="button"
           disabled={page >= totalPages}
           onClick={() => onPage(page + 1)}
-          className={cn(
-            "inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold transition",
-            page >= totalPages ? "cursor-not-allowed opacity-40" : "hover:bg-muted/60"
-          )}
+          className={cn(uiAnnuairePaginationBtn(), page >= totalPages && "cursor-not-allowed opacity-40")}
         >
           Suiv.
           <ChevronRight className="size-3.5" />

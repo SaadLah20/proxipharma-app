@@ -30,6 +30,8 @@ import type { RequestKindId } from "@/lib/request-kinds/types";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { formatShortId } from "@/lib/request-display";
 import { supabase } from "@/lib/supabase";
+import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
+import { uiSurfaceCard } from "@/lib/ui-surfaces";
 
 function tabFromSearch(v: string | null): HubTab {
   return v === "liste" ? "list" : "dashboard";
@@ -248,22 +250,10 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
 
-  const linkClass =
-    accent === "amber" ? "text-amber-900 underline" : accent === "violet" ? "text-violet-900 underline" : "text-sky-800 underline";
-  const filterShell =
-    accent === "amber"
-      ? "rounded-xl border-2 border-amber-100 bg-amber-50/50 p-3 shadow-sm"
-      : accent === "violet"
-        ? "rounded-xl border-2 border-violet-100 bg-violet-50/50 p-3 shadow-sm"
-        : "rounded-xl border-2 border-sky-100 bg-sky-50/50 p-3 shadow-sm";
-  const filterTitle =
-    accent === "amber" ? "text-amber-950" : accent === "violet" ? "text-violet-950" : "text-sky-950";
-  const filterBtn =
-    accent === "amber"
-      ? "rounded-md border border-amber-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-900 shadow-sm hover:bg-amber-50"
-      : accent === "violet"
-        ? "rounded-md border border-violet-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-900 shadow-sm hover:bg-violet-50"
-        : "rounded-md border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-900 shadow-sm hover:bg-sky-50";
+  const linkClass = "font-semibold text-primary underline underline-offset-2";
+  const filterShell = clsx(uiSurfaceCard, "p-3");
+  const filterTitle = "text-foreground";
+  const filterBtn = uiActionBtnFilterToggle();
 
   if (loading) {
     return (
@@ -422,7 +412,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                       value={refQuery}
                       onChange={(e) => setRefQuery(e.target.value)}
                       placeholder={refPlaceholder}
-                      className="w-full rounded-lg border border-input bg-background py-2 pl-8 pr-2.5 text-xs text-foreground shadow-sm placeholder:text-muted-foreground/70 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200/60"
+                      className="w-full rounded-lg border border-input bg-background py-2 pl-8 pr-2.5 text-xs text-foreground shadow-sm placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                     />
                   </span>
                 </label>
@@ -469,16 +459,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                 </label>
               </div>
             ) : listHasActiveFilters ? (
-              <div
-                className={clsx(
-                  "mt-3 rounded-xl border px-3 py-2.5 text-[11px] leading-snug",
-                  accent === "amber"
-                    ? "border-amber-200/80 bg-amber-50/60 text-amber-950"
-                    : accent === "violet"
-                      ? "border-violet-200/80 bg-violet-50/60 text-violet-950"
-                      : "border-sky-200/80 bg-sky-50/60 text-sky-950"
-                )}
-              >
+              <div className="mt-3 rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-[11px] leading-snug text-foreground">
                 <p>
                   <span className="font-semibold">Filtres actifs (liste) :</span> {listFiltersSummary}
                 </p>

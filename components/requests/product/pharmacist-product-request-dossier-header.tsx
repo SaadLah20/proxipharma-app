@@ -6,6 +6,7 @@ import { Info, MessageCircle, Phone, User } from "lucide-react";
 import { PatientProductRequestJourneyModal } from "@/components/requests/product/patient-product-request-journey-modal";
 import { requestStatusBadgeClass, requestStatusFr } from "@/lib/request-display";
 import { uiDossierHeaderShell } from "@/lib/ui-surfaces";
+import { uiActionBtnCompactOutline } from "@/lib/ui-action-buttons";
 import { uiEyebrowLabel } from "@/lib/ui-label-styles";
 
 function phoneDigits(raw: string): string {
@@ -65,7 +66,7 @@ export function PharmacistProductRequestDossierHeader({
             <div className="flex shrink-0 flex-wrap items-center gap-1.5">
               <a
                 href={`tel:${patientPhone.replace(/\s/g, "")}`}
-                className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-sm hover:bg-muted/40"
+                className={uiActionBtnCompactOutline("inline-flex size-8 items-center justify-center p-0")}
                 title={`Appeler ${patientPhone}`}
                 aria-label="Appeler le patient"
               >
