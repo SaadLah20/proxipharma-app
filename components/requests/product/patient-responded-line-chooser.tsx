@@ -349,10 +349,10 @@ function RespondedVariantTabCheckbox({
 function respondedVariantTabShellClass(opts: {
   retainable: boolean;
   isViewing: boolean;
-  isSelected: boolean;
-  isPrincipal: boolean;
+  isSelected?: boolean;
+  isPrincipal?: boolean;
 }): string {
-  const { retainable, isViewing, isSelected, isPrincipal } = opts;
+  const { retainable, isViewing } = opts;
   const focusShell = "border-foreground/20 bg-card shadow-sm ring-1 ring-foreground/5";
 
   return cn(

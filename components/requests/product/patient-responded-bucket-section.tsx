@@ -20,23 +20,16 @@ type Props = {
   children: ReactNode;
 };
 
-function bucketIcon(bucketId: PatientRespondedBucketId): LucideIcon {
-  switch (bucketId) {
-    case "available":
-      return CheckCircle2;
-    case "partially_available":
-      return Package;
-    case "to_order":
-      return Truck;
-    case "indispo_with_alts":
-      return ArrowLeftRight;
-    case "indispo_no_alts":
-      return Ban;
-  }
-}
+const BUCKET_ICONS: Record<PatientRespondedBucketId, LucideIcon> = {
+  available: CheckCircle2,
+  partially_available: Package,
+  to_order: Truck,
+  indispo_with_alts: ArrowLeftRight,
+  indispo_no_alts: Ban,
+};
 
 export function PatientRespondedBucketSection({ bucketId, count, children }: Props) {
-  const Icon = bucketIcon(bucketId);
+  const Icon = BUCKET_ICONS[bucketId];
   const title = patientRespondedBucketTitleFr(bucketId);
   const accentText = patientRespondedBucketAccentTextClass(bucketId);
 
