@@ -50,6 +50,7 @@ import {
   availabilityStatusFr,
   pharmacistProposedProductBadgeFr,
   requestItemLineSourceFr,
+  requestStatusBadgeClass,
   requestStatusFr,
 } from "@/lib/request-display";
 import { plannedVisitWindow } from "@/lib/planned-visit";
@@ -170,6 +171,7 @@ import { productRequestPublicTheme as productRequestTheme } from "@/lib/request-
 import { uiSecondaryLabel } from "@/lib/ui-label-styles";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { PlannedVisitTimeInput } from "@/components/requests/planned-visit-time-input";
+import { PlannedVisitDateInput } from "@/components/requests/planned-visit-date-input";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
 import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternative-qty-rules";
@@ -1287,37 +1289,37 @@ export function PatientSentEnvoyeeSummaryCard({
   const t = summaryThemeClasses(accent);
   return (
     <div className={t.shell}>
-      <div className="border-b border-sky-200/70 pb-1.5">
+      <div className={clsx("border-b pb-1.5", t.borderB)}>
         <DossierHeaderRequestLine
           kindLabel={_kindLabel}
           dossierRefLabel={dossierRefLabel}
           submittedAt={submittedAt}
           createdAt={createdAt}
-          className="text-sky-950"
+          className={t.title}
         />
         <div className="mt-1.5 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="text-[11px] font-bold leading-snug break-words text-sky-950">{phName}</p>
-          {phVille ? <p className="text-[10px] font-medium text-sky-800/85">{phVille}</p> : null}
+          <p className={clsx("text-[11px] font-bold leading-snug break-words", t.title)}>{phName}</p>
+          {phVille ? <p className={clsx("text-[10px] font-medium", t.meta)}>{phVille}</p> : null}
           {phRef ? (
-            <p className="text-[9px] text-sky-900/90">
+            <p className={clsx("text-[9px]", t.meta)}>
               <span className="font-mono font-semibold text-foreground">Off. {phRef}</span>
             </p>
           ) : null}
           <Link
             href={`/pharmacie/${pharmacyId}`}
-            className="text-[9px] font-semibold text-sky-800 underline underline-offset-2"
+            className={clsx("text-[9px] font-semibold underline underline-offset-2", t.link)}
           >
             Fiche officine
           </Link>
         </div>
         {ph ? (
           <details className="group relative shrink-0">
-            <summary className="flex cursor-pointer list-none items-center gap-1 rounded-md border border-sky-400/70 bg-white/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-sky-950 shadow-sm marker:content-none hover:bg-sky-50 [&::-webkit-details-marker]:hidden">
+            <summary className={clsx("flex cursor-pointer list-none items-center gap-1 rounded-md border bg-card px-2 py-1 text-[9px] font-bold uppercase tracking-wide shadow-sm marker:content-none hover:bg-muted/40 [&::-webkit-details-marker]:hidden", t.contactBtn)}>
               Contacter
-              <ChevronDown className="size-3 text-sky-700 transition group-open:rotate-180" aria-hidden />
+              <ChevronDown className={clsx("size-3 transition group-open:rotate-180", t.contactIcon)} aria-hidden />
             </summary>
-            <div className="absolute right-0 z-[60] mt-1 min-w-[12rem] max-w-[min(100vw-2rem,18rem)] rounded-lg border border-sky-200 bg-card p-2 shadow-lg ring-1 ring-sky-200/60">
+            <div className={clsx("absolute right-0 z-[60] mt-1 min-w-[12rem] max-w-[min(100vw-2rem,18rem)] rounded-lg border bg-card p-2 shadow-lg ring-1", t.contactPanel)}>
               <PatientPharmacyQuickContact pharmacy={ph} requestRef={dossierRefLabel} variant="iconsOnly" />
             </div>
           </details>
@@ -1328,7 +1330,7 @@ export function PatientSentEnvoyeeSummaryCard({
         <span className="font-semibold">{lineCountLabel}</span>
       </p>
       <div className="mt-1.5 flex flex-wrap items-start gap-2">
-        <span className="shrink-0 rounded-full border border-amber-300/90 bg-amber-50 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-amber-950">
+        <span className={clsx("shrink-0 shadow-sm", requestStatusBadgeClass(status))}>
           {requestStatusFr[status] ?? status}
         </span>
         <p className={clsx("min-w-0 flex-1 text-[9px] leading-snug", t.hint)}>{statusHint}</p>
@@ -3042,13 +3044,13 @@ export function PatientProductRequestActions({
                 supplyAmendmentBundles
               );
               return (
-                <div className="w-full min-w-0 space-y-5 px-0.5">
+                <div className="w-full min-w-0 space-y-5">
                   {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
                     const rows = respondedBuckets[bucketId];
                     if (rows.length === 0) return null;
                     return (
                       <PatientRespondedBucketSection key={bucketId} bucketId={bucketId} count={rows.length}>
-                        <ul className="w-full min-w-0 divide-y divide-border/70 overflow-visible">
+                        <ul className="w-full min-w-0 divide-y divide-border/70 overflow-visible px-1">
                           {rows.map((row) => (
                             <RespondedPatientLineChooser
                               key={row.id}
@@ -3441,15 +3443,13 @@ export function PatientProductRequestActions({
                 <span className="text-[11px] font-semibold text-foreground">
                   Date {visitFieldsEditable && showConfirm ? <span className="text-destructive">*</span> : null}
                 </span>
-                <input
-                  type="date"
-                  min={visitWin.minYmd}
-                  max={visitWin.maxYmd}
-                  value={showConfirm && visitFieldsEditable ? visitDate : resolvedVisitDate}
-                  onChange={(e) => setVisitDate(e.target.value)}
+                <PlannedVisitDateInput
+                  key={visitSyncKey}
+                  valueYmd={showConfirm && visitFieldsEditable ? visitDate : resolvedVisitDate}
+                  onChangeYmd={setVisitDate}
+                  minYmd={visitWin.minYmd}
+                  maxYmd={visitWin.maxYmd}
                   disabled={!visitFieldsEditable}
-                  readOnly={!visitFieldsEditable}
-                  className="block min-h-[2.75rem] w-full rounded-lg border-2 border-input bg-background px-2 py-2 text-[13px] font-semibold tabular-nums shadow-inner disabled:cursor-default disabled:opacity-90"
                   required={showConfirm && visitFieldsEditable}
                 />
               </label>
@@ -3685,7 +3685,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirm && !forceReadOnly && !stickyFooterObscured ? (
-        <PlatformStickyFooter tone="sky">
+        <PlatformStickyFooter tone="slate">
           <div className="flex flex-col gap-2">
             <PlatformStickyFooterSummaryRow
               left={
@@ -3713,7 +3713,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirmedCards && !forceReadOnly && !stickyFooterObscured ? (
-        <PlatformStickyFooter tone="sky">
+        <PlatformStickyFooter tone="slate">
           <div className="flex flex-col gap-2">
             {!confirmedRevalidationMode ? (
               <>

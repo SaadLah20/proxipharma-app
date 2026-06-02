@@ -131,16 +131,90 @@ export const PATIENT_RESPONDED_BUCKET_ORDER: PatientRespondedBucketId[] = [
 export function patientRespondedBucketTitleFr(id: PatientRespondedBucketId): string {
   switch (id) {
     case "available":
-      return "Disponible";
+      return "Disponibles";
     case "partially_available":
-      return "Partiellement disponible";
+      return "Partiellement disponibles";
     case "to_order":
       return "À commander";
     case "indispo_with_alts":
-      return "Indisponible ou en rupture — avec alternative";
+      return "Indisponibles + alternatives";
     case "indispo_no_alts":
-      return "Indisponible ou en rupture";
+      return "Indisponibles";
   }
+}
+
+/** Statut court pour l’onglet « Ta demande » (indispo / rupture). */
+export function patientRespondedPrincipalTabStatusFr(row: RespondedLineLike): string | null {
+  const eff = principalEffectiveStatus(row);
+  if (eff === "unavailable") return "Indisponible";
+  if (eff === "market_shortage") return "En rupture";
+  return null;
+}
+
+/** Libellé complet (accessibilité / info-bulle). */
+export function patientRespondedBucketAriaTitleFr(id: PatientRespondedBucketId): string {
+  switch (id) {
+    case "available":
+      return "Produits disponibles en officine";
+    case "partially_available":
+      return "Produits partiellement disponibles";
+    case "to_order":
+      return "Produits à commander pour vous";
+    case "indispo_with_alts":
+      return "Produit indisponible ou en rupture — l’officine propose des alternatives";
+    case "indispo_no_alts":
+      return "Produit indisponible ou en rupture — sans alternative";
+  }
+}
+
+export function patientRespondedBucketHeaderBarClass(id: PatientRespondedBucketId): string {
+  return cnBucketAccent(id, "header");
+}
+
+export function patientRespondedBucketSectionShellClass(id: PatientRespondedBucketId): string {
+  return cnBucketAccent(id, "shell");
+}
+
+function cnBucketAccent(id: PatientRespondedBucketId, part: "header" | "shell"): string {
+  const base =
+    part === "header"
+      ? "border border-border/80 bg-card shadow-none"
+      : "border border-border/80 bg-card shadow-none";
+  switch (id) {
+    case "available":
+      return `${base} border-l-[3px] border-l-emerald-500/85`;
+    case "partially_available":
+      return `${base} border-l-[3px] border-l-sky-500/80`;
+    case "to_order":
+      return `${base} border-l-[3px] border-l-teal-600/80`;
+    case "indispo_with_alts":
+      return `${base} border-l-[3px] border-l-amber-500/80`;
+    case "indispo_no_alts":
+      return `${base} border-l-[3px] border-l-slate-400/90`;
+  }
+}
+
+export function patientRespondedBucketAccentTextClass(id: PatientRespondedBucketId): string {
+  switch (id) {
+    case "available":
+      return "text-emerald-700";
+    case "partially_available":
+      return "text-sky-700";
+    case "to_order":
+      return "text-teal-700";
+    case "indispo_with_alts":
+      return "text-amber-800";
+    case "indispo_no_alts":
+      return "text-slate-600";
+  }
+}
+
+export function patientRespondedBucketHeaderClass(id: PatientRespondedBucketId): string {
+  return patientRespondedBucketAccentTextClass(id);
+}
+
+export function patientRespondedBucketCountBadgeClass(_id: PatientRespondedBucketId): string {
+  return "bg-muted/50 text-foreground ring-border/60";
 }
 
 export function patientRespondedBucketHintFr(id: PatientRespondedBucketId): string {
@@ -155,66 +229,5 @@ export function patientRespondedBucketHintFr(id: PatientRespondedBucketId): stri
       return "Votre demande n’est pas disponible ; l’officine propose d’autres options.";
     case "indispo_no_alts":
       return "Produit non retenable pour l’instant — aucune alternative proposée.";
-  }
-}
-
-/** Enveloppe visuelle des sous-blocs « répondue — à valider » (aligné parité validée sky/teal/ambre). */
-export function patientRespondedBucketSectionShellClass(id: PatientRespondedBucketId): string {
-  switch (id) {
-    case "available":
-      return "border-emerald-400/80 bg-gradient-to-br from-emerald-50/70 via-white to-sky-50/25 ring-emerald-200/60";
-    case "partially_available":
-      return "border-sky-400/85 bg-gradient-to-br from-sky-50/75 via-white to-amber-50/20 ring-sky-200/65";
-    case "to_order":
-      return "border-teal-400/85 bg-gradient-to-br from-teal-50/55 via-white to-teal-50/20 ring-teal-200/60";
-    case "indispo_with_alts":
-      return "border-amber-400/75 bg-gradient-to-br from-amber-50/65 via-white to-violet-50/15 ring-amber-200/55";
-    case "indispo_no_alts":
-      return "border-slate-300/85 bg-gradient-to-br from-slate-100/75 via-white to-rose-50/20 ring-slate-200/55";
-  }
-}
-
-export function patientRespondedBucketHeaderClass(id: PatientRespondedBucketId): string {
-  switch (id) {
-    case "available":
-      return "text-emerald-950";
-    case "partially_available":
-      return "text-sky-950";
-    case "to_order":
-      return "text-teal-950";
-    case "indispo_with_alts":
-      return "text-amber-950";
-    case "indispo_no_alts":
-      return "text-slate-800";
-  }
-}
-
-export function patientRespondedBucketIconClass(id: PatientRespondedBucketId): string {
-  switch (id) {
-    case "available":
-      return "text-emerald-700";
-    case "partially_available":
-      return "text-sky-700";
-    case "to_order":
-      return "text-teal-800";
-    case "indispo_with_alts":
-      return "text-amber-800";
-    case "indispo_no_alts":
-      return "text-slate-600";
-  }
-}
-
-export function patientRespondedBucketCountBadgeClass(id: PatientRespondedBucketId): string {
-  switch (id) {
-    case "available":
-      return "bg-emerald-100/90 text-emerald-950 ring-emerald-200/80";
-    case "partially_available":
-      return "bg-sky-100/90 text-sky-950 ring-sky-200/80";
-    case "to_order":
-      return "bg-teal-100/90 text-teal-950 ring-teal-200/80";
-    case "indispo_with_alts":
-      return "bg-amber-100/90 text-amber-950 ring-amber-200/80";
-    case "indispo_no_alts":
-      return "bg-slate-100/90 text-slate-800 ring-slate-200/80";
   }
 }

@@ -16,9 +16,11 @@ import {
 const RESPONDED_LINE_THUMB =
   "box-border size-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
 import { uiActionBtnModalDismiss } from "@/lib/ui-action-buttons";
-import { uiSecondaryLabel } from "@/lib/ui-label-styles";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
-import type { PatientRespondedBucketId } from "@/lib/patient-responded-line-buckets";
+import {
+  type PatientRespondedBucketId,
+  patientRespondedPrincipalTabStatusFr,
+} from "@/lib/patient-responded-line-buckets";
 import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternative-qty-rules";
 import { formatDateShortFr } from "@/lib/datetime-fr";
 import {
@@ -89,48 +91,58 @@ function RespondedLineQtyMeta({
   showRequested,
   requestedQty,
   expectedDate,
+  statusLabel,
 }: {
   bucketId: PatientRespondedBucketId;
   isAlt: boolean;
   showRequested: boolean;
   requestedQty: number;
   expectedDate: string | null;
+  /** Indisponible / En rupture — affiché à droite de la qté demandée (branche « Ta demande »). */
+  statusLabel?: string | null;
 }) {
+  const qtyLine = showRequested ? (
+    <span className="text-[10px] text-muted-foreground">
+      Qté demandée <strong className="tabular-nums text-foreground">{requestedQty}</strong>
+    </span>
+  ) : null;
+
+  const statusChip = statusLabel ? (
+    <span className="rounded border border-amber-200/70 bg-amber-50/40 px-1.5 py-px text-[9px] font-semibold text-amber-900/90">
+      {statusLabel}
+    </span>
+  ) : null;
+
+  const qtyWithStatus =
+    qtyLine || statusChip ? (
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        {qtyLine}
+        {statusChip}
+      </div>
+    ) : null;
+
   if (bucketId === "to_order") {
     return (
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-        {showRequested ? (
-          <span className="text-[10px] text-muted-foreground">
-            Qté demandée{" "}
-            <strong className="tabular-nums text-foreground">{requestedQty}</strong>
-          </span>
-        ) : null}
+        {qtyLine}
         {expectedDate ? (
-          <span className="text-[11px] font-semibold leading-snug text-teal-900">
+          <span className="text-[10px] font-medium text-teal-800/85">
             Réception prévue · {formatDateShortFr(expectedDate)}
           </span>
         ) : (
-          <span className="text-[11px] font-medium text-teal-800/90">Date de réception à confirmer</span>
+          <span className="text-[10px] font-medium text-muted-foreground">Date de réception à confirmer</span>
         )}
       </div>
     );
   }
 
   if (bucketId === "indispo_with_alts" || bucketId === "indispo_no_alts") {
-    if (isAlt || !showRequested) return null;
-    return (
-      <p className="text-[10px] text-muted-foreground">
-        Qté demandée <strong className="tabular-nums text-foreground">{requestedQty}</strong>
-      </p>
-    );
+    if (isAlt || (!showRequested && !statusLabel)) return null;
+    return qtyWithStatus;
   }
 
-  if (!showRequested) return null;
-  return (
-    <p className="text-[10px] text-muted-foreground">
-      Qté demandée <strong className="tabular-nums text-foreground">{requestedQty}</strong>
-    </p>
-  );
+  if (!showRequested && !statusLabel) return null;
+  return qtyWithStatus;
 }
 
 function RespondedLineNotesButton({
@@ -150,7 +162,12 @@ function RespondedLineNotesButton({
 
   return (
     <>
-      <PharmacistLineMessageButton visual={visual} open={open} onClick={() => setOpen(true)} />
+      <PharmacistLineMessageButton
+        visual={visual}
+        open={open}
+        onClick={() => setOpen(true)}
+        appearance="neutral"
+      />
       {open ? (
         <AppModalOverlay open aria-labelledby={titleId} onBackdropClick={() => setOpen(false)}>
               <div
@@ -180,15 +197,15 @@ function RespondedLineNotesButton({
                     <p className="text-[11px] leading-snug text-muted-foreground">Aucun message sur ce produit.</p>
                   ) : null}
                   {c ? (
-                    <div className="rounded-lg border border-sky-200/80 bg-sky-50/90 px-2.5 py-2">
-                      <p className="text-[8px] font-bold uppercase tracking-wide text-sky-900">Vous</p>
-                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-sky-950">{c}</p>
+                    <div className="rounded-lg border border-border/80 border-l-2 border-l-sky-500/70 bg-muted/20 px-2.5 py-2">
+                      <p className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">Vous</p>
+                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-foreground">{c}</p>
                     </div>
                   ) : null}
                   {p ? (
-                    <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-2">
-                      <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-900">Officine</p>
-                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-emerald-950">{p}</p>
+                    <div className="rounded-lg border border-border/80 border-l-2 border-l-emerald-500/70 bg-muted/20 px-2.5 py-2">
+                      <p className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">Officine</p>
+                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-foreground">{p}</p>
                     </div>
                   ) : null}
                 </div>
@@ -227,13 +244,132 @@ type VariantData = {
   /** Ajout / proposition officine : afficher le motif pharmacien dans le bloc. */
   showProposalMotif: boolean;
   proposalReason: string | null;
+  /** Statut « Ta demande » (Indisponible, En rupture…) — affiché dans le bloc produit. */
+  principalStatusLabel: string | null;
 };
+
+const TAB_CHECKBOX_PAD = "flex shrink-0 items-center py-1 pl-2 pr-1";
+
+function RespondedVariantTabCheckbox({
+  tabId,
+  label,
+  retainable,
+  isSelected,
+  readOnly,
+  onToggleRetain,
+}: {
+  tabId: string;
+  label: string;
+  retainable: boolean;
+  isSelected: boolean;
+  readOnly: boolean;
+  onToggleRetain: (tabId: string, on: boolean) => void;
+}) {
+  const isPrincipal = tabId === "principal";
+  const closedBoxClass = cn(
+    "size-3.5 shrink-0 rounded border bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]",
+    isSelected && retainable && isPrincipal
+      ? "border-emerald-500/70"
+      : "border-border/80"
+  );
+
+  if (!retainable) {
+    return (
+      <span className={cn(TAB_CHECKBOX_PAD)} aria-hidden>
+        <span className={cn(closedBoxClass, "border-border/60 bg-muted/30")} />
+      </span>
+    );
+  }
+
+  if (isPrincipal) {
+    if (readOnly) {
+      return (
+        <span className={cn(TAB_CHECKBOX_PAD)} aria-hidden>
+          <span className={closedBoxClass} />
+        </span>
+      );
+    }
+    return (
+      <button
+        type="button"
+        className={TAB_CHECKBOX_PAD}
+        title={isSelected ? "Retirer votre demande initiale" : "Retenir votre demande initiale"}
+        aria-pressed={isSelected}
+        aria-label={
+          isSelected
+            ? `${label} retenu — cliquer pour retirer`
+            : `Inclure ${label} dans votre validation`
+        }
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleRetain(tabId, !isSelected);
+        }}
+      >
+        <span className={closedBoxClass} aria-hidden />
+      </button>
+    );
+  }
+
+  if (readOnly) {
+    return (
+      <span
+        className={cn(TAB_CHECKBOX_PAD, "justify-center")}
+        aria-hidden={!isSelected}
+      >
+        {isSelected ? (
+          <Check className="size-3.5 text-emerald-600" strokeWidth={3} />
+        ) : (
+          <span className={closedBoxClass} />
+        )}
+      </span>
+    );
+  }
+
+  return (
+    <label
+      className={cn(TAB_CHECKBOX_PAD, "cursor-pointer")}
+      title={isSelected ? "Retirer de votre validation" : "Inclure dans votre validation"}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={(e) => onToggleRetain(tabId, e.target.checked)}
+        className="size-3.5 shrink-0 rounded border-border accent-emerald-600"
+        aria-label={
+          isSelected
+            ? `${label} retenu — cliquer pour retirer`
+            : `Inclure ${label} dans votre validation`
+        }
+      />
+    </label>
+  );
+}
+
+function respondedVariantTabShellClass(opts: {
+  retainable: boolean;
+  isViewing: boolean;
+  isSelected?: boolean;
+  isPrincipal?: boolean;
+}): string {
+  const { retainable, isViewing } = opts;
+  const focusShell = "border-foreground/20 bg-card shadow-sm ring-1 ring-foreground/5";
+
+  return cn(
+    "flex min-h-[1.85rem] min-w-0 items-center rounded-lg border border-border/80 bg-muted/20 transition",
+    isViewing && focusShell,
+    !isViewing && retainable && "hover:border-border hover:bg-card",
+    !isViewing && !retainable && "opacity-90"
+  );
+}
 
 function RespondedVariantTabs({
   tabs,
   activeTab,
   selectedTabId,
   onTab,
+  onToggleRetain,
+  readOnly = false,
   className,
 }: {
   tabs: { id: string; label: string; retainable: boolean }[];
@@ -241,59 +377,64 @@ function RespondedVariantTabs({
   /** Onglet dont la branche est cochée par le patient (`null` = aucune). */
   selectedTabId: string | null;
   onTab: (id: string) => void;
+  onToggleRetain: (tabId: string, on: boolean) => void;
+  readOnly?: boolean;
   className?: string;
 }) {
   return (
     <div className={cn("min-w-0", className)}>
-      <div
-        className="grid min-w-0 gap-1"
-        style={{ gridTemplateColumns: `repeat(${Math.max(tabs.length, 1)}, minmax(0, 1fr))` }}
-        role="tablist"
-        aria-label="Options pour ce produit"
-      >
+      <div className="flex min-w-0 gap-1" role="tablist" aria-label="Options pour ce produit">
         {tabs.map((tab) => {
           const isViewing = tab.id === activeTab;
           const isSelected = selectedTabId === tab.id;
+          const isPrincipal = tab.id === "principal";
           const dim = !tab.retainable;
           return (
-            <button
+            <div
               key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={isViewing}
-              aria-current={isViewing ? "true" : undefined}
-              title={
-                dim
-                  ? "Non retenable — rupture ou indisponible"
-                  : isSelected
-                    ? isViewing
-                      ? "Votre choix — affiché"
-                      : "Votre choix — cliquez pour afficher"
+              role="presentation"
+              className={cn(
+                respondedVariantTabShellClass({
+                  retainable: tab.retainable,
+                  isViewing,
+                  isSelected,
+                  isPrincipal,
+                }),
+                isPrincipal ? "min-w-[4.75rem] flex-[1.25]" : "min-w-[3.25rem] flex-1"
+              )}
+            >
+              <RespondedVariantTabCheckbox
+                tabId={tab.id}
+                label={tab.label}
+                retainable={tab.retainable}
+                isSelected={isSelected}
+                readOnly={readOnly}
+                onToggleRetain={onToggleRetain}
+              />
+              <button
+                type="button"
+                role="tab"
+                aria-selected={isViewing}
+                aria-current={isViewing ? "true" : undefined}
+                title={
+                  dim
+                    ? "Non retenable — consultez le statut sous le produit"
                     : isViewing
                       ? "Option affichée"
                       : "Cliquez pour consulter"
-              }
-              className={cn(
-                "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg border px-1 py-1.5 text-center transition",
-                dim && "border-transparent bg-transparent text-slate-400 line-through opacity-60",
-                !dim &&
-                  isViewing &&
-                  "z-[1] border-sky-500/75 bg-white font-semibold text-foreground shadow-sm ring-1 ring-sky-200/60",
-                !dim &&
-                  !isViewing &&
-                  "border-border/70 bg-muted/20 text-muted-foreground hover:border-sky-300/50 hover:bg-white hover:text-foreground"
-              )}
-              onClick={() => onTab(tab.id)}
-            >
-              <span className="w-full truncate text-[10px] font-semibold leading-tight">{tab.label}</span>
-              {!dim ? (
-                isSelected ? (
-                  <Check className="size-3.5 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
-                ) : (
-                  <span className="size-3.5 shrink-0" aria-hidden />
-                )
-              ) : null}
-            </button>
+                }
+                className={cn(
+                  "min-w-0 flex-1 truncate py-1 pr-1.5 text-left text-[10px] font-semibold leading-none transition",
+                  dim && !isViewing && "text-muted-foreground",
+                  dim && isViewing && "text-foreground",
+                  !dim && isViewing && "text-foreground",
+                  !dim && !isViewing && "text-muted-foreground"
+                )}
+                onClick={() => onTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            </div>
           );
         })}
       </div>
@@ -319,20 +460,51 @@ function RespondedRetainControl({
   }
   if (readOnly) {
     return retained ? (
-      <span className="block w-full text-center text-[9px] font-bold leading-none text-emerald-700">OK</span>
+      <span className="flex w-full items-center justify-center gap-1 leading-none">
+        <Check className="size-3.5 text-emerald-600" strokeWidth={3} aria-hidden />
+        <span className="text-[9px] font-bold text-emerald-700">OK</span>
+      </span>
     ) : null;
   }
   return (
-    <label className="flex w-full cursor-pointer items-center justify-center gap-1.5 leading-none">
+    <label className="flex w-full cursor-pointer items-center justify-center gap-1 leading-none">
       <input
         type="checkbox"
         checked={retained}
         onChange={(e) => onToggle(e.target.checked)}
-        className="size-4 shrink-0 rounded border-border accent-emerald-600"
+        className="size-3.5 shrink-0 rounded border-border accent-emerald-600"
         aria-label={retained ? "Produit retenu — cliquer pour retirer" : "Inclure ce produit dans votre validation"}
       />
-      <span className="text-[10px] font-bold text-muted-foreground">OK</span>
+      <span className="text-[9px] font-bold text-muted-foreground">OK</span>
     </label>
+  );
+}
+
+function RespondedProposedMotifBlock({
+  label,
+  reason,
+  unavailable,
+}: {
+  label: string;
+  reason: string | null;
+  unavailable: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-md border border-border/70 border-l-2 border-l-violet-400/60 bg-muted/20 px-2 py-1",
+        unavailable && "opacity-90"
+      )}
+    >
+      <p className="text-[10px] leading-snug text-foreground/90">
+        <span className="font-semibold text-violet-800/90">{label}</span>
+        {reason ? (
+          <span className="text-muted-foreground"> — {reason}</span>
+        ) : (
+          <span className="italic text-muted-foreground"> — motif non renseigné</span>
+        )}
+      </p>
+    </div>
   );
 }
 
@@ -397,24 +569,29 @@ function RespondedLineBlock({
   return (
     <div
       className={cn(
-        "w-full min-w-0 border-b border-border/70 py-2.5 transition last:border-b-0",
-        retained && !unavailable && "bg-emerald-50/40",
-        unavailable && "bg-muted/15 saturate-[0.85] [&_img]:opacity-90",
-        notRetained && !unavailable && !variantTabsAbove && "opacity-75"
+        "w-full min-w-0 border-b border-border/60 py-2 transition last:border-b-0",
+        notRetained && !unavailable && !variantTabsAbove && "opacity-70"
       )}
     >
-      <div className="flex items-start gap-2.5">
-        <div className="flex w-[3.85rem] shrink-0 flex-col items-center gap-0.5">
-          <div className={RESPONDED_LINE_THUMB}>{thumbInner}</div>
-          <RespondedRetainControl
-            retained={retained}
-            unavailable={unavailable}
-            readOnly={readOnly}
-            onToggle={onToggleRetain}
-          />
+      <div className="flex items-start gap-2">
+        <div
+          className={cn(
+            "shrink-0",
+            variantTabsAbove ? "w-[3.5rem]" : "flex w-[3.85rem] flex-col items-center gap-0.5"
+          )}
+        >
+          <div className={cn(RESPONDED_LINE_THUMB, variantTabsAbove && "size-[3.5rem]")}>{thumbInner}</div>
+          {!variantTabsAbove ? (
+            <RespondedRetainControl
+              retained={retained}
+              unavailable={unavailable}
+              readOnly={readOnly}
+              onToggle={onToggleRetain}
+            />
+          ) : null}
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p
             className={cn(
               "min-w-0 text-[13px] font-semibold leading-snug",
@@ -427,21 +604,11 @@ function RespondedLineBlock({
           </p>
 
           {isProposedBlock ? (
-            <p
-              className={cn(
-                "line-clamp-2 text-[10px] leading-snug text-muted-foreground",
-                unavailable && "opacity-90"
-              )}
-            >
-              <span className={cn("font-semibold text-foreground/90", uiSecondaryLabel)}>
-                {ajoutOfficineLabel}
-              </span>
-              {variant.proposalReason ? (
-                <> — {variant.proposalReason}</>
-              ) : (
-                <span className="italic"> — motif non renseigné</span>
-              )}
-            </p>
+            <RespondedProposedMotifBlock
+              label={ajoutOfficineLabel}
+              reason={variant.proposalReason}
+              unavailable={unavailable}
+            />
           ) : null}
 
           {!variantTabsAbove ? (
@@ -451,45 +618,48 @@ function RespondedLineBlock({
               showRequested={variant.showRequested}
               requestedQty={variant.requestedQty}
               expectedDate={variant.expectedDate}
+              statusLabel={variant.branch === "principal" ? variant.principalStatusLabel : null}
             />
           ) : variant.expectedDate && bucketId === "to_order" ? (
-            <p className="text-[11px] font-semibold leading-snug text-teal-900">
+            <p className="text-[10px] font-medium text-teal-800/85">
               Réception prévue · {formatDateShortFr(variant.expectedDate)}
             </p>
+          ) : variant.branch === "principal" ? (
+            <RespondedLineQtyMeta
+              bucketId={bucketId}
+              isAlt={false}
+              showRequested={variant.showRequested}
+              requestedQty={variant.requestedQty}
+              expectedDate={null}
+              statusLabel={variant.principalStatusLabel}
+            />
           ) : null}
 
-          <div className="flex w-full items-end justify-between gap-2 pt-0.5">
+          <div className="flex w-full items-end justify-between gap-3 pt-0.5">
             <div className="min-w-0 shrink leading-none">
               <ProductRequestLinePrices
                 unitPrice={unit}
                 totalValue={showQty && total != null ? total : null}
               />
             </div>
-            <div className="flex shrink-0 flex-col items-center gap-1">
-              {showQty && variant.showRequested ? (
-                <p className="whitespace-nowrap text-center text-[9px] leading-none text-muted-foreground">
-                  Qté demandée{" "}
-                  <strong className="tabular-nums text-foreground">{variant.requestedQty}</strong>
-                </p>
+            <div className="flex shrink-0 items-center gap-3">
+              {showQty ? (
+                readOnly ? (
+                  <ProductRequestLineQtyReadonly qty={selQty} appearance="neutral" />
+                ) : (
+                  <ProductRequestLineQtyPicker
+                    qty={selQty}
+                    maxQty={variant.cap}
+                    appearance="neutral"
+                    onSelect={(n) => onSetQty(Math.min(variant.cap, Math.max(1, n)))}
+                  />
+                )
               ) : null}
-              <div className="flex items-center justify-center gap-1.5">
-                {showQty ? (
-                  readOnly ? (
-                    <ProductRequestLineQtyReadonly qty={selQty} />
-                  ) : (
-                    <ProductRequestLineQtyPicker
-                      qty={selQty}
-                      maxQty={variant.cap}
-                      onSelect={(n) => onSetQty(Math.min(variant.cap, Math.max(1, n)))}
-                    />
-                  )
-                ) : null}
-                <RespondedLineNotesButton
-                  productName={variant.productName}
-                  client={variant.clientComment}
-                  pharmacist={variant.pharmacistComment}
-                />
-              </div>
+              <RespondedLineNotesButton
+                productName={variant.productName}
+                client={variant.clientComment}
+                pharmacist={variant.pharmacistComment}
+              />
             </div>
           </div>
         </div>
@@ -599,6 +769,7 @@ export function RespondedPatientLineChooser({
       cap: maxQtyPrincipal(row),
       showProposalMotif: isProposedLine || isExtraProposed,
       proposalReason: row.pharmacist_proposal_reason?.trim() || null,
+      principalStatusLabel: patientRespondedPrincipalTabStatusFr(row),
     };
   };
 
@@ -631,6 +802,7 @@ export function RespondedPatientLineChooser({
       cap: maxQtyAlt(row, alt),
       showProposalMotif: false,
       proposalReason: null,
+      principalStatusLabel: null,
     };
   };
 
@@ -685,8 +857,8 @@ export function RespondedPatientLineChooser({
   }
 
   return (
-    <li className="w-full min-w-0 overflow-visible border-b border-border/70 py-2 last:border-b-0">
-      <div className="pb-2">
+    <li className="w-full min-w-0 overflow-visible border-b border-border/70 py-1.5 last:border-b-0">
+      <div className="pb-1.5">
         <RespondedVariantTabs
           tabs={variants.map((v) => ({
             id: v.tabId,
@@ -696,6 +868,12 @@ export function RespondedPatientLineChooser({
           activeTab={activeTab}
           selectedTabId={selectedTabId}
           onTab={onTab}
+          onToggleRetain={(tabId, on) => {
+            const branch = branchFromTab(tabId);
+            toggleLineRetention(row.id, on, branch);
+            if (on) setBrowseTab(tabId);
+          }}
+          readOnly={readOnly}
         />
       </div>
       <div>
