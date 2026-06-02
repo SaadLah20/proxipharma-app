@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ClipboardList, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
+import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import {
   buildPatientPharmaAmendmentResumeFr,
   type PatientPharmaAmendmentResumeSection,
@@ -54,7 +55,13 @@ export function PatientPharmaUpdateBanner({
             <h2 id="pharma-resume-title" className="text-sm font-bold leading-snug text-violet-950">
               Modifications après validation
             </h2>
-            <p className="mt-0.5 text-[11px] text-violet-800/90">Mise à jour {resume.whenLabel}</p>
+            <p className="mt-0.5 text-[11px] text-violet-800/90">
+              {resume.batchCount > 1
+                ? `${resume.batchCount} mises à jour depuis votre validation · dernière ${formatDateTimeShort24hFr(
+                    bundles[0]?.created_at ?? ""
+                  )}`
+                : `Mise à jour ${resume.whenLabel}`}
+            </p>
           </div>
           <div className="max-h-[min(60vh,24rem)] space-y-3 overflow-y-auto px-3 py-3 text-[11px] leading-snug text-foreground">
             {resume.sections.map((sec: PatientPharmaAmendmentResumeSection) => (

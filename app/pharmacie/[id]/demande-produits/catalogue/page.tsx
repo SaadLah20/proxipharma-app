@@ -274,7 +274,7 @@ export default function DemandeProduitsCataloguePage() {
         </ProductRequestSection>
       </div>
 
-      <PlatformStickyFooter tone="sky" className={t.footerBorder}>
+      <PlatformStickyFooter tone="neutral" className={t.footerBorder}>
         <Button
           type="button"
           size="lg"

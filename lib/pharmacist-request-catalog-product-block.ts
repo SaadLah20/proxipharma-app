@@ -86,7 +86,7 @@ export function pharmacistRequestCatalogProductBlockMessageFr(
   requestStatus: string | null | undefined
 ): string {
   if (requestStatus != null && ["confirmed", "treated"].includes(requestStatus)) {
-    return "Ce produit est déjà sur une ligne encore retenue et non écartée, ou en alternative sur une telle ligne. Écartez ou retirez l’autre occurrence, ou choisissez une autre référence.";
+    return "Ce produit est déjà sur une ligne encore retenue et non retirée, ou en alternative sur une telle ligne. Retirez l’autre occurrence, ou choisissez une autre référence.";
   }
-  return "Ce produit figure déjà sur la réponse (ligne principale ou alternative encore retenue). Choisissez une autre référence, ou réutilisez-le seulement si l’autre ligne est non retenue ou écartée.";
+  return "Ce produit figure déjà sur la réponse (ligne principale ou alternative encore retenue). Choisissez une autre référence, ou réutilisez-le seulement si l’autre ligne est non retenue ou retirée.";
 }

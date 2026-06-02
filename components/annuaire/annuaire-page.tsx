@@ -134,7 +134,7 @@ export function AnnuairePage() {
     }
 
     if (filterOnCall) {
-      list = list.filter((p) => p.open.onCallNow || p.open.onCallToday);
+      list = list.filter((p) => p.open.onCallBadgeVisible);
     }
 
     if (radiusEnabled && userLocation) {

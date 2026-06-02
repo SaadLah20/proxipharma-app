@@ -322,6 +322,14 @@ function isOnCallOnDate(onCall: PharmacyOnCallPeriodRow[], dateIso: string): boo
   return onCall.some((p) => periodOverlapsDate(p, dateIso));
 }
 
+/** Badge public « En garde » : uniquement pendant la permanence active (ends_at exclusif). */
+export function isOnCallBadgeVisibleAt(
+  onCall: PharmacyOnCallPeriodRow[],
+  at: Date = new Date()
+): boolean {
+  return isOnCallNowAt(onCall, at);
+}
+
 /** Statut Ouverte/Fermée + badges garde (garde = ouvert pour le public entre starts_at et ends_at). */
 export function resolvePharmacyOpenStatus(
   weekly: PharmacyWeeklyHourRow[],
@@ -331,12 +339,16 @@ export function resolvePharmacyOpenStatus(
   status: PharmacyOpenStatus;
   openLabel: string;
   onCallNow: boolean;
+  /** Calendrier / onglet Horaires (journée touchée par une garde). */
   onCallToday: boolean;
+  /** Badge annuaire / fiche : garde en cours seulement (pas le lendemain après 9h). */
+  onCallBadgeVisible: boolean;
 } {
   const now = new Date();
   const todayIso = isoDateInCasablanca();
   const onCallNow = isOnCallNowAt(onCall, now);
   const onCallToday = isOnCallOnDate(onCall, todayIso);
+  const onCallBadgeVisible = onCallNow;
 
   const minutes = minutesNowInCasablanca();
   const weekday = isoWeekdayInCasablanca();
@@ -359,5 +371,6 @@ export function resolvePharmacyOpenStatus(
     openLabel: open ? "Ouverte" : "Fermée",
     onCallNow,
     onCallToday,
+    onCallBadgeVisible,
   };
 }

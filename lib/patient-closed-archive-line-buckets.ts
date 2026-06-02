@@ -13,7 +13,7 @@ export function patientClosedArchiveBucketTitleFr(id: PatientClosedArchiveLineBu
     case "recuperes":
       return "Récupérés";
     case "ecartes":
-      return "Écartés";
+      return "Retirés";
     case "non_retenus":
       return "Non retenus";
     default:
@@ -62,6 +62,6 @@ export function bucketPatientClosedArchiveLines<T extends ClosedArchiveLineLike>
 
 export function patientClosedArchiveClosureLabelFr(row: ClosedArchiveLineLike): string {
   if ((row.counter_outcome ?? "unset") === "picked_up") return "Récupéré";
-  if (row.withdrawn_after_confirm) return "Écarté";
+  if (row.withdrawn_after_confirm) return "Retiré";
   return "Non récupéré";
 }

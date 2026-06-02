@@ -11,28 +11,24 @@ const LINKS = [
     label: "Demande de produits",
     description: "Recherchez dans le catalogue et envoyez votre liste.",
     icon: ShoppingBag,
-    className:
-      "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-card to-teal-50/25 text-foreground hover:border-sky-400/55 ring-1 ring-sky-200/55",
     iconClass: "text-sky-700",
-    primary: true,
+    iconBg: "bg-sky-100/90 ring-sky-200/60",
   },
   {
     hrefSuffix: "demande-ordonnance",
     label: "Ordonnance",
     description: "Envoyez une photo ou un PDF de votre ordonnance.",
     icon: FileText,
-    className: "border-amber-200/80 bg-gradient-to-br from-amber-50/90 to-card hover:border-amber-300/90",
     iconClass: "text-amber-800",
-    primary: false,
+    iconBg: "bg-amber-100/90 ring-amber-200/60",
   },
   {
     hrefSuffix: "consultation-libre",
     label: "Consultation libre",
     description: "Posez une question ou décrivez votre besoin.",
     icon: MessageCircle,
-    className: "border-violet-200/80 bg-gradient-to-br from-violet-50/90 to-card hover:border-violet-300/90",
     iconClass: "text-violet-800",
-    primary: false,
+    iconBg: "bg-violet-100/90 ring-violet-200/60",
   },
 ] as const;
 
@@ -46,14 +42,14 @@ export function PharmacyRequestServiceLinks({ pharmacyId }: { pharmacyId: string
             key={item.hrefSuffix}
             href={`/pharmacie/${pharmacyId}/${item.hrefSuffix}`}
             className={cn(
-              "flex items-center gap-3 rounded-xl border-2 p-3.5 shadow-sm transition hover:shadow-md",
-              item.className,
-              item.primary && "ring-1 ring-sky-200/55"
+              "flex items-center gap-3 rounded-xl border border-border/90 bg-card p-3.5 shadow-sm transition hover:border-primary/25 hover:shadow-md",
+              pharmacyPublicCard
             )}
           >
             <span
               className={cn(
-                "flex size-11 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-card/80 shadow-sm",
+                "flex size-11 shrink-0 items-center justify-center rounded-xl ring-1",
+                item.iconBg,
                 item.iconClass
               )}
               aria-hidden

@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Camera, FileImage, Trash2 } from "lucide-react";
+import { Camera, FileImage, FileText, Trash2 } from "lucide-react";
+import { PharmacyFlowHero, PharmacyPublicBackLink, pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
+import { platformDashboardChrome } from "@/lib/platform-dashboard-chrome";
 import { supabase } from "@/lib/supabase";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { PlatformStickyFooter } from "@/components/layout/platform-sticky-footer";
 import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
 import { cn } from "@/lib/utils";
@@ -193,7 +194,7 @@ export default function DemandeOrdonnancePage() {
 
   if (!sessionReady) {
     return (
-      <main className="min-h-screen bg-amber-50/40 p-6">
+      <main className="min-h-screen bg-background p-6">
         <p className="text-sm text-muted-foreground">Vérification de la session…</p>
       </main>
     );
@@ -202,38 +203,32 @@ export default function DemandeOrdonnancePage() {
   return (
     <main
       className={cn(
-        "min-h-screen touch-pan-y bg-gradient-to-b from-amber-50/80 to-slate-50 p-4 text-slate-900 antialiased sm:p-5",
+        "min-h-screen touch-pan-y bg-background p-4 text-foreground antialiased sm:p-5",
         stickyFooterPadClass("standard")
       )}
     >
       <div className="mx-auto max-w-lg">
-        <Link
-          href={`/pharmacie/${pharmacyId}`}
-          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "mb-3 -ml-2 text-amber-900")}
-        >
-          ← Retour à la pharmacie
-        </Link>
+        <PharmacyPublicBackLink href={`/pharmacie/${pharmacyId}`}>Retour à la pharmacie</PharmacyPublicBackLink>
 
-        <section className="rounded-2xl border-2 border-amber-200/80 bg-white p-4 shadow-sm">
-          <h1 className="text-lg font-bold text-amber-950">Envoyer une ordonnance</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            {pharmacyName ? (
-              <>
-                Pharmacie <strong>{pharmacyName}</strong> — photo nette, bien éclairée (max. 2 pages).
-              </>
-            ) : (
-              <>Photo nette, bien éclairée (max. 2 pages).</>
-            )}
-          </p>
-        </section>
+        <PharmacyFlowHero
+          theme="prescription"
+          icon={FileText}
+          eyebrow="Ordonnance"
+          title="Envoyer une ordonnance"
+          subtitle={
+            pharmacyName
+              ? `Pharmacie ${pharmacyName} — photo nette, bien éclairée (max. 2 pages).`
+              : "Photo nette, bien éclairée (max. 2 pages)."
+          }
+        />
 
-        <section className="mt-4 space-y-3 rounded-2xl border-2 border-slate-200 bg-white p-4 shadow-sm">
+        <section className={cn("mt-4 space-y-3 p-4", pharmacyPublicCard)}>
           <p className="text-sm font-semibold text-slate-900">Photos de l’ordonnance</p>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"
-              className="h-11 gap-2 border-amber-300 text-amber-950"
+              className="h-11 gap-2 border-border text-foreground"
               onClick={() => cameraRef.current?.click()}
               disabled={pages.length >= MAX_PAGES}
             >
@@ -243,7 +238,7 @@ export default function DemandeOrdonnancePage() {
             <Button
               type="button"
               variant="outline"
-              className="h-11 gap-2 border-amber-300 text-amber-950"
+              className="h-11 gap-2 border-border text-foreground"
               onClick={() => fileRef.current?.click()}
               disabled={pages.length >= MAX_PAGES}
             >
@@ -277,7 +272,7 @@ export default function DemandeOrdonnancePage() {
           {pages.length > 0 ? (
             <ul className="grid gap-3 sm:grid-cols-2">
               {pages.map((p, i) => (
-                <li key={p.previewUrl} className="relative overflow-hidden rounded-xl border border-amber-200/70">
+                <li key={p.previewUrl} className="relative overflow-hidden rounded-xl border border-border/80">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.previewUrl} alt={`Page ${i + 1}`} className="aspect-[3/4] w-full object-cover" />
                   <button
@@ -295,7 +290,7 @@ export default function DemandeOrdonnancePage() {
               ))}
             </ul>
           ) : (
-            <p className="rounded-lg border border-dashed border-amber-200/80 bg-amber-50/50 p-4 text-center text-sm text-amber-950/80">
+            <p className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
               Aucune photo pour le moment.
             </p>
           )}
@@ -325,10 +320,10 @@ export default function DemandeOrdonnancePage() {
         ) : null}
       </div>
 
-      <PlatformStickyFooter tone="amber" zIndex={10020}>
+      <PlatformStickyFooter tone="neutral" zIndex={10020}>
         <Button
           type="button"
-          className="h-10 w-full bg-amber-700 text-sm font-semibold hover:bg-amber-800"
+          className={cn("h-10 w-full text-sm font-semibold", platformDashboardChrome.cta)}
           disabled={submitLoading}
           onClick={() => {
             const err = validate();
@@ -346,7 +341,7 @@ export default function DemandeOrdonnancePage() {
       {confirmOpen ? (
           <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 p-4 sm:items-center">
             <div
-              className="w-full max-w-md rounded-2xl border border-amber-200 bg-white p-4 shadow-xl"
+              className="w-full max-w-md rounded-2xl border border-border bg-white p-4 shadow-xl"
               role="dialog"
               aria-modal="true"
             >
@@ -360,7 +355,7 @@ export default function DemandeOrdonnancePage() {
                 </Button>
                 <Button
                   type="button"
-                  className="flex-1 bg-amber-700 hover:bg-amber-800"
+                  className={cn("flex-1", platformDashboardChrome.cta)}
                   disabled={submitLoading}
                   onClick={() => void submit()}
                 >

@@ -47,7 +47,7 @@ export function lineEventTitle(kind: LineEventKind, audience: LineHistoryAudienc
     case "amend_withdraw_after_confirm":
     case "withdraw_auto_at_closure":
     case "withdraw_inferred":
-      return ph ? "Produit écarté" : "Produit écarté de votre commande";
+      return ph ? "Produit retiré" : "Produit retiré de votre commande";
     case "amend_reintegrate":
       return ph ? "Réintégré dans le dossier" : "De nouveau dans votre commande";
     case "amend_validated_qty_change":
@@ -97,7 +97,7 @@ export function lineEventBadgeLabel(kind: LineEventKind | string): string | null
     case "amend_withdraw_after_confirm":
     case "withdraw_auto_at_closure":
     case "withdraw_inferred":
-      return "Écarté de la commande active";
+      return "Retiré de la commande active";
     case "amend_reintegrate":
       return "Réintégré";
     case "amend_line_brought_to_reserve":
@@ -118,8 +118,8 @@ export function supplyAmendmentBodyFact(
   switch (kind) {
     case "withdraw_after_confirm":
       return ph
-        ? "Écarté de la commande active (accord patient)."
-        : "Écarté de votre commande après validation.";
+        ? "Retiré de la commande active (accord patient)."
+        : "Retiré de votre commande après validation.";
     case "reintegrate_after_confirm":
     case "reintegrate":
       return ph ? "Réintégré dans la commande." : "Réintégré dans votre commande.";

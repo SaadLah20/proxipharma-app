@@ -137,8 +137,7 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
     <article
       className={cn(
         "overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm transition hover:border-primary/20 hover:shadow-md",
-        pharmacy.open.onCallNow && "border-l-4 border-l-amber-500",
-        !pharmacy.open.onCallNow && pharmacy.open.onCallToday && "border-l-4 border-l-amber-300"
+        pharmacy.open.onCallBadgeVisible && "border-l-4 border-l-amber-500",
       )}
     >
       <div className="relative aspect-[2.15/1] min-h-[6.25rem] overflow-hidden border-b border-border/60 sm:aspect-[2.25/1]">
@@ -174,10 +173,8 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
               <span className={pharmacyOpenStatusOverlayBadgeClass(pharmacy.open.status)}>
                 {pharmacy.open.openLabel}
               </span>
-              {pharmacy.open.onCallNow ? (
+              {pharmacy.open.onCallBadgeVisible ? (
                 <span className={pharmacyOnCallOverlayBadgeClass(true)}>En garde</span>
-              ) : pharmacy.open.onCallToday ? (
-                <span className={pharmacyOnCallOverlayBadgeClass(false)}>Garde auj.</span>
               ) : null}
             </div>
             {pharmacy.distanceKm != null ? (

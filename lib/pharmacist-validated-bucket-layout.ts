@@ -107,7 +107,7 @@ export function buildPharmacistValidatedBucketGroups<T extends PatientLineLike>(
   if (retireesApresValidation.length > 0) {
     groups.push({
       kind: "red_ecart",
-      title: "Écart après validation",
+      title: "Retrait après validation",
       hint: "Retrait convenu avec le patient — trace conservée.",
       rows: retireesApresValidation,
       collapsible: true,

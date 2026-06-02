@@ -56,7 +56,7 @@ function mapAmendmentBadgeFr(raw: string): string | null {
       return "Ajouté par la pharmacie";
     case "Retiré par la pharmacie":
     case "Écarté de la commande active":
-      return "Écarté";
+      return "Retiré";
     case "Récupéré au comptoir":
       return "Récupéré au comptoir";
     default:
@@ -110,7 +110,7 @@ export function buildPatientValidatedLineLabelsFr(input: {
   if (closure) {
     out.push({ key: "closure", text: closure, tone: "status" });
   } else if (withdrawn) {
-    out.push({ key: "ecart", text: "Écarté par la pharmacie", tone: "event" });
+    out.push({ key: "ecart", text: "Retiré par la pharmacie", tone: "event" });
   } else if (pickedUp) {
     // Le pharmacien a remis le produit au comptoir : libellé « Récupéré » côté patient.
     out.push({ key: "collected", text: "Récupéré", tone: "collected" });
@@ -152,7 +152,7 @@ export function buildPatientValidatedLineLabelsFr(input: {
     const mapped = mapAmendmentBadgeFr(raw);
     if (!mapped || seenEvent.has(mapped)) continue;
     if (mapped === "Ajouté par la pharmacie" && ajoutOrigin) continue;
-    if (mapped === "Écarté par la pharmacie" && (withdrawn || out.some((l) => l.key === "ecart"))) continue;
+    if (mapped === "Retiré par la pharmacie" && (withdrawn || out.some((l) => l.key === "ecart"))) continue;
     seenEvent.add(mapped);
     out.push({ key: `event-${mapped}`, text: mapped, tone: "event" });
   }

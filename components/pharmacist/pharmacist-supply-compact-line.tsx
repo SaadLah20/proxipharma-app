@@ -302,7 +302,7 @@ export function PharmacistSupplyCompactLine({
                                       onMenuWithdraw();
                                     }}
                                   >
-                                    Écarter la ligne…
+                                    Retirer la ligne…
                                   </button>
                                 </li>
                               ) : null}
