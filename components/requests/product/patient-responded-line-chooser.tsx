@@ -253,18 +253,12 @@ const TAB_CHECKBOX_PAD = "flex shrink-0 items-center py-1 pl-2 pr-1";
 
 function RespondedVariantTabCheckbox({
   tabId,
-  label,
   retainable,
   isSelected,
-  readOnly,
-  onToggleRetain,
 }: {
   tabId: string;
-  label: string;
   retainable: boolean;
   isSelected: boolean;
-  readOnly: boolean;
-  onToggleRetain: (tabId: string, on: boolean) => void;
 }) {
   const isPrincipal = tabId === "principal";
   const closedBoxClass = cn(
@@ -283,67 +277,21 @@ function RespondedVariantTabCheckbox({
   }
 
   if (isPrincipal) {
-    if (readOnly) {
-      return (
-        <span className={cn(TAB_CHECKBOX_PAD)} aria-hidden>
-          <span className={closedBoxClass} />
-        </span>
-      );
-    }
     return (
-      <button
-        type="button"
-        className={TAB_CHECKBOX_PAD}
-        title={isSelected ? "Retirer votre demande initiale" : "Retenir votre demande initiale"}
-        aria-pressed={isSelected}
-        aria-label={
-          isSelected
-            ? `${label} retenu — cliquer pour retirer`
-            : `Inclure ${label} dans votre validation`
-        }
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleRetain(tabId, !isSelected);
-        }}
-      >
-        <span className={closedBoxClass} aria-hidden />
-      </button>
-    );
-  }
-
-  if (readOnly) {
-    return (
-      <span
-        className={cn(TAB_CHECKBOX_PAD, "justify-center")}
-        aria-hidden={!isSelected}
-      >
-        {isSelected ? (
-          <Check className="size-3.5 text-emerald-600" strokeWidth={3} />
-        ) : (
-          <span className={closedBoxClass} />
-        )}
+      <span className={cn(TAB_CHECKBOX_PAD)} aria-hidden>
+        <span className={closedBoxClass} />
       </span>
     );
   }
 
   return (
-    <label
-      className={cn(TAB_CHECKBOX_PAD, "cursor-pointer")}
-      title={isSelected ? "Retirer de votre validation" : "Inclure dans votre validation"}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <input
-        type="checkbox"
-        checked={isSelected}
-        onChange={(e) => onToggleRetain(tabId, e.target.checked)}
-        className="size-3.5 shrink-0 rounded border-border accent-emerald-600"
-        aria-label={
-          isSelected
-            ? `${label} retenu — cliquer pour retirer`
-            : `Inclure ${label} dans votre validation`
-        }
-      />
-    </label>
+    <span className={cn(TAB_CHECKBOX_PAD, "justify-center")} aria-hidden={!isSelected}>
+      {isSelected ? (
+        <Check className="size-3.5 text-emerald-600" strokeWidth={3} />
+      ) : (
+        <span className={closedBoxClass} />
+      )}
+    </span>
   );
 }
 
@@ -364,13 +312,91 @@ function respondedVariantTabShellClass(opts: {
   );
 }
 
+function RespondedVariantRetainBar({
+  tabId,
+  retainable,
+  isSelected,
+  readOnly,
+  onToggle,
+}: {
+  tabId: string;
+  retainable: boolean;
+  isSelected: boolean;
+  readOnly: boolean;
+  onToggle: (on: boolean) => void;
+}) {
+  const isPrincipal = tabId === "principal";
+  const retainLabel = isPrincipal ? "Retenir votre demande initiale" : "Retenir cette alternative";
+
+  if (!retainable) {
+    return (
+      <p className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-3 py-2 text-center text-[10px] leading-snug text-muted-foreground">
+        {isPrincipal
+          ? "Votre demande initiale n’est pas retenable — consultez les alternatives proposées."
+          : "Cette alternative n’est pas retenable."}
+      </p>
+    );
+  }
+
+  if (isPrincipal) {
+    const closedBoxClass = cn(
+      "size-4 shrink-0 rounded border bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]",
+      isSelected ? "border-emerald-500/70" : "border-border/80"
+    );
+    if (readOnly) {
+      return (
+        <div className="flex w-full items-center justify-center gap-2 rounded-lg border border-border/80 bg-muted/15 px-3 py-2">
+          <span className={closedBoxClass} aria-hidden />
+          <span className="text-[11px] font-semibold leading-snug text-foreground">{retainLabel}</span>
+        </div>
+      );
+    }
+    return (
+      <button
+        type="button"
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-border/80 bg-muted/15 px-3 py-2 transition hover:bg-muted/25"
+        aria-pressed={isSelected}
+        aria-label={isSelected ? `${retainLabel} — cliquer pour retirer` : retainLabel}
+        onClick={() => onToggle(!isSelected)}
+      >
+        <span className={closedBoxClass} aria-hidden />
+        <span className="text-[11px] font-semibold leading-snug text-foreground">{retainLabel}</span>
+      </button>
+    );
+  }
+
+  if (readOnly) {
+    return (
+      <div className="flex w-full items-center justify-center gap-2 rounded-lg border border-border/80 bg-muted/15 px-3 py-2">
+        {isSelected ? (
+          <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
+        ) : (
+          <span className="size-4 shrink-0 rounded border border-border/80 bg-white" aria-hidden />
+        )}
+        <span className="text-[11px] font-semibold leading-snug text-foreground">{retainLabel}</span>
+      </div>
+    );
+  }
+
+  return (
+    <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-border/80 bg-muted/15 px-3 py-2 transition hover:bg-muted/25">
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={(e) => onToggle(e.target.checked)}
+        className="size-4 shrink-0 rounded border-border accent-emerald-600"
+        aria-label={isSelected ? `${retainLabel} — cliquer pour retirer` : retainLabel}
+      />
+      <span className="text-[11px] font-semibold leading-snug text-foreground">{retainLabel}</span>
+    </label>
+  );
+}
+
 function RespondedVariantTabs({
   tabs,
   activeTab,
   selectedTabId,
   onTab,
-  onToggleRetain,
-  readOnly = false,
   className,
 }: {
   tabs: { id: string; label: string; retainable: boolean }[];
@@ -378,8 +404,6 @@ function RespondedVariantTabs({
   /** Onglet dont la branche est cochée par le patient (`null` = aucune). */
   selectedTabId: string | null;
   onTab: (id: string) => void;
-  onToggleRetain: (tabId: string, on: boolean) => void;
-  readOnly?: boolean;
   className?: string;
 }) {
   return (
@@ -406,11 +430,8 @@ function RespondedVariantTabs({
             >
               <RespondedVariantTabCheckbox
                 tabId={tab.id}
-                label={tab.label}
                 retainable={tab.retainable}
                 isSelected={isSelected}
-                readOnly={readOnly}
-                onToggleRetain={onToggleRetain}
               />
               <button
                 type="button"
@@ -861,7 +882,7 @@ export function RespondedPatientLineChooser({
 
   return (
     <li className={cn(patientBucketProductRowClass, "overflow-visible")}>
-      <div className="pb-2">
+      <div className="space-y-2 pb-2">
         <RespondedVariantTabs
           tabs={variants.map((v) => ({
             id: v.tabId,
@@ -871,12 +892,16 @@ export function RespondedPatientLineChooser({
           activeTab={activeTab}
           selectedTabId={selectedTabId}
           onTab={onTab}
-          onToggleRetain={(tabId, on) => {
-            const branch = branchFromTab(tabId);
-            toggleLineRetention(row.id, on, branch);
-            if (on) setBrowseTab(tabId);
-          }}
+        />
+        <RespondedVariantRetainBar
+          tabId={activeVariant.tabId}
+          retainable={activeVariant.cap > 0}
+          isSelected={selectedTabId === activeVariant.tabId}
           readOnly={readOnly}
+          onToggle={(on) => {
+            toggleLineRetention(row.id, on, activeBranch);
+            if (on) setBrowseTab(activeVariant.tabId);
+          }}
         />
       </div>
       <div>
