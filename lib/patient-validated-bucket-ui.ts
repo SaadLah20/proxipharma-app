@@ -1,4 +1,4 @@
-/** Titres et couleurs des groupes « validée / traitée » (alignés page répondue). */
+/** Titres et accents des groupes « validée / traitée » (alignés vue répondue épurée). */
 
 export type PatientValidatedBucketId = "dispo_officine" | "commande" | "hors_perimetre";
 
@@ -24,13 +24,64 @@ export function patientValidatedBucketTitleFr(
   }
 }
 
-export function patientValidatedBucketHeaderClass(id: PatientValidatedBucketId): string {
+export function patientValidatedBucketAriaTitleFr(
+  id: PatientValidatedBucketId,
+  isTreatedView: boolean
+): string {
+  const title = patientValidatedBucketTitleFr(id, isTreatedView);
   switch (id) {
     case "dispo_officine":
-      return "text-sky-950";
+      return isTreatedView
+        ? `${title} — en attente de votre passage en officine`
+        : `${title} — stock en officine à mettre de côté`;
     case "commande":
-      return "text-teal-950";
+      return isTreatedView
+        ? `${title} — réception ou retrait en cours`
+        : `${title} — commande en cours pour vous`;
     case "hors_perimetre":
-      return "text-amber-950";
+      return `${title} — suivi particulier avec l'officine`;
   }
+}
+
+function cnValidatedAccent(id: PatientValidatedBucketId, part: "header" | "shell"): string {
+  const base =
+    part === "header"
+      ? "border border-border/80 bg-card shadow-none"
+      : "border border-border/80 bg-card shadow-none";
+  switch (id) {
+    case "dispo_officine":
+      return `${base} border-l-[3px] border-l-sky-500/80`;
+    case "commande":
+      return `${base} border-l-[3px] border-l-teal-600/80`;
+    case "hors_perimetre":
+      return `${base} border-l-[3px] border-l-amber-500/80`;
+  }
+}
+
+export function patientValidatedBucketHeaderBarClass(id: PatientValidatedBucketId): string {
+  return cnValidatedAccent(id, "header");
+}
+
+export function patientValidatedBucketSectionShellClass(id: PatientValidatedBucketId): string {
+  return cnValidatedAccent(id, "shell");
+}
+
+export function patientValidatedBucketAccentTextClass(id: PatientValidatedBucketId): string {
+  switch (id) {
+    case "dispo_officine":
+      return "text-sky-700";
+    case "commande":
+      return "text-teal-700";
+    case "hors_perimetre":
+      return "text-amber-800";
+  }
+}
+
+/** @deprecated Préférer patientValidatedBucketAccentTextClass — conservé pour appels legacy. */
+export function patientValidatedBucketHeaderClass(id: PatientValidatedBucketId): string {
+  return patientValidatedBucketAccentTextClass(id);
+}
+
+export function patientValidatedBucketCountBadgeClass(): string {
+  return "bg-muted/50 text-foreground ring-border/60";
 }
