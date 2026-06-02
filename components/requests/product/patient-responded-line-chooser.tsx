@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
-import { Package, X, HelpCircle } from "lucide-react";
+import { useId, useMemo, useState } from "react";
+import { Package, X } from "lucide-react";
 import {
   ProductRequestLinePrices,
   ProductRequestLineQtyPicker,
@@ -279,15 +279,19 @@ function RespondedVariantTabs({
                       : "Cliquez pour consulter"
               }
               className={cn(
-                "flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-1.5 text-center transition",
-                dim && "border-transparent bg-transparent text-slate-400 line-through",
+                "relative flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1.5 text-center transition",
+                dim && "border border-transparent bg-transparent text-slate-400 line-through",
                 !dim &&
                   isViewing &&
-                  "border-primary bg-white text-foreground shadow-md ring-2 ring-primary/30",
+                  "z-[1] border-2 border-sky-500 bg-white text-foreground shadow-md ring-2 ring-sky-200/70",
                 !dim &&
                   !isViewing &&
-                  "border-border/60 bg-muted/30 text-muted-foreground hover:border-primary/35 hover:bg-white/90 hover:text-foreground",
-                !dim && isSelected && !isViewing && "border-emerald-500/60 bg-emerald-50/50 ring-1 ring-emerald-400/30"
+                  isSelected &&
+                  "border border-emerald-400/35 bg-emerald-50/30 text-foreground",
+                !dim &&
+                  !isViewing &&
+                  !isSelected &&
+                  "border border-border/70 bg-muted/25 text-muted-foreground hover:border-sky-300/55 hover:bg-white hover:text-foreground"
               )}
               onClick={() => onTab(tab.id)}
             >
@@ -296,7 +300,7 @@ function RespondedVariantTabs({
                 <span
                   className={cn(
                     "size-1.5 shrink-0 rounded-full",
-                    isSelected ? "bg-emerald-600" : "bg-transparent ring-1 ring-muted-foreground/35"
+                    isSelected ? "bg-emerald-500/80" : "bg-transparent ring-1 ring-muted-foreground/30"
                   )}
                   aria-hidden
                 />
@@ -328,63 +332,11 @@ function RespondedVariantTabs({
         ) : (
           <>
             Consulté : <span className="font-semibold text-foreground">{viewingLabel}</span>
-            <span className="text-muted-foreground"> — cochez « Retenir » pour inclure un produit</span>
+            <span className="text-muted-foreground"> — cochez OK pour inclure un produit</span>
           </>
         )}
       </p>
     </div>
-  );
-}
-
-function RespondedRetainHelpModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const titleId = useId();
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  return (
-    <AppModalOverlay open aria-labelledby={titleId} onBackdropClick={onClose}>
-      <div
-        className={cn("w-full max-w-sm overflow-hidden rounded-2xl border bg-card shadow-2xl sm:mx-auto", t.modalShell)}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className={cn("flex items-start justify-between gap-2 border-b px-3 py-2", t.modalHeader)}>
-          <h2 id={titleId} className="text-sm font-semibold text-foreground">
-            Retenir un produit
-          </h2>
-          <button
-            type="button"
-            className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted/60"
-            aria-label="Fermer"
-            onClick={onClose}
-          >
-            <X className="size-4" aria-hidden />
-          </button>
-        </div>
-        <div className="space-y-2 px-3 py-3 text-[12px] leading-snug text-muted-foreground">
-          <p>
-            Cochez <strong className="text-foreground">Retenir</strong> pour inclure ce produit dans votre validation.
-          </p>
-          <p>
-            S&apos;il existe des alternatives, consultez les onglets puis retenez celle que vous choisissez — une seule
-            option par ligne.
-          </p>
-        </div>
-        <div className="border-t border-border/60 px-3 py-2">
-          <button type="button" className={uiActionBtnModalDismiss()} onClick={onClose}>
-            Compris
-          </button>
-        </div>
-      </div>
-    </AppModalOverlay>
   );
 }
 
@@ -393,86 +345,33 @@ function RespondedRetainControl({
   unavailable,
   readOnly,
   onToggle,
-  layout = "inline",
 }: {
   retained: boolean;
   unavailable: boolean;
   readOnly: boolean;
   onToggle: (on: boolean) => void;
-  layout?: "inline" | "underThumb";
 }) {
-  const [helpOpen, setHelpOpen] = useState(false);
-  const underThumb = layout === "underThumb";
-
   if (unavailable) {
     return (
-      <span
-        className={cn(
-          "text-center text-[9px] font-semibold leading-tight text-slate-500",
-          underThumb ? "w-full px-0.5" : "shrink-0 text-[10px]"
-        )}
-      >
-        Non retenable
-      </span>
+      <span className="block w-full text-center text-[8px] font-semibold leading-none text-slate-400">—</span>
     );
   }
   if (readOnly) {
     return retained ? (
-      <span
-        className={cn(
-          "inline-flex items-center justify-center gap-1 rounded-md border border-emerald-300/80 bg-emerald-50 font-bold text-emerald-800",
-          underThumb ? "w-full flex-col px-1 py-1 text-[9px]" : "shrink-0 px-2 py-0.5 text-[10px]"
-        )}
-      >
-        <span
-          className={cn(
-            "inline-flex items-center justify-center rounded-sm bg-emerald-600 text-white",
-            underThumb ? "size-3 text-[8px]" : "size-3.5 text-[9px]"
-          )}
-          aria-hidden
-        >
-          ✓
-        </span>
-        Retenu
-      </span>
+      <span className="block w-full text-center text-[9px] font-bold leading-none text-emerald-700">OK</span>
     ) : null;
   }
   return (
-    <>
-      <div className={cn("flex items-center gap-1", underThumb && "w-full flex-col gap-0.5")}>
-        <label
-          className={cn(
-            "inline-flex cursor-pointer items-center rounded-lg border border-border bg-background shadow-sm transition hover:bg-muted/40 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/30",
-            underThumb
-              ? "w-full flex-col justify-center gap-0.5 px-1 py-1"
-              : "gap-1.5 px-2 py-1"
-          )}
-        >
-          <input
-            type="checkbox"
-            checked={retained}
-            onChange={(e) => onToggle(e.target.checked)}
-            className={cn("shrink-0 rounded border-border accent-emerald-600", underThumb ? "size-3.5" : "size-4")}
-            aria-label={retained ? "Produit retenu — cliquer pour retirer" : "Retenir ce produit dans votre validation"}
-          />
-          <span className={cn("font-bold text-foreground", underThumb ? "text-[9px] leading-none" : "text-[10px]")}>
-            {retained ? "Retenu" : "Retenir"}
-          </span>
-        </label>
-        <button
-          type="button"
-          onClick={() => setHelpOpen(true)}
-          className={cn(
-            "inline-flex items-center justify-center rounded-full border border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-            underThumb ? "size-5" : "size-6"
-          )}
-          aria-label="Aide — retenir un produit"
-        >
-          <HelpCircle className={cn("shrink-0", underThumb ? "size-3" : "size-3.5")} strokeWidth={2.25} aria-hidden />
-        </button>
-      </div>
-      <RespondedRetainHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
-    </>
+    <label className="flex w-full cursor-pointer flex-col items-center gap-0 leading-none">
+      <input
+        type="checkbox"
+        checked={retained}
+        onChange={(e) => onToggle(e.target.checked)}
+        className="size-3 shrink-0 rounded-sm border-border accent-emerald-600"
+        aria-label={retained ? "Produit retenu — cliquer pour retirer" : "Inclure ce produit dans votre validation"}
+      />
+      <span className="mt-0.5 text-[8px] font-bold text-muted-foreground">OK</span>
+    </label>
   );
 }
 
@@ -544,14 +443,13 @@ function RespondedLineBlock({
       )}
     >
       <div className="flex items-start gap-2.5">
-        <div className="flex w-[3.85rem] shrink-0 flex-col items-stretch gap-1.5">
+        <div className="flex w-[3.85rem] shrink-0 flex-col items-center gap-0.5">
           <div className={RESPONDED_LINE_THUMB}>{thumbInner}</div>
           <RespondedRetainControl
             retained={retained}
             unavailable={unavailable}
             readOnly={readOnly}
             onToggle={onToggleRetain}
-            layout="underThumb"
           />
         </div>
 
@@ -600,14 +498,15 @@ function RespondedLineBlock({
                 totalValue={showQty && total != null ? total : null}
               />
             </div>
-            <div className="flex shrink-0 flex-col items-end gap-0.5">
+            <div className="flex shrink-0 flex-col items-center gap-1">
               {showQty && variant.showRequested ? (
-                <span className="text-[10px] text-muted-foreground">
-                  Qté demandée{" "}
+                <p className="text-center text-[9px] leading-tight text-muted-foreground">
+                  Qté demandée
+                  <br />
                   <strong className="tabular-nums text-foreground">{variant.requestedQty}</strong>
-                </span>
+                </p>
               ) : null}
-              <div className="flex items-center justify-end gap-1.5">
+              <div className="flex items-center justify-center gap-1.5">
                 {showQty ? (
                   readOnly ? (
                     <ProductRequestLineQtyReadonly qty={selQty} />
