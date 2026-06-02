@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search } from "lucide-react";
 import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { RequestKindHubDashboard } from "@/components/requests/hub/request-kind-hub-dashboard";
 import {
@@ -14,7 +14,6 @@ import {
   type PatientRequestRow,
 } from "@/components/requests/demande-hub-ui";
 import { PatientProductDemandeHubCard } from "@/components/requests/product/patient-product-demande-hub-card";
-import { ProductHubListResultsBar } from "@/components/requests/product/product-hub-list-results-bar";
 import { filterPatientProductHubListRows } from "@/lib/patient-product-hub-sections";
 import {
   patientHubListActiveFiltersSummary,
@@ -248,6 +247,13 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
 
+  const listTabLabel =
+    kindId === "prescription"
+      ? "Toutes les ordonnances"
+      : kindId === "free_consultation"
+        ? "Toutes les consultations"
+        : "Toutes les demandes";
+
   const filterBtn = uiActionBtnFilterToggle();
   const hubSubtitle =
     kindId === "prescription"
@@ -346,31 +352,32 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
           )}
         </>
       ) : (
-        <div className="mt-4 space-y-4">
-          <section className={filterChrome.shell}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 items-start gap-2.5">
-                <span className={filterChrome.iconBox}>
-                  <SlidersHorizontal className="size-4" aria-hidden />
-                </span>
-                <div className="min-w-0">
-                  <h2 className={filterChrome.title}>Recherche et filtres</h2>
-                  <p className={filterChrome.subtitle}>
-                    Uniquement pour cette liste — le tableau de bord reste inchangé.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFiltersExpandedUser(!(filtersExpandedUser ?? filtersAutoExpand))}
-                className={filterBtn}
-              >
-                {filtersPanelExpanded ? "Réduire" : "Ouvrir"}
+        <div className="mt-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-bold text-foreground">{listTabLabel}</h2>
+            <button
+              type="button"
+              onClick={() => setFiltersExpandedUser(!(filtersExpandedUser ?? filtersAutoExpand))}
+              className={filterBtn}
+            >
+              {filtersPanelExpanded ? "Masquer les filtres" : "Filtres"}
+            </button>
+          </div>
+
+          {listHasActiveFilters && !filtersPanelExpanded ? (
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-[11px] leading-snug text-foreground">
+              <p>
+                <span className="font-semibold">Filtres actifs :</span> {listFiltersSummary}
+              </p>
+              <button type="button" onClick={clearListFilters} className={clsx("mt-1.5", filterChrome.clearLink)}>
+                Tout effacer
               </button>
             </div>
+          ) : null}
 
-            {filtersPanelExpanded ? (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4">
+          {filtersPanelExpanded ? (
+            <section className={filterChrome.shell}>
+              <div className="grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4">
                 <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
                   <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                     Référence dossier
@@ -430,62 +437,14 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                   </select>
                 </label>
               </div>
-            ) : listHasActiveFilters ? (
-              <div className="mt-3 rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-[11px] leading-snug text-foreground">
-                <p>
-                  <span className="font-semibold">Filtres actifs (liste) :</span> {listFiltersSummary}
-                </p>
-                <button
-                  type="button"
-                  onClick={clearListFilters}
-                  className={clsx("mt-1.5", filterChrome.clearLink)}
-                >
-                  Tout effacer
-                </button>
-              </div>
-            ) : (
-              <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
-                Référence, statut, pharmacie ou tri — sans modifier le tableau de bord.
-              </p>
-            )}
-          </section>
-
-          {isProductHub ? (
-            <ProductHubListResultsBar filteredCount={filteredSorted.length} totalCount={rows.length} />
-          ) : (
-            <p className="text-[11px] font-semibold tabular-nums text-muted-foreground" role="status">
-              {filteredSorted.length === 0
-                ? "Aucun dossier affiché"
-                : `${filteredSorted.length} dossier${filteredSorted.length > 1 ? "s" : ""} affiché${filteredSorted.length > 1 ? "s" : ""}`}
-              {filteredSorted.length !== rows.length && rows.length > 0
-                ? ` sur ${rows.length} au total`
-                : rows.length > 0
-                  ? " (liste complète)"
-                  : ""}
-            </p>
-          )}
+            </section>
+          ) : null}
 
           {filteredSorted.length === 0 ? (
             <div className="space-y-2 py-6 text-center text-xs text-muted-foreground">
-              <p>
-                {activeBucket?.key === "envoyees"
-                  ? kindId === "prescription"
-                    ? "Aucune ordonnance en attente de réponse avec ces filtres."
-                    : kindId === "free_consultation"
-                      ? "Aucune consultation en attente de réponse avec ces filtres."
-                      : "Aucune demande en attente de réponse pharmacie avec ces filtres."
-                  : activeBucket
-                    ? `Aucune demande au statut « ${activeBucket.label} » avec ces filtres.`
-                    : listHasActiveFilters
-                      ? "Aucun résultat avec ces filtres."
-                      : "Aucun résultat."}
-              </p>
+              <p>Aucun résultat.</p>
               {listHasActiveFilters ? (
-                <button
-                  type="button"
-                  onClick={clearListFilters}
-                  className={filterChrome.clearLink}
-                >
+                <button type="button" onClick={clearListFilters} className={filterChrome.clearLink}>
                   Effacer les filtres
                 </button>
               ) : null}

@@ -13,8 +13,11 @@ import {
   type PharmacistRequestRow,
 } from "@/components/requests/demande-hub-ui";
 import { PharmacistProductDemandeHubCard } from "@/components/requests/product/pharmacist-product-demande-hub-card";
-import { ProductHubListResultsBar } from "@/components/requests/product/product-hub-list-results-bar";
 import { filterPharmacistProductHubListRows } from "@/lib/pharmacist-product-hub-sections";
+import {
+  pharmacistHubListActiveFiltersSummary,
+  pharmacistHubListHasActiveFilters,
+} from "@/lib/pharmacist-request-hub-list-filters";
 import { hubListFilterChrome as filterChrome } from "@/lib/hub-list-filter-chrome";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { PageShell } from "@/components/ui/compact-shell";
@@ -63,7 +66,8 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   const [patientFilter, setPatientFilter] = useState("");
   const [refQuery, setRefQuery] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  /** `null` = ouverture auto si filtres URL ou actifs sur la liste. */
+  const [filtersExpandedUser, setFiltersExpandedUser] = useState<boolean | null>(null);
 
   const dashboardBuckets = useMemo(() => dashboardBucketsForKind(kindId, "pharmacien"), [kindId]);
 
@@ -238,6 +242,48 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
     sortNewestFirst,
   ]);
 
+  const patientFilterLabel = useMemo(
+    () => (patientFilter ? patientSelectLabel(patientFilter) : null),
+    [patientFilter, patientSelectLabel]
+  );
+
+  const listFiltersSummary = useMemo(
+    () =>
+      pharmacistHubListActiveFiltersSummary({
+        activeBucket,
+        patientLabel: patientFilterLabel,
+        referenceQuery: refQuery,
+        sortNewestFirst,
+      }),
+    [activeBucket, patientFilterLabel, refQuery, sortNewestFirst]
+  );
+
+  const listHasActiveFilters = useMemo(
+    () =>
+      pharmacistHubListHasActiveFilters({
+        activeBucket,
+        patientLabel: patientFilterLabel,
+        referenceQuery: refQuery,
+        sortNewestFirst,
+      }),
+    [activeBucket, patientFilterLabel, refQuery, sortNewestFirst]
+  );
+
+  const filtersAutoExpand = tab === "list" && (Boolean(listStatutParam) || listHasActiveFilters);
+  const filtersPanelExpanded = filtersExpandedUser ?? filtersAutoExpand;
+
+  const clearListFilters = () => {
+    setPatientFilter("");
+    setRefQuery("");
+    setSortNewestFirst(true);
+    setFiltersExpandedUser(null);
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("vue", "liste");
+    next.delete("statut");
+    next.delete("section");
+    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
+  };
+
   const setStatutFilter = (key: string) => {
     const next = new URLSearchParams(searchParams.toString());
     next.set("vue", "liste");
@@ -251,6 +297,14 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
 
   const filterBtn =
     "rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm hover:bg-muted/50";
+
+  const listTabLabel =
+    kindId === "prescription"
+      ? "Toutes les ordonnances"
+      : kindId === "free_consultation"
+        ? "Toutes les consultations"
+        : "Toutes les demandes";
+
   const hubSubtitle =
     kindId === "prescription"
       ? "Ordonnances reçues : 8 statuts en tête, reprise rapide et liste filtrable."
@@ -345,112 +399,95 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
           )}
         </>
       ) : (
-        <div className="mt-4 flex flex-col gap-3">
-          <section className={filterChrome.shell}>
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <h2 className={filterChrome.title}>Filtres et recherche</h2>
-                <p className={filterChrome.subtitle}>Référence demande pour accès direct — le tableau de bord reste inchangé.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFiltersOpen((v) => !v)}
-                className={filterBtn}
-              >
-                {filtersOpen ? "Masquer" : "Afficher"}
+        <div className="mt-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-bold text-foreground">{listTabLabel}</h2>
+            <button
+              type="button"
+              onClick={() => setFiltersExpandedUser(!(filtersExpandedUser ?? filtersAutoExpand))}
+              className={filterBtn}
+            >
+              {filtersPanelExpanded ? "Masquer les filtres" : "Filtres"}
+            </button>
+          </div>
+
+          {listHasActiveFilters && !filtersPanelExpanded ? (
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-[11px] leading-snug text-foreground">
+              <p>
+                <span className="font-semibold">Filtres actifs :</span> {listFiltersSummary}
+              </p>
+              <button type="button" onClick={clearListFilters} className={clsx("mt-1.5", filterChrome.clearLink)}>
+                Tout effacer
               </button>
             </div>
-            {filtersOpen ? (
-            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 sm:items-end">
-            <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
-              Référence demande / client
-              <input
-                value={refQuery}
-                onChange={(e) => setRefQuery(e.target.value)}
-                placeholder={refPlaceholder}
-                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/70"
-              />
-            </label>
-            <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Statut
-              <select
-                value={activeBucket?.key ?? ""}
-                onChange={(e) => setStatutFilter(e.target.value)}
-                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
-              >
-                <option value="">Tous</option>
-                {dashboardBuckets.map((b) => (
-                  <option key={b.key} value={b.key}>
-                    {b.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Patient
-              <select
-                value={patientFilter}
-                onChange={(e) => setPatientFilter(e.target.value)}
-                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
-              >
-                <option value="">Tous</option>
-                {patientOptions.map((pid) => (
-                  <option key={pid} value={pid}>
-                    {patientSelectLabel(pid)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Tri date
-              <select
-                value={sortNewestFirst ? "desc" : "asc"}
-                onChange={(e) => setSortNewestFirst(e.target.value === "desc")}
-                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
-              >
-                <option value="desc">Plus récentes d’abord</option>
-                <option value="asc">Plus anciennes d’abord</option>
-              </select>
-            </label>
-          </div>
-            ) : (
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Ouvrez les filtres pour retrouver rapidement un dossier client.
-              </p>
-            )}
-          </section>
+          ) : null}
 
-          {isProductHub ? (
-            <ProductHubListResultsBar filteredCount={filteredSorted.length} totalCount={rows.length} />
-          ) : (
-            <p className="text-[11px] font-semibold tabular-nums text-muted-foreground" role="status">
-              {filteredSorted.length === 0
-                ? "Aucun dossier affiché"
-                : `${filteredSorted.length} dossier${filteredSorted.length > 1 ? "s" : ""} affiché${filteredSorted.length > 1 ? "s" : ""}`}
-              {filteredSorted.length !== rows.length && rows.length > 0
-                ? ` sur ${rows.length} au total`
-                : rows.length > 0
-                  ? " (liste complète)"
-                  : ""}
-            </p>
-          )}
+          {filtersPanelExpanded ? (
+            <section className={filterChrome.shell}>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 sm:items-end">
+                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
+                  Référence demande / client
+                  <input
+                    value={refQuery}
+                    onChange={(e) => setRefQuery(e.target.value)}
+                    placeholder={refPlaceholder}
+                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/70"
+                  />
+                </label>
+                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Statut
+                  <select
+                    value={activeBucket?.key ?? ""}
+                    onChange={(e) => setStatutFilter(e.target.value)}
+                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
+                  >
+                    <option value="">Tous</option>
+                    {dashboardBuckets.map((b) => (
+                      <option key={b.key} value={b.key}>
+                        {b.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Patient
+                  <select
+                    value={patientFilter}
+                    onChange={(e) => setPatientFilter(e.target.value)}
+                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
+                  >
+                    <option value="">Tous</option>
+                    {patientOptions.map((pid) => (
+                      <option key={pid} value={pid}>
+                        {patientSelectLabel(pid)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Tri date
+                  <select
+                    value={sortNewestFirst ? "desc" : "asc"}
+                    onChange={(e) => setSortNewestFirst(e.target.value === "desc")}
+                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
+                  >
+                    <option value="desc">Plus récentes d’abord</option>
+                    <option value="asc">Plus anciennes d’abord</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+          ) : null}
 
           {filteredSorted.length === 0 ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">
-              {activeBucket?.key === "envoyees"
-                ? kindId === "prescription"
-                  ? "Aucune ordonnance à traiter (scan reçu / en relecture) avec ces filtres."
-                  : kindId === "free_consultation"
-                    ? "Aucune consultation à traiter (message reçu / en relecture) avec ces filtres."
-                    : "Aucune demande à prendre en charge (soumise / en relecture) avec ces filtres."
-                : activeBucket
-                  ? kindId === "prescription"
-                    ? "Aucune ordonnance ne correspond aux filtres."
-                    : kindId === "free_consultation"
-                      ? "Aucune consultation ne correspond aux filtres."
-                      : "Aucune demande ne correspond aux filtres."
-                  : "Aucun résultat."}
-            </p>
+            <div className="space-y-2 py-6 text-center text-xs text-muted-foreground">
+              <p>Aucun résultat.</p>
+              {listHasActiveFilters ? (
+                <button type="button" onClick={clearListFilters} className={filterChrome.clearLink}>
+                  Effacer les filtres
+                </button>
+              ) : null}
+            </div>
           ) : (
             <ul className="flex flex-col gap-3">
               {filteredSorted.map((r) => (
