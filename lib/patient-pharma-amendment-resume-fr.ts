@@ -22,10 +22,23 @@ function sectionForKind(kind: string | undefined): PatientPharmaAmendmentResumeS
   }
 }
 
+function looksTechnicalAmendmentText(text: string): boolean {
+  return text.toLowerCase().includes("request_item");
+}
+
+function truncateResumeLine(text: string): string {
+  return text.length > 140 ? `${text.slice(0, 137).trim()}…` : text;
+}
+
 function lineFromEntry(e: SupplyAmendmentEntryJson): string {
-  const detail = (e.detail ?? e.summary ?? "").trim();
-  if (detail && !detail.toLowerCase().includes("request_item")) {
-    return detail.length > 140 ? `${detail.slice(0, 137).trim()}…` : detail;
+  const summary = (e.summary ?? "").trim();
+  const detail = (e.detail ?? "").trim();
+  // `summary` inclut le nom produit ; `detail` ne porte souvent que les faits (qté, dispo…).
+  if (summary && !looksTechnicalAmendmentText(summary)) {
+    return truncateResumeLine(summary);
+  }
+  if (detail && !looksTechnicalAmendmentText(detail)) {
+    return truncateResumeLine(detail);
   }
   switch (e.kind) {
     case "validated_qty_change":

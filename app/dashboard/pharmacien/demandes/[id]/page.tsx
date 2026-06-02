@@ -4662,7 +4662,8 @@ export default function PharmacienDemandeDetailPage() {
     !showSupplyDirtyBar &&
     pharmacistActiveRetainedLineCount(items, draft) > 0;
 
-  const showCloseCounterSticky = Boolean(counterClosureEligible && canCompleteCounter);
+  const showCloseCounterSticky =
+    Boolean(counterClosureEligible && canCompleteCounter) && !showSupplyDirtyBar;
 
   const showSupplyStatsFooter = usesLineWorkflow && Boolean(canManageSupply) && displayRows.length > 0;
 
