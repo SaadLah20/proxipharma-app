@@ -456,7 +456,7 @@ export default function DemandeProduitsPage() {
         </Link>
       </div>
 
-      <PlatformStickyFooter tone="sky" className={t.footerBorder}>
+      <PlatformStickyFooter tone="neutral" className={t.footerBorder}>
         <div className="space-y-2">
           <PlatformStickyFooterSummaryRow
             left={

@@ -469,11 +469,11 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
     bodyLines.push(
       autoAtClosure
         ? ph
-          ? "Écarté automatiquement à la clôture (non récupéré au comptoir)."
-          : "Écarté automatiquement à la clôture, car non récupéré au comptoir."
+          ? "Retiré automatiquement à la clôture (non récupéré au comptoir)."
+          : "Retiré automatiquement à la clôture, car non récupéré au comptoir."
         : ph
-          ? "Écarté de la commande active."
-          : "Écarté de votre commande active."
+          ? "Retiré de la commande active."
+          : "Retiré de votre commande active."
     );
     pushEvent(events, {
       kind,
@@ -500,7 +500,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
       if ((row.counter_outcome ?? "unset") === "picked_up") {
         closureLines.push("Récupéré au comptoir.");
       } else if (row.withdrawn_after_confirm) {
-        closureLines.push("Écarté de la commande active.");
+        closureLines.push("Retiré de la commande active.");
       } else {
         closureLines.push(`Produit : ${validatedProductLabel(row)}`);
       }
@@ -532,7 +532,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
     const co = row.counter_outcome ?? "unset";
 
     if (row.withdrawn_after_confirm) {
-      epilogueLines.push(ph ? "Écarté — plus dans la commande active." : "Écarté de votre commande active.");
+      epilogueLines.push(ph ? "Retiré — plus dans la commande active." : "Retiré de votre commande active.");
     } else if (co === "picked_up") {
       epilogueLines.push("Récupéré au comptoir.");
     } else {

@@ -3,6 +3,8 @@
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { productRequestPublicTheme } from "@/lib/request-kinds/product-request-public-theme";
+import { prescriptionRequestPublicTheme } from "@/lib/request-kinds/prescription-request-public-theme";
+import { consultationRequestPublicTheme } from "@/lib/request-kinds/consultation-request-public-theme";
 import { cn } from "@/lib/utils";
 
 /** Carte blanche type annuaire / fiche officine. */
@@ -32,6 +34,26 @@ export function PharmacyPublicBackLink({
   );
 }
 
+type FlowHeroTheme = "default" | "productRequest" | "prescription" | "consultation";
+
+function heroAccent(theme: FlowHeroTheme) {
+  switch (theme) {
+    case "productRequest":
+      return productRequestPublicTheme;
+    case "prescription":
+      return prescriptionRequestPublicTheme;
+    case "consultation":
+      return consultationRequestPublicTheme;
+    default:
+      return {
+        accentIcon: "text-primary",
+        accentIconBg: "bg-primary/10 ring-1 ring-primary/15",
+        headerEyebrow: "text-muted-foreground",
+        headerSubtitle: "text-muted-foreground",
+      };
+  }
+}
+
 export function PharmacyFlowHero({
   eyebrow,
   title,
@@ -44,72 +66,37 @@ export function PharmacyFlowHero({
   title: string;
   subtitle?: string;
   icon: LucideIcon;
-  /** Parcours demande de produits : accent sky (aligné hubs / détail dossier). */
-  theme?: "default" | "productRequest";
-  /** Intégré dans une carte header+recherche (sans bordure externe). */
+  theme?: FlowHeroTheme;
   embedded?: boolean;
 }) {
-  const isProduct = theme === "productRequest";
+  const accent = heroAccent(theme);
   return (
     <header
       className={cn(
-        "text-white",
-        embedded
-          ? "px-4 pb-3 pt-4 sm:px-5 sm:pt-5"
-          : "overflow-hidden rounded-2xl border p-4 shadow-md ring-1",
-        isProduct
-          ? cn(
-              productRequestPublicTheme.headerGradient,
-              !embedded &&
-                cn(
-                  "overflow-hidden rounded-2xl border p-4 shadow-md ring-1",
-                  productRequestPublicTheme.headerBorder
-                )
-            )
-          : embedded
-            ? ""
-            : "overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-emerald-950 via-emerald-900/95 to-teal-800/90 p-4 shadow-md ring-1 ring-emerald-900/25"
+        embedded ? "px-4 pb-3 pt-4 sm:px-5 sm:pt-5" : "overflow-hidden rounded-2xl border border-border/90 bg-card p-4 shadow-sm",
+        !embedded && theme === "productRequest" && productRequestPublicTheme.accentLine
       )}
     >
-      <p
-        className={cn(
-          "text-[10px] font-bold uppercase tracking-[0.2em]",
-          isProduct ? productRequestPublicTheme.headerEyebrow : "text-emerald-100/90"
-        )}
-      >
+      <p className={cn("text-[10px] font-bold uppercase tracking-[0.2em]", accent.headerEyebrow)}>
         {eyebrow}
       </p>
-      {isProduct ? (
-        <div className="mt-2 flex items-start gap-3">
-          <span
-            className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/15 shadow-inner backdrop-blur-sm"
-            aria-hidden
-          >
-            <Icon className="size-5 text-white" strokeWidth={2.25} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold leading-tight tracking-tight sm:text-xl">{title}</h1>
-            {subtitle ? (
-              <p className={cn("mt-1 max-w-prose text-xs leading-snug", productRequestPublicTheme.headerSubtitle)}>
-                {subtitle}
-              </p>
-            ) : null}
-          </div>
+      <div className="mt-2 flex items-start gap-3">
+        <span
+          className={cn(
+            "flex size-10 shrink-0 items-center justify-center rounded-xl",
+            accent.accentIconBg
+          )}
+          aria-hidden
+        >
+          <Icon className={cn("size-5", accent.accentIcon)} strokeWidth={2.25} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-lg font-bold leading-tight tracking-tight text-foreground sm:text-xl">{title}</h1>
+          {subtitle ? (
+            <p className={cn("mt-1 max-w-prose text-xs leading-snug", accent.headerSubtitle)}>{subtitle}</p>
+          ) : null}
         </div>
-      ) : (
-        <div className="mt-2 flex items-start gap-3">
-          <span
-            className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 shadow-inner backdrop-blur-sm"
-            aria-hidden
-          >
-            <Icon className="size-5 text-white" strokeWidth={2.25} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold leading-snug tracking-tight sm:text-xl">{title}</h1>
-            {subtitle ? <p className="mt-1 text-xs leading-snug text-emerald-50/95">{subtitle}</p> : null}
-          </div>
-        </div>
-      )}
+      </div>
     </header>
   );
 }

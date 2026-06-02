@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Camera, FileImage, MessageSquare, Trash2 } from "lucide-react";
+import { PharmacyFlowHero, PharmacyPublicBackLink, pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
+import { platformDashboardChrome } from "@/lib/platform-dashboard-chrome";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -161,25 +162,26 @@ export default function ConsultationLibrePage() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-lg bg-gradient-to-b from-violet-50/40 to-white px-4 py-6">
-      <Link href={`/pharmacie/${pharmacyId}`} className="text-xs font-medium text-violet-900 underline">
-        ← {pharmacyName || "Pharmacie"}
-      </Link>
-      <h1 className="mt-3 text-xl font-bold text-violet-950">Consultation libre</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Décrivez votre besoin. La pharmacie pourra échanger avec vous puis vous proposer des produits.
-      </p>
+    <main className={cn("mx-auto min-h-screen max-w-lg bg-background px-4 py-6")}>
+      <PharmacyPublicBackLink href={`/pharmacie/${pharmacyId}`}>{pharmacyName || "Pharmacie"}</PharmacyPublicBackLink>
+      <PharmacyFlowHero
+        theme="consultation"
+        icon={MessageSquare}
+        eyebrow="Consultation"
+        title="Consultation libre"
+        subtitle="Décrivez votre besoin. La pharmacie pourra échanger avec vous puis vous proposer des produits."
+      />
 
-      <section className="mt-5 space-y-4 rounded-2xl border-2 border-violet-200/70 bg-white p-4 shadow-md ring-1 ring-violet-100">
+      <section className={cn("mt-5 space-y-4 p-4", pharmacyPublicCard)}>
         <label className="block">
-          <span className="text-xs font-bold uppercase tracking-wide text-violet-900">Votre message</span>
+          <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Votre message</span>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             maxLength={CONSULTATION_TEXT_MAX}
             rows={6}
             placeholder="Symptômes, contexte, produits recherchés…"
-            className="mt-1.5 w-full rounded-lg border border-violet-200/80 px-3 py-2 text-sm shadow-inner focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200/50"
+            className="mt-1.5 w-full rounded-lg border border-input px-3 py-2 text-sm shadow-inner focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
           <span className="mt-1 block text-[10px] text-muted-foreground tabular-nums">
             {text.trim().length}/{CONSULTATION_TEXT_MAX} · min. {CONSULTATION_TEXT_MIN}
@@ -187,10 +189,10 @@ export default function ConsultationLibrePage() {
         </label>
 
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-violet-900">Photos (facultatif, {CONSULTATION_MAX_PHOTOS} max)</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Photos (facultatif, {CONSULTATION_MAX_PHOTOS} max)</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {photos.map((p) => (
-              <div key={p.slot} className="relative size-24 overflow-hidden rounded-xl border border-violet-200 bg-muted">
+              <div key={p.slot} className="relative size-24 overflow-hidden rounded-xl border border-border bg-muted">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={p.previewUrl} alt="" className="size-full object-cover" />
                 <button
@@ -208,14 +210,14 @@ export default function ConsultationLibrePage() {
               <button
                 type="button"
                 onClick={() => cameraRef.current?.click()}
-                className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-violet-200 py-2.5 text-xs font-semibold text-violet-900"
+                className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-border py-2.5 text-xs font-semibold text-foreground"
               >
                 <Camera className="size-4" /> Appareil
               </button>
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-violet-200 py-2.5 text-xs font-semibold text-violet-900"
+                className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-border py-2.5 text-xs font-semibold text-foreground"
               >
                 <FileImage className="size-4" /> Galerie
               </button>
@@ -236,7 +238,7 @@ export default function ConsultationLibrePage() {
         type="button"
         disabled={submitLoading}
         onClick={() => void submit()}
-        className="mt-5 w-full bg-violet-700 py-6 text-base font-semibold hover:bg-violet-800"
+        className={cn("mt-5 w-full py-6 text-base font-semibold", platformDashboardChrome.cta)}
       >
         <MessageSquare className="mr-2 size-5" aria-hidden />
         {submitLoading ? "Envoi…" : "Envoyer la consultation"}

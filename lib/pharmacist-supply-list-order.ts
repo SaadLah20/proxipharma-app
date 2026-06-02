@@ -12,7 +12,7 @@ const SECTION_TITLES: Record<PharmacistSupplySectionKey, (count: number) => stri
   commander: (n) => `À commander (validé · ${n})`,
   nonRetenus: (n) => `Non retenus à la validation (${n})`,
   hors: (n) => `Hors bloc principal (${n})`,
-  ecart: (n) => `Écart après validation (${n})`,
+  ecart: (n) => `Retrait après validation (${n})`,
 };
 
 /** Clé de section pour une ligne (sans réordonner la liste). */

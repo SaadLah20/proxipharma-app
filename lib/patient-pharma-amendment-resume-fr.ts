@@ -36,20 +36,24 @@ function lineFromEntry(e: SupplyAmendmentEntryJson): string {
       return "Produit ajouté par la pharmacie";
     case "withdraw_after_confirm":
     case "line_removed_after_confirm":
-      return "Produit écarté après validation";
+      return "Produit retiré après validation";
     default:
       return "Mise à jour enregistrée";
   }
 }
 
-/** Résumé structuré des amendements post-validation (modale patient). */
+function sortedBundles(bundles: { created_at: string; amendments: unknown }[]) {
+  return [...bundles]
+    .filter((b) => b?.created_at)
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+}
+
+/** Résumé structuré de tous les amendements post-validation (modale patient). */
 export function buildPatientPharmaAmendmentResumeFr(
   bundles: { created_at: string; amendments: unknown }[]
-): { whenLabel: string; sections: PatientPharmaAmendmentResumeSection[] } | null {
-  const b = bundles[0];
-  if (!b?.created_at) return null;
-  const arr = Array.isArray(b.amendments) ? (b.amendments as SupplyAmendmentEntryJson[]) : [];
-  if (arr.length === 0) return null;
+): { whenLabel: string; sections: PatientPharmaAmendmentResumeSection[]; batchCount: number } | null {
+  const ordered = sortedBundles(bundles);
+  if (ordered.length === 0) return null;
 
   const buckets: Record<string, string[]> = {
     supply: [],
@@ -57,11 +61,16 @@ export function buildPatientPharmaAmendmentResumeFr(
     withdrawn: [],
   };
 
-  for (const e of arr) {
-    const sec = sectionForKind(e.kind);
-    if (!sec) continue;
-    const text = lineFromEntry(e);
-    if (!buckets[sec].includes(text)) buckets[sec].push(text);
+  for (const b of ordered) {
+    const arr = Array.isArray(b.amendments) ? (b.amendments as SupplyAmendmentEntryJson[]) : [];
+    if (arr.length === 0) continue;
+    const when = formatDateTimeShort24hFr(b.created_at);
+    for (const e of arr) {
+      const sec = sectionForKind(e.kind);
+      if (!sec) continue;
+      const text = `${when} — ${lineFromEntry(e)}`;
+      if (!buckets[sec].includes(text)) buckets[sec].push(text);
+    }
   }
 
   const sections: PatientPharmaAmendmentResumeSection[] = [];
@@ -82,15 +91,23 @@ export function buildPatientPharmaAmendmentResumeFr(
   if (buckets.withdrawn.length > 0) {
     sections.push({
       id: "withdrawn",
-      title: "Écarts après validation",
+      title: "Retraits après validation",
       lines: buckets.withdrawn,
     });
   }
 
   if (sections.length === 0) return null;
 
+  const first = ordered[0]!.created_at;
+  const last = ordered[ordered.length - 1]!.created_at;
+  const whenLabel =
+    ordered.length === 1
+      ? formatDateTimeShort24hFr(last)
+      : `${formatDateTimeShort24hFr(first)} → ${formatDateTimeShort24hFr(last)} (${ordered.length} mises à jour)`;
+
   return {
-    whenLabel: formatDateTimeShort24hFr(b.created_at),
+    whenLabel,
     sections,
+    batchCount: ordered.length,
   };
 }

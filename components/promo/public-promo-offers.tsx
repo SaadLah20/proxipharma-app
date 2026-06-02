@@ -121,18 +121,18 @@ export function PublicPromoOffers({ pharmacyId }: { pharmacyId: string }) {
         const existingId = activeByOffer.get(o.id);
         return (
           <article key={o.id} className={cn(pharmacyPublicCard, "overflow-hidden")}>
-            <div className="border-b border-border/60 bg-gradient-to-br from-amber-50/80 via-card to-primary/5 px-3 py-2.5">
+            <div className="border-b border-border/60 bg-card px-3 py-2.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
-                    <Tag className="size-4 shrink-0 text-amber-700" aria-hidden />
+                    <Tag className="size-4 shrink-0 text-emerald-700" aria-hidden />
                     {o.title}
                   </p>
                   {o.description?.trim() ? (
                     <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{o.description.trim()}</p>
                   ) : null}
                 </div>
-                <span className="shrink-0 rounded-full bg-amber-500 px-2.5 py-0.5 text-[11px] font-bold text-white shadow-sm">
+                <span className="shrink-0 rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-bold text-primary-foreground shadow-sm">
                   −{o.discount_percent} %
                 </span>
               </div>

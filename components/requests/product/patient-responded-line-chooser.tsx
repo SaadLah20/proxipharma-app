@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
-import { Package, X } from "lucide-react";
+import { Package, X, HelpCircle } from "lucide-react";
 import {
   ProductRequestLineMessageIconButton,
   ProductRequestLinePrices,
@@ -289,11 +289,11 @@ function RespondedVariantTabs({
                 dim && "border-transparent bg-transparent text-slate-400 line-through",
                 !dim &&
                   isViewing &&
-                  "border-foreground/30 bg-white text-foreground shadow-sm ring-1 ring-foreground/10",
+                  "border-primary bg-card text-foreground shadow-sm ring-2 ring-primary/20",
                 !dim &&
                   !isViewing &&
-                  "border-transparent bg-muted/25 text-muted-foreground hover:bg-muted/45",
-                !dim && isSelected && !isViewing && "border-emerald-400/50 bg-emerald-50/40"
+                  "border-transparent bg-muted/25 text-muted-foreground hover:border-border/60 hover:bg-muted/40",
+                !dim && isSelected && !isViewing && "border-emerald-500/60 bg-emerald-50/50 ring-1 ring-emerald-400/30"
               )}
               onClick={() => onTab(tab.id)}
             >
@@ -334,7 +334,7 @@ function RespondedVariantTabs({
         ) : (
           <>
             Consulté : <span className="font-semibold text-foreground">{viewingLabel}</span>
-            <span className="text-muted-foreground"> — utilisez « Retenir » pour choisir</span>
+            <span className="text-muted-foreground"> — cochez « Retenir » pour inclure un produit</span>
           </>
         )}
       </p>
@@ -360,26 +360,35 @@ function RespondedRetainControl({
   }
   if (readOnly) {
     return retained ? (
-      <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-300/80 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+        <span className="inline-flex size-3.5 items-center justify-center rounded-sm bg-emerald-600 text-[9px] text-white" aria-hidden>
+          ✓
+        </span>
         Retenu
       </span>
     ) : null;
   }
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={retained}
-      onClick={() => onToggle(!retained)}
-      className={cn(
-        "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold transition",
-        retained
-          ? "bg-emerald-600 text-white shadow-sm"
-          : "border border-border bg-background text-foreground hover:bg-muted/50"
-      )}
-    >
-      {retained ? "Retenu" : "Retenir"}
-    </button>
+    <div className="flex shrink-0 items-center gap-1">
+      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1 shadow-sm transition hover:bg-muted/40 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/30">
+        <input
+          type="checkbox"
+          checked={retained}
+          onChange={(e) => onToggle(e.target.checked)}
+          className="size-4 shrink-0 rounded border-border accent-emerald-600"
+          aria-label={retained ? "Produit retenu — cliquer pour retirer" : "Retenir ce produit dans votre validation"}
+        />
+        <span className="text-[10px] font-bold text-foreground">{retained ? "Retenu" : "Retenir"}</span>
+      </label>
+      <button
+        type="button"
+        title="Cochez pour inclure ce produit dans votre validation. Vous pouvez aussi choisir une alternative via les onglets."
+        className="inline-flex size-6 items-center justify-center rounded-full border border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+        aria-label="Aide — retenir un produit"
+      >
+        <HelpCircle className="size-3.5" strokeWidth={2.25} aria-hidden />
+      </button>
+    </div>
   );
 }
 
@@ -390,8 +399,6 @@ function RespondedLineBlock({
   onToggleRetain,
   onSetQty,
   onPhotoPreview,
-  requestType,
-  isProposedLine,
   ajoutOfficineLabel = "Ajout Officine",
   variantTabsAbove = false,
   readOnly = false,
@@ -403,8 +410,6 @@ function RespondedLineBlock({
   onToggleRetain: (on: boolean) => void;
   onSetQty: (qty: number) => void;
   onPhotoPreview?: (url: string, title: string) => void;
-  requestType: string;
-  isProposedLine: boolean;
   ajoutOfficineLabel?: string;
   /** Onglets Ta demande / Alternative au-dessus — case un peu plus basse pour ne pas gêner. */
   variantTabsAbove?: boolean;
@@ -448,7 +453,7 @@ function RespondedLineBlock({
   return (
     <div
       className={cn(
-        "w-full min-w-0 border-b border-border/55 py-3 transition last:border-b-0",
+        "w-full min-w-0 border-b border-border/70 py-2.5 transition last:border-b-0",
         retained && !unavailable && "bg-emerald-50/40",
         unavailable && "bg-muted/15 saturate-[0.85] [&_img]:opacity-90",
         notRetained && !unavailable && !variantTabsAbove && "opacity-75"
@@ -498,35 +503,43 @@ function RespondedLineBlock({
           <RespondedLineQtyMeta
             bucketId={bucketId}
             isAlt={variant.branch !== "principal"}
-            showRequested={variant.showRequested}
+            showRequested={false}
             requestedQty={variant.requestedQty}
             expectedDate={variant.expectedDate}
           />
 
-          <div className="flex min-h-9 w-full items-end justify-between gap-2 pt-0.5">
+          <div className="flex w-full items-end justify-between gap-2 pt-0.5">
             <div className="min-w-0 shrink leading-none">
               <ProductRequestLinePrices
                 unitPrice={unit}
                 totalValue={showQty && total != null ? total : null}
               />
             </div>
-            <div className="flex shrink-0 items-center justify-end gap-1.5">
-              {showQty ? (
-                readOnly ? (
-                  <ProductRequestLineQtyReadonly qty={selQty} />
-                ) : (
-                  <ProductRequestLineQtyPicker
-                    qty={selQty}
-                    maxQty={variant.cap}
-                    onSelect={(n) => onSetQty(Math.min(variant.cap, Math.max(1, n)))}
-                  />
-                )
+            <div className="flex shrink-0 flex-col items-end gap-0.5">
+              {showQty && variant.showRequested ? (
+                <span className="text-[10px] text-muted-foreground">
+                  Demandée{" "}
+                  <strong className="tabular-nums text-foreground">{variant.requestedQty}</strong>
+                </span>
               ) : null}
-              <RespondedLineNotesButton
-                productName={variant.productName}
-                client={variant.clientComment}
-                pharmacist={variant.pharmacistComment}
-              />
+              <div className="flex items-center justify-end gap-1.5">
+                {showQty ? (
+                  readOnly ? (
+                    <ProductRequestLineQtyReadonly qty={selQty} />
+                  ) : (
+                    <ProductRequestLineQtyPicker
+                      qty={selQty}
+                      maxQty={variant.cap}
+                      onSelect={(n) => onSetQty(Math.min(variant.cap, Math.max(1, n)))}
+                    />
+                  )
+                ) : null}
+                <RespondedLineNotesButton
+                  productName={variant.productName}
+                  client={variant.clientComment}
+                  pharmacist={variant.pharmacistComment}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -713,8 +726,6 @@ export function RespondedPatientLineChooser({
           onToggleRetain={(on) => toggleLineRetention(row.id, on, "principal")}
           onSetQty={(qty) => setLineQty(row.id, qty, "principal")}
           onPhotoPreview={onPhotoPreview}
-          requestType={requestType}
-          isProposedLine={isProposedLine}
           ajoutOfficineLabel={pharmacistProposedBadgeLabel}
           readOnly={readOnly}
           bucketId={bucketId}
@@ -724,7 +735,7 @@ export function RespondedPatientLineChooser({
   }
 
   return (
-    <li className="w-full min-w-0 overflow-visible border-b border-border/55 py-2 last:border-b-0">
+    <li className="w-full min-w-0 overflow-visible border-b border-border/70 py-2 last:border-b-0">
       <div className="pb-2">
         <RespondedVariantTabs
           tabs={variants.map((v) => ({
@@ -745,8 +756,6 @@ export function RespondedPatientLineChooser({
           onToggleRetain={(on) => toggleLineRetention(row.id, on, activeBranch)}
           onSetQty={(qty) => setLineQty(row.id, qty, activeBranch)}
           onPhotoPreview={onPhotoPreview}
-          requestType={requestType}
-          isProposedLine={isProposedLine && activeTab === "principal"}
           ajoutOfficineLabel={pharmacistProposedBadgeLabel}
           variantTabsAbove
           readOnly={readOnly}

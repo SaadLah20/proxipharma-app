@@ -104,7 +104,7 @@ export function PharmacistClosedProductBucketsView<T extends ClosedLinePartition
 
       {ecartes.length > 0 ? (
         <ClosedBucketSection
-          title="Écartés après validation"
+          title="Retirés après validation"
           titleClass="text-amber-950"
           count={ecartes.length}
           collapsible

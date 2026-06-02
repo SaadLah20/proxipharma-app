@@ -127,6 +127,7 @@ import {
 import {
   bucketPatientClosedArchiveLines,
   PATIENT_CLOSED_ARCHIVE_BUCKET_ORDER,
+  patientClosedArchiveBucketTitleFr,
   patientClosedArchiveClosureLabelFr,
 } from "@/lib/patient-closed-archive-line-buckets";
 import {
@@ -378,8 +379,6 @@ export function PatientValidatedCompactLineCard({
     treatedLineLabels: requestStatusForCard === "treated",
     sectionBucket: tier,
   });
-  const isProposedLine = row.line_source === "pharmacist_proposed";
-  const proposalReason = row.pharmacist_proposal_reason?.trim() ?? "";
   const thumbInner = thumbUrl ? (
     onPhotoPreview ? (
       <button
@@ -423,18 +422,6 @@ export function PatientValidatedCompactLineCard({
               >
                 {validatedName}
               </p>
-              {isProposedLine ? (
-                <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
-                  <span className={cn("font-semibold text-foreground/90", uiSecondaryLabel)}>
-                    {pharmacistProposedBadgeLabel}
-                  </span>
-                  {proposalReason ? (
-                    <> — {proposalReason}</>
-                  ) : (
-                    <span className="italic"> — motif non renseigné</span>
-                  )}
-                </p>
-              ) : null}
             </div>
             <button
               type="button"
@@ -708,9 +695,51 @@ function resubmitLinesSignature(ls: ResubmitLine[]): string {
     .join(">");
 }
 
+export type ResubmitLineChange =
+  | { kind: "added"; line: ResubmitLine }
+  | { kind: "removed"; line: ResubmitLine }
+  | {
+      kind: "modified";
+      line: ResubmitLine;
+      qtyBefore?: number;
+      qtyAfter?: number;
+      commentBefore?: string;
+      commentAfter?: string;
+    };
+
+function diffResubmitLines(baseline: ResubmitLine[], current: ResubmitLine[]): ResubmitLineChange[] {
+  const baseById = new Map(baseline.map((l) => [l.product_id, l]));
+  const curById = new Map(current.map((l) => [l.product_id, l]));
+  const out: ResubmitLineChange[] = [];
+
+  for (const line of current) {
+    const prev = baseById.get(line.product_id);
+    if (!prev) {
+      out.push({ kind: "added", line });
+      continue;
+    }
+    const qtyChanged = prev.qty !== line.qty;
+    const commentChanged = prev.client_comment.trim() !== line.client_comment.trim();
+    if (qtyChanged || commentChanged) {
+      out.push({
+        kind: "modified",
+        line,
+        qtyBefore: qtyChanged ? prev.qty : undefined,
+        qtyAfter: qtyChanged ? line.qty : undefined,
+        commentBefore: commentChanged ? prev.client_comment.trim() : undefined,
+        commentAfter: commentChanged ? line.client_comment.trim() : undefined,
+      });
+    }
+  }
+  for (const line of baseline) {
+    if (!curById.has(line.product_id)) out.push({ kind: "removed", line });
+  }
+  return out;
+}
+
 function patientArchiveClosureLabelFr(row: ActionItemRow): string | null {
   if ((row.counter_outcome ?? "unset") === "picked_up") return "Récupéré";
-  if (row.withdrawn_after_confirm) return "Écarté";
+  if (row.withdrawn_after_confirm) return "Retiré";
   return null;
 }
 
@@ -885,23 +914,27 @@ function PatientArchiveFrozenProductsView({
           const rows = closedBuckets[bucketId];
           if (rows.length === 0) return null;
 
-          if (bucketId === "non_retenus") {
+          if (bucketId === "non_retenus" || bucketId === "ecartes") {
+            const title =
+              bucketId === "non_retenus"
+                ? "Non retenus"
+                : patientClosedArchiveBucketTitleFr(bucketId);
             return (
-              <PatientArchiveCollapsibleSection
-                key={bucketId}
-                title="Non retenus"
-                count={rows.length}
-              >
-                <ul className="w-full min-w-0 divide-y divide-border/50 overflow-visible">
-                  {rows.map((row) => (
-                    <PatientTraceNotRetainedRow
-                      key={row.id}
-                      row={row}
-                      requestType={requestType}
-                      onOpenHistory={() => onOpenLineHistory(row.id)}
-                      onPhotoPreview={onPhotoPreview}
-                    />
-                  ))}
+              <PatientArchiveCollapsibleSection key={bucketId} title={title} count={rows.length}>
+                <ul className="w-full min-w-0 divide-y divide-border/70 overflow-visible">
+                  {rows.map((row) =>
+                    bucketId === "non_retenus" ? (
+                      <PatientTraceNotRetainedRow
+                        key={row.id}
+                        row={row}
+                        requestType={requestType}
+                        onOpenHistory={() => onOpenLineHistory(row.id)}
+                        onPhotoPreview={onPhotoPreview}
+                      />
+                    ) : (
+                      renderClosedValidatedCard(row)
+                    )
+                  )}
                 </ul>
               </PatientArchiveCollapsibleSection>
             );
@@ -1047,7 +1080,7 @@ function PatientArchiveFrozenProductsView({
 
       {retireesApresValidation.length > 0 ? (
         <PatientArchiveCollapsibleSection
-          title="Écart après validation"
+          title="Retrait après validation"
           count={retireesApresValidation.length}
           titleClassName="text-red-900"
           hint="Retrait convenu avec la pharmacie — trace uniquement."
@@ -1735,6 +1768,9 @@ function validatePatientConfirmBeforeReview(
     return "Une ligne « à commander » n’a pas de date de réception côté pharmacie. Contacte l’officine ou modifie ta sélection.";
   }
   const rawVisit = visitDateRaw.trim();
+  if (rawVisit === "") {
+    return "Indiquez la date de passage en officine.";
+  }
   if (rawVisit !== "" && rawVisit !== resolvedVisitDate) {
     return visitWin.hasToOrder
       ? `Date hors plage autorisée (jusqu’au ${new Date(visitWin.maxYmd + "T12:00:00").toLocaleDateString("fr-FR")} inclus selon les produits à commander).`
@@ -2614,6 +2650,10 @@ export function PatientProductRequestActions({
     if (status !== "submitted" && status !== "in_review") return false;
     return resubmitLinesSignature(lines) !== resubmitLinesSignature(resubmitBaseline);
   }, [status, lines, resubmitBaseline]);
+  const resubmitChanges = useMemo(
+    () => diffResubmitLines(resubmitBaseline, lines),
+    [resubmitBaseline, lines]
+  );
 
   const readOnlyArchive = isPatientProductArchiveStatus(status);
   const archiveSnapshotStatus = readOnlyArchive
@@ -2630,8 +2670,8 @@ export function PatientProductRequestActions({
   const showArchivePassageLine =
     readOnlyArchive && (uiStatus === "confirmed" || uiStatus === "treated");
   const plannedVisitDateYmd = useMemo(
-    () => (initialPlannedVisitDate ?? "").trim() || resolvedVisitDate,
-    [initialPlannedVisitDate, resolvedVisitDate]
+    () => (initialPlannedVisitDate ?? "").trim() || visitDate.trim(),
+    [initialPlannedVisitDate, visitDate]
   );
   const plannedVisitTimePg = useMemo(
     () =>
@@ -3008,7 +3048,7 @@ export function PatientProductRequestActions({
                     if (rows.length === 0) return null;
                     return (
                       <PatientRespondedBucketSection key={bucketId} bucketId={bucketId} count={rows.length}>
-                        <ul className="w-full min-w-0 divide-y divide-border/50 overflow-visible">
+                        <ul className="w-full min-w-0 divide-y divide-border/70 overflow-visible">
                           {rows.map((row) => (
                             <RespondedPatientLineChooser
                               key={row.id}
@@ -3181,7 +3221,7 @@ export function PatientProductRequestActions({
                 <details className="group w-full min-w-0">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-0.5 py-1 text-red-900 [&::-webkit-details-marker]:hidden">
                     <span className="text-[13px] font-extrabold uppercase tracking-wide text-red-900">
-                      Écart après validation
+                      Retrait après validation
                       <span className="ml-1.5 tabular-nums font-bold opacity-75">({retireesApresValidation.length})</span>
                     </span>
                     <ChevronDown className="size-3.5 shrink-0 text-red-700 transition-transform group-open:rotate-180" aria-hidden />
@@ -3405,7 +3445,7 @@ export function PatientProductRequestActions({
                   type="date"
                   min={visitWin.minYmd}
                   max={visitWin.maxYmd}
-                  value={resolvedVisitDate}
+                  value={showConfirm && visitFieldsEditable ? visitDate : resolvedVisitDate}
                   onChange={(e) => setVisitDate(e.target.value)}
                   disabled={!visitFieldsEditable}
                   readOnly={!visitFieldsEditable}
@@ -3912,7 +3952,7 @@ export function PatientProductRequestActions({
           >
             <div className="flex items-start justify-between gap-2 border-b border-slate-200 px-3 py-2.5 sm:px-4">
               <h2 id="resubmit-confirm-title" className="text-base font-bold leading-tight text-slate-900 sm:text-lg">
-                {"Confirmer le renvoi de la liste"}
+                Confirmer vos modifications
               </h2>
               <button
                 type="button"
@@ -3925,64 +3965,78 @@ export function PatientProductRequestActions({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 sm:px-4">
-              <p className="text-xs leading-snug text-slate-600">
-                {lines.length} produit{lines.length > 1 ? "s" : ""} — les photos viennent du catalogue si disponibles.
-              </p>
-              <ul className="mt-2 space-y-2">
-                {lines.map((l, idx) => (
-                  <li
-                    key={`${l.product_id}-${idx}`}
-                    className="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50/80 px-2 py-1.5"
-                  >
-                    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white">
-                      {l.photo_url ? (
-                        <button
-                          type="button"
-                          className="relative size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-                          onClick={() => openProductPhotoPreview(l.photo_url!, l.name)}
-                          aria-label={`Agrandir la photo · ${l.name}`}
+              {resubmitChanges.length === 0 ? (
+                <p className="text-xs leading-snug text-slate-600">Aucune modification détectée sur les produits.</p>
+              ) : (
+                <>
+                  <p className="text-xs leading-snug text-slate-600">
+                    {resubmitChanges.length} modification{resubmitChanges.length > 1 ? "s" : ""} — liste finale :{" "}
+                    {lines.length} produit{lines.length > 1 ? "s" : ""}.
+                  </p>
+                  <ul className="mt-2 space-y-2">
+                    {resubmitChanges.map((ch, idx) => {
+                      const l = ch.line;
+                      const badge =
+                        ch.kind === "added"
+                          ? "Ajouté"
+                          : ch.kind === "removed"
+                            ? "Retiré"
+                            : "Modifié";
+                      return (
+                        <li
+                          key={`${l.product_id}-${ch.kind}-${idx}`}
+                          className="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50/80 px-2 py-1.5"
                         >
-                          <img src={l.photo_url} alt="" className="pointer-events-none size-full object-cover" />
-                        </button>
-                      ) : (
-                        <div className="flex size-full items-center justify-center">
-                          <Package className="size-5 text-slate-400" aria-hidden />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-slate-900">{l.name}</p>
-                      <div className="mt-0.5">
-                        <p className="text-[11px] text-slate-600">
-                          Qté <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
-                        </p>
-                        <div className="mt-0.5 flex flex-nowrap items-baseline justify-between gap-2">
-                          <span className="min-w-0 shrink text-[11px] text-slate-600">
-                            <span className="font-semibold text-slate-500">PU</span>{" "}
-                            <strong className="whitespace-nowrap tabular-nums text-slate-900">
-                              {formatPriceDh(resubmitLineUnitPrice(l))}
-                            </strong>
-                          </span>
-                          <span className="shrink-0 whitespace-nowrap text-[11px] font-bold tabular-nums text-sky-900">
-                            <span className="font-semibold text-sky-800/90">Tot</span>{" "}
-                            {resubmitLineUnitPrice(l) != null
-                          ? formatPriceDh((resubmitLineUnitPrice(l) ?? 0) * l.qty)
-                          : "—"}
-                          </span>
-                        </div>
-                        {l.client_comment?.trim() ? (
-                          <div className="mt-1 rounded-md border border-slate-200 bg-white px-2 py-1.5">
-                            <p className="text-[10px] font-semibold text-slate-700">Votre commentaire</p>
-                            <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-[11px] leading-snug text-slate-800">
-                              {l.client_comment.trim()}
-                            </p>
+                          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white">
+                            {l.photo_url ? (
+                              <img src={l.photo_url} alt="" className="size-full object-cover" />
+                            ) : (
+                              <div className="flex size-full items-center justify-center">
+                                <Package className="size-5 text-slate-400" aria-hidden />
+                              </div>
+                            )}
                           </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-snug text-slate-900">
+                                {l.name}
+                              </p>
+                              <span className="shrink-0 rounded-md bg-slate-200/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-800">
+                                {badge}
+                              </span>
+                            </div>
+                            {ch.kind === "modified" && ch.qtyBefore != null && ch.qtyAfter != null ? (
+                              <p className="mt-0.5 text-[11px] text-slate-600">
+                                Qté <span className="tabular-nums line-through">{ch.qtyBefore}</span>
+                                {" → "}
+                                <span className="font-bold tabular-nums text-slate-900">{ch.qtyAfter}</span>
+                              </p>
+                            ) : ch.kind !== "removed" ? (
+                              <p className="mt-0.5 text-[11px] text-slate-600">
+                                Qté <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
+                              </p>
+                            ) : (
+                              <p className="mt-0.5 text-[11px] text-slate-600">
+                                Qté précédente :{" "}
+                                <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
+                              </p>
+                            )}
+                            {ch.kind === "modified" && ch.commentBefore != null && ch.commentAfter != null ? (
+                              <p className="mt-1 text-[10px] leading-snug text-slate-700">
+                                Note : « {ch.commentBefore || "—"} » → « {ch.commentAfter || "—"} »
+                              </p>
+                            ) : ch.kind !== "removed" && l.client_comment?.trim() ? (
+                              <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-slate-700">
+                                {l.client_comment.trim()}
+                              </p>
+                            ) : null}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
             </div>
             <div className="border-t border-slate-200 bg-slate-50 px-3 py-2.5 sm:px-4">
               <div className="flex items-center justify-between gap-2">

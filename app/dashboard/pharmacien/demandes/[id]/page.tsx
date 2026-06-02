@@ -1247,6 +1247,11 @@ function buildLineAddedAmendmentsFromProposalFlush(
   return out;
 }
 
+function normalizeDraftAvailabilityForCompare(status: string | null | undefined): string {
+  if (status === "partially_available") return "available";
+  return status ?? "available";
+}
+
 function computeSupplyStructuralDirty(
   request: { status: string; request_type: string } | null,
   items: ItemRow[],
@@ -1266,7 +1271,11 @@ function computeSupplyStructuralDirty(
     if (!d) continue;
     const b = buildItemDraftFromRow(row, request?.status ?? null, request?.request_type);
     if (d.withdrawn_after_confirm !== b.withdrawn_after_confirm) return true;
-    if (d.availability_status !== b.availability_status) return true;
+    if (
+      normalizeDraftAvailabilityForCompare(d.availability_status) !==
+      normalizeDraftAvailabilityForCompare(b.availability_status)
+    )
+      return true;
     if (d.available_qty !== b.available_qty) return true;
     if (d.unit_price !== b.unit_price) return true;
     if (d.pharmacist_comment !== b.pharmacist_comment) return true;
@@ -1435,7 +1444,9 @@ function buildSupplyStructuralAmends(
     const qtyChanged = persisted.available_qty !== (payload.available_qty ?? null);
     const selectedQtyChanged =
       row.is_selected_by_patient && !f.withdrawn_after_confirm && persistedSelected !== draftSelected;
-    const avChanged = persisted.availability_status !== (payload.availability_status ?? null);
+    const avChanged =
+      normalizeDraftAvailabilityForCompare(persisted.availability_status) !==
+      normalizeDraftAvailabilityForCompare(payload.availability_status ?? null);
     const priceChanged = !unitPricesEqualForSupplyAmend(persisted.unit_price, payload.unit_price);
     const ccRow = (persisted.pharmacist_comment ?? "").trim();
     const ccNew = (payload.pharmacist_comment ?? "").trim();
@@ -1523,7 +1534,7 @@ function buildConfirmedSupplyAmendmentBatch(
     if (was === next) continue;
     if (was && !next) {
       throw new Error(
-        `« ${validatedProductLabel(row as PatientLineLike)} » : la réintégration d’une ligne déjà écartée n’est plus disponible depuis cet écran.`
+        `« ${validatedProductLabel(row as PatientLineLike)} » : la réintégration d’une ligne déjà retirée n’est plus disponible depuis cet écran.`
       );
     }
     const nm = validatedProductLabel(row as PatientLineLike);
@@ -1600,22 +1611,10 @@ function buildConfirmedSupplySaveSummaryLines(
     const nm = validatedProductLabel(row as PatientLineLike);
     if (d.withdrawn_after_confirm !== b.withdrawn_after_confirm) {
       if (d.withdrawn_after_confirm) {
-        lines.push(`« ${nm} » : écarter la ligne après validation (retrait du suivi actif).`);
+        lines.push(`« ${nm} » : retirer la ligne après validation (retrait du suivi actif).`);
       } else {
-        lines.push(`« ${nm} » : rétablir la ligne hors écart (retour dans le suivi actif).`);
+        lines.push(`« ${nm} » : rétablir la ligne (retour dans le suivi actif).`);
       }
-    }
-    if (
-      (d.counter_outcome_draft ?? "unset") !== (row.counter_outcome ?? "unset") ||
-      (d.counter_cancel_reason_draft ?? null) !== (row.counter_cancel_reason ?? null) ||
-      String(d.counter_cancel_detail_draft ?? "").trim() !== String(row.counter_cancel_detail ?? "").trim()
-    ) {
-      const before = counterOutcomeLabelPharmacien(row.counter_outcome ?? "unset", row.counter_cancel_reason ?? null);
-      const after = counterOutcomeLabelPharmacien(
-        d.counter_outcome_draft ?? "unset",
-        d.counter_cancel_reason_draft ?? null
-      );
-      lines.push(`« ${nm} » — comptoir : « ${before} » → « ${after} ».`);
     }
   }
 
@@ -1889,6 +1888,8 @@ export default function PharmacienDemandeDetailPage() {
   /** Statut sous lequel le brouillon courant a été construit : un changement (ex. responded → confirmed)
    *  reconstruit le brouillon à neuf au lieu de préserver des valeurs périmées (faux « modifications »). */
   const draftBuiltForStatusRef = useRef<string | null>(null);
+  /** Après enregistrement post-validé réussi : reconstruire le brouillon depuis la BDD sans fusion. */
+  const freshDraftAfterSaveRef = useRef(false);
   /** Modal échanges patient / officine sur une ligne (id `request_items`). */
   const [lineConvoRowId, setLineConvoRowId] = useState<string | null>(null);
   /** Lignes proposées / alternatives encore non écrites en base tant que réponse pas publiée ou enregistrée (hors `confirmed`). */
@@ -2202,14 +2203,17 @@ export default function PharmacienDemandeDetailPage() {
      *  Mais si le statut a changé (ex. responded → confirmed après validation patient), repartir d'un
      *  brouillon neuf : sinon des valeurs de l'ancien statut feraient apparaître la barre « Enregistrer ». */
     const statusChangedSincePrevDraft = draftBuiltForStatusRef.current !== r.status;
+    const forceFreshDraft = freshDraftAfterSaveRef.current;
+    if (forceFreshDraft) freshDraftAfterSaveRef.current = false;
     draftBuiltForStatusRef.current = r.status;
     setDraft((prev) => {
       const next: Draft = {};
       for (const row of list) {
         const built = buildItemDraftFromRow(row, r.status, r.request_type);
-        next[row.id] = statusChangedSincePrevDraft
-          ? built
-          : mergeItemDraftOnReload(row, built, prev[row.id], r.status);
+        next[row.id] =
+          statusChangedSincePrevDraft || forceFreshDraft
+            ? built
+            : mergeItemDraftOnReload(row, built, prev[row.id], r.status);
       }
       return next;
     });
@@ -3829,6 +3833,7 @@ export default function PharmacienDemandeDetailPage() {
       if (h) throw new Error(h.message);
 
       dispatchRequestDetailRefresh(id);
+      freshDraftAfterSaveRef.current = true;
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Une erreur est survenue.");
@@ -3849,7 +3854,7 @@ export default function PharmacienDemandeDetailPage() {
       if (!fd || !row.is_selected_by_patient) continue;
       if (row.withdrawn_after_confirm && !fd.withdrawn_after_confirm) {
         setError(
-          "Une ligne déjà écartée et enregistrée ne peut pas être réintégrée depuis cet écran. Ajoutez le produit à nouveau si besoin."
+          "Une ligne déjà retirée et enregistrée ne peut pas être réintégrée depuis cet écran. Ajoutez le produit à nouveau si besoin."
         );
         return;
       }
@@ -3908,7 +3913,7 @@ export default function PharmacienDemandeDetailPage() {
       if (!fd || !row.is_selected_by_patient) continue;
       if (row.withdrawn_after_confirm && !fd.withdrawn_after_confirm) {
         setError(
-          "Une ligne déjà écartée et enregistrée ne peut pas être réintégrée depuis cet écran. Ajoutez le produit à nouveau si besoin."
+          "Une ligne déjà retirée et enregistrée ne peut pas être réintégrée depuis cet écran. Ajoutez le produit à nouveau si besoin."
         );
         setSupplySaveConfirmOpen(false);
         setSupplySaveConfirmLines([]);
@@ -3981,6 +3986,8 @@ export default function PharmacienDemandeDetailPage() {
       setSupplySaveGlobalMotive("");
       setSupplySaveConfirmOpen(false);
       setSupplySaveConfirmLines([]);
+      setAltQtyDrafts({});
+      setSupplyEditOpenRowIds({});
     } catch {
       /* setError dans saveConfirmedAdjustmentsCore */
       await load();
@@ -4690,7 +4697,7 @@ export default function PharmacienDemandeDetailPage() {
       const pickedN = pharmacistCounterPickedUpCount(items);
       dossierStatusHint = canCompleteCounter
         ? pickedN > 0 && counterClosurePendingTracked > 0
-          ? `${pickedN} produit${pickedN > 1 ? "s" : ""} récupéré${pickedN > 1 ? "s" : ""} — vous pouvez clôturer (les non récupérés seront écartés).`
+          ? `${pickedN} produit${pickedN > 1 ? "s" : ""} récupéré${pickedN > 1 ? "s" : ""} — vous pouvez clôturer (les non récupérés seront retirés).`
           : "Au moins un produit récupéré — vous pouvez clôturer le dossier."
         : counterClosurePendingTracked > 0
           ? "Comptoir : marquez au moins un produit « Récupéré » pour pouvoir clôturer."
@@ -4959,7 +4966,7 @@ export default function PharmacienDemandeDetailPage() {
       !pharmacistRequestIsHardStopped(request.status) ? (
         <section className={clsx(PHARMA_STATUS_BANNER, "border-teal-200/70 bg-teal-50/45 text-teal-950")}>
           <p className="font-semibold text-teal-950">Validée patient</p>
-          <p className="text-teal-900/88">Pastilles = enregistrement direct · écarts = barre du bas.</p>
+          <p className="text-teal-900/88">Pastilles = enregistrement direct · retraits = barre du bas.</p>
         </section>
       ) : null}
 
@@ -5474,7 +5481,7 @@ export default function PharmacienDemandeDetailPage() {
                         {!row.withdrawn_after_confirm ? (
                           <>
                             <p className="text-[10px] leading-snug text-muted-foreground">
-                              Écart en brouillon — sera journalisé avec le dossier (« Enregistrer les modifications »).
+                              Retrait en brouillon — sera journalisé avec le dossier (« Enregistrer les modifications »).
                             </p>
                             <button
                               type="button"
@@ -5489,7 +5496,7 @@ export default function PharmacienDemandeDetailPage() {
                                 setSupplyMenuRowId(null);
                               }}
                             >
-                              Abandonner l&apos;écart (brouillon)
+                              Abandonner le retrait (brouillon)
                             </button>
                           </>
                         ) : null}
@@ -5572,7 +5579,7 @@ export default function PharmacienDemandeDetailPage() {
                             </select>
                           </label>
                           <p className="text-[9px] leading-snug text-muted-foreground">
-                            Pour retirer une ligne du dossier validé, utilisez « Écarter la ligne » dans le menu ⋮.
+                            Pour retirer une ligne du dossier validé, utilisez « Retirer la ligne » dans le menu ⋮.
                           </p>
                         </div>
                       )}
@@ -5678,7 +5685,7 @@ export default function PharmacienDemandeDetailPage() {
                       onMenuModify={() => {
                         if (withdrawnDraft) {
                           setError(
-                            "Abandonnez d’abord l’écart en brouillon (bouton sous la ligne), puis modifiez."
+                            "Abandonnez d’abord le retrait en brouillon (bouton sous la ligne), puis modifiez."
                           );
                           setSupplyMenuRowId(null);
                           return;
@@ -5991,13 +5998,13 @@ export default function PharmacienDemandeDetailPage() {
                             }}
                             className="rounded-md border border-amber-600/90 bg-white px-2 py-1 text-[10px] font-semibold text-amber-950 shadow-sm hover:bg-amber-100/90 disabled:opacity-50"
                           >
-                            Écarter la ligne
+                            Retirer la ligne
                           </button>
                         </div>
                       ) : null}
                       {canManageSupply && selected && !lineLockedTrace && withdrawnDraft ? (
                         <p className="mt-1 rounded-md border border-border/80 bg-muted/25 px-1.5 py-1 text-[10px] leading-snug text-muted-foreground">
-                          Ligne écartée — pastilles réservé / commandé désactivées pour cette ligne.
+                          Ligne retirée — pastilles réservé / commandé désactivées pour cette ligne.
                         </p>
                       ) : null}
                     </div>
@@ -7137,7 +7144,7 @@ export default function PharmacienDemandeDetailPage() {
             <PlatformStickyFooterStackRow>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <p className="text-center text-[11px] leading-snug text-muted-foreground sm:flex-1 sm:text-left">
-                  Au moins un produit est récupéré — vous pouvez clôturer (les autres seront écartés).
+                  Au moins un produit est récupéré — vous pouvez clôturer (les autres seront retirés).
                 </p>
                 <button
                   type="button"

@@ -72,7 +72,7 @@ export function patientLineSuiviModel(
 
   if (row.withdrawn_after_confirm) {
     return {
-      etat: "Écart après validation (hors commande active)",
+      etat: "Retrait après validation (hors commande active)",
       modif,
       ajout,
       comptoir: null,

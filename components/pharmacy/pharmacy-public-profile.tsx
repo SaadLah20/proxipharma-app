@@ -302,16 +302,9 @@ export function PharmacyPublicProfile({
               <span className={pharmacyOpenStatusOverlayBadgeClass(openState.status)}>
                 {openState.openLabel}
               </span>
-              {openState.onCallToday ? (
-                <span
-                  className={clsx(
-                    "rounded-full px-2.5 py-0.5 text-[10px] font-bold",
-                    openState.onCallNow
-                      ? "bg-amber-400 text-amber-950 ring-1 ring-amber-500/60"
-                      : "bg-amber-400/85 text-amber-950"
-                  )}
-                >
-                  {openState.onCallNow ? "De garde · en cours" : "De garde aujourd'hui"}
+              {openState.onCallBadgeVisible ? (
+                <span className="rounded-full bg-amber-400 px-2.5 py-0.5 text-[10px] font-bold text-amber-950 ring-1 ring-amber-500/60">
+                  De garde · en cours
                 </span>
               ) : null}
               <span className="inline-flex items-center gap-0.5 rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-medium backdrop-blur-sm">

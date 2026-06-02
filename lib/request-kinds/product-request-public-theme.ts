@@ -1,37 +1,37 @@
 /**
- * Parcours « demande de produits » : fond / cartes / textes = charte globale ;
- * accent **sky** réservé à l’en-tête de parcours, focus, CTA et repères prix.
+ * Parcours « demande de produits » : charte plateforme (primary / card) ;
+ * accent sky discret (icône bandeau, filet) pour distinguer du parcours ordonnance / consultation.
  */
 export const productRequestPublicTheme = {
-  backLink: "text-primary hover:text-sky-800",
-  /** Carte standard — bordure neutre (comme annuaire / fiche). */
+  backLink: "text-primary hover:text-primary/80",
   shell: "border-border/90 shadow-sm",
-  /** Bandeau ou filet sky discret sur une zone clé. */
-  accentLine: "border-sky-200/60",
-  headerGradient: "bg-gradient-to-br from-sky-700 via-sky-700 to-sky-800",
-  headerBorder: "border-sky-500/25",
-  headerEyebrow: "text-sky-100/90",
-  headerSubtitle: "text-sky-50/95",
+  accentLine: "border-sky-300/40",
+  accentIcon: "text-sky-700",
+  accentIconBg: "bg-sky-100/90 ring-1 ring-sky-200/60",
+  headerGradient: "border-border bg-card",
+  headerBorder: "border-border/90",
+  headerEyebrow: "text-muted-foreground",
+  headerSubtitle: "text-muted-foreground",
   searchDivider: "border-border/80",
-  searchIcon: "text-sky-600",
+  searchIcon: "text-primary/70",
   searchInput: "border-border/80",
-  focus: "outline-none focus-visible:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/30",
+  focus: "outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25",
   explorerBtn:
-    "inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-sky-600/25 bg-card px-3 text-sm font-semibold text-sky-900 shadow-sm transition hover:border-sky-500/40 hover:bg-sky-50/80",
-  hitHover: "hover:border-sky-300/50 hover:bg-muted/30",
-  photoRing: "hover:ring-sky-400/40 focus-visible:ring-sky-500/50",
-  price: "text-sky-800",
-  priceBold: "font-bold text-sky-800",
+    "inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground shadow-sm transition hover:border-primary/30 hover:bg-muted/30",
+  hitHover: "hover:border-primary/25 hover:bg-muted/30",
+  photoRing: "hover:ring-primary/30 focus-visible:ring-primary/40",
+  price: "text-foreground",
+  priceBold: "font-bold text-foreground",
   messageCard: "border-border/90",
   messageInput: "border-border/80",
-  footerBorder: "border-sky-200/50",
-  feedbackOk: "border-sky-200/60 bg-sky-50/60 text-foreground",
-  cta: "bg-sky-700 text-white hover:bg-sky-800 shadow-sm",
-  noteActive: "border-sky-300/60 bg-sky-50/80 text-sky-950",
-  noteIdle: "hover:border-sky-200/60 hover:bg-sky-50/40",
+  footerBorder: "border-border/80",
+  feedbackOk: "border-border bg-muted/30 text-foreground",
+  cta: "rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-95",
+  noteActive: "border-primary/30 bg-primary/5 text-foreground",
+  noteIdle: "hover:border-border hover:bg-muted/30",
   modalShell: "border-border/90 shadow-xl",
   modalHeader: "border-border/80 bg-muted/20",
-  modalHighlight: "border-sky-200/50 bg-sky-50/40",
-  modalLabel: "text-sky-900",
+  modalHighlight: "border-border bg-muted/20",
+  modalLabel: "text-foreground",
   sectionBadge: "rounded-md bg-sky-100/80 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-sky-900",
 } as const;
