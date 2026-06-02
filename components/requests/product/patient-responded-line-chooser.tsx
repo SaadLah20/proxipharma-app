@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { Package, X } from "lucide-react";
+import { Check, Package, X } from "lucide-react";
 import {
   ProductRequestLinePrices,
   ProductRequestLineQtyPicker,
@@ -243,13 +243,8 @@ function RespondedVariantTabs({
   onTab: (id: string) => void;
   className?: string;
 }) {
-  const activeMeta = tabs.find((t) => t.id === activeTab) ?? tabs[0];
-  const selectedMeta = selectedTabId ? tabs.find((t) => t.id === selectedTabId) : null;
-  const viewingLabel = activeMeta?.label ?? "Option";
-  const choiceLabel = selectedMeta?.label ?? null;
-
   return (
-    <div className={cn("min-w-0 space-y-1.5", className)}>
+    <div className={cn("min-w-0", className)}>
       <div
         className="grid min-w-0 gap-1"
         style={{ gridTemplateColumns: `repeat(${Math.max(tabs.length, 1)}, minmax(0, 1fr))` }}
@@ -275,67 +270,33 @@ function RespondedVariantTabs({
                       ? "Votre choix — affiché"
                       : "Votre choix — cliquez pour afficher"
                     : isViewing
-                      ? "Consulté — pas votre choix"
+                      ? "Option affichée"
                       : "Cliquez pour consulter"
               }
               className={cn(
-                "relative flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1.5 text-center transition",
-                dim && "border border-transparent bg-transparent text-slate-400 line-through",
+                "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg border px-1 py-1.5 text-center transition",
+                dim && "border-transparent bg-transparent text-slate-400 line-through opacity-60",
                 !dim &&
                   isViewing &&
-                  "z-[1] border-2 border-sky-500 bg-white text-foreground shadow-md ring-2 ring-sky-200/70",
+                  "z-[1] border-sky-500/75 bg-white font-semibold text-foreground shadow-sm ring-1 ring-sky-200/60",
                 !dim &&
                   !isViewing &&
-                  isSelected &&
-                  "border border-emerald-400/35 bg-emerald-50/30 text-foreground",
-                !dim &&
-                  !isViewing &&
-                  !isSelected &&
-                  "border border-border/70 bg-muted/25 text-muted-foreground hover:border-sky-300/55 hover:bg-white hover:text-foreground"
+                  "border-border/70 bg-muted/20 text-muted-foreground hover:border-sky-300/50 hover:bg-white hover:text-foreground"
               )}
               onClick={() => onTab(tab.id)}
             >
               <span className="w-full truncate text-[10px] font-semibold leading-tight">{tab.label}</span>
               {!dim ? (
-                <span
-                  className={cn(
-                    "size-1.5 shrink-0 rounded-full",
-                    isSelected ? "bg-emerald-500/80" : "bg-transparent ring-1 ring-muted-foreground/30"
-                  )}
-                  aria-hidden
-                />
+                isSelected ? (
+                  <Check className="size-3.5 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
+                ) : (
+                  <span className="size-3.5 shrink-0" aria-hidden />
+                )
               ) : null}
             </button>
           );
         })}
       </div>
-      <p className="text-[10px] leading-snug text-muted-foreground" aria-live="polite">
-        {selectedMeta && !selectedMeta.retainable ? (
-          <>
-            Consulté : <span className="font-semibold text-foreground">{viewingLabel}</span>
-            {" · "}
-            <span className="text-slate-500">aucune option retenable</span>
-          </>
-        ) : choiceLabel && choiceLabel !== viewingLabel ? (
-          <>
-            Consulté : <span className="font-semibold text-foreground">{viewingLabel}</span>
-            {" · "}
-            Votre choix : <span className="font-semibold text-emerald-800">{choiceLabel}</span>
-          </>
-        ) : choiceLabel ? (
-          <>
-            Votre choix : <span className="font-semibold text-emerald-800">{choiceLabel}</span>
-            {activeTab === selectedTabId ? (
-              <span className="text-muted-foreground"> (affiché)</span>
-            ) : null}
-          </>
-        ) : (
-          <>
-            Consulté : <span className="font-semibold text-foreground">{viewingLabel}</span>
-            <span className="text-muted-foreground"> — cochez OK pour inclure un produit</span>
-          </>
-        )}
-      </p>
     </div>
   );
 }
@@ -362,15 +323,15 @@ function RespondedRetainControl({
     ) : null;
   }
   return (
-    <label className="flex w-full cursor-pointer flex-col items-center gap-0 leading-none">
+    <label className="flex w-full cursor-pointer items-center justify-center gap-1.5 leading-none">
       <input
         type="checkbox"
         checked={retained}
         onChange={(e) => onToggle(e.target.checked)}
-        className="size-3 shrink-0 rounded-sm border-border accent-emerald-600"
+        className="size-4 shrink-0 rounded border-border accent-emerald-600"
         aria-label={retained ? "Produit retenu — cliquer pour retirer" : "Inclure ce produit dans votre validation"}
       />
-      <span className="mt-0.5 text-[8px] font-bold text-muted-foreground">OK</span>
+      <span className="text-[10px] font-bold text-muted-foreground">OK</span>
     </label>
   );
 }
@@ -483,13 +444,19 @@ function RespondedLineBlock({
             </p>
           ) : null}
 
-          <RespondedLineQtyMeta
-            bucketId={bucketId}
-            isAlt={variant.branch !== "principal"}
-            showRequested={false}
-            requestedQty={variant.requestedQty}
-            expectedDate={variant.expectedDate}
-          />
+          {!variantTabsAbove ? (
+            <RespondedLineQtyMeta
+              bucketId={bucketId}
+              isAlt={variant.branch !== "principal"}
+              showRequested={variant.showRequested}
+              requestedQty={variant.requestedQty}
+              expectedDate={variant.expectedDate}
+            />
+          ) : variant.expectedDate && bucketId === "to_order" ? (
+            <p className="text-[11px] font-semibold leading-snug text-teal-900">
+              Réception prévue · {formatDateShortFr(variant.expectedDate)}
+            </p>
+          ) : null}
 
           <div className="flex w-full items-end justify-between gap-2 pt-0.5">
             <div className="min-w-0 shrink leading-none">
@@ -500,9 +467,8 @@ function RespondedLineBlock({
             </div>
             <div className="flex shrink-0 flex-col items-center gap-1">
               {showQty && variant.showRequested ? (
-                <p className="text-center text-[9px] leading-tight text-muted-foreground">
-                  Qté demandée
-                  <br />
+                <p className="whitespace-nowrap text-center text-[9px] leading-none text-muted-foreground">
+                  Qté demandée{" "}
                   <strong className="tabular-nums text-foreground">{variant.requestedQty}</strong>
                 </p>
               ) : null}
@@ -659,7 +625,7 @@ export function RespondedPatientLineChooser({
       ),
       availabilityStatus: alt.availability_status,
       expectedDate: alt.expected_availability_date,
-      clientComment: row.client_comment ?? "",
+      clientComment: "",
       pharmacistComment: alt.pharmacist_comment ?? "",
       branch: alt.id,
       cap: maxQtyAlt(row, alt),
