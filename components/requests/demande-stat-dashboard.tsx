@@ -122,7 +122,7 @@ function StatGroupHelp({
 }) {
   const bucketByKey = new Map(buckets.map((b) => [b.key, b]));
   return (
-    <InfoHint label={`Aide — ${group.label}`} align="end" placement="down">
+    <InfoHint label={`Aide — ${group.label}`} align="end" placement="down" className="shrink-0">
       <p className="font-semibold text-foreground">{group.label}</p>
       {group.subtitle ? <p className="mt-1 text-muted-foreground">{group.subtitle}</p> : null}
       <ul className="mt-2 space-y-1.5">
@@ -190,7 +190,7 @@ export function DemandeStatDashboard({
   return (
     <div
       className={clsx(
-        "rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06] shadow-sm sm:shadow-sm",
+        "overflow-visible rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06] shadow-sm sm:shadow-sm",
         compact ? "p-2.5 sm:p-3" : "p-3 sm:p-3.5"
       )}
     >
@@ -217,27 +217,25 @@ export function DemandeStatDashboard({
               <div
                 key={group.id}
                 className={clsx(
-                  "rounded-xl border p-2 ring-1 sm:p-2.5",
+                  "overflow-visible rounded-xl border p-2 ring-1 sm:p-2.5",
                   accent.shell
                 )}
               >
                 <div className="mb-2 flex items-start justify-between gap-2 px-0.5">
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span
-                        className={clsx(
-                          "inline-flex rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
-                          accent.badge
-                        )}
-                      >
-                        {group.label}
-                      </span>
-                      <StatGroupHelp group={group} buckets={buckets} />
-                    </div>
+                    <span
+                      className={clsx(
+                        "inline-flex rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
+                        accent.badge
+                      )}
+                    >
+                      {group.label}
+                    </span>
                     {group.subtitle ? (
                       <p className={clsx("mt-1 text-[10px] leading-snug", accent.label)}>{group.subtitle}</p>
                     ) : null}
                   </div>
+                  <StatGroupHelp group={group} buckets={buckets} />
                 </div>
                 <div className={clsx("grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4", compact ? "gap-1.5" : "gap-2")}>
                   {tiles}
