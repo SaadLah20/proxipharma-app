@@ -570,9 +570,10 @@ function PatientTraceNotRetainedRow({
   );
 }
 
-/** Défaut atelier : d’abord le principal disponible, sinon première alternative disponible, sinon rien */
+/** Défaut : principal si disponible ; avec alternatives proposées, ne jamais pré-cocher une Alt. */
 function pickDefaultBranch(row: ActionItemRow, alts: ActionItemAltRow[]): LineBranch {
   if (maxQtyPrincipal(row) > 0) return "principal";
+  if (alts.length > 0) return null;
   for (const alt of alts) {
     if (maxQtyAlt(row, alt) > 0) return alt.id;
   }
