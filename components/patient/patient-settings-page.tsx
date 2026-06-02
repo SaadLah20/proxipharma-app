@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { PageShell } from "@/components/ui/compact-shell";
 import { ExternalNotificationPrefs } from "@/components/notifications/external-notification-prefs";
+import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { PatientSettingsSection } from "@/components/patient/patient-settings-section";
 import { linkMyPhoneOnAuth } from "@/lib/auth-client-phone-link";
 import { authEmailRedirectUrl, resolveClientAppBaseUrl } from "@/lib/auth-site-url";
@@ -34,13 +35,6 @@ type Profile = {
   email: string | null;
   patient_ref?: string | null;
 };
-
-function profileInitials(name: string | null | undefined): string {
-  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
-  const t = (name ?? "").trim();
-  return t ? t.slice(0, 2).toUpperCase() : "?";
-}
 
 function ProfileField({ label, value }: { label: string; value: string }) {
   return (
@@ -285,44 +279,32 @@ export function PatientSettingsPage() {
 
   return (
     <PageShell maxWidthClass="max-w-lg" className={clsx("space-y-4 pb-8", p.page)}>
-      <div>
-        <Link href="/" className={p.backLink}>
-          ← Annuaire
-        </Link>
-      </div>
-
-      <header className={p.hero}>
-        <div className="flex items-center gap-3">
-          <div
-            className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary-foreground/15 text-lg font-bold"
-            aria-hidden
-          >
-            {profileInitials(profile?.full_name)}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className={p.heroEyebrow}>Compte patient</p>
-            <h1 className={clsx("truncate", p.heroTitle)}>Mes paramètres</h1>
-            <p className={clsx("truncate text-sm font-medium", p.heroSubtitle)}>{displayName}</p>
+      <PatientAccountPageHeader
+        eyebrow="Compte patient"
+        title="Mes paramètres"
+        subtitle={
+          <>
+            <span className="font-medium text-foreground">{displayName}</span>
             {profile?.patient_ref?.trim() ? (
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <span className="font-mono text-sm font-semibold">{profile.patient_ref.trim()}</span>
+              <span className="mt-2 flex flex-wrap items-center gap-2">
+                <span className={p.monoAccent}>{profile.patient_ref.trim()}</span>
                 <button
                   type="button"
                   onClick={() => void copyPatientRef()}
-                  className="inline-flex items-center gap-1 rounded-md bg-primary-foreground/15 px-2 py-0.5 text-[11px] font-medium hover:bg-primary-foreground/25"
+                  className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground hover:bg-muted/70"
                 >
                   <Copy className="size-3" aria-hidden />
                   Copier
                 </button>
-              </div>
+              </span>
             ) : null}
-            {copyRefMsg ? <p className={clsx("mt-1 text-[11px]", p.heroSubtitle)}>{copyRefMsg}</p> : null}
-          </div>
-        </div>
-        <p className={clsx("mt-3 leading-relaxed", p.heroSubtitle)}>
-          Profil, connexion et notifications — vos dossiers restent dans le menu principal.
-        </p>
-      </header>
+            {copyRefMsg ? <span className="mt-1 block text-[11px]">{copyRefMsg}</span> : null}
+            <span className="mt-2 block">
+              Profil, connexion et notifications — vos dossiers restent dans le menu principal.
+            </span>
+          </>
+        }
+      />
 
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
 

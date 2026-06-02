@@ -8,6 +8,7 @@ import {
   AlertCircle,
   ClipboardList,
   Eye,
+  FileText,
   Gift,
   MessageSquare,
   MousePointerClick,
@@ -18,6 +19,7 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
+import { DemandeStatDashboard } from "@/components/requests/demande-stat-dashboard";
 import {
   Bar,
   BarChart,
@@ -33,8 +35,6 @@ import {
 import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
 import {
-  PHARMACIST_DASHBOARD_BUCKETS,
-  countRequestsInPharmacistBucket,
   dashboardPeriodLabel,
   dashboardPeriodRange,
   formatChartDayFr,
@@ -45,7 +45,18 @@ import {
   type PharmacistDashboardSnapshot,
 } from "@/lib/pharmacist-dashboard";
 import { isPharmacyEngagementTableUnavailable } from "@/lib/pharmacy-engagement";
+import { dashboardBucketsForKind } from "@/lib/request-kinds/hub-and-terminal-copy";
+import { platformDashboardChrome as chrome } from "@/lib/platform-dashboard-chrome";
 import { supabase } from "@/lib/supabase";
+
+function snapshotRowsForStatDashboard(byStatus: Record<string, number>) {
+  const rows: { status: string; status_for_dashboard: string }[] = [];
+  for (const [status, count] of Object.entries(byStatus)) {
+    const n = Math.max(0, Math.floor(Number(count) || 0));
+    for (let i = 0; i < n; i++) rows.push({ status, status_for_dashboard: status });
+  }
+  return rows;
+}
 
 function KpiCard({
   icon: Icon,
@@ -208,13 +219,11 @@ export function PharmacistDashboard() {
     ].filter((x) => x.value > 0);
   }, [snapshot]);
 
-  const bucketCounts = useMemo(() => {
-    if (!snapshot) return [];
-    return PHARMACIST_DASHBOARD_BUCKETS.map((b) => ({
-      ...b,
-      count: countRequestsInPharmacistBucket(snapshot.requests.by_status, b.key),
-    })).filter((b) => b.count > 0 || ["envoyees", "repondues", "validees_traitees"].includes(b.key));
-  }, [snapshot]);
+  const statDashboardRows = useMemo(
+    () => (snapshot ? snapshotRowsForStatDashboard(snapshot.requests.by_status) : []),
+    [snapshot]
+  );
+  const statDashboardBuckets = useMemo(() => dashboardBucketsForKind("product_request", "pharmacien"), []);
 
   const contactClicks = snapshot
     ? snapshot.engagement.phone_clicks + snapshot.engagement.whatsapp_clicks
@@ -335,6 +344,22 @@ export function PharmacistDashboard() {
             </div>
           </section>
 
+          {statDashboardRows.length > 0 ? (
+            <section aria-labelledby="home-8-statuts">
+              <h2 id="home-8-statuts" className="sr-only">
+                8 statuts — tous dossiers
+              </h2>
+              <DemandeStatDashboard
+                rows={statDashboardRows}
+                buckets={statDashboardBuckets}
+                basePath="/dashboard/pharmacien/demandes"
+                density="compact"
+                dashboardTitle="8 statuts"
+                dashboardSubtitle="Tous parcours confondus — ouvre le hub produits filtré (ordonnances et consultations : menu Dossiers)."
+              />
+            </section>
+          ) : null}
+
           <section aria-labelledby="kpi-audience">
             <h2 id="kpi-audience" className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
               Visibilité & patients
@@ -438,7 +463,7 @@ export function PharmacistDashboard() {
                 <ul className="mt-2 space-y-1 border-t border-border/60 pt-2">
                   {(["product_request", "prescription", "free_consultation"] as const).map((kind) => (
                     <li key={kind} className="flex items-center justify-between text-xs">
-                      <Link href={requestTypeHubPath(kind)} className="font-medium text-emerald-900 underline">
+                      <Link href={requestTypeHubPath(kind)} className={chrome.linkInline}>
                         {requestTypeLabelFr(kind)}
                       </Link>
                       <span className="tabular-nums text-muted-foreground">{snapshot.requests.by_type[kind] ?? 0}</span>
@@ -486,31 +511,13 @@ export function PharmacistDashboard() {
             </div>
           </div>
 
-          {bucketCounts.length > 0 ? (
-            <section className="rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.05] p-4 shadow-sm">
-              <h2 className="text-sm font-semibold text-foreground">Répartition des dossiers</h2>
-              <p className="text-[11px] text-muted-foreground">Toucher un bloc pour ouvrir le hub filtré (produits).</p>
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                {bucketCounts.map((b) => (
-                  <Link
-                    key={b.key}
-                    href={`/dashboard/pharmacien/demandes?vue=liste&statut=${b.key}`}
-                    className="rounded-xl border border-border/80 bg-background/80 px-3 py-2.5 text-left transition hover:border-primary/25 hover:bg-muted/30"
-                  >
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{b.label}</p>
-                    <p className="mt-0.5 text-xl font-bold tabular-nums text-foreground">{b.count}</p>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
           <section className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-foreground">Accès rapides</h2>
             <div className="mt-3 flex flex-wrap gap-2">
               {[
                 { href: "/dashboard/pharmacien/demandes", label: "Demandes produits", icon: Package },
-                { href: "/dashboard/pharmacien/ordonnances", label: "Ordonnances", icon: MessageSquare },
+                { href: "/dashboard/pharmacien/ordonnances", label: "Ordonnances", icon: FileText },
+                { href: "/dashboard/pharmacien/consultations-libres", label: "Consultations libres", icon: MessageSquare },
                 { href: "/dashboard/pharmacien/produits-commandes", label: "Produits commandés", icon: ClipboardList },
                 { href: "/dashboard/pharmacien/ruptures-marche", label: "Ruptures marché", icon: AlertCircle },
                 { href: "/dashboard/pharmacien/clients", label: "Clients", icon: Users },

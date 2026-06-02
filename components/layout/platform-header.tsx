@@ -165,7 +165,9 @@ export const patientNavMenu: PlatformNavBlock[] = [
       { href: "/dashboard/patient/packs-promo", label: "Packs promo", icon: Gift },
     ],
   },
+  { kind: "link", item: { href: "/dashboard/notifications", label: "Notifications", icon: Bell } },
   { kind: "link", item: { href: "/dashboard/patient/pharmacies", label: "Mes pharmacies", icon: MapPin } },
+  { kind: "link", item: { href: "/", label: "Annuaire pharmacies", icon: Building2 } },
   { kind: "link", item: { href: "/dashboard/patient/parametres", label: "Mes paramètres", icon: Settings } },
 ];
 
@@ -214,6 +216,7 @@ export const pharmacienNavMenu: PlatformNavBlock[] = [
     kind: "link",
     item: { href: "/dashboard/pharmacien/pricing", label: "Moteur de pricing", icon: Calculator },
   },
+  { kind: "link", item: { href: "/dashboard/notifications", label: "Notifications", icon: Bell } },
   { kind: "link", item: { href: "/dashboard/pharmacien/parametres", label: "Mes paramètres", icon: Settings } },
 ];
 

@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
+import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
+import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { supabase } from "@/lib/supabase";
 import { promoReservationBadgeClass, promoReservationHint, promoReservationLabel } from "@/lib/promo/reservation-status-ui";
 import type { PromoReservationStatus } from "@/lib/promo/types";
@@ -88,20 +90,18 @@ export function PatientPromoReservationsHub() {
 
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
-      <div>
-        <Link href="/dashboard/patient/pharmacies" className="text-xs font-medium text-sky-800 underline">
-          ← Mes pharmacies
-        </Link>
-        <h1 className="mt-2 text-lg font-bold">Mes packs promo</h1>
-        <p className="text-xs text-muted-foreground">
-          Réservations de packs promotionnels auprès de vos officines.
-        </p>
-      </div>
+      <PatientAccountPageHeader
+        eyebrow="Mes dossiers"
+        title="Packs promo"
+        subtitle="Réservations de packs promotionnels auprès de vos officines."
+        backHref="/dashboard/patient/pharmacies"
+        backLabel="← Mes pharmacies"
+      />
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
       {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground space-y-2">
           <p>Aucune réservation pour le moment.</p>
-          <Link href="/dashboard/patient/pharmacies" className="inline-block font-semibold text-primary underline">
+          <Link href="/dashboard/patient/pharmacies" className={p.linkInline}>
             Trouver une pharmacie →
           </Link>
         </div>

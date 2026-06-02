@@ -125,7 +125,7 @@ export function PharmacistPromoReservationsHub() {
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
 
       {submittedCount > 0 ? (
-        <p className="rounded-xl bg-sky-50 px-3 py-2 text-sm font-medium text-sky-950 ring-1 ring-sky-100">
+        <p className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-medium text-foreground">
           {submittedCount} réservation{submittedCount > 1 ? "s" : ""} en attente de votre réponse.
         </p>
       ) : null}

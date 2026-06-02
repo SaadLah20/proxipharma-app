@@ -23,4 +23,18 @@ export const platformDashboardChrome = {
   ctaOutline:
     "rounded-lg border border-primary/25 bg-card px-4 py-2 text-sm font-semibold text-primary hover:bg-accent",
   monoAccent: "font-mono font-bold text-primary",
+  /** Lien secondaire compact (hub, notifications). */
+  headerAction:
+    "shrink-0 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:bg-muted/50",
 } as const;
+
+/** Retour standard des écrans compte selon le rôle. */
+export function accountBackForRole(role: string): { href: string; label: string } {
+  if (role === "pharmacien") {
+    return { href: "/dashboard/pharmacien", label: "← Tableau de bord" };
+  }
+  if (role === "admin") {
+    return { href: "/admin", label: "← Administration" };
+  }
+  return { href: "/", label: "← Annuaire" };
+}

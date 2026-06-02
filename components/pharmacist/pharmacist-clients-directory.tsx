@@ -160,11 +160,11 @@ export function PharmacistClientsDirectory() {
         </div>
         <div className={chrome.statCard}>
           <p className={chrome.statLabel}>Dossiers actifs</p>
-          <p className={clsx(chrome.statValue, "text-amber-900")}>{stats.activePatients}</p>
+          <p className={chrome.statValue}>{stats.activePatients}</p>
         </div>
         <div className={chrome.statCard}>
           <p className={chrome.statLabel}>Avec pack promo</p>
-          <p className={clsx(chrome.statValue, "text-violet-900")}>{stats.withPromo}</p>
+          <p className={chrome.statValue}>{stats.withPromo}</p>
         </div>
       </div>
 

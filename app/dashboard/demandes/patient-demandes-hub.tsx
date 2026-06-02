@@ -5,14 +5,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
 import { Search, SlidersHorizontal } from "lucide-react";
-import { DemandeStatDashboard } from "@/components/requests/demande-stat-dashboard";
+import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
+import { RequestKindHubDashboard } from "@/components/requests/hub/request-kind-hub-dashboard";
 import {
   DemandeHubTabBar,
   type HubTab,
   PatientDemandeCard,
   type PatientRequestRow,
 } from "@/components/requests/demande-hub-ui";
-import { PatientProductDemandesDashboard } from "@/components/requests/product/patient-product-demandes-dashboard";
 import { PatientProductDemandeHubCard } from "@/components/requests/product/patient-product-demande-hub-card";
 import { ProductHubListResultsBar } from "@/components/requests/product/product-hub-list-results-bar";
 import { filterPatientProductHubListRows } from "@/lib/patient-product-hub-sections";
@@ -20,18 +20,18 @@ import {
   patientHubListActiveFiltersSummary,
   patientHubListHasActiveFilters,
 } from "@/lib/patient-request-hub-list-filters";
-import { productRequestPublicTheme as productTheme } from "@/lib/request-kinds/product-request-public-theme";
+import { hubListFilterChrome as filterChrome } from "@/lib/hub-list-filter-chrome";
+import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { PageShell } from "@/components/ui/compact-shell";
 import { bucketForStatusParam } from "@/lib/demandes-hub-buckets";
 import { one } from "@/lib/embed";
-import { dashboardBucketsForKind, hubDashboardChrome } from "@/lib/request-kinds/hub-and-terminal-copy";
+import { dashboardBucketsForKind } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { formatShortId } from "@/lib/request-display";
 import { supabase } from "@/lib/supabase";
 import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
-import { uiSurfaceCard } from "@/lib/ui-surfaces";
 
 function tabFromSearch(v: string | null): HubTab {
   return v === "liste" ? "list" : "dashboard";
@@ -44,7 +44,6 @@ function tabToSearch(t: HubTab): string {
 export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const kindConfig = getRequestKindConfig(kindId);
   const hubPath = kindConfig.routes.patientHubPath;
-  const accent = kindConfig.theme.accent;
   const refPlaceholder =
     kindConfig.publicRefPrefix === "O" ? "Ex. O042/26" : kindConfig.publicRefPrefix === "C" ? "Ex. C042/26" : "Ex. D042/26";
 
@@ -75,7 +74,6 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
 
   const isProductHub = kindId === "product_request";
   const dashboardBuckets = useMemo(() => dashboardBucketsForKind(kindId, "patient"), [kindId]);
-  const dashboardChrome = useMemo(() => hubDashboardChrome(kindId, "patient"), [kindId]);
 
   /** Filtres URL : réservés à l’onglet liste — le tableau de bord reste toujours complet. */
   const listStatutParam = tab === "list" ? searchParams.get("statut") : null;
@@ -250,10 +248,13 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
 
-  const linkClass = "font-semibold text-primary underline underline-offset-2";
-  const filterShell = clsx(uiSurfaceCard, "p-3");
-  const filterTitle = "text-foreground";
   const filterBtn = uiActionBtnFilterToggle();
+  const hubSubtitle =
+    kindId === "prescription"
+      ? "Suivi de vos ordonnances envoyées aux pharmacies."
+      : kindId === "free_consultation"
+        ? "Suivi de vos consultations libres : message, échange et proposition produits."
+        : "8 statuts en tête, reprise rapide et liste filtrable par statut, pharmacie ou référence.";
 
   if (loading) {
     return (
@@ -266,7 +267,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   if (error && rows.length === 0) {
     return (
       <PageShell maxWidthClass="max-w-3xl">
-        <Link href="/" className={clsx("text-xs font-medium", linkClass)}>
+        <Link href="/" className={p.backLink}>
           ← Annuaire
         </Link>
         <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</p>
@@ -286,32 +287,16 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
       maxWidthClass="max-w-3xl"
       className="space-y-4"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link
-            href="/"
-            className={clsx("text-xs font-medium", isProductHub ? productTheme.backLink : linkClass)}
-          >
-            ← Annuaire
+      <PatientAccountPageHeader
+        eyebrow="Mes dossiers"
+        title={kindConfig.copy.patientHubTitle}
+        subtitle={hubSubtitle}
+        trailing={
+          <Link href="/dashboard/notifications" className={p.headerAction}>
+            Notifications
           </Link>
-          <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">
-            {kindConfig.copy.patientHubTitle}
-          </h1>
-          <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">
-            {kindId === "prescription"
-              ? "Suivi de vos ordonnances envoyées aux pharmacies."
-              : kindId === "free_consultation"
-                ? "Suivi de vos consultations libres : message, échange et proposition produits."
-                : "Tableau de bord avec repères visuels ; liste complète filtrable par statut, pharmacie ou référence."}
-          </p>
-        </div>
-        <Link
-          href="/dashboard/notifications"
-          className="shrink-0 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:bg-muted/50"
-        >
-          Notifications
-        </Link>
-      </div>
+        }
+      />
 
       <div className="mt-1">
         <DemandeHubTabBar
@@ -350,40 +335,27 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
             </div>
           ) : (
             <div className="mt-4">
-              {isProductHub ? (
-                <PatientProductDemandesDashboard rows={rows} basePath={hubPath} unreadById={unreadById} />
-              ) : (
-                <DemandeStatDashboard
-                  rows={rowsWithDashboardStatus}
-                  buckets={dashboardBuckets}
-                  basePath={hubPath}
-                  dashboardTitle={dashboardChrome.title}
-                  dashboardSubtitle={dashboardChrome.subtitle}
-                />
-              )}
+              <RequestKindHubDashboard
+                kindId={kindId}
+                role="patient"
+                rows={rows}
+                basePath={hubPath}
+                unreadById={unreadById}
+              />
             </div>
           )}
         </>
       ) : (
         <div className="mt-4 space-y-4">
-          <section className={filterShell}>
+          <section className={filterChrome.shell}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-2.5">
-                <span
-                  className={clsx(
-                    "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg shadow-sm",
-                    accent === "amber"
-                      ? "bg-amber-600 text-white"
-                      : accent === "violet"
-                        ? "bg-violet-600 text-white"
-                        : "bg-sky-700 text-white"
-                  )}
-                >
+                <span className={filterChrome.iconBox}>
                   <SlidersHorizontal className="size-4" aria-hidden />
                 </span>
                 <div className="min-w-0">
-                  <h2 className={clsx("text-sm font-bold tracking-tight", filterTitle)}>Recherche et filtres</h2>
-                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                  <h2 className={filterChrome.title}>Recherche et filtres</h2>
+                  <p className={filterChrome.subtitle}>
                     Uniquement pour cette liste — le tableau de bord reste inchangé.
                   </p>
                 </div>
@@ -466,7 +438,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                 <button
                   type="button"
                   onClick={clearListFilters}
-                  className={clsx("mt-1.5 text-[11px] font-semibold underline underline-offset-2", linkClass)}
+                  className={clsx("mt-1.5", filterChrome.clearLink)}
                 >
                   Tout effacer
                 </button>
@@ -512,7 +484,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                 <button
                   type="button"
                   onClick={clearListFilters}
-                  className={clsx("font-semibold underline", isProductHub ? productTheme.backLink : linkClass)}
+                  className={filterChrome.clearLink}
                 >
                   Effacer les filtres
                 </button>

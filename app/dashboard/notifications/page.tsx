@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
+import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
+import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
+import { accountBackForRole } from "@/lib/platform-dashboard-chrome";
 import { InAppNotificationItem } from "@/components/notifications/in-app-notification-item";
 import { rewriteForPatientView, rewriteForPharmacistView } from "@/lib/patient-copy";
 import { supabase } from "@/lib/supabase";
@@ -166,17 +169,31 @@ export default function NotificationsPage() {
     );
   }
 
+  const back = accountBackForRole(role);
+  const subtitle =
+    role === "pharmacien"
+      ? "Alertes dossiers et réservations packs promo de votre officine."
+      : "Demandes (produits, ordonnances, consultations) et réservations de packs promo.";
+
   return (
     <PageShell className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden">
-      <div className="min-w-0">
-        <Link href="/" className="text-xs font-medium text-sky-800 underline">
-          ← Annuaire
-        </Link>
-        <h1 className="mt-2 text-lg font-bold text-foreground">Notifications</h1>
-        <p className="text-xs text-muted-foreground">
-          Demandes (produits, ordonnances, consultations) et réservations de packs promo.
-        </p>
-      </div>
+      {role === "pharmacien" ? (
+        <PharmacistAccountPageHeader
+          eyebrow="Espace pharmacien"
+          title="Notifications"
+          subtitle={subtitle}
+          backHref={back.href}
+          backLabel={back.label}
+        />
+      ) : (
+        <PatientAccountPageHeader
+          eyebrow="Espace patient"
+          title="Notifications"
+          subtitle={subtitle}
+          backHref={back.href}
+          backLabel={back.label}
+        />
+      )}
 
       {promoCount > 0 ? (
         <div className="flex flex-wrap gap-1.5">

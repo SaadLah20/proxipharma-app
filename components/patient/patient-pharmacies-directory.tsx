@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { ChevronRight, Gift, MapPin, MessageSquare, Package, Phone, Search, Star, Store } from "lucide-react";
+import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
 import { one } from "@/lib/embed";
 import { PATIENT_DASHBOARD_BUCKETS } from "@/lib/demandes-hub-buckets";
@@ -284,31 +285,24 @@ export function PatientPharmaciesDirectory() {
 
   return (
     <PageShell maxWidthClass="max-w-5xl" className={clsx("space-y-5", p.page)}>
-      <div className={p.hero}>
-        <Link href="/" className={clsx(p.backLink, "text-primary-foreground/90")}>
-          ← Annuaire
-        </Link>
-        <h1 className={clsx("mt-2 flex items-center gap-2", p.heroTitle)}>
-          <Store className="h-5 w-5 shrink-0 opacity-90" />
-          Mes pharmacies
-        </h1>
-        <p className={clsx("mt-1", p.heroSubtitle)}>
-          Officines avec lesquelles vous avez déjà échangé (demandes, ordonnances, consultations ou packs promo).
-        </p>
-      </div>
+      <PatientAccountPageHeader
+        eyebrow="Espace patient"
+        title="Mes pharmacies"
+        subtitle="Officines avec lesquelles vous avez déjà échangé (demandes, ordonnances, consultations ou packs promo)."
+      />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className={p.statCard}>
           <p className={p.statLabel}>Total</p>
           <p className={p.statValue}>{stats.total}</p>
         </div>
-        <div className="rounded-xl border border-amber-200/70 bg-card p-3 shadow-sm ring-1 ring-amber-100/50">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Dossiers en cours</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-amber-950">{stats.withActive}</p>
+        <div className={p.statCard}>
+          <p className={p.statLabel}>Dossiers en cours</p>
+          <p className={p.statValue}>{stats.withActive}</p>
         </div>
-        <div className="rounded-xl border border-violet-200/70 bg-card p-3 shadow-sm ring-1 ring-violet-100/50">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Avec pack promo</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-violet-950">{stats.withPromo}</p>
+        <div className={p.statCard}>
+          <p className={p.statLabel}>Avec pack promo</p>
+          <p className={p.statValue}>{stats.withPromo}</p>
         </div>
       </div>
 
@@ -396,7 +390,7 @@ export function PatientPharmaciesDirectory() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         {r.pharmacy_public_ref?.trim() ? (
-                          <p className="font-mono text-[11px] font-bold text-sky-900">{r.pharmacy_public_ref.trim()}</p>
+                          <p className={clsx("font-mono text-[11px] font-bold", p.monoAccent)}>{r.pharmacy_public_ref.trim()}</p>
                         ) : null}
                         <p className="truncate font-semibold text-foreground">{pharmacyDisplayName(r.nom)}</p>
                         <p className="mt-0.5 truncate text-[11px] text-muted-foreground">

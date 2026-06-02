@@ -4,21 +4,22 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
-import { DemandeStatDashboard } from "@/components/requests/demande-stat-dashboard";
+import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
+import { RequestKindHubDashboard } from "@/components/requests/hub/request-kind-hub-dashboard";
 import {
   DemandeHubTabBar,
   type HubTab,
   PharmacistDemandeCard,
   type PharmacistRequestRow,
 } from "@/components/requests/demande-hub-ui";
-import { PharmacistProductDemandesDashboard } from "@/components/requests/product/pharmacist-product-demandes-dashboard";
 import { PharmacistProductDemandeHubCard } from "@/components/requests/product/pharmacist-product-demande-hub-card";
 import { ProductHubListResultsBar } from "@/components/requests/product/product-hub-list-results-bar";
 import { filterPharmacistProductHubListRows } from "@/lib/pharmacist-product-hub-sections";
-import { productRequestPublicTheme as productTheme } from "@/lib/request-kinds/product-request-public-theme";
+import { hubListFilterChrome as filterChrome } from "@/lib/hub-list-filter-chrome";
+import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { PageShell } from "@/components/ui/compact-shell";
 import { bucketForStatusParam } from "@/lib/demandes-hub-buckets";
-import { dashboardBucketsForKind, hubDashboardChrome } from "@/lib/request-kinds/hub-and-terminal-copy";
+import { dashboardBucketsForKind } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
@@ -36,7 +37,6 @@ function tabToSearch(t: HubTab): string {
 export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const kindConfig = getRequestKindConfig(kindId);
   const hubPath = kindConfig.routes.pharmacistHubPath;
-  const accent = kindConfig.theme.accent;
   const refPlaceholder =
     kindConfig.publicRefPrefix === "O" ? "Ex. O042/26" : kindConfig.publicRefPrefix === "C" ? "Ex. C042/26" : "Ex. D042/26";
 
@@ -66,7 +66,6 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const dashboardBuckets = useMemo(() => dashboardBucketsForKind(kindId, "pharmacien"), [kindId]);
-  const dashboardChrome = useMemo(() => hubDashboardChrome(kindId, "pharmacien"), [kindId]);
 
   const listStatutParam = tab === "list" ? searchParams.get("statut") : null;
   const activeBucket = bucketForStatusParam(listStatutParam, dashboardBuckets);
@@ -250,28 +249,14 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
 
-  const linkClass =
-    accent === "amber"
-      ? "text-amber-900 underline"
-      : accent === "violet"
-        ? "text-violet-900 underline"
-        : isProductHub
-          ? productTheme.backLink
-          : "text-emerald-900 underline";
-  const filterShell =
-    accent === "amber"
-      ? "rounded-lg border border-amber-200/80 bg-amber-50/35 p-2.5 shadow-sm ring-1 ring-amber-200/40"
-      : isProductHub
-        ? "rounded-xl border-2 border-sky-100 bg-sky-50/50 p-3 shadow-sm"
-        : "rounded-lg border border-emerald-200/80 bg-emerald-50/35 p-2.5 shadow-sm ring-1 ring-emerald-200/40";
-  const filterTitle = accent === "amber" ? "text-amber-950" : isProductHub ? "text-sky-950" : "text-emerald-950";
-  const filterSub = accent === "amber" ? "text-amber-900/85" : isProductHub ? "text-muted-foreground" : "text-emerald-900/85";
   const filterBtn =
-    accent === "amber"
-      ? "rounded-md border border-amber-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-900 shadow-sm hover:bg-amber-50"
-      : isProductHub
-        ? "rounded-md border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-900 shadow-sm hover:bg-sky-50"
-        : "rounded-md border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-900 shadow-sm hover:bg-emerald-50";
+    "rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm hover:bg-muted/50";
+  const hubSubtitle =
+    kindId === "prescription"
+      ? "Ordonnances reçues : 8 statuts en tête, reprise rapide et liste filtrable."
+      : kindId === "free_consultation"
+        ? "Consultations libres : lire le message, échanger puis proposer des produits."
+        : "8 statuts en tête, reprise rapide et liste filtrable par statut, patient ou référence.";
 
   if (loading) {
     return (
@@ -284,7 +269,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   if (error && rows.length === 0) {
     return (
       <PageShell maxWidthClass="max-w-3xl">
-        <Link href="/dashboard/pharmacien" className={clsx("text-xs font-medium", linkClass)}>
+        <Link href="/dashboard/pharmacien" className={p.backLink}>
           ← Tableau de bord
         </Link>
         <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</p>
@@ -297,17 +282,16 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
       maxWidthClass="max-w-3xl"
       className="space-y-4"
     >
-      <Link href="/dashboard/pharmacien" className={clsx("text-xs font-medium", linkClass)}>
-        ← Tableau de bord
-      </Link>
-      <h1 className="mt-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">{kindConfig.copy.pharmacistHubTitle}</h1>
-      <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">
-        {kindId === "prescription"
-          ? "Ordonnances reçues : tableau de bord et liste — lire le scan et saisir les produits."
-          : kindId === "free_consultation"
-            ? "Consultations libres reçues : lire le message, échanger puis proposer des produits."
-            : "Tableau de bord avec repères visuels ; liste complète filtrable par statut, patient ou référence."}
-      </p>
+      <PharmacistAccountPageHeader
+        eyebrow="Dossiers & réservations"
+        title={kindConfig.copy.pharmacistHubTitle}
+        subtitle={hubSubtitle}
+        trailing={
+          <Link href="/dashboard/notifications" className={p.headerAction}>
+            Notifications
+          </Link>
+        }
+      />
 
       <div className="mt-1">
         <DemandeHubTabBar
@@ -350,32 +334,23 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
             </div>
           ) : (
             <div className="mt-4">
-              {isProductHub ? (
-                <PharmacistProductDemandesDashboard
-                  rows={rows}
-                  basePath={hubPath}
-                  unreadById={unreadById}
-                />
-              ) : (
-                <DemandeStatDashboard
-                  rows={rowsWithDashboardStatus}
-                  buckets={dashboardBuckets}
-                  basePath={hubPath}
-                  density="compact"
-                  dashboardTitle={dashboardChrome.title}
-                  dashboardSubtitle={dashboardChrome.subtitle}
-                />
-              )}
+              <RequestKindHubDashboard
+                kindId={kindId}
+                role="pharmacien"
+                rows={rows}
+                basePath={hubPath}
+                unreadById={unreadById}
+              />
             </div>
           )}
         </>
       ) : (
         <div className="mt-4 flex flex-col gap-3">
-          <section className={filterShell}>
+          <section className={filterChrome.shell}>
             <div className="flex items-center justify-between gap-2">
               <div>
-                <h2 className={clsx("text-xs font-bold uppercase tracking-wide", filterTitle)}>Filtres et recherche</h2>
-                <p className={clsx("text-[10px]", filterSub)}>Référence demande pour accès direct</p>
+                <h2 className={filterChrome.title}>Filtres et recherche</h2>
+                <p className={filterChrome.subtitle}>Référence demande pour accès direct — le tableau de bord reste inchangé.</p>
               </div>
               <button
                 type="button"
@@ -439,7 +414,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
             </label>
           </div>
             ) : (
-              <p className={clsx("mt-2 text-[11px]", isProductHub ? "text-muted-foreground" : "text-emerald-900/85")}>
+              <p className="mt-2 text-[11px] text-muted-foreground">
                 Ouvrez les filtres pour retrouver rapidement un dossier client.
               </p>
             )}
