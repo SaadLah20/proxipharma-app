@@ -10,7 +10,7 @@ import { formatDistanceKm } from "@/lib/annuaire/geo";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import { buttonVariants } from "@/components/ui/button";
-import { uiAnnuaireQuickAction } from "@/lib/ui-action-buttons";
+import { uiAnnuaireActionOverlayBtnGhost } from "@/lib/ui-action-buttons";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { cn } from "@/lib/utils";
 import {
@@ -22,7 +22,7 @@ function normalizeWhatsApp(value: string | null) {
   return (value ?? "").replace(/[^\d]/g, "");
 }
 
-function AnnuaireCardQuickActions({
+function AnnuaireCardOverlayActions({
   pharmacy,
   wa,
   canNavigate,
@@ -34,9 +34,14 @@ function AnnuaireCardQuickActions({
   onShare: (e: MouseEvent<HTMLButtonElement>) => void;
 }) {
   const label = pharmacyPublicLabel(pharmacy.nom);
+  const ghostBtn = (disabled?: boolean) =>
+    cn(uiAnnuaireActionOverlayBtnGhost(), disabled && "pointer-events-none opacity-40");
 
   return (
-    <div className="grid grid-cols-4 gap-1.5" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="absolute right-1.5 top-1/2 z-[2] flex -translate-y-1/2 flex-col items-center gap-0.5 sm:right-2"
+      onClick={(e) => e.stopPropagation()}
+    >
       <a
         href={pharmacy.telephone ? `tel:${pharmacy.telephone}` : undefined}
         aria-disabled={!pharmacy.telephone}
@@ -50,10 +55,9 @@ function AnnuaireCardQuickActions({
               source: "annuaire",
             });
         }}
-        className={cn(uiAnnuaireQuickAction(), !pharmacy.telephone && "pointer-events-none opacity-45")}
+        className={ghostBtn(!pharmacy.telephone)}
       >
-        <Phone className="size-4" aria-hidden />
-        Appeler
+        <Phone className="size-3.5" aria-hidden />
       </a>
       <a
         href={wa ? `https://wa.me/${wa}` : undefined}
@@ -70,10 +74,9 @@ function AnnuaireCardQuickActions({
               source: "annuaire",
             });
         }}
-        className={cn(uiAnnuaireQuickAction(), !wa && "pointer-events-none opacity-45")}
+        className={ghostBtn(!wa)}
       >
-        <MessageCircle className="size-4" aria-hidden />
-        WhatsApp
+        <MessageCircle className="size-3.5" aria-hidden />
       </a>
       <PharmacyNavigationPicker
         pharmacy={{
@@ -86,18 +89,17 @@ function AnnuaireCardQuickActions({
           maps_url: pharmacy.maps_url,
         }}
         source="annuaire"
-        variant="annuaire"
-        disabledClassName={!canNavigate ? "pointer-events-none opacity-45" : undefined}
-        className={!canNavigate ? "pointer-events-none opacity-45" : undefined}
+        variant="annuaire-overlay"
+        disabledClassName={!canNavigate ? "pointer-events-none opacity-40" : undefined}
+        className={!canNavigate ? "pointer-events-none opacity-40" : undefined}
       />
       <button
         type="button"
         onClick={onShare}
-        className={uiAnnuaireQuickAction()}
+        className={ghostBtn()}
         aria-label={`Partager ${label}`}
       >
-        <Share2 className="size-4" aria-hidden />
-        Partager
+        <Share2 className="size-3.5" aria-hidden />
       </button>
     </div>
   );
@@ -164,11 +166,12 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
             </div>
           )}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
-          <span className="absolute left-2 top-2 z-[1] inline-flex max-w-[calc(100%-1rem)] items-center gap-0.5 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-10 bg-gradient-to-l from-black/25 to-transparent sm:w-11" />
+          <span className="absolute left-2 top-2 z-[1] inline-flex max-w-[calc(100%-3rem)] items-center gap-0.5 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
             <Star className="size-3 shrink-0 fill-amber-300 text-amber-300" aria-hidden />
             <span className="truncate">{ratingLabel}</span>
           </span>
-          <div className="absolute bottom-2 left-2 right-2 z-[1] flex flex-wrap items-end justify-between gap-1.5">
+          <div className="absolute bottom-2 left-2 right-10 z-[1] flex flex-wrap items-end justify-between gap-1.5 sm:right-11">
             <div className="flex max-w-full flex-wrap gap-1">
               <span className={pharmacyOpenStatusOverlayBadgeClass(pharmacy.open.status)}>
                 {pharmacy.open.openLabel}
@@ -184,6 +187,13 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
             ) : null}
           </div>
         </Link>
+
+        <AnnuaireCardOverlayActions
+          pharmacy={pharmacy}
+          wa={wa}
+          canNavigate={canNavigate}
+          onShare={(e) => void handleShare(e)}
+        />
       </div>
 
       <div className="space-y-2 p-3 pt-2">
@@ -208,13 +218,6 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
         {!pharmacy.hasValidLocation ? (
           <p className="text-[10px] text-muted-foreground">Position GPS non renseignée — tri par distance indisponible.</p>
         ) : null}
-
-        <AnnuaireCardQuickActions
-          pharmacy={pharmacy}
-          wa={wa}
-          canNavigate={canNavigate}
-          onShare={(e) => void handleShare(e)}
-        />
 
         <Link
           href={`/pharmacie/${pharmacy.id}`}

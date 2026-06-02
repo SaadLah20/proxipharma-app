@@ -124,3 +124,11 @@ export function uiAnnuaireActionOverlayBtn(className?: string) {
     className
   );
 }
+
+/** Icône sur la photo — disque circulaire semi-opaque (lisible sur fond clair ou foncé). */
+export function uiAnnuaireActionOverlayBtnGhost(className?: string) {
+  return cn(
+    "inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-black/50 text-white shadow-md ring-1 ring-white/30 backdrop-blur-md transition hover:bg-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80",
+    className
+  );
+}

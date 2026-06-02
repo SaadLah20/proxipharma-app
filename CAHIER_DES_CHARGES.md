@@ -385,6 +385,15 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
+### Session 2026-06-02 — Annuaire : actions sur la photo (cercles compacts)
+
+**Livré** (branche **`fix/validated-supply-ecart-ui-modal`**, pas de migration SQL) :
+- **Cartes** : photo **pleine largeur** ; Appeler / WhatsApp / Itinéraire / Partager en **colonne verticale sur la photo** (plus de grille sous l’adresse) ; disques circulaires semi-opaques **32 px** (`uiAnnuaireActionOverlayBtnGhost`) ; picker **`annuaire-overlay`**.
+
+**Fichiers** : `components/annuaire/annuaire-pharmacy-card.tsx`, `components/pharmacy/pharmacy-navigation-picker.tsx`, `lib/ui-action-buttons.ts`.
+
+---
+
 ### Session 2026-06-01 (suite 2) — FAB Conversation déplaçable (détail dossier)
 
 **Livré** (branche **`fix/validated-supply-ecart-ui-modal`**, pas de migration SQL) :
