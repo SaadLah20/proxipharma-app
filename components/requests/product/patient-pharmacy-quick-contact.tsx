@@ -26,6 +26,9 @@ function whatsappHrefPatient(raw: string): string {
   return `https://wa.me/${d}`;
 }
 
+const contactIconBtn =
+  "inline-flex size-9 items-center justify-center rounded-lg border border-border/80 bg-card text-foreground shadow-sm transition hover:bg-muted/40";
+
 export function PatientPharmacyQuickContact({
   pharmacy,
   requestRef,
@@ -55,7 +58,7 @@ export function PatientPharmacyQuickContact({
         <>
           <a
             href={telHrefPatient(telRaw)}
-            className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
+            className={contactIconBtn}
             title="Appeler"
             aria-label="Appeler la pharmacie"
           >
@@ -63,7 +66,7 @@ export function PatientPharmacyQuickContact({
           </a>
           <a
             href={smsHrefPatient(telRaw)}
-            className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
+            className={contactIconBtn}
             title="SMS"
             aria-label="Envoyer un SMS"
           >
@@ -73,7 +76,7 @@ export function PatientPharmacyQuickContact({
             href={whatsappHrefPatient(telRaw)}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex size-9 items-center justify-center rounded-lg border border-emerald-400/70 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50"
+            className={contactIconBtn}
             title="WhatsApp"
             aria-label="Discuter sur WhatsApp"
           >
@@ -84,7 +87,7 @@ export function PatientPharmacyQuickContact({
       {mailOk ? (
         <a
           href={mailHref}
-          className="inline-flex size-9 items-center justify-center rounded-lg border border-sky-400/70 bg-white text-sky-900 shadow-sm transition hover:bg-sky-50"
+          className={contactIconBtn}
           title="Courriel"
           aria-label="Écrire à la pharmacie"
         >
@@ -97,7 +100,7 @@ export function PatientPharmacyQuickContact({
   if (variant === "iconsOnly") {
     if (!telOk && !mailOk) {
       return (
-        <p className="text-[9px] leading-snug text-emerald-900/80">
+        <p className="text-[9px] leading-snug text-muted-foreground">
           Coordonnées non renseignées sur le dossier — rapprochez-vous de l&apos;officine.
         </p>
       );
@@ -106,16 +109,16 @@ export function PatientPharmacyQuickContact({
   }
 
   return (
-    <section className="rounded-xl border border-emerald-300/60 bg-gradient-to-br from-emerald-50/85 via-white to-teal-50/40 p-2 shadow-sm ring-1 ring-emerald-200/45">
-      <h3 className="text-[10px] font-bold uppercase tracking-wide text-emerald-950">Contacter l&apos;officine</h3>
-      <p className="mt-1 text-[10px] leading-snug text-emerald-950/88">
+    <section className="rounded-xl border border-border/80 bg-muted/20 p-2.5 shadow-sm">
+      <h3 className="text-[10px] font-bold uppercase tracking-wide text-foreground">Contacter l&apos;officine</h3>
+      <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
         Pour un ajustement sur un produit déjà validé, contactez directement la pharmacie.
       </p>
-      {loc ? <p className="mt-1 text-[11px] font-semibold leading-snug text-emerald-950">{loc}</p> : null}
+      {loc ? <p className="mt-1 text-[11px] font-semibold leading-snug text-foreground">{loc}</p> : null}
       {telOk || mailOk ? (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">{iconButtons}</div>
       ) : (
-        <p className="mt-1.5 text-[9px] leading-snug text-emerald-900/80">
+        <p className="mt-1.5 text-[9px] leading-snug text-muted-foreground">
           Coordonnées non renseignées sur le dossier — rapprochez-vous de l&apos;officine.
         </p>
       )}

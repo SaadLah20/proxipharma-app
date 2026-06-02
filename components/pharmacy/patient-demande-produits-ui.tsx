@@ -155,10 +155,21 @@ export function ProductRequestLineQtyInline({ qty }: { qty: number }) {
 }
 
 /** Qté lecture seule (alignée sur le sélecteur). */
-export function ProductRequestLineQtyReadonly({ qty }: { qty: number }) {
+export function ProductRequestLineQtyReadonly({
+  qty,
+  appearance = "default",
+}: {
+  qty: number;
+  appearance?: "default" | "neutral";
+}) {
   return (
     <span
-      className="inline-flex h-7 w-full max-w-[6.75rem] items-center justify-center rounded-full border border-sky-200/80 bg-sky-50/80 px-2.5"
+      className={cn(
+        "inline-flex h-7 w-full max-w-[6.75rem] items-center justify-center rounded-full border px-2.5",
+        appearance === "neutral"
+          ? "border-border/80 bg-muted/25"
+          : "border-sky-200/80 bg-sky-50/80"
+      )}
       aria-label={`Quantité ${qty}`}
     >
       <ProductRequestLineQtyLabel qty={qty} />
@@ -172,12 +183,14 @@ export function ProductRequestLineQtyPicker({
   disabled,
   maxQty = 10,
   onSelect,
+  appearance = "default",
 }: {
   qty: number;
   disabled?: boolean;
   /** Plafond sélectionnable (défaut 10). */
   maxQty?: number;
   onSelect: (qty: number) => void;
+  appearance?: "default" | "neutral";
 }) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -219,7 +232,7 @@ export function ProductRequestLineQtyPicker({
     };
   }, [open, listId]);
 
-  if (disabled) return <ProductRequestLineQtyReadonly qty={qty} />;
+  if (disabled) return <ProductRequestLineQtyReadonly qty={qty} appearance={appearance} />;
 
   const cap = Math.min(10, Math.max(1, maxQty));
   const options = QTY_OPTIONS.filter((n) => n <= cap);
@@ -242,8 +255,14 @@ export function ProductRequestLineQtyPicker({
                 <button
                   type="button"
                   className={cn(
-                    "flex w-full items-center justify-center px-2 py-1.5 text-[13px] font-semibold tabular-nums transition hover:bg-sky-50",
-                    n === qty ? "bg-sky-100/90 text-sky-950" : "text-foreground"
+                    "flex w-full items-center justify-center px-2 py-1.5 text-[13px] font-semibold tabular-nums transition",
+                    appearance === "neutral"
+                      ? n === qty
+                        ? "bg-muted text-foreground"
+                        : "text-foreground hover:bg-muted/60"
+                      : n === qty
+                        ? "bg-sky-100/90 text-sky-950"
+                        : "text-foreground hover:bg-sky-50"
                   )}
                   onClick={() => {
                     onSelect(n);
@@ -275,12 +294,25 @@ export function ProductRequestLineQtyPicker({
           });
         }}
         className={cn(
-          "inline-flex h-7 w-full max-w-[6.75rem] items-center justify-center gap-0.5 rounded-full border border-sky-300/80 bg-white px-2 shadow-sm transition hover:bg-sky-50",
-          open && "border-sky-500/70 ring-2 ring-sky-400/30"
+          "inline-flex h-7 w-full max-w-[6.75rem] items-center justify-center gap-0.5 rounded-full border bg-white px-2 shadow-sm transition",
+          appearance === "neutral"
+            ? "border-border/80 hover:bg-muted/30"
+            : "border-sky-300/80 hover:bg-sky-50",
+          open &&
+            (appearance === "neutral"
+              ? "border-foreground/25 ring-2 ring-foreground/10"
+              : "border-sky-500/70 ring-2 ring-sky-400/30")
         )}
       >
         <ProductRequestLineQtyLabel qty={qty} />
-        <ChevronDown className={cn("size-3 shrink-0 text-sky-700 transition", open && "rotate-180")} aria-hidden />
+        <ChevronDown
+          className={cn(
+            "size-3 shrink-0 transition",
+            appearance === "neutral" ? "text-muted-foreground" : "text-sky-700",
+            open && "rotate-180"
+          )}
+          aria-hidden
+        />
       </button>
       {menu}
     </div>

@@ -62,11 +62,13 @@ export function PharmacistLineMessageButton({
   open,
   disabled,
   onClick,
+  appearance = "default",
 }: {
   visual: LineConvoVisual;
   open: boolean;
   disabled?: boolean;
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  appearance?: "default" | "neutral";
 }) {
   return (
     <button
@@ -74,7 +76,7 @@ export function PharmacistLineMessageButton({
       disabled={disabled}
       onClick={onClick}
       className={clsx(
-        lineConversationChipButtonClass(visual, { open, disabled }),
+        lineConversationChipButtonClass(visual, { open, disabled, appearance }),
         "relative shrink-0"
       )}
       aria-label={lineConversationAriaLabel(visual)}
@@ -110,10 +112,23 @@ export function lineConversationStripLabel(visual: LineConvoVisual): string {
 
 export function lineConversationChipButtonClass(
   visual: LineConvoVisual,
-  opts: { open: boolean; disabled?: boolean }
+  opts: { open: boolean; disabled?: boolean; appearance?: "default" | "neutral" }
 ): string {
   const base =
     "relative inline-flex size-7 shrink-0 items-center justify-center rounded-full border transition touch-manipulation active:scale-[0.97] sm:size-8";
+
+  if (opts.appearance === "neutral") {
+    const hasMsg = visual !== "empty";
+    return clsx(
+      base,
+      hasMsg
+        ? "border-border/80 bg-card text-foreground shadow-sm"
+        : "border-dashed border-border/70 bg-muted/15 text-muted-foreground/75",
+      opts.open && "ring-2 ring-foreground/10 ring-offset-1 ring-offset-background",
+      opts.disabled && "pointer-events-none opacity-40"
+    );
+  }
+
   const ring =
     visual === "thread"
       ? "border-violet-400/90 bg-gradient-to-br from-violet-50 via-white to-emerald-50 text-violet-800 shadow-sm ring-2 ring-violet-200/75"
