@@ -27,7 +27,7 @@ export const PATIENT_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "envoyees",
     label: "Envoyées",
-    hint: "En attente de réponse pharmacie.",
+    hint: "En attente de réponse : la pharmacie confirme disponibilités, alternatives et propositions.",
     statuses: ["submitted", "in_review"],
   },
   {
@@ -79,7 +79,7 @@ export const PHARMACIST_DASHBOARD_BUCKETS: DemandeStatBucket[] = [
   {
     key: "envoyees",
     label: "Envoyées",
-    hint: "À prendre en charge.",
+    hint: "En attente de prise en charge : confirmer les disponibilités, alternatives et propositions.",
     statuses: ["submitted", "in_review"],
   },
   {
@@ -144,22 +144,27 @@ export type DemandeStatBucketGroup = {
   id: string;
   label: string;
   bucketKeys: readonly DemandeStatBucketKey[];
+  /** Sous-titre visible sous le titre de groupe. */
+  subtitle?: string;
 };
 
 export const PATIENT_STAT_BUCKET_GROUPS: DemandeStatBucketGroup[] = [
   {
     id: "at_pharmacy",
     label: "Chez la pharmacie",
+    subtitle: "L’officine reçoit, répond ou prépare votre commande.",
     bucketKeys: ["envoyees", "validees_traitees"],
   },
   {
     id: "your_action",
     label: "À votre action",
+    subtitle: "Validation de la réponse ou passage en officine.",
     bucketKeys: ["repondues", "traitee_retrait"],
   },
   {
     id: "archives",
     label: "Archives",
+    subtitle: "Dossiers terminés, expirés ou annulés.",
     bucketKeys: ["cloturees", "abandonnees", "expirees", "annulees"],
   },
 ];
@@ -168,16 +173,19 @@ export const PHARMACIST_STAT_BUCKET_GROUPS: DemandeStatBucketGroup[] = [
   {
     id: "at_pharmacy",
     label: "Chez l'officine",
-    bucketKeys: ["envoyees", "validees_traitees", "traitee_retrait"],
+    subtitle: "Réception, réponse ou préparation des commandes validées.",
+    bucketKeys: ["envoyees", "validees_traitees"],
   },
   {
     id: "at_patient",
     label: "Chez le client",
-    bucketKeys: ["repondues"],
+    subtitle: "En attente de validation client ou de passage au comptoir.",
+    bucketKeys: ["repondues", "traitee_retrait"],
   },
   {
     id: "archives",
     label: "Archives",
+    subtitle: "Dossiers clôturés, expirés ou annulés.",
     bucketKeys: ["cloturees", "abandonnees", "expirees", "annulees"],
   },
 ];

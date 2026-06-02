@@ -13,6 +13,7 @@ import {
   UserX,
   type LucideIcon,
 } from "lucide-react";
+import { InfoHint } from "@/components/ui/info-hint";
 import type {
   DemandeStatBucket,
   DemandeStatBucketGroup,
@@ -89,6 +90,57 @@ function StatBucketTile({
   );
 }
 
+const GROUP_ACCENT: Record<string, { shell: string; label: string; badge: string }> = {
+  at_pharmacy: {
+    shell: "border-sky-200/80 bg-gradient-to-br from-sky-50/90 via-card to-sky-50/40 ring-sky-200/50",
+    label: "text-sky-950",
+    badge: "bg-sky-600/10 text-sky-900",
+  },
+  your_action: {
+    shell: "border-emerald-200/80 bg-gradient-to-br from-emerald-50/90 via-card to-emerald-50/35 ring-emerald-200/50",
+    label: "text-emerald-950",
+    badge: "bg-emerald-600/10 text-emerald-900",
+  },
+  at_patient: {
+    shell: "border-amber-200/80 bg-gradient-to-br from-amber-50/90 via-card to-amber-50/35 ring-amber-200/50",
+    label: "text-amber-950",
+    badge: "bg-amber-600/10 text-amber-900",
+  },
+  archives: {
+    shell: "border-border/60 bg-muted/15 ring-border/40",
+    label: "text-muted-foreground",
+    badge: "bg-muted text-muted-foreground",
+  },
+};
+
+function StatGroupHelp({
+  group,
+  buckets,
+}: {
+  group: DemandeStatBucketGroup;
+  buckets: DemandeStatBucket[];
+}) {
+  const bucketByKey = new Map(buckets.map((b) => [b.key, b]));
+  return (
+    <InfoHint label={`Aide — ${group.label}`} align="end" placement="down">
+      <p className="font-semibold text-foreground">{group.label}</p>
+      {group.subtitle ? <p className="mt-1 text-muted-foreground">{group.subtitle}</p> : null}
+      <ul className="mt-2 space-y-1.5">
+        {group.bucketKeys.map((key) => {
+          const bucket = bucketByKey.get(key);
+          if (!bucket) return null;
+          return (
+            <li key={key}>
+              <span className="font-semibold text-foreground">{bucket.label}</span>
+              {bucket.hint ? <span className="text-muted-foreground"> — {bucket.hint}</span> : null}
+            </li>
+          );
+        })}
+      </ul>
+    </InfoHint>
+  );
+}
+
 export function DemandeStatDashboard({
   rows,
   buckets,
@@ -160,14 +212,33 @@ export function DemandeStatDashboard({
           {bucketGroups.map((group) => {
             const tiles = renderTiles(group.bucketKeys).filter(Boolean);
             if (tiles.length === 0) return null;
+            const accent = GROUP_ACCENT[group.id] ?? GROUP_ACCENT.archives;
             return (
               <div
                 key={group.id}
-                className="rounded-xl border border-border/50 bg-muted/10 p-2 sm:p-2.5"
+                className={clsx(
+                  "rounded-xl border p-2 ring-1 sm:p-2.5",
+                  accent.shell
+                )}
               >
-                <p className="mb-1.5 px-0.5 text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
-                  {group.label}
-                </p>
+                <div className="mb-2 flex items-start justify-between gap-2 px-0.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span
+                        className={clsx(
+                          "inline-flex rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
+                          accent.badge
+                        )}
+                      >
+                        {group.label}
+                      </span>
+                      <StatGroupHelp group={group} buckets={buckets} />
+                    </div>
+                    {group.subtitle ? (
+                      <p className={clsx("mt-1 text-[10px] leading-snug", accent.label)}>{group.subtitle}</p>
+                    ) : null}
+                  </div>
+                </div>
                 <div className={clsx("grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4", compact ? "gap-1.5" : "gap-2")}>
                   {tiles}
                 </div>

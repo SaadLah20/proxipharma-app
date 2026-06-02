@@ -15,13 +15,14 @@ import {
   tryParsePatientHistoryAudit,
 } from "@/lib/patient-request-history-audit";
 import { availabilityStatusFr, counterOutcomePatientLabel } from "@/lib/request-display";
-import type { HistoryActorTone, HistoryViewerRole } from "@/lib/request-history-fr";
+import type { HistoryViewerRole } from "@/lib/request-history-fr";
 import { historyActorLabelFr, historyActorToneFromReason } from "@/lib/request-history-fr";
 import {
   lineEventTitle,
   supplyAmendmentBodyFact,
   supplyAmendmentKindToLineEventKind,
 } from "@/lib/product-line-history/line-event-labels-fr";
+import { resolveProductLineJourney } from "@/lib/product-line-history/line-journey";
 import {
   principalProductName,
   productMatchesTimeline,
@@ -47,6 +48,7 @@ const TERMINAL_REQUEST_STATUSES = new Set([
   "fully_collected",
 ]);
 
+/** Événements dossier traités ailleurs ou hors périmètre ligne produit. */
 const DOSSIER_ONLY_REASON_KEYS = new Set([
   "patient_planned_visit_updated",
   "patient_update_planned_visit_after_confirmation",
@@ -59,6 +61,7 @@ const DOSSIER_ONLY_REASON_KEYS = new Set([
   "pharmacist_ui_confirm_close",
   "patient_resubmit_product_request_after_response",
   "pharmacist_response_updated",
+  "patient_update_confirmation",
   "counter_product_added",
   "counter_alternative_added",
   "counter_alternative_removed",
@@ -120,6 +123,140 @@ function amendmentBodyLines(entry: SupplyAmendmentEntryJson, audience: "patient"
   if (ch) lines.push(`Accord patient : ${ch}`);
   if (mot) lines.push(`Précision : ${mot}`);
   return lines.length > 0 ? lines : ["Modification enregistrée."];
+}
+
+function amendEventPhase(kind: LineEventKind): LineHistoryPhase {
+  if (kind === "amend_line_added_after_confirm") return "validation";
+  if (kind.startsWith("counter_")) return "counter";
+  return "preparation";
+}
+
+function buildPatientRequestOriginLines(
+  ctx: ProductLineHistoryContext,
+  pname: string
+): string[] {
+  const { row } = ctx;
+  const ph = ctx.audience === "pharmacist";
+  const lines: string[] = [];
+  const patientOrigin = ctx.patientLineOriginLabel?.trim();
+  if (patientOrigin) lines.push(patientOrigin);
+  lines.push(`Produit : ${pname}`);
+  lines.push(`Quantité demandée : ${row.requested_qty}`);
+  if (row.client_comment?.trim()) {
+    lines.push(
+      ph ? `Note patient : « ${row.client_comment.trim()} »` : `Votre note : « ${row.client_comment.trim()} »`
+    );
+  }
+  return lines;
+}
+
+function buildPharmacistProposedIntroLines(ctx: ProductLineHistoryContext, pname: string): string[] {
+  const { row } = ctx;
+  const lines: string[] = [];
+  const originLabel = ctx.pharmacistProposedOriginLabel ?? "Produit proposé par la pharmacie";
+  lines.push(`${originLabel} : ${pname}`);
+  const motif = row.pharmacist_proposal_reason?.trim();
+  if (motif) lines.push(`Motif : ${motif}`);
+  lines.push(`Quantité proposée : ${row.requested_qty}`);
+  return lines;
+}
+
+function buildPharmacistResponseLines(ctx: ProductLineHistoryContext, pname: string): string[] {
+  const { row } = ctx;
+  const ph = ctx.audience === "pharmacist";
+  const rp: string[] = [];
+
+  const principalAvail = row.availability_status
+    ? availabilityStatusFr[row.availability_status] ?? row.availability_status
+    : null;
+  if (principalAvail) rp.push(`Disponibilité : ${principalAvail}`);
+  if (row.available_qty != null && row.availability_status !== "market_shortage") {
+    rp.push(`Quantité proposée : ${row.available_qty}`);
+  }
+  if (row.unit_price != null) rp.push(`Prix unitaire : ${Number(row.unit_price).toFixed(2)} MAD`);
+  if (row.expected_availability_date && row.availability_status === "to_order") {
+    rp.push(`Réception prévue : ${formatDateShortFr(row.expected_availability_date)}`);
+  }
+  const alts = altRowsOf(row);
+  if (alts.length > 0) {
+    const altNames = alts
+      .map((alt) => oneProdAlt(alt.products)?.name?.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    if (altNames.length > 0) {
+      rp.push(
+        altNames.length === 1
+          ? `Alternative proposée : ${altNames[0]}`
+          : `Alternatives proposées : ${altNames.join(", ")}${alts.length > 3 ? "…" : ""}`
+      );
+    }
+  }
+  if (row.pharmacist_comment?.trim()) {
+    rp.push(
+      ph
+        ? `Note officine : « ${row.pharmacist_comment.trim()} »`
+        : `Message : « ${row.pharmacist_comment.trim()} »`
+    );
+  }
+  return rp.length > 0 ? rp : [`Produit : ${pname}`];
+}
+
+function buildValidationKeptLines(ctx: ProductLineHistoryContext, pname: string): string[] {
+  const { row } = ctx;
+  const valLines: string[] = [];
+  const chosenId = row.patient_chosen_alternative_id ?? null;
+  if (chosenId) {
+    valLines.push(`Produit retenu : ${validatedProductLabel(row)} (alternative)`);
+    valLines.push(`Demandé initialement : ${pname}`);
+  } else {
+    valLines.push(`Produit retenu : ${validatedProductLabel(row)}`);
+  }
+  valLines.push(`Quantité retenue : ${row.selected_qty ?? row.requested_qty}`);
+  return valLines;
+}
+
+function buildValidationSkippedLines(ctx: ProductLineHistoryContext): string[] {
+  const ph = ctx.audience === "pharmacist";
+  const journey = resolveProductLineJourney(ctx.row, ctx.supplyBundles);
+  if (journey === "pharmacist_proposed_in_response") {
+    return ph
+      ? ["Cette proposition n'entre pas dans la commande validée."]
+      : ["Cette proposition ne fait pas partie de votre commande."];
+  }
+  return ph
+    ? ["Ce produit n'entre pas dans la commande validée."]
+    : ["Ce produit ne fait pas partie de votre commande."];
+}
+
+function historyBeforeIso(histAsc: DossierHistoryRow[], iso: string | null | undefined): DossierHistoryRow[] {
+  if (!iso) return histAsc;
+  const cap = new Date(iso).getTime();
+  if (!Number.isFinite(cap)) return histAsc;
+  return histAsc.filter((h) => {
+    const t = new Date(h.created_at).getTime();
+    return Number.isFinite(t) && t < cap;
+  });
+}
+
+function historyAfterIso(histAsc: DossierHistoryRow[], iso: string | null | undefined): DossierHistoryRow[] {
+  if (!iso) return [];
+  const floor = new Date(iso).getTime();
+  if (!Number.isFinite(floor)) return [];
+  return histAsc.filter((h) => {
+    const t = new Date(h.created_at).getTime();
+    return Number.isFinite(t) && t > floor;
+  });
+}
+
+function historyRowsWithKey(
+  histAsc: DossierHistoryRow[],
+  key: string,
+  opts?: { afterIso?: string | null; beforeIso?: string | null }
+): DossierHistoryRow[] {
+  let rows = histAsc.filter((h) => extractReasonKey(h.reason ?? "") === key);
+  if (opts?.afterIso) rows = historyAfterIso(rows, opts.afterIso);
+  if (opts?.beforeIso) rows = historyBeforeIso(rows, opts.beforeIso);
+  return rows;
 }
 
 export function amendmentsForLine(
@@ -233,12 +370,13 @@ function pushEvent(
   });
 }
 
-/** Collecte tous les événements produit, dédupliqués, prêts pour le rendu. */
+/** Collecte tous les événements produit selon le parcours (demandé / proposé / ajouté après validation). */
 export function collectProductLineEvents(ctx: ProductLineHistoryContext): ProductLineEvent[] {
   const { row } = ctx;
   const ph = ctx.audience === "pharmacist";
   const audience = ctx.audience;
   const viewerRole: HistoryViewerRole = ph ? "pharmacien" : "patient";
+  const journey = resolveProductLineJourney(row, ctx.supplyBundles);
   const amendList = amendmentsForLine(row.id, ctx.supplyBundles);
   const histAsc = [...(ctx.dossierHistory ?? [])].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -249,117 +387,99 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
   const events: ProductLineEvent[] = [];
   const t0 = ctx.requestSubmittedAt ?? ctx.requestCreatedAt;
   const pname = principalProductName(row);
+  const title = (kind: LineEventKind) => lineEventTitle(kind, audience, journey);
 
-  /** — Chapitre origine — */
-  if (row.line_source === "pharmacist_proposed") {
-    const originLines: string[] = [];
-    const originLabel = ctx.pharmacistProposedOriginLabel ?? "Produit proposé par la pharmacie";
-    originLines.push(`${originLabel} : ${pname}`);
-    const motif = row.pharmacist_proposal_reason?.trim();
-    if (motif) originLines.push(`Motif : ${motif}`);
-    originLines.push(`Quantité proposée : ${row.requested_qty}`);
-    pushEvent(events, {
-      kind: "origin_pharmacist_proposed",
-      phase: "origin",
-      atIso: t0,
-      sortKey: 10,
-      title: lineEventTitle("origin_pharmacist_proposed", audience),
-      bodyLines: originLines,
-      actorLabel: ph ? "Vous" : "La pharmacie",
-      actorTone: "pharmacy",
-      isSynthetic: true,
-    });
-  } else {
-    const originLines: string[] = [];
-    const patientOrigin = ctx.patientLineOriginLabel?.trim();
-    if (patientOrigin) originLines.push(patientOrigin);
-    originLines.push(`Produit : ${pname}`);
-    originLines.push(`Quantité demandée : ${row.requested_qty}`);
-    if (row.client_comment?.trim()) {
-      originLines.push(
-        ph ? `Note patient : « ${row.client_comment.trim()} »` : `Votre note : « ${row.client_comment.trim()} »`
-      );
-    }
+  /** — Envoi (produit demandé par le patient uniquement) — */
+  if (journey === "patient_requested") {
     pushEvent(events, {
       kind: "origin_patient_request",
       phase: "origin",
-      atIso: t0,
+      atIso: ctx.requestCreatedAt,
       sortKey: 10,
-      title: lineEventTitle("origin_patient_request", audience),
-      bodyLines: originLines,
+      title: title("origin_patient_request"),
+      bodyLines: buildPatientRequestOriginLines(ctx, pname),
       actorLabel: ph ? "Le patient" : "Vous",
       actorTone: "patient",
       isSynthetic: true,
     });
+
+    for (const h of historyRowsWithKey(histAsc, "patient_resubmit_product_request_after_response", {
+      beforeIso: ctx.requestRespondedAt,
+    })) {
+      const updateLines = buildPatientRequestOriginLines(ctx, pname);
+      pushEvent(events, {
+        kind: "origin_patient_request_updated",
+        phase: "origin",
+        atIso: h.created_at,
+        sortKey: 12,
+        title: title("origin_patient_request_updated"),
+        bodyLines: updateLines,
+        actorLabel: ph ? "Le patient" : "Vous",
+        actorTone: "patient",
+      });
+    }
   }
 
-  /** — Chapitre réponse — */
-  if (ctx.requestRespondedAt) {
-    const rp: string[] = [];
-    const principalAvail = row.availability_status
-      ? availabilityStatusFr[row.availability_status] ?? row.availability_status
-      : null;
-    if (principalAvail) rp.push(`Disponibilité : ${principalAvail}`);
-    if (row.available_qty != null && row.availability_status !== "market_shortage") {
-      rp.push(ph ? `Quantité proposée : ${row.available_qty}` : `Quantité proposée : ${row.available_qty}`);
-    }
-    if (row.unit_price != null) rp.push(`Prix unitaire : ${Number(row.unit_price).toFixed(2)} MAD`);
-    if (row.expected_availability_date && row.availability_status === "to_order") {
-      rp.push(`Réception prévue : ${formatDateShortFr(row.expected_availability_date)}`);
-    }
-    const alts = altRowsOf(row);
-    if (alts.length > 0) {
-      const altNames = alts
-        .map((alt) => oneProdAlt(alt.products)?.name?.trim())
-        .filter(Boolean)
-        .slice(0, 3);
-      if (altNames.length > 0) {
-        rp.push(
-          altNames.length === 1
-            ? `Alternative proposée : ${altNames[0]}`
-            : `Alternatives proposées : ${altNames.join(", ")}${alts.length > 3 ? "…" : ""}`
-        );
-      }
-    }
-    if (row.pharmacist_comment?.trim()) {
-      rp.push(
-        ph
-          ? `Note officine : « ${row.pharmacist_comment.trim()} »`
-          : `Message : « ${row.pharmacist_comment.trim()} »`
-      );
-    }
+  /** — Réponse officine — */
+  if (journey !== "added_after_confirm" && ctx.requestRespondedAt) {
+    const responseLines =
+      journey === "pharmacist_proposed_in_response"
+        ? [...buildPharmacistProposedIntroLines(ctx, pname), ...buildPharmacistResponseLines(ctx, pname)]
+        : buildPharmacistResponseLines(ctx, pname);
+
     pushEvent(events, {
       kind: "pharmacist_response",
       phase: "response",
       atIso: ctx.requestRespondedAt,
       sortKey: 20,
-      title: lineEventTitle("pharmacist_response", audience),
-      bodyLines: rp.length > 0 ? rp : [`Produit : ${pname}`],
+      title: title("pharmacist_response"),
+      bodyLines: responseLines,
       actorLabel: ph ? "Vous" : "La pharmacie",
       actorTone: "pharmacy",
       isSynthetic: true,
     });
+
+    for (const h of historyRowsWithKey(histAsc, "pharmacist_response_updated", {
+      afterIso: ctx.requestRespondedAt,
+      beforeIso: ctx.requestConfirmedAt,
+    })) {
+      pushEvent(events, {
+        kind: "pharmacist_response_updated_line",
+        phase: "response",
+        atIso: h.created_at,
+        sortKey: 22,
+        title: title("pharmacist_response_updated_line"),
+        bodyLines: buildPharmacistResponseLines(ctx, pname),
+        actorLabel: ph ? "Vous" : "La pharmacie",
+        actorTone: "pharmacy",
+      });
+    }
   }
 
-  /** — Chapitre validation — */
-  if (ctx.requestConfirmedAt) {
+  /** — Validation patient — */
+  if (journey === "added_after_confirm") {
+    const addedAmend = amendList.find((a) => (a.entry.kind ?? "").trim() === "line_added_after_confirm");
+    if (addedAmend) {
+      pushEvent(events, {
+        kind: "amend_line_added_after_confirm",
+        phase: "validation",
+        atIso: addedAmend.created_at,
+        sortKey: 32,
+        title: title("amend_line_added_after_confirm"),
+        bodyLines: amendmentBodyLines(addedAmend.entry, audience),
+        actorLabel: "La pharmacie",
+        actorTone: "pharmacy",
+      });
+    }
+  } else if (ctx.requestConfirmedAt) {
     if (row.is_selected_by_patient) {
-      const valLines: string[] = [];
-      const chosenId = row.patient_chosen_alternative_id ?? null;
-      if (chosenId) {
-        valLines.push(`Produit retenu : ${validatedProductLabel(row)} (alternative)`);
-        valLines.push(`Demandé initialement : ${pname}`);
-      } else {
-        valLines.push(`Produit retenu : ${validatedProductLabel(row)}`);
-      }
-      valLines.push(`Quantité retenue : ${row.selected_qty ?? row.requested_qty}`);
       pushEvent(events, {
         kind: "patient_validation_kept",
         phase: "validation",
         atIso: ctx.requestConfirmedAt,
         sortKey: 30,
-        title: lineEventTitle("patient_validation_kept", audience),
-        bodyLines: valLines,
+        title: title("patient_validation_kept"),
+        bodyLines: buildValidationKeptLines(ctx, pname),
         actorLabel: ph ? "Le patient" : "Vous",
         actorTone: "patient",
         isSynthetic: true,
@@ -370,15 +490,28 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
         phase: "validation",
         atIso: ctx.requestConfirmedAt,
         sortKey: 30,
-        title: lineEventTitle("patient_validation_skipped", audience),
-        bodyLines: [
-          ph
-            ? "Ce produit n'entre pas dans la commande validée."
-            : "Ce produit ne fait pas partie de votre commande.",
-        ],
+        title: title("patient_validation_skipped"),
+        bodyLines: buildValidationSkippedLines(ctx),
         actorLabel: ph ? "Le patient" : "Vous",
         actorTone: "patient",
         isSynthetic: true,
+      });
+    }
+
+    for (const h of historyRowsWithKey(histAsc, "patient_update_confirmation", {
+      afterIso: ctx.requestConfirmedAt,
+    })) {
+      pushEvent(events, {
+        kind: "patient_validation_updated",
+        phase: "validation",
+        atIso: h.created_at,
+        sortKey: 34,
+        title: title("patient_validation_updated"),
+        bodyLines: row.is_selected_by_patient
+          ? buildValidationKeptLines(ctx, pname)
+          : buildValidationSkippedLines(ctx),
+        actorLabel: ph ? "Le patient" : "Vous",
+        actorTone: "patient",
       });
     }
   }
@@ -400,8 +533,8 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
         phase: "counter",
         atIso: h.created_at,
         sortKey: 55,
-        title: lineEventTitle(kind, audience),
-        bodyLines: detailLines.length > 0 ? detailLines.slice(0, 4) : [lineEventTitle(kind, audience)],
+        title: title(kind),
+        bodyLines: detailLines.length > 0 ? detailLines.slice(0, 4) : [title(kind)],
         actorLabel: historyActorLabelFr(h.reason, viewerRole),
         actorTone: historyActorToneFromReason(h.reason, viewerRole),
       });
@@ -418,7 +551,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
         phase: "preparation",
         atIso: h.created_at,
         sortKey: 50,
-        title: lineEventTitle("legacy_audit_adjustment", audience),
+        title: title("legacy_audit_adjustment"),
         bodyLines: patientHistoryAuditDetailLines({ ...audit, lines: linesDetail }, ph ? "pharmacist" : "patient"),
         actorLabel: "La pharmacie",
         actorTone: "pharmacy",
@@ -434,33 +567,35 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
       phase: "preparation",
       atIso: h.created_at,
       sortKey: 52,
-      title: lineEventTitle("dossier_line_note", audience),
+      title: title("dossier_line_note"),
       bodyLines: detailLines.slice(0, 4),
       actorLabel: historyActorLabelFr(h.reason, viewerRole),
       actorTone: historyActorToneFromReason(h.reason, viewerRole),
     });
   }
 
-  /** — Amendements officine (source de vérité post-validé) — */
+  /** — Amendements officine post-validé (hors ajout initial déjà tracé) — */
   const seenAmendKeys = new Set<string>();
   for (const am of amendList) {
-    const dedupeKey = `${am.created_at}|${am.entry.kind ?? ""}|${(am.entry.detail ?? am.entry.summary ?? "").slice(0, 100)}`;
+    const amendKind = (am.entry.kind ?? "").trim();
+    if (journey === "added_after_confirm" && amendKind === "line_added_after_confirm") continue;
+    const dedupeKey = `${am.created_at}|${amendKind}|${(am.entry.detail ?? am.entry.summary ?? "").slice(0, 100)}`;
     if (seenAmendKeys.has(dedupeKey)) continue;
     seenAmendKeys.add(dedupeKey);
     const eventKind = supplyAmendmentKindToLineEventKind(am.entry.kind);
     pushEvent(events, {
       kind: eventKind,
-      phase: eventKind.startsWith("counter_") ? "counter" : "preparation",
+      phase: amendEventPhase(eventKind),
       atIso: am.created_at,
-      sortKey: 60,
-      title: lineEventTitle(eventKind, audience),
+      sortKey: eventKind === "amend_line_added_after_confirm" ? 32 : 60,
+      title: title(eventKind),
       bodyLines: amendmentBodyLines(am.entry, audience),
       actorLabel: "La pharmacie",
       actorTone: "pharmacy",
     });
   }
 
-  /** — Écart sans journal (clôture comptoir partielle ou données legacy) — */
+  /** — Retrait sans journal explicite — */
   const hasWithdrawAmend = amendList.some((a) => (a.entry.kind ?? "").trim() === "withdraw_after_confirm");
   if (row.is_selected_by_patient && Boolean(row.withdrawn_after_confirm) && !hasWithdrawAmend) {
     const { atIso, autoAtClosure } = inferWithdrawTimestamp(ctx, histAsc);
@@ -480,7 +615,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
       phase: "preparation",
       atIso,
       sortKey: 62,
-      title: lineEventTitle(kind, audience),
+      title: title(kind),
       bodyLines,
       actorLabel: "La pharmacie",
       actorTone: "pharmacy",
@@ -488,11 +623,20 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
     });
   }
 
-  /** — Épilogue court (pas de répétition du détail déjà tracé) — */
+  /** — Épilogue — */
   const lastTs =
     events.length > 0
       ? events[events.length - 1]!.atIso
       : ctx.requestConfirmedAt ?? ctx.requestRespondedAt ?? t0;
+
+  const skippedEpilogueLine =
+    journey === "pharmacist_proposed_in_response"
+      ? ph
+        ? "Proposition non acceptée."
+        : "Vous ne l'avez pas accepté."
+      : ph
+        ? "Non retenu à la validation."
+        : "Vous ne l'avez pas retenu.";
 
   if (isArchived) {
     const closureLines: string[] = [];
@@ -505,7 +649,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
         closureLines.push(`Produit : ${validatedProductLabel(row)}`);
       }
     } else {
-      closureLines.push("Non retenu à la validation.");
+      closureLines.push(skippedEpilogueLine);
     }
     if (reqStatus === "expired") closureLines.push(ph ? "Dossier expiré." : "Demande expirée.");
     else if (reqStatus === "cancelled" || reqStatus === "abandoned") {
@@ -518,7 +662,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
       phase: "epilogue",
       atIso: lastTs,
       sortKey: 90,
-      title: lineEventTitle("epilogue_archived", audience),
+      title: title("epilogue_archived"),
       bodyLines: closureLines,
       actorLabel: ph ? "Synthèse" : "Récap",
       actorTone: "system",
@@ -564,7 +708,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
         phase: "epilogue",
         atIso: lastTs,
         sortKey: 95,
-        title: lineEventTitle("epilogue_active", audience),
+        title: title("epilogue_active"),
         bodyLines: epilogueLines.slice(0, 4),
         actorLabel: ph ? "Maintenant" : "Aujourd'hui",
         actorTone: "system",
@@ -578,8 +722,8 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
       phase: "epilogue",
       atIso: lastTs,
       sortKey: 95,
-      title: lineEventTitle("epilogue_active", audience),
-      bodyLines: [ph ? "Non retenu à la validation." : "Vous ne l'avez pas retenu."],
+      title: title("epilogue_active"),
+      bodyLines: [skippedEpilogueLine],
       actorLabel: ph ? "Maintenant" : "Aujourd'hui",
       actorTone: "system",
       isCurrent: true,
@@ -599,8 +743,8 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
 
 export function phaseForEventKind(kind: LineEventKind): LineHistoryPhase {
   if (kind.startsWith("origin_")) return "origin";
-  if (kind === "pharmacist_response") return "response";
-  if (kind.startsWith("patient_validation_")) return "validation";
+  if (kind === "pharmacist_response" || kind === "pharmacist_response_updated_line") return "response";
+  if (kind.startsWith("patient_validation_") || kind === "amend_line_added_after_confirm") return "validation";
   if (kind.startsWith("counter_")) return "counter";
   if (kind.startsWith("epilogue_")) return "epilogue";
   return "preparation";

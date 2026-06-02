@@ -3796,12 +3796,15 @@ export function PatientProductRequestActions({
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-gradient-to-b from-sky-50/20 via-white to-muted/15 px-2.5 py-2.5 sm:px-3 [-webkit-overflow-scrolling:touch]">
               {confirmReviewMode === "initial" ? (
-                <div className={cn("rounded-lg border px-2 py-1.5", productRequestTheme.modalHighlight)}>
-                  <p className={cn("text-[8px] font-bold uppercase tracking-wide", productRequestTheme.modalLabel)}>
-                    Passage
+                <div className="rounded-xl border-2 border-sky-300/80 bg-gradient-to-br from-sky-50 via-white to-sky-100/60 px-3 py-3 shadow-sm ring-1 ring-sky-200/70">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-sky-900">
+                    Date de passage en officine
                   </p>
-                  <p className="mt-0.5 text-[11px] font-medium leading-snug text-foreground">
+                  <p className="mt-1.5 text-base font-bold leading-snug text-sky-950 sm:text-lg">
                     {confirmReviewSnap.visitSummaryFr}
+                  </p>
+                  <p className="mt-1.5 text-[11px] leading-snug text-sky-900/85">
+                    Présentez-vous à la pharmacie à ce créneau pour retirer vos produits réservés.
                   </p>
                 </div>
               ) : (

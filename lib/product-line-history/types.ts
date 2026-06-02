@@ -12,10 +12,13 @@ export type LineHistoryPhase =
 
 export type LineEventKind =
   | "origin_patient_request"
+  | "origin_patient_request_updated"
   | "origin_pharmacist_proposed"
   | "pharmacist_response"
+  | "pharmacist_response_updated_line"
   | "patient_validation_kept"
   | "patient_validation_skipped"
+  | "patient_validation_updated"
   | "amend_line_adjust_supply"
   | "amend_validated_qty_change"
   | "amend_withdraw_after_confirm"
