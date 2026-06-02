@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
+import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { supabase } from "@/lib/supabase";
 
 export default function PatientListeSouhaitsPage() {
@@ -37,18 +39,16 @@ export default function PatientListeSouhaitsPage() {
   }
 
   return (
-    <PageShell className="space-y-4">
-      <div>
-        <Link href="/" className="text-xs font-medium text-sky-800 underline">
-          ← Annuaire
-        </Link>
-        <h1 className="mt-2 text-lg font-bold text-foreground">Liste de souhaits</h1>
-        <p className="text-xs text-muted-foreground">Produits à suivre ou à commander plus tard (à venir).</p>
-      </div>
-      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-700">
+    <PageShell maxWidthClass="max-w-lg" className={p.page}>
+      <PatientAccountPageHeader
+        eyebrow="Espace patient"
+        title="Liste de souhaits"
+        subtitle="Produits à suivre ou à commander plus tard (fonctionnalité à venir)."
+      />
+      <div className="rounded-xl border border-dashed border-border bg-muted/20 p-6 text-sm text-muted-foreground">
         Vous pourrez enregistrer ici des produits favoris ou à rappeler. Aucune donnée n’est encore reliée à cette vue.
       </div>
-      <Link href="/" className="inline-block text-sm font-medium text-sky-700 underline">
+      <Link href="/" className={p.linkInline}>
         Parcourir les pharmacies
       </Link>
     </PageShell>

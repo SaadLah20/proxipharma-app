@@ -351,6 +351,29 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
+### Session 2026-06-01 (suite 4) — Hubs 8 statuts + charte pages menu compte
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`f822376`** (hub unifié 8 statuts) + lot charte menus compte (même branche, voir historique Git récent).
+
+**Hubs demandes** (patient + pharmacien, **produits / ordonnances / consultations**) :
+- **`RequestKindHubDashboard`** — ordre : **8 statuts** (`DemandeStatDashboard`, compact, barres) → repères (total, en cours, non lus) → **Reprendre rapidement** (5) → raccourcis **`patient-product-hub-sections`** / **`pharmacist-product-hub-sections`** (3 cartes, archives repliées) → lien liste filtrée.
+- Suppression bandeau 3 colonnes + KPI dupliqués sur hub produits ; hints par type via **`dashboardBucketsForKind`**.
+- Liste : **`hub-list-filter-chrome.ts`** + en-têtes **`PatientAccountPageHeader`** / **`PharmacistAccountPageHeader`** (charte primary, pas sky/amber/emerald des dossiers).
+
+**Pages menu / compte** (charte **`platform-dashboard-chrome.ts`**) :
+- **`PatientAccountPageHeader`** : Mes pharmacies, paramètres, packs promo, notifications, liste de souhaits ; hubs avec lien Notifications.
+- Menu header : **Notifications**, **Annuaire pharmacies** (patient) — `platform-header.tsx`.
+- **Tableau de bord pharmacien** : **8 statuts** (agrégat tous types) après KPI ; accès rapides incl. consultations.
+- **Packs promo** / **clients** : stats et bandeaux alignés charte (plus sky isolé sur écrans compte).
+
+**Fichiers clés** : `components/requests/hub/request-kind-hub-dashboard.tsx`, `lib/request-kind-hub-dashboard.ts`, `components/patient/patient-account-page-header.tsx`, `lib/hub-list-filter-chrome.ts`, `app/dashboard/demandes/patient-demandes-hub.tsx`, `app/dashboard/pharmacien/demandes/pharmacist-demandes-hub.tsx`, `components/pharmacist/pharmacist-dashboard.tsx`.
+
+**Phrase de reprise** : **§13.34**.
+
+**Prochain jalon** : retours preview terrain sur hubs et menus ; finitions mineures si besoin.
+
+---
+
 ### Session 2026-06-01 (suite 3) — Annuaire : chrome unifié, barre sticky, cartes allégées
 
 **Livré** (branche **`fix/validated-supply-ecart-ui-modal`**, pas de migration SQL) :
@@ -414,8 +437,8 @@ git checkout pilote-stable-2026-05-24
 **Charte compte / officine** (`ee2eb02`) — **`lib/platform-dashboard-chrome.ts`** (primary, pas sky dossiers) + **`PharmacistAccountPageHeader`** :
 - Tableau de bord, **Clients**, **Produits commandés**, **Ruptures**, **Ma fiche**, **Horaires et garde**, **Pricing**, **Offres promos**, **Réservations packs**, **Visites et interactions**.
 
-**Hub demandes produits pharmacien** (`6146ef4`) :
-- **`PharmacistProductDemandesDashboard`** — thème **sky**, KPIs sous Archives, compteur liste **Toutes les demandes** ; regroupements indicatifs (scroll, pas filtre URL) ; **Reprendre rapidement** = 5 derniers dossiers — aligné patient (`lib/pharmacist-product-hub-sections.ts`).
+**Hub demandes produits pharmacien** (`6146ef4`, remplacé **2026-06-01 suite 4**) :
+- Ancien : thème sky, bandeau 3 colonnes, KPIs dupliqués — **remplacé** par **`RequestKindHubDashboard`** (8 statuts en tête, charte compte sur liste).
 
 **Détail pharmacien post-validé / répondue** (lots **`566f4a5`**, **`378f6b5`**) :
 - Workflow **brouillon différé** + footer **Enregistrer** ; modale canal unique pour amendements ; ordre save **amendements puis lignes** (évite erreur canal avec données déjà en base).
@@ -433,8 +456,8 @@ git checkout pilote-stable-2026-05-24
 
 **Branche** : `fix/validated-supply-ecart-ui-modal` — commits poussés **`4c555da`** … **`cce3d15`** (pas de nouvelle migration sur le lot hub/paramètres ; **Mes pharmacies** = **`20260626_001`**).
 
-**Hub demandes produits** (`/dashboard/demandes`) :
-- **Tableau de bord** : regroupements **indicatifs** (dashboard seulement) **`lib/patient-product-hub-sections.ts`** — **À votre action**, **Chez la pharmacie**, **Archives** ; **`PatientProductDemandesDashboard`** — **3** cartes max, **Tout voir** → `?vue=liste` ; compteurs = scroll vers le bloc ; **Reprendre rapidement** = 5 derniers dossiers (tous statuts).
+**Hub demandes produits** (`/dashboard/demandes`) — voir aussi **session 2026-06-01 suite 4** :
+- **Tableau de bord** (historique **2026-05-25**) : regroupements indicatifs — **remplacé** par **`RequestKindHubDashboard`** (8 statuts d’abord, puis raccourcis **`lib/patient-product-hub-sections.ts`**).
 - **Liste** (`patient-demandes-hub.tsx`) : filtre **Statut** (buckets) + pharmacie / réf. / tri — **pas** de regroupement URL ; **`filterPatientProductHubListRows`** = statut seul.
 - **Archives / terminés** (`4c555da`) : **`PatientRequestOutcomeBanner`** + **`ReadonlyArchivedProductBucketsView`** ; répondue sans propositions officine post-envoi.
 
@@ -1919,13 +1942,13 @@ Voir **§13.34**.
 
 ### 13.34) Phrase de reprise (recommandée — après session **2026-05-29** pharmacien compte + post-validé)
 
-**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`566f4a5`** … **`ee2eb02`** : pharmacien **Mes paramètres** `pharmacist-settings-page.tsx` + **`PharmacistAccountPageHeader`** / charte **`platform-dashboard-chrome`** sur tableau de bord, clients, supply, fiche, promos, analytics ; hub produits pharmacien **sky** + KPIs + compteur liste ; détail post-validé **brouillon** + modale canal unique + clôture partielle **`20260630_001`** / **`lib/pharmacist-counter-closure.ts`** ; vue **répondue** alternatives lecture seule + lint **`378f6b5`**). Patient : hub demandes + **Mes pharmacies** + **Mes paramètres** + parcours §4.6 **envoyée→traitée** — §10 **2026-05-25** / **2026-05-29**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.4**, **§4.6**, **§10**, §11. **Supabase pilote : toutes les migrations appliquées** (dernière **`20260630_001`**) — ne pas redemander d’appliquer sauf nouveau fichier SQL. Fichiers clés pharmacien : `app/dashboard/pharmacien/demandes/[id]/page.tsx`, `pharmacist-supply-compact-line.tsx`, `pharmacist-settings-page.tsx`, `pharmacist-product-demandes-dashboard.tsx`. **Prochain jalon** : retours preview ; §4.6 pharmacien **envoyée** / ordonnances / consultations si besoin. Tag stable **`pilote-stable-2026-05-24`** → **`0c4f0e7`** (§10.1). Je te donne la tâche précise ou les retours terrain. »**
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`f822376`**+ : hubs **`RequestKindHubDashboard`** — **8 statuts** en tête patient/pharmacien **3 parcours** ; charte compte **`PatientAccountPageHeader`** / **`PharmacistAccountPageHeader`** + menus **Notifications** ; lots antérieurs **`ee2eb02`** paramètres pharmacien, **`f519440`** ordonnances/consultations alignées produits, post-validé **`20260630_001`**). Patient : parcours §4.6 **envoyée→traitée** + hubs/liste. Pharmacien : détail dossier accents type (sky/amber/violet) ; écrans **compte** = charte primary. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.4**, **§4.6**, **§10** (session **2026-06-01 suite 4**), §11. **Supabase pilote : migrations appliquées** jusqu’à **`20260630_001`**. Fichiers clés : `request-kind-hub-dashboard.tsx`, `patient-demandes-hub.tsx`, `pharmacist-demandes-hub.tsx`, `pharmacist-dashboard.tsx`, `platform-header.tsx`. **Prochain jalon** : retours preview hubs/menus. Je te donne la tâche ou les retours terrain. »**
 
 ### 13.35) Phrase d’ouverture **contexte seul** (recommandée — juin 2026)
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot **`ee2eb02`**, journal §10 session **2026-05-29**). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations appliquées jusqu’à **`20260630_001`**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.35**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-01 suite 4** — hubs 8 statuts + charte menus). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations appliquées jusqu’à **`20260630_001`**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.35**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
