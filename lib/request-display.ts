@@ -125,13 +125,16 @@ export function requestStatusBadgeClass(status: string): string {
     case "in_progress_virtual":
       return `${STATUS_BADGE_BASE} border-violet-200 bg-violet-50 text-violet-900`;
     case "completed":
-    case "partially_collected":
     case "fully_collected":
       return `${STATUS_BADGE_BASE} border-emerald-200 bg-emerald-50 text-emerald-900`;
-    case "cancelled":
-    case "abandoned":
+    case "partially_collected":
+      return `${STATUS_BADGE_BASE} border-teal-200 bg-teal-50 text-teal-900`;
     case "expired":
-      return `${STATUS_BADGE_BASE} border-slate-200 bg-slate-100 text-slate-800`;
+      return `${STATUS_BADGE_BASE} border-amber-200 bg-amber-50 text-amber-900`;
+    case "cancelled":
+      return `${STATUS_BADGE_BASE} border-rose-200 bg-rose-50 text-rose-900`;
+    case "abandoned":
+      return `${STATUS_BADGE_BASE} border-orange-200 bg-orange-50 text-orange-900`;
     case "draft":
       return `${STATUS_BADGE_BASE} border-border bg-muted/50 text-muted-foreground`;
     default:

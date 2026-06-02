@@ -1,10 +1,16 @@
 "use client";
 
 import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
+import { Ban, CheckCircle2, Package } from "lucide-react";
 import { clsx } from "clsx";
 import {
   type PatientClosedArchiveLineBucketId,
-  patientClosedArchiveBucketHeaderClass,
+  patientClosedArchiveBucketAccentTextClass,
+  patientClosedArchiveBucketAriaTitleFr,
+  patientClosedArchiveBucketCountBadgeClass,
+  patientClosedArchiveBucketHeaderBarClass,
+  patientClosedArchiveBucketSectionShellClass,
   patientClosedArchiveBucketTitleFr,
 } from "@/lib/patient-closed-archive-line-buckets";
 
@@ -15,32 +21,59 @@ type Props = {
   children: ReactNode;
 };
 
-/** Titre de groupe archive clôturée — sans carte colorée autour des lignes. */
+const BUCKET_ICONS: Record<PatientClosedArchiveLineBucketId, LucideIcon> = {
+  recuperes: CheckCircle2,
+  ecartes: Ban,
+  non_retenus: Package,
+};
+
 export function PatientClosedArchiveBucketSection({
   bucketId,
   count,
   subtotalLabel,
   children,
 }: Props) {
+  const Icon = BUCKET_ICONS[bucketId];
+  const title = patientClosedArchiveBucketTitleFr(bucketId);
+  const accentText = patientClosedArchiveBucketAccentTextClass(bucketId);
+
   return (
-    <section className="w-full min-w-0 space-y-2">
-      <div className="flex flex-nowrap items-baseline justify-between gap-2 px-0.5">
-        <h4
-          className={clsx(
-            "min-w-0 text-[13px] font-extrabold uppercase tracking-wide sm:text-sm",
-            patientClosedArchiveBucketHeaderClass(bucketId)
-          )}
-        >
-          {patientClosedArchiveBucketTitleFr(bucketId)}
-          <span className="ml-1.5 tabular-nums font-bold opacity-75">({count})</span>
+    <section
+      className="w-full min-w-0 space-y-1"
+      aria-label={patientClosedArchiveBucketAriaTitleFr(bucketId)}
+    >
+      <div
+        className={clsx(
+          "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg px-2.5 py-1.5",
+          patientClosedArchiveBucketHeaderBarClass(bucketId)
+        )}
+      >
+        <Icon className={clsx("size-3.5 shrink-0", accentText)} strokeWidth={2.25} aria-hidden />
+        <h4 className="min-w-0 flex-1 truncate text-[12px] font-bold leading-none text-foreground sm:text-[13px]">
+          {title}
         </h4>
         {subtotalLabel ? (
-          <p className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-muted-foreground">
+          <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-muted-foreground">
             {subtotalLabel}
-          </p>
+          </span>
         ) : null}
+        <span
+          className={clsx(
+            "inline-flex shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ring-1",
+            patientClosedArchiveBucketCountBadgeClass()
+          )}
+        >
+          {count}
+        </span>
       </div>
-      {children}
+      <div
+        className={clsx(
+          "overflow-hidden rounded-lg",
+          patientClosedArchiveBucketSectionShellClass(bucketId)
+        )}
+      >
+        {children}
+      </div>
     </section>
   );
 }
