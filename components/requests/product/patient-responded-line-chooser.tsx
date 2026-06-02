@@ -3,11 +3,14 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { Package, X, HelpCircle } from "lucide-react";
 import {
-  ProductRequestLineMessageIconButton,
   ProductRequestLinePrices,
   ProductRequestLineQtyPicker,
   ProductRequestLineQtyReadonly,
 } from "@/components/pharmacy/patient-demande-produits-ui";
+import {
+  lineConversationVisual,
+  PharmacistLineMessageButton,
+} from "@/components/pharmacist/pharmacist-line-conversation-chip";
 
 /** Vignette répondue un peu plus haute que le panier standard (meilleure lisibilité). */
 const RESPONDED_LINE_THUMB =
@@ -143,20 +146,11 @@ function RespondedLineNotesButton({
   const titleId = useId();
   const c = client.trim();
   const p = pharmacist.trim();
-  const hasNotes = Boolean(c || p);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
+  const visual = lineConversationVisual(c, p);
 
   return (
     <>
-      <ProductRequestLineMessageIconButton hasComment={hasNotes} onClick={() => setOpen(true)} />
+      <PharmacistLineMessageButton visual={visual} open={open} onClick={() => setOpen(true)} />
       {open ? (
         <AppModalOverlay open aria-labelledby={titleId} onBackdropClick={() => setOpen(false)}>
               <div
@@ -289,10 +283,10 @@ function RespondedVariantTabs({
                 dim && "border-transparent bg-transparent text-slate-400 line-through",
                 !dim &&
                   isViewing &&
-                  "border-primary bg-card text-foreground shadow-sm ring-2 ring-primary/20",
+                  "border-primary bg-white text-foreground shadow-md ring-2 ring-primary/30",
                 !dim &&
                   !isViewing &&
-                  "border-transparent bg-muted/25 text-muted-foreground hover:border-border/60 hover:bg-muted/40",
+                  "border-border/60 bg-muted/30 text-muted-foreground hover:border-primary/35 hover:bg-white/90 hover:text-foreground",
                 !dim && isSelected && !isViewing && "border-emerald-500/60 bg-emerald-50/50 ring-1 ring-emerald-400/30"
               )}
               onClick={() => onTab(tab.id)}
@@ -342,26 +336,101 @@ function RespondedVariantTabs({
   );
 }
 
+function RespondedRetainHelpModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const titleId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <AppModalOverlay open aria-labelledby={titleId} onBackdropClick={onClose}>
+      <div
+        className={cn("w-full max-w-sm overflow-hidden rounded-2xl border bg-card shadow-2xl sm:mx-auto", t.modalShell)}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={cn("flex items-start justify-between gap-2 border-b px-3 py-2", t.modalHeader)}>
+          <h2 id={titleId} className="text-sm font-semibold text-foreground">
+            Retenir un produit
+          </h2>
+          <button
+            type="button"
+            className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted/60"
+            aria-label="Fermer"
+            onClick={onClose}
+          >
+            <X className="size-4" aria-hidden />
+          </button>
+        </div>
+        <div className="space-y-2 px-3 py-3 text-[12px] leading-snug text-muted-foreground">
+          <p>
+            Cochez <strong className="text-foreground">Retenir</strong> pour inclure ce produit dans votre validation.
+          </p>
+          <p>
+            S&apos;il existe des alternatives, consultez les onglets puis retenez celle que vous choisissez — une seule
+            option par ligne.
+          </p>
+        </div>
+        <div className="border-t border-border/60 px-3 py-2">
+          <button type="button" className={uiActionBtnModalDismiss()} onClick={onClose}>
+            Compris
+          </button>
+        </div>
+      </div>
+    </AppModalOverlay>
+  );
+}
+
 function RespondedRetainControl({
   retained,
   unavailable,
   readOnly,
   onToggle,
+  layout = "inline",
 }: {
   retained: boolean;
   unavailable: boolean;
   readOnly: boolean;
   onToggle: (on: boolean) => void;
+  layout?: "inline" | "underThumb";
 }) {
+  const [helpOpen, setHelpOpen] = useState(false);
+  const underThumb = layout === "underThumb";
+
   if (unavailable) {
     return (
-      <span className="shrink-0 text-[10px] font-semibold text-slate-500">Non retenable</span>
+      <span
+        className={cn(
+          "text-center text-[9px] font-semibold leading-tight text-slate-500",
+          underThumb ? "w-full px-0.5" : "shrink-0 text-[10px]"
+        )}
+      >
+        Non retenable
+      </span>
     );
   }
   if (readOnly) {
     return retained ? (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-300/80 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-        <span className="inline-flex size-3.5 items-center justify-center rounded-sm bg-emerald-600 text-[9px] text-white" aria-hidden>
+      <span
+        className={cn(
+          "inline-flex items-center justify-center gap-1 rounded-md border border-emerald-300/80 bg-emerald-50 font-bold text-emerald-800",
+          underThumb ? "w-full flex-col px-1 py-1 text-[9px]" : "shrink-0 px-2 py-0.5 text-[10px]"
+        )}
+      >
+        <span
+          className={cn(
+            "inline-flex items-center justify-center rounded-sm bg-emerald-600 text-white",
+            underThumb ? "size-3 text-[8px]" : "size-3.5 text-[9px]"
+          )}
+          aria-hidden
+        >
           ✓
         </span>
         Retenu
@@ -369,26 +438,41 @@ function RespondedRetainControl({
     ) : null;
   }
   return (
-    <div className="flex shrink-0 items-center gap-1">
-      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1 shadow-sm transition hover:bg-muted/40 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/30">
-        <input
-          type="checkbox"
-          checked={retained}
-          onChange={(e) => onToggle(e.target.checked)}
-          className="size-4 shrink-0 rounded border-border accent-emerald-600"
-          aria-label={retained ? "Produit retenu — cliquer pour retirer" : "Retenir ce produit dans votre validation"}
-        />
-        <span className="text-[10px] font-bold text-foreground">{retained ? "Retenu" : "Retenir"}</span>
-      </label>
-      <button
-        type="button"
-        title="Cochez pour inclure ce produit dans votre validation. Vous pouvez aussi choisir une alternative via les onglets."
-        className="inline-flex size-6 items-center justify-center rounded-full border border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-        aria-label="Aide — retenir un produit"
-      >
-        <HelpCircle className="size-3.5" strokeWidth={2.25} aria-hidden />
-      </button>
-    </div>
+    <>
+      <div className={cn("flex items-center gap-1", underThumb && "w-full flex-col gap-0.5")}>
+        <label
+          className={cn(
+            "inline-flex cursor-pointer items-center rounded-lg border border-border bg-background shadow-sm transition hover:bg-muted/40 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/30",
+            underThumb
+              ? "w-full flex-col justify-center gap-0.5 px-1 py-1"
+              : "gap-1.5 px-2 py-1"
+          )}
+        >
+          <input
+            type="checkbox"
+            checked={retained}
+            onChange={(e) => onToggle(e.target.checked)}
+            className={cn("shrink-0 rounded border-border accent-emerald-600", underThumb ? "size-3.5" : "size-4")}
+            aria-label={retained ? "Produit retenu — cliquer pour retirer" : "Retenir ce produit dans votre validation"}
+          />
+          <span className={cn("font-bold text-foreground", underThumb ? "text-[9px] leading-none" : "text-[10px]")}>
+            {retained ? "Retenu" : "Retenir"}
+          </span>
+        </label>
+        <button
+          type="button"
+          onClick={() => setHelpOpen(true)}
+          className={cn(
+            "inline-flex items-center justify-center rounded-full border border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+            underThumb ? "size-5" : "size-6"
+          )}
+          aria-label="Aide — retenir un produit"
+        >
+          <HelpCircle className={cn("shrink-0", underThumb ? "size-3" : "size-3.5")} strokeWidth={2.25} aria-hidden />
+        </button>
+      </div>
+      <RespondedRetainHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+    </>
   );
 }
 
@@ -460,27 +544,28 @@ function RespondedLineBlock({
       )}
     >
       <div className="flex items-start gap-2.5">
-        <div className={cn(RESPONDED_LINE_THUMB, "shrink-0")}>{thumbInner}</div>
+        <div className="flex w-[3.85rem] shrink-0 flex-col items-stretch gap-1.5">
+          <div className={RESPONDED_LINE_THUMB}>{thumbInner}</div>
+          <RespondedRetainControl
+            retained={retained}
+            unavailable={unavailable}
+            readOnly={readOnly}
+            onToggle={onToggleRetain}
+            layout="underThumb"
+          />
+        </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <div className="flex items-start justify-between gap-2">
-            <p
-              className={cn(
-                "min-w-0 flex-1 text-[13px] font-semibold leading-snug",
-                unavailable ? "text-slate-600" : "text-foreground",
-                notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
-              )}
-              title={variant.productName}
-            >
-              {variant.productName}
-            </p>
-            <RespondedRetainControl
-              retained={retained}
-              unavailable={unavailable}
-              readOnly={readOnly}
-              onToggle={onToggleRetain}
-            />
-          </div>
+          <p
+            className={cn(
+              "min-w-0 text-[13px] font-semibold leading-snug",
+              unavailable ? "text-slate-600" : "text-foreground",
+              notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
+            )}
+            title={variant.productName}
+          >
+            {variant.productName}
+          </p>
 
           {isProposedBlock ? (
             <p
@@ -518,7 +603,7 @@ function RespondedLineBlock({
             <div className="flex shrink-0 flex-col items-end gap-0.5">
               {showQty && variant.showRequested ? (
                 <span className="text-[10px] text-muted-foreground">
-                  Demandée{" "}
+                  Qté demandée{" "}
                   <strong className="tabular-nums text-foreground">{variant.requestedQty}</strong>
                 </span>
               ) : null}

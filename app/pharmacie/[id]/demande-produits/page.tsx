@@ -387,11 +387,7 @@ export default function DemandeProduitsPage() {
 
         <ProductRequestSection
           title="Votre sélection"
-          hint={
-            lines.length === 0
-              ? "Les produits ajoutés depuis la recherche ou l’explorateur apparaissent ici."
-              : "Quantité et message par produit si besoin."
-          }
+          hint={lines.length > 0 ? "Quantité et message par produit si besoin." : undefined}
           badge={
             lines.length > 0 ? (
               <span className={cn("shrink-0", t.sectionBadge)}>
@@ -401,8 +397,8 @@ export default function DemandeProduitsPage() {
           }
         >
           {lines.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-border/80 bg-muted/15 px-3 py-4 text-center text-sm text-muted-foreground">
-              Aucun produit pour l’instant — utilisez la recherche ci-dessus ou le bouton Explorer.
+            <p className="rounded-xl border border-dashed border-border/80 bg-muted/10 px-3 py-6 text-center text-sm text-muted-foreground">
+              Aucun produit pour l’instant
             </p>
           ) : (
             <ul className="w-full min-w-0 space-y-2">

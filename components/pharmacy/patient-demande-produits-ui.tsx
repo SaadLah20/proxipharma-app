@@ -62,7 +62,12 @@ export function ProductRequestMessageCard({
 }) {
   return (
     <section className={cn(pharmacyPublicCard, "p-3 sm:p-4", t.messageCard)}>
-      <PharmacyPublicSectionTitle title="Message pour la pharmacie (facultatif)" className="mb-2" />
+      <div className="mb-2 flex items-center gap-2">
+        <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", t.accentIconBg)} aria-hidden>
+          <MessageSquare className={cn("size-4", t.accentIcon)} strokeWidth={2.25} />
+        </span>
+        <PharmacyPublicSectionTitle title="Message pour la pharmacie (facultatif)" className="mb-0 min-w-0 flex-1" />
+      </div>
       <textarea
         value={note}
         onChange={(e) => onNoteChange(e.target.value.slice(0, maxLength))}
