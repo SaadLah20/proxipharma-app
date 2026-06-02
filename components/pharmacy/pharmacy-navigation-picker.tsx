@@ -10,7 +10,7 @@ import {
 } from "@/lib/pharmacy-navigation";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import { lockBodyScroll } from "@/lib/ui-body-scroll-lock";
-import { uiAnnuaireActionOverlayBtn, uiAnnuaireQuickAction } from "@/lib/ui-action-buttons";
+import { uiAnnuaireActionOverlayBtn, uiAnnuaireActionOverlayBtnGhost, uiAnnuaireQuickAction } from "@/lib/ui-action-buttons";
 
 export type PharmacyNavigationTarget = {
   pharmacyId?: string;
@@ -27,7 +27,7 @@ type Props = {
   source: "annuaire" | "profile";
   className?: string;
   /** Style bouton annuaire (icône + libellé court). */
-  variant?: "annuaire" | "annuaire-rail" | "inline";
+  variant?: "annuaire" | "annuaire-rail" | "annuaire-overlay" | "inline";
   disabledClassName?: string;
   /** Modal contrôlée depuis l’extérieur (ex. grille contact fiche). */
   open?: boolean;
@@ -95,7 +95,13 @@ export function PharmacyNavigationPicker({
           !canNavigate && (disabledClassName ?? "pointer-events-none opacity-45"),
           className
         )
-      : variant === "annuaire"
+      : variant === "annuaire-overlay"
+        ? clsx(
+            uiAnnuaireActionOverlayBtnGhost(),
+            !canNavigate && (disabledClassName ?? "pointer-events-none opacity-45"),
+            className
+          )
+        : variant === "annuaire"
         ? clsx(
             uiAnnuaireQuickAction(),
             !canNavigate && (disabledClassName ?? "pointer-events-none opacity-45"),
@@ -118,12 +124,12 @@ export function PharmacyNavigationPicker({
           aria-haspopup="dialog"
           aria-expanded={open}
         >
-          {variant === "annuaire-rail" ? (
+          {variant === "annuaire-rail" || variant === "annuaire-overlay" ? (
             <MapPin className="size-3.5" aria-hidden />
           ) : (
             <Navigation className="size-4" aria-hidden />
           )}
-          {variant === "annuaire-rail" ? (
+          {variant === "annuaire-rail" || variant === "annuaire-overlay" ? (
             <span className="sr-only">Localisation</span>
           ) : variant === "annuaire" ? (
             "Itinéraire"
