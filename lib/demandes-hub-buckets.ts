@@ -138,3 +138,50 @@ export function countInBucket(rows: { status: string; status_for_dashboard?: str
   const set = new Set(bucket.statuses);
   return rows.filter((r) => set.has((r.status_for_dashboard ?? r.status))).length;
 }
+
+/** Regroupement indicatif des tuiles statut (tableau de bord patient / pharmacien). */
+export type DemandeStatBucketGroup = {
+  id: string;
+  label: string;
+  bucketKeys: readonly DemandeStatBucketKey[];
+};
+
+export const PATIENT_STAT_BUCKET_GROUPS: DemandeStatBucketGroup[] = [
+  {
+    id: "at_pharmacy",
+    label: "Chez la pharmacie",
+    bucketKeys: ["envoyees", "validees_traitees"],
+  },
+  {
+    id: "your_action",
+    label: "À votre action",
+    bucketKeys: ["repondues", "traitee_retrait"],
+  },
+  {
+    id: "archives",
+    label: "Archives",
+    bucketKeys: ["cloturees", "abandonnees", "expirees", "annulees"],
+  },
+];
+
+export const PHARMACIST_STAT_BUCKET_GROUPS: DemandeStatBucketGroup[] = [
+  {
+    id: "at_pharmacy",
+    label: "Chez l'officine",
+    bucketKeys: ["envoyees", "validees_traitees", "traitee_retrait"],
+  },
+  {
+    id: "at_patient",
+    label: "Chez le client",
+    bucketKeys: ["repondues"],
+  },
+  {
+    id: "archives",
+    label: "Archives",
+    bucketKeys: ["cloturees", "abandonnees", "expirees", "annulees"],
+  },
+];
+
+export function statBucketGroupsForRole(role: "patient" | "pharmacien"): DemandeStatBucketGroup[] {
+  return role === "patient" ? PATIENT_STAT_BUCKET_GROUPS : PHARMACIST_STAT_BUCKET_GROUPS;
+}

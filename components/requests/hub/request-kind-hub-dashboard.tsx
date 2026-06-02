@@ -32,6 +32,7 @@ import {
   sortHubRowsByRecency,
 } from "@/lib/request-kind-hub-dashboard";
 import { dashboardBucketsForKind, hubDashboardChrome } from "@/lib/request-kinds/hub-and-terminal-copy";
+import { statBucketGroupsForRole } from "@/lib/demandes-hub-buckets";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 
 const PATIENT_SECTION_ORDER = ["action_required", "at_pharmacy", "archives"] as const;
@@ -47,7 +48,7 @@ function HubSectionBlock({
   sectionDomId,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   count: number;
   listHref: string;
   defaultCollapsed?: boolean;
@@ -66,7 +67,7 @@ function HubSectionBlock({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-2.5 py-2">
         <div className="min-w-0 flex-1">
           <h3 className="text-[13px] font-bold text-foreground">{title}</h3>
-          <p className="text-[10px] leading-snug text-muted-foreground">{subtitle}</p>
+          {subtitle ? <p className="text-[10px] leading-snug text-muted-foreground">{subtitle}</p> : null}
         </div>
         <span className="inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold tabular-nums text-foreground">
           {count}
@@ -157,7 +158,6 @@ export function RequestKindHubDashboard({
               key={sectionId}
               sectionDomId={`hub-section-${kindId}-${sectionId}`}
               title={section.title}
-              subtitle={section.subtitle}
               count={count}
               listHref={patientProductHubListHref(basePath)}
               defaultCollapsed={sectionId === "archives" && count > HUB_DASHBOARD_PREVIEW}
@@ -182,7 +182,6 @@ export function RequestKindHubDashboard({
               key={sectionId}
               sectionDomId={`hub-section-${kindId}-${sectionId}`}
               title={section.title}
-              subtitle={section.subtitle}
               count={count}
               listHref={pharmacistProductHubListHref(basePath)}
               defaultCollapsed={sectionId === "archives" && count > HUB_DASHBOARD_PREVIEW}
@@ -204,7 +203,7 @@ export function RequestKindHubDashboard({
         basePath={basePath}
         density="compact"
         dashboardTitle={chrome.title}
-        dashboardSubtitle={chrome.subtitle}
+        bucketGroups={statBucketGroupsForRole(role)}
       />
 
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-muted/15 px-2.5 py-2 text-[10px]">
@@ -227,9 +226,6 @@ export function RequestKindHubDashboard({
       {recent.length > 0 ? (
         <section className="rounded-lg border border-border/80 bg-card p-2.5 shadow-sm">
           <h2 className="text-[13px] font-bold text-foreground">Reprendre rapidement</h2>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">
-            Derniers dossiers actifs — messages non lus en tête
-          </p>
           <ul className="mt-2 flex gap-2 overflow-x-auto pb-0.5 [-webkit-overflow-scrolling:touch]">
             {recent.map((r) => (
               <li key={r.id} className="w-[min(100%,260px)] shrink-0 sm:w-[min(80%,280px)]">
@@ -242,19 +238,14 @@ export function RequestKindHubDashboard({
         </section>
       ) : null}
 
-      <div className="space-y-2">
-        <p className="px-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Raccourcis par activité
-        </p>
-        {sectionBlocks}
-      </div>
+      <div className="space-y-2">{sectionBlocks}</div>
 
       <p className="text-center pt-1">
         <Link
           href={`${basePath}?vue=liste`}
           className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-primary shadow-sm hover:bg-muted/40"
         >
-          {listAllLabel} — filtres par statut
+          {listAllLabel}
           <ChevronRight className="size-4" aria-hidden />
         </Link>
       </p>

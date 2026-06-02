@@ -91,7 +91,7 @@ export function hubDashboardChrome(
 ): { title: string; subtitle: string } {
   return {
     title: "8 statuts",
-    subtitle: "Toucher un bloc pour ouvrir la liste filtrée — barres = volume relatif",
+    subtitle: "",
   };
 }
 
