@@ -353,7 +353,7 @@ git checkout pilote-stable-2026-05-24
 
 ### Session 2026-06-01 (suite 4) — Hubs 8 statuts + charte pages menu compte
 
-**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`f822376`** (hub unifié 8 statuts) + lot charte menus compte (même branche, voir historique Git récent).
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`f822376`** (hub unifié 8 statuts), **`ff7ffe9`** (charte menus compte + docs).
 
 **Hubs demandes** (patient + pharmacien, **produits / ordonnances / consultations**) :
 - **`RequestKindHubDashboard`** — ordre : **8 statuts** (`DemandeStatDashboard`, compact, barres) → repères (total, en cours, non lus) → **Reprendre rapidement** (5) → raccourcis **`patient-product-hub-sections`** / **`pharmacist-product-hub-sections`** (3 cartes, archives repliées) → lien liste filtrée.
@@ -1942,7 +1942,7 @@ Voir **§13.34**.
 
 ### 13.34) Phrase de reprise (recommandée — après session **2026-05-29** pharmacien compte + post-validé)
 
-**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`f822376`**+ : hubs **`RequestKindHubDashboard`** — **8 statuts** en tête patient/pharmacien **3 parcours** ; charte compte **`PatientAccountPageHeader`** / **`PharmacistAccountPageHeader`** + menus **Notifications** ; lots antérieurs **`ee2eb02`** paramètres pharmacien, **`f519440`** ordonnances/consultations alignées produits, post-validé **`20260630_001`**). Patient : parcours §4.6 **envoyée→traitée** + hubs/liste. Pharmacien : détail dossier accents type (sky/amber/violet) ; écrans **compte** = charte primary. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.4**, **§4.6**, **§10** (session **2026-06-01 suite 4**), §11. **Supabase pilote : migrations appliquées** jusqu’à **`20260630_001`**. Fichiers clés : `request-kind-hub-dashboard.tsx`, `patient-demandes-hub.tsx`, `pharmacist-demandes-hub.tsx`, `pharmacist-dashboard.tsx`, `platform-header.tsx`. **Prochain jalon** : retours preview hubs/menus. Je te donne la tâche ou les retours terrain. »**
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`ff7ffe9`** / **`f822376`**+ : hubs **`RequestKindHubDashboard`** — **8 statuts** en tête patient/pharmacien **3 parcours** ; charte compte **`PatientAccountPageHeader`** / **`PharmacistAccountPageHeader`** + menus **Notifications** ; lots antérieurs **`ee2eb02`** paramètres pharmacien, **`f519440`** ordonnances/consultations alignées produits, post-validé **`20260630_001`**). Patient : parcours §4.6 **envoyée→traitée** + hubs/liste. Pharmacien : détail dossier accents type (sky/amber/violet) ; écrans **compte** = charte primary. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.4**, **§4.6**, **§10** (session **2026-06-01 suite 4**), §11. **Supabase pilote : migrations appliquées** jusqu’à **`20260630_001`**. Fichiers clés : `request-kind-hub-dashboard.tsx`, `patient-demandes-hub.tsx`, `pharmacist-demandes-hub.tsx`, `pharmacist-dashboard.tsx`, `platform-header.tsx`. **Prochain jalon** : retours preview hubs/menus. Je te donne la tâche ou les retours terrain. »**
 
 ### 13.35) Phrase d’ouverture **contexte seul** (recommandée — juin 2026)
 
