@@ -11,10 +11,6 @@ import {
   lineConversationVisual,
   PharmacistLineMessageButton,
 } from "@/components/pharmacist/pharmacist-line-conversation-chip";
-
-/** Vignette répondue un peu plus haute que le panier standard (meilleure lisibilité). */
-const RESPONDED_LINE_THUMB =
-  "box-border size-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
 import { uiActionBtnModalDismiss } from "@/lib/ui-action-buttons";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import {
@@ -31,6 +27,7 @@ import {
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { cn } from "@/lib/utils";
+import { patientBucketProductRowClass } from "@/lib/patient-bucket-product-row-ui";
 import {
   lineSelQtyForBranch,
   type ActionItemAltRow,
@@ -38,6 +35,10 @@ import {
   type LineBranch,
   type LineSelState,
 } from "@/components/requests/product/patient-product-request-actions";
+
+/** Vignette répondue un peu plus haute que le panier standard (meilleure lisibilité). */
+const RESPONDED_LINE_THUMB =
+  "box-border size-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
 
 function one<T>(v: T | T[] | null | undefined): T | null {
   if (v == null) return null;
@@ -460,22 +461,22 @@ function RespondedRetainControl({
   }
   if (readOnly) {
     return retained ? (
-      <span className="flex w-full items-center justify-center gap-1 leading-none">
-        <Check className="size-3.5 text-emerald-600" strokeWidth={3} aria-hidden />
-        <span className="text-[9px] font-bold text-emerald-700">OK</span>
+      <span className="flex w-full max-w-[3.85rem] items-center justify-center gap-0.5 leading-none">
+        <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
+        <span className="text-[8px] font-bold text-emerald-700">OK</span>
       </span>
     ) : null;
   }
   return (
-    <label className="flex w-full cursor-pointer items-center justify-center gap-1 leading-none">
+    <label className="flex w-full max-w-[3.85rem] cursor-pointer items-center justify-center gap-0.5 leading-none">
       <input
         type="checkbox"
         checked={retained}
         onChange={(e) => onToggle(e.target.checked)}
-        className="size-3.5 shrink-0 rounded border-border accent-emerald-600"
+        className="size-4 shrink-0 rounded border-border accent-emerald-600"
         aria-label={retained ? "Produit retenu — cliquer pour retirer" : "Inclure ce produit dans votre validation"}
       />
-      <span className="text-[9px] font-bold text-muted-foreground">OK</span>
+      <span className="text-[8px] font-bold text-muted-foreground">OK</span>
     </label>
   );
 }
@@ -569,15 +570,15 @@ function RespondedLineBlock({
   return (
     <div
       className={cn(
-        "w-full min-w-0 border-b border-border/60 py-2 transition last:border-b-0",
+        "w-full min-w-0 transition",
         notRetained && !unavailable && !variantTabsAbove && "opacity-70"
       )}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2.5">
         <div
           className={cn(
             "shrink-0",
-            variantTabsAbove ? "w-[3.5rem]" : "flex w-[3.85rem] flex-col items-center gap-0.5"
+            variantTabsAbove ? "w-[3.5rem]" : "flex w-[3.85rem] flex-col items-center gap-1"
           )}
         >
           <div className={cn(RESPONDED_LINE_THUMB, variantTabsAbove && "size-[3.5rem]")}>{thumbInner}</div>
@@ -591,58 +592,60 @@ function RespondedLineBlock({
           ) : null}
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p
-            className={cn(
-              "min-w-0 text-[13px] font-semibold leading-snug",
-              unavailable ? "text-slate-600" : "text-foreground",
-              notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
-            )}
-            title={variant.productName}
-          >
-            {variant.productName}
-          </p>
-
-          {isProposedBlock ? (
-            <RespondedProposedMotifBlock
-              label={ajoutOfficineLabel}
-              reason={variant.proposalReason}
-              unavailable={unavailable}
-            />
-          ) : null}
-
-          {!variantTabsAbove ? (
-            <RespondedLineQtyMeta
-              bucketId={bucketId}
-              isAlt={variant.branch !== "principal"}
-              showRequested={variant.showRequested}
-              requestedQty={variant.requestedQty}
-              expectedDate={variant.expectedDate}
-              statusLabel={variant.branch === "principal" ? variant.principalStatusLabel : null}
-            />
-          ) : variant.expectedDate && bucketId === "to_order" ? (
-            <p className="text-[10px] font-medium text-teal-800/85">
-              Réception prévue · {formatDateShortFr(variant.expectedDate)}
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="space-y-1">
+            <p
+              className={cn(
+                "min-w-0 text-[13px] font-semibold leading-snug",
+                unavailable ? "text-slate-600" : "text-foreground",
+                notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
+              )}
+              title={variant.productName}
+            >
+              {variant.productName}
             </p>
-          ) : variant.branch === "principal" ? (
-            <RespondedLineQtyMeta
-              bucketId={bucketId}
-              isAlt={false}
-              showRequested={variant.showRequested}
-              requestedQty={variant.requestedQty}
-              expectedDate={null}
-              statusLabel={variant.principalStatusLabel}
-            />
-          ) : null}
 
-          <div className="flex w-full items-end justify-between gap-3 pt-0.5">
+            {isProposedBlock ? (
+              <RespondedProposedMotifBlock
+                label={ajoutOfficineLabel}
+                reason={variant.proposalReason}
+                unavailable={unavailable}
+              />
+            ) : null}
+
+            {!variantTabsAbove ? (
+              <RespondedLineQtyMeta
+                bucketId={bucketId}
+                isAlt={variant.branch !== "principal"}
+                showRequested={variant.showRequested}
+                requestedQty={variant.requestedQty}
+                expectedDate={variant.expectedDate}
+                statusLabel={variant.branch === "principal" ? variant.principalStatusLabel : null}
+              />
+            ) : variant.expectedDate && bucketId === "to_order" ? (
+              <p className="text-[10px] font-medium text-teal-800/85">
+                Réception prévue · {formatDateShortFr(variant.expectedDate)}
+              </p>
+            ) : variant.branch === "principal" ? (
+              <RespondedLineQtyMeta
+                bucketId={bucketId}
+                isAlt={false}
+                showRequested={variant.showRequested}
+                requestedQty={variant.requestedQty}
+                expectedDate={null}
+                statusLabel={variant.principalStatusLabel}
+              />
+            ) : null}
+          </div>
+
+          <div className="flex w-full items-end justify-between gap-2 pt-0.5">
             <div className="min-w-0 shrink leading-none">
               <ProductRequestLinePrices
                 unitPrice={unit}
                 totalValue={showQty && total != null ? total : null}
               />
             </div>
-            <div className="flex shrink-0 items-center gap-3">
+            <div className="flex shrink-0 items-center gap-2">
               {showQty ? (
                 readOnly ? (
                   <ProductRequestLineQtyReadonly qty={selQty} appearance="neutral" />
@@ -837,9 +840,9 @@ export function RespondedPatientLineChooser({
   if (!hasAlts) {
     const v = buildPrincipalVariant();
     return (
-      <li className="w-full min-w-0">
+      <li className={patientBucketProductRowClass}>
         {requestType === "prescription" && isOrdonnancePrincipal ? (
-          <p className="mb-1 text-[10px] font-semibold text-muted-foreground">{PRESCRIPTION_ORDONNANCE_SOURCING_LABEL}</p>
+          <p className="mb-1.5 text-[10px] font-semibold text-muted-foreground">{PRESCRIPTION_ORDONNANCE_SOURCING_LABEL}</p>
         ) : null}
         <RespondedLineBlock
           variant={v}
@@ -857,8 +860,8 @@ export function RespondedPatientLineChooser({
   }
 
   return (
-    <li className="w-full min-w-0 overflow-visible border-b border-border/70 py-1.5 last:border-b-0">
-      <div className="pb-1.5">
+    <li className={cn(patientBucketProductRowClass, "overflow-visible")}>
+      <div className="pb-2">
         <RespondedVariantTabs
           tabs={variants.map((v) => ({
             id: v.tabId,

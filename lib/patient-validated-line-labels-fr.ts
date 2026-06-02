@@ -161,27 +161,28 @@ export function buildPatientValidatedLineLabelsFr(input: {
 }
 
 export function validatedLineLabelChipClass(label: ValidatedLineLabel): string {
-  const base = "inline-flex max-w-full shrink-0 items-center rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide leading-tight ring-1";
+  const base =
+    "inline-flex max-w-full shrink-0 items-center rounded border px-1.5 py-px text-[8px] font-semibold uppercase tracking-wide leading-tight";
   if (label.tone === "origin") {
     const t = label.text;
-    if (t === "Alternative") return `${base} border-teal-500/70 bg-teal-700 text-white ring-teal-600/40`;
-    if (t === "Ta demande" || t === "Demande patient") return `${base} border-sky-500/70 bg-sky-700 text-white ring-sky-600/40`;
-    if (t === "Ordonnance" || t.startsWith("Ordonnance")) return `${base} border-amber-500/70 bg-amber-700 text-white ring-amber-600/40`;
-    return `${base} border-violet-500/70 bg-violet-700 text-white ring-violet-600/40`;
+    if (t === "Alternative") return `${base} border-teal-300/70 bg-teal-50/40 text-teal-900/90`;
+    if (t === "Ta demande" || t === "Demande patient") return `${base} border-sky-300/70 bg-sky-50/35 text-sky-900/90`;
+    if (t === "Ordonnance" || t.startsWith("Ordonnance")) return `${base} border-amber-300/70 bg-amber-50/40 text-amber-900/90`;
+    return `${base} border-violet-300/70 bg-violet-50/35 text-violet-900/90`;
   }
   if (label.tone === "reception" || label.key === "reception") {
-    return `${base} border-teal-400/90 bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-sm ring-teal-300/55`;
+    return `${base} border-teal-300/70 bg-teal-50/35 text-teal-900/90`;
   }
   if (label.tone === "collected" || label.text === "Récupéré") {
-    return `${base} border-emerald-500/90 bg-emerald-700 text-white shadow-sm ring-emerald-400/55`;
+    return `${base} border-emerald-300/70 bg-emerald-50/35 text-emerald-900/90`;
   }
   if (label.tone === "arrived" || label.text === "Reçu en officine") {
-    return `${base} border-emerald-400/90 bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-sm ring-emerald-300/55`;
+    return `${base} border-emerald-300/70 bg-emerald-50/35 text-emerald-900/90`;
   }
   if (label.tone === "status") {
-    return `${base} border-sky-400/80 bg-sky-50 text-sky-950 ring-sky-200/70`;
+    return `${base} border-sky-300/70 bg-sky-50/35 text-sky-900/90`;
   }
-  return `${base} border-slate-300/80 bg-slate-50 text-slate-800 ring-slate-200/70`;
+  return `${base} border-border/80 bg-muted/25 text-foreground/85`;
 }
 
 /** Libellé origine côté officine (miroir patient, vocabulaire pharmacien). */
