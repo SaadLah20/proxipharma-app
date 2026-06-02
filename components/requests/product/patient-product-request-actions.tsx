@@ -176,11 +176,6 @@ import { PlannedVisitDateInput } from "@/components/requests/planned-visit-date-
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
 import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternative-qty-rules";
-import {
-  lineConversationStripButtonClass,
-  lineConversationStripLabel,
-  lineConversationVisual,
-} from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import { PatientLineNotesIconButton } from "@/components/requests/product/patient-line-notes-icon-button";
 import {
   buildPatientValidatedLineLabelsFr,
@@ -483,19 +478,19 @@ function PatientTraceNotRetainedRow({
   const prod = one(row.products);
   const name = prod?.name ?? "Produit";
   const eff = row.availability_status;
+  const statusLabel = eff ? availabilityStatusFr[eff] ?? eff : null;
   const lineKind =
     row.line_source === "pharmacist_proposed" ? (
-      <span className={requestType === "prescription" ? "text-amber-900" : "text-violet-800"}>
-        {requestType === "prescription"
-          ? PRESCRIPTION_ADDITIONAL_PROPOSED_REASON
-          : requestItemLineSourceFr.pharmacist_proposed}
-      </span>
+      requestType === "prescription"
+        ? PRESCRIPTION_ADDITIONAL_PROPOSED_REASON
+        : requestItemLineSourceFr.pharmacist_proposed
     ) : null;
   const photoUrl = prod?.photo_url ? resolvePublicMediaUrl(prod.photo_url) : null;
+
   return (
     <li className={patientBucketProductRowClass}>
       <div className="flex items-start gap-2.5">
-        <div className={VALIDATED_LINE_THUMB}>
+        <div className={cn(VALIDATED_LINE_THUMB, "shrink-0 self-start opacity-90")}>
           {photoUrl ? (
             onPhotoPreview ? (
               <button
@@ -515,47 +510,62 @@ function PatientTraceNotRetainedRow({
             </span>
           )}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <p
-              className="min-w-0 flex-1 truncate text-[12px] font-medium leading-none text-muted-foreground line-through decoration-slate-400/90"
-              title={name}
-            >
-              {name}
-            </p>
-            <button
-              type="button"
-              onClick={onOpenHistory}
-              className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-slate-300/80 bg-white text-slate-700 shadow-sm hover:bg-slate-50"
-              aria-label="Historique de cette ligne"
-              title="Historique"
-            >
-              <History className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
-            </button>
-          </div>
-          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] leading-snug text-muted-foreground">
-            <span className="font-semibold tabular-nums text-foreground/80">×{row.requested_qty}</span>
-            {eff ? <span>{availabilityStatusFr[eff] ?? eff}</span> : null}
-            {lineKind}
+
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <p
+            className="min-w-0 text-[13px] font-semibold leading-snug text-muted-foreground line-through decoration-slate-400/90"
+            title={name}
+          >
+            {name}
           </p>
+
+          <div className="flex w-full items-end justify-between gap-3 leading-none">
+            <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="text-[10px] text-muted-foreground">
+                Qté demandée{" "}
+                <strong className="tabular-nums text-foreground/80">{row.requested_qty}</strong>
+              </span>
+              {statusLabel ? (
+                <span className="rounded border border-border/80 bg-muted/25 px-1.5 py-px text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {statusLabel}
+                </span>
+              ) : null}
+              {lineKind ? (
+                <span className="text-[10px] font-medium text-violet-800/90">{lineKind}</span>
+              ) : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <button
+                type="button"
+                onClick={onOpenHistory}
+                className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm hover:bg-muted/50"
+                aria-label="Historique de cette ligne"
+                title="Historique"
+              >
+                <History className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+              </button>
+              <PatientLineNotesIconButton
+                productName={name}
+                client={row.client_comment ?? ""}
+                pharmacist={row.pharmacist_comment ?? ""}
+              />
+            </div>
+          </div>
+
+          {postConfirmBadges && postConfirmBadges.length > 0 ? (
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {postConfirmBadges.map((label) => (
+                <span
+                  key={label}
+                  className="inline-flex max-w-full shrink-0 items-center rounded border border-border/80 bg-muted/25 px-1.5 py-px text-[8px] font-semibold uppercase tracking-wide leading-tight text-foreground/85"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
-      {postConfirmBadges && postConfirmBadges.length > 0 ? (
-        <div className="flex flex-wrap gap-1 border-t border-border/50 pt-1">
-          {postConfirmBadges.map((label) => (
-            <span
-              key={label}
-              className="inline-flex max-w-full rounded-md border border-slate-300/80 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
-            >
-              {label}
-            </span>
-          ))}
-        </div>
-      ) : null}
-      <PatientRespondedLineConvoStripReadOnly
-        patientNote={row.client_comment ?? ""}
-        pharmaLineNote={row.pharmacist_comment ?? ""}
-      />
     </li>
   );
 }
@@ -747,10 +757,15 @@ function validatedTierForClosedArchiveRow(row: ActionItemRow): "dispo_officine" 
 
 function archiveProductsFrozenSectionShell(title: string, children: ReactNode) {
   return (
-    <section className="mt-4 w-full min-w-0 space-y-5 px-0.5 opacity-95">
-      <h3 className="px-0.5 pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-        {title}
-      </h3>
+    <section className="mt-4 w-full min-w-0 space-y-4 px-0">
+      <div className="space-y-1">
+        <h3 className="pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+          {title}
+        </h3>
+        <p className="text-[10px] leading-snug text-muted-foreground">
+          État enregistré au moment de la clôture — consultation seule.
+        </p>
+      </div>
       {children}
     </section>
   );
@@ -815,7 +830,7 @@ function PatientArchiveFrozenProductsView({
   if (snapshotStatus === "submitted" || snapshotStatus === "in_review") {
     return archiveProductsFrozenSectionShell(
       productsSectionTitle,
-      <ul className="w-full min-w-0 space-y-1.5">
+      <ul className={patientBucketProductListClass}>
         {items.map((row) => {
           const prod = one(row.products);
           const unit = validatedBranchUnitPriceMad(row, pricingConfig, row.product_id);
@@ -914,7 +929,17 @@ function PatientArchiveFrozenProductsView({
                 ? "Non retenus"
                 : patientClosedArchiveBucketTitleFr(bucketId);
             return (
-              <PatientArchiveCollapsibleSection key={bucketId} title={title} count={rows.length}>
+              <PatientArchiveCollapsibleSection
+                key={bucketId}
+                title={title}
+                count={rows.length}
+                variant={bucketId === "ecartes" ? "attention" : "neutral"}
+                hint={
+                  bucketId === "ecartes"
+                    ? "Produits non récupérés ou retirés par la pharmacie."
+                    : undefined
+                }
+              >
                 <ul className={patientBucketProductListClass}>
                   {rows.map((row) =>
                     bucketId === "non_retenus" ? (
@@ -1076,6 +1101,7 @@ function PatientArchiveFrozenProductsView({
         <PatientArchiveCollapsibleSection
           title="Retrait après validation"
           count={retireesApresValidation.length}
+          variant="withdrawn"
           hint="Retrait convenu avec la pharmacie — trace uniquement."
         >
           <ul className={patientBucketProductListClass}>
@@ -1445,114 +1471,6 @@ function htmlTimeToPg(t: string): string | null {
   if (/^\d{2}:\d{2}$/.test(s)) return `${s}:00`;
   return s;
 }
-
-/** Bandeau + modal lecture seule (échanges patient / pharmacie sur la ligne). */
-function PatientRespondedLineConvoStripReadOnly({
-  patientNote,
-  pharmaLineNote,
-  layout = "footer",
-}: {
-  patientNote: string;
-  pharmaLineNote: string;
-  /** `embedded` : sous la dispo, pleine largeur. `inline` : à côté de Qté (carte compacte validée). */
-  layout?: "footer" | "embedded" | "inline";
-}) {
-  const [open, setOpen] = useState(false);
-  const visual = lineConversationVisual(patientNote, pharmaLineNote);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
-
-  const wrapCls =
-    layout === "inline"
-      ? "flex shrink-0 justify-end"
-      : layout === "embedded"
-        ? "mt-1.5 flex w-full min-w-0 justify-stretch pt-0"
-        : "mt-1.5 flex w-full min-w-0 justify-end border-t border-dotted border-border/55 pt-1.5";
-
-  return (
-    <>
-      <div className={wrapCls}>
-        <button
-          type="button"
-          className={clsx(
-            lineConversationStripButtonClass(visual, { open, disabled: false }),
-            layout === "embedded" && "w-full max-w-none justify-start"
-          )}
-          aria-label={`Échanges sur ce produit · ${lineConversationStripLabel(visual)}`}
-          title="Voir les messages (lecture seule)"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setOpen((o) => !o);
-          }}
-        >
-          <MessageCircle className="size-3.5 shrink-0 opacity-90" strokeWidth={2.2} aria-hidden />
-          <span className="max-w-[11rem] truncate text-[9px] font-medium leading-tight sm:max-w-[14rem]">
-            {lineConversationStripLabel(visual)}
-          </span>
-        </button>
-      </div>
-      {open && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-3 backdrop-blur-[1px] sm:items-center"
-              role="presentation"
-              onClick={(e) => {
-                if (e.target === e.currentTarget) setOpen(false);
-              }}
-            >
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-label="Échanges sur la ligne"
-                className="max-h-[min(80vh,22rem)] w-full max-w-md overflow-hidden rounded-2xl border border-border/90 bg-card shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
-                  <p className="text-[11px] font-bold text-foreground">Sur ce produit</p>
-                  <button
-                    type="button"
-                    className="rounded-lg p-1 text-muted-foreground hover:bg-muted/60"
-                    aria-label="Fermer"
-                    onClick={() => setOpen(false)}
-                  >
-                    <X className="size-4" aria-hidden />
-                  </button>
-                </div>
-                <div className="max-h-[min(65vh,18rem)] space-y-2 overflow-y-auto overscroll-y-contain px-3 py-2.5 text-[11px] [-webkit-overflow-scrolling:touch]">
-                  {patientNote.trim() ? (
-                    <div className="rounded-lg border border-sky-200/80 bg-sky-50/90 px-2.5 py-2">
-                      <p className="text-[8px] font-bold uppercase tracking-wide text-sky-900">Vous</p>
-                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-sky-950">{patientNote.trim()}</p>
-                    </div>
-                  ) : (
-                    <p className="text-[10px] italic text-muted-foreground">Aucun commentaire de votre part sur ce produit.</p>
-                  )}
-                  {pharmaLineNote.trim() ? (
-                    <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-2">
-                      <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-900">Pharmacie</p>
-                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-emerald-950">{pharmaLineNote.trim()}</p>
-                    </div>
-                  ) : (
-                    <p className="text-[10px] italic text-muted-foreground">Aucune note de la pharmacie sur ce produit.</p>
-                  )}
-                </div>
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
-    </>
-  );
-}
-
 
 function splitVisitHm(raw: string | null | undefined): { h: string; m: string } {
   if (!raw) return { h: "", m: "" };
@@ -2943,7 +2861,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {isClosedProductArchive && pharmacyId ? (
-        <div className="mt-3 rounded-xl border border-border bg-muted/25 px-3 py-3 text-center">
+        <div className="mt-3 rounded-xl border border-border/80 border-l-[3px] border-l-emerald-500/70 bg-muted/20 px-3 py-3 text-center">
           <p className="text-sm font-bold text-foreground">Merci pour votre confiance</p>
           <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
             Votre officine a clos ce dossier. Nous espérons que votre passage s&apos;est bien passé et vous accueillir
@@ -2983,7 +2901,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {forceReadOnly && isConsultation ? (
-        <p className="mt-2 rounded-lg border border-violet-200/80 bg-violet-50/50 px-3 py-2 text-[11px] font-medium text-violet-950">
+        <p className="mt-2 rounded-lg border border-border/80 bg-muted/20 px-3 py-2 text-[11px] font-medium text-muted-foreground">
           Dossier {requestStatusFr[status] ?? status} — consultation en lecture seule.
         </p>
       ) : null}

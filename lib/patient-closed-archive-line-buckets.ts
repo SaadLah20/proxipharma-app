@@ -21,15 +21,58 @@ export function patientClosedArchiveBucketTitleFr(id: PatientClosedArchiveLineBu
   }
 }
 
-export function patientClosedArchiveBucketHeaderClass(id: PatientClosedArchiveLineBucketId): string {
+export function patientClosedArchiveBucketAriaTitleFr(id: PatientClosedArchiveLineBucketId): string {
   switch (id) {
     case "recuperes":
-      return "text-emerald-950";
+      return "Produits récupérés au comptoir";
     case "ecartes":
-      return "text-red-900";
+      return "Produits retirés ou non récupérés";
+    case "non_retenus":
+      return "Produits non retenus lors de la validation";
+  }
+}
+
+function cnClosedArchiveAccent(id: PatientClosedArchiveLineBucketId, part: "header" | "shell"): string {
+  const base =
+    part === "header"
+      ? "border border-border/80 bg-card shadow-none"
+      : "border border-border/80 bg-card shadow-none";
+  switch (id) {
+    case "recuperes":
+      return `${base} border-l-[3px] border-l-emerald-500/75`;
+    case "ecartes":
+      return `${base} border-l-[3px] border-l-red-400/70`;
+    case "non_retenus":
+      return `${base} border-l-[3px] border-l-slate-400/80`;
+  }
+}
+
+export function patientClosedArchiveBucketHeaderBarClass(id: PatientClosedArchiveLineBucketId): string {
+  return cnClosedArchiveAccent(id, "header");
+}
+
+export function patientClosedArchiveBucketSectionShellClass(id: PatientClosedArchiveLineBucketId): string {
+  return cnClosedArchiveAccent(id, "shell");
+}
+
+export function patientClosedArchiveBucketAccentTextClass(id: PatientClosedArchiveLineBucketId): string {
+  switch (id) {
+    case "recuperes":
+      return "text-emerald-700";
+    case "ecartes":
+      return "text-red-800/90";
     case "non_retenus":
       return "text-muted-foreground";
   }
+}
+
+export function patientClosedArchiveBucketCountBadgeClass(): string {
+  return "bg-muted/50 text-foreground ring-border/60";
+}
+
+/** @deprecated Préférer patientClosedArchiveBucketAccentTextClass */
+export function patientClosedArchiveBucketHeaderClass(id: PatientClosedArchiveLineBucketId): string {
+  return patientClosedArchiveBucketAccentTextClass(id);
 }
 
 type ClosedArchiveLineLike = {
