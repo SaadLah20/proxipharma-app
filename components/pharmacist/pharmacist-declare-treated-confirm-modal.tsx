@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { X } from "lucide-react";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import type { PharmacistDeclareTreatedSummaryFr } from "@/lib/pharmacist-declare-treated-fr";
+import { uiActionBtnModalOutline, uiActionBtnModalPrimary } from "@/lib/ui-action-buttons";
 
 type Props = {
   open: boolean;
@@ -110,7 +111,7 @@ export function PharmacistDeclareTreatedConfirmModal({ open, busy, summary, onCl
             type="button"
             disabled={busy}
             onClick={onClose}
-            className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-border bg-background px-4 text-xs font-semibold text-foreground shadow-sm transition hover:bg-muted/50 disabled:opacity-50 sm:w-auto"
+            className={uiActionBtnModalOutline("h-10 text-xs font-semibold disabled:opacity-50")}
           >
             Retour
           </button>
@@ -118,7 +119,7 @@ export function PharmacistDeclareTreatedConfirmModal({ open, busy, summary, onCl
             type="button"
             disabled={busy || total === 0}
             onClick={onConfirm}
-            className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-cyan-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-cyan-700 disabled:opacity-50 sm:w-auto"
+            className={uiActionBtnModalPrimary("h-10 text-xs font-bold disabled:opacity-50")}
           >
             {busy ? "En cours…" : "Confirmer — demande traitée"}
           </button>

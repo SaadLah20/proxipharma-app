@@ -14,7 +14,6 @@ import {
   patientValidatedBucketAccentTextClass,
   patientValidatedBucketAriaTitleFr,
   patientValidatedBucketCountBadgeClass,
-  patientValidatedBucketHeaderBarClass,
   patientValidatedBucketSectionShellClass,
   patientValidatedBucketTitleFr,
 } from "@/lib/patient-validated-bucket-ui";
@@ -79,29 +78,28 @@ export function PharmacistValidatedBucketSection<T extends PatientLineLike>({
     patientId != null ? VALIDATED_BUCKET_ICONS[patientId] : NEUTRAL_BUCKET_ICONS[group.kind] ?? Package;
   const accentText =
     patientId != null ? patientValidatedBucketAccentTextClass(patientId) : "text-muted-foreground";
-  const headerBarClass =
-    patientId != null
-      ? patientValidatedBucketHeaderBarClass(patientId)
-      : clsx("rounded-lg px-2.5 py-1.5", neutralBucketShell(group.kind));
   const shellClass =
     patientId != null
       ? patientValidatedBucketSectionShellClass(patientId)
-      : clsx("rounded-lg", neutralBucketShell(group.kind));
+      : neutralBucketShell(group.kind);
+  const outerShellClass = clsx("w-full min-w-0 overflow-hidden rounded-lg", shellClass);
+  const headerRowClass =
+    "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-border/55 px-2.5 py-2";
 
   const headerInner = (
     <>
-      <Icon className={clsx("size-3.5 shrink-0", accentText)} strokeWidth={2.25} aria-hidden />
-      <h4 className="min-w-0 flex-1 truncate text-[12px] font-bold leading-none text-foreground sm:text-[13px]">
+      <Icon className={clsx("size-4 shrink-0", accentText)} strokeWidth={2.25} aria-hidden />
+      <h4 className="min-w-0 flex-1 truncate text-[13px] font-bold leading-tight text-foreground sm:text-[15px]">
         {title}
       </h4>
       {group.totalLabel ? (
-        <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-muted-foreground">
+        <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold tabular-nums text-muted-foreground sm:text-[12px]">
           {group.totalLabel}
         </span>
       ) : null}
       <span
         className={clsx(
-          "inline-flex shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ring-1",
+          "inline-flex shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ring-1",
           patientValidatedBucketCountBadgeClass()
         )}
       >
@@ -118,29 +116,34 @@ export function PharmacistValidatedBucketSection<T extends PatientLineLike>({
 
   if (group.collapsible) {
     return (
-      <details className="group w-full min-w-0 space-y-1" aria-label={ariaLabel}>
-        <summary className="flex min-w-0 cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 [&::-webkit-details-marker]:hidden">
-          <div className={clsx("flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1", headerBarClass)}>
-            {headerInner}
-          </div>
+      <details className={clsx("group", outerShellClass)} aria-label={ariaLabel}>
+        <summary
+          className={clsx(
+            headerRowClass,
+            "cursor-pointer list-none [&::-webkit-details-marker]:hidden"
+          )}
+        >
+          {headerInner}
         </summary>
         {group.hint ? (
-          <p className="px-1 text-[10px] leading-snug text-muted-foreground">{group.hint}</p>
+          <p className="border-b border-border/45 px-2.5 py-1 text-[10px] leading-snug text-muted-foreground">
+            {group.hint}
+          </p>
         ) : null}
-        <div className={clsx("overflow-hidden", shellClass)}>{children}</div>
+        {children}
       </details>
     );
   }
 
   return (
-    <section className="w-full min-w-0 space-y-1" aria-label={ariaLabel}>
-      <div className={clsx("flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1", headerBarClass)}>
-        {headerInner}
-      </div>
+    <section className={outerShellClass} aria-label={ariaLabel}>
+      <div className={headerRowClass}>{headerInner}</div>
       {group.hint ? (
-        <p className="px-1 text-[10px] leading-snug text-muted-foreground">{group.hint}</p>
+        <p className="border-b border-border/45 px-2.5 py-1 text-[10px] leading-snug text-muted-foreground">
+          {group.hint}
+        </p>
       ) : null}
-      <div className={clsx("overflow-hidden", shellClass)}>{children}</div>
+      {children}
     </section>
   );
 }

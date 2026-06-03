@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { X } from "lucide-react";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
+import { uiActionBtnModalOutline, uiActionBtnModalPrimary } from "@/lib/ui-action-buttons";
 
 export type PharmacistCloseRequestSummary = {
   retainedCount: number;
@@ -137,7 +138,7 @@ function CloseRequestDialogPanel({
           type="button"
           disabled={busy}
           onClick={onClose}
-          className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-border bg-background px-4 text-xs font-semibold text-foreground shadow-sm transition hover:bg-muted/50 disabled:opacity-50 sm:w-auto"
+          className={uiActionBtnModalOutline("h-10 text-xs font-semibold disabled:opacity-50")}
         >
           Retour
         </button>
@@ -145,7 +146,7 @@ function CloseRequestDialogPanel({
           type="button"
           disabled={busy}
           onClick={onConfirm}
-          className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-foreground px-4 text-xs font-bold text-background shadow-sm transition hover:opacity-90 disabled:opacity-50 sm:w-auto"
+          className={uiActionBtnModalPrimary("h-10 text-xs font-bold disabled:opacity-50")}
         >
           {busy ? "Clôture…" : "Confirmer la clôture"}
         </button>
