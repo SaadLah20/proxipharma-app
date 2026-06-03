@@ -2324,6 +2324,7 @@ export default function PharmacienDemandeDetailPage() {
   const setAvailabilityStatus = (row: ItemRow, nextStatus: string) => {
     const isAjoutOfficine =
       request != null && isProductRequestAjoutOfficineLine(request.request_type, row);
+    const isPharmacistProposed = isPharmacistProposedRow(row);
     const isOrdonnancePharma =
       request != null && isPrescriptionOrdonnancePharmacistLine(request.request_type, row);
     const refR = isOrdonnancePharma
@@ -2337,12 +2338,18 @@ export default function PharmacienDemandeDetailPage() {
       if (nextStatus === "market_shortage" || nextStatus === "unavailable") qty = 0;
       const cap = draftStockCeilingForRow(row);
       if (nextStatus === "to_order") {
-        qty = isAjoutOfficine ? Math.max(1, qty || Number(row.requested_qty) || 1) : Math.min(cap, refR);
+        qty =
+          isAjoutOfficine || isPharmacistProposed
+            ? Math.max(1, Math.min(10, qty || Number(current.available_qty) || 1))
+            : Math.min(cap, refR);
       }
       if (nextStatus === "available") {
-        qty = isAjoutOfficine ? Math.max(1, qty || Number(row.requested_qty) || 1) : Math.min(cap, refR);
+        qty =
+          isAjoutOfficine || isPharmacistProposed
+            ? Math.max(1, Math.min(10, qty || Number(current.available_qty) || 1))
+            : Math.min(cap, refR);
       }
-      const minQty = isAjoutOfficine ? 1 : 0;
+      const minQty = isAjoutOfficine || isPharmacistProposed ? 1 : 0;
       const nextAvailNum = Math.max(minQty, Math.min(cap, qty));
       if (isOrdonnancePharma) {
         const patch = applyOrdonnanceAvailabilityChange(nextStatus, refR, nextAvailNum);
@@ -2371,7 +2378,7 @@ export default function PharmacienDemandeDetailPage() {
         status: nextStatus,
         availableQty: Number(nextAvail),
         requestedQty: refR,
-        isProposedLine: isAjoutOfficine,
+        isProposedLine: isAjoutOfficine || isPharmacistProposed,
       });
       const fulfillment_draft = fulfillmentDraftAfterAvailabilityChange(current.fulfillment_draft, inferred);
       return {
@@ -2457,6 +2464,7 @@ export default function PharmacienDemandeDetailPage() {
     const isPrescriptionExtraProposed =
       request != null &&
       isPrescriptionAdditionalProposedLine(request.request_type, row, supplyAmendmentBundles);
+    const isPharmacistProposed = isPharmacistProposedRow(row);
     const isOrdonnancePharma =
       request != null && isPrescriptionOrdonnancePharmacistLine(request.request_type, row);
     if (isOrdonnancePharma) {
@@ -2487,7 +2495,11 @@ export default function PharmacienDemandeDetailPage() {
         setField(row.id, "available_qty", "");
         return;
       }
-      const n = Math.min(max, Math.max(1, Number(digits)));
+      const capToOrder =
+        isPharmacistProposed && request?.request_type === "product_request"
+          ? 10
+          : max;
+      const n = Math.min(capToOrder, Math.max(1, Number(digits)));
       const nextQty = Number.isFinite(n) ? n : 1;
       setDraft((prev) => {
         const cur = prev[row.id];
@@ -2514,13 +2526,16 @@ export default function PharmacienDemandeDetailPage() {
       setField(row.id, "available_qty", "");
       return;
     }
-    const n = Math.min(max, Math.max(isAjoutOfficine || isPrescriptionExtraProposed ? 1 : 0, Number(digits)));
+    const n = Math.min(
+      isPharmacistProposed && request?.request_type === "product_request" ? 10 : max,
+      Math.max(isAjoutOfficine || isPrescriptionExtraProposed || isPharmacistProposed ? 1 : 0, Number(digits))
+    );
     const nextQty = Number.isFinite(n) ? n : 0;
     const inferred = inferAvailabilityStatusFromQty({
       status: "available",
       availableQty: nextQty,
       requestedQty: inferRequestedQtyForAvailability(row),
-      isProposedLine: isAjoutOfficine || isPrescriptionExtraProposed,
+      isProposedLine: isAjoutOfficine || isPrescriptionExtraProposed || isPharmacistProposed,
     });
     setDraft((prev) => {
       const cur = prev[row.id];
@@ -6433,18 +6448,13 @@ export default function PharmacienDemandeDetailPage() {
                       className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
                     />
                   </label>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {isProductRequestSent ? "Quantité proposée" : "Quantité"}
-                    {isProductRequestSent ? (
-                      <div className="mt-1">
-                        <ProductRequestLineQtyPicker
-                          qty={Math.min(10, Math.max(1, parseInt(propQty, 10) || 1))}
-                          maxQty={10}
-                          appearance="neutral"
-                          onSelect={(n) => setPropQty(String(n))}
-                        />
-                      </div>
-                    ) : (
+                  {isProductRequestSent ? (
+                    <p className="text-[10px] leading-snug text-muted-foreground">
+                      Disponibilité et quantité se règlent sur la carte du produit après ajout (1 à 10).
+                    </p>
+                  ) : (
+                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Quantité
                       <div className="mt-1 flex h-8 w-32 items-center overflow-hidden rounded-md border border-input bg-background">
                         <button
                           type="button"
@@ -6480,8 +6490,8 @@ export default function PharmacienDemandeDetailPage() {
                           +
                         </button>
                       </div>
-                    )}
-                  </label>
+                    </label>
+                  )}
                   {request && ["confirmed", "treated"].includes(request.status) && !isPrescription ? (
                     <div className="space-y-2 rounded-lg border border-violet-200/60 bg-violet-50/40 p-2">
                       <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -6558,15 +6568,17 @@ export default function PharmacienDemandeDetailPage() {
                           <button
                             type="button"
                             disabled={propBusy || Boolean(needsEtaBeforePick)}
-                            onClick={() => {
-                              const qtyCap = isProductRequestSent
-                                ? 10
-                                : PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX;
+                            onClick={() =>
                               void insertPharmacistProposedLine(h, {
                                 lineKind: isPrescription ? "proposed" : undefined,
-                                qty: Math.min(qtyCap, Math.max(1, parseInt(propQty, 10) || 1)),
-                              });
-                            }}
+                                qty: isProductRequestSent
+                                  ? 1
+                                  : Math.min(
+                                      PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX,
+                                      Math.max(1, parseInt(propQty, 10) || 1)
+                                    ),
+                              })
+                            }
                             className="flex w-full touch-manipulation items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-card disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <div className="relative size-11 shrink-0 overflow-hidden rounded-lg border border-violet-200/60 bg-violet-50/50">
@@ -6806,7 +6818,7 @@ export default function PharmacienDemandeDetailPage() {
           }}
         >
           <div
-            className="relative z-10 flex max-h-[min(92vh,36rem)] w-full max-w-lg flex-col rounded-2xl border border-border/90 bg-card p-4 shadow-2xl ring-1 ring-border/15 sm:max-w-xl sm:p-5"
+            className="relative z-10 flex max-h-[min(92vh,36rem)] w-full max-w-lg flex-col rounded-2xl border border-border bg-card p-4 shadow-2xl ring-1 ring-primary/15 sm:max-w-xl sm:p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="publish-confirm-title" className="shrink-0 text-center text-sm font-bold text-foreground">
@@ -6815,8 +6827,8 @@ export default function PharmacienDemandeDetailPage() {
             <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
               <div className="space-y-3 text-[11px]">
                 {publishConfirmGroups.ready.length > 0 ? (
-                  <section className="rounded-xl border border-emerald-200/60 bg-emerald-50/20 p-2.5">
-                    <h3 className="mb-2 text-[10px] font-bold uppercase tracking-wide text-emerald-900">
+                  <section className="rounded-xl border border-emerald-300/75 bg-emerald-100/45 p-2.5">
+                    <h3 className="mb-2 text-[10px] font-bold uppercase tracking-wide text-emerald-950">
                       Disponibles · {publishConfirmGroups.ready.length}
                     </h3>
                     <ul className="space-y-2">
@@ -6834,7 +6846,7 @@ export default function PharmacienDemandeDetailPage() {
                   </section>
                 ) : null}
                 {publishConfirmGroups.order.length > 0 ? (
-                  <section className="rounded-xl border border-amber-200/60 bg-amber-50/25 p-2.5">
+                  <section className="rounded-xl border border-amber-300/75 bg-amber-100/45 p-2.5">
                     <h3 className="mb-2 text-[10px] font-bold uppercase tracking-wide text-amber-950">
                       À commander · {publishConfirmGroups.order.length}
                     </h3>
@@ -6853,8 +6865,8 @@ export default function PharmacienDemandeDetailPage() {
                   </section>
                 ) : null}
                 {publishConfirmGroups.blocked.length > 0 ? (
-                  <section className="rounded-xl border border-border/80 bg-muted/20 p-2.5">
-                    <h3 className="mb-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                  <section className="rounded-xl border border-slate-300/70 bg-slate-200/40 p-2.5">
+                    <h3 className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-800">
                       Non disponibles · {publishConfirmGroups.blocked.length}
                     </h3>
                     <ul className="space-y-2">

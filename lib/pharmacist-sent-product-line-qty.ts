@@ -23,6 +23,14 @@ export function pharmacistSentProductLineQtyUi(args: {
   if (inferredStatus === "unavailable" || inferredStatus === "market_shortage") {
     return { inferredStatus, displayQty: 0, qtyEditable: false };
   }
+  /** Proposition officine : qté réglée sur la carte (1–10), comme la dispo. */
+  if (args.isProposedLine) {
+    return {
+      inferredStatus,
+      displayQty: Math.max(1, Math.min(10, availableQty || 1)),
+      qtyEditable: true,
+    };
+  }
   if (inferredStatus === "available") {
     return {
       inferredStatus,
