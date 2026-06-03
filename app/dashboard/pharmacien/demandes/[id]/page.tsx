@@ -66,6 +66,7 @@ import {
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import { getRequestKindWorkflowCopy } from "@/lib/request-kinds/workflow-copy";
 import { sharedShowPlannedVisitBlock } from "@/lib/request-kinds/shared-capabilities";
+import { formatPlannedVisitFr } from "@/lib/datetime-fr";
 import { RequestDetailBackLink } from "@/components/requests/shared/request-detail-back-link";
 import { RequestKindHeader } from "@/components/requests/shared/request-kind-header";
 import { ConsultationRequestDetailChrome } from "@/components/requests/consultation/consultation-request-detail-chrome";
@@ -4804,6 +4805,24 @@ export default function PharmacienDemandeDetailPage() {
               </p>
             </section>
           ) : null}
+          {isProductRequest && sharedShowPlannedVisitBlock(request.status) ? (
+            <section
+              className="rounded-lg border border-sky-200/85 bg-sky-50/55 px-3 py-2.5 shadow-sm ring-1 ring-sky-100/70"
+              aria-label="Date de passage patient"
+            >
+              <p className="text-[10px] font-bold uppercase tracking-wide text-sky-900/85">
+                Date de passage
+              </p>
+              <p className="mt-1 text-[15px] font-bold leading-snug tabular-nums text-foreground sm:text-base">
+                {request.patient_planned_visit_date
+                  ? formatPlannedVisitFr(
+                      request.patient_planned_visit_date,
+                      request.patient_planned_visit_time
+                    )
+                  : "À définir par le patient"}
+              </p>
+            </section>
+          ) : null}
         </>
       ) : (
         <RequestKindHeader
@@ -7406,51 +7425,8 @@ export default function PharmacienDemandeDetailPage() {
 
       {showMainSupplyFooter && !stickyFooterObscured ? (
         <PlatformStickyFooterStack tone="sky">
-          {showDeclareTreatedSticky ? (
-            <PlatformStickyFooterStackRow compact>
-              <div className="flex min-w-0 items-center justify-between gap-2">
-                <span className="inline-flex min-w-0 flex-1 items-center justify-start gap-1.5 text-xs font-semibold leading-snug text-foreground">
-                  Préparation prête ?
-                  <InfoHint label="À propos de « Déclarer la demande traitée »" placement="up" align="start">
-                    Quand la préparation est prête, déclarez la demande traitée. Le patient pourra suivre le passage au
-                    comptoir ; vous marquerez ensuite les réceptions en officine et les retraits ligne par ligne.
-                  </InfoHint>
-                </span>
-                <button
-                  type="button"
-                  disabled={declareTreatedBusy || Boolean(requestDrift.stale)}
-                  title={requestDrift.stale?.message}
-                  onClick={() => setDeclareTreatedModalOpen(true)}
-                  className={uiActionBtnSmPrimary(
-                    "h-9 shrink-0 px-2.5 text-xs font-bold whitespace-nowrap disabled:opacity-50"
-                  )}
-                >
-                  Déclarer traitée
-                </button>
-              </div>
-            </PlatformStickyFooterStackRow>
-          ) : null}
-          {showCloseCounterSticky ? (
-            <PlatformStickyFooterStackRow>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <p className="text-center text-[11px] leading-snug text-muted-foreground sm:flex-1 sm:text-left">
-                  Au moins un produit est récupéré — vous pouvez clôturer (les autres seront retirés).
-                </p>
-                <button
-                  type="button"
-                  disabled={completeBusy}
-                  onClick={() => setCloseConfirmOpen(true)}
-                  className={uiActionBtnModalPrimary(
-                    "h-10 w-full shrink-0 px-4 text-sm font-bold disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
-                  )}
-                >
-                  {completeBusy ? "Clôture…" : "Clôturer le dossier"}
-                </button>
-              </div>
-            </PlatformStickyFooterStackRow>
-          ) : null}
           {showSupplyStatsFooter ? (
-            <PlatformStickyFooterStackRow compact bordered={showDeclareTreatedSticky || showCloseCounterSticky}>
+            <PlatformStickyFooterStackRow compact bordered={false}>
               <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-foreground">
                 <span className="shrink-0 font-semibold tabular-nums text-muted-foreground">
                   {supplyFooterTotals.count} produit{supplyFooterTotals.count > 1 ? "s" : ""}
@@ -7469,6 +7445,51 @@ export default function PharmacienDemandeDetailPage() {
                     <span className="ml-1 font-normal text-muted-foreground">(estimation partielle)</span>
                   ) : null}
                 </span>
+              </div>
+            </PlatformStickyFooterStackRow>
+          ) : null}
+          {showDeclareTreatedSticky ? (
+            <PlatformStickyFooterStackRow compact bordered={showSupplyStatsFooter}>
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                <span className="inline-flex min-w-0 items-center justify-start gap-1.5 text-xs font-semibold leading-snug text-foreground sm:flex-1">
+                  Préparation prête ?
+                  <InfoHint label="À propos de « Déclarer la demande traitée »" placement="up" align="start">
+                    Quand la préparation est prête, déclarez la demande traitée. Le patient pourra suivre le passage au
+                    comptoir ; vous marquerez ensuite les réceptions en officine et les retraits ligne par ligne.
+                  </InfoHint>
+                </span>
+                <button
+                  type="button"
+                  disabled={declareTreatedBusy || Boolean(requestDrift.stale)}
+                  title={requestDrift.stale?.message}
+                  onClick={() => setDeclareTreatedModalOpen(true)}
+                  className={uiActionBtnModalPrimary(
+                    "h-10 w-full shrink-0 px-5 text-sm font-bold whitespace-nowrap disabled:opacity-50 sm:min-w-[12.5rem] sm:w-auto"
+                  )}
+                >
+                  Déclarer traitée
+                </button>
+              </div>
+            </PlatformStickyFooterStackRow>
+          ) : null}
+          {showCloseCounterSticky ? (
+            <PlatformStickyFooterStackRow
+              bordered={Boolean(showSupplyStatsFooter || showDeclareTreatedSticky)}
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <p className="text-center text-[11px] leading-snug text-muted-foreground sm:flex-1 sm:text-left">
+                  Au moins un produit est récupéré — vous pouvez clôturer (les autres seront retirés).
+                </p>
+                <button
+                  type="button"
+                  disabled={completeBusy}
+                  onClick={() => setCloseConfirmOpen(true)}
+                  className={uiActionBtnModalPrimary(
+                    "h-10 w-full shrink-0 px-4 text-sm font-bold disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
+                  )}
+                >
+                  {completeBusy ? "Clôture…" : "Clôturer le dossier"}
+                </button>
               </div>
             </PlatformStickyFooterStackRow>
           ) : null}

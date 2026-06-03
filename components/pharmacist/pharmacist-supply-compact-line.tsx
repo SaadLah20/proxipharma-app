@@ -22,9 +22,13 @@ export type PharmacistSupplyLineTier =
   | "dispo_officine"
   | "commande"
   | "hors_perimetre"
-  | "retire_apres_validation";
+  | "retire_apres_validation"
+  | "non_retenu";
 
 function validatedLineRowClass(tier: PharmacistSupplyLineTier, withdrawnGrey: boolean): string {
+  if (tier === "non_retenu") {
+    return "bg-muted/30 opacity-[0.92]";
+  }
   if (withdrawnGrey || tier === "retire_apres_validation") {
     return withdrawnGrey ? "opacity-75" : "opacity-90";
   }
@@ -170,7 +174,7 @@ export function PharmacistSupplyCompactLine({
     : withdrawn
       ? "rounded-lg border border-border/80 bg-muted/20 px-2 py-1.5 sm:px-2.5 sm:py-2"
       : !selected
-        ? "rounded-lg border border-border/80 bg-card px-2 py-1.5 sm:px-2.5 sm:py-2 shadow-sm"
+        ? "rounded-lg border border-border/70 bg-muted/25 px-2 py-1.5 opacity-[0.92] sm:px-2.5 sm:py-2 shadow-sm"
         : effAvailRow === "to_order"
           ? "rounded-lg border border-border/80 border-l-[3px] border-l-teal-700 bg-teal-50/15 px-2 py-1.5 sm:px-2.5 sm:py-2 shadow-sm"
           : "rounded-lg border border-border/80 border-l-[3px] border-l-sky-600 bg-sky-50/15 px-2 py-1.5 sm:px-2.5 sm:py-2 shadow-sm";
