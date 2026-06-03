@@ -37,14 +37,14 @@ function normalizeAlts(
 }
 
 function principalEffectiveStatus(row: RespondedLineLike): string {
-  const stockQty =
+  const dispoQty =
     row.available_qty != null && Number.isFinite(Number(row.available_qty))
       ? Math.max(0, Math.floor(Number(row.available_qty)))
       : null;
   try {
     return inferAvailabilityStatusFromQty({
       status: row.availability_status ?? "available",
-      availableQty: stockQty ?? 0,
+      availableQty: dispoQty ?? 0,
       requestedQty: Math.max(1, Number(row.requested_qty) || 1),
       isProposedLine: row.line_source === "pharmacist_proposed",
     });
@@ -220,9 +220,9 @@ export function patientRespondedBucketCountBadgeClass(_id: PatientRespondedBucke
 export function patientRespondedBucketHintFr(id: PatientRespondedBucketId): string {
   switch (id) {
     case "available":
-      return "Stock suffisant pour la quantité demandée.";
+      return "Dispo suffisante pour la quantité demandée.";
     case "partially_available":
-      return "Stock partiel — ajustez la quantité retenue si besoin.";
+      return "Dispo partielle — ajustez la quantité retenue si besoin.";
     case "to_order":
       return "Réception prévue par l’officine — date indiquée sur la ligne.";
     case "indispo_with_alts":
