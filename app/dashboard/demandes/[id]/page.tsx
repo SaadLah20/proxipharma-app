@@ -53,6 +53,9 @@ type PharmacyEmbed = {
   telephone: string | null;
   public_ref?: string | null;
   contact_email?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  maps_url?: string | null;
 };
 type RequestDetail = {
   id: string;

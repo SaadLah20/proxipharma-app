@@ -24,7 +24,7 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 * **Espace Admin :** Dashboard fondateur. Vision panoramique sur le réseau (12 pharmacies), maintenance proactive, gestion de base de données et impersonation pour débogage.
 
 ## 4. Règles Métier & UX Clés
-* **Bilinguisme natif :** Support complet Arabe/Français avec détection automatique ou basculement fluide.
+* **Bilinguisme natif (cible patient) :** Arabe standard + français — défaut selon langue du téléphone ; bascule AR/FR ; pharmacien/admin restent en français. Décisions figées **`CAHIER_DES_CHARGES.md` §14** (pas encore codé).
 * **Approche "Mobile-First" :** Design au pouce, typographie lisible, réactivité instantanée (Optimistic UI).
 * **Moteur de Pricing :** Centralisé et automatisé (basé sur le PPH). Aucune saisie manuelle de prix pour le pharmacien lors de la vente.
 * **Système d'Alertes :** Notifications agressives côté pharmacien pour garantir la réactivité (< 15 min), couplées à des rappels automatiques côté patient pour les commandes en attente.

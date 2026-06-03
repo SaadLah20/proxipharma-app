@@ -83,4 +83,6 @@ Après validation patient : le dossier reste **`confirmed`** pendant la saisie r
 
 **Annuaire public (`/`)** — **`AnnuairePage`** : barre recherche/filtres **sticky** sous **`PlatformHeader`** ; hero **slate** filigrine `sm+` uniquement ; cartes **`AnnuairePharmacyCard`** — actions rapides en **colonne sur la photo** (cercles semi-opaques compacts).
 
+**i18n patient (ar / fr — décisions 2026-06-03, pas implémenté)** — **`CAHIER_DES_CHARGES.md` §14** : patient seulement, arabe standard, défaut = langue téléphone/navigateur, URLs simples (cookie/locale, pas `/ar/`), SMS restent français. Ne pas démarrer sans consigne explicite.
+
 **FAB Conversation (détail dossier)** — **`RequestConversationFabDock`** sur **`app/dashboard/demandes/[id]/page.tsx`** et **`app/dashboard/pharmacien/demandes/[id]/page.tsx`** : glisser pour repositionner ; plafond haut = **`PlatformHeader`** (`data-proxipharma-platform-header`) ; **`lib/conversation-fab-position.ts`** + **`Z_FLOATING_ABOVE_STICKY_FOOTER`** ; défaut **`stickyFooterFabMinBottomPx`** (`lib/platform-sticky-footer.ts`). Consultation = **`RequestConversationInline`** (pas de FAB).

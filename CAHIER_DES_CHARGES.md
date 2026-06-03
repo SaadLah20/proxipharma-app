@@ -29,6 +29,24 @@ A la **sortie**: demander ou accepter la mise a jour de ce cahier (Journal + Eta
 
 **Ou est la verite du backend (schema)** : les migrations Git + les RPC/policies decrites dedans ; le SQL Editor hors migrations est reserve aux tests ponctuels mais ne remplace pas le fichier migre versionne dans le depot.
 
+## 14) Internationalisation ar / fr — décisions validées (2026-06-03, pas encore implémenté)
+
+**Statut** : cahier produit figé ; **aucun code i18n** en place (UI 100 % français aujourd’hui). Ne pas lancer l’implémentation sans consigne explicite.
+
+| # | Décision | Détail |
+|---|----------|--------|
+| 1 | **Périmètre** | **Patient uniquement** (annuaire public, auth patient, parcours demandes, hubs, paramètres patient). Espace **pharmacien**, **admin** et outils internes restent en **français**. |
+| 2 | **Arabe** | **Arabe standard** (فصحى) pour tous les libellés UI traduits — pas de darija dans les fichiers de messages. |
+| 3 | **Langue par défaut** | Selon la **langue du téléphone / navigateur** (`Accept-Language`, `navigator.languages`) : **ar** si préférence arabe détectée, sinon **fr**. Bascule manuelle **AR \| FR** à prévoir (header ou paramètres patient). Persistance optionnelle plus tard : `profiles.preferred_locale`. |
+| 4 | **URLs (démarrage)** | **Le plus simple** : **mêmes URLs** + locale en **cookie** ou `localStorage` (pas de préfixe `/ar/` au pilote). Réévaluer `/ar/...` seulement si besoin SEO/partage WhatsApp. |
+| 5 | **SMS / notifs externes** | Si traduction arabe SMS = complexe (segments, encodage Twilio) → **garder les SMS en français** (texte ASCII actuel). Notifications **in-app** SQL : traduction ou templates bilingues en **vague ultérieure** (hors scope pilote initial). |
+| 6 | **RTL** | Locale `ar` → `dir="rtl"`, police arabe lisible, revue layout (footers sticky, grilles). |
+| 7 | **Implémentation cible** | **`next-intl`** (ou équivalent App Router) + fichiers `messages/ar.json`, `messages/fr.json` ; déploiement par **vagues** (public + demande produits patient en premier). |
+
+**Références** : `CONTEXTE.md` §4 (vision bilinguisme) ; `AGENTS.md` paragraphe **i18n patient**.
+
+---
+
 ## 1) Vision produit
 
 La fiche digitale pharmacie est l'espace digital principal offert a chaque pharmacie.
