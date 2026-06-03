@@ -92,6 +92,7 @@ import {
   ProductRequestSearchExplorerRow,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import { PatientProductRequestDossierHeader } from "@/components/requests/product/patient-product-request-dossier-header";
+import { PatientPharmacyDossierBand } from "@/components/requests/product/patient-pharmacy-dossier-band";
 import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
 import { PatientProductRequestCompactLine } from "@/components/requests/product/patient-product-request-compact-line";
 import { PatientPharmaUpdateBanner } from "@/components/requests/product/patient-pharma-update-banner";
@@ -1300,10 +1301,6 @@ export function PatientSentEnvoyeeSummaryCard({
   accent?: RequestKindAccent;
 }) {
   const ph = pharmacyContact;
-  const phName =
-    ph?.nom?.trim() != null && ph.nom.trim() !== "" ? pharmacyPublicLabel(ph.nom.trim()) : "Officine";
-  const phVille = ph?.ville?.trim() || null;
-  const phRef = ph?.public_ref?.trim();
   const t = summaryThemeClasses(accent);
   return (
     <div className={t.shell}>
@@ -1315,33 +1312,13 @@ export function PatientSentEnvoyeeSummaryCard({
           createdAt={createdAt}
           className={t.title}
         />
-        <div className="mt-1.5 flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <p className={clsx("text-[11px] font-bold leading-snug break-words", t.title)}>{phName}</p>
-          {phVille ? <p className={clsx("text-[10px] font-medium", t.meta)}>{phVille}</p> : null}
-          {phRef ? (
-            <p className={clsx("text-[9px]", t.meta)}>
-              <span className="font-mono font-semibold text-foreground">Off. {phRef}</span>
-            </p>
-          ) : null}
-          <Link
-            href={`/pharmacie/${pharmacyId}`}
-            className={clsx("text-[9px] font-semibold underline underline-offset-2", t.link)}
-          >
-            Fiche officine
-          </Link>
-        </div>
-        {ph ? (
-          <details className="group relative shrink-0">
-            <summary className={clsx("flex cursor-pointer list-none items-center gap-1 rounded-md border bg-card px-2 py-1 text-[9px] font-bold uppercase tracking-wide shadow-sm marker:content-none hover:bg-muted/40 [&::-webkit-details-marker]:hidden", t.contactBtn)}>
-              Contacter
-              <ChevronDown className={clsx("size-3 transition group-open:rotate-180", t.contactIcon)} aria-hidden />
-            </summary>
-            <div className={clsx("absolute right-0 z-[60] mt-1 min-w-[12rem] max-w-[min(100vw-2rem,18rem)] rounded-lg border bg-card p-2 shadow-lg ring-1", t.contactPanel)}>
-              <PatientPharmacyQuickContact pharmacy={ph} requestRef={dossierRefLabel} variant="iconsOnly" />
-            </div>
-          </details>
-        ) : null}
+        <div className="mt-1.5">
+          <PatientPharmacyDossierBand
+            pharmacyContact={ph}
+            pharmacyId={pharmacyId}
+            dossierRefLabel={dossierRefLabel}
+            compact
+          />
         </div>
       </div>
       <p className={clsx("mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 border-b pb-1.5 text-[9px] tabular-nums", t.borderB2, t.metaRow)}>

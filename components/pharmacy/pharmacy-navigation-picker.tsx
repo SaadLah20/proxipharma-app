@@ -10,7 +10,12 @@ import {
 } from "@/lib/pharmacy-navigation";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import { lockBodyScroll } from "@/lib/ui-body-scroll-lock";
-import { uiAnnuaireActionOverlayBtn, uiAnnuaireActionOverlayBtnGhost, uiAnnuaireQuickAction } from "@/lib/ui-action-buttons";
+import {
+  uiActionBtnCompactOutline,
+  uiAnnuaireActionOverlayBtn,
+  uiAnnuaireActionOverlayBtnGhost,
+  uiAnnuaireQuickAction,
+} from "@/lib/ui-action-buttons";
 
 export type PharmacyNavigationTarget = {
   pharmacyId?: string;
@@ -27,7 +32,7 @@ type Props = {
   source: "annuaire" | "profile";
   className?: string;
   /** Style bouton annuaire (icône + libellé court). */
-  variant?: "annuaire" | "annuaire-rail" | "annuaire-overlay" | "inline";
+  variant?: "annuaire" | "annuaire-rail" | "annuaire-overlay" | "inline" | "compact-outline";
   disabledClassName?: string;
   /** Modal contrôlée depuis l’extérieur (ex. grille contact fiche). */
   open?: boolean;
@@ -124,7 +129,9 @@ export function PharmacyNavigationPicker({
           aria-haspopup="dialog"
           aria-expanded={open}
         >
-          {variant === "annuaire-rail" || variant === "annuaire-overlay" ? (
+          {variant === "compact-outline" ? (
+            "Itinéraire"
+          ) : variant === "annuaire-rail" || variant === "annuaire-overlay" ? (
             <MapPin className="size-3.5" aria-hidden />
           ) : (
             <Navigation className="size-4" aria-hidden />
@@ -133,7 +140,7 @@ export function PharmacyNavigationPicker({
             <span className="sr-only">Localisation</span>
           ) : variant === "annuaire" ? (
             "Itinéraire"
-          ) : (
+          ) : variant === "compact-outline" ? null : (
             "Y aller"
           )}
         </button>

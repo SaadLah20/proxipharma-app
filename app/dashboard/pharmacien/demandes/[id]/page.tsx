@@ -193,6 +193,7 @@ import {
   uiActionBtnFull,
   uiActionBtnModalOutline,
   uiActionBtnModalPrimary,
+  uiActionBtnSmPrimary,
 } from "@/lib/ui-action-buttons";
 import {
   PHARMACIST_ALT_TAB_ADD,
@@ -7204,10 +7205,10 @@ export default function PharmacienDemandeDetailPage() {
         <PlatformStickyFooterStack tone="sky">
           {showDeclareTreatedSticky ? (
             <PlatformStickyFooterStackRow compact>
-              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                <span className="inline-flex min-w-0 items-center gap-1 text-[11px] font-semibold leading-snug text-foreground">
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="inline-flex min-w-0 flex-1 items-center justify-start gap-1.5 text-xs font-semibold leading-snug text-foreground">
                   Préparation prête ?
-                  <InfoHint label="À propos de « Déclarer la demande traitée »" placement="up">
+                  <InfoHint label="À propos de « Déclarer la demande traitée »" placement="up" align="start">
                     Quand la préparation est prête, déclarez la demande traitée. Le patient pourra suivre le passage au
                     comptoir ; vous marquerez ensuite les réceptions en officine et les retraits ligne par ligne.
                   </InfoHint>
@@ -7217,11 +7218,11 @@ export default function PharmacienDemandeDetailPage() {
                   disabled={declareTreatedBusy || Boolean(requestDrift.stale)}
                   title={requestDrift.stale?.message}
                   onClick={() => setDeclareTreatedModalOpen(true)}
-                  className={uiActionBtnModalPrimary(
-                    "h-10 w-full min-w-0 px-3 text-xs font-bold disabled:opacity-50 sm:w-auto sm:shrink-0 sm:px-4 sm:text-sm"
+                  className={uiActionBtnSmPrimary(
+                    "h-9 shrink-0 px-2.5 text-xs font-bold whitespace-nowrap disabled:opacity-50"
                   )}
                 >
-                  Déclarer la demande traitée
+                  Déclarer traitée
                 </button>
               </div>
             </PlatformStickyFooterStackRow>
