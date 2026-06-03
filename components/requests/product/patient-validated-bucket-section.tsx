@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { AlertTriangle, Package, Truck } from "lucide-react";
 import { clsx } from "clsx";
+import type { HubCopyAudience } from "@/lib/hub-copy-audience";
 import {
   type PatientValidatedBucketId,
   patientValidatedBucketAccentTextClass,
@@ -20,6 +21,7 @@ type Props = {
   isTreatedView?: boolean;
   subtotalLabel?: string | null;
   hint?: string | null;
+  audience?: HubCopyAudience;
   children: ReactNode;
 };
 
@@ -35,16 +37,17 @@ export function PatientValidatedBucketSection({
   isTreatedView = false,
   subtotalLabel,
   hint,
+  audience = "patient",
   children,
 }: Props) {
   const Icon = BUCKET_ICONS[bucketId];
-  const title = patientValidatedBucketTitleFr(bucketId, isTreatedView);
+  const title = patientValidatedBucketTitleFr(bucketId, isTreatedView, audience);
   const accentText = patientValidatedBucketAccentTextClass(bucketId);
 
   return (
     <section
       className="w-full min-w-0 space-y-1"
-      aria-label={patientValidatedBucketAriaTitleFr(bucketId, isTreatedView)}
+      aria-label={patientValidatedBucketAriaTitleFr(bucketId, isTreatedView, audience)}
     >
       <div
         className={clsx(

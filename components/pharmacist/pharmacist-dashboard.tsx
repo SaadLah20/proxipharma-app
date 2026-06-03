@@ -310,16 +310,16 @@ export function PharmacistDashboard() {
                 icon={AlertCircle}
                 label="À traiter"
                 value={snapshot.requests.needs_action}
-                hint="Envoyées, en cours ou attente client"
-                href="/dashboard/pharmacien/demandes?vue=liste&statut=envoyees"
+                hint="Envoyées ou validées par le client"
+                href="/dashboard/pharmacien/demandes"
                 tone="amber"
               />
               <KpiCard
                 icon={ClipboardList}
-                label="Suivi post-validation"
+                label="Passage comptoir"
                 value={snapshot.requests.awaiting_pickup}
-                hint="Validées ou traitées · comptoir"
-                href="/dashboard/pharmacien/demandes?vue=liste&statut=validees_traitees"
+                hint="Préparation déclarée traitée — retrait patient"
+                href="/dashboard/pharmacien/demandes?vue=liste&statut=traitee_retrait"
                 tone="emerald"
               />
               <KpiCard

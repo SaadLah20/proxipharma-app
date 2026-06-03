@@ -36,7 +36,12 @@ import { statBucketGroupsForRole } from "@/lib/demandes-hub-buckets";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 
 const PATIENT_SECTION_ORDER = ["action_required", "at_pharmacy", "archives"] as const;
-const PHARMA_SECTION_ORDER = ["action_required", "in_preparation", "awaiting_patient", "archives"] as const;
+const PHARMA_SECTION_ORDER = [
+  "action_required",
+  "awaiting_patient_validation",
+  "awaiting_patient",
+  "archives",
+] as const;
 
 function HubSectionBlock({
   title,
@@ -115,7 +120,7 @@ export function RequestKindHubDashboard({
   const chrome = hubDashboardChrome(kindId, role);
   const rowsWithStatus = rows.map((r) => ({ ...r, status_for_dashboard: r.status }));
   const stats = hubDashboardQuickStats(rowsWithStatus, buckets, unreadById);
-  const recent = pickRecentActiveHubRows(rowsWithStatus, unreadById, 5);
+  const recent = pickRecentActiveHubRows(rowsWithStatus, unreadById, 5, role);
 
   const listAllLabel =
     kindId === "prescription"
@@ -182,9 +187,13 @@ export function RequestKindHubDashboard({
               key={sectionId}
               sectionDomId={`hub-section-${kindId}-${sectionId}`}
               title={section.title}
+              subtitle={section.subtitle}
               count={count}
               listHref={pharmacistProductHubListHref(basePath)}
-              defaultCollapsed={sectionId === "archives" && count > HUB_DASHBOARD_PREVIEW}
+              defaultCollapsed={
+                (sectionId === "archives" || sectionId === "awaiting_patient_validation") &&
+                count > HUB_DASHBOARD_PREVIEW
+              }
             >
               {sectionRows.slice(0, HUB_DASHBOARD_PREVIEW).map((r) => (
                 <li key={r.id}>{renderPharmaCard(r, true)}</li>

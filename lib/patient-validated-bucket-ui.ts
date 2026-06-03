@@ -1,17 +1,22 @@
 /** Titres et accents des groupes « validée / traitée » (alignés vue répondue épurée). */
 
+import type { HubCopyAudience } from "@/lib/hub-copy-audience";
+import { isPharmacienCopyAudience } from "@/lib/hub-copy-audience";
+
 export type PatientValidatedBucketId = "dispo_officine" | "commande" | "hors_perimetre";
 
 export function patientValidatedBucketTitleFr(
   id: PatientValidatedBucketId,
-  isTreatedView: boolean
+  isTreatedView: boolean,
+  audience: HubCopyAudience = "patient"
 ): string {
+  const ph = isPharmacienCopyAudience(audience);
   if (isTreatedView) {
     if (id === "dispo_officine") {
-      return "Réservés pour vous";
+      return ph ? "Réservés en officine" : "Réservés pour vous";
     }
     if (id === "commande") {
-      return "Commandés pour vous";
+      return ph ? "Commandés fournisseur" : "Commandés pour vous";
     }
   }
   switch (id) {
@@ -26,20 +31,30 @@ export function patientValidatedBucketTitleFr(
 
 export function patientValidatedBucketAriaTitleFr(
   id: PatientValidatedBucketId,
-  isTreatedView: boolean
+  isTreatedView: boolean,
+  audience: HubCopyAudience = "patient"
 ): string {
-  const title = patientValidatedBucketTitleFr(id, isTreatedView);
+  const ph = isPharmacienCopyAudience(audience);
+  const title = patientValidatedBucketTitleFr(id, isTreatedView, audience);
   switch (id) {
     case "dispo_officine":
       return isTreatedView
-        ? `${title} — en attente de votre passage en officine`
-        : `${title} — dispo en officine à mettre de côté`;
+        ? ph
+          ? `${title} — en attente du passage du patient`
+          : `${title} — en attente de votre passage en officine`
+        : ph
+          ? `${title} — produits à mettre de côté en officine`
+          : `${title} — dispo en officine à mettre de côté`;
     case "commande":
       return isTreatedView
-        ? `${title} — réception ou retrait en cours`
-        : `${title} — commande en cours pour vous`;
+        ? `${title} — réception fournisseur ou retrait patient`
+        : ph
+          ? `${title} — commande fournisseur à suivre`
+          : `${title} — commande en cours pour vous`;
     case "hors_perimetre":
-      return `${title} — suivi particulier avec l'officine`;
+      return ph
+        ? `${title} — à confirmer avec le patient si besoin`
+        : `${title} — suivi particulier avec l'officine`;
   }
 }
 

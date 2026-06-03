@@ -8,7 +8,7 @@ import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 
 export type PharmacistProductHubSectionId =
   | "action_required"
-  | "in_preparation"
+  | "awaiting_patient_validation"
   | "awaiting_patient"
   | "archives";
 
@@ -25,14 +25,14 @@ export const PHARMACIST_PRODUCT_HUB_SECTIONS: PharmacistProductHubSection[] = [
   {
     id: "action_required",
     title: "À traiter en priorité",
-    subtitle: "Réponse à publier ou en attente de validation patient (24 h)",
-    statuses: ["submitted", "in_review", "responded"],
+    subtitle: "Demandes envoyées ou validées par le patient — réponse ou préparation",
+    statuses: ["submitted", "in_review", "confirmed"],
   },
   {
-    id: "in_preparation",
-    title: "Préparation validée",
-    subtitle: "Commande validée par le patient — réservation et commandes fournisseur",
-    statuses: ["confirmed"],
+    id: "awaiting_patient_validation",
+    title: "En attente du patient",
+    subtitle: "Réponse publiée — le patient doit valider sous 24 h",
+    statuses: ["responded"],
   },
   {
     id: "awaiting_patient",
@@ -107,9 +107,9 @@ export function pickRecentActivePharmacistProductRequests(
     let score = new Date(row.updated_at ?? row.created_at).getTime();
     if (unreadById[row.id]) score += 1e15;
     if (row.status === "submitted" || row.status === "in_review") score += 6e14;
-    if (row.status === "responded") score += 5e14;
+    if (row.status === "confirmed") score += 5e14;
     if (row.status === "treated") score += 4e14;
-    if (row.status === "confirmed") score += 2e14;
+    if (row.status === "responded") score += 2e14;
     return { row, score };
   });
   scored.sort((a, b) => b.score - a.score);
@@ -147,7 +147,7 @@ export function pharmacistProductHubCardContextFr(row: PharmacistRequestRow): Ph
       return {
         primaryLine: "En attente de validation patient",
         secondaryLine: `${n} produit${n !== 1 ? "s" : ""} proposé${n !== 1 ? "s" : ""} · expire sous 24 h`,
-        emphasis: "urgent",
+        emphasis: "info",
       };
     case "treated": {
       const wait = summary.selectedPendingPickupCount;

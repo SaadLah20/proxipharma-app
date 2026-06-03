@@ -5523,8 +5523,7 @@ export default function PharmacienDemandeDetailPage() {
                       supplyAmendmentBundles,
                       treatedLineLabels: request.status === "treated",
                       sectionBucket: supplyTier,
-                      labelAudience:
-                        request.status === "treated" ? "pharmacist" : "patient",
+                      labelAudience: "pharmacist",
                     })
                   : undefined;
                 const supplyAvailabilityOptions = isAjoutOfficineLine

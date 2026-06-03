@@ -45,7 +45,8 @@ function fulfillmentStatusLabelFr(
     return null;
   }
   if (eff === "available" || eff === "partially_available") {
-    return pcf === "reserved" ? "Réservé" : "À réserver par la pharmacie";
+    if (pcf === "reserved") return "Réservé";
+    return labelAudience === "pharmacist" ? "À réserver" : "À réserver par la pharmacie";
   }
   if (eff === "to_order") {
     if (pcf === "arrived_reserved") return "Reçu en officine";

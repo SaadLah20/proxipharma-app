@@ -684,7 +684,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
       if (pcf !== "unset") epilogueLines.push(`Préparation : ${prep}.`);
       else if (eff === "to_order") epilogueLines.push("En attente de réception fournisseur.");
       else if (eff === "available" || eff === "partially_available") {
-        epilogueLines.push("En attente de votre passage.");
+        epilogueLines.push(ph ? "En attente du passage patient." : "En attente de votre passage.");
       }
       const eta = effectiveEtaForPatientLine(row);
       if (eff === "to_order" && eta && pcf !== "arrived_reserved") {
