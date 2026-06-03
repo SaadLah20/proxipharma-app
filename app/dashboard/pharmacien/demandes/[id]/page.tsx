@@ -492,6 +492,20 @@ function mergePendingAlternativesOntoRows(rows: ItemRow[], pendingAlternatives: 
   });
 }
 
+/** Alternatives marquées pour retrait au prochain enregistrement (brouillon). */
+function applyPendingAlternativeDeletesToRows(
+  rows: ItemRow[],
+  pendingDeletedAlternativeIds: string[]
+): ItemRow[] {
+  if (pendingDeletedAlternativeIds.length === 0) return rows;
+  const del = new Set(pendingDeletedAlternativeIds);
+  return rows.map((row) => {
+    const alts = normalizeAlts(row.request_item_alternatives).filter((a) => !del.has(a.id));
+    if (alts.length === normalizeAlts(row.request_item_alternatives).length) return row;
+    return { ...row, request_item_alternatives: alts };
+  });
+}
+
 function counterOutcomeLabelPharmacien(outcome: string, cancelReason: string | null = null): string {
   if (outcome === "cancelled_at_counter") {
     if (cancelReason === "client_request") return "Annulé à la demande du client";
@@ -623,7 +637,7 @@ function buildItemUpdatePayload(f: ItemDraft, row: ItemRow, requestType?: string
     throw new Error("Quantité disponible invalide sur une ligne.");
   }
   if (isAjoutOfficine && availQty < 1) {
-    throw new Error("Pour une proposition officine, la quantité en stock doit être au moins 1.");
+    throw new Error("Pour une proposition officine, la dispo doit être au moins 1.");
   }
   const requestedQty = isOrdonnancePharma
     ? ordonnanceDraftRequestedQty(row, f)
@@ -796,8 +810,8 @@ function PublishConfirmLineLi({
   const lineBadge = publishConfirmLineBadge(meta, proposedBadgeLabel, ordonnanceBadgeLabel);
   const ordonnanceTone = proposed && lineBadge.tone === "ordonnance";
   const availableQtyNum = Number(fd.available_qty || "0");
-  const stockLabel = ordonnancePrincipal ? "Prescrit" : "Qté/stock";
-  const stockValue = ordonnancePrincipal ? (prescribedQty ?? "—") : fd.available_qty || "—";
+  const dispoQtyLabel = ordonnancePrincipal ? "Prescrit" : "Dispo";
+  const dispoQtyValue = ordonnancePrincipal ? (prescribedQty ?? "—") : fd.available_qty || "—";
 
   return (
     <li
@@ -842,8 +856,8 @@ function PublishConfirmLineLi({
       )}
       <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-0 text-[10px] leading-none text-muted-foreground">
         <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap">
-          <span className="font-medium">{stockLabel}</span>
-          <span className="font-semibold tabular-nums text-foreground">{stockValue}</span>
+          <span className="font-medium">{dispoQtyLabel}</span>
+          <span className="font-semibold tabular-nums text-foreground">{dispoQtyValue}</span>
         </span>
         {ordonnancePrincipal ? (
           <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap">
@@ -899,7 +913,7 @@ function PublishConfirmLineLi({
                   <span className="font-semibold">{an}</span>
                   <span className="mt-0.5 flex flex-wrap items-baseline gap-x-2 whitespace-nowrap text-muted-foreground">
                     <span>
-                      Qté/stock <strong className="text-foreground">{aq}</strong>
+                      Dispo <strong className="text-foreground">{aq}</strong>
                     </span>
                     <span>
                       Prix <strong className="text-foreground">{ap}</strong>
@@ -1267,12 +1281,14 @@ function computeSupplyStructuralDirty(
   pendingProposalRows: ItemRow[],
   pendingAlternatives: PendingAlternativeEntry[],
   altQtyDrafts: Record<string, string>,
-  removedPersistedProposedIds: string[] = []
+  removedPersistedProposedIds: string[] = [],
+  pendingDeletedAlternativeIds: string[] = []
 ): boolean {
   if (!request || !["confirmed", "treated"].includes(request.status)) return false;
   if (pendingProposalRows.length > 0) return true;
   if (pendingAlternatives.length > 0) return true;
   if (removedPersistedProposedIds.length > 0) return true;
+  if (pendingDeletedAlternativeIds.length > 0) return true;
   for (const row of items) {
     if (!row.is_selected_by_patient) continue;
     const d = draft[row.id];
@@ -1295,6 +1311,7 @@ function computeSupplyStructuralDirty(
   for (const row of items) {
     const alts = normalizeAlts(row.request_item_alternatives);
     for (const alt of alts) {
+      if (pendingDeletedAlternativeIds.includes(alt.id)) continue;
       if (isLocalAltId(alt.id)) return true;
       const draftQty = altQtyDrafts[alt.id];
       if (draftQty === undefined) continue;
@@ -1311,19 +1328,22 @@ type RespondedEditSnapshot = {
   altQtyDrafts: Record<string, string>;
   pendingProposalIds: string;
   pendingAlternativesJson: string;
+  pendingDeletedAlternativeIdsJson: string;
 };
 
 function takeRespondedEditSnapshot(
   draft: Draft,
   altQtyDrafts: Record<string, string>,
   pendingProposalRows: ItemRow[],
-  pendingAlternatives: PendingAlternativeEntry[]
+  pendingAlternatives: PendingAlternativeEntry[],
+  pendingDeletedAlternativeIds: string[]
 ): RespondedEditSnapshot {
   return {
     draft: JSON.parse(JSON.stringify(draft)) as Draft,
     altQtyDrafts: { ...altQtyDrafts },
     pendingProposalIds: pendingProposalRows.map((r) => r.id).join(","),
     pendingAlternativesJson: JSON.stringify(pendingAlternatives),
+    pendingDeletedAlternativeIdsJson: JSON.stringify(pendingDeletedAlternativeIds),
   };
 }
 
@@ -1333,7 +1353,8 @@ function diffRespondedSnapshots(
   draft: Draft,
   altQtyDrafts: Record<string, string>,
   pendingProposalRows: ItemRow[],
-  pendingAlternatives: PendingAlternativeEntry[]
+  pendingAlternatives: PendingAlternativeEntry[],
+  pendingDeletedAlternativeIds: string[]
 ): string[] {
   const lines: string[] = [];
   const pendIds = pendingProposalRows.map((r) => r.id).join(",");
@@ -1343,6 +1364,10 @@ function diffRespondedSnapshots(
   const pendAlt = JSON.stringify(pendingAlternatives);
   if (baseline.pendingAlternativesJson !== pendAlt) {
     lines.push("Alternatives encore en brouillon (hors enregistrement précédent)");
+  }
+  const pendDelAlt = JSON.stringify(pendingDeletedAlternativeIds);
+  if (baseline.pendingDeletedAlternativeIdsJson !== pendDelAlt && pendingDeletedAlternativeIds.length > 0) {
+    lines.push("Retrait d'une ou plusieurs alternatives");
   }
   const altKeys = new Set([...Object.keys(baseline.altQtyDrafts), ...Object.keys(altQtyDrafts)]);
   for (const k of altKeys) {
@@ -1359,7 +1384,7 @@ function diffRespondedSnapshots(
     const bits: string[] = [];
     const nm = validatedProductLabel(row as PatientLineLike);
     if (a.availability_status !== b.availability_status) bits.push("disponibilité");
-    if (a.available_qty !== b.available_qty) bits.push("stock");
+    if (a.available_qty !== b.available_qty) bits.push("dispo");
     if (a.pharmacist_comment !== b.pharmacist_comment) bits.push("message / note de ligne");
     if (a.expected_availability_date !== b.expected_availability_date) bits.push("date prévue");
     if (a.selected_qty_str !== b.selected_qty_str) bits.push("quantité validée (patient)");
@@ -1583,7 +1608,8 @@ function buildConfirmedSupplySaveSummaryLines(
   requestStatus: string | null,
   requestType: string,
   pharmacistProposedBadge: string,
-  removedPersistedProposedIds: string[] = []
+  removedPersistedProposedIds: string[] = [],
+  pendingDeletedAlternativeIds: string[] = []
 ): string[] {
   const lines: string[] = [];
 
@@ -1603,6 +1629,17 @@ function buildConfirmedSupplySaveSummaryLines(
     const r = items.find((i) => i.id === rid);
     const nm = r ? validatedProductLabel(r as PatientLineLike) : "Proposition";
     lines.push(`Retrait proposition officine : « ${nm} ».`);
+  }
+
+  for (const altId of pendingDeletedAlternativeIds) {
+    for (const row of items) {
+      const alt = normalizeAlts(row.request_item_alternatives).find((a) => a.id === altId);
+      if (!alt) continue;
+      const pnm = validatedProductLabel(row as PatientLineLike);
+      const anm = one(alt.products)?.name ?? "Alternative";
+      lines.push(`Retrait alternative sur « ${pnm} » : « ${anm} ».`);
+      break;
+    }
   }
 
   const amends = buildSupplyStructuralAmends(items, draft, requestType);
@@ -1703,6 +1740,8 @@ export default function PharmacienDemandeDetailPage() {
   const [supplyEditOpenRowIds, setSupplyEditOpenRowIds] = useState<Record<string, true>>({});
   /** Propositions officine persistées marquées pour retrait au prochain enregistrement. */
   const [removedPersistedProposedIds, setRemovedPersistedProposedIds] = useState<string[]>([]);
+  /** Alternatives persistées marquées pour retrait au prochain enregistrement. */
+  const [pendingDeletedAlternativeIds, setPendingDeletedAlternativeIds] = useState<string[]>([]);
   const [supplySaveGlobalChannel, setSupplySaveGlobalChannel] = useState("");
   const [supplySaveGlobalMotive, setSupplySaveGlobalMotive] = useState("");
   const [supplyMenuRowId, setSupplyMenuRowId] = useState<string | null>(null);
@@ -1818,8 +1857,11 @@ export default function PharmacienDemandeDetailPage() {
       ? items.filter((r) => r.line_source !== "pharmacist_proposed")
       : items.slice();
     const withSynthetic = [...baseRows, ...pendingProposalRows];
-    return mergePendingAlternativesOntoRows(withSynthetic, pendingAlternatives);
-  }, [items, hideStaleServerPharmacistProposals, pendingProposalRows, pendingAlternatives]);
+    return applyPendingAlternativeDeletesToRows(
+      mergePendingAlternativesOntoRows(withSynthetic, pendingAlternatives),
+      pendingDeletedAlternativeIds
+    );
+  }, [items, hideStaleServerPharmacistProposals, pendingProposalRows, pendingAlternatives, pendingDeletedAlternativeIds]);
 
   const catalogBlockRequestStatus = request?.status ?? null;
 
@@ -3184,11 +3226,36 @@ export default function PharmacienDemandeDetailPage() {
     }
   };
 
+  const flushPendingAlternativeDeletes = async (altIds: string[]) => {
+    if (!id || altIds.length === 0) return;
+    for (const altId of altIds) {
+      const { error: delErr } = await supabase.from("request_item_alternatives").delete().eq("id", altId);
+      if (delErr) throw new Error(delErr.message);
+      if (request?.status === "confirmed") {
+        const { error: h } = await logHistory(id, "confirmed", "confirmed", "counter_alternative_removed");
+        if (h) throw new Error(h.message);
+      }
+    }
+  };
+
   const deleteAlternativeRow = async (altId: string, parentRowId?: string) => {
     setError("");
     if (deferPersistOfficineAdditions && isLocalAltId(altId)) {
       setPendingAlternatives((prev) => prev.filter((a) => a.localAltId !== altId));
-      if (altPickerOpenFor === parentRowId) resetAltPicker();
+      if (altPickerOpenFor === parentRowId) resetAltPicker(parentRowId);
+      return;
+    }
+    if (deferPersistOfficineAdditions) {
+      setPendingDeletedAlternativeIds((prev) => (prev.includes(altId) ? prev : [...prev, altId]));
+      setAltQtyDrafts((prev) => {
+        const next = { ...prev };
+        delete next[altId];
+        return next;
+      });
+      if (parentRowId) {
+        setLineAltTabByRowId((t) => (t[parentRowId] === altId ? { ...t, [parentRowId]: "principal" } : t));
+      }
+      if (altPickerOpenFor === parentRowId) resetAltPicker(parentRowId);
       return;
     }
     setAltBusyRow(altId);
@@ -3329,7 +3396,7 @@ export default function PharmacienDemandeDetailPage() {
 
       const availQtyRaw = Number(f.available_qty);
       if (Number.isNaN(availQtyRaw) || availQtyRaw < 1) {
-        throw new Error("Pour chaque proposition officine, la quantité en stock doit être au moins 1.");
+        throw new Error("Pour chaque proposition officine, la dispo doit être au moins 1.");
       }
       const qtyLine = Math.min(
         PHARMACIST_PROPOSED_STOCK_CEILING,
@@ -3561,7 +3628,7 @@ export default function PharmacienDemandeDetailPage() {
         const isAjoutOfficine =
           request != null && isProductRequestAjoutOfficineLine(request.request_type, row);
         if (isAjoutOfficine && qtyPrep < 1 && !f.withdrawn_after_confirm) {
-          throw new Error(`« ${nm} » (proposition officine) : quantité en stock minimale 1.`);
+          throw new Error(`« ${nm} » (proposition officine) : dispo minimale 1.`);
         }
         const validatedQtySave = draftValidatedQtyForSave(f, row);
         const fForPayload: ItemDraft = { ...f, available_qty: String(validatedQtySave) };
@@ -3747,7 +3814,8 @@ export default function PharmacienDemandeDetailPage() {
       request?.status ?? null,
       request?.request_type ?? "product_request",
       proposedBadgeLabel,
-      removedPersistedProposedIds
+      removedPersistedProposedIds,
+      pendingDeletedAlternativeIds
     );
     setSupplySaveConfirmLines(
       summaryLines.length > 0
@@ -3773,6 +3841,7 @@ export default function PharmacienDemandeDetailPage() {
     const proposalSnapLocal = pendingProposalRows.filter((r) => isLocalProposedItemId(r.id));
     const altSnap = [...pendingAlternatives];
     const removedSnap = [...removedPersistedProposedIds];
+    const deletedAltSnap = [...pendingDeletedAlternativeIds];
     const needsAmendJournal = confirmedSupplySaveNeedsPatientChannel(
       items,
       draft,
@@ -3801,6 +3870,23 @@ export default function PharmacienDemandeDetailPage() {
       let workDraft: Draft = { ...draft };
 
       let lineAddedAmends: SupplyAmendmentEntryJson[] = [];
+
+      await flushPendingAlternativeDeletes(deletedAltSnap);
+      if (deletedAltSnap.length > 0) {
+        const { data: freshAfterAltDel, error: altDelErr } = await supabase
+          .from("request_items")
+          .select(PHARMA_REQUEST_ITEMS_SELECT)
+          .eq("request_id", id)
+          .order("created_at", { ascending: true });
+        if (altDelErr) throw new Error(altDelErr.message);
+        workItems = (freshAfterAltDel as ItemRow[]) ?? [];
+        workDraft = mergeDraftAfterLocalProposalFlush(
+          workItems,
+          workDraft,
+          new Map(),
+          request?.status ?? null
+        );
+      }
 
       if (proposalSnapLocal.length > 0) {
         const idMap = await flushDeferredOfficineAdds(workDraft, proposalSnapLocal, altSnap);
@@ -3837,6 +3923,7 @@ export default function PharmacienDemandeDetailPage() {
 
       setPendingProposalRows([]);
       setPendingAlternatives([]);
+      setPendingDeletedAlternativeIds([]);
 
       let activeRetained = 0;
       let pickedUpAfter = 0;
@@ -3877,8 +3964,10 @@ export default function PharmacienDemandeDetailPage() {
     const draftSnap = draft;
     const proposalSnap = [...pendingProposalRows];
     const altSnap = [...pendingAlternatives];
+    const deletedAltSnap = [...pendingDeletedAlternativeIds];
     const altDraftSnap = { ...altQtyDrafts };
     try {
+      await flushPendingAlternativeDeletes(deletedAltSnap);
       for (const row of displayRows) {
         if (isLocalProposedItemId(row.id)) continue;
         const f = draftSnap[row.id];
@@ -3895,6 +3984,7 @@ export default function PharmacienDemandeDetailPage() {
       await flushDeferredOfficineAdds(draftSnap, proposalSnap, altSnap);
       setPendingProposalRows([]);
       setPendingAlternatives([]);
+      setPendingDeletedAlternativeIds([]);
       const { error: h } = await logHistory(id, "responded", "responded", "pharmacist_response_updated");
       if (h) throw new Error(h.message);
       setRespondedEditMode(false);
@@ -3962,13 +4052,13 @@ export default function PharmacienDemandeDetailPage() {
           setError(
             request.request_type === "free_consultation"
               ? `« ${nm} » : indiquez une quantité d’au moins 1.`
-              : `« ${nm} » (proposition officine) : indiquez une quantité en stock d’au moins 1.`
+              : `« ${nm} » (proposition officine) : indiquez une dispo d’au moins 1.`
           );
           return;
         }
       } else if (qty > reqQty) {
         const nm = validatedProductLabel(row as PatientLineLike);
-        setError(`« ${nm} » : la quantité en stock ne peut pas dépasser la quantité demandée (${reqQty}).`);
+        setError(`« ${nm} » : la dispo ne peut pas dépasser la quantité demandée (${reqQty}).`);
         return;
       }
     }
@@ -3983,10 +4073,13 @@ export default function PharmacienDemandeDetailPage() {
     const draftSnap = draft;
     const proposalSnap = [...pendingProposalRows];
     const altSnap = [...pendingAlternatives];
+    const deletedAltSnap = [...pendingDeletedAlternativeIds];
     const altDraftSnap = { ...altQtyDrafts };
     const rowsForPublish = [...displayRows];
 
     try {
+      await flushPendingAlternativeDeletes(deletedAltSnap);
+
       if (currentStatus === "submitted") {
         const { error: u1 } = await supabase.from("requests").update({ status: "in_review" }).eq("id", id);
         if (u1) throw new Error(u1.message);
@@ -4034,6 +4127,7 @@ export default function PharmacienDemandeDetailPage() {
       await flushDeferredOfficineAdds(draftSnap, proposalSnap, altSnap);
       setPendingProposalRows([]);
       setPendingAlternatives([]);
+      setPendingDeletedAlternativeIds([]);
 
       /* Pilote Q38/Q6 : pas d’expiration +7 j après réponse ; l’état passe par abandon 24 h (cron) après `responded` si aucune confirmation. */
       const { error: u2 } = await supabase
@@ -4221,7 +4315,8 @@ export default function PharmacienDemandeDetailPage() {
     pendingProposalRows,
     pendingAlternatives,
     altQtyDrafts,
-    removedPersistedProposedIds
+    removedPersistedProposedIds,
+    pendingDeletedAlternativeIds
   );
 
   const supplyFooterTotals = useMemo(() => {
@@ -4253,13 +4348,27 @@ export default function PharmacienDemandeDetailPage() {
 
   useLayoutEffect(() => {
     if (respondedEditMode && request?.status === "responded" && !prevRespondedEditMode.current) {
-      respondedEditBaselineRef.current = takeRespondedEditSnapshot(draft, altQtyDrafts, pendingProposalRows, pendingAlternatives);
+      respondedEditBaselineRef.current = takeRespondedEditSnapshot(
+        draft,
+        altQtyDrafts,
+        pendingProposalRows,
+        pendingAlternatives,
+        pendingDeletedAlternativeIds
+      );
     }
     if (!respondedEditMode) {
       respondedEditBaselineRef.current = null;
     }
     prevRespondedEditMode.current = respondedEditMode;
-  }, [respondedEditMode, request?.status, draft, altQtyDrafts, pendingProposalRows, pendingAlternatives]);
+  }, [
+    respondedEditMode,
+    request?.status,
+    draft,
+    altQtyDrafts,
+    pendingProposalRows,
+    pendingAlternatives,
+    pendingDeletedAlternativeIds,
+  ]);
 
   const publishConfirmGroups = useMemo(() => {
     const all: PublishConfirmRowMeta[] = [];
@@ -4456,6 +4565,7 @@ export default function PharmacienDemandeDetailPage() {
     resetDraftFromRows();
     setPendingProposalRows([]);
     setPendingAlternatives([]);
+    setPendingDeletedAlternativeIds([]);
     setAltQtyDrafts({});
     setSupplyEditOpenRowIds({});
     setRemovedPersistedProposedIds([]);
@@ -5404,7 +5514,7 @@ export default function PharmacienDemandeDetailPage() {
                       ) : null}
                       <label className="flex w-[5.5rem] flex-col gap-0.5">
                         <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
-                          {isOrdonnancePrincipalLine ? "Qté dispo" : "Qté"}
+                          {isOrdonnancePrincipalLine ? "Qté dispo" : "Dispo"}
                         </span>
                         <div className="flex h-9 items-center overflow-hidden rounded-xl border border-input bg-background shadow-sm">
                           <button
@@ -5847,7 +5957,12 @@ export default function PharmacienDemandeDetailPage() {
                         )}
                       </div>
                     </div>
-                    <div className="min-w-0 flex-1 space-y-0.5">
+                    <div
+                      className={clsx(
+                        "min-w-0 flex-1",
+                        isProductRequestSent ? "space-y-1.5" : "space-y-0.5"
+                      )}
+                    >
                       <div className="min-w-0 space-y-1">
                         <p className="break-words text-[13px] font-bold leading-snug text-foreground sm:text-sm">
                           {prod?.name ?? "Produit"}
@@ -6205,7 +6320,7 @@ export default function PharmacienDemandeDetailPage() {
                               ? "Qté dispo"
                               : isPrescriptionExtraProposed
                                 ? "Qté proposée"
-                                : "Qté"}
+                                : "Dispo"}
                           </span>
                           <div className="flex h-9 items-center overflow-hidden rounded-xl border border-input bg-background shadow-sm">
                             <button
@@ -6756,6 +6871,7 @@ export default function PharmacienDemandeDetailPage() {
                   resetDraftFromRows();
                   setPendingProposalRows([]);
                   setPendingAlternatives([]);
+                  setPendingDeletedAlternativeIds([]);
                   setRespondedEditMode(true);
                   setError("");
                   window.setTimeout(() => {
@@ -6783,6 +6899,7 @@ export default function PharmacienDemandeDetailPage() {
                   resetDraftFromRows();
                   setPendingProposalRows([]);
                   setPendingAlternatives([]);
+                  setPendingDeletedAlternativeIds([]);
                   setRespondedEditMode(true);
                   setError("");
                   window.setTimeout(() => {
@@ -7092,6 +7209,7 @@ export default function PharmacienDemandeDetailPage() {
                 resetRespondedLineAltUi();
                 setPendingProposalRows([]);
                 setPendingAlternatives([]);
+                setPendingDeletedAlternativeIds([]);
                 setError("");
               }}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-amber-400/90 bg-white px-4 py-2.5 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-50/90 disabled:opacity-50 sm:order-1 sm:w-auto sm:min-w-[9rem]"
@@ -7108,7 +7226,15 @@ export default function PharmacienDemandeDetailPage() {
                   return;
                 }
                 setError("");
-                const diffs = diffRespondedSnapshots(b, displayRows, draft, altQtyDrafts, pendingProposalRows, pendingAlternatives);
+                const diffs = diffRespondedSnapshots(
+                  b,
+                  displayRows,
+                  draft,
+                  altQtyDrafts,
+                  pendingProposalRows,
+                  pendingAlternatives,
+                  pendingDeletedAlternativeIds
+                );
                 setRespondedSaveDiffLines(diffs);
                 setRespondedSaveConfirmOpen(true);
               }}

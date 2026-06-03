@@ -76,7 +76,7 @@ export function lineEventTitle(
     case "amend_line_brought_to_reserve":
       return ph ? "Passé en réservation" : "Réservé en officine";
     case "amend_line_adjust_supply":
-      return ph ? "Disponibilité ou stock modifié" : "Mise à jour dispo ou stock";
+      return ph ? "Dispo modifiée" : "Mise à jour dispo";
     case "amend_other":
       return ph ? "Modification enregistrée" : "Mise à jour enregistrée";
     case "legacy_audit_adjustment":

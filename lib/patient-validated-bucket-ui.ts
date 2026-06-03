@@ -33,7 +33,7 @@ export function patientValidatedBucketAriaTitleFr(
     case "dispo_officine":
       return isTreatedView
         ? `${title} — en attente de votre passage en officine`
-        : `${title} — stock en officine à mettre de côté`;
+        : `${title} — dispo en officine à mettre de côté`;
     case "commande":
       return isTreatedView
         ? `${title} — réception ou retrait en cours`

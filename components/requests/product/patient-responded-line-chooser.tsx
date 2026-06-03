@@ -234,7 +234,7 @@ type VariantData = {
   photoUrl: string | null;
   showRequested: boolean;
   requestedQty: number;
-  stockQty: number | null;
+  dispoQty: number | null;
   unitPrice: number | null;
   availabilityStatus: string | null;
   expectedDate: string | null;
@@ -759,7 +759,7 @@ export function RespondedPatientLineChooser({
     selState.branch === null ? null : selState.branch === "principal" ? "principal" : selState.branch;
 
   const buildPrincipalVariant = (): VariantData => {
-    const stockQty =
+    const dispoQty =
       row.available_qty != null && Number.isFinite(Number(row.available_qty))
         ? Math.max(0, Math.floor(Number(row.available_qty)))
         : null;
@@ -778,7 +778,7 @@ export function RespondedPatientLineChooser({
       photoUrl: resolvePublicMediaUrl(prod?.photo_url ?? null),
       showRequested: !isProposedLine,
       requestedQty: Math.max(1, Number(row.requested_qty) || 1),
-      stockQty,
+      dispoQty,
       unitPrice: resolvedRespondedUnitPrice(
         row.unit_price,
         row.product_id,
@@ -799,7 +799,7 @@ export function RespondedPatientLineChooser({
 
   const buildAltVariant = (alt: ActionItemAltRow, index: number): VariantData => {
     const altProd = one(alt.products);
-    const stockQty =
+    const dispoQty =
       alt.available_qty != null && Number.isFinite(Number(alt.available_qty))
         ? Math.max(0, Math.floor(Number(alt.available_qty)))
         : null;
@@ -811,7 +811,7 @@ export function RespondedPatientLineChooser({
       photoUrl: resolvePublicMediaUrl(altProd?.photo_url ?? null),
       showRequested: false,
       requestedQty: 0,
-      stockQty,
+      dispoQty,
       unitPrice: resolvedRespondedUnitPrice(
         alt.unit_price,
         alt.product_id,
