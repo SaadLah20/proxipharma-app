@@ -3574,6 +3574,32 @@ export default function PharmacienDemandeDetailPage() {
         return;
       }
     }
+    const hasPendingSupplyEdits = computeSupplyStructuralDirty(
+      request,
+      items,
+      draft,
+      pendingProposalRows,
+      pendingAlternatives,
+      altQtyDrafts,
+      removedPersistedProposedIds,
+      pendingDeletedAlternativeIds
+    );
+    if (hasPendingSupplyEdits) {
+      setItems((prev) =>
+        prev.map((r) =>
+          r.id === requestItemId
+            ? {
+                ...r,
+                counter_outcome: outcome,
+                counter_cancel_reason: outcome === "cancelled_at_counter" ? cancelReason : null,
+                counter_cancel_detail: outcome === "cancelled_at_counter" ? cancelDetail : null,
+              }
+            : r
+        )
+      );
+      dispatchRequestDetailRefresh(id);
+      return;
+    }
     await load();
   };
 
@@ -4679,7 +4705,9 @@ export default function PharmacienDemandeDetailPage() {
     pharmacistActiveRetainedLineCount(items, draft) > 0;
 
   const showCloseCounterSticky =
-    Boolean(counterClosureEligible && canCompleteCounter) && !showSupplyDirtyBar;
+    Boolean(counterClosureEligible && canCompleteCounter) &&
+    !supplyStructuralDirty &&
+    !showSupplyDirtyBar;
 
   const showSupplyStatsFooter = usesLineWorkflow && Boolean(canManageSupply) && displayRows.length > 0;
 
@@ -7450,8 +7478,8 @@ export default function PharmacienDemandeDetailPage() {
           ) : null}
           {showDeclareTreatedSticky ? (
             <PlatformStickyFooterStackRow compact bordered={showSupplyStatsFooter}>
-              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                <span className="inline-flex min-w-0 items-center justify-start gap-1.5 text-xs font-semibold leading-snug text-foreground sm:flex-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold leading-snug text-foreground">
                   Préparation prête ?
                   <InfoHint label="À propos de « Déclarer la demande traitée »" placement="up" align="start">
                     Quand la préparation est prête, déclarez la demande traitée. Le patient pourra suivre le passage au
@@ -7464,7 +7492,7 @@ export default function PharmacienDemandeDetailPage() {
                   title={requestDrift.stale?.message}
                   onClick={() => setDeclareTreatedModalOpen(true)}
                   className={uiActionBtnModalPrimary(
-                    "h-10 w-full shrink-0 px-5 text-sm font-bold whitespace-nowrap disabled:opacity-50 sm:min-w-[12.5rem] sm:w-auto"
+                    "h-10 min-w-0 flex-1 px-4 text-sm font-bold whitespace-nowrap disabled:opacity-50"
                   )}
                 >
                   Déclarer traitée

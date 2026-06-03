@@ -146,8 +146,10 @@ export function buildPatientValidatedLineLabelsFr(input: {
   } else if (withdrawn) {
     out.push({ key: "ecart", text: "Retiré par la pharmacie", tone: "event" });
   } else if (pickedUp) {
-    // Le pharmacien a remis le produit au comptoir : libellé « Récupéré » côté patient.
-    out.push({ key: "collected", text: "Récupéré", tone: "collected" });
+    // Patient : pastille « Récupéré ». Pharmacien dossier traité : le bouton comptoir suffit.
+    if (labelAudience !== "pharmacist") {
+      out.push({ key: "collected", text: "Récupéré", tone: "collected" });
+    }
   } else {
     const status = fulfillmentStatusLabelFr(row, treatedLineLabels, labelAudience);
     if (
