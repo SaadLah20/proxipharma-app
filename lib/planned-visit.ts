@@ -9,6 +9,11 @@ export function todayLocalIsoDate(): string {
   return `${y}-${String(m).padStart(2, "0")}-${String(da).padStart(2, "0")}`;
 }
 
+/** Plafond calendrier « réception prévue » (défaut +5 ans). */
+export function receptionDateMaxYmd(yearsAhead = 5): string {
+  return dateOnlyAddDays(todayLocalIsoDate(), yearsAhead * 365);
+}
+
 /** Date ISO (YYYY-MM-DD) valide et ≥ aujourd’hui (calendrier local navigateur). */
 export function isIsoDateOnOrAfterToday(ymd: string): boolean {
   const d = String(ymd).trim().slice(0, 10);

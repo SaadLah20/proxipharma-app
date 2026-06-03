@@ -10,6 +10,8 @@ import {
   inferOrdonnanceLineAvailabilityStatus,
 } from "@/lib/prescription-ordonnance-line-qty";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
+import { PlannedVisitDateInput } from "@/components/requests/planned-visit-date-input";
+import { receptionDateMaxYmd } from "@/lib/planned-visit";
 
 export type OrdonnanceCatalogHit = {
   id: string;
@@ -359,12 +361,14 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                   <span className="text-[10px] font-bold uppercase tracking-wide text-teal-950">
                     Date de réception prévue (obligatoire)
                   </span>
-                  <input
-                    type="date"
-                    min={receptionDateMin}
-                    value={expectedDate}
-                    onChange={(e) => onExpectedDateChange(e.target.value)}
-                    className="h-10 w-full rounded-lg border-2 border-teal-300/80 bg-white px-2 text-[13px] font-semibold tabular-nums shadow-inner"
+                  <PlannedVisitDateInput
+                    valueYmd={expectedDate}
+                    onChangeYmd={onExpectedDateChange}
+                    minYmd={receptionDateMin}
+                    maxYmd={receptionDateMaxYmd()}
+                    yearDigits={4}
+                    ariaLabel="Date de réception prévue"
+                    shellClassName="block h-10 min-h-10 w-full rounded-lg border-2 border-teal-300/80 bg-white px-2 py-1 text-[13px] font-semibold tabular-nums shadow-inner"
                   />
                 </label>
               ) : null}

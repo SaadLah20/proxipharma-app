@@ -31,11 +31,16 @@ export function pharmacistSentProductLineQtyUi(args: {
       qtyEditable: true,
     };
   }
+  /** « Disponible » : qté éditable (1…demandée) ; si qté < demandée → partiellement disponible (inféré). */
   if (inferredStatus === "available") {
+    const displayQty = Math.max(
+      1,
+      Math.min(10, availableQty > 0 ? availableQty : args.requestedQty)
+    );
     return {
       inferredStatus,
-      displayQty: Math.max(1, Math.min(10, args.requestedQty)),
-      qtyEditable: false,
+      displayQty,
+      qtyEditable: true,
     };
   }
   return {
