@@ -107,16 +107,22 @@ export function PharmacyNavigationPicker({
             className
           )
         : variant === "annuaire"
-        ? clsx(
-            uiAnnuaireQuickAction(),
-            !canNavigate && (disabledClassName ?? "pointer-events-none opacity-45"),
-            className
-          )
-        : clsx(
-            uiAnnuaireQuickAction("inline-flex flex-row items-center gap-1.5 px-3 py-2 text-xs"),
-            !canNavigate && "opacity-45",
-            className
-          );
+          ? clsx(
+              uiAnnuaireQuickAction(),
+              !canNavigate && (disabledClassName ?? "pointer-events-none opacity-45"),
+              className
+            )
+          : variant === "compact-outline"
+            ? clsx(
+                uiActionBtnCompactOutline(),
+                !canNavigate && (disabledClassName ?? "pointer-events-none opacity-45"),
+                className
+              )
+            : clsx(
+                uiAnnuaireQuickAction("inline-flex flex-row items-center gap-1.5 px-3 py-2 text-xs"),
+                !canNavigate && "opacity-45",
+                className
+              );
 
   return (
     <>
