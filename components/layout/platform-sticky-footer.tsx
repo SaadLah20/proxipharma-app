@@ -9,7 +9,7 @@ import {
 } from "@/lib/platform-sticky-footer";
 
 const SHELL =
-  "fixed inset-x-0 bottom-0 border-t bg-background/95 shadow-[0_-4px_18px_rgba(15,23,42,0.07)] backdrop-blur-md supports-[backdrop-filter]:bg-background/90";
+  "fixed inset-x-0 bottom-0 w-full max-w-[100dvw] overflow-x-hidden border-t bg-background/95 shadow-[0_-4px_18px_rgba(15,23,42,0.07)] backdrop-blur-md supports-[backdrop-filter]:bg-background/90";
 
 type FooterProps = {
   children: ReactNode;
@@ -88,7 +88,14 @@ export function PlatformStickyFooterStackRow({
         compact ? "px-3 py-1.5 sm:px-4" : "px-3 py-2 sm:px-4"
       )}
     >
-      <div className={clsx(width === "3xl" ? "mx-auto max-w-3xl" : "mx-auto max-w-lg")}>{children}</div>
+      <div
+        className={clsx(
+          "mx-auto box-border w-full min-w-0",
+          width === "3xl" ? "max-w-3xl" : "max-w-lg"
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }

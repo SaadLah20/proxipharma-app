@@ -71,7 +71,7 @@ export function buildPharmacistValidatedBucketGroups<T extends PatientLineLike>(
     const sub = monetaryTotalsForRetainedLines(dispoRetenues, requestStatus, pricingConfig);
     groups.push({
       kind: "sky_reserve",
-      title: isTreated ? "Réservés — passage en attente" : "À réserver",
+      title: isTreated ? "Réservés pour le patient" : "À réserver",
       totalLabel: compactTotalMadLabel({
         sumKnown: sub.sumKnown,
         missingPrice: sub.missingPrice,
