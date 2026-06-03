@@ -5,13 +5,10 @@ import {
   CalendarClock,
   Clock,
   Info,
-  MapPin,
   MessageCircle,
   Navigation,
   Phone,
-  Share2,
   ShoppingBag,
-  Star,
   Tag,
 } from "lucide-react";
 import { clsx } from "clsx";
@@ -31,17 +28,14 @@ import type {
 } from "@/lib/pharmacy-profile-types";
 import { PublicPromoOffers } from "@/components/promo/public-promo-offers";
 import { PharmacySegmentTabs } from "@/components/pharmacy/pharmacy-segment-tabs";
-import { PharmacyRatingForm } from "@/components/pharmacy/pharmacy-rating-form";
 import {
   PHARMACY_CONTACT_ICONS,
-  PharmacyProfileContactGrid,
   type PharmacyProfileContactItem,
 } from "@/components/pharmacy/pharmacy-profile-contact-grid";
-import {
-  PharmacyPublicInfoBlock,
-  PharmacyPublicSectionTitle,
-  pharmacyPublicCard,
-} from "@/components/pharmacy/pharmacy-public-chrome";
+import { PharmacyPublicInfoTab } from "@/components/pharmacy/pharmacy-public-info-tab";
+import { PharmacyPublicSectionTitle, pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
+import { PharmacyCoverOverlayActions } from "@/components/pharmacy/pharmacy-cover-overlay-actions";
+import { PharmacyRatingOverlayChip } from "@/components/pharmacy/pharmacy-rating-overlay-chip";
 import { PharmacyNavigationPicker } from "@/components/pharmacy/pharmacy-navigation-picker";
 import {
   PharmacyRequestServiceLinks,
@@ -252,9 +246,6 @@ export function PharmacyPublicProfile({
     ];
   }, [pharmacy, wa, canNavigate]);
 
-  const ratingLabel =
-    (ratingCount ?? 0) > 0 ? `${Number(ratingAvg ?? 0).toFixed(1)} (${ratingCount} avis)` : "Pas encore d'avis";
-
   const handleShare = async () => {
     const url = typeof window !== "undefined" ? window.location.href : "";
     try {
@@ -271,21 +262,32 @@ export function PharmacyPublicProfile({
   return (
     <article className={cn("overflow-hidden", pharmacyPublicCard, "shadow-md ring-1 ring-black/5")}>
       <div className="relative w-full overflow-hidden bg-gradient-to-br from-sky-700/20 via-slate-100 to-teal-600/15">
-        <div className="aspect-[21/9] w-full">
+        <div className="relative aspect-[21/9] w-full">
           {coverUrl ? (
             <img src={coverUrl} alt="" className="h-full w-full object-cover object-center" />
           ) : null}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-10 bg-gradient-to-l from-black/25 to-transparent sm:w-11" />
+          <PharmacyCoverOverlayActions
+            pharmacy={pharmacy}
+            source="profile"
+            onShare={(e) => {
+              e.preventDefault();
+              void handleShare();
+            }}
+          />
+          <PharmacyRatingOverlayChip
+            pharmacyId={pharmacy.id}
+            ratingAvg={ratingAvg}
+            ratingCount={ratingCount}
+            className="absolute left-2 top-2 sm:left-3 sm:top-3"
+            onRatingUpdated={(avg, count) => {
+              setRatingAvg(avg);
+              setRatingCount(count);
+            }}
+          />
         </div>
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
-        <button
-          type="button"
-          onClick={() => void handleShare()}
-          className="absolute right-2 top-2 inline-flex size-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition hover:bg-black/60"
-          aria-label="Partager"
-        >
-          <Share2 className="size-4" aria-hidden />
-        </button>
-        <div className="absolute bottom-0 left-0 right-0 flex items-end gap-3 p-3 text-white">
+        <div className="absolute bottom-0 left-0 right-0 flex items-end gap-3 p-3 pr-10 text-white sm:pr-11">
           {logoUrl ? (
             <div className="size-14 shrink-0 overflow-hidden rounded-2xl border-2 border-white/90 bg-white shadow-lg sm:size-16">
               <img src={logoUrl} alt="" className="h-full w-full object-cover" />
@@ -307,10 +309,6 @@ export function PharmacyPublicProfile({
                   De garde · en cours
                 </span>
               ) : null}
-              <span className="inline-flex items-center gap-0.5 rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-medium backdrop-blur-sm">
-                <Star className="size-3 fill-amber-300 text-amber-300" aria-hidden />
-                {ratingLabel}
-              </span>
             </div>
           </div>
         </div>
@@ -343,68 +341,17 @@ export function PharmacyPublicProfile({
         ) : null}
 
         {tab === "info" ? (
-          <div className="space-y-3">
-            <PharmacyPublicSectionTitle
-              title="Informations"
-              hint="Coordonnées, avis et services proposés par l'officine."
-            />
-
-            {pharmacy.welcome_text?.trim() ? (
-              <div className={cn(pharmacyPublicCard, "border-dashed bg-gradient-to-br from-emerald-50/30 to-card p-3 text-[12px] leading-relaxed text-foreground/90")}>
-                {pharmacy.welcome_text.trim()}
-              </div>
-            ) : null}
-
-            <PharmacyPublicInfoBlock title="Adresse">
-              <p className="flex items-start gap-2 text-[12px] leading-snug text-foreground">
-                <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 text-primary">
-                  <MapPin className="size-4" aria-hidden />
-                </span>
-                <span>
-                  <span className="font-semibold">{pharmacy.adresse}</span>
-                  <br />
-                  <span className="text-muted-foreground">{pharmacy.ville}</span>
-                </span>
-              </p>
-            </PharmacyPublicInfoBlock>
-
-            <PharmacyPublicInfoBlock title="Contact">
-              <PharmacyProfileContactGrid items={contactItems} />
-            </PharmacyPublicInfoBlock>
-
-            <PharmacyRatingForm
-              pharmacyId={pharmacy.id}
-              ratingAvg={ratingAvg}
-              ratingCount={ratingCount}
-              onUpdated={(avg, count) => {
-                setRatingAvg(avg);
-                setRatingCount(count);
-              }}
-            />
-
-            {pharmacy.titular_public !== false && pharmacy.titular_name?.trim() ? (
-              <PharmacyPublicInfoBlock title={pharmacy.titular_title?.trim() || "Pharmacien titulaire"}>
-                <p className="text-[12px] font-semibold text-foreground">{pharmacy.titular_name.trim()}</p>
-              </PharmacyPublicInfoBlock>
-            ) : null}
-
-            <PharmacyPublicInfoBlock title="Services en officine">
-              {servicesOffered.length > 0 ? (
-                <ul className="flex flex-wrap gap-1.5">
-                  {servicesOffered.map((s) => (
-                    <li
-                      key={s.id}
-                      className="rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-medium text-emerald-950"
-                    >
-                      {s.label_fr}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-[11px] text-muted-foreground">Liste non renseignée par l&apos;officine.</p>
-              )}
-            </PharmacyPublicInfoBlock>
-          </div>
+          <PharmacyPublicInfoTab
+            pharmacy={pharmacy}
+            contactItems={contactItems}
+            servicesOffered={servicesOffered}
+            ratingAvg={ratingAvg}
+            ratingCount={ratingCount}
+            onRatingUpdated={(avg, count) => {
+              setRatingAvg(avg);
+              setRatingCount(count);
+            }}
+          />
         ) : null}
       </div>
 

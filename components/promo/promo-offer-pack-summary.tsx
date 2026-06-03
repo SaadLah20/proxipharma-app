@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { clsx } from "clsx";
-import { Gift, Package, Sparkles } from "lucide-react";
+import { Gift, Package } from "lucide-react";
 import {
   CatalogProductPhotoThumb,
   PatientProductPhotoPreviewModal,
@@ -10,6 +10,8 @@ import {
 } from "@/components/requests/patient-product-photo-preview-modal";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { computePromoPackTotals, formatDh, type PromoLineWithPrice } from "@/lib/promo/pricing";
+
+type PackSummaryVariant = "compact" | "default" | "detail" | "public";
 
 export function PromoOfferPackSummary({
   lines,
@@ -21,37 +23,41 @@ export function PromoOfferPackSummary({
   discountPercent: number;
   /** @deprecated Préférer `variant="compact"` */
   compact?: boolean;
-  variant?: "compact" | "default" | "detail";
+  variant?: PackSummaryVariant;
 }) {
   const [preview, setPreview] = useState<CatalogProductPhotoPreview | null>(null);
-  const resolvedVariant = compact && variant === "default" ? "compact" : variant;
+  const resolvedVariant: PackSummaryVariant = compact && variant === "default" ? "compact" : variant;
   const products = lines.filter((l) => l.line_kind === "product");
   const gifts = lines.filter((l) => l.line_kind === "gift");
   const { subtotal, discount, total } = computePromoPackTotals(lines, discountPercent);
 
+  const isPublic = resolvedVariant === "public";
   const isDetail = resolvedVariant === "detail";
   const isCompact = resolvedVariant === "compact";
+  const isRich = isDetail;
 
   return (
     <>
-      <div className={clsx(isCompact ? "space-y-2 text-xs" : isDetail ? "space-y-4" : "space-y-3 text-sm")}>
+      <div
+        className={clsx(
+          isCompact || isPublic ? "space-y-2 text-xs" : isDetail ? "space-y-4" : "space-y-3 text-sm"
+        )}
+      >
         {products.length > 0 ? (
-          <div>
-            <p
-              className={clsx(
-                "font-bold uppercase tracking-wide text-muted-foreground",
-                isDetail ? "text-[11px]" : "text-[10px]"
-              )}
-            >
-              Produits du pack
-            </p>
-            <ul className={clsx("mt-2", isDetail ? "grid gap-2 sm:grid-cols-2" : "space-y-1.5")}>
+          <section>
+            <SectionHeading
+              icon={Package}
+              label={isPublic ? "Produits" : "Produits du pack"}
+              variant={resolvedVariant}
+              tone="emerald"
+            />
+            <ul className={clsx("mt-1", isRich ? "grid gap-2.5 sm:grid-cols-2" : "space-y-1")}>
               {products.map((l, i) => (
                 <li
                   key={l.id || i}
                   className={clsx(
-                    "flex items-center gap-2.5",
-                    isDetail && "rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-sm"
+                    "flex items-start gap-2",
+                    isRich && "rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-sm"
                   )}
                 >
                   <ProductThumb
@@ -61,81 +67,84 @@ export function PromoOfferPackSummary({
                     onPreview={setPreview}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className={clsx("font-semibold text-foreground", isDetail && "text-sm leading-snug")}>
+                    <p
+                      className={clsx(
+                        "font-medium leading-snug text-foreground [overflow-wrap:anywhere]",
+                        isDetail ? "text-sm" : "text-[11px]"
+                      )}
+                    >
                       {l.product_name}
                     </p>
-                    <p className={clsx("text-muted-foreground", isDetail ? "text-xs" : "text-[11px]")}>
-                      Quantité × {l.quantity}
-                      {l.price_pph != null && !isCompact ? (
-                        <span className="tabular-nums"> · {formatDh(l.price_pph * l.quantity)} indicatif</span>
+                    <p className="mt-0.5 text-[10px] leading-snug tabular-nums text-muted-foreground">
+                      <span className="font-semibold text-foreground/80">× {l.quantity}</span>
+                      {l.price_pph != null ? (
+                        <span className="block sm:inline">
+                          <span className="hidden sm:inline"> · </span>
+                          {formatDh(l.price_pph * l.quantity)}
+                        </span>
                       ) : null}
                     </p>
                   </div>
                 </li>
               ))}
             </ul>
-          </div>
+          </section>
         ) : null}
 
         {gifts.length > 0 ? (
-          <div
+          <section
             className={clsx(
-              isDetail &&
+              isPublic && "rounded-lg border border-amber-200/70 bg-amber-50/50 px-2 py-1.5",
+              isRich &&
                 "rounded-xl border-2 border-amber-300/80 bg-gradient-to-br from-amber-50 via-orange-50/90 to-amber-100/60 p-3 shadow-sm ring-1 ring-amber-200/60"
             )}
           >
-            <div className="flex items-center gap-2">
-              <span
-                className={clsx(
-                  "inline-flex items-center justify-center rounded-full bg-amber-500 text-white shadow-sm",
-                  isDetail ? "size-8" : "size-6"
-                )}
-              >
-                <Gift className={isDetail ? "size-4" : "size-3.5"} aria-hidden />
-              </span>
-              <div>
-                <p
-                  className={clsx(
-                    "font-bold uppercase tracking-wide text-amber-950",
-                    isDetail ? "text-xs" : "text-[10px]"
-                  )}
-                >
-                  Cadeaux offerts
-                </p>
-                {isDetail ? (
-                  <p className="text-[11px] text-amber-900/80">Inclus dans ce pack sans supplément</p>
-                ) : null}
-              </div>
-              {isDetail ? <Sparkles className="ml-auto size-5 text-amber-600/70" aria-hidden /> : null}
-            </div>
-            <ul className={clsx("mt-2.5", isDetail ? "space-y-2" : "mt-1 space-y-1")}>
+            <SectionHeading icon={Gift} label="Cadeaux" variant={resolvedVariant} tone="amber" />
+            <ul className={clsx("mt-1", isRich ? "space-y-2" : "space-y-1")}>
               {gifts.map((l, i) => (
                 <li
                   key={l.id || `g-${i}`}
                   className={clsx(
-                    "flex items-center gap-2.5 font-medium text-amber-950",
-                    isDetail && "rounded-lg border border-amber-200/70 bg-white/70 px-2.5 py-2"
+                    "flex items-start gap-2 text-amber-950",
+                    isRich && "rounded-lg border border-amber-200/70 bg-white/70 px-2.5 py-2 font-medium"
                   )}
                 >
-                  {isDetail ? (
-                    <ProductThumb
-                      photoUrl={l.photo_url}
-                      productLabel={l.product_name ?? l.label ?? "Cadeau"}
-                      variant="detail"
-                      gift
-                      onPreview={setPreview}
-                    />
+                  {isPublic || isRich ? (
+                    <>
+                      <ProductThumb
+                        photoUrl={l.photo_url}
+                        productLabel={l.product_name ?? l.label ?? "Cadeau"}
+                        variant={resolvedVariant}
+                        gift
+                        onPreview={setPreview}
+                      />
+                      <span
+                        className={clsx(
+                          "min-w-0 flex-1 leading-snug [overflow-wrap:anywhere]",
+                          isDetail ? "text-sm" : "text-[11px]"
+                        )}
+                      >
+                        {l.product_name ?? l.label}
+                        {l.quantity > 1 ? (
+                          <span className="mt-0.5 block text-[10px] font-semibold tabular-nums text-amber-800/90">
+                            × {l.quantity}
+                          </span>
+                        ) : null}
+                      </span>
+                    </>
                   ) : (
-                    <Gift className="size-3.5 shrink-0" aria-hidden />
+                    <>
+                      <Gift className="size-3.5 shrink-0" aria-hidden />
+                      <span>
+                        {l.product_name ?? l.label}
+                        {l.quantity > 1 ? ` × ${l.quantity}` : ""}
+                      </span>
+                    </>
                   )}
-                  <span className={clsx(isDetail && "text-sm leading-snug")}>
-                    {l.product_name ?? l.label}
-                    {l.quantity > 1 ? ` × ${l.quantity}` : ""}
-                  </span>
                 </li>
               ))}
             </ul>
-          </div>
+          </section>
         ) : null}
 
         {subtotal > 0 ? (
@@ -144,20 +153,22 @@ export function PromoOfferPackSummary({
               "tabular-nums",
               isDetail
                 ? "rounded-xl border border-emerald-200/80 bg-emerald-50/50 px-3 py-2.5 text-sm"
-                : "rounded-lg bg-muted/25 px-2.5 py-2 text-[11px]"
+                : "rounded-lg bg-muted/25 px-2 py-1.5 text-[11px]"
             )}
           >
-            <p className="flex justify-between">
-              <span className="text-muted-foreground">Prix indicatif</span>
-              <span>{formatDh(subtotal)}</span>
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="shrink-0 text-muted-foreground">Sous-total</span>
+              <span className="text-right tabular-nums">{formatDh(subtotal)}</span>
             </p>
-            <p className="flex justify-between text-emerald-800">
-              <span>Remise −{discountPercent} %</span>
-              <span>−{formatDh(discount)}</span>
+            <p className="flex items-baseline justify-between gap-3 text-emerald-800">
+              <span className="shrink-0">Remise −{discountPercent} %</span>
+              <span className="text-right tabular-nums">−{formatDh(discount)}</span>
             </p>
-            <p className="flex justify-between border-t border-border/50 pt-1 font-bold">
-              <span>Total pack</span>
-              <span>{formatDh(total)}</span>
+            <p className="flex items-baseline justify-between gap-3 border-t border-border/50 pt-1 font-bold text-foreground">
+              <span className="min-w-0 shrink leading-snug">
+                {isPublic || isDetail ? "Prix du pack" : "Total pack"}
+              </span>
+              <span className="shrink-0 text-right tabular-nums">{formatDh(total)}</span>
             </p>
           </div>
         ) : null}
@@ -172,6 +183,42 @@ export function PromoOfferPackSummary({
   );
 }
 
+function SectionHeading({
+  icon: Icon,
+  label,
+  variant,
+  tone,
+}: {
+  icon: typeof Package;
+  label: string;
+  variant: PackSummaryVariant;
+  tone: "emerald" | "amber";
+}) {
+  if (variant === "public" || variant === "compact" || variant === "default") {
+    return (
+      <p
+        className={clsx(
+          "text-[10px] font-bold uppercase tracking-wide",
+          tone === "amber" ? "text-amber-900/90" : "text-muted-foreground"
+        )}
+      >
+        {label}
+      </p>
+    );
+  }
+
+  const iconWrap = tone === "amber" ? "bg-amber-500 text-white" : "bg-muted text-muted-foreground";
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className={clsx("inline-flex size-7 items-center justify-center rounded-full shadow-sm", iconWrap)}>
+        <Icon className="size-3.5" aria-hidden />
+      </span>
+      <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
 function ProductThumb({
   photoUrl,
   productLabel,
@@ -181,22 +228,23 @@ function ProductThumb({
 }: {
   photoUrl?: string | null;
   productLabel: string;
-  variant: "compact" | "default" | "detail";
+  variant: PackSummaryVariant;
   gift?: boolean;
   onPreview: (preview: CatalogProductPhotoPreview) => void;
 }) {
   const url = resolvePublicMediaUrl(photoUrl ?? null);
-  const size = variant === "detail" ? 52 : variant === "compact" ? 32 : 40;
+  const size = variant === "public" ? 40 : variant === "detail" ? 52 : variant === "compact" ? 32 : 40;
+  const objectFit = variant === "public" ? "contain" : "cover";
   if (!url) {
     return (
       <span
         className={clsx(
-          "flex shrink-0 items-center justify-center rounded-md",
-          gift ? "bg-amber-100 text-amber-800" : "bg-muted text-muted-foreground"
+          "flex shrink-0 items-center justify-center rounded-lg",
+          gift ? "bg-amber-100 text-amber-800" : variant === "public" ? "bg-emerald-50 text-emerald-700" : "bg-muted text-muted-foreground"
         )}
         style={{ width: size, height: size }}
       >
-        {gift ? <Gift className="size-4" aria-hidden /> : <Package className="size-3.5" aria-hidden />}
+        {gift ? <Gift className="size-5" aria-hidden /> : <Package className="size-4" aria-hidden />}
       </span>
     );
   }
@@ -205,7 +253,9 @@ function ProductThumb({
       imageUrl={url}
       title={productLabel}
       size={size}
-      imageClassName={variant === "detail" ? "border-amber-200/60" : undefined}
+      objectFit={objectFit}
+      className={variant === "public" ? "rounded-md" : undefined}
+      imageClassName={gift ? "border-amber-200/60" : undefined}
       onPreview={onPreview}
     />
   );
