@@ -23,7 +23,7 @@ export type PharmacistValidatedBucketGroup<T extends PatientLineLike> = {
   collapsible?: boolean;
 };
 
-function monetaryTotalsForRetainedLines(
+export function monetaryTotalsForRetainedLines(
   rows: PatientLineLike[],
   requestStatus: string,
   pricingConfig?: PharmacyPricingConfig | null

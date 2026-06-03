@@ -6,7 +6,6 @@ import { Info, MessageCircle, Phone, User } from "lucide-react";
 import { PatientProductRequestJourneyModal } from "@/components/requests/product/patient-product-request-journey-modal";
 import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
 import { requestStatusBadgeClass, requestStatusFr } from "@/lib/request-display";
-import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { uiDossierHeaderShell } from "@/lib/ui-surfaces";
 import { uiActionBtnCompactOutline } from "@/lib/ui-action-buttons";
 
@@ -40,7 +39,7 @@ export function PharmacistProductRequestDossierHeader({
 
   return (
     <>
-      <header className={clsx(uiDossierHeaderShell, "ring-1", t.accentLine)}>
+      <header className={uiDossierHeaderShell}>
         <div className="border-b border-border px-3 py-2 sm:px-3.5">
           <DossierHeaderRequestLine
             kindLabel="Demande"

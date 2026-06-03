@@ -19,7 +19,11 @@ import {
   patientHubListActiveFiltersSummary,
   patientHubListHasActiveFilters,
 } from "@/lib/patient-request-hub-list-filters";
-import { hubListFilterChrome as filterChrome } from "@/lib/hub-list-filter-chrome";
+import {
+  hubListFilterChrome as filterChrome,
+  hubListFiltersPanelExpanded,
+  hubListHasManualFilters,
+} from "@/lib/hub-list-filter-chrome";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { PageShell } from "@/components/ui/compact-shell";
 import { bucketForStatusParam } from "@/lib/demandes-hub-buckets";
@@ -87,6 +91,14 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     next.delete("section");
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   }, [tab, searchParams, router, hubPath]);
+
+  useEffect(() => {
+    if (searchParams.get("filtres") !== "0") return;
+    setFiltersExpandedUser(false);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("filtres");
+    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
+  }, [searchParams, hubPath, router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -224,8 +236,17 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     [activeBucket, pharmacyFilterLabel, refQuery, sortNewestFirst]
   );
 
-  const filtersAutoExpand = tab === "list" && (Boolean(listStatutParam) || listHasActiveFilters);
-  const filtersPanelExpanded = filtersExpandedUser ?? filtersAutoExpand;
+  const hasManualListFilters = hubListHasManualFilters({
+    entityFilter: pharmacyFilter,
+    referenceQuery: refQuery,
+    sortNewestFirst,
+  });
+  const filtersPanelExpanded = hubListFiltersPanelExpanded({
+    tabIsList: tab === "list",
+    listStatutParam,
+    hasManualFilters: hasManualListFilters,
+    filtersExpandedUser,
+  });
 
   const clearListFilters = () => {
     setPharmacyFilter("");
@@ -357,7 +378,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
             <h2 className="text-sm font-bold text-foreground">{listTabLabel}</h2>
             <button
               type="button"
-              onClick={() => setFiltersExpandedUser(!(filtersExpandedUser ?? filtersAutoExpand))}
+              onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
               className={filterBtn}
             >
               {filtersPanelExpanded ? "Masquer les filtres" : "Filtres"}

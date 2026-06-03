@@ -581,7 +581,7 @@ function pickDefaultBranch(row: ActionItemRow, alts: ActionItemAltRow[]): LineBr
   return null;
 }
 
-function computeSelFromConfirmedItems(items: ActionItemRow[]): Record<string, LineSelState> {
+export function computeSelFromConfirmedItems(items: ActionItemRow[]): Record<string, LineSelState> {
   const next: Record<string, LineSelState> = {};
   for (const row of items) {
     const alts = normalizeAlternatives(row.request_item_alternatives);
@@ -601,7 +601,7 @@ function computeSelFromConfirmedItems(items: ActionItemRow[]): Record<string, Li
   return next;
 }
 
-function computeSelFromItems(items: ActionItemRow[]): Record<string, LineSelState> {
+export function computeSelFromItems(items: ActionItemRow[]): Record<string, LineSelState> {
   const next: Record<string, LineSelState> = {};
   for (const row of items) {
     const alts = normalizeAlternatives(row.request_item_alternatives);

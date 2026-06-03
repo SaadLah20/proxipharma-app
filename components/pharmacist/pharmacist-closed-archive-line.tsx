@@ -14,7 +14,10 @@ import {
   validatedProductLabel,
   validatedQtyForPatientLine,
 } from "@/lib/patient-confirmed-line-buckets";
-import { patientClosedArchiveClosureLabelFr } from "@/lib/patient-closed-archive-line-buckets";
+import {
+  patientClosedArchiveClosureLabelFr,
+  type PatientClosedArchiveLineBucketId,
+} from "@/lib/patient-closed-archive-line-buckets";
 import {
   buildPatientValidatedLineLabelsFr,
   validatedOriginLabelPharmacistFr,
@@ -135,9 +138,12 @@ export function PharmacistClosedArchiveValidatedLine({
   onMenuHistory,
   postConfirmAmendmentBadges,
   onPhotoPreview,
+  archiveClosureLabel,
 }: {
   row: PatientLineLike;
-  archiveBucket: "recuperes" | "autres_retenus" | "ecartes";
+  archiveBucket: PatientClosedArchiveLineBucketId;
+  /** Surcharge libellé clôture (archive figée validée / traitée). */
+  archiveClosureLabel?: string | null;
   requestType: string;
   supplyAmendmentBundles: { amendments: unknown }[];
   pharmacistProposedBadgeLabel: string;
@@ -155,13 +161,18 @@ export function PharmacistClosedArchiveValidatedLine({
   onPhotoPreview?: (url: string, title: string) => void;
 }) {
   const supplyTier = supplyTierForClosedArchiveRow(row);
-  const closureRaw = patientClosedArchiveClosureLabelFr(row);
-  const archiveClosureLabel =
-    archiveBucket === "recuperes" && closureRaw === "Récupéré"
-      ? null
-      : archiveBucket === "ecartes" && (closureRaw === "Retiré" || closureRaw === "Non récupéré")
+  const closureRaw =
+    archiveClosureLabel !== undefined
+      ? archiveClosureLabel
+      : patientClosedArchiveClosureLabelFr(row);
+  const closureForLabels =
+    archiveClosureLabel !== undefined
+      ? closureRaw
+      : archiveBucket === "recuperes" && closureRaw === "Récupéré"
         ? null
-        : closureRaw;
+        : archiveBucket === "ecartes" && (closureRaw === "Retiré" || closureRaw === "Non récupéré")
+          ? null
+          : closureRaw;
   const validatedLineLabels = buildPatientValidatedLineLabelsFr({
     row,
     originLabel: validatedOriginLabelPharmacistFr({
@@ -171,7 +182,7 @@ export function PharmacistClosedArchiveValidatedLine({
       prescriptionBadge,
     }),
     supplyAmendmentBundles,
-    archiveClosureLabel,
+    archiveClosureLabel: closureForLabels,
     treatedLineLabels: true,
     sectionBucket: supplyTier,
     labelAudience: "pharmacist",

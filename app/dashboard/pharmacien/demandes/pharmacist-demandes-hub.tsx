@@ -18,7 +18,11 @@ import {
   pharmacistHubListActiveFiltersSummary,
   pharmacistHubListHasActiveFilters,
 } from "@/lib/pharmacist-request-hub-list-filters";
-import { hubListFilterChrome as filterChrome } from "@/lib/hub-list-filter-chrome";
+import {
+  hubListFilterChrome as filterChrome,
+  hubListFiltersPanelExpanded,
+  hubListHasManualFilters,
+} from "@/lib/hub-list-filter-chrome";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { PageShell } from "@/components/ui/compact-shell";
 import { bucketForStatusParam } from "@/lib/demandes-hub-buckets";
@@ -53,6 +57,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
     if (t === "dashboard") {
       next.delete("statut");
       next.delete("section");
+      setFiltersExpandedUser(null);
     }
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
@@ -83,6 +88,14 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
     next.delete("section");
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   }, [tab, searchParams, router, hubPath]);
+
+  useEffect(() => {
+    if (searchParams.get("filtres") !== "0") return;
+    setFiltersExpandedUser(false);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("filtres");
+    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
+  }, [searchParams, hubPath, router]);
 
   const load = useCallback(async () => {
     setError("");
@@ -269,8 +282,17 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
     [activeBucket, patientFilterLabel, refQuery, sortNewestFirst]
   );
 
-  const filtersAutoExpand = tab === "list" && (Boolean(listStatutParam) || listHasActiveFilters);
-  const filtersPanelExpanded = filtersExpandedUser ?? filtersAutoExpand;
+  const hasManualListFilters = hubListHasManualFilters({
+    entityFilter: patientFilter,
+    referenceQuery: refQuery,
+    sortNewestFirst,
+  });
+  const filtersPanelExpanded = hubListFiltersPanelExpanded({
+    tabIsList: tab === "list",
+    listStatutParam,
+    hasManualFilters: hasManualListFilters,
+    filtersExpandedUser,
+  });
 
   const clearListFilters = () => {
     setPatientFilter("");
@@ -404,7 +426,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
             <h2 className="text-sm font-bold text-foreground">{listTabLabel}</h2>
             <button
               type="button"
-              onClick={() => setFiltersExpandedUser(!(filtersExpandedUser ?? filtersAutoExpand))}
+              onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
               className={filterBtn}
             >
               {filtersPanelExpanded ? "Masquer les filtres" : "Filtres"}
