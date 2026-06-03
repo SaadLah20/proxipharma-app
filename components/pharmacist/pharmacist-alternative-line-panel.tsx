@@ -2,7 +2,10 @@
 
 import { clsx } from "clsx";
 import { Layers, Package, Trash2 } from "lucide-react";
-import { ProductRequestLineQtyPicker } from "@/components/pharmacy/patient-demande-produits-ui";
+import {
+  ProductRequestLineQtyPicker,
+  ProductRequestLineQtyReadonly,
+} from "@/components/pharmacy/patient-demande-produits-ui";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
 import { formatPharmacyCatalogPrice } from "@/lib/product-price";
@@ -43,6 +46,7 @@ export function PharmacistAlternativeLinePanel({
   patientChoseThis,
   showIndicatif,
   useQtyPicker = false,
+  readOnly = false,
 }: {
   alt: PharmacistAltLineRow;
   qtyValue: string;
@@ -56,6 +60,8 @@ export function PharmacistAlternativeLinePanel({
   showIndicatif?: boolean;
   /** Liste 1–10 (parcours demande produits envoyée). */
   useQtyPicker?: boolean;
+  /** Réponse publiée : consultation sans retrait ni changement de qté. */
+  readOnly?: boolean;
 }) {
   const altProd = one(alt.products);
   const altName = altProd?.name ?? "Alternative";
@@ -112,26 +118,36 @@ export function PharmacistAlternativeLinePanel({
                 </span>
               ) : null}
             </div>
-            <button
-              type="button"
-              disabled={removeBusy}
-              onClick={onRemove}
-              title="Retirer cette alternative"
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-rose-200/80 bg-rose-50/80 px-2 py-1.5 text-[9px] font-semibold text-rose-800 hover:bg-rose-100 disabled:opacity-50"
-            >
-              <Trash2 className="size-3.5" aria-hidden />
-              Retirer
-            </button>
+            {!readOnly ? (
+              <button
+                type="button"
+                disabled={removeBusy}
+                onClick={onRemove}
+                title="Retirer cette alternative"
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-rose-200/80 bg-rose-50/80 px-2 py-1.5 text-[9px] font-semibold text-rose-800 hover:bg-rose-100 disabled:opacity-50"
+              >
+                <Trash2 className="size-3.5" aria-hidden />
+                Retirer
+              </button>
+            ) : null}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="text-[9px] font-medium text-muted-foreground">Qté proposée</span>
             {useQtyPicker ? (
-              <ProductRequestLineQtyPicker
-                qty={Math.min(10, Math.max(1, Number.parseInt(qtyValue, 10) || 1))}
-                disabled={qtyBusy}
-                maxQty={10}
-                onSelect={(n) => onQtyChange(String(n))}
-              />
+              readOnly ? (
+                <ProductRequestLineQtyReadonly
+                  qty={Math.min(10, Math.max(1, Number.parseInt(qtyValue, 10) || 1))}
+                  appearance="neutral"
+                />
+              ) : (
+                <ProductRequestLineQtyPicker
+                  qty={Math.min(10, Math.max(1, Number.parseInt(qtyValue, 10) || 1))}
+                  disabled={qtyBusy}
+                  maxQty={10}
+                  appearance="neutral"
+                  onSelect={(n) => onQtyChange(String(n))}
+                />
+              )
             ) : (
               <>
                 <div className="inline-flex h-8 items-center overflow-hidden rounded-lg border border-teal-300/70 bg-white shadow-sm">

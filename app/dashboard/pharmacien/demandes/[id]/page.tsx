@@ -4511,8 +4511,9 @@ export default function PharmacienDemandeDetailPage() {
   const showBottomActionSticky = showDeclareTreatedSticky || showCloseCounterSticky;
 
   const isProductRequest = request.request_type === "product_request";
+  /** Demande produits : même cartes/onglets que « envoyée », y compris `responded` (consultation ou édition). */
   const isProductRequestSent =
-    isProductRequest && ["submitted", "in_review"].includes(request.status);
+    isProductRequest && ["submitted", "in_review", "responded"].includes(request.status);
   const hideMainRequestHeader =
     usesLineWorkflow &&
     (["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status) ||
@@ -4948,6 +4949,14 @@ export default function PharmacienDemandeDetailPage() {
             </div>
           </div>
               )}
+          {hideMainRequestHeader &&
+          isProductRequest &&
+          displayRows.length > 0 &&
+          !showClosedBucketsLayout ? (
+            <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground sm:text-xs">
+              Produits demandés
+            </h2>
+          ) : null}
           <div
             className={clsx(
               "flex flex-col",
@@ -5001,9 +5010,17 @@ export default function PharmacienDemandeDetailPage() {
               const lineLockedTrace = co === "cancelled_at_counter";
               const canEditThisRow = showLineAndPublishEdits && !lineLockedTrace && !archiveFrozen;
               const rowAlts = normalizeAlts(row.request_item_alternatives);
-              const showVariantTabs = showLineAndPublishEdits && canEditThisRow && !lineLockedTrace;
+              const showVariantTabs =
+                (isProductRequestSent &&
+                  !lineLockedTrace &&
+                  (respondedFrozenView || (showLineAndPublishEdits && canEditThisRow))) ||
+                (showLineAndPublishEdits && canEditThisRow && !lineLockedTrace && !isProductRequestSent);
               const storedAltTab: PharmacistLineAltTabId = lineAltTabByRowId[row.id] ?? "principal";
-              const activeAltTab: PharmacistLineAltTabId = showVariantTabs ? storedAltTab : "principal";
+              const activeAltTab: PharmacistLineAltTabId = showVariantTabs
+                ? respondedFrozenView && storedAltTab === PHARMACIST_ALT_TAB_ADD
+                  ? "principal"
+                  : storedAltTab
+                : "principal";
               const showAltPicker = showVariantTabs && activeAltTab === PHARMACIST_ALT_TAB_ADD;
               const showPrincipalVariant = !showAltPicker && activeAltTab === "principal";
               const activeAltRow =
@@ -5632,7 +5649,7 @@ export default function PharmacienDemandeDetailPage() {
                             resetAltPicker(row.id);
                           }
                         }}
-                        canAddAlt={rowAlts.length < 3}
+                        canAddAlt={canEditThisRow && rowAlts.length < 3}
                         onAddAlt={() => {
                           setLineAltTabByRowId((prev) => ({ ...prev, [row.id]: PHARMACIST_ALT_TAB_ADD }));
                           setAltPickerOpenFor(row.id);
@@ -5899,7 +5916,7 @@ export default function PharmacienDemandeDetailPage() {
                         </p>
                       ) : null}
                     </div>
-                  ) : showLineAndPublishEdits ? (
+                  ) : showLineAndPublishEdits || (isProductRequestSent && respondedFrozenView) ? (
                     isProductRequestSent ? (
                       (() => {
                         const sentQty = pharmacistSentProductLineQtyUi({
@@ -6175,6 +6192,7 @@ export default function PharmacienDemandeDetailPage() {
                   {!showAltPicker && activeAltRow ? (
                     <PharmacistAlternativeLinePanel
                       alt={activeAltRow}
+                      readOnly={!canEditThisRow}
                       useQtyPicker={isProductRequestSent}
                       qtyBusy={altBusyRow === activeAltRow.id}
                       qtyValue={
@@ -6563,7 +6581,34 @@ export default function PharmacienDemandeDetailPage() {
             </section>
           ) : null}
 
-          {respondedFrozenView ? (
+          {respondedFrozenView && isProductRequest ? (
+            <section className="mx-auto mt-3 w-full max-w-md">
+              <button
+                type="button"
+                onClick={() => {
+                  resetDraftFromRows();
+                  setPendingProposalRows([]);
+                  setPendingAlternatives([]);
+                  setRespondedEditMode(true);
+                  setError("");
+                  window.setTimeout(() => {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }, 0);
+                }}
+                className={uiActionBtnFull(
+                  "min-h-[3rem] rounded-2xl text-sm font-bold tracking-tight shadow-md hover:shadow-lg sm:text-base"
+                )}
+              >
+                <span className="inline-flex items-center justify-center gap-2">
+                  <Pencil className="size-[15px] shrink-0" strokeWidth={2} aria-hidden />
+                  Modifier la réponse
+                </span>
+              </button>
+              <p className="mt-2 text-center text-[10px] leading-snug text-muted-foreground">
+                Consultation libre des lignes et alternatives · édition après ce bouton.
+              </p>
+            </section>
+          ) : respondedFrozenView ? (
             <section className="mt-3">
               <button
                 type="button"
