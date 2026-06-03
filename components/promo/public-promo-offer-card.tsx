@@ -125,23 +125,26 @@ function PublicPromoOfferBanner({
 export function PublicPromoOfferCard({
   offer,
   pharmacyId,
-  session,
+  session = null,
   existingReservationId,
   onReserve,
   expanded = true,
   collapsible = false,
   onToggle,
+  previewMode = false,
 }: {
   offer: PublicPromoOfferBundle;
   pharmacyId: string;
-  session: boolean | null;
+  session?: boolean | null;
   existingReservationId?: string;
-  onReserve: () => void;
+  onReserve?: () => void;
   /** Corps visible (détail + bouton). */
   expanded?: boolean;
   /** Bandeau cliquable pour replier / déplier. */
   collapsible?: boolean;
   onToggle?: () => void;
+  /** Aperçu pharmacien : pas d’actions patient, bouton factice. */
+  previewMode?: boolean;
 }) {
   const metaLines = promoPackMetaLines(offer.lines);
   const showBody = expanded || !collapsible;
@@ -186,7 +189,19 @@ export function PublicPromoOfferCard({
       <div className="space-y-2.5 p-3">
         <PromoOfferPackSummary lines={offer.lines} discountPercent={offer.discount_percent} variant="public" />
 
-        {session === false ? (
+        {previewMode ? (
+          <>
+            <div
+              className="flex w-full cursor-default items-center justify-center rounded-xl bg-primary py-2.5 text-sm font-bold text-primary-foreground"
+              aria-hidden
+            >
+              Réserver ce pack
+            </div>
+            <p className="text-center text-[10px] text-muted-foreground">
+              Visible par les patients connectés sur la fiche publique
+            </p>
+          </>
+        ) : session === false ? (
           <Link
             href={`/auth?redirect=/pharmacie/${pharmacyId}`}
             className="flex w-full items-center justify-center rounded-xl bg-primary py-2.5 text-sm font-bold text-primary-foreground"

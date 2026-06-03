@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
-import { Gift, Package, Plus } from "lucide-react";
+import { Eye, Gift, Package, Plus } from "lucide-react";
+import { PublicPromoOfferPreviewModal } from "@/components/promo/public-promo-offer-preview-modal";
 import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
 import { platformDashboardChrome as chrome } from "@/lib/platform-dashboard-chrome";
@@ -19,6 +20,13 @@ import { MAX_PROMO_GIFT_LINES, MAX_PROMO_PRODUCT_LINES, type PromoOfferRow } fro
 import type { PromoCatalogProduct } from "@/lib/promo/catalog";
 import { usePharmacyPricing } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
+import {
+  buildPromoPreviewLines,
+  draftToPreviewOfferRow,
+  toPublicPromoOfferBundle,
+  type PromoOfferPreviewBundle,
+} from "@/lib/promo/build-offer-preview-bundle";
+import { fetchPromoOfferLinesByOfferIds } from "@/lib/promo/load-offer-lines";
 
 type LineState = PromoLineDraft & { _key: string; _name?: string };
 
@@ -47,6 +55,7 @@ export function PharmacyPromoOffersManager() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; tone: ScheduleToastTone }>({ message: "", tone: "info" });
+  const [previewBundle, setPreviewBundle] = useState<PromoOfferPreviewBundle | null>(null);
   const { resolve: resolveCatalogPrice } = usePharmacyPricing(pharmacyId ?? undefined);
 
   const showToast = (message: string, tone: ScheduleToastTone = "info") => setToast({ message, tone });
@@ -158,6 +167,29 @@ export function PharmacyPromoOffersManager() {
 
   const productCount = lines.filter((l) => l.line_kind === "product").length;
   const giftCount = lines.filter((l) => l.line_kind === "gift").length;
+
+  const openDraftPreview = () => {
+    if (!pharmacyId) return;
+    if (!offer.title.trim()) {
+      showToast("Ajoutez un titre pour l’aperçu.", "warning");
+      return;
+    }
+    const offerRow = draftToPreviewOfferRow(
+      pharmacyId,
+      editingId === "new" ? null : editingId,
+      offer
+    );
+    const pricedLines = buildPromoPreviewLines(lines, catalog);
+    setPreviewBundle(toPublicPromoOfferBundle(offerRow, pricedLines));
+  };
+
+  const openSavedPreview = async (o: PromoOfferRow) => {
+    if (!pharmacyId) return;
+    setBusy(true);
+    const linesMap = await fetchPromoOfferLinesByOfferIds([o.id]);
+    setBusy(false);
+    setPreviewBundle(toPublicPromoOfferBundle(o, linesMap.get(o.id) ?? []));
+  };
 
   const draftPreview = useMemo(() => {
     const priced = lines.map((l) => ({
@@ -325,6 +357,15 @@ export function PharmacyPromoOffersManager() {
                   <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border/60 pt-2">
                     <button
                       type="button"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 underline"
+                      disabled={busy}
+                      onClick={() => void openSavedPreview(o)}
+                    >
+                      <Eye className="size-3.5" aria-hidden />
+                      Visualiser
+                    </button>
+                    <button
+                      type="button"
                       className="text-xs font-semibold text-primary underline"
                       onClick={() => void startEdit(o.id)}
                     >
@@ -464,6 +505,15 @@ export function PharmacyPromoOffersManager() {
             ) : null}
 
             <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800"
+                onClick={openDraftPreview}
+              >
+                <Eye className="size-4" aria-hidden />
+                Visualiser
+              </button>
               <button type="button" disabled={busy} className="rounded-xl border px-3 py-2 text-sm font-bold" onClick={() => void persist(false)}>
                 Enregistrer brouillon
               </button>
@@ -487,6 +537,15 @@ export function PharmacyPromoOffersManager() {
         <Link href={`/pharmacie/${pharmacyId}`} className="inline-block text-sm font-medium text-emerald-800 underline">
           Voir la fiche publique
         </Link>
+      ) : null}
+
+      {pharmacyId ? (
+        <PublicPromoOfferPreviewModal
+          open={previewBundle !== null}
+          bundle={previewBundle}
+          pharmacyId={pharmacyId}
+          onClose={() => setPreviewBundle(null)}
+        />
       ) : null}
     </PageShell>
   );
