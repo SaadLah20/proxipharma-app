@@ -9,7 +9,7 @@ import {
   type PatientPharmacyContactInfo,
 } from "@/components/requests/product/patient-pharmacy-quick-contact";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
-import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
+import { requestKindUiTheme } from "@/lib/request-kind-ui-theme";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { uiActionBtnCompactOutline, uiActionBtnCompactPrimary } from "@/lib/ui-action-buttons";
 import { cn } from "@/lib/utils";
@@ -18,16 +18,19 @@ export function PatientPharmacyDossierBand({
   pharmacyContact,
   pharmacyId,
   dossierRefLabel,
+  requestType = "product_request",
   compact = false,
   className,
 }: {
   pharmacyContact: PatientPharmacyContactInfo | null;
   pharmacyId: string;
   dossierRefLabel: string;
+  requestType?: string | null;
   /** Bandeau réduit (carte récap envoyée). */
   compact?: boolean;
   className?: string;
 }) {
+  const t = requestKindUiTheme(requestType);
   const [contactOpen, setContactOpen] = useState(false);
   const phLabel = pharmacyContact?.nom?.trim()
     ? pharmacyPublicLabel(pharmacyContact.nom)

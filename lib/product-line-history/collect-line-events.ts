@@ -131,6 +131,10 @@ function amendEventPhase(kind: LineEventKind): LineHistoryPhase {
   return "preparation";
 }
 
+function originRequestedQtyLabel(ctx: ProductLineHistoryContext): string {
+  return ctx.requestType === "prescription" ? "Quantité prescrite" : "Quantité demandée";
+}
+
 function buildPatientRequestOriginLines(
   ctx: ProductLineHistoryContext,
   pname: string
@@ -141,7 +145,7 @@ function buildPatientRequestOriginLines(
   const patientOrigin = ctx.patientLineOriginLabel?.trim();
   if (patientOrigin) lines.push(patientOrigin);
   lines.push(`Produit : ${pname}`);
-  lines.push(`Quantité demandée : ${row.requested_qty}`);
+  lines.push(`${originRequestedQtyLabel(ctx)} : ${row.requested_qty}`);
   if (row.client_comment?.trim()) {
     lines.push(
       ph ? `Note patient : « ${row.client_comment.trim()} »` : `Votre note : « ${row.client_comment.trim()} »`
@@ -153,11 +157,15 @@ function buildPatientRequestOriginLines(
 function buildPharmacistProposedIntroLines(ctx: ProductLineHistoryContext, pname: string): string[] {
   const { row } = ctx;
   const lines: string[] = [];
-  const originLabel = ctx.pharmacistProposedOriginLabel ?? "Produit proposé par la pharmacie";
+  const originLabel =
+    ctx.requestType === "prescription"
+      ? ctx.patientLineOriginLabel?.trim() || "Ordonnance"
+      : ctx.pharmacistProposedOriginLabel ?? "Produit proposé par la pharmacie";
   lines.push(`${originLabel} : ${pname}`);
   const motif = row.pharmacist_proposal_reason?.trim();
   if (motif) lines.push(`Motif : ${motif}`);
-  lines.push(`Quantité proposée : ${row.requested_qty}`);
+  const qtyLabel = ctx.requestType === "prescription" ? "Quantité prescrite" : "Quantité proposée";
+  lines.push(`${qtyLabel} : ${row.requested_qty}`);
   return lines;
 }
 
@@ -217,7 +225,7 @@ function buildValidationKeptLines(ctx: ProductLineHistoryContext, pname: string)
 
 function buildValidationSkippedLines(ctx: ProductLineHistoryContext): string[] {
   const ph = ctx.audience === "pharmacist";
-  const journey = resolveProductLineJourney(ctx.row, ctx.supplyBundles);
+  const journey = resolveProductLineJourney(ctx.row, ctx.supplyBundles, ctx.requestType);
   if (journey === "pharmacist_proposed_in_response") {
     return ph
       ? ["Cette proposition n'entre pas dans la commande validée."]
@@ -376,7 +384,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
   const ph = ctx.audience === "pharmacist";
   const audience = ctx.audience;
   const viewerRole: HistoryViewerRole = ph ? "pharmacien" : "patient";
-  const journey = resolveProductLineJourney(row, ctx.supplyBundles);
+  const journey = resolveProductLineJourney(row, ctx.supplyBundles, ctx.requestType);
   const amendList = amendmentsForLine(row.id, ctx.supplyBundles);
   const histAsc = [...(ctx.dossierHistory ?? [])].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -389,7 +397,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
   const pname = principalProductName(row);
   const title = (kind: LineEventKind) => lineEventTitle(kind, audience, journey);
 
-  /** — Envoi (produit demandé par le patient uniquement) — */
+  /** — Envoi (demande produits : liste patient) — */
   if (journey === "patient_requested") {
     pushEvent(events, {
       kind: "origin_patient_request",
@@ -423,7 +431,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
   /** — Réponse officine — */
   if (journey !== "added_after_confirm" && ctx.requestRespondedAt) {
     const responseLines =
-      journey === "pharmacist_proposed_in_response"
+      journey === "pharmacist_proposed_in_response" || journey === "prescription_pharmacist_sourced"
         ? [...buildPharmacistProposedIntroLines(ctx, pname), ...buildPharmacistResponseLines(ctx, pname)]
         : buildPharmacistResponseLines(ctx, pname);
 

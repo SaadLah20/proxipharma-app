@@ -136,14 +136,14 @@ export function RequestKindHubDashboard({
           : "Toutes les demandes";
 
   const renderPatientCard = (row: PatientRequestRow, compact: boolean) =>
-    kindId === "product_request" ? (
+    kindId === "product_request" || kindId === "prescription" ? (
       <PatientProductDemandeHubCard row={row} compact={compact} conversationUnread={unreadById[row.id] === true} />
     ) : (
       <PatientDemandeCard row={row} variant="list" conversationUnread={unreadById[row.id] === true} />
     );
 
   const renderPharmaCard = (row: PharmacistRequestRow, compact: boolean) =>
-    kindId === "product_request" ? (
+    kindId === "product_request" || kindId === "prescription" ? (
       <PharmacistProductDemandeHubCard row={row} compact={compact} conversationUnread={unreadById[row.id] === true} />
     ) : (
       <PharmacistDemandeCard row={row} conversationUnread={unreadById[row.id] === true} />

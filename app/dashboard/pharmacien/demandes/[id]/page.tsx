@@ -65,7 +65,10 @@ import {
 } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import { getRequestKindWorkflowCopy } from "@/lib/request-kinds/workflow-copy";
-import { sharedShowPlannedVisitBlock } from "@/lib/request-kinds/shared-capabilities";
+import {
+  requestUsesProductLineWorkflow,
+  sharedShowPlannedVisitBlock,
+} from "@/lib/request-kinds/shared-capabilities";
 import { formatPlannedVisitFr } from "@/lib/datetime-fr";
 import { RequestDetailBackLink } from "@/components/requests/shared/request-detail-back-link";
 import { RequestKindHeader } from "@/components/requests/shared/request-kind-header";
@@ -3635,7 +3638,12 @@ export default function PharmacienDemandeDetailPage() {
     });
     setDeclareTreatedBusy(false);
     if (rpcErr) {
-      setError(rpcErr.message);
+      const raw = rpcErr.message ?? "";
+      setError(
+        /only product_request/i.test(raw)
+          ? "Impossible de déclarer traitée pour une ordonnance tant que la mise à jour Supabase du pilote n’est pas appliquée (20260703_002)."
+          : raw
+      );
       return;
     }
     setDeclareTreatedModalOpen(false);
@@ -4300,10 +4308,7 @@ export default function PharmacienDemandeDetailPage() {
     respondedEditMode,
     archiveFrozen,
   });
-  const usesLineWorkflow =
-    request?.request_type === "product_request" ||
-    request?.request_type === "prescription" ||
-    request?.request_type === "free_consultation";
+  const usesLineWorkflow = requestUsesProductLineWorkflow(request?.request_type);
   const showArchiveFrozenProducts = Boolean(
     request &&
       usesLineWorkflow &&
@@ -4463,6 +4468,7 @@ export default function PharmacienDemandeDetailPage() {
       dossierHistoryDetailParagraphs: pharmacistDossierHistoryDetailParagraphsFr,
       pharmacistProposedOriginLabel: getRequestKindWorkflowCopy(request.request_type).timelinePharmacistProposedOrigin,
       patientLineOriginLabel: getRequestKindWorkflowCopy(request.request_type).patientLineOriginLabel,
+      requestType: request.request_type,
       timelineAudience: "pharmacist",
     });
   }, [pharmaHistoryRowId, request, items, supplyAmendmentBundles, dossierHistoryTimeline]);
@@ -4612,6 +4618,9 @@ export default function PharmacienDemandeDetailPage() {
           thumbUrl={thumbUrl}
           statusLabel={statusLabel}
           lineKindLabel={lineKindLabel}
+          qtyLabel={
+            request.request_type === "prescription" ? "Qté prescrite" : "Qté demandée"
+          }
           lineMessageButton={lineMessageButton}
           onOpenHistory={onOpenHistory}
           onPhotoPreview={openProductPhotoPreview}
@@ -4883,6 +4892,8 @@ export default function PharmacienDemandeDetailPage() {
         <>
           <PharmacistProductRequestDossierHeader
             dossierRefLabel={displayRequestPublicRef(request) || formatShortId(request.id)}
+            kindLabel={kindConfig.copy.labelFr}
+            requestType={request.request_type}
             patientName={patientProfile?.full_name ?? null}
             patientRef={patientProfile?.patient_ref ?? null}
             patientPhone={patientPhone ?? null}
@@ -5187,6 +5198,24 @@ export default function PharmacienDemandeDetailPage() {
             <p className="mt-2 text-[11px] text-muted-foreground">Aucune ligne produit.</p>
           ) : showConsultationProductsPane ? (
             <>
+              {isPrescription && prescriptionPaths?.page1 && ordonnanceCatalogEditable ? (
+                <PrescriptionScanCollapsible
+                  id="prescription-scan-panel"
+                  className="mt-2"
+                  paths={prescriptionPaths}
+                  defaultOpen={ordonnanceLineCount === 0}
+                  viewerRole="pharmacien"
+                  prescriptionNote={prescriptionNote}
+                  ordonnanceQuickAdd={{
+                    lineCount: ordonnanceLineCount,
+                    onOpenAdd: () => {
+                      setError("");
+                      resetOrdonnanceQuickAddForm();
+                      setOrdonnanceQuickAddOpen(true);
+                    },
+                  }}
+                />
+              ) : null}
               {displayRows.length === 0 && isConsultation && showLineAndPublishEdits ? (
                 <p className="mt-2 text-[11px] text-muted-foreground">{workflowCopy.pharmacistEmptyLinesHint}</p>
               ) : null}
@@ -5224,22 +5253,37 @@ export default function PharmacienDemandeDetailPage() {
                 <span className="text-[10px] text-muted-foreground">{displayRows.length} article(s)</span>
               )}
               {ordonnanceCatalogEditable ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (canManageSupply) {
-                      openPostConfirmAddPreface("ordonnance");
-                    } else {
-                      setError("");
-                      resetOrdonnanceQuickAddForm();
-                      setOrdonnanceQuickAddOpen(true);
-                    }
-                  }}
-                  className="inline-flex min-h-9 items-center justify-center gap-1 rounded-lg border border-amber-400/75 bg-amber-50/80 px-2.5 py-1 text-[10px] font-bold text-amber-950 shadow-sm hover:bg-amber-100/80"
-                >
-                  <Plus className="size-3.5 shrink-0" aria-hidden />
-                  Ajouter
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById("prescription-scan-panel");
+                      if (el instanceof HTMLDetailsElement) {
+                        el.open = true;
+                        el.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }
+                    }}
+                    className="inline-flex min-h-9 items-center justify-center rounded-lg border border-amber-300/70 bg-white px-2.5 py-1 text-[10px] font-bold text-amber-950 shadow-sm hover:bg-amber-50/90"
+                  >
+                    Voir l&apos;ordonnance
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (canManageSupply) {
+                        openPostConfirmAddPreface("ordonnance");
+                      } else {
+                        setError("");
+                        resetOrdonnanceQuickAddForm();
+                        setOrdonnanceQuickAddOpen(true);
+                      }
+                    }}
+                    className="inline-flex min-h-9 items-center justify-center gap-1 rounded-lg border border-amber-400/75 bg-amber-50/80 px-2.5 py-1 text-[10px] font-bold text-amber-950 shadow-sm hover:bg-amber-100/80"
+                  >
+                    <Plus className="size-3.5 shrink-0" aria-hidden />
+                    Ajouter
+                  </button>
+                </>
               ) : null}
             </div>
           </div>
@@ -6755,29 +6799,14 @@ export default function PharmacienDemandeDetailPage() {
             </>
           ) : null}
 
-          {isPrescription && prescriptionPaths?.page1 ? (
+          {isPrescription && prescriptionPaths?.page1 && !ordonnanceCatalogEditable ? (
             <PrescriptionScanCollapsible
+              id="prescription-scan-panel"
               className="mt-3"
               paths={prescriptionPaths}
-              defaultOpen={Boolean(ordonnanceCatalogEditable && ordonnanceLineCount === 0)}
+              defaultOpen={false}
               viewerRole="pharmacien"
               prescriptionNote={prescriptionNote}
-              ordonnanceQuickAdd={
-                ordonnanceCatalogEditable
-                  ? {
-                      lineCount: ordonnanceLineCount,
-                      onOpenAdd: () => {
-                        if (canManageSupply) {
-                          openPostConfirmAddPreface("ordonnance");
-                        } else {
-                          setError("");
-                          resetOrdonnanceQuickAddForm();
-                          setOrdonnanceQuickAddOpen(true);
-                        }
-                      },
-                    }
-                  : undefined
-              }
             />
           ) : null}
 

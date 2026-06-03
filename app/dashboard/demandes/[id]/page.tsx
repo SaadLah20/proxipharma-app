@@ -12,7 +12,10 @@ import { DossierHistoryListFr } from "@/components/requests/dossier-history-list
 import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
-import { sharedShowPlannedVisitBlock } from "@/lib/request-kinds/shared-capabilities";
+import {
+  requestUsesProductLineWorkflow,
+  sharedShowPlannedVisitBlock,
+} from "@/lib/request-kinds/shared-capabilities";
 import { RequestDetailBackLink } from "@/components/requests/shared/request-detail-back-link";
 import { RequestKindHeader } from "@/components/requests/shared/request-kind-header";
 import { one } from "@/lib/embed";
@@ -426,10 +429,7 @@ export default function DemandeDetailPage() {
     );
   }
 
-  const usesLineWorkflow =
-    request.request_type === "product_request" ||
-    request.request_type === "prescription" ||
-    request.request_type === "free_consultation";
+  const usesLineWorkflow = requestUsesProductLineWorkflow(request.request_type);
   const activeLineStatuses = ["submitted", "in_review", "responded", "confirmed", "treated"] as const;
   const hasBottomActions =
     usesLineWorkflow && activeLineStatuses.includes(request.status as (typeof activeLineStatuses)[number]);

@@ -98,6 +98,7 @@ Cocher après test manuel sur branche **`fix/validated-supply-ecart-ui-modal`** 
 - [ ] Pharmacien : modification qté prescrite / dispo sur ligne existante.
 - [ ] Patient : lignes non retenues — libellé **proposé par la pharmacie**.
 - [ ] Patient : validation réponse ; post-validé (réservé, commande, comptoir) comme une demande produits.
+- [ ] Pharmacien : **Déclarer traitée** sur ordonnance validée (RPC `pharmacist_mark_request_treated` + migration **`20260703_002`**).
 - [ ] Aucune régression visible sur une **demande produits** du même compte.
 
 ### Consultation libre

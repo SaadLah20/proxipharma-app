@@ -138,6 +138,18 @@ export function pharmacistProductHubCardContextFr(row: PharmacistRequestRow): Ph
   switch (row.status) {
     case "submitted":
     case "in_review":
+      if (row.request_type === "prescription") {
+        return {
+          primaryLine: patientName
+            ? `${patientName} — ordonnance à saisir`
+            : "Ordonnance à saisir depuis le scan",
+          secondaryLine:
+            n > 0
+              ? `${n} produit${n !== 1 ? "s" : ""} saisi${n !== 1 ? "s" : ""} — compléter puis publier`
+              : "Ouvrir le scan, saisir les produits, publier la réponse",
+          emphasis: "urgent",
+        };
+      }
       return {
         primaryLine: patientName ? `${patientName} — ${n} ligne${n !== 1 ? "s" : ""}` : `${n} ligne${n !== 1 ? "s" : ""} à traiter`,
         secondaryLine: "Répondre au patient ou compléter la saisie",

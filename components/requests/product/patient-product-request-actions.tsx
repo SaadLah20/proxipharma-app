@@ -170,6 +170,8 @@ import { getRequestKindWorkflowCopy } from "@/lib/request-kinds/workflow-copy";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindAccent } from "@/lib/request-kinds/types";
 import { productRequestPublicTheme as productRequestTheme } from "@/lib/request-kinds/product-request-public-theme";
+import { requestKindUiTheme } from "@/lib/request-kind-ui-theme";
+import { archiveClosedQtyLabelFr, validatedOriginFallbackPatientFr } from "@/lib/prescription-ui-copy";
 import { uiSecondaryLabel } from "@/lib/ui-label-styles";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { PlannedVisitTimeInput } from "@/components/requests/planned-visit-time-input";
@@ -523,7 +525,7 @@ function PatientTraceNotRetainedRow({
           <div className="flex w-full items-end justify-between gap-3 leading-none">
             <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="text-[10px] text-muted-foreground">
-                Qté demandée{" "}
+                {archiveClosedQtyLabelFr(requestType)}{" "}
                 <strong className="tabular-nums text-foreground/80">{row.requested_qty}</strong>
               </span>
               {statusLabel ? (
@@ -1285,6 +1287,7 @@ export function PatientSentEnvoyeeSummaryCard({
   refShort,
   statusHint,
   accent = "sky",
+  requestType = "product_request",
 }: {
   pharmacyContact: PatientPharmacyContactInfo | null;
   pharmacyId: string;
@@ -1299,6 +1302,7 @@ export function PatientSentEnvoyeeSummaryCard({
   refShort: string;
   statusHint: string;
   accent?: RequestKindAccent;
+  requestType?: string | null;
 }) {
   const ph = pharmacyContact;
   const t = summaryThemeClasses(accent);
@@ -1317,6 +1321,7 @@ export function PatientSentEnvoyeeSummaryCard({
             pharmacyContact={ph}
             pharmacyId={pharmacyId}
             dossierRefLabel={dossierRefLabel}
+            requestType={requestType}
             compact
           />
         </div>
@@ -1831,6 +1836,7 @@ export function PatientProductRequestActions({
   );
   const isPrescription = requestType === "prescription";
   const isConsultation = requestType === "free_consultation";
+  const dossierUiTheme = requestKindUiTheme(requestType);
   const [actionError, setActionError] = useState("");
   const [historyModalItemId, setHistoryModalItemId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<"" | "confirm" | "resubmit" | "abandon" | "visit">("");
@@ -2066,6 +2072,7 @@ export function PatientProductRequestActions({
       dossierHistory: dossierHistoryRows,
       pharmacistProposedOriginLabel: workflowCopy.timelinePharmacistProposedOrigin,
       patientLineOriginLabel: workflowCopy.patientLineOriginLabel,
+      requestType,
     });
   }, [
     historyModalRow,
@@ -2075,6 +2082,7 @@ export function PatientProductRequestActions({
     dossierHistoryRows,
     workflowCopy.timelinePharmacistProposedOrigin,
     workflowCopy.patientLineOriginLabel,
+    requestType,
   ]);
 
   const visibleHits = useMemo(() => {
@@ -2792,6 +2800,8 @@ export function PatientProductRequestActions({
             dossierRefLabel={dossierRefLabel}
             pharmacyContact={pharmacyContact ?? null}
             pharmacyId={pharmacyId}
+            kindLabel={workflowCopy.patientSummaryKindLabel}
+            requestType={requestType}
             status={showConfirm ? "responded" : status}
             statusHint={buildPatientSummaryStatusHint(showConfirm ? "responded" : status, requestType, workflowCopy)}
             statusDetail={buildPatientSummaryStatusDetail(showConfirm ? "responded" : status, requestType, workflowCopy)}
@@ -2817,6 +2827,7 @@ export function PatientProductRequestActions({
             refShort={workflowCopy.patientSummaryRefShort}
             statusHint={buildPatientSummaryStatusHint(status, requestType, workflowCopy)}
             accent={accent}
+            requestType={requestType}
           />
         )
       ) : null}
@@ -2830,6 +2841,8 @@ export function PatientProductRequestActions({
           dossierRefLabel={dossierRefLabel}
           pharmacyContact={pharmacyContact ?? null}
           pharmacyId={pharmacyId}
+          kindLabel={workflowCopy.patientSummaryKindLabel}
+          requestType={requestType}
           status={isDossierTerminalArchive ? archiveDossierStatusLabel : uiStatus}
           statusHint={archiveDossierStatusHint}
           statusDetail={archiveDossierStatusDetail}
@@ -3679,40 +3692,104 @@ export function PatientProductRequestActions({
             aria-labelledby="confirm-review-title"
             className={cn(
               "relative z-10 flex max-h-[min(92dvh,34rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl",
-              productRequestTheme.modalShell
+              dossierUiTheme.modalShell
             )}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className={cn("shrink-0 border-b px-3 py-2.5", productRequestTheme.modalHeader)}>
-              <h2 id="confirm-review-title" className="text-center text-sm font-bold leading-snug text-sky-950 sm:text-base">
+            <div
+              className={cn(
+                "shrink-0 border-b px-3 py-2.5",
+                isPrescription ? "border-amber-200/80 bg-amber-50/40" : productRequestTheme.modalHeader
+              )}
+            >
+              <h2
+                id="confirm-review-title"
+                className={cn(
+                  "text-center text-sm font-bold leading-snug sm:text-base",
+                  isPrescription ? "text-amber-950" : "text-sky-950"
+                )}
+              >
                 {confirmReviewMode === "revalidation" ? "Enregistrer ma validation" : "Confirmer ta sélection"}
               </h2>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-gradient-to-b from-sky-50/20 via-white to-muted/15 px-2.5 py-2.5 sm:px-3 [-webkit-overflow-scrolling:touch]">
+            <div
+              className={cn(
+                "min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2.5 py-2.5 sm:px-3 [-webkit-overflow-scrolling:touch]",
+                isPrescription
+                  ? "bg-gradient-to-b from-amber-50/25 via-white to-muted/15"
+                  : "bg-gradient-to-b from-sky-50/20 via-white to-muted/15"
+              )}
+            >
               {confirmReviewMode === "initial" ? (
-                <div className="rounded-xl border-2 border-sky-300/80 bg-gradient-to-br from-sky-50 via-white to-sky-100/60 px-3 py-3 shadow-sm ring-1 ring-sky-200/70">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-sky-900">
+                <div
+                  className={cn(
+                    "rounded-xl border-2 px-3 py-3 shadow-sm ring-1",
+                    isPrescription
+                      ? "border-amber-300/80 bg-gradient-to-br from-amber-50 via-white to-amber-100/60 ring-amber-200/70"
+                      : "border-sky-300/80 bg-gradient-to-br from-sky-50 via-white to-sky-100/60 ring-sky-200/70"
+                  )}
+                >
+                  <p
+                    className={cn(
+                      "text-[10px] font-bold uppercase tracking-wide",
+                      isPrescription ? "text-amber-900" : "text-sky-900"
+                    )}
+                  >
                     Date de passage en officine
                   </p>
-                  <p className="mt-1.5 text-base font-bold leading-snug text-sky-950 sm:text-lg">
+                  <p
+                    className={cn(
+                      "mt-1.5 text-base font-bold leading-snug sm:text-lg",
+                      isPrescription ? "text-amber-950" : "text-sky-950"
+                    )}
+                  >
                     {confirmReviewSnap.visitSummaryFr}
                   </p>
-                  <p className="mt-1.5 text-[11px] leading-snug text-sky-900/85">
+                  <p
+                    className={cn(
+                      "mt-1.5 text-[11px] leading-snug",
+                      isPrescription ? "text-amber-900/85" : "text-sky-900/85"
+                    )}
+                  >
                     Présentez-vous à la pharmacie à ce créneau pour retirer vos produits réservés.
                   </p>
                 </div>
               ) : (
-                <p className="rounded-lg border border-sky-200/80 bg-sky-50/80 px-2 py-1.5 text-[11px] leading-snug text-sky-950">
+                <p
+                  className={cn(
+                    "rounded-lg border px-2 py-1.5 text-[11px] leading-snug",
+                    isPrescription
+                      ? "border-amber-200/80 bg-amber-50/80 text-amber-950"
+                      : "border-sky-200/80 bg-sky-50/80 text-sky-950"
+                  )}
+                >
                   Vérifiez vos produits retenus et quantités avant enregistrement.
                 </p>
               )}
 
               {confirmReserveLines.length > 0 ? (
                 <div className="mt-3">
-                  <div className="mb-1.5 flex items-center gap-1.5 rounded-md border border-sky-200/80 bg-sky-50/80 px-2 py-1">
-                    <Package className="size-3.5 shrink-0 text-sky-800" aria-hidden />
-                    <p className="text-[9px] font-bold uppercase tracking-wide text-sky-950">À réserver</p>
+                  <div
+                    className={cn(
+                      "mb-1.5 flex items-center gap-1.5 rounded-md border px-2 py-1",
+                      isPrescription
+                        ? "border-amber-200/80 bg-amber-50/80"
+                        : "border-sky-200/80 bg-sky-50/80"
+                    )}
+                  >
+                    <Package
+                      className={cn("size-3.5 shrink-0", isPrescription ? "text-amber-800" : "text-sky-800")}
+                      aria-hidden
+                    />
+                    <p
+                      className={cn(
+                        "text-[9px] font-bold uppercase tracking-wide",
+                        isPrescription ? "text-amber-950" : "text-sky-950"
+                      )}
+                    >
+                      À réserver
+                    </p>
                   </div>
                   <ul className="space-y-1.5">
                     {confirmReserveLines.map((line) => (
@@ -3723,7 +3800,12 @@ export function PatientProductRequestActions({
                       />
                     ))}
                   </ul>
-                  <p className="mt-2 text-right text-[11px] leading-snug font-medium text-sky-900/90">
+                  <p
+                    className={cn(
+                      "mt-2 text-right text-[11px] leading-snug font-medium",
+                      isPrescription ? "text-amber-900/90" : "text-sky-900/90"
+                    )}
+                  >
                     {formatBlockSubtotalLabel(confirmReserveLines)}
                   </p>
                 </div>
@@ -3776,7 +3858,9 @@ export function PatientProductRequestActions({
                             Proposition
                           </span>
                         ) : (
-                          <span className="shrink-0 text-[9px] text-muted-foreground">Ta demande</span>
+                          <span className="shrink-0 text-[9px] text-muted-foreground">
+                            {validatedOriginFallbackPatientFr(requestType)}
+                          </span>
                         )}
                       </li>
                     ))}
@@ -3787,17 +3871,39 @@ export function PatientProductRequestActions({
               {(() => {
                 const grand = blockMonetarySummary(confirmAllPreviewLines);
                 return (
-                  <div className="mt-4 rounded-xl border-2 border-sky-400/55 bg-gradient-to-br from-sky-50 via-white to-sky-100/70 px-3 py-3 shadow-md ring-2 ring-sky-200/50">
-                    <p className="text-center text-[10px] font-bold uppercase tracking-wide text-sky-800">
+                  <div
+                    className={cn(
+                      "mt-4 rounded-xl border-2 px-3 py-3 shadow-md ring-2",
+                      isPrescription
+                        ? "border-amber-400/55 bg-gradient-to-br from-amber-50 via-white to-amber-100/70 ring-amber-200/50"
+                        : "border-sky-400/55 bg-gradient-to-br from-sky-50 via-white to-sky-100/70 ring-sky-200/50"
+                    )}
+                  >
+                    <p
+                      className={cn(
+                        "text-center text-[10px] font-bold uppercase tracking-wide",
+                        isPrescription ? "text-amber-800" : "text-sky-800"
+                      )}
+                    >
                       Total de votre sélection
                     </p>
-                    <p className="mt-1.5 text-center text-2xl font-bold leading-none tabular-nums text-sky-950 sm:text-[1.65rem]">
+                    <p
+                      className={cn(
+                        "mt-1.5 text-center text-2xl font-bold leading-none tabular-nums sm:text-[1.65rem]",
+                        isPrescription ? "text-amber-950" : "text-sky-950"
+                      )}
+                    >
                       {grand.missingUnitPrice && grand.sumKnown === 0
                         ? "—"
                         : `${grand.sumKnown.toFixed(2)} MAD`}
                     </p>
                     {grand.missingUnitPrice ? (
-                      <p className="mt-1.5 text-center text-[10px] leading-snug text-sky-900/85">
+                      <p
+                        className={cn(
+                          "mt-1.5 text-center text-[10px] leading-snug",
+                          isPrescription ? "text-amber-900/85" : "text-sky-900/85"
+                        )}
+                      >
                         Total partiel — certains prix unitaires manquent.
                       </p>
                     ) : null}
