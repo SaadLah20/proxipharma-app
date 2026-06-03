@@ -6433,41 +6433,55 @@ export default function PharmacienDemandeDetailPage() {
                       className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
                     />
                   </label>
-                  {!isProductRequestSent ? (
                   <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Quantité
-                    <div className="mt-1 flex h-8 w-32 items-center overflow-hidden rounded-md border border-input bg-background">
-                      <button
-                        type="button"
-                        onClick={() => setPropQty((q) => String(Math.max(1, (parseInt(q, 10) || 1) - 1)))}
-                        className="h-full w-7 border-r border-input text-xs font-bold text-muted-foreground"
-                        aria-label="Diminuer la quantité proposée"
-                      >
-                        −
-                      </button>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={propQty}
-                        onChange={(e) => setPropQty(e.target.value.replace(/[^\d]/g, ""))}
-                        className="h-full w-full border-0 px-2 text-xs tabular-nums focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setPropQty((q) => String(Math.min(PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX, (parseInt(q, 10) || 1) + 1)))}
-                        className="h-full w-7 border-l border-input text-xs font-bold text-muted-foreground"
-                        aria-label="Augmenter la quantité proposée"
-                      >
-                        +
-                      </button>
-                    </div>
+                    {isProductRequestSent ? "Quantité proposée" : "Quantité"}
+                    {isProductRequestSent ? (
+                      <div className="mt-1">
+                        <ProductRequestLineQtyPicker
+                          qty={Math.min(10, Math.max(1, parseInt(propQty, 10) || 1))}
+                          maxQty={10}
+                          appearance="neutral"
+                          onSelect={(n) => setPropQty(String(n))}
+                        />
+                      </div>
+                    ) : (
+                      <div className="mt-1 flex h-8 w-32 items-center overflow-hidden rounded-md border border-input bg-background">
+                        <button
+                          type="button"
+                          onClick={() => setPropQty((q) => String(Math.max(1, (parseInt(q, 10) || 1) - 1)))}
+                          className="h-full w-7 border-r border-input text-xs font-bold text-muted-foreground"
+                          aria-label="Diminuer la quantité proposée"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={propQty}
+                          onChange={(e) => setPropQty(e.target.value.replace(/[^\d]/g, ""))}
+                          className="h-full w-full border-0 px-2 text-xs tabular-nums focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPropQty((q) =>
+                              String(
+                                Math.min(
+                                  PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX,
+                                  (parseInt(q, 10) || 1) + 1
+                                )
+                              )
+                            )
+                          }
+                          className="h-full w-7 border-l border-input text-xs font-bold text-muted-foreground"
+                          aria-label="Augmenter la quantité proposée"
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
                   </label>
-                  ) : (
-                    <p className="text-[10px] leading-snug text-muted-foreground">
-                      La quantité se règle sur la carte du produit après ajout (1 à 10).
-                    </p>
-                  )}
                   {request && ["confirmed", "treated"].includes(request.status) && !isPrescription ? (
                     <div className="space-y-2 rounded-lg border border-violet-200/60 bg-violet-50/40 p-2">
                       <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -6544,11 +6558,15 @@ export default function PharmacienDemandeDetailPage() {
                           <button
                             type="button"
                             disabled={propBusy || Boolean(needsEtaBeforePick)}
-                            onClick={() =>
+                            onClick={() => {
+                              const qtyCap = isProductRequestSent
+                                ? 10
+                                : PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX;
                               void insertPharmacistProposedLine(h, {
                                 lineKind: isPrescription ? "proposed" : undefined,
-                              })
-                            }
+                                qty: Math.min(qtyCap, Math.max(1, parseInt(propQty, 10) || 1)),
+                              });
+                            }}
                             className="flex w-full touch-manipulation items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-card disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <div className="relative size-11 shrink-0 overflow-hidden rounded-lg border border-violet-200/60 bg-violet-50/50">
