@@ -175,7 +175,7 @@ export default function DemandeDetailPage() {
       const { data: reqRow, error: reqErr } = await supabase
         .from("requests")
         .select(
-          "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,expires_at,confirmed_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,pharmacies(nom,ville,adresse,telephone,public_ref,contact_email)"
+          "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,expires_at,confirmed_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,pharmacies(nom,ville,adresse,telephone,public_ref,contact_email,latitude,longitude,maps_url)"
         )
         .eq("id", id)
         .eq("patient_id", user.id)
@@ -619,9 +619,13 @@ export default function DemandeDetailPage() {
             const c: PatientPharmacyContactInfo = {
               nom: ph.nom,
               ville: ph.ville,
+              adresse: ph.adresse ?? null,
               telephone: ph.telephone,
               contact_email: ph.contact_email ?? null,
               public_ref: ph.public_ref ?? null,
+              latitude: ph.latitude ?? null,
+              longitude: ph.longitude ?? null,
+              maps_url: ph.maps_url ?? null,
             };
             return c;
           })()}

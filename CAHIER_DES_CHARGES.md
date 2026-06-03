@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260630_001`**) → utiliser uniquement la **phrase d ouverture** du **§13.34** (dernier lot : parcours **patient** demande produits §4.6 abouti + parcours **pharmacien** demandes produits aligne — session **2026-06-02 suite 2**, commit **`773ad62`**) ; la **tache precise** est donnee dans le message suivant ou dans la meme conversation.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260630_001`**) → utiliser uniquement la **phrase d ouverture** du **§13.36** (dernier lot : affinage **pharmacien** validée/traitée/archives + bandeau patient officine — session **2026-06-03 suite 3**) ; la **tache precise** est donnee dans le message suivant ou dans la meme conversation.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** : pour **vider toutes les demandes** en environnement de test → `scripts/clear-all-requests.mjs` (`.env.local` avec `SUPABASE_SERVICE_ROLE_KEY`) ou SQL `supabase/scripts/clear-all-requests.sql` dans l’éditeur Supabase. **Doublons patient** (même téléphone, 2× `auth.users`) en pilote : reset demandes + suppression des comptes Auth puis nouvelle inscription. Plan de tests E2E demandes produits → fichier Canvas Cursor `canvases/product-requests-e2e-test-plan.canvas.tsx` (mention §13.5).
@@ -348,6 +348,30 @@ git checkout pilote-stable-2026-05-24
 **Branche de travail après retour** : `git switch -c reprise-depuis-stable-2026-05-24`
 
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
+
+---
+
+### Session 2026-06-03 (suite 3) — Demande produits : pharmacien validée/traitée/archives + bandeau patient
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`2f46ff7`** … **`ba95191`** (bandeau patient + hint portail + docs §13.36).
+
+**Pharmacien — détail produits** (`app/dashboard/pharmacien/demandes/[id]/page.tsx`) :
+- **Validée** : **`PharmacistValidatedBucketSection`** (bloc arrondi header+liste, titres agrandis) ; **`PharmacistSupplyCompactLine`** aligné **`PatientValidatedCompactLineCard`** (PU/Qté, libellés en bas, boutons message/⋮) ; **`sectionBucket`** + **`labelAudience: pharmacist`** (`lib/patient-validated-line-labels-fr.ts`).
+- **Traitée** : titres groupes **pour le patient** ; suppression **`RequestLineSuiviStrip`** ; CTA **Marquer reçu / récupéré** sur une ligne ; footer **Déclarer traitée** compact + **`InfoHint`** en portail (`components/ui/info-hint.tsx`).
+- **Archives clôturées** : **`PharmacistClosedProductBucketsView`** + **`pharmacist-closed-archive-line.tsx`** (cartes compactes, total récupérés, blocs unifiés).
+- **Envoyée / répondue** : cartes compactes, onglet **Proposé**, footer sticky sans débordement mobile (`platform-sticky-footer.tsx`).
+
+**Patient — bandeau officine** :
+- **`PatientPharmacyDossierBand`** : icône **Store** à gauche du nom ; **Contacter** · **Itinéraire** (`PharmacyNavigationPicker` `compact-outline`) · **Voir la fiche** (bouton primary, sans icône localisation).
+- **`PatientProductRequestDossierHeader`** + récap **`PatientSentEnvoyeeSummaryCard`** ; champs GPS/adresse sur `pharmacies(...)` dans `app/dashboard/demandes/[id]/page.tsx`.
+
+**SQL** : aucune migration.
+
+**Fichiers clés** : `patient-pharmacy-dossier-band.tsx`, `patient-product-request-dossier-header.tsx`, `pharmacist-supply-compact-line.tsx`, `pharmacist-validated-bucket-section.tsx`, `pharmacist-closed-product-buckets-view.tsx`, `pharmacist-closed-archive-line.tsx`, `pharmacy-navigation-picker.tsx`, `info-hint.tsx`.
+
+**Phrase de reprise** : **§13.36**.
+
+**Prochain jalon** : retours preview terrain ; ordonnances/consultations si besoin.
 
 ---
 
@@ -1977,7 +2001,15 @@ Voir **§13.34**.
 
 Voir **§13.34**.
 
-### 13.34) Phrase de reprise (recommandée — après session **2026-06-02 suite 2** demande produits patient + pharmacien)
+### 13.34) Phrase de reprise (dépassée — avant session **2026-06-03 suite 3**)
+
+Voir **§13.36**.
+
+### 13.36) Phrase de reprise (recommandée — après session **2026-06-03 suite 3** demande produits patient + pharmacien)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (dernier lot **2026-06-03 suite 3** : pharmacien **validée / traitée / archives** — cartes et groupes alignés patient, footer mobile, traitée sans bandeau Suivi ; patient — bandeau **`PatientPharmacyDossierBand`** avec icône officine, **Contacter**, **Itinéraire**, **Voir la fiche** ; hint footer en portail). Dernier commit **`ba95191`**. Lots antérieurs : **`773ad62`** parcours pharmacien épuré, **`6ad4f84`** archives pharma, parcours patient §4.6 **`978f862`**–**`f29e073`**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.6**, **§10** (session **2026-06-03 suite 3**), §11. **Supabase pilote : migrations appliquées** jusqu’à **`20260630_001`**. Fichiers clés : `patient-pharmacy-dossier-band.tsx`, `pharmacist-supply-compact-line.tsx`, `pharmacist-closed-archive-line.tsx`, `pharmacist-closed-product-buckets-view.tsx`, `components/ui/info-hint.tsx`, `app/dashboard/pharmacien/demandes/[id]/page.tsx`, `app/dashboard/demandes/[id]/page.tsx`. **Prochain jalon** : retours preview. Je te donne la tâche ou les retours. »**
+
+### 13.34-ancien) Phrase de reprise (historique — session **2026-06-02 suite 2**)
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (dernier lot **`773ad62`** : parcours **pharmacien** demandes produits épuré — en-tête dossier, groupes validés/archives alignés patient, cartes compactes neutres, bandeaux et redondances retirés ; lots **`e660dff`** alternatives patient sans présélection + barre « Retenir cette alternative », **`f29e073`** archives patient, **`978f862`**–**`6d9990b`** répondue/validée patient §4.6). Patient : parcours **envoyée→traitée** abouti (couleurs indicatives, modales `AppModalOverlay`). Pharmacien : détail produit même clarté ; logique supply/post-validé inchangée. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.6**, **§10** (session **2026-06-02 suite 2**), §11. **Supabase pilote : migrations appliquées** jusqu’à **`20260630_001`**. Fichiers clés : `patient-product-request-actions.tsx`, `patient-responded-line-chooser.tsx`, `app/dashboard/pharmacien/demandes/[id]/page.tsx`, `pharmacist-supply-compact-line.tsx`, `pharmacist-validated-bucket-section.tsx`. **Prochain jalon** : retours preview terrain ; ordonnances/consultations pharmacien si besoin. Je te donne la tâche ou les retours. »**
 
@@ -1985,7 +2017,7 @@ Voir **§13.34**.
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-02 suite 2** — demande produits patient §4.6 + pharmacien aligné, commit **`773ad62`**). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations appliquées jusqu’à **`20260630_001`**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.35**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-03 suite 3** — pharmacien validée/traitée/archives + bandeau patient officine). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations appliquées jusqu’à **`20260630_001`**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.36**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 

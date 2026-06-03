@@ -9,6 +9,10 @@ export type PatientPharmacyContactInfo = {
   telephone?: string | null;
   contact_email?: string | null;
   public_ref?: string | null;
+  adresse?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  maps_url?: string | null;
 };
 
 function telHrefPatient(raw: string): string {
