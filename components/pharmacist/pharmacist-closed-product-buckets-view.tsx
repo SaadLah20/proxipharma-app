@@ -13,7 +13,6 @@ import {
   patientClosedArchiveBucketAccentTextClass,
   patientClosedArchiveBucketAriaTitleFr,
   patientClosedArchiveBucketCountBadgeClass,
-  patientClosedArchiveBucketHeaderBarClass,
   patientClosedArchiveBucketSectionShellClass,
   patientClosedArchiveBucketTitleFr,
 } from "@/lib/patient-closed-archive-line-buckets";
@@ -38,18 +37,11 @@ function closedBucketAria(id: ClosedBucketKey): string {
   return patientClosedArchiveBucketAriaTitleFr(id);
 }
 
-function closedBucketHeaderClass(id: ClosedBucketKey): string {
-  if (id === "autres_retenus") {
-    return "rounded-lg border border-border/80 border-l-[3px] border-l-slate-400/75 bg-card px-2.5 py-1.5 shadow-none";
-  }
-  return clsx("rounded-lg px-2.5 py-1.5", patientClosedArchiveBucketHeaderBarClass(id));
-}
-
 function closedBucketShellClass(id: ClosedBucketKey): string {
   if (id === "autres_retenus") {
-    return "rounded-lg border border-border/80 border-l-[3px] border-l-slate-400/75 bg-card shadow-none";
+    return "border border-border/80 border-l-[3px] border-l-slate-400/75 bg-card shadow-none";
   }
-  return clsx("rounded-lg", patientClosedArchiveBucketSectionShellClass(id));
+  return patientClosedArchiveBucketSectionShellClass(id);
 }
 
 function closedBucketAccent(id: ClosedBucketKey): string {
@@ -60,27 +52,39 @@ function closedBucketAccent(id: ClosedBucketKey): string {
 function ClosedArchiveBucketSection({
   bucketId,
   count,
+  subtotalLabel,
   collapsible,
+  hint,
   children,
 }: {
   bucketId: ClosedBucketKey;
   count: number;
+  subtotalLabel?: string | null;
   collapsible?: boolean;
+  hint?: string | null;
   children: ReactNode;
 }) {
   const Icon = BUCKET_ICONS[bucketId];
   const title = closedBucketTitle(bucketId);
   const accentText = closedBucketAccent(bucketId);
+  const outerShellClass = clsx("w-full min-w-0 overflow-hidden rounded-lg", closedBucketShellClass(bucketId));
+  const headerRowClass =
+    "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-border/55 px-2.5 py-2";
 
   const headerInner = (
     <>
-      <Icon className={clsx("size-3.5 shrink-0", accentText)} strokeWidth={2.25} aria-hidden />
-      <h4 className="min-w-0 flex-1 truncate text-[12px] font-bold leading-none text-foreground sm:text-[13px]">
+      <Icon className={clsx("size-4 shrink-0", accentText)} strokeWidth={2.25} aria-hidden />
+      <h4 className="min-w-0 flex-1 truncate text-[13px] font-bold leading-tight text-foreground sm:text-[15px]">
         {title}
       </h4>
+      {subtotalLabel ? (
+        <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold tabular-nums text-muted-foreground sm:text-[12px]">
+          {subtotalLabel}
+        </span>
+      ) : null}
       <span
         className={clsx(
-          "inline-flex shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ring-1",
+          "inline-flex shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ring-1",
           patientClosedArchiveBucketCountBadgeClass()
         )}
       >
@@ -97,33 +101,31 @@ function ClosedArchiveBucketSection({
 
   if (collapsible) {
     return (
-      <details className="group w-full min-w-0 space-y-1" aria-label={closedBucketAria(bucketId)}>
-        <summary className="flex min-w-0 cursor-pointer list-none items-center gap-x-2 [&::-webkit-details-marker]:hidden">
-          <div
-            className={clsx(
-              "flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1",
-              closedBucketHeaderClass(bucketId)
-            )}
-          >
-            {headerInner}
-          </div>
+      <details className={clsx("group", outerShellClass)} aria-label={closedBucketAria(bucketId)}>
+        <summary
+          className={clsx(headerRowClass, "cursor-pointer list-none [&::-webkit-details-marker]:hidden")}
+        >
+          {headerInner}
         </summary>
-        <div className={clsx("overflow-hidden", closedBucketShellClass(bucketId))}>{children}</div>
+        {hint ? (
+          <p className="border-b border-border/45 px-2.5 py-1 text-[10px] leading-snug text-muted-foreground">
+            {hint}
+          </p>
+        ) : null}
+        {children}
       </details>
     );
   }
 
   return (
-    <section className="w-full min-w-0 space-y-1" aria-label={closedBucketAria(bucketId)}>
-      <div
-        className={clsx(
-          "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1",
-          closedBucketHeaderClass(bucketId)
-        )}
-      >
-        {headerInner}
-      </div>
-      <div className={clsx("overflow-hidden", closedBucketShellClass(bucketId))}>{children}</div>
+    <section className={outerShellClass} aria-label={closedBucketAria(bucketId)}>
+      <div className={headerRowClass}>{headerInner}</div>
+      {hint ? (
+        <p className="border-b border-border/45 px-2.5 py-1 text-[10px] leading-snug text-muted-foreground">
+          {hint}
+        </p>
+      ) : null}
+      {children}
     </section>
   );
 }
@@ -132,18 +134,33 @@ function ClosedArchiveBucketSection({
 export function PharmacistClosedProductBucketsView<T extends ClosedLinePartitionInput>({
   items,
   renderLine,
+  recuperesSubtotalLabel,
 }: {
   items: T[];
   renderLine: (row: T, opts: { variant: "recupere" | "autre" | "ecarte" | "nonRetenu" }) => ReactNode;
+  recuperesSubtotalLabel?: string | null;
 }) {
   const { recuperes, nonRetenues, ecartes, autresRetenus } = partitionClosedRequestProductLines(items);
 
   const listClass = patientBucketProductListClass;
 
   return (
-    <div className="space-y-3">
+    <div className="w-full min-w-0 space-y-3">
+      <div className="space-y-1 px-0">
+        <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground sm:text-sm">
+          Produits archivés
+        </h3>
+        <p className="text-[10px] leading-snug text-muted-foreground sm:text-[11px]">
+          État enregistré au moment de la clôture — consultation seule.
+        </p>
+      </div>
+
       {recuperes.length > 0 ? (
-        <ClosedArchiveBucketSection bucketId="recuperes" count={recuperes.length}>
+        <ClosedArchiveBucketSection
+          bucketId="recuperes"
+          count={recuperes.length}
+          subtotalLabel={recuperesSubtotalLabel}
+        >
           <ul className={listClass}>
             {recuperes.map((row) => (
               <li key={row.id} className="list-none">
@@ -179,7 +196,12 @@ export function PharmacistClosedProductBucketsView<T extends ClosedLinePartition
       ) : null}
 
       {ecartes.length > 0 ? (
-        <ClosedArchiveBucketSection bucketId="ecartes" count={ecartes.length} collapsible>
+        <ClosedArchiveBucketSection
+          bucketId="ecartes"
+          count={ecartes.length}
+          collapsible
+          hint="Produits non récupérés ou retirés par la pharmacie."
+        >
           <ul className={listClass}>
             {ecartes.map((row) => (
               <li key={row.id} className="list-none">
