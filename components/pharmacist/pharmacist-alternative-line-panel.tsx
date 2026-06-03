@@ -2,6 +2,7 @@
 
 import { clsx } from "clsx";
 import { Layers, Package, Trash2 } from "lucide-react";
+import { ProductRequestLineQtyPicker } from "@/components/pharmacy/patient-demande-produits-ui";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
 import { formatPharmacyCatalogPrice } from "@/lib/product-price";
@@ -41,6 +42,7 @@ export function PharmacistAlternativeLinePanel({
   pricingConfig,
   patientChoseThis,
   showIndicatif,
+  useQtyPicker = false,
 }: {
   alt: PharmacistAltLineRow;
   qtyValue: string;
@@ -52,6 +54,8 @@ export function PharmacistAlternativeLinePanel({
   pricingConfig: PharmacyPricingConfig | null;
   patientChoseThis?: boolean;
   showIndicatif?: boolean;
+  /** Liste 1–10 (parcours demande produits envoyée). */
+  useQtyPicker?: boolean;
 }) {
   const altProd = one(alt.products);
   const altName = altProd?.name ?? "Alternative";
@@ -120,36 +124,47 @@ export function PharmacistAlternativeLinePanel({
             </button>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="text-[9px] font-bold uppercase tracking-wide text-teal-900/90">Qté proposée</span>
-            <div className="inline-flex h-8 items-center overflow-hidden rounded-lg border border-teal-300/70 bg-white shadow-sm">
-              <button
-                type="button"
+            <span className="text-[9px] font-medium text-muted-foreground">Qté proposée</span>
+            {useQtyPicker ? (
+              <ProductRequestLineQtyPicker
+                qty={Math.min(10, Math.max(1, Number.parseInt(qtyValue, 10) || 1))}
                 disabled={qtyBusy}
-                className="h-full w-7 border-r border-teal-200/80 text-xs font-bold text-teal-900 disabled:opacity-40"
-                aria-label="Diminuer"
-                onClick={() => onQtyNudge(-1)}
-              >
-                −
-              </button>
-              <input
-                type="text"
-                inputMode="numeric"
-                disabled={qtyBusy}
-                className="h-full w-10 border-0 bg-transparent px-0.5 text-center text-[12px] font-bold tabular-nums text-teal-950 focus:outline-none"
-                value={qtyValue}
-                onChange={(e) => onQtyChange(e.target.value.replace(/[^\d]/g, ""))}
+                maxQty={10}
+                onSelect={(n) => onQtyChange(String(n))}
               />
-              <button
-                type="button"
-                disabled={qtyBusy}
-                className="h-full w-7 border-l border-teal-200/80 text-xs font-bold text-teal-900 disabled:opacity-40"
-                aria-label="Augmenter"
-                onClick={() => onQtyNudge(1)}
-              >
-                +
-              </button>
-            </div>
-            <span className="text-[8px] text-teal-800/75">max 10</span>
+            ) : (
+              <>
+                <div className="inline-flex h-8 items-center overflow-hidden rounded-lg border border-teal-300/70 bg-white shadow-sm">
+                  <button
+                    type="button"
+                    disabled={qtyBusy}
+                    className="h-full w-7 border-r border-teal-200/80 text-xs font-bold text-teal-900 disabled:opacity-40"
+                    aria-label="Diminuer"
+                    onClick={() => onQtyNudge(-1)}
+                  >
+                    −
+                  </button>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    disabled={qtyBusy}
+                    className="h-full w-10 border-0 bg-transparent px-0.5 text-center text-[12px] font-bold tabular-nums text-teal-950 focus:outline-none"
+                    value={qtyValue}
+                    onChange={(e) => onQtyChange(e.target.value.replace(/[^\d]/g, ""))}
+                  />
+                  <button
+                    type="button"
+                    disabled={qtyBusy}
+                    className="h-full w-7 border-l border-teal-200/80 text-xs font-bold text-teal-900 disabled:opacity-40"
+                    aria-label="Augmenter"
+                    onClick={() => onQtyNudge(1)}
+                  >
+                    +
+                  </button>
+                </div>
+                <span className="text-[8px] text-teal-800/75">max 10</span>
+              </>
+            )}
           </div>
         </div>
       </div>

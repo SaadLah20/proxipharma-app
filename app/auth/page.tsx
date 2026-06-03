@@ -215,9 +215,12 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     if (id.kind === "phone") {
       const sync = await syncPhoneBeforeLogin(id.phone, loginPassword);
       if (!sync.ok && sync.error) {
-        setMessage(sync.error);
-        setLoading(false);
-        return;
+        const noProfileForSync = sync.error === "Aucun compte pour ce numéro.";
+        if (!noProfileForSync) {
+          setMessage(sync.error);
+          setLoading(false);
+          return;
+        }
       }
     }
 

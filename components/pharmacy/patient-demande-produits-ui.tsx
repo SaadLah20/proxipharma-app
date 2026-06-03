@@ -246,7 +246,7 @@ export function ProductRequestLineQtyPicker({
             aria-label="Choisir la quantité"
             style={{ top: menuPos.top, left: menuPos.left }}
             className={cn(
-              "fixed z-[120] max-h-44 w-[4.25rem] -translate-x-1/2 overflow-y-auto overscroll-y-contain rounded-xl border bg-card py-1 shadow-xl",
+              "fixed z-[11050] max-h-44 w-[4.25rem] -translate-x-1/2 overflow-y-auto overscroll-y-contain rounded-xl border bg-card py-1 shadow-xl",
               t.shell
             )}
           >
