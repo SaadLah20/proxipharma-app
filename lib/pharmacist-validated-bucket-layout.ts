@@ -5,6 +5,7 @@ import {
   type PatientLineLike,
 } from "@/lib/patient-confirmed-line-buckets";
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing/types";
+import type { PharmacistSupplyLineTier } from "@/components/pharmacist/pharmacist-supply-compact-line";
 
 export type PharmacistValidatedBucketKind =
   | "sky_reserve"
@@ -126,9 +127,7 @@ export function buildPharmacistValidatedBucketGroups<T extends PatientLineLike>(
   return groups;
 }
 
-export function supplyTierForBucketKind(
-  kind: PharmacistValidatedBucketKind
-): "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation" {
+export function supplyTierForBucketKind(kind: PharmacistValidatedBucketKind): PharmacistSupplyLineTier {
   switch (kind) {
     case "teal_order":
       return "commande";
@@ -136,6 +135,8 @@ export function supplyTierForBucketKind(
       return "hors_perimetre";
     case "red_ecart":
       return "retire_apres_validation";
+    case "sky_nonretenus":
+      return "non_retenu";
     default:
       return "dispo_officine";
   }

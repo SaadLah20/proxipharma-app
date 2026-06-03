@@ -78,7 +78,12 @@ function isDefaultPatientOriginLabel(label: string): boolean {
 
 function isRedundantSectionStatusLabel(
   status: string,
-  sectionBucket?: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation",
+  sectionBucket?:
+    | "dispo_officine"
+    | "commande"
+    | "hors_perimetre"
+    | "retire_apres_validation"
+    | "non_retenu",
   treatedLineLabels?: boolean
 ): boolean {
   if (!sectionBucket) return false;
@@ -106,7 +111,12 @@ export function buildPatientValidatedLineLabelsFr(input: {
   /** Demande traitée : pas de pastilles « réservé / commandé » (déjà dans les blocs). */
   treatedLineLabels?: boolean;
   /** Groupe d’affichage : masque les libellés déjà portés par le titre de section. */
-  sectionBucket?: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation";
+  sectionBucket?:
+    | "dispo_officine"
+    | "commande"
+    | "hors_perimetre"
+    | "retire_apres_validation"
+    | "non_retenu";
   /** Dossier traité côté officine : formulations sans « vous », pastilles redondantes avec les CTA. */
   labelAudience?: "patient" | "pharmacist";
 }): ValidatedLineLabel[] {
@@ -136,8 +146,10 @@ export function buildPatientValidatedLineLabelsFr(input: {
   } else if (withdrawn) {
     out.push({ key: "ecart", text: "Retiré par la pharmacie", tone: "event" });
   } else if (pickedUp) {
-    // Le pharmacien a remis le produit au comptoir : libellé « Récupéré » côté patient.
-    out.push({ key: "collected", text: "Récupéré", tone: "collected" });
+    // Patient : pastille « Récupéré ». Pharmacien dossier traité : le bouton comptoir suffit.
+    if (labelAudience !== "pharmacist") {
+      out.push({ key: "collected", text: "Récupéré", tone: "collected" });
+    }
   } else {
     const status = fulfillmentStatusLabelFr(row, treatedLineLabels, labelAudience);
     if (
