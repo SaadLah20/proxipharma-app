@@ -190,6 +190,11 @@ import {
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import { pharmacistSentProductLineQtyUi } from "@/lib/pharmacist-sent-product-line-qty";
 import {
+  inferredAvailabilityForPharmacistPublish,
+  PHARMACIST_PUBLISH_MISSING_RECEPTION_DATE_NOTE_FR,
+  pharmacistPublishMissingReceptionDateProductNames,
+} from "@/lib/pharmacist-publish-reception-date";
+import {
   uiActionBtnFull,
   uiActionBtnModalOutline,
   uiActionBtnModalPrimary,
@@ -212,7 +217,12 @@ import {
   isRequestItemAddedAfterPatientConfirmation,
   POST_CONFIRM_LINE_ADDED_BADGE_FR,
 } from "@/lib/supply-line-post-confirm";
-import { assertReceptionDateNotBeforeToday, todayLocalIsoDate } from "@/lib/planned-visit";
+import { PlannedVisitDateInput } from "@/components/requests/planned-visit-date-input";
+import {
+  assertReceptionDateNotBeforeToday,
+  receptionDateMaxYmd,
+  todayLocalIsoDate,
+} from "@/lib/planned-visit";
 import { clampPharmacistAlternativeOfferedQty as clampAlternativeAvailableQty } from "@/lib/alternative-qty-rules";
 import {
   dispatchRequestDetailRefresh,
@@ -2289,6 +2299,7 @@ export default function PharmacienDemandeDetailPage() {
   };
 
   const receptionDateMinYmd = todayLocalIsoDate();
+  const receptionDateMaxYmdVal = receptionDateMaxYmd();
 
   const patchItemDraft = useCallback((itemId: string, patch: Partial<ItemDraft>) => {
     setDraft((prev) => {
@@ -2394,7 +2405,7 @@ export default function PharmacienDemandeDetailPage() {
         ...prev,
         [row.id]: {
           ...current,
-          availability_status: nextStatus,
+          availability_status: inferred,
           available_qty: nextAvail,
           fulfillment_draft,
         },
@@ -3933,6 +3944,18 @@ export default function PharmacienDemandeDetailPage() {
       const reqQty = isOrdonnancePharma
         ? ordonnanceDraftRequestedQty(row, f)
         : row.requested_qty;
+      const inferredPublish = inferredAvailabilityForPharmacistPublish(
+        row,
+        f,
+        request.request_type,
+        supplyAmendmentBundles
+      );
+      if (inferredPublish === "to_order" && !f.expected_availability_date.trim()) {
+        const nm = validatedProductLabel(row as PatientLineLike);
+        setError(`« ${nm} » : date de réception prévue obligatoire pour un produit à commander.`);
+        return;
+      }
+
       if (isAjoutOfficine || request.request_type === "free_consultation" || isPrescriptionExtraProposed) {
         if (qty < 1) {
           const nm = validatedProductLabel(row as PatientLineLike);
@@ -3941,11 +3964,6 @@ export default function PharmacienDemandeDetailPage() {
               ? `« ${nm} » : indiquez une quantité d’au moins 1.`
               : `« ${nm} » (proposition officine) : indiquez une quantité en stock d’au moins 1.`
           );
-          return;
-        }
-        if (f.availability_status === "to_order" && !f.expected_availability_date.trim()) {
-          const nm = validatedProductLabel(row as PatientLineLike);
-          setError(`« ${nm} » : date de réception prévue obligatoire pour un produit à commander.`);
           return;
         }
       } else if (qty > reqQty) {
@@ -4255,6 +4273,16 @@ export default function PharmacienDemandeDetailPage() {
       order: all.filter((m) => publishConfirmModalGroup(m.inferredKey) === "order"),
       blocked: all.filter((m) => publishConfirmModalGroup(m.inferredKey) === "blocked"),
     };
+  }, [displayRows, draft, request?.request_type, supplyAmendmentBundles, pricingConfig]);
+
+  const publishMissingReceptionDate = useMemo(() => {
+    const names = pharmacistPublishMissingReceptionDateProductNames(
+      displayRows,
+      draft,
+      request?.request_type,
+      supplyAmendmentBundles
+    );
+    return { blocked: names.length > 0, names };
   }, [displayRows, draft, request?.request_type, supplyAmendmentBundles]);
 
   const pharmaHistoryBlocks = useMemo(() => {
@@ -5269,13 +5297,16 @@ export default function PharmacienDemandeDetailPage() {
                             <span className="text-[9px] font-medium text-muted-foreground">
                               Réception prévue
                             </span>
-                            <input
-                              type="date"
-                              min={receptionDateMinYmd}
+                            <PlannedVisitDateInput
+                              valueYmd={f.expected_availability_date}
+                              onChangeYmd={(v) => setReceptionDateField(row.id, v)}
+                              minYmd={receptionDateMinYmd}
+                              maxYmd={receptionDateMaxYmdVal}
                               disabled={editorDisabled}
-                              value={f.expected_availability_date}
-                              onChange={(e) => setReceptionDateField(row.id, e.target.value)}
-                              className="h-8 w-full max-w-xs rounded-lg border border-input bg-background px-2 text-[11px] shadow-sm disabled:opacity-60"
+                              yearDigits={4}
+                              ariaLabel="Réception prévue"
+                              className="max-w-xs"
+                              shellClassName="block h-8 min-h-8 w-full rounded-lg border border-input bg-background px-2 py-1 text-[11px] font-semibold tabular-nums shadow-sm"
                             />
                           </label>
                         ) : null}
@@ -5435,13 +5466,16 @@ export default function PharmacienDemandeDetailPage() {
                         <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
                           Date prévision commande
                         </span>
-                        <input
-                          type="date"
-                          min={receptionDateMinYmd}
+                        <PlannedVisitDateInput
+                          valueYmd={f.expected_availability_date}
+                          onChangeYmd={(v) => setReceptionDateField(row.id, v)}
+                          minYmd={receptionDateMinYmd}
+                          maxYmd={receptionDateMaxYmdVal}
                           disabled={!canEditThisRow}
-                          value={f.expected_availability_date}
-                          onChange={(e) => setReceptionDateField(row.id, e.target.value)}
-                          className="h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] shadow-sm disabled:opacity-60 sm:w-auto sm:min-w-[9rem]"
+                          yearDigits={4}
+                          ariaLabel="Date prévision commande"
+                          className="sm:min-w-[9rem] sm:w-auto"
+                          shellClassName="block h-7 min-h-7 w-full rounded border border-input bg-background px-1.5 py-0.5 text-[11px] font-semibold tabular-nums shadow-sm"
                         />
                       </label>
                     ) : null}
@@ -5814,25 +5848,88 @@ export default function PharmacienDemandeDetailPage() {
                       </div>
                     </div>
                     <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="min-w-0 space-y-1">
+                        <p className="break-words text-[13px] font-bold leading-snug text-foreground sm:text-sm">
+                          {prod?.name ?? "Produit"}
+                        </p>
+                        {lineProposedBadge ? (
+                          <span
+                            className={clsx(
+                              "inline-flex max-w-full rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
+                              isOrdonnancePharmacistLine || isOrdonnancePrincipalLine
+                                ? "bg-amber-700"
+                                : "bg-violet-600"
+                            )}
+                          >
+                            {lineProposedBadge}
+                          </span>
+                        ) : null}
+                      </div>
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <p className="break-words text-[13px] font-bold leading-snug text-foreground sm:text-sm">
-                            {prod?.name ?? "Produit"}
-                          </p>
-                          {lineProposedBadge ? (
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
+                          {!isProductRequestSent ? (
                             <span
                               className={clsx(
-                                "inline-flex max-w-full rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
-                                isOrdonnancePharmacistLine || isOrdonnancePrincipalLine
-                                  ? "bg-amber-700"
-                                  : "bg-violet-600"
+                                "inline-flex max-w-full items-center gap-1 rounded-full px-1.5 py-px text-[10px] font-semibold ring-1",
+                                availUi.badgeClass
                               )}
+                              title={availUi.label}
                             >
-                              {lineProposedBadge}
+                              <AvailIcon className="size-3 shrink-0" aria-hidden />
+                              <span className="truncate">{availUi.label}</span>
                             </span>
                           ) : null}
+                          {!isProposedLine || isOrdonnancePharmacistLine ? (
+                            <span className="inline-flex items-center gap-0.5 whitespace-nowrap">
+                              <Package className="size-3 text-muted-foreground/80" aria-hidden />
+                              <span>
+                                {isOrdonnancePharmacistLine ? "Prescrit" : "Demandé"}{" "}
+                                <strong className="text-foreground">
+                                  {isOrdonnancePharmacistLine
+                                    ? f.requested_qty_str?.trim() || row.requested_qty
+                                    : row.requested_qty}
+                                </strong>
+                              </span>
+                            </span>
+                          ) : null}
+                          <span
+                            className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular-nums"
+                            title={
+                              draftIndicativePuMad !== "—"
+                                ? `Prix catalogue officine : ${draftIndicativePuMad}`
+                                : undefined
+                            }
+                          >
+                            <span className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">
+                              PU{" "}
+                            </span>
+                            <span className="text-[11px] font-semibold text-foreground sm:text-[12px]">
+                              {draftIndicativePuMad}
+                            </span>
+                          </span>
+                          {lineLockedTrace ? (
+                            <span className="rounded-md bg-rose-100 px-1.5 py-px text-[9px] font-semibold text-rose-900 ring-1 ring-rose-200/80">
+                              Non distribué
+                            </span>
+                          ) : [
+                              "confirmed",
+                              "treated",
+                              "completed",
+                              "partially_collected",
+                              "fully_collected",
+                            ].includes(request.status) ? (
+                            selected ? (
+                              <span className="rounded-md bg-emerald-100 px-1.5 py-px text-[9px] font-semibold text-emerald-900">
+                                Retenu
+                              </span>
+                            ) : (
+                              <span className="rounded-md bg-slate-100 px-1.5 py-px text-[9px] font-semibold text-slate-700">
+                                Non retenu
+                              </span>
+                            )
+                          ) : null}
                         </div>
-                        <div className="flex shrink-0 items-center gap-0.5">
+                        <div className="flex shrink-0 items-center gap-0.5 self-end">
                           <PharmacistLineMessageButton
                             visual={lineConvoVisual}
                             open={lineConvoEffectiveRowId === row.id}
@@ -5857,69 +5954,6 @@ export default function PharmacienDemandeDetailPage() {
                             </button>
                           ) : null}
                         </div>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
-                        {!isProductRequestSent ? (
-                        <span
-                          className={clsx(
-                            "inline-flex max-w-full items-center gap-1 rounded-full px-1.5 py-px text-[10px] font-semibold ring-1",
-                            availUi.badgeClass
-                          )}
-                          title={availUi.label}
-                        >
-                          <AvailIcon className="size-3 shrink-0" aria-hidden />
-                          <span className="truncate">{availUi.label}</span>
-                        </span>
-                        ) : null}
-                        {!isProposedLine || isOrdonnancePharmacistLine ? (
-                          <span className="inline-flex items-center gap-0.5 whitespace-nowrap">
-                            <Package className="size-3 text-muted-foreground/80" aria-hidden />
-                            <span>
-                              {isOrdonnancePharmacistLine ? "Prescrit" : "Demandé"}{" "}
-                              <strong className="text-foreground">
-                                {isOrdonnancePharmacistLine
-                                  ? f.requested_qty_str?.trim() || row.requested_qty
-                                  : row.requested_qty}
-                              </strong>
-                            </span>
-                          </span>
-                        ) : null}
-                        {lineLockedTrace ? (
-                          <span className="rounded-md bg-rose-100 px-1.5 py-px text-[9px] font-semibold text-rose-900 ring-1 ring-rose-200/80">
-                            Non distribué
-                          </span>
-                        ) : [
-                            "confirmed",
-                            "treated",
-                            "completed",
-                            "partially_collected",
-                            "fully_collected",
-                          ].includes(request.status) ? (
-                          selected ? (
-                            <span className="rounded-md bg-emerald-100 px-1.5 py-px text-[9px] font-semibold text-emerald-900">
-                              Retenu
-                            </span>
-                          ) : (
-                            <span className="rounded-md bg-slate-100 px-1.5 py-px text-[9px] font-semibold text-slate-700">
-                              Non retenu
-                            </span>
-                          )
-                        ) : null}
-                        <span
-                          className="ms-auto shrink-0 text-end tabular-nums"
-                          title={
-                            draftIndicativePuMad !== "—"
-                              ? `Prix catalogue officine : ${draftIndicativePuMad}`
-                              : undefined
-                          }
-                        >
-                          <span className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">
-                            PU{" "}
-                          </span>
-                          <span className="text-[11px] font-semibold text-foreground sm:text-[12px]">
-                            {draftIndicativePuMad}
-                          </span>
-                        </span>
                       </div>
                       {isProposedLine && !isOrdonnancePrincipalLine ? (
                         <p className="rounded-md border border-violet-300/80 bg-gradient-to-br from-violet-200/55 to-violet-100/40 px-2 py-1 text-[10px] leading-snug text-violet-950 shadow-sm ring-1 ring-violet-300/35">
@@ -6071,13 +6105,16 @@ export default function PharmacienDemandeDetailPage() {
                                 <span className="text-[9px] font-medium text-muted-foreground">
                                   Réception prévue
                                 </span>
-                                <input
-                                  type="date"
-                                  min={receptionDateMinYmd}
+                                <PlannedVisitDateInput
+                                  valueYmd={f.expected_availability_date}
+                                  onChangeYmd={(v) => setReceptionDateField(row.id, v)}
+                                  minYmd={receptionDateMinYmd}
+                                  maxYmd={receptionDateMaxYmdVal}
                                   disabled={!canEditThisRow}
-                                  value={f.expected_availability_date}
-                                  onChange={(e) => setReceptionDateField(row.id, e.target.value)}
-                                  className="h-8 w-full max-w-xs rounded-lg border border-input bg-background px-2 text-[11px] shadow-sm disabled:opacity-60"
+                                  yearDigits={4}
+                                  ariaLabel="Réception prévue"
+                                  className="max-w-xs"
+                                  shellClassName="block h-8 min-h-8 w-full rounded-lg border border-input bg-background px-2 py-1 text-[11px] font-semibold tabular-nums shadow-sm"
                                 />
                               </label>
                             ) : null}
@@ -6211,13 +6248,16 @@ export default function PharmacienDemandeDetailPage() {
                           <span className="text-[9px] font-bold uppercase tracking-wide text-teal-950">
                             Réception prévue
                           </span>
-                          <input
-                            type="date"
-                            min={receptionDateMinYmd}
+                          <PlannedVisitDateInput
+                            valueYmd={f.expected_availability_date}
+                            onChangeYmd={(v) => setReceptionDateField(row.id, v)}
+                            minYmd={receptionDateMinYmd}
+                            maxYmd={receptionDateMaxYmdVal}
                             disabled={!canEditThisRow}
-                            value={f.expected_availability_date}
-                            onChange={(e) => setReceptionDateField(row.id, e.target.value)}
-                            className="h-10 w-full rounded-lg border-2 border-teal-300/80 bg-white px-2 text-[13px] font-semibold tabular-nums shadow-inner disabled:opacity-60 sm:min-w-[11rem]"
+                            yearDigits={4}
+                            ariaLabel="Réception prévue"
+                            className="sm:min-w-[11rem]"
+                            shellClassName="block h-10 min-h-10 w-full rounded-lg border-2 border-teal-300/80 bg-white px-2 py-1 text-[13px] font-semibold tabular-nums shadow-inner"
                           />
                         </label>
                       ) : null}
@@ -6605,12 +6645,15 @@ export default function PharmacienDemandeDetailPage() {
                       {propAvailability === "to_order" ? (
                         <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                           Date prévisionnelle
-                          <input
-                            type="date"
-                            min={receptionDateMinYmd}
-                            className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
-                            value={propExpectedDate}
-                            onChange={(e) => setPropExpectedDate(e.target.value)}
+                          <PlannedVisitDateInput
+                            valueYmd={propExpectedDate}
+                            onChangeYmd={setPropExpectedDate}
+                            minYmd={receptionDateMinYmd}
+                            maxYmd={receptionDateMaxYmdVal}
+                            yearDigits={4}
+                            ariaLabel="Date prévisionnelle"
+                            className="mt-1 w-full"
+                            shellClassName="block min-h-[2rem] w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs font-semibold tabular-nums"
                           />
                         </label>
                       ) : null}
@@ -6757,27 +6800,52 @@ export default function PharmacienDemandeDetailPage() {
           {showLineAndPublishEdits ? (
             <section className="mt-3 space-y-2 sm:mt-4">
               {canEditResponse ? (
-                <button
-                  type="button"
-                  disabled={busy || Boolean(requestDrift.stale)}
-                  title={requestDrift.stale?.message}
-                  onClick={() => {
-                    if (requestDrift.stale) {
-                      setError(requestDrift.stale.message);
-                      return;
+                <>
+                  {publishMissingReceptionDate.blocked ? (
+                    <p
+                      role="status"
+                      className="rounded-lg border border-amber-300/80 bg-amber-50/70 px-2.5 py-2 text-[11px] leading-snug text-amber-950"
+                    >
+                      {PHARMACIST_PUBLISH_MISSING_RECEPTION_DATE_NOTE_FR}
+                      {publishMissingReceptionDate.names.length > 0 ? (
+                        <span className="mt-1 block font-medium text-amber-900">
+                          {publishMissingReceptionDate.names.map((n) => `« ${n} »`).join(" · ")}
+                        </span>
+                      ) : null}
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={
+                      busy || Boolean(requestDrift.stale) || publishMissingReceptionDate.blocked
                     }
-                    setError("");
-                    setPublishConfirmOpen(true);
-                  }}
-                  className={clsx(
-                    uiActionBtnFull(
-                      "min-h-[3.25rem] rounded-2xl text-base font-bold tracking-tight shadow-lg hover:shadow-xl sm:min-h-[3.5rem] sm:text-[1.05rem]"
-                    ),
-                    isConsultation && "bg-violet-700 text-white hover:bg-violet-800"
-                  )}
-                >
-                  {isConsultation ? "Publier les produits proposés au patient…" : "Envoyer la réponse au patient…"}
-                </button>
+                    title={
+                      publishMissingReceptionDate.blocked
+                        ? PHARMACIST_PUBLISH_MISSING_RECEPTION_DATE_NOTE_FR
+                        : requestDrift.stale?.message
+                    }
+                    onClick={() => {
+                      if (requestDrift.stale) {
+                        setError(requestDrift.stale.message);
+                        return;
+                      }
+                      if (publishMissingReceptionDate.blocked) {
+                        setError(PHARMACIST_PUBLISH_MISSING_RECEPTION_DATE_NOTE_FR);
+                        return;
+                      }
+                      setError("");
+                      setPublishConfirmOpen(true);
+                    }}
+                    className={clsx(
+                      uiActionBtnFull(
+                        "min-h-[3.25rem] rounded-2xl text-base font-bold tracking-tight shadow-lg hover:shadow-xl sm:min-h-[3.5rem] sm:text-[1.05rem]"
+                      ),
+                      isConsultation && "bg-violet-700 text-white hover:bg-violet-800"
+                    )}
+                  >
+                    {isConsultation ? "Publier les produits proposés au patient…" : "Envoyer la réponse au patient…"}
+                  </button>
+                </>
               ) : null}
             </section>
           ) : !respondedFrozenView ? (
@@ -6990,8 +7058,17 @@ export default function PharmacienDemandeDetailPage() {
               </button>
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || publishMissingReceptionDate.blocked}
+                title={
+                  publishMissingReceptionDate.blocked
+                    ? PHARMACIST_PUBLISH_MISSING_RECEPTION_DATE_NOTE_FR
+                    : undefined
+                }
                 onClick={() => {
+                  if (publishMissingReceptionDate.blocked) {
+                    setError(PHARMACIST_PUBLISH_MISSING_RECEPTION_DATE_NOTE_FR);
+                    return;
+                  }
                   setPublishConfirmOpen(false);
                   void publishResponse();
                 }}

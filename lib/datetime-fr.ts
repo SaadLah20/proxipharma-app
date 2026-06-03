@@ -200,3 +200,11 @@ export function formatYmdFrDdMmYy(ymd: string | null | undefined): string {
   if (!m) return "";
   return `${m[3]}/${m[2]}/${m[1].slice(-2)}`;
 }
+
+/** `YYYY-MM-DD` → `jj/mm/aaaa` (réception prévue, à commander). */
+export function formatYmdFrDdMmYyyy(ymd: string | null | undefined): string {
+  const raw = (ymd ?? "").trim().slice(0, 10);
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return "";
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
