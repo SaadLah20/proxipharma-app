@@ -5647,6 +5647,7 @@ export default function PharmacienDemandeDetailPage() {
                   {showVariantTabs ? (
                     <>
                       <PharmacistLineAlternativesTabs
+                        principalTabLabel={isProposedLine ? "Proposé" : "Demandé"}
                         tabs={[
                           ...rowAlts.map((alt) => ({
                             id: alt.id,
