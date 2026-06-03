@@ -1,122 +1,193 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { Ban, CheckCircle2, ChevronDown, Package } from "lucide-react";
+import { clsx } from "clsx";
 import {
   partitionClosedRequestProductLines,
   type ClosedLinePartitionInput,
 } from "@/lib/closed-request-line-buckets";
+import {
+  type PatientClosedArchiveLineBucketId,
+  patientClosedArchiveBucketAccentTextClass,
+  patientClosedArchiveBucketAriaTitleFr,
+  patientClosedArchiveBucketCountBadgeClass,
+  patientClosedArchiveBucketHeaderBarClass,
+  patientClosedArchiveBucketSectionShellClass,
+  patientClosedArchiveBucketTitleFr,
+} from "@/lib/patient-closed-archive-line-buckets";
+import { patientBucketProductListClass } from "@/lib/patient-bucket-product-row-ui";
 
-type Props<T extends ClosedLinePartitionInput> = {
-  items: T[];
-  renderLine: (row: T, opts: { variant: "recupere" | "autre" | "ecarte" | "nonRetenu" }) => ReactNode;
+type ClosedBucketKey = PatientClosedArchiveLineBucketId | "autres_retenus";
+
+const BUCKET_ICONS: Record<ClosedBucketKey, LucideIcon> = {
+  recuperes: CheckCircle2,
+  ecartes: Ban,
+  non_retenus: Package,
+  autres_retenus: Package,
 };
 
-function ClosedBucketSection({
-  title,
-  titleClass,
+function closedBucketTitle(id: ClosedBucketKey): string {
+  if (id === "autres_retenus") return "Autres retenus";
+  return patientClosedArchiveBucketTitleFr(id);
+}
+
+function closedBucketAria(id: ClosedBucketKey): string {
+  if (id === "autres_retenus") return "Produits retenus non récupérés au comptoir";
+  return patientClosedArchiveBucketAriaTitleFr(id);
+}
+
+function closedBucketHeaderClass(id: ClosedBucketKey): string {
+  if (id === "autres_retenus") {
+    return "rounded-lg border border-border/80 border-l-[3px] border-l-slate-400/75 bg-card px-2.5 py-1.5 shadow-none";
+  }
+  return clsx("rounded-lg px-2.5 py-1.5", patientClosedArchiveBucketHeaderBarClass(id));
+}
+
+function closedBucketShellClass(id: ClosedBucketKey): string {
+  if (id === "autres_retenus") {
+    return "rounded-lg border border-border/80 border-l-[3px] border-l-slate-400/75 bg-card shadow-none";
+  }
+  return clsx("rounded-lg", patientClosedArchiveBucketSectionShellClass(id));
+}
+
+function closedBucketAccent(id: ClosedBucketKey): string {
+  if (id === "autres_retenus") return "text-muted-foreground";
+  return patientClosedArchiveBucketAccentTextClass(id);
+}
+
+function ClosedArchiveBucketSection({
+  bucketId,
   count,
   collapsible,
   children,
 }: {
-  title: string;
-  titleClass: string;
+  bucketId: ClosedBucketKey;
   count: number;
   collapsible?: boolean;
   children: ReactNode;
 }) {
-  const titleEl = (
-    <h3 className={`text-[13px] font-extrabold uppercase tracking-wide sm:text-sm ${titleClass}`}>
-      {title}
-      <span className="ml-1.5 tabular-nums font-bold opacity-75">({count})</span>
-    </h3>
+  const Icon = BUCKET_ICONS[bucketId];
+  const title = closedBucketTitle(bucketId);
+  const accentText = closedBucketAccent(bucketId);
+
+  const headerInner = (
+    <>
+      <Icon className={clsx("size-3.5 shrink-0", accentText)} strokeWidth={2.25} aria-hidden />
+      <h4 className="min-w-0 flex-1 truncate text-[12px] font-bold leading-none text-foreground sm:text-[13px]">
+        {title}
+      </h4>
+      <span
+        className={clsx(
+          "inline-flex shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ring-1",
+          patientClosedArchiveBucketCountBadgeClass()
+        )}
+      >
+        {count}
+      </span>
+      {collapsible ? (
+        <ChevronDown
+          className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+          aria-hidden
+        />
+      ) : null}
+    </>
   );
 
   if (collapsible) {
     return (
-      <details className="group w-full min-w-0 space-y-2">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-0.5 py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
-          {titleEl}
-          <ChevronDown className="size-3.5 shrink-0 opacity-80 transition-transform group-open:rotate-180" aria-hidden />
+      <details className="group w-full min-w-0 space-y-1" aria-label={closedBucketAria(bucketId)}>
+        <summary className="flex min-w-0 cursor-pointer list-none items-center gap-x-2 [&::-webkit-details-marker]:hidden">
+          <div
+            className={clsx(
+              "flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1",
+              closedBucketHeaderClass(bucketId)
+            )}
+          >
+            {headerInner}
+          </div>
         </summary>
-        <div className="pt-1">{children}</div>
+        <div className={clsx("overflow-hidden", closedBucketShellClass(bucketId))}>{children}</div>
       </details>
     );
   }
 
   return (
-    <section className="w-full min-w-0 space-y-2">
-      {titleEl}
-      {children}
+    <section className="w-full min-w-0 space-y-1" aria-label={closedBucketAria(bucketId)}>
+      <div
+        className={clsx(
+          "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1",
+          closedBucketHeaderClass(bucketId)
+        )}
+      >
+        {headerInner}
+      </div>
+      <div className={clsx("overflow-hidden", closedBucketShellClass(bucketId))}>{children}</div>
     </section>
   );
 }
 
-/** Dossier clôturé pharmacien : même découpage et présentation que côté patient. */
+/** Dossier clôturé pharmacien — présentation alignée archive patient. */
 export function PharmacistClosedProductBucketsView<T extends ClosedLinePartitionInput>({
   items,
   renderLine,
-}: Props<T>) {
+}: {
+  items: T[];
+  renderLine: (row: T, opts: { variant: "recupere" | "autre" | "ecarte" | "nonRetenu" }) => ReactNode;
+}) {
   const { recuperes, nonRetenues, ecartes, autresRetenus } = partitionClosedRequestProductLines(items);
 
+  const listClass = patientBucketProductListClass;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {recuperes.length > 0 ? (
-        <ClosedBucketSection title="Produits récupérés" titleClass="text-emerald-950" count={recuperes.length}>
-          <ul className="flex w-full min-w-0 flex-col divide-y divide-border/50 overflow-visible">
+        <ClosedArchiveBucketSection bucketId="recuperes" count={recuperes.length}>
+          <ul className={listClass}>
             {recuperes.map((row) => (
               <li key={row.id} className="list-none">
                 {renderLine(row, { variant: "recupere" })}
               </li>
             ))}
           </ul>
-        </ClosedBucketSection>
+        </ClosedArchiveBucketSection>
       ) : null}
 
       {autresRetenus.length > 0 ? (
-        <ClosedBucketSection title="Autres produits retenus" titleClass="text-slate-800" count={autresRetenus.length}>
-          <ul className="flex w-full min-w-0 flex-col divide-y divide-border/50 overflow-visible">
+        <ClosedArchiveBucketSection bucketId="autres_retenus" count={autresRetenus.length}>
+          <ul className={listClass}>
             {autresRetenus.map((row) => (
               <li key={row.id} className="list-none">
                 {renderLine(row, { variant: "autre" })}
               </li>
             ))}
           </ul>
-        </ClosedBucketSection>
+        </ClosedArchiveBucketSection>
       ) : null}
 
       {nonRetenues.length > 0 ? (
-        <ClosedBucketSection
-          title="Produits non retenus"
-          titleClass="text-slate-700"
-          count={nonRetenues.length}
-          collapsible
-        >
-          <ul className="flex w-full min-w-0 flex-col divide-y divide-border/50 overflow-visible">
+        <ClosedArchiveBucketSection bucketId="non_retenus" count={nonRetenues.length} collapsible>
+          <ul className={listClass}>
             {nonRetenues.map((row) => (
               <li key={row.id} className="list-none">
                 {renderLine(row, { variant: "nonRetenu" })}
               </li>
             ))}
           </ul>
-        </ClosedBucketSection>
+        </ClosedArchiveBucketSection>
       ) : null}
 
       {ecartes.length > 0 ? (
-        <ClosedBucketSection
-          title="Retirés après validation"
-          titleClass="text-amber-950"
-          count={ecartes.length}
-          collapsible
-        >
-          <ul className="flex w-full min-w-0 flex-col divide-y divide-border/50 overflow-visible">
+        <ClosedArchiveBucketSection bucketId="ecartes" count={ecartes.length} collapsible>
+          <ul className={listClass}>
             {ecartes.map((row) => (
               <li key={row.id} className="list-none">
                 {renderLine(row, { variant: "ecarte" })}
               </li>
             ))}
           </ul>
-        </ClosedBucketSection>
+        </ClosedArchiveBucketSection>
       ) : null}
     </div>
   );

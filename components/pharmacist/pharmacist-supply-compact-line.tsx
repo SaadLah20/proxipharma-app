@@ -8,6 +8,7 @@ import {
   validatedLineLabelChipClass,
   type ValidatedLineLabel,
 } from "@/lib/patient-validated-line-labels-fr";
+import { patientBucketProductRowClass } from "@/lib/patient-bucket-product-row-ui";
 import { pharmacistProposedProductBadgeFr } from "@/lib/request-display";
 
 export type PharmacistSupplyLineTier =
@@ -18,7 +19,7 @@ export type PharmacistSupplyLineTier =
 
 function validatedLineRowClass(tier: PharmacistSupplyLineTier, withdrawnGrey: boolean): string {
   if (withdrawnGrey || tier === "retire_apres_validation") {
-    return "bg-muted/15 saturate-[0.65] opacity-[0.72]";
+    return withdrawnGrey ? "opacity-75" : "opacity-90";
   }
   return "";
 }
@@ -150,15 +151,16 @@ export function PharmacistSupplyCompactLine({
   // contiendrait que « Historique » → on n'affiche alors que l'icône Historique.
   const menuHasActions =
     supplyMutationsEnabled && selected && !lineLockedTrace && !withdrawn && !lineCounterLocked;
-  const cardShell = supplyTier
-    ? validatedLineRowClass(supplyTier, withdrawnGrey || withdrawn)
+  const inBucketList = Boolean(supplyTier);
+  const cardShell = inBucketList
+    ? clsx(patientBucketProductRowClass, validatedLineRowClass(supplyTier!, withdrawnGrey || withdrawn))
     : withdrawn
-      ? "rounded-lg border border-amber-200/80 bg-amber-50/25 shadow-sm ring-1 ring-amber-100/50"
+      ? "rounded-lg border border-border/80 bg-muted/20 px-2 py-1.5 sm:px-2.5 sm:py-2"
       : !selected
-        ? "rounded-lg border border-slate-200/85 bg-white shadow-sm ring-1 ring-slate-100/60"
+        ? "rounded-lg border border-border/80 bg-card px-2 py-1.5 sm:px-2.5 sm:py-2 shadow-sm"
         : effAvailRow === "to_order"
-          ? "rounded-lg border border-teal-200/75 bg-teal-50/25 shadow-sm ring-1 ring-teal-100/50"
-          : "rounded-lg border border-sky-200/75 bg-sky-50/25 shadow-sm ring-1 ring-sky-100/50";
+          ? "rounded-lg border border-border/80 border-l-[3px] border-l-teal-600/75 bg-card px-2 py-1.5 sm:px-2.5 sm:py-2 shadow-sm"
+          : "rounded-lg border border-border/80 border-l-[3px] border-l-sky-500/70 bg-card px-2 py-1.5 sm:px-2.5 sm:py-2 shadow-sm";
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -210,14 +212,14 @@ export function PharmacistSupplyCompactLine({
       ) : null}
       <li
         className={clsx(
-          "list-none w-full min-w-0 overflow-visible py-3",
-          supplyTier ? clsx("border-b border-border/55 last:border-b-0", cardShell) : clsx("overflow-hidden rounded-lg px-2 py-1.5 sm:px-2.5 sm:py-2", cardShell),
-          withdrawn && "opacity-[0.82] saturate-[0.72]"
+          "list-none w-full min-w-0 overflow-visible",
+          inBucketList ? cardShell : clsx("py-1.5", cardShell),
+          withdrawn && !inBucketList && "opacity-[0.82] saturate-[0.72]"
         )}
       >
         <div className="relative flex flex-col gap-1.5">
-          <div className="flex items-start gap-1.5">
-            <div className="relative box-border h-[3.85rem] w-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card shadow-inner sm:h-[4rem] sm:w-[4rem]">
+          <div className="flex items-start gap-2">
+            <div className="relative box-border size-[3.5rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card sm:size-[3.65rem]">
               {thumbUrl ? (
                 onPhotoPreview ? (
                   <button
@@ -261,7 +263,7 @@ export function PharmacistSupplyCompactLine({
                         aria-haspopup="menu"
                         aria-label="Actions ligne"
                         onClick={() => onMenuOpenChange(!menuOpen)}
-                        className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-300/90 bg-white/95 text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-40"
+                        className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-sm hover:bg-muted/50 disabled:opacity-40"
                       >
                         <MoreVertical className="size-4" strokeWidth={2} aria-hidden />
                       </button>
@@ -330,7 +332,7 @@ export function PharmacistSupplyCompactLine({
                       type="button"
                       disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
                       onClick={onMenuHistory}
-                      className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-sky-300/80 bg-white text-sky-800 shadow-sm hover:bg-sky-50 disabled:opacity-40"
+                      className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm hover:bg-muted/50 disabled:opacity-40"
                       aria-label="Historique de cette ligne"
                       title="Historique"
                     >
@@ -363,7 +365,7 @@ export function PharmacistSupplyCompactLine({
                       {lineOriginBadgeLabel}
                     </span>
                   ) : null}
-                  <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-slate-700">{availSentence}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">{availSentence}</p>
                 </>
               )}
 
@@ -384,10 +386,10 @@ export function PharmacistSupplyCompactLine({
             </div>
           </div>
 
-          <div className="flex min-w-0 flex-nowrap items-baseline justify-between gap-x-2 border-t border-border/45 pt-1.5 text-[12px] font-medium tabular-nums text-slate-800 sm:text-[13px]">
+          <div className="flex min-w-0 flex-nowrap items-baseline justify-between gap-x-2 border-t border-border/45 pt-1.5 text-[11px] font-medium tabular-nums text-foreground sm:text-[12px]">
             <div className="min-w-0 shrink-0 whitespace-nowrap text-start">
-              <span className="text-slate-500">PU</span>{" "}
-              <strong className="font-semibold text-slate-900">{unitLabel}</strong>
+              <span className="text-muted-foreground">PU</span>{" "}
+              <strong className="font-semibold">{unitLabel}</strong>
             </div>
             <div className="min-w-0 flex-1 text-center">
               <span className="inline-flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0">
@@ -398,15 +400,15 @@ export function PharmacistSupplyCompactLine({
                   </span>
                 ) : null}
                 <span className="inline-flex items-baseline gap-1">
-                  <span className="text-slate-500">{ordonnancePrescribedQty != null ? "Retenu" : "Qté"}</span>
-                  <strong className="font-semibold text-slate-900 tabular-nums">{validatedQty}</strong>
+                  <span className="text-muted-foreground">{ordonnancePrescribedQty != null ? "Retenu" : "Qté"}</span>
+                  <strong className="font-semibold tabular-nums">{validatedQty}</strong>
                 </span>
               </span>
             </div>
             <div className="min-w-0 shrink-0 whitespace-nowrap text-end">
               <span className="inline-flex items-baseline justify-end gap-1">
-                <span className="text-slate-500">Total</span>
-                <strong className={clsx("font-semibold text-sky-900", withdrawn && "line-through decoration-muted-foreground/70")}>
+                <span className="text-muted-foreground">Total</span>
+                <strong className={clsx("font-semibold", withdrawn && "line-through decoration-muted-foreground/70")}>
                   {totalLabel}
                 </strong>
               </span>

@@ -169,6 +169,7 @@ import {
 import { patientPrescriptionLineBadge } from "@/lib/prescription-patient-labels";
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { PharmacistProductRequestDossierHeader } from "@/components/requests/product/pharmacist-product-request-dossier-header";
+import { patientBucketProductListClass } from "@/lib/patient-bucket-product-row-ui";
 import { PharmacistAltCatalogPicker } from "@/components/pharmacist/pharmacist-alt-catalog-picker";
 import { PharmacistAlternativeLinePanel } from "@/components/pharmacist/pharmacist-alternative-line-panel";
 import { PharmacistLineAlternativesTabs } from "@/components/pharmacist/pharmacist-line-alternatives-tabs";
@@ -4802,11 +4803,15 @@ export default function PharmacienDemandeDetailPage() {
         <section
           className={clsx(
             "rounded-lg border px-3 py-2 shadow-sm",
-            request.status === "cancelled" && "border-rose-200/90 bg-rose-50/55 text-rose-950",
-            request.status === "abandoned" && "border-orange-200/90 bg-orange-50/55 text-orange-950",
-            request.status === "expired" && "border-amber-200/90 bg-amber-50/55 text-amber-950",
-            isPrescription && "ring-1 ring-amber-200/50",
-            isConsultation && "ring-1 ring-violet-200/50"
+            hideMainRequestHeader
+              ? "border-border/80 bg-card text-foreground"
+              : clsx(
+                  request.status === "cancelled" && "border-rose-200/90 bg-rose-50/55 text-rose-950",
+                  request.status === "abandoned" && "border-orange-200/90 bg-orange-50/55 text-orange-950",
+                  request.status === "expired" && "border-amber-200/90 bg-amber-50/55 text-amber-950",
+                  isPrescription && "ring-1 ring-amber-200/50",
+                  isConsultation && "ring-1 ring-violet-200/50"
+                )
           )}
         >
           <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -4830,11 +4835,13 @@ export default function PharmacienDemandeDetailPage() {
         <section
           className={clsx(
             "rounded-lg border px-3 py-2 text-[11px] shadow-sm",
-            isPrescription
-              ? "border-amber-200/85 bg-amber-50/65 text-amber-950"
-              : isConsultation
-                ? "border-violet-200/85 bg-violet-50/65 text-violet-950"
-                : "border-emerald-200/85 bg-emerald-50/65 text-emerald-950"
+            hideMainRequestHeader
+              ? "border-border/80 bg-card text-foreground"
+              : isPrescription
+                ? "border-amber-200/85 bg-amber-50/65 text-amber-950"
+                : isConsultation
+                  ? "border-violet-200/85 bg-violet-50/65 text-violet-950"
+                  : "border-emerald-200/85 bg-emerald-50/65 text-emerald-950"
           )}
         >
           <p
@@ -4984,15 +4991,24 @@ export default function PharmacienDemandeDetailPage() {
       {respondedEditMode && request?.status === "responded" && usesLineWorkflow ? (
         <section
           id="pharma-demande-mode-edition"
-          className="sticky top-0 z-20 rounded-lg border border-amber-300/80 bg-amber-50/90 px-2.5 py-1.5 text-center text-[10px] shadow-sm ring-1 ring-amber-200/50"
+          className={clsx(
+            "sticky top-0 z-20 text-center text-[10px] shadow-sm",
+            hideMainRequestHeader
+              ? clsx(PHARMA_STATUS_BANNER, "text-foreground")
+              : "rounded-lg border border-amber-300/80 bg-amber-50/90 px-2.5 py-1.5 ring-1 ring-amber-200/50"
+          )}
         >
-          <p className="font-bold text-amber-950">Modification</p>
-          <p className="text-amber-900/85">Visible patient après enregistrement.</p>
+          <p className={clsx("font-bold", hideMainRequestHeader ? "text-foreground" : "text-amber-950")}>
+            Modification en cours
+          </p>
+          {!hideMainRequestHeader ? (
+            <p className="text-amber-900/85">Visible patient après enregistrement.</p>
+          ) : null}
         </section>
       ) : null}
 
-      {respondedFrozenView && usesLineWorkflow ? (
-        <section className={clsx(PHARMA_STATUS_BANNER, "border-amber-200/70 bg-amber-50/55 text-amber-950")}>
+      {respondedFrozenView && usesLineWorkflow && !hideMainRequestHeader ? (
+        <section className={clsx(PHARMA_STATUS_BANNER, "text-foreground")}>
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
             <span className="shrink-0 rounded-full border border-amber-300/80 bg-white px-1.5 py-px text-[8px] font-bold uppercase text-amber-950">
               Publiée
@@ -5057,29 +5073,34 @@ export default function PharmacienDemandeDetailPage() {
               ) : null}
               {displayRows.length > 0 ? (
               <>
+              {(hideMainRequestHeader && !ordonnanceCatalogEditable) ? null : (
               <div className="flex flex-wrap items-end justify-between gap-1.5 sm:gap-2">
-            <div>
-              <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground sm:text-xs">
-                {workflowCopy.pharmacistLinesSectionTitle}
-              </h2>
-              {["confirmed", "treated", "completed"].includes(request.status) ? (
-                <div className="mt-1 flex flex-wrap gap-1 text-[9px] text-muted-foreground">
-                  <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">Sél. {selectedLinesActiveCount}</span>
-                  {request.status === "treated" || request.status === "completed" ? (
-                    <>
-                      <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">
-                        Attente comptoir {pendingCounterCount}
-                      </span>
-                      <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">
-                        Récp. {pickedUpCount}
-                      </span>
-                    </>
+              {hideMainRequestHeader ? null : (
+                <div>
+                  <h2 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground sm:text-xs">
+                    {workflowCopy.pharmacistLinesSectionTitle}
+                  </h2>
+                  {["confirmed", "treated", "completed"].includes(request.status) ? (
+                    <div className="mt-1 flex flex-wrap gap-1 text-[9px] text-muted-foreground">
+                      <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">Sél. {selectedLinesActiveCount}</span>
+                      {request.status === "treated" || request.status === "completed" ? (
+                        <>
+                          <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">
+                            Attente comptoir {pendingCounterCount}
+                          </span>
+                          <span className="rounded-md bg-muted/80 px-1.5 py-px font-medium text-foreground">
+                            Récp. {pickedUpCount}
+                          </span>
+                        </>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
-              ) : null}
-            </div>
+              )}
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <span className="text-[10px] text-muted-foreground">{displayRows.length} article(s)</span>
+              {hideMainRequestHeader ? null : (
+                <span className="text-[10px] text-muted-foreground">{displayRows.length} article(s)</span>
+              )}
               {ordonnanceCatalogEditable ? (
                 <button
                   type="button"
@@ -5100,7 +5121,8 @@ export default function PharmacienDemandeDetailPage() {
               ) : null}
             </div>
           </div>
-          <div className="mt-2 flex flex-col gap-3">
+              )}
+          <div className={clsx("flex flex-col gap-3", hideMainRequestHeader ? "" : "mt-2")}>
             {showClosedBucketsLayout ? (
               <PharmacistClosedProductBucketsView
                 items={displayRows}
@@ -5109,15 +5131,15 @@ export default function PharmacienDemandeDetailPage() {
             ) : null}
             {!showClosedBucketsLayout ? (
               <>
-                {pharmacistSupplySurfaceGroups[0]?.bucketMeta ? (
-                  <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                    Produits de la commande validée
-                  </h3>
-                ) : null}
                 {pharmacistSupplySurfaceGroups.map((group, gi) => {
                   const bucket = group.bucketMeta;
                   const listBody = (
-                <ul className="flex w-full min-w-0 flex-col divide-y divide-border/50 overflow-visible">
+                <ul
+                  className={clsx(
+                    "flex w-full min-w-0 flex-col overflow-visible",
+                    bucket ? patientBucketProductListClass : "divide-y divide-border/50"
+                  )}
+                >
                   {group.entries.map(({ header, row }) => {
               const prod = one(row.products);
               const f = draft[row.id];
@@ -5740,16 +5762,11 @@ export default function PharmacienDemandeDetailPage() {
                     className={clsx(
                       PHARMA_LINE_EDITOR_CARD,
                       "list-none overflow-visible",
-                      isAjoutOfficineLine
-                        ? "border-violet-200/90 ring-violet-100/50"
-                        : isOrdonnancePrincipalLine
-                          ? "border-amber-200/85 ring-amber-100/45"
-                          : availUi.accentClass,
-                      isAjoutOfficineLine
-                        ? "border-l-[3px] border-l-violet-500"
-                        : isOrdonnancePrincipalLine
-                          ? "border-l-[3px] border-l-amber-500"
-                          : "border-l-[3px] border-l-sky-400/55"
+                      isAjoutOfficineLine && "border-l-[3px] border-l-violet-500/70",
+                      isOrdonnancePrincipalLine && "border-l-[3px] border-l-amber-500/70",
+                      !isAjoutOfficineLine &&
+                        !isOrdonnancePrincipalLine &&
+                        "border-l-[3px] border-l-sky-500/60"
                     )}
                   >
                   {showVariantTabs ? (
@@ -5803,14 +5820,7 @@ export default function PharmacienDemandeDetailPage() {
                   <div className={PHARMA_LINE_EDITOR_HEADER}>
                     <div className="flex w-[4.25rem] shrink-0 flex-col items-stretch gap-0.5 sm:w-[4.75rem]">
                       <div
-                        className={clsx(
-                          "relative h-[4.25rem] w-full overflow-hidden rounded-md border bg-white shadow-inner sm:h-[4.5rem]",
-                          isAjoutOfficineLine
-                            ? "border-violet-200/80 ring-1 ring-violet-200/35"
-                            : isOrdonnancePrincipalLine
-                              ? "border-amber-200/80 ring-1 ring-amber-200/35"
-                              : "border-slate-200/75"
-                        )}
+                        className="relative size-[3.65rem] w-full overflow-hidden rounded-md border border-border/80 bg-card sm:size-[3.85rem]"
                       >
                         {lineEditorPhotoPath ? (
                           <img
@@ -6363,7 +6373,11 @@ export default function PharmacienDemandeDetailPage() {
                   );
                   if (bucket) {
                     return (
-                      <PharmacistValidatedBucketSection key={bucket.kind} group={bucket}>
+                      <PharmacistValidatedBucketSection
+                        key={bucket.kind}
+                        group={bucket}
+                        isTreatedView={request.status === "treated"}
+                      >
                         {listBody}
                       </PharmacistValidatedBucketSection>
                     );
@@ -6631,7 +6645,7 @@ export default function PharmacienDemandeDetailPage() {
           ) : null}
 
           {respondedFrozenView ? (
-            <section className="mt-3 space-y-2 rounded-xl border border-amber-200/85 bg-amber-50/50 p-2.5 shadow-sm sm:mt-4 sm:p-3">
+            <section className="mt-3">
               <button
                 type="button"
                 onClick={() => {
@@ -6644,14 +6658,11 @@ export default function PharmacienDemandeDetailPage() {
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }, 0);
                 }}
-                className="inline-flex h-10 min-h-11 w-full touch-manipulation items-center justify-center gap-2 rounded-md border border-amber-400/90 bg-white px-3 text-xs font-semibold text-amber-950 shadow-sm transition hover:bg-amber-50/90 sm:min-h-10 sm:text-sm"
+                className="inline-flex h-10 min-h-11 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground shadow-sm transition hover:bg-muted/40 sm:min-h-10 sm:text-sm"
               >
                 <Pencil className="size-[15px] shrink-0" strokeWidth={2} aria-hidden />
                 Modifier la réponse
               </button>
-              <p className="text-center text-[10px] leading-snug text-muted-foreground sm:text-[11px]">
-                Lecture seule pour le patient jusqu’à modification. L’annulation de la demande reste disponible ci-dessous.
-              </p>
             </section>
           ) : null}
 
@@ -6693,22 +6704,7 @@ export default function PharmacienDemandeDetailPage() {
             ) : null
           ) : null}
 
-          {showCloseCounterSticky ? (
-            <section className="mt-3 rounded-xl border-2 border-emerald-400/70 bg-gradient-to-br from-emerald-50/90 via-white to-teal-50/40 p-3 shadow-sm ring-1 ring-emerald-200/60">
-              <p className="text-[11px] font-semibold leading-snug text-emerald-950">
-                Toutes les lignes retenues sont réglées au comptoir. Vous pouvez clôturer le dossier — le patient verra le
-                dossier comme terminé.
-              </p>
-              <button
-                type="button"
-                disabled={completeBusy}
-                onClick={() => setCloseConfirmOpen(true)}
-                className="mt-2.5 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white shadow-md hover:bg-emerald-800 disabled:opacity-50 sm:w-auto sm:min-w-[14rem]"
-              >
-                {completeBusy ? "Clôture…" : "Clôturer le dossier"}
-              </button>
-            </section>
-          ) : counterClosureEligible && !canCompleteCounter && items.length > 0 ? (
+          {!hideMainRequestHeader && counterClosureEligible && !canCompleteCounter && items.length > 0 ? (
             <p className="mt-2 rounded-lg border border-amber-200/70 bg-amber-50/50 px-2.5 py-2 text-[11px] leading-snug text-amber-950">
               {counterClosurePendingTracked > 0
                 ? "Marquez au moins un produit « Récupéré » au comptoir pour pouvoir clôturer le dossier."
