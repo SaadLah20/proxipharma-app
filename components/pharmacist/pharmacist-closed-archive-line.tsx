@@ -42,6 +42,7 @@ export function PharmacistClosedArchiveNotRetainedLine({
   thumbUrl,
   statusLabel,
   lineKindLabel,
+  qtyLabel = "Qté demandée",
   lineMessageButton,
   onOpenHistory,
   onPhotoPreview,
@@ -51,6 +52,7 @@ export function PharmacistClosedArchiveNotRetainedLine({
   thumbUrl: string | null;
   statusLabel: string | null;
   lineKindLabel: string | null;
+  qtyLabel?: string;
   lineMessageButton: ReactNode;
   onOpenHistory: () => void;
   onPhotoPreview?: (url: string, title: string) => void;
@@ -88,7 +90,7 @@ export function PharmacistClosedArchiveNotRetainedLine({
           <div className="flex w-full items-end justify-between gap-3 leading-none">
             <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="text-[10px] text-muted-foreground">
-                Qté demandée{" "}
+                {qtyLabel}{" "}
                 <strong className="tabular-nums text-foreground/80">{row.requested_qty}</strong>
               </span>
               {statusLabel ? (

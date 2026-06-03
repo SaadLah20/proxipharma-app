@@ -24,16 +24,24 @@ type HubRowBase = {
 export function pickRecentActiveHubRows<T extends HubRowBase>(
   rows: T[],
   unreadById: Record<string, boolean>,
-  limit = 5
+  limit = 5,
+  role: "patient" | "pharmacien" = "patient"
 ): T[] {
   const cap = Math.min(5, Math.max(1, limit));
   const scored = rows.map((row) => {
     let score = new Date(row.updated_at ?? row.created_at).getTime();
     if (unreadById[row.id]) score += 1e15;
-    if (row.status === "responded") score += 5e14;
-    if (row.status === "treated") score += 4e14;
-    if (row.status === "submitted" || row.status === "in_review") score += 3e14;
-    if (row.status === "confirmed") score += 2e14;
+    if (role === "pharmacien") {
+      if (row.status === "submitted" || row.status === "in_review") score += 6e14;
+      if (row.status === "confirmed") score += 5e14;
+      if (row.status === "treated") score += 4e14;
+      if (row.status === "responded") score += 2e14;
+    } else {
+      if (row.status === "responded") score += 5e14;
+      if (row.status === "treated") score += 4e14;
+      if (row.status === "submitted" || row.status === "in_review") score += 3e14;
+      if (row.status === "confirmed") score += 2e14;
+    }
     return { row, score };
   });
   scored.sort((a, b) => b.score - a.score);

@@ -19,5 +19,10 @@ export function rewriteForPharmacistView(text: string | null | undefined): strin
     .replace(/\ble patient\b/g, "votre client")
     .replace(/\bdu patient\b/g, "de votre client")
     .replace(/\bau patient\b/g, "à votre client")
-    .replace(/\bpar le patient\b/g, "par votre client");
+    .replace(/\bpar le patient\b/g, "par votre client")
+    .replace(/\bpour vous\b/gi, "pour le patient")
+    .replace(/\bvotre passage\b/gi, "le passage du client")
+    .replace(/\bVotre demande\b/g, "La demande du client")
+    .replace(/\bvotre demande\b/g, "la demande du client")
+    .replace(/\baprès votre validation\b/gi, "après validation du client");
 }

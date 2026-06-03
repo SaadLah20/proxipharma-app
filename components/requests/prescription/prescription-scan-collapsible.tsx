@@ -7,6 +7,7 @@ import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 
 type Props = {
   paths: PrescriptionPagePaths;
+  id?: string;
   /** Ouvert par défaut (ex. avant première saisie). */
   defaultOpen?: boolean;
   viewerRole?: "patient" | "pharmacien";
@@ -20,6 +21,7 @@ type Props = {
 
 export function PrescriptionScanCollapsible({
   paths,
+  id = "prescription-scan-panel",
   defaultOpen = false,
   viewerRole = "patient",
   className,
@@ -30,6 +32,7 @@ export function PrescriptionScanCollapsible({
 
   return (
     <details
+      id={id}
       open={defaultOpen}
       className={clsx(
         "group rounded-xl border-2 border-amber-200/75 bg-gradient-to-b from-amber-50/35 via-white to-white shadow-sm ring-1 ring-amber-100/80",

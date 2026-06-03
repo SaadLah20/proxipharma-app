@@ -50,6 +50,7 @@ export function PharmacistValidatedBucketSection<T extends PatientLineLike>({
         isTreatedView={isTreatedView}
         subtotalLabel={group.totalLabel}
         hint={group.hint}
+        audience="pharmacien"
       >
         {children}
       </PatientValidatedBucketSection>

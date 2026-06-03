@@ -4,7 +4,7 @@ import { isRequestItemAddedAfterPatientConfirmation } from "@/lib/supply-line-po
 export const PRESCRIPTION_ORDONNANCE_REASON = "Saisie depuis ordonnance";
 
 /** Libellé patient / historique pour une ligne saisie depuis le scan. */
-export const PRESCRIPTION_ORDONNANCE_SOURCING_LABEL = "Saisi ordonnance";
+export const PRESCRIPTION_ORDONNANCE_SOURCING_LABEL = "Ordonnance";
 
 export const PRESCRIPTION_ADDITIONAL_PROPOSED_REASON = "Produit proposé par la pharmacie";
 

@@ -40,12 +40,21 @@ export function lineEventTitle(
   const ph = audience === "pharmacist";
   switch (kind) {
     case "origin_patient_request":
+      if (journey === "prescription_pharmacist_sourced") {
+        return ph ? "Produit saisi depuis l’ordonnance" : "Produit saisi par la pharmacie";
+      }
       return ph ? "Produit demandé par le patient" : "Produit demandé";
     case "origin_patient_request_updated":
+      if (journey === "prescription_pharmacist_sourced") {
+        return ph ? "Saisie ordonnance modifiée" : "Saisie modifiée par la pharmacie";
+      }
       return ph ? "Demande modifiée par le patient" : "Demande modifiée";
     case "origin_pharmacist_proposed":
       return ph ? "Produit proposé par l'officine" : "Proposé par la pharmacie";
     case "pharmacist_response":
+      if (journey === "prescription_pharmacist_sourced") {
+        return ph ? "Réponse publiée sur ce produit" : "Réponse sur ce produit";
+      }
       return ph ? "Réponse publiée sur ce produit" : "Réponse sur votre demande";
     case "pharmacist_response_updated_line":
       return ph ? "Réponse modifiée sur ce produit" : "Réponse mise à jour";

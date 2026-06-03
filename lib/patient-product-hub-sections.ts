@@ -152,6 +152,19 @@ export function patientProductHubCardContextFr(row: PatientRequestRow): PatientP
     }
     case "submitted":
     case "in_review":
+      if (row.request_type === "prescription") {
+        return {
+          primaryLine:
+            n > 0
+              ? `${n} produit${n !== 1 ? "s" : ""} saisi${n !== 1 ? "s" : ""} par l’officine`
+              : "Ordonnance transmise — saisie en cours",
+          secondaryLine:
+            n > 0
+              ? "Réponse officine en préparation"
+              : "Votre scan est entre les mains de la pharmacie",
+          emphasis: "info",
+        };
+      }
       return {
         primaryLine: `${n} produit${n !== 1 ? "s" : ""} demandé${n !== 1 ? "s" : ""}`,
         secondaryLine:

@@ -164,7 +164,7 @@ export function PharmacistArchiveFrozenProductsView<T extends ArchiveFrozenItem>
           const rows = respondedBuckets[bucketId];
           if (rows.length === 0) return null;
           return (
-            <PatientRespondedBucketSection key={bucketId} bucketId={bucketId} count={rows.length}>
+            <PatientRespondedBucketSection key={bucketId} bucketId={bucketId} count={rows.length} audience="pharmacien">
               <ul className={patientBucketProductListClass}>
                 {rows.map((row) => (
                   <li key={row.id} className="list-none">

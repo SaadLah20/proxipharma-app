@@ -43,6 +43,7 @@ export type PatientLineTimelineInputs = {
   dossierHistoryDetailParagraphs?: (reason: string | null | undefined) => string[];
   pharmacistProposedOriginLabel?: string;
   patientLineOriginLabel?: string;
+  requestType?: string | null;
   timelineAudience?: "patient" | "pharmacist";
 };
 
@@ -87,6 +88,7 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
     dossierHistoryDetailParagraphs: input.dossierHistoryDetailParagraphs,
     pharmacistProposedOriginLabel: input.pharmacistProposedOriginLabel,
     patientLineOriginLabel: input.patientLineOriginLabel,
+    requestType: input.requestType,
     audience: input.timelineAudience === "pharmacist" ? "pharmacist" : "patient",
   });
 }

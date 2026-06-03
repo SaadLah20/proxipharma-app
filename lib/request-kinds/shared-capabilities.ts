@@ -35,3 +35,12 @@ export function sharedShowPlannedVisitBlock(status: string): boolean {
   if (["cancelled", "abandoned", "expired"].includes(status)) return false;
   return (SHARED_PLANNED_VISIT_STATUSES as readonly string[]).includes(status);
 }
+
+/** Aligné sur `public._request_uses_product_line_workflow` (Supabase). */
+export function requestUsesProductLineWorkflow(requestType: string | null | undefined): boolean {
+  return (
+    requestType === "product_request" ||
+    requestType === "prescription" ||
+    requestType === "free_consultation"
+  );
+}

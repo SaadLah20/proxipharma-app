@@ -25,6 +25,10 @@ import {
   PRESCRIPTION_ORDONNANCE_SOURCING_LABEL,
 } from "@/lib/prescription-pharmacist-lines";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
+import {
+  respondedPrincipalTabLabelFr,
+  respondedRequestedQtyLabelFr,
+} from "@/lib/prescription-ui-copy";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { cn } from "@/lib/utils";
 import { patientBucketProductRowClass } from "@/lib/patient-bucket-product-row-ui";
@@ -83,7 +87,7 @@ function lineBadgeLabelFr(opts: {
   if (opts.requestType === "prescription" && opts.isExtraProposed) return "Produit proposé par la pharmacie";
   if (opts.requestType === "free_consultation" && opts.isProposedLine) return "Proposition pharmacie";
   if (opts.isProposedLine) return opts.pharmacistProposedBadgeLabel || "Ajout Officine";
-  return "Ta demande";
+  return respondedPrincipalTabLabelFr(opts.requestType);
 }
 
 function RespondedLineQtyMeta({
@@ -93,18 +97,20 @@ function RespondedLineQtyMeta({
   requestedQty,
   expectedDate,
   statusLabel,
+  requestType,
 }: {
   bucketId: PatientRespondedBucketId;
   isAlt: boolean;
   showRequested: boolean;
   requestedQty: number;
   expectedDate: string | null;
-  /** Indisponible / En rupture — affiché à droite de la qté demandée (branche « Ta demande »). */
+  requestType: string;
   statusLabel?: string | null;
 }) {
   const qtyLine = showRequested ? (
     <span className="text-[10px] text-muted-foreground">
-      Qté demandée <strong className="tabular-nums text-foreground">{requestedQty}</strong>
+      {respondedRequestedQtyLabelFr(requestType)}{" "}
+      <strong className="tabular-nums text-foreground">{requestedQty}</strong>
     </span>
   ) : null;
 
@@ -541,6 +547,7 @@ function RespondedLineBlock({
   variantTabsAbove = false,
   readOnly = false,
   bucketId,
+  requestType,
 }: {
   variant: VariantData;
   retained: boolean;
@@ -554,6 +561,7 @@ function RespondedLineBlock({
   /** Archive (expirée / annulée en répondue) : pas de case ni changement de qté. */
   readOnly?: boolean;
   bucketId: PatientRespondedBucketId;
+  requestType: string;
 }) {
   const unavailable = variant.cap < 1;
   /** Avec onglets : PU/Tot/qty visibles sur l’onglet consulté (comparaison), pas seulement si cette branche est cochée. */
@@ -642,6 +650,7 @@ function RespondedLineBlock({
                 requestedQty={variant.requestedQty}
                 expectedDate={variant.expectedDate}
                 statusLabel={variant.branch === "principal" ? variant.principalStatusLabel : null}
+                requestType={requestType}
               />
             ) : variant.expectedDate && bucketId === "to_order" ? (
               <p className="text-[10px] font-medium text-teal-800/85">
@@ -655,6 +664,7 @@ function RespondedLineBlock({
                 requestedQty={variant.requestedQty}
                 expectedDate={null}
                 statusLabel={variant.principalStatusLabel}
+                requestType={requestType}
               />
             ) : null}
           </div>
@@ -765,7 +775,7 @@ export function RespondedPatientLineChooser({
         : null;
     return {
       tabId: "principal",
-      tabLabel: "Ta demande",
+      tabLabel: respondedPrincipalTabLabelFr(requestType),
       badgeLabel: lineBadgeLabelFr({
         requestType,
         isAlt: false,
@@ -875,6 +885,7 @@ export function RespondedPatientLineChooser({
           ajoutOfficineLabel={pharmacistProposedBadgeLabel}
           readOnly={readOnly}
           bucketId={bucketId}
+          requestType={requestType}
         />
       </li>
     );
@@ -916,6 +927,7 @@ export function RespondedPatientLineChooser({
           variantTabsAbove
           readOnly={readOnly}
           bucketId={bucketId}
+          requestType={requestType}
         />
       </div>
     </li>

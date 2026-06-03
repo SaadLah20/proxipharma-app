@@ -9,6 +9,11 @@ import {
   isPatientAjoutOfficineLine,
   isRequestItemAddedAfterPatientConfirmation,
 } from "@/lib/supply-line-post-confirm";
+import {
+  PRESCRIPTION_PRINCIPAL_BADGE,
+  validatedOriginFallbackPatientFr,
+  validatedOriginFallbackPharmacistFr,
+} from "@/lib/prescription-ui-copy";
 
 export type ValidatedLineLabelTone = "origin" | "status" | "event" | "reception" | "arrived" | "collected";
 
@@ -45,7 +50,8 @@ function fulfillmentStatusLabelFr(
     return null;
   }
   if (eff === "available" || eff === "partially_available") {
-    return pcf === "reserved" ? "Réservé" : "À réserver par la pharmacie";
+    if (pcf === "reserved") return "Réservé";
+    return labelAudience === "pharmacist" ? "À réserver" : "À réserver par la pharmacie";
   }
   if (eff === "to_order") {
     if (pcf === "arrived_reserved") return "Reçu en officine";
@@ -73,7 +79,11 @@ function mapAmendmentBadgeFr(raw: string): string | null {
 }
 
 function isDefaultPatientOriginLabel(label: string): boolean {
-  return label === "Ta demande" || label === "Demande patient";
+  return (
+    label === "Ta demande" ||
+    label === "Demande patient" ||
+    label === PRESCRIPTION_PRINCIPAL_BADGE
+  );
 }
 
 function isRedundantSectionStatusLabel(
@@ -229,7 +239,9 @@ export function validatedOriginLabelPharmacistFr(input: {
   prescriptionBadge: string | null;
 }): string {
   const label = validatedOriginLabelFr(input);
-  if (label === "Ta demande") return "Demande patient";
+  if (label === validatedOriginFallbackPatientFr(input.requestType)) {
+    return validatedOriginFallbackPharmacistFr(input.requestType);
+  }
   return label;
 }
 
@@ -239,9 +251,9 @@ export function validatedOriginLabelFr(input: {
   pharmacistProposedBadgeLabel: string;
   prescriptionBadge: string | null;
 }): string {
-  const { row, prescriptionBadge, pharmacistProposedBadgeLabel } = input;
+  const { row, prescriptionBadge, pharmacistProposedBadgeLabel, requestType } = input;
   if (prescriptionBadge) return prescriptionBadge;
   if (row.patient_chosen_alternative_id) return "Alternative";
   if (row.line_source === "pharmacist_proposed") return pharmacistProposedBadgeLabel;
-  return "Ta demande";
+  return validatedOriginFallbackPatientFr(requestType);
 }

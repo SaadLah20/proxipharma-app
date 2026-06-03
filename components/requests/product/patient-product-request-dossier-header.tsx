@@ -14,6 +14,8 @@ export function PatientProductRequestDossierHeader({
   dossierRefLabel,
   pharmacyContact,
   pharmacyId,
+  kindLabel = "Demande",
+  requestType = "product_request",
   status,
   statusHint,
   statusDetail,
@@ -23,6 +25,8 @@ export function PatientProductRequestDossierHeader({
   dossierRefLabel: string;
   pharmacyContact: PatientPharmacyContactInfo | null;
   pharmacyId: string;
+  kindLabel?: string;
+  requestType?: string | null;
   status: string;
   statusHint: string;
   statusDetail?: string | null;
@@ -37,7 +41,7 @@ export function PatientProductRequestDossierHeader({
       <header className={uiDossierHeaderShell}>
         <div className="border-b border-border px-3 py-2 sm:px-3.5">
           <DossierHeaderRequestLine
-            kindLabel="Demande"
+            kindLabel={kindLabel}
             dossierRefLabel={dossierRefLabel}
             submittedAt={submittedAt}
             createdAt={createdAt}
@@ -49,6 +53,7 @@ export function PatientProductRequestDossierHeader({
             pharmacyContact={pharmacyContact}
             pharmacyId={pharmacyId}
             dossierRefLabel={dossierRefLabel}
+            requestType={requestType}
           />
         </div>
 
@@ -71,6 +76,7 @@ export function PatientProductRequestDossierHeader({
         open={journeyOpen}
         currentStatus={status}
         statusDetail={statusDetail}
+        requestType={requestType}
         onClose={() => setJourneyOpen(false)}
       />
     </>

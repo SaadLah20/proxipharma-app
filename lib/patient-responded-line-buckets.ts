@@ -7,6 +7,8 @@ import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
 import {
   isPrescriptionAdditionalProposedLine,
 } from "@/lib/prescription-pharmacist-lines";
+import type { HubCopyAudience } from "@/lib/hub-copy-audience";
+import { isPharmacienCopyAudience } from "@/lib/hub-copy-audience";
 
 export type PatientRespondedBucketId =
   | "available"
@@ -152,18 +154,26 @@ export function patientRespondedPrincipalTabStatusFr(row: RespondedLineLike): st
 }
 
 /** Libellé complet (accessibilité / info-bulle). */
-export function patientRespondedBucketAriaTitleFr(id: PatientRespondedBucketId): string {
+export function patientRespondedBucketAriaTitleFr(
+  id: PatientRespondedBucketId,
+  audience: HubCopyAudience = "patient"
+): string {
+  const ph = isPharmacienCopyAudience(audience);
   switch (id) {
     case "available":
       return "Produits disponibles en officine";
     case "partially_available":
       return "Produits partiellement disponibles";
     case "to_order":
-      return "Produits à commander pour vous";
+      return ph ? "Produits à commander pour le patient" : "Produits à commander pour vous";
     case "indispo_with_alts":
-      return "Produit indisponible ou en rupture — l’officine propose des alternatives";
+      return ph
+        ? "Indisponible ou en rupture — alternatives proposées au patient"
+        : "Produit indisponible ou en rupture — l’officine propose des alternatives";
     case "indispo_no_alts":
-      return "Produit indisponible ou en rupture — sans alternative";
+      return ph
+        ? "Indisponible ou en rupture — sans alternative proposée"
+        : "Produit indisponible ou en rupture — sans alternative";
   }
 }
 
@@ -217,16 +227,24 @@ export function patientRespondedBucketCountBadgeClass(_id: PatientRespondedBucke
   return "bg-muted/50 text-foreground ring-border/60";
 }
 
-export function patientRespondedBucketHintFr(id: PatientRespondedBucketId): string {
+export function patientRespondedBucketHintFr(
+  id: PatientRespondedBucketId,
+  audience: HubCopyAudience = "patient"
+): string {
+  const ph = isPharmacienCopyAudience(audience);
   switch (id) {
     case "available":
       return "Dispo suffisante pour la quantité demandée.";
     case "partially_available":
-      return "Dispo partielle — ajustez la quantité retenue si besoin.";
+      return ph
+        ? "Dispo partielle — le patient pourra ajuster la quantité retenue."
+        : "Dispo partielle — ajustez la quantité retenue si besoin.";
     case "to_order":
       return "Réception prévue par l’officine — date indiquée sur la ligne.";
     case "indispo_with_alts":
-      return "Votre demande n’est pas disponible ; l’officine propose d’autres options.";
+      return ph
+        ? "Demande initiale indisponible — proposez des alternatives au patient."
+        : "Votre demande n’est pas disponible ; l’officine propose d’autres options.";
     case "indispo_no_alts":
       return "Produit non retenable pour l’instant — aucune alternative proposée.";
   }

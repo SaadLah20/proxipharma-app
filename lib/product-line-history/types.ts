@@ -64,6 +64,7 @@ export type ProductLineHistoryContext = {
   dossierHistoryDetailParagraphs?: (reason: string | null | undefined) => string[];
   pharmacistProposedOriginLabel?: string;
   patientLineOriginLabel?: string;
+  requestType?: string | null;
   audience: "patient" | "pharmacist";
 };
 

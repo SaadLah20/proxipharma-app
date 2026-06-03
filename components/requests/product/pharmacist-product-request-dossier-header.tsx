@@ -15,6 +15,8 @@ function phoneDigits(raw: string): string {
 
 export function PharmacistProductRequestDossierHeader({
   dossierRefLabel,
+  kindLabel = "Demande",
+  requestType = "product_request",
   patientName,
   patientRef,
   patientPhone,
@@ -24,6 +26,8 @@ export function PharmacistProductRequestDossierHeader({
   createdAt,
 }: {
   dossierRefLabel: string;
+  kindLabel?: string;
+  requestType?: string | null;
   patientName: string | null;
   patientRef: string | null;
   patientPhone: string | null;
@@ -42,7 +46,7 @@ export function PharmacistProductRequestDossierHeader({
       <header className={uiDossierHeaderShell}>
         <div className="border-b border-border px-3 py-2 sm:px-3.5">
           <DossierHeaderRequestLine
-            kindLabel="Demande"
+            kindLabel={kindLabel}
             dossierRefLabel={dossierRefLabel}
             submittedAt={submittedAt}
             createdAt={createdAt}
@@ -98,15 +102,20 @@ export function PharmacistProductRequestDossierHeader({
             type="button"
             onClick={() => setJourneyOpen(true)}
             className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition hover:bg-muted/40 hover:text-foreground"
-            aria-label="Voir le parcours complet d'une demande de produits"
-            title="Parcours de la demande"
+            aria-label={`Voir le parcours de ${kindLabel.toLowerCase()}`}
+            title={`Parcours de l’${kindLabel.toLowerCase()}`}
           >
             <Info className="size-4" strokeWidth={2.25} aria-hidden />
           </button>
         </div>
       </header>
 
-      <PatientProductRequestJourneyModal open={journeyOpen} currentStatus={status} onClose={() => setJourneyOpen(false)} />
+      <PatientProductRequestJourneyModal
+        open={journeyOpen}
+        currentStatus={status}
+        requestType={requestType}
+        onClose={() => setJourneyOpen(false)}
+      />
     </>
   );
 }
