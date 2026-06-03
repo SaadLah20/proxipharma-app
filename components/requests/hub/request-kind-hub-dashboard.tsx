@@ -36,7 +36,7 @@ import { statBucketGroupsForRole } from "@/lib/demandes-hub-buckets";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 
 const PATIENT_SECTION_ORDER = ["action_required", "at_pharmacy", "archives"] as const;
-const PHARMA_SECTION_ORDER = ["action_required", "in_preparation", "archives"] as const;
+const PHARMA_SECTION_ORDER = ["action_required", "in_preparation", "awaiting_patient", "archives"] as const;
 
 function HubSectionBlock({
   title,
