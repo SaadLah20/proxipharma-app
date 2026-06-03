@@ -71,9 +71,15 @@ export function PharmacistValidatedBucketSection<T extends PatientLineLike>({
   const count = group.rows.length;
 
   const title =
-    patientId != null ? patientValidatedBucketTitleFr(patientId, isTreatedView) : group.title;
+    patientId != null && !isTreatedView
+      ? patientValidatedBucketTitleFr(patientId, false)
+      : group.title;
   const ariaLabel =
-    patientId != null ? patientValidatedBucketAriaTitleFr(patientId, isTreatedView) : group.title;
+    patientId != null && isTreatedView
+      ? `${group.title} — suivi pour le patient`
+      : patientId != null
+        ? patientValidatedBucketAriaTitleFr(patientId, false)
+        : group.title;
   const Icon =
     patientId != null ? VALIDATED_BUCKET_ICONS[patientId] : NEUTRAL_BUCKET_ICONS[group.kind] ?? Package;
   const accentText =

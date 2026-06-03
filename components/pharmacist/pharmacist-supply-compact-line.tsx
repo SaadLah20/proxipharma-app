@@ -66,10 +66,10 @@ export function PharmacistSupplyCompactLine({
   showExpandedEditor,
   expandedEditor,
   treatedCounterSlot,
-  /** Dossier traité : masque réservé / commandé (jalons dans `lineSuiviSlot`) ; reçu en officine via `canShowArrivedReservedPill`. */
+  /** Dossier traité : masque réservé / commandé ; CTA reçu / récupéré via `compactTreatedActions`. */
   hidePostConfirmFulfillmentPills = false,
-  /** Bandeau jalons suivi (dossier traité). */
-  lineSuiviSlot,
+  /** Dossier traité : boutons « Marquer… » en rangée lisible (sans bandeau Suivi). */
+  compactTreatedActions = false,
   /** Bouton rond message produit (à côté du nom / Historique). */
   lineMessageButton,
   /** Libellés courts post-validation (détail dans Historique produit). */
@@ -130,7 +130,7 @@ export function PharmacistSupplyCompactLine({
   expandedEditor: ReactNode;
   treatedCounterSlot: ReactNode | null;
   hidePostConfirmFulfillmentPills?: boolean;
-  lineSuiviSlot?: ReactNode;
+  compactTreatedActions?: boolean;
   lineMessageButton?: ReactNode;
   postConfirmAmendmentBadges?: string[] | undefined;
   menuOpen: boolean;
@@ -156,6 +156,8 @@ export function PharmacistSupplyCompactLine({
     "inline-flex min-h-8 items-center justify-center rounded-md border px-2 text-[10px] font-semibold shadow-sm ring-1 ring-black/5 transition disabled:opacity-45";
   const pillActive = "border-emerald-700 bg-emerald-600 text-white ring-emerald-800/25";
   const pillIdle = "border-border/90 bg-card text-foreground hover:bg-muted/55";
+  const treatedActionBtn =
+    "inline-flex h-9 w-full min-w-0 items-center justify-center whitespace-nowrap rounded-lg border px-1 py-2 text-center text-[9px] font-semibold leading-none shadow-sm transition disabled:opacity-45 sm:px-1.5 sm:text-[10px]";
 
   const withdrawnGrey = Boolean(supplyTier && supplyTier === "retire_apres_validation");
   // Le menu (⋮) ne propose Modifier / Écarter que dans ces conditions ; sinon il ne
@@ -327,7 +329,11 @@ export function PharmacistSupplyCompactLine({
 
   const fulfillmentPills =
     selected && !lineLockedTrace && !withdrawn ? (
-      <div className="flex flex-wrap gap-1">
+      <div
+        className={clsx(
+          compactTreatedActions ? "grid grid-cols-2 gap-1.5" : "flex flex-wrap gap-1"
+        )}
+      >
         {!lineCounterLocked && !hidePostConfirmFulfillmentPills ? (
           <>
             {(effAvailRow === "available" || effAvailRow === "partially_available") && canMarkReserved ? (
@@ -363,10 +369,10 @@ export function PharmacistSupplyCompactLine({
             disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
             onClick={onToggleArrivedReserved}
             className={clsx(
-              pill,
+              compactTreatedActions ? treatedActionBtn : pill,
               fulfillmentDraft === "arrived_reserved"
-                ? "border-teal-700 bg-teal-600 text-white"
-                : "border-teal-400/80 bg-background text-teal-950 hover:bg-teal-50/80"
+                ? "border-teal-700 bg-teal-600 text-white ring-teal-800/20"
+                : "border-teal-500/80 bg-background text-teal-950 hover:bg-teal-50/80"
             )}
           >
             {fulfillmentDraft === "arrived_reserved" ? "Reçu en officine" : "Marquer reçu en officine"}
@@ -378,9 +384,9 @@ export function PharmacistSupplyCompactLine({
             disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy || counterOutcomeBusy}
             onClick={onMarkPickedUpCounter}
             className={clsx(
-              pill,
+              compactTreatedActions ? treatedActionBtn : pill,
               counterPickupActive
-                ? pillActive
+                ? "border-emerald-700 bg-emerald-600 text-white ring-emerald-800/20"
                 : "border-violet-500/70 bg-violet-50 text-violet-950 hover:bg-violet-100/90"
             )}
           >
@@ -550,9 +556,6 @@ export function PharmacistSupplyCompactLine({
           </div>
         )}
         {showExpandedEditor ? <div className="border-t border-border/60 bg-slate-50/40 px-2 py-1.5 sm:px-2.5">{expandedEditor}</div> : null}
-        {lineSuiviSlot ? (
-          <div className="border-t border-border/60 bg-slate-50/90 px-2 py-1.5 sm:px-2.5">{lineSuiviSlot}</div>
-        ) : null}
         {treatedCounterSlot ? <div className="border-t border-border/60 bg-slate-50/35 px-2 py-1.5 sm:px-2.5">{treatedCounterSlot}</div> : null}
       </li>
     </Fragment>

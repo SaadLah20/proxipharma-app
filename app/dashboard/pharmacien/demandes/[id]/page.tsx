@@ -196,7 +196,6 @@ import {
   pharmacistCounterTrackedLines,
   pharmacistCounterUnresolvedLines,
 } from "@/lib/pharmacist-counter-closure";
-import { RequestLineSuiviStrip } from "@/components/requests/shared/request-line-suivi-strip";
 import { type SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
 import {
   buildLineAddedAfterConfirmAmendment,
@@ -5167,7 +5166,6 @@ export default function PharmacienDemandeDetailPage() {
                   !lineCounterLocked &&
                   effSupply === "to_order" &&
                   (request.status === "confirmed" || request.status === "treated");
-                const showTreatedLineSuivi = request.status === "treated" && selected && !withdrawnDraft;
                 const canMarkPickedUpCounterSupply =
                   request.status === "treated" &&
                   selected &&
@@ -5192,6 +5190,8 @@ export default function PharmacienDemandeDetailPage() {
                       supplyAmendmentBundles,
                       treatedLineLabels: request.status === "treated",
                       sectionBucket: supplyTier,
+                      labelAudience:
+                        request.status === "treated" ? "pharmacist" : "patient",
                     })
                   : undefined;
                 const supplyAvailabilityOptions = isAjoutOfficineLine
@@ -5623,11 +5623,7 @@ export default function PharmacienDemandeDetailPage() {
                       supplyMutationsEnabled={Boolean(canManageSupply)}
                       expandedEditor={expandedEditor}
                       hidePostConfirmFulfillmentPills={request.status === "treated"}
-                      lineSuiviSlot={
-                        showTreatedLineSuivi ? (
-                          <RequestLineSuiviStrip row={row as PatientLineLike} />
-                        ) : null
-                      }
+                      compactTreatedActions={request.status === "treated"}
                       treatedCounterSlot={treatedCounterSlot}
                       lineMessageButton={
                         <PharmacistLineMessageButton
@@ -7186,8 +7182,8 @@ export default function PharmacienDemandeDetailPage() {
         <PlatformStickyFooterStack tone="sky">
           {showDeclareTreatedSticky ? (
             <PlatformStickyFooterStackRow compact>
-              <div className="flex items-center justify-between gap-3">
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-foreground">
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                <span className="inline-flex min-w-0 items-center gap-1 text-[11px] font-semibold leading-snug text-foreground">
                   Préparation prête ?
                   <InfoHint label="À propos de « Déclarer la demande traitée »" placement="up">
                     Quand la préparation est prête, déclarez la demande traitée. Le patient pourra suivre le passage au
@@ -7200,7 +7196,7 @@ export default function PharmacienDemandeDetailPage() {
                   title={requestDrift.stale?.message}
                   onClick={() => setDeclareTreatedModalOpen(true)}
                   className={uiActionBtnModalPrimary(
-                    "h-10 shrink-0 px-4 text-sm font-bold disabled:opacity-50 sm:min-w-[11rem]"
+                    "h-10 w-full min-w-0 px-3 text-xs font-bold disabled:opacity-50 sm:w-auto sm:shrink-0 sm:px-4 sm:text-sm"
                   )}
                 >
                   Déclarer la demande traitée
@@ -7229,11 +7225,11 @@ export default function PharmacienDemandeDetailPage() {
           ) : null}
           {showSupplyStatsFooter ? (
             <PlatformStickyFooterStackRow compact bordered={showDeclareTreatedSticky || showCloseCounterSticky}>
-              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[11px] text-foreground">
-                <span className="font-semibold tabular-nums text-muted-foreground">
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-foreground">
+                <span className="shrink-0 font-semibold tabular-nums text-muted-foreground">
                   {supplyFooterTotals.count} produit{supplyFooterTotals.count > 1 ? "s" : ""}
                 </span>
-                <span className="font-bold tabular-nums text-sky-950">
+                <span className="min-w-0 text-end font-bold tabular-nums text-sky-950">
                   Total :{" "}
                   {supplyFooterTotals.count === 0
                     ? "—"

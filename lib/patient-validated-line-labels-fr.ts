@@ -21,17 +21,25 @@ export type ValidatedLineLabel = {
 const TREATED_OMIT_STATUS_RE =
   /réservé|commandé|à réserver|à commander/i;
 
-function fulfillmentStatusLabelFr(row: PatientLineLike, treatedLineLabels?: boolean): string | null {
+function fulfillmentStatusLabelFr(
+  row: PatientLineLike,
+  treatedLineLabels?: boolean,
+  labelAudience: "patient" | "pharmacist" = "patient"
+): string | null {
   if (!row.is_selected_by_patient) return null;
   const eff = effectiveAvailabilityForPatientLine(row);
   const pcf = row.post_confirm_fulfillment ?? "unset";
   if (treatedLineLabels) {
     if (eff === "available" || eff === "partially_available") {
       if (pcf === "reserved") return null;
-      return "En attente de votre passage";
+      return labelAudience === "pharmacist"
+        ? "Passage patient en attente"
+        : "En attente de votre passage";
     }
     if (eff === "to_order") {
-      if (pcf === "arrived_reserved") return "Reçu en officine";
+      if (pcf === "arrived_reserved") {
+        return labelAudience === "pharmacist" ? null : "Reçu en officine";
+      }
       return null;
     }
     return null;
@@ -76,7 +84,14 @@ function isRedundantSectionStatusLabel(
   if (!sectionBucket) return false;
   if (sectionBucket === "dispo_officine" && status === "À réserver par la pharmacie") return true;
   if (sectionBucket === "commande" && status === "À commander") return true;
-  if (treatedLineLabels && sectionBucket === "dispo_officine" && status === "En attente de votre passage") {
+  if (
+    treatedLineLabels &&
+    sectionBucket === "dispo_officine" &&
+    (status === "En attente de votre passage" || status === "Passage patient en attente")
+  ) {
+    return true;
+  }
+  if (treatedLineLabels && sectionBucket === "commande" && status === "Reçu en officine") {
     return true;
   }
   return false;
@@ -92,9 +107,18 @@ export function buildPatientValidatedLineLabelsFr(input: {
   treatedLineLabels?: boolean;
   /** Groupe d’affichage : masque les libellés déjà portés par le titre de section. */
   sectionBucket?: "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation";
+  /** Dossier traité côté officine : formulations sans « vous », pastilles redondantes avec les CTA. */
+  labelAudience?: "patient" | "pharmacist";
 }): ValidatedLineLabel[] {
-  const { row, originLabel, supplyAmendmentBundles, archiveClosureLabel, treatedLineLabels, sectionBucket } =
-    input;
+  const {
+    row,
+    originLabel,
+    supplyAmendmentBundles,
+    archiveClosureLabel,
+    treatedLineLabels,
+    sectionBucket,
+    labelAudience = "patient",
+  } = input;
   const out: ValidatedLineLabel[] = [];
   if (!isDefaultPatientOriginLabel(originLabel)) {
     out.push({ key: "origin", text: originLabel, tone: "origin" });
@@ -115,7 +139,7 @@ export function buildPatientValidatedLineLabelsFr(input: {
     // Le pharmacien a remis le produit au comptoir : libellé « Récupéré » côté patient.
     out.push({ key: "collected", text: "Récupéré", tone: "collected" });
   } else {
-    const status = fulfillmentStatusLabelFr(row, treatedLineLabels);
+    const status = fulfillmentStatusLabelFr(row, treatedLineLabels, labelAudience);
     if (
       status &&
       !(treatedLineLabels && TREATED_OMIT_STATUS_RE.test(status)) &&
