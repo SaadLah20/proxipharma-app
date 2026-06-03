@@ -97,107 +97,116 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   }, [searchParams, hubPath, router]);
 
-  const load = useCallback(async () => {
-    setError("");
-    const { data: auth } = await supabase.auth.getSession();
-    const user = auth.session?.user;
-    if (!user) {
-      router.replace(`/auth?redirect=${encodeURIComponent(hubPath)}`);
-      return;
-    }
+  useEffect(() => {
+    let cancelled = false;
 
-    const { data: profile, error: pe } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-    if (pe || !profile || (profile as { role: string }).role !== "pharmacien") {
-      setError("Accès réservé aux comptes pharmacien.");
-      setLoading(false);
-      return;
-    }
+    async function loadHubRows() {
+      setError("");
+      const { data: auth } = await supabase.auth.getSession();
+      const user = auth.session?.user;
+      if (!user) {
+        router.replace(`/auth?redirect=${encodeURIComponent(hubPath)}`);
+        return;
+      }
 
-    const { data: staff, error: se } = await supabase
-      .from("pharmacy_staff")
-      .select("pharmacy_id")
-      .eq("user_id", user.id)
-      .limit(1)
-      .maybeSingle();
+      const { data: profile, error: pe } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+      if (pe || !profile || (profile as { role: string }).role !== "pharmacien") {
+        if (!cancelled) {
+          setError("Accès réservé aux comptes pharmacien.");
+          setLoading(false);
+        }
+        return;
+      }
 
-    if (se || !staff?.pharmacy_id) {
-      setError("Aucune pharmacie rattachée à ton compte (pharmacy_staff).");
-      setLoading(false);
-      return;
-    }
+      const { data: staff, error: se } = await supabase
+        .from("pharmacy_staff")
+        .select("pharmacy_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .maybeSingle();
 
-    const itemsSelect =
-      kindId === "product_request"
-        ? "request_items(requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient,line_source,patient_chosen_alternative_id,counter_outcome,post_confirm_fulfillment,availability_status,products(price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,unit_price))"
-        : "request_items(counter_outcome,is_selected_by_patient,post_confirm_fulfillment)";
-    let q = supabase
-      .from("requests")
-      .select(
-        `id,created_at,updated_at,status,request_type,patient_id,submitted_at,responded_at,request_public_ref,${itemsSelect}`
-      )
-      .eq("pharmacy_id", staff.pharmacy_id)
-      .eq("request_type", kindId);
-    if (kindId === "prescription") {
-      q = q.neq("status", "draft");
-    }
-    const { data, error: re } = await q.order("created_at", { ascending: false }).limit(220);
+      if (se || !staff?.pharmacy_id) {
+        if (!cancelled) {
+          setError("Aucune pharmacie rattachée à ton compte (pharmacy_staff).");
+          setLoading(false);
+        }
+        return;
+      }
 
-    if (re) {
-      setError(re.message);
-      setUnreadById({});
-      setLoading(false);
-      return;
-    }
+      const itemsSelect =
+        kindId === "product_request"
+          ? "request_items(requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient,line_source,patient_chosen_alternative_id,counter_outcome,post_confirm_fulfillment,availability_status,products(price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,unit_price))"
+          : "request_items(counter_outcome,is_selected_by_patient,post_confirm_fulfillment)";
+      let q = supabase
+        .from("requests")
+        .select(
+          `id,created_at,updated_at,status,request_type,patient_id,submitted_at,responded_at,request_public_ref,${itemsSelect}`
+        )
+        .eq("pharmacy_id", staff.pharmacy_id)
+        .eq("request_type", kindId);
+      if (kindId === "prescription") {
+        q = q.neq("status", "draft");
+      }
+      const { data, error: re } = await q.order("created_at", { ascending: false }).limit(220);
 
-    const raw = (data ?? []) as unknown as PharmacistRequestRow[];
-    const { data: directory, error: dirErr } = await supabase.rpc("pharmacist_patient_directory_for_my_pharmacy");
-    let enriched = raw;
-    if (dirErr) {
-      setError(dirErr.message);
-    } else {
-      type DirRow = {
-        patient_id: string;
-        full_name: string | null;
-        whatsapp: string | null;
-        email: string | null;
-        patient_ref: string | null;
-      };
-      const map = new Map((directory as DirRow[] | null)?.map((p) => [p.patient_id, p]) ?? []);
-      enriched = raw.map((r) => {
-        const p = map.get(r.patient_id);
-        return {
-          ...r,
-          patient_full_name: p?.full_name ?? null,
-          patient_whatsapp: p?.whatsapp ?? null,
-          patient_ref: p?.patient_ref ?? null,
+      if (cancelled) return;
+
+      if (re) {
+        setError(re.message);
+        setUnreadById({});
+        setLoading(false);
+        return;
+      }
+
+      const raw = (data ?? []) as unknown as PharmacistRequestRow[];
+      const { data: directory, error: dirErr } = await supabase.rpc("pharmacist_patient_directory_for_my_pharmacy");
+      let enriched = raw;
+      if (dirErr) {
+        setError(dirErr.message);
+      } else {
+        type DirRow = {
+          patient_id: string;
+          full_name: string | null;
+          whatsapp: string | null;
+          email: string | null;
+          patient_ref: string | null;
         };
-      });
-    }
-    setRows(enriched);
+        const map = new Map((directory as DirRow[] | null)?.map((p) => [p.patient_id, p]) ?? []);
+        enriched = raw.map((r) => {
+          const p = map.get(r.patient_id);
+          return {
+            ...r,
+            patient_full_name: p?.full_name ?? null,
+            patient_whatsapp: p?.whatsapp ?? null,
+            patient_ref: p?.patient_ref ?? null,
+          };
+        });
+      }
+      setRows(enriched);
 
-    const ids = enriched.map((r) => r.id);
-    const unreadMap: Record<string, boolean> = {};
-    if (ids.length > 0) {
-      const { data: flagData, error: unreadErr } = await supabase.rpc("request_conversation_unread_flags", {
-        p_request_ids: ids,
-      });
-      if (!unreadErr && Array.isArray(flagData)) {
-        for (const fr of flagData as { request_id: string; has_unread: boolean }[]) {
-          if (fr.request_id) unreadMap[fr.request_id] = fr.has_unread === true;
+      const ids = enriched.map((r) => r.id);
+      const unreadMap: Record<string, boolean> = {};
+      if (ids.length > 0) {
+        const { data: flagData, error: unreadErr } = await supabase.rpc("request_conversation_unread_flags", {
+          p_request_ids: ids,
+        });
+        if (!unreadErr && Array.isArray(flagData)) {
+          for (const fr of flagData as { request_id: string; has_unread: boolean }[]) {
+            if (fr.request_id) unreadMap[fr.request_id] = fr.has_unread === true;
+          }
         }
       }
+      setUnreadById(unreadMap);
+
+      setLoading(false);
     }
-    setUnreadById(unreadMap);
 
-    setLoading(false);
+    const tid = window.setTimeout(() => void loadHubRows(), 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(tid);
+    };
   }, [router, hubPath, kindId]);
-
-  useEffect(() => {
-    const tid = window.setTimeout(() => {
-      void load();
-    }, 0);
-    return () => window.clearTimeout(tid);
-  }, [load]);
 
   const patientOptions = useMemo(() => {
     const ids = [...new Set(rows.map((r) => r.patient_id))];
@@ -217,70 +226,52 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
 
   const rowsWithDashboardStatus = useMemo(() => rows.map((r) => ({ ...r, status_for_dashboard: r.status })), [rows]);
 
-  const filteredSorted = useMemo(() => {
-    let list = rowsWithDashboardStatus;
-    if (isProductHub) {
-      list = filterPharmacistProductHubListRows(list, {
-        bucketStatuses: activeBucket?.statuses ?? null,
-      });
-    } else if (activeBucket) {
-      const allow = new Set(activeBucket.statuses);
-      list = list.filter((r) => allow.has((r as { status_for_dashboard?: string }).status_for_dashboard ?? r.status));
-    }
-    if (patientFilter) {
-      list = list.filter((r) => r.patient_id === patientFilter);
-    }
-    if (refQuery.trim().length >= 2) {
-      list = list.filter((r) =>
-        rowMatchesPublicRefQuery(refQuery, [
-          r.request_public_ref,
-          r.patient_ref,
-          r.patient_full_name,
-          formatShortId(r.id),
-          formatShortId(r.patient_id),
-        ])
-      );
-    }
-    return [...list].sort((a, b) => {
-      const ta = new Date(a.created_at).getTime();
-      const tb = new Date(b.created_at).getTime();
-      return sortNewestFirst ? tb - ta : ta - tb;
+  const patientFilterLabel = patientFilter ? patientSelectLabel(patientFilter) : null;
+
+  let filteredList = rowsWithDashboardStatus;
+  if (isProductHub) {
+    filteredList = filterPharmacistProductHubListRows(filteredList, {
+      bucketStatuses: activeBucket?.statuses ?? null,
     });
-  }, [
-    rowsWithDashboardStatus,
+  } else if (activeBucket) {
+    const allow = new Set(activeBucket.statuses);
+    filteredList = filteredList.filter((r) =>
+      allow.has((r as { status_for_dashboard?: string }).status_for_dashboard ?? r.status)
+    );
+  }
+  if (patientFilter) {
+    filteredList = filteredList.filter((r) => r.patient_id === patientFilter);
+  }
+  if (refQuery.trim().length >= 2) {
+    filteredList = filteredList.filter((r) =>
+      rowMatchesPublicRefQuery(refQuery, [
+        r.request_public_ref,
+        r.patient_ref,
+        r.patient_full_name,
+        formatShortId(r.id),
+        formatShortId(r.patient_id),
+      ])
+    );
+  }
+  const filteredSorted = [...filteredList].sort((a, b) => {
+    const ta = new Date(a.created_at).getTime();
+    const tb = new Date(b.created_at).getTime();
+    return sortNewestFirst ? tb - ta : ta - tb;
+  });
+
+  const listFiltersSummary = pharmacistHubListActiveFiltersSummary({
     activeBucket,
-    isProductHub,
-    patientFilter,
-    refQuery,
+    patientLabel: patientFilterLabel,
+    referenceQuery: refQuery,
     sortNewestFirst,
-  ]);
+  });
 
-  const patientFilterLabel = useMemo(
-    () => (patientFilter ? patientSelectLabel(patientFilter) : null),
-    [patientFilter, patientSelectLabel]
-  );
-
-  const listFiltersSummary = useMemo(
-    () =>
-      pharmacistHubListActiveFiltersSummary({
-        activeBucket,
-        patientLabel: patientFilterLabel,
-        referenceQuery: refQuery,
-        sortNewestFirst,
-      }),
-    [activeBucket, patientFilterLabel, refQuery, sortNewestFirst]
-  );
-
-  const listHasActiveFilters = useMemo(
-    () =>
-      pharmacistHubListHasActiveFilters({
-        activeBucket,
-        patientLabel: patientFilterLabel,
-        referenceQuery: refQuery,
-        sortNewestFirst,
-      }),
-    [activeBucket, patientFilterLabel, refQuery, sortNewestFirst]
-  );
+  const listHasActiveFilters = pharmacistHubListHasActiveFilters({
+    activeBucket,
+    patientLabel: patientFilterLabel,
+    referenceQuery: refQuery,
+    sortNewestFirst,
+  });
 
   const hasManualListFilters = hubListHasManualFilters({
     entityFilter: patientFilter,
