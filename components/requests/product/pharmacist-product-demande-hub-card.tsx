@@ -56,12 +56,10 @@ export function PharmacistProductDemandeHubCard({
               <p className="mt-0.5 font-mono text-[11px] font-semibold text-muted-foreground">{refVisuel}</p>
             </div>
 
-            <div className="rounded-lg border border-border/80 bg-muted/25 px-2 py-1.5 text-[11px] leading-snug text-foreground sm:text-xs">
-              <p className="font-semibold">{ctx.primaryLine}</p>
-              {ctx.secondaryLine ? (
-                <p className="mt-0.5 text-[10px] font-medium opacity-90 sm:text-[11px]">{ctx.secondaryLine}</p>
-              ) : null}
-            </div>
+            <p className="text-[11px] leading-snug text-muted-foreground">{ctx.primaryLine}</p>
+            {ctx.secondaryLine && !compact ? (
+              <p className="mt-0.5 text-[10px] text-muted-foreground/90">{ctx.secondaryLine}</p>
+            ) : null}
 
             <p className="text-[10px] tabular-nums text-muted-foreground">Dernière activité · {when}</p>
           </div>

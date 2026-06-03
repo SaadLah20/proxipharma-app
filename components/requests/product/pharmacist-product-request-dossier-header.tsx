@@ -108,17 +108,17 @@ export function PharmacistProductRequestDossierHeader({
         </div>
 
         <div className="flex flex-wrap gap-1 border-t border-border px-3 py-1.5 text-[9px] font-medium text-muted-foreground sm:px-3.5">
-          <span className="rounded-md bg-muted/80 px-1.5 py-px text-foreground">
+          <span className="rounded-md bg-muted/50 px-1.5 py-px text-foreground">
             {lineCount} ligne{lineCount !== 1 ? "s" : ""}
           </span>
           {selectedCount != null && selectedCount > 0 ? (
-            <span className="rounded-md bg-muted/80 px-1.5 py-px text-foreground">
+            <span className="rounded-md bg-muted/50 px-1.5 py-px text-foreground">
               {selectedCount} retenu{selectedCount !== 1 ? "s" : ""}
             </span>
           ) : null}
           {pendingCounterCount != null && pendingCounterCount > 0 ? (
-            <span className="rounded-md bg-muted/80 px-1.5 py-px font-semibold text-foreground">
-              {pendingCounterCount} au comptoir
+            <span className="rounded-md bg-muted/50 px-1.5 py-px text-foreground">
+              {pendingCounterCount} comptoir
             </span>
           ) : null}
         </div>
