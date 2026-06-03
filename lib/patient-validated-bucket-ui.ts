@@ -50,11 +50,11 @@ function cnValidatedAccent(id: PatientValidatedBucketId, part: "header" | "shell
       : "border border-border/80 bg-card shadow-none";
   switch (id) {
     case "dispo_officine":
-      return `${base} border-l-[3px] border-l-sky-500/80`;
+      return `${base} border-l-[3px] border-l-sky-600 bg-sky-50/20`;
     case "commande":
-      return `${base} border-l-[3px] border-l-teal-600/80`;
+      return `${base} border-l-[3px] border-l-teal-700 bg-teal-50/25`;
     case "hors_perimetre":
-      return `${base} border-l-[3px] border-l-amber-500/80`;
+      return `${base} border-l-[3px] border-l-amber-600 bg-amber-50/20`;
   }
 }
 

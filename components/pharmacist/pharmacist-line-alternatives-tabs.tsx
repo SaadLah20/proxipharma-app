@@ -14,6 +14,7 @@ export function PharmacistLineAlternativesTabs({
   addBusy,
   maxAlts = 3,
   altCount,
+  principalTabLabel = "Demandé",
 }: {
   tabs: { id: PharmacistLineAltTabId; label: string }[];
   activeTab: PharmacistLineAltTabId;
@@ -23,9 +24,11 @@ export function PharmacistLineAlternativesTabs({
   addBusy?: boolean;
   maxAlts?: number;
   altCount: number;
+  /** Onglet variante principale : « Demandé » (ligne patient) ou « Proposé » (officine). */
+  principalTabLabel?: "Demandé" | "Proposé";
 }) {
   const tabCells: { id: PharmacistLineAltTabId; label: string; isAdd: boolean }[] = [
-    { id: "principal", label: "Demandé", isAdd: false },
+    { id: "principal", label: principalTabLabel, isAdd: false },
     ...tabs
       .filter((t) => t.id !== "principal")
       .map((t) => ({ id: t.id, label: t.label, isAdd: false as const })),
@@ -40,7 +43,9 @@ export function PharmacistLineAlternativesTabs({
       className="grid min-w-0 gap-0.5 border-b border-border/55 bg-muted/10 px-1.5 py-1 sm:px-2"
       style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}
       role="tablist"
-      aria-label="Demandé et alternatives"
+      aria-label={
+        principalTabLabel === "Proposé" ? "Proposé et alternatives" : "Demandé et alternatives"
+      }
     >
       {tabCells.map((cell) => {
         const active = activeTab === cell.id;

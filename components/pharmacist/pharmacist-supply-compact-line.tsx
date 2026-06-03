@@ -8,8 +8,15 @@ import {
   validatedLineLabelChipClass,
   type ValidatedLineLabel,
 } from "@/lib/patient-validated-line-labels-fr";
+import {
+  ProductRequestLinePrices,
+  ProductRequestLineQtyInline,
+} from "@/components/pharmacy/patient-demande-produits-ui";
 import { patientBucketProductRowClass } from "@/lib/patient-bucket-product-row-ui";
 import { pharmacistProposedProductBadgeFr } from "@/lib/request-display";
+
+const VALIDATED_LINE_THUMB =
+  "box-border size-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
 
 export type PharmacistSupplyLineTier =
   | "dispo_officine"
@@ -33,6 +40,8 @@ export function PharmacistSupplyCompactLine({
   availSentence,
   unitLabel,
   totalLabel,
+  unitPriceMad = null,
+  lineTotalMad = null,
   thumbUrl,
   selected,
   lineLockedTrace,
@@ -89,6 +98,8 @@ export function PharmacistSupplyCompactLine({
   availSentence: string;
   unitLabel: string;
   totalLabel: string;
+  unitPriceMad?: number | null;
+  lineTotalMad?: number | null;
   thumbUrl: string | null;
   selected: boolean;
   lineLockedTrace: boolean;
@@ -142,9 +153,9 @@ export function PharmacistSupplyCompactLine({
   onPhotoPreview?: (url: string, title: string) => void;
 }) {
   const pill =
-    "inline-flex min-h-8 items-center justify-center rounded-md border px-2 text-[10px] font-semibold shadow-sm transition disabled:opacity-45";
-  const pillActive = "border-emerald-600 bg-emerald-600 text-white";
-  const pillIdle = "border-border bg-background text-foreground hover:bg-muted/50";
+    "inline-flex min-h-8 items-center justify-center rounded-md border px-2 text-[10px] font-semibold shadow-sm ring-1 ring-black/5 transition disabled:opacity-45";
+  const pillActive = "border-emerald-700 bg-emerald-600 text-white ring-emerald-800/25";
+  const pillIdle = "border-border/90 bg-card text-foreground hover:bg-muted/55";
 
   const withdrawnGrey = Boolean(supplyTier && supplyTier === "retire_apres_validation");
   // Le menu (⋮) ne propose Modifier / Écarter que dans ces conditions ; sinon il ne
@@ -159,8 +170,8 @@ export function PharmacistSupplyCompactLine({
       : !selected
         ? "rounded-lg border border-border/80 bg-card px-2 py-1.5 sm:px-2.5 sm:py-2 shadow-sm"
         : effAvailRow === "to_order"
-          ? "rounded-lg border border-border/80 border-l-[3px] border-l-teal-600/75 bg-card px-2 py-1.5 sm:px-2.5 sm:py-2 shadow-sm"
-          : "rounded-lg border border-border/80 border-l-[3px] border-l-sky-500/70 bg-card px-2 py-1.5 sm:px-2.5 sm:py-2 shadow-sm";
+          ? "rounded-lg border border-border/80 border-l-[3px] border-l-teal-700 bg-teal-50/15 px-2 py-1.5 sm:px-2.5 sm:py-2 shadow-sm"
+          : "rounded-lg border border-border/80 border-l-[3px] border-l-sky-600 bg-sky-50/15 px-2 py-1.5 sm:px-2.5 sm:py-2 shadow-sm";
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -203,6 +214,227 @@ export function PharmacistSupplyCompactLine({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [menuOpen, onMenuOpenChange]);
 
+  const thumbInner = thumbUrl ? (
+    onPhotoPreview ? (
+      <button
+        type="button"
+        className="size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+        onClick={() => onPhotoPreview(thumbUrl, validatedName)}
+        aria-label={`Agrandir la photo · ${validatedName}`}
+      >
+        <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
+      </button>
+    ) : (
+      <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
+    )
+  ) : (
+    <div className="flex h-full w-full items-center justify-center">
+      <Package className="size-5 text-muted-foreground" aria-hidden />
+    </div>
+  );
+
+  const lineActionButtons = (
+    <div className="flex shrink-0 items-center gap-2">
+      {lineMessageButton}
+      {menuHasActions ? (
+        <>
+          <button
+            ref={anchorRef}
+            type="button"
+            disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            aria-label="Actions ligne"
+            onClick={() => onMenuOpenChange(!menuOpen)}
+            className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-sm hover:bg-muted/50 disabled:opacity-40"
+          >
+            <MoreVertical className="size-4" strokeWidth={2} aria-hidden />
+          </button>
+          {menuOpen && menuPos
+            ? createPortal(
+                <ul
+                  data-pharma-supply-menu
+                  className="fixed z-[10120] min-w-[11rem] overflow-hidden rounded-lg border border-border bg-card py-0.5 text-[11px] shadow-lg"
+                  style={{ top: menuPos.top, left: menuPos.left }}
+                  role="menu"
+                >
+                  {supplyMutationsEnabled && selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
+                    <li role="none">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+                        className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
+                        onClick={() => {
+                          onMenuOpenChange(false);
+                          onMenuModify();
+                        }}
+                      >
+                        Modifier la ligne…
+                      </button>
+                    </li>
+                  ) : null}
+                  {supplyMutationsEnabled && selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
+                    <li role="none">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={busy || supplyConfirmBusy || withdrawDisabled}
+                        title={withdrawDisabled ? withdrawDisabledReason ?? undefined : undefined}
+                        className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
+                        onClick={() => {
+                          onMenuOpenChange(false);
+                          onMenuWithdraw();
+                        }}
+                      >
+                        Retirer la ligne…
+                      </button>
+                    </li>
+                  ) : null}
+                  <li role="none">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+                      className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
+                      onClick={() => {
+                        onMenuOpenChange(false);
+                        onMenuHistory();
+                      }}
+                    >
+                      Historique produit
+                    </button>
+                  </li>
+                </ul>,
+                document.body
+              )
+            : null}
+        </>
+      ) : (
+        <button
+          type="button"
+          disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+          onClick={onMenuHistory}
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm hover:bg-muted/50 disabled:opacity-40"
+          aria-label="Historique de cette ligne"
+          title="Historique"
+        >
+          <History className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+        </button>
+      )}
+    </div>
+  );
+
+  const fulfillmentPills =
+    selected && !lineLockedTrace && !withdrawn ? (
+      <div className="flex flex-wrap gap-1">
+        {!lineCounterLocked && !hidePostConfirmFulfillmentPills ? (
+          <>
+            {(effAvailRow === "available" || effAvailRow === "partially_available") && canMarkReserved ? (
+              <button
+                type="button"
+                disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
+                onClick={onToggleReserved}
+                className={clsx(pill, fulfillmentDraft === "reserved" ? pillActive : pillIdle)}
+              >
+                {fulfillmentDraft === "reserved" ? "Réservé" : "Marquer réservé"}
+              </button>
+            ) : null}
+            {effAvailRow === "to_order" && canMarkOrdered ? (
+              <button
+                type="button"
+                disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
+                onClick={onToggleOrdered}
+                className={clsx(
+                  pill,
+                  fulfillmentDraft === "ordered" || fulfillmentDraft === "arrived_reserved" ? pillActive : pillIdle
+                )}
+              >
+                {fulfillmentDraft === "ordered" || fulfillmentDraft === "arrived_reserved"
+                  ? "Commandé"
+                  : "Marquer commandé"}
+              </button>
+            ) : null}
+          </>
+        ) : null}
+        {effAvailRow === "to_order" && canShowArrivedReservedPill ? (
+          <button
+            type="button"
+            disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
+            onClick={onToggleArrivedReserved}
+            className={clsx(
+              pill,
+              fulfillmentDraft === "arrived_reserved"
+                ? "border-teal-700 bg-teal-600 text-white"
+                : "border-teal-400/80 bg-background text-teal-950 hover:bg-teal-50/80"
+            )}
+          >
+            {fulfillmentDraft === "arrived_reserved" ? "Reçu en officine" : "Marquer reçu en officine"}
+          </button>
+        ) : null}
+        {canMarkPickedUpCounterSupply ? (
+          <button
+            type="button"
+            disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy || counterOutcomeBusy}
+            onClick={onMarkPickedUpCounter}
+            className={clsx(
+              pill,
+              counterPickupActive
+                ? pillActive
+                : "border-violet-500/70 bg-violet-50 text-violet-950 hover:bg-violet-100/90"
+            )}
+          >
+            {counterPickupActive ? "Récupéré" : "Marquer récupéré"}
+          </button>
+        ) : null}
+      </div>
+    ) : null;
+
+  const bottomLabels = (
+    <>
+      {validatedLineLabels && validatedLineLabels.length > 0 ? (
+        <div className="flex flex-wrap gap-1 pt-0.5">
+          {validatedLineLabels.map((label) => (
+            <span key={label.key} className={validatedLineLabelChipClass(label)}>
+              {label.text}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <>
+          {showAjoutOfficineBadge ? (
+            <span className="inline-flex max-w-full rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+              {ajoutOfficineBadgeLabel ?? pharmacistProposedProductBadgeFr}
+            </span>
+          ) : lineOriginBadgeLabel ? (
+            <span
+              className={clsx(
+                "inline-flex max-w-full rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
+                lineOriginBadgeTone === "ordonnance" ? "bg-amber-700" : "bg-violet-600"
+              )}
+            >
+              {lineOriginBadgeLabel}
+            </span>
+          ) : inBucketList ? null : (
+            <p className="line-clamp-2 text-[10px] leading-snug text-muted-foreground">{availSentence}</p>
+          )}
+        </>
+      )}
+      {!validatedLineLabels?.length && postConfirmAmendmentBadges && postConfirmAmendmentBadges.length > 0 ? (
+        <div className="flex flex-wrap gap-1 pt-0.5">
+          {postConfirmAmendmentBadges.map((label) => (
+            <span
+              key={label}
+              className="inline-flex max-w-full items-center rounded-md border border-slate-300/80 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </>
+  );
+
   return (
     <Fragment>
       {header ? (
@@ -217,268 +449,106 @@ export function PharmacistSupplyCompactLine({
           withdrawn && !inBucketList && "opacity-[0.82] saturate-[0.72]"
         )}
       >
-        <div className="relative flex flex-col gap-1.5">
-          <div className="flex items-start gap-2">
-            <div className="relative box-border size-[3.5rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card sm:size-[3.65rem]">
-              {thumbUrl ? (
-                onPhotoPreview ? (
-                  <button
-                    type="button"
-                    className="size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-                    onClick={() => onPhotoPreview(thumbUrl, validatedName)}
-                    aria-label={`Agrandir la photo · ${validatedName}`}
-                  >
-                    <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
-                  </button>
-                ) : (
-                  <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
-                )
-              ) : (
-                <div className="flex h-full w-full items-center justify-center">
-                  <Package className="size-5 text-muted-foreground" aria-hidden />
-                </div>
-              )}
+        {inBucketList ? (
+          <div className="flex items-start gap-2.5">
+            <div className={clsx(VALIDATED_LINE_THUMB, "self-start", (withdrawnGrey || withdrawn) && "opacity-95")}>
+              {thumbInner}
             </div>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-start gap-1.5">
-                <p
-                  className={clsx(
-                    "min-w-0 flex-1 truncate pb-px text-[13px] font-semibold leading-snug text-slate-950 sm:text-[14px]",
-                    (withdrawnGrey || withdrawn) && "text-muted-foreground line-through decoration-slate-400/90"
-                  )}
-                  title={validatedName}
-                >
-                  {validatedName}
-                </p>
-                <div className="flex shrink-0 flex-col items-center gap-1">
-                  {lineMessageButton}
-                  {menuHasActions ? (
-                    <>
-                      <button
-                        ref={anchorRef}
-                        type="button"
-                        disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
-                        aria-expanded={menuOpen}
-                        aria-haspopup="menu"
-                        aria-label="Actions ligne"
-                        onClick={() => onMenuOpenChange(!menuOpen)}
-                        className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-sm hover:bg-muted/50 disabled:opacity-40"
-                      >
-                        <MoreVertical className="size-4" strokeWidth={2} aria-hidden />
-                      </button>
-                      {menuOpen && menuPos
-                        ? createPortal(
-                            <ul
-                              data-pharma-supply-menu
-                              className="fixed z-[10120] min-w-[11rem] overflow-hidden rounded-lg border border-border bg-card py-0.5 text-[11px] shadow-lg"
-                              style={{ top: menuPos.top, left: menuPos.left }}
-                              role="menu"
-                            >
-                              {supplyMutationsEnabled && selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
-                                <li role="none">
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
-                                    className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
-                                    onClick={() => {
-                                      onMenuOpenChange(false);
-                                      onMenuModify();
-                                    }}
-                                  >
-                                    Modifier la ligne…
-                                  </button>
-                                </li>
-                              ) : null}
-                              {supplyMutationsEnabled && selected && !lineLockedTrace && !withdrawn && !lineCounterLocked ? (
-                                <li role="none">
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    disabled={busy || supplyConfirmBusy || withdrawDisabled}
-                                    title={withdrawDisabled ? withdrawDisabledReason ?? undefined : undefined}
-                                    className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
-                                    onClick={() => {
-                                      onMenuOpenChange(false);
-                                      onMenuWithdraw();
-                                    }}
-                                  >
-                                    Retirer la ligne…
-                                  </button>
-                                </li>
-                              ) : null}
-                              <li role="none">
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
-                                  className="flex w-full px-2.5 py-2 text-left font-medium hover:bg-muted/60 disabled:opacity-45"
-                                  onClick={() => {
-                                    onMenuOpenChange(false);
-                                    onMenuHistory();
-                                  }}
-                                >
-                                  Historique produit
-                                </button>
-                              </li>
-                            </ul>,
-                            document.body
-                          )
-                        : null}
-                    </>
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <p
+                className={clsx(
+                  "min-w-0 text-[13px] font-semibold leading-snug text-slate-950 sm:text-[14px]",
+                  (withdrawnGrey || withdrawn) && "text-muted-foreground line-through decoration-slate-400/90"
+                )}
+                title={validatedName}
+              >
+                {validatedName}
+              </p>
+              <div
+                className={clsx(
+                  "flex w-full items-end justify-between gap-3 leading-none",
+                  (withdrawnGrey || withdrawn) && "opacity-85"
+                )}
+              >
+                <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
+                  <ProductRequestLinePrices
+                    unitPrice={unitPriceMad}
+                    totalValue={selected && !withdrawn ? lineTotalMad : null}
+                  />
+                  {ordonnancePrescribedQty != null ? (
+                    <span className="inline-flex items-baseline gap-1 whitespace-nowrap leading-none">
+                      <span className="text-[10px] font-medium text-slate-500">Prescrit</span>
+                      <span className="text-sm font-bold tabular-nums text-amber-950">{ordonnancePrescribedQty}</span>
+                    </span>
+                  ) : null}
+                  {ordonnancePrescribedQty != null ? (
+                    <span className="inline-flex items-baseline gap-1 whitespace-nowrap leading-none">
+                      <span className="text-[10px] font-medium text-muted-foreground">Retenu</span>
+                      <span className="text-sm font-bold tabular-nums text-foreground">{validatedQty}</span>
+                    </span>
                   ) : (
-                    <button
-                      type="button"
-                      disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
-                      onClick={onMenuHistory}
-                      className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm hover:bg-muted/50 disabled:opacity-40"
-                      aria-label="Historique de cette ligne"
-                      title="Historique"
-                    >
-                      <History className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
-                    </button>
+                    <ProductRequestLineQtyInline qty={validatedQty} />
                   )}
                 </div>
+                {lineActionButtons}
               </div>
-              {validatedLineLabels && validatedLineLabels.length > 0 ? (
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {validatedLineLabels.map((label) => (
-                    <span key={label.key} className={validatedLineLabelChipClass(label)}>
-                      {label.text}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  {showAjoutOfficineBadge ? (
-                    <span className="mt-1 inline-flex max-w-full rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-                      {ajoutOfficineBadgeLabel ?? pharmacistProposedProductBadgeFr}
-                    </span>
-                  ) : lineOriginBadgeLabel ? (
-                    <span
-                      className={clsx(
-                        "mt-1 inline-flex max-w-full rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
-                        lineOriginBadgeTone === "ordonnance" ? "bg-amber-700" : "bg-violet-600"
-                      )}
-                    >
-                      {lineOriginBadgeLabel}
-                    </span>
-                  ) : null}
-                  <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">{availSentence}</p>
-                </>
-              )}
-
-              {!validatedLineLabels?.length &&
-              postConfirmAmendmentBadges &&
-              postConfirmAmendmentBadges.length > 0 ? (
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {postConfirmAmendmentBadges.map((label) => (
-                    <span
-                      key={label}
-                      className="inline-flex max-w-full items-center rounded-md border border-slate-300/80 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-800"
-                    >
-                      {label}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
+              {bottomLabels}
+              {fulfillmentPills}
             </div>
           </div>
-
-          <div className="flex min-w-0 flex-nowrap items-baseline justify-between gap-x-2 border-t border-border/45 pt-1.5 text-[11px] font-medium tabular-nums text-foreground sm:text-[12px]">
-            <div className="min-w-0 shrink-0 whitespace-nowrap text-start">
-              <span className="text-muted-foreground">PU</span>{" "}
-              <strong className="font-semibold">{unitLabel}</strong>
+        ) : (
+          <div className="relative flex flex-col gap-1.5">
+            <div className="flex items-start gap-2">
+              <div className="relative box-border size-[3.5rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card sm:size-[3.65rem]">
+                {thumbInner}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 items-start gap-1.5">
+                  <p
+                    className={clsx(
+                      "min-w-0 flex-1 truncate pb-px text-[13px] font-semibold leading-snug text-slate-950 sm:text-[14px]",
+                      (withdrawnGrey || withdrawn) && "text-muted-foreground line-through decoration-slate-400/90"
+                    )}
+                    title={validatedName}
+                  >
+                    {validatedName}
+                  </p>
+                  <div className="flex shrink-0 flex-col items-center gap-2">{lineActionButtons}</div>
+                </div>
+                {bottomLabels}
+              </div>
             </div>
-            <div className="min-w-0 flex-1 text-center">
-              <span className="inline-flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0">
-                {ordonnancePrescribedQty != null ? (
+            <div className="flex min-w-0 flex-nowrap items-baseline justify-between gap-x-2 border-t border-border/45 pt-1.5 text-[11px] font-medium tabular-nums text-foreground sm:text-[12px]">
+              <div className="min-w-0 shrink-0 whitespace-nowrap text-start">
+                <span className="text-muted-foreground">PU</span>{" "}
+                <strong className="font-semibold">{unitLabel}</strong>
+              </div>
+              <div className="min-w-0 flex-1 text-center">
+                <span className="inline-flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0">
+                  {ordonnancePrescribedQty != null ? (
+                    <span className="inline-flex items-baseline gap-1">
+                      <span className="text-slate-500">Prescrit</span>
+                      <strong className="font-semibold text-amber-950 tabular-nums">{ordonnancePrescribedQty}</strong>
+                    </span>
+                  ) : null}
                   <span className="inline-flex items-baseline gap-1">
-                    <span className="text-slate-500">Prescrit</span>
-                    <strong className="font-semibold text-amber-950 tabular-nums">{ordonnancePrescribedQty}</strong>
+                    <span className="text-muted-foreground">{ordonnancePrescribedQty != null ? "Retenu" : "Qté"}</span>
+                    <strong className="font-semibold tabular-nums">{validatedQty}</strong>
                   </span>
-                ) : null}
-                <span className="inline-flex items-baseline gap-1">
-                  <span className="text-muted-foreground">{ordonnancePrescribedQty != null ? "Retenu" : "Qté"}</span>
-                  <strong className="font-semibold tabular-nums">{validatedQty}</strong>
                 </span>
-              </span>
+              </div>
+              <div className="min-w-0 shrink-0 whitespace-nowrap text-end">
+                <span className="inline-flex items-baseline justify-end gap-1">
+                  <span className="text-muted-foreground">Total</span>
+                  <strong className={clsx("font-semibold", withdrawn && "line-through decoration-muted-foreground/70")}>
+                    {totalLabel}
+                  </strong>
+                </span>
+              </div>
             </div>
-            <div className="min-w-0 shrink-0 whitespace-nowrap text-end">
-              <span className="inline-flex items-baseline justify-end gap-1">
-                <span className="text-muted-foreground">Total</span>
-                <strong className={clsx("font-semibold", withdrawn && "line-through decoration-muted-foreground/70")}>
-                  {totalLabel}
-                </strong>
-              </span>
-            </div>
+            {fulfillmentPills}
           </div>
-
-          {selected && !lineLockedTrace && !withdrawn ? (
-            <div className="flex flex-wrap gap-1">
-              {!lineCounterLocked && !hidePostConfirmFulfillmentPills ? (
-                <>
-                  {(effAvailRow === "available" || effAvailRow === "partially_available") && canMarkReserved ? (
-                    <button
-                      type="button"
-                      disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
-                      onClick={onToggleReserved}
-                      className={clsx(pill, fulfillmentDraft === "reserved" ? pillActive : pillIdle)}
-                    >
-                      {fulfillmentDraft === "reserved" ? "Réservé" : "Marquer réservé"}
-                    </button>
-                  ) : null}
-                  {effAvailRow === "to_order" && canMarkOrdered ? (
-                    <button
-                      type="button"
-                      disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
-                      onClick={onToggleOrdered}
-                      className={clsx(
-                        pill,
-                        fulfillmentDraft === "ordered" || fulfillmentDraft === "arrived_reserved" ? pillActive : pillIdle
-                      )}
-                    >
-                      {fulfillmentDraft === "ordered" || fulfillmentDraft === "arrived_reserved"
-                        ? "Commandé"
-                        : "Marquer commandé"}
-                    </button>
-                  ) : null}
-                </>
-              ) : null}
-              {effAvailRow === "to_order" && canShowArrivedReservedPill ? (
-                <button
-                  type="button"
-                  disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
-                  onClick={onToggleArrivedReserved}
-                  className={clsx(
-                    pill,
-                    fulfillmentDraft === "arrived_reserved"
-                      ? "border-teal-700 bg-teal-600 text-white"
-                      : "border-teal-400/80 bg-background text-teal-950 hover:bg-teal-50/80"
-                  )}
-                >
-                  {fulfillmentDraft === "arrived_reserved" ? "Reçu en officine" : "Marquer reçu en officine"}
-                </button>
-              ) : null}
-              {canMarkPickedUpCounterSupply ? (
-                <button
-                  type="button"
-                  disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy || counterOutcomeBusy}
-                  onClick={onMarkPickedUpCounter}
-                  className={clsx(
-                    pill,
-                    counterPickupActive
-                      ? pillActive
-                      : "border-violet-500/70 bg-violet-50 text-violet-950 hover:bg-violet-100/90"
-                  )}
-                >
-                  {counterPickupActive ? "Récupéré" : "Marquer récupéré"}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
+        )}
         {showExpandedEditor ? <div className="border-t border-border/60 bg-slate-50/40 px-2 py-1.5 sm:px-2.5">{expandedEditor}</div> : null}
         {lineSuiviSlot ? (
           <div className="border-t border-border/60 bg-slate-50/90 px-2 py-1.5 sm:px-2.5">{lineSuiviSlot}</div>

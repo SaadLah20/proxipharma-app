@@ -25,36 +25,36 @@ export function availabilityStatusUi(status: string | null | undefined): Availab
     case "available":
       return {
         label,
-        badgeClass: "bg-emerald-100 text-emerald-950 ring-1 ring-emerald-300/70",
-        accentClass: "border-l-emerald-500",
+        badgeClass: "bg-emerald-200/90 text-emerald-950 ring-1 ring-emerald-400/75",
+        accentClass: "border-l-emerald-600",
         Icon: CheckCircle2,
       };
     case "partially_available":
       return {
         label,
-        badgeClass: "bg-cyan-100 text-cyan-950 ring-1 ring-cyan-300/70",
-        accentClass: "border-l-cyan-500",
+        badgeClass: "bg-cyan-200/90 text-cyan-950 ring-1 ring-cyan-400/75",
+        accentClass: "border-l-cyan-600",
         Icon: Package,
       };
     case "unavailable":
       return {
         label,
-        badgeClass: "bg-slate-200 text-slate-900 ring-1 ring-slate-300/80",
-        accentClass: "border-l-slate-500",
+        badgeClass: "bg-slate-300/90 text-slate-950 ring-1 ring-slate-400/80",
+        accentClass: "border-l-slate-600",
         Icon: XCircle,
       };
     case "to_order":
       return {
         label,
-        badgeClass: "bg-amber-100 text-amber-950 ring-1 ring-amber-300/80",
-        accentClass: "border-l-amber-500",
+        badgeClass: "bg-amber-200/90 text-amber-950 ring-1 ring-amber-400/80",
+        accentClass: "border-l-amber-600",
         Icon: ShoppingCart,
       };
     case "market_shortage":
       return {
         label,
-        badgeClass: "bg-rose-100 text-rose-950 ring-1 ring-rose-300/70",
-        accentClass: "border-l-rose-500",
+        badgeClass: "bg-rose-200/90 text-rose-950 ring-1 ring-rose-400/75",
+        accentClass: "border-l-rose-600",
         Icon: AlertTriangle,
       };
     default:
@@ -70,15 +70,15 @@ export function availabilitySentLineButtonClass(status: string | null | undefine
   const base = "border bg-card text-[10px] font-medium text-foreground";
   switch (status) {
     case "available":
-      return `${base} border-emerald-200/70 bg-emerald-50/40`;
+      return `${base} border-emerald-300/85 bg-emerald-100/70 text-emerald-950`;
     case "partially_available":
-      return `${base} border-cyan-200/70 bg-cyan-50/45`;
+      return `${base} border-cyan-300/85 bg-cyan-100/70 text-cyan-950`;
     case "unavailable":
-      return `${base} border-border/80 bg-muted/25 text-muted-foreground`;
+      return `${base} border-slate-300/80 bg-slate-200/55 text-slate-900`;
     case "to_order":
-      return `${base} border-amber-200/70 bg-amber-50/40`;
+      return `${base} border-amber-300/85 bg-amber-100/70 text-amber-950`;
     case "market_shortage":
-      return `${base} border-rose-200/60 bg-rose-50/35 text-rose-950`;
+      return `${base} border-rose-300/80 bg-rose-100/65 text-rose-950`;
     default:
       return `${base} border-border/80 bg-muted/20`;
   }
