@@ -353,7 +353,7 @@ git checkout pilote-stable-2026-05-24
 
 ### Session 2026-06-03 (suite 3) — Demande produits : pharmacien validée/traitée/archives + bandeau patient
 
-**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`2f46ff7`** … **`ba95191`** (bandeau patient + hint portail + docs §13.36).
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`2f46ff7`** … **`2960d23`** (bandeau patient + hint portail + docs §13.36).
 
 **Pharmacien — détail produits** (`app/dashboard/pharmacien/demandes/[id]/page.tsx`) :
 - **Validée** : **`PharmacistValidatedBucketSection`** (bloc arrondi header+liste, titres agrandis) ; **`PharmacistSupplyCompactLine`** aligné **`PatientValidatedCompactLineCard`** (PU/Qté, libellés en bas, boutons message/⋮) ; **`sectionBucket`** + **`labelAudience: pharmacist`** (`lib/patient-validated-line-labels-fr.ts`).
@@ -2007,7 +2007,7 @@ Voir **§13.36**.
 
 ### 13.36) Phrase de reprise (recommandée — après session **2026-06-03 suite 3** demande produits patient + pharmacien)
 
-**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (dernier lot **2026-06-03 suite 3** : pharmacien **validée / traitée / archives** — cartes et groupes alignés patient, footer mobile, traitée sans bandeau Suivi ; patient — bandeau **`PatientPharmacyDossierBand`** avec icône officine, **Contacter**, **Itinéraire**, **Voir la fiche** ; hint footer en portail). Dernier commit **`ba95191`**. Lots antérieurs : **`773ad62`** parcours pharmacien épuré, **`6ad4f84`** archives pharma, parcours patient §4.6 **`978f862`**–**`f29e073`**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.6**, **§10** (session **2026-06-03 suite 3**), §11. **Supabase pilote : migrations appliquées** jusqu’à **`20260630_001`**. Fichiers clés : `patient-pharmacy-dossier-band.tsx`, `pharmacist-supply-compact-line.tsx`, `pharmacist-closed-archive-line.tsx`, `pharmacist-closed-product-buckets-view.tsx`, `components/ui/info-hint.tsx`, `app/dashboard/pharmacien/demandes/[id]/page.tsx`, `app/dashboard/demandes/[id]/page.tsx`. **Prochain jalon** : retours preview. Je te donne la tâche ou les retours. »**
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (dernier lot **2026-06-03 suite 3** : pharmacien **validée / traitée / archives** — cartes et groupes alignés patient, footer mobile, traitée sans bandeau Suivi ; patient — bandeau **`PatientPharmacyDossierBand`** avec icône officine, **Contacter**, **Itinéraire**, **Voir la fiche** ; hint footer en portail). Dernier commit **`2960d23`**. Lots antérieurs : **`773ad62`** parcours pharmacien épuré, **`6ad4f84`** archives pharma, parcours patient §4.6 **`978f862`**–**`f29e073`**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, **§4.6**, **§10** (session **2026-06-03 suite 3**), §11. **Supabase pilote : migrations appliquées** jusqu’à **`20260630_001`**. Fichiers clés : `patient-pharmacy-dossier-band.tsx`, `pharmacist-supply-compact-line.tsx`, `pharmacist-closed-archive-line.tsx`, `pharmacist-closed-product-buckets-view.tsx`, `components/ui/info-hint.tsx`, `app/dashboard/pharmacien/demandes/[id]/page.tsx`, `app/dashboard/demandes/[id]/page.tsx`. **Prochain jalon** : retours preview. Je te donne la tâche ou les retours. »**
 
 ### 13.34-ancien) Phrase de reprise (historique — session **2026-06-02 suite 2**)
 
