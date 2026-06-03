@@ -47,6 +47,7 @@ import {
   formatShortId,
   pharmacistRequestIsClosedSuccess,
   pharmacistRequestIsHardStopped,
+  requestItemLineSourceFr,
   requestStatusFr,
 } from "@/lib/request-display";
 import { displayRequestPublicRef } from "@/lib/public-ref";
@@ -134,6 +135,13 @@ import {
 import { PharmacistDeclareTreatedConfirmModal } from "@/components/pharmacist/pharmacist-declare-treated-confirm-modal";
 import { PharmacistClosedProductBucketsView } from "@/components/pharmacist/pharmacist-closed-product-buckets-view";
 import {
+  PharmacistClosedArchiveNotRetainedLine,
+  PharmacistClosedArchiveValidatedLine,
+  closedArchiveLinePricing,
+  closedArchiveThumbUrl,
+  validatedProductLabel as closedArchiveProductLabel,
+} from "@/components/pharmacist/pharmacist-closed-archive-line";
+import {
   buildPharmacistDeclareTreatedSummary,
   pharmacistActiveRetainedLineCount,
 } from "@/lib/pharmacist-declare-treated-fr";
@@ -159,6 +167,7 @@ import {
 import { PharmacistValidatedBucketSection } from "@/components/pharmacist/pharmacist-validated-bucket-section";
 import {
   buildPharmacistValidatedBucketGroups,
+  compactTotalMadLabel,
   supplyTierForBucketKind,
   type PharmacistValidatedBucketGroup,
 } from "@/lib/pharmacist-validated-bucket-layout";
@@ -4301,91 +4310,103 @@ export default function PharmacienDemandeDetailPage() {
     request && usesLineWorkflow && pharmacistRequestIsClosedSuccess(request.status)
   );
 
-  const renderClosedReadonlySupplyLine = (row: ItemRow) => {
+  const closedRecuperesSubtotalLabel = (() => {
+    if (!showClosedBucketsLayout) return null;
+    const recuperes = displayRows.filter(
+      (r) => r.is_selected_by_patient && (r.counter_outcome ?? "unset") === "picked_up"
+    );
+    let sumKnown = 0;
+    let missingPrice = false;
+    for (const row of recuperes) {
+      const pl = row as PatientLineLike;
+      const unit = validatedBranchUnitPriceMad(pl, pricingConfig);
+      const qty = validatedQtyForPatientLine(pl);
+      if (unit == null) missingPrice = true;
+      else sumKnown += unit * qty;
+    }
+    return compactTotalMadLabel({
+      sumKnown,
+      missingPrice,
+      empty: recuperes.length < 1,
+    });
+  })();
+
+  const renderClosedArchiveLine = (
+    row: ItemRow,
+    opts: { variant: "recupere" | "autre" | "ecarte" | "nonRetenu" }
+  ) => {
     const f = draft[row.id];
     if (!f || !request) return null;
     const pl = row as PatientLineLike;
     const prod = one(row.products);
-    const selected = Boolean(row.is_selected_by_patient);
-    const withdrawnDraft = Boolean(f.withdrawn_after_confirm);
-    const co = row.counter_outcome ?? "unset";
-    const lineLockedTrace = co === "cancelled_at_counter";
-    const effSupply = effectiveAvailSupplyDraft(row, f, request.request_type, request.status);
-    const etaSupply = effectiveEtaSupplyDraft(row, f, request.request_type);
-    let availSentence = "—";
-    if (!selected) availSentence = "Non retenu";
-    else if (effSupply === "to_order") {
-      availSentence = `À commander${etaSupply ? ` · dispo indicative ${formatDateShortFr(etaSupply)}` : ""}`;
-    } else if (effSupply) availSentence = availabilityStatusFr[effSupply] ?? effSupply;
-    const validatedName = validatedProductLabel(pl);
-    const validatedQty = validatedQtyForPatientLine(pl);
-    const branchPrice = validatedBranchUnitPriceMad(pl);
-    const lineTot = branchPrice != null ? branchPrice * validatedQty : null;
-    const unitLabel = branchPrice != null ? `${branchPrice.toFixed(2)} MAD` : "—";
-    const totalLabel = lineTot != null ? `${lineTot.toFixed(2)} MAD` : "—";
-    const thumbUrl = resolvePublicMediaUrl(validatedBranchPhotoPath(pl));
     const patientLineCc = row.client_comment?.trim() ?? "";
     const lineConvoVisual = lineConversationVisual(patientLineCc, f.pharmacist_comment ?? "");
-    const ordonnancePrescribedQtyClosed =
-      request.request_type === "prescription" &&
-      isPrescriptionOrdonnancePrincipalLine(request.request_type, row, supplyAmendmentBundles)
-        ? ordonnanceDraftRequestedQty(row, f)
+    const lineMessageButton = (
+      <PharmacistLineMessageButton
+        visual={lineConvoVisual}
+        open={lineConvoRowId === row.id}
+        onClick={() => setLineConvoRowId(row.id)}
+      />
+    );
+    const onOpenHistory = () => {
+      setSupplyMenuRowId(null);
+      setPharmaHistoryRowId(row.id);
+    };
+
+    if (opts.variant === "nonRetenu") {
+      const eff = row.availability_status;
+      const statusLabel = eff ? availabilityStatusFr[eff] ?? eff : null;
+      const lineKindLabel =
+        row.line_source === "pharmacist_proposed"
+          ? request.request_type === "prescription"
+            ? PRESCRIPTION_ADDITIONAL_PROPOSED_REASON
+            : requestItemLineSourceFr.pharmacist_proposed
+          : null;
+      const thumbUrl = prod?.photo_url ? resolvePublicMediaUrl(prod.photo_url) : null;
+      return (
+        <PharmacistClosedArchiveNotRetainedLine
+          row={row}
+          productName={prod?.name ?? closedArchiveProductLabel(pl)}
+          thumbUrl={thumbUrl}
+          statusLabel={statusLabel}
+          lineKindLabel={lineKindLabel}
+          lineMessageButton={lineMessageButton}
+          onOpenHistory={onOpenHistory}
+          onPhotoPreview={openProductPhotoPreview}
+        />
+      );
+    }
+
+    const prescriptionBadge =
+      request.request_type === "prescription"
+        ? patientPrescriptionLineBadge(request.request_type, pl, supplyAmendmentBundles)
         : null;
+    const { validatedQty, unitPriceMad, lineTotalMad } = closedArchiveLinePricing(pl);
+    const archiveBucket =
+      opts.variant === "recupere"
+        ? "recuperes"
+        : opts.variant === "autre"
+          ? "autres_retenus"
+          : "ecartes";
     return (
-      <PharmacistSupplyCompactLine
-        header={null}
-        validatedName={validatedName}
+      <PharmacistClosedArchiveValidatedLine
+        row={pl}
+        archiveBucket={archiveBucket}
+        requestType={request.request_type}
+        supplyAmendmentBundles={supplyAmendmentBundles}
+        pharmacistProposedBadgeLabel={proposedBadgeLabel}
+        prescriptionBadge={prescriptionBadge}
+        validatedName={closedArchiveProductLabel(pl)}
         validatedQty={validatedQty}
-        ordonnancePrescribedQty={ordonnancePrescribedQtyClosed}
-        availSentence={availSentence}
-        unitLabel={unitLabel}
-        totalLabel={totalLabel}
-        thumbUrl={thumbUrl}
-        selected={selected}
-        lineLockedTrace={lineLockedTrace}
-        withdrawn={withdrawnDraft}
-        effAvailRow={effSupply}
-        canMarkReserved={false}
-        canMarkOrdered={false}
-        fulfillmentDraft={f.fulfillment_draft}
-        onToggleReserved={() => {}}
-        onToggleOrdered={() => {}}
-        onToggleArrivedReserved={() => {}}
-        canShowArrivedReservedPill={false}
-        canMarkPickedUpCounterSupply={false}
-        onMarkPickedUpCounter={() => {}}
-        hasModifyConsent={false}
-        busy={false}
-        supplyConfirmBusy={false}
-        lineCounterLocked={(co ?? "unset") === "picked_up"}
-        showExpandedEditor={false}
-        expandedEditor={null}
-        treatedCounterSlot={
-          <p className="border-t border-slate-100 bg-slate-50/25 px-2 py-2 text-[10px] text-muted-foreground">
-            <span className="font-semibold text-foreground">Comptoir : </span>
-            {counterOutcomeLabelPharmacien(co, row.counter_cancel_reason)}
-          </p>
-        }
-        lineMessageButton={
-          <PharmacistLineMessageButton
-            visual={lineConvoVisual}
-            open={lineConvoRowId === row.id}
-            onClick={() => setLineConvoRowId(row.id)}
-          />
-        }
-        postConfirmAmendmentBadges={supplyAmendmentBadgeLabelsByItemId[row.id]}
+        unitPriceMad={unitPriceMad}
+        lineTotalMad={lineTotalMad}
+        thumbUrl={closedArchiveThumbUrl(pl)}
+        lineMessageButton={lineMessageButton}
         menuOpen={supplyMenuRowId === row.id}
-        onMenuOpenChange={(open) => {
-          setSupplyMenuRowId(open ? row.id : null);
-        }}
-        onMenuModify={() => {}}
-        onMenuWithdraw={() => {}}
-        onMenuHistory={() => {
-          setSupplyMenuRowId(null);
-          setPharmaHistoryRowId(row.id);
-        }}
-        supplyMutationsEnabled={false}
-        withdrawDisabled
+        onMenuOpenChange={(open) => setSupplyMenuRowId(open ? row.id : null)}
+        onMenuHistory={onOpenHistory}
+        postConfirmAmendmentBadges={supplyAmendmentBadgeLabelsByItemId[row.id]}
+        onPhotoPreview={openProductPhotoPreview}
       />
     );
   };
@@ -4986,7 +5007,8 @@ export default function PharmacienDemandeDetailPage() {
             {showClosedBucketsLayout ? (
               <PharmacistClosedProductBucketsView
                 items={displayRows}
-                renderLine={(row) => renderClosedReadonlySupplyLine(row)}
+                recuperesSubtotalLabel={closedRecuperesSubtotalLabel}
+                renderLine={(row, opts) => renderClosedArchiveLine(row, opts)}
               />
             ) : null}
             {!showClosedBucketsLayout ? (
