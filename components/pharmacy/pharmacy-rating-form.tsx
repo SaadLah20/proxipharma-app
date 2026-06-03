@@ -13,6 +13,8 @@ type Props = {
   ratingAvg: number | null;
   ratingCount: number | null;
   onUpdated?: (avg: number, count: number) => void;
+  /** Dans une modale : pas de carte englobante supplémentaire. */
+  embedded?: boolean;
 };
 
 function StarRow({
@@ -57,7 +59,7 @@ function StarRow({
   );
 }
 
-export function PharmacyRatingForm({ pharmacyId, ratingAvg, ratingCount, onUpdated }: Props) {
+export function PharmacyRatingForm({ pharmacyId, ratingAvg, ratingCount, onUpdated, embedded }: Props) {
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const [isStaff, setIsStaff] = useState(false);
   const [savedScore, setSavedScore] = useState(0);
@@ -125,9 +127,9 @@ export function PharmacyRatingForm({ pharmacyId, ratingAvg, ratingCount, onUpdat
   return (
     <section
       className={cn(
-        pharmacyPublicCard,
-        "p-3 sm:p-4",
-        hasUserRating && !editing ? "bg-muted/5" : "bg-muted/10"
+        !embedded && pharmacyPublicCard,
+        embedded ? "space-y-0" : "p-3 sm:p-4",
+        !embedded && (hasUserRating && !editing ? "bg-muted/5" : "bg-muted/10")
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">

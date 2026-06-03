@@ -2,15 +2,14 @@
 
 import type { MouseEvent } from "react";
 import Link from "next/link";
-import { ArrowRight, MapPin, MessageCircle, Phone, Share2, Star } from "lucide-react";
-import { PharmacyNavigationPicker } from "@/components/pharmacy/pharmacy-navigation-picker";
-import { hasPharmacyNavigation } from "@/lib/pharmacy-navigation";
+import { ArrowRight, MapPin } from "lucide-react";
+import { PharmacyCoverOverlayActions } from "@/components/pharmacy/pharmacy-cover-overlay-actions";
+import { PharmacyRatingOverlayChip } from "@/components/pharmacy/pharmacy-rating-overlay-chip";
 import type { AnnuairePharmacyEnriched } from "@/lib/annuaire/types";
 import { formatDistanceKm } from "@/lib/annuaire/geo";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import { buttonVariants } from "@/components/ui/button";
-import { uiAnnuaireActionOverlayBtnGhost } from "@/lib/ui-action-buttons";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { cn } from "@/lib/utils";
 import {
@@ -18,104 +17,9 @@ import {
   pharmacyOpenStatusOverlayBadgeClass,
 } from "@/lib/pharmacy-open-status-ui";
 
-function normalizeWhatsApp(value: string | null) {
-  return (value ?? "").replace(/[^\d]/g, "");
-}
-
-function AnnuaireCardOverlayActions({
-  pharmacy,
-  wa,
-  canNavigate,
-  onShare,
-}: {
-  pharmacy: AnnuairePharmacyEnriched;
-  wa: string;
-  canNavigate: boolean;
-  onShare: (e: MouseEvent<HTMLButtonElement>) => void;
-}) {
-  const label = pharmacyPublicLabel(pharmacy.nom);
-  const ghostBtn = (disabled?: boolean) =>
-    cn(uiAnnuaireActionOverlayBtnGhost(), disabled && "pointer-events-none opacity-40");
-
-  return (
-    <div
-      className="absolute right-1.5 top-1/2 z-[2] flex -translate-y-1/2 flex-col items-center gap-0.5 sm:right-2"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <a
-        href={pharmacy.telephone ? `tel:${pharmacy.telephone}` : undefined}
-        aria-disabled={!pharmacy.telephone}
-        aria-label={pharmacy.telephone ? `Appeler ${label}` : "Téléphone non renseigné"}
-        onClick={(e) => {
-          if (!pharmacy.telephone) e.preventDefault();
-          else
-            trackPharmacyEngagement({
-              pharmacyId: pharmacy.id,
-              eventType: "phone_click",
-              source: "annuaire",
-            });
-        }}
-        className={ghostBtn(!pharmacy.telephone)}
-      >
-        <Phone className="size-3.5" aria-hidden />
-      </a>
-      <a
-        href={wa ? `https://wa.me/${wa}` : undefined}
-        target={wa ? "_blank" : undefined}
-        rel={wa ? "noreferrer" : undefined}
-        aria-disabled={!wa}
-        aria-label={wa ? `WhatsApp ${label}` : "WhatsApp non renseigné"}
-        onClick={(e) => {
-          if (!wa) e.preventDefault();
-          else
-            trackPharmacyEngagement({
-              pharmacyId: pharmacy.id,
-              eventType: "whatsapp_click",
-              source: "annuaire",
-            });
-        }}
-        className={ghostBtn(!wa)}
-      >
-        <MessageCircle className="size-3.5" aria-hidden />
-      </a>
-      <PharmacyNavigationPicker
-        pharmacy={{
-          pharmacyId: pharmacy.id,
-          nom: pharmacy.nom,
-          adresse: pharmacy.adresse,
-          ville: pharmacy.ville,
-          latitude: pharmacy.latitude,
-          longitude: pharmacy.longitude,
-          maps_url: pharmacy.maps_url,
-        }}
-        source="annuaire"
-        variant="annuaire-overlay"
-        disabledClassName={!canNavigate ? "pointer-events-none opacity-40" : undefined}
-        className={!canNavigate ? "pointer-events-none opacity-40" : undefined}
-      />
-      <button
-        type="button"
-        onClick={onShare}
-        className={ghostBtn()}
-        aria-label={`Partager ${label}`}
-      >
-        <Share2 className="size-3.5" aria-hidden />
-      </button>
-    </div>
-  );
-}
-
 export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyEnriched }) {
   const coverUrl = resolvePublicMediaUrl(pharmacy.cover_image_path ?? pharmacy.logo_url ?? null);
-  const wa = normalizeWhatsApp(pharmacy.whatsapp);
-  const canNavigate = hasPharmacyNavigation(pharmacy);
   const publicRef = pharmacy.public_ref?.trim() ?? "";
-
-  const ratingCount = pharmacy.rating_count ?? 0;
-  const ratingLabel =
-    ratingCount > 0
-      ? `${Number(pharmacy.rating_avg ?? 0).toFixed(1)} (${ratingCount} avis)`
-      : "Pas encore d\u2019avis";
 
   const handleShare = async (e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -167,10 +71,6 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
           )}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
           <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-10 bg-gradient-to-l from-black/25 to-transparent sm:w-11" />
-          <span className="absolute left-2 top-2 z-[1] inline-flex max-w-[calc(100%-3rem)] items-center gap-0.5 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
-            <Star className="size-3 shrink-0 fill-amber-300 text-amber-300" aria-hidden />
-            <span className="truncate">{ratingLabel}</span>
-          </span>
           <div className="absolute bottom-2 left-2 right-10 z-[1] flex flex-wrap items-end justify-between gap-1.5 sm:right-11">
             <div className="flex max-w-full flex-wrap gap-1">
               <span className={pharmacyOpenStatusOverlayBadgeClass(pharmacy.open.status)}>
@@ -188,10 +88,20 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
           </div>
         </Link>
 
-        <AnnuaireCardOverlayActions
+        <PharmacyRatingOverlayChip
+          pharmacyId={pharmacy.id}
+          ratingAvg={pharmacy.rating_avg ?? null}
+          ratingCount={pharmacy.rating_count ?? null}
+          className="absolute left-2 top-2"
+          onPointerEventCapture={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        />
+
+        <PharmacyCoverOverlayActions
           pharmacy={pharmacy}
-          wa={wa}
-          canNavigate={canNavigate}
+          source="annuaire"
           onShare={(e) => void handleShare(e)}
         />
       </div>

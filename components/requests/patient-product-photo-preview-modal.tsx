@@ -16,6 +16,7 @@ export function CatalogProductPhotoThumb({
   size,
   className,
   imageClassName,
+  objectFit = "cover",
   onPreview,
 }: {
   imageUrl: string;
@@ -23,6 +24,7 @@ export function CatalogProductPhotoThumb({
   size: number;
   className?: string;
   imageClassName?: string;
+  objectFit?: "cover" | "contain";
   onPreview: (preview: CatalogProductPhotoPreview) => void;
 }) {
   return (
@@ -46,7 +48,7 @@ export function CatalogProductPhotoThumb({
         alt=""
         width={size}
         height={size}
-        className={clsx("size-full object-cover", imageClassName)}
+        className={clsx("size-full", objectFit === "contain" ? "object-contain p-0.5" : "object-cover", imageClassName)}
         unoptimized
       />
     </button>
