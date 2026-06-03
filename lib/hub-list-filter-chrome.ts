@@ -1,6 +1,36 @@
 import { clsx } from "clsx";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 
+/** Filtres saisis dans le panneau (hors statut URL issu du tableau de bord). */
+export function hubListHasManualFilters(input: {
+  entityFilter?: string;
+  referenceQuery: string;
+  sortNewestFirst: boolean;
+}): boolean {
+  return (
+    Boolean(input.entityFilter?.trim()) ||
+    input.referenceQuery.trim().length >= 2 ||
+    !input.sortNewestFirst
+  );
+}
+
+/**
+ * Panneau filtres liste : replié si seul le `statut` URL est actif (clic tuile tableau de bord).
+ * `filtersExpandedUser === true` force l’ouverture ; `false` ou `null` = masqué dans ce cas.
+ */
+export function hubListFiltersPanelExpanded(input: {
+  tabIsList: boolean;
+  listStatutParam: string | null;
+  hasManualFilters: boolean;
+  filtersExpandedUser: boolean | null;
+}): boolean {
+  const urlStatutOnly =
+    input.tabIsList && Boolean(input.listStatutParam) && !input.hasManualFilters;
+  const autoExpand = input.tabIsList && input.hasManualFilters;
+  if (urlStatutOnly) return input.filtersExpandedUser === true;
+  return input.filtersExpandedUser ?? autoExpand;
+}
+
 /** Filtres liste hub demandes — charte compte (neutre), pas les accents sky/amber des dossiers. */
 export const hubListFilterChrome = {
   shell: clsx(p.filterShell),

@@ -168,6 +168,8 @@ export function DemandeStatDashboard({
     const next = new URLSearchParams();
     next.set("vue", "liste");
     next.set("statut", key);
+    /** Panneau filtres replié à l’arrivée (hub lit puis retire ce paramètre). */
+    next.set("filtres", "0");
     router.replace(`${basePath}?${next.toString()}`, { scroll: false });
   };
 

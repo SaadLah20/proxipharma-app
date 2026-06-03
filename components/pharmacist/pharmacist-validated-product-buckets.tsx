@@ -25,8 +25,8 @@ export function PharmacistValidatedProductBuckets<T extends PatientLineLike>({
   }
 
   return (
-    <div className="space-y-4">
-      <h3 className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{sectionTitle}</h3>
+    <div className="mt-3 w-full min-w-0 space-y-5">
+      <h3 className="pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{sectionTitle}</h3>
       {groups.map((group) => (
         <PharmacistValidatedBucketSection key={group.kind} group={group}>
           <ul className="flex w-full min-w-0 flex-col divide-y divide-border/50 overflow-visible">

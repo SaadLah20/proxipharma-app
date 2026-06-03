@@ -19,7 +19,11 @@ import {
   patientHubListActiveFiltersSummary,
   patientHubListHasActiveFilters,
 } from "@/lib/patient-request-hub-list-filters";
-import { hubListFilterChrome as filterChrome } from "@/lib/hub-list-filter-chrome";
+import {
+  hubListFilterChrome as filterChrome,
+  hubListFiltersPanelExpanded,
+  hubListHasManualFilters,
+} from "@/lib/hub-list-filter-chrome";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { PageShell } from "@/components/ui/compact-shell";
 import { bucketForStatusParam } from "@/lib/demandes-hub-buckets";
@@ -87,6 +91,14 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     next.delete("section");
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   }, [tab, searchParams, router, hubPath]);
+
+  useEffect(() => {
+    if (searchParams.get("filtres") !== "0") return;
+    setFiltersExpandedUser(false);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("filtres");
+    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
+  }, [searchParams, hubPath, router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,66 +178,64 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
 
   const rowsWithDashboardStatus = useMemo(() => rows.map((r) => ({ ...r, status_for_dashboard: r.status })), [rows]);
 
-  const filteredSorted = useMemo(() => {
-    let list = rowsWithDashboardStatus;
-    if (isProductHub) {
-      list = filterPatientProductHubListRows(list, {
-        bucketStatuses: activeBucket?.statuses ?? null,
-      });
-    } else if (activeBucket) {
-      const allow = new Set(activeBucket.statuses);
-      list = list.filter((r) => allow.has((r as { status_for_dashboard?: string }).status_for_dashboard ?? r.status));
-    }
-    if (pharmacyFilter) list = list.filter((r) => r.pharmacy_id === pharmacyFilter);
-    if (refQuery.trim().length >= 2) {
-      const ph = (row: (typeof rows)[number]) => one(row.pharmacies);
-      list = list.filter((r) => {
-        const p = ph(r);
-        return rowMatchesPublicRefQuery(refQuery, [
-          r.request_public_ref,
-          p?.public_ref,
-          p?.nom,
-          p?.ville,
-          formatShortId(r.id),
-        ]);
-      });
-    }
-    return [...list].sort((a, b) => {
-      const ta = new Date(a.created_at).getTime();
-      const tb = new Date(b.created_at).getTime();
-      return sortNewestFirst ? tb - ta : ta - tb;
+  const pharmacyFilterLabel =
+    pharmacyOptions.find(([id]) => id === pharmacyFilter)?.[1] ?? null;
+
+  let filteredList = rowsWithDashboardStatus;
+  if (isProductHub) {
+    filteredList = filterPatientProductHubListRows(filteredList, {
+      bucketStatuses: activeBucket?.statuses ?? null,
     });
-  }, [rowsWithDashboardStatus, activeBucket, pharmacyFilter, refQuery, sortNewestFirst, isProductHub]);
+  } else if (activeBucket) {
+    const allow = new Set(activeBucket.statuses);
+    filteredList = filteredList.filter((r) =>
+      allow.has((r as { status_for_dashboard?: string }).status_for_dashboard ?? r.status)
+    );
+  }
+  if (pharmacyFilter) filteredList = filteredList.filter((r) => r.pharmacy_id === pharmacyFilter);
+  if (refQuery.trim().length >= 2) {
+    filteredList = filteredList.filter((r) => {
+      const p = one(r.pharmacies);
+      return rowMatchesPublicRefQuery(refQuery, [
+        r.request_public_ref,
+        p?.public_ref,
+        p?.nom,
+        p?.ville,
+        formatShortId(r.id),
+      ]);
+    });
+  }
+  const filteredSorted = [...filteredList].sort((a, b) => {
+    const ta = new Date(a.created_at).getTime();
+    const tb = new Date(b.created_at).getTime();
+    return sortNewestFirst ? tb - ta : ta - tb;
+  });
 
-  const pharmacyFilterLabel = useMemo(
-    () => pharmacyOptions.find(([id]) => id === pharmacyFilter)?.[1] ?? null,
-    [pharmacyOptions, pharmacyFilter]
-  );
+  const listFiltersSummary = patientHubListActiveFiltersSummary({
+    activeBucket,
+    pharmacyLabel: pharmacyFilterLabel,
+    referenceQuery: refQuery,
+    sortNewestFirst,
+  });
 
-  const listFiltersSummary = useMemo(
-    () =>
-      patientHubListActiveFiltersSummary({
-        activeBucket,
-        pharmacyLabel: pharmacyFilterLabel,
-        referenceQuery: refQuery,
-        sortNewestFirst,
-      }),
-    [activeBucket, pharmacyFilterLabel, refQuery, sortNewestFirst]
-  );
+  const listHasActiveFilters = patientHubListHasActiveFilters({
+    activeBucket,
+    pharmacyLabel: pharmacyFilterLabel,
+    referenceQuery: refQuery,
+    sortNewestFirst,
+  });
 
-  const listHasActiveFilters = useMemo(
-    () =>
-      patientHubListHasActiveFilters({
-        activeBucket,
-        pharmacyLabel: pharmacyFilterLabel,
-        referenceQuery: refQuery,
-        sortNewestFirst,
-      }),
-    [activeBucket, pharmacyFilterLabel, refQuery, sortNewestFirst]
-  );
-
-  const filtersAutoExpand = tab === "list" && (Boolean(listStatutParam) || listHasActiveFilters);
-  const filtersPanelExpanded = filtersExpandedUser ?? filtersAutoExpand;
+  const hasManualListFilters = hubListHasManualFilters({
+    entityFilter: pharmacyFilter,
+    referenceQuery: refQuery,
+    sortNewestFirst,
+  });
+  const filtersPanelExpanded = hubListFiltersPanelExpanded({
+    tabIsList: tab === "list",
+    listStatutParam,
+    hasManualFilters: hasManualListFilters,
+    filtersExpandedUser,
+  });
 
   const clearListFilters = () => {
     setPharmacyFilter("");
@@ -357,7 +367,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
             <h2 className="text-sm font-bold text-foreground">{listTabLabel}</h2>
             <button
               type="button"
-              onClick={() => setFiltersExpandedUser(!(filtersExpandedUser ?? filtersAutoExpand))}
+              onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
               className={filterBtn}
             >
               {filtersPanelExpanded ? "Masquer les filtres" : "Filtres"}

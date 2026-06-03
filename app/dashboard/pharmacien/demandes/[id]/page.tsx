@@ -134,7 +134,14 @@ import {
   type PharmacistCloseRequestSummary,
 } from "@/components/pharmacist/pharmacist-close-request-confirm-modal";
 import { PharmacistDeclareTreatedConfirmModal } from "@/components/pharmacist/pharmacist-declare-treated-confirm-modal";
+import { PharmacistArchiveFrozenProductsView } from "@/components/pharmacist/pharmacist-archive-frozen-products-view";
 import { PharmacistClosedProductBucketsView } from "@/components/pharmacist/pharmacist-closed-product-buckets-view";
+import {
+  computeSelFromConfirmedItems,
+  computeSelFromItems,
+} from "@/components/requests/product/patient-product-request-actions";
+import { patientClosedArchiveLineBucket } from "@/lib/patient-closed-archive-line-buckets";
+import type { PatientClosedArchiveLineBucketId } from "@/lib/patient-closed-archive-line-buckets";
 import {
   PharmacistClosedArchiveNotRetainedLine,
   PharmacistClosedArchiveValidatedLine,
@@ -169,6 +176,7 @@ import { PharmacistValidatedBucketSection } from "@/components/pharmacist/pharma
 import {
   buildPharmacistValidatedBucketGroups,
   compactTotalMadLabel,
+  monetaryTotalsForRetainedLines,
   supplyTierForBucketKind,
   type PharmacistValidatedBucketGroup,
 } from "@/lib/pharmacist-validated-bucket-layout";
@@ -180,6 +188,13 @@ import { patientPrescriptionLineBadge } from "@/lib/prescription-patient-labels"
 import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
 import { PharmacistProductRequestDossierHeader } from "@/components/requests/product/pharmacist-product-request-dossier-header";
 import { patientBucketProductListClass } from "@/lib/patient-bucket-product-row-ui";
+import {
+  pharmacistProductDossierPageClass,
+  pharmacistProductLinesWrapperClass,
+  pharmacistProductPlannedVisitClass,
+  pharmacistProductSecondaryBannerClass,
+  pharmacistProductSectionTitleClass,
+} from "@/lib/pharmacist-product-dossier-shell";
 import { PharmacistAltCatalogPicker } from "@/components/pharmacist/pharmacist-alt-catalog-picker";
 import { PharmacistAlternativeLinePanel } from "@/components/pharmacist/pharmacist-alternative-line-panel";
 import { PharmacistLineAlternativesTabs } from "@/components/pharmacist/pharmacist-line-alternatives-tabs";
@@ -4272,8 +4287,6 @@ export default function PharmacienDemandeDetailPage() {
   const canEditResponse = request && ["submitted", "in_review"].includes(uiRequestStatus ?? "");
   const canManageSupply =
     request && ["confirmed", "treated"].includes(uiRequestStatus ?? "") && !archiveFrozen;
-  const canManageSupplyReadonly =
-    request && archiveFrozen && ["confirmed", "treated"].includes(uiRequestStatus ?? "");
   const canManageResponded = uiRequestStatus === "responded" && !archiveFrozen;
   const respondedFrozenView = Boolean(request?.status === "responded" && !respondedEditMode);
   const showLineAndPublishEdits =
@@ -4291,6 +4304,19 @@ export default function PharmacienDemandeDetailPage() {
     request?.request_type === "product_request" ||
     request?.request_type === "prescription" ||
     request?.request_type === "free_consultation";
+  const showArchiveFrozenProducts = Boolean(
+    request &&
+      usesLineWorkflow &&
+      archiveFrozen &&
+      !pharmacistRequestIsClosedSuccess(request.status)
+  );
+  const archiveSel = useMemo(() => {
+    if (!showArchiveFrozenProducts) return {};
+    if (uiRequestStatus === "confirmed" || uiRequestStatus === "treated") {
+      return computeSelFromConfirmedItems(displayRows);
+    }
+    return computeSelFromItems(displayRows);
+  }, [showArchiveFrozenProducts, uiRequestStatus, displayRows]);
   const isPrescription = request?.request_type === "prescription";
   const isConsultation = request?.request_type === "free_consultation";
   const ordonnanceCatalogEditable = isPrescription && showLineAndPublishEdits;
@@ -4496,10 +4522,61 @@ export default function PharmacienDemandeDetailPage() {
     });
   })();
 
-  const renderClosedArchiveLine = (
-    row: ItemRow,
-    opts: { variant: "recupere" | "autre" | "ecarte" | "nonRetenu" }
-  ) => {
+  const pharmacistArchiveFrozenClosureLabelFr = (row: PatientLineLike): string | null => {
+    if ((row.counter_outcome ?? "unset") === "picked_up") return "Récupéré";
+    if (row.withdrawn_after_confirm) return "Retiré";
+    return null;
+  };
+
+  const renderArchiveValidatedLine = (row: ItemRow) => {
+    const f = draft[row.id];
+    if (!f || !request) return null;
+    const pl = row as PatientLineLike;
+    const patientLineCc = row.client_comment?.trim() ?? "";
+    const lineConvoVisual = lineConversationVisual(patientLineCc, f.pharmacist_comment ?? "");
+    const lineMessageButton = (
+      <PharmacistLineMessageButton
+        visual={lineConvoVisual}
+        open={lineConvoRowId === row.id}
+        onClick={() => setLineConvoRowId(row.id)}
+      />
+    );
+    const onOpenHistory = () => {
+      setSupplyMenuRowId(null);
+      setPharmaHistoryRowId(row.id);
+    };
+    const prescriptionBadge =
+      request.request_type === "prescription"
+        ? patientPrescriptionLineBadge(request.request_type, pl, supplyAmendmentBundles)
+        : null;
+    const { validatedQty, unitPriceMad, lineTotalMad } = closedArchiveLinePricing(pl);
+    return (
+      <PharmacistClosedArchiveValidatedLine
+        row={pl}
+        archiveBucket={patientClosedArchiveLineBucket(pl)}
+        archiveClosureLabel={pharmacistArchiveFrozenClosureLabelFr(pl)}
+        requestType={request.request_type}
+        supplyAmendmentBundles={supplyAmendmentBundles}
+        pharmacistProposedBadgeLabel={
+          getRequestKindConfig(request.request_type).copy.workflow.pharmacistProposedBadge
+        }
+        prescriptionBadge={prescriptionBadge}
+        validatedName={closedArchiveProductLabel(pl)}
+        validatedQty={validatedQty}
+        unitPriceMad={unitPriceMad}
+        lineTotalMad={lineTotalMad}
+        thumbUrl={closedArchiveThumbUrl(pl)}
+        lineMessageButton={lineMessageButton}
+        menuOpen={supplyMenuRowId === row.id}
+        onMenuOpenChange={(open) => setSupplyMenuRowId(open ? row.id : null)}
+        onMenuHistory={onOpenHistory}
+        postConfirmAmendmentBadges={supplyAmendmentBadgeLabelsByItemId[row.id]}
+        onPhotoPreview={openProductPhotoPreview}
+      />
+    );
+  };
+
+  const renderClosedArchiveLine = (row: ItemRow, bucketId: PatientClosedArchiveLineBucketId) => {
     const f = draft[row.id];
     if (!f || !request) return null;
     const pl = row as PatientLineLike;
@@ -4518,7 +4595,7 @@ export default function PharmacienDemandeDetailPage() {
       setPharmaHistoryRowId(row.id);
     };
 
-    if (opts.variant === "nonRetenu") {
+    if (bucketId === "non_retenus") {
       const eff = row.availability_status;
       const statusLabel = eff ? availabilityStatusFr[eff] ?? eff : null;
       const lineKindLabel =
@@ -4547,19 +4624,15 @@ export default function PharmacienDemandeDetailPage() {
         ? patientPrescriptionLineBadge(request.request_type, pl, supplyAmendmentBundles)
         : null;
     const { validatedQty, unitPriceMad, lineTotalMad } = closedArchiveLinePricing(pl);
-    const archiveBucket =
-      opts.variant === "recupere"
-        ? "recuperes"
-        : opts.variant === "autre"
-          ? "autres_retenus"
-          : "ecartes";
     return (
       <PharmacistClosedArchiveValidatedLine
         row={pl}
-        archiveBucket={archiveBucket}
+        archiveBucket={bucketId}
         requestType={request.request_type}
         supplyAmendmentBundles={supplyAmendmentBundles}
-        pharmacistProposedBadgeLabel={proposedBadgeLabel}
+        pharmacistProposedBadgeLabel={
+          getRequestKindConfig(request.request_type).copy.workflow.pharmacistProposedBadge
+        }
         prescriptionBadge={prescriptionBadge}
         validatedName={closedArchiveProductLabel(pl)}
         validatedQty={validatedQty}
@@ -4786,7 +4859,9 @@ export default function PharmacienDemandeDetailPage() {
     <PageShell
       maxWidthClass="max-w-3xl"
       className={clsx(
-        "space-y-2 sm:space-y-3",
+        usesLineWorkflow && hideMainRequestHeader
+          ? pharmacistProductDossierPageClass
+          : "space-y-2 sm:space-y-3",
         usesLineWorkflow && !hideMainRequestHeader && "bg-slate-50",
         bottomChromePaddingClass
       )}
@@ -4817,28 +4892,25 @@ export default function PharmacienDemandeDetailPage() {
             createdAt={request.created_at}
           />
           {isPrescription && ["submitted", "in_review"].includes(request.status) ? (
-            <section className="rounded-lg border border-amber-300/70 bg-amber-50/45 px-3 py-2 text-[11px] leading-snug text-amber-950 shadow-sm">
+            <section className={pharmacistProductSecondaryBannerClass}>
               <p className="font-semibold">Saisie depuis l&apos;ordonnance</p>
-              <p className="mt-0.5 text-amber-900/88">
+              <p className="mt-0.5 text-muted-foreground">
                 Ouvrez le scan, ajoutez chaque produit (qté prescrite + qté dispo), puis publiez. Les propositions
                 complémentaires restent en « Proposé ».
               </p>
             </section>
           ) : null}
           {isConsultation && ["submitted", "in_review"].includes(request.status) ? (
-            <section className="rounded-lg border border-violet-300/70 bg-violet-50/45 px-3 py-2 text-[11px] leading-snug text-violet-950 shadow-sm">
+            <section className={pharmacistProductSecondaryBannerClass}>
               <p className="font-semibold">Consultation en cours</p>
-              <p className="mt-0.5 text-violet-900/88">
+              <p className="mt-0.5 text-muted-foreground">
                 Échangez dans l&apos;onglet Conversation, puis saisissez les produits proposés avant publication.
               </p>
             </section>
           ) : null}
           {isProductRequest && sharedShowPlannedVisitBlock(request.status) ? (
-            <section
-              className="rounded-lg border border-sky-200/85 bg-sky-50/55 px-3 py-2.5 shadow-sm ring-1 ring-sky-100/70"
-              aria-label="Date de passage patient"
-            >
-              <p className="text-[10px] font-bold uppercase tracking-wide text-sky-900/85">
+            <section className={pharmacistProductPlannedVisitClass} aria-label="Date de passage patient">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 Date de passage
               </p>
               <p className="mt-1 text-[15px] font-bold leading-snug tabular-nums text-foreground sm:text-base">
@@ -5175,29 +5247,80 @@ export default function PharmacienDemandeDetailPage() {
           {hideMainRequestHeader &&
           isProductRequest &&
           displayRows.length > 0 &&
-          !showClosedBucketsLayout ? (
-            <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground sm:text-sm">
-              {isProductRequestValidated ? "Produits validés" : "Produits demandés"}
-            </h2>
+          !showClosedBucketsLayout &&
+          !showArchiveFrozenProducts ? (
+            <h3 className={pharmacistProductSectionTitleClass}>
+              {workflowCopy.patientProductsSectionTitle}
+            </h3>
           ) : null}
           <div
             className={clsx(
               "flex flex-col",
-              hideMainRequestHeader
-                ? isProductRequestSent || isProductRequestValidated
-                  ? "gap-2"
-                  : ""
-                : "mt-2 gap-3"
+              hideMainRequestHeader &&
+                isProductRequest &&
+                (isProductRequestSent ||
+                  isProductRequestValidated ||
+                  showClosedBucketsLayout ||
+                  showArchiveFrozenProducts)
+                ? pharmacistProductLinesWrapperClass
+                : hideMainRequestHeader
+                  ? isProductRequestSent || isProductRequestValidated
+                    ? "mt-3 gap-2"
+                    : ""
+                  : "mt-2 gap-3"
             )}
           >
             {showClosedBucketsLayout ? (
               <PharmacistClosedProductBucketsView
                 items={displayRows}
                 recuperesSubtotalLabel={closedRecuperesSubtotalLabel}
-                renderLine={(row, opts) => renderClosedArchiveLine(row, opts)}
+                recuperesTotalLabel={closedRecuperesSubtotalLabel}
+                renderLine={(row, bucketId) => renderClosedArchiveLine(row, bucketId)}
               />
             ) : null}
-            {!showClosedBucketsLayout ? (
+            {showArchiveFrozenProducts && request && uiRequestStatus ? (
+              <PharmacistArchiveFrozenProductsView
+                snapshotStatus={uiRequestStatus as import("@/lib/request-archive-snapshot-status").RequestArchiveSnapshotStatus}
+                terminalStatus={request.status}
+                items={displayRows}
+                productsSectionTitle={workflowCopy.patientProductsSectionTitle}
+                requestType={request.request_type}
+                supplyAmendmentBundles={supplyAmendmentBundles}
+                archiveSel={archiveSel}
+                pricingConfig={pricingConfig}
+                pharmacistProposedBadgeLabel={proposedBadgeLabel}
+                badgeForRow={(row) => {
+                  if (request.request_type !== "prescription") return undefined;
+                  return (
+                    patientPrescriptionLineBadge(request.request_type, row as PatientLineLike, supplyAmendmentBundles) ??
+                    undefined
+                  );
+                }}
+                onPhotoPreview={openProductPhotoPreview}
+                resolveCatalogUnitPriceForProduct={(productId, embed) => {
+                  const label = formatPharmacyCatalogPrice(
+                    pricingConfig,
+                    productEmbedToPricingInput(
+                      embed
+                        ? {
+                            product_type: embed.product_type ?? "parapharmacie",
+                            price_pph: embed.price_pph,
+                            price_ppv: embed.price_ppv,
+                            laboratory: embed.laboratory,
+                          }
+                        : null,
+                      productId
+                    )
+                  );
+                  if (label === "—") return null;
+                  const n = Number.parseFloat(label.replace(/[^\d.,]/g, "").replace(",", "."));
+                  return Number.isFinite(n) ? n : null;
+                }}
+                renderValidatedLine={renderArchiveValidatedLine}
+                renderNotRetainedLine={(row) => renderClosedArchiveLine(row, "non_retenus")}
+              />
+            ) : null}
+            {!showClosedBucketsLayout && !showArchiveFrozenProducts ? (
               <>
                 {pharmacistSupplySurfaceGroups.map((group, gi) => {
                   const bucket = group.bucketMeta;
@@ -5207,9 +5330,11 @@ export default function PharmacienDemandeDetailPage() {
                     "flex w-full min-w-0 flex-col overflow-visible",
                     bucket
                       ? patientBucketProductListClass
-                      : isProductRequestSent
-                        ? "gap-2"
-                        : "divide-y divide-border/50"
+                      : hideMainRequestHeader && isProductRequest
+                        ? "flex w-full min-w-0 flex-col gap-2"
+                        : isProductRequestSent
+                          ? "gap-2"
+                          : "divide-y divide-border/50"
                   )}
                 >
                   {group.entries.map(({ header, row }) => {
@@ -5340,7 +5465,7 @@ export default function PharmacienDemandeDetailPage() {
                 { isAjoutOfficineLine, isPrescriptionExtraProposed }
               );
 
-              if (canManageSupply || canManageSupplyReadonly) {
+              if (canManageSupply) {
                 const pl = row as PatientLineLike;
                 const validatedName = validatedProductLabel(pl);
                 const validatedQty = validatedQtyForPatientLine(pl);
@@ -7452,14 +7577,16 @@ export default function PharmacienDemandeDetailPage() {
       ) : null}
 
       {showMainSupplyFooter && !stickyFooterObscured ? (
-        <PlatformStickyFooterStack tone="sky">
+        <PlatformStickyFooterStack
+          tone={hideMainRequestHeader && isProductRequest ? "slate" : "sky"}
+        >
           {showSupplyStatsFooter ? (
             <PlatformStickyFooterStackRow compact bordered={false}>
               <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-foreground">
                 <span className="shrink-0 font-semibold tabular-nums text-muted-foreground">
                   {supplyFooterTotals.count} produit{supplyFooterTotals.count > 1 ? "s" : ""}
                 </span>
-                <span className="min-w-0 text-end font-bold tabular-nums text-sky-950">
+                <span className="min-w-0 text-end font-bold tabular-nums text-foreground">
                   Total :{" "}
                   {supplyFooterTotals.count === 0
                     ? "—"

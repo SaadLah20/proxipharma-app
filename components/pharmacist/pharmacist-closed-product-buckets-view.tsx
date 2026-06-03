@@ -1,216 +1,126 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { LucideIcon } from "lucide-react";
-import { Ban, CheckCircle2, ChevronDown, Package } from "lucide-react";
-import { clsx } from "clsx";
+import { PatientArchiveCollapsibleSection } from "@/components/requests/product/patient-archive-collapsible-section";
+import { PatientClosedArchiveBucketSection } from "@/components/requests/product/patient-closed-archive-bucket-section";
 import {
-  partitionClosedRequestProductLines,
-  type ClosedLinePartitionInput,
-} from "@/lib/closed-request-line-buckets";
-import {
-  type PatientClosedArchiveLineBucketId,
-  patientClosedArchiveBucketAccentTextClass,
-  patientClosedArchiveBucketAriaTitleFr,
-  patientClosedArchiveBucketCountBadgeClass,
-  patientClosedArchiveBucketSectionShellClass,
+  PATIENT_CLOSED_ARCHIVE_BUCKET_ORDER,
+  bucketPatientClosedArchiveLines,
   patientClosedArchiveBucketTitleFr,
+  type PatientClosedArchiveLineBucketId,
 } from "@/lib/patient-closed-archive-line-buckets";
 import { patientBucketProductListClass } from "@/lib/patient-bucket-product-row-ui";
+import { pharmacistProductSectionTitleClass } from "@/lib/pharmacist-product-dossier-shell";
 
-type ClosedBucketKey = PatientClosedArchiveLineBucketId | "autres_retenus";
-
-const BUCKET_ICONS: Record<ClosedBucketKey, LucideIcon> = {
-  recuperes: CheckCircle2,
-  ecartes: Ban,
-  non_retenus: Package,
-  autres_retenus: Package,
+type ClosedArchiveLineLike = {
+  id: string;
+  is_selected_by_patient: boolean;
+  withdrawn_after_confirm?: boolean | null;
+  counter_outcome?: string | null;
 };
 
-function closedBucketTitle(id: ClosedBucketKey): string {
-  if (id === "autres_retenus") return "Autres retenus";
-  return patientClosedArchiveBucketTitleFr(id);
-}
-
-function closedBucketAria(id: ClosedBucketKey): string {
-  if (id === "autres_retenus") return "Produits retenus non récupérés au comptoir";
-  return patientClosedArchiveBucketAriaTitleFr(id);
-}
-
-function closedBucketShellClass(id: ClosedBucketKey): string {
-  if (id === "autres_retenus") {
-    return "border border-border/80 border-l-[3px] border-l-slate-400/75 bg-card shadow-none";
-  }
-  return patientClosedArchiveBucketSectionShellClass(id);
-}
-
-function closedBucketAccent(id: ClosedBucketKey): string {
-  if (id === "autres_retenus") return "text-muted-foreground";
-  return patientClosedArchiveBucketAccentTextClass(id);
-}
-
-function ClosedArchiveBucketSection({
-  bucketId,
-  count,
-  subtotalLabel,
-  collapsible,
-  hint,
-  children,
-}: {
-  bucketId: ClosedBucketKey;
+function archiveRetainedTotalsFooter(input: {
   count: number;
-  subtotalLabel?: string | null;
-  collapsible?: boolean;
-  hint?: string | null;
-  children: ReactNode;
+  countLabel: string;
+  totalLabel: string;
 }) {
-  const Icon = BUCKET_ICONS[bucketId];
-  const title = closedBucketTitle(bucketId);
-  const accentText = closedBucketAccent(bucketId);
-  const outerShellClass = clsx("w-full min-w-0 overflow-hidden rounded-lg", closedBucketShellClass(bucketId));
-  const headerRowClass =
-    "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-border/55 px-2.5 py-2";
-
-  const headerInner = (
-    <>
-      <Icon className={clsx("size-4 shrink-0", accentText)} strokeWidth={2.25} aria-hidden />
-      <h4 className="min-w-0 flex-1 truncate text-[13px] font-bold leading-tight text-foreground sm:text-[15px]">
-        {title}
-      </h4>
-      {subtotalLabel ? (
-        <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold tabular-nums text-muted-foreground sm:text-[12px]">
-          {subtotalLabel}
-        </span>
-      ) : null}
-      <span
-        className={clsx(
-          "inline-flex shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ring-1",
-          patientClosedArchiveBucketCountBadgeClass()
-        )}
-      >
-        {count}
-      </span>
-      {collapsible ? (
-        <ChevronDown
-          className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
-          aria-hidden
-        />
-      ) : null}
-    </>
-  );
-
-  if (collapsible) {
-    return (
-      <details className={clsx("group", outerShellClass)} aria-label={closedBucketAria(bucketId)}>
-        <summary
-          className={clsx(headerRowClass, "cursor-pointer list-none [&::-webkit-details-marker]:hidden")}
-        >
-          {headerInner}
-        </summary>
-        {hint ? (
-          <p className="border-b border-border/45 px-2.5 py-1 text-[10px] leading-snug text-muted-foreground">
-            {hint}
-          </p>
-        ) : null}
-        {children}
-      </details>
-    );
-  }
-
+  if (input.count < 1) return null;
   return (
-    <section className={outerShellClass} aria-label={closedBucketAria(bucketId)}>
-      <div className={headerRowClass}>{headerInner}</div>
-      {hint ? (
-        <p className="border-b border-border/45 px-2.5 py-1 text-[10px] leading-snug text-muted-foreground">
-          {hint}
-        </p>
-      ) : null}
-      {children}
-    </section>
+    <div className="flex flex-nowrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+      <p className="text-sm font-medium text-muted-foreground">
+        <span className="font-bold tabular-nums text-foreground">{input.count}</span> {input.countLabel}
+      </p>
+      <p className="shrink-0 text-base font-bold tabular-nums text-foreground">{input.totalLabel}</p>
+    </div>
   );
 }
 
-/** Dossier clôturé pharmacien — présentation alignée archive patient. */
-export function PharmacistClosedProductBucketsView<T extends ClosedLinePartitionInput>({
+/** Dossier clôturé pharmacien — même structure que l’archive patient (3 blocs). */
+export function PharmacistClosedProductBucketsView<T extends ClosedArchiveLineLike>({
   items,
   renderLine,
   recuperesSubtotalLabel,
+  recuperesCountLabel,
+  recuperesTotalLabel,
 }: {
   items: T[];
-  renderLine: (row: T, opts: { variant: "recupere" | "autre" | "ecarte" | "nonRetenu" }) => ReactNode;
+  renderLine: (row: T, bucketId: PatientClosedArchiveLineBucketId) => ReactNode;
   recuperesSubtotalLabel?: string | null;
+  recuperesCountLabel?: string;
+  recuperesTotalLabel?: string | null;
 }) {
-  const { recuperes, nonRetenues, ecartes, autresRetenus } = partitionClosedRequestProductLines(items);
-
+  const closedBuckets = bucketPatientClosedArchiveLines(items);
   const listClass = patientBucketProductListClass;
+  const pickedUpCount = closedBuckets.recuperes.length;
 
   return (
     <div className="w-full min-w-0 space-y-3">
       <div className="space-y-1 px-0">
-        <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground sm:text-sm">
-          Produits archivés
-        </h3>
+        <h3 className={pharmacistProductSectionTitleClass}>Produits archivés</h3>
         <p className="text-[10px] leading-snug text-muted-foreground sm:text-[11px]">
           État enregistré au moment de la clôture — consultation seule.
         </p>
       </div>
 
-      {recuperes.length > 0 ? (
-        <ClosedArchiveBucketSection
-          bucketId="recuperes"
-          count={recuperes.length}
-          subtotalLabel={recuperesSubtotalLabel}
-        >
-          <ul className={listClass}>
-            {recuperes.map((row) => (
-              <li key={row.id} className="list-none">
-                {renderLine(row, { variant: "recupere" })}
-              </li>
-            ))}
-          </ul>
-        </ClosedArchiveBucketSection>
-      ) : null}
+      {PATIENT_CLOSED_ARCHIVE_BUCKET_ORDER.map((bucketId) => {
+        const rows = closedBuckets[bucketId];
+        if (rows.length === 0) return null;
 
-      {autresRetenus.length > 0 ? (
-        <ClosedArchiveBucketSection bucketId="autres_retenus" count={autresRetenus.length}>
-          <ul className={listClass}>
-            {autresRetenus.map((row) => (
-              <li key={row.id} className="list-none">
-                {renderLine(row, { variant: "autre" })}
-              </li>
-            ))}
-          </ul>
-        </ClosedArchiveBucketSection>
-      ) : null}
+        if (bucketId === "non_retenus" || bucketId === "ecartes") {
+          const title =
+            bucketId === "non_retenus"
+              ? "Non retenus"
+              : patientClosedArchiveBucketTitleFr(bucketId);
+          return (
+            <PatientArchiveCollapsibleSection
+              key={bucketId}
+              title={title}
+              count={rows.length}
+              variant={bucketId === "ecartes" ? "attention" : "neutral"}
+              hint={
+                bucketId === "ecartes"
+                  ? "Produits non récupérés ou retirés par la pharmacie."
+                  : undefined
+              }
+            >
+              <ul className={listClass}>
+                {rows.map((row) => (
+                  <li key={row.id} className="list-none">
+                    {renderLine(row, bucketId)}
+                  </li>
+                ))}
+              </ul>
+            </PatientArchiveCollapsibleSection>
+          );
+        }
 
-      {nonRetenues.length > 0 ? (
-        <ClosedArchiveBucketSection bucketId="non_retenus" count={nonRetenues.length} collapsible>
-          <ul className={listClass}>
-            {nonRetenues.map((row) => (
-              <li key={row.id} className="list-none">
-                {renderLine(row, { variant: "nonRetenu" })}
-              </li>
-            ))}
-          </ul>
-        </ClosedArchiveBucketSection>
-      ) : null}
+        return (
+          <PatientClosedArchiveBucketSection
+            key={bucketId}
+            bucketId={bucketId}
+            count={rows.length}
+            subtotalLabel={bucketId === "recuperes" ? recuperesSubtotalLabel : null}
+          >
+            <ul className={listClass}>
+              {rows.map((row) => (
+                <li key={row.id} className="list-none">
+                  {renderLine(row, bucketId)}
+                </li>
+              ))}
+            </ul>
+          </PatientClosedArchiveBucketSection>
+        );
+      })}
 
-      {ecartes.length > 0 ? (
-        <ClosedArchiveBucketSection
-          bucketId="ecartes"
-          count={ecartes.length}
-          collapsible
-          hint="Produits non récupérés ou retirés par la pharmacie."
-        >
-          <ul className={listClass}>
-            {ecartes.map((row) => (
-              <li key={row.id} className="list-none">
-                {renderLine(row, { variant: "ecarte" })}
-              </li>
-            ))}
-          </ul>
-        </ClosedArchiveBucketSection>
-      ) : null}
+      {recuperesTotalLabel && pickedUpCount > 0
+        ? archiveRetainedTotalsFooter({
+            count: pickedUpCount,
+            countLabel:
+              recuperesCountLabel ??
+              (pickedUpCount > 1 ? "produits récupérés" : "produit récupéré"),
+            totalLabel: recuperesTotalLabel,
+          })
+        : null}
     </div>
   );
 }

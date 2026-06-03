@@ -6,7 +6,11 @@ import type { PharmacistRequestRow } from "@/components/requests/demande-hub-ui"
 import { summarizeRequestForPatientCard, type PatientRequestItemRow } from "@/lib/patient-request-list-summary";
 import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 
-export type PharmacistProductHubSectionId = "action_required" | "in_preparation" | "archives";
+export type PharmacistProductHubSectionId =
+  | "action_required"
+  | "in_preparation"
+  | "awaiting_patient"
+  | "archives";
 
 export type PharmacistProductHubSection = {
   id: PharmacistProductHubSectionId;
@@ -21,14 +25,20 @@ export const PHARMACIST_PRODUCT_HUB_SECTIONS: PharmacistProductHubSection[] = [
   {
     id: "action_required",
     title: "À traiter en priorité",
-    subtitle: "Réponse à publier, validation patient ou comptoir en cours",
-    statuses: ["submitted", "in_review", "responded", "treated"],
+    subtitle: "Réponse à publier ou en attente de validation patient (24 h)",
+    statuses: ["submitted", "in_review", "responded"],
   },
   {
     id: "in_preparation",
     title: "Préparation validée",
     subtitle: "Commande validée par le patient — réservation et commandes fournisseur",
     statuses: ["confirmed"],
+  },
+  {
+    id: "awaiting_patient",
+    title: "Passage patient / comptoir",
+    subtitle: "Préparation déclarée traitée — le patient passe en officine pour le retrait",
+    statuses: ["treated"],
   },
   {
     id: "archives",
@@ -144,10 +154,13 @@ export function pharmacistProductHubCardContextFr(row: PharmacistRequestRow): Ph
       return {
         primaryLine:
           wait > 0
-            ? `Comptoir · ${wait} produit${wait !== 1 ? "s" : ""} en attente de retrait`
-            : "Comptoir · prêt à clôturer",
-        secondaryLine: "Déclaration traitée — marquez les retraits puis clôturez",
-        emphasis: wait > 0 ? "urgent" : "info",
+            ? `En attente du passage patient · ${wait} retrait${wait !== 1 ? "s" : ""} prévu${wait !== 1 ? "s" : ""}`
+            : "Passage patient — prêt à clôturer le dossier",
+        secondaryLine:
+          wait > 0
+            ? "Préparation déclarée — marquez les retraits au comptoir à l’arrivée du patient"
+            : "Marquez les retraits puis clôturez le dossier",
+        emphasis: "info",
       };
     }
     case "confirmed": {

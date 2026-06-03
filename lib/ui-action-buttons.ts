@@ -81,8 +81,21 @@ export function uiActionBtnFilterToggle(className?: string) {
   return uiBtn("outline", "sm", className);
 }
 
+/** Boutons compacts alignés (bandeau officine dossier patient, etc.). */
 export function uiActionBtnCompactOutline(className?: string) {
-  return uiBtn("outline", "sm", cn("h-8 px-2.5 text-[11px]", className));
+  return uiBtn(
+    "outline",
+    "sm",
+    cn("inline-flex h-8 min-h-8 items-center justify-center px-2.5 text-[11px] font-semibold", className)
+  );
+}
+
+export function uiActionBtnCompactPrimary(className?: string) {
+  return uiBtn(
+    "default",
+    "sm",
+    cn("inline-flex h-8 min-h-8 items-center justify-center px-2.5 text-[11px] font-semibold shadow-sm", className)
+  );
 }
 
 export function uiActionBtnSmOutline(className?: string) {
