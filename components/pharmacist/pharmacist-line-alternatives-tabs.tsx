@@ -4,7 +4,7 @@ import { clsx } from "clsx";
 import { Plus } from "lucide-react";
 import { PHARMACIST_ALT_TAB_ADD, type PharmacistLineAltTabId } from "@/lib/pharmacist-line-alt-tabs";
 
-/** Onglets demande / alternatives — grille fixe, alignée parcours patient répondue. */
+/** Onglets demandé / alternatives — une seule ligne compacte, sans scroll horizontal. */
 export function PharmacistLineAlternativesTabs({
   tabs,
   activeTab,
@@ -24,71 +24,64 @@ export function PharmacistLineAlternativesTabs({
   maxAlts?: number;
   altCount: number;
 }) {
-  const activeLabel = tabs.find((t) => t.id === activeTab)?.label ?? "Option";
-  const tabCells = [
-    ...tabs.map((tab) => ({ id: tab.id, label: tab.label, isAdd: false })),
-    ...(canAddAlt && activeTab !== PHARMACIST_ALT_TAB_ADD
-      ? [{ id: PHARMACIST_ALT_TAB_ADD as PharmacistLineAltTabId, label: "+ Alt.", isAdd: true }]
+  const tabCells: { id: PharmacistLineAltTabId; label: string; isAdd: boolean }[] = [
+    { id: "principal", label: "Demandé", isAdd: false },
+    ...tabs
+      .filter((t) => t.id !== "principal")
+      .map((t) => ({ id: t.id, label: t.label, isAdd: false as const })),
+    ...(canAddAlt && altCount < maxAlts && activeTab !== PHARMACIST_ALT_TAB_ADD
+      ? [{ id: PHARMACIST_ALT_TAB_ADD, label: "Alternative", isAdd: true as const }]
       : []),
   ];
+  const colCount = Math.max(tabCells.length, 1);
 
   return (
-    <div className="space-y-1.5 border-b border-border/55 bg-muted/15 px-2 py-2 sm:px-2.5">
-      <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-        Demande patient · {altCount}/{maxAlts} alternative{maxAlts > 1 ? "s" : ""}
-      </p>
-      <div
-        className="grid min-w-0 gap-1"
-        style={{ gridTemplateColumns: `repeat(${Math.max(tabCells.length, 1)}, minmax(0, 1fr))` }}
-        role="tablist"
-        aria-label="Demande patient et alternatives"
-      >
-        {tabCells.map((cell) => {
-          const active = activeTab === cell.id;
-          if (cell.isAdd) {
-            return (
-              <button
-                key={cell.id}
-                type="button"
-                disabled={addBusy || altCount >= maxAlts}
-                onClick={onAddAlt}
-                className="flex min-w-0 flex-col items-center justify-center rounded-lg border border-dashed border-teal-500/70 bg-white px-1 py-1.5 text-[10px] font-bold text-teal-900 transition hover:bg-teal-50/80 disabled:opacity-45"
-                title="Ajouter une alternative"
-              >
-                <Plus className="size-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
-                <span className="mt-0.5 truncate">Alt.</span>
-              </button>
-            );
-          }
+    <div
+      className="grid min-w-0 gap-0.5 border-b border-border/55 bg-muted/10 px-1.5 py-1 sm:px-2"
+      style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}
+      role="tablist"
+      aria-label="Demandé et alternatives"
+    >
+      {tabCells.map((cell) => {
+        const active = activeTab === cell.id;
+        if (cell.isAdd) {
           return (
             <button
               key={cell.id}
               type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => onTabChange(cell.id)}
+              disabled={addBusy || altCount >= maxAlts}
+              onClick={onAddAlt}
               className={clsx(
-                "flex min-w-0 flex-col items-center justify-center rounded-lg border px-1 py-1.5 text-center transition",
+                "flex min-h-7 min-w-0 items-center justify-center gap-0.5 rounded-md border border-dashed px-0.5 py-1 text-[9px] font-bold leading-none transition disabled:opacity-45 sm:text-[10px]",
                 active
-                  ? "border-foreground/30 bg-white text-foreground shadow-sm ring-1 ring-foreground/10"
-                  : "border-transparent bg-muted/25 text-muted-foreground hover:bg-muted/45"
+                  ? "border-sky-500/80 bg-white text-sky-950 shadow-sm ring-1 ring-sky-200/70"
+                  : "border-sky-400/60 bg-white/80 text-sky-900 hover:bg-sky-50/90"
               )}
+              title="Ajouter une alternative"
             >
-              <span className="w-full truncate text-[10px] font-semibold leading-tight">{cell.label}</span>
-              <span
-                className={clsx(
-                  "mt-0.5 size-1.5 shrink-0 rounded-full",
-                  active ? "bg-sky-600" : "bg-transparent ring-1 ring-muted-foreground/35"
-                )}
-                aria-hidden
-              />
+              <Plus className="size-3 shrink-0" strokeWidth={2.5} aria-hidden />
+              <span className="truncate">Alternative</span>
             </button>
           );
-        })}
-      </div>
-      <p className="text-[10px] leading-snug text-muted-foreground" aria-live="polite">
-        Consulté : <span className="font-semibold text-foreground">{activeLabel}</span>
-      </p>
+        }
+        return (
+          <button
+            key={cell.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onTabChange(cell.id)}
+            className={clsx(
+              "flex min-h-7 min-w-0 items-center justify-center rounded-md border px-0.5 py-1 text-center text-[9px] font-semibold leading-tight transition sm:text-[10px]",
+              active
+                ? "border-border/80 bg-card text-foreground shadow-sm ring-1 ring-sky-200/60"
+                : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/35"
+            )}
+          >
+            <span className="w-full truncate">{cell.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

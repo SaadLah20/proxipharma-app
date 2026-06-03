@@ -36,7 +36,12 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 ---
 
-## 6. État technique récent (aligné repo — mai 2026)
+## 6. État technique récent (aligné repo — mai–juin 2026)
+
+**Mise à jour 2026-06-02 — demande produits patient §4.6 + pharmacien aligné (branche `fix/validated-supply-ecart-ui-modal`, commit **`773ad62`**)**
+- **Patient** : parcours **envoyée → répondue → validée → traitée → archives** épuré (couleurs indicatives, groupes bucket, cartes séparées) ; répondue : alternatives **sans présélection**, barre **Retenir cette alternative** ; modales **`AppModalOverlay`** (notes ligne, z-index au-dessus footers sticky).
+- **Pharmacien** : détail **`/dashboard/pharmacien/demandes/[id]`** même clarté — **`PharmacistProductRequestDossierHeader`**, groupes **`PharmacistValidatedBucketSection`**, cartes **`PharmacistSupplyCompactLine`**, archives **`PharmacistClosedProductBucketsView`**, hub **`PharmacistProductDemandeHubCard`** ; logique supply/post-validé **inchangée**.
+- **SQL** : aucune migration. Phrase reprise **§13.34** (`CAHIER_DES_CHARGES.md` §10 session **2026-06-02 suite 2**).
 
 ### Références publiques mémorisables (migration `20260505_007_public_reference_codes.sql`)
 Réduire la dépendance aux UUID pour les humains ; annuaire, support téléphonique et filtres peuvent utiliser des codes courts.
@@ -60,7 +65,7 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 - **Ordonnances** : capture **`/pharmacie/[id]/demande-ordonnance`** ; saisie pharmacien via scan + modal (**qté prescrite / qté dispo**, rupture/indispo → **dispo 0**, complémentaires = **qté proposée** seule) ; badges **Ordonnance** / **Ordonnance + alternative** / **Proposé** ; enregistrement post-validé compare la **branche alternative retenue** (`supplyRowPersistedSupplyFields` dans **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**) ; hubs ambre ; migrations **`20260525_001`**–**`004`**, **`20260526_001`**, **`20260530_001`**, **`20260531_001`** ; synthèse **`docs/workflow-ordonnance-consultation-REPONSES.md`**.
 - **Consultations libres** : **`/pharmacie/[id]/consultation-libre`** (texte + 3 photos) ; détail patient/pharmacien = **une page scroll** (brief + messagerie inline + lignes proposées) — **sans** onglets sticky (mai 2026) ; dispos proposées = **Disponible / À commander** ; patient **`responded`** : qté proposée = `available_qty` par branche (alternatives : plafond = qté alternative) ; hubs violet ; migration **`20260529_001`** ; `workflowEnabled: true`.
 - **Demande produits** : notif pharmacien dédiée si patient change la date de passage — **`20260531_002`**.
-- **Phrase de reprise** : **`CAHIER_DES_CHARGES.md` §13.33** (patient demande produits — **validée** + **traitée** ; annuaire/fiche **§13.31** ; voir §10 session **2026-05-25**).
+- **Phrase de reprise** : **`CAHIER_DES_CHARGES.md` §13.34** (patient demande produits §4.6 + pharmacien aligné ; voir §10 session **2026-06-02 suite 2**).
 
 **Mise à jour 2026-05-19 — annuaire + fiche publique (UI)** :
 - **Annuaire** : hero, cartes avec **avis**, menu rayon portail, lint **`set-state-in-effect`** corrigé — `components/annuaire/`.

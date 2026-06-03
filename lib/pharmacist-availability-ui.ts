@@ -64,3 +64,22 @@ export function availabilityStatusUi(status: string | null | undefined): Availab
       };
   }
 }
+
+/** Bouton dispo compact (ligne basse carte pharmacien — demande envoyée). */
+export function availabilitySentLineButtonClass(status: string | null | undefined): string {
+  const base = "border bg-card text-[10px] font-medium text-foreground";
+  switch (status) {
+    case "available":
+      return `${base} border-emerald-200/70 bg-emerald-50/40`;
+    case "partially_available":
+      return `${base} border-cyan-200/70 bg-cyan-50/45`;
+    case "unavailable":
+      return `${base} border-border/80 bg-muted/25 text-muted-foreground`;
+    case "to_order":
+      return `${base} border-amber-200/70 bg-amber-50/40`;
+    case "market_shortage":
+      return `${base} border-rose-200/60 bg-rose-50/35 text-rose-950`;
+    default:
+      return `${base} border-border/80 bg-muted/20`;
+  }
+}

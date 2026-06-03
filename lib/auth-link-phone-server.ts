@@ -11,7 +11,7 @@ function phonesMatch(a: string | null | undefined, b: string): boolean {
   return Boolean(na && nb && na === nb);
 }
 
-/** Utilisateur Auth associé à ce numéro (via `profiles.whatsapp`). */
+/** Utilisateur Auth pour connexion par téléphone (`profiles.whatsapp` puis `auth.users.phone`). */
 export async function findAuthUserIdForWhatsApp(
   admin: SupabaseClient,
   e164: string
@@ -25,8 +25,14 @@ export async function findAuthUserIdForWhatsApp(
     .eq("whatsapp", phone)
     .limit(2);
 
-  if (pe) return null;
-  if (byProfile?.length === 1) return byProfile[0]!.id as string;
+  if (!pe && byProfile?.length === 1) return byProfile[0]!.id as string;
+
+  const { data: byAuth, error: authErr } = await admin.rpc("auth_phone_lookup_user_id", {
+    p_phone: phone,
+  });
+  if (!authErr && byAuth && typeof byAuth === "string") {
+    return byAuth;
+  }
 
   return null;
 }

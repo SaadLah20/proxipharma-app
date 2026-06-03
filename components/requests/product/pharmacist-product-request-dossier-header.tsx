@@ -6,6 +6,7 @@ import { Info, MessageCircle, Phone, User } from "lucide-react";
 import { PatientProductRequestJourneyModal } from "@/components/requests/product/patient-product-request-journey-modal";
 import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
 import { requestStatusBadgeClass, requestStatusFr } from "@/lib/request-display";
+import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { uiDossierHeaderShell } from "@/lib/ui-surfaces";
 import { uiActionBtnCompactOutline } from "@/lib/ui-action-buttons";
 
@@ -20,9 +21,6 @@ export function PharmacistProductRequestDossierHeader({
   patientPhone,
   status,
   statusHint,
-  lineCount,
-  selectedCount,
-  pendingCounterCount,
   submittedAt,
   createdAt,
 }: {
@@ -32,23 +30,17 @@ export function PharmacistProductRequestDossierHeader({
   patientPhone: string | null;
   status: string;
   statusHint: string;
-  lineCount: number;
-  selectedCount?: number;
-  pendingCounterCount?: number;
   submittedAt?: string | null;
   createdAt?: string | null;
 }) {
   const [journeyOpen, setJourneyOpen] = useState(false);
   const statusLabel = requestStatusFr[status] ?? status;
-  const patientLine = patientName?.trim()
-    ? patientRef?.trim()
-      ? `${patientName.trim()} · ${patientRef.trim()}`
-      : patientName.trim()
-    : patientRef?.trim() ?? "Patient";
+  const displayName = patientName?.trim() || null;
+  const displayRef = patientRef?.trim() || null;
 
   return (
     <>
-      <header className={uiDossierHeaderShell}>
+      <header className={clsx(uiDossierHeaderShell, "ring-1", t.accentLine)}>
         <div className="border-b border-border px-3 py-2 sm:px-3.5">
           <DossierHeaderRequestLine
             kindLabel="Demande"
@@ -58,13 +50,20 @@ export function PharmacistProductRequestDossierHeader({
           />
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2 sm:px-3.5">
-          <p className="flex min-w-0 flex-1 items-center gap-1.5 pb-px text-sm font-bold leading-snug text-foreground">
-            <User className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="truncate" title={patientLine}>
-              {patientLine}
-            </span>
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border px-3 py-2 sm:px-3.5">
+          <div className="min-w-0 flex-1">
+            <p className="flex min-w-0 items-center gap-1.5 text-sm font-bold leading-snug text-foreground">
+              <User className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <span className="truncate" title={displayName ?? undefined}>
+                {displayName ?? "Patient"}
+              </span>
+            </p>
+            {displayRef ? (
+              <p className="mt-0.5 pl-[1.375rem] text-[11px] font-medium tabular-nums text-muted-foreground">
+                {displayRef}
+              </p>
+            ) : null}
+          </div>
           {patientPhone ? (
             <div className="flex shrink-0 flex-wrap items-center gap-1.5">
               <a
@@ -105,22 +104,6 @@ export function PharmacistProductRequestDossierHeader({
           >
             <Info className="size-4" strokeWidth={2.25} aria-hidden />
           </button>
-        </div>
-
-        <div className="flex flex-wrap gap-1 border-t border-border px-3 py-1.5 text-[9px] font-medium text-muted-foreground sm:px-3.5">
-          <span className="rounded-md bg-muted/50 px-1.5 py-px text-foreground">
-            {lineCount} ligne{lineCount !== 1 ? "s" : ""}
-          </span>
-          {selectedCount != null && selectedCount > 0 ? (
-            <span className="rounded-md bg-muted/50 px-1.5 py-px text-foreground">
-              {selectedCount} retenu{selectedCount !== 1 ? "s" : ""}
-            </span>
-          ) : null}
-          {pendingCounterCount != null && pendingCounterCount > 0 ? (
-            <span className="rounded-md bg-muted/50 px-1.5 py-px text-foreground">
-              {pendingCounterCount} comptoir
-            </span>
-          ) : null}
         </div>
       </header>
 
