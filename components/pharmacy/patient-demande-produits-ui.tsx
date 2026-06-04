@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { uiActionBtnFull, uiActionBtnFullOutline } from "@/lib/ui-action-buttons";
 import { uiSurfaceCard } from "@/lib/ui-surfaces";
 import { cn } from "@/lib/utils";
+import { PATIENT_PRODUCT_LINE_COMMENT_PLACEHOLDER_FR } from "@/lib/product-line-comment-copy";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import type { PatientDemandeProduitsDraftLine } from "@/lib/patient-demande-produits-draft";
@@ -801,7 +802,7 @@ export function PatientLineCommentModal({
             onChange={(e) => onChange(e.target.value.slice(0, PATIENT_PRODUCT_LINE_COMMENT_MAX))}
             rows={3}
             maxLength={PATIENT_PRODUCT_LINE_COMMENT_MAX}
-            placeholder="Ex. dosage, marque souhaitée…"
+            placeholder={PATIENT_PRODUCT_LINE_COMMENT_PLACEHOLDER_FR}
             className={cn(
               "w-full rounded-xl border border-border/80 bg-background px-3 py-2.5 text-sm leading-relaxed placeholder:text-muted-foreground",
               t.focus

@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef } from "react";
 import { clsx } from "clsx";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
+import { pharmacistLineNotePlaceholderFr } from "@/lib/product-line-comment-copy";
 import { MessageCircle, X } from "lucide-react";
 
 export type LineConvoVisual = "empty" | "patient_only" | "pharma_only" | "thread";
@@ -238,7 +239,9 @@ export function PharmacistLineConversationModal({
             </p>
             <p className="mt-0.5 text-[9px] text-muted-foreground">
               {allowEdit || showPersistButton
-                ? "Visible par le patient avec votre réponse."
+                ? patientText.trim()
+                  ? "Répondez au message du patient ou ajoutez une note (conseil d’utilisation, etc.)."
+                  : "Note visible par le patient (conseil d’utilisation, précision, etc.)."
                 : "Notes figées sur ce dossier — poursuivez l’échange via la conversation."}
             </p>
           </div>
@@ -272,7 +275,7 @@ export function PharmacistLineConversationModal({
                 rows={4}
                 value={pharmacistDraft}
                 onChange={(e) => onPharmacistDraftChange(e.target.value.slice(0, 1000))}
-                placeholder={patientText.trim() ? "Réponse au client…" : "Message visible avec votre réponse…"}
+                placeholder={pharmacistLineNotePlaceholderFr(Boolean(patientText.trim()))}
                 disabled={!allowEdit && !showPersistButton}
                 className="min-h-[5.5rem] w-full resize-y rounded-xl border border-emerald-200/80 bg-emerald-50/40 px-2.5 py-2 text-[12px] leading-snug text-foreground shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 disabled:opacity-60"
               />

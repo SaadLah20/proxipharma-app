@@ -174,7 +174,7 @@ export function PharmacistLineReactControl({
                     rows={5}
                     value={customText}
                     onChange={(e) => setCustomText(e.target.value)}
-                    placeholder="Note visible par le patient avec votre réponse…"
+                    placeholder="Répondez au patient ou notez un conseil d’utilisation (visible avec votre réponse)…"
                     className="min-h-[6.5rem] w-full shrink resize-y rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 sm:min-h-[5rem]"
                     autoFocus
                   />
