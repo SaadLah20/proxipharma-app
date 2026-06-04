@@ -6,6 +6,11 @@
  *   catalog/products.csv
  *   catalog/images/{slug}.webp   (ou .jpg / .png)
  *
+ * Source catalogue externe (juin 2026) : après fusion BeautyMall, partir de
+ *   scripts/products_final.csv (url_image_valide, url_produit) — voir
+ *   fetch-beautymall-sitemap-products.mjs + merge-beautymall-products.mjs
+ *   (CAHIER_DES_CHARGES.md §10 session 2026-06-04).
+ *
  * CSV (en-tête obligatoire) :
  *   name,price_pph,price_ppv,product_type,laboratory,image_slug
  *   product_type = medicament | parapharmacie
