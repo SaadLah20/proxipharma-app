@@ -963,17 +963,34 @@ function withSyncedPostConfirmQtyDraft(
   entry: ItemDraft
 ): ItemDraft {
   if (!requestStatus || !["confirmed", "treated"].includes(requestStatus)) return entry;
-  if (!row.is_selected_by_patient || isPharmacistProposedRow(row)) return entry;
+  if (!row.is_selected_by_patient) return entry;
   const q = entry.available_qty?.trim();
   if (!q) return entry;
   return { ...entry, selected_qty_str: q };
 }
 
+/** Ligne proposée par l’officine retenue par le patient : la qté validée est `selected_qty`, pas l’offre `available_qty`. */
+function postConfirmValidatedQtyBase(row: ItemRow): number {
+  return Math.min(
+    PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX,
+    Math.max(1, Math.floor(Number(row.selected_qty ?? row.requested_qty) || 1))
+  );
+}
+
 /** Qté validée à persister (ligne retenue post-validation) : une seule source pour `selected_qty` et `available_qty`. */
 function draftValidatedQtyForSave(f: ItemDraft, row: ItemRow): number {
-  const fromAvail = Number(f.available_qty);
   const fromSelStr = Number(f.selected_qty_str);
-  let n = Math.max(1, Number(row.selected_qty ?? row.requested_qty) || 1);
+  const fromAvail = Number(f.available_qty);
+  const persistedSel = postConfirmValidatedQtyBase(row);
+
+  if (isPharmacistProposedRow(row) && row.is_selected_by_patient) {
+    if (Number.isFinite(fromSelStr) && fromSelStr >= 1) {
+      return Math.min(PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX, Math.floor(fromSelStr));
+    }
+    return persistedSel;
+  }
+
+  let n = persistedSel;
   if (Number.isFinite(fromAvail) && fromAvail >= 1) n = Math.floor(fromAvail);
   else if (Number.isFinite(fromSelStr) && fromSelStr >= 1) n = Math.floor(fromSelStr);
   return Math.min(PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX, Math.max(1, n));
@@ -1091,12 +1108,8 @@ function buildItemDraftFromRow(row: ItemRow, requestStatus?: string | null, requ
       (rowAvailStatus === "market_shortage" || rowAvailStatus === "unavailable")
     ) {
       availNum = row.available_qty != null ? Number(row.available_qty) : 0;
-    } else if (postConfirmSupply && !isProp) {
-      const validatedBase = Math.min(
-        PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX,
-        Math.max(1, Math.floor(Number(row.selected_qty ?? row.requested_qty) || 1))
-      );
-      availNum = validatedBase;
+    } else if (postConfirmSupply && (!isProp || row.is_selected_by_patient)) {
+      availNum = postConfirmValidatedQtyBase(row);
     } else {
       availNum = row.available_qty != null ? Number(row.available_qty) : Number(row.requested_qty);
     }
@@ -1488,12 +1501,13 @@ function buildSupplyStructuralAmends(
       continue;
     }
     const persisted = supplyRowPersistedSupplyFields(row);
-    const persistedSelected = Math.max(
-      1,
-      Math.floor(Number(row.selected_qty ?? row.requested_qty) || 1)
-    );
+    const persistedSelected = postConfirmValidatedQtyBase(row);
     const draftSelected = draftValidatedQtyForSave(f, row);
-    const qtyChanged = persisted.available_qty !== (payload.available_qty ?? null);
+    const persistedQtyForAmend =
+      isPharmacistProposedRow(row) && row.is_selected_by_patient
+        ? persistedSelected
+        : persisted.available_qty;
+    const qtyChanged = persistedQtyForAmend !== (payload.available_qty ?? null);
     const selectedQtyChanged =
       row.is_selected_by_patient && !f.withdrawn_after_confirm && persistedSelected !== draftSelected;
     const avChanged =
@@ -5515,12 +5529,24 @@ export default function PharmacienDemandeDetailPage() {
                 const validatedQty = validatedQtyForPatientLine(pl);
                 const effSupply = effectiveAvailSupplyDraft(row, f, request?.request_type, request?.status);
                 const etaSupply = effectiveEtaSupplyDraft(row, f, request?.request_type);
+                const supplyTier: PharmacistSupplyLineTier | undefined = bucket
+                  ? supplyTierForBucketKind(bucket.kind)
+                  : undefined;
                 let availSentence = "";
                 if (!selected) availSentence = "Non retenu";
                 else if (effSupply === "to_order") {
-                  availSentence = `À commander${etaSupply ? ` · dispo indicative ${formatDateShortFr(etaSupply)}` : ""}`;
-                } else if (effSupply) availSentence = availabilityStatusFr[effSupply] ?? effSupply;
-                else availSentence = "—";
+                  const etaFr = etaSupply ? formatDateShortFr(etaSupply) : null;
+                  availSentence =
+                    supplyTier === "commande"
+                      ? etaFr
+                        ? `Réception prévue · ${etaFr}`
+                        : "—"
+                      : `À commander${etaFr ? ` · dispo indicative ${etaFr}` : ""}`;
+                } else if (effSupply) {
+                  const raw = availabilityStatusFr[effSupply] ?? effSupply;
+                  availSentence =
+                    supplyTier === "dispo_officine" && raw === "Disponible" ? "—" : raw;
+                } else availSentence = "—";
 
                 const branchPrice = validatedBranchUnitPriceMad(pl);
                 const lineTot = branchPrice != null ? branchPrice * validatedQty : null;
@@ -5548,9 +5574,6 @@ export default function PharmacienDemandeDetailPage() {
                   selected &&
                   !withdrawnDraft &&
                   !lineLockedTrace;
-                const supplyTier: PharmacistSupplyLineTier | undefined = bucket
-                  ? supplyTierForBucketKind(bucket.kind)
-                  : undefined;
                 const prescriptionBadgeForLabels =
                   bucket && request.request_type === "prescription"
                     ? patientPrescriptionLineBadge(request.request_type, pl, supplyAmendmentBundles)

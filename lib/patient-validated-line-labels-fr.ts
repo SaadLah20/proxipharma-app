@@ -97,8 +97,15 @@ function isRedundantSectionStatusLabel(
   treatedLineLabels?: boolean
 ): boolean {
   if (!sectionBucket) return false;
-  if (sectionBucket === "dispo_officine" && status === "À réserver par la pharmacie") return true;
-  if (sectionBucket === "commande" && status === "À commander") return true;
+  if (
+    sectionBucket === "dispo_officine" &&
+    (status === "À réserver par la pharmacie" || status === "À réserver")
+  ) {
+    return true;
+  }
+  if (sectionBucket === "commande" && (status === "À commander" || status === "Commandé")) {
+    return true;
+  }
   if (
     treatedLineLabels &&
     sectionBucket === "dispo_officine" &&
