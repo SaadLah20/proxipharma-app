@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
+import { PolishedOptionPicker } from "@/components/ui/polished-option-picker";
 import {
   uiActionBtnSmDestructive,
   uiActionBtnSmOutline,
@@ -138,18 +139,18 @@ export function RequestExitConfirmModalFr({
                 <>
                   <label className="block text-[11px] font-medium text-foreground">
                     Motif
-                    <select
-                      value={code}
-                      disabled={busy}
-                      onChange={(e) => setCode(e.target.value as PatientCancelReasonCode)}
-                      className="mt-1 block w-full rounded-lg border border-input bg-background px-2 py-2 text-xs"
-                    >
-                      {PATIENT_CANCEL_REASON_CODES.map((c) => (
-                        <option key={c} value={c}>
-                          {PATIENT_CANCEL_REASON_LABELS[c]}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="mt-1">
+                      <PolishedOptionPicker
+                        options={PATIENT_CANCEL_REASON_CODES.map((c) => ({
+                          value: c,
+                          label: PATIENT_CANCEL_REASON_LABELS[c],
+                        }))}
+                        value={code}
+                        disabled={busy}
+                        onPick={(v) => setCode(v as PatientCancelReasonCode)}
+                        ariaLabel="Motif d'annulation"
+                      />
+                    </div>
                   </label>
                   {code === "other" ? (
                     <label className="block text-[11px] font-medium text-foreground">

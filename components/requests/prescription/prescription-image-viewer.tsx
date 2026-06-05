@@ -13,11 +13,15 @@ type PrescriptionImageViewerProps = {
   layout?: "default" | "desktop-comfort";
   /** Permet l’agrandissement au tap sur mobile (fiche pharmacien ordonnance). */
   allowMobileExpand?: boolean;
+  /** État lightbox remonté (persiste après reload des lignes). */
+  controlledLightbox?: { label: string; url: string } | null;
+  onControlledLightboxChange?: (next: { label: string; url: string } | null) => void;
+  controlledActiveTab?: 1 | 2;
+  onControlledActiveTabChange?: (tab: 1 | 2) => void;
   /** Saisie rapide produits ordonnance (pharmacien). */
   ordonnanceQuickAdd?: {
     lineCount: number;
     onOpenAdd: () => void;
-    showMainHint?: boolean;
   };
 };
 
@@ -27,12 +31,19 @@ export function PrescriptionImageViewer({
   className,
   layout = "default",
   allowMobileExpand = false,
+  controlledLightbox,
+  onControlledLightboxChange,
+  controlledActiveTab,
+  onControlledActiveTabChange,
   ordonnanceQuickAdd,
 }: PrescriptionImageViewerProps) {
   const [urls, setUrls] = useState<{ page1: string | null; page2: string | null }>({ page1: null, page2: null });
   const [err, setErr] = useState("");
-  const [activeTab, setActiveTab] = useState<1 | 2>(1);
-  const [lightbox, setLightbox] = useState<{ label: string; url: string } | null>(null);
+  const [activeTabInternal, setActiveTabInternal] = useState<1 | 2>(1);
+  const [lightboxInternal, setLightboxInternal] = useState<{ label: string; url: string } | null>(null);
+  const activeTabRaw = controlledActiveTab ?? activeTabInternal;
+  const activeTab = !paths.page2 && activeTabRaw === 2 ? 1 : activeTabRaw;
+  const lightbox = controlledLightbox !== undefined ? controlledLightbox : lightboxInternal;
 
   useEffect(() => {
     let cancelled = false;
@@ -63,28 +74,28 @@ export function PrescriptionImageViewer({
   const comfort = layout === "desktop-comfort";
   const canExpandImages = comfort || allowMobileExpand;
 
-  const openLightbox = useCallback((label: string, url: string | null) => {
-    if (!url) return;
-    setLightbox({ label, url });
-  }, []);
+  const openLightbox = useCallback(
+    (label: string, url: string | null) => {
+      if (!url) return;
+      const next = { label, url };
+      if (onControlledLightboxChange) onControlledLightboxChange(next);
+      else setLightboxInternal(next);
+    },
+    [onControlledLightboxChange]
+  );
 
   return (
     <>
       <section className={clsx("rounded-xl border-2 bg-white p-2 shadow-sm", border, className)}>
         <p className="px-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Ordonnance scannée</p>
-        {ordonnanceQuickAdd?.showMainHint ? (
-          <p className="mt-1.5 rounded-lg border border-amber-300/70 bg-amber-50/80 px-2 py-1.5 text-[11px] leading-snug text-amber-950">
-            <strong className="font-semibold">Saisie des produits :</strong> touchez l’ordonnance pour l’agrandir, puis le
-            bouton <span className="font-bold text-amber-900">+</span> pour ajouter chaque produit (
-            <span className="tabular-nums font-semibold">{ordonnanceQuickAdd.lineCount}</span> saisi
-            {ordonnanceQuickAdd.lineCount !== 1 ? "s" : ""}).
-          </p>
-        ) : null}
         {err ? <p className="mt-1 text-xs text-destructive">{err}</p> : null}
         {hasTwo ? (
           <PageTabs
             activeTab={activeTab}
-            onSelect={setActiveTab}
+            onSelect={(t) => {
+              if (onControlledActiveTabChange) onControlledActiveTabChange(t);
+              else setActiveTabInternal(t);
+            }}
             tabActiveClass={tabActive}
             className={clsx("mt-2 flex gap-1", comfort && hasTwo && "md:hidden")}
           />
@@ -127,7 +138,10 @@ export function PrescriptionImageViewer({
           label={lightbox.label}
           url={lightbox.url}
           accent={accent}
-          onClose={() => setLightbox(null)}
+          onClose={() => {
+            if (onControlledLightboxChange) onControlledLightboxChange(null);
+            else setLightboxInternal(null);
+          }}
           ordonnanceQuickAdd={ordonnanceQuickAdd}
         />
       ) : null}

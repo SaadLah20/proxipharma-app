@@ -17,6 +17,10 @@ type Props = {
     lineCount: number;
     onOpenAdd: () => void;
   };
+  controlledLightbox?: { label: string; url: string } | null;
+  onControlledLightboxChange?: (next: { label: string; url: string } | null) => void;
+  controlledActiveTab?: 1 | 2;
+  onControlledActiveTabChange?: (tab: 1 | 2) => void;
 };
 
 export function PrescriptionScanCollapsible({
@@ -27,6 +31,10 @@ export function PrescriptionScanCollapsible({
   className,
   prescriptionNote,
   ordonnanceQuickAdd,
+  controlledLightbox,
+  onControlledLightboxChange,
+  controlledActiveTab,
+  onControlledActiveTabChange,
 }: Props) {
   const isPharma = viewerRole === "pharmacien";
 
@@ -71,12 +79,15 @@ export function PrescriptionScanCollapsible({
           layout="default"
           allowMobileExpand
           className="border-0 shadow-none ring-0"
+          controlledLightbox={controlledLightbox}
+          onControlledLightboxChange={onControlledLightboxChange}
+          controlledActiveTab={controlledActiveTab}
+          onControlledActiveTabChange={onControlledActiveTabChange}
           ordonnanceQuickAdd={
             ordonnanceQuickAdd
               ? {
                   lineCount: ordonnanceQuickAdd.lineCount,
                   onOpenAdd: ordonnanceQuickAdd.onOpenAdd,
-                  showMainHint: isPharma,
                 }
               : undefined
           }

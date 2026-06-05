@@ -2707,6 +2707,8 @@ export function PatientProductRequestActions({
     !useNeutralProductDossierShell &&
     (showProductResubmit || showConfirm) &&
     !forceReadOnly;
+  const useAmberPrescriptionWaitingShell =
+    !forceReadOnly && showPrescriptionWaiting && !useNeutralProductDossierShell;
   const useArchiveShell = forceReadOnly && usesLineWorkflowUi;
   const isExpiredProductArchive = status === "expired" && usesLineWorkflowUi;
   const isCancelledProductArchive = status === "cancelled" && usesLineWorkflowUi;
@@ -2795,7 +2797,9 @@ export function PatientProductRequestActions({
               ? "mt-2 border-0 bg-transparent p-0 shadow-none ring-0"
               : useSkyProductShell
                 ? "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
-                : "border-slate-200 bg-slate-50/95",
+                : useAmberPrescriptionWaitingShell
+                  ? "border-amber-300/45 bg-gradient-to-br from-amber-50/95 via-white to-orange-50/25 ring-1 ring-amber-200/55"
+                  : "border-slate-200 bg-slate-50/95",
         isConsultation && showConsultationWaiting && !needsStickyFooterPad && "pb-2"
       )}
     >
@@ -2814,7 +2818,7 @@ export function PatientProductRequestActions({
       pharmacyId &&
       !summaryInPageChrome &&
       !forceReadOnly ? (
-        showProductResubmit || showConfirm || showConfirmedCards ? (
+        showProductResubmit || showConfirm || showConfirmedCards || showPrescriptionWaiting ? (
           <PatientProductRequestDossierHeader
             dossierRefLabel={dossierRefLabel}
             pharmacyContact={pharmacyContact ?? null}
@@ -3594,7 +3598,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showPrescriptionWaiting && !forceReadOnly && !stickyFooterObscured ? (
-        <PlatformStickyFooter tone="slate">
+        <PlatformStickyFooter tone="amber">
           <div className="flex flex-col gap-1.5">
             {!prescriptionEditMode ? (
               <div className="flex flex-col gap-2">
@@ -3641,7 +3645,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirm && !forceReadOnly && !stickyFooterObscured ? (
-        <PlatformStickyFooter tone="sky">
+        <PlatformStickyFooter tone={isPrescription ? "amber" : "sky"}>
           <div className="flex flex-col gap-2">
             <PlatformStickyFooterSummaryRow
               left={
