@@ -288,7 +288,11 @@ function RespondedVariantTabCheckbox({
   if (isPrincipal) {
     return (
       <span className={cn(TAB_CHECKBOX_PAD)} aria-hidden>
-        <span className={closedBoxClass} />
+        {isSelected && retainable ? (
+          <Check className="size-3.5 text-emerald-600" strokeWidth={3} />
+        ) : (
+          <span className={closedBoxClass} />
+        )}
       </span>
     );
   }
@@ -348,56 +352,89 @@ function RespondedVariantRetainBar({
   }
 
   if (isPrincipal) {
-    const closedBoxClass = cn(
-      "size-4 shrink-0 rounded border bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]",
-      isSelected ? "border-emerald-500/70" : "border-border/80"
+    const closedBoxClass =
+      "size-4 shrink-0 rounded border border-border/80 bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]";
+    const retainBarShell = cn(
+      "flex w-full items-center justify-center gap-2.5 rounded-lg border px-3 py-2.5 transition",
+      isSelected
+        ? "border-emerald-500/80 bg-emerald-50/90 shadow-sm ring-1 ring-emerald-500/25"
+        : "border-emerald-500/35 bg-emerald-50/40 hover:border-emerald-500/55 hover:bg-emerald-50/70"
+    );
+    const retainBarLabel = cn(
+      "text-[12px] font-bold leading-snug",
+      isSelected ? "text-emerald-900" : "text-foreground"
     );
     if (readOnly) {
       return (
-        <div className="flex w-full items-center justify-center gap-2 rounded-lg border border-border/80 bg-muted/15 px-3 py-2">
-          <span className={closedBoxClass} aria-hidden />
-          <span className="text-[11px] font-semibold leading-snug text-foreground">{retainLabel}</span>
+        <div className={retainBarShell}>
+          {isSelected ? (
+            <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
+          ) : (
+            <span className={closedBoxClass} aria-hidden />
+          )}
+          <span className={retainBarLabel}>{retainLabel}</span>
         </div>
       );
     }
     return (
       <button
         type="button"
-        className="flex w-full items-center justify-center gap-2 rounded-lg border border-border/80 bg-muted/15 px-3 py-2 transition hover:bg-muted/25"
+        className={retainBarShell}
         aria-pressed={isSelected}
         aria-label={isSelected ? `${retainLabel} — cliquer pour retirer` : retainLabel}
         onClick={() => onToggle(!isSelected)}
       >
-        <span className={closedBoxClass} aria-hidden />
-        <span className="text-[11px] font-semibold leading-snug text-foreground">{retainLabel}</span>
+        {isSelected ? (
+          <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
+        ) : (
+          <span className={closedBoxClass} aria-hidden />
+        )}
+        <span className={retainBarLabel}>{retainLabel}</span>
       </button>
     );
   }
 
+  const altRetainBarShell = cn(
+    "flex w-full items-center justify-center gap-2.5 rounded-lg border px-3 py-2.5 transition",
+    isSelected
+      ? "border-emerald-500/80 bg-emerald-50/90 shadow-sm ring-1 ring-emerald-500/25"
+      : "border-emerald-500/35 bg-emerald-50/40 hover:border-emerald-500/55 hover:bg-emerald-50/70"
+  );
+  const altRetainBarLabel = cn(
+    "text-[12px] font-bold leading-snug",
+    isSelected ? "text-emerald-900" : "text-foreground"
+  );
+  const altClosedBoxClass =
+    "size-4 shrink-0 rounded border border-border/80 bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]";
+
   if (readOnly) {
     return (
-      <div className="flex w-full items-center justify-center gap-2 rounded-lg border border-border/80 bg-muted/15 px-3 py-2">
+      <div className={altRetainBarShell}>
         {isSelected ? (
           <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
         ) : (
-          <span className="size-4 shrink-0 rounded border border-border/80 bg-white" aria-hidden />
+          <span className={altClosedBoxClass} aria-hidden />
         )}
-        <span className="text-[11px] font-semibold leading-snug text-foreground">{retainLabel}</span>
+        <span className={altRetainBarLabel}>{retainLabel}</span>
       </div>
     );
   }
 
   return (
-    <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-border/80 bg-muted/15 px-3 py-2 transition hover:bg-muted/25">
-      <input
-        type="checkbox"
-        checked={isSelected}
-        onChange={(e) => onToggle(e.target.checked)}
-        className="size-4 shrink-0 rounded border-border accent-emerald-600"
-        aria-label={isSelected ? `${retainLabel} — cliquer pour retirer` : retainLabel}
-      />
-      <span className="text-[11px] font-semibold leading-snug text-foreground">{retainLabel}</span>
-    </label>
+    <button
+      type="button"
+      className={altRetainBarShell}
+      aria-pressed={isSelected}
+      aria-label={isSelected ? `${retainLabel} — cliquer pour retirer` : retainLabel}
+      onClick={() => onToggle(!isSelected)}
+    >
+      {isSelected ? (
+        <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
+      ) : (
+        <span className={altClosedBoxClass} aria-hidden />
+      )}
+      <span className={altRetainBarLabel}>{retainLabel}</span>
+    </button>
   );
 }
 
@@ -484,14 +521,22 @@ function RespondedCompactRetainButton({
   readOnly: boolean;
   onToggle: (on: boolean) => void;
 }) {
-  const closedBoxClass = cn(
-    "size-4 shrink-0 rounded border bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]",
-    retained ? "border-emerald-500/70" : "border-border/80"
+  const closedBoxClass =
+    "size-4 shrink-0 rounded border border-border/80 bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]";
+  const shellClass = cn(
+    "flex w-full max-w-[4.25rem] flex-col items-center gap-1 rounded-lg border px-1.5 py-2 transition",
+    retained
+      ? "border-emerald-500/80 bg-emerald-50/90 shadow-sm ring-1 ring-emerald-500/25"
+      : "border-emerald-500/35 bg-emerald-50/40 hover:border-emerald-500/55 hover:bg-emerald-50/70"
+  );
+  const labelClass = cn(
+    "text-[10px] font-bold leading-none",
+    retained ? "text-emerald-800" : "text-foreground"
   );
 
   if (unavailable) {
     return (
-      <span className="block w-full max-w-[3.85rem] text-center text-[8px] font-semibold leading-none text-slate-400">
+      <span className="block w-full max-w-[4.25rem] text-center text-[8px] font-semibold leading-none text-slate-400">
         —
       </span>
     );
@@ -499,9 +544,9 @@ function RespondedCompactRetainButton({
 
   if (readOnly) {
     return retained ? (
-      <div className="flex w-full max-w-[3.85rem] flex-col items-center gap-0.5 rounded-md border border-border/80 bg-muted/15 px-1 py-1.5">
+      <div className={shellClass}>
         <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
-        <span className="text-[9px] font-bold leading-none text-emerald-700">Retenir</span>
+        <span className={labelClass}>Retenir</span>
       </div>
     ) : null;
   }
@@ -509,13 +554,17 @@ function RespondedCompactRetainButton({
   return (
     <button
       type="button"
-      className="flex w-full max-w-[3.85rem] flex-col items-center gap-0.5 rounded-md border border-border/80 bg-muted/15 px-1 py-1.5 transition hover:bg-muted/25"
+      className={shellClass}
       aria-pressed={retained}
       aria-label={retained ? "Retenir — cliquer pour retirer" : "Retenir ce produit"}
       onClick={() => onToggle(!retained)}
     >
-      <span className={closedBoxClass} aria-hidden />
-      <span className="text-[9px] font-bold leading-none text-foreground">Retenir</span>
+      {retained ? (
+        <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
+      ) : (
+        <span className={closedBoxClass} aria-hidden />
+      )}
+      <span className={labelClass}>Retenir</span>
     </button>
   );
 }
@@ -619,7 +668,7 @@ function RespondedLineBlock({
         <div
           className={cn(
             "shrink-0",
-            variantTabsAbove ? "w-[3.5rem]" : "flex w-[3.85rem] flex-col items-center gap-1"
+            variantTabsAbove ? "w-[3.5rem]" : "flex w-[4.25rem] flex-col items-center gap-1"
           )}
         >
           <div className={cn(RESPONDED_LINE_THUMB, variantTabsAbove && "size-[3.5rem]")}>{thumbInner}</div>

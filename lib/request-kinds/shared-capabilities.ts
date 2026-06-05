@@ -32,8 +32,15 @@ export const SHARED_PLANNED_VISIT_STATUSES = [
 ] as const;
 
 export function sharedShowPlannedVisitBlock(status: string): boolean {
-  if (["cancelled", "abandoned", "expired"].includes(status)) return false;
-  return (SHARED_PLANNED_VISIT_STATUSES as readonly string[]).includes(status);
+  /** Archives : pas de passage en en-tête (note indicative en bas de fiche). */
+  if (
+    ["cancelled", "abandoned", "expired", "completed", "partially_collected", "fully_collected"].includes(
+      status
+    )
+  ) {
+    return false;
+  }
+  return status === "confirmed" || status === "treated";
 }
 
 /** Aligné sur `public._request_uses_product_line_workflow` (Supabase). */

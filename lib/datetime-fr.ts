@@ -106,7 +106,7 @@ export function archiveTerminalFootnoteFr(
   };
 }
 
-/** Archives patient : rappel discret du dernier passage fixé par le patient. */
+/** Archives patient : passage prévu passé, note indicative discrète en bas de fiche. */
 export function patientArchiveLastPlannedVisitFootnoteFr(
   dateYmd: string | null | undefined,
   timePg: string | null | undefined
@@ -119,7 +119,7 @@ export function patientArchiveLastPlannedVisitFootnoteFr(
   const whenLabel = timePart ? `${datePart} — ${timePart}` : datePart;
   const visitAt = parseYmdLocal(ymd);
   if (!visitAt) {
-    return { label: `Dernière date de passage fixée par vous : ${whenLabel}`, relative: "" };
+    return { label: "Passage prévu (indicatif)", relative: whenLabel };
   }
   if (timePart) {
     const m = String(timePg ?? "").match(/^(\d{1,2}):(\d{2})/);
@@ -129,8 +129,8 @@ export function patientArchiveLastPlannedVisitFootnoteFr(
   }
   const relative = formatRelativeToNowFr(visitAt);
   return {
-    label: `Dernière date de passage fixée par vous : ${whenLabel}`,
-    relative,
+    label: relative ? `Passage prévu (indicatif) — ${relative}` : "Passage prévu (indicatif)",
+    relative: whenLabel,
   };
 }
 
