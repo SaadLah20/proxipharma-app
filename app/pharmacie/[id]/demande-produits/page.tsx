@@ -36,6 +36,8 @@ import {
 } from "@/components/layout/platform-sticky-footer";
 import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX, REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
+import { sendRequestConversationMessage } from "@/lib/send-request-conversation-message";
+import type { ConversationAudioDraft } from "@/lib/use-conversation-audio-recorder";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
@@ -73,6 +75,7 @@ export default function DemandeProduitsPage() {
   const [pharmacyName, setPharmacyName] = useState("");
   const [sessionReady, setSessionReady] = useState(false);
   const [note, setNote] = useState("");
+  const [pendingAudio, setPendingAudio] = useState<ConversationAudioDraft | null>(null);
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<ProductLite[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -283,16 +286,17 @@ export default function DemandeProduitsPage() {
       return;
     }
 
-    const convTrim = note.trim().slice(0, REQUEST_CONVERSATION_MESSAGE_MAX);
-    if (convTrim.length > 0) {
-      const { error: convErr } = await supabase.from("request_comments").insert({
-        request_id: reqRow.id,
-        author_id: userData.user.id,
-        author_role: "patient",
-        comment_text: convTrim,
-        is_internal: false,
+    const hasConvMessage = note.trim().length > 0 || pendingAudio != null;
+    if (hasConvMessage) {
+      const convResult = await sendRequestConversationMessage({
+        supabase,
+        requestId: reqRow.id,
+        authorId: userData.user.id,
+        authorRole: "patient",
+        text: note,
+        pendingAudio: pendingAudio ?? undefined,
       });
-      if (convErr) {
+      if (!convResult.ok) {
         setSubmitLoading(false);
         setFeedback({
           type: "err",
@@ -444,6 +448,7 @@ export default function DemandeProduitsPage() {
           onNoteChange={setNote}
           maxLength={REQUEST_CONVERSATION_MESSAGE_MAX}
           fieldFocus={fieldFocus}
+          onAudioDraftChange={setPendingAudio}
         />
 
         {feedback ? (
@@ -498,6 +503,7 @@ export default function DemandeProduitsPage() {
         open={sendConfirmOpen}
         lines={lines}
         note={note}
+        audioDraft={pendingAudio}
         totalAmount={totalAmount}
         unitPriceForLine={draftLineUnitPrice}
         submitLoading={submitLoading}

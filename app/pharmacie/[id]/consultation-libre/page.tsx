@@ -15,6 +15,9 @@ import {
   uploadConsultationPhotoBlob,
 } from "@/lib/consultation-media";
 import { CONSULTATION_TEXT_MAX, CONSULTATION_TEXT_MIN } from "@/lib/patient-request-form-limits";
+import { sendRequestConversationMessage } from "@/lib/send-request-conversation-message";
+import { ConversationMessageDraftField } from "@/components/requests/conversation/conversation-message-draft-field";
+import type { ConversationAudioDraft } from "@/lib/use-conversation-audio-recorder";
 
 type PhotoSlot = { slot: 1 | 2 | 3; file?: File; previewUrl: string };
 
@@ -28,6 +31,7 @@ export default function ConsultationLibrePage() {
   const [pharmacyName, setPharmacyName] = useState("");
   const [sessionReady, setSessionReady] = useState(false);
   const [text, setText] = useState("");
+  const [pendingAudio, setPendingAudio] = useState<ConversationAudioDraft | null>(null);
   const [photos, setPhotos] = useState<PhotoSlot[]>([]);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -149,6 +153,33 @@ export default function ConsultationLibrePage() {
         return;
       }
     }
+    if (pendingAudio) {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) {
+        setSubmitLoading(false);
+        setFeedback({ type: "err", text: "Session expirée. Reconnectez-vous." });
+        return;
+      }
+      const convResult = await sendRequestConversationMessage({
+        supabase,
+        requestId: rid,
+        authorId: userData.user.id,
+        authorRole: "patient",
+        text: "",
+        pendingAudio,
+      });
+      if (!convResult.ok) {
+        setSubmitLoading(false);
+        setFeedback({
+          type: "err",
+          text:
+            "Consultation envoyée, mais le message vocal n’a pas pu être enregistré. Ajoutez-le depuis la conversation du dossier.",
+        });
+        router.push(`/dashboard/demandes/${rid}`);
+        return;
+      }
+      void supabase.rpc("mark_request_conversation_read", { p_request_id: rid });
+    }
     setSubmitLoading(false);
     router.push(`/dashboard/demandes/${rid}`);
   };
@@ -187,6 +218,21 @@ export default function ConsultationLibrePage() {
             {text.trim().length}/{CONSULTATION_TEXT_MAX} · min. {CONSULTATION_TEXT_MIN}
           </span>
         </label>
+
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Message vocal (facultatif, max 30 s)
+          </p>
+          <div className="mt-1.5">
+            <ConversationMessageDraftField
+              draft=""
+              onDraftChange={() => {}}
+              textEnabled={false}
+              showCounter={false}
+              onAudioDraftChange={setPendingAudio}
+            />
+          </div>
+        </div>
 
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Photos (facultatif, {CONSULTATION_MAX_PHOTOS} max)</p>

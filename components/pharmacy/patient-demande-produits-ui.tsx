@@ -11,6 +11,11 @@ import { Button } from "@/components/ui/button";
 import { uiActionBtnFull, uiActionBtnFullOutline } from "@/lib/ui-action-buttons";
 import { uiSurfaceCard } from "@/lib/ui-surfaces";
 import { cn } from "@/lib/utils";
+import {
+  ConversationAudioDraftPreview,
+  ConversationMessageDraftField,
+} from "@/components/requests/conversation/conversation-message-draft-field";
+import type { ConversationAudioDraft } from "@/lib/use-conversation-audio-recorder";
 import { PATIENT_PRODUCT_LINE_COMMENT_PLACEHOLDER_FR } from "@/lib/product-line-comment-copy";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
@@ -55,11 +60,13 @@ export function ProductRequestMessageCard({
   onNoteChange,
   maxLength,
   fieldFocus = t.focus,
+  onAudioDraftChange,
 }: {
   note: string;
   onNoteChange: (value: string) => void;
   maxLength: number;
   fieldFocus?: string;
+  onAudioDraftChange?: (draft: ConversationAudioDraft | null) => void;
 }) {
   return (
     <section className={cn(pharmacyPublicCard, "p-3 sm:p-4", t.messageCard)}>
@@ -69,21 +76,19 @@ export function ProductRequestMessageCard({
         </span>
         <PharmacyPublicSectionTitle title="Message pour la pharmacie (facultatif)" className="mb-0 min-w-0 flex-1" />
       </div>
-      <textarea
-        value={note}
-        onChange={(e) => onNoteChange(e.target.value.slice(0, maxLength))}
-        rows={3}
+      <ConversationMessageDraftField
+        draft={note}
+        onDraftChange={onNoteChange}
         maxLength={maxLength}
-        className={cn(
+        onAudioDraftChange={onAudioDraftChange}
+        placeholder="Ex. précisions utiles pour l'officine…"
+        counterClassName="text-[10px]"
+        textareaClassName={cn(
           "w-full rounded-xl border bg-background px-3 py-3 text-sm leading-relaxed placeholder:text-muted-foreground",
           t.messageInput,
           fieldFocus
         )}
-        placeholder="Ex. précisions utiles pour l'officine…"
       />
-      <p className="mt-1 text-right text-[10px] tabular-nums text-muted-foreground">
-        {note.length}/{maxLength}
-      </p>
     </section>
   );
 }
@@ -830,6 +835,7 @@ export function PatientDemandeSendConfirmModal({
   open,
   lines,
   note,
+  audioDraft = null,
   totalAmount,
   unitPriceForLine,
   submitLoading,
@@ -840,6 +846,7 @@ export function PatientDemandeSendConfirmModal({
   open: boolean;
   lines: PatientDemandeProduitsDraftLine[];
   note: string;
+  audioDraft?: ConversationAudioDraft | null;
   totalAmount: number;
   unitPriceForLine: (line: PatientDemandeProduitsDraftLine) => number | null;
   submitLoading: boolean;
@@ -949,6 +956,12 @@ export function PatientDemandeSendConfirmModal({
               </p>
               <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{note.trim()}</p>
             </div>
+          ) : null}
+          {audioDraft ? (
+            <ConversationAudioDraftPreview draft={audioDraft} className={cn("mt-3", t.modalHighlight)} />
+          ) : null}
+          {!note.trim() && !audioDraft ? (
+            <p className="mt-3 text-sm text-muted-foreground">Aucun message général pour l&apos;officine.</p>
           ) : null}
         </div>
         <div className={cn("border-t bg-muted/25 px-4 py-3", t.searchDivider)}>
