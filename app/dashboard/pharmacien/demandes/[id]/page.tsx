@@ -1103,7 +1103,6 @@ function buildItemDraftFromRow(row: ItemRow, requestStatus?: string | null, requ
   const isAjoutOfficine = requestType === "product_request" && isProp;
   const isOrdonnancePharma =
     requestType === "prescription" &&
-    isProp &&
     isPrescriptionOrdonnancePrincipalLine(requestType, row, []);
   const isPrescriptionExtraProposed =
     requestType === "prescription" &&
@@ -3024,9 +3023,21 @@ export default function PharmacienDemandeDetailPage() {
         request_item_alternatives: null,
       };
       setPendingProposalRows((prev) => [...prev, syntheticRow]);
+      const builtDraft = buildItemDraftFromRow(syntheticRow, request?.status ?? null, request?.request_type);
+      const inferredDraftStatus = inferAvailabilityStatusFromQty({
+        status: builtDraft.availability_status,
+        availableQty: Number(builtDraft.available_qty) || 0,
+        requestedQty: requestedQty,
+        isProposedLine: false,
+      });
       setDraft((prev) => ({
         ...prev,
-        [syntheticId]: buildItemDraftFromRow(syntheticRow, request?.status ?? null, request?.request_type),
+        [syntheticId]: {
+          ...builtDraft,
+          availability_status:
+            inferredDraftStatus === "partially_available" ? "available" : inferredDraftStatus,
+          requested_qty_str: String(requestedQty),
+        },
       }));
       if (["confirmed", "treated"].includes(request?.status ?? "")) {
         setSupplyEditOpenRowIds((prev) => ({ ...prev, [syntheticId]: true }));
@@ -3092,7 +3103,7 @@ export default function PharmacienDemandeDetailPage() {
           return;
         }
       }
-      if (typeof window !== "undefined") {
+      if (!opts?.fromQuickAdd && typeof window !== "undefined") {
         requestAnimationFrame(() => {
           document
             .querySelector(`[data-pharma-supply-editor="${syntheticId}"]`)
@@ -5310,8 +5321,6 @@ export default function PharmacienDemandeDetailPage() {
                   className="mt-2"
                   paths={prescriptionPaths}
                   defaultOpen={ordonnanceLineCount === 0}
-                  viewerRole="pharmacien"
-                  prescriptionNote={prescriptionNote}
                   controlledLightbox={prescriptionScanLightbox}
                   onControlledLightboxChange={setPrescriptionScanLightbox}
                   controlledActiveTab={prescriptionScanActiveTab}
@@ -5378,8 +5387,9 @@ export default function PharmacienDemandeDetailPage() {
             className={clsx(
               "flex flex-col",
               hideMainRequestHeader &&
-                isProductRequest &&
-                (isProductRequestSent ||
+                (isProductRequest ||
+                  isPrescriptionWorkflowSent ||
+                  isProductRequestSent ||
                   isProductRequestValidated ||
                   showClosedBucketsLayout ||
                   showArchiveFrozenProducts)
@@ -5458,7 +5468,7 @@ export default function PharmacienDemandeDetailPage() {
                           : "divide-y divide-border/50"
                   )}
                 >
-                  {group.entries.map(({ header, row }) => {
+                  {group.entries.map(({ header, row }, entryIdx) => {
               const prod = one(row.products);
               const f = draft[row.id];
               if (!f) return null;
@@ -6173,7 +6183,7 @@ export default function PharmacienDemandeDetailPage() {
               return (
                 <Fragment key={row.id}>
                   {header ? (
-                    <li className="list-none pt-1.5 first:pt-0 sm:pt-2">
+                    <li className={clsx("list-none", entryIdx > 0 && "mt-2 pt-4")}>
                       <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{header}</div>
                     </li>
                   ) : null}
@@ -6201,11 +6211,13 @@ export default function PharmacienDemandeDetailPage() {
                   {showVariantTabs ? (
                     <>
                       <PharmacistLineAlternativesTabs
-                        principalTabLabel={isProposedLine ? "Proposé" : "Demandé"}
+                        principalTabLabel={
+                          isProposedLine ? "Proposé" : isOrdonnancePrincipalLine ? "Ordonnance" : "Demandé"
+                        }
                         tabs={[
-                          ...rowAlts.map((alt) => ({
+                          ...rowAlts.map((alt, altIndex) => ({
                             id: alt.id,
-                            label: pharmacistAltTabLabel(one(alt.products)?.name ?? null, alt.rank),
+                            label: pharmacistAltTabLabel(one(alt.products)?.name ?? null, altIndex + 1),
                           })),
                         ]}
                         activeTab={activeAltTab}
@@ -6283,10 +6295,10 @@ export default function PharmacienDemandeDetailPage() {
                         {lineProposedBadge ? (
                           <span
                             className={clsx(
-                              "inline-flex max-w-full rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
+                              "inline-flex w-fit max-w-full rounded-full border px-1.5 py-px text-[8px] font-bold uppercase tracking-wide",
                               isOrdonnancePharmacistLine || isOrdonnancePrincipalLine
-                                ? "bg-amber-700"
-                                : "bg-violet-600"
+                                ? "border-amber-300/70 bg-amber-50/40 text-amber-900/90"
+                                : "border-violet-300/70 bg-violet-50/50 text-violet-900"
                             )}
                           >
                             {lineProposedBadge}
@@ -6903,8 +6915,6 @@ export default function PharmacienDemandeDetailPage() {
               className="mt-3"
               paths={prescriptionPaths}
               defaultOpen={false}
-              viewerRole="pharmacien"
-              prescriptionNote={prescriptionNote}
             />
           ) : null}
 
@@ -7877,15 +7887,6 @@ export default function PharmacienDemandeDetailPage() {
               return;
             }
             const reqN = clampOrdonnanceRequestedQty(parseInt(ordonnanceQuickRequestedQty, 10) || 1);
-            const availParsed =
-              ordonnanceQuickAvailableQty.trim() === ""
-                ? undefined
-                : parseInt(ordonnanceQuickAvailableQty, 10);
-            const defaultAltQty = ordonnanceInsertAvailableQty(
-              ordonnanceQuickAvailability,
-              reqN,
-              availParsed
-            );
             setOrdonnanceQuickAlternatives((prev) => [
               ...prev,
               {
@@ -7896,7 +7897,7 @@ export default function PharmacienDemandeDetailPage() {
                 price_ppv: h.price_ppv ?? null,
                 photo_url: h.photo_url ?? null,
                 full_description: h.full_description ?? null,
-                available_qty: Math.max(1, defaultAltQty),
+                available_qty: Math.max(1, reqN),
               },
             ]);
             setOrdonnanceAltQuery("");

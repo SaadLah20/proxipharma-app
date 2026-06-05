@@ -24,8 +24,8 @@ export function PharmacistLineAlternativesTabs({
   addBusy?: boolean;
   maxAlts?: number;
   altCount: number;
-  /** Onglet variante principale : « Demandé » (ligne patient) ou « Proposé » (officine). */
-  principalTabLabel?: "Demandé" | "Proposé";
+  /** Onglet variante principale : « Demandé » (ligne patient), « Ordonnance » ou « Proposé » (officine). */
+  principalTabLabel?: "Demandé" | "Ordonnance" | "Proposé";
 }) {
   const tabCells: { id: PharmacistLineAltTabId; label: string; isAdd: boolean }[] = [
     { id: "principal", label: principalTabLabel, isAdd: false },
@@ -44,7 +44,11 @@ export function PharmacistLineAlternativesTabs({
       style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}
       role="tablist"
       aria-label={
-        principalTabLabel === "Proposé" ? "Proposé et alternatives" : "Demandé et alternatives"
+        principalTabLabel === "Proposé"
+          ? "Proposé et alternatives"
+          : principalTabLabel === "Ordonnance"
+            ? "Ordonnance et alternatives"
+            : "Demandé et alternatives"
       }
     >
       {tabCells.map((cell) => {

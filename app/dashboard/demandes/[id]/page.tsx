@@ -567,7 +567,9 @@ export default function DemandeDetailPage() {
           productLineCount={items.length}
         />
       ) : !hideMainRequestHeader ||
-        (showArchivedReadonly && request.request_type !== "product_request") ? (
+        (showArchivedReadonly &&
+          request.request_type !== "product_request" &&
+          request.request_type !== "prescription") ? (
         <RequestKindHeader
           config={kindConfig}
           request={request}

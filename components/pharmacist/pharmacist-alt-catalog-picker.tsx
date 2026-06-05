@@ -41,7 +41,7 @@ export function PharmacistAltCatalogPicker({
   onPhotoPreview?: ProductPhotoPreviewHandler;
 }) {
   return (
-    <div className="mx-2 mb-2 flex max-h-[min(52svh,18rem)] min-h-0 flex-col gap-2 overflow-hidden overscroll-y-contain rounded-xl border-2 border-teal-400/55 bg-white p-2.5 shadow-md ring-2 ring-teal-200/35">
+    <div className="mx-2 mb-2 flex max-h-[min(70svh,28rem)] min-h-0 flex-col gap-2 overflow-hidden overscroll-y-contain rounded-xl border-2 border-teal-400/55 bg-white p-2.5 shadow-md ring-2 ring-teal-200/35">
       <div className="flex shrink-0 items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-950">
           <Search className="size-3.5 shrink-0 text-teal-600" aria-hidden />

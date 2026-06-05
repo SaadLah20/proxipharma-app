@@ -129,6 +129,7 @@ const PATIENT_HISTORY_TECH_REASON_FR: Record<string, string> = {
   request_created_with_status: "Votre demande a été créée et envoyée à la pharmacie.",
   patient_abandon_request: "Vous avez abandonné la demande.",
   patient_resubmit_product_request_after_response: "Vous avez renvoyé une liste de produits mise à jour.",
+  patient_prescription_updated: "Vous avez modifié le scan ou une précision sur votre ordonnance.",
   pharmacist_ui_confirm_close: "La pharmacie a clôturé le dossier après les retraits au comptoir.",
 };
 
@@ -152,6 +153,7 @@ const PHARMACIST_HISTORY_TECH_REASON_FR: Record<string, string> = {
   request_created_with_status: "Demande reçue.",
   patient_abandon_request: "Le patient a abandonné la demande.",
   patient_resubmit_product_request_after_response: "Le patient a renvoyé une liste de produits mise à jour.",
+  patient_prescription_updated: "Le patient a modifié le scan ou une précision sur l'ordonnance.",
   pharmacist_ui_confirm_close: "Dossier clôturé après comptoir.",
 };
 

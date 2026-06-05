@@ -437,8 +437,10 @@ export function PharmacistSupplyCompactLine({
           ) : lineOriginBadgeLabel ? (
             <span
               className={clsx(
-                "inline-flex max-w-full rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white",
-                lineOriginBadgeTone === "ordonnance" ? "bg-amber-700" : "bg-violet-600"
+                "inline-flex w-fit max-w-full rounded-full border px-1.5 py-px text-[8px] font-bold uppercase tracking-wide",
+                lineOriginBadgeTone === "ordonnance"
+                  ? "border-amber-300/70 bg-amber-50/40 text-amber-900/90"
+                  : "border-violet-300/70 bg-violet-50/50 text-violet-900"
               )}
             >
               {lineOriginBadgeLabel}

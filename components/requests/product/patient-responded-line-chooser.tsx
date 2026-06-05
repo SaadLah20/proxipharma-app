@@ -524,7 +524,7 @@ function RespondedCompactRetainButton({
   const closedBoxClass =
     "size-4 shrink-0 rounded border border-border/80 bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]";
   const shellClass = cn(
-    "flex w-full max-w-[4.25rem] flex-col items-center gap-1 rounded-lg border px-1.5 py-2 transition",
+    "flex w-full max-w-[4.25rem] flex-col items-center gap-0.5 rounded-lg border px-1.5 py-1.5 transition",
     retained
       ? "border-emerald-500/80 bg-emerald-50/90 shadow-sm ring-1 ring-emerald-500/25"
       : "border-emerald-500/35 bg-emerald-50/40 hover:border-emerald-500/55 hover:bg-emerald-50/70"

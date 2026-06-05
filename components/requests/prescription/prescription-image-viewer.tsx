@@ -314,20 +314,20 @@ function PrescriptionLightbox({
           className={clsx("max-h-full max-w-full object-contain transition-transform duration-150", ring, "ring-2")}
           style={{ transform: `scale(${zoom})` }}
         />
-        {ordonnanceQuickAdd ? (
-          <button
-            type="button"
-            onClick={ordonnanceQuickAdd.onOpenAdd}
-            className="fixed bottom-6 right-4 z-[81] flex min-h-12 items-center gap-2 rounded-full border-2 border-amber-300/90 bg-gradient-to-br from-amber-50 to-white px-4 py-2.5 text-sm font-bold text-amber-950 shadow-lg ring-2 ring-amber-400/40 hover:bg-amber-100/90 sm:bottom-8 sm:right-8"
-          >
-            <Plus className="size-5 shrink-0" strokeWidth={2.5} aria-hidden />
-            Produit
-            <span className="rounded-full bg-amber-700 px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
-              {ordonnanceQuickAdd.lineCount}
-            </span>
-          </button>
-        ) : null}
       </div>
+      {ordonnanceQuickAdd ? (
+        <button
+          type="button"
+          onClick={ordonnanceQuickAdd.onOpenAdd}
+          className="pointer-events-auto fixed bottom-6 right-4 z-[81] flex min-h-12 items-center gap-2 rounded-full border-2 border-amber-300/90 bg-gradient-to-br from-amber-50 to-white px-4 py-2.5 text-sm font-bold text-amber-950 shadow-lg ring-2 ring-amber-400/40 hover:bg-amber-100/90 sm:bottom-8 sm:right-8"
+        >
+          <Plus className="size-5 shrink-0" strokeWidth={2.5} aria-hidden />
+          Produit
+          <span className="rounded-full bg-amber-700 px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
+            {ordonnanceQuickAdd.lineCount}
+          </span>
+        </button>
+      ) : null}
     </div>
   );
 }

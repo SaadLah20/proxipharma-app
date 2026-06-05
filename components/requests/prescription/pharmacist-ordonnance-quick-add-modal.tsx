@@ -18,7 +18,6 @@ import {
 } from "@/lib/prescription-ordonnance-line-qty";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { PolishedOptionPicker } from "@/components/ui/polished-option-picker";
-import { ProductRequestLineQtyPicker } from "@/components/pharmacy/patient-demande-produits-ui";
 import { PlannedVisitDateInput } from "@/components/requests/planned-visit-date-input";
 import { receptionDateMaxYmd } from "@/lib/planned-visit";
 
@@ -253,7 +252,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                 />
               </div>
               {hits.length > 0 ? (
-                <ul className="max-h-[min(38svh,280px)] min-h-0 space-y-0.5 overflow-y-auto rounded-md border border-border/60 bg-muted/15 p-1">
+                <ul className="min-h-0 space-y-0.5 rounded-md border border-border/60 bg-muted/15 p-1">
                   {hits.map((h) => (
                     <li key={h.id}>
                       <button
@@ -434,11 +433,33 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate font-medium">{a.name}</span>
-                            <ProductRequestLineQtyPicker
-                              qty={a.available_qty}
-                              maxQty={reqN}
-                              appearance="neutral"
-                              onSelect={(n) => onAlternativeQtyChange(a.id, n)}
+                            <QtyStepper
+                              label="Qté"
+                              value={String(a.available_qty ?? 1)}
+                              disabled={busy}
+                              minusDisabled={(a.available_qty ?? 1) <= 1}
+                              plusDisabled={(a.available_qty ?? 1) >= ORDONNANCE_LINE_QTY_MAX}
+                              onChange={(raw) => {
+                                const digits = raw.replace(/[^\d]/g, "");
+                                if (digits === "") return;
+                                const n = Math.min(
+                                  ORDONNANCE_LINE_QTY_MAX,
+                                  Math.max(1, parseInt(digits, 10) || 1)
+                                );
+                                onAlternativeQtyChange(a.id, n);
+                              }}
+                              onMinus={() =>
+                                onAlternativeQtyChange(
+                                  a.id,
+                                  Math.max(1, (a.available_qty ?? 1) - 1)
+                                )
+                              }
+                              onPlus={() =>
+                                onAlternativeQtyChange(
+                                  a.id,
+                                  Math.min(ORDONNANCE_LINE_QTY_MAX, (a.available_qty ?? 1) + 1)
+                                )
+                              }
                             />
                           </span>
                         </span>
@@ -469,7 +490,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                       />
                     </div>
                     {altHits.length > 0 ? (
-                      <ul className="mt-1 max-h-[min(32svh,220px)] min-h-0 space-y-0.5 overflow-y-auto rounded-md border border-border/60 bg-muted/15 p-1">
+                      <ul className="mt-1 min-h-0 space-y-0.5 rounded-md border border-border/60 bg-muted/15 p-1">
                         {altHits.map((h) => (
                           <li key={h.id}>
                             <button

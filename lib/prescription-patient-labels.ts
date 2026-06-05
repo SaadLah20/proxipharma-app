@@ -27,7 +27,7 @@ export function patientPrescriptionLineBadge(
     return POST_CONFIRM_LINE_ADDED_BADGE_FR;
   }
   if (isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)) {
-    if (row.patient_chosen_alternative_id) return "Ordonnance + alternative";
+    if (row.patient_chosen_alternative_id) return "Alternative";
     return "Ordonnance";
   }
   if (row.line_source !== "pharmacist_proposed") return null;
