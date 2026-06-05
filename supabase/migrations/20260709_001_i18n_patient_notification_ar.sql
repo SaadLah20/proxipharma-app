@@ -82,13 +82,18 @@ CREATE TRIGGER trg_app_notifications_fill_patient_ar
   FOR EACH ROW
   EXECUTE FUNCTION public._app_notifications_fill_patient_ar();
 
--- Notifications historiques patient
+-- Notifications historiques patient (sous-requêtes : n non référençable dans LATERAL du FROM en UPDATE)
 UPDATE public.app_notifications n
 SET
-  title_ar = ar.out_title_ar,
-  body_ar = ar.out_body_ar
-FROM public.profiles p,
-LATERAL public._patient_notification_ar_from_fr(n.title, n.body) AS ar
-WHERE p.id = n.recipient_id
-  AND p.role = 'patient'
-  AND (n.title_ar IS NULL OR btrim(n.title_ar) = '');
+  (title_ar, body_ar) = (
+    SELECT ar.out_title_ar, ar.out_body_ar
+    FROM public._patient_notification_ar_from_fr(n.title, n.body) AS ar
+    LIMIT 1
+  )
+WHERE EXISTS (
+  SELECT 1
+  FROM public.profiles p
+  WHERE p.id = n.recipient_id
+    AND p.role = 'patient'
+)
+AND (n.title_ar IS NULL OR btrim(n.title_ar) = '');

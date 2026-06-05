@@ -285,7 +285,9 @@ function ProfileNavMenuLink({
       }
     >
       <Icon className="size-4 shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden />
-      <span className="min-w-0 leading-snug">{item.label}</span>
+      <span className="min-w-0 leading-snug" dir="auto">
+        {item.label}
+      </span>
     </Link>
   );
 }
@@ -569,6 +571,7 @@ export function PlatformHeader() {
       <LocaleRoleGuard role={profile?.role ?? null} booting={booting} />
     <header
       data-proxipharma-platform-header
+      dir="ltr"
       className="fixed inset-x-0 top-0 z-50 border-b border-slate-800/90 bg-slate-900 text-slate-100 shadow-md"
     >
       <div className="mx-auto flex h-[3.25rem] max-w-6xl items-center justify-between gap-3 px-4 sm:h-14 sm:px-5">
@@ -614,7 +617,7 @@ export function PlatformHeader() {
                     ) : null}
                   </button>
                   {notifOpen ? (
-                    <div className="fixed inset-x-3 top-14 z-50 max-h-[min(85vh,28rem)] overflow-hidden rounded-xl border border-border bg-popover py-2 text-popover-foreground shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-none sm:w-[min(100vw-2rem,24rem)]">
+                    <div className="fixed inset-x-3 top-14 z-50 max-h-[min(85vh,28rem)] overflow-hidden rounded-xl border border-border bg-popover py-2 text-popover-foreground shadow-xl sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-2 sm:max-h-none sm:w-[min(100vw-2rem,24rem)]">
                       <div className="border-b border-border/80 px-3 pb-2">
                         <p className="text-xs font-semibold text-foreground">{tHeader("notifications.title")}</p>
                       </div>
@@ -690,7 +693,7 @@ export function PlatformHeader() {
                 </button>
 
                 {profileOpen ? (
-                  <div className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,19.5rem)] rounded-xl border border-border bg-popover py-2 text-popover-foreground shadow-xl sm:w-[20.5rem]">
+                  <div className="absolute end-0 z-50 mt-2 w-[min(100vw-2rem,19.5rem)] rounded-xl border border-border bg-popover py-2 text-popover-foreground shadow-xl sm:w-[20.5rem]">
                     {!session ? (
                       <div className="px-2">
                         <Link
