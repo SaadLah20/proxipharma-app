@@ -11,11 +11,24 @@ export { REQUEST_CONVERSATION_AUDIO_MAX_BYTES, REQUEST_CONVERSATION_AUDIO_MAX_SE
 export type ConversationAudioExt = "webm" | "mp4" | "m4a";
 
 export function conversationAudioExtFromMime(mime: string): ConversationAudioExt | null {
-  const m = mime.toLowerCase();
+  const m = mime.toLowerCase().split(";")[0]?.trim() ?? "";
   if (m.includes("webm")) return "webm";
   if (m.includes("mp4") || m.includes("mpeg")) return "mp4";
   if (m.includes("m4a") || m.includes("aac")) return "m4a";
+  if (m.includes("ogg")) return "webm";
   return null;
+}
+
+/** Content-Type Storage (sans param codecs) — doit être dans allowed_mime_types du bucket. */
+export function conversationAudioUploadContentType(mimeType: string, ext: ConversationAudioExt): string {
+  const base = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+  if (base === "audio/webm" || base === "audio/mp4" || base === "audio/m4a" || base === "audio/aac") {
+    return base;
+  }
+  if (base === "audio/x-m4a") return "audio/m4a";
+  if (base === "audio/ogg") return "audio/ogg";
+  if (ext === "m4a") return "audio/mp4";
+  return `audio/${ext}`;
 }
 
 export function pickConversationRecorderMimeType(): string | null {
@@ -72,7 +85,7 @@ export async function uploadConversationAudioBlob(
 
   const { error } = await supabase.storage.from(STORAGE_BUCKET_PRIVATE).upload(objectPath, blob, {
     upsert: true,
-    contentType: mimeType || blob.type || `audio/${ext}`,
+    contentType: conversationAudioUploadContentType(mimeType || blob.type, ext),
   });
 
   if (error) {
