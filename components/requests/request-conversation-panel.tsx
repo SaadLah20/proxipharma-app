@@ -1,11 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MessagesSquare, Send, Trash2, X } from "lucide-react";
+import { MessagesSquare, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { Button } from "@/components/ui/button";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
-import { REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
 import { cn } from "@/lib/utils";
 import {
   CONVERSATION_FAB_SIZE_PX,
@@ -13,11 +11,13 @@ import {
 } from "@/lib/conversation-fab-position";
 import { STICKY_FOOTER_FAB_DEFAULT_BOTTOM_PX } from "@/lib/platform-sticky-footer";
 import { Z_FLOATING_ABOVE_STICKY_FOOTER } from "@/lib/ui-z-index";
+import { type RequestCommentRow } from "@/lib/request-conversation";
 import {
-  type RequestCommentRow,
-  conversationAuthorLabelFr,
-  formatConversationTimestamp,
-} from "@/lib/request-conversation";
+  REQUEST_COMMENT_SELECT_FIELDS,
+  sendRequestConversationMessage,
+} from "@/lib/send-request-conversation-message";
+import { ConversationComposer } from "@/components/requests/conversation/conversation-composer";
+import { ConversationMessageBubble } from "@/components/requests/conversation/conversation-message-bubble";
 
 const CONVERSATION_FAB_POS_KEY = "proxipharma:conversationFabInset";
 
@@ -142,7 +142,6 @@ export function RequestConversationFabDock({
     const dx = e.clientX - s.startX;
     const dy = e.clientY - s.startY;
     if (!s.dragging) {
-      // Seuil ~15px : un tap au-dessus d’éléments cliquables ne doit pas être lu comme un glissement.
       if (dx * dx + dy * dy < 225) return;
       s.dragging = true;
     }
@@ -194,7 +193,6 @@ export function RequestConversationFabDock({
       e.stopPropagation();
       return;
     }
-    // Clavier / lecteur d’écran (pas de séquence pointer sur le bouton).
     onOpen();
   };
 
@@ -293,7 +291,7 @@ export function RequestConversationPanel({
     setErr("");
     const { data, error } = await supabase
       .from("request_comments")
-      .select("id,created_at,author_id,author_role,comment_text,deleted_at")
+      .select(REQUEST_COMMENT_SELECT_FIELDS)
       .eq("request_id", requestId)
       .eq("is_internal", false)
       .order("created_at", { ascending: true });
@@ -318,13 +316,34 @@ export function RequestConversationPanel({
 
   useEffect(() => {
     if (!open) return;
-    // Hors du tick de l'effet : évite react-hooks/set-state-in-effect (load() met loading à jour tout de suite).
     const id = window.setTimeout(() => {
       void load();
       void markRead();
     }, 0);
     return () => window.clearTimeout(id);
   }, [open, load, markRead]);
+
+  useEffect(() => {
+    if (!open) return;
+    const channel = supabase
+      .channel(`request_comments_panel:${requestId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "request_comments",
+          filter: `request_id=eq.${requestId}`,
+        },
+        () => {
+          void load({ silent: true });
+        }
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [open, requestId, load]);
 
   useEffect(() => {
     if (!open) return;
@@ -335,26 +354,26 @@ export function RequestConversationPanel({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  const send = async () => {
-    const text = draft.trim();
-    if (text.length === 0) return;
+  const send = async (pendingAudio: { blob: Blob; mimeType: string; durationSeconds: number } | null) => {
     setSending(true);
     setErr("");
-    const { error } = await supabase.from("request_comments").insert({
-      request_id: requestId,
-      author_id: currentUserId,
-      author_role: viewerRole,
-      comment_text: text.slice(0, REQUEST_CONVERSATION_MESSAGE_MAX),
-      is_internal: false,
+    const result = await sendRequestConversationMessage({
+      supabase,
+      requestId,
+      authorId: currentUserId,
+      authorRole: viewerRole,
+      text: draft,
+      pendingAudio: pendingAudio ?? undefined,
     });
     setSending(false);
-    if (error) {
-      setErr(error.message);
-      return;
+    if (!result.ok) {
+      setErr(result.error);
+      return false;
     }
     setDraft("");
     await load({ silent: true });
     await markRead();
+    return true;
   };
 
   const softDelete = async (id: string) => {
@@ -412,89 +431,30 @@ export function RequestConversationPanel({
             </p>
           ) : (
             <ul className="space-y-2">
-              {visibleRows.map((m) => {
-                const self = m.author_id === currentUserId;
-                const deleted = Boolean(m.deleted_at);
-                return (
-                  <li
-                    key={m.id}
-                    className={`rounded-lg border px-3 py-2.5 text-[12px] leading-snug ${
-                      self ? "ms-4 border-sky-200/90 bg-sky-50/80" : "me-4 border-border bg-muted/25"
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
-                      <span className="font-semibold text-foreground">
-                        {conversationAuthorLabelFr(m.author_role, self)}
-                      </span>
-                      <time className="shrink-0 text-[9px] tabular-nums text-muted-foreground" dateTime={m.created_at}>
-                        {formatConversationTimestamp(m.created_at)}
-                      </time>
-                    </div>
-                    {deleted ? (
-                      <p className="mt-1 italic text-muted-foreground">Message retiré.</p>
-                    ) : (
-                      <p className="mt-1 whitespace-pre-wrap text-foreground">{m.comment_text}</p>
-                    )}
-                    {self && !deleted && !composerDisabled ? (
-                      <div className="mt-1.5 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => void softDelete(m.id)}
-                          className="inline-flex items-center gap-1 rounded-md border border-destructive/25 bg-background px-2 py-1 text-[9px] font-semibold text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="size-3" aria-hidden />
-                          Retirer
-                        </button>
-                      </div>
-                    ) : null}
-                  </li>
-                );
-              })}
+              {visibleRows.map((m) => (
+                <ConversationMessageBubble
+                  key={m.id}
+                  message={m}
+                  currentUserId={currentUserId}
+                  viewerRole={viewerRole}
+                  composerDisabled={composerDisabled}
+                  onSoftDelete={(commentId) => void softDelete(commentId)}
+                />
+              ))}
             </ul>
           )}
         </div>
 
         <div className="border-t border-border bg-muted/20 px-4 py-3">
-          {composerDisabled ? (
-            <p className="text-[11px] leading-snug text-muted-foreground">
-              Cette demande est fermée — la conversation est en lecture seule. Pour échanger à nouveau, créez une
-              nouvelle demande de produits si besoin.
-            </p>
-          ) : (
-            <>
-              {err ? (
-                <p className="mb-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] text-destructive">
-                  {err}
-                </p>
-              ) : null}
-              <label className="block text-[10px] font-semibold text-foreground">
-                Votre message
-                <textarea
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value.slice(0, REQUEST_CONVERSATION_MESSAGE_MAX))}
-                  rows={3}
-                  maxLength={REQUEST_CONVERSATION_MESSAGE_MAX}
-                  placeholder="Précision, question…"
-                  className="mt-1 w-full resize-y rounded-lg border border-input bg-background px-2 py-2 text-[12px] leading-relaxed text-foreground placeholder:text-muted-foreground/70"
-                />
-              </label>
-              <div className="mt-1 flex items-center justify-between gap-2">
-                <span className="text-[9px] tabular-nums text-muted-foreground">
-                  {draft.length}/{REQUEST_CONVERSATION_MESSAGE_MAX}
-                </span>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={sending || draft.trim().length === 0}
-                  onClick={() => void send()}
-                  className="h-8 gap-1 text-xs"
-                >
-                  <Send className="size-3.5" aria-hidden />
-                  {sending ? "Envoi…" : "Envoyer"}
-                </Button>
-              </div>
-            </>
-          )}
+          <ConversationComposer
+            draft={draft}
+            onDraftChange={setDraft}
+            sending={sending}
+            disabled={composerDisabled}
+            error={err}
+            onSend={send}
+            readonlyMessage="Cette demande est fermée — la conversation est en lecture seule. Pour échanger à nouveau, créez une nouvelle demande de produits si besoin."
+          />
         </div>
       </div>
     </AppModalOverlay>
