@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { defaultPathAfterAuth } from "@/lib/post-auth-redirect";
 import { userNeedsSignupPassword } from "@/lib/auth-signup-flow";
-import { AUTH_CALLBACK_LINK_EXPIRED } from "@/lib/auth-messages-fr";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 export default function AuthCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useTranslations("auth");
   const nextRaw = searchParams.get("next")?.trim() ?? "";
   const safeNext =
     nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "";
@@ -77,7 +78,7 @@ export default function AuthCallbackPage() {
       if (cancelled) return;
 
       if (!routed) {
-        setError(AUTH_CALLBACK_LINK_EXPIRED);
+        setError(t("callback.linkExpired"));
       }
     };
 
@@ -98,7 +99,7 @@ export default function AuthCallbackPage() {
       cancelled = true;
       sub.subscription.unsubscribe();
     };
-  }, [router, safeNext, searchParams]);
+  }, [router, safeNext, searchParams, t]);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-10">
@@ -106,13 +107,13 @@ export default function AuthCallbackPage() {
         <div className="space-y-3 rounded-2xl border border-border bg-card p-5 text-sm">
           <p className="text-destructive">{error}</p>
           <Link href="/auth?mode=signup" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full")}>
-            Créer un compte / connexion
+            {t("callback.backToAuth")}
           </Link>
         </div>
       ) : (
         <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin text-primary" aria-hidden />
-          Finalisation…
+          {t("callback.finalizing")}
         </p>
       )}
     </main>

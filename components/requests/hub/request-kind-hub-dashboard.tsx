@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
 import { ChevronRight, MessageCircle } from "lucide-react";
 import { DemandeStatDashboard } from "@/components/requests/demande-stat-dashboard";
 import {
@@ -32,7 +33,8 @@ import {
   sortHubRowsByRecency,
 } from "@/lib/request-kind-hub-dashboard";
 import { dashboardBucketsForKind, hubDashboardChrome } from "@/lib/request-kinds/hub-and-terminal-copy";
-import { statBucketGroupsForRole } from "@/lib/demandes-hub-buckets";
+import { statBucketGroupsForRole, PATIENT_DASHBOARD_BUCKETS } from "@/lib/demandes-hub-buckets";
+import { patientDashboardBucketLabels } from "@/lib/i18n/request-kind-patient-copy";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 
 const PATIENT_SECTION_ORDER = ["action_required", "at_pharmacy", "archives"] as const;
@@ -51,6 +53,8 @@ function HubSectionBlock({
   defaultCollapsed,
   children,
   sectionDomId,
+  seeAllLabel,
+  showCountLabel,
 }: {
   title: string;
   subtitle?: string;
@@ -59,6 +63,8 @@ function HubSectionBlock({
   defaultCollapsed?: boolean;
   children: ReactNode;
   sectionDomId: string;
+  seeAllLabel: string;
+  showCountLabel: string;
 }) {
   if (count === 0) return null;
 
@@ -82,7 +88,7 @@ function HubSectionBlock({
             href={listHref}
             className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-semibold text-primary hover:underline"
           >
-            Tout voir
+            {seeAllLabel}
             <ChevronRight className="size-3" aria-hidden />
           </Link>
         ) : null}
@@ -91,7 +97,7 @@ function HubSectionBlock({
         {defaultCollapsed && count > HUB_DASHBOARD_PREVIEW ? (
           <details className="group" open={count <= 2}>
             <summary className="mb-1.5 cursor-pointer list-none text-[10px] font-semibold text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
-              Afficher ({count})
+              {showCountLabel}
             </summary>
             {body}
           </details>
@@ -116,7 +122,16 @@ export function RequestKindHubDashboard({
   basePath: string;
   unreadById: Record<string, boolean>;
 }) {
-  const buckets = dashboardBucketsForKind(kindId, role);
+  const tHub = useTranslations("hub");
+  const baseBuckets =
+    role === "patient"
+      ? PATIENT_DASHBOARD_BUCKETS.map((b) => {
+          const labels = patientDashboardBucketLabels(tHub, kindId);
+          const copy = labels[b.key];
+          return copy ? { ...b, label: copy.label, hint: copy.hint } : b;
+        })
+      : dashboardBucketsForKind(kindId, role);
+  const buckets = baseBuckets;
   const chrome = hubDashboardChrome(kindId, role);
   const rowsWithStatus = rows.map((r) => ({ ...r, status_for_dashboard: r.status }));
   const stats = hubDashboardQuickStats(rowsWithStatus, buckets, unreadById);
@@ -124,16 +139,10 @@ export function RequestKindHubDashboard({
 
   const listAllLabel =
     kindId === "prescription"
-      ? role === "patient"
-        ? "Toutes les ordonnances"
-        : "Toutes les ordonnances"
+      ? tHub("dashboard.allPrescriptions")
       : kindId === "free_consultation"
-        ? role === "patient"
-          ? "Toutes les consultations"
-          : "Toutes les consultations"
-        : role === "patient"
-          ? "Toutes les demandes"
-          : "Toutes les demandes";
+        ? tHub("dashboard.allConsultations")
+        : tHub("dashboard.allRequests");
 
   const renderPatientCard = (row: PatientRequestRow, compact: boolean) =>
     kindId === "product_request" || kindId === "prescription" ? (
@@ -166,6 +175,8 @@ export function RequestKindHubDashboard({
               count={count}
               listHref={patientProductHubListHref(basePath)}
               defaultCollapsed={sectionId === "archives" && count > HUB_DASHBOARD_PREVIEW}
+              seeAllLabel={tHub("dashboard.seeAll")}
+              showCountLabel={tHub("dashboard.showCount", { count })}
             >
               {sectionRows.slice(0, HUB_DASHBOARD_PREVIEW).map((r) => (
                 <li key={r.id}>{renderPatientCard(r, true)}</li>
@@ -194,6 +205,8 @@ export function RequestKindHubDashboard({
                 (sectionId === "archives" || sectionId === "awaiting_patient_validation") &&
                 count > HUB_DASHBOARD_PREVIEW
               }
+              seeAllLabel={tHub("dashboard.seeAll")}
+              showCountLabel={tHub("dashboard.showCount", { count })}
             >
               {sectionRows.slice(0, HUB_DASHBOARD_PREVIEW).map((r) => (
                 <li key={r.id}>{renderPharmaCard(r, true)}</li>
@@ -217,16 +230,19 @@ export function RequestKindHubDashboard({
 
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-muted/15 px-2.5 py-2 text-[10px]">
         <span className="font-semibold tabular-nums text-foreground">{stats.total}</span>
-        <span className="text-muted-foreground">dossier{stats.total !== 1 ? "s" : ""}</span>
+        <span className="text-muted-foreground">
+          {stats.total !== 1 ? tHub("dashboard.dossiers") : tHub("dashboard.dossier")}
+        </span>
         <span className="text-border">·</span>
         <span className="font-semibold tabular-nums text-foreground">{stats.active}</span>
-        <span className="text-muted-foreground">en cours</span>
+        <span className="text-muted-foreground">{tHub("dashboard.inProgress")}</span>
         {stats.unread > 0 ? (
           <>
             <span className="text-border">·</span>
             <span className="inline-flex items-center gap-1 font-semibold text-primary">
               <MessageCircle className="size-3" aria-hidden />
-              {stats.unread} message{stats.unread !== 1 ? "s" : ""}
+              {stats.unread}{" "}
+              {stats.unread !== 1 ? tHub("dashboard.messages") : tHub("dashboard.message")}
             </span>
           </>
         ) : null}
@@ -234,7 +250,7 @@ export function RequestKindHubDashboard({
 
       {recent.length > 0 ? (
         <section className="rounded-lg border border-border/80 bg-card p-2.5 shadow-sm">
-          <h2 className="text-[13px] font-bold text-foreground">Reprendre rapidement</h2>
+          <h2 className="text-[13px] font-bold text-foreground">{tHub("dashboard.resumeQuickly")}</h2>
           <ul className="mt-2 flex gap-2 overflow-x-auto pb-0.5 [-webkit-overflow-scrolling:touch]">
             {recent.map((r) => (
               <li key={r.id} className="w-[min(100%,260px)] shrink-0 sm:w-[min(80%,280px)]">

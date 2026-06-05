@@ -66,3 +66,12 @@ export function inferAvailabilityStatusFromQty(args: {
   }
   return "available";
 }
+
+/** Afficher le champ « réception prévue » en édition supply post-validé. */
+export function pharmacistSupplyDraftNeedsReceptionDate(args: {
+  draftStatus: string;
+  inferredEffectiveStatus?: string | null;
+}): boolean {
+  if (args.draftStatus === "to_order") return true;
+  return args.inferredEffectiveStatus === "to_order";
+}

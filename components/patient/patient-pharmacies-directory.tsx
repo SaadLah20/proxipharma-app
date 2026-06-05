@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { ChevronRight, Gift, MapPin, MessageSquare, Package, Phone, Search, Star, Store } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
 import { one } from "@/lib/embed";
@@ -17,6 +18,8 @@ import {
   pharmacyWhatsAppHref,
   type PatientPharmacyDirectoryRow,
 } from "@/lib/patient-pharmacy-crm";
+import { collatorForLocale } from "@/lib/datetime-locale";
+import type { AppLocale } from "@/lib/i18n/config";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { supabase } from "@/lib/supabase";
@@ -51,20 +54,21 @@ function lastDossierStatusHintFr(status: string | null): string | null {
   return label;
 }
 
-function pharmacyCardActivityLineFr(
+function pharmacyCardActivityLine(
   lastActivityAt: string | null,
   lastStatus: string | null,
-  activeCount: number
+  activeCount: number,
+  t: ReturnType<typeof useTranslations<"account">>
 ): string {
   const when = formatActivityFr(lastActivityAt);
   if (activeCount > 0) {
-    return `Dernière activité : ${when}`;
+    return t("lastActivity", { when });
   }
   const dossier = lastDossierStatusHintFr(lastStatus);
   if (dossier) {
-    return `Dernier dossier (${dossier}) · ${when}`;
+    return t("lastDossier", { status: dossier, when });
   }
-  return `Dernière activité : ${when}`;
+  return t("lastActivity", { when });
 }
 
 async function loadDirectoryLegacy(patientId: string): Promise<PatientPharmacyDirectoryRow[]> {
@@ -188,6 +192,11 @@ async function loadDirectoryLegacy(patientId: string): Promise<PatientPharmacyDi
 
 export function PatientPharmaciesDirectory() {
   const router = useRouter();
+  const t = useTranslations("account");
+  const tp = useTranslations("pharmacyPublic");
+  const tc = useTranslations("common");
+  const locale = useLocale() as AppLocale;
+  const nameCollator = useMemo(() => collatorForLocale(locale), [locale]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [rows, setRows] = useState<PatientPharmacyDirectoryRow[]>([]);
@@ -206,7 +215,7 @@ export function PatientPharmaciesDirectory() {
 
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
     if ((profile as { role?: string } | null)?.role !== "patient") {
-      setError("Cet écran est réservé aux patients.");
+      setError(t("patientsOnly"));
       setLoading(false);
       return;
     }
@@ -221,7 +230,7 @@ export function PatientPharmaciesDirectory() {
         try {
           setRows(await loadDirectoryLegacy(user.id));
         } catch (e) {
-          setError(e instanceof Error ? e.message : "Erreur de chargement.");
+          setError(e instanceof Error ? e.message : t("loadError"));
         }
       } else {
         setError(rpcErr.message);
@@ -256,7 +265,7 @@ export function PatientPharmaciesDirectory() {
     }
     const sorted = [...list];
     if (sort === "name") {
-      sorted.sort((a, b) => (a.nom ?? "").localeCompare(b.nom ?? "", "fr"));
+      sorted.sort((a, b) => nameCollator.compare(a.nom ?? "", b.nom ?? ""));
     } else if (sort === "active") {
       sorted.sort((a, b) => b.active_request_count - a.active_request_count);
     } else {
@@ -267,7 +276,7 @@ export function PatientPharmaciesDirectory() {
       });
     }
     return sorted;
-  }, [rows, searchQuery, sort, onlyActive]);
+  }, [rows, searchQuery, sort, onlyActive, nameCollator]);
 
   const stats = useMemo(() => {
     const withActive = rows.filter((r) => r.active_request_count > 0).length;
@@ -278,7 +287,7 @@ export function PatientPharmaciesDirectory() {
   if (loading) {
     return (
       <PageShell maxWidthClass="max-w-5xl">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       </PageShell>
     );
   }
@@ -286,29 +295,28 @@ export function PatientPharmaciesDirectory() {
   return (
     <PageShell maxWidthClass="max-w-5xl" className={clsx("space-y-5", p.page)}>
       <PatientAccountPageHeader
-        eyebrow="Espace patient"
-        title="Mes pharmacies"
-        subtitle="Officines avec lesquelles vous avez déjà échangé (demandes, ordonnances, consultations ou packs promo)."
+        title={t("pharmaciesTitle")}
+        subtitle={t("pharmaciesSubtitle")}
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className={p.statCard}>
-          <p className={p.statLabel}>Total</p>
+          <p className={p.statLabel}>{t("statTotal")}</p>
           <p className={p.statValue}>{stats.total}</p>
         </div>
         <div className={p.statCard}>
-          <p className={p.statLabel}>Dossiers en cours</p>
+          <p className={p.statLabel}>{t("statActive")}</p>
           <p className={p.statValue}>{stats.withActive}</p>
         </div>
         <div className={p.statCard}>
-          <p className={p.statLabel}>Avec pack promo</p>
+          <p className={p.statLabel}>{t("statPromo")}</p>
           <p className={p.statValue}>{stats.withPromo}</p>
         </div>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <label className="flex min-w-0 flex-1 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Recherche
+          {t("search")}
           <span className="relative block">
             <Search
               className={clsx(
@@ -319,7 +327,7 @@ export function PatientPharmaciesDirectory() {
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Nom, ville, code officine…"
+              placeholder={t("searchPlaceholder")}
               className={clsx(
                 "w-full rounded-lg border bg-background py-2 pl-8 pr-2 text-xs font-normal normal-case tracking-normal text-foreground outline-none focus-visible:ring-2",
                 p.searchInput
@@ -329,15 +337,15 @@ export function PatientPharmaciesDirectory() {
         </label>
         <div className="flex flex-wrap items-center gap-2">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Trier
+            {t("sort")}
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
               className="ml-1 rounded-md border border-input bg-background px-2 py-1.5 text-xs font-normal normal-case"
             >
-              <option value="activity">Dernière activité</option>
-              <option value="active">Dossiers actifs</option>
-              <option value="name">Nom A → Z</option>
+              <option value="activity">{t("sortActivity")}</option>
+              <option value="active">{t("sortActive")}</option>
+              <option value="name">{t("sortName")}</option>
             </select>
           </label>
           <label className="flex cursor-pointer items-center gap-1.5 text-xs">
@@ -347,7 +355,7 @@ export function PatientPharmaciesDirectory() {
               onChange={(e) => setOnlyActive(e.target.checked)}
               className="rounded border-input"
             />
-            Actives seulement
+            {t("activeOnly")}
           </label>
         </div>
       </div>
@@ -356,24 +364,25 @@ export function PatientPharmaciesDirectory() {
       {rows.length === 0 && !error ? (
         <p className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
           <MapPin className="mx-auto mb-2 h-8 w-8 text-primary/50" />
-          Aucune pharmacie pour l’instant. Parcourez l’annuaire pour contacter une officine.
+          {t("pharmaciesEmpty")}
           <Link href="/" className={clsx("mt-3 block", p.link)}>
-            Annuaire des pharmacies
+            {t("directoryLink")}
           </Link>
         </p>
       ) : filteredRows.length === 0 ? (
         <p className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-          Aucune pharmacie ne correspond à ces critères.
+          {t("pharmaciesNoMatch")}
         </p>
       ) : (
         <ul className="grid gap-2 sm:grid-cols-2">
           {filteredRows.map((r) => {
             const wa = pharmacyWhatsAppHref(r.whatsapp);
             const rating = pharmacyRatingLabelFr(r.rating_avg, r.rating_count);
-            const activityLine = pharmacyCardActivityLineFr(
+            const activityLine = pharmacyCardActivityLine(
               r.last_activity_at,
               r.last_request_status,
-              r.active_request_count
+              r.active_request_count,
+              t
             );
             return (
               <li key={r.pharmacy_id}>
@@ -406,18 +415,19 @@ export function PatientPharmaciesDirectory() {
                       {r.active_request_count > 0 ? (
                         <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-950">
                           <Package className="h-3 w-3" />
-                          {r.active_request_count} en cours
+                          {r.active_request_count} {t("activeCount", { count: r.active_request_count })}
                         </span>
                       ) : null}
                       {r.request_count > 0 ? (
                         <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                          {r.request_count} dossier{r.request_count > 1 ? "s" : ""}
+                          {r.request_count}{" "}
+                          {r.request_count > 1 ? t("dossierCountPlural", { count: r.request_count }) : t("dossierCount", { count: r.request_count })}
                         </span>
                       ) : null}
                       {r.promo_reservation_count > 0 ? (
                         <span className="inline-flex items-center gap-0.5 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-950">
                           <Gift className="h-3 w-3" />
-                          {r.promo_reservation_count} promo
+                          {r.promo_reservation_count} {t("promoCount", { count: r.promo_reservation_count })}
                         </span>
                       ) : null}
                       {rating ? (
@@ -441,7 +451,7 @@ export function PatientPharmaciesDirectory() {
                           className={clsx("inline-flex items-center gap-1 text-[11px]", p.linkInline)}
                         >
                           <MessageSquare className="h-3 w-3" />
-                          WhatsApp
+                          {tp("whatsapp")}
                         </a>
                       ) : null}
                       {r.telephone ? (

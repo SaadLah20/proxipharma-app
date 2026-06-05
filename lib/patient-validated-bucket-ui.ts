@@ -1,9 +1,49 @@
 /** Titres et accents des groupes « validée / traitée » (alignés vue répondue épurée). */
 
+import type { useTranslations } from "next-intl";
 import type { HubCopyAudience } from "@/lib/hub-copy-audience";
 import { isPharmacienCopyAudience } from "@/lib/hub-copy-audience";
 
 export type PatientValidatedBucketId = "dispo_officine" | "commande" | "hors_perimetre";
+
+export function patientValidatedBucketTitleI18n(
+  t: ReturnType<typeof useTranslations<"demandes">>,
+  id: PatientValidatedBucketId,
+  isTreatedView: boolean,
+): string {
+  if (isTreatedView) {
+    if (id === "dispo_officine") return t("validatedBuckets.reservedForYou");
+    if (id === "commande") return t("validatedBuckets.orderedForYou");
+  }
+  switch (id) {
+    case "dispo_officine":
+      return t("sections.toReserve");
+    case "commande":
+      return t("sections.toOrder");
+    case "hors_perimetre":
+      return t("validatedBuckets.attention");
+  }
+}
+
+export function patientValidatedBucketAriaTitleI18n(
+  t: ReturnType<typeof useTranslations<"demandes">>,
+  id: PatientValidatedBucketId,
+  isTreatedView: boolean,
+): string {
+  const title = patientValidatedBucketTitleI18n(t, id, isTreatedView);
+  switch (id) {
+    case "dispo_officine":
+      return isTreatedView
+        ? `${title} — ${t("validatedBuckets.ariaDispoTreated")}`
+        : `${title} — ${t("validatedBuckets.ariaDispoActive")}`;
+    case "commande":
+      return isTreatedView
+        ? `${title} — ${t("validatedBuckets.ariaCommandeTreated")}`
+        : `${title} — ${t("validatedBuckets.ariaCommandeActive")}`;
+    case "hors_perimetre":
+      return `${title} — ${t("validatedBuckets.ariaHorsPerimetre")}`;
+  }
+}
 
 export function patientValidatedBucketTitleFr(
   id: PatientValidatedBucketId,

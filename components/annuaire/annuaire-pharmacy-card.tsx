@@ -3,6 +3,7 @@
 import type { MouseEvent } from "react";
 import Link from "next/link";
 import { ArrowRight, MapPin } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { PharmacyCoverOverlayActions } from "@/components/pharmacy/pharmacy-cover-overlay-actions";
 import { PharmacyRatingOverlayChip } from "@/components/pharmacy/pharmacy-rating-overlay-chip";
 import type { AnnuairePharmacyEnriched } from "@/lib/annuaire/types";
@@ -18,8 +19,11 @@ import {
 } from "@/lib/pharmacy-open-status-ui";
 
 export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyEnriched }) {
+  const t = useTranslations("annuaire");
   const coverUrl = resolvePublicMediaUrl(pharmacy.cover_image_path ?? pharmacy.logo_url ?? null);
   const publicRef = pharmacy.public_ref?.trim() ?? "";
+  const openStatusLabel =
+    pharmacy.open.status === "open" ? t("status.open") : t("status.closed");
 
   const handleShare = async (e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -74,10 +78,10 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
           <div className="absolute bottom-2 left-2 right-10 z-[1] flex flex-wrap items-end justify-between gap-1.5 sm:right-11">
             <div className="flex max-w-full flex-wrap gap-1">
               <span className={pharmacyOpenStatusOverlayBadgeClass(pharmacy.open.status)}>
-                {pharmacy.open.openLabel}
+                {openStatusLabel}
               </span>
               {pharmacy.open.onCallBadgeVisible ? (
-                <span className={pharmacyOnCallOverlayBadgeClass(true)}>En garde</span>
+                <span className={pharmacyOnCallOverlayBadgeClass(true)}>{t("card.onCall")}</span>
               ) : null}
             </div>
             {pharmacy.distanceKm != null ? (
@@ -126,14 +130,14 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
           </span>
         </p>
         {!pharmacy.hasValidLocation ? (
-          <p className="text-[10px] text-muted-foreground">Position GPS non renseignée — tri par distance indisponible.</p>
+          <p className="text-[10px] text-muted-foreground">{t("card.noGps")}</p>
         ) : null}
 
         <Link
           href={`/pharmacie/${pharmacy.id}`}
           className={cn(buttonVariants({ size: "sm" }), "h-9 w-full gap-1.5 text-xs font-semibold")}
         >
-          Voir la fiche
+          {t("card.viewProfile")}
           <ArrowRight className="size-3.5" aria-hidden />
         </Link>
       </div>

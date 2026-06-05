@@ -4,14 +4,17 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { AlertTriangle, Package, Truck } from "lucide-react";
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
 import type { HubCopyAudience } from "@/lib/hub-copy-audience";
 import {
   type PatientValidatedBucketId,
   patientValidatedBucketAccentTextClass,
   patientValidatedBucketAriaTitleFr,
+  patientValidatedBucketAriaTitleI18n,
   patientValidatedBucketCountBadgeClass,
   patientValidatedBucketHeaderBarClass,
   patientValidatedBucketTitleFr,
+  patientValidatedBucketTitleI18n,
 } from "@/lib/patient-validated-bucket-ui";
 
 type Props = {
@@ -39,19 +42,24 @@ export function PatientValidatedBucketSection({
   audience = "patient",
   children,
 }: Props) {
+  const tDemandes = useTranslations("demandes");
   const Icon = BUCKET_ICONS[bucketId];
-  const title = patientValidatedBucketTitleFr(bucketId, isTreatedView, audience);
+  const title =
+    audience === "pharmacien"
+      ? patientValidatedBucketTitleFr(bucketId, isTreatedView, audience)
+      : patientValidatedBucketTitleI18n(tDemandes, bucketId, isTreatedView);
+  const ariaTitle =
+    audience === "pharmacien"
+      ? patientValidatedBucketAriaTitleFr(bucketId, isTreatedView, audience)
+      : patientValidatedBucketAriaTitleI18n(tDemandes, bucketId, isTreatedView);
   const accentText = patientValidatedBucketAccentTextClass(bucketId);
 
   return (
-    <section
-      className="w-full min-w-0 space-y-1"
-      aria-label={patientValidatedBucketAriaTitleFr(bucketId, isTreatedView, audience)}
-    >
+    <section className="w-full min-w-0 space-y-1" aria-label={ariaTitle}>
       <div
         className={clsx(
           "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg px-2.5 py-1.5",
-          patientValidatedBucketHeaderBarClass(bucketId)
+          patientValidatedBucketHeaderBarClass(bucketId),
         )}
       >
         <Icon className={clsx("size-3.5 shrink-0", accentText)} strokeWidth={2.25} aria-hidden />
@@ -66,7 +74,7 @@ export function PatientValidatedBucketSection({
         <span
           className={clsx(
             "inline-flex shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ring-1",
-            patientValidatedBucketCountBadgeClass()
+            patientValidatedBucketCountBadgeClass(),
           )}
         >
           {count}

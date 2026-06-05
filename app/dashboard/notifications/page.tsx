@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
 import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
@@ -36,6 +37,8 @@ function promoHref(role: string, reservationId: string) {
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const tn = useTranslations("notifications");
+  const tc = useTranslations("common");
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string>("patient");
   const [rows, setRows] = useState<FeedRow[]>([]);
@@ -164,16 +167,15 @@ export default function NotificationsPage() {
   if (loading) {
     return (
       <PageShell>
-        <p className="text-sm text-muted-foreground">Chargement…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       </PageShell>
     );
   }
 
   const back = accountBackForRole(role);
-  const subtitle =
-    role === "pharmacien"
-      ? "Alertes dossiers et réservations packs promo de votre officine."
-      : "Demandes (produits, ordonnances, consultations) et réservations de packs promo.";
+  const subtitle = role === "pharmacien"
+    ? "Alertes dossiers et réservations packs promo de votre officine."
+    : tn("patientSubtitle");
 
   return (
     <PageShell className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden">
@@ -187,8 +189,8 @@ export default function NotificationsPage() {
         />
       ) : (
         <PatientAccountPageHeader
-          eyebrow="Espace patient"
-          title="Notifications"
+          eyebrow={tn("patientEyebrow")}
+          title={tn("pageTitle")}
           subtitle={subtitle}
           backHref={back.href}
           backLabel={back.label}
@@ -199,9 +201,9 @@ export default function NotificationsPage() {
         <div className="flex flex-wrap gap-1.5">
           {(
             [
-              { key: "all", label: "Tout" },
-              { key: "request", label: "Demandes" },
-              { key: "promo", label: "Packs promo" },
+              { key: "all", label: tn("filterAll") },
+              { key: "request", label: tn("filterRequests") },
+              { key: "promo", label: tn("filterPromo") },
             ] as const
           ).map((tab) => (
             <button
@@ -223,7 +225,7 @@ export default function NotificationsPage() {
 
       {filtered.length === 0 ? (
         <p className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-          Aucune notification pour le moment.
+          {tn("emptyFeed")}
         </p>
       ) : (
         <ul className="w-full min-w-0 max-w-full space-y-3">

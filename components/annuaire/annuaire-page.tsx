@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Search } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { AnnuaireFooter } from "@/components/annuaire/annuaire-footer";
 import { AnnuairePagination } from "@/components/annuaire/annuaire-pagination";
@@ -18,6 +19,8 @@ import {
   openSnapshotForBundle,
 } from "@/lib/annuaire/schedule-bundle";
 import { ANNUAIRE_PAGE_SIZE, type AnnuairePharmacyEnriched, type AnnuairePharmacyRow } from "@/lib/annuaire/types";
+import { collatorForLocale } from "@/lib/datetime-locale";
+import type { AppLocale } from "@/lib/i18n/config";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { supabase } from "@/lib/supabase";
 import { uiSurfaceCard } from "@/lib/ui-surfaces";
@@ -35,17 +38,24 @@ function AnnuaireResultsCount({
   radiusEnabled: boolean;
   inRadiusCount: number | undefined;
 }) {
+  const t = useTranslations("annuaire");
+
   return (
     <p className="text-[11px] text-muted-foreground sm:text-xs">
-      <span className="font-semibold text-foreground">{filteredCount}</span> officine
-      {filteredCount !== 1 ? "s" : ""}
-      {searchQuery.trim().length >= 2 ? ` (sur ${totalCount})` : ""}
-      {radiusEnabled && inRadiusCount != null ? <span> · {inRadiusCount} dans le rayon</span> : null}
+      {t("results.count", { count: filteredCount })}
+      {searchQuery.trim().length >= 2 ? ` ${t("results.countFiltered", { total: totalCount })}` : ""}
+      {radiusEnabled && inRadiusCount != null ? (
+        <span> {t("results.inRadius", { count: inRadiusCount })}</span>
+      ) : null}
     </p>
   );
 }
 
 export function AnnuairePage() {
+  const t = useTranslations("annuaire");
+  const locale = useLocale() as AppLocale;
+  const nameCollator = useMemo(() => collatorForLocale(locale), [locale]);
+
   const [pharmacies, setPharmacies] = useState<AnnuairePharmacyRow[]>([]);
   const [scheduleMap, setScheduleMap] = useState<Awaited<ReturnType<typeof loadScheduleBundlesByPharmacyIds>>>(
     new Map()
@@ -144,11 +154,11 @@ export function AnnuairePage() {
       const noGps = list.filter((p) => !p.hasValidLocation);
       list = [...inRadius, ...noGps];
     } else {
-      list = [...list].sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+      list = [...list].sort((a, b) => nameCollator.compare(a.nom, b.nom));
     }
 
     return list;
-  }, [enriched, searchQuery, filterOpen, filterOnCall, radiusEnabled, userLocation, radiusKm]);
+  }, [enriched, searchQuery, filterOpen, filterOnCall, radiusEnabled, userLocation, radiusKm, nameCollator]);
 
   const inRadiusCount = useMemo(() => {
     if (!radiusEnabled || !userLocation) return undefined;
@@ -198,12 +208,12 @@ export function AnnuairePage() {
     if (!result.ok) {
       const msg =
         result.code === "denied"
-          ? "Localisation refusée. Activez-la dans les paramètres du navigateur ou choisissez « Toutes »."
+          ? t("geo.denied")
           : result.code === "timeout"
-            ? "Délai dépassé. Réessayez ou choisissez « Toutes »."
+            ? t("geo.timeout")
             : result.code === "unsupported"
-              ? "Votre navigateur ne prend pas en charge la géolocalisation."
-              : "Position indisponible. Réessayez plus tard.";
+              ? t("geo.unsupported")
+              : t("geo.unavailable");
       setLocationError(msg);
       setLocationLoading(false);
       setUserLocation(null);
@@ -239,7 +249,7 @@ export function AnnuairePage() {
   const searchToolbar = (
     <div className="space-y-2">
       <label className="block">
-        <span className="sr-only">Rechercher une pharmacie</span>
+        <span className="sr-only">{t("search.label")}</span>
         <span className="relative block">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -248,7 +258,7 @@ export function AnnuairePage() {
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Nom, ville, adresse ou code officine…"
+            placeholder={t("search.placeholder")}
             className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-2.5 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
           />
         </span>
@@ -263,7 +273,7 @@ export function AnnuairePage() {
               onChange={(e) => setFilterOpen(e.target.checked)}
               className="size-3.5 shrink-0 rounded border-border accent-primary"
             />
-            <span className="font-semibold whitespace-nowrap">Ouvertes</span>
+            <span className="font-semibold whitespace-nowrap">{t("filter.open")}</span>
           </label>
           <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] text-foreground sm:text-xs">
             <input
@@ -272,10 +282,12 @@ export function AnnuairePage() {
               onChange={(e) => setFilterOnCall(e.target.checked)}
               className="size-3.5 shrink-0 rounded border-border accent-primary"
             />
-            <span className="font-semibold whitespace-nowrap">En garde</span>
+            <span className="font-semibold whitespace-nowrap">{t("filter.onCall")}</span>
           </label>
           {schedulesLoading ? (
-            <span className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground">Horaires…</span>
+            <span className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground">
+              {t("filter.schedulesLoading")}
+            </span>
           ) : null}
         </div>
 
@@ -301,7 +313,7 @@ export function AnnuairePage() {
     return (
       <main className="flex min-h-[50vh] flex-col items-center justify-center gap-3 bg-background p-6">
         <Loader2 className="size-8 animate-spin text-primary" aria-hidden />
-        <p className="text-sm font-medium text-foreground">Chargement de l&apos;annuaire…</p>
+        <p className="text-sm font-medium text-foreground">{t("loading")}</p>
       </main>
     );
   }
@@ -322,18 +334,14 @@ export function AnnuairePage() {
           aria-hidden
         />
         <div className="relative mx-auto max-w-5xl px-5 py-4">
-          <h1 className="text-xl font-bold tracking-tight">Annuaire des pharmacies</h1>
-          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-300">
-            Trouvez une officine, contactez-la ou lancez une demande depuis sa fiche.
-          </p>
+          <h1 className="text-xl font-bold tracking-tight">{t("hero.title")}</h1>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-300">{t("hero.subtitle")}</p>
         </div>
       </section>
 
       <div className="sticky top-[3.25rem] z-30 border-b border-border bg-background/95 shadow-sm backdrop-blur-sm supports-[backdrop-filter]:bg-background/90 sm:top-14">
         <div className="mx-auto max-w-5xl px-4 py-2.5 sm:px-5 sm:py-3">
-          <h1 className="mb-2 text-base font-bold tracking-tight text-foreground sm:hidden">
-            Annuaire des pharmacies
-          </h1>
+          <h1 className="mb-2 text-base font-bold tracking-tight text-foreground sm:hidden">{t("hero.title")}</h1>
           {searchToolbar}
         </div>
       </div>
@@ -363,9 +371,7 @@ export function AnnuairePage() {
             </div>
           </>
         ) : (
-          <p className={cn(uiSurfaceCard, "py-16 text-center text-sm text-muted-foreground")}>
-            Aucune pharmacie ne correspond à vos critères.
-          </p>
+          <p className={cn(uiSurfaceCard, "py-16 text-center text-sm text-muted-foreground")}>{t("empty")}</p>
         )}
       </main>
 

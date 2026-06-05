@@ -22,7 +22,7 @@ import { one } from "@/lib/embed";
 import { mapRequestItemsPhotos } from "@/lib/storage-media";
 import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
 import { useRequestDetailDrift } from "@/lib/use-request-detail-drift";
-import { PatientProductRequestActions, type PatientPharmacyContactInfo, buildPatientSummaryStatusDetail, buildPatientSummaryStatusHint } from "@/components/requests/product/patient-product-request-actions";
+import { PatientProductRequestActions, type PatientPharmacyContactInfo, usePatientSummaryStatusCopy } from "@/components/requests/product/patient-product-request-actions";
 import { PatientProductRequestDossierHeader } from "@/components/requests/product/patient-product-request-dossier-header";
 import { ConsultationRequestDetailChrome } from "@/components/requests/consultation/consultation-request-detail-chrome";
 import { RequestExitConfirmModalFr } from "@/components/requests/request-exit-confirm-modal-fr";
@@ -159,6 +159,9 @@ export default function DemandeDetailPage() {
   const [consultationExitOpen, setConsultationExitOpen] = useState(false);
   const [consultationExitBusy, setConsultationExitBusy] = useState(false);
   const [consultationExitNonce, setConsultationExitNonce] = useState(0);
+  const { hint: summaryStatusHint, detail: summaryStatusDetail } = usePatientSummaryStatusCopy(
+    request?.request_type ?? "product_request",
+  );
   const loadDetail = useCallback(
     async (silent?: boolean): Promise<{ updatedAt: string; status: string } | null> => {
       if (!id) {
@@ -579,8 +582,8 @@ export default function DemandeDetailPage() {
               kindLabel={workflowCopy.patientSummaryKindLabel}
               requestType={request.request_type}
               status={request.status}
-              statusHint={buildPatientSummaryStatusHint(request.status, request.request_type, workflowCopy)}
-              statusDetail={buildPatientSummaryStatusDetail(request.status, request.request_type, workflowCopy)}
+              statusHint={summaryStatusHint(request.status)}
+              statusDetail={summaryStatusDetail(request.status)}
               submittedAt={request.submitted_at}
               createdAt={request.created_at}
             />

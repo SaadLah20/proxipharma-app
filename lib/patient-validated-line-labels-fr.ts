@@ -263,3 +263,5 @@ export function validatedOriginLabelFr(input: {
   }
   return validatedOriginFallbackPatientFr(requestType);
 }
+
+export { buildPatientValidatedLineLabels, usePatientValidatedLineLabels } from "@/lib/use-patient-validated-line-labels";

@@ -14,10 +14,14 @@ import {
   Star,
   Store,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { PageShell } from "@/components/ui/compact-shell";
 import { PATIENT_DASHBOARD_BUCKETS } from "@/lib/demandes-hub-buckets";
+import { formatDateTimeForLocale } from "@/lib/datetime-locale";
+import type { AppLocale } from "@/lib/i18n/config";
+import { promoPatientStatusLabel } from "@/lib/i18n/promo-patient-status";
+import type { PromoReservationStatus } from "@/lib/promo/types";
 import {
-  formatActivityFr,
   parsePatientPharmacyDetail,
   patientPromoDetailPath,
   patientRequestDetailPath,
@@ -42,6 +46,11 @@ const ACTIVE_STATUSES = new Set(["submitted", "in_review", "responded", "confirm
 
 export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
   const router = useRouter();
+  const t = useTranslations("account");
+  const tp = useTranslations("promo");
+  const tpp = useTranslations("pharmacyPublic");
+  const tc = useTranslations("common");
+  const locale = useLocale() as AppLocale;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [detail, setDetail] = useState<PatientPharmacyDetail | null>(null);
@@ -57,7 +66,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
 
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
     if ((profile as { role?: string } | null)?.role !== "patient") {
-      setError("Accès réservé aux patients.");
+      setError(t("patientsAccessOnly"));
       setLoading(false);
       return;
     }
@@ -71,14 +80,14 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
         rpcErr.message.includes("patient_pharmacy_detail") || rpcErr.code === "PGRST202";
       setError(
         rpcMissing
-          ? "Fiche officine temporairement indisponible. Réessayez plus tard ou contactez le support."
+          ? t("pharmacyDetailUnavailable")
           : rpcErr.message
       );
       setDetail(null);
     } else {
       const parsed = parsePatientPharmacyDetail(data);
       if (!parsed) {
-        setError("Pharmacie introuvable ou sans lien avec votre compte.");
+        setError(t("pharmacyNotLinked"));
       } else {
         setDetail(parsed);
       }
@@ -99,7 +108,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
   if (loading) {
     return (
       <PageShell maxWidthClass="max-w-3xl">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       </PageShell>
     );
   }
@@ -108,9 +117,9 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
     return (
       <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
         <Link href="/dashboard/patient/pharmacies" className={p.backLink}>
-          ← Mes pharmacies
+          {t("backToPharmacies")}
         </Link>
-        <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error || "Pharmacie introuvable."}</p>
+        <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error || t("pharmacyNotLinked")}</p>
       </PageShell>
     );
   }
@@ -124,7 +133,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-5">
       <Link href="/dashboard/patient/pharmacies" className={p.backLink}>
-        ← Mes pharmacies
+        {t("backToPharmacies")}
       </Link>
 
       <header className={p.hero}>
@@ -143,7 +152,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
                 {pharmacy.ville?.trim() ? `${pharmacy.ville.trim()} · ` : ""}
-                {pharmacy.adresse?.trim() || "Adresse non renseignée"}
+                {pharmacy.adresse?.trim() || t("addressMissing")}
               </span>
             </p>
             {rating ? (
@@ -153,9 +162,15 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
               </p>
             ) : null}
             <p className={clsx("mt-2 text-xs", p.heroSubtitle)}>
-              {detail.requests.length} demande{detail.requests.length !== 1 ? "s" : ""}
+              {detail.requests.length === 1
+                ? t("requestCount", { count: detail.requests.length })
+                : t("requestCountPlural", { count: detail.requests.length })}
               {detail.promo_reservations.length > 0
-                ? ` · ${detail.promo_reservations.length} réservation${detail.promo_reservations.length > 1 ? "s" : ""} promo`
+                ? ` · ${
+                    detail.promo_reservations.length === 1
+                      ? t("promoReservationCount", { count: detail.promo_reservations.length })
+                      : t("promoReservationCountPlural", { count: detail.promo_reservations.length })
+                  }`
                 : ""}
             </p>
           </div>
@@ -167,14 +182,14 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary-foreground px-3 py-2 text-xs font-semibold text-primary shadow-sm hover:opacity-95"
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            Fiche publique
+            {t("publicProfile")}
           </Link>
           <Link
             href={newProductRequestHref}
             className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20"
           >
             <Package className="h-3.5 w-3.5" />
-            Nouvelle demande produits
+            {t("newProductRequest")}
           </Link>
           {wa ? (
             <a
@@ -184,7 +199,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20"
             >
               <MessageSquare className="h-3.5 w-3.5" />
-              WhatsApp
+              {tpp("whatsapp")}
             </a>
           ) : null}
           {pharmacy.telephone ? (
@@ -193,7 +208,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20"
             >
               <Phone className="h-3.5 w-3.5" />
-              Appeler
+              {tpp("call")}
             </a>
           ) : null}
         </div>
@@ -201,7 +216,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
 
       {activeRequests.length > 0 ? (
         <section className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-3 ring-1 ring-amber-100/60">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-amber-950">Dossiers en cours</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wide text-amber-950">{t("activeDossiers")}</h2>
           <ul className="mt-2 space-y-1.5">
             {activeRequests.slice(0, 8).map((r) => (
               <li key={r.id}>
@@ -225,11 +240,11 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
         <div className="border-b border-border px-4 py-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Package className="h-4 w-4 text-primary" />
-            Historique des demandes
+            {t("requestHistory")}
           </h2>
         </div>
         {detail.requests.length === 0 ? (
-          <p className="p-4 text-sm text-muted-foreground">Aucune demande enregistrée avec cette officine.</p>
+          <p className="p-4 text-sm text-muted-foreground">{t("noRequestsWithPharmacy")}</p>
         ) : (
           <ul className="divide-y divide-border">
             {detail.requests.map((r) => (
@@ -247,7 +262,16 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
                       {getRequestKindConfig(r.request_type).theme.headerLabelShort} ·{" "}
                       {requestStatusLabelFr(r.status)}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">Màj. {formatActivityFr(r.updated_at)}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {t("updatedAt", {
+                        when: formatDateTimeForLocale(r.updated_at, locale, {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }),
+                      })}
+                    </p>
                   </div>
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </Link>
@@ -262,7 +286,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
           <div className="border-b border-border px-4 py-3">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Gift className="h-4 w-4 text-violet-700" />
-              Réservations packs promo
+              {t("promoReservations")}
             </h2>
           </div>
           <ul className="divide-y divide-border">
@@ -274,16 +298,14 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-foreground">
-                      {pr.public_ref?.trim() || "Réservation promo"}
+                      {pr.public_ref?.trim() || t("promoReservationFallback")}
                       {pr.offer_title ? (
                         <span className="ml-1 font-normal text-muted-foreground">· {pr.offer_title}</span>
                       ) : null}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      {promoStatusLabelFr(pr.status)} · Retrait{" "}
-                      {new Date(pr.pickup_date).toLocaleDateString("fr-FR", {
-                        timeZone: "Africa/Casablanca",
-                      })}
+                      {promoPatientStatusLabel(tp, pr.status as PromoReservationStatus)} · {t("pickup")}{" "}
+                      {formatDateTimeForLocale(pr.pickup_date, locale, { timeZone: "Africa/Casablanca" })}
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -296,7 +318,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
 
       <p className="text-center text-xs text-muted-foreground">
         <Link href="/dashboard/patient/packs-promo" className={p.linkInline}>
-          Toutes mes réservations promo
+          {t("allPromoReservations")}
         </Link>
       </p>
     </PageShell>

@@ -27,8 +27,13 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { useLocale, useTranslations } from "next-intl";
 import { InAppNotificationItem } from "@/components/notifications/in-app-notification-item";
-import { rewriteForPatientView, rewriteForPharmacistView } from "@/lib/patient-copy";
+import { LocaleRoleGuard } from "@/components/layout/locale-role-guard";
+import { LocaleSwitcher } from "@/components/layout/locale-switcher";
+import { pickPatientNotificationText } from "@/lib/i18n/pick-notification-text";
+import { rewriteForPharmacistView } from "@/lib/patient-copy";
+import type { AppLocale } from "@/lib/i18n/config";
 import { supabase } from "@/lib/supabase";
 
 type ProfileLite = {
@@ -42,6 +47,8 @@ type HeaderNotifRow = {
   created_at: string;
   title: string;
   body: string | null;
+  title_ar: string | null;
+  body_ar: string | null;
   read_at: string | null;
   event_type: string | null;
   href: string;
@@ -73,9 +80,11 @@ function notifDetailHref(role: string, requestId: string) {
 function ProfileNavScrollPanel({
   children,
   maxHeightClass = "max-h-[min(70vh,24rem)]",
+  scrollHint,
 }: {
   children: ReactNode;
   maxHeightClass?: string;
+  scrollHint: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollHint, setShowScrollHint] = useState(false);
@@ -118,7 +127,7 @@ function ProfileNavScrollPanel({
         >
           <ChevronDown className="size-4 animate-bounce text-primary/80" strokeWidth={2.5} />
           <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-            Faire défiler
+            {scrollHint}
           </span>
         </div>
       ) : null}
@@ -126,7 +135,7 @@ function ProfileNavScrollPanel({
   );
 }
 
-function ProfileNavLogoutButton({ onLogout }: { onLogout: () => void }) {
+function ProfileNavLogoutButton({ onLogout, label }: { onLogout: () => void; label: string }) {
   return (
     <div className="shrink-0 border-t border-border/80 bg-popover px-2 py-1.5">
       <button
@@ -135,10 +144,32 @@ function ProfileNavLogoutButton({ onLogout }: { onLogout: () => void }) {
         className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50"
       >
         <LogOut className="h-4 w-4 shrink-0" />
-        Déconnexion
+        {label}
       </button>
     </div>
   );
+}
+
+function usePatientNavMenu(): PlatformNavBlock[] {
+  const t = useTranslations("header.patient");
+  const tn = useTranslations("header.notifications");
+  return [
+    {
+      kind: "section",
+      id: "dossiers",
+      heading: t("sectionDossiers"),
+      items: [
+        { href: "/dashboard/demandes", label: t("productRequests"), icon: Package },
+        { href: "/dashboard/patient/ordonnances", label: t("prescriptions"), icon: FileText },
+        { href: "/dashboard/patient/consultations-libres", label: t("consultations"), icon: MessageSquare },
+        { href: "/dashboard/patient/packs-promo", label: t("promoPacks"), icon: Gift },
+      ],
+    },
+    { kind: "link", item: { href: "/dashboard/notifications", label: tn("title"), icon: Bell } },
+    { kind: "link", item: { href: "/dashboard/patient/pharmacies", label: t("myPharmacies"), icon: MapPin } },
+    { kind: "link", item: { href: "/", label: t("directory"), icon: Building2 } },
+    { kind: "link", item: { href: "/dashboard/patient/parametres", label: t("settings"), icon: Settings } },
+  ];
 }
 
 export type PlatformNavItem = { href: string; label: string; icon: LucideIcon };
@@ -302,6 +333,10 @@ function ProfileNavMenu({ blocks, onNavigate }: { blocks: PlatformNavBlock[]; on
 
 export function PlatformHeader() {
   const router = useRouter();
+  const locale = useLocale() as AppLocale;
+  const tHeader = useTranslations("header");
+  const tCommon = useTranslations("common");
+  const patientNavMenu = usePatientNavMenu();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<ProfileLite | null>(null);
@@ -328,7 +363,7 @@ export function PlatformHeader() {
       await Promise.all([
         supabase
           .from("app_notifications")
-          .select("id,created_at,title,body,request_id,read_at,event_type")
+          .select("id,created_at,title,body,title_ar,body_ar,request_id,read_at,event_type")
           .eq("recipient_id", userId)
           .order("created_at", { ascending: false })
           .limit(12),
@@ -359,6 +394,8 @@ export function PlatformHeader() {
               created_at: string;
               title: string;
               body: string | null;
+              title_ar?: string | null;
+              body_ar?: string | null;
               request_id: string;
               read_at: string | null;
               event_type: string | null;
@@ -368,6 +405,8 @@ export function PlatformHeader() {
               created_at: row.created_at,
               title: row.title,
               body: row.body,
+              title_ar: row.title_ar ?? null,
+              body_ar: row.body_ar ?? null,
               read_at: row.read_at,
               event_type: row.event_type,
               href: notifDetailHref(role, row.request_id),
@@ -391,6 +430,8 @@ export function PlatformHeader() {
               created_at: row.created_at,
               title: row.title,
               body: row.body,
+              title_ar: null,
+              body_ar: null,
               read_at: row.read_at,
               event_type: row.event_type,
               href: promoNotifHref(role, row.reservation_id),
@@ -521,8 +562,11 @@ export function PlatformHeader() {
   const role = profile?.role ?? "patient";
   const unread = unreadCount;
   const showNotifs = Boolean(session);
+  const showLocaleSwitcher = !session || role === "patient";
 
   return (
+    <>
+      <LocaleRoleGuard role={profile?.role ?? null} booting={booting} />
     <header
       data-proxipharma-platform-header
       className="fixed inset-x-0 top-0 z-50 border-b border-slate-800/90 bg-slate-900 text-slate-100 shadow-md"
@@ -546,6 +590,7 @@ export function PlatformHeader() {
             <div className="h-9 w-9 animate-pulse rounded-full bg-muted" />
           ) : (
             <>
+              <LocaleSwitcher visible={showLocaleSwitcher} />
               {showNotifs ? (
                 <div className="relative">
                   <button
@@ -559,7 +604,7 @@ export function PlatformHeader() {
                       }
                     }}
                     className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50"
-                    aria-label="Notifications"
+                    aria-label={tHeader("notifications.ariaLabel")}
                   >
                     <Bell className="h-5 w-5" />
                     {unread > 0 ? (
@@ -571,25 +616,30 @@ export function PlatformHeader() {
                   {notifOpen ? (
                     <div className="fixed inset-x-3 top-14 z-50 max-h-[min(85vh,28rem)] overflow-hidden rounded-xl border border-border bg-popover py-2 text-popover-foreground shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-none sm:w-[min(100vw-2rem,24rem)]">
                       <div className="border-b border-border/80 px-3 pb-2">
-                        <p className="text-xs font-semibold text-foreground">Notifications</p>
+                        <p className="text-xs font-semibold text-foreground">{tHeader("notifications.title")}</p>
                       </div>
                       {notifications.length === 0 ? (
-                        <p className="px-3 py-4 text-center text-xs text-muted-foreground">Aucune notification récente.</p>
+                        <p className="px-3 py-4 text-center text-xs text-muted-foreground">{tHeader("notifications.empty")}</p>
                       ) : (
                         <ul className="max-h-[min(70vh,22rem)] space-y-2 overflow-y-auto px-2 py-2">
-                          {notifications.map((n) => (
+                          {notifications.map((n) => {
+                            const patientText =
+                              role === "patient"
+                                ? pickPatientNotificationText(n, locale, "patient")
+                                : null;
+                            return (
                             <li key={n.id}>
                               <InAppNotificationItem
                                 title={
-                                  role === "patient"
-                                    ? rewriteForPatientView(n.title) ?? n.title
+                                  patientText
+                                    ? patientText.title
                                     : role === "pharmacien"
                                       ? rewriteForPharmacistView(n.title) ?? n.title
                                       : n.title
                                 }
                                 body={
-                                  role === "patient"
-                                    ? rewriteForPatientView(n.body)
+                                  patientText
+                                    ? patientText.body
                                     : role === "pharmacien"
                                       ? rewriteForPharmacistView(n.body)
                                       : n.body
@@ -602,7 +652,8 @@ export function PlatformHeader() {
                                 isRead={Boolean(n.read_at)}
                               />
                             </li>
-                          ))}
+                            );
+                          })}
                         </ul>
                       )}
                       <div className="border-t border-border/80 px-3 pt-2">
@@ -611,7 +662,7 @@ export function PlatformHeader() {
                           onClick={() => setNotifOpen(false)}
                           className="block text-center text-xs font-semibold text-primary hover:underline"
                         >
-                          Tout voir
+                          {tHeader("notifications.viewAll")}
                         </Link>
                       </div>
                     </div>
@@ -627,7 +678,7 @@ export function PlatformHeader() {
                     setNotifOpen(false);
                   }}
                   className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border bg-card text-foreground shadow-sm transition hover:bg-muted/80"
-                  aria-label="Compte"
+                  aria-label={tHeader("account.ariaLabel")}
                 >
                   {session ? (
                     <span className="flex h-full w-full items-center justify-center bg-primary/15 text-xs font-bold text-primary">
@@ -647,14 +698,14 @@ export function PlatformHeader() {
                           onClick={() => setProfileOpen(false)}
                           className="block rounded-lg px-3 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10"
                         >
-                          Créer un compte
+                          {tHeader("guest.signup")}
                         </Link>
                         <Link
                           href="/auth"
                           onClick={() => setProfileOpen(false)}
                           className="mt-0.5 block rounded-lg px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/80"
                         >
-                          Se connecter
+                          {tHeader("guest.login")}
                         </Link>
                       </div>
                     ) : profile?.role === "admin" ? (
@@ -683,23 +734,23 @@ export function PlatformHeader() {
                         <p className="shrink-0 truncate px-5 py-1.5 text-xs text-muted-foreground">
                           {profile.full_name?.trim() || "Pharmacien"}
                         </p>
-                        <ProfileNavScrollPanel maxHeightClass="max-h-[min(58vh,20rem)]">
+                        <ProfileNavScrollPanel maxHeightClass="max-h-[min(58vh,20rem)]" scrollHint={tHeader("scrollHint")}>
                           <ProfileNavMenu
                             blocks={pharmacienNavMenu}
                             onNavigate={() => setProfileOpen(false)}
                           />
                         </ProfileNavScrollPanel>
-                        <ProfileNavLogoutButton onLogout={() => void handleLogout()} />
+                        <ProfileNavLogoutButton onLogout={() => void handleLogout()} label={tCommon("logout")} />
                       </div>
                     ) : (
                       <div className="flex max-h-[min(70vh,24rem)] flex-col overflow-hidden">
                         <p className="shrink-0 truncate px-5 py-1.5 text-xs text-muted-foreground">
-                          {profile?.full_name?.trim() || "Patient"}
+                          {profile?.full_name?.trim() || tHeader("account.patientFallback")}
                         </p>
-                        <ProfileNavScrollPanel maxHeightClass="max-h-[min(52vh,18rem)]">
+                        <ProfileNavScrollPanel maxHeightClass="max-h-[min(52vh,18rem)]" scrollHint={tHeader("scrollHint")}>
                           <ProfileNavMenu blocks={patientNavMenu} onNavigate={() => setProfileOpen(false)} />
                         </ProfileNavScrollPanel>
-                        <ProfileNavLogoutButton onLogout={() => void handleLogout()} />
+                        <ProfileNavLogoutButton onLogout={() => void handleLogout()} label={tCommon("logout")} />
                       </div>
                     )}
                   </div>
@@ -710,5 +761,6 @@ export function PlatformHeader() {
         </div>
       </div>
     </header>
+    </>
   );
 }

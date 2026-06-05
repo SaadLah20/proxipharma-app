@@ -22,6 +22,3 @@ export async function checkPhoneRegisteredForPasswordReset(
 
   return { registered: json.available === false, e164: json.e164 ?? e164 };
 }
-
-export const AUTH_RESET_PHONE_NOT_FOUND_FR =
-  "Aucun compte n’est associé à ce numéro. Vérifiez le numéro ou contactez votre administrateur ProxiPharma.";

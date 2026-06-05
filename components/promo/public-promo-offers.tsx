@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { PublicPromoOfferCard } from "@/components/promo/public-promo-offer-card";
 import {
   PharmacyPublicEmptyState,
@@ -23,6 +24,7 @@ type OfferBundle = PromoOfferRow & {
 type ActiveReservation = { offer_id: string; id: string };
 
 export function PublicPromoOffers({ pharmacyId }: { pharmacyId: string }) {
+  const t = useTranslations("pharmacyPublic");
   const router = useRouter();
   const [offers, setOffers] = useState<OfferBundle[]>([]);
   const [activeByOffer, setActiveByOffer] = useState<Map<string, string>>(new Map());
@@ -100,7 +102,7 @@ export function PublicPromoOffers({ pharmacyId }: { pharmacyId: string }) {
   if (loading) {
     return (
       <div className="space-y-3">
-        <PharmacyPublicSectionTitle title="Offres promotionnelles" hint="Chargement des packs…" />
+        <PharmacyPublicSectionTitle title={t("promos.title")} hint={t("promos.loadingHint")} />
         {[1, 2].map((i) => (
           <div key={i} className={cn(pharmacyPublicCard, "h-36 animate-pulse bg-muted/30")} />
         ))}
@@ -111,21 +113,18 @@ export function PublicPromoOffers({ pharmacyId }: { pharmacyId: string }) {
   if (offers.length === 0) {
     return (
       <div className="space-y-3">
-        <PharmacyPublicSectionTitle
-          title="Offres promotionnelles"
-          hint="Packs à prix réduit proposés par l'officine."
-        />
-        <PharmacyPublicEmptyState>Aucune offre en cours pour le moment.</PharmacyPublicEmptyState>
+        <PharmacyPublicSectionTitle title={t("promos.title")} hint={t("promos.emptyHint")} />
+        <PharmacyPublicEmptyState>{t("promos.empty")}</PharmacyPublicEmptyState>
       </div>
     );
   }
 
+  const countHint =
+    offers.length > 1 ? t("promos.countPlural", { count: offers.length }) : t("promos.count", { count: offers.length });
+
   return (
     <div className="space-y-4">
-      <PharmacyPublicSectionTitle
-        title="Offres promotionnelles"
-        hint={`${offers.length} pack${offers.length > 1 ? "s" : ""} en cours`}
-      />
+      <PharmacyPublicSectionTitle title={t("promos.title")} hint={countHint} />
       {offers.map((o) => {
         const expanded = singleOfferExpanded || expandedIds.has(o.id);
         return (

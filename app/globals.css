@@ -137,3 +137,19 @@ body[data-modal-open] [data-sticky-footer] {
   visibility: hidden;
   pointer-events: none;
 }
+
+/* i18n RTL — patient / public (locale ar) */
+html[dir="rtl"] {
+  text-align: start;
+}
+
+html[dir="rtl"] [data-proxipharma-platform-header] .sm\:right-0 {
+  right: auto;
+  left: 0;
+}
+
+html[dir="rtl"] input,
+html[dir="rtl"] textarea,
+html[dir="rtl"] select {
+  text-align: start;
+}

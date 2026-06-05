@@ -24,7 +24,7 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 * **Espace Admin :** Dashboard fondateur. Vision panoramique sur le réseau (12 pharmacies), maintenance proactive, gestion de base de données et impersonation pour débogage.
 
 ## 4. Règles Métier & UX Clés
-* **Bilinguisme natif (cible patient) :** Arabe standard + français — défaut selon langue du téléphone ; bascule AR/FR ; pharmacien/admin restent en français. Décisions figées **`CAHIER_DES_CHARGES.md` §14** (pas encore codé).
+* **Bilinguisme natif (cible patient) :** Arabe standard + français — implémenté juin 2026 (`next-intl`, switcher header, RTL). Détail **`CAHIER_DES_CHARGES.md` §14**.
 * **Approche "Mobile-First" :** Design au pouce, typographie lisible, réactivité instantanée (Optimistic UI).
 * **Moteur de Pricing :** Centralisé et automatisé (basé sur le PPH). Aucune saisie manuelle de prix pour le pharmacien lors de la vente.
 * **Système d'Alertes :** Notifications agressives côté pharmacien pour garantir la réactivité (< 15 min), couplées à des rappels automatiques côté patient pour les commandes en attente.
@@ -81,10 +81,17 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 - **UI** : `offres-promos`, `reservations-packs`, `packs-promo`, onglet Offres fiche publique, cloche header fusionnée.
 - **Horaires** : `pharmacy-weekly-hours-tab` (grille mobile corrigée, teintes par jour), fériés **`lib/morocco-public-holidays.ts`**, garde **`lib/pharmacy-on-call-compute.ts`**.
 
-**Mise à jour 2026-06-05 — consultation libre, messages vocaux conversation, ordonnance archive** :
-- **Consultation libre UX** (commit **`c507609`**) : en-têtes dossier, scroll conversation, annulation page, refresh notif ; migration **`20260705_001`** (notif 1er message chat).
-- **Messages vocaux** (commit **`ea54827`**) : enregistrement/lecture **30 s max** dans le fil conversation (FAB + inline consultation) ; migration **`20260706_001`** (Storage + RLS + notifs).
-- **Ordonnance clôturée patient** : suppression récap **`RequestKindHeader`** doublon — bandeau dossier seul en archive.
+**Mise à jour 2026-06-05 (suite 3) — i18n patient ar/fr + fix ordonnance validée** :
+- **i18n** : **`next-intl`**, cookie **`pp_locale`**, switcher header, RTL locale ar, **`messages/fr.json`** + **`messages/ar.json`** ; pharmacien/admin FR uniquement ; migration **`20260709_001`** (notifs in-app **`title_ar`** / **`body_ar`**). Détail **`CAHIER_DES_CHARGES.md` §14** · phrase reprise **§13.42**.
+- **Ordonnance validée (pharmacien)** : dispo **À commander** → champ **Réception prévue** visible/obligatoire en édition supply (`pharmacistSupplyDraftNeedsReceptionDate`, **`effectiveAvailSupplyDraft`**).
+
+**Mise à jour 2026-06-05 — consultation libre, messages vocaux, ordonnance (lots 1 + 2)** :
+- **Consultation libre UX** (commits **`c507609`**, **`081fc02`**) : en-têtes dossier, fil scrollable + auto-scroll bas, brief hors zone messages, onglet **Produits** après réponse pharma, refresh notif validée, retrait badges « Produit », archive sans **`RequestKindHeader`** doublon ; migration **`20260705_001`** (notif 1er message chat).
+- **Messages vocaux fil dossier** (commit **`ea54827`**) : **`ConversationComposer`** — enregistrement/lecture **30 s max** (FAB modal + inline consultation) ; migration **`20260706_001`** (colonnes audio, Storage, RLS, notifs).
+- **Messages vocaux envoi initial** (commit **`cb90da3`**) : bouton **Vocal** sur saisie patient (**demande produits**, **ordonnance**, **consultation libre**) via **`ConversationMessageDraftField`** — même limite **30 s**, envoyé au submit comme premier message dossier.
+- **Fix MIME Storage vocal** (commit **`fa897de`**) : migration **`20260707_001`** — bucket **`private-media`** accepte **`audio/webm`** et autres MIME audio (sinon erreur à l’upload).
+- **Ordonnance pharmacien** (commit **`6cb3160`**) : retours UX saisie/réponse ; migrations **`20260707_002`** (note patient → conversation + drift), **`20260708_001`** (pas notif « mise à jour » au premier attach scan).
+- **Ordonnance / consultation archive patient** : bandeau dossier seul (plus récap header doublon). Phrase reprise **§13.42**.
 
 **Mise à jour 2026-06-04 — catalogue BeautyMall (CSV + import pilote + aperçu photo)** :
 - **Sitemap** : `scripts/fetch-beautymall-sitemap-products.mjs` → `beautymall_sitemap_products.csv` (~13,5k URLs).

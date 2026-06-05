@@ -12,6 +12,7 @@ import {
   Tag,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
@@ -52,13 +53,6 @@ import {
 
 type TabId = "services" | "promos" | "hours" | "info";
 
-const TABS = [
-  { id: "services" as const, label: "Services", icon: ShoppingBag },
-  { id: "promos" as const, label: "Offres", icon: Tag },
-  { id: "hours" as const, label: "Horaires", icon: Clock },
-  { id: "info" as const, label: "Infos", icon: Info },
-];
-
 function normalizeWhatsApp(value: string | null) {
   return (value ?? "").replace(/[^\d]/g, "");
 }
@@ -76,6 +70,7 @@ function PharmacyWeekScheduleView({
   openLabel: string;
   openStatus: PharmacyOpenStatus;
 }) {
+  const t = useTranslations("pharmacyPublic");
   const today = days.find((d) => d.isToday);
 
   return (
@@ -85,7 +80,7 @@ function PharmacyWeekScheduleView({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="flex items-center gap-1.5 text-[11px] font-bold text-foreground">
               <CalendarClock className="size-4 text-primary" aria-hidden />
-              Aujourd&apos;hui · {today.weekdayLabel} {today.dateLabel}
+              {t("today", { weekday: today.weekdayLabel, date: today.dateLabel })}
             </p>
             <span className={pharmacyOpenStatusInlineBadgeClass(openStatus)}>{openLabel}</span>
           </div>
@@ -97,7 +92,7 @@ function PharmacyWeekScheduleView({
         </div>
       ) : null}
 
-      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">7 prochains jours</p>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{t("next7Days")}</p>
       <ul className={cn(pharmacyPublicCard, "divide-y divide-border/60 overflow-hidden p-0")}>
         {days.map((day) => (
           <li
@@ -116,11 +111,11 @@ function PharmacyWeekScheduleView({
               <p className="text-[10px] text-muted-foreground">{day.dateLabel}</p>
               {day.isOnCallFullDay ? (
                 <span className="mt-0.5 inline-block text-[9px] font-semibold uppercase tracking-wide text-amber-800">
-                  Garde
+                  {t("onCallShort")}
                 </span>
               ) : day.isException ? (
                 <span className="mt-0.5 inline-block text-[9px] font-semibold uppercase tracking-wide text-amber-800">
-                  {day.lines[0]?.startsWith("Férié") ? "Férié" : "Exception"}
+                  {day.lines[0]?.startsWith("Férié") ? t("holiday") : t("exception")}
                 </span>
               ) : null}
             </div>
@@ -151,11 +146,22 @@ export function PharmacyPublicProfile({
   serviceIds: string[];
   serviceCatalog: PharmacyServiceCatalogRow[];
 }) {
+  const t = useTranslations("pharmacyPublic");
   const [tab, setTab] = useState<TabId>("services");
   const [navOpen, setNavOpen] = useState(false);
   const [ratingAvg, setRatingAvg] = useState<number | null>(pharmacy.rating_avg ?? null);
   const [ratingCount, setRatingCount] = useState<number | null>(pharmacy.rating_count ?? null);
   const canNavigate = hasPharmacyNavigation(pharmacy);
+
+  const tabs = useMemo(
+    () => [
+      { id: "services" as const, label: t("tabs.services"), icon: ShoppingBag },
+      { id: "promos" as const, label: t("tabs.offers"), icon: Tag },
+      { id: "hours" as const, label: t("tabs.hours"), icon: Clock },
+      { id: "info" as const, label: t("tabs.info"), icon: Info },
+    ],
+    [t]
+  );
 
   const coverUrl = resolvePublicMediaUrl(pharmacy.cover_image_path ?? null);
   const logoUrl = resolvePublicMediaUrl(pharmacy.logo_url ?? null);
@@ -164,6 +170,7 @@ export function PharmacyPublicProfile({
     () => resolvePharmacyOpenStatus(weeklyHours, dayOverrides, onCallPeriods),
     [weeklyHours, dayOverrides, onCallPeriods]
   );
+  const openLabel = openState.status === "open" ? t("openNow") : t("closedNow");
   const weekLines = useMemo(
     () => buildCurrentWeekScheduleFr(weeklyHours, dayOverrides, onCallPeriods),
     [weeklyHours, dayOverrides, onCallPeriods]
@@ -179,7 +186,7 @@ export function PharmacyPublicProfile({
     return [
       {
         id: "phone",
-        label: "Appeler",
+        label: t("call"),
         detail: tel ?? undefined,
         href: tel ? `tel:${tel}` : undefined,
         icon: PHARMACY_CONTACT_ICONS.phone,
@@ -189,8 +196,8 @@ export function PharmacyPublicProfile({
       },
       {
         id: "whatsapp",
-        label: "WhatsApp",
-        detail: wa ? "Message" : undefined,
+        label: t("whatsapp"),
+        detail: wa ? t("whatsappMessage") : undefined,
         href: wa ? `https://wa.me/${wa}` : undefined,
         icon: PHARMACY_CONTACT_ICONS.whatsapp,
         tone: "whatsapp",
@@ -199,8 +206,8 @@ export function PharmacyPublicProfile({
       },
       {
         id: "maps",
-        label: "Itinéraire",
-        detail: canNavigate ? "Google, Waze…" : undefined,
+        label: t("directions"),
+        detail: canNavigate ? t("directionsApps") : undefined,
         icon: PHARMACY_CONTACT_ICONS.maps,
         tone: "maps",
         onClick: canNavigate
@@ -216,7 +223,7 @@ export function PharmacyPublicProfile({
       },
       {
         id: "email",
-        label: "E-mail",
+        label: t("email"),
         detail: pharmacy.email?.trim() ?? undefined,
         href: pharmacy.email?.trim() ? `mailto:${pharmacy.email.trim()}` : undefined,
         icon: PHARMACY_CONTACT_ICONS.email,
@@ -224,27 +231,27 @@ export function PharmacyPublicProfile({
       },
       {
         id: "website",
-        label: "Site web",
+        label: t("website"),
         href: pharmacy.website_url ?? undefined,
         icon: PHARMACY_CONTACT_ICONS.website,
         tone: "neutral",
       },
       {
         id: "facebook",
-        label: "Facebook",
+        label: t("facebook"),
         href: pharmacy.facebook_url ?? undefined,
         icon: PHARMACY_CONTACT_ICONS.facebook,
         tone: "neutral",
       },
       {
         id: "instagram",
-        label: "Instagram",
+        label: t("instagram"),
         href: pharmacy.instagram_url ?? undefined,
         icon: PHARMACY_CONTACT_ICONS.instagram,
         tone: "neutral",
       },
     ];
-  }, [pharmacy, wa, canNavigate]);
+  }, [pharmacy, wa, canNavigate, t]);
 
   const handleShare = async () => {
     const url = typeof window !== "undefined" ? window.location.href : "";
@@ -301,12 +308,10 @@ export function PharmacyPublicProfile({
               {pharmacyPublicLabel(pharmacy.nom)}
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className={pharmacyOpenStatusOverlayBadgeClass(openState.status)}>
-                {openState.openLabel}
-              </span>
+              <span className={pharmacyOpenStatusOverlayBadgeClass(openState.status)}>{openLabel}</span>
               {openState.onCallBadgeVisible ? (
                 <span className="rounded-full bg-amber-400 px-2.5 py-0.5 text-[10px] font-bold text-amber-950 ring-1 ring-amber-500/60">
-                  De garde · en cours
+                  {t("onCallInProgress")}
                 </span>
               ) : null}
             </div>
@@ -314,7 +319,7 @@ export function PharmacyPublicProfile({
         </div>
       </div>
 
-      <PharmacySegmentTabs tabs={TABS} active={tab} onChange={setTab} ariaLabel="Sections fiche pharmacie" />
+      <PharmacySegmentTabs tabs={tabs} active={tab} onChange={setTab} ariaLabel={t("tabsAria")} />
 
       <div className="p-3 sm:p-4">
         {tab === "services" ? (
@@ -328,15 +333,8 @@ export function PharmacyPublicProfile({
 
         {tab === "hours" ? (
           <div className="space-y-3">
-            <PharmacyPublicSectionTitle
-              title="Horaires & gardes"
-              hint="Statut du jour et planning sur les 7 prochains jours."
-            />
-            <PharmacyWeekScheduleView
-              days={weekLines}
-              openLabel={openState.openLabel}
-              openStatus={openState.status}
-            />
+            <PharmacyPublicSectionTitle title={t("hoursTitle")} hint={t("hoursHint")} />
+            <PharmacyWeekScheduleView days={weekLines} openLabel={openLabel} openStatus={openState.status} />
           </div>
         ) : null}
 
@@ -365,7 +363,7 @@ export function PharmacyPublicProfile({
           )}
         >
           <Phone className="size-4" aria-hidden />
-          Appeler
+          {t("call")}
         </a>
         <a
           href={wa ? `https://wa.me/${wa}` : undefined}
@@ -378,7 +376,7 @@ export function PharmacyPublicProfile({
           )}
         >
           <MessageCircle className="size-4" aria-hidden />
-          WhatsApp
+          {t("whatsapp")}
         </a>
         <button
           type="button"
@@ -390,7 +388,7 @@ export function PharmacyPublicProfile({
           )}
         >
           <Navigation className="size-4" aria-hidden />
-          Itinéraire
+          {t("directions")}
         </button>
       </div>
 

@@ -3,8 +3,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { mapAuthErrorToFrench } from "@/lib/auth-messages-fr";
+import { mapAuthErrorToLocale } from "@/lib/i18n/map-auth-error";
 import { supabase } from "@/lib/supabase";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,11 +15,14 @@ const fieldClass =
 
 export default function AuthUpdatePasswordPage() {
   const router = useRouter();
+  const t = useTranslations("auth");
+  const tc = useTranslations("common");
   const [ready, setReady] = useState(false);
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageSuccess, setMessageSuccess] = useState(false);
 
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event) => {
@@ -39,22 +43,24 @@ export default function AuthUpdatePasswordPage() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMessage("");
+    setMessageSuccess(false);
     if (password.length < 6) {
-      setMessage("Le mot de passe doit contenir au moins 6 caractères.");
+      setMessage(t("page.validationPasswordTooShort"));
       return;
     }
     if (password !== password2) {
-      setMessage("Les deux mots de passe ne correspondent pas.");
+      setMessage(t("page.validationPasswordMismatch"));
       return;
     }
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (error) {
-      setMessage(mapAuthErrorToFrench(error.message));
+      setMessage(mapAuthErrorToLocale(error.message, t));
       return;
     }
-    setMessage("Mot de passe mis à jour. Redirection…");
+    setMessageSuccess(true);
+    setMessage(t("reset.passwordDone"));
     router.replace("/auth");
   };
 
@@ -68,25 +74,23 @@ export default function AuthUpdatePasswordPage() {
         )}
       >
         <ArrowLeft className="size-4" aria-hidden />
-        Retour à la connexion
+        {tc("backToLogin")}
       </Link>
 
       <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06] p-5 shadow-sm sm:p-6">
-        <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Nouveau mot de passe</h1>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          Définissez un nouveau mot de passe pour votre compte (lien de récupération e-mail).
-        </p>
+        <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">{t("updatePassword.title")}</h1>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{t("updatePassword.subtitle")}</p>
 
         {!ready ? (
           <p className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin text-primary" aria-hidden />
-            Vérification du lien…
+            {t("updatePassword.verifyingLink")}
           </p>
         ) : (
           <form className="mt-5 space-y-3" onSubmit={(ev) => void handleSubmit(ev)}>
             <input
               type="password"
-              placeholder="Nouveau mot de passe"
+              placeholder={t("page.placeholderNewPassword")}
               className={fieldClass}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -96,7 +100,7 @@ export default function AuthUpdatePasswordPage() {
             />
             <input
               type="password"
-              placeholder="Confirmer le mot de passe"
+              placeholder={t("page.placeholderConfirmPassword")}
               className={fieldClass}
               value={password2}
               onChange={(e) => setPassword2(e.target.value)}
@@ -108,10 +112,10 @@ export default function AuthUpdatePasswordPage() {
               {loading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" aria-hidden />
-                  Patientez…
+                  {tc("wait")}
                 </>
               ) : (
-                "Enregistrer"
+                t("updatePassword.save")
               )}
             </Button>
           </form>
@@ -121,7 +125,7 @@ export default function AuthUpdatePasswordPage() {
           <p
             className={cn(
               "mt-4 rounded-xl border px-3 py-2.5 text-sm leading-relaxed",
-              message.includes("mis à jour")
+              messageSuccess
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100"
                 : "border-border bg-muted/50 text-foreground"
             )}
