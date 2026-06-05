@@ -21,6 +21,7 @@ export function PatientProductRequestDossierHeader({
   statusDetail,
   submittedAt,
   createdAt,
+  hideSentAt = false,
 }: {
   dossierRefLabel: string;
   pharmacyContact: PatientPharmacyContactInfo | null;
@@ -32,6 +33,7 @@ export function PatientProductRequestDossierHeader({
   statusDetail?: string | null;
   submittedAt?: string | null;
   createdAt?: string | null;
+  hideSentAt?: boolean;
 }) {
   const [journeyOpen, setJourneyOpen] = useState(false);
   const statusLabel = requestStatusFr[status] ?? status;
@@ -45,6 +47,7 @@ export function PatientProductRequestDossierHeader({
             dossierRefLabel={dossierRefLabel}
             submittedAt={submittedAt}
             createdAt={createdAt}
+            hideSentAt={hideSentAt}
           />
         </div>
 

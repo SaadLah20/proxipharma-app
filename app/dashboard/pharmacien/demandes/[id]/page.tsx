@@ -33,7 +33,7 @@ import {
   pharmacistRequestCatalogProductIdBlocked,
 } from "@/lib/pharmacist-request-catalog-product-block";
 import { supabase } from "@/lib/supabase";
-import { formatDateShortFr, formatDateTimeShort24hFr } from "@/lib/datetime-fr";
+import { formatDateShortFr, formatDateTimeShort24hFr, archiveTerminalFootnoteFr } from "@/lib/datetime-fr";
 import {
   PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS,
   pharmacistAvailabilityOptionsForLine,
@@ -70,6 +70,7 @@ import {
   sharedShowPlannedVisitBlock,
 } from "@/lib/request-kinds/shared-capabilities";
 import { formatPlannedVisitFr } from "@/lib/datetime-fr";
+import { findTerminalStatusHistoryEntry } from "@/lib/patient-archive-outcome-fr";
 import { RequestDetailBackLink } from "@/components/requests/shared/request-detail-back-link";
 import { RequestKindHeader } from "@/components/requests/shared/request-kind-header";
 import { ConsultationRequestDetailChrome } from "@/components/requests/consultation/consultation-request-detail-chrome";
@@ -349,6 +350,26 @@ function rowsWithEffectiveWithdrawnForSupply(rows: ItemRow[], d: Draft): ItemRow
     if (effective === Boolean(row.withdrawn_after_confirm)) return row;
     return { ...row, withdrawn_after_confirm: effective };
   });
+}
+
+/** Ligne + brouillon officine pour pastilles statut (aligné sur la dispo affichée). */
+function rowForValidatedLineLabels(
+  row: ItemRow,
+  f: ItemDraft | undefined,
+  requestType: string
+): PatientLineLike {
+  if (!f) return row as PatientLineLike;
+  const eff = effectiveAvailSupplyDraft(row, f, requestType);
+  const eta = effectiveEtaSupplyDraft(row, f, requestType);
+  const inf = eff ?? f.availability_status ?? row.availability_status ?? "";
+  let pcf = f.fulfillment_draft ?? row.post_confirm_fulfillment ?? "unset";
+  pcf = clampFulfillmentDraftToInferred(pcf, inf);
+  return {
+    ...(row as PatientLineLike),
+    availability_status: eff ?? f.availability_status ?? row.availability_status,
+    expected_availability_date: eta ?? f.expected_availability_date ?? row.expected_availability_date,
+    post_confirm_fulfillment: pcf,
+  };
 }
 
 /** Ajouts officine en brouillon : dispo / date lues depuis le draft pour le classement en liste. */
@@ -2221,6 +2242,11 @@ export default function PharmacienDemandeDetailPage() {
         });
         if (error) throw new Error(error.message);
         dispatchRequestDetailRefresh(id);
+        setItems((prev) =>
+          prev.map((r) =>
+            r.id === rowSnap.id ? { ...r, post_confirm_fulfillment: next } : r
+          )
+        );
         setDraft((prev) => {
           const synced = buildItemDraftFromRow(
             { ...rowSnap, post_confirm_fulfillment: next },
@@ -2229,7 +2255,6 @@ export default function PharmacienDemandeDetailPage() {
           );
           return { ...prev, [rowSnap.id]: synced };
         });
-        await load();
       } catch (e) {
         setDraft((prev) => {
           const cur = prev[rowSnap.id] ?? liveDraft;
@@ -2240,7 +2265,7 @@ export default function PharmacienDemandeDetailPage() {
         setFulfillmentRpcBusyId(null);
       }
     },
-    [id, load, request?.status, request?.request_type, draft]
+    [id, request, draft]
   );
 
   useEffect(() => {
@@ -3848,9 +3873,12 @@ export default function PharmacienDemandeDetailPage() {
       }
 
       const audit = buildPharmaConfirmAdjustmentAudit(rows, d);
-      const histReason = audit ? stringifyPharmaConfirmAudit(audit) : "pharmacist_adjustments_after_confirmation";
-      const { error: h } = await logHistory(id, request.status, request.status, histReason);
-      if (h) throw new Error(h.message);
+      const historyLoggedByAmendmentRpc = allAmends.some((a) => a.kind === "line_added_after_confirm");
+      if (!historyLoggedByAmendmentRpc) {
+        const histReason = audit ? stringifyPharmaConfirmAudit(audit) : "pharmacist_adjustments_after_confirmation";
+        const { error: h } = await logHistory(id, request.status, request.status, histReason);
+        if (h) throw new Error(h.message);
+      }
 
       dispatchRequestDetailRefresh(id);
       freshDraftAfterSaveRef.current = true;
@@ -4836,6 +4864,19 @@ export default function PharmacienDemandeDetailPage() {
       pharmacistRequestIsHardStopped(request.status) ||
       pharmacistRequestIsClosedSuccess(request.status));
 
+  const isPharmacistTerminalArchive =
+    pharmacistRequestIsHardStopped(request.status) || pharmacistRequestIsClosedSuccess(request.status);
+
+  const pharmacistArchiveTerminalFootnote = isPharmacistTerminalArchive
+    ? (() => {
+        const entry = findTerminalStatusHistoryEntry(
+          dossierHistoryTimeline.map((h, i) => ({ ...h, id: String(i) })),
+          request.status
+        );
+        return entry?.created_at ? archiveTerminalFootnoteFr(entry.created_at) : null;
+      })()
+    : null;
+
   let dossierStatusHint = "";
   if (usesLineWorkflow && hideMainRequestHeader) {
     if (request.status === "submitted" || request.status === "in_review") {
@@ -4930,6 +4971,7 @@ export default function PharmacienDemandeDetailPage() {
             statusHint={dossierStatusHint}
             submittedAt={request.submitted_at}
             createdAt={request.created_at}
+            hideSentAt={isPharmacistTerminalArchive}
           />
           {isPrescription && ["submitted", "in_review"].includes(request.status) ? (
             <section className={pharmacistProductSecondaryBannerClass}>
@@ -5576,8 +5618,10 @@ export default function PharmacienDemandeDetailPage() {
                 const lineCounterLocked = (row.counter_outcome ?? "unset") === "picked_up";
                 const canMarkReservedSupply = false;
                 const canMarkOrderedSupply = false;
+                const isPendingLocalAdd = isLocalProposedItemId(row.id);
                 const canShowArrivedReservedPill =
                   !archiveFrozen &&
+                  !isPendingLocalAdd &&
                   selected &&
                   !withdrawnDraft &&
                   !lineLockedTrace &&
@@ -5585,6 +5629,7 @@ export default function PharmacienDemandeDetailPage() {
                   effSupply === "to_order" &&
                   (request.status === "confirmed" || request.status === "treated");
                 const canMarkPickedUpCounterSupply =
+                  !isPendingLocalAdd &&
                   request.status === "treated" &&
                   selected &&
                   !withdrawnDraft &&
@@ -5595,7 +5640,7 @@ export default function PharmacienDemandeDetailPage() {
                     : null;
                 const validatedLineLabels = bucket
                   ? buildPatientValidatedLineLabelsFr({
-                      row: pl,
+                      row: rowForValidatedLineLabels(row, f, request.request_type),
                       originLabel: validatedOriginLabelPharmacistFr({
                         row: pl,
                         requestType: request.request_type,
@@ -6043,7 +6088,12 @@ export default function PharmacienDemandeDetailPage() {
                         request.status !== "completed" &&
                         (withdrawnDraft || isSupplyLineEditing)
                       }
-                      supplyMutationsEnabled={Boolean(canManageSupply)}
+                      supplyMutationsEnabled={Boolean(canManageSupply) && !isPendingLocalAdd}
+                      onRemovePendingAdd={
+                        isPendingLocalAdd
+                          ? () => void removePharmacistProposedLine(row)
+                          : undefined
+                      }
                       expandedEditor={expandedEditor}
                       hidePostConfirmFulfillmentPills={request.status === "treated"}
                       compactTreatedActions={request.status === "treated"}
@@ -7262,6 +7312,17 @@ export default function PharmacienDemandeDetailPage() {
             </div>
           ) : null}
 
+          {pharmacistArchiveTerminalFootnote ? (
+            <p className="mt-4 border-t border-border/60 pt-3 text-center text-[10px] leading-relaxed text-muted-foreground">
+              <span className="block">{pharmacistArchiveTerminalFootnote.label}</span>
+              {pharmacistArchiveTerminalFootnote.relative ? (
+                <span className="mt-0.5 block text-[10px] text-slate-500/90">
+                  ({pharmacistArchiveTerminalFootnote.relative})
+                </span>
+              ) : null}
+            </p>
+          ) : null}
+
           <details
             className="group mt-3 rounded-lg border border-sky-200/70 bg-sky-50/25 p-2 shadow-sm ring-1 ring-sky-100/60"
             onToggle={(e) => {
@@ -7750,6 +7811,7 @@ export default function PharmacienDemandeDetailPage() {
         open={declareTreatedModalOpen}
         busy={declareTreatedBusy}
         summary={declareTreatedSummary}
+        requestStatus={request?.status}
         onClose={() => {
           if (declareTreatedBusy) return;
           setDeclareTreatedModalOpen(false);

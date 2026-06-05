@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createPortal } from "react-dom";
 import {
   ChevronDown,
   History,
@@ -38,6 +37,7 @@ import {
   formatDateTimeShort24hFr,
   formatPlannedVisitFr,
   formatTime24hFr,
+  archiveTerminalFootnoteFr,
   patientArchiveLastPlannedVisitFootnoteFr,
   patientPlannedVisitPassageLineFr,
 } from "@/lib/datetime-fr";
@@ -417,7 +417,7 @@ export function PatientValidatedCompactLineCard({
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <p
             className={cn(
-              "min-w-0 text-[13px] font-semibold leading-snug",
+              "line-clamp-2 min-w-0 text-[13px] font-semibold leading-snug",
               withdrawnGrey && "text-muted-foreground line-through decoration-slate-400/90"
             )}
             title={validatedName}
@@ -524,7 +524,7 @@ function PatientTraceNotRetainedRow({
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <p
-            className="min-w-0 text-[13px] font-semibold leading-snug text-muted-foreground line-through decoration-slate-400/90"
+            className="line-clamp-2 min-w-0 text-[13px] font-semibold leading-snug text-muted-foreground line-through decoration-slate-400/90"
             title={name}
           >
             {name}
@@ -581,12 +581,14 @@ function PatientTraceNotRetainedRow({
   );
 }
 
-/** Défaut : principal si disponible ; avec alternatives proposées, ne jamais pré-cocher une Alt. */
+/** Défaut : principal si disponible ; sinon première alternative retenable. */
 function pickDefaultBranch(row: ActionItemRow, alts: ActionItemAltRow[]): LineBranch {
   if (maxQtyPrincipal(row) > 0) return "principal";
-  if (alts.length > 0) return null;
-  for (const alt of alts) {
-    if (maxQtyAlt(row, alt) > 0) return alt.id;
+  if (alts.length > 0) {
+    for (const alt of alts) {
+      if (maxQtyAlt(row, alt) > 0) return alt.id;
+    }
+    return null;
   }
   return null;
 }
@@ -1189,16 +1191,6 @@ function PatientSentLineNotesModalFr({
   const titleId = useId();
   const c = client.trim();
   const p = pharmacist.trim();
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
-
   const hasNotes = Boolean(c || p);
 
   return (
@@ -1207,69 +1199,60 @@ function PatientSentLineNotesModalFr({
         hasComment={hasNotes}
         onClick={() => setOpen(true)}
       />
-      {open && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-3 backdrop-blur-[1px] sm:items-center"
-              role="presentation"
-              onClick={(e) => {
-                if (e.target === e.currentTarget) setOpen(false);
-              }}
+      <AppModalOverlay open={open} aria-labelledby={titleId} onBackdropClick={() => setOpen(false)}>
+        <div
+          className={cn(
+            "max-h-[min(80vh,20rem)] w-full max-w-sm overflow-hidden rounded-2xl border bg-card shadow-2xl sm:mx-auto",
+            productRequestTheme.modalShell
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className={cn("flex items-start justify-between gap-2 border-b px-3 py-2", productRequestTheme.modalHeader)}>
+            <div className="min-w-0 flex-1">
+              <h2 id={titleId} className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                <span className="block">Notes — produit</span>
+                <span className="mt-1 block text-[13px] font-semibold normal-case leading-snug text-foreground">
+                  {productName}
+                </span>
+              </h2>
+            </div>
+            <button
+              type="button"
+              className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted/60"
+              aria-label="Fermer"
+              onClick={() => setOpen(false)}
             >
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby={titleId}
-                className="max-h-[min(80vh,20rem)] w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200/90 bg-card shadow-2xl ring-1 ring-slate-900/10"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-start justify-between gap-2 border-b border-border/60 px-3 py-2">
-                  <div className="min-w-0 flex-1">
-                    <h2 id={titleId} className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                      <span className="block">Notes — produit</span>
-                      <span className="mt-1 block text-[13px] font-semibold normal-case leading-snug text-foreground">{productName}</span>
-                    </h2>
-                  </div>
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted/60"
-                    aria-label="Fermer"
-                    onClick={() => setOpen(false)}
-                  >
-                    <X className="size-4" aria-hidden />
-                  </button>
-                </div>
-                <div className="max-h-[min(60vh,16rem)] space-y-2 overflow-y-auto overscroll-y-contain px-3 py-2.5 text-[11px] [-webkit-overflow-scrolling:touch]">
-                  {!c && !p ? (
-                    <p className="text-[11px] leading-snug text-muted-foreground">Aucune note sur ce produit.</p>
-                  ) : null}
-                  {c ? (
-                    <div className="rounded-lg border border-sky-200/80 bg-sky-50/90 px-2.5 py-2">
-                      <p className="text-[8px] font-bold uppercase tracking-wide text-sky-900">Vous</p>
-                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-sky-950">{c}</p>
-                    </div>
-                  ) : null}
-                  {p ? (
-                    <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-2">
-                      <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-900">Officine</p>
-                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-emerald-950">{p}</p>
-                    </div>
-                  ) : null}
-                </div>
-                <div className="border-t border-border/60 px-3 py-2">
-                  <button
-                    type="button"
-                    className="h-9 w-full rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-                    onClick={() => setOpen(false)}
-                  >
-                    Fermer
-                  </button>
-                </div>
+              <X className="size-4" aria-hidden />
+            </button>
+          </div>
+          <div className="max-h-[min(60vh,16rem)] space-y-2 overflow-y-auto overscroll-y-contain px-3 py-2.5 text-[11px] [-webkit-overflow-scrolling:touch]">
+            {!c && !p ? (
+              <p className="text-[11px] leading-snug text-muted-foreground">Aucune note sur ce produit.</p>
+            ) : null}
+            {c ? (
+              <div className="rounded-lg border border-sky-200/80 bg-sky-50/90 px-2.5 py-2">
+                <p className="text-[8px] font-bold uppercase tracking-wide text-sky-900">Vous</p>
+                <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-sky-950">{c}</p>
               </div>
-            </div>,
-            document.body
-          )
-        : null}
+            ) : null}
+            {p ? (
+              <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-2">
+                <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-900">Officine</p>
+                <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-emerald-950">{p}</p>
+              </div>
+            ) : null}
+          </div>
+          <div className="border-t border-border/60 px-3 py-2">
+            <button
+              type="button"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+              onClick={() => setOpen(false)}
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      </AppModalOverlay>
     </>
   );
 }
@@ -2718,10 +2701,12 @@ export function PatientProductRequestActions({
   const confirmSkippedLines = confirmReviewSnap?.skippedLines ?? [];
 
   const useNeutralProductDossierShell =
-    !forceReadOnly && (showConfirm || showConfirmedCards);
+    !forceReadOnly && showConfirmedCards;
   const useCompactPassageBlock = useNeutralProductDossierShell;
   const useSkyProductShell =
-    !useNeutralProductDossierShell && showProductResubmit && !forceReadOnly;
+    !useNeutralProductDossierShell &&
+    (showProductResubmit || showConfirm) &&
+    !forceReadOnly;
   const useArchiveShell = forceReadOnly && usesLineWorkflowUi;
   const isExpiredProductArchive = status === "expired" && usesLineWorkflowUi;
   const isCancelledProductArchive = status === "cancelled" && usesLineWorkflowUi;
@@ -2738,6 +2723,10 @@ export function PatientProductRequestActions({
   const terminalHistoryEntry = isDossierTerminalArchive
     ? findTerminalStatusHistoryEntry(dossierHistoryRows, status)
     : null;
+  const archiveTerminalFootnote =
+    readOnlyArchive && terminalHistoryEntry?.created_at
+      ? archiveTerminalFootnoteFr(terminalHistoryEntry.created_at)
+      : null;
   const archiveDossierStatusLabel = isExpiredProductArchive
     ? "expired"
     : isCancelledProductArchive
@@ -2878,6 +2867,7 @@ export function PatientProductRequestActions({
           statusDetail={archiveDossierStatusDetail}
           submittedAt={requestTimelineMeta?.submitted_at}
           createdAt={requestTimelineMeta?.created_at}
+          hideSentAt={isDossierTerminalArchive}
         />
       ) : null}
 
@@ -2953,6 +2943,14 @@ export function PatientProductRequestActions({
             pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
             resolveCatalogUnitPriceForProduct={resolveCatalogUnitPriceForProduct}
           />
+          {archiveTerminalFootnote ? (
+            <p className="mt-4 border-t border-border/60 pt-3 text-center text-[10px] leading-relaxed text-muted-foreground">
+              <span className="block">{archiveTerminalFootnote.label}</span>
+              {archiveTerminalFootnote.relative ? (
+                <span className="mt-0.5 block text-[10px] text-slate-500/90">({archiveTerminalFootnote.relative})</span>
+              ) : null}
+            </p>
+          ) : null}
           {archivePassageFootnote ? (
             <p className="mt-4 border-t border-border/60 pt-3 text-center text-[10px] leading-relaxed text-muted-foreground">
               <span className="block">{archivePassageFootnote.label}</span>
@@ -3623,7 +3621,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirm && !forceReadOnly && !stickyFooterObscured ? (
-        <PlatformStickyFooter tone="slate">
+        <PlatformStickyFooter tone="sky">
           <div className="flex flex-col gap-2">
             <PlatformStickyFooterSummaryRow
               left={

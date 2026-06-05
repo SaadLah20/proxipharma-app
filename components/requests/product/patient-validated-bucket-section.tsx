@@ -11,7 +11,6 @@ import {
   patientValidatedBucketAriaTitleFr,
   patientValidatedBucketCountBadgeClass,
   patientValidatedBucketHeaderBarClass,
-  patientValidatedBucketSectionShellClass,
   patientValidatedBucketTitleFr,
 } from "@/lib/patient-validated-bucket-ui";
 
@@ -76,9 +75,7 @@ export function PatientValidatedBucketSection({
       {hint ? (
         <p className="px-1 text-[10px] leading-snug text-muted-foreground">{hint}</p>
       ) : null}
-      <div className={clsx("overflow-hidden rounded-lg", patientValidatedBucketSectionShellClass(bucketId))}>
-        {children}
-      </div>
+      <div className="w-full min-w-0">{children}</div>
     </section>
   );
 }

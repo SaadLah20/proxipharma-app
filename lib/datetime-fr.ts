@@ -89,6 +89,23 @@ export function formatRelativeToNowFr(target: Date, now = new Date()): string {
   return future ? `dans ${years} ${unit}` : `il y a ${years} ${unit}`;
 }
 
+/** Archives : date de clôture / passage terminal en bas de page (temps relatif). */
+export function archiveTerminalFootnoteFr(
+  iso: string | null | undefined,
+  labelPrefix = "Clôturée le"
+): { label: string; relative: string } | null {
+  if (iso == null || String(iso).trim() === "") return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const absolute = formatDateShortCasablancaWithTime24hFr(iso);
+  if (!absolute) return null;
+  const relative = formatRelativeToNowFr(d);
+  return {
+    label: `${labelPrefix} ${absolute}`,
+    relative,
+  };
+}
+
 /** Archives patient : rappel discret du dernier passage fixé par le patient. */
 export function patientArchiveLastPlannedVisitFootnoteFr(
   dateYmd: string | null | undefined,

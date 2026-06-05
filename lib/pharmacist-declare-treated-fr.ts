@@ -9,6 +9,7 @@ export type PharmacistDeclareTreatedLineFr = {
   id: string;
   name: string;
   qty: number;
+  statusNote?: string | null;
 };
 
 export type PharmacistDeclareTreatedSummaryFr = {
@@ -20,7 +21,24 @@ export type PharmacistDeclareTreatedSummaryFr = {
 type DraftLike = {
   withdrawn_after_confirm?: boolean;
   availability_status?: string | null;
+  fulfillment_draft?: "unset" | "reserved" | "ordered" | "arrived_reserved";
 };
+
+function fulfillmentStatusNoteFr(
+  eff: string | null | undefined,
+  pcf: string | null | undefined
+): string | null {
+  if (eff === "to_order") {
+    if (pcf === "arrived_reserved") return "Reçu en officine";
+    if (pcf === "ordered") return "Commandé";
+    return "À commander";
+  }
+  if (eff === "available" || eff === "partially_available") {
+    if (pcf === "reserved") return "Réservé";
+    return "À réserver";
+  }
+  return null;
+}
 
 type ItemLike = PatientLineLike & {
   id: string;
@@ -46,11 +64,13 @@ export function buildPharmacistDeclareTreatedSummary(
     const eff =
       (f?.availability_status as string | null | undefined) ??
       effectiveAvailabilityForPatientLine(row);
+    const pcf = f?.fulfillment_draft ?? row.post_confirm_fulfillment ?? "unset";
     void requestType;
     const line: PharmacistDeclareTreatedLineFr = {
       id: row.id,
       name: validatedProductLabel(row),
       qty: validatedQtyForPatientLine(row),
+      statusNote: fulfillmentStatusNoteFr(eff, pcf),
     };
 
     if (eff === "available" || eff === "partially_available") {

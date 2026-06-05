@@ -72,7 +72,7 @@ export function PatientProductRequestCompactLine({
           contentMinHeight={isProposed ? "min-h-16" : undefined}
           title={
             <div className="min-w-0">
-              <p className="truncate pb-px text-[13px] font-semibold leading-snug text-foreground" title={line.name}>
+              <p className="line-clamp-2 min-w-0 pb-px text-[13px] font-semibold leading-snug text-foreground" title={line.name}>
                 {line.name}
               </p>
               {isProposed ? (

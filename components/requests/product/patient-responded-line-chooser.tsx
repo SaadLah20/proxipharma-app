@@ -473,7 +473,7 @@ function RespondedVariantTabs({
   );
 }
 
-function RespondedRetainControl({
+function RespondedCompactRetainButton({
   retained,
   unavailable,
   readOnly,
@@ -484,30 +484,39 @@ function RespondedRetainControl({
   readOnly: boolean;
   onToggle: (on: boolean) => void;
 }) {
+  const closedBoxClass = cn(
+    "size-4 shrink-0 rounded border bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]",
+    retained ? "border-emerald-500/70" : "border-border/80"
+  );
+
   if (unavailable) {
     return (
-      <span className="block w-full text-center text-[8px] font-semibold leading-none text-slate-400">—</span>
+      <span className="block w-full max-w-[3.85rem] text-center text-[8px] font-semibold leading-none text-slate-400">
+        —
+      </span>
     );
   }
+
   if (readOnly) {
     return retained ? (
-      <span className="flex w-full max-w-[3.85rem] items-center justify-center gap-0.5 leading-none">
+      <div className="flex w-full max-w-[3.85rem] flex-col items-center gap-0.5 rounded-md border border-border/80 bg-muted/15 px-1 py-1.5">
         <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
-        <span className="text-[8px] font-bold text-emerald-700">OK</span>
-      </span>
+        <span className="text-[9px] font-bold leading-none text-emerald-700">Retenir</span>
+      </div>
     ) : null;
   }
+
   return (
-    <label className="flex w-full max-w-[3.85rem] cursor-pointer items-center justify-center gap-0.5 leading-none">
-      <input
-        type="checkbox"
-        checked={retained}
-        onChange={(e) => onToggle(e.target.checked)}
-        className="size-4 shrink-0 rounded border-border accent-emerald-600"
-        aria-label={retained ? "Produit retenu — cliquer pour retirer" : "Inclure ce produit dans votre validation"}
-      />
-      <span className="text-[8px] font-bold text-muted-foreground">OK</span>
-    </label>
+    <button
+      type="button"
+      className="flex w-full max-w-[3.85rem] flex-col items-center gap-0.5 rounded-md border border-border/80 bg-muted/15 px-1 py-1.5 transition hover:bg-muted/25"
+      aria-pressed={retained}
+      aria-label={retained ? "Retenir — cliquer pour retirer" : "Retenir ce produit"}
+      onClick={() => onToggle(!retained)}
+    >
+      <span className={closedBoxClass} aria-hidden />
+      <span className="text-[9px] font-bold leading-none text-foreground">Retenir</span>
+    </button>
   );
 }
 
@@ -615,7 +624,7 @@ function RespondedLineBlock({
         >
           <div className={cn(RESPONDED_LINE_THUMB, variantTabsAbove && "size-[3.5rem]")}>{thumbInner}</div>
           {!variantTabsAbove ? (
-            <RespondedRetainControl
+            <RespondedCompactRetainButton
               retained={retained}
               unavailable={unavailable}
               readOnly={readOnly}
@@ -628,7 +637,7 @@ function RespondedLineBlock({
           <div className="space-y-1">
             <p
               className={cn(
-                "min-w-0 text-[13px] font-semibold leading-snug",
+                "line-clamp-2 min-w-0 text-[13px] font-semibold leading-snug",
                 unavailable ? "text-slate-600" : "text-foreground",
                 notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
               )}
@@ -763,7 +772,9 @@ export function RespondedPatientLineChooser({
     isPrescriptionAdditionalProposedLine(requestType, row, supplyAmendmentBundles);
 
 
-  const [browseTab, setBrowseTab] = useState("principal");
+  const [browseTab, setBrowseTab] = useState(() =>
+    selState.branch === null || selState.branch === "principal" ? "principal" : selState.branch
+  );
 
   /** Onglet consulté (navigation libre, indépendante de la branche cochée). */
   const activeTab = browseTab;

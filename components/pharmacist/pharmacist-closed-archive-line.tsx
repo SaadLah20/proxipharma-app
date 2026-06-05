@@ -86,7 +86,7 @@ export function PharmacistClosedArchiveNotRetainedLine({
         <div className={clsx(VALIDATED_LINE_THUMB, "self-start opacity-90")}>{thumbInner}</div>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <p
-            className="min-w-0 text-[13px] font-semibold leading-snug text-muted-foreground line-through decoration-slate-400/90"
+            className="line-clamp-2 min-w-0 text-[13px] font-semibold leading-snug text-muted-foreground line-through decoration-slate-400/90"
             title={productName}
           >
             {productName}

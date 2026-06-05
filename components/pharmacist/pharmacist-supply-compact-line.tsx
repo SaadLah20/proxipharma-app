@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { clsx } from "clsx";
-import { History, MoreVertical, Package } from "lucide-react";
+import { History, MoreVertical, Package, Trash2 } from "lucide-react";
 import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
 import {
   validatedLineLabelChipClass,
@@ -85,6 +85,7 @@ export function PharmacistSupplyCompactLine({
   onMenuWithdraw,
   onMenuHistory,
   supplyMutationsEnabled = true,
+  onRemovePendingAdd,
   showAjoutOfficineBadge,
   ajoutOfficineBadgeLabel,
   /** Badge origine ligne (Ordonnance / Proposé) — distinct de l’ajout post-validation. */
@@ -146,6 +147,8 @@ export function PharmacistSupplyCompactLine({
   onMenuHistory: () => void;
   /** Modifier / écarter (désactivé en archive : annulé, expiré, abandonné, clôturé…). */
   supplyMutationsEnabled?: boolean;
+  /** Ajout officine non enregistré : bouton supprimer local. */
+  onRemovePendingAdd?: () => void;
   /** Proposition officine (aligné badge patient). */
   showAjoutOfficineBadge?: boolean;
   ajoutOfficineBadgeLabel?: string;
@@ -245,6 +248,18 @@ export function PharmacistSupplyCompactLine({
   const lineActionButtons = (
     <div className="flex shrink-0 items-center gap-2">
       {lineMessageButton}
+      {onRemovePendingAdd ? (
+        <button
+          type="button"
+          title="Supprimer cet ajout"
+          aria-label="Supprimer cet ajout"
+          disabled={busy || supplyConfirmBusy || fulfillmentActionsBusy}
+          onClick={onRemovePendingAdd}
+          className="inline-flex size-8 items-center justify-center rounded-lg border border-rose-200/90 bg-rose-50/90 text-rose-800 shadow-sm transition hover:bg-rose-100 disabled:opacity-40"
+        >
+          <Trash2 className="size-4" strokeWidth={2} aria-hidden />
+        </button>
+      ) : null}
       {menuHasActions ? (
         <>
           <button
@@ -470,7 +485,7 @@ export function PharmacistSupplyCompactLine({
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <p
                 className={clsx(
-                  "min-w-0 text-[13px] font-semibold leading-snug text-slate-950 sm:text-[14px]",
+                  "line-clamp-2 min-w-0 text-[13px] font-semibold leading-snug text-slate-950 sm:text-[14px]",
                   (withdrawnGrey || withdrawn) && "text-muted-foreground line-through decoration-slate-400/90"
                 )}
                 title={validatedName}
@@ -519,7 +534,7 @@ export function PharmacistSupplyCompactLine({
                 <div className="flex min-w-0 items-start gap-1.5">
                   <p
                     className={clsx(
-                      "min-w-0 flex-1 truncate pb-px text-[13px] font-semibold leading-snug text-slate-950 sm:text-[14px]",
+                      "line-clamp-2 min-w-0 flex-1 pb-px text-[13px] font-semibold leading-snug text-slate-950 sm:text-[14px]",
                       (withdrawnGrey || withdrawn) && "text-muted-foreground line-through decoration-slate-400/90"
                     )}
                     title={validatedName}
