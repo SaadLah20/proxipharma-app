@@ -8,6 +8,7 @@ import {
   type CatalogProductPhotoPreview,
 } from "@/components/requests/patient-product-photo-preview-modal";
 import { filterPromoCatalogProducts, type PromoCatalogProduct } from "@/lib/promo/catalog";
+import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 
 export function PromoProductPicker({
@@ -54,6 +55,7 @@ export function PromoProductPicker({
                     <CatalogProductPhotoThumb
                       imageUrl={photo}
                       title={p.name}
+                      descriptionHtml={productDescriptionHtmlForDisplay(p.full_description)}
                       size={32}
                       onPreview={setPreview}
                     />
@@ -79,6 +81,7 @@ export function PromoProductPicker({
         open={Boolean(preview)}
         imageUrl={preview?.url ?? null}
         title={preview?.title ?? ""}
+        descriptionHtml={preview?.descriptionHtml}
         onClose={() => setPreview(null)}
       />
     </div>

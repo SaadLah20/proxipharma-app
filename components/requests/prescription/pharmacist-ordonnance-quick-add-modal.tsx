@@ -1,7 +1,14 @@
 ﻿"use client";
 
+import { useState } from "react";
 import { clsx } from "clsx";
 import { Package, Pencil, Search, Trash2, X } from "lucide-react";
+import { PharmacistProductPhotoThumb } from "@/components/pharmacist/pharmacist-product-photo-thumb";
+import {
+  PatientProductPhotoPreviewModal,
+  type CatalogProductPhotoPreview,
+} from "@/components/requests/patient-product-photo-preview-modal";
+import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
 import { PHARMACIST_AVAILABILITY_OPTIONS } from "@/lib/pharmacist-availability";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
 import {
@@ -21,6 +28,7 @@ export type OrdonnanceCatalogHit = {
   price_pph?: number | null;
   price_ppv?: number | null;
   photo_url?: string | null;
+  full_description?: string | null;
 };
 
 export type OrdonnanceModalAlternativePick = {
@@ -30,6 +38,7 @@ export type OrdonnanceModalAlternativePick = {
   price_pph?: number | null;
   price_ppv?: number | null;
   photo_url?: string | null;
+  full_description?: string | null;
 };
 
 type Props = {
@@ -124,6 +133,15 @@ function QtyStepper({
 }
 
 export function PharmacistOrdonnanceQuickAddModal(props: Props) {
+  const [photoPreview, setPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
+  const openPhotoPreview = (url: string, title: string, descriptionHtml?: string | null) => {
+    setPhotoPreview({
+      url,
+      title,
+      descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
+    });
+  };
+
   const {
     open,
     onClose,
@@ -162,6 +180,16 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
 
   if (!open) return null;
 
+  const previewModal = (
+    <PatientProductPhotoPreviewModal
+      open={photoPreview != null}
+      imageUrl={photoPreview?.url ?? null}
+      title={photoPreview?.title ?? ""}
+      descriptionHtml={photoPreview?.descriptionHtml}
+      onClose={() => setPhotoPreview(null)}
+    />
+  );
+
   const productLocked = Boolean(selectedProduct);
   const reqN = clampOrdonnanceRequestedQty(parseInt(requestedQty, 10) || 1);
   const availN = parseInt(availableQty, 10);
@@ -182,6 +210,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
     !(availability === "to_order" && availParsed < 1);
 
   return (
+    <>
     <AppModalOverlay
       open={open}
       aria-label="Ajouter un produit ordonnance"
@@ -228,12 +257,14 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                         onClick={() => onSelectProduct(h)}
                         className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition hover:bg-card disabled:opacity-50"
                       >
-                        <span className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-amber-200/60 bg-amber-50/50">
-                          {h.photo_url ? (
-                            <img src={h.photo_url} alt="" className="size-full object-cover" />
-                          ) : (
-                            <Package className="size-5 text-amber-600/80" aria-hidden />
-                          )}
+                        <span className="relative flex size-10 shrink-0 overflow-hidden rounded-lg border border-amber-200/60 bg-amber-50/50">
+                          <PharmacistProductPhotoThumb
+                            photoUrl={h.photo_url}
+                            title={h.name}
+                            descriptionHtml={h.full_description}
+                            onPhotoPreview={openPhotoPreview}
+                            iconClassName="text-amber-600/80"
+                          />
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block font-medium text-foreground">{h.name}</span>
@@ -255,11 +286,13 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
             <div className="rounded-xl border-2 border-amber-300/80 bg-amber-50/60 p-2.5">
               <div className="flex items-start gap-2">
                 <span className="relative flex size-12 shrink-0 overflow-hidden rounded-lg border border-amber-200 bg-white">
-                  {selectedProduct.photo_url ? (
-                    <img src={selectedProduct.photo_url} alt="" className="size-full object-cover" />
-                  ) : (
-                    <Package className="m-auto size-6 text-amber-600/80" aria-hidden />
-                  )}
+                  <PharmacistProductPhotoThumb
+                    photoUrl={selectedProduct.photo_url}
+                    title={selectedProduct.name}
+                    descriptionHtml={selectedProduct.full_description}
+                    onPhotoPreview={openPhotoPreview}
+                    iconClassName="text-amber-600/80 size-6"
+                  />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-amber-800">Produit choisi</p>
@@ -386,11 +419,13 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                       >
                         <span className="flex min-w-0 items-center gap-2">
                           <span className="relative flex size-8 shrink-0 overflow-hidden rounded-md border border-slate-200/80 bg-slate-50">
-                            {a.photo_url ? (
-                              <img src={a.photo_url} alt="" className="size-full object-cover" />
-                            ) : (
-                              <Package className="m-auto size-4 text-slate-500" aria-hidden />
-                            )}
+                            <PharmacistProductPhotoThumb
+                              photoUrl={a.photo_url}
+                              title={a.name}
+                              descriptionHtml={a.full_description}
+                              onPhotoPreview={openPhotoPreview}
+                              iconClassName="text-slate-500 size-4"
+                            />
                           </span>
                           <span className="min-w-0 truncate font-medium">{a.name}</span>
                         </span>
@@ -431,11 +466,13 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                               className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[11px] transition hover:bg-white disabled:opacity-50"
                             >
                               <span className="relative flex size-8 shrink-0 overflow-hidden rounded-md border border-slate-200/80 bg-slate-50">
-                                {h.photo_url ? (
-                                  <img src={h.photo_url} alt="" className="size-full object-cover" />
-                                ) : (
-                                  <Package className="m-auto size-4 text-slate-500" aria-hidden />
-                                )}
+                                <PharmacistProductPhotoThumb
+                                  photoUrl={h.photo_url}
+                                  title={h.name}
+                                  descriptionHtml={h.full_description}
+                                  onPhotoPreview={openPhotoPreview}
+                                  iconClassName="text-slate-500 size-4"
+                                />
                               </span>
                               <span className="min-w-0 flex-1">
                                 <span className="block truncate font-medium text-foreground">{h.name}</span>
@@ -469,6 +506,8 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
         </div>
       </div>
     </AppModalOverlay>
+    {previewModal}
+    </>
   );
 }
 

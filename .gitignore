@@ -46,3 +46,8 @@ next-env.d.ts
 # photos catalogue pilote (déjà dans Supabase Storage)
 /catalog/images/*
 !/catalog/images/.gitkeep
+
+# exports BeautyMall (générés localement)
+/scripts/beautymall_sitemap_products.csv
+/scripts/products_final.csv
+/scripts/products_unmatched.csv

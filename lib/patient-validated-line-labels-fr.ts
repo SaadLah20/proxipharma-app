@@ -113,9 +113,6 @@ function isRedundantSectionStatusLabel(
   ) {
     return true;
   }
-  if (treatedLineLabels && sectionBucket === "commande" && status === "Reçu en officine") {
-    return true;
-  }
   return false;
 }
 

@@ -10,7 +10,6 @@ import {
   type PatientClosedArchiveLineBucketId,
 } from "@/lib/patient-closed-archive-line-buckets";
 import { patientBucketProductListClass } from "@/lib/patient-bucket-product-row-ui";
-import { pharmacistProductSectionTitleClass } from "@/lib/pharmacist-product-dossier-shell";
 
 type ClosedArchiveLineLike = {
   id: string;
@@ -55,13 +54,6 @@ export function PharmacistClosedProductBucketsView<T extends ClosedArchiveLineLi
 
   return (
     <div className="w-full min-w-0 space-y-3">
-      <div className="space-y-1 px-0">
-        <h3 className={pharmacistProductSectionTitleClass}>Produits archivés</h3>
-        <p className="text-[10px] leading-snug text-muted-foreground sm:text-[11px]">
-          État enregistré au moment de la clôture — consultation seule.
-        </p>
-      </div>
-
       {PATIENT_CLOSED_ARCHIVE_BUCKET_ORDER.map((bucketId) => {
         const rows = closedBuckets[bucketId];
         if (rows.length === 0) return null;

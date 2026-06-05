@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createPortal } from "react-dom";
 import {
   ChevronDown,
   History,
@@ -38,6 +37,7 @@ import {
   formatDateTimeShort24hFr,
   formatPlannedVisitFr,
   formatTime24hFr,
+  archiveTerminalFootnoteFr,
   patientArchiveLastPlannedVisitFootnoteFr,
   patientPlannedVisitPassageLineFr,
 } from "@/lib/datetime-fr";
@@ -74,6 +74,7 @@ import {
 import {
   bucketPatientValidatedLinesThreeWays,
   type PatientLineLike,
+  validatedBranchDescriptionHtml,
   validatedBranchUnitPriceMad,
   validatedBranchPhotoPath,
   validatedProductLabel,
@@ -173,7 +174,12 @@ import { productRequestPublicTheme as productRequestTheme } from "@/lib/request-
 import { requestKindUiTheme } from "@/lib/request-kind-ui-theme";
 import { archiveClosedQtyLabelFr, validatedOriginFallbackPatientFr } from "@/lib/prescription-ui-copy";
 import { uiSecondaryLabel } from "@/lib/ui-label-styles";
-import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
+import {
+  PatientProductPhotoPreviewModal,
+  type CatalogProductPhotoPreview,
+  type ProductPhotoPreviewHandler,
+} from "@/components/requests/patient-product-photo-preview-modal";
+import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
 import { PlannedVisitTimeInput } from "@/components/requests/planned-visit-time-input";
 import { PlannedVisitDateInput } from "@/components/requests/planned-visit-date-input";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
@@ -193,6 +199,7 @@ type ProdBrief = {
   price_pph?: number | null;
   price_ppv?: number | null;
   photo_url?: string | null;
+  full_description?: string | null;
 };
 
 export type ActionItemAltRow = {
@@ -350,12 +357,13 @@ export function PatientValidatedCompactLineCard({
   onOpenHistory: () => void;
   requestStatusForCard?: string | null;
   archiveClosureLabel?: string | null;
-  onPhotoPreview?: (url: string, title: string) => void;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
   pharmacistProposedBadgeLabel?: string;
   requestType?: string;
   supplyAmendmentBundles?: { amendments: unknown }[];
 }) {
   const validatedName = validatedProductLabel(row);
+  const descriptionHtml = validatedBranchDescriptionHtml(row);
   const displayQty = patientDisplayQtyForLine(row, requestStatusForCard);
   const unitMad = validatedBranchUnitPriceMad(row, pricingConfig, row.product_id);
   const lineTotalMad = unitMad != null ? unitMad * displayQty : null;
@@ -385,7 +393,7 @@ export function PatientValidatedCompactLineCard({
       <button
         type="button"
         className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", productRequestTheme.photoRing)}
-        onClick={() => onPhotoPreview(thumbUrl, validatedName)}
+        onClick={() => onPhotoPreview(thumbUrl, validatedName, descriptionHtml)}
         aria-label={`Agrandir la photo · ${validatedName}`}
       >
         <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
@@ -409,7 +417,7 @@ export function PatientValidatedCompactLineCard({
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <p
             className={cn(
-              "min-w-0 text-[13px] font-semibold leading-snug",
+              "line-clamp-2 min-w-0 text-[13px] font-semibold leading-snug",
               withdrawnGrey && "text-muted-foreground line-through decoration-slate-400/90"
             )}
             title={validatedName}
@@ -475,7 +483,7 @@ function PatientTraceNotRetainedRow({
   row: ActionItemRow;
   onOpenHistory: () => void;
   postConfirmBadges?: string[];
-  onPhotoPreview?: (url: string, title: string) => void;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
   requestType?: string;
 }) {
   const prod = one(row.products);
@@ -499,7 +507,7 @@ function PatientTraceNotRetainedRow({
               <button
                 type="button"
                 className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", productRequestTheme.photoRing)}
-                onClick={() => onPhotoPreview(photoUrl, name)}
+                onClick={() => onPhotoPreview(photoUrl, name, prod?.full_description)}
                 aria-label={`Agrandir la photo · ${name}`}
               >
                 <img src={photoUrl} alt="" className="pointer-events-none h-full w-full object-cover opacity-90" />
@@ -516,7 +524,7 @@ function PatientTraceNotRetainedRow({
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <p
-            className="min-w-0 text-[13px] font-semibold leading-snug text-muted-foreground line-through decoration-slate-400/90"
+            className="line-clamp-2 min-w-0 text-[13px] font-semibold leading-snug text-muted-foreground line-through decoration-slate-400/90"
             title={name}
           >
             {name}
@@ -573,12 +581,14 @@ function PatientTraceNotRetainedRow({
   );
 }
 
-/** Défaut : principal si disponible ; avec alternatives proposées, ne jamais pré-cocher une Alt. */
+/** Défaut : principal si disponible ; sinon première alternative retenable. */
 function pickDefaultBranch(row: ActionItemRow, alts: ActionItemAltRow[]): LineBranch {
   if (maxQtyPrincipal(row) > 0) return "principal";
-  if (alts.length > 0) return null;
-  for (const alt of alts) {
-    if (maxQtyAlt(row, alt) > 0) return alt.id;
+  if (alts.length > 0) {
+    for (const alt of alts) {
+      if (maxQtyAlt(row, alt) > 0) return alt.id;
+    }
+    return null;
   }
   return null;
 }
@@ -624,6 +634,7 @@ type ResubmitLine = {
   product_id: string;
   name: string;
   photo_url?: string | null;
+  full_description?: string | null;
   qty: number;
   unit_price?: number | null;
   price_pph?: number | null;
@@ -661,6 +672,8 @@ function resubmitLineFromDraftAndServer(
     product_id: base.product_id,
     name: base.name,
     photo_url: base.photo_url,
+    full_description:
+      base.full_description ?? srv?.full_description ?? (itemRow ? one(itemRow.products)?.full_description : null) ?? null,
     qty: base.qty,
     unit_price,
     price_pph: base.price_pph ?? srv?.price_pph ?? null,
@@ -679,6 +692,7 @@ function computeResubmitLinesFromItems(
     product_id: row.product_id,
     name: one(row.products)?.name ?? "Produit",
     photo_url: resolvePublicMediaUrl(one(row.products)?.photo_url ?? null),
+    full_description: one(row.products)?.full_description ?? null,
     qty: Math.min(10, Math.max(1, row.requested_qty)),
     unit_price: row.unit_price ?? resolveCatalog?.(row) ?? null,
     client_comment: row.client_comment ?? "",
@@ -817,7 +831,7 @@ function PatientArchiveFrozenProductsView({
   supplyAmendmentBundles: { amendments: unknown }[];
   pricingConfig: PharmacyPricingConfig | null;
   onOpenLineHistory: (itemId: string) => void;
-  onPhotoPreview: (url: string, title: string) => void;
+  onPhotoPreview: ProductPhotoPreviewHandler;
   pharmacistProposedBadgeLabel: string;
   resolveCatalogUnitPriceForProduct: (
     productId: string,
@@ -854,7 +868,13 @@ function PatientArchiveFrozenProductsView({
               editMode={false}
               onPhotoPreview={() => {
                 const url = prod?.photo_url;
-                if (url) onPhotoPreview(resolvePublicMediaUrl(url) ?? url, prod?.name ?? "Produit");
+                if (url) {
+                  onPhotoPreview(
+                    resolvePublicMediaUrl(url) ?? url,
+                    prod?.name ?? "Produit",
+                    prod?.full_description
+                  );
+                }
               }}
               onSetQty={noop}
             />
@@ -1171,16 +1191,6 @@ function PatientSentLineNotesModalFr({
   const titleId = useId();
   const c = client.trim();
   const p = pharmacist.trim();
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
-
   const hasNotes = Boolean(c || p);
 
   return (
@@ -1189,69 +1199,60 @@ function PatientSentLineNotesModalFr({
         hasComment={hasNotes}
         onClick={() => setOpen(true)}
       />
-      {open && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-3 backdrop-blur-[1px] sm:items-center"
-              role="presentation"
-              onClick={(e) => {
-                if (e.target === e.currentTarget) setOpen(false);
-              }}
+      <AppModalOverlay open={open} aria-labelledby={titleId} onBackdropClick={() => setOpen(false)}>
+        <div
+          className={cn(
+            "max-h-[min(80vh,20rem)] w-full max-w-sm overflow-hidden rounded-2xl border bg-card shadow-2xl sm:mx-auto",
+            productRequestTheme.modalShell
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className={cn("flex items-start justify-between gap-2 border-b px-3 py-2", productRequestTheme.modalHeader)}>
+            <div className="min-w-0 flex-1">
+              <h2 id={titleId} className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                <span className="block">Notes — produit</span>
+                <span className="mt-1 block text-[13px] font-semibold normal-case leading-snug text-foreground">
+                  {productName}
+                </span>
+              </h2>
+            </div>
+            <button
+              type="button"
+              className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted/60"
+              aria-label="Fermer"
+              onClick={() => setOpen(false)}
             >
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby={titleId}
-                className="max-h-[min(80vh,20rem)] w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200/90 bg-card shadow-2xl ring-1 ring-slate-900/10"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-start justify-between gap-2 border-b border-border/60 px-3 py-2">
-                  <div className="min-w-0 flex-1">
-                    <h2 id={titleId} className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                      <span className="block">Notes — produit</span>
-                      <span className="mt-1 block text-[13px] font-semibold normal-case leading-snug text-foreground">{productName}</span>
-                    </h2>
-                  </div>
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted/60"
-                    aria-label="Fermer"
-                    onClick={() => setOpen(false)}
-                  >
-                    <X className="size-4" aria-hidden />
-                  </button>
-                </div>
-                <div className="max-h-[min(60vh,16rem)] space-y-2 overflow-y-auto overscroll-y-contain px-3 py-2.5 text-[11px] [-webkit-overflow-scrolling:touch]">
-                  {!c && !p ? (
-                    <p className="text-[11px] leading-snug text-muted-foreground">Aucune note sur ce produit.</p>
-                  ) : null}
-                  {c ? (
-                    <div className="rounded-lg border border-sky-200/80 bg-sky-50/90 px-2.5 py-2">
-                      <p className="text-[8px] font-bold uppercase tracking-wide text-sky-900">Vous</p>
-                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-sky-950">{c}</p>
-                    </div>
-                  ) : null}
-                  {p ? (
-                    <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-2">
-                      <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-900">Officine</p>
-                      <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-emerald-950">{p}</p>
-                    </div>
-                  ) : null}
-                </div>
-                <div className="border-t border-border/60 px-3 py-2">
-                  <button
-                    type="button"
-                    className="h-9 w-full rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-                    onClick={() => setOpen(false)}
-                  >
-                    Fermer
-                  </button>
-                </div>
+              <X className="size-4" aria-hidden />
+            </button>
+          </div>
+          <div className="max-h-[min(60vh,16rem)] space-y-2 overflow-y-auto overscroll-y-contain px-3 py-2.5 text-[11px] [-webkit-overflow-scrolling:touch]">
+            {!c && !p ? (
+              <p className="text-[11px] leading-snug text-muted-foreground">Aucune note sur ce produit.</p>
+            ) : null}
+            {c ? (
+              <div className="rounded-lg border border-sky-200/80 bg-sky-50/90 px-2.5 py-2">
+                <p className="text-[8px] font-bold uppercase tracking-wide text-sky-900">Vous</p>
+                <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-sky-950">{c}</p>
               </div>
-            </div>,
-            document.body
-          )
-        : null}
+            ) : null}
+            {p ? (
+              <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-2">
+                <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-900">Officine</p>
+                <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-emerald-950">{p}</p>
+              </div>
+            ) : null}
+          </div>
+          <div className="border-t border-border/60 px-3 py-2">
+            <button
+              type="button"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+              onClick={() => setOpen(false)}
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      </AppModalOverlay>
     </>
   );
 }
@@ -1345,6 +1346,7 @@ type ProductHit = {
   product_type: string;
   laboratory: string | null;
   photo_url?: string | null;
+  full_description?: string | null;
   price_pph?: number | null;
 };
 
@@ -1479,6 +1481,7 @@ type PatientConfirmPreviewLine = {
   bucket: "reserve" | "order";
   etaLabel: string | null;
   photoUrl: string | null;
+  descriptionHtml: string | null;
 };
 
 type PatientConfirmSkippedLine = {
@@ -1520,6 +1523,7 @@ function buildPatientConfirmSelection(
       let eta: string | null = null;
       let choiceDetail: string;
       let photoUrl: string | null;
+      let descriptionHtml: string | null = null;
 
       if (st.branch === "principal") {
         productName = principalProd?.name ?? "Produit";
@@ -1545,6 +1549,7 @@ function buildPatientConfirmSelection(
           eta = formatDateShortFr(row.expected_availability_date);
         }
         photoUrl = resolvePublicMediaUrl(principalProd?.photo_url ?? null);
+        descriptionHtml = productDescriptionHtmlForDisplay(principalProd?.full_description);
       } else {
         const alt = alts.find((a) => a.id === st.branch);
         const altProd = alt ? one(alt.products) : null;
@@ -1571,6 +1576,7 @@ function buildPatientConfirmSelection(
           eta = formatDateShortFr(alt.expected_availability_date);
         }
         photoUrl = resolvePublicMediaUrl(altProd?.photo_url ?? null);
+        descriptionHtml = productDescriptionHtmlForDisplay(altProd?.full_description);
       }
 
       const lineTotalMad =
@@ -1587,6 +1593,7 @@ function buildPatientConfirmSelection(
         bucket,
         etaLabel: eta,
         photoUrl,
+        descriptionHtml,
       });
     }
 
@@ -1704,7 +1711,7 @@ function PatientConfirmReviewLineCard({
   onPhotoPreview,
 }: {
   line: PatientConfirmPreviewLine;
-  onPhotoPreview?: (url: string, title: string) => void;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
 }) {
   const isOrder = line.bucket === "order";
 
@@ -1727,7 +1734,7 @@ function PatientConfirmReviewLineCard({
               <button
                 type="button"
                 className="relative size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-                onClick={() => onPhotoPreview(line.photoUrl!, line.productName)}
+                onClick={() => onPhotoPreview(line.photoUrl!, line.productName, line.descriptionHtml)}
                 aria-label={`Agrandir la photo · ${line.productName}`}
               >
                 <img src={line.photoUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
@@ -1845,10 +1852,14 @@ export function PatientProductRequestActions({
   const [exitModalOpen, setExitModalOpen] = useState(false);
   const [exitModalNonce, setExitModalNonce] = useState(0);
   const [exitModalMode, setExitModalMode] = useState<RequestExitModalMode>("patient_abandon");
-  const [productPhotoPreview, setProductPhotoPreview] = useState<{ url: string; title: string } | null>(null);
-  const openProductPhotoPreview = useCallback((url: string, title: string) => {
+  const [productPhotoPreview, setProductPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
+  const openProductPhotoPreview = useCallback((url: string, title: string, descriptionHtml?: string | null) => {
     if (!url.trim()) return;
-    setProductPhotoPreview({ url: url.trim(), title: title.trim() || "Produit" });
+    setProductPhotoPreview({
+      url: url.trim(),
+      title: title.trim() || "Produit",
+      descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
+    });
   }, []);
   const [prescriptionEditMode, setPrescriptionEditMode] = useState(false);
   const [prescriptionPanelBusy, setPrescriptionPanelBusy] = useState(false);
@@ -2135,7 +2146,7 @@ export function PatientProductRequestActions({
         }
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv")
+          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv,full_description")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -2164,6 +2175,7 @@ export function PatientProductRequestActions({
           product_id: p.id,
           name: p.name,
           photo_url: resolvePublicMediaUrl(p.photo_url ?? null),
+          full_description: p.full_description ?? null,
           qty: 1,
           unit_price: resolveCatalogPrice(catalogHitToPricingInput(p)),
           client_comment: "",
@@ -2607,6 +2619,7 @@ export function PatientProductRequestActions({
       open={productPhotoPreview !== null}
       imageUrl={productPhotoPreview?.url ?? null}
       title={productPhotoPreview?.title ?? ""}
+      descriptionHtml={productPhotoPreview?.descriptionHtml}
       onClose={() => setProductPhotoPreview(null)}
     />
   );
@@ -2688,10 +2701,12 @@ export function PatientProductRequestActions({
   const confirmSkippedLines = confirmReviewSnap?.skippedLines ?? [];
 
   const useNeutralProductDossierShell =
-    !forceReadOnly && (showConfirm || showConfirmedCards);
+    !forceReadOnly && showConfirmedCards;
   const useCompactPassageBlock = useNeutralProductDossierShell;
   const useSkyProductShell =
-    !useNeutralProductDossierShell && showProductResubmit && !forceReadOnly;
+    !useNeutralProductDossierShell &&
+    (showProductResubmit || showConfirm) &&
+    !forceReadOnly;
   const useArchiveShell = forceReadOnly && usesLineWorkflowUi;
   const isExpiredProductArchive = status === "expired" && usesLineWorkflowUi;
   const isCancelledProductArchive = status === "cancelled" && usesLineWorkflowUi;
@@ -2708,6 +2723,10 @@ export function PatientProductRequestActions({
   const terminalHistoryEntry = isDossierTerminalArchive
     ? findTerminalStatusHistoryEntry(dossierHistoryRows, status)
     : null;
+  const archiveTerminalFootnote =
+    readOnlyArchive && terminalHistoryEntry?.created_at
+      ? archiveTerminalFootnoteFr(terminalHistoryEntry.created_at)
+      : null;
   const archiveDossierStatusLabel = isExpiredProductArchive
     ? "expired"
     : isCancelledProductArchive
@@ -2848,6 +2867,7 @@ export function PatientProductRequestActions({
           statusDetail={archiveDossierStatusDetail}
           submittedAt={requestTimelineMeta?.submitted_at}
           createdAt={requestTimelineMeta?.created_at}
+          hideSentAt={isDossierTerminalArchive}
         />
       ) : null}
 
@@ -2923,6 +2943,14 @@ export function PatientProductRequestActions({
             pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
             resolveCatalogUnitPriceForProduct={resolveCatalogUnitPriceForProduct}
           />
+          {archiveTerminalFootnote ? (
+            <p className="mt-4 border-t border-border/60 pt-3 text-center text-[10px] leading-relaxed text-muted-foreground">
+              <span className="block">{archiveTerminalFootnote.label}</span>
+              {archiveTerminalFootnote.relative ? (
+                <span className="mt-0.5 block text-[10px] text-slate-500/90">({archiveTerminalFootnote.relative})</span>
+              ) : null}
+            </p>
+          ) : null}
           {archivePassageFootnote ? (
             <p className="mt-4 border-t border-border/60 pt-3 text-center text-[10px] leading-relaxed text-muted-foreground">
               <span className="block">{archivePassageFootnote.label}</span>
@@ -3227,7 +3255,7 @@ export function PatientProductRequestActions({
                           }}
                           onAdd={() => addProduct(h)}
                           onPhotoPreview={() => {
-                            if (h.photo_url) openProductPhotoPreview(h.photo_url, h.name);
+                            if (h.photo_url) openProductPhotoPreview(h.photo_url, h.name, h.full_description);
                           }}
                         />
                       ))}
@@ -3256,7 +3284,7 @@ export function PatientProductRequestActions({
                 editMode={editMode}
                 onRemove={editMode ? () => setLines((prev) => prev.filter((_, i) => i !== idx)) : undefined}
                 onPhotoPreview={() => {
-                  if (l.photo_url) openProductPhotoPreview(l.photo_url, l.name);
+                  if (l.photo_url) openProductPhotoPreview(l.photo_url, l.name, l.full_description);
                 }}
                 onSetQty={(qty) =>
                   setLines((prev) =>
@@ -3593,7 +3621,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirm && !forceReadOnly && !stickyFooterObscured ? (
-        <PlatformStickyFooter tone="slate">
+        <PlatformStickyFooter tone="sky">
           <div className="flex flex-col gap-2">
             <PlatformStickyFooterSummaryRow
               left={

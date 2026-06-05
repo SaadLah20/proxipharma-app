@@ -845,7 +845,7 @@ export function PatientDemandeSendConfirmModal({
   submitLoading: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  onPhotoPreview: (url: string, title: string) => void;
+  onPhotoPreview: (url: string, title: string, descriptionHtml?: string | null) => void;
 }) {
   return (
     <AppModalOverlay
@@ -898,7 +898,7 @@ export function PatientDemandeSendConfirmModal({
                         type="button"
                         className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
                         aria-label={`Agrandir la photo · ${l.name}`}
-                        onClick={() => onPhotoPreview(l.photo_url!, l.name)}
+                        onClick={() => onPhotoPreview(l.photo_url!, l.name, l.full_description)}
                       >
                         <img src={l.photo_url} alt="" className="pointer-events-none size-full object-cover" />
                       </button>

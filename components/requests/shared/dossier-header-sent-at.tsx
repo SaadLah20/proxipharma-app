@@ -8,12 +8,15 @@ export function DossierHeaderRequestLine({
   dossierRefLabel,
   submittedAt,
   createdAt,
+  hideSentAt = false,
   className,
 }: {
   kindLabel?: string;
   dossierRefLabel: string;
   submittedAt?: string | null;
   createdAt?: string | null;
+  /** Archives : masquer la date d'envoi (affichée en bas de page). */
+  hideSentAt?: boolean;
   className?: string;
 }) {
   const iso = submittedAt ?? createdAt;
@@ -23,7 +26,7 @@ export function DossierHeaderRequestLine({
     <p className={cn("text-[11px] font-bold leading-snug text-foreground sm:text-xs", className)}>
       <span className={uiEyebrowLabel}>{kindLabel}</span>{" "}
       <span className="font-mono text-[13px] tabular-nums text-foreground sm:text-sm">N° {dossierRefLabel}</span>
-      {sentCompact ? (
+      {!hideSentAt && sentCompact ? (
         <>
           <span className="mx-1.5 font-normal text-muted-foreground" aria-hidden>
             ·

@@ -5,6 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { ChevronDown, Package, Search } from "lucide-react";
+import {
+  CatalogProductPhotoThumb,
+  PatientProductPhotoPreviewModal,
+  type CatalogProductPhotoPreview,
+} from "@/components/requests/patient-product-photo-preview-modal";
 import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
@@ -12,6 +17,7 @@ import { platformDashboardChrome as chrome } from "@/lib/platform-dashboard-chro
 import { supabase } from "@/lib/supabase";
 import { formatDateShortFr } from "@/lib/datetime-fr";
 import { dispatchRequestDetailRefresh } from "@/lib/request-detail-refresh-bus";
+import { fetchProductDescriptionsMap } from "@/lib/fetch-product-descriptions-map";
 import {
   type OrderedSupplyHubLine,
   type OrderedSupplyHubTab,
@@ -225,6 +231,7 @@ function ProductGroupCard({
   onToggle,
   onArrive,
   onRevert,
+  descriptionHtml,
 }: {
   group: OrderedSupplyProductGroup;
   tab: OrderedSupplyHubTab;
@@ -232,12 +239,15 @@ function ProductGroupCard({
   onToggle: () => void;
   onArrive: () => void;
   onRevert: () => void;
+  descriptionHtml?: string | null;
 }) {
   const lines = tab === "pending" ? pendingLinesForProduct(group) : receivedLinesForProduct(group);
   const qty = tab === "pending" ? group.pendingQty : group.receivedQty;
   const revertable = receivedLinesForProduct(group).some(canRevertReceivedLine);
+  const [preview, setPreview] = useState<CatalogProductPhotoPreview | null>(null);
 
   return (
+    <>
     <CompactCard>
       <CompactCardBody className="p-0">
         <button
@@ -246,15 +256,19 @@ function ProductGroupCard({
           onClick={onToggle}
           aria-expanded={expanded}
         >
-          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-muted">
-            {group.photoUrl ? (
-              <img src={group.photoUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center">
-                <Package className="size-6 text-muted-foreground" aria-hidden />
-              </div>
-            )}
-          </div>
+          {group.photoUrl ? (
+            <CatalogProductPhotoThumb
+              imageUrl={group.photoUrl}
+              title={group.productName}
+              descriptionHtml={descriptionHtml}
+              size={56}
+              onPreview={setPreview}
+            />
+          ) : (
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-muted">
+              <Package className="size-6 text-muted-foreground" aria-hidden />
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <p className="line-clamp-2 text-sm font-semibold text-foreground">{group.productName}</p>
             <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -333,6 +347,14 @@ function ProductGroupCard({
         ) : null}
       </CompactCardBody>
     </CompactCard>
+    <PatientProductPhotoPreviewModal
+      open={Boolean(preview)}
+      imageUrl={preview?.url ?? null}
+      title={preview?.title ?? ""}
+      descriptionHtml={preview?.descriptionHtml}
+      onClose={() => setPreview(null)}
+    />
+    </>
   );
 }
 
@@ -341,6 +363,9 @@ export function PharmacistOrderedProductsHub() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lines, setLines] = useState<OrderedSupplyHubLine[]>([]);
+  const [descriptionByProductId, setDescriptionByProductId] = useState<Map<string, string | null>>(
+    () => new Map()
+  );
   const [tab, setTab] = useState<OrderedSupplyHubTab>("pending");
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -365,8 +390,15 @@ export function PharmacistOrderedProductsHub() {
     if (rpcErr) {
       setError(rpcErr.message);
       setLines([]);
+      setDescriptionByProductId(new Map());
     } else {
-      setLines((data ?? []).map((r: Record<string, unknown>) => normalizeOrderedSupplyHubLine(r)));
+      const normalized = (data ?? []).map((r: Record<string, unknown>) => normalizeOrderedSupplyHubLine(r));
+      setLines(normalized);
+      const descMap = await fetchProductDescriptionsMap(
+        supabase,
+        normalized.map((l: OrderedSupplyHubLine) => l.catalog_product_id)
+      );
+      setDescriptionByProductId(descMap);
     }
     setLoading(false);
   }, [router]);
@@ -474,6 +506,7 @@ export function PharmacistOrderedProductsHub() {
                 group={g}
                 tab={tab}
                 expanded={expandedId === g.catalogProductId}
+                descriptionHtml={descriptionByProductId.get(g.catalogProductId) ?? null}
                 onToggle={() =>
                   setExpandedId((id) => (id === g.catalogProductId ? null : g.catalogProductId))
                 }

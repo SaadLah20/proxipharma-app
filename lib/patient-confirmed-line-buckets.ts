@@ -34,6 +34,7 @@ export type PatientLineLike = {
         price_pph?: number | string | null;
         price_ppv?: number | string | null;
         photo_url?: string | null;
+        full_description?: string | null;
       }
     | {
         name?: string | null;
@@ -42,6 +43,7 @@ export type PatientLineLike = {
         price_pph?: number | string | null;
         price_ppv?: number | string | null;
         photo_url?: string | null;
+        full_description?: string | null;
       }[]
     | null;
   request_item_alternatives?:
@@ -52,8 +54,18 @@ export type PatientLineLike = {
         unit_price: number | null;
         expected_availability_date: string | null;
         products?:
-          | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }
-          | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }[]
+          | {
+              name?: string | null;
+              price_pph?: number | string | null;
+              photo_url?: string | null;
+              full_description?: string | null;
+            }
+          | {
+              name?: string | null;
+              price_pph?: number | string | null;
+              photo_url?: string | null;
+              full_description?: string | null;
+            }[]
           | null;
       }>
     | {
@@ -63,8 +75,18 @@ export type PatientLineLike = {
         unit_price: number | null;
         expected_availability_date: string | null;
         products?:
-          | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }
-          | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }[]
+          | {
+              name?: string | null;
+              price_pph?: number | string | null;
+              photo_url?: string | null;
+              full_description?: string | null;
+            }
+          | {
+              name?: string | null;
+              price_pph?: number | string | null;
+              photo_url?: string | null;
+              full_description?: string | null;
+            }[]
           | null;
       }
     | null;
@@ -169,6 +191,18 @@ export function validatedBranchPhotoPath(row: PatientLineLike): string | null {
   const alt = altRowsOf(row).find((a) => a.id === chosenId);
   const altPhoto = oneProd(alt?.products)?.photo_url;
   return altPhoto?.trim() ? altPhoto.trim() : null;
+}
+
+/** Description HTML catalogue de la branche retenue. */
+export function validatedBranchDescriptionHtml(row: PatientLineLike): string | null {
+  const chosenId = row.patient_chosen_alternative_id ?? null;
+  if (!chosenId) {
+    const d = oneProd(row.products)?.full_description;
+    return d?.trim() ? d.trim() : null;
+  }
+  const alt = altRowsOf(row).find((a) => a.id === chosenId);
+  const altDesc = oneProd(alt?.products)?.full_description;
+  return altDesc?.trim() ? altDesc.trim() : null;
 }
 
 /** Prix unitaire sur la branche retenue (ligne saisie ou grille officine). */

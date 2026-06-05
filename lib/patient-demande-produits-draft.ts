@@ -7,6 +7,7 @@ export type PatientDemandeProduitsDraftLine = {
   product_id: string;
   name: string;
   photo_url: string | null;
+  full_description?: string | null;
   qty: number;
   /** Prix unitaire officine (source de vérité affichage / total). */
   unit_price?: number | null;
@@ -31,6 +32,7 @@ export type PatientDemandeProduitsCatalogProduct = {
   product_type: string;
   laboratory: string | null;
   photo_url: string | null;
+  full_description?: string | null;
   price_pph?: number | null;
   price_ppv?: number | null;
 };
@@ -174,6 +176,7 @@ export function mergeCatalogProductsIntoDraft(
       product_id: p.id,
       name: p.name,
       photo_url: resolvePhoto(p.photo_url),
+      full_description: p.full_description ?? null,
       qty: 1,
       unit_price: resolveUnitPrice?.(p) ?? p.price_pph ?? null,
     });

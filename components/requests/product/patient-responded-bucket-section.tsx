@@ -11,7 +11,6 @@ import {
   patientRespondedBucketAriaTitleFr,
   patientRespondedBucketCountBadgeClass,
   patientRespondedBucketHeaderBarClass,
-  patientRespondedBucketSectionShellClass,
   patientRespondedBucketTitleFr,
 } from "@/lib/patient-responded-line-buckets";
 
@@ -51,9 +50,7 @@ export function PatientRespondedBucketSection({ bucketId, count, audience = "pat
           {count}
         </span>
       </div>
-      <div className={clsx("overflow-hidden rounded-lg", patientRespondedBucketSectionShellClass(bucketId))}>
-        {children}
-      </div>
+      <div className="w-full min-w-0">{children}</div>
     </section>
   );
 }

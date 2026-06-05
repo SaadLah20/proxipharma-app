@@ -91,7 +91,7 @@ export function PharmacyPromoOffersManager() {
     setPharmacyId(ctx.pharmacyId);
     const { data: prods } = await supabase
       .from("products")
-      .select("id,name,product_type,laboratory,price_pph,price_ppv,photo_url")
+      .select("id,name,product_type,laboratory,price_pph,price_ppv,photo_url,full_description")
       .eq("is_active", true)
       .order("name")
       .limit(500);

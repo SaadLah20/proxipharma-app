@@ -23,6 +23,7 @@ import {
   type PatientLineLike,
 } from "@/lib/patient-confirmed-line-buckets";
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing/types";
+import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { pharmacistProductSectionTitleClass } from "@/lib/pharmacist-product-dossier-shell";
 
@@ -57,7 +58,11 @@ function archiveRetainedTotalsFooter(input: {
 }
 
 function oneProduct(
-  products: { name?: string | null; photo_url?: string | null } | { name?: string | null; photo_url?: string | null }[] | null | undefined
+  products:
+    | { name?: string | null; photo_url?: string | null; full_description?: string | null }
+    | { name?: string | null; photo_url?: string | null; full_description?: string | null }[]
+    | null
+    | undefined
 ) {
   if (!products) return null;
   return Array.isArray(products) ? products[0] ?? null : products;
@@ -70,7 +75,10 @@ type ArchiveFrozenItem = PatientLineLike & {
   client_comment?: string | null;
   line_source?: string | null;
   pharmacist_proposal_reason?: string | null;
-  products?: { name?: string | null; photo_url?: string | null } | { name?: string | null; photo_url?: string | null }[] | null;
+  products?:
+    | { name?: string | null; photo_url?: string | null; full_description?: string | null }
+    | { name?: string | null; photo_url?: string | null; full_description?: string | null }[]
+    | null;
 };
 
 /** Archive figée (annulée / expirée / abandonnée) — alignée `PatientArchiveFrozenProductsView`. */
@@ -100,7 +108,7 @@ export function PharmacistArchiveFrozenProductsView<T extends ArchiveFrozenItem>
   pricingConfig: PharmacyPricingConfig | null;
   pharmacistProposedBadgeLabel: string;
   badgeForRow: (row: T) => string | undefined;
-  onPhotoPreview: (url: string, title: string) => void;
+  onPhotoPreview: ProductPhotoPreviewHandler;
   resolveCatalogUnitPriceForProduct: (
     productId: string,
     embed: {
@@ -140,7 +148,11 @@ export function PharmacistArchiveFrozenProductsView<T extends ArchiveFrozenItem>
                 editMode={false}
                 onPhotoPreview={() => {
                   if (!photoPath) return;
-                  onPhotoPreview(resolvePublicMediaUrl(photoPath) ?? photoPath, prod?.name ?? "Produit");
+                  onPhotoPreview(
+                    resolvePublicMediaUrl(photoPath) ?? photoPath,
+                    prod?.name ?? "Produit",
+                    prod?.full_description
+                  );
                 }}
                 onSetQty={noop}
               />

@@ -13,6 +13,8 @@ import {
 } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import { uiActionBtnModalDismiss } from "@/lib/ui-action-buttons";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
+import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
+import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
 import {
   type PatientRespondedBucketId,
   patientRespondedPrincipalTabStatusFr,
@@ -238,6 +240,7 @@ type VariantData = {
   badgeLabel: string;
   productName: string;
   photoUrl: string | null;
+  descriptionHtml: string | null;
   showRequested: boolean;
   requestedQty: number;
   dispoQty: number | null;
@@ -470,7 +473,7 @@ function RespondedVariantTabs({
   );
 }
 
-function RespondedRetainControl({
+function RespondedCompactRetainButton({
   retained,
   unavailable,
   readOnly,
@@ -481,30 +484,39 @@ function RespondedRetainControl({
   readOnly: boolean;
   onToggle: (on: boolean) => void;
 }) {
+  const closedBoxClass = cn(
+    "size-4 shrink-0 rounded border bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]",
+    retained ? "border-emerald-500/70" : "border-border/80"
+  );
+
   if (unavailable) {
     return (
-      <span className="block w-full text-center text-[8px] font-semibold leading-none text-slate-400">—</span>
+      <span className="block w-full max-w-[3.85rem] text-center text-[8px] font-semibold leading-none text-slate-400">
+        —
+      </span>
     );
   }
+
   if (readOnly) {
     return retained ? (
-      <span className="flex w-full max-w-[3.85rem] items-center justify-center gap-0.5 leading-none">
+      <div className="flex w-full max-w-[3.85rem] flex-col items-center gap-0.5 rounded-md border border-border/80 bg-muted/15 px-1 py-1.5">
         <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
-        <span className="text-[8px] font-bold text-emerald-700">OK</span>
-      </span>
+        <span className="text-[9px] font-bold leading-none text-emerald-700">Retenir</span>
+      </div>
     ) : null;
   }
+
   return (
-    <label className="flex w-full max-w-[3.85rem] cursor-pointer items-center justify-center gap-0.5 leading-none">
-      <input
-        type="checkbox"
-        checked={retained}
-        onChange={(e) => onToggle(e.target.checked)}
-        className="size-4 shrink-0 rounded border-border accent-emerald-600"
-        aria-label={retained ? "Produit retenu — cliquer pour retirer" : "Inclure ce produit dans votre validation"}
-      />
-      <span className="text-[8px] font-bold text-muted-foreground">OK</span>
-    </label>
+    <button
+      type="button"
+      className="flex w-full max-w-[3.85rem] flex-col items-center gap-0.5 rounded-md border border-border/80 bg-muted/15 px-1 py-1.5 transition hover:bg-muted/25"
+      aria-pressed={retained}
+      aria-label={retained ? "Retenir — cliquer pour retirer" : "Retenir ce produit"}
+      onClick={() => onToggle(!retained)}
+    >
+      <span className={closedBoxClass} aria-hidden />
+      <span className="text-[9px] font-bold leading-none text-foreground">Retenir</span>
+    </button>
   );
 }
 
@@ -554,7 +566,7 @@ function RespondedLineBlock({
   selQty: number;
   onToggleRetain: (on: boolean) => void;
   onSetQty: (qty: number) => void;
-  onPhotoPreview?: (url: string, title: string) => void;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
   ajoutOfficineLabel?: string;
   /** Onglets Ta demande / Alternative au-dessus — case un peu plus basse pour ne pas gêner. */
   variantTabsAbove?: boolean;
@@ -579,7 +591,7 @@ function RespondedLineBlock({
       <button
         type="button"
         className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
-        onClick={() => onPhotoPreview(variant.photoUrl!, variant.productName)}
+        onClick={() => onPhotoPreview(variant.photoUrl!, variant.productName, variant.descriptionHtml)}
         aria-label={`Agrandir la photo · ${variant.productName}`}
       >
         <img src={variant.photoUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
@@ -612,7 +624,7 @@ function RespondedLineBlock({
         >
           <div className={cn(RESPONDED_LINE_THUMB, variantTabsAbove && "size-[3.5rem]")}>{thumbInner}</div>
           {!variantTabsAbove ? (
-            <RespondedRetainControl
+            <RespondedCompactRetainButton
               retained={retained}
               unavailable={unavailable}
               readOnly={readOnly}
@@ -625,7 +637,7 @@ function RespondedLineBlock({
           <div className="space-y-1">
             <p
               className={cn(
-                "min-w-0 text-[13px] font-semibold leading-snug",
+                "line-clamp-2 min-w-0 text-[13px] font-semibold leading-snug",
                 unavailable ? "text-slate-600" : "text-foreground",
                 notRetained && !unavailable && "text-muted-foreground line-through decoration-slate-400/90"
               )}
@@ -725,7 +737,7 @@ export type RespondedChooserProps = {
   setLineBranch: (itemId: string, branch: LineBranch) => void;
   setLineQty: (itemId: string, qty: number, forBranch: Exclude<LineBranch, null>) => void;
   toggleLineRetention: (itemId: string, on: boolean, branchWhenOn: Exclude<LineBranch, null>) => void;
-  onPhotoPreview?: (url: string, title: string) => void;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
   pharmacistProposedBadgeLabel: string;
   requestType: string;
   supplyAmendmentBundles: { amendments: unknown }[];
@@ -760,7 +772,9 @@ export function RespondedPatientLineChooser({
     isPrescriptionAdditionalProposedLine(requestType, row, supplyAmendmentBundles);
 
 
-  const [browseTab, setBrowseTab] = useState("principal");
+  const [browseTab, setBrowseTab] = useState(() =>
+    selState.branch === null || selState.branch === "principal" ? "principal" : selState.branch
+  );
 
   /** Onglet consulté (navigation libre, indépendante de la branche cochée). */
   const activeTab = browseTab;
@@ -786,6 +800,7 @@ export function RespondedPatientLineChooser({
       }),
       productName: prod?.name ?? "Produit",
       photoUrl: resolvePublicMediaUrl(prod?.photo_url ?? null),
+      descriptionHtml: productDescriptionHtmlForDisplay(prod?.full_description),
       showRequested: !isProposedLine,
       requestedQty: Math.max(1, Number(row.requested_qty) || 1),
       dispoQty,
@@ -819,6 +834,7 @@ export function RespondedPatientLineChooser({
       badgeLabel: "Alternative",
       productName: altProd?.name ?? "Alternative",
       photoUrl: resolvePublicMediaUrl(altProd?.photo_url ?? null),
+      descriptionHtml: productDescriptionHtmlForDisplay(altProd?.full_description),
       showRequested: false,
       requestedQty: 0,
       dispoQty,

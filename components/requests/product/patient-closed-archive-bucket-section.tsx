@@ -10,7 +10,6 @@ import {
   patientClosedArchiveBucketAriaTitleFr,
   patientClosedArchiveBucketCountBadgeClass,
   patientClosedArchiveBucketHeaderBarClass,
-  patientClosedArchiveBucketSectionShellClass,
   patientClosedArchiveBucketTitleFr,
 } from "@/lib/patient-closed-archive-line-buckets";
 
@@ -66,14 +65,7 @@ export function PatientClosedArchiveBucketSection({
           {count}
         </span>
       </div>
-      <div
-        className={clsx(
-          "overflow-hidden rounded-lg",
-          patientClosedArchiveBucketSectionShellClass(bucketId)
-        )}
-      >
-        {children}
-      </div>
+      <div className="w-full min-w-0">{children}</div>
     </section>
   );
 }
