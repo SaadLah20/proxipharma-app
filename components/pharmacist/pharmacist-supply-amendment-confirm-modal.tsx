@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { clsx } from "clsx";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
+import { PolishedOptionPicker } from "@/components/ui/polished-option-picker";
 import { X } from "lucide-react";
 import { SUPPLY_AMEND_CHANNEL_OPTIONS, type SupplyAmendClientChannelSlug } from "@/lib/supply-amendment-channels";
 
@@ -89,31 +89,26 @@ function PharmacistSupplyAmendmentConfirmModalInner({
                 ) : null}
                 <label className="mt-2 block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
                   Canal utilisé
-                  <select
-                    className={clsx(
-                      "mt-0.5 h-9 w-full rounded-lg border border-input bg-background px-2 text-[12px] font-medium shadow-sm",
-                      fills[i]?.channel?.trim() ? "text-foreground" : "text-muted-foreground"
-                    )}
-                    disabled={busy}
-                    value={fills[i]?.channel ?? ""}
-                    onChange={(e) => {
-                      const v = e.target.value as SupplyAmendClientChannelSlug | "";
-                      setFills((prev) => {
-                        const next = [...prev];
-                        next[i] = { ...next[i], channel: v };
-                        return next;
-                      });
-                    }}
-                  >
-                    <option value="" disabled className="text-muted-foreground">
-                      Choisir un canal…
-                    </option>
-                    {SUPPLY_AMEND_CHANNEL_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mt-0.5">
+                    <PolishedOptionPicker
+                      options={SUPPLY_AMEND_CHANNEL_OPTIONS.map((o) => ({
+                        value: o.value,
+                        label: o.label,
+                      }))}
+                      value={fills[i]?.channel ?? ""}
+                      disabled={busy}
+                      placeholder="Choisir un canal…"
+                      ariaLabel="Canal utilisé"
+                      onPick={(v) => {
+                        setFills((prev) => {
+                          const next = [...prev];
+                          next[i] = { ...next[i], channel: v as SupplyAmendClientChannelSlug };
+                          return next;
+                        });
+                      }}
+                      appearance="compact"
+                    />
+                  </div>
                 </label>
                 <label className="mt-2 block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
                   Précision (optionnel)

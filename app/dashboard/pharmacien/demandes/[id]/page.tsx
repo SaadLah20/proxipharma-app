@@ -80,7 +80,7 @@ import {
   type ConsultationDetailTab,
 } from "@/lib/consultation-detail-tabs";
 import { PrescriptionScanCollapsible } from "@/components/requests/prescription/prescription-scan-collapsible";
-import { PharmacistOrdonnanceQuickAddModal } from "@/components/requests/prescription/pharmacist-ordonnance-quick-add-modal";
+import { PharmacistOrdonnanceQuickAddModal, type OrdonnanceModalAlternativePick } from "@/components/requests/prescription/pharmacist-ordonnance-quick-add-modal";
 import {
   isPrescriptionOrdonnancePharmacistLine,
   isPrescriptionOrdonnancePrincipalLine,
@@ -118,6 +118,7 @@ import {
 } from "@/lib/product-catalog-search";
 import { PageShell } from "@/components/ui/compact-shell";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
+import { PolishedOptionPicker } from "@/components/ui/polished-option-picker";
 import { Z_STICKY_FOOTER } from "@/lib/ui-z-index";
 import {
   PlatformStickyFooter,
@@ -1127,9 +1128,8 @@ function buildItemDraftFromRow(row: ItemRow, requestStatus?: string | null, requ
   let availNum: number;
   if (useChosenBranchForDraft) {
     const cap = PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX;
-    let fromAlt =
-      chosenAlt!.available_qty != null ? Number(chosenAlt!.available_qty) : selBase;
-    if (!Number.isFinite(fromAlt)) fromAlt = selBase;
+    let fromAlt = selBase;
+    if (!Number.isFinite(fromAlt)) fromAlt = 1;
     availNum = Math.max(0, Math.min(cap, Math.floor(fromAlt)));
   } else {
     const rowAvailStatus = row.availability_status ?? "available";
@@ -1885,9 +1885,13 @@ export default function PharmacienDemandeDetailPage() {
   const [ordonnanceQuickRequestedQty, setOrdonnanceQuickRequestedQty] = useState("1");
   const [ordonnanceQuickAvailableQty, setOrdonnanceQuickAvailableQty] = useState("1");
   const [ordonnanceQuickAddPick, setOrdonnanceQuickAddPick] = useState<ProductCatalogHit | null>(null);
-  const [ordonnanceQuickAlternatives, setOrdonnanceQuickAlternatives] = useState<ProductCatalogHit[]>([]);
+  const [ordonnanceQuickAlternatives, setOrdonnanceQuickAlternatives] = useState<OrdonnanceModalAlternativePick[]>([]);
   const [ordonnanceAltQuery, setOrdonnanceAltQuery] = useState("");
   const [ordonnanceAltHits, setOrdonnanceAltHits] = useState<ProductCatalogHit[]>([]);
+  const [prescriptionScanLightbox, setPrescriptionScanLightbox] = useState<{ label: string; url: string } | null>(
+    null
+  );
+  const [prescriptionScanActiveTab, setPrescriptionScanActiveTab] = useState<1 | 2>(1);
   /** Consultation : formulaire toujours visible (`propOpen || isConsultation`) sans ouvrir l’accordéon. */
   const propCatalogSearchActive = useMemo(
     () =>
@@ -2891,9 +2895,6 @@ export default function PharmacienDemandeDetailPage() {
       setOrdonnanceQuickAddOpen(true);
     } else {
       resetPropForm();
-      if (request?.request_type === "prescription") {
-        setPropReason(PRESCRIPTION_ADDITIONAL_PROPOSED_REASON);
-      }
       setPropOpen(true);
     }
   };
@@ -2909,7 +2910,7 @@ export default function PharmacienDemandeDetailPage() {
       expectedAvailabilityDate?: string;
       fromQuickAdd?: boolean;
       lineKind?: "ordonnance" | "proposed";
-      alternatives?: ProductCatalogHit[];
+      alternatives?: OrdonnanceModalAlternativePick[];
     }
   ) => {
     if (!id) return;
@@ -2921,8 +2922,9 @@ export default function PharmacienDemandeDetailPage() {
     if (request?.request_type === "prescription") {
       if (isOrdonnanceInsert) {
         reason = "";
-      } else {
-        reason = reason.length >= 3 ? reason : PRESCRIPTION_ADDITIONAL_PROPOSED_REASON;
+      } else if (reason.length > 0 && reason.length < 3) {
+        setError("Indique un motif d’au moins 3 caractères pour proposer ce produit.");
+        return;
       }
     } else if (reason.length < 3) {
       setError("Indique un motif d’au moins 3 caractères pour proposer ce produit.");
@@ -3047,7 +3049,12 @@ export default function PharmacienDemandeDetailPage() {
                 return prev;
               }
               const prefPrice =
-                resolveCatalogPrice(catalogHitToPricingInput(alt));
+                resolveCatalogPrice(
+                  catalogHitToPricingInput({
+                    ...alt,
+                    product_type: alt.product_type ?? "parapharmacie",
+                  })
+                );
               next = [
                 ...next,
                 {
@@ -3056,16 +3063,16 @@ export default function PharmacienDemandeDetailPage() {
                   rank,
                   product_id: alt.id,
                   availability_status: "available",
-                  available_qty: Math.max(1, availableQty),
-                  pharmacist_comment: null,
-                  unit_price: prefPrice,
-                  expected_availability_date: null,
-                  products: {
-                    name: alt.name,
-                    price_pph: alt.price_pph ?? null,
-                    photo_url: alt.photo_url ?? null,
-                  },
-                },
+          available_qty: Math.max(1, alt.available_qty ?? availableQty),
+          pharmacist_comment: null,
+          unit_price: prefPrice,
+          expected_availability_date: null,
+          products: {
+            name: alt.name,
+            price_pph: alt.price_pph ?? null,
+            photo_url: alt.photo_url ?? null,
+          },
+        },
               ];
             }
             return next;
@@ -3085,6 +3092,7 @@ export default function PharmacienDemandeDetailPage() {
       }
       if (opts?.fromQuickAdd) {
         resetOrdonnanceQuickAddForm();
+        setOrdonnanceQuickAddOpen(false);
       } else {
         if (request?.request_type !== "free_consultation") setPropOpen(false);
         resetPropForm();
@@ -3125,14 +3133,18 @@ export default function PharmacienDemandeDetailPage() {
           setError(pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null));
           return;
         }
-        const prefPrice =
-          resolveCatalogPrice(catalogHitToPricingInput(alt));
+        const prefPrice = resolveCatalogPrice(
+          catalogHitToPricingInput({
+            ...alt,
+            product_type: alt.product_type ?? "parapharmacie",
+          })
+        );
         const { error: altErr } = await supabase.from("request_item_alternatives").insert({
           request_item_id: insertedRow.id,
           rank,
           product_id: alt.id,
           availability_status: "available",
-          available_qty: Math.max(1, availableQty),
+          available_qty: Math.max(1, alt.available_qty ?? availableQty),
           pharmacist_comment: null,
           unit_price: prefPrice,
           expected_availability_date: null,
@@ -3155,6 +3167,7 @@ export default function PharmacienDemandeDetailPage() {
     }
     if (opts?.fromQuickAdd) {
       resetOrdonnanceQuickAddForm();
+      setOrdonnanceQuickAddOpen(false);
     } else {
       if (request?.request_type !== "free_consultation") setPropOpen(false);
       resetPropForm();
@@ -4856,6 +4869,9 @@ export default function PharmacienDemandeDetailPage() {
   /** Demande produits : même cartes/onglets que « envoyée », y compris `responded` (consultation ou édition). */
   const isProductRequestSent =
     isProductRequest && ["submitted", "in_review", "responded"].includes(request.status);
+  const isPrescriptionWorkflowSent =
+    isPrescription && ["submitted", "in_review", "responded"].includes(request.status);
+  const usePharmaSentLineLayout = isProductRequestSent || isPrescriptionWorkflowSent;
   const isProductRequestValidated =
     isProductRequest && ["confirmed", "treated"].includes(request.status);
   const hideMainRequestHeader =
@@ -4881,8 +4897,7 @@ export default function PharmacienDemandeDetailPage() {
   if (usesLineWorkflow && hideMainRequestHeader) {
     if (request.status === "submitted" || request.status === "in_review") {
       if (isPrescription) {
-        dossierStatusHint =
-          "Consultez l’ordonnance, saisissez chaque produit (qté prescrite et dispo), puis publiez la réponse.";
+        dossierStatusHint = "";
       } else if (isConsultation) {
         dossierStatusHint =
           "Échangez avec le patient ou saisissez des produits proposés, puis publiez la réponse.";
@@ -4973,15 +4988,6 @@ export default function PharmacienDemandeDetailPage() {
             createdAt={request.created_at}
             hideSentAt={isPharmacistTerminalArchive}
           />
-          {isPrescription && ["submitted", "in_review"].includes(request.status) ? (
-            <section className={pharmacistProductSecondaryBannerClass}>
-              <p className="font-semibold">Saisie depuis l&apos;ordonnance</p>
-              <p className="mt-0.5 text-muted-foreground">
-                Ouvrez le scan, ajoutez chaque produit (qté prescrite + qté dispo), puis publiez. Les propositions
-                complémentaires restent en « Proposé ».
-              </p>
-            </section>
-          ) : null}
           {isConsultation && ["submitted", "in_review"].includes(request.status) ? (
             <section className={pharmacistProductSecondaryBannerClass}>
               <p className="font-semibold">Consultation en cours</p>
@@ -4990,7 +4996,7 @@ export default function PharmacienDemandeDetailPage() {
               </p>
             </section>
           ) : null}
-          {isProductRequest && sharedShowPlannedVisitBlock(request.status) ? (
+          {(isProductRequest || isPrescription) && sharedShowPlannedVisitBlock(request.status) ? (
             <section className={pharmacistProductPlannedVisitClass} aria-label="Date de passage patient">
               <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 Date de passage
@@ -5277,6 +5283,10 @@ export default function PharmacienDemandeDetailPage() {
                   defaultOpen={ordonnanceLineCount === 0}
                   viewerRole="pharmacien"
                   prescriptionNote={prescriptionNote}
+                  controlledLightbox={prescriptionScanLightbox}
+                  onControlledLightboxChange={setPrescriptionScanLightbox}
+                  controlledActiveTab={prescriptionScanActiveTab}
+                  onControlledActiveTabChange={setPrescriptionScanActiveTab}
                   ordonnanceQuickAdd={{
                     lineCount: ordonnanceLineCount,
                     onOpenAdd: () => {
@@ -5323,39 +5333,6 @@ export default function PharmacienDemandeDetailPage() {
               {hideMainRequestHeader ? null : (
                 <span className="text-[10px] text-muted-foreground">{displayRows.length} article(s)</span>
               )}
-              {ordonnanceCatalogEditable ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const el = document.getElementById("prescription-scan-panel");
-                      if (el instanceof HTMLDetailsElement) {
-                        el.open = true;
-                        el.scrollIntoView({ behavior: "smooth", block: "start" });
-                      }
-                    }}
-                    className="inline-flex min-h-9 items-center justify-center rounded-lg border border-amber-300/70 bg-white px-2.5 py-1 text-[10px] font-bold text-amber-950 shadow-sm hover:bg-amber-50/90"
-                  >
-                    Voir l&apos;ordonnance
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (canManageSupply) {
-                        openPostConfirmAddPreface("ordonnance");
-                      } else {
-                        setError("");
-                        resetOrdonnanceQuickAddForm();
-                        setOrdonnanceQuickAddOpen(true);
-                      }
-                    }}
-                    className="inline-flex min-h-9 items-center justify-center gap-1 rounded-lg border border-amber-400/75 bg-amber-50/80 px-2.5 py-1 text-[10px] font-bold text-amber-950 shadow-sm hover:bg-amber-100/80"
-                  >
-                    <Plus className="size-3.5 shrink-0" aria-hidden />
-                    Ajouter
-                  </button>
-                </>
-              ) : null}
             </div>
           </div>
               )}
@@ -5447,7 +5424,7 @@ export default function PharmacienDemandeDetailPage() {
                       ? patientBucketProductListClass
                       : hideMainRequestHeader && isProductRequest
                         ? "flex w-full min-w-0 flex-col gap-2"
-                        : isProductRequestSent
+                        : usePharmaSentLineLayout
                           ? "gap-2"
                           : "divide-y divide-border/50"
                   )}
@@ -5479,10 +5456,10 @@ export default function PharmacienDemandeDetailPage() {
               const canEditThisRow = showLineAndPublishEdits && !lineLockedTrace && !archiveFrozen;
               const rowAlts = normalizeAlts(row.request_item_alternatives);
               const showVariantTabs =
-                (isProductRequestSent &&
+                (usePharmaSentLineLayout &&
                   !lineLockedTrace &&
                   (respondedFrozenView || (showLineAndPublishEdits && canEditThisRow))) ||
-                (showLineAndPublishEdits && canEditThisRow && !lineLockedTrace && !isProductRequestSent);
+                (showLineAndPublishEdits && canEditThisRow && !lineLockedTrace && !usePharmaSentLineLayout);
               const storedAltTab: PharmacistLineAltTabId = lineAltTabByRowId[row.id] ?? "principal";
               const activeAltTab: PharmacistLineAltTabId = showVariantTabs
                 ? respondedFrozenView && storedAltTab === PHARMACIST_ALT_TAB_ADD
@@ -5988,22 +5965,23 @@ export default function PharmacienDemandeDetailPage() {
                           </p>
                           <label className="flex flex-col gap-0.5 text-[10px] font-normal text-muted-foreground">
                             <span className="text-[9px] font-semibold uppercase tracking-wide">État</span>
-                            <select
+                            <PolishedOptionPicker
+                              options={[
+                                { value: "unset", label: "En attente" },
+                                { value: "picked_up", label: "Récupéré" },
+                              ]}
                               value={counterSelectKeyNormalized(row, f)}
                               disabled={!counterSelectInteractive || busy}
-                              onChange={(e) => {
-                                const v = e.target.value as "unset" | "picked_up";
+                              onPick={(v) => {
                                 patchItemDraft(row.id, {
-                                  counter_outcome_draft: v,
+                                  counter_outcome_draft: v as "unset" | "picked_up",
                                   counter_cancel_reason_draft: null,
                                   counter_cancel_detail_draft: null,
                                 });
                               }}
-                              className="h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              <option value="unset">En attente</option>
-                              <option value="picked_up">Récupéré</option>
-                            </select>
+                              appearance="compact"
+                              ariaLabel="État comptoir"
+                            />
                           </label>
                           <p className="text-[9px] leading-snug text-muted-foreground">
                             Pour retirer une ligne du dossier validé, utilisez « Retirer la ligne » dans le menu ⋮.
@@ -6170,21 +6148,23 @@ export default function PharmacienDemandeDetailPage() {
                   ) : null}
                   <li
                     className={clsx(
-                      isProductRequestSent
+                      usePharmaSentLineLayout
                         ? clsx(PRODUCT_REQUEST_LINE_CARD_SHELL, "list-none overflow-visible border-l-[3px]")
                         : PHARMA_LINE_EDITOR_CARD,
                       "list-none overflow-visible",
-                      isProductRequestSent && isProposedLine && "mx-auto w-full max-w-md",
-                      !isProductRequestSent && isAjoutOfficineLine && "border-l-[3px] border-l-violet-500/70",
-                      !isProductRequestSent && isOrdonnancePrincipalLine && "border-l-[3px] border-l-amber-500/70",
-                      !isProductRequestSent &&
+                      usePharmaSentLineLayout && isProposedLine && "mx-auto w-full max-w-md",
+                      !usePharmaSentLineLayout && isAjoutOfficineLine && "border-l-[3px] border-l-violet-500/70",
+                      !usePharmaSentLineLayout && isOrdonnancePrincipalLine && "border-l-[3px] border-l-amber-500/70",
+                      !usePharmaSentLineLayout &&
                         !isAjoutOfficineLine &&
                         !isOrdonnancePrincipalLine &&
                         "border-l-[3px] border-l-sky-500/60",
-                      isProductRequestSent &&
+                      usePharmaSentLineLayout &&
                         !isProposedLine &&
-                        "border-l-sky-500/65",
-                      isProductRequestSent && isProposedLine && "border-l-violet-500/65"
+                        (isOrdonnancePrincipalLine || isOrdonnancePharmacistLine
+                          ? "border-l-amber-500/65"
+                          : "border-l-sky-500/65"),
+                      usePharmaSentLineLayout && isProposedLine && "border-l-violet-500/65"
                     )}
                   >
                   {showVariantTabs ? (
@@ -6262,7 +6242,7 @@ export default function PharmacienDemandeDetailPage() {
                     <div
                       className={clsx(
                         "min-w-0 flex-1",
-                        isProductRequestSent ? "space-y-1.5" : "space-y-0.5"
+                        isProductRequestSent || isPrescriptionWorkflowSent ? "space-y-1.5" : "space-y-0.5"
                       )}
                     >
                       <div className="min-w-0 space-y-1">
@@ -6284,7 +6264,7 @@ export default function PharmacienDemandeDetailPage() {
                       </div>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
-                          {!isProductRequestSent ? (
+                          {!usePharmaSentLineLayout ? (
                             <span
                               className={clsx(
                                 "inline-flex max-w-full items-center gap-1 rounded-full px-1.5 py-px text-[10px] font-semibold ring-1",
@@ -6351,7 +6331,7 @@ export default function PharmacienDemandeDetailPage() {
                             visual={lineConvoVisual}
                             open={lineConvoEffectiveRowId === row.id}
                             disabled={busy}
-                            appearance={isProductRequestSent ? "neutral" : "default"}
+                            appearance={usePharmaSentLineLayout ? "neutral" : "default"}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
@@ -6476,8 +6456,8 @@ export default function PharmacienDemandeDetailPage() {
                         </p>
                       ) : null}
                     </div>
-                  ) : showLineAndPublishEdits || (isProductRequestSent && respondedFrozenView) ? (
-                    isProductRequestSent ? (
+                  ) : showLineAndPublishEdits || (usePharmaSentLineLayout && respondedFrozenView) ? (
+                    usePharmaSentLineLayout ? (
                       (() => {
                         const sentQty = pharmacistSentProductLineQtyUi({
                           draftStatus: f.availability_status,
@@ -6759,7 +6739,7 @@ export default function PharmacienDemandeDetailPage() {
                     <PharmacistAlternativeLinePanel
                       alt={activeAltRow}
                       readOnly={!canEditThisRow}
-                      useQtyPicker={isProductRequestSent}
+                      useQtyPicker={usePharmaSentLineLayout}
                       qtyBusy={altBusyRow === activeAltRow.id}
                       qtyValue={
                         isLocalAltId(activeAltRow.id)
@@ -6831,23 +6811,22 @@ export default function PharmacienDemandeDetailPage() {
                           </p>
                           <label className="flex flex-col gap-0.5 text-[10px] font-normal text-muted-foreground">
                             <span className="text-[9px] font-semibold uppercase tracking-wide">État</span>
-                            <select
+                            <PolishedOptionPicker
+                              options={[
+                                { value: "unset", label: "En attente" },
+                                { value: "picked_up", label: "Récupéré" },
+                              ]}
                               value={counterSelectKeyNormalized(
                                 row,
                                 draft[row.id] ?? buildItemDraftFromRow(row, request.status, request.request_type)
                               )}
                               disabled={outcomeSelectDisabled}
-                              onChange={(e) => {
-                                const v = e.target.value as "unset" | "picked_up";
-                                void saveCounterOutcome(row.id, v, null, null);
+                              onPick={(v) => {
+                                void saveCounterOutcome(row.id, v as "unset" | "picked_up", null, null);
                               }}
-                              className={`h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] ${
-                                request.status === "completed" ? "cursor-not-allowed opacity-60" : ""
-                              }`}
-                            >
-                              <option value="unset">En attente</option>
-                              <option value="picked_up">Récupéré</option>
-                            </select>
+                              appearance="compact"
+                              ariaLabel="État comptoir"
+                            />
                           </label>
                           {counterBusyId === row.id ? (
                             <span className="text-[10px] text-muted-foreground">Enregistrement…</span>
@@ -6898,7 +6877,7 @@ export default function PharmacienDemandeDetailPage() {
             />
           ) : null}
 
-          {showLineAndPublishEdits && !(isPrescription && canManageSupply) ? (
+          {showLineAndPublishEdits ? (
             <section
               className={clsx(
                 "mt-2 flex min-h-0 flex-col rounded-xl px-2 py-1.5 shadow-sm sm:px-2.5 sm:py-2",
@@ -6931,9 +6910,6 @@ export default function PharmacienDemandeDetailPage() {
                     setError("");
                     if (next) {
                       resetPropForm();
-                      if (request?.request_type === "prescription") {
-                        setPropReason(PRESCRIPTION_ADDITIONAL_PROPOSED_REASON);
-                      }
                     }
                   }}
                   className={clsx(
@@ -6985,7 +6961,7 @@ export default function PharmacienDemandeDetailPage() {
                       className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
                     />
                   </label>
-                  {isProductRequestSent ? (
+                  {isProductRequestSent || isPrescription ? (
                     <p className="text-[10px] leading-snug text-muted-foreground">
                       Disponibilité et quantité se règlent sur la carte du produit après ajout (1 à 10).
                     </p>
@@ -7033,17 +7009,17 @@ export default function PharmacienDemandeDetailPage() {
                     <div className="space-y-2 rounded-lg border border-violet-200/60 bg-violet-50/40 p-2">
                       <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Disponibilité (avant enregistrement)
-                        <select
-                          className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
-                          value={propAvailability}
-                          onChange={(e) => setPropAvailability(e.target.value)}
-                        >
-                          {PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="mt-1">
+                          <PolishedOptionPicker
+                            options={PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS.map((o) => ({
+                              value: o.value,
+                              label: o.label,
+                            }))}
+                            value={propAvailability}
+                            onPick={setPropAvailability}
+                            ariaLabel="Disponibilité avant enregistrement"
+                          />
+                        </div>
                       </label>
                       {propAvailability === "to_order" ? (
                         <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -7634,18 +7610,18 @@ export default function PharmacienDemandeDetailPage() {
             <div className="mt-3 space-y-2 rounded-lg border border-sky-300/70 bg-sky-100/40 p-2.5">
               <label className="block text-[10px] font-semibold text-foreground">
                 Canal d&apos;accord patient
-                <select
-                  className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-[11px] font-medium shadow-sm"
-                  value={supplySaveGlobalChannel}
-                  onChange={(e) => setSupplySaveGlobalChannel(e.target.value)}
-                >
-                  <option value="">Choisir…</option>
-                  {SUPPLY_AMEND_CHANNEL_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-1">
+                  <PolishedOptionPicker
+                    options={SUPPLY_AMEND_CHANNEL_OPTIONS.map((o) => ({
+                      value: o.value,
+                      label: o.label,
+                    }))}
+                    value={supplySaveGlobalChannel}
+                    placeholder="Choisir…"
+                    onPick={setSupplySaveGlobalChannel}
+                    ariaLabel="Canal d'accord patient"
+                  />
+                </div>
               </label>
               <label className="block text-[10px] font-semibold text-foreground">
                 Description (optionnelle)
@@ -7867,9 +7843,36 @@ export default function PharmacienDemandeDetailPage() {
               setError(pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null));
               return;
             }
-            setOrdonnanceQuickAlternatives((prev) => [...prev, h as ProductCatalogHit]);
+            const reqN = clampOrdonnanceRequestedQty(parseInt(ordonnanceQuickRequestedQty, 10) || 1);
+            const availParsed =
+              ordonnanceQuickAvailableQty.trim() === ""
+                ? undefined
+                : parseInt(ordonnanceQuickAvailableQty, 10);
+            const defaultAltQty = ordonnanceInsertAvailableQty(
+              ordonnanceQuickAvailability,
+              reqN,
+              availParsed
+            );
+            setOrdonnanceQuickAlternatives((prev) => [
+              ...prev,
+              {
+                id: h.id,
+                name: h.name,
+                product_type: h.product_type,
+                price_pph: h.price_pph ?? null,
+                price_ppv: h.price_ppv ?? null,
+                photo_url: h.photo_url ?? null,
+                full_description: h.full_description ?? null,
+                available_qty: Math.max(1, defaultAltQty),
+              },
+            ]);
             setOrdonnanceAltQuery("");
             setOrdonnanceAltHits([]);
+          }}
+          onAlternativeQtyChange={(productId, qty) => {
+            setOrdonnanceQuickAlternatives((prev) =>
+              prev.map((a) => (a.id === productId ? { ...a, available_qty: qty } : a))
+            );
           }}
           onRemoveAlternative={(productId) => {
             setOrdonnanceQuickAlternatives((prev) => prev.filter((a) => a.id !== productId));
@@ -8018,6 +8021,7 @@ export default function PharmacienDemandeDetailPage() {
             hasUnread={conversationUnread}
             onOpen={() => setConversationOpen(true)}
             tone="pharmacien"
+            hidden={Boolean(prescriptionScanLightbox)}
           />
           <RequestConversationPanel
             requestId={id}

@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Camera, FileImage, FileText, Trash2 } from "lucide-react";
+import { Camera, FileImage, FileText, Trash2, X } from "lucide-react";
 import { PharmacyFlowHero, PharmacyPublicBackLink, pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
 import { platformDashboardChrome } from "@/lib/platform-dashboard-chrome";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
+import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { PlatformStickyFooter } from "@/components/layout/platform-sticky-footer";
 import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
 import { cn } from "@/lib/utils";
@@ -338,33 +339,74 @@ export default function DemandeOrdonnancePage() {
         </Button>
       </PlatformStickyFooter>
 
-      {confirmOpen ? (
-          <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-            <div
-              className="w-full max-w-md rounded-2xl border border-border bg-white p-4 shadow-xl"
-              role="dialog"
-              aria-modal="true"
-            >
-              <h2 className="text-base font-bold text-slate-900">Confirmer l’envoi ?</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                {pages.length} page{pages.length > 1 ? "s" : ""} — la pharmacie saisira les produits après lecture.
-              </p>
-              <div className="mt-4 flex gap-2">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setConfirmOpen(false)}>
-                  Annuler
-                </Button>
-                <Button
-                  type="button"
-                  className={cn("flex-1", platformDashboardChrome.cta)}
-                  disabled={submitLoading}
-                  onClick={() => void submit()}
-                >
-                  Confirmer
-                </Button>
+      <AppModalOverlay
+        open={confirmOpen}
+        onBackdropClick={() => {
+          if (!submitLoading) setConfirmOpen(false);
+        }}
+        aria-labelledby="ordonnance-send-confirm-title"
+      >
+        <div
+          className="flex max-h-[min(88dvh,560px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-amber-300/70 bg-card shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="border-b border-amber-200/80 bg-amber-50/60 px-4 py-3.5">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h2 id="ordonnance-send-confirm-title" className="text-lg font-bold leading-tight text-amber-950">
+                  Confirmer l&apos;envoi
+                </h2>
+                <p className="mt-1 text-sm text-amber-900/85">
+                  {pages.length} page{pages.length > 1 ? "s" : ""} — la pharmacie saisira les produits après lecture de
+                  l&apos;ordonnance.
+                </p>
               </div>
+              <button
+                type="button"
+                disabled={submitLoading}
+                className="rounded-lg p-1 text-amber-800/70 hover:bg-amber-100/80 hover:text-amber-950 disabled:opacity-40"
+                onClick={() => setConfirmOpen(false)}
+                aria-label="Fermer"
+              >
+                <X className="size-5" />
+              </button>
             </div>
           </div>
-        ) : null}
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            {note.trim() ? (
+              <div className="rounded-xl border border-amber-200/70 bg-amber-50/40 px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-amber-900/80">
+                  Votre message pour la pharmacie
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{note.trim()}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Aucun message — vous pourrez en ajouter plus tard depuis le dossier.</p>
+            )}
+          </div>
+          <div className="border-t border-amber-200/60 bg-muted/25 px-4 py-3">
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 flex-1 font-semibold"
+                disabled={submitLoading}
+                onClick={() => setConfirmOpen(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                type="button"
+                className={cn("h-11 flex-1 font-semibold", platformDashboardChrome.cta)}
+                disabled={submitLoading}
+                onClick={() => void submit()}
+              >
+                {submitLoading ? "Envoi…" : "Confirmer l'envoi"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </AppModalOverlay>
     </main>
   );
 }

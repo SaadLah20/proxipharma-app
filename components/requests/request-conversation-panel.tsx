@@ -51,11 +51,14 @@ export function RequestConversationFabDock({
   tone,
   /** Marge basse minimale (px) pour dégager le footer sticky du dossier. */
   minBottomPx = STICKY_FOOTER_FAB_DEFAULT_BOTTOM_PX,
+  hidden = false,
 }: {
   hasUnread: boolean;
   onOpen: () => void;
   tone: "patient" | "pharmacien" | "consultation";
   minBottomPx?: number;
+  /** Masque le FAB pendant la lightbox ordonnance (saisie sur image). */
+  hidden?: boolean;
 }) {
   const fabRef = useRef<HTMLDivElement>(null);
   const suppressClickRef = useRef(false);
@@ -225,8 +228,10 @@ export function RequestConversationFabDock({
       style={style}
       className={cn(
         "pointer-events-auto fixed isolate flex size-14 touch-none items-center justify-center sm:size-16",
-        Z_FLOATING_ABOVE_STICKY_FOOTER
+        Z_FLOATING_ABOVE_STICKY_FOOTER,
+        hidden && "pointer-events-none invisible opacity-0"
       )}
+      aria-hidden={hidden}
     >
       <button
         type="button"

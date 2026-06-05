@@ -2,7 +2,6 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Camera, FileImage, Trash2 } from "lucide-react";
-import { requestStatusFr } from "@/lib/request-display";
 import { supabase } from "@/lib/supabase";
 import { RequestExitConfirmModalFr } from "@/components/requests/request-exit-confirm-modal-fr";
 import type { PatientCancelReasonCode } from "@/lib/patient-flow-reasons";
@@ -258,22 +257,15 @@ export const PatientPrescriptionEditablePanel = forwardRef<PatientPrescriptionPa
       [busy, dirty, pages, noteDraft]
     );
 
-    const viewerPaths: PrescriptionPagePaths = {
-      page1: pages.find((p) => p.page === 1)?.path ?? paths.page1,
-      page2: pages.find((p) => p.page === 2)?.path ?? paths.page2,
-    };
+    const viewerPaths: PrescriptionPagePaths = editMode
+      ? {
+          page1: pages.find((p) => p.page === 1)?.path ?? null,
+          page2: pages.find((p) => p.page === 2)?.path ?? null,
+        }
+      : paths;
 
     return (
       <section className="mt-2 space-y-3">
-        <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 px-3 py-2.5 text-sm text-amber-950">
-          <p className="font-semibold">{requestStatusFr[status] ?? status}</p>
-          <p className="mt-1 text-xs leading-snug text-amber-900/90">
-            {editMode
-              ? "Modifiez le scan ou votre message, puis enregistrez."
-              : "Lecture seule tant que vous n'avez pas appuyé sur Modifier."}
-          </p>
-        </div>
-
         <PrescriptionImageViewer paths={viewerPaths} accent="amber" />
 
         {canEditContent ? (

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { clsx } from "clsx";
-import { Package, Pencil, Search, Trash2, X } from "lucide-react";
+import { Pencil, Search, Trash2, X } from "lucide-react";
 import { PharmacistProductPhotoThumb } from "@/components/pharmacist/pharmacist-product-photo-thumb";
 import {
   PatientProductPhotoPreviewModal,
@@ -17,6 +17,8 @@ import {
   inferOrdonnanceLineAvailabilityStatus,
 } from "@/lib/prescription-ordonnance-line-qty";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
+import { PolishedOptionPicker } from "@/components/ui/polished-option-picker";
+import { ProductRequestLineQtyPicker } from "@/components/pharmacy/patient-demande-produits-ui";
 import { PlannedVisitDateInput } from "@/components/requests/planned-visit-date-input";
 import { receptionDateMaxYmd } from "@/lib/planned-visit";
 
@@ -39,6 +41,7 @@ export type OrdonnanceModalAlternativePick = {
   price_ppv?: number | null;
   photo_url?: string | null;
   full_description?: string | null;
+  available_qty: number;
 };
 
 type Props = {
@@ -58,6 +61,7 @@ type Props = {
   altHits: OrdonnanceCatalogHit[];
   onAddAlternative: (hit: OrdonnanceCatalogHit) => void;
   onRemoveAlternative: (productId: string) => void;
+  onAlternativeQtyChange: (productId: string, qty: number) => void;
   requestedQty: string;
   onRequestedQtyChange: (v: string) => void;
   availableQty: string;
@@ -159,6 +163,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
     altHits,
     onAddAlternative,
     onRemoveAlternative,
+    onAlternativeQtyChange,
     requestedQty,
     onRequestedQtyChange,
     availableQty,
@@ -248,7 +253,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                 />
               </div>
               {hits.length > 0 ? (
-                <ul className="max-h-[min(22svh,160px)] space-y-0.5 overflow-y-auto rounded-md border border-border/60 bg-muted/15 p-1">
+                <ul className="max-h-[min(38svh,280px)] min-h-0 space-y-0.5 overflow-y-auto rounded-md border border-border/60 bg-muted/15 p-1">
                   {hits.map((h) => (
                     <li key={h.id}>
                       <button
@@ -361,18 +366,18 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                 />
                 <label className="flex min-w-[9rem] flex-1 flex-col gap-0.5">
                   <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Disponibilité</span>
-                  <select
+                  <PolishedOptionPicker
+                    options={PHARMACIST_AVAILABILITY_OPTIONS.map((o) => ({
+                      value: o.value,
+                      label: o.label,
+                    }))}
                     value={availability === "partially_available" ? "available" : availability}
                     disabled={busy}
-                    onChange={(e) => onAvailabilityChange(e.target.value)}
-                    className="mt-0.5 h-9 w-full rounded-md border border-input bg-background px-2 text-xs font-medium"
-                  >
-                    {PHARMACIST_AVAILABILITY_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
+                    onPick={onAvailabilityChange}
+                    ariaLabel="Disponibilité"
+                    appearance="compact"
+                    className="mt-0.5"
+                  />
                 </label>
               </div>
 
@@ -415,9 +420,9 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                     {alternatives.map((a) => (
                       <li
                         key={a.id}
-                        className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-white px-2 py-1 text-[11px]"
+                        className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-white px-2 py-1.5 text-[11px]"
                       >
-                        <span className="flex min-w-0 items-center gap-2">
+                        <span className="flex min-w-0 flex-1 items-center gap-2">
                           <span className="relative flex size-8 shrink-0 overflow-hidden rounded-md border border-slate-200/80 bg-slate-50">
                             <PharmacistProductPhotoThumb
                               photoUrl={a.photo_url}
@@ -427,7 +432,15 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                               iconClassName="text-slate-500 size-4"
                             />
                           </span>
-                          <span className="min-w-0 truncate font-medium">{a.name}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium">{a.name}</span>
+                            <ProductRequestLineQtyPicker
+                              qty={a.available_qty}
+                              maxQty={reqN}
+                              appearance="neutral"
+                              onSelect={(n) => onAlternativeQtyChange(a.id, n)}
+                            />
+                          </span>
                         </span>
                         <button
                           type="button"
@@ -456,7 +469,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                       />
                     </div>
                     {altHits.length > 0 ? (
-                      <ul className="mt-1 max-h-[min(18svh,140px)] space-y-0.5 overflow-y-auto rounded-md border border-border/60 bg-muted/15 p-1">
+                      <ul className="mt-1 max-h-[min(32svh,220px)] min-h-0 space-y-0.5 overflow-y-auto rounded-md border border-border/60 bg-muted/15 p-1">
                         {altHits.map((h) => (
                           <li key={h.id}>
                             <button
