@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260706_001`**) → phrase **§13.40** (consultation libre + vocaux conversation + ordonnance archive, commits **`c507609`**, **`ea54827`**). Catalogue BeautyMall : **§13.39** / **`736100f`**. La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260709_001`**) → phrase **§13.42** (i18n patient ar/fr + fix date réception ordonnance validée). Catalogue BeautyMall : **§13.39** / **`736100f`**. La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -38,9 +38,9 @@ A la **sortie**: demander ou accepter la mise a jour de ce cahier (Journal + Eta
 
 **Ou est la verite du backend (schema)** : les migrations Git + les RPC/policies decrites dedans ; le SQL Editor hors migrations est reserve aux tests ponctuels mais ne remplace pas le fichier migre versionne dans le depot.
 
-## 14) Internationalisation ar / fr — décisions validées (2026-06-03, pas encore implémenté)
+## 14) Internationalisation ar / fr — décisions validées (2026-06-03, implémenté juin 2026)
 
-**Statut** : cahier produit figé ; **aucun code i18n** en place (UI 100 % français aujourd’hui). Ne pas lancer l’implémentation sans consigne explicite.
+**Statut** : **implémenté juin 2026** (`next-intl`, cookie `pp_locale`, switcher header, RTL). Décisions produit ci-dessous figées.
 
 | # | Décision | Détail |
 |---|----------|--------|
@@ -48,9 +48,9 @@ A la **sortie**: demander ou accepter la mise a jour de ce cahier (Journal + Eta
 | 2 | **Arabe** | **Arabe standard** (فصحى) pour tous les libellés UI traduits — pas de darija dans les fichiers de messages. |
 | 3 | **Langue par défaut** | Selon la **langue du téléphone / navigateur** (`Accept-Language`, `navigator.languages`) : **ar** si préférence arabe détectée, sinon **fr**. Bascule manuelle **AR \| FR** à prévoir (header ou paramètres patient). Persistance optionnelle plus tard : `profiles.preferred_locale`. |
 | 4 | **URLs (démarrage)** | **Le plus simple** : **mêmes URLs** + locale en **cookie** ou `localStorage` (pas de préfixe `/ar/` au pilote). Réévaluer `/ar/...` seulement si besoin SEO/partage WhatsApp. |
-| 5 | **SMS / notifs externes** | Si traduction arabe SMS = complexe (segments, encodage Twilio) → **garder les SMS en français** (texte ASCII actuel). Notifications **in-app** SQL : traduction ou templates bilingues en **vague ultérieure** (hors scope pilote initial). |
-| 6 | **RTL** | Locale `ar` → `dir="rtl"`, police arabe lisible, revue layout (footers sticky, grilles). |
-| 7 | **Implémentation cible** | **`next-intl`** (ou équivalent App Router) + fichiers `messages/ar.json`, `messages/fr.json` ; déploiement par **vagues** (public + demande produits patient en premier). |
+| 5 | **SMS / notifs externes** | **SMS** : restent **français** (ASCII, 1 segment). **In-app** : colonnes **`title_ar`** / **`body_ar`** sur **`app_notifications`** (**`20260709_001`**) ; affichage selon locale patient. |
+| 6 | **RTL** | Locale `ar` → `dir="rtl"`, police arabe lisible, revue layout (footers sticky, grilles). **Implémenté** (`app/layout.tsx`, `globals.css`). |
+| 7 | **Implémentation** | **`next-intl`** + **`messages/fr.json`** / **`messages/ar.json`** ; **`middleware.ts`**, **`i18n/`**, **`lib/i18n/`** ; **`locale-role-guard`** (pharmacien/admin toujours FR). Déploiement par vagues — lot juin 2026 : annuaire, auth patient, parcours demandes, hubs, paramètres, fiche publique, promos. |
 
 **Références** : `CONTEXTE.md` §4 (vision bilinguisme) ; `AGENTS.md` paragraphe **i18n patient**.
 
@@ -380,6 +380,59 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
+### Session 2026-06-05 (suite 3) — i18n patient ar/fr + fix date réception ordonnance validée
+
+**Branche** : `fix/validated-supply-ecart-ui-modal`.
+
+**Internationalisation patient (ar / fr)** :
+- **`next-intl`** + **`middleware.ts`** ; locales **`fr`** | **`ar`** ; cookie **`pp_locale`** ; détection **`Accept-Language`**.
+- **Périmètre** : annuaire public, auth patient, fiche pharmacie, parcours demandes (produits / ordonnance / consultation), hubs, paramètres, promos — **pas** l’espace pharmacien ni admin (**`locale-role-guard`**, **`isFrenchOnlyPath`**).
+- **UI** : switcher **AR | FR** header (**`locale-switcher.tsx`**) ; **`dir="rtl"`** locale ar ; messages **`messages/fr.json`** + **`messages/ar.json`**.
+- **Hooks copy** : **`use-prescription-ui-copy`**, **`use-consultation-ui-copy`**, **`use-patient-validated-line-labels`** (wrappers sur libs FR existantes).
+- Migration **`20260709_001_i18n_patient_notification_ar.sql`** — colonnes **`title_ar`** / **`body_ar`** sur **`app_notifications`** + surcharge patient selon locale.
+
+**Fix ordonnance validée — date réception « à commander »** :
+- Dossier **`confirmed`** / **`treated`**, ligne ordonnance : passage **Disponible → À commander** en édition supply → champ **Réception prévue** obligatoire visible dans le bloc produit (aligné demandes produits).
+- **`lib/pharmacist-availability.ts`** : **`pharmacistSupplyDraftNeedsReceptionDate`** ; **`effectiveAvailSupplyDraft`** ne resynchronise plus une alternative quand le brouillon est explicitement **`to_order`**.
+
+**Migrations à appliquer en pilote (ordre)** : **`20260709_001`** (après **`20260708_001`**).
+
+**Phrase de reprise** : **§13.42**.
+
+---
+
+### Session 2026-06-05 (suite) — Vocaux envoi initial, MIME Storage, consultation UX lot 2, ordonnance pharma
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`fa897de`** (MIME audio bucket) · **`cb90da3`** (vocal envoi initial) · **`6cb3160`** (retours ordonnance pharmacien) · **`081fc02`** (consultation UX lot 2).
+
+**Messages vocaux — envoi initial patient** (`cb90da3`) :
+- **`ConversationMessageDraftField`** + **`ConversationAudioDraftPreview`** — composant partagé avec le fil conversation (même enregistrement **30 s**).
+- Intégré sur **`/pharmacie/[id]/demande-produits`**, **`demande-ordonnance`**, **`consultation-libre`** et **`patient-demande-produits-ui.tsx`**.
+- Au submit : premier commentaire dossier via **`sendRequestConversationMessage`** (texte facultatif + vocal).
+
+**Fix MIME bucket `private-media`** (`fa897de`) :
+- Migration **`20260707_001_private_media_conversation_audio_mime.sql`** — autorise **`audio/webm`**, **`audio/mp4`**, **`audio/m4a`**, etc. (avant : images seules → échec upload vocal).
+- **`lib/conversation-audio-media.ts`** — normalisation **`contentType`** à l’upload (sans suffixe `codecs=opus`).
+
+**Consultation libre UX lot 2** (`081fc02`) :
+- **`RequestConversationInline`** : auto-scroll bas (stick-to-bottom si l’utilisateur n’a pas remonté le fil).
+- Patient onglet Conversation : wrapper hauteur **`consultationConversationViewportHeightClass`** ; brief « Modifier mon message » **sous** le fil (ne compresse plus la zone messages).
+- Transition **`responded`** : onglet **Produits** + fermeture modal conversation (patient + pharmacien après publish).
+- Retrait badges / onglets **« Produit »** redondants sur lignes consultation.
+- Notif « validée mise à jour » : reload + **`acknowledgeRequestDrift`** sans F5.
+- Archive consultation clôturée : **`free_consultation`** exclu du **`RequestKindHeader`** doublon (aligné ordonnance).
+
+**Ordonnance — retours UX pharmacien** (`6cb3160`) :
+- Lightbox zoom scan, FAB au-dessus footers, suppression lignes en édition répondue, dispo frozen lisible, save répondue bump **`requests.updated_at`** + **`dispatchRequestDetailRefresh`**.
+- Migration **`20260707_002_patient_prescription_update_sync.sql`** — note patient ordonnance sync conversation + drift UI.
+- Migration **`20260708_001_prescription_first_attach_no_update_notif.sql`** — pas de notif « Demande validée mise à jour » au premier attach des pages scan.
+
+**Migrations à appliquer en pilote (ordre, après lot précédent)** : **`20260707_001`** → **`20260707_002`** → **`20260708_001`**.
+
+**Phrase de reprise** : **§13.41**.
+
+---
+
 ### Session 2026-06-05 — Consultation libre UX, messages vocaux conversation, ordonnance archive
 
 **Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`c507609`** (consultation) · **`ea54827`** (vocaux) · fix archive ordonnance patient.
@@ -389,10 +442,12 @@ git checkout pilote-stable-2026-05-24
 - Pharmacien : ajout produit sans motif ; cartes lignes alignées demandes produits ; libellés neutres (`lib/consultation-ui-copy.ts`, `consultation.config.ts`).
 - Migration **`20260705_001_consultation_conversation_notif_skip_fix.sql`** — notif pharmacien dès le 1er message chat (skip soumission réservé produits/ordonnance).
 
-**Messages vocaux conversation (patient + pharmacien, tous parcours avec fil dossier)** :
+**Messages vocaux conversation (fil dossier FAB + inline consultation)** :
 - **`ConversationComposer`**, **`ConversationMessageBubble`**, **`ConversationAudioPlayer`**, **`useConversationAudioRecorder`**, **`lib/send-request-conversation-message.ts`**.
 - Max **30 s** ; chemins Storage `private-media/conversation-audio/` ; texte facultatif avec vocal.
 - Migration **`20260706_001_conversation_audio_messages.sql`** — colonnes `audio_path` / `audio_duration_seconds`, policies Storage, trigger notif adapté.
+- **Envoi initial** (voir session **2026-06-05 (suite)**) : **`ConversationMessageDraftField`** sur saisie publique produits / ordonnance / consultation libre.
+- **MIME bucket** : **`20260707_001`** requis pour upload (voir suite).
 - Script vidage : **`clear-request-private-media.mjs`** inclut les vocaux.
 
 **Ordonnance archive clôturée (patient)** :
@@ -400,7 +455,7 @@ git checkout pilote-stable-2026-05-24
 
 **Migrations à appliquer en pilote (ordre)** : **`20260705_001`** puis **`20260706_001`**.
 
-**Phrase de reprise** : **§13.40**.
+**Phrase de reprise** : **§13.40** (dépassée → **§13.41**).
 
 ---
 
@@ -570,7 +625,7 @@ git checkout pilote-stable-2026-05-24
 
 **Fichiers clés** : `components/requests/request-conversation-panel.tsx`, `lib/conversation-fab-position.ts`, `components/layout/platform-header.tsx`.
 
-**Hors périmètre** : **consultation libre** = messagerie **inline** (pas de FAB) ; **notes par ligne** = `pharmacist-line-conversation-chip` (non déplaçable). **Messages vocaux** (session **2026-06-05**, **`20260706_001`**) : **`ConversationComposer`** dans inline + modal FAB — max **30 s**.
+**Hors périmètre** : **consultation libre** = messagerie **inline** (pas de FAB) ; **notes par ligne** = `pharmacist-line-conversation-chip` (non déplaçable). **Messages vocaux** (session **2026-06-05** + suite, **`20260706_001`**, **`20260707_001`**) : **`ConversationComposer`** (inline + modal FAB) et **`ConversationMessageDraftField`** (envoi initial saisie publique) — max **30 s**.
 
 ---
 
@@ -1848,8 +1903,19 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260628_001_pharmacist_mark_request_treated_relaxed.sql` · **`20260628_002_pharmacist_abandon_request_no_pickup.sql`**
   - `supabase/migrations/20260629_001_relax_arrived_reserved_no_prior_ordered.sql` · **`20260629_002_no_treated_notif_on_treated_update.sql`**
   - `supabase/migrations/20260630_001_partial_counter_closure.sql` (**clôture comptoir** si ≥1 ligne **`picked_up`** — auto-écart des autres lignes retenues)
+  - `supabase/migrations/20260701_001_notifications_professional_improvements.sql` (notifs pro, rappels, canaux externes élargis)
+  - `supabase/migrations/20260701_002_auth_phone_lookup_user_id.sql` (lookup auth par téléphone)
+  - `supabase/migrations/20260703_001_pharmacist_dashboard_needs_action_priorities.sql` (priorités hub pharmacien)
+  - `supabase/migrations/20260703_002_prescription_line_workflow_rpcs.sql` (workflow lignes ordonnance / consultation)
+  - `supabase/migrations/20260704_001_preserve_submitted_at_on_sent_resubmit.sql` (conserver **`submitted_at`** au resubmit envoyée)
+  - `supabase/migrations/20260705_001_consultation_conversation_notif_skip_fix.sql` (notif pharmacien 1er message chat consultation)
+  - `supabase/migrations/20260706_001_conversation_audio_messages.sql` (messages vocaux conversation : colonnes audio, Storage, RLS)
+  - `supabase/migrations/20260707_001_private_media_conversation_audio_mime.sql` (**MIME audio** autorisés sur bucket **`private-media`**)
+  - `supabase/migrations/20260707_002_patient_prescription_update_sync.sql` (note ordonnance patient → conversation + drift)
+  - `supabase/migrations/20260708_001_prescription_first_attach_no_update_notif.sql` (pas notif « mise à jour » au 1er attach ordonnance)
+  - `supabase/migrations/20260709_001_i18n_patient_notification_ar.sql` (notifs in-app patient bilingues ar/fr)
 
-**Pilote (état infra 2026-05-29)** : l’utilisateur confirme que **toutes les migrations ci-dessus sont appliquées** sur Supabase — pas de rappel « appliquer » en reprise sauf nouveau fichier sous `supabase/migrations/`.
+**Pilote (état infra 2026-06-05)** : appliquer les migrations **`20260701_*`** … **`20260709_001`** dans l’ordre des noms si pas déjà fait — voir **§13.42** pour la reprise courte.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2120,7 +2186,19 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.40) Phrase de reprise (recommandée — après session **2026-06-05** consultation + vocaux + ordonnance archive)
+### 13.42) Phrase de reprise (recommandée — après session **2026-06-05 (suite 3)** i18n patient + fix ordonnance validée)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal`. **Migrations à appliquer** si pas fait : **`20260705_001`** → **`20260709_001`** (dernière **`20260709_001`** = notifs in-app ar). **i18n patient ar/fr** : cookie `pp_locale`, switcher header, RTL, `messages/fr` + `messages/ar` ; pharmacien/admin restent FR ; SMS externes FR. **Ordonnance validée** : dispo **À commander** → champ **Réception prévue** visible en édition supply. Lots antérieurs : vocaux (**`cb90da3`**, **`ea54827`**, **`20260706_001`**), consultation UX (**`081fc02`**, **`c507609`**), ordonnance pharma (**`6cb3160`**). Catalogue BeautyMall : **§13.39**. Je te donne la tâche ou les retours preview. »**
+
+### 13.41) Phrase de reprise (dépassée — session **2026-06-05 (suite)** vocaux envoi initial + consultation UX lot 2 + ordonnance pharma)
+
+Voir **§13.42**.
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`081fc02`** consultation UX, **`6cb3160`** ordonnance pharma, **`cb90da3`** vocal envoi initial, **`fa897de`** MIME audio, **`ea54827`** vocaux fil, **`c507609`** consultation lot 1). **Migrations à appliquer** si pas fait : **`20260705_001`** → **`20260706_001`** → **`20260707_001`** → **`20260707_002`** → **`20260708_001`**. **Vocaux** : **30 s max** — fil dossier (`ConversationComposer`) + saisie initiale patient (`ConversationMessageDraftField` sur demande produits / ordonnance / consultation libre). **Consultation** : fil scrollable + auto-scroll ; après réponse pharma → onglet **Produits** ; pas de badge « Produit » sur lignes ; archive = bandeau dossier seul. **Ordonnance pharma** : retours saisie/réponse (zoom scan, drift patient). Catalogue BeautyMall : **§13.39** / **`736100f`**. Je te donne la tâche ou les retours preview. »**
+
+### 13.40) Phrase de reprise (dépassée — session **2026-06-05** lot 1)
+
+Voir **§13.41**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`ea54827`** vocaux, **`c507609`** consultation libre). **Migrations à appliquer** si pas fait : **`20260705_001`** puis **`20260706_001`**. **Consultation libre** : en-têtes dossier, scroll conversation, annulation footer, refresh notif, cartes lignes neutres. **Conversation** : messages vocaux optionnels **30 s max** (`ConversationComposer`, Storage `conversation-audio/`). **Ordonnance archive clôturée patient** : bandeau dossier seul (plus de récap header doublon). Catalogue BeautyMall : **§13.39** / **`736100f`**. UI ordonnances actives : **§13.37** / **`112b679`**. Je te donne la tâche ou les retours preview. »**
 
@@ -2148,7 +2226,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-05** — consultation libre UX + messages vocaux conversation + ordonnance archive, commits **`c507609`**, **`ea54827`**). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260706_001`** (appliquer **`20260705_001`** avant **`20260706_001`** si besoin) ; catalogue **13 651** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.40**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-05 (suite 3)** — i18n patient ar/fr + fix date réception ordonnance validée). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260709_001`** ; catalogue **13 651** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.42**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 

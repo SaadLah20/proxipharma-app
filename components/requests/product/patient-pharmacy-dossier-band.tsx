@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Store } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { PharmacyNavigationPicker } from "@/components/pharmacy/pharmacy-navigation-picker";
 import {
   PatientPharmacyQuickContact,
@@ -30,11 +31,13 @@ export function PatientPharmacyDossierBand({
   compact?: boolean;
   className?: string;
 }) {
-  const t = requestKindUiTheme(requestType);
+  const tCommon = useTranslations("common");
+  const tDemandes = useTranslations("demandes");
+  const theme = requestKindUiTheme(requestType);
   const [contactOpen, setContactOpen] = useState(false);
   const phLabel = pharmacyContact?.nom?.trim()
     ? pharmacyPublicLabel(pharmacyContact.nom)
-    : "Pharmacie";
+    : tDemandes("dossierBand.pharmacyFallback");
   const iconBox = compact ? "size-8 rounded-lg" : "size-9 rounded-lg";
   const iconSize = compact ? "size-4" : "size-[1.125rem]";
   const nameClass = compact
@@ -64,8 +67,8 @@ export function PatientPharmacyDossierBand({
             className={cn(
               "flex shrink-0 items-center justify-center shadow-sm ring-1",
               iconBox,
-              t.accentIconBg,
-              t.accentIcon
+              theme.accentIconBg,
+              theme.accentIcon,
             )}
             aria-hidden
           >
@@ -78,7 +81,7 @@ export function PatientPharmacyDossierBand({
             ) : null}
             {compact && pharmacyContact?.public_ref?.trim() ? (
               <p className="mt-0.5 font-mono text-[9px] font-semibold text-muted-foreground">
-                Off. {pharmacyContact.public_ref.trim()}
+                {tDemandes("dossierBand.officeRef")} {pharmacyContact.public_ref.trim()}
               </p>
             ) : null}
           </div>
@@ -86,12 +89,8 @@ export function PatientPharmacyDossierBand({
 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           {pharmacyContact ? (
-            <button
-              type="button"
-              onClick={() => setContactOpen(true)}
-              className={uiActionBtnCompactOutline()}
-            >
-              Contacter
+            <button type="button" onClick={() => setContactOpen(true)} className={uiActionBtnCompactOutline()}>
+              {tCommon("contact")}
             </button>
           ) : null}
           {navigationTarget ? (
@@ -103,7 +102,7 @@ export function PatientPharmacyDossierBand({
             />
           ) : null}
           <Link href={`/pharmacie/${pharmacyId}`} className={uiActionBtnCompactPrimary()}>
-            Voir la fiche
+            {tCommon("viewProfile")}
           </Link>
         </div>
       </div>
@@ -117,14 +116,16 @@ export function PatientPharmacyDossierBand({
           <div
             className={cn(
               "w-full max-w-sm rounded-2xl border bg-card p-4 shadow-2xl sm:mx-auto",
-              t.modalShell
+              theme.modalShell,
             )}
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="contact-pharmacy-band-title" className="text-sm font-bold text-foreground">
-              Contacter {phLabel}
+              {tCommon("contact")} {phLabel}
             </h2>
-            <p className="mt-1 text-xs text-muted-foreground">Réf. dossier {dossierRefLabel}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {tDemandes("dossierBand.dossierRef", { ref: dossierRefLabel })}
+            </p>
             <div className="mt-3 pb-1">
               <PatientPharmacyQuickContact
                 pharmacy={pharmacyContact}
@@ -137,7 +138,7 @@ export function PatientPharmacyDossierBand({
               onClick={() => setContactOpen(false)}
               className="mt-4 w-full rounded-lg border border-border/80 py-2 text-sm font-semibold text-foreground hover:bg-muted/40"
             >
-              Fermer
+              {tCommon("close")}
             </button>
           </div>
         </AppModalOverlay>

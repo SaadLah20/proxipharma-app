@@ -5,6 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
 import {
   Bell,
   ChevronRight,
@@ -47,6 +48,8 @@ function ProfileField({ label, value }: { label: string; value: string }) {
 
 export function PatientSettingsPage() {
   const router = useRouter();
+  const t = useTranslations("account");
+  const tc = useTranslations("common");
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -119,11 +122,11 @@ export function PatientSettingsPage() {
   const deleteAccount = async () => {
     setDeleteError("");
     if (!deleteAck) {
-      setDeleteError("Cochez la case de confirmation.");
+      setDeleteError(t("deleteConfirmCheckbox"));
       return;
     }
     if (deleteConfirm.trim().toUpperCase() !== "SUPPRIMER") {
-      setDeleteError('Tapez exactement « SUPPRIMER » pour confirmer.');
+      setDeleteError(t("deleteConfirmType"));
       return;
     }
     setDeleteLoading(true);
@@ -131,7 +134,7 @@ export function PatientSettingsPage() {
     const token = auth.session?.access_token;
     if (!token) {
       setDeleteLoading(false);
-      setDeleteError("Session expirée. Reconnectez-vous.");
+      setDeleteError(t("sessionExpired"));
       return;
     }
     try {
@@ -141,14 +144,14 @@ export function PatientSettingsPage() {
       });
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        setDeleteError(body.error ?? "Suppression impossible.");
+        setDeleteError(body.error ?? t("deleteFailed"));
         setDeleteLoading(false);
         return;
       }
       await supabase.auth.signOut();
       router.push("/");
     } catch (e) {
-      setDeleteError(e instanceof Error ? e.message : "Erreur réseau.");
+      setDeleteError(e instanceof Error ? e.message : t("networkError"));
       setDeleteLoading(false);
     }
   };
@@ -158,10 +161,10 @@ export function PatientSettingsPage() {
     if (!ref) return;
     try {
       await navigator.clipboard.writeText(ref);
-      setCopyRefMsg("Code copié.");
+      setCopyRefMsg(t("refCopied"));
       window.setTimeout(() => setCopyRefMsg(""), 2500);
     } catch {
-      setCopyRefMsg("Copie impossible sur cet appareil.");
+      setCopyRefMsg(t("copyFailed"));
     }
   };
 
@@ -170,7 +173,7 @@ export function PatientSettingsPage() {
     if (!profile?.id) return;
     const next = nameDraft.trim();
     if (!next) {
-      setNameMessage("Indiquez votre nom.");
+      setNameMessage(t("nameRequired"));
       return;
     }
     setNameSaving(true);
@@ -183,7 +186,7 @@ export function PatientSettingsPage() {
     }
     setProfile((p) => (p ? { ...p, full_name: next } : p));
     setEditingName(false);
-    setNameMessage("Nom enregistré.");
+    setNameMessage(t("nameSaved"));
     window.setTimeout(() => setNameMessage(""), 2500);
   };
 
@@ -269,19 +272,19 @@ export function PatientSettingsPage() {
   if (loading) {
     return (
       <PageShell maxWidthClass="max-w-lg">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       </PageShell>
     );
   }
 
-  const displayName = profile?.full_name?.trim() || "Mon compte";
+  const displayName = profile?.full_name?.trim() || t("defaultAccountName");
   const phoneDisplay = profile?.whatsapp?.trim() || loginMethods.authPhoneE164 || "—";
 
   return (
     <PageShell maxWidthClass="max-w-lg" className={clsx("space-y-4 pb-8", p.page)}>
       <PatientAccountPageHeader
-        eyebrow="Compte patient"
-        title="Mes paramètres"
+        eyebrow={t("patientAccount")}
+        title={t("settingsTitle")}
         subtitle={
           <>
             <span className="font-medium text-foreground">{displayName}</span>
@@ -294,40 +297,34 @@ export function PatientSettingsPage() {
                   className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground hover:bg-muted/70"
                 >
                   <Copy className="size-3" aria-hidden />
-                  Copier
+                  {t("copy")}
                 </button>
               </span>
             ) : null}
             {copyRefMsg ? <span className="mt-1 block text-[11px]">{copyRefMsg}</span> : null}
-            <span className="mt-2 block">
-              Profil, connexion et notifications — vos dossiers restent dans le menu principal.
-            </span>
+            <span className="mt-2 block">{t("settingsSubtitle")}</span>
           </>
         }
       />
 
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
 
-      <PatientSettingsSection
-        title="Mon profil"
-        subtitle="Identité visible par les pharmacies avec lesquelles vous échangez"
-        defaultOpen
-      >
+      <PatientSettingsSection title={t("myProfile")} subtitle={t("profileSubtitle")} defaultOpen>
         <dl className="space-y-3">
           {profile?.patient_ref?.trim() ? (
             <div>
               <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Code client
+                {t("clientCode")}
               </dt>
               <dd className={clsx("text-base", p.monoAccent)}>{profile.patient_ref.trim()}</dd>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                À donner à l’officine pour retrouver votre dossier plus vite.
+                {t("clientCodeHint")}
               </p>
             </div>
           ) : null}
 
           <div>
-            <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Nom</dt>
+            <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t("name")}</dt>
             {editingName ? (
               <form className="mt-1.5 space-y-2" onSubmit={(ev) => void saveName(ev)}>
                 <input
@@ -342,7 +339,7 @@ export function PatientSettingsPage() {
                     disabled={nameSaving}
                     className={clsx("px-3 py-1.5 text-xs font-semibold disabled:opacity-60", p.cta)}
                   >
-                    {nameSaving ? "…" : "Enregistrer"}
+                    {nameSaving ? "…" : tc("save")}
                   </button>
                   <button
                     type="button"
@@ -353,7 +350,7 @@ export function PatientSettingsPage() {
                       setNameMessage("");
                     }}
                   >
-                    Annuler
+                    {tc("cancel")}
                   </button>
                 </div>
               </form>
@@ -365,32 +362,26 @@ export function PatientSettingsPage() {
                   className={p.linkInline}
                   onClick={() => setEditingName(true)}
                 >
-                  Modifier
+                  {tc("edit")}
                 </button>
               </dd>
             )}
             {nameMessage ? <p className="mt-1 text-[11px] text-muted-foreground">{nameMessage}</p> : null}
           </div>
 
-          <ProfileField label="Téléphone / WhatsApp (contact)" value={phoneDisplay} />
-          <p className="text-[11px] text-muted-foreground">
-            Numéro pour les pharmacies et les SMS de suivi. Pour le changer, contactez le support au pilote.
-          </p>
+          <ProfileField label={t("phoneWhatsapp")} value={phoneDisplay} />
+          <p className="text-[11px] text-muted-foreground">{t("phoneHint")}</p>
           <ProfileField
-            label="E-mail sur le profil"
-            value={profile?.email?.trim() || loginMethods.authEmail || "Non renseigné"}
+            label={t("profileEmail")}
+            value={profile?.email?.trim() || loginMethods.authEmail || t("notProvided")}
           />
         </dl>
       </PatientSettingsSection>
 
-      <PatientSettingsSection
-        title="Connexion et sécurité"
-        subtitle="Identifiants, mot de passe et e-mail"
-        defaultOpen
-      >
+      <PatientSettingsSection title={t("loginSecurity")} subtitle={t("loginSecuritySubtitle")} defaultOpen>
         <div className="space-y-4">
           <div className="rounded-lg border border-border/80 bg-muted/25 px-3 py-2.5">
-            <p className="text-xs font-semibold text-foreground">Comment vous connecter</p>
+            <p className="text-xs font-semibold text-foreground">{t("howYouLogin")}</p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
               {patientLoginMethodsSummaryFr(loginMethods)}
             </p>
@@ -403,10 +394,7 @@ export function PatientSettingsPage() {
             ) : null}
             {loginMethods.needsPhoneAuthSync ? (
               <div className="mt-3 space-y-2">
-                <p className="text-[11px] leading-snug text-amber-900">
-                  Votre numéro est enregistré sur le profil mais pas encore comme identifiant de connexion
-                  (cas fréquent après inscription par e-mail).
-                </p>
+                <p className="text-[11px] leading-snug text-amber-900">{t("phoneSyncHint")}</p>
                 <button
                   type="button"
                   disabled={phoneLinkLoading}
@@ -419,10 +407,10 @@ export function PatientSettingsPage() {
                   {phoneLinkLoading ? (
                     <>
                       <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                      Activation…
+                      {t("activating")}
                     </>
                   ) : (
-                    "Activer la connexion par téléphone"
+                    t("activatePhoneLogin")
                   )}
                 </button>
                 {phoneLinkMessage ? (
@@ -438,22 +426,17 @@ export function PatientSettingsPage() {
               className={clsx("inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold shadow-sm", p.cta)}
             >
               <KeyRound className="size-4" aria-hidden />
-              Changer mon mot de passe
+              {t("changePassword")}
             </Link>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Mot de passe oublié sans être connecté : déconnectez-vous puis utilisez « Mot de passe oublié » sur la
-              page de connexion (SMS ou e-mail selon votre compte).
-            </p>
+            <p className="mt-2 text-[11px] text-muted-foreground">{t("forgotPasswordHint")}</p>
           </div>
 
           <div className="border-t border-border/60 pt-4">
             <p className="text-xs font-semibold text-foreground">
-              {loginMethods.canLoginWithEmail ? "E-mail de connexion / récupération" : "E-mail de récupération (optionnel)"}
+              {loginMethods.canLoginWithEmail ? t("recoveryEmailLogin") : t("recoveryEmailOptional")}
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              {loginMethods.canLoginWithEmail
-                ? "Cet e-mail sert aussi à vous connecter et à réinitialiser votre mot de passe."
-                : "Utile pour réinitialiser un mot de passe et recevoir certaines alertes par mail."}
+              {loginMethods.canLoginWithEmail ? t("recoveryEmailLoginHint") : t("recoveryEmailOptionalHint")}
             </p>
             <form className="mt-3 space-y-2" onSubmit={(ev) => void saveRecoveryEmail(ev)}>
               <input
@@ -462,7 +445,7 @@ export function PatientSettingsPage() {
                   "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2",
                   p.searchInput
                 )}
-                placeholder="vous@exemple.com"
+                placeholder={t("emailPlaceholder")}
                 value={recoveryEmail}
                 onChange={(e) => setRecoveryEmail(e.target.value)}
                 autoComplete="email"
@@ -478,10 +461,10 @@ export function PatientSettingsPage() {
                 {recoverySaving ? (
                   <>
                     <Loader2 className="size-4 animate-spin" aria-hidden />
-                    Enregistrement…
+                    {tc("saving")}
                   </>
                 ) : (
-                  "Enregistrer l’e-mail"
+                  t("saveEmail")
                 )}
               </button>
             </form>
@@ -492,11 +475,7 @@ export function PatientSettingsPage() {
         </div>
       </PatientSettingsSection>
 
-      <PatientSettingsSection
-        title="Notifications"
-        subtitle="Dans l’application et par e-mail / SMS"
-        defaultOpen={false}
-      >
+      <PatientSettingsSection title={t("notificationsSection")} subtitle={t("notificationsPrefsSubtitle")} defaultOpen={false}>
         <div className="space-y-4">
           <Link
             href="/dashboard/notifications"
@@ -504,13 +483,13 @@ export function PatientSettingsPage() {
           >
             <span className="inline-flex items-center gap-2">
               <Bell className="size-4 text-primary" aria-hidden />
-              Voir mes notifications in-app
+              {t("inAppNotifications")}
             </span>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
           </Link>
 
           <div className="border-t border-border/60 pt-4">
-            <p className="text-xs font-semibold text-foreground">Alertes hors application</p>
+            <p className="text-xs font-semibold text-foreground">{t("externalAlerts")}</p>
             {profile?.id ? (
               <ExternalNotificationPrefs userId={profile.id} variant="patient" appearance="settings" />
             ) : null}
@@ -518,12 +497,12 @@ export function PatientSettingsPage() {
         </div>
       </PatientSettingsSection>
 
-      <PatientSettingsSection title="Aide" subtitle="Parcourir et comprendre le pilote" defaultOpen={false}>
+      <PatientSettingsSection title={t("help")} subtitle={t("helpSubtitle")} defaultOpen={false}>
         <ul className="space-y-2 text-sm">
           <li>
             <Link href="/" className={clsx("inline-flex items-center gap-1.5", p.linkInline)}>
               <MapPin className="size-3.5" aria-hidden />
-              Annuaire des pharmacies
+              {t("directoryLink")}
             </Link>
           </li>
           <li>
@@ -531,51 +510,38 @@ export function PatientSettingsPage() {
               href="/dashboard/patient/pharmacies"
               className={clsx("inline-flex items-center gap-1.5", p.linkInline)}
             >
-              Mes pharmacies
+              {t("pharmaciesTitle")}
             </Link>
           </li>
         </ul>
-        <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-          Envoyez une demande depuis la fiche d’une officine, suivez les réponses dans{" "}
-          <strong className="font-medium text-foreground">Mes demandes</strong>, validez sous 24 h après la réponse
-          pharmacie.
-        </p>
+        <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">{t("helpHint")}</p>
       </PatientSettingsSection>
 
-      <PatientSettingsSection
-        title="Compte et session"
-        subtitle="Déconnexion ou suppression définitive"
-        defaultOpen={false}
-      >
+      <PatientSettingsSection title={t("accountSession")} subtitle={t("accountSessionSubtitle")} defaultOpen={false}>
         <div className="space-y-4">
           <div>
-            <p className="text-xs font-semibold text-foreground">Déconnexion</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Quitter ProxiPharma sur cet appareil sans supprimer vos données.
-            </p>
+            <p className="text-xs font-semibold text-foreground">{t("logoutTitle")}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{t("logoutHint")}</p>
             <button
               type="button"
               onClick={() => void logout()}
               className="mt-2 inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted/40"
             >
               <LogOut className="size-4" aria-hidden />
-              Se déconnecter
+              {t("logout")}
             </button>
           </div>
 
           <div className="border-t border-destructive/20 pt-4">
-            <p className="text-xs font-semibold text-destructive">Supprimer mon compte</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              Action définitive : votre accès sera supprimé. Impossible s&apos;il reste un dossier ou une réservation
-              promo en cours.
-            </p>
+            <p className="text-xs font-semibold text-destructive">{t("deleteTitle")}</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{t("deleteHint")}</p>
             {!deleteOpen ? (
               <button
                 type="button"
                 onClick={() => setDeleteOpen(true)}
                 className="mt-2 text-sm font-semibold text-destructive underline underline-offset-2"
               >
-                Je souhaite supprimer mon compte
+                {t("deleteStart")}
               </button>
             ) : (
               <div className="mt-3 space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
@@ -586,14 +552,14 @@ export function PatientSettingsPage() {
                     onChange={(e) => setDeleteAck(e.target.checked)}
                     className="mt-0.5 rounded border-input"
                   />
-                  <span>Je comprends que cette action est irréversible et que mes données de compte seront effacées.</span>
+                  <span>{t("deleteAck")}</span>
                 </label>
                 <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Confirmation
+                  {t("deleteConfirmLabel")}
                   <input
                     value={deleteConfirm}
                     onChange={(e) => setDeleteConfirm(e.target.value)}
-                    placeholder="SUPPRIMER"
+                    placeholder={t("deleteConfirmPlaceholder")}
                     className="mt-1 w-full rounded-lg border border-destructive/40 bg-background px-3 py-2 font-mono text-sm uppercase"
                     autoComplete="off"
                   />
@@ -606,7 +572,7 @@ export function PatientSettingsPage() {
                     onClick={() => void deleteAccount()}
                     className="rounded-lg bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground hover:opacity-95 disabled:opacity-60"
                   >
-                    {deleteLoading ? "Suppression…" : "Supprimer définitivement"}
+                    {deleteLoading ? t("deleteLoading") : t("deleteForever")}
                   </button>
                   <button
                     type="button"
@@ -619,7 +585,7 @@ export function PatientSettingsPage() {
                     }}
                     className="rounded-lg border border-border px-4 py-2 text-sm font-medium"
                   >
-                    Annuler
+                    {tc("cancel")}
                   </button>
                 </div>
               </div>

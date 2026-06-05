@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { supabase } from "@/lib/supabase";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import { PharmacyPublicBackLink } from "@/components/pharmacy/pharmacy-public-chrome";
@@ -16,6 +17,8 @@ import type {
 } from "@/lib/pharmacy-profile-types";
 
 export default function PharmacieFichePage() {
+  const t = useTranslations("pharmacyPublic");
+  const tc = useTranslations("common");
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
   const hasId = Boolean(id);
@@ -77,7 +80,7 @@ export default function PharmacieFichePage() {
       if (phRes.error) {
         setError(phRes.error.message);
       } else if (!phRes.data) {
-        setError("Cette pharmacie n'existe pas ou n'est plus disponible.");
+        setError(t("pharmacyUnavailable"));
       } else {
         setPharmacy(phRes.data as PharmacyPublicProfileRow);
         setWeeklyHours((whRes.data ?? []) as PharmacyWeeklyHourRow[]);
@@ -106,10 +109,10 @@ export default function PharmacieFichePage() {
     return (
       <main className="min-h-screen bg-background p-6">
         <div className="mx-auto max-w-lg rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          Pharmacie introuvable.
+          {t("pharmacyNotFound")}
         </div>
         <Link href="/" className="mt-4 block text-center text-sm font-medium text-primary">
-          Retour à l&apos;annuaire
+          {tc("backToDirectory")}
         </Link>
       </main>
     );
@@ -118,7 +121,7 @@ export default function PharmacieFichePage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-background p-6">
-        <p className="text-sm text-muted-foreground">Chargement de la fiche…</p>
+        <p className="text-sm text-muted-foreground">{t("loadingProfile")}</p>
       </main>
     );
   }
@@ -126,7 +129,7 @@ export default function PharmacieFichePage() {
   return (
     <main className="min-h-screen bg-background p-4 pb-10 sm:p-5">
       <div className="mx-auto max-w-lg">
-        <PharmacyPublicBackLink href="/">Annuaire</PharmacyPublicBackLink>
+        <PharmacyPublicBackLink href="/">{t("backToDirectory")}</PharmacyPublicBackLink>
 
         {error ? (
           <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>

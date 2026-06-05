@@ -2,6 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import { MapPin, Stethoscope, UserRound } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   PharmacyProfileContactGrid,
   type PharmacyProfileContactItem,
@@ -41,12 +42,13 @@ function PublicInfoSection({
 }
 
 function SecondaryContactLinks({ items }: { items: PharmacyProfileContactItem[] }) {
+  const t = useTranslations("pharmacyPublic");
   const links = items.filter((i) => i.href);
   if (links.length === 0) return null;
 
   return (
     <div className="border-t border-border/50 pt-3">
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Liens</p>
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{t("links")}</p>
       <ul className="flex flex-wrap gap-1.5">
         {links.map((item) => {
           const Icon = item.icon;
@@ -84,12 +86,13 @@ export function PharmacyPublicInfoTab({
   ratingCount: number | null;
   onRatingUpdated: (avg: number, count: number) => void;
 }) {
+  const t = useTranslations("pharmacyPublic");
   const primaryContacts = contactItems.filter((i) => PRIMARY_CONTACT_IDS.has(i.id));
   const secondaryContacts = contactItems.filter((i) => !PRIMARY_CONTACT_IDS.has(i.id));
 
   const showTitular =
     pharmacy.titular_public !== false && Boolean(pharmacy.titular_name?.trim());
-  const titularTitle = pharmacy.titular_title?.trim() || "Pharmacien titulaire";
+  const titularTitle = pharmacy.titular_title?.trim() || t("titularDefault");
 
   return (
     <div className="space-y-3">
@@ -104,9 +107,9 @@ export function PharmacyPublicInfoTab({
         </blockquote>
       ) : null}
 
-      <PublicInfoSection title="Coordonnées" icon={MapPin}>
+      <PublicInfoSection title={t("coordinates")} icon={MapPin}>
         <div className="rounded-xl border border-border/60 bg-muted/15 px-3 py-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Adresse</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{t("address")}</p>
           <p className="mt-1 text-[12px] font-semibold leading-snug text-foreground [overflow-wrap:anywhere]">
             {pharmacy.adresse}
           </p>
@@ -115,7 +118,7 @@ export function PharmacyPublicInfoTab({
 
         <div>
           <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-            Contact &amp; accès
+            {t("contactAccess")}
           </p>
           <PharmacyProfileContactGrid items={primaryContacts} />
         </div>
@@ -130,12 +133,10 @@ export function PharmacyPublicInfoTab({
       />
 
       {showTitular || servicesOffered.length > 0 ? (
-        <PublicInfoSection title="L'officine" icon={Stethoscope}>
+        <PublicInfoSection title={t("thePharmacy")} icon={Stethoscope}>
           {showTitular ? (
             <div className="rounded-xl border border-border/60 bg-muted/15 px-3 py-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                {titularTitle}
-              </p>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{titularTitle}</p>
               <p className="mt-1 flex items-center gap-2 text-[12px] font-semibold text-foreground">
                 <UserRound className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                 {pharmacy.titular_name?.trim()}
@@ -146,7 +147,7 @@ export function PharmacyPublicInfoTab({
           {servicesOffered.length > 0 ? (
             <div className={cn(showTitular && "pt-1")}>
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                Services proposés
+                {t("servicesOffered")}
               </p>
               <ul className="flex flex-wrap gap-1.5">
                 {servicesOffered.map((s) => (
@@ -161,9 +162,7 @@ export function PharmacyPublicInfoTab({
             </div>
           ) : (
             !showTitular ? (
-              <p className="text-[11px] text-muted-foreground">
-                Informations complémentaires non renseignées par l&apos;officine.
-              </p>
+              <p className="text-[11px] text-muted-foreground">{t("infoNotProvided")}</p>
             ) : null
           )}
         </PublicInfoSection>

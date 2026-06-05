@@ -1,0 +1,73 @@
+export const workflowAr = {
+  product: {
+    label: "طلب منتجات",
+    patientHubTitle: "طلبات منتجاتي",
+    patientProposedBadge: "إضافة الصيدلية",
+    patientArchiveEmptyLines: "لا توجد أسطر لهذا الطلب.",
+    patientArchiveClosedFooter:
+      "الملف مُغلق لدى الصيدلية. المبالغ والعبارات تعكس الحالة عند الإغلاق.",
+    patientSuiviProposedHint: "اقتراح من الصيدلية (إضافة officine).",
+    patientSummaryKindLabel: "طلب منتجات",
+    patientSummaryRefShort: "طلب",
+    patientProductsSectionTitle: "المنتجات",
+    patientWaitingSubmittedHint: "في قائمة الانتظار — رد عند معالجة الصيدلية.",
+    patientWaitingInReviewHint: "قيد المراجعة — إشعار عند النشر.",
+    patientCancelWhileWaitingLabel: "إلغاء الطلب",
+  },
+  prescription: {
+    label: "وصفة طبية",
+    patientHubTitle: "وصفاتي الطبية",
+    patientProposedBadge: "وصفة طبية",
+    patientArchiveEmptyLines: "لم تُدخل منتجات على هذه الوصفة.",
+    patientArchiveClosedFooter: "الوصفة مُغلقة. المنتجات المُدخلة والمسح متاحان للاطلاع أدناه.",
+    patientLineOriginLabel: "وصفة طبية",
+    patientSuiviProposedHint: "منتج أدخلته الصيدلية من وصفتك.",
+    patientSummaryKindLabel: "وصفة طبية",
+    patientSummaryRefShort: "وصفة",
+    patientProductsSectionTitle: "منتجات الوصفة",
+    patientWaitingSubmittedHint: "وصفة مُرسلة — إدخال ورد من الصيدلية.",
+    patientWaitingInReviewHint: "إدخال جارٍ — إشعار عند النشر.",
+    patientCancelWhileWaitingLabel: "إلغاء الوصفة",
+  },
+  consultation: {
+    label: "استشارة حرة",
+    patientHubTitle: "استشاراتي الحرة",
+    patientArchiveEmptyLines: "لا منتجات في هذه الاستشارة.",
+    patientArchiveClosedFooter:
+      "الاستشارة مُغلقة. رسالتك والصور والمنتجات متاحة للاطلاع أدناه.",
+    patientSummaryKindLabel: "استشارة حرة",
+    patientSummaryRefShort: "استش.",
+    patientProductsSectionTitle: "المنتجات",
+    patientWaitingSubmittedHint: "رسالة مُرسلة — تبادل أو منتجات عبر الصيدلية.",
+    patientWaitingInReviewHint: "قيد المراجعة — إشعار عند النشر.",
+    patientCancelWhileWaitingLabel: "إلغاء الاستشارة",
+  },
+};
+
+export const prescriptionCopyAr = {
+  principalTab: "وصفة طبية",
+  principalBadge: "وصفة طبية",
+  qtyPrescribed: "الكمية الموصوفة",
+  qtyPrescribedShort: "موصوف",
+  respondedTabConsultation: "سطر",
+  respondedTabPrescription: "وصفة طبية",
+  respondedTabProduct: "طلبك",
+  respondedQtyProduct: "الكمية المطلوبة",
+  validatedOriginPrescription: "وصفة طبية",
+  validatedOriginProduct: "طلبك",
+  archiveQtyPrescription: "الكمية الموصوفة",
+  archiveQtyProduct: "الكمية المطلوبة",
+  scanSent: "مسح مُرسل",
+  prepPrescription: "تحضير جارٍ حسب الوصفة.",
+  prepPharmacy: "تحضير جارٍ في الصيدلية.",
+  pharmacyProposedProduct: "منتج مقترح من الصيدلية",
+};
+
+export const consultationCopyAr = {
+  qtyProposed: "الكمية المقترحة",
+  qtyProposedShort: "مقترحة",
+  qtyRetained: "الكمية المُختارة",
+  respondedTabPrincipal: "منتج",
+  consultationSent: "استشارة مُرسلة",
+  consultation: "استشارة",
+};

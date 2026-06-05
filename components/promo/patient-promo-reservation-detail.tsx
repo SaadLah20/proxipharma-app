@@ -4,19 +4,27 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
+import { useLocale, useTranslations } from "next-intl";
 import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
+import { formatDateForLocale } from "@/lib/datetime-locale";
+import type { AppLocale } from "@/lib/i18n/config";
+import { promoPatientStatusHint, promoPatientStatusLabel } from "@/lib/i18n/promo-patient-status";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { PromoOfferPackSummary } from "@/components/promo/promo-offer-pack-summary";
 import { fetchPromoOfferLines } from "@/lib/promo/load-offer-lines";
 import { markPromoReservationNotificationsRead } from "@/lib/promo/mark-reservation-notifs-read";
 import { supabase } from "@/lib/supabase";
-import { promoReservationBadgeClass, promoReservationHint, promoReservationLabel } from "@/lib/promo/reservation-status-ui";
+import { promoReservationBadgeClass } from "@/lib/promo/reservation-status-ui";
 import type { PromoLineWithPrice } from "@/lib/promo/pricing";
 import type { PromoReservationStatus } from "@/lib/promo/types";
 
 export function PatientPromoReservationDetail({ reservationId }: { reservationId: string }) {
   const router = useRouter();
+  const t = useTranslations("promo");
+  const ta = useTranslations("account");
+  const tc = useTranslations("common");
+  const locale = useLocale() as AppLocale;
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -49,7 +57,7 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
       .eq("id", reservationId)
       .maybeSingle();
     if (qErr || !data) {
-      setError(qErr?.message ?? "Réservation introuvable.");
+      setError(qErr?.message ?? t("notFound"));
       setRow(null);
       setLines([]);
     } else {
@@ -75,7 +83,7 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
       void markPromoReservationNotificationsRead(reservationId);
     }
     setLoading(false);
-  }, [reservationId, router]);
+  }, [reservationId, router, t]);
 
   useEffect(() => {
     const tid = window.setTimeout(() => void load(), 0);
@@ -84,7 +92,7 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
 
   const cancel = async () => {
     if (!row || !["submitted", "confirmed"].includes(row.status)) return;
-    if (!window.confirm("Annuler cette réservation ?")) return;
+    if (!window.confirm(t("cancelConfirm"))) return;
     setBusy(true);
     setError("");
     const { error: rpcErr } = await supabase.rpc("cancel_promo_reservation", {
@@ -99,7 +107,7 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
   if (loading) {
     return (
       <PageShell maxWidthClass="max-w-3xl">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       </PageShell>
     );
   }
@@ -108,14 +116,14 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
     return (
       <PageShell maxWidthClass="max-w-3xl">
         <Link href="/dashboard/patient/packs-promo" className={p.backLink}>
-          ← Packs promo
+          {ta("backToPromoHub")}
         </Link>
-        <p className="mt-4 text-sm text-red-800">{error || "Introuvable."}</p>
+        <p className="mt-4 text-sm text-red-800">{error || t("notFound")}</p>
       </PageShell>
     );
   }
 
-  const pickupLabel = new Date(`${row.pickup_date}T12:00:00`).toLocaleDateString("fr-FR", {
+  const pickupLabel = formatDateForLocale(`${row.pickup_date}T12:00:00`, locale, {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -125,8 +133,8 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
       <PatientAccountPageHeader
-        eyebrow="Packs promo"
-        title={row.offer?.title ?? "Pack promo"}
+        eyebrow={t("hubTitle")}
+        title={row.offer?.title ?? t("packFallback")}
         subtitle={
           <>
             {row.pharmacy?.nom}
@@ -139,16 +147,16 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
                 promoReservationBadgeClass(row.status)
               )}
             >
-              {promoReservationLabel(row.status, "patient")}
+              {promoPatientStatusLabel(t, row.status)}
             </span>
           </>
         }
         backHref="/dashboard/patient/packs-promo"
-        backLabel="← Packs promo"
+        backLabel={ta("backToPromoHub")}
       />
 
       <p className="rounded-xl border border-border/80 bg-muted/25 px-3 py-2.5 text-sm leading-snug text-foreground">
-        {promoReservationHint(row.status, {
+        {promoPatientStatusHint(t, row.status, {
           pharmacistMessage: Boolean(row.pharmacist_note?.trim()),
         })}
       </p>
@@ -162,13 +170,13 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
               : "border-rose-200 bg-rose-50/50 text-rose-950"
           )}
         >
-          <p className="text-[10px] font-bold uppercase">Message de l&apos;officine</p>
+          <p className="text-[10px] font-bold uppercase">{t("pharmacyMessage")}</p>
           <p className="mt-1 leading-snug">{row.pharmacist_note.trim()}</p>
         </div>
       ) : null}
 
       <section className="rounded-xl border-2 border-slate-200/90 bg-card p-4 shadow-sm">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Contenu du pack</p>
+        <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{t("packContent")}</p>
         <div className="mt-3">
           <PromoOfferPackSummary
             lines={lines}
@@ -180,7 +188,7 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
 
       <dl className="space-y-2 rounded-xl border p-3 text-sm">
         <div>
-          <dt className="text-[10px] font-bold uppercase text-muted-foreground">Date de passage</dt>
+          <dt className="text-[10px] font-bold uppercase text-muted-foreground">{t("visitDate")}</dt>
           <dd>
             {pickupLabel}
             {row.pickup_time ? ` · ${row.pickup_time.slice(0, 5)}` : ""}
@@ -188,18 +196,15 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
         </div>
         {row.patient_note?.trim() ? (
           <div>
-            <dt className="text-[10px] font-bold uppercase text-muted-foreground">Votre message</dt>
+            <dt className="text-[10px] font-bold uppercase text-muted-foreground">{t("yourMessage")}</dt>
             <dd className="text-muted-foreground">{row.patient_note.trim()}</dd>
           </div>
         ) : null}
       </dl>
 
       {row.pharmacy?.id ? (
-        <Link
-          href={`/pharmacie/${row.pharmacy.id}`}
-          className={p.linkInline}
-        >
-          Voir la fiche pharmacie
+        <Link href={`/pharmacie/${row.pharmacy.id}`} className={p.linkInline}>
+          {t("viewPharmacyProfile")}
         </Link>
       ) : null}
 
@@ -212,7 +217,7 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
           className="w-full rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-800 disabled:opacity-50 sm:w-auto"
           onClick={() => void cancel()}
         >
-          {busy ? "Annulation…" : "Annuler ma réservation"}
+          {busy ? t("cancelling") : t("cancelReservation")}
         </button>
       ) : null}
     </PageShell>

@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { uiAnnuairePaginationBtn } from "@/lib/ui-action-buttons";
 import { uiSurfaceCard } from "@/lib/ui-surfaces";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,8 @@ export function AnnuairePagination({
   pageSize: number;
   onPage: (p: number) => void;
 }) {
+  const t = useTranslations("annuaire");
+
   if (totalItems <= pageSize) return null;
 
   const from = (page - 1) * pageSize + 1;
@@ -26,13 +29,10 @@ export function AnnuairePagination({
   return (
     <nav
       className={cn(uiSurfaceCard, "flex flex-wrap items-center justify-between gap-3 px-3 py-2.5")}
-      aria-label="Pagination de l’annuaire"
+      aria-label={t("pagination.ariaLabel")}
     >
       <p className="text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">
-          {from}–{to}
-        </span>{" "}
-        sur {totalItems} officine{totalItems > 1 ? "s" : ""}
+        {t("pagination.range", { from, to, total: totalItems })}
       </p>
       <div className="flex items-center gap-1">
         <button
@@ -42,10 +42,10 @@ export function AnnuairePagination({
           className={cn(uiAnnuairePaginationBtn(), page <= 1 && "cursor-not-allowed opacity-40")}
         >
           <ChevronLeft className="size-3.5" />
-          Préc.
+          {t("pagination.prev")}
         </button>
         <span className="min-w-[4.5rem] text-center text-xs font-medium tabular-nums text-foreground">
-          {page} / {totalPages}
+          {t("pagination.pageOf", { page, totalPages })}
         </span>
         <button
           type="button"
@@ -53,7 +53,7 @@ export function AnnuairePagination({
           onClick={() => onPage(page + 1)}
           className={cn(uiAnnuairePaginationBtn(), page >= totalPages && "cursor-not-allowed opacity-40")}
         >
-          Suiv.
+          {t("pagination.next")}
           <ChevronRight className="size-3.5" />
         </button>
       </div>

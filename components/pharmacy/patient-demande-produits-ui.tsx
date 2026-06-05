@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ChevronDown, LayoutGrid, MessageCircle, MessageSquare, Package, Search, Trash2, X } from "lucide-react";
 import { PharmacyFlowHero, pharmacyPublicCard, PharmacyPublicSectionTitle } from "@/components/pharmacy/pharmacy-public-chrome";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
@@ -68,20 +69,22 @@ export function ProductRequestMessageCard({
   fieldFocus?: string;
   onAudioDraftChange?: (draft: ConversationAudioDraft | null) => void;
 }) {
+  const td = useTranslations("demandePublic");
+  const tc = useTranslations("common");
   return (
     <section className={cn(pharmacyPublicCard, "p-3 sm:p-4", t.messageCard)}>
       <div className="mb-2 flex items-center gap-2">
         <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", t.accentIconBg)} aria-hidden>
           <MessageSquare className={cn("size-4", t.accentIcon)} strokeWidth={2.25} />
         </span>
-        <PharmacyPublicSectionTitle title="Message pour la pharmacie (facultatif)" className="mb-0 min-w-0 flex-1" />
+        <PharmacyPublicSectionTitle title={td("messageOptional")} className="mb-0 min-w-0 flex-1" />
       </div>
       <ConversationMessageDraftField
         draft={note}
         onDraftChange={onNoteChange}
         maxLength={maxLength}
         onAudioDraftChange={onAudioDraftChange}
-        placeholder="Ex. précisions utiles pour l'officine…"
+        placeholder={td("messagePlaceholder")}
         counterClassName="text-[10px]"
         textareaClassName={cn(
           "w-full rounded-xl border bg-background px-3 py-3 text-sm leading-relaxed placeholder:text-muted-foreground",
@@ -598,14 +601,15 @@ export function ProductRequestHeaderSearch({
   fieldFocus: string;
   searchSlot: React.ReactNode;
 }) {
+  const td = useTranslations("demandePublic");
   return (
     <div className={cn(pharmacyPublicCard, "overflow-hidden p-0 text-card-foreground", t.shell)}>
       <PharmacyFlowHero
         theme="productRequest"
         embedded
-        eyebrow="Demande de produits"
+        eyebrow={td("productRequestEyebrow")}
         title={pharmacyLabel}
-        subtitle="Recherchez un produit, ajoutez-le à votre liste, puis envoyez la demande à l'officine."
+        subtitle={td("productRequestSubtitle")}
         icon={Package}
       />
       <div className={cn("border-t bg-card px-3 pb-3 pt-3 sm:px-4", t.searchDivider)}>
@@ -619,8 +623,8 @@ export function ProductRequestHeaderSearch({
               type="search"
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
-              placeholder="Chercher un produit"
-              aria-label="Chercher un produit"
+              placeholder={td("searchProduct")}
+              aria-label={td("searchProduct")}
               className={cn(
                 "h-11 w-full rounded-xl border-2 bg-background py-2 pl-10 pr-3 text-sm leading-normal shadow-sm placeholder:text-muted-foreground",
                 t.searchInput,
@@ -634,10 +638,10 @@ export function ProductRequestHeaderSearch({
             className={t.explorerBtn}
           >
             <LayoutGrid className="size-4 shrink-0" aria-hidden />
-            Explorer
+            {td("explorer")}
           </Link>
         </div>
-        {searchLoading ? <p className="mt-1.5 text-xs text-muted-foreground">Recherche…</p> : null}
+        {searchLoading ? <p className="mt-1.5 text-xs text-muted-foreground">{td("searching")}</p> : null}
         {searchSlot}
       </div>
     </div>
@@ -776,6 +780,8 @@ export function PatientLineCommentModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const td = useTranslations("demandePublic");
+  const tc = useTranslations("common");
   return (
     <AppModalOverlay open={open} onBackdropClick={onClose} aria-labelledby="line-comment-title">
       <div
@@ -788,14 +794,14 @@ export function PatientLineCommentModal({
         <div className={cn("flex items-start justify-between gap-2 border-b px-4 py-3.5", t.modalHeader)}>
           <div className="min-w-0">
             <h2 id="line-comment-title" className="text-sm font-bold text-foreground">
-              Note sur le produit
+              {td("lineNoteTitle")}
             </h2>
             <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{productName}</p>
           </div>
           <button
             type="button"
             className="rounded-lg p-1 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-            aria-label="Fermer"
+            aria-label={tc("closeAria")}
             onClick={onClose}
           >
             <X className="size-5" />
@@ -820,10 +826,10 @@ export function PatientLineCommentModal({
         </div>
         <div className="flex gap-2 border-t border-border/80 bg-muted/20 px-4 py-3">
           <Button type="button" variant="outline" className="h-10 flex-1 font-semibold" onClick={onClose}>
-            Annuler
+            {tc("cancel")}
           </Button>
           <Button type="button" className={cn(uiActionBtnFull("h-10 flex-1"), t.cta)} onClick={onSave}>
-            Enregistrer
+            {tc("save")}
           </Button>
         </div>
       </div>
@@ -854,6 +860,8 @@ export function PatientDemandeSendConfirmModal({
   onConfirm: () => void;
   onPhotoPreview: (url: string, title: string, descriptionHtml?: string | null) => void;
 }) {
+  const td = useTranslations("demandePublic");
+  const tc = useTranslations("common");
   return (
     <AppModalOverlay
       open={open}
@@ -873,10 +881,10 @@ export function PatientDemandeSendConfirmModal({
           <div className="flex items-start justify-between gap-2">
             <div>
               <h2 id="send-confirm-title" className="text-lg font-bold leading-tight text-foreground">
-                Confirmer l&apos;envoi
+                {td("confirmSend")}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {lines.length} produit{lines.length > 1 ? "s" : ""} — vérifiez la liste avant envoi à l&apos;officine.
+                {td("confirmSendHint", { count: lines.length })}
               </p>
             </div>
             <button
@@ -884,7 +892,7 @@ export function PatientDemandeSendConfirmModal({
               disabled={submitLoading}
               className="rounded-lg p-1 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-40"
               onClick={onClose}
-              aria-label="Fermer"
+              aria-label={tc("closeAria")}
             >
               <X className="size-5" />
             </button>
@@ -904,7 +912,7 @@ export function PatientDemandeSendConfirmModal({
                       <button
                         type="button"
                         className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
-                        aria-label={`Agrandir la photo · ${l.name}`}
+                        aria-label={td("enlargePhoto", { name: l.name })}
                         onClick={() => onPhotoPreview(l.photo_url!, l.name, l.full_description)}
                       >
                         <img src={l.photo_url} alt="" className="pointer-events-none size-full object-cover" />
@@ -918,15 +926,15 @@ export function PatientDemandeSendConfirmModal({
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-semibold leading-snug text-foreground">{l.name}</p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      Qté <span className="font-bold tabular-nums text-foreground">{l.qty}</span>
+                      {td("qty")} <span className="font-bold tabular-nums text-foreground">{l.qty}</span>
                       <span className="mx-1 text-border">·</span>
-                      PU{" "}
+                      {td("unitPrice")}{" "}
                       <strong className="text-foreground">
                         <PriceDhInline value={pu} amountClassName="text-[11px]" suffixClassName="text-[9px]" />
                       </strong>
                       <span className="mx-1 text-border">·</span>
                       <span className={cn("font-bold", t.price)}>
-                        Tot{" "}
+                        {td("totalShort")}{" "}
                         {pu != null ? (
                           <PriceDhInline
                             value={pu * l.qty}
@@ -940,7 +948,7 @@ export function PatientDemandeSendConfirmModal({
                     </p>
                     {l.client_comment?.trim() ? (
                       <p className={cn("mt-1.5 rounded-lg border px-2 py-1 text-[11px] leading-snug text-foreground", t.modalHighlight)}>
-                        <span className={cn("font-semibold", t.modalLabel)}>Votre note · </span>
+                        <span className={cn("font-semibold", t.modalLabel)}>{td("yourNote")}</span>
                         {l.client_comment.trim()}
                       </p>
                     ) : null}
@@ -952,7 +960,7 @@ export function PatientDemandeSendConfirmModal({
           {note.trim() ? (
             <div className={cn("mt-3 rounded-xl border px-3 py-2", t.modalHighlight)}>
               <p className={cn("text-[10px] font-bold uppercase tracking-wide", t.modalLabel)}>
-                Message pour la pharmacie
+                {td("messageForPharmacy")}
               </p>
               <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{note.trim()}</p>
             </div>
@@ -961,12 +969,12 @@ export function PatientDemandeSendConfirmModal({
             <ConversationAudioDraftPreview draft={audioDraft} className={cn("mt-3", t.modalHighlight)} />
           ) : null}
           {!note.trim() && !audioDraft ? (
-            <p className="mt-3 text-sm text-muted-foreground">Aucun message général pour l&apos;officine.</p>
+            <p className="mt-3 text-sm text-muted-foreground">{td("noGeneralMessage")}</p>
           ) : null}
         </div>
         <div className={cn("border-t bg-muted/25 px-4 py-3", t.searchDivider)}>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-bold text-foreground">Total estimé</span>
+            <span className="text-sm font-bold text-foreground">{td("estimatedTotal")}</span>
             <span className={cn("text-lg font-bold", t.price)}>
               <PriceDhInline
                 value={totalAmount}
@@ -983,7 +991,7 @@ export function PatientDemandeSendConfirmModal({
               disabled={submitLoading}
               onClick={onClose}
             >
-              Annuler
+              {tc("cancel")}
             </Button>
             <Button
               type="button"
@@ -991,7 +999,7 @@ export function PatientDemandeSendConfirmModal({
               disabled={submitLoading}
               onClick={onConfirm}
             >
-              {submitLoading ? "Envoi…" : "Confirmer l'envoi"}
+              {submitLoading ? tc("sending") : td("confirmSend")}
             </Button>
           </div>
         </div>

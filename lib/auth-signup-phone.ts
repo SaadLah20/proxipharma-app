@@ -32,12 +32,6 @@ export function authUserLooksLikeFreshSignup(createdAt: string | undefined): boo
   return Date.now() - t <= SIGNUP_NEW_USER_MAX_AGE_MS;
 }
 
-export const SIGNUP_PHONE_ALREADY_REGISTERED_FR =
-  "Ce numéro est déjà associé à un compte. Utilisez Connexion avec votre mot de passe.";
-
-export const SIGNUP_EMAIL_ALREADY_REGISTERED_FR =
-  "Cet e-mail est déjà associé à un compte. Utilisez Connexion avec votre mot de passe, ou inscrivez-vous avec le téléphone seul (sans e-mail).";
-
 /** E-mail assez valide pour l’OTP inscription (contourne SMS Inwi si renseigné). */
 export function normalizeSignupEmail(raw: string): string | null {
   const e = raw.trim().toLowerCase();

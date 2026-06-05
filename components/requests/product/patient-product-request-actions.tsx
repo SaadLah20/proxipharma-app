@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { cn } from "@/lib/utils";
@@ -173,6 +174,9 @@ import type { RequestKindAccent } from "@/lib/request-kinds/types";
 import { productRequestPublicTheme as productRequestTheme } from "@/lib/request-kinds/product-request-public-theme";
 import { requestKindUiTheme } from "@/lib/request-kind-ui-theme";
 import { archiveClosedQtyLabelFr, validatedOriginFallbackPatientFr } from "@/lib/prescription-ui-copy";
+import { usePrescriptionUiCopy } from "@/lib/use-prescription-ui-copy";
+import { useRequestKindPatientCopy } from "@/lib/i18n/request-kind-patient-copy";
+import { usePatientValidatedLineLabels } from "@/lib/use-patient-validated-line-labels";
 import { uiSecondaryLabel } from "@/lib/ui-label-styles";
 import {
   PatientProductPhotoPreviewModal,
@@ -187,7 +191,6 @@ import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
 import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternative-qty-rules";
 import { PatientLineNotesIconButton } from "@/components/requests/product/patient-line-notes-icon-button";
 import {
-  buildPatientValidatedLineLabelsFr,
   validatedLineLabelChipClass,
   validatedOriginLabelFr,
 } from "@/lib/patient-validated-line-labels-fr";
@@ -362,6 +365,16 @@ export function PatientValidatedCompactLineCard({
   requestType?: string;
   supplyAmendmentBundles?: { amendments: unknown }[];
 }) {
+  const tCommon = useTranslations("common");
+  const prescriptionCopy = usePrescriptionUiCopy();
+  const defaultOrigins = useMemo(
+    () => [
+      prescriptionCopy.validatedOriginFallbackPatient(requestType),
+      tCommon("alternative"),
+    ].filter(Boolean),
+    [prescriptionCopy, requestType, tCommon],
+  );
+  const { buildLabels } = usePatientValidatedLineLabels(defaultOrigins);
   const validatedName = validatedProductLabel(row);
   const descriptionHtml = validatedBranchDescriptionHtml(row);
   const displayQty = patientDisplayQtyForLine(row, requestStatusForCard);
@@ -380,7 +393,7 @@ export function PatientValidatedCompactLineCard({
     pharmacistProposedBadgeLabel,
     prescriptionBadge,
   });
-  const lineLabels = buildPatientValidatedLineLabelsFr({
+  const lineLabels = buildLabels({
     row,
     originLabel,
     supplyAmendmentBundles,
@@ -445,8 +458,8 @@ export function PatientValidatedCompactLineCard({
                 type="button"
                 onClick={onOpenHistory}
                 className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm hover:bg-muted/50"
-                aria-label="Historique de cette ligne"
-                title="Historique"
+                aria-label={tCommon("historyLineAria")}
+                title={tCommon("history")}
               >
                 <History className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
               </button>
@@ -486,8 +499,10 @@ function PatientTraceNotRetainedRow({
   onPhotoPreview?: ProductPhotoPreviewHandler;
   requestType?: string;
 }) {
+  const tCommon = useTranslations("common");
+  const prescriptionCopy = usePrescriptionUiCopy();
   const prod = one(row.products);
-  const name = prod?.name ?? "Produit";
+  const name = prod?.name ?? tCommon("product");
   const eff = row.availability_status;
   const statusLabel = eff ? availabilityStatusFr[eff] ?? eff : null;
   const lineKind =
@@ -533,7 +548,7 @@ function PatientTraceNotRetainedRow({
           <div className="flex w-full items-end justify-between gap-3 leading-none">
             <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="text-[10px] text-muted-foreground">
-                {archiveClosedQtyLabelFr(requestType)}{" "}
+                {prescriptionCopy.archiveClosedQtyLabel(requestType ?? "product_request")}{" "}
                 <strong className="tabular-nums text-foreground/80">{row.requested_qty}</strong>
               </span>
               {statusLabel ? (
@@ -550,8 +565,8 @@ function PatientTraceNotRetainedRow({
                 type="button"
                 onClick={onOpenHistory}
                 className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm hover:bg-muted/50"
-                aria-label="Historique de cette ligne"
-                title="Historique"
+                aria-label={tCommon("historyLineAria")}
+                title={tCommon("history")}
               >
                 <History className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
               </button>
@@ -843,6 +858,7 @@ function PatientArchiveFrozenProductsView({
     } | null
   ) => number | null;
 }) {
+  const tCommon = useTranslations("common");
   const noop = () => {};
 
   if (snapshotStatus === "submitted" || snapshotStatus === "in_review") {
@@ -950,7 +966,7 @@ function PatientArchiveFrozenProductsView({
           if (bucketId === "non_retenus" || bucketId === "ecartes") {
             const title =
               bucketId === "non_retenus"
-                ? "Non retenus"
+                ? tCommon("notSelected")
                 : patientClosedArchiveBucketTitleFr(bucketId);
             return (
               <PatientArchiveCollapsibleSection
@@ -960,7 +976,7 @@ function PatientArchiveFrozenProductsView({
                 variant={bucketId === "ecartes" ? "attention" : "neutral"}
                 hint={
                   bucketId === "ecartes"
-                    ? "Produits non récupérés ou retirés par la pharmacie."
+                    ? tCommon("notSelectedHint")
                     : undefined
                 }
               >
@@ -1388,6 +1404,43 @@ type Props = {
   archiveTerminalOldStatus?: string | null;
 };
 
+export function usePatientSummaryStatusCopy(requestType: string) {
+  const tDemandes = useTranslations("demandes");
+  const workflowCopy = useRequestKindPatientCopy(requestType);
+
+  const hint = (status: string): string => {
+    if (status === "responded") return tDemandes("statusHints.responded");
+    if (status === "confirmed") {
+      return requestType === "prescription"
+        ? tDemandes("statusHints.confirmedPrescription")
+        : tDemandes("statusHints.confirmedDefault");
+    }
+    if (status === "treated") return tDemandes("statusHints.treated");
+    if (status === "in_review") {
+      if (requestType === "free_consultation") return workflowCopy.patientWaitingInReviewHint;
+      return tDemandes("statusHints.inReview");
+    }
+    if (status === "submitted" && requestType === "free_consultation") {
+      return workflowCopy.patientWaitingSubmittedHint;
+    }
+    return tDemandes("statusHints.submitted");
+  };
+
+  const detail = (status: string): string | null => {
+    if (status === "responded") return tDemandes("statusDetails.responded");
+    if (status === "confirmed") {
+      return requestType === "prescription"
+        ? tDemandes("statusDetails.confirmedPrescription")
+        : tDemandes("statusDetails.confirmedDefault");
+    }
+    if (status === "treated") return tDemandes("statusDetails.treated");
+    if (status === "in_review") return workflowCopy.patientWaitingInReviewHint;
+    return workflowCopy.patientWaitingSubmittedHint;
+  };
+
+  return { hint, detail, workflowCopy };
+}
+
 export function buildPatientSummaryStatusHint(
   status: string,
   requestType: string,
@@ -1803,6 +1856,11 @@ export function PatientProductRequestActions({
   archiveTerminalOldStatus = null,
   productPatientNote = null,
 }: Props) {
+  const tCommon = useTranslations("common");
+  const tDemandes = useTranslations("demandes");
+  const prescriptionCopy = usePrescriptionUiCopy();
+  const { hint: summaryStatusHint, detail: summaryStatusDetail, workflowCopy: i18nWorkflowCopy } =
+    usePatientSummaryStatusCopy(requestType);
   const pathname = usePathname();
   const router = useRouter();
   const kindConfig = getRequestKindConfig(requestType);
@@ -2679,8 +2737,8 @@ export function PatientProductRequestActions({
       status === "treated");
   const patientExitPrimaryLabel =
     status === "submitted" || status === "in_review"
-      ? workflowCopy.patientCancelWhileWaitingLabel
-      : "Abandonner la demande";
+      ? i18nWorkflowCopy.patientCancelWhileWaitingLabel
+      : tCommon("abandonRequest");
   const needsStickyFooterPad =
     showProductResubmit ||
     (showPrescriptionWaiting && !forceReadOnly) ||
@@ -2753,7 +2811,7 @@ export function PatientProductRequestActions({
         ? patientAbandonedDossierStatusHintShortFr()
         : isClosedProductArchive
           ? patientClosedDossierStatusHintShortFr({ terminalStatus: status, items })
-          : "Archive — consultation seule.";
+          : tCommon("archiveReadOnly");
   const archiveDossierStatusDetail = isExpiredProductArchive
     ? patientExpiredDossierStatusHintFr({
         expiredAt: terminalHistoryEntry?.created_at ?? null,
@@ -2770,7 +2828,7 @@ export function PatientProductRequestActions({
               items,
               historyEntry: terminalHistoryEntry,
             })
-          : "Archive — consultation seule, aucune modification possible.";
+          : tCommon("archiveReadOnlyNoEdit");
 
   const openArchiveResubmitDraft = () => {
     if (!pharmacyId) return;
@@ -2833,8 +2891,8 @@ export function PatientProductRequestActions({
             kindLabel={workflowCopy.patientSummaryKindLabel}
             requestType={requestType}
             status={showConfirm ? "responded" : status}
-            statusHint={buildPatientSummaryStatusHint(showConfirm ? "responded" : status, requestType, workflowCopy)}
-            statusDetail={buildPatientSummaryStatusDetail(showConfirm ? "responded" : status, requestType, workflowCopy)}
+            statusHint={summaryStatusHint(showConfirm ? "responded" : status)}
+            statusDetail={summaryStatusDetail(showConfirm ? "responded" : status)}
             submittedAt={requestTimelineMeta?.submitted_at}
             createdAt={requestTimelineMeta?.created_at}
           />
@@ -2855,7 +2913,7 @@ export function PatientProductRequestActions({
             submittedAt={requestTimelineMeta?.submitted_at}
             kindLabel={workflowCopy.patientSummaryKindLabel}
             refShort={workflowCopy.patientSummaryRefShort}
-            statusHint={buildPatientSummaryStatusHint(status, requestType, workflowCopy)}
+            statusHint={summaryStatusHint(status)}
             accent={accent}
             requestType={requestType}
           />
@@ -2983,7 +3041,7 @@ export function PatientProductRequestActions({
                               setLineQty={setLineQty}
                               toggleLineRetention={toggleLineRetention}
                               onPhotoPreview={openProductPhotoPreview}
-                              pharmacistProposedBadgeLabel={badgeForRow(row) ?? "Ajout Officine"}
+                              pharmacistProposedBadgeLabel={badgeForRow(row) ?? tCommon("pharmacyAddition")}
                               requestType={requestType}
                               supplyAmendmentBundles={supplyAmendmentBundles}
                               resolveCatalogUnitPrice={resolveCatalogUnitPriceForProduct}
@@ -3011,7 +3069,7 @@ export function PatientProductRequestActions({
             return (
               <section className="mt-4 w-full min-w-0 space-y-5">
                 <h3 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                  Modifier ma validation
+                  {tDemandes("validated.modifyValidation")}
                 </h3>
                 <div className="w-full min-w-0 space-y-5">
                   {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
@@ -3030,7 +3088,7 @@ export function PatientProductRequestActions({
                               setLineQty={setLineQty}
                               toggleLineRetention={toggleLineRetention}
                               onPhotoPreview={openProductPhotoPreview}
-                              pharmacistProposedBadgeLabel={badgeForRow(row) ?? "Ajout Officine"}
+                              pharmacistProposedBadgeLabel={badgeForRow(row) ?? tCommon("pharmacyAddition")}
                               requestType={requestType}
                               supplyAmendmentBundles={supplyAmendmentBundles}
                               resolveCatalogUnitPrice={resolveCatalogUnitPriceForProduct}
@@ -3124,7 +3182,7 @@ export function PatientProductRequestActions({
                 <PatientValidatedBucketSection
                   bucketId="hors_perimetre"
                   count={horsPerimetreRetenues.length}
-                  hint="À confirmer avec l'officine si besoin."
+                  hint={tCommon("confirmWithPharmacyHint")}
                 >
                   <ul className={patientBucketProductListClass}>
                     {horsPerimetreRetenues.map((row) => (
@@ -3479,7 +3537,7 @@ export function PatientProductRequestActions({
                 className={uiActionBtnFullSecondary("mb-3 flex items-center justify-center")}
               >
                 <Pencil size={16} aria-hidden />
-                Modifier ma validation
+                {tDemandes("validated.modifyValidation")}
               </button>
             ) : null}
             <button
@@ -3563,7 +3621,7 @@ export function PatientProductRequestActions({
                   className={uiActionBtnFullOutline("flex items-center justify-center")}
                 >
                   <Pencil size={16} aria-hidden />
-                  Modifier
+                  {tCommon("edit")}
                 </button>
                 {resubmitDirty ? (
                   <button
@@ -3572,7 +3630,7 @@ export function PatientProductRequestActions({
                     onClick={() => openResubmitConfirm()}
                     className={uiActionBtnFull("h-9 text-xs")}
                   >
-                    {busyAction === "resubmit" ? "Envoi…" : "Renvoyer à la pharmacie"}
+                    {busyAction === "resubmit" ? tCommon("sending") : tCommon("resendToPharmacy")}
                   </button>
                 ) : null}
               </div>
@@ -3587,7 +3645,7 @@ export function PatientProductRequestActions({
                   }}
                   className={uiActionBtnFlexCancel()}
                 >
-                  Annuler
+                  {tCommon("cancel")}
                 </button>
                 <button
                   type="button"
@@ -3595,7 +3653,7 @@ export function PatientProductRequestActions({
                   onClick={() => openResubmitConfirm()}
                   className={uiActionBtnFlexPrimary()}
                 >
-                  {busyAction === "resubmit" ? "Enregistrement…" : "Enregistrer les modifications"}
+                  {busyAction === "resubmit" ? tCommon("saving") : tCommon("saveChanges")}
                 </button>
               </div>
             )}
@@ -3615,7 +3673,7 @@ export function PatientProductRequestActions({
                   className={uiActionBtnFullOutline("flex items-center justify-center")}
                 >
                   <Pencil size={16} aria-hidden />
-                  Modifier
+                  {tCommon("edit")}
                 </button>
                 <button
                   type="button"
@@ -3634,7 +3692,7 @@ export function PatientProductRequestActions({
                   onClick={() => prescriptionPanelRef.current?.cancelEdit()}
                   className={uiActionBtnFlexCancel()}
                 >
-                  Annuler
+                  {tCommon("cancel")}
                 </button>
                 <button
                   type="button"
@@ -3642,7 +3700,7 @@ export function PatientProductRequestActions({
                   onClick={() => void prescriptionPanelRef.current?.save()}
                   className={uiActionBtnFlexPrimary()}
                 >
-                  {prescriptionPanelBusy ? "Enregistrement…" : "Enregistrer les modifications"}
+                  {prescriptionPanelBusy ? tCommon("saving") : tCommon("saveChanges")}
                 </button>
               </div>
             )}
@@ -3705,10 +3763,10 @@ export function PatientProductRequestActions({
                   className={uiActionBtnFull("flex items-center justify-center")}
                 >
                   {busyAction === "visit"
-                    ? "Mise à jour…"
+                    ? tCommon("updating")
                     : isTreatedActiveView
-                      ? "Mettre à jour mon passage"
-                      : "Mettre à jour ma date de passage"}
+                      ? tCommon("updateVisit")
+                      : tCommon("updateVisitDate")}
                 </button>
               </>
             ) : (
@@ -3719,7 +3777,7 @@ export function PatientProductRequestActions({
                   onClick={cancelConfirmedRevalidation}
                   className={uiActionBtnFlexCancel()}
                 >
-                  Annuler
+                  {tCommon("cancel")}
                 </button>
                 <button
                   type="button"
@@ -3727,7 +3785,7 @@ export function PatientProductRequestActions({
                   onClick={openConfirmedRevalidationReview}
                   className={uiActionBtnFlexPrimary("disabled:cursor-not-allowed")}
                 >
-                  {busyAction === "confirm" ? "Enregistrement…" : "Enregistrer les modifications"}
+                  {busyAction === "confirm" ? tCommon("saving") : tCommon("saveChanges")}
                 </button>
               </div>
             )}
@@ -3767,7 +3825,7 @@ export function PatientProductRequestActions({
                   isPrescription ? "text-amber-950" : "text-sky-950"
                 )}
               >
-                {confirmReviewMode === "revalidation" ? "Enregistrer ma validation" : "Confirmer ta sélection"}
+                {confirmReviewMode === "revalidation" ? tCommon("saveValidation") : tCommon("confirmSelection")}
               </h2>
             </div>
 
@@ -3846,7 +3904,7 @@ export function PatientProductRequestActions({
                         isPrescription ? "text-amber-950" : "text-sky-950"
                       )}
                     >
-                      À réserver
+                      {tDemandes("sections.toReserve")}
                     </p>
                   </div>
                   <ul className="space-y-1.5">
@@ -3873,7 +3931,7 @@ export function PatientProductRequestActions({
                 <div className="mt-3">
                   <div className="mb-1.5 flex items-center gap-1.5 rounded-md border border-teal-200/85 bg-teal-50/70 px-2 py-1">
                     <ShoppingCart className="size-3.5 shrink-0 text-teal-950" aria-hidden />
-                    <p className="text-[9px] font-bold uppercase tracking-wide text-teal-950">À commander</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-teal-950">{tDemandes("sections.toOrder")}</p>
                   </div>
                   <ul className="space-y-1.5">
                     {confirmOrderLines.map((line) => (
@@ -3892,7 +3950,7 @@ export function PatientProductRequestActions({
 
               {confirmSkippedLines.length > 0 ? (
                 <div className="mt-3 rounded-lg border border-slate-200/90 bg-slate-50/90 px-2 py-2 ring-1 ring-slate-200/50">
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-700">Non retenus (information)</p>
+                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-700">{tDemandes("modal.skippedInfo")}</p>
                   <ul className="mt-1.5 space-y-1">
                     {confirmSkippedLines.map((s) => (
                       <li
@@ -3913,11 +3971,11 @@ export function PatientProductRequestActions({
                           </span>
                         ) : s.isProposed ? (
                           <span className="shrink-0 rounded bg-violet-100 px-1 py-px text-[8px] font-semibold uppercase text-violet-900">
-                            Proposition
+                            {tCommon("proposal")}
                           </span>
                         ) : (
                           <span className="shrink-0 text-[9px] text-muted-foreground">
-                            {validatedOriginFallbackPatientFr(requestType)}
+                            {prescriptionCopy.validatedOriginFallbackPatient(requestType)}
                           </span>
                         )}
                       </li>
@@ -3978,7 +4036,7 @@ export function PatientProductRequestActions({
                   onClick={closeConfirmReview}
                   className={uiActionBtnModalOutline("px-3 py-2 text-[12px] disabled:opacity-50")}
                 >
-                  Retour
+                  {tCommon("back")}
                 </button>
                 <button
                   type="button"
@@ -3987,10 +4045,10 @@ export function PatientProductRequestActions({
                   className={uiActionBtnModalPrimary("px-3 py-2 text-[12px] disabled:opacity-50")}
                 >
                   {busyAction === "confirm"
-                    ? "Enregistrement…"
+                    ? tCommon("saving")
                     : confirmReviewMode === "revalidation"
-                      ? "Enregistrer ma validation"
-                      : "Confirmer définitivement"}
+                      ? tCommon("saveValidation")
+                      : tCommon("confirmDefinitely")}
                 </button>
               </div>
             </div>
@@ -4014,7 +4072,7 @@ export function PatientProductRequestActions({
           >
             <div className="flex items-start justify-between gap-2 border-b border-slate-200 px-3 py-2.5 sm:px-4">
               <h2 id="resubmit-confirm-title" className="text-base font-bold leading-tight text-slate-900 sm:text-lg">
-                Confirmer vos modifications
+                {tDemandes("modal.resubmitTitle")}
               </h2>
               <button
                 type="button"
@@ -4112,7 +4170,7 @@ export function PatientProductRequestActions({
                   onClick={() => setResubmitConfirmOpen(false)}
                   className={uiActionBtnFlexCancel()}
                 >
-                  Annuler
+                  {tCommon("cancel")}
                 </button>
                 <button
                   type="button"
@@ -4120,7 +4178,7 @@ export function PatientProductRequestActions({
                   onClick={() => void executeResubmit()}
                   className={uiActionBtnModalFlexPrimary()}
                 >
-                  {busyAction === "resubmit" ? "Envoi…" : "Confirmer le renvoi"}
+                  {busyAction === "resubmit" ? tCommon("sending") : tCommon("confirmResend")}
                 </button>
               </div>
             </div>

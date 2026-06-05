@@ -42,3 +42,20 @@ export function archiveClosedQtyLabelFr(requestType: string | null | undefined):
   if (isConsultationRequestType(requestType)) return CONSULTATION_QTY_RETAINED_LABEL;
   return isPrescriptionRequestType(requestType) ? PRESCRIPTION_QTY_PRESCRIBED_LABEL : "Qté demandée";
 }
+
+export type PrescriptionUiCopy = {
+  principalTab: string;
+  principalBadge: string;
+  qtyPrescribed: string;
+  qtyPrescribedShort: string;
+  pharmacyProposedProduct: string;
+  prepPrescription: string;
+  prepPharmacy: string;
+  scanSent: string;
+  respondedPrincipalTabLabel: (requestType: string | null | undefined) => string;
+  respondedRequestedQtyLabel: (requestType: string | null | undefined) => string;
+  validatedOriginFallbackPatient: (requestType: string | null | undefined) => string;
+  archiveClosedQtyLabel: (requestType: string | null | undefined) => string;
+};
+
+export { usePrescriptionUiCopy } from "@/lib/use-prescription-ui-copy";

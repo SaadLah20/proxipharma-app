@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Star } from "lucide-react";
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
 import { pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -13,7 +14,6 @@ type Props = {
   ratingAvg: number | null;
   ratingCount: number | null;
   onUpdated?: (avg: number, count: number) => void;
-  /** Dans une modale : pas de carte englobante supplémentaire. */
   embedded?: boolean;
 };
 
@@ -22,16 +22,22 @@ function StarRow({
   onPick,
   disabled,
   size = "md",
+  t,
 }: {
   value: number;
   onPick?: (n: number) => void;
   disabled?: boolean;
   size?: "sm" | "md";
+  t: ReturnType<typeof useTranslations<"pharmacyPublic">>;
 }) {
   const iconClass = size === "sm" ? "size-5" : "size-7";
   const readOnly = !onPick;
   return (
-    <div className="flex gap-0.5" role={readOnly ? "img" : "group"} aria-label={readOnly ? `Note ${value} sur 5` : "Note de 1 à 5"}>
+    <div
+      className="flex gap-0.5"
+      role={readOnly ? "img" : "group"}
+      aria-label={readOnly ? t("ratingForm.ratingAria", { value }) : t("ratingForm.pickAria")}
+    >
       {[1, 2, 3, 4, 5].map((n) => (
         <button
           key={n}
@@ -42,7 +48,7 @@ function StarRow({
             "rounded p-0.5 transition",
             readOnly ? "cursor-default" : "hover:scale-105 disabled:opacity-50"
           )}
-          aria-label={readOnly ? undefined : `${n} étoile${n > 1 ? "s" : ""}`}
+          aria-label={readOnly ? undefined : n > 1 ? t("ratingForm.starAriaPlural", { n }) : t("ratingForm.starAria", { n })}
           aria-pressed={!readOnly && value >= n}
           tabIndex={readOnly ? -1 : 0}
         >
@@ -60,6 +66,8 @@ function StarRow({
 }
 
 export function PharmacyRatingForm({ pharmacyId, ratingAvg, ratingCount, onUpdated, embedded }: Props) {
+  const t = useTranslations("pharmacyPublic");
+  const tc = useTranslations("common");
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const [isStaff, setIsStaff] = useState(false);
   const [savedScore, setSavedScore] = useState(0);
@@ -112,7 +120,7 @@ export function PharmacyRatingForm({ pharmacyId, ratingAvg, ratingCount, onUpdat
     }
     setSavedScore(score);
     setEditing(false);
-    setMessage(score === savedScore ? "" : "Note mise à jour.");
+    setMessage(score === savedScore ? "" : t("ratingForm.updated"));
     const { data: ph } = await supabase.from("pharmacies").select("rating_avg,rating_count").eq("id", pharmacyId).maybeSingle();
     if (ph) {
       onUpdated?.(Number(ph.rating_avg ?? 0), Number(ph.rating_count ?? 0));
@@ -120,7 +128,12 @@ export function PharmacyRatingForm({ pharmacyId, ratingAvg, ratingCount, onUpdat
   };
 
   const displayAvg =
-    (ratingCount ?? 0) > 0 ? `${Number(ratingAvg ?? 0).toFixed(1)} / 5 · ${ratingCount} avis` : "Pas encore d'avis";
+    (ratingCount ?? 0) > 0
+      ? t("ratingSummary", {
+          avg: Number(ratingAvg ?? 0).toFixed(1),
+          count: ratingCount ?? 0,
+        })
+      : t("noReviewsYet");
 
   const hasUserRating = savedScore >= 1;
 
@@ -135,7 +148,7 @@ export function PharmacyRatingForm({ pharmacyId, ratingAvg, ratingCount, onUpdat
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
           <Star className="size-3.5 text-amber-500" aria-hidden />
-          Note des patients
+          {t("patientRating")}
         </h2>
         <p className="text-[11px] font-semibold tabular-nums text-foreground">{displayAvg}</p>
       </div>
@@ -143,19 +156,17 @@ export function PharmacyRatingForm({ pharmacyId, ratingAvg, ratingCount, onUpdat
       {!sessionUserId ? (
         <p className="mt-2 text-[11px] text-muted-foreground">
           <Link href={`/auth?redirect=/pharmacie/${pharmacyId}`} className="font-semibold text-primary underline">
-            Connectez-vous
+            {t("ratingForm.loginPrompt")}
           </Link>{" "}
-          pour noter cette officine (1 à 5 étoiles, sans commentaire).
+          {t("ratingForm.loginSuffix")}
         </p>
       ) : isStaff ? (
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Les membres de l&apos;officine ne peuvent pas noter leur propre pharmacie.
-        </p>
+        <p className="mt-2 text-[11px] text-muted-foreground">{t("ratingForm.staffBlocked")}</p>
       ) : hasUserRating && !editing ? (
         <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-medium text-muted-foreground">Votre note</span>
-            <StarRow value={savedScore} size="sm" />
+            <span className="text-[11px] font-medium text-muted-foreground">{t("ratingForm.yourRating")}</span>
+            <StarRow value={savedScore} size="sm" t={t} />
             <span className="text-[11px] font-bold tabular-nums text-foreground">{savedScore}/5</span>
           </div>
           <button
@@ -167,24 +178,20 @@ export function PharmacyRatingForm({ pharmacyId, ratingAvg, ratingCount, onUpdat
             }}
             className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11px] font-semibold text-foreground shadow-sm transition hover:bg-muted/50 disabled:opacity-50"
           >
-            Modifier ma note
+            {t("ratingForm.editRating")}
           </button>
         </div>
       ) : (
         <div className="mt-3 space-y-2">
           <p className="text-[11px] text-muted-foreground">
-            {hasUserRating ? "Choisissez une nouvelle note (enregistrement automatique)." : "Choisissez de 1 à 5 étoiles."}
+            {hasUserRating ? t("ratingForm.pickNew") : t("ratingForm.pickInitial")}
           </p>
-          <StarRow
-            value={savedScore}
-            disabled={busy}
-            onPick={(n) => void submitScore(n)}
-          />
+          <StarRow value={savedScore} disabled={busy} onPick={(n) => void submitScore(n)} t={t} />
         </div>
       )}
 
       {message ? <p className="mt-2 text-[11px] font-medium text-emerald-800">{message}</p> : null}
-      {busy ? <p className="mt-1 text-[10px] text-muted-foreground">Enregistrement…</p> : null}
+      {busy ? <p className="mt-1 text-[10px] text-muted-foreground">{tc("saving")}</p> : null}
     </section>
   );
 }

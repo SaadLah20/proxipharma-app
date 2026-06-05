@@ -4,11 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
+import { useLocale, useTranslations } from "next-intl";
 import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
+import { formatDateForLocale } from "@/lib/datetime-locale";
+import type { AppLocale } from "@/lib/i18n/config";
+import { promoPatientStatusHint, promoPatientStatusLabel } from "@/lib/i18n/promo-patient-status";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { supabase } from "@/lib/supabase";
-import { promoReservationBadgeClass, promoReservationHint, promoReservationLabel } from "@/lib/promo/reservation-status-ui";
+import { promoReservationBadgeClass } from "@/lib/promo/reservation-status-ui";
 import type { PromoReservationStatus } from "@/lib/promo/types";
 
 type Row = {
@@ -22,19 +26,22 @@ type Row = {
   pharmacy: { nom: string } | null;
 };
 
-function formatPickupFr(date: string, time: string | null) {
-  const d = new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", {
+function formatPickup(date: string, time: string | null, locale: AppLocale) {
+  const d = formatDateForLocale(`${date}T12:00:00`, locale, {
     weekday: "short",
     day: "numeric",
     month: "short",
   });
   if (!time) return d;
-  const t = time.slice(0, 5);
-  return `${d} · ${t}`;
+  return `${d} · ${time.slice(0, 5)}`;
 }
 
 export function PatientPromoReservationsHub() {
   const router = useRouter();
+  const t = useTranslations("promo");
+  const ta = useTranslations("account");
+  const tc = useTranslations("common");
+  const locale = useLocale() as AppLocale;
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState("");
@@ -83,7 +90,7 @@ export function PatientPromoReservationsHub() {
   if (loading) {
     return (
       <PageShell maxWidthClass="max-w-3xl">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       </PageShell>
     );
   }
@@ -91,34 +98,34 @@ export function PatientPromoReservationsHub() {
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
       <PatientAccountPageHeader
-        eyebrow="Mes dossiers"
-        title="Packs promo"
-        subtitle="Réservations de packs promotionnels auprès de vos officines."
+        eyebrow={ta("myDossiers")}
+        title={t("hubTitle")}
+        subtitle={t("hubSubtitle")}
         backHref="/dashboard/patient/pharmacies"
-        backLabel="← Mes pharmacies"
+        backLabel={ta("backToPharmacies")}
       />
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
       {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground space-y-2">
-          <p>Aucune réservation pour le moment.</p>
+          <p>{t("empty")}</p>
           <Link href="/dashboard/patient/pharmacies" className={p.linkInline}>
-            Trouver une pharmacie →
+            {t("findPharmacy")}
           </Link>
         </div>
       ) : null}
       {active.length > 0 ? (
         <section className="space-y-2">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">En cours</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{t("activeSection")}</h2>
           {active.map((r) => (
-            <ReservationCard key={r.id} row={r} />
+            <ReservationCard key={r.id} row={r} locale={locale} />
           ))}
         </section>
       ) : null}
       {done.length > 0 ? (
         <section className="space-y-2">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Historique</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{t("historySection")}</h2>
           {done.map((r) => (
-            <ReservationCard key={r.id} row={r} />
+            <ReservationCard key={r.id} row={r} locale={locale} />
           ))}
         </section>
       ) : null}
@@ -126,15 +133,18 @@ export function PatientPromoReservationsHub() {
   );
 }
 
-function ReservationCard({ row }: { row: Row }) {
+function ReservationCard({ row, locale }: { row: Row; locale: AppLocale }) {
+  const t = useTranslations("promo");
+  const when = formatPickup(row.pickup_date, row.pickup_time, locale);
+
   return (
     <Link href={`/dashboard/patient/packs-promo/${row.id}`} className="block">
       <CompactCard>
         <CompactCardBody className="space-y-1.5">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-sm font-bold">{row.offer?.title ?? "Pack promo"}</p>
-              <p className="text-[11px] text-muted-foreground">{row.pharmacy?.nom ?? "Pharmacie"}</p>
+              <p className="text-sm font-bold">{row.offer?.title ?? t("packFallback")}</p>
+              <p className="text-[11px] text-muted-foreground">{row.pharmacy?.nom ?? t("pharmacyFallback")}</p>
             </div>
             <span
               className={clsx(
@@ -142,13 +152,13 @@ function ReservationCard({ row }: { row: Row }) {
                 promoReservationBadgeClass(row.status)
               )}
             >
-              {promoReservationLabel(row.status, "patient")}
+              {promoPatientStatusLabel(t, row.status)}
             </span>
           </div>
-          <p className="text-[11px] text-muted-foreground">{promoReservationHint(row.status)}</p>
+          <p className="text-[11px] text-muted-foreground">{promoPatientStatusHint(t, row.status)}</p>
           <div className="flex flex-wrap gap-x-3 text-[10px] tabular-nums text-muted-foreground">
             {row.public_ref ? <span>{row.public_ref}</span> : null}
-            <span>Passage : {formatPickupFr(row.pickup_date, row.pickup_time)}</span>
+            <span>{t("visit", { when })}</span>
             {row.offer?.discount_percent ? <span>−{row.offer.discount_percent} %</span> : null}
           </div>
         </CompactCardBody>

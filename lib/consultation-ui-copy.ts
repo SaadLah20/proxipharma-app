@@ -21,3 +21,5 @@ export function consultationRetainedQtyLabelFr(_requestType?: string | null): st
 export function respondedPrincipalTabLabelFrConsultation(requestType: string | null | undefined): string {
   return isConsultationRequestType(requestType) ? "Produit" : "";
 }
+
+export { useConsultationUiCopy } from "@/lib/use-consultation-ui-copy";

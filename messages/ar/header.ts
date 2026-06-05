@@ -1,0 +1,37 @@
+export const headerAr = {
+  locale: {
+    ariaLabel: "تغيير اللغة",
+    choose: "اختر اللغة",
+    french: "Français",
+    arabic: "العربية",
+  },
+  brand: "ProxiPharma",
+  scrollHint: "مرّر للأسفل",
+  navAria: "قائمة الحساب",
+  guest: {
+    signup: "إنشاء حساب",
+    login: "تسجيل الدخول",
+  },
+  patient: {
+    sectionDossiers: "ملفاتي",
+    productRequests: "طلبات المنتجات",
+    prescriptions: "الوصفات الطبية",
+    consultations: "استشارات حرة",
+    promoPacks: "باقات ترويجية",
+    notifications: "الإشعارات",
+    myPharmacies: "صيدلياتي",
+    directory: "دليل الصيدليات",
+    settings: "إعداداتي",
+  },
+  notifications: {
+    ariaLabel: "الإشعارات",
+    title: "الإشعارات",
+    empty: "لا توجد إشعارات حديثة.",
+    viewAll: "عرض الكل",
+  },
+  account: {
+    ariaLabel: "الحساب",
+    patientFallback: "مريض",
+    logout: "تسجيل الخروج",
+  },
+};

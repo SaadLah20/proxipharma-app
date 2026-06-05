@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Loader2, MapPinned } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
 
@@ -24,23 +25,20 @@ function RadiusModeLabel({
   selected?: boolean;
   onLightPanel?: boolean;
 }) {
+  const t = useTranslations("annuaire");
+
   if (mode === "all") {
-    return <span>Toutes</span>;
+    return <span>{t("radius.all")}</span>;
   }
 
-  const maxClass =
+  const kmClass =
     variant === "button" && !onLightPanel
       ? "font-medium text-amber-200/95"
       : selected
         ? "font-medium text-primary/70"
         : "font-medium text-muted-foreground";
 
-  return (
-    <span>
-      {mode} km
-      <span className={maxClass}> max</span>
-    </span>
-  );
+  return <span className={kmClass}>{t("radius.kmMax", { km: mode })}</span>;
 }
 
 type MenuPos = { top: number; left: number };
@@ -66,6 +64,7 @@ export function AnnuaireRadiusPicker({
   /** Panneau recherche blanc (défaut) vs ancien style sur bandeau vert. */
   onLightPanel?: boolean;
 }) {
+  const t = useTranslations("annuaire");
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<MenuPos | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -125,7 +124,7 @@ export function AnnuaireRadiusPicker({
           <ul
             id="annuaire-radius-menu"
             role="listbox"
-            aria-label="Rayon de recherche"
+            aria-label={t("radius.ariaLabel")}
             style={{ top: menuPos.top, left: menuPos.left }}
             className="fixed z-[200] min-w-[10.5rem] overflow-hidden rounded-xl border border-border/90 bg-card py-1 text-sm shadow-xl ring-1 ring-black/10"
           >
@@ -138,7 +137,7 @@ export function AnnuaireRadiusPicker({
                   mode === "all" && "bg-primary/10 text-primary"
                 )}
               >
-                Toutes
+                {t("radius.all")}
               </button>
             </li>
             {ANNUAIRE_RADIUS_KM_OPTIONS.map((km) => (
@@ -187,15 +186,14 @@ export function AnnuaireRadiusPicker({
             <MapPinned className="size-3 shrink-0 text-primary" aria-hidden />
           )}
           <span className="whitespace-nowrap">
-            Rayon&nbsp;: <RadiusModeLabel mode={mode} variant="button" onLightPanel={onLightPanel} />
+            {t("radius.label")}{" "}
+            <RadiusModeLabel mode={mode} variant="button" onLightPanel={onLightPanel} />
           </span>
           <ChevronDown className={clsx("size-3 opacity-80 transition", open && "rotate-180")} aria-hidden />
         </button>
 
         {mode !== "all" && inRadiusCount != null ? (
-          <span className="sr-only">
-            {inRadiusCount} officine{inRadiusCount !== 1 ? "s" : ""} dans le rayon
-          </span>
+          <span className="sr-only">{t("radius.srInRadius", { count: inRadiusCount })}</span>
         ) : null}
       </div>
       {menu}

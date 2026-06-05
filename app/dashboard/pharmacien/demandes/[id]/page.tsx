@@ -39,6 +39,7 @@ import {
   pharmacistAvailabilityOptionsForLine,
   PHARMACIST_SUPPLY_POST_CONFIRM_AVAILABILITY_OPTIONS,
   inferAvailabilityStatusFromQty,
+  pharmacistSupplyDraftNeedsReceptionDate,
 } from "@/lib/pharmacist-availability";
 import { SUPPLY_AMEND_CHANNEL_OPTIONS } from "@/lib/supply-amendment-channels";
 import {
@@ -634,7 +635,7 @@ function effectiveAvailSupplyDraft(
   let status = f.availability_status;
   let availQty = Number(f.available_qty || "0");
 
-  if (chosenAlt) {
+  if (chosenAlt && f.availability_status !== "to_order") {
     const altSt = chosenAlt.availability_status ?? "";
     if (altSt === "partially_available" || altSt === "available" || altSt === "to_order") {
       const altNorm = altSt === "partially_available" ? "available" : altSt;
@@ -664,8 +665,18 @@ function effectiveAvailSupplyDraft(
   });
 }
 
-function effectiveEtaSupplyDraft(row: ItemRow, f: ItemDraft, requestType?: string): string | null {
-  if (effectiveAvailSupplyDraft(row, f, requestType) === "to_order") {
+function effectiveEtaSupplyDraft(
+  row: ItemRow,
+  f: ItemDraft,
+  requestType?: string,
+  requestStatus?: string | null
+): string | null {
+  if (
+    pharmacistSupplyDraftNeedsReceptionDate({
+      draftStatus: f.availability_status,
+      inferredEffectiveStatus: effectiveAvailSupplyDraft(row, f, requestType, requestStatus),
+    })
+  ) {
     const d = f.expected_availability_date?.trim();
     return d && d.length > 0 ? d : null;
   }
@@ -2239,7 +2250,7 @@ export default function PharmacienDemandeDetailPage() {
         return;
       }
       if (next === "ordered" && inferred === "to_order") {
-        const eta = effectiveEtaSupplyDraft(rowSnap, liveDraft, request?.request_type);
+        const eta = effectiveEtaSupplyDraft(rowSnap, liveDraft, request?.request_type, request?.status);
         if (!eta || !eta.trim()) {
           setError(
             "Indiquez la date prévisionnelle de réception (« à commander ») avant de marquer la ligne comme commandée."
@@ -3845,7 +3856,7 @@ export default function PharmacienDemandeDetailPage() {
         );
         const inf = inferredAvailabilityForPostConfirmClamp(row, payload.availability_status);
         if (!f.withdrawn_after_confirm && inf === "to_order") {
-          const eta = effectiveEtaSupplyDraft(row, f, request.request_type);
+          const eta = effectiveEtaSupplyDraft(row, f, request.request_type, request.status);
           if (!eta || !eta.trim()) {
             throw new Error(
               `« ${nm} » : renseignez la date prévisionnelle de réception pour toute ligne « à commander » avant d’enregistrer.`
@@ -5717,7 +5728,7 @@ export default function PharmacienDemandeDetailPage() {
                 const validatedName = validatedProductLabel(pl);
                 const validatedQty = validatedQtyForPatientLine(pl);
                 const effSupply = effectiveAvailSupplyDraft(row, f, request?.request_type, request?.status);
-                const etaSupply = effectiveEtaSupplyDraft(row, f, request?.request_type);
+                const etaSupply = effectiveEtaSupplyDraft(row, f, request?.request_type, request?.status);
                 const supplyTier: PharmacistSupplyLineTier | undefined = bucket
                   ? supplyTierForBucketKind(bucket.kind)
                   : undefined;
@@ -5830,7 +5841,10 @@ export default function PharmacienDemandeDetailPage() {
                           )}
                         </div>
                         {(sentQty.inferredStatus === "to_order" ||
-                          f.availability_status === "to_order") &&
+                          pharmacistSupplyDraftNeedsReceptionDate({
+                            draftStatus: f.availability_status,
+                            inferredEffectiveStatus: sentQty.inferredStatus,
+                          })) &&
                         canEditThisRow ? (
                           <label className="flex min-w-0 flex-col gap-0.5">
                             <span className="text-[9px] font-medium text-muted-foreground">
@@ -6000,19 +6014,28 @@ export default function PharmacienDemandeDetailPage() {
                         </p>
                       </div>
                     </div>
-                    {canEditThisRow && effectiveAvailSupplyDraft(row, f, request?.request_type) === "to_order" ? (
+                    {canEditThisRow &&
+                    pharmacistSupplyDraftNeedsReceptionDate({
+                      draftStatus: f.availability_status,
+                      inferredEffectiveStatus: effectiveAvailSupplyDraft(
+                        row,
+                        f,
+                        request?.request_type,
+                        request?.status
+                      ),
+                    }) ? (
                       <label className="flex max-w-sm flex-col gap-0">
                         <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Date prévision commande
+                          Réception prévue
                         </span>
                         <PlannedVisitDateInput
                           valueYmd={f.expected_availability_date}
                           onChangeYmd={(v) => setReceptionDateField(row.id, v)}
                           minYmd={receptionDateMinYmd}
                           maxYmd={receptionDateMaxYmdVal}
-                          disabled={!canEditThisRow}
+                          disabled={!canEditThisRow || !isSupplyLineEditing}
                           yearDigits={4}
-                          ariaLabel="Date prévision commande"
+                          ariaLabel="Réception prévue"
                           className="sm:min-w-[9rem] sm:w-auto"
                           shellClassName="block h-7 min-h-7 w-full rounded border border-input bg-background px-1.5 py-0.5 text-[11px] font-semibold tabular-nums shadow-sm"
                         />

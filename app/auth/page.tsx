@@ -2,18 +2,14 @@
 
 import { FormEvent, Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { ArrowLeft, Cross, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { defaultPathAfterAuth } from "@/lib/post-auth-redirect";
 import { ensurePatientProfile } from "@/lib/ensure-patient-profile";
 import { parseLoginIdentifier } from "@/lib/auth-login-identifier";
-import {
-  checkPhoneAvailableForSignup,
-  normalizeSignupEmail,
-  SIGNUP_EMAIL_ALREADY_REGISTERED_FR,
-  SIGNUP_PHONE_ALREADY_REGISTERED_FR,
-} from "@/lib/auth-signup-phone";
+import { checkPhoneAvailableForSignup, normalizeSignupEmail } from "@/lib/auth-signup-phone";
 import {
   SIGNUP_META_PASSWORD_PENDING,
   signupCanContinueAfterOtpVerify,
@@ -22,25 +18,8 @@ import {
   userNeedsSignupPassword,
 } from "@/lib/auth-signup-flow";
 import { userIsProvisionedPharmacist } from "@/lib/provisioned-pharmacist-auth";
-import {
-  checkPhoneRegisteredForPasswordReset,
-  AUTH_RESET_PHONE_NOT_FOUND_FR,
-} from "@/lib/auth-phone-password-reset";
-import {
-  AUTH_RESET_EMAIL_SENT,
-  AUTH_RESET_OTP_VERIFIED_PASSWORD,
-  AUTH_RESET_PASSWORD_DONE,
-  AUTH_RESET_SMS_RESENT,
-  AUTH_RESET_SMS_SENT,
-  AUTH_SIGNUP_EMAIL_RESENT,
-  AUTH_SIGNUP_EMAIL_SENT,
-  AUTH_SIGNUP_LINK_VERIFIED_PASSWORD,
-  AUTH_SIGNUP_OTP_VERIFIED_PASSWORD_EMAIL,
-  AUTH_SIGNUP_OTP_VERIFIED_PASSWORD_PHONE,
-  AUTH_SIGNUP_SMS_RESENT,
-  AUTH_SIGNUP_SMS_SENT,
-  mapAuthErrorToFrench,
-} from "@/lib/auth-messages-fr";
+import { checkPhoneRegisteredForPasswordReset } from "@/lib/auth-phone-password-reset";
+import { mapAuthErrorToLocale } from "@/lib/i18n/map-auth-error";
 import { linkSignupPhoneOnAuth, syncPhoneBeforeLogin } from "@/lib/auth-client-phone-link";
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -53,25 +32,11 @@ const fieldClass =
 
 type SignupStep = "form" | "otp" | "password";
 
-function isSuccessMessage(msg: string) {
-  const m = msg.toLowerCase();
-  return (
-    m.includes("créé") ||
-    m.includes("créée") ||
-    m.includes("envoyé") ||
-    m.includes("envoyée") ||
-    m.includes("réinitialisation") ||
-    m.includes("vérifiez votre boîte") ||
-    m.includes("mot de passe enregistré") ||
-    m.includes("mot de passe mis à jour") ||
-    m.includes("redirection") ||
-    m.includes("vérifié")
-  );
-}
-
 function AuthForm({ isSignup }: { isSignup: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useTranslations("auth");
+  const tc = useTranslations("common");
   const redirectTo = searchParams.get("redirect")?.trim() || "";
   const safeRedirect =
     redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "";
@@ -99,6 +64,12 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageSuccess, setMessageSuccess] = useState(false);
+
+  const showMessage = (msg: string, success = false) => {
+    setMessage(msg);
+    setMessageSuccess(success);
+  };
 
   const redirectAfterAuth = useCallback(async () => {
     const dest = safeRedirect || (await defaultPathAfterAuth());
@@ -137,7 +108,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
             setSignupOtpChannel("phone");
           }
           setSignupStep("password");
-          if (fromLink) setMessage(AUTH_SIGNUP_LINK_VERIFIED_PASSWORD);
+          if (fromLink) showMessage(t("signup.linkVerifiedPassword"), true);
         }, 0);
         if (!isSignup) {
           const q = new URLSearchParams(searchParams.toString());
@@ -197,6 +168,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     setSignupOtpChannel("phone");
     setSignupEmailForOtp("");
     setMessage("");
+    setMessageSuccess(false);
     replaceSignupUrlStep("form");
   };
 
@@ -204,10 +176,11 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     e.preventDefault();
     setLoading(true);
     setMessage("");
+    setMessageSuccess(false);
 
     const id = parseLoginIdentifier(loginId);
     if (!id) {
-      setMessage("Saisissez un numéro valide (ex. 0612345678) ou une adresse e-mail.");
+      showMessage(t("page.validationInvalidLoginId"));
       setLoading(false);
       return;
     }
@@ -232,7 +205,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     const { data, error } = await supabase.auth.signInWithPassword(credentials);
 
     if (error) {
-      setMessage(mapAuthErrorToFrench(error.message));
+      showMessage(mapAuthErrorToLocale(error.message, t));
       setLoading(false);
       return;
     }
@@ -273,35 +246,36 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     e.preventDefault();
     setLoading(true);
     setMessage("");
+    setMessageSuccess(false);
 
     const e164 = normalizePhoneToE164(signupPhone);
     if (!e164) {
-      setMessage("Numéro invalide. Utilisez le format international (ex. +212612345678 ou 0612345678).");
+      showMessage(t("page.validationInvalidPhone"));
       setLoading(false);
       return;
     }
 
     if (fullName.trim().length < 2) {
-      setMessage("Indiquez au moins votre prénom et nom (2 caractères minimum).");
+      showMessage(t("page.validationNameTooShort"));
       setLoading(false);
       return;
     }
 
     const optMail = normalizeSignupEmail(signupEmail);
     if (signupEmail.trim() && !optMail) {
-      setMessage("E-mail facultatif invalide (laissez vide si vous n’en voulez pas).");
+      showMessage(t("page.validationInvalidOptionalEmail"));
       setLoading(false);
       return;
     }
 
     const phoneCheck = await checkPhoneAvailableForSignup(signupPhone);
     if (phoneCheck.error === "invalid_phone" || !phoneCheck.e164) {
-      setMessage("Numéro invalide. Utilisez le format international (ex. +212612345678 ou 0612345678).");
+      showMessage(t("page.validationInvalidPhone"));
       setLoading(false);
       return;
     }
     if (!phoneCheck.available) {
-      setMessage(SIGNUP_PHONE_ALREADY_REGISTERED_FR);
+      showMessage(t("signup.phoneAlreadyRegistered"));
       setLoading(false);
       return;
     }
@@ -323,14 +297,14 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       });
       setLoading(false);
       if (error) {
-        setMessage(mapAuthErrorToFrench(error.message));
+        showMessage(mapAuthErrorToLocale(error.message, t));
         return;
       }
       setSignupOtpChannel("email");
       setSignupEmailForOtp(optMail);
       setSignupStep("otp");
       replaceSignupUrlStep("otp");
-      setMessage(AUTH_SIGNUP_EMAIL_SENT);
+      showMessage(t("signup.emailSent"), true);
       return;
     }
 
@@ -349,7 +323,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
 
     setLoading(false);
     if (error) {
-      setMessage(mapAuthErrorToFrench(error.message));
+      showMessage(mapAuthErrorToLocale(error.message, t));
       return;
     }
 
@@ -357,20 +331,21 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     setSignupEmailForOtp("");
     setSignupStep("otp");
     replaceSignupUrlStep("otp");
-    setMessage(AUTH_SIGNUP_SMS_SENT);
+    showMessage(t("signup.smsSent"), true);
   };
 
   const verifySignupOtp = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setMessage("");
+    setMessageSuccess(false);
 
     const code = otp.replace(/\D/g, "");
     if (code.length < 6) {
-      setMessage(
+      showMessage(
         signupOtpChannel === "email"
-          ? "Saisissez le code à 6 chiffres reçu par e-mail."
-          : "Saisissez le code à 6 chiffres reçu par SMS."
+          ? t("page.validationOtpTooShortEmail")
+          : t("page.validationOtpTooShortSms")
       );
       setLoading(false);
       return;
@@ -390,14 +365,14 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           });
 
     if (error) {
-      setMessage(mapAuthErrorToFrench(error.message));
+      showMessage(mapAuthErrorToLocale(error.message, t));
       setLoading(false);
       return;
     }
 
     const user = data.session?.user;
     if (!user) {
-      setMessage("Session introuvable après vérification. Réessayez.");
+      showMessage(t("page.validationSessionNotFound"));
       setLoading(false);
       return;
     }
@@ -405,10 +380,10 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     if (!signupCanContinueAfterOtpVerify(user)) {
       await supabase.auth.signOut();
       resetSignupFlow();
-      setMessage(
+      showMessage(
         signupOtpChannel === "email"
-          ? SIGNUP_EMAIL_ALREADY_REGISTERED_FR
-          : SIGNUP_PHONE_ALREADY_REGISTERED_FR
+          ? t("signup.emailAlreadyRegistered")
+          : t("signup.phoneAlreadyRegistered")
       );
       setLoading(false);
       return;
@@ -431,10 +406,11 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
 
     setSignupStep("password");
     replaceSignupUrlStep("password");
-    setMessage(
+    showMessage(
       signupOtpChannel === "email"
-        ? AUTH_SIGNUP_OTP_VERIFIED_PASSWORD_EMAIL
-        : AUTH_SIGNUP_OTP_VERIFIED_PASSWORD_PHONE
+        ? t("signup.otpVerifiedPasswordEmail")
+        : t("signup.otpVerifiedPasswordPhone"),
+      true
     );
   };
 
@@ -442,14 +418,15 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     e.preventDefault();
     setLoading(true);
     setMessage("");
+    setMessageSuccess(false);
 
     if (newPassword.length < 6) {
-      setMessage("Le mot de passe doit contenir au moins 6 caractères.");
+      showMessage(t("page.validationPasswordTooShort"));
       setLoading(false);
       return;
     }
     if (newPassword !== newPassword2) {
-      setMessage("Les deux mots de passe ne correspondent pas.");
+      showMessage(t("page.validationPasswordMismatch"));
       setLoading(false);
       return;
     }
@@ -476,10 +453,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     if (signupOtpChannel === "email" && phoneE164) {
       const link = await linkSignupPhoneOnAuth(phoneE164);
       if (!link.ok) {
-        setMessage(
-          link.error ??
-            "Compte créé mais le téléphone n’a pas pu être lié pour la connexion. Réessayez depuis Mes paramètres ou contactez le support."
-        );
+        showMessage(link.error ?? t("page.validationPhoneLinkAfterSignup"));
         setLoading(false);
         return;
       }
@@ -487,7 +461,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
 
     const { data: userData, error: guErr } = await supabase.auth.getUser();
     if (guErr || !userData.user) {
-      setMessage(guErr?.message ?? "Utilisateur introuvable après mise à jour.");
+      showMessage(guErr?.message ?? t("page.validationUserNotFoundAfterUpdate"));
       setLoading(false);
       return;
     }
@@ -508,13 +482,14 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     }
 
     setLoading(false);
-    setMessage("Compte créé. Redirection…");
+    showMessage(t("page.successAccountCreated"), true);
     await redirectAfterAuth();
   };
 
   const resendSignupOtp = async () => {
     setLoading(true);
     setMessage("");
+    setMessageSuccess(false);
     const meta = {
       full_name: fullName.trim(),
       whatsapp: phoneE164,
@@ -539,10 +514,10 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           });
     setLoading(false);
     if (error) {
-      setMessage(mapAuthErrorToFrench(error.message));
+      showMessage(mapAuthErrorToLocale(error.message, t));
       return;
     }
-    setMessage(signupOtpChannel === "email" ? AUTH_SIGNUP_EMAIL_RESENT : AUTH_SIGNUP_SMS_RESENT);
+    showMessage(signupOtpChannel === "email" ? t("signup.emailResent") : t("signup.smsResent"), true);
   };
 
   const resetForgotFlow = () => {
@@ -556,20 +531,21 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
   const sendForgotPhoneOtp = async () => {
     const id = parseLoginIdentifier(loginId);
     if (!id || id.kind !== "phone") {
-      setMessage("Pour réinitialiser par SMS, saisissez votre numéro de téléphone dans le champ identifiant.");
+      showMessage(t("page.validationForgotNeedPhone"));
       return;
     }
     setLoading(true);
     setMessage("");
+    setMessageSuccess(false);
     const check = await checkPhoneRegisteredForPasswordReset(id.phone);
     if (!check.e164) {
       setLoading(false);
-      setMessage("Numéro invalide. Utilisez le format 0612345678 ou +212612345678.");
+      showMessage(t("page.validationInvalidPhone"));
       return;
     }
     if (!check.registered) {
       setLoading(false);
-      setMessage(AUTH_RESET_PHONE_NOT_FOUND_FR);
+      showMessage(t("reset.phoneNotFound"));
       return;
     }
     const { error } = await supabase.auth.signInWithOtp({
@@ -578,37 +554,39 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     });
     setLoading(false);
     if (error) {
-      setMessage(mapAuthErrorToFrench(error.message));
+      showMessage(mapAuthErrorToLocale(error.message, t));
       return;
     }
     setForgotPhoneE164(check.e164);
     setForgotResetStep("otp");
-    setMessage(AUTH_RESET_SMS_SENT);
+    showMessage(t("reset.smsSent"), true);
   };
 
   const resendForgotPhoneOtp = async () => {
     if (!forgotPhoneE164) return;
     setLoading(true);
     setMessage("");
+    setMessageSuccess(false);
     const { error } = await supabase.auth.signInWithOtp({
       phone: forgotPhoneE164,
       options: { channel: "sms", shouldCreateUser: false },
     });
     setLoading(false);
     if (error) {
-      setMessage(mapAuthErrorToFrench(error.message));
+      showMessage(mapAuthErrorToLocale(error.message, t));
       return;
     }
-    setMessage(AUTH_RESET_SMS_RESENT);
+    showMessage(t("reset.smsResent"), true);
   };
 
   const verifyForgotPhoneOtp = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setMessage("");
+    setMessageSuccess(false);
     const code = forgotOtp.replace(/\D/g, "");
     if (code.length < 6) {
-      setMessage("Saisissez le code à 6 chiffres reçu par SMS.");
+      showMessage(t("page.validationOtpTooShortSms"));
       setLoading(false);
       return;
     }
@@ -619,34 +597,35 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     });
     setLoading(false);
     if (error) {
-      setMessage(mapAuthErrorToFrench(error.message));
+      showMessage(mapAuthErrorToLocale(error.message, t));
       return;
     }
     setForgotResetStep("password");
-    setMessage(AUTH_RESET_OTP_VERIFIED_PASSWORD);
+    showMessage(t("reset.otpVerifiedPassword"), true);
   };
 
   const finishForgotPassword = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setMessage("");
+    setMessageSuccess(false);
     if (forgotNewPassword.length < 6) {
-      setMessage("Le mot de passe doit contenir au moins 6 caractères.");
+      showMessage(t("page.validationPasswordTooShort"));
       setLoading(false);
       return;
     }
     if (forgotNewPassword !== forgotNewPassword2) {
-      setMessage("Les deux mots de passe ne correspondent pas.");
+      showMessage(t("page.validationPasswordMismatch"));
       setLoading(false);
       return;
     }
     const { error } = await supabase.auth.updateUser({ password: forgotNewPassword });
     setLoading(false);
     if (error) {
-      setMessage(mapAuthErrorToFrench(error.message));
+      showMessage(mapAuthErrorToLocale(error.message, t));
       return;
     }
-    setMessage(AUTH_RESET_PASSWORD_DONE);
+    showMessage(t("reset.passwordDone"), true);
     resetForgotFlow();
     setForgotOpen(false);
     await redirectAfterAuth();
@@ -655,11 +634,12 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
   const sendPasswordReset = async () => {
     const id = parseLoginIdentifier(loginId);
     if (!id || id.kind !== "email") {
-      setMessage("Pour réinitialiser par e-mail, saisissez votre adresse e-mail dans le champ identifiant.");
+      showMessage(t("page.validationForgotNeedEmail"));
       return;
     }
     setLoading(true);
     setMessage("");
+    setMessageSuccess(false);
     let res: Response;
     try {
       res = await fetch("/api/auth/request-password-reset", {
@@ -669,15 +649,15 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
       });
     } catch {
       setLoading(false);
-      setMessage("Impossible d’envoyer la demande. Vérifiez votre connexion et réessayez.");
+      showMessage(t("page.validationResetRequestFailed"));
       return;
     }
     setLoading(false);
     if (!res.ok) {
-      setMessage("Impossible d’envoyer la demande pour le moment. Réessayez plus tard.");
+      showMessage(t("page.validationResetRequestLater"));
       return;
     }
-    setMessage(AUTH_RESET_EMAIL_SENT);
+    showMessage(t("reset.emailSent"), true);
     setForgotOpen(false);
   };
 
@@ -688,33 +668,33 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     ? "Première connexion officine"
     : isSignup
       ? signupStep === "form"
-        ? "Créer un compte"
+        ? t("page.titleSignup")
         : signupStep === "otp"
           ? signupOtpChannel === "email"
-            ? "Code e-mail"
-            : "Code SMS"
-          : "Choisissez un mot de passe"
+            ? t("page.titleSignupOtpEmail")
+            : t("page.titleSignupOtpSms")
+          : t("page.titleChoosePassword")
       : forgotResetStep === "otp"
-        ? "Code SMS"
+        ? t("page.titleForgotOtp")
         : forgotResetStep === "password"
-          ? "Nouveau mot de passe"
-          : "Connexion";
+          ? t("page.titleForgotPassword")
+          : t("page.titleLogin");
 
   const subtitle = isProvisionedPharmacistStep
     ? "Votre compte a été créé par l’administrateur. Choisissez un mot de passe personnel : vous vous connecterez ensuite avec votre numéro et ce mot de passe."
     : isSignup
       ? signupStep === "form"
-        ? "Téléphone obligatoire. E-mail facultatif : si vous le renseignez, le code part par e-mail (recommandé si les SMS sont bloqués, ex. Inwi). Sinon, vérifiez SMS ou WhatsApp."
+        ? t("page.subtitleSignupForm")
         : signupStep === "otp"
           ? signupOtpChannel === "email"
-            ? "Saisissez le code à 6 chiffres reçu par e-mail (pas le lien)."
-            : "Saisissez le code à 6 chiffres reçu par SMS ou WhatsApp."
-          : "Définissez le mot de passe de votre compte. Vous vous connecterez ensuite avec votre numéro ou votre e-mail."
+            ? t("page.subtitleSignupOtpEmail")
+            : t("page.subtitleSignupOtpSms")
+          : t("page.subtitleSignupPassword")
       : forgotResetStep === "otp"
-        ? "Saisissez le code à 6 chiffres reçu par SMS ou WhatsApp."
+        ? t("page.subtitleForgotOtp")
         : forgotResetStep === "password"
-          ? "Choisissez un nouveau mot de passe pour votre compte officine ou patient."
-          : "Identifiant (téléphone ou e-mail) et mot de passe.";
+          ? t("page.subtitleForgotPassword")
+          : t("page.subtitleLogin");
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-10 sm:px-6">
@@ -726,7 +706,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
         )}
       >
         <ArrowLeft className="size-4" aria-hidden />
-        Retour à l&apos;annuaire
+        {tc("backToDirectory")}
       </Link>
 
       <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06] p-5 shadow-sm sm:p-6">
@@ -747,18 +727,15 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           <form className="space-y-3" onSubmit={(ev) => void verifyForgotPhoneOtp(ev)}>
             <div className="rounded-xl border border-border/80 bg-muted/25 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
               <p>
-                Code envoyé au <span className="font-mono font-medium text-foreground">{forgotPhoneE164}</span>
+                {t("page.otpSentToPhone", { phone: forgotPhoneE164 })}
               </p>
-              <p className="mt-1.5">
-                Consultez vos <strong className="text-foreground">SMS</strong> ou{" "}
-                <strong className="text-foreground">WhatsApp</strong>, puis saisissez les 6 chiffres.
-              </p>
+              <p className="mt-1.5">{t("page.otpCheckSmsWhatsapp")}</p>
             </div>
             <input
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
-              placeholder="Code à 6 chiffres"
+              placeholder={t("page.placeholderOtp")}
               className={fieldClass}
               value={forgotOtp}
               onChange={(e) => setForgotOtp(e.target.value)}
@@ -769,10 +746,10 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
               {loading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" aria-hidden />
-                  Patientez…
+                  {tc("wait")}
                 </>
               ) : (
-                "Valider le code"
+                t("page.buttonValidateOtp")
               )}
             </Button>
             <div className="flex flex-wrap gap-2 pt-1">
@@ -784,7 +761,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
                 disabled={loading}
                 onClick={() => void resendForgotPhoneOtp()}
               >
-                Renvoyer le SMS
+                {t("page.buttonResendSms")}
               </Button>
               <Button
                 type="button"
@@ -796,6 +773,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
                   resetForgotFlow();
                   setForgotOpen(false);
                   setMessage("");
+                  setMessageSuccess(false);
                 }}
               >
                 Retour connexion
@@ -806,7 +784,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           <form className="space-y-3" onSubmit={(ev) => void finishForgotPassword(ev)}>
             <input
               type="password"
-              placeholder="Nouveau mot de passe (min. 6 caractères)"
+              placeholder={t("page.placeholderNewPassword")}
               className={fieldClass}
               value={forgotNewPassword}
               onChange={(e) => setForgotNewPassword(e.target.value)}
@@ -816,7 +794,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
             />
             <input
               type="password"
-              placeholder="Confirmer le mot de passe"
+              placeholder={t("page.placeholderConfirmPassword")}
               className={fieldClass}
               value={forgotNewPassword2}
               onChange={(e) => setForgotNewPassword2(e.target.value)}
@@ -828,10 +806,10 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
               {loading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" aria-hidden />
-                  Patientez…
+                  {tc("wait")}
                 </>
               ) : (
-                "Enregistrer le nouveau mot de passe"
+                t("page.buttonSaveNewPassword")
               )}
             </Button>
           </form>
@@ -839,7 +817,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           <form className="space-y-3" onSubmit={(ev) => void login(ev)}>
             <input
               type="text"
-              placeholder="Téléphone ou e-mail"
+              placeholder={t("page.placeholderLoginId")}
               className={fieldClass}
               value={loginId}
               onChange={(e) => setLoginId(e.target.value)}
@@ -848,7 +826,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
             />
             <input
               type="password"
-              placeholder="Mot de passe"
+              placeholder={t("page.placeholderPassword")}
               className={fieldClass}
               value={loginPassword}
               onChange={(e) => setLoginPassword(e.target.value)}
@@ -863,18 +841,15 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
                   setForgotOpen((v) => !v);
                   resetForgotFlow();
                   setMessage("");
+                  setMessageSuccess(false);
                 }}
                 className="text-xs font-semibold text-primary underline-offset-2 hover:underline"
               >
-                Mot de passe oublié ?
+                {t("page.buttonForgotPassword")}
               </button>
               {forgotOpen ? (
                 <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
-                  <p className="text-xs text-muted-foreground">
-                    <strong className="font-medium text-foreground">Téléphone</strong> : code SMS à 6 chiffres puis
-                    nouveau mot de passe. <strong className="font-medium text-foreground">E-mail</strong> : lien de
-                    réinitialisation.
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t("page.forgotHint")}</p>
                   <Button
                     type="button"
                     variant="secondary"
@@ -883,7 +858,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
                     disabled={loading}
                     onClick={() => void sendForgotPhoneOtp()}
                   >
-                    Recevoir un code SMS
+                    {t("page.buttonReceiveSmsCode")}
                   </Button>
                   <Button
                     type="button"
@@ -893,7 +868,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
                     disabled={loading}
                     onClick={() => void sendPasswordReset()}
                   >
-                    Envoyer le lien par e-mail
+                    {t("page.buttonSendEmailLink")}
                   </Button>
                 </div>
               ) : null}
@@ -902,10 +877,10 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
               {loading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" aria-hidden />
-                  Patientez…
+                  {tc("wait")}
                 </>
               ) : (
-                "Se connecter"
+                t("page.buttonLogin")
               )}
             </Button>
           </form>
@@ -913,7 +888,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           <form className="space-y-3" onSubmit={(ev) => void sendSignupSms(ev)}>
             <input
               type="text"
-              placeholder="Nom complet"
+              placeholder={t("page.placeholderFullName")}
               className={fieldClass}
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
@@ -922,7 +897,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
             />
             <input
               type="tel"
-              placeholder="Téléphone (ex. 0612345678 ou +212612345678)"
+              placeholder={t("page.placeholderPhone")}
               className={fieldClass}
               value={signupPhone}
               onChange={(e) => setSignupPhone(e.target.value)}
@@ -931,7 +906,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
             />
             <input
               type="email"
-              placeholder="E-mail (facultatif)"
+              placeholder={t("page.placeholderEmailOptional")}
               className={fieldClass}
               value={signupEmail}
               onChange={(e) => setSignupEmail(e.target.value)}
@@ -941,10 +916,10 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
               {loading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" aria-hidden />
-                  Patientez…
+                  {tc("wait")}
                 </>
               ) : (
-                "Recevoir le code de vérification"
+                t("page.buttonReceiveVerificationCode")
               )}
             </Button>
           </form>
@@ -953,29 +928,16 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
             <div className="rounded-xl border border-border/80 bg-muted/25 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
               {signupOtpChannel === "email" ? (
                 <>
-                  <p>
-                    Code envoyé à{" "}
-                    <span className="font-medium text-foreground">{signupEmailForOtp}</span>
-                  </p>
-                  <p className="mt-1.5">
-                    Vérifiez votre boîte e-mail (et les spams). Saisissez uniquement le{" "}
-                    <strong className="text-foreground">code à 6 chiffres</strong> — si vous ouvrez un lien par
-                    erreur, vous serez invité à choisir votre mot de passe ensuite.
-                  </p>
+                  <p>{t("page.otpSentToEmail", { email: signupEmailForOtp })}</p>
+                  <p className="mt-1.5">{t("page.otpCheckEmailSpam")}</p>
                   <p className="mt-1.5 font-mono text-[11px] text-foreground/80">
-                    Tél. du compte : {phoneE164}
+                    {t("page.otpAccountPhone", { phone: phoneE164 })}
                   </p>
                 </>
               ) : (
                 <>
-                  <p>
-                    Code envoyé au <span className="font-mono font-medium text-foreground">{phoneE164}</span>
-                  </p>
-                  <p className="mt-1.5">
-                    Consultez vos <strong className="text-foreground">SMS</strong> ou{" "}
-                    <strong className="text-foreground">WhatsApp</strong> (selon votre opérateur), puis saisissez
-                    les 6 chiffres.
-                  </p>
+                  <p>{t("page.otpSentToPhone", { phone: phoneE164 })}</p>
+                  <p className="mt-1.5">{t("page.otpCheckSmsWhatsappOperator")}</p>
                 </>
               )}
             </div>
@@ -983,7 +945,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
-              placeholder="Code à 6 chiffres"
+              placeholder={t("page.placeholderOtp")}
               className={fieldClass}
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
@@ -994,10 +956,10 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
               {loading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" aria-hidden />
-                  Patientez…
+                  {tc("wait")}
                 </>
               ) : (
-                "Valider le code"
+                t("page.buttonValidateOtp")
               )}
             </Button>
             <div className="flex flex-wrap gap-2 pt-1">
@@ -1009,7 +971,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
                 disabled={loading}
                 onClick={() => void resendSignupOtp()}
               >
-                {signupOtpChannel === "email" ? "Renvoyer l’e-mail" : "Renvoyer le SMS"}
+                {signupOtpChannel === "email" ? t("page.buttonResendEmail") : t("page.buttonResendSms")}
               </Button>
               <Button
                 type="button"
@@ -1019,7 +981,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
                 disabled={loading}
                 onClick={() => resetSignupFlow()}
               >
-                Modifier mes infos
+                {t("page.buttonEditInfo")}
               </Button>
             </div>
           </form>
@@ -1027,7 +989,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           <form className="space-y-3" onSubmit={(ev) => void finishSignup(ev)}>
             <input
               type="password"
-              placeholder="Mot de passe (min. 6 caractères)"
+              placeholder={t("page.placeholderSignupPassword")}
               className={fieldClass}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
@@ -1037,7 +999,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
             />
             <input
               type="password"
-              placeholder="Confirmer le mot de passe"
+              placeholder={t("page.placeholderConfirmPassword")}
               className={fieldClass}
               value={newPassword2}
               onChange={(e) => setNewPassword2(e.target.value)}
@@ -1049,12 +1011,12 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
               {loading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" aria-hidden />
-                  Patientez…
+                  {tc("wait")}
                 </>
               ) : isProvisionedPharmacistStep ? (
-                "Enregistrer mon mot de passe"
+                t("page.buttonSavePassword")
               ) : (
-                "Créer mon compte et continuer"
+                t("page.buttonCreateAccount")
               )}
             </Button>
           </form>
@@ -1065,6 +1027,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           type="button"
           onClick={() => {
             setMessage("");
+            setMessageSuccess(false);
             setForgotOpen(false);
             resetForgotFlow();
             if (isSignup) {
@@ -1079,7 +1042,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
             "mt-3 h-auto w-full py-2 text-sm font-semibold text-primary"
           )}
         >
-          {isSignup ? "Déjà un compte ? Connexion" : "Pas de compte ? Créer un compte"}
+          {isSignup ? t("page.toggleHasAccount") : t("page.toggleNoAccount")}
         </button>
         ) : null}
 
@@ -1087,7 +1050,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           <p
             className={cn(
               "mt-4 rounded-xl border px-3 py-2.5 text-sm leading-relaxed",
-              isSuccessMessage(message)
+              messageSuccess
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100"
                 : "border-border bg-muted/50 text-foreground"
             )}
@@ -1106,16 +1069,19 @@ function AuthFormGate() {
   return <AuthForm key={isSignup ? "signup" : "login"} isSignup={isSignup} />;
 }
 
+function AuthPageLoading() {
+  const tc = useTranslations("common");
+  return (
+    <main className="flex min-h-screen items-center justify-center gap-2 bg-background p-6 text-muted-foreground">
+      <Loader2 className="size-6 animate-spin text-primary" aria-hidden />
+      <span className="text-sm font-medium text-foreground">{tc("loading")}</span>
+    </main>
+  );
+}
+
 export default function AuthPage() {
   return (
-    <Suspense
-      fallback={
-        <main className="flex min-h-screen items-center justify-center gap-2 bg-background p-6 text-muted-foreground">
-          <Loader2 className="size-6 animate-spin text-primary" aria-hidden />
-          <span className="text-sm font-medium text-foreground">Chargement…</span>
-        </main>
-      }
-    >
+    <Suspense fallback={<AuthPageLoading />}>
       <AuthFormGate />
     </Suspense>
   );

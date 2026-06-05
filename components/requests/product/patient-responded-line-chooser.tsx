@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Check, Package, X } from "lucide-react";
 import {
   ProductRequestLinePrices,
@@ -20,17 +21,15 @@ import {
   patientRespondedPrincipalTabStatusFr,
 } from "@/lib/patient-responded-line-buckets";
 import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternative-qty-rules";
-import { formatDateShortFr } from "@/lib/datetime-fr";
+import { formatDateForLocale } from "@/lib/datetime-locale";
+import type { AppLocale } from "@/lib/i18n/config";
 import {
   isPrescriptionAdditionalProposedLine,
   isPrescriptionOrdonnancePrincipalLine,
-  PRESCRIPTION_ORDONNANCE_SOURCING_LABEL,
 } from "@/lib/prescription-pharmacist-lines";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
-import {
-  respondedPrincipalTabLabelFr,
-  respondedRequestedQtyLabelFr,
-} from "@/lib/prescription-ui-copy";
+import { usePrescriptionUiCopy } from "@/lib/use-prescription-ui-copy";
+import { useConsultationUiCopy } from "@/lib/use-consultation-ui-copy";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { cn } from "@/lib/utils";
 import { patientBucketProductRowClass } from "@/lib/patient-bucket-product-row-ui";
@@ -76,19 +75,21 @@ function branchFromTab(tab: string): Exclude<LineBranch, null> {
   return tab === "principal" ? "principal" : tab;
 }
 
-function lineBadgeLabelFr(opts: {
+function lineBadgeLabel(opts: {
   requestType: string;
   isAlt: boolean;
   isProposedLine: boolean;
   isOrdonnancePrincipal: boolean;
   isExtraProposed: boolean;
   pharmacistProposedBadgeLabel: string;
+  tCommon: ReturnType<typeof useTranslations<"common">>;
+  prescriptionCopy: ReturnType<typeof usePrescriptionUiCopy>;
 }): string {
-  if (opts.isAlt) return "Alternative";
-  if (opts.requestType === "prescription" && opts.isOrdonnancePrincipal) return "Ordonnance";
-  if (opts.requestType === "prescription" && opts.isExtraProposed) return "Produit proposé par la pharmacie";
-  if (opts.isProposedLine) return opts.pharmacistProposedBadgeLabel || "Ajout Officine";
-  return respondedPrincipalTabLabelFr(opts.requestType);
+  if (opts.isAlt) return opts.tCommon("alternative");
+  if (opts.requestType === "prescription" && opts.isOrdonnancePrincipal) return opts.tCommon("ordonnance");
+  if (opts.requestType === "prescription" && opts.isExtraProposed) return opts.prescriptionCopy.pharmacyProposedProduct;
+  if (opts.isProposedLine) return opts.pharmacistProposedBadgeLabel || opts.tCommon("pharmacyAddition");
+  return opts.prescriptionCopy.respondedPrincipalTabLabel(opts.requestType);
 }
 
 function RespondedLineQtyMeta({
@@ -99,6 +100,9 @@ function RespondedLineQtyMeta({
   expectedDate,
   statusLabel,
   requestType,
+  tDemandes,
+  prescriptionCopy,
+  formatDateShort,
 }: {
   bucketId: PatientRespondedBucketId;
   isAlt: boolean;
@@ -107,10 +111,13 @@ function RespondedLineQtyMeta({
   expectedDate: string | null;
   requestType: string;
   statusLabel?: string | null;
+  tDemandes: ReturnType<typeof useTranslations<"demandes">>;
+  prescriptionCopy: ReturnType<typeof usePrescriptionUiCopy>;
+  formatDateShort: (iso: string) => string;
 }) {
   const qtyLine = showRequested ? (
     <span className="text-[10px] text-muted-foreground">
-      {respondedRequestedQtyLabelFr(requestType)}{" "}
+      {prescriptionCopy.respondedRequestedQtyLabel(requestType)}{" "}
       <strong className="tabular-nums text-foreground">{requestedQty}</strong>
     </span>
   ) : null;
@@ -135,10 +142,12 @@ function RespondedLineQtyMeta({
         {qtyLine}
         {expectedDate ? (
           <span className="text-[10px] font-medium text-teal-800/85">
-            Réception prévue · {formatDateShortFr(expectedDate)}
+            {tDemandes("validated.receptionPlanned", { date: formatDateShort(expectedDate) })}
           </span>
         ) : (
-          <span className="text-[10px] font-medium text-muted-foreground">Date de réception à confirmer</span>
+          <span className="text-[10px] font-medium text-muted-foreground">
+            {tDemandes("responded.receptionDateTbc")}
+          </span>
         )}
       </div>
     );
@@ -164,6 +173,9 @@ function RespondedLineNotesButton({
 }) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
+  const tCommon = useTranslations("common");
+  const tConversation = useTranslations("conversation");
+  const tDemandes = useTranslations("demandes");
   const c = client.trim();
   const p = pharmacist.trim();
   const visual = lineConversationVisual(c, p);
@@ -185,7 +197,7 @@ function RespondedLineNotesButton({
                 <div className={cn("flex items-start justify-between gap-2 border-b px-3 py-2", t.modalHeader)}>
                   <div className="min-w-0 flex-1">
                     <h2 id={titleId} className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                      <span className="block">Message</span>
+                      <span className="block">{tDemandes("responded.messageTitle")}</span>
                       <span className="mt-1 block text-[13px] font-semibold normal-case leading-snug text-foreground">
                         {productName}
                       </span>
@@ -194,7 +206,7 @@ function RespondedLineNotesButton({
                   <button
                     type="button"
                     className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted/60"
-                    aria-label="Fermer"
+                    aria-label={tCommon("closeAria")}
                     onClick={() => setOpen(false)}
                   >
                     <X className="size-4" aria-hidden />
@@ -202,17 +214,23 @@ function RespondedLineNotesButton({
                 </div>
                 <div className="max-h-[min(60vh,16rem)] space-y-2 overflow-y-auto overscroll-y-contain px-3 py-2.5 text-[11px] [-webkit-overflow-scrolling:touch]">
                   {!c && !p ? (
-                    <p className="text-[11px] leading-snug text-muted-foreground">Aucun message sur ce produit.</p>
+                    <p className="text-[11px] leading-snug text-muted-foreground">
+                      {tDemandes("responded.noMessageOnProduct")}
+                    </p>
                   ) : null}
                   {c ? (
                     <div className="rounded-lg border border-border/80 border-l-2 border-l-sky-500/70 bg-muted/20 px-2.5 py-2">
-                      <p className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">Vous</p>
+                      <p className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">
+                        {tConversation("you")}
+                      </p>
                       <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-foreground">{c}</p>
                     </div>
                   ) : null}
                   {p ? (
                     <div className="rounded-lg border border-border/80 border-l-2 border-l-emerald-500/70 bg-muted/20 px-2.5 py-2">
-                      <p className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">Officine</p>
+                      <p className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">
+                        {tConversation("pharmacy")}
+                      </p>
                       <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-foreground">{p}</p>
                     </div>
                   ) : null}
@@ -223,7 +241,7 @@ function RespondedLineNotesButton({
                     className={uiActionBtnModalDismiss()}
                     onClick={() => setOpen(false)}
                   >
-                    Fermer
+                    {tCommon("close")}
                   </button>
                 </div>
               </div>
@@ -337,15 +355,14 @@ function RespondedVariantRetainBar({
   readOnly: boolean;
   onToggle: (on: boolean) => void;
 }) {
+  const tResponded = useTranslations("demandes.responded");
   const isPrincipal = tabId === "principal";
-  const retainLabel = isPrincipal ? "Retenir votre demande initiale" : "Retenir cette alternative";
+  const retainLabel = isPrincipal ? tResponded("retainPrincipal") : tResponded("retainAlternative");
 
   if (!retainable) {
     return (
       <p className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-3 py-2 text-center text-[10px] leading-snug text-muted-foreground">
-        {isPrincipal
-          ? "Votre demande initiale n’est pas retenable — consultez les alternatives proposées."
-          : "Cette alternative n’est pas retenable."}
+        {isPrincipal ? tResponded("retainPrincipalNotRetainable") : tResponded("notRetainable")}
       </p>
     );
   }
@@ -380,7 +397,7 @@ function RespondedVariantRetainBar({
         type="button"
         className={retainBarShell}
         aria-pressed={isSelected}
-        aria-label={isSelected ? `${retainLabel} — cliquer pour retirer` : retainLabel}
+        aria-label={isSelected ? tResponded("retainAriaOn") : retainLabel}
         onClick={() => onToggle(!isSelected)}
       >
         {isSelected ? (
@@ -424,7 +441,7 @@ function RespondedVariantRetainBar({
       type="button"
       className={altRetainBarShell}
       aria-pressed={isSelected}
-      aria-label={isSelected ? `${retainLabel} — cliquer pour retirer` : retainLabel}
+      aria-label={isSelected ? tResponded("retainAriaOn") : retainLabel}
       onClick={() => onToggle(!isSelected)}
     >
       {isSelected ? (
@@ -451,9 +468,11 @@ function RespondedVariantTabs({
   onTab: (id: string) => void;
   className?: string;
 }) {
+  const tResponded = useTranslations("demandes.responded");
+
   return (
     <div className={cn("min-w-0", className)}>
-      <div className="flex min-w-0 gap-1" role="tablist" aria-label="Options pour ce produit">
+      <div className="flex min-w-0 gap-1" role="tablist" aria-label={tResponded("optionsAria")}>
         {tabs.map((tab) => {
           const isViewing = tab.id === activeTab;
           const isSelected = selectedTabId === tab.id;
@@ -485,10 +504,10 @@ function RespondedVariantTabs({
                 aria-current={isViewing ? "true" : undefined}
                 title={
                   dim
-                    ? "Non retenable — consultez le statut sous le produit"
+                    ? tResponded("notRetainableStatus")
                     : isViewing
-                      ? "Option affichée"
-                      : "Cliquez pour consulter"
+                      ? tResponded("optionShown")
+                      : tResponded("clickToView")
                 }
                 className={cn(
                   "min-w-0 flex-1 truncate py-1 pr-1.5 text-left text-[10px] font-semibold leading-none transition",
@@ -520,6 +539,7 @@ function RespondedCompactRetainButton({
   readOnly: boolean;
   onToggle: (on: boolean) => void;
 }) {
+  const tResponded = useTranslations("demandes.responded");
   const closedBoxClass =
     "size-4 shrink-0 rounded border border-border/80 bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]";
   const shellClass = cn(
@@ -545,7 +565,7 @@ function RespondedCompactRetainButton({
     return retained ? (
       <div className={shellClass}>
         <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
-        <span className={labelClass}>Retenir</span>
+        <span className={labelClass}>{tResponded("retainShort")}</span>
       </div>
     ) : null;
   }
@@ -555,7 +575,7 @@ function RespondedCompactRetainButton({
       type="button"
       className={shellClass}
       aria-pressed={retained}
-      aria-label={retained ? "Retenir — cliquer pour retirer" : "Retenir ce produit"}
+      aria-label={retained ? tResponded("retainAriaOn") : tResponded("retainAriaOff")}
       onClick={() => onToggle(!retained)}
     >
       {retained ? (
@@ -577,6 +597,8 @@ function RespondedProposedMotifBlock({
   reason: string | null;
   unavailable: boolean;
 }) {
+  const tResponded = useTranslations("demandes.responded");
+
   return (
     <div
       className={cn(
@@ -589,7 +611,7 @@ function RespondedProposedMotifBlock({
         {reason ? (
           <span className="text-muted-foreground"> — {reason}</span>
         ) : (
-          <span className="italic text-muted-foreground"> — motif non renseigné</span>
+          <span className="italic text-muted-foreground"> — {tResponded("motifNotFilled")}</span>
         )}
       </p>
     </div>
@@ -603,11 +625,15 @@ function RespondedLineBlock({
   onToggleRetain,
   onSetQty,
   onPhotoPreview,
-  ajoutOfficineLabel = "Ajout Officine",
+  ajoutOfficineLabel,
   variantTabsAbove = false,
   readOnly = false,
   bucketId,
   requestType,
+  tDemandes,
+  prescriptionCopy,
+  formatDateShort,
+  tCommon,
 }: {
   variant: VariantData;
   retained: boolean;
@@ -622,6 +648,10 @@ function RespondedLineBlock({
   readOnly?: boolean;
   bucketId: PatientRespondedBucketId;
   requestType: string;
+  tDemandes: ReturnType<typeof useTranslations<"demandes">>;
+  prescriptionCopy: ReturnType<typeof usePrescriptionUiCopy>;
+  formatDateShort: (iso: string) => string;
+  tCommon: ReturnType<typeof useTranslations<"common">>;
 }) {
   const unavailable = variant.cap < 1;
   /** Avec onglets : PU/Tot/qty visibles sur l’onglet consulté (comparaison), pas seulement si cette branche est cochée. */
@@ -696,7 +726,7 @@ function RespondedLineBlock({
 
             {isProposedBlock ? (
               <RespondedProposedMotifBlock
-                label={ajoutOfficineLabel}
+                label={ajoutOfficineLabel ?? tCommon("pharmacyAddition")}
                 reason={variant.proposalReason}
                 unavailable={unavailable}
               />
@@ -711,10 +741,13 @@ function RespondedLineBlock({
                 expectedDate={variant.expectedDate}
                 statusLabel={variant.branch === "principal" ? variant.principalStatusLabel : null}
                 requestType={requestType}
+                tDemandes={tDemandes}
+                prescriptionCopy={prescriptionCopy}
+                formatDateShort={formatDateShort}
               />
             ) : variant.expectedDate && bucketId === "to_order" ? (
               <p className="text-[10px] font-medium text-teal-800/85">
-                Réception prévue · {formatDateShortFr(variant.expectedDate)}
+                {tDemandes("validated.receptionPlanned", { date: formatDateShort(variant.expectedDate) })}
               </p>
             ) : variant.branch === "principal" ? (
               <RespondedLineQtyMeta
@@ -725,6 +758,9 @@ function RespondedLineBlock({
                 expectedDate={null}
                 statusLabel={variant.principalStatusLabel}
                 requestType={requestType}
+                tDemandes={tDemandes}
+                prescriptionCopy={prescriptionCopy}
+                formatDateShort={formatDateShort}
               />
             ) : null}
           </div>
@@ -808,6 +844,15 @@ export function RespondedPatientLineChooser({
   readOnly = false,
   bucketId,
 }: RespondedChooserProps) {
+  const locale = useLocale() as AppLocale;
+  const tCommon = useTranslations("common");
+  const tDemandes = useTranslations("demandes");
+  const tResponded = useTranslations("demandes.responded");
+  const prescriptionCopy = usePrescriptionUiCopy();
+  const consultationCopy = useConsultationUiCopy();
+  const formatDateShort = (iso: string) =>
+    formatDateForLocale(iso, locale, { day: "numeric", month: "short", year: "numeric" });
+
   const prod = one(row.products);
   const altList = normalizeAlternatives(row.request_item_alternatives);
   const hasAlts = altList.length > 0;
@@ -840,20 +885,22 @@ export function RespondedPatientLineChooser({
       isConsultation && prod?.name?.trim()
         ? prod.name.trim()
         : isConsultation
-          ? "Ligne"
-          : respondedPrincipalTabLabelFr(requestType);
+          ? consultationCopy.respondedTabPrincipal
+          : prescriptionCopy.respondedPrincipalTabLabel(requestType);
     return {
       tabId: "principal",
       tabLabel: principalTabLabel,
-      badgeLabel: lineBadgeLabelFr({
+      badgeLabel: lineBadgeLabel({
         requestType,
         isAlt: false,
         isProposedLine,
         isOrdonnancePrincipal,
         isExtraProposed,
         pharmacistProposedBadgeLabel,
+        tCommon,
+        prescriptionCopy,
       }),
-      productName: prod?.name ?? "Produit",
+      productName: prod?.name ?? tCommon("product"),
       photoUrl: resolvePublicMediaUrl(prod?.photo_url ?? null),
       descriptionHtml: productDescriptionHtmlForDisplay(prod?.full_description),
       showRequested: isConsultation || !isProposedLine,
@@ -888,9 +935,9 @@ export function RespondedPatientLineChooser({
         : null;
     return {
       tabId: alt.id,
-      tabLabel: `Alt. ${index + 1}`,
-      badgeLabel: "Alternative",
-      productName: altProd?.name ?? "Alternative",
+      tabLabel: tResponded("altTab", { n: index + 1 }),
+      badgeLabel: tCommon("alternative"),
+      productName: altProd?.name ?? tCommon("alternative"),
       photoUrl: resolvePublicMediaUrl(altProd?.photo_url ?? null),
       descriptionHtml: productDescriptionHtmlForDisplay(altProd?.full_description),
       showRequested: false,
@@ -947,7 +994,7 @@ export function RespondedPatientLineChooser({
     return (
       <li className={patientBucketProductRowClass}>
         {requestType === "prescription" && isOrdonnancePrincipal ? (
-          <p className="mb-1.5 text-[10px] font-semibold text-muted-foreground">{PRESCRIPTION_ORDONNANCE_SOURCING_LABEL}</p>
+          <p className="mb-1.5 text-[10px] font-semibold text-muted-foreground">{tCommon("ordonnance")}</p>
         ) : null}
         <RespondedLineBlock
           variant={v}
@@ -960,6 +1007,10 @@ export function RespondedPatientLineChooser({
           readOnly={readOnly}
           bucketId={bucketId}
           requestType={requestType}
+          tDemandes={tDemandes}
+          prescriptionCopy={prescriptionCopy}
+          formatDateShort={formatDateShort}
+          tCommon={tCommon}
         />
       </li>
     );
@@ -1002,6 +1053,10 @@ export function RespondedPatientLineChooser({
           readOnly={readOnly}
           bucketId={bucketId}
           requestType={requestType}
+          tDemandes={tDemandes}
+          prescriptionCopy={prescriptionCopy}
+          formatDateShort={formatDateShort}
+          tCommon={tCommon}
         />
       </div>
     </li>
