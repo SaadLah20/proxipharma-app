@@ -259,9 +259,6 @@ export function validatedOriginLabelFr(input: {
   if (prescriptionBadge) return prescriptionBadge;
   if (row.patient_chosen_alternative_id) return "Alternative";
   if (row.line_source === "pharmacist_proposed") {
-    if (requestType === "free_consultation") {
-      return pharmacistProposedBadgeLabel || "Produit";
-    }
     return pharmacistProposedBadgeLabel;
   }
   return validatedOriginFallbackPatientFr(requestType);

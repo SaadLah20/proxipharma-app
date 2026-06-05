@@ -47,6 +47,7 @@ import {
   patientDetailStickyFooterPadTier,
   stickyFooterFabMinBottomPx,
   stickyFooterPadClass,
+  consultationConversationViewportHeightClass,
   stickyFooterScrollMarginClass,
 } from "@/lib/platform-sticky-footer";
 import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
@@ -159,11 +160,11 @@ export default function DemandeDetailPage() {
   const [consultationExitBusy, setConsultationExitBusy] = useState(false);
   const [consultationExitNonce, setConsultationExitNonce] = useState(0);
   const loadDetail = useCallback(
-    async (silent?: boolean) => {
+    async (silent?: boolean): Promise<{ updatedAt: string; status: string } | null> => {
       if (!id) {
         setLoading(false);
         setError("Demande introuvable.");
-        return;
+        return null;
       }
       if (!silent) {
         setLoading(true);
@@ -174,7 +175,7 @@ export default function DemandeDetailPage() {
       const user = authData.session?.user;
       if (!user) {
         router.replace(`/auth?redirect=/dashboard/demandes/${id}`);
-        return;
+        return null;
       }
 
       const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
@@ -182,7 +183,7 @@ export default function DemandeDetailPage() {
       if (profile && (profile as { role: string }).role !== "patient") {
         setError("Cette page concerne les patients.");
         setLoading(false);
-        return;
+        return null;
       }
 
       setSessionUserId(user.id);
@@ -199,13 +200,13 @@ export default function DemandeDetailPage() {
       if (reqErr) {
         setError(reqErr.message);
         setLoading(false);
-        return;
+        return null;
       }
 
       if (!reqRow) {
         setError("Demande introuvable ou elle ne t’appartient pas.");
         setLoading(false);
-        return;
+        return null;
       }
 
       setRequest(reqRow as RequestDetail);
@@ -335,11 +336,17 @@ export default function DemandeDetailPage() {
       }
 
       setLoading(false);
+      return {
+        updatedAt: (reqRow as RequestDetail).updated_at,
+        status: String((reqRow as RequestDetail).status),
+      };
     },
     [id, router]
   );
 
-  const requestDrift = useRequestDetailDrift(id, request?.status, "patient", () => loadDetail(true));
+  const requestDrift = useRequestDetailDrift(id, request?.status, "patient", async () => {
+    await loadDetail(true);
+  });
   const { acknowledge: acknowledgeRequestDrift } = requestDrift;
 
   useEffect(() => {
@@ -363,11 +370,14 @@ export default function DemandeDetailPage() {
         setConversationRefreshToken((t) => t + 1);
         setConversationOpen(true);
       }
-      void loadDetail(true);
+      void (async () => {
+        const loaded = await loadDetail(true);
+        if (loaded) acknowledgeRequestDrift(loaded.updatedAt, loaded.status);
+      })();
     };
     window.addEventListener(REQUEST_DETAIL_REFRESH_EVENT, listener);
     return () => window.removeEventListener(REQUEST_DETAIL_REFRESH_EVENT, listener);
-  }, [id, loadDetail]);
+  }, [id, loadDetail, acknowledgeRequestDrift]);
 
   const loadHistory = useCallback(async () => {
     if (!id) return;
@@ -498,8 +508,14 @@ export default function DemandeDetailPage() {
       : "";
   if (consultationTabSyncKey && consultationTabSyncKey !== prevConsultationTabSyncKey) {
     setPrevConsultationTabSyncKey(consultationTabSyncKey);
-    setConsultationTab(getConsultationDefaultTab(request.status, request.responded_at));
+    const nextTab = getConsultationDefaultTab(request.status, request.responded_at);
+    setConsultationTab(nextTab);
+    if (nextTab === "products") setConversationOpen(false);
   }
+
+  const consultationConversationViewportClass = consultationConversationViewportHeightClass(
+    showConsultationWaitingFooter ? effectiveStickyFooterTier : "none"
+  );
 
   const pharmacyContact = (() => {
     const ph = one(request.pharmacies);
@@ -542,7 +558,15 @@ export default function DemandeDetailPage() {
   };
 
   return (
-    <PageShell className={clsx("min-w-0 max-w-full space-y-3 bg-slate-50", detailStickyFooterPad)}>
+    <PageShell
+      className={clsx(
+        "min-w-0 max-w-full space-y-3 bg-slate-50",
+        detailStickyFooterPad,
+        showConsultationTabbed &&
+          consultationTab === "conversation" &&
+          "flex min-h-0 flex-col overflow-hidden pb-3 sm:pb-4"
+      )}
+    >
       <RequestDetailBackLink config={kindConfig} viewerRole="patient" />
 
       {showConsultationTabbed ? (
@@ -569,7 +593,8 @@ export default function DemandeDetailPage() {
       ) : !hideMainRequestHeader ||
         (showArchivedReadonly &&
           request.request_type !== "product_request" &&
-          request.request_type !== "prescription") ? (
+          request.request_type !== "prescription" &&
+          request.request_type !== "free_consultation") ? (
         <RequestKindHeader
           config={kindConfig}
           request={request}
@@ -620,19 +645,26 @@ export default function DemandeDetailPage() {
       ) : null}
 
       {showConsultationTabbed && consultationTab === "conversation" && sessionUserId ? (
-        <div className="flex min-h-0 flex-col max-h-[calc(100dvh-11rem)]">
-          <RequestConversationInline
-            requestId={request.id}
-            viewerRole="patient"
-            currentUserId={sessionUserId}
-            variant="consultation"
-            consultationSeed={consultationSeed}
-            refreshToken={conversationRefreshToken}
-            fillViewport
-            onMarkedRead={handleConversationMarkedRead}
-          />
+        <>
+          <div
+            className={clsx(
+              "flex min-h-0 min-w-0 flex-1 flex-col",
+              consultationConversationViewportClass
+            )}
+          >
+            <RequestConversationInline
+              requestId={request.id}
+              viewerRole="patient"
+              currentUserId={sessionUserId}
+              variant="consultation"
+              consultationSeed={consultationSeed}
+              refreshToken={conversationRefreshToken}
+              fillViewport
+              onMarkedRead={handleConversationMarkedRead}
+            />
+          </div>
           {consultationEditable ? (
-            <details className="rounded-lg border border-violet-200/70 bg-violet-50/30 px-2.5 py-2 text-[11px] text-violet-950">
+            <details className="shrink-0 rounded-lg border border-violet-200/70 bg-violet-50/30 px-2.5 py-2 text-[11px] text-violet-950">
               <summary className="cursor-pointer font-semibold">Modifier mon message ou mes photos</summary>
               <div className="mt-2">
                 <ConsultationBriefPanel
@@ -645,7 +677,7 @@ export default function DemandeDetailPage() {
               </div>
             </details>
           ) : null}
-        </div>
+        </>
       ) : null}
 
       {(hasBottomActions || (showArchivedReadonly && items.length > 0)) &&

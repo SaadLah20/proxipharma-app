@@ -79,6 +79,21 @@ export function stickyFooterFabMinBottomPx(tier: StickyFooterPadTier): number {
   return FAB_MIN_BOTTOM_PX[tier];
 }
 
+/** Hauteur utile onglet Conversation (chrome sticky + footer patient si présent). */
+export function consultationConversationViewportHeightClass(
+  footerTier: StickyFooterPadTier
+): string {
+  const footerExtra =
+    footerTier === "none"
+      ? "0px"
+      : footerTier === "standard"
+        ? "6.5rem"
+        : footerTier === "compact"
+          ? "3.75rem"
+          : "6.5rem";
+  return `h-[calc(100dvh-12.25rem-${footerExtra}-env(safe-area-inset-bottom))] max-h-[calc(100dvh-12.25rem-${footerExtra}-env(safe-area-inset-bottom))]`;
+}
+
 /** Palier footer pour le détail patient (produits / ordonnance). */
 export function patientDetailStickyFooterPadTier(
   requestType: string,
