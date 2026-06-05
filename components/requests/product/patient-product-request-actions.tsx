@@ -2933,7 +2933,6 @@ export function PatientProductRequestActions({
           paths={prescriptionPaths}
           defaultOpen={false}
           className="mb-2"
-          prescriptionNote={prescriptionNote}
         />
       ) : null}
 

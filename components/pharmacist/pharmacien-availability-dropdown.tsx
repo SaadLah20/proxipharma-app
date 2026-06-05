@@ -39,7 +39,7 @@ export function PharmacienAvailabilityDropdown({
   const qty = Number(availableQtyStr || "0");
   const q = Number.isFinite(qty) ? qty : 0;
   const inferred = inferAvailabilityStatusFromQty({
-    status: draftStatus,
+    status: draftStatus === "partially_available" ? "available" : draftStatus,
     availableQty: q,
     requestedQty,
     isProposedLine,

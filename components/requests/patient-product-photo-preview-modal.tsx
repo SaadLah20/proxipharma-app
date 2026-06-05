@@ -116,13 +116,13 @@ export function PatientProductPhotoPreviewModal({
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-2 border-b border-border/80 bg-muted/20 px-3 py-2.5 sm:px-4">
-          <h2 id="patient-photo-preview-title" className="min-w-0 flex-1 text-sm font-bold leading-snug text-foreground sm:text-base">
+        <div className="relative z-20 flex shrink-0 items-start justify-between gap-2 border-b border-border/80 bg-card px-3 py-2.5 sm:px-4">
+          <h2 id="patient-photo-preview-title" className="min-w-0 flex-1 pr-2 text-sm font-bold leading-snug text-foreground sm:text-base">
             {title}
           </h2>
           <button
             type="button"
-            className="shrink-0 rounded-lg border border-border/80 bg-background p-1.5 text-muted-foreground shadow-sm hover:bg-muted/70 hover:text-foreground"
+            className="relative z-10 shrink-0 rounded-lg border border-border/80 bg-card p-1.5 text-foreground shadow-sm hover:bg-muted/70"
             onClick={onClose}
             aria-label="Fermer"
           >
@@ -132,28 +132,28 @@ export function PatientProductPhotoPreviewModal({
         <div
           className={clsx(
             "flex min-h-0 flex-1 flex-col",
-            descriptionHtml?.trim() ? "lg:flex-row" : ""
+            descriptionHtml?.trim() ? "lg:flex-row lg:gap-4" : ""
           )}
         >
           <div
             className={clsx(
-              "flex min-h-[min(40dvh,360px)] flex-1 items-center justify-center bg-gradient-to-b from-muted/40 to-muted/15 p-2 sm:min-h-[min(50dvh,420px)] sm:p-6",
+              "flex min-h-[min(32dvh,280px)] flex-1 items-center justify-center bg-gradient-to-b from-muted/40 to-muted/15 p-3 sm:min-h-[min(40dvh,360px)] sm:p-6",
               descriptionHtml?.trim() ? "lg:min-w-0 lg:flex-[1.1]" : ""
             )}
           >
             <img
               src={imageUrl}
               alt=""
-              className="max-h-[min(72dvh,640px)] w-auto max-w-full rounded-lg object-contain shadow-md ring-1 ring-black/5"
+              className="max-h-[min(58dvh,520px)] w-auto max-w-full rounded-lg object-contain shadow-md ring-1 ring-black/5"
             />
           </div>
           {descriptionHtml?.trim() ? (
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-border/80 lg:max-w-[min(42%,28rem)] lg:border-l lg:border-t-0">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-border/80 lg:max-w-[min(42%,28rem)] lg:border-l lg:border-t-0 lg:pl-1">
               <p className="shrink-0 border-b border-border/60 bg-muted/15 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground sm:text-[11px]">
                 Description
               </p>
               <div
-                className="product-description-html min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 text-[13px] leading-relaxed text-foreground [-webkit-overflow-scrolling:touch] [&_li]:ml-4 [&_p+p]:mt-2 [&_ul]:list-disc [&_ul]:pl-4"
+                className="product-description-html min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 text-[13px] leading-relaxed text-foreground [-webkit-overflow-scrolling:touch] [&_li]:ml-4 [&_p+p]:mt-2 [&_ul]:list-disc [&_ul]:pl-4"
                 dangerouslySetInnerHTML={{ __html: descriptionHtml }}
               />
             </div>
