@@ -1,5 +1,9 @@
 /**
- * Storage pilote : ne garde que les fichiers produits dans public-assets/products/
+ * Storage pilote : ne garde que products/ dans public-assets (pas pharmacies/).
+ *
+ * Préférer pour les tests demandes :
+ *   scripts/reset-storage-keep-catalog-and-pharmacy-photos.mjs
+ *   (garde products/ + pharmacies/, même usage --confirm)
  *
  * SUPPRIME :
  *   - bucket public-assets : tout sauf le préfixe products/ (products/ n'est pas listé → pas de timeout)

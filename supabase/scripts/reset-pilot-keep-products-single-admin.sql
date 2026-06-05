@@ -15,7 +15,7 @@
 --   auth.users correspondant
 --
 -- SUPPRIME : demandes, officines, promos, patients, pharmaciens, notifs, files…
--- Storage : voir scripts/reset-storage-keep-product-photos-only.mjs
+-- Storage : scripts/reset-storage-keep-catalog-and-pharmacy-photos.mjs (products + pharmacies)
 -- ---------------------------------------------------------------------------
 
 begin;

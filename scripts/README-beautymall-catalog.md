@@ -74,6 +74,18 @@ Règles d’import :
 
 Photos : les URLs BeautyMall restent externes pour l’instant. Migration progressive vers Storage = à prévoir (`import-products-catalog.mjs` comme modèle).
 
+**Vérification après import** (SQL Editor) :
+
+```sql
+select count(*) from products;                    -- 13 651 attendu
+select count(*) from products where photo_url is not null;  -- ~12 171
+select count(*) from products where full_description is not null and trim(full_description) <> '';
+```
+
+**UI (juin 2026)** : vignette produit cliquable côté patient et pharmacien → modale photo + panneau **Description** (`lib/product-description-html.ts`). Commit **`736100f`**.
+
+**Piège wipe** : si `DELETE FROM products` échoue avec **`23514`** sur `pharmacy_promo_offer_lines`, le script wipe supprime d’abord les lignes promo (CHECK `line_kind = 'product'` exige `product_id NOT NULL` malgré `ON DELETE SET NULL`).
+
 ## Python (optionnel)
 
 ```bash

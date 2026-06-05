@@ -477,7 +477,8 @@ export default function DemandeDetailPage() {
     usesLineWorkflow &&
     (isConsultationRequest ||
       ["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status) ||
-      (request.request_type === "product_request" && showArchivedReadonly));
+      (showArchivedReadonly &&
+        (request.request_type === "product_request" || request.request_type === "prescription")));
 
   const dossierRefLabel =
     displayRequestPublicRef(request) || `Dossier ${request.id.slice(0, 8)}…`;
