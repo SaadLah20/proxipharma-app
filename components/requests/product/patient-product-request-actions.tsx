@@ -2576,12 +2576,12 @@ export function PatientProductRequestActions({
   const uiStatus = archiveSnapshotStatus ?? status;
   const forceReadOnly = readOnlyArchive;
   const isTreatedActiveView = status === "treated" && !forceReadOnly;
-  const showArchivePassageLine =
-    readOnlyArchive && (uiStatus === "confirmed" || uiStatus === "treated");
   const plannedVisitDateYmd = useMemo(
     () => (initialPlannedVisitDate ?? "").trim() || visitDate.trim(),
     [initialPlannedVisitDate, visitDate]
   );
+  const showArchivePassageLine =
+    readOnlyArchive && Boolean(plannedVisitDateYmd.trim());
   const plannedVisitTimePg = useMemo(
     () =>
       visitTimeComposed.trim() !== ""
@@ -2917,7 +2917,7 @@ export function PatientProductRequestActions({
         </p>
       ) : null}
 
-      {isPrescription && prescriptionPaths?.page1 && (showConfirm || showConfirmedCards) ? (
+      {isPrescription && prescriptionPaths?.page1 && (showConfirm || showConfirmedCards) && !forceReadOnly ? (
         <PrescriptionScanCollapsible
           paths={prescriptionPaths}
           defaultOpen={false}
@@ -2943,22 +2943,6 @@ export function PatientProductRequestActions({
             pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
             resolveCatalogUnitPriceForProduct={resolveCatalogUnitPriceForProduct}
           />
-          {archiveTerminalFootnote ? (
-            <p className="mt-4 border-t border-border/60 pt-3 text-center text-[10px] leading-relaxed text-muted-foreground">
-              <span className="block">{archiveTerminalFootnote.label}</span>
-              {archiveTerminalFootnote.relative ? (
-                <span className="mt-0.5 block text-[10px] text-slate-500/90">({archiveTerminalFootnote.relative})</span>
-              ) : null}
-            </p>
-          ) : null}
-          {archivePassageFootnote ? (
-            <p className="mt-4 border-t border-border/60 pt-3 text-center text-[10px] leading-relaxed text-muted-foreground">
-              <span className="block">{archivePassageFootnote.label}</span>
-              {archivePassageFootnote.relative ? (
-                <span className="mt-0.5 block text-[10px] text-slate-500/90">({archivePassageFootnote.relative})</span>
-              ) : null}
-            </p>
-          ) : null}
         </>
       ) : null}
 
@@ -3326,6 +3310,7 @@ export function PatientProductRequestActions({
           <div
             className={clsx(
               "mt-4 space-y-2 border-t border-border/60 pt-3",
+              useCompactPassageBlock && "text-center",
               !useCompactPassageBlock &&
                 "rounded-xl border-2 p-2.5 shadow-md sm:p-3",
               !useCompactPassageBlock &&
@@ -3360,7 +3345,7 @@ export function PatientProductRequestActions({
                 </div>
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="mx-auto max-w-md space-y-1">
                 <p className="text-xs font-bold text-foreground">Passage en officine</p>
                 {isTreatedActiveView && treatedPassageLine ? (
                   <p className="text-[11px] font-semibold leading-snug text-foreground" role="status">
@@ -3372,10 +3357,17 @@ export function PatientProductRequestActions({
             <div
               className={clsx(
                 "flex gap-2",
-                useCompactPassageBlock ? "flex-row items-stretch" : "flex-col sm:flex-row sm:items-stretch"
+                useCompactPassageBlock
+                  ? "mx-auto w-fit max-w-full flex-row items-stretch justify-center"
+                  : "flex-col sm:flex-row sm:items-stretch"
               )}
             >
-              <label className="flex min-w-0 flex-1 flex-col gap-1">
+              <label
+                className={clsx(
+                  "flex min-w-0 flex-col gap-1",
+                  useCompactPassageBlock ? "w-[8rem] sm:w-[8.5rem]" : "flex-1"
+                )}
+              >
                 <span className="text-[11px] font-semibold text-foreground">
                   Date {visitFieldsEditable && showConfirm ? <span className="text-destructive">*</span> : null}
                 </span>
@@ -3411,10 +3403,17 @@ export function PatientProductRequestActions({
               </div>
             </div>
             {visitTimeFr ? (
-              <span className="block text-[10px] font-medium text-muted-foreground">Enregistré : {visitTimeFr}</span>
+              <span
+                className={clsx(
+                  "block text-[10px] font-medium text-muted-foreground",
+                  useCompactPassageBlock && "mx-auto max-w-md"
+                )}
+              >
+                Enregistré : {visitTimeFr}
+              </span>
             ) : null}
             {useCompactPassageBlock && visitFieldsEditable && showConfirmedCards && status === "confirmed" ? (
-              <p className="text-[10px] leading-snug text-muted-foreground">
+              <p className="mx-auto max-w-md text-[10px] leading-snug text-muted-foreground">
                 La pharmacie voit les changements sur la demande.
               </p>
             ) : !useCompactPassageBlock && visitFieldsEditable && showConfirmedCards && status === "confirmed" ? (
@@ -3422,7 +3421,7 @@ export function PatientProductRequestActions({
                 La pharmacie voit les changements sur la demande.
               </p>
             ) : useCompactPassageBlock && visitFieldsEditable && isTreatedActiveView ? (
-              <p className="text-[10px] leading-snug text-muted-foreground">
+              <p className="mx-auto max-w-md text-[10px] leading-snug text-muted-foreground">
                 La pharmacie est informée si vous modifiez votre passage (bouton en bas de l&apos;écran).
               </p>
             ) : !useCompactPassageBlock && visitFieldsEditable && isTreatedActiveView ? (
@@ -3433,7 +3432,7 @@ export function PatientProductRequestActions({
           </div>
         ) : null}
 
-        {(showConfirm || showConfirmedCards) ? (
+        {(showConfirm || showConfirmedCards) && !forceReadOnly ? (
           pharmacyContact ? (
             <div className="mt-2">
               <PatientPharmacyQuickContact pharmacy={pharmacyContact} requestRef={dossierRefLabel} />
@@ -3447,7 +3446,7 @@ export function PatientProductRequestActions({
           )
         ) : null}
 
-        {showConfirmedCards && !showConfirm && usesLineWorkflowUi ? (
+        {showConfirmedCards && !showConfirm && usesLineWorkflowUi && !forceReadOnly ? (
           <p className="mt-3 rounded-lg border border-border bg-muted/20 px-2.5 py-2 text-[10px] leading-snug text-muted-foreground">
             Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
             <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
@@ -3503,6 +3502,27 @@ export function PatientProductRequestActions({
           </div>
         ) : null}
       </div>
+
+      {forceReadOnly && usesLineWorkflowUi ? (
+        <div className="mt-6 space-y-2 border-t border-border/60 pt-4">
+          {archiveTerminalFootnote ? (
+            <p className="text-center text-[10px] leading-relaxed text-muted-foreground">
+              <span className="block">{archiveTerminalFootnote.label}</span>
+              {archiveTerminalFootnote.relative ? (
+                <span className="mt-0.5 block text-[10px] text-slate-500/90">({archiveTerminalFootnote.relative})</span>
+              ) : null}
+            </p>
+          ) : null}
+          {archivePassageFootnote ? (
+            <p className="text-center text-[10px] leading-relaxed text-muted-foreground">
+              <span className="block">{archivePassageFootnote.label}</span>
+              {archivePassageFootnote.relative ? (
+                <span className="mt-0.5 block text-[10px] text-slate-500/90">({archivePassageFootnote.relative})</span>
+              ) : null}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </section>
 
       {needsStickyFooterPad && !stickyFooterObscured ? (

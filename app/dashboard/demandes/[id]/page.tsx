@@ -502,7 +502,7 @@ export default function DemandeDetailPage() {
           config={kindConfig}
           request={request}
           lineCount={items.length}
-          showPlannedVisit={showPlannedVisitBlock}
+          showPlannedVisit={showPlannedVisitBlock && !showArchivedReadonly}
           viewerRole="patient"
           statusDetail={showArchivedReadonly ? archiveStatusDetail : null}
         />
