@@ -13,6 +13,8 @@ import {
 } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import { uiActionBtnModalDismiss } from "@/lib/ui-action-buttons";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
+import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
+import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
 import {
   type PatientRespondedBucketId,
   patientRespondedPrincipalTabStatusFr,
@@ -238,6 +240,7 @@ type VariantData = {
   badgeLabel: string;
   productName: string;
   photoUrl: string | null;
+  descriptionHtml: string | null;
   showRequested: boolean;
   requestedQty: number;
   dispoQty: number | null;
@@ -554,7 +557,7 @@ function RespondedLineBlock({
   selQty: number;
   onToggleRetain: (on: boolean) => void;
   onSetQty: (qty: number) => void;
-  onPhotoPreview?: (url: string, title: string) => void;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
   ajoutOfficineLabel?: string;
   /** Onglets Ta demande / Alternative au-dessus — case un peu plus basse pour ne pas gêner. */
   variantTabsAbove?: boolean;
@@ -579,7 +582,7 @@ function RespondedLineBlock({
       <button
         type="button"
         className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
-        onClick={() => onPhotoPreview(variant.photoUrl!, variant.productName)}
+        onClick={() => onPhotoPreview(variant.photoUrl!, variant.productName, variant.descriptionHtml)}
         aria-label={`Agrandir la photo · ${variant.productName}`}
       >
         <img src={variant.photoUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
@@ -725,7 +728,7 @@ export type RespondedChooserProps = {
   setLineBranch: (itemId: string, branch: LineBranch) => void;
   setLineQty: (itemId: string, qty: number, forBranch: Exclude<LineBranch, null>) => void;
   toggleLineRetention: (itemId: string, on: boolean, branchWhenOn: Exclude<LineBranch, null>) => void;
-  onPhotoPreview?: (url: string, title: string) => void;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
   pharmacistProposedBadgeLabel: string;
   requestType: string;
   supplyAmendmentBundles: { amendments: unknown }[];
@@ -786,6 +789,7 @@ export function RespondedPatientLineChooser({
       }),
       productName: prod?.name ?? "Produit",
       photoUrl: resolvePublicMediaUrl(prod?.photo_url ?? null),
+      descriptionHtml: productDescriptionHtmlForDisplay(prod?.full_description),
       showRequested: !isProposedLine,
       requestedQty: Math.max(1, Number(row.requested_qty) || 1),
       dispoQty,
@@ -819,6 +823,7 @@ export function RespondedPatientLineChooser({
       badgeLabel: "Alternative",
       productName: altProd?.name ?? "Alternative",
       photoUrl: resolvePublicMediaUrl(altProd?.photo_url ?? null),
+      descriptionHtml: productDescriptionHtmlForDisplay(altProd?.full_description),
       showRequested: false,
       requestedQty: 0,
       dispoQty,

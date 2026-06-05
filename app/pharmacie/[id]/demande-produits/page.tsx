@@ -24,7 +24,11 @@ import {
   ProductRequestSection,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import { Button } from "@/components/ui/button";
-import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
+import {
+  PatientProductPhotoPreviewModal,
+  type CatalogProductPhotoPreview,
+} from "@/components/requests/patient-product-photo-preview-modal";
+import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
 import { cn } from "@/lib/utils";
 import {
   PlatformStickyFooter,
@@ -53,6 +57,7 @@ type ProductLite = {
   product_type: string;
   laboratory: string | null;
   photo_url: string | null;
+  full_description?: string | null;
   price_pph?: number | null;
   price_ppv?: number | null;
 };
@@ -75,7 +80,14 @@ export default function DemandeProduitsPage() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<{ url: string; title: string } | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
+  const openPhotoPreview = useCallback((url: string, title: string, descriptionHtml?: string | null) => {
+    setPhotoPreview({
+      url,
+      title,
+      descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
+    });
+  }, []);
   const [lineCommentModal, setLineCommentModal] = useState<{
     productId: string;
     productName: string;
@@ -142,7 +154,7 @@ export default function DemandeProduitsPage() {
         setSearchLoading(true);
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv")
+          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv,full_description")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -175,6 +187,7 @@ export default function DemandeProduitsPage() {
             product_id: p.id,
             name: p.name,
             photo_url: resolvePublicMediaUrl(p.photo_url),
+            full_description: p.full_description ?? null,
             qty: 1,
             unit_price: unitPrice,
           },
@@ -373,7 +386,7 @@ export default function DemandeProduitsPage() {
                       }}
                       onAdd={() => addProduct(p)}
                       onPhotoPreview={() => {
-                        if (p.photo_url) setPhotoPreview({ url: p.photo_url, title: p.name });
+                        if (p.photo_url) openPhotoPreview(p.photo_url, p.name, p.full_description);
                       }}
                     />
                   ))}
@@ -409,7 +422,7 @@ export default function DemandeProduitsPage() {
                   unitPrice={draftLineUnitPrice(l)}
                   onRemove={() => removeLine(l.product_id)}
                   onPhotoPreview={() => {
-                    if (l.photo_url) setPhotoPreview({ url: l.photo_url, title: l.name });
+                    if (l.photo_url) openPhotoPreview(l.photo_url, l.name, l.full_description);
                   }}
                   onSetQty={(qty) => setQty(l.product_id, qty)}
                   onOpenComment={() =>
@@ -490,7 +503,7 @@ export default function DemandeProduitsPage() {
         submitLoading={submitLoading}
         onClose={() => setSendConfirmOpen(false)}
         onConfirm={() => void performSubmit()}
-        onPhotoPreview={(url, title) => setPhotoPreview({ url, title })}
+        onPhotoPreview={openPhotoPreview}
       />
 
       <PatientLineCommentModal
@@ -508,6 +521,7 @@ export default function DemandeProduitsPage() {
         open={photoPreview != null}
         imageUrl={photoPreview?.url ?? null}
         title={photoPreview?.title ?? ""}
+        descriptionHtml={photoPreview?.descriptionHtml}
         onClose={() => setPhotoPreview(null)}
       />
     </main>

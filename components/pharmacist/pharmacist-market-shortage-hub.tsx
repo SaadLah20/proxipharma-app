@@ -15,6 +15,7 @@ import {
   type CatalogProductPhotoPreview,
 } from "@/components/requests/patient-product-photo-preview-modal";
 import { supabase } from "@/lib/supabase";
+import { fetchProductDescriptionsMap } from "@/lib/fetch-product-descriptions-map";
 import {
   type MarketShortageProductGroup,
   formatShortageLinePatient,
@@ -102,12 +103,14 @@ function ProductGroupCard({
   onToggle,
   busy,
   onDeclareAvailable,
+  descriptionHtml,
 }: {
   group: MarketShortageProductGroup;
   expanded: boolean;
   onToggle: () => void;
   busy: boolean;
   onDeclareAvailable: () => void;
+  descriptionHtml?: string | null;
 }) {
   const [preview, setPreview] = useState<CatalogProductPhotoPreview | null>(null);
 
@@ -125,6 +128,7 @@ function ProductGroupCard({
               <CatalogProductPhotoThumb
                 imageUrl={group.photoUrl}
                 title={group.productName}
+                descriptionHtml={descriptionHtml}
                 size={56}
                 onPreview={setPreview}
               />
@@ -208,6 +212,7 @@ function ProductGroupCard({
         open={Boolean(preview)}
         imageUrl={preview?.url ?? null}
         title={preview?.title ?? ""}
+        descriptionHtml={preview?.descriptionHtml}
         onClose={() => setPreview(null)}
       />
     </>
@@ -224,6 +229,9 @@ export function PharmacistMarketShortageHub() {
   const [busyProductId, setBusyProductId] = useState<string | null>(null);
   const [confirmGroup, setConfirmGroup] = useState<MarketShortageProductGroup | null>(null);
   const [rawLines, setRawLines] = useState<ReturnType<typeof normalizeMarketShortageHubLine>[]>([]);
+  const [descriptionByProductId, setDescriptionByProductId] = useState<Map<string, string | null>>(
+    () => new Map()
+  );
 
   const load = useCallback(async () => {
     setError("");
@@ -243,8 +251,15 @@ export function PharmacistMarketShortageHub() {
     if (rpcErr) {
       setError(rpcErr.message);
       setRawLines([]);
+      setDescriptionByProductId(new Map());
     } else {
-      setRawLines((data ?? []).map((r: Record<string, unknown>) => normalizeMarketShortageHubLine(r)));
+      const normalized = (data ?? []).map((r: Record<string, unknown>) => normalizeMarketShortageHubLine(r));
+      setRawLines(normalized);
+      const descMap = await fetchProductDescriptionsMap(
+        supabase,
+        normalized.map((l: ReturnType<typeof normalizeMarketShortageHubLine>) => l.product_id)
+      );
+      setDescriptionByProductId(descMap);
     }
     setLoading(false);
   }, [router]);
@@ -338,6 +353,7 @@ export function PharmacistMarketShortageHub() {
               <ProductGroupCard
                 group={g}
                 expanded={expandedId === g.productId}
+                descriptionHtml={descriptionByProductId.get(g.productId) ?? null}
                 onToggle={() => setExpandedId((id) => (id === g.productId ? null : g.productId))}
                 busy={busyProductId === g.productId}
                 onDeclareAvailable={() => setConfirmGroup(g)}

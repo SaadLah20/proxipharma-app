@@ -40,9 +40,39 @@ node scripts/merge-beautymall-products.mjs --main "C:\chemin\vers\votre-export.c
 - 12 173 correspondances (**89,17 %**)  
 - 1 478 sans correspondance  
 
-## Suite
+## 3. Import dans ProxiPharma (Supabase)
 
-Import Supabase / Storage : pas encore automatisé — voir `import-products-catalog.mjs` et le cahier §10 session 2026-06-04.
+**Avant l’import** — dans Supabase → SQL Editor, exécuter tout le fichier :
+
+`supabase/scripts/wipe-catalog-beautymall-import.sql`
+
+(Si erreur de clé étrangère : exécuter d’abord `supabase/scripts/clear-all-requests.sql`.)
+
+**Simulation** (aucune écriture) :
+
+```bash
+node scripts/import-beautymall-catalog.mjs --dry-run
+```
+
+**Import réel** (`.env.local` avec `SUPABASE_SERVICE_ROLE_KEY`) :
+
+```bash
+node --use-system-ca scripts/import-beautymall-catalog.mjs
+```
+
+Règles d’import :
+
+| Champ BDD | Source |
+|-----------|--------|
+| `name` | `name` |
+| `price_pph` | `sale_price` |
+| `price_ppv` | `regular_price` |
+| `product_type` | `parapharmacie` |
+| `photo_url` | `url_image_valide` (BeautyMall) ; sinon `null` → icône produit dans l’app |
+| `full_description` | `description` (HTML) |
+| `subcategory` | slug extrait de `url_produit` |
+
+Photos : les URLs BeautyMall restent externes pour l’instant. Migration progressive vers Storage = à prévoir (`import-products-catalog.mjs` comme modèle).
 
 ## Python (optionnel)
 

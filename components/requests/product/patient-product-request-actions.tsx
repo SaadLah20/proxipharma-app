@@ -74,6 +74,7 @@ import {
 import {
   bucketPatientValidatedLinesThreeWays,
   type PatientLineLike,
+  validatedBranchDescriptionHtml,
   validatedBranchUnitPriceMad,
   validatedBranchPhotoPath,
   validatedProductLabel,
@@ -173,7 +174,12 @@ import { productRequestPublicTheme as productRequestTheme } from "@/lib/request-
 import { requestKindUiTheme } from "@/lib/request-kind-ui-theme";
 import { archiveClosedQtyLabelFr, validatedOriginFallbackPatientFr } from "@/lib/prescription-ui-copy";
 import { uiSecondaryLabel } from "@/lib/ui-label-styles";
-import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
+import {
+  PatientProductPhotoPreviewModal,
+  type CatalogProductPhotoPreview,
+  type ProductPhotoPreviewHandler,
+} from "@/components/requests/patient-product-photo-preview-modal";
+import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
 import { PlannedVisitTimeInput } from "@/components/requests/planned-visit-time-input";
 import { PlannedVisitDateInput } from "@/components/requests/planned-visit-date-input";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
@@ -193,6 +199,7 @@ type ProdBrief = {
   price_pph?: number | null;
   price_ppv?: number | null;
   photo_url?: string | null;
+  full_description?: string | null;
 };
 
 export type ActionItemAltRow = {
@@ -350,12 +357,13 @@ export function PatientValidatedCompactLineCard({
   onOpenHistory: () => void;
   requestStatusForCard?: string | null;
   archiveClosureLabel?: string | null;
-  onPhotoPreview?: (url: string, title: string) => void;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
   pharmacistProposedBadgeLabel?: string;
   requestType?: string;
   supplyAmendmentBundles?: { amendments: unknown }[];
 }) {
   const validatedName = validatedProductLabel(row);
+  const descriptionHtml = validatedBranchDescriptionHtml(row);
   const displayQty = patientDisplayQtyForLine(row, requestStatusForCard);
   const unitMad = validatedBranchUnitPriceMad(row, pricingConfig, row.product_id);
   const lineTotalMad = unitMad != null ? unitMad * displayQty : null;
@@ -385,7 +393,7 @@ export function PatientValidatedCompactLineCard({
       <button
         type="button"
         className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", productRequestTheme.photoRing)}
-        onClick={() => onPhotoPreview(thumbUrl, validatedName)}
+        onClick={() => onPhotoPreview(thumbUrl, validatedName, descriptionHtml)}
         aria-label={`Agrandir la photo · ${validatedName}`}
       >
         <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
@@ -475,7 +483,7 @@ function PatientTraceNotRetainedRow({
   row: ActionItemRow;
   onOpenHistory: () => void;
   postConfirmBadges?: string[];
-  onPhotoPreview?: (url: string, title: string) => void;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
   requestType?: string;
 }) {
   const prod = one(row.products);
@@ -499,7 +507,7 @@ function PatientTraceNotRetainedRow({
               <button
                 type="button"
                 className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", productRequestTheme.photoRing)}
-                onClick={() => onPhotoPreview(photoUrl, name)}
+                onClick={() => onPhotoPreview(photoUrl, name, prod?.full_description)}
                 aria-label={`Agrandir la photo · ${name}`}
               >
                 <img src={photoUrl} alt="" className="pointer-events-none h-full w-full object-cover opacity-90" />
@@ -624,6 +632,7 @@ type ResubmitLine = {
   product_id: string;
   name: string;
   photo_url?: string | null;
+  full_description?: string | null;
   qty: number;
   unit_price?: number | null;
   price_pph?: number | null;
@@ -661,6 +670,8 @@ function resubmitLineFromDraftAndServer(
     product_id: base.product_id,
     name: base.name,
     photo_url: base.photo_url,
+    full_description:
+      base.full_description ?? srv?.full_description ?? (itemRow ? one(itemRow.products)?.full_description : null) ?? null,
     qty: base.qty,
     unit_price,
     price_pph: base.price_pph ?? srv?.price_pph ?? null,
@@ -679,6 +690,7 @@ function computeResubmitLinesFromItems(
     product_id: row.product_id,
     name: one(row.products)?.name ?? "Produit",
     photo_url: resolvePublicMediaUrl(one(row.products)?.photo_url ?? null),
+    full_description: one(row.products)?.full_description ?? null,
     qty: Math.min(10, Math.max(1, row.requested_qty)),
     unit_price: row.unit_price ?? resolveCatalog?.(row) ?? null,
     client_comment: row.client_comment ?? "",
@@ -817,7 +829,7 @@ function PatientArchiveFrozenProductsView({
   supplyAmendmentBundles: { amendments: unknown }[];
   pricingConfig: PharmacyPricingConfig | null;
   onOpenLineHistory: (itemId: string) => void;
-  onPhotoPreview: (url: string, title: string) => void;
+  onPhotoPreview: ProductPhotoPreviewHandler;
   pharmacistProposedBadgeLabel: string;
   resolveCatalogUnitPriceForProduct: (
     productId: string,
@@ -854,7 +866,13 @@ function PatientArchiveFrozenProductsView({
               editMode={false}
               onPhotoPreview={() => {
                 const url = prod?.photo_url;
-                if (url) onPhotoPreview(resolvePublicMediaUrl(url) ?? url, prod?.name ?? "Produit");
+                if (url) {
+                  onPhotoPreview(
+                    resolvePublicMediaUrl(url) ?? url,
+                    prod?.name ?? "Produit",
+                    prod?.full_description
+                  );
+                }
               }}
               onSetQty={noop}
             />
@@ -1345,6 +1363,7 @@ type ProductHit = {
   product_type: string;
   laboratory: string | null;
   photo_url?: string | null;
+  full_description?: string | null;
   price_pph?: number | null;
 };
 
@@ -1479,6 +1498,7 @@ type PatientConfirmPreviewLine = {
   bucket: "reserve" | "order";
   etaLabel: string | null;
   photoUrl: string | null;
+  descriptionHtml: string | null;
 };
 
 type PatientConfirmSkippedLine = {
@@ -1520,6 +1540,7 @@ function buildPatientConfirmSelection(
       let eta: string | null = null;
       let choiceDetail: string;
       let photoUrl: string | null;
+      let descriptionHtml: string | null = null;
 
       if (st.branch === "principal") {
         productName = principalProd?.name ?? "Produit";
@@ -1545,6 +1566,7 @@ function buildPatientConfirmSelection(
           eta = formatDateShortFr(row.expected_availability_date);
         }
         photoUrl = resolvePublicMediaUrl(principalProd?.photo_url ?? null);
+        descriptionHtml = productDescriptionHtmlForDisplay(principalProd?.full_description);
       } else {
         const alt = alts.find((a) => a.id === st.branch);
         const altProd = alt ? one(alt.products) : null;
@@ -1571,6 +1593,7 @@ function buildPatientConfirmSelection(
           eta = formatDateShortFr(alt.expected_availability_date);
         }
         photoUrl = resolvePublicMediaUrl(altProd?.photo_url ?? null);
+        descriptionHtml = productDescriptionHtmlForDisplay(altProd?.full_description);
       }
 
       const lineTotalMad =
@@ -1587,6 +1610,7 @@ function buildPatientConfirmSelection(
         bucket,
         etaLabel: eta,
         photoUrl,
+        descriptionHtml,
       });
     }
 
@@ -1704,7 +1728,7 @@ function PatientConfirmReviewLineCard({
   onPhotoPreview,
 }: {
   line: PatientConfirmPreviewLine;
-  onPhotoPreview?: (url: string, title: string) => void;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
 }) {
   const isOrder = line.bucket === "order";
 
@@ -1727,7 +1751,7 @@ function PatientConfirmReviewLineCard({
               <button
                 type="button"
                 className="relative size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-                onClick={() => onPhotoPreview(line.photoUrl!, line.productName)}
+                onClick={() => onPhotoPreview(line.photoUrl!, line.productName, line.descriptionHtml)}
                 aria-label={`Agrandir la photo · ${line.productName}`}
               >
                 <img src={line.photoUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
@@ -1845,10 +1869,14 @@ export function PatientProductRequestActions({
   const [exitModalOpen, setExitModalOpen] = useState(false);
   const [exitModalNonce, setExitModalNonce] = useState(0);
   const [exitModalMode, setExitModalMode] = useState<RequestExitModalMode>("patient_abandon");
-  const [productPhotoPreview, setProductPhotoPreview] = useState<{ url: string; title: string } | null>(null);
-  const openProductPhotoPreview = useCallback((url: string, title: string) => {
+  const [productPhotoPreview, setProductPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
+  const openProductPhotoPreview = useCallback((url: string, title: string, descriptionHtml?: string | null) => {
     if (!url.trim()) return;
-    setProductPhotoPreview({ url: url.trim(), title: title.trim() || "Produit" });
+    setProductPhotoPreview({
+      url: url.trim(),
+      title: title.trim() || "Produit",
+      descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
+    });
   }, []);
   const [prescriptionEditMode, setPrescriptionEditMode] = useState(false);
   const [prescriptionPanelBusy, setPrescriptionPanelBusy] = useState(false);
@@ -2135,7 +2163,7 @@ export function PatientProductRequestActions({
         }
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv")
+          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv,full_description")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -2164,6 +2192,7 @@ export function PatientProductRequestActions({
           product_id: p.id,
           name: p.name,
           photo_url: resolvePublicMediaUrl(p.photo_url ?? null),
+          full_description: p.full_description ?? null,
           qty: 1,
           unit_price: resolveCatalogPrice(catalogHitToPricingInput(p)),
           client_comment: "",
@@ -2607,6 +2636,7 @@ export function PatientProductRequestActions({
       open={productPhotoPreview !== null}
       imageUrl={productPhotoPreview?.url ?? null}
       title={productPhotoPreview?.title ?? ""}
+      descriptionHtml={productPhotoPreview?.descriptionHtml}
       onClose={() => setProductPhotoPreview(null)}
     />
   );
@@ -3227,7 +3257,7 @@ export function PatientProductRequestActions({
                           }}
                           onAdd={() => addProduct(h)}
                           onPhotoPreview={() => {
-                            if (h.photo_url) openProductPhotoPreview(h.photo_url, h.name);
+                            if (h.photo_url) openProductPhotoPreview(h.photo_url, h.name, h.full_description);
                           }}
                         />
                       ))}
@@ -3256,7 +3286,7 @@ export function PatientProductRequestActions({
                 editMode={editMode}
                 onRemove={editMode ? () => setLines((prev) => prev.filter((_, i) => i !== idx)) : undefined}
                 onPhotoPreview={() => {
-                  if (l.photo_url) openProductPhotoPreview(l.photo_url, l.name);
+                  if (l.photo_url) openProductPhotoPreview(l.photo_url, l.name, l.full_description);
                 }}
                 onSetQty={(qty) =>
                   setLines((prev) =>

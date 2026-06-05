@@ -148,6 +148,7 @@ import type { PatientClosedArchiveLineBucketId } from "@/lib/patient-closed-arch
 import {
   PharmacistClosedArchiveNotRetainedLine,
   PharmacistClosedArchiveValidatedLine,
+  closedArchiveDescriptionHtml,
   closedArchiveLinePricing,
   closedArchiveThumbUrl,
   validatedProductLabel as closedArchiveProductLabel,
@@ -162,6 +163,7 @@ import {
 } from "@/lib/pharmacist-supply-list-order";
 import {
   validatedBranchUnitPriceMad,
+  validatedBranchDescriptionHtml,
   validatedBranchPhotoPath,
   validatedProductLabel,
   validatedQtyForPatientLine,
@@ -188,7 +190,12 @@ import {
   validatedOriginLabelPharmacistFr,
 } from "@/lib/patient-validated-line-labels-fr";
 import { patientPrescriptionLineBadge } from "@/lib/prescription-patient-labels";
-import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
+import {
+  PatientProductPhotoPreviewModal,
+  type CatalogProductPhotoPreview,
+} from "@/components/requests/patient-product-photo-preview-modal";
+import { PharmacistProductPhotoThumb } from "@/components/pharmacist/pharmacist-product-photo-thumb";
+import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
 import { PharmacistProductRequestDossierHeader } from "@/components/requests/product/pharmacist-product-request-dossier-header";
 import { patientBucketProductListClass } from "@/lib/patient-bucket-product-row-ui";
 import {
@@ -272,6 +279,7 @@ type ProdEmbedDb = {
   price_pph?: number | null;
   price_ppv?: number | null;
   photo_url?: string | null;
+  full_description?: string | null;
 };
 
 type AltRowDb = {
@@ -332,7 +340,7 @@ type ItemDraft = {
 type Draft = Record<string, ItemDraft>;
 
 const PHARMA_REQUEST_ITEMS_SELECT =
-  "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,is_selected_by_patient,selected_qty,patient_chosen_alternative_id,post_confirm_fulfillment,withdrawn_after_confirm,line_source,pharmacist_proposal_reason,client_comment,updated_at,products(name,product_type,laboratory,price_pph,price_ppv,photo_url),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,product_type,laboratory,price_pph,price_ppv,photo_url))";
+  "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,is_selected_by_patient,selected_qty,patient_chosen_alternative_id,post_confirm_fulfillment,withdrawn_after_confirm,line_source,pharmacist_proposal_reason,client_comment,updated_at,products(name,product_type,laboratory,price_pph,price_ppv,photo_url,full_description),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,product_type,laboratory,price_pph,price_ppv,photo_url,full_description))";
 
 function rowsWithEffectiveWithdrawnForSupply(rows: ItemRow[], d: Draft): ItemRow[] {
   return rows.map((row) => {
@@ -364,6 +372,7 @@ type ProductCatalogHit = {
   photo_url?: string | null;
   price_pph?: number | null;
   price_ppv?: number | null;
+  full_description?: string | null;
 };
 
 type PatientBrief = {
@@ -1779,9 +1788,13 @@ export default function PharmacienDemandeDetailPage() {
   const [supplySaveGlobalMotive, setSupplySaveGlobalMotive] = useState("");
   const [supplyMenuRowId, setSupplyMenuRowId] = useState<string | null>(null);
   const [pharmaHistoryRowId, setPharmaHistoryRowId] = useState<string | null>(null);
-  const [productPhotoPreview, setProductPhotoPreview] = useState<{ url: string; title: string } | null>(null);
-  const openProductPhotoPreview = useCallback((url: string, title: string) => {
-    setProductPhotoPreview({ url: url.trim(), title: title.trim() || "Produit" });
+  const [productPhotoPreview, setProductPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
+  const openProductPhotoPreview = useCallback((url: string, title: string, descriptionHtml?: string | null) => {
+    setProductPhotoPreview({
+      url: url.trim(),
+      title: title.trim() || "Produit",
+      descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
+    });
   }, []);
   const [supplyAmendmentBundles, setSupplyAmendmentBundles] = useState<
     { id: string; created_at: string; amendments: unknown }[]
@@ -2260,7 +2273,7 @@ export default function PharmacienDemandeDetailPage() {
         }
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv")
+          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv,full_description")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -2307,7 +2320,7 @@ export default function PharmacienDemandeDetailPage() {
         }
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv")
+          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv,full_description")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -2340,7 +2353,7 @@ export default function PharmacienDemandeDetailPage() {
         }
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv")
+          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv,full_description")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -3236,7 +3249,7 @@ export default function PharmacienDemandeDetailPage() {
     const { data: altRows, error: fetchErr } = await supabase
       .from("request_item_alternatives")
       .select(
-        "id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph,photo_url)"
+        "id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph,photo_url,full_description)"
       )
       .eq("request_item_id", parentRow.id)
       .order("rank", { ascending: true });
@@ -3312,7 +3325,7 @@ export default function PharmacienDemandeDetailPage() {
       const { data: altRows, error: fetchErr } = await supabase
         .from("request_item_alternatives")
         .select(
-          "id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,product_type,price_pph,price_ppv,laboratory,photo_url)"
+          "id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,product_type,price_pph,price_ppv,laboratory,photo_url,full_description)"
         )
         .eq("request_item_id", parentRowId)
         .order("rank", { ascending: true });
@@ -4630,6 +4643,7 @@ export default function PharmacienDemandeDetailPage() {
           row={row}
           productName={prod?.name ?? closedArchiveProductLabel(pl)}
           thumbUrl={thumbUrl}
+          descriptionHtml={productDescriptionHtmlForDisplay(closedArchiveDescriptionHtml(pl))}
           statusLabel={statusLabel}
           lineKindLabel={lineKindLabel}
           qtyLabel={
@@ -4662,6 +4676,7 @@ export default function PharmacienDemandeDetailPage() {
         unitPriceMad={unitPriceMad}
         lineTotalMad={lineTotalMad}
         thumbUrl={closedArchiveThumbUrl(pl)}
+        descriptionHtml={productDescriptionHtmlForDisplay(closedArchiveDescriptionHtml(pl))}
         lineMessageButton={lineMessageButton}
         menuOpen={supplyMenuRowId === row.id}
         onMenuOpenChange={(open) => setSupplyMenuRowId(open ? row.id : null)}
@@ -5966,6 +5981,9 @@ export default function PharmacienDemandeDetailPage() {
                       unitPriceMad={branchPrice}
                       lineTotalMad={lineTot}
                       thumbUrl={thumbUrl}
+                      descriptionHtml={productDescriptionHtmlForDisplay(
+                        validatedBranchDescriptionHtml(pl)
+                      )}
                       selected={selected}
                       lineLockedTrace={lineLockedTrace}
                       withdrawn={withdrawnDraft}
@@ -6160,6 +6178,7 @@ export default function PharmacienDemandeDetailPage() {
                           onSelect={(h) => void insertAlternative(row, h)}
                           onClose={() => resetAltPicker(row.id)}
                           pricingConfig={pricingConfig}
+                          onPhotoPreview={openProductPhotoPreview}
                         />
                       ) : null}
                     </>
@@ -6169,30 +6188,25 @@ export default function PharmacienDemandeDetailPage() {
                   <>
                   <div className={PHARMA_LINE_EDITOR_HEADER}>
                     <div className="flex w-[4.25rem] shrink-0 flex-col items-stretch gap-0.5 sm:w-[4.75rem]">
-                      <div
-                        className="relative size-[3.65rem] w-full overflow-hidden rounded-md border border-border/80 bg-card sm:size-[3.85rem]"
-                      >
-                        {lineEditorPhotoPath ? (
-                          <img
-                            src={resolvePublicMediaUrl(lineEditorPhotoPath) ?? lineEditorPhotoPath}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                            <Package
-                              className={clsx(
-                                "size-7 sm:size-8",
-                                isAjoutOfficineLine
-                                  ? "text-violet-400/90"
-                                  : isOrdonnancePrincipalLine
-                                    ? "text-amber-500/90"
-                                    : "text-slate-400"
-                              )}
-                              aria-hidden
-                            />
-                          </div>
-                        )}
+                      <div className="relative size-[3.65rem] w-full overflow-hidden rounded-md border border-border/80 bg-card sm:size-[3.85rem]">
+                        <PharmacistProductPhotoThumb
+                          photoUrl={
+                            lineEditorPhotoPath
+                              ? resolvePublicMediaUrl(lineEditorPhotoPath) ?? lineEditorPhotoPath
+                              : null
+                          }
+                          title={prod?.name ?? "Produit"}
+                          descriptionHtml={prod?.full_description}
+                          onPhotoPreview={openProductPhotoPreview}
+                          iconClassName={clsx(
+                            "size-7 sm:size-8",
+                            isAjoutOfficineLine
+                              ? "text-violet-400/90"
+                              : isOrdonnancePrincipalLine
+                                ? "text-amber-500/90"
+                                : "text-slate-400"
+                          )}
+                        />
                       </div>
                     </div>
                     <div
@@ -6731,6 +6745,7 @@ export default function PharmacienDemandeDetailPage() {
                         selected &&
                         row.patient_chosen_alternative_id === activeAltRow.id
                       }
+                      onPhotoPreview={openProductPhotoPreview}
                       showIndicatif={
                         request.status === "confirmed" &&
                         selected &&
@@ -7056,14 +7071,17 @@ export default function PharmacienDemandeDetailPage() {
                             }
                             className="flex w-full touch-manipulation items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-card disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            <div className="relative size-11 shrink-0 overflow-hidden rounded-lg border border-violet-200/60 bg-violet-50/50">
-                              {h.photo_url ? (
-                                <img src={h.photo_url} alt="" className="h-full w-full object-cover" />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center text-violet-500/80">
-                                  <Package className="size-5" aria-hidden />
-                                </div>
-                              )}
+                            <div
+                              className="relative size-11 shrink-0 overflow-hidden rounded-lg border border-violet-200/60 bg-violet-50/50"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <PharmacistProductPhotoThumb
+                                photoUrl={h.photo_url}
+                                title={h.name}
+                                descriptionHtml={h.full_description}
+                                onPhotoPreview={openProductPhotoPreview}
+                                iconClassName="text-violet-500/80"
+                              />
                             </div>
                             <span className="min-w-0 flex-1">
                               <span className="block font-medium text-foreground">{h.name}</span>
@@ -7927,6 +7945,7 @@ export default function PharmacienDemandeDetailPage() {
         open={productPhotoPreview != null}
         imageUrl={productPhotoPreview?.url ?? null}
         title={productPhotoPreview?.title ?? ""}
+        descriptionHtml={productPhotoPreview?.descriptionHtml}
         onClose={() => setProductPhotoPreview(null)}
       />
       {usesLineWorkflow &&

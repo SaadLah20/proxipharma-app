@@ -7,6 +7,8 @@ import {
   ProductRequestLineQtyReadonly,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
+import { PharmacistProductPhotoThumb } from "@/components/pharmacist/pharmacist-product-photo-thumb";
+import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
 import { formatPharmacyCatalogPrice } from "@/lib/product-price";
 import { productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
@@ -14,6 +16,7 @@ import { productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed
 type AltProduct = {
   name?: string | null;
   photo_url?: string | null;
+  full_description?: string | null;
   product_type?: string | null;
   price_pph?: number | null;
   price_ppv?: number | null;
@@ -47,6 +50,7 @@ export function PharmacistAlternativeLinePanel({
   showIndicatif,
   useQtyPicker = false,
   readOnly = false,
+  onPhotoPreview,
 }: {
   alt: PharmacistAltLineRow;
   qtyValue: string;
@@ -62,6 +66,7 @@ export function PharmacistAlternativeLinePanel({
   useQtyPicker?: boolean;
   /** Réponse publiée : consultation sans retrait ni changement de qté. */
   readOnly?: boolean;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
 }) {
   const altProd = one(alt.products);
   const altName = altProd?.name ?? "Alternative";
@@ -94,13 +99,14 @@ export function PharmacistAlternativeLinePanel({
     >
       <div className="flex items-start gap-2">
         <div className="size-[3.85rem] shrink-0 overflow-hidden rounded-md border border-teal-200/70 bg-white shadow-inner">
-          {photo ? (
-            <img src={photo} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-teal-600/70">
-              <Layers className="size-6" aria-hidden />
-            </div>
-          )}
+          <PharmacistProductPhotoThumb
+            photoUrl={photo}
+            title={altName}
+            descriptionHtml={altProd?.full_description}
+            onPhotoPreview={onPhotoPreview}
+            placeholderIcon={Layers}
+            iconClassName="text-teal-600/70 size-6"
+          />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">

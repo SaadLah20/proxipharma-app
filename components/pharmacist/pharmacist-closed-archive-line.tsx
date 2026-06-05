@@ -10,6 +10,7 @@ import {
   bucketPatientValidatedLinesThreeWays,
   type PatientLineLike,
   validatedBranchUnitPriceMad,
+  validatedBranchDescriptionHtml,
   validatedBranchPhotoPath,
   validatedProductLabel,
   validatedQtyForPatientLine,
@@ -23,6 +24,7 @@ import {
   validatedOriginLabelPharmacistFr,
 } from "@/lib/patient-validated-line-labels-fr";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
+import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
 
 const VALIDATED_LINE_THUMB =
   "box-border size-[3.85rem] shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
@@ -45,6 +47,7 @@ export function PharmacistClosedArchiveNotRetainedLine({
   qtyLabel = "Qté demandée",
   lineMessageButton,
   onOpenHistory,
+  descriptionHtml,
   onPhotoPreview,
 }: {
   row: { id: string; requested_qty: number };
@@ -55,14 +58,15 @@ export function PharmacistClosedArchiveNotRetainedLine({
   qtyLabel?: string;
   lineMessageButton: ReactNode;
   onOpenHistory: () => void;
-  onPhotoPreview?: (url: string, title: string) => void;
+  descriptionHtml?: string | null;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
 }) {
   const thumbInner = thumbUrl ? (
     onPhotoPreview ? (
       <button
         type="button"
         className="size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-        onClick={() => onPhotoPreview(thumbUrl, productName)}
+        onClick={() => onPhotoPreview(thumbUrl, productName, descriptionHtml)}
         aria-label={`Agrandir la photo · ${productName}`}
       >
         <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover opacity-90" />
@@ -139,6 +143,7 @@ export function PharmacistClosedArchiveValidatedLine({
   onMenuOpenChange,
   onMenuHistory,
   postConfirmAmendmentBadges,
+  descriptionHtml,
   onPhotoPreview,
   archiveClosureLabel,
 }: {
@@ -160,7 +165,8 @@ export function PharmacistClosedArchiveValidatedLine({
   onMenuOpenChange: (open: boolean) => void;
   onMenuHistory: () => void;
   postConfirmAmendmentBadges?: string[];
-  onPhotoPreview?: (url: string, title: string) => void;
+  descriptionHtml?: string | null;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
 }) {
   const supplyTier = supplyTierForClosedArchiveRow(row);
   const closureRaw =
@@ -232,6 +238,7 @@ export function PharmacistClosedArchiveValidatedLine({
       withdrawDisabled
       supplyTier={supplyTier}
       validatedLineLabels={validatedLineLabels}
+      descriptionHtml={descriptionHtml}
       onPhotoPreview={onPhotoPreview}
     />
   );
@@ -246,6 +253,10 @@ export function closedArchiveLinePricing(row: PatientLineLike) {
 
 export function closedArchiveThumbUrl(row: PatientLineLike) {
   return resolvePublicMediaUrl(validatedBranchPhotoPath(row));
+}
+
+export function closedArchiveDescriptionHtml(row: PatientLineLike) {
+  return validatedBranchDescriptionHtml(row);
 }
 
 export { validatedProductLabel };

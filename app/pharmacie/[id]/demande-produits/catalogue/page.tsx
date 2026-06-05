@@ -20,7 +20,11 @@ import {
   ProductRequestSection,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import { Button } from "@/components/ui/button";
-import { PatientProductPhotoPreviewModal } from "@/components/requests/patient-product-photo-preview-modal";
+import {
+  PatientProductPhotoPreviewModal,
+  type CatalogProductPhotoPreview,
+} from "@/components/requests/patient-product-photo-preview-modal";
+import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
 import { cn } from "@/lib/utils";
 import { PlatformStickyFooter } from "@/components/layout/platform-sticky-footer";
 import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
@@ -46,7 +50,7 @@ export default function DemandeProduitsCataloguePage() {
   const [loading, setLoading] = useState(true);
   const [filterQuery, setFilterQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [photoPreview, setPhotoPreview] = useState<{ url: string; title: string } | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
   const [adding, setAdding] = useState(false);
   const { resolve: resolveCatalogPrice } = usePharmacyPricingForPatient(pharmacyId);
 
@@ -85,7 +89,7 @@ export default function DemandeProduitsCataloguePage() {
       setLoadError(null);
       const { data, error } = await supabase
         .from("products")
-        .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv")
+        .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv,full_description")
         .eq("is_active", true)
         .order("name")
         .limit(CATALOG_FETCH_LIMIT);
@@ -233,7 +237,13 @@ export default function DemandeProduitsCataloguePage() {
                           aria-label={p.photo_url ? `Agrandir la photo · ${p.name}` : "Pas de photo catalogue"}
                           onClick={(ev) => {
                             ev.stopPropagation();
-                            if (p.photo_url) setPhotoPreview({ url: p.photo_url, title: p.name });
+                            if (p.photo_url) {
+                              setPhotoPreview({
+                                url: p.photo_url,
+                                title: p.name,
+                                descriptionHtml: productDescriptionHtmlForDisplay(p.full_description),
+                              });
+                            }
                           }}
                         >
                           {p.photo_url ? (
@@ -290,6 +300,7 @@ export default function DemandeProduitsCataloguePage() {
         open={photoPreview != null}
         imageUrl={photoPreview?.url ?? null}
         title={photoPreview?.title ?? ""}
+        descriptionHtml={photoPreview?.descriptionHtml}
         onClose={() => setPhotoPreview(null)}
       />
     </main>

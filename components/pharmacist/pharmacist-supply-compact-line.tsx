@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { clsx } from "clsx";
 import { History, MoreVertical, Package } from "lucide-react";
+import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
 import {
   validatedLineLabelChipClass,
   type ValidatedLineLabel,
@@ -93,6 +94,7 @@ export function PharmacistSupplyCompactLine({
   withdrawDisabledReason,
   supplyTier,
   validatedLineLabels,
+  descriptionHtml,
   onPhotoPreview,
 }: {
   header: string | null;
@@ -154,7 +156,8 @@ export function PharmacistSupplyCompactLine({
   /** Sections validées (sky / teal) — aligné cartes patient. */
   supplyTier?: PharmacistSupplyLineTier;
   validatedLineLabels?: ValidatedLineLabel[];
-  onPhotoPreview?: (url: string, title: string) => void;
+  descriptionHtml?: string | null;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
 }) {
   const pill =
     "inline-flex min-h-8 items-center justify-center rounded-md border px-2 text-[10px] font-semibold shadow-sm ring-1 ring-black/5 transition disabled:opacity-45";
@@ -225,7 +228,7 @@ export function PharmacistSupplyCompactLine({
       <button
         type="button"
         className="size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-        onClick={() => onPhotoPreview(thumbUrl, validatedName)}
+        onClick={() => onPhotoPreview(thumbUrl, validatedName, descriptionHtml)}
         aria-label={`Agrandir la photo · ${validatedName}`}
       >
         <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover" />

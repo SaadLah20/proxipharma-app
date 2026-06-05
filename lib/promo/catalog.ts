@@ -6,6 +6,7 @@ export type PromoCatalogProduct = {
   price_pph: number | null;
   price_ppv: number | null;
   photo_url: string | null;
+  full_description?: string | null;
 };
 
 export function filterPromoCatalogProducts(products: PromoCatalogProduct[], query: string): PromoCatalogProduct[] {

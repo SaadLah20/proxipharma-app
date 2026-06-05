@@ -1,6 +1,8 @@
 "use client";
 
 import { Package, Search } from "lucide-react";
+import { PharmacistProductPhotoThumb } from "@/components/pharmacist/pharmacist-product-photo-thumb";
+import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
 import { formatPharmacyCatalogPrice } from "@/lib/product-price";
 import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
@@ -13,6 +15,7 @@ export type AltCatalogHit = {
   photo_url?: string | null;
   price_pph?: number | null;
   price_ppv?: number | null;
+  full_description?: string | null;
 };
 
 /** Recherche catalogue pour ajouter une alternative (onglet dédié). */
@@ -25,6 +28,7 @@ export function PharmacistAltCatalogPicker({
   onSelect,
   onClose,
   pricingConfig,
+  onPhotoPreview,
 }: {
   query: string;
   onQueryChange: (q: string) => void;
@@ -34,6 +38,7 @@ export function PharmacistAltCatalogPicker({
   onSelect: (hit: AltCatalogHit) => void;
   onClose: () => void;
   pricingConfig: PharmacyPricingConfig | null;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
 }) {
   return (
     <div className="mx-2 mb-2 flex max-h-[min(52svh,18rem)] min-h-0 flex-col gap-2 overflow-hidden overscroll-y-contain rounded-xl border-2 border-teal-400/55 bg-white p-2.5 shadow-md ring-2 ring-teal-200/35">
@@ -75,13 +80,13 @@ export function PharmacistAltCatalogPicker({
                 className="flex w-full touch-manipulation items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] transition hover:bg-muted/65 active:bg-muted/80 disabled:opacity-50"
               >
                 <div className="relative size-11 shrink-0 overflow-hidden rounded-lg border border-teal-200/60 bg-teal-50/50">
-                  {h.photo_url ? (
-                    <img src={h.photo_url} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-teal-600/70">
-                      <Package className="size-5" aria-hidden />
-                    </div>
-                  )}
+                  <PharmacistProductPhotoThumb
+                    photoUrl={h.photo_url}
+                    title={h.name}
+                    descriptionHtml={h.full_description}
+                    onPhotoPreview={onPhotoPreview}
+                    iconClassName="text-teal-600/70"
+                  />
                 </div>
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold leading-tight text-foreground">{h.name}</span>
