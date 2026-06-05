@@ -4431,7 +4431,7 @@ export default function PharmacienDemandeDetailPage() {
   const pharmacistSupplySurfaceGroups = useMemo(() => {
     type Entry = (typeof lineEntriesForList)[number];
     type Surface = "principal" | "secondary" | "neutral";
-    if (!request || request.request_type === "free_consultation" || !["confirmed", "treated"].includes(request.status)) {
+    if (!request || !["confirmed", "treated"].includes(request.status)) {
       return [{ surface: "neutral" as const, entries: lineEntriesForList as Entry[], bucketMeta: null as PharmacistValidatedBucketGroup<PatientLineLike> | null }];
     }
     const eff = rowsWithEffectiveWithdrawnForSupply(displayRows, draft).filter(
@@ -4697,7 +4697,10 @@ export default function PharmacienDemandeDetailPage() {
         row.line_source === "pharmacist_proposed"
           ? request.request_type === "prescription"
             ? PRESCRIPTION_ADDITIONAL_PROPOSED_REASON
-            : requestItemLineSourceFr.pharmacist_proposed
+            : request.request_type === "free_consultation"
+              ? getRequestKindConfig(request.request_type).copy.workflow.pharmacistProposedBadge ||
+                "Produit"
+              : requestItemLineSourceFr.pharmacist_proposed
           : null;
       const thumbUrl = prod?.photo_url ? resolvePublicMediaUrl(prod.photo_url) : null;
       return (
@@ -4898,6 +4901,10 @@ export default function PharmacienDemandeDetailPage() {
     isProductRequestSent || isPrescriptionWorkflowSent || isConsultationWorkflowSent;
   const isProductRequestValidated =
     isProductRequest && ["confirmed", "treated"].includes(request.status);
+  const isConsultationValidated =
+    isConsultation && ["confirmed", "treated"].includes(request.status);
+  const useCompactProductLineSupplyEditor = isProductRequestValidated || isConsultationValidated;
+  const consultationProposeFormAlwaysOpen = isConsultation && !canManageSupply;
   const hideMainRequestHeader =
     usesLineWorkflow &&
     (["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status) ||
@@ -5375,7 +5382,7 @@ export default function PharmacienDemandeDetailPage() {
           </div>
               )}
           {hideMainRequestHeader &&
-          isProductRequest &&
+          (isProductRequest || isConsultation) &&
           displayRows.length > 0 &&
           !showClosedBucketsLayout &&
           !showArchiveFrozenProducts ? (
@@ -5391,11 +5398,16 @@ export default function PharmacienDemandeDetailPage() {
                   isPrescriptionWorkflowSent ||
                   isProductRequestSent ||
                   isProductRequestValidated ||
+                  isConsultationWorkflowSent ||
+                  isConsultationValidated ||
                   showClosedBucketsLayout ||
                   showArchiveFrozenProducts)
                 ? pharmacistProductLinesWrapperClass
                 : hideMainRequestHeader
-                  ? isProductRequestSent || isProductRequestValidated
+                  ? isProductRequestSent ||
+                    isProductRequestValidated ||
+                    isConsultationWorkflowSent ||
+                    isConsultationValidated
                     ? "mt-3 gap-2"
                     : ""
                   : "mt-2 gap-3"
@@ -5421,11 +5433,19 @@ export default function PharmacienDemandeDetailPage() {
                 pricingConfig={pricingConfig}
                 pharmacistProposedBadgeLabel={proposedBadgeLabel}
                 badgeForRow={(row) => {
-                  if (request.request_type !== "prescription") return undefined;
-                  return (
-                    patientPrescriptionLineBadge(request.request_type, row as PatientLineLike, supplyAmendmentBundles) ??
-                    undefined
-                  );
+                  if (request.request_type === "prescription") {
+                    return (
+                      patientPrescriptionLineBadge(request.request_type, row as PatientLineLike, supplyAmendmentBundles) ??
+                      undefined
+                    );
+                  }
+                  if (
+                    request.request_type === "free_consultation" &&
+                    row.line_source === "pharmacist_proposed"
+                  ) {
+                    return proposedBadgeLabel || "Produit";
+                  }
+                  return undefined;
                 }}
                 onPhotoPreview={openProductPhotoPreview}
                 resolveCatalogUnitPriceForProduct={(productId, embed) => {
@@ -5461,7 +5481,7 @@ export default function PharmacienDemandeDetailPage() {
                     "flex w-full min-w-0 flex-col overflow-visible",
                     bucket
                       ? patientBucketProductListClass
-                      : hideMainRequestHeader && isProductRequest
+                      : hideMainRequestHeader && (isProductRequest || isConsultation)
                         ? "flex w-full min-w-0 flex-col gap-2"
                         : usePharmaSentLineLayout
                           ? "gap-2"
@@ -5564,7 +5584,9 @@ export default function PharmacienDemandeDetailPage() {
               const availUi = availabilityStatusUi(statusForBadge);
               const AvailIcon = availUi.Icon;
               const lineProposedBadge = isConsultation
-                ? null
+                ? isProposedLine
+                  ? proposedBadgeLabel || "Produit"
+                  : null
                 : isOrdonnancePrincipalLine
                   ? ordonnanceLineBadge
                   : isPrescriptionExtraProposed || isAjoutOfficineLine || isProposedLine
@@ -5675,7 +5697,7 @@ export default function PharmacienDemandeDetailPage() {
                   ? PHARMACIST_PROPOSED_AVAILABILITY_OPTIONS
                   : PHARMACIST_SUPPLY_POST_CONFIRM_AVAILABILITY_OPTIONS;
 
-                const modifyFieldsBlock = isProductRequestValidated ? (
+                const modifyFieldsBlock = useCompactProductLineSupplyEditor ? (
                   (() => {
                     const sentQty = pharmacistSentProductLineQtyUi({
                       draftStatus: f.availability_status,
@@ -6212,7 +6234,13 @@ export default function PharmacienDemandeDetailPage() {
                     <>
                       <PharmacistLineAlternativesTabs
                         principalTabLabel={
-                          isProposedLine ? "Proposé" : isOrdonnancePrincipalLine ? "Ordonnance" : "Demandé"
+                          isProposedLine
+                            ? "Proposé"
+                            : isOrdonnancePrincipalLine
+                              ? "Ordonnance"
+                              : isConsultation
+                                ? "Produit"
+                                : "Demandé"
                         }
                         tabs={[
                           ...rowAlts.map((alt, altIndex) => ({
@@ -6273,7 +6301,7 @@ export default function PharmacienDemandeDetailPage() {
                           onPhotoPreview={openProductPhotoPreview}
                           iconClassName={clsx(
                             "size-7 sm:size-8",
-                            isAjoutOfficineLine
+                            isAjoutOfficineLine || isConsultation
                               ? "text-violet-400/90"
                               : isOrdonnancePrincipalLine
                                 ? "text-amber-500/90"
@@ -6285,7 +6313,11 @@ export default function PharmacienDemandeDetailPage() {
                     <div
                       className={clsx(
                         "min-w-0 flex-1",
-                        isProductRequestSent || isPrescriptionWorkflowSent ? "space-y-1.5" : "space-y-0.5"
+                        isProductRequestSent ||
+                        isPrescriptionWorkflowSent ||
+                        isConsultationWorkflowSent
+                          ? "space-y-1.5"
+                          : "space-y-0.5"
                       )}
                     >
                       <div className="min-w-0 space-y-1">
@@ -6922,13 +6954,17 @@ export default function PharmacienDemandeDetailPage() {
             <section
               className={clsx(
                 "mt-2 flex min-h-0 flex-col rounded-xl px-2 py-1.5 shadow-sm sm:px-2.5 sm:py-2",
-                (isProductRequestSent || isProductRequestValidated) && "mx-auto w-full max-w-md",
+                (isProductRequestSent ||
+                  isProductRequestValidated ||
+                  isConsultationWorkflowSent ||
+                  isConsultationValidated) &&
+                  "mx-auto w-full max-w-md",
                 isPrescription
                   ? "border border-amber-300/70 bg-gradient-to-br from-amber-50/80 via-orange-50/25 to-white ring-1 ring-amber-300/35"
                   : "border border-violet-300/70 bg-gradient-to-br from-violet-50/80 via-fuchsia-50/35 to-white ring-1 ring-violet-300/35"
               )}
             >
-              {isConsultation ? (
+              {consultationProposeFormAlwaysOpen ? (
                 <div className="rounded-lg bg-white/90 px-2 py-2 ring-1 ring-violet-200/55 sm:px-2.5">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-violet-950">
                     {workflowCopy.pharmacistProposeSectionTitle}
@@ -6990,7 +7026,7 @@ export default function PharmacienDemandeDetailPage() {
                   />
                 </button>
               )}
-              {propOpen || isConsultation ? (
+              {propOpen || consultationProposeFormAlwaysOpen ? (
                 <div className="mt-2 max-h-[min(56svh,28rem)] touch-pan-y space-y-2 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
                   {!isConsultation ? (
                     <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">

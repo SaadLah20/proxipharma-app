@@ -24,8 +24,8 @@ export function PharmacistLineAlternativesTabs({
   addBusy?: boolean;
   maxAlts?: number;
   altCount: number;
-  /** Onglet variante principale : « Demandé » (ligne patient), « Ordonnance » ou « Proposé » (officine). */
-  principalTabLabel?: "Demandé" | "Ordonnance" | "Proposé";
+  /** Onglet variante principale : « Demandé » (ligne patient), « Ordonnance », « Produit » (consultation) ou « Proposé » (officine). */
+  principalTabLabel?: "Demandé" | "Ordonnance" | "Produit" | "Proposé";
 }) {
   const tabCells: { id: PharmacistLineAltTabId; label: string; isAdd: boolean }[] = [
     { id: "principal", label: principalTabLabel, isAdd: false },
@@ -48,7 +48,9 @@ export function PharmacistLineAlternativesTabs({
           ? "Proposé et alternatives"
           : principalTabLabel === "Ordonnance"
             ? "Ordonnance et alternatives"
-            : "Demandé et alternatives"
+            : principalTabLabel === "Produit"
+              ? "Produit et alternatives"
+              : "Demandé et alternatives"
       }
     >
       {tabCells.map((cell) => {
