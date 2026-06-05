@@ -81,10 +81,16 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 - **UI** : `offres-promos`, `reservations-packs`, `packs-promo`, onglet Offres fiche publique, cloche header fusionnée.
 - **Horaires** : `pharmacy-weekly-hours-tab` (grille mobile corrigée, teintes par jour), fériés **`lib/morocco-public-holidays.ts`**, garde **`lib/pharmacy-on-call-compute.ts`**.
 
-**Mise à jour 2026-06-04 — export catalogue BeautyMall (CSV, hors BDD)** :
-- **Sitemap** : `scripts/fetch-beautymall-sitemap-products.mjs` → `beautymall_sitemap_products.csv` (~13,5k URLs produit + image).
-- **Fusion** : `scripts/merge-beautymall-products.mjs` (Node, recommandé) ou `merge_beautymall_products.py` (RapidFuzz) — CSV WooCommerce + sitemap → `products_final.csv` (`url_produit`, `url_image_valide`) + `products_unmatched.csv` (seuil fuzzy 85 % ; pilote ~89 % matchs).
-- **Import Supabase** : pas encore branché — prochaine étape `import-products-catalog.mjs` / `catalog/`. Phrase reprise **§13.38**.
+**Mise à jour 2026-06-05 — consultation libre, messages vocaux conversation, ordonnance archive** :
+- **Consultation libre UX** (commit **`c507609`**) : en-têtes dossier, scroll conversation, annulation page, refresh notif ; migration **`20260705_001`** (notif 1er message chat).
+- **Messages vocaux** (commit **`ea54827`**) : enregistrement/lecture **30 s max** dans le fil conversation (FAB + inline consultation) ; migration **`20260706_001`** (Storage + RLS + notifs).
+- **Ordonnance clôturée patient** : suppression récap **`RequestKindHeader`** doublon — bandeau dossier seul en archive.
+
+**Mise à jour 2026-06-04 — catalogue BeautyMall (CSV + import pilote + aperçu photo)** :
+- **Sitemap** : `scripts/fetch-beautymall-sitemap-products.mjs` → `beautymall_sitemap_products.csv` (~13,5k URLs).
+- **Fusion** : `scripts/merge-beautymall-products.mjs` (ou Python RapidFuzz) → `products_final.csv` + `products_unmatched.csv` (~**89 %** matchs, **1 478** sans URL).
+- **Import Supabase** : `wipe-catalog-beautymall-import.sql` puis `import-beautymall-catalog.mjs` — **13 651** produits, **12 171** photos URL BeautyMall, **`full_description`** HTML ; pas de migration Git.
+- **UI** : clic vignette produit (patient + pharmacien) → modale photo + description (`736100f`). Phrase reprise **§13.39**.
 
 **Mise à jour 2026-06-03 — ordonnances UI = demandes produits** :
 - **Commit `721c991`** : thème **ambre**, libellés **Ordonnance** / **qté prescrite**, historique saisie officine, hubs cartes produits, scan pharma au-dessus des lignes ; migrations **`20260703_001`**, **`20260703_002`**.

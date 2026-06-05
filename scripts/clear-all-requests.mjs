@@ -1,12 +1,15 @@
 /**
- * Supprime toutes les lignes de `public.requests` (cascade FK) et vide
- * `pharmacy_request_ref_counters` pour repartir les codes Dnnn/YY.
+ * Vide toutes les demandes (D/O/C) + réservations promo + compteurs de codes publics.
+ * Équivalent de supabase/scripts/clear-all-requests.sql via l’API Supabase.
  *
- * Prérequis dans .env.local :
+ * Ne touche pas le Storage : après ce script, lancer
+ *   node --use-system-ca scripts/clear-request-private-media.mjs --confirm
+ *
+ * Prérequis .env.local :
  *   NEXT_PUBLIC_SUPABASE_URL
- *   SUPABASE_SERVICE_ROLE_KEY  (clé secrète — jamais côté client navigateur)
+ *   SUPABASE_SERVICE_ROLE_KEY
  *
- * Usage : node scripts/clear-all-requests.mjs
+ * Usage : node --use-system-ca scripts/clear-all-requests.mjs
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -41,9 +44,9 @@ const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!url || !serviceKey) {
   console.error(
-    "Variables manquantes : NEXT_PUBLIC_SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY dans l’environnement ou .env.local"
+    "Variables manquantes : NEXT_PUBLIC_SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY dans .env.local"
   );
-  console.error("Sans clé service : exécutez supabase/scripts/clear-all-requests.sql dans le SQL Editor Supabase.");
+  console.error("Sinon : exécutez supabase/scripts/clear-all-requests.sql dans le SQL Editor Supabase.");
   process.exit(1);
 }
 
@@ -51,16 +54,40 @@ const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
 
 const nil = "00000000-0000-0000-0000-000000000000";
 
-const { error: e1 } = await sb.from("requests").delete().neq("id", nil);
-if (e1) {
-  console.error("Erreur suppression requests:", e1.message);
-  process.exit(1);
+async function deleteAll(table, extraFilter) {
+  let q = sb.from(table).delete().neq("id", nil);
+  if (extraFilter) q = extraFilter(q);
+  const { error } = await q;
+  if (error) throw new Error(`${table}: ${error.message}`);
 }
 
-const { error: e2 } = await sb.from("pharmacy_request_ref_counters").delete().gte("yr", 2000);
-if (e2) {
-  console.error("Erreur suppression pharmacy_request_ref_counters:", e2.message);
+try {
+  await deleteAll("promo_in_app_notifications");
+  await deleteAll("pharmacy_promo_reservation_status_history");
+  await deleteAll("pharmacy_promo_reservations");
+  const { error: eCountersPromo } = await sb
+    .from("pharmacy_promo_reservation_ref_counters")
+    .delete()
+    .gte("yr", 2000);
+  if (eCountersPromo) throw new Error(`pharmacy_promo_reservation_ref_counters: ${eCountersPromo.message}`);
+
+  const { error: eAlt } = await sb
+    .from("request_items")
+    .update({ patient_chosen_alternative_id: null })
+    .not("patient_chosen_alternative_id", "is", null);
+  if (eAlt) throw new Error(`request_items (alternatives): ${eAlt.message}`);
+
+  await deleteAll("requests");
+
+  const { error: eCountersReq } = await sb
+    .from("pharmacy_request_ref_counters")
+    .delete()
+    .gte("yr", 2000);
+  if (eCountersReq) throw new Error(`pharmacy_request_ref_counters: ${eCountersReq.message}`);
+
+  console.log("OK — demandes et réservations promo supprimées ; compteurs D/O/C et P réinitialisés.");
+  console.log("Étape suivante : node --use-system-ca scripts/clear-request-private-media.mjs --confirm");
+} catch (e) {
+  console.error(e instanceof Error ? e.message : e);
   process.exit(1);
 }
-
-console.log("OK — toutes les demandes supprimées et compteurs de codes publics réinitialisés.");

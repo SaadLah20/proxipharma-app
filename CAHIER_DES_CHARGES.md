@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260703_002`**) → **UI demandes** : phrase **§13.37** (ordonnances, commit **`721c991`**) ; **catalogue BeautyMall CSV** : phrase **§13.38** (sitemap + `products_final.csv`, session **2026-06-04**). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260706_001`**) → phrase **§13.40** (consultation libre + vocaux conversation + ordonnance archive, commits **`c507609`**, **`ea54827`**). Catalogue BeautyMall : **§13.39** / **`736100f`**. La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -17,9 +17,10 @@ Au **demarrage** d une session :
 3. Optionnel : `node --use-system-ca scripts/reset-storage-keep-catalog-and-pharmacy-photos.mjs --confirm` (filet : public hors `products/` + `pharmacies/`, tout `private-media`).
 Équivalent BDD seule : `scripts/clear-all-requests.mjs`. **Reset pilote complet** (sans officines/comptes) : `reset-pilot-keep-products-single-admin.sql`. **Doublons patient** : vider demandes puis supprimer comptes Auth. Plan E2E produits → `canvases/product-requests-e2e-test-plan.canvas.tsx` (§13.5).
 
-**Export catalogue BeautyMall (hors Supabase, juin 2026)** — chaîne en 2 commandes Node dans `scripts/` :
-1. `node scripts/fetch-beautymall-sitemap-products.mjs` → `beautymall_sitemap_products.csv` (slug, url_produit, url_image depuis sitemap).
-2. `node scripts/merge-beautymall-products.mjs` + CSV WooCommerce principal (`--main` si besoin) → `products_final.csv` (toutes colonnes source + **url_produit**, **url_image_valide**, fuzzy ≥ 85 %) et `products_unmatched.csv`. Alternative Python : `merge_beautymall_products.py` + `pip install -r requirements-beautymall-merge.txt`. **Pas encore** d’import BDD — voir §10 session **2026-06-04**.
+**Catalogue BeautyMall (juin 2026)** — chaîne complète dans `scripts/README-beautymall-catalog.md` :
+1. `node scripts/fetch-beautymall-sitemap-products.mjs` → `beautymall_sitemap_products.csv`.
+2. `node scripts/merge-beautymall-products.mjs` (+ CSV WooCommerce `--main` si besoin) → `products_final.csv` + `products_unmatched.csv` (fuzzy ≥ 85 %).
+3. SQL `supabase/scripts/wipe-catalog-beautymall-import.sql` (vider catalogue + lignes promo liées) puis `node scripts/import-beautymall-catalog.mjs` (`--dry-run` possible). **Pilote** : **13 651** produits, **12 171** avec photo URL BeautyMall, **1 480** sans photo (icône UI). Pas de migration Git — colonne **`full_description`** déjà en schéma. Détail §10 session **2026-06-04 (suite 2)** · phrase **§13.39**.
 
 A la **sortie**: demander ou accepter la mise a jour de ce cahier (Journal + Etat actuel + prompt de reprise du §12).
 
@@ -377,6 +378,60 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
+---
+
+### Session 2026-06-05 — Consultation libre UX, messages vocaux conversation, ordonnance archive
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`c507609`** (consultation) · **`ea54827`** (vocaux) · fix archive ordonnance patient.
+
+**Consultation libre (patient + pharmacien)** :
+- En-têtes **`PatientProductRequestDossierHeader`** / **`PharmacistProductRequestDossierHeader`** + onglets ; scroll conversation tactile ; annulation patient footer page entière ; bandeau drift global ; refresh notif (`focus: conversation`) + realtime `request_comments`.
+- Pharmacien : ajout produit sans motif ; cartes lignes alignées demandes produits ; libellés neutres (`lib/consultation-ui-copy.ts`, `consultation.config.ts`).
+- Migration **`20260705_001_consultation_conversation_notif_skip_fix.sql`** — notif pharmacien dès le 1er message chat (skip soumission réservé produits/ordonnance).
+
+**Messages vocaux conversation (patient + pharmacien, tous parcours avec fil dossier)** :
+- **`ConversationComposer`**, **`ConversationMessageBubble`**, **`ConversationAudioPlayer`**, **`useConversationAudioRecorder`**, **`lib/send-request-conversation-message.ts`**.
+- Max **30 s** ; chemins Storage `private-media/conversation-audio/` ; texte facultatif avec vocal.
+- Migration **`20260706_001_conversation_audio_messages.sql`** — colonnes `audio_path` / `audio_duration_seconds`, policies Storage, trigger notif adapté.
+- Script vidage : **`clear-request-private-media.mjs`** inclut les vocaux.
+
+**Ordonnance archive clôturée (patient)** :
+- **`app/dashboard/demandes/[id]/page.tsx`** : `hideMainRequestHeader` inclut **`prescription`** en archive — plus de **`RequestKindHeader`** au-dessus du bandeau dossier.
+
+**Migrations à appliquer en pilote (ordre)** : **`20260705_001`** puis **`20260706_001`**.
+
+**Phrase de reprise** : **§13.40**.
+
+---
+
+### Session 2026-06-04 (suite 2) — Catalogue BeautyMall : import Supabase + aperçu photo/description
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`8999b9d`** (scripts export CSV) · **`736100f`** (import + UI aperçu).
+
+**Import catalogue (pilote terrain, appliqué sur Supabase)** :
+- **`scripts/import-beautymall-catalog.mjs`** — lit `scripts/products_final.csv` ; batch 200 ; `--dry-run`.
+- **`supabase/scripts/wipe-catalog-beautymall-import.sql`** — vide promos (`pharmacy_promo_offer_lines`, réservations, notifs promo) puis **`products`** (évite erreur **`23514`** sur CHECK promo).
+- Mapping : tout **`parapharmacie`** ; **`price_pph`** = `sale_price`, **`price_ppv`** = `regular_price` ; **`photo_url`** = `url_image_valide` (URL BeautyMall externe, pas Storage) ; **`full_description`** = HTML `description` ; **`laboratory`** vide ; **`category`** = `beautymall_catalog` ; **`subcategory`** = slug `url_produit`.
+- Résultat confirmé : **13 651** produits · **12 171** avec photo · **1 480** sans photo.
+
+**Audit fusion CSV (avant import)** :
+- **13 651** lignes source · **12 173** matchs sitemap (**89,17 %**) · **1 478** sans URL BeautyMall.
+- 2e passe fuzzy manuelle : ~**105–125** récupérables fiables ; ~**264** avec relecture.
+
+**UI — vignette produit cliquable + description** (patient **et** pharmacien, même modale) :
+- **`PatientProductPhotoPreviewModal`** — photo agrandie + panneau **Description** scrollable (`lg:flex-row` desktop).
+- **`lib/product-description-html.ts`** — nettoie pied de page BoatScrape dans le HTML importé.
+- **`PharmacistProductPhotoThumb`** · **`lib/fetch-product-descriptions-map.ts`** (hubs commandés / ruptures : fetch `full_description` sans migration RPC).
+- Parcours couverts : dossiers patient/pharmacien (tous statuts), demande publique + catalogue, hubs officine, promos, ordonnance quick-add, archives figées.
+
+**SQL** : aucune nouvelle migration — réutilise **`products.full_description`** + photos URL externes.
+
+**Prochain jalon** : preview terrain (clic vignette) ; migration progressive photos vers Storage si besoin (`import-products-catalog.mjs` comme modèle) ; merge PR **`fix/validated-supply-ecart-ui-modal`**.
+
+**Phrase de reprise** : **§13.39**.
+
+---
+
 ### Session 2026-06-04 — Catalogue BeautyMall : sitemap + fusion CSV WooCommerce (hors BDD)
 
 **Branche** : `fix/validated-supply-ecart-ui-modal` — scripts locaux (pas de migration Supabase).
@@ -388,9 +443,9 @@ git checkout pilote-stable-2026-05-24
 
 **Git** : CSV générés ignorés (`.gitignore`) — ne pas versionner les exports lourds.
 
-**Prochain jalon** : préparer import vers `catalog/` + `import-products-catalog.mjs` / Storage (mapping colonnes `products_final` → schéma pilote).
+**Prochain jalon** : import Supabase — **fait** (voir §10 session **2026-06-04 (suite 2)**).
 
-**Phrase de reprise** : **§13.38**.
+**Phrase de reprise** : **§13.38** (dépassée → **§13.39**).
 
 ---
 
@@ -515,7 +570,7 @@ git checkout pilote-stable-2026-05-24
 
 **Fichiers clés** : `components/requests/request-conversation-panel.tsx`, `lib/conversation-fab-position.ts`, `components/layout/platform-header.tsx`.
 
-**Hors périmètre** : **consultation libre** = messagerie **inline** (pas de FAB) ; **notes par ligne** = `pharmacist-line-conversation-chip` (non déplaçable).
+**Hors périmètre** : **consultation libre** = messagerie **inline** (pas de FAB) ; **notes par ligne** = `pharmacist-line-conversation-chip` (non déplaçable). **Messages vocaux** (session **2026-06-05**, **`20260706_001`**) : **`ConversationComposer`** dans inline + modal FAB — max **30 s**.
 
 ---
 
@@ -1808,7 +1863,8 @@ Regles fonctionnelles retenues (alignement dernier atelier):
 Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-05-03**, **2026-05-05**, **2026-05-06** et **lot plateforme / codes publics 2026-05-05**):
 - **`/`** annuaire interactif (**`components/annuaire/`** — hero, filtres, rayon portail, cartes avec avis + actions contact) + recherche **`public_ref`** → fiche **`/pharmacie/[id]`**
 - **`/pharmacie/[id]`** : fiche digitale (**`PharmacyPublicProfile`** + **`pharmacy-public-chrome`**) — Services (grille contact + liens demande), Offres (**`PublicPromoOffers`**), Horaires, Infos (blocs cartes + **`PharmacyRatingForm`**).
-- **`/pharmacie/[id]/demande-produits`** (+ **`/catalogue`**) : parcours patient aligné visuellement sur l’annuaire (hero émeraude, cartes produits).
+- **`/pharmacie/[id]/demande-produits`** (+ **`/catalogue`**) : parcours patient aligné visuellement sur l’annuaire (hero émeraude, cartes produits) ; **aperçu photo + description** catalogue au clic vignette (**`736100f`**).
+- **Catalogue pilote BeautyMall** : **13 651** produits en BDD (juin 2026) ; photos = URLs **`beautymall.ma`** ; descriptions HTML **`full_description`** ; voir **`scripts/README-beautymall-catalog.md`**.
 - **`/dashboard/pharmacien/ma-fiche`** + **`/dashboard/pharmacien/horaires-garde`** : édition fiche officine (onglets **Coordonnées** / Accueil / Photos / Liens / Services ; titulaire + **`titular_public`** ; horaires compacts + fériés auto + garde ; upload **couverture** / **logo** versionnés via **`lib/pharmacy-media.ts`**).
 - **`/admin`** : onboarding officine + pharmacien (**`AdminOnboardPharmacyForm`**, MDP provisoire copié manuellement).
 - **`/dashboard/pharmacien/offres-promos`** + **`/dashboard/pharmacien/reservations-packs`** ; **`/dashboard/patient/packs-promo`** — workflow packs promo (après **`20260610_001`**).
@@ -2064,9 +2120,17 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.38) Phrase de reprise (recommandée — après session **2026-06-04** catalogue BeautyMall CSV)
+### 13.40) Phrase de reprise (recommandée — après session **2026-06-05** consultation + vocaux + ordonnance archive)
 
-**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal`. Dernier lot hors app : **catalogue BeautyMall** — `node scripts/fetch-beautymall-sitemap-products.mjs` puis `node scripts/merge-beautymall-products.mjs` (CSV principal `--main` si besoin) → `scripts/products_final.csv` + `products_unmatched.csv` ; fuzzy ≥ 85 %, **pas encore** import Supabase. Lis `CAHIER_DES_CHARGES.md` §0.1 (export BeautyMall), **§10 session 2026-06-04**, `AGENTS.md` (catalogue). UI demandes : §13.37 / commit **`721c991`**. Je te donne la tâche (import catalogue, retours preview, etc.). »**
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`ea54827`** vocaux, **`c507609`** consultation libre). **Migrations à appliquer** si pas fait : **`20260705_001`** puis **`20260706_001`**. **Consultation libre** : en-têtes dossier, scroll conversation, annulation footer, refresh notif, cartes lignes neutres. **Conversation** : messages vocaux optionnels **30 s max** (`ConversationComposer`, Storage `conversation-audio/`). **Ordonnance archive clôturée patient** : bandeau dossier seul (plus de récap header doublon). Catalogue BeautyMall : **§13.39** / **`736100f`**. UI ordonnances actives : **§13.37** / **`112b679`**. Je te donne la tâche ou les retours preview. »**
+
+### 13.39) Phrase de reprise (recommandée — après session **2026-06-04 (suite 2)** catalogue importé + aperçu photo)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commit **`736100f`**). **Catalogue BeautyMall** importé en pilote : **13 651** produits (`scripts/import-beautymall-catalog.mjs` + wipe `supabase/scripts/wipe-catalog-beautymall-import.sql`) ; photos URL externes ; **`full_description`** HTML. **UI** : vignette produit cliquable partout patient/pharmacien → modale photo + description (`PatientProductPhotoPreviewModal`, `PharmacistProductPhotoThumb`, `lib/product-description-html.ts`). Chaîne CSV : §0.1 + `scripts/README-beautymall-catalog.md` + §10 sessions **2026-06-04** et **(suite 2)**. Migrations Git : inchangées (**`20260703_002`**). UI ordonnances : §13.37 / **`721c991`**. Je te donne la tâche ou les retours preview. »**
+
+### 13.38) Phrase de reprise (dépassée — session **2026-06-04** catalogue BeautyMall CSV seul)
+
+Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 ### 13.37) Phrase de reprise (UI demandes — session **2026-06-03 suite 4** ordonnances + outils vidage test)
 
@@ -2084,7 +2148,7 @@ Voir **§13.37**.
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-03 suite 4** — ordonnances UI alignée demandes produits, commit **`721c991`**). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260703_002`**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.37**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-05** — consultation libre UX + messages vocaux conversation + ordonnance archive, commits **`c507609`**, **`ea54827`**). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260706_001`** (appliquer **`20260705_001`** avant **`20260706_001`** si besoin) ; catalogue **13 651** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.40**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
