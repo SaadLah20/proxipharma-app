@@ -87,7 +87,7 @@ function lineBadgeLabelFr(opts: {
   if (opts.isAlt) return "Alternative";
   if (opts.requestType === "prescription" && opts.isOrdonnancePrincipal) return "Ordonnance";
   if (opts.requestType === "prescription" && opts.isExtraProposed) return "Produit proposé par la pharmacie";
-  if (opts.requestType === "free_consultation" && opts.isProposedLine) return "Proposition pharmacie";
+  if (opts.requestType === "free_consultation" && opts.isProposedLine) return "Produit";
   if (opts.isProposedLine) return opts.pharmacistProposedBadgeLabel || "Ajout Officine";
   return respondedPrincipalTabLabelFr(opts.requestType);
 }
@@ -836,6 +836,7 @@ export function RespondedPatientLineChooser({
       row.available_qty != null && Number.isFinite(Number(row.available_qty))
         ? Math.max(0, Math.floor(Number(row.available_qty)))
         : null;
+    const isConsultation = requestType === "free_consultation";
     return {
       tabId: "principal",
       tabLabel: respondedPrincipalTabLabelFr(requestType),
@@ -850,8 +851,11 @@ export function RespondedPatientLineChooser({
       productName: prod?.name ?? "Produit",
       photoUrl: resolvePublicMediaUrl(prod?.photo_url ?? null),
       descriptionHtml: productDescriptionHtmlForDisplay(prod?.full_description),
-      showRequested: !isProposedLine,
-      requestedQty: Math.max(1, Number(row.requested_qty) || 1),
+      showRequested: isConsultation || !isProposedLine,
+      requestedQty:
+        isConsultation && isProposedLine
+          ? Math.max(1, Number(row.available_qty ?? row.requested_qty) || 1)
+          : Math.max(1, Number(row.requested_qty) || 1),
       dispoQty,
       unitPrice: resolvedRespondedUnitPrice(
         row.unit_price,
@@ -865,7 +869,7 @@ export function RespondedPatientLineChooser({
       pharmacistComment: row.pharmacist_comment ?? "",
       branch: "principal",
       cap: maxQtyPrincipal(row),
-      showProposalMotif: isProposedLine || isExtraProposed,
+      showProposalMotif: (isProposedLine || isExtraProposed) && requestType !== "free_consultation",
       proposalReason: row.pharmacist_proposal_reason?.trim() || null,
       principalStatusLabel: patientRespondedPrincipalTabStatusFr(row),
     };

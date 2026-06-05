@@ -1400,7 +1400,13 @@ export function buildPatientSummaryStatusHint(
       : "Préparation en cours à l'officine.";
   }
   if (status === "treated") return "Passez à l'officine pour retirer vos produits.";
-  if (status === "in_review") return "L'officine examine votre demande.";
+  if (status === "in_review") {
+    if (requestType === "free_consultation") return _workflow.patientWaitingInReviewHint;
+    return "L'officine examine votre demande.";
+  }
+  if (status === "submitted" && requestType === "free_consultation") {
+    return _workflow.patientWaitingSubmittedHint;
+  }
   return "Demande envoyée — en attente de réponse.";
 }
 
@@ -2665,6 +2671,7 @@ export function PatientProductRequestActions({
   const showPatientExitCTA =
     !forceReadOnly &&
     !showPrescriptionWaiting &&
+    !showConsultationWaiting &&
     (status === "submitted" ||
       status === "in_review" ||
       status === "responded" ||
@@ -2809,7 +2816,7 @@ export function PatientProductRequestActions({
 
       {showConsultationWaiting && items.length === 0 ? (
         <p className="mb-2 rounded-lg border border-violet-200/70 bg-white/80 px-2.5 py-2 text-[11px] leading-snug text-violet-950">
-          La pharmacie n&apos;a pas encore proposé de produit. Consultez l&apos;onglet <strong>Conversation</strong> pour
+          La pharmacie n&apos;a pas encore ajouté de produit. Consultez l&apos;onglet <strong>Conversation</strong> pour
           échanger.
         </p>
       ) : null}

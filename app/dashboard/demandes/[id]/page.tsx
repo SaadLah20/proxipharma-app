@@ -22,8 +22,13 @@ import { one } from "@/lib/embed";
 import { mapRequestItemsPhotos } from "@/lib/storage-media";
 import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
 import { useRequestDetailDrift } from "@/lib/use-request-detail-drift";
-import { PatientProductRequestActions, type PatientPharmacyContactInfo } from "@/components/requests/product/patient-product-request-actions";
+import { PatientProductRequestActions, type PatientPharmacyContactInfo, buildPatientSummaryStatusDetail, buildPatientSummaryStatusHint } from "@/components/requests/product/patient-product-request-actions";
+import { PatientProductRequestDossierHeader } from "@/components/requests/product/patient-product-request-dossier-header";
 import { ConsultationRequestDetailChrome } from "@/components/requests/consultation/consultation-request-detail-chrome";
+import { RequestExitConfirmModalFr } from "@/components/requests/request-exit-confirm-modal-fr";
+import type { PatientCancelReasonCode } from "@/lib/patient-flow-reasons";
+import { PlatformStickyFooter } from "@/components/layout/platform-sticky-footer";
+import { uiActionBtnFullDestructive } from "@/lib/ui-action-buttons";
 import {
   getConsultationDefaultTab,
   type ConsultationDetailTab,
@@ -149,6 +154,10 @@ export default function DemandeDetailPage() {
   } | null>(null);
   const [consultationTab, setConsultationTab] = useState<ConsultationDetailTab>("conversation");
   const [prevConsultationTabSyncKey, setPrevConsultationTabSyncKey] = useState("");
+  const [conversationRefreshToken, setConversationRefreshToken] = useState(0);
+  const [consultationExitOpen, setConsultationExitOpen] = useState(false);
+  const [consultationExitBusy, setConsultationExitBusy] = useState(false);
+  const [consultationExitNonce, setConsultationExitNonce] = useState(0);
   const loadDetail = useCallback(
     async (silent?: boolean) => {
       if (!id) {
@@ -349,6 +358,11 @@ export default function DemandeDetailPage() {
     const listener = (ev: Event) => {
       const detail = (ev as CustomEvent<RequestDetailRefreshDetail>).detail;
       if (detail?.requestId !== id) return;
+      if (detail.focus === "conversation") {
+        setConsultationTab("conversation");
+        setConversationRefreshToken((t) => t + 1);
+        setConversationOpen(true);
+      }
       void loadDetail(true);
     };
     window.addEventListener(REQUEST_DETAIL_REFRESH_EVENT, listener);
@@ -431,18 +445,29 @@ export default function DemandeDetailPage() {
 
   const usesLineWorkflow = requestUsesProductLineWorkflow(request.request_type);
   const activeLineStatuses = ["submitted", "in_review", "responded", "confirmed", "treated"] as const;
-  const hasBottomActions =
-    usesLineWorkflow && activeLineStatuses.includes(request.status as (typeof activeLineStatuses)[number]);
-  const detailStickyFooterTier = patientDetailStickyFooterPadTier(request.request_type, request.status);
-  const detailStickyFooterPad = hasBottomActions ? stickyFooterPadClass(detailStickyFooterTier) : "";
-  const conversationFabMinBottomPx = stickyFooterFabMinBottomPx(
-    hasBottomActions ? detailStickyFooterTier : "none"
-  );
   const isPrescriptionRequest = request.request_type === "prescription";
   const isConsultationRequest = request.request_type === "free_consultation";
+  const showArchivedReadonly = usesLineWorkflow && isPatientProductArchiveStatus(request.status);
+  const hasBottomActions =
+    usesLineWorkflow && activeLineStatuses.includes(request.status as (typeof activeLineStatuses)[number]);
+  const showConsultationTabbed =
+    isConsultationRequest &&
+    consultationBrief != null &&
+    ["submitted", "in_review"].includes(request.status) &&
+    !showArchivedReadonly;
+  const showConsultationWaitingFooter =
+    showConsultationTabbed && ["submitted", "in_review"].includes(request.status);
+  const detailStickyFooterTier = patientDetailStickyFooterPadTier(request.request_type, request.status);
+  const effectiveStickyFooterTier = showConsultationWaitingFooter ? "standard" : detailStickyFooterTier;
+  const detailStickyFooterPad =
+    hasBottomActions || showConsultationWaitingFooter
+      ? stickyFooterPadClass(effectiveStickyFooterTier)
+      : "";
+  const conversationFabMinBottomPx = stickyFooterFabMinBottomPx(
+    hasBottomActions || showConsultationWaitingFooter ? effectiveStickyFooterTier : "none"
+  );
   const consultationEditable =
     isConsultationRequest && ["submitted", "in_review"].includes(request.status) && consultationBrief != null;
-  const showArchivedReadonly = usesLineWorkflow && isPatientProductArchiveStatus(request.status);
 
   const kindConfig = getRequestKindConfig(request.request_type);
   const workflowCopy = kindConfig.copy.workflow;
@@ -453,12 +478,6 @@ export default function DemandeDetailPage() {
     (isConsultationRequest ||
       ["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status) ||
       (request.request_type === "product_request" && showArchivedReadonly));
-
-  const showConsultationTabbed =
-    isConsultationRequest &&
-    consultationBrief != null &&
-    ["submitted", "in_review"].includes(request.status) &&
-    !showArchivedReadonly;
 
   const dossierRefLabel =
     displayRequestPublicRef(request) || `Dossier ${request.id.slice(0, 8)}…`;
@@ -481,20 +500,70 @@ export default function DemandeDetailPage() {
     setConsultationTab(getConsultationDefaultTab(request.status, request.responded_at));
   }
 
+  const pharmacyContact = (() => {
+    const ph = one(request.pharmacies);
+    if (!ph?.nom?.trim()) return null;
+    const c: PatientPharmacyContactInfo = {
+      nom: ph.nom,
+      ville: ph.ville,
+      adresse: ph.adresse ?? null,
+      telephone: ph.telephone,
+      contact_email: ph.contact_email ?? null,
+      public_ref: ph.public_ref ?? null,
+      latitude: ph.latitude ?? null,
+      longitude: ph.longitude ?? null,
+      maps_url: ph.maps_url ?? null,
+    };
+    return c;
+  })();
+
+  const handleConsultationCancelConfirm = async (p: {
+    kind: "patient";
+    code: PatientCancelReasonCode;
+    other: string | null;
+  }) => {
+    setConsultationExitBusy(true);
+    try {
+      const { error: cancelErr } = await supabase.rpc("patient_cancel_product_request_before_response", {
+        p_request_id: request.id,
+        p_reason_code: p.code,
+        p_reason_other: p.other,
+      });
+      if (cancelErr) {
+        setError(cancelErr.message);
+        return;
+      }
+      setConsultationExitOpen(false);
+      await loadDetail(true);
+    } finally {
+      setConsultationExitBusy(false);
+    }
+  };
+
   return (
     <PageShell className={clsx("min-w-0 max-w-full space-y-3 bg-slate-50", detailStickyFooterPad)}>
       <RequestDetailBackLink config={kindConfig} viewerRole="patient" />
 
       {showConsultationTabbed ? (
         <ConsultationRequestDetailChrome
-          dossierRefLabel={dossierRefLabel}
-          status={request.status}
+          header={
+            <PatientProductRequestDossierHeader
+              dossierRefLabel={dossierRefLabel}
+              pharmacyContact={pharmacyContact}
+              pharmacyId={request.pharmacy_id}
+              kindLabel={workflowCopy.patientSummaryKindLabel}
+              requestType={request.request_type}
+              status={request.status}
+              statusHint={buildPatientSummaryStatusHint(request.status, request.request_type, workflowCopy)}
+              statusDetail={buildPatientSummaryStatusDetail(request.status, request.request_type, workflowCopy)}
+              submittedAt={request.submitted_at}
+              createdAt={request.created_at}
+            />
+          }
           tab={consultationTab}
           onTab={setConsultationTab}
           conversationUnread={conversationUnread}
           productLineCount={items.length}
-          submittedAt={request.submitted_at}
-          createdAt={request.created_at}
         />
       ) : !hideMainRequestHeader ||
         (showArchivedReadonly && request.request_type !== "product_request") ? (
@@ -533,14 +602,30 @@ export default function DemandeDetailPage() {
         </Link>
       ) : null}
 
+      {showConsultationTabbed && requestDrift.stale ? (
+        <div className="rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">
+          <p className="font-bold">{requestDrift.stale.title}</p>
+          <p className="mt-1 leading-snug">{requestDrift.stale.message}</p>
+          <button
+            type="button"
+            className={uiActionBtnFilterToggle("mt-2")}
+            onClick={() => void requestDrift.refresh()}
+          >
+            Actualiser la page
+          </button>
+        </div>
+      ) : null}
+
       {showConsultationTabbed && consultationTab === "conversation" && sessionUserId ? (
-        <div className="space-y-2">
+        <div className="flex min-h-0 flex-col max-h-[calc(100dvh-11rem)]">
           <RequestConversationInline
             requestId={request.id}
             viewerRole="patient"
             currentUserId={sessionUserId}
             variant="consultation"
             consultationSeed={consultationSeed}
+            refreshToken={conversationRefreshToken}
+            fillViewport
             onMarkedRead={handleConversationMarkedRead}
           />
           {consultationEditable ? (
@@ -563,7 +648,7 @@ export default function DemandeDetailPage() {
       {(hasBottomActions || (showArchivedReadonly && items.length > 0)) &&
       (!showConsultationTabbed || consultationTab === "products") ? (
         <>
-        {requestDrift.stale ? (
+        {!showConsultationTabbed && requestDrift.stale ? (
           <div className="mb-2 rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">
             <p className="font-bold">{requestDrift.stale.title}</p>
             <p className="mt-1 leading-snug">{requestDrift.stale.message}</p>
@@ -616,22 +701,7 @@ export default function DemandeDetailPage() {
           initialPlannedVisitDate={request.patient_planned_visit_date}
           initialPlannedVisitTime={request.patient_planned_visit_time}
           requestPublicRef={displayRequestPublicRef(request)}
-          pharmacyContact={(() => {
-            const ph = one(request.pharmacies);
-            if (!ph?.nom?.trim()) return null;
-            const c: PatientPharmacyContactInfo = {
-              nom: ph.nom,
-              ville: ph.ville,
-              adresse: ph.adresse ?? null,
-              telephone: ph.telephone,
-              contact_email: ph.contact_email ?? null,
-              public_ref: ph.public_ref ?? null,
-              latitude: ph.latitude ?? null,
-              longitude: ph.longitude ?? null,
-              maps_url: ph.maps_url ?? null,
-            };
-            return c;
-          })()}
+          pharmacyContact={pharmacyContact}
           onReload={async () => {
             await loadDetail(true);
           }}
@@ -650,7 +720,7 @@ export default function DemandeDetailPage() {
           prescriptionPaths={isPrescriptionRequest ? prescriptionPaths : null}
           prescriptionNote={isPrescriptionRequest ? prescriptionNote : null}
           summaryInPageChrome={showConsultationTabbed}
-          detailStale={requestDrift.stale}
+          detailStale={showConsultationTabbed ? null : requestDrift.stale}
           archiveTerminalOldStatus={archiveTerminalOldStatus}
         />
         </section>
@@ -661,10 +731,39 @@ export default function DemandeDetailPage() {
         </p>
       ) : null}
 
+      {showConsultationWaitingFooter ? (
+        <PlatformStickyFooter tone="violet">
+          <button
+            type="button"
+            disabled={consultationExitBusy}
+            onClick={() => {
+              setConsultationExitNonce((n) => n + 1);
+              setConsultationExitOpen(true);
+            }}
+            className={uiActionBtnFullDestructive()}
+          >
+            {workflowCopy.patientCancelWhileWaitingLabel}
+          </button>
+          <RequestExitConfirmModalFr
+            key={consultationExitNonce}
+            open={consultationExitOpen}
+            mode="patient_before_response"
+            busy={consultationExitBusy}
+            onClose={() => {
+              if (consultationExitBusy) return;
+              setConsultationExitOpen(false);
+            }}
+            onConfirmPatient={handleConsultationCancelConfirm}
+          />
+        </PlatformStickyFooter>
+      ) : null}
+
       <details
         className={clsx(
           "group rounded-xl border border-border/80 bg-card shadow-sm",
-          hasBottomActions ? stickyFooterScrollMarginClass(detailStickyFooterTier) : "scroll-mb-8"
+          hasBottomActions || showConsultationWaitingFooter
+            ? stickyFooterScrollMarginClass(effectiveStickyFooterTier)
+            : "scroll-mb-8"
         )}
       >
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 marker:content-none [&::-webkit-details-marker]:hidden sm:px-3">

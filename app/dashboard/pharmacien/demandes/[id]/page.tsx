@@ -1845,6 +1845,7 @@ export default function PharmacienDemandeDetailPage() {
   } | null>(null);
   const [consultationTab, setConsultationTab] = useState<ConsultationDetailTab>("conversation");
   const [prevConsultationTabSyncKey, setPrevConsultationTabSyncKey] = useState("");
+  const [conversationRefreshToken, setConversationRefreshToken] = useState(0);
   /** Après publication (`responded`), affichage figé jusqu'à « Modifier ». */
   const [respondedEditMode, setRespondedEditMode] = useState(false);
   const [respondedSaveConfirmOpen, setRespondedSaveConfirmOpen] = useState(false);
@@ -2283,6 +2284,11 @@ export default function PharmacienDemandeDetailPage() {
     const listener = (ev: Event) => {
       const detail = (ev as CustomEvent<RequestDetailRefreshDetail>).detail;
       if (detail?.requestId !== id) return;
+      if (detail.focus === "conversation") {
+        setConsultationTab("conversation");
+        setConversationRefreshToken((t) => t + 1);
+        setConversationOpen(true);
+      }
       void load();
     };
     window.addEventListener(REQUEST_DETAIL_REFRESH_EVENT, listener);
@@ -2926,6 +2932,8 @@ export default function PharmacienDemandeDetailPage() {
         setError("Indique un motif d’au moins 3 caractères pour proposer ce produit.");
         return;
       }
+    } else if (request?.request_type === "free_consultation") {
+      reason = "";
     } else if (reason.length < 3) {
       setError("Indique un motif d’au moins 3 caractères pour proposer ce produit.");
       return;
@@ -2996,7 +3004,8 @@ export default function PharmacienDemandeDetailPage() {
         pharmacist_comment: pharmacistComment,
         client_comment: null,
         line_source: isOrdonnanceInsert ? "patient_request" : "pharmacist_proposed",
-        pharmacist_proposal_reason: isOrdonnanceInsert ? null : reason,
+        pharmacist_proposal_reason:
+          isOrdonnanceInsert || request?.request_type === "free_consultation" ? null : reason,
         expected_availability_date: expectedDateValue,
         counter_outcome: "unset",
         counter_cancel_reason: null,
@@ -3110,7 +3119,8 @@ export default function PharmacienDemandeDetailPage() {
         available_qty: availableQty,
         expected_availability_date: expectedDateValue,
         line_source: isOrdonnanceInsert ? "patient_request" : "pharmacist_proposed",
-        pharmacist_proposal_reason: isOrdonnanceInsert ? null : reason,
+        pharmacist_proposal_reason:
+          isOrdonnanceInsert || request?.request_type === "free_consultation" ? null : reason,
         pharmacist_comment: pharmacistComment,
         is_selected_by_patient: true,
         selected_qty: requestedQty,
@@ -4871,7 +4881,10 @@ export default function PharmacienDemandeDetailPage() {
     isProductRequest && ["submitted", "in_review", "responded"].includes(request.status);
   const isPrescriptionWorkflowSent =
     isPrescription && ["submitted", "in_review", "responded"].includes(request.status);
-  const usePharmaSentLineLayout = isProductRequestSent || isPrescriptionWorkflowSent;
+  const isConsultationWorkflowSent =
+    isConsultation && ["submitted", "in_review", "responded"].includes(request.status);
+  const usePharmaSentLineLayout =
+    isProductRequestSent || isPrescriptionWorkflowSent || isConsultationWorkflowSent;
   const isProductRequestValidated =
     isProductRequest && ["confirmed", "treated"].includes(request.status);
   const hideMainRequestHeader =
@@ -4900,7 +4913,7 @@ export default function PharmacienDemandeDetailPage() {
         dossierStatusHint = "";
       } else if (isConsultation) {
         dossierStatusHint =
-          "Échangez avec le patient ou saisissez des produits proposés, puis publiez la réponse.";
+          "Échangez avec le patient ou ajoutez des produits, puis publiez la réponse.";
       } else {
         dossierStatusHint =
           "Répondez au patient puis publiez la proposition (alternatives possibles par onglet).";
@@ -4964,14 +4977,24 @@ export default function PharmacienDemandeDetailPage() {
 
       {showConsultationTabbed ? (
         <ConsultationRequestDetailChrome
-          dossierRefLabel={consultationDossierRef}
-          status={request.status}
+          header={
+            <PharmacistProductRequestDossierHeader
+              dossierRefLabel={consultationDossierRef}
+              kindLabel={kindConfig.copy.labelFr}
+              requestType={request.request_type}
+              patientName={patientProfile?.full_name ?? null}
+              patientRef={patientProfile?.patient_ref ?? null}
+              patientPhone={patientPhone ?? null}
+              status={request.status}
+              statusHint={dossierStatusHint}
+              submittedAt={request.submitted_at}
+              createdAt={request.created_at}
+            />
+          }
           tab={consultationTab}
           onTab={setConsultationTab}
           conversationUnread={conversationUnread}
           productLineCount={displayRows.length}
-          submittedAt={request.submitted_at}
-          createdAt={request.created_at}
         />
       ) : hideMainRequestHeader ? (
         <>
@@ -4988,11 +5011,13 @@ export default function PharmacienDemandeDetailPage() {
             createdAt={request.created_at}
             hideSentAt={isPharmacistTerminalArchive}
           />
-          {isConsultation && ["submitted", "in_review"].includes(request.status) ? (
+          {!showConsultationTabbed &&
+          isConsultation &&
+          ["submitted", "in_review"].includes(request.status) ? (
             <section className={pharmacistProductSecondaryBannerClass}>
               <p className="font-semibold">Consultation en cours</p>
               <p className="mt-0.5 text-muted-foreground">
-                Échangez dans l&apos;onglet Conversation, puis saisissez les produits proposés avant publication.
+                Échangez dans l&apos;onglet Conversation, puis ajoutez des produits avant publication.
               </p>
             </section>
           ) : null}
@@ -5254,14 +5279,18 @@ export default function PharmacienDemandeDetailPage() {
       {kindConfig.capabilities.workflowEnabled ? (
         <>
           {showConsultationTabbed && consultationTab === "conversation" && sessionUserId ? (
-            <RequestConversationInline
-              requestId={request.id}
-              viewerRole="pharmacien"
-              currentUserId={sessionUserId}
-              variant="consultation"
-              consultationSeed={consultationSeed}
-              onMarkedRead={handleConversationMarkedRead}
-            />
+            <div className="flex min-h-0 flex-col max-h-[calc(100dvh-11rem)]">
+              <RequestConversationInline
+                requestId={request.id}
+                viewerRole="pharmacien"
+                currentUserId={sessionUserId}
+                variant="consultation"
+                consultationSeed={consultationSeed}
+                refreshToken={conversationRefreshToken}
+                fillViewport
+                onMarkedRead={handleConversationMarkedRead}
+              />
+            </div>
           ) : null}
 
           {showConsultationProductsPane && isPrescription && request.status === "draft" ? (
@@ -5524,11 +5553,13 @@ export default function PharmacienDemandeDetailPage() {
                   : draftInferredStatus;
               const availUi = availabilityStatusUi(statusForBadge);
               const AvailIcon = availUi.Icon;
-              const lineProposedBadge = isOrdonnancePrincipalLine
-                ? ordonnanceLineBadge
-                : isPrescriptionExtraProposed || isAjoutOfficineLine || isProposedLine
-                  ? proposedBadgeLabel
-                  : null;
+              const lineProposedBadge = isConsultation
+                ? null
+                : isOrdonnancePrincipalLine
+                  ? ordonnanceLineBadge
+                  : isPrescriptionExtraProposed || isAjoutOfficineLine || isProposedLine
+                    ? proposedBadgeLabel
+                    : null;
               const compactOriginBadgeLabel =
                 isPostConfirmAddedLine || isAjoutOfficineLine ? null : lineProposedBadge;
               const compactOriginBadgeTone: "ordonnance" | "proposed" = isOrdonnancePrincipalLine
@@ -6352,7 +6383,7 @@ export default function PharmacienDemandeDetailPage() {
                           ) : null}
                         </div>
                       </div>
-                      {isProposedLine && !isOrdonnancePrincipalLine ? (
+                      {isProposedLine && !isOrdonnancePrincipalLine && !isConsultation ? (
                         <p className="rounded-md border border-violet-300/80 bg-gradient-to-br from-violet-200/55 to-violet-100/40 px-2 py-1 text-[10px] leading-snug text-violet-950 shadow-sm ring-1 ring-violet-300/35">
                           {row.pharmacist_proposal_reason?.trim() ? (
                             <>
@@ -6600,7 +6631,7 @@ export default function PharmacienDemandeDetailPage() {
                           <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
                             {isOrdonnancePharmacistLine
                               ? "Qté dispo"
-                              : isPrescriptionExtraProposed
+                              : isPrescriptionExtraProposed || isConsultation
                                 ? "Qté proposée"
                                 : "Dispo"}
                           </span>
@@ -6890,7 +6921,7 @@ export default function PharmacienDemandeDetailPage() {
               {isConsultation ? (
                 <div className="rounded-lg bg-white/90 px-2 py-2 ring-1 ring-violet-200/55 sm:px-2.5">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-violet-950">
-                    Saisir les produits proposés
+                    {workflowCopy.pharmacistProposeSectionTitle}
                   </p>
                   <p className="mt-0.5 text-[10px] leading-snug text-violet-900/85 sm:text-[11px]">
                     {workflowCopy.pharmacistProposeSectionSubtitle}
@@ -6951,17 +6982,19 @@ export default function PharmacienDemandeDetailPage() {
               )}
               {propOpen || isConsultation ? (
                 <div className="mt-2 max-h-[min(56svh,28rem)] touch-pan-y space-y-2 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
-                  <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Motif
-                    <textarea
-                      rows={2}
-                      value={propReason}
-                      onChange={(e) => setPropReason(e.target.value.slice(0, 1000))}
-                      placeholder="Motif visible client"
-                      className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
-                    />
-                  </label>
-                  {isProductRequestSent || isPrescription ? (
+                  {!isConsultation ? (
+                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Motif
+                      <textarea
+                        rows={2}
+                        value={propReason}
+                        onChange={(e) => setPropReason(e.target.value.slice(0, 1000))}
+                        placeholder="Motif visible client"
+                        className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
+                      />
+                    </label>
+                  ) : null}
+                  {isProductRequestSent || isPrescription || isConsultation ? (
                     <p className="text-[10px] leading-snug text-muted-foreground">
                       Disponibilité et quantité se règlent sur la carte du produit après ajout (1 à 10).
                     </p>
@@ -7227,7 +7260,7 @@ export default function PharmacienDemandeDetailPage() {
                       isConsultation && "bg-violet-700 text-white hover:bg-violet-800"
                     )}
                   >
-                    {isConsultation ? "Publier les produits proposés au patient…" : "Envoyer la réponse au patient…"}
+                    {isConsultation ? "Publier les produits au patient…" : "Envoyer la réponse au patient…"}
                   </button>
                 </>
               ) : null}

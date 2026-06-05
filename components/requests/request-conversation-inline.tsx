@@ -31,6 +31,10 @@ type Props = {
   variant?: "default" | "consultation";
   /** Message initial consultation (première bulle du fil, avant les commentaires). */
   consultationSeed?: ConsultationConversationSeed | null;
+  /** Incrémenter pour recharger le fil (notif / refresh bus). */
+  refreshToken?: number;
+  /** Onglet consultation : contraindre la hauteur pour scroll interne tactile. */
+  fillViewport?: boolean;
 };
 
 /** Fil de conversation intégré (onglet Conversation — pas de FAB / modal). */
@@ -122,6 +126,8 @@ export function RequestConversationInline({
   onMarkedRead,
   variant = "default",
   consultationSeed = null,
+  refreshToken = 0,
+  fillViewport = false,
 }: Props) {
   const [rows, setRows] = useState<RequestCommentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,6 +174,35 @@ export function RequestConversationInline({
     };
   }, [requestId, load, markRead]);
 
+  useEffect(() => {
+    if (!refreshToken) return;
+    void (async () => {
+      await load({ silent: true });
+      await markRead();
+    })();
+  }, [refreshToken, load, markRead]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`request_comments_inline:${requestId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "request_comments",
+          filter: `request_id=eq.${requestId}`,
+        },
+        () => {
+          void load({ silent: true });
+        }
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [requestId, load]);
+
   const send = async () => {
     const text = draft.trim();
     if (text.length === 0) return;
@@ -211,7 +246,8 @@ export function RequestConversationInline({
   return (
     <section
       className={cn(
-        "flex min-h-[min(24rem,50vh)] flex-col overflow-hidden rounded-xl border-2 shadow-sm",
+        "flex flex-col overflow-hidden rounded-xl border-2 shadow-sm",
+        fillViewport ? "min-h-0 flex-1 max-h-[calc(100dvh-11rem)]" : "min-h-[min(24rem,50vh)]",
         isConsultation
           ? "border-violet-200/80 bg-gradient-to-b from-violet-50/50 to-white ring-1 ring-violet-200/45"
           : "border-border bg-card"
@@ -241,7 +277,7 @@ export function RequestConversationInline({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-3 py-2.5">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-2.5 [-webkit-overflow-scrolling:touch]">
         {loading ? (
           <p className="text-[11px] text-muted-foreground">Chargement…</p>
         ) : !hasSeed && rows.length === 0 ? (
