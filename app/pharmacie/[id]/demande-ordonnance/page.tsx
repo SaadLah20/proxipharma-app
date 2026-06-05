@@ -16,6 +16,12 @@ import {
   uploadPrescriptionPageBlob,
 } from "@/lib/prescription-media";
 import { REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
+import { sendRequestConversationMessage } from "@/lib/send-request-conversation-message";
+import {
+  ConversationAudioDraftPreview,
+  ConversationMessageDraftField,
+} from "@/components/requests/conversation/conversation-message-draft-field";
+import type { ConversationAudioDraft } from "@/lib/use-conversation-audio-recorder";
 
 type PageSlot = {
   file: File;
@@ -34,6 +40,7 @@ export default function DemandeOrdonnancePage() {
   const [sessionReady, setSessionReady] = useState(false);
   const [pages, setPages] = useState<PageSlot[]>([]);
   const [note, setNote] = useState("");
+  const [pendingAudio, setPendingAudio] = useState<ConversationAudioDraft | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -135,9 +142,12 @@ export default function DemandeOrdonnancePage() {
     setSubmitLoading(true);
 
     const noteTrim = note.trim().slice(0, REQUEST_CONVERSATION_MESSAGE_MAX);
+    const hasAudio = pendingAudio != null;
+    const hasText = noteTrim.length > 0;
+
     const { data: requestIdRaw, error: rpcErr } = await supabase.rpc("patient_submit_prescription_request", {
       p_pharmacy_id: pharmacyId,
-      p_patient_note: noteTrim.length > 0 ? noteTrim : null,
+      p_patient_note: hasAudio ? null : noteTrim.length > 0 ? noteTrim : null,
     });
 
     if (rpcErr) {
@@ -187,6 +197,39 @@ export default function DemandeOrdonnancePage() {
       setSubmitLoading(false);
       setFeedback({ type: "err", text: attachErr.message });
       return;
+    }
+
+    if (hasAudio) {
+      if (hasText) {
+        const { error: noteErr } = await supabase.rpc("patient_update_prescription_note", {
+          p_request_id: requestId,
+          p_patient_note: noteTrim,
+        });
+        if (noteErr) {
+          setSubmitLoading(false);
+          setFeedback({ type: "err", text: noteErr.message });
+          return;
+        }
+      }
+      const convResult = await sendRequestConversationMessage({
+        supabase,
+        requestId,
+        authorId: userData.user.id,
+        authorRole: "patient",
+        text: noteTrim,
+        pendingAudio: pendingAudio ?? undefined,
+      });
+      if (!convResult.ok) {
+        setSubmitLoading(false);
+        setFeedback({
+          type: "err",
+          text:
+            "Ordonnance envoyée, mais le message vocal n’a pas pu être enregistré. Ajoutez-le depuis la conversation du dossier.",
+        });
+        router.push(`/dashboard/demandes/${requestId}`);
+        return;
+      }
+      void supabase.rpc("mark_request_conversation_read", { p_request_id: requestId });
     }
 
     setSubmitLoading(false);
@@ -298,15 +341,18 @@ export default function DemandeOrdonnancePage() {
         </section>
 
         <section className="mt-4 rounded-2xl border-2 border-slate-200 bg-white p-4 shadow-sm">
-          <label className="block text-sm font-semibold text-slate-900">Message pour la pharmacie (facultatif)</label>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={3}
-            maxLength={REQUEST_CONVERSATION_MESSAGE_MAX}
-            className="mt-2 w-full rounded-xl border-2 border-slate-200 p-3 text-sm"
-            placeholder="Ex. ordonnance pour mon enfant, urgence…"
-          />
+          <p className="text-sm font-semibold text-slate-900">Message pour la pharmacie (facultatif)</p>
+          <div className="mt-2">
+            <ConversationMessageDraftField
+              draft={note}
+              onDraftChange={setNote}
+              maxLength={REQUEST_CONVERSATION_MESSAGE_MAX}
+              onAudioDraftChange={setPendingAudio}
+              placeholder="Ex. ordonnance pour mon enfant, urgence…"
+              counterClassName="text-[10px]"
+              textareaClassName="w-full rounded-xl border-2 border-slate-200 p-3 text-sm"
+            />
+          </div>
         </section>
 
         {feedback ? (
@@ -380,9 +426,13 @@ export default function DemandeOrdonnancePage() {
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{note.trim()}</p>
               </div>
-            ) : (
+            ) : null}
+            {pendingAudio ? (
+              <ConversationAudioDraftPreview draft={pendingAudio} className="mt-3 border-amber-200/70 bg-amber-50/40" />
+            ) : null}
+            {!note.trim() && !pendingAudio ? (
               <p className="text-sm text-muted-foreground">Aucun message — vous pourrez en ajouter plus tard depuis le dossier.</p>
-            )}
+            ) : null}
           </div>
           <div className="border-t border-amber-200/60 bg-muted/25 px-4 py-3">
             <div className="flex gap-2">
