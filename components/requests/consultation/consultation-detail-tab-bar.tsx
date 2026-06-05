@@ -33,7 +33,7 @@ export function ConsultationDetailTabBar({
         active={tab === "products"}
         onClick={() => onTab("products")}
         icon={<Package className="size-4 shrink-0" aria-hidden />}
-        label="Produits proposés"
+        label="Produits"
         badge={productLineCount > 0 ? String(productLineCount) : undefined}
       />
     </div>

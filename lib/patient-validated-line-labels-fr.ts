@@ -144,7 +144,7 @@ export function buildPatientValidatedLineLabelsFr(input: {
     labelAudience = "patient",
   } = input;
   const out: ValidatedLineLabel[] = [];
-  if (!isDefaultPatientOriginLabel(originLabel)) {
+  if (originLabel.trim() && !isDefaultPatientOriginLabel(originLabel)) {
     out.push({ key: "origin", text: originLabel, tone: "origin" });
   }
 
@@ -258,6 +258,9 @@ export function validatedOriginLabelFr(input: {
   const { row, prescriptionBadge, pharmacistProposedBadgeLabel, requestType } = input;
   if (prescriptionBadge) return prescriptionBadge;
   if (row.patient_chosen_alternative_id) return "Alternative";
-  if (row.line_source === "pharmacist_proposed") return pharmacistProposedBadgeLabel;
+  if (row.line_source === "pharmacist_proposed") {
+    if (requestType === "free_consultation") return "";
+    return pharmacistProposedBadgeLabel;
+  }
   return validatedOriginFallbackPatientFr(requestType);
 }

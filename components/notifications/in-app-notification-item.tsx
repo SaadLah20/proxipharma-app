@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   dispatchRequestDetailRefresh,
+  notificationEventFocusConversation,
   notificationHrefTargetsCurrentPath,
   requestIdFromNotificationDemandeHref,
 } from "@/lib/request-detail-refresh-bus";
@@ -145,7 +146,9 @@ export function InAppNotificationItem({
           const rid = requestIdFromNotificationDemandeHref(href);
           if (rid && notificationHrefTargetsCurrentPath(pathname, href)) {
             e.preventDefault();
-            dispatchRequestDetailRefresh(rid);
+            dispatchRequestDetailRefresh(rid, {
+              focus: notificationEventFocusConversation(eventType) ? "conversation" : undefined,
+            });
           }
         }}
         className={commonClass}

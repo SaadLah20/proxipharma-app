@@ -1,16 +1,22 @@
 /** Rechargement explicite quand une notif ouvre une demande dont l’URL est déjà active (Next ne remonte pas la page). */
 export const REQUEST_DETAIL_REFRESH_EVENT = "proxipharma:request-detail-refresh";
 
+export type RequestDetailRefreshFocus = "conversation" | "status";
+
 export type RequestDetailRefreshDetail = {
   /** `requests.id`, aligné avec le segment `:id` des routes demande détail */
   requestId: string;
+  focus?: RequestDetailRefreshFocus;
 };
 
-export function dispatchRequestDetailRefresh(requestId: string) {
+export function dispatchRequestDetailRefresh(
+  requestId: string,
+  opts?: { focus?: RequestDetailRefreshFocus }
+) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(
     new CustomEvent<RequestDetailRefreshDetail>(REQUEST_DETAIL_REFRESH_EVENT, {
-      detail: { requestId },
+      detail: { requestId, focus: opts?.focus },
     })
   );
 }
@@ -38,4 +44,9 @@ export function notificationHrefTargetsCurrentPath(pathname: string | null | und
   const a = normalizationPath(pathname ?? "");
   const b = normalizationPath(href.startsWith("http") ? new URL(href).pathname : href);
   return a !== "" && b !== "" && a === b;
+}
+
+export function notificationEventFocusConversation(eventType: string | null | undefined): boolean {
+  const t = (eventType ?? "").toLowerCase();
+  return t.includes("conversation") || t.includes("message");
 }

@@ -90,6 +90,9 @@ export function patientDetailStickyFooterPadTier(
   if (requestType === "prescription" && (status === "submitted" || status === "in_review")) {
     return "tall";
   }
+  if (requestType === "free_consultation" && (status === "submitted" || status === "in_review")) {
+    return "standard";
+  }
   if (requestType === "product_request" && (status === "submitted" || status === "in_review")) {
     return "resubmit";
   }
@@ -102,7 +105,7 @@ export function stickyFooterScrollMarginClass(tier: StickyFooterPadTier): string
   return pad.replace(/pb-/g, "scroll-mb-");
 }
 
-export type StickyFooterTone = "neutral" | "sky" | "amber" | "slate" | "emerald";
+export type StickyFooterTone = "neutral" | "sky" | "amber" | "slate" | "emerald" | "violet";
 
 export function stickyFooterToneBorderClass(tone: StickyFooterTone): string {
   switch (tone) {
@@ -114,6 +117,8 @@ export function stickyFooterToneBorderClass(tone: StickyFooterTone): string {
       return "border-emerald-400/70";
     case "slate":
       return "border-slate-300/85";
+    case "violet":
+      return "border-violet-400/70";
     default:
       return "border-border/80";
   }
