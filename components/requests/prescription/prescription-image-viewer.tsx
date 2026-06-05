@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { clsx } from "clsx";
 import { Maximize2, Plus, X, ZoomIn, ZoomOut } from "lucide-react";
 import { createPrescriptionSignedUrl, type PrescriptionPagePaths } from "@/lib/prescription-media";
+import { Z_PRESCRIPTION_LIGHTBOX, Z_PRESCRIPTION_LIGHTBOX_FAB } from "@/lib/ui-z-index";
 
 type PrescriptionImageViewerProps = {
   paths: PrescriptionPagePaths;
@@ -271,7 +272,7 @@ function PrescriptionLightbox({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex flex-col bg-black/85 p-3 md:p-6"
+      className={clsx("fixed inset-0 flex flex-col bg-black/85 p-3 md:p-6", Z_PRESCRIPTION_LIGHTBOX)}
       role="dialog"
       aria-modal="true"
       aria-label={`Visualisation ${label}`}
@@ -319,7 +320,10 @@ function PrescriptionLightbox({
         <button
           type="button"
           onClick={ordonnanceQuickAdd.onOpenAdd}
-          className="pointer-events-auto fixed bottom-6 right-4 z-[81] flex min-h-12 items-center gap-2 rounded-full border-2 border-amber-300/90 bg-gradient-to-br from-amber-50 to-white px-4 py-2.5 text-sm font-bold text-amber-950 shadow-lg ring-2 ring-amber-400/40 hover:bg-amber-100/90 sm:bottom-8 sm:right-8"
+          className={clsx(
+            "pointer-events-auto fixed bottom-6 right-4 flex min-h-12 items-center gap-2 rounded-full border-2 border-amber-300/90 bg-gradient-to-br from-amber-50 to-white px-4 py-2.5 text-sm font-bold text-amber-950 shadow-lg ring-2 ring-amber-400/40 hover:bg-amber-100/90 sm:bottom-8 sm:right-8",
+            Z_PRESCRIPTION_LIGHTBOX_FAB
+          )}
         >
           <Plus className="size-5 shrink-0" strokeWidth={2.5} aria-hidden />
           Produit

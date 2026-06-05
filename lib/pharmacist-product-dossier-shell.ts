@@ -6,7 +6,7 @@ export const pharmacistProductDossierPageClass =
 export const pharmacistProductSectionTitleClass =
   "pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground";
 
-export const pharmacistProductLinesWrapperClass = "mt-3 w-full min-w-0 space-y-5";
+export const pharmacistProductLinesWrapperClass = "mt-3 w-full min-w-0 space-y-7";
 
 export const pharmacistProductSecondaryBannerClass =
   "rounded-lg border border-border/80 bg-muted/20 px-3 py-2 text-[11px] leading-snug text-foreground shadow-sm";

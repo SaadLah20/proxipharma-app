@@ -3,4 +3,7 @@ export const Z_STICKY_FOOTER = "z-40";
 export const Z_FLOATING_ACTION = "z-50";
 /** FAB conversation / actions flottantes au-dessus de `PlatformStickyFooter` (z-index inline 10030). */
 export const Z_FLOATING_ABOVE_STICKY_FOOTER = "z-[10050]";
+/** Lightbox ordonnance + FAB « Produit » — au-dessus des footers sticky pharmacien. */
+export const Z_PRESCRIPTION_LIGHTBOX = "z-[10100]";
+export const Z_PRESCRIPTION_LIGHTBOX_FAB = "z-[10101]";
 export const Z_MODAL_OVERLAY = "z-[11000]";

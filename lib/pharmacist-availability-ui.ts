@@ -83,3 +83,22 @@ export function availabilitySentLineButtonClass(status: string | null | undefine
       return `${base} border-border/80 bg-muted/20`;
   }
 }
+
+/** Variante lecture seule (répondue frozen) — contraste renforcé sans opacité disabled. */
+export function availabilitySentLineFrozenButtonClass(status: string | null | undefined): string {
+  const base = "border text-[11px] font-semibold";
+  switch (status) {
+    case "available":
+      return `${base} border-emerald-400/90 bg-emerald-100/95 text-emerald-950`;
+    case "partially_available":
+      return `${base} border-cyan-400/90 bg-cyan-100/95 text-cyan-950`;
+    case "unavailable":
+      return `${base} border-slate-400/85 bg-slate-200/90 text-slate-950`;
+    case "to_order":
+      return `${base} border-amber-400/90 bg-amber-100/95 text-amber-950`;
+    case "market_shortage":
+      return `${base} border-rose-400/85 bg-rose-100/92 text-rose-950`;
+    default:
+      return `${base} border-border/90 bg-muted/45 text-foreground`;
+  }
+}
