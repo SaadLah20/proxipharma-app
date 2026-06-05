@@ -61,7 +61,7 @@ export function LocaleSwitcher({ visible = true }: LocaleSwitcherProps) {
         <ul
           role="listbox"
           aria-label={t("choose")}
-          className="absolute right-0 top-full z-50 mt-2 min-w-[8.5rem] overflow-hidden rounded-xl border border-border bg-popover py-1 text-popover-foreground shadow-xl"
+          className="absolute end-0 top-full z-50 mt-2 min-w-[8.5rem] overflow-hidden rounded-xl border border-border bg-popover py-1 text-popover-foreground shadow-xl"
         >
           <li role="option" aria-selected={locale === "fr"}>
             <button

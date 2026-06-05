@@ -143,11 +143,6 @@ html[dir="rtl"] {
   text-align: start;
 }
 
-html[dir="rtl"] [data-proxipharma-platform-header] .sm\:right-0 {
-  right: auto;
-  left: 0;
-}
-
 html[dir="rtl"] input,
 html[dir="rtl"] textarea,
 html[dir="rtl"] select {
