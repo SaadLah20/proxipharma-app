@@ -5,7 +5,11 @@ import { createPortal } from "react-dom";
 import { clsx } from "clsx";
 import { ChevronDown } from "lucide-react";
 import { inferAvailabilityStatusFromQty } from "@/lib/pharmacist-availability";
-import { availabilitySentLineButtonClass, availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
+import {
+  availabilitySentLineButtonClass,
+  availabilitySentLineFrozenButtonClass,
+  availabilityStatusUi,
+} from "@/lib/pharmacist-availability-ui";
 
 export function PharmacienAvailabilityDropdown({
   rowId,
@@ -20,6 +24,8 @@ export function PharmacienAvailabilityDropdown({
   onPick,
   /** Le bouton affiche le statut (couleurs) sans libellé séparé sur la carte. */
   appearance = "default",
+  /** Répondue frozen : pastille plus dense, sans opacité disabled. */
+  readOnlyEmphasis = false,
 }: {
   rowId: string;
   disabled: boolean;
@@ -32,6 +38,7 @@ export function PharmacienAvailabilityDropdown({
   options: readonly { value: string; label: string }[];
   onPick: (value: string) => void;
   appearance?: "default" | "statusChip" | "sentLine";
+  readOnlyEmphasis?: boolean;
 }) {
   const anchorRef = useRef<HTMLDivElement>(null);
   const [menuRect, setMenuRect] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -96,11 +103,14 @@ export function PharmacienAvailabilityDropdown({
           onOpenChange(!menuOpen);
         }}
         className={clsx(
-          "flex w-full items-center gap-1 text-left shadow-sm transition disabled:opacity-55",
+          "flex w-full items-center gap-1 text-left shadow-sm transition",
+          readOnlyEmphasis ? "" : "disabled:opacity-55",
           appearance === "sentLine"
             ? clsx(
                 "h-7 min-h-7 rounded-full px-2.5",
-                availabilitySentLineButtonClass(inferred),
+                readOnlyEmphasis
+                  ? availabilitySentLineFrozenButtonClass(inferred)
+                  : availabilitySentLineButtonClass(inferred),
                 menuOpen && "ring-1 ring-primary/25"
               )
             : appearance === "statusChip"

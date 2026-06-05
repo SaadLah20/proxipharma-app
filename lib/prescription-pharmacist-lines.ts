@@ -56,6 +56,23 @@ export function isPrescriptionOrdonnancePharmacistLine(
   return isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles);
 }
 
+/**
+ * Flag « proposé » pour l’inférence `partially_available` — les lignes ordonnance principales
+ * restent des lignes patient (qté prescrite vs dispo), pas des propositions officine.
+ */
+export function isProposedLineForAvailabilityInference(
+  requestType: string,
+  row: { line_source?: string | null; id: string; pharmacist_proposal_reason?: string | null },
+  amendmentBundles: { amendments: unknown }[],
+  opts?: { isAjoutOfficineLine?: boolean; isPrescriptionExtraProposed?: boolean }
+): boolean {
+  if (requestType === "free_consultation") return true;
+  if (opts?.isAjoutOfficineLine) return true;
+  if (opts?.isPrescriptionExtraProposed) return true;
+  if (isPrescriptionOrdonnancePrincipalLine(requestType, row, amendmentBundles)) return false;
+  return isPharmacistProposedLine(row);
+}
+
 /** Ajout officine : uniquement demande produits, ligne pharmacien hors liste patient initiale. */
 export function isProductRequestAjoutOfficineLine(
   requestType: string,

@@ -20,6 +20,7 @@ type Props = {
   onControlledLightboxChange?: (next: { label: string; url: string } | null) => void;
   controlledActiveTab?: 1 | 2;
   onControlledActiveTabChange?: (tab: 1 | 2) => void;
+  onPanelOpenChange?: (open: boolean) => void;
 };
 
 export function PrescriptionScanCollapsible({
@@ -32,8 +33,17 @@ export function PrescriptionScanCollapsible({
   onControlledLightboxChange,
   controlledActiveTab,
   onControlledActiveTabChange,
+  onPanelOpenChange,
 }: Props) {
   const [panelOpen, setPanelOpen] = useState(defaultOpen);
+
+  const setPanelOpenAndNotify = (next: boolean | ((open: boolean) => boolean)) => {
+    setPanelOpen((prev) => {
+      const resolved = typeof next === "function" ? next(prev) : next;
+      onPanelOpenChange?.(resolved);
+      return resolved;
+    });
+  };
 
   return (
     <details
@@ -48,7 +58,7 @@ export function PrescriptionScanCollapsible({
         className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 marker:content-none [&::-webkit-details-marker]:hidden"
         onClick={(e) => {
           e.preventDefault();
-          setPanelOpen((open) => !open);
+          setPanelOpenAndNotify((open) => !open);
         }}
       >
         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-900">
