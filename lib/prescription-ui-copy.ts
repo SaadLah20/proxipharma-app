@@ -19,7 +19,7 @@ export function isPrescriptionRequestType(requestType: string | null | undefined
 }
 
 export function respondedPrincipalTabLabelFr(requestType: string | null | undefined): string {
-  if (isConsultationRequestType(requestType)) return "Produit";
+  if (isConsultationRequestType(requestType)) return "Ligne";
   return isPrescriptionRequestType(requestType) ? PRESCRIPTION_PRINCIPAL_TAB_LABEL : "Ta demande";
 }
 

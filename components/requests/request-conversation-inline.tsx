@@ -137,12 +137,25 @@ export function RequestConversationInline({
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState("");
   const [err, setErr] = useState("");
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const bottomSentinelRef = useRef<HTMLLIElement>(null);
+  const pendingScrollRef = useRef<"always" | "if-sticky" | null>(null);
   const onMarkedReadRef = useRef(onMarkedRead);
   useEffect(() => {
     onMarkedReadRef.current = onMarkedRead;
   }, [onMarkedRead]);
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
+  const isNearBottom = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight <= 80;
+  }, []);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    bottomSentinelRef.current?.scrollIntoView({ behavior, block: "end" });
+  }, []);
+
+  const load = useCallback(async (opts?: { silent?: boolean; scroll?: "always" | "if-sticky" }) => {
     if (!opts?.silent) setLoading(true);
     setErr("");
     const { data, error } = await supabase
@@ -155,9 +168,11 @@ export function RequestConversationInline({
     if (error) {
       setErr(error.message);
       setRows([]);
+      pendingScrollRef.current = null;
       return;
     }
     setRows((data as RequestCommentRow[]) ?? []);
+    pendingScrollRef.current = opts?.scroll ?? (opts?.silent ? "if-sticky" : "always");
   }, [requestId]);
 
   const markRead = useCallback(async () => {
@@ -180,7 +195,7 @@ export function RequestConversationInline({
   useEffect(() => {
     if (!refreshToken) return;
     void (async () => {
-      await load({ silent: true });
+      await load({ silent: true, scroll: "if-sticky" });
       await markRead();
     })();
   }, [refreshToken, load, markRead]);
@@ -197,7 +212,7 @@ export function RequestConversationInline({
           filter: `request_id=eq.${requestId}`,
         },
         () => {
-          void load({ silent: true });
+          void load({ silent: true, scroll: "if-sticky" });
         }
       )
       .subscribe();
@@ -205,6 +220,18 @@ export function RequestConversationInline({
       void supabase.removeChannel(channel);
     };
   }, [requestId, load]);
+
+  useEffect(() => {
+    if (loading) return;
+    const mode = pendingScrollRef.current;
+    if (!mode) return;
+    pendingScrollRef.current = null;
+    if (mode === "always" || (mode === "if-sticky" && isNearBottom())) {
+      requestAnimationFrame(() => {
+        scrollToBottom(mode === "always" ? "auto" : "smooth");
+      });
+    }
+  }, [loading, rows, isNearBottom, scrollToBottom]);
 
   const send = async (pendingAudio: { blob: Blob; mimeType: string; durationSeconds: number } | null) => {
     setSending(true);
@@ -223,7 +250,7 @@ export function RequestConversationInline({
       return false;
     }
     setDraft("");
-    await load({ silent: true });
+    await load({ silent: true, scroll: "always" });
     await markRead();
     return true;
   };
@@ -245,7 +272,7 @@ export function RequestConversationInline({
     <section
       className={cn(
         "flex flex-col overflow-hidden rounded-xl border-2 shadow-sm",
-        fillViewport ? "min-h-0 flex-1 max-h-[calc(100dvh-11rem)]" : "min-h-[min(24rem,50vh)]",
+        fillViewport ? "min-h-0 flex-1" : "min-h-[min(24rem,50vh)]",
         isConsultation
           ? "border-violet-200/80 bg-gradient-to-b from-violet-50/50 to-white ring-1 ring-violet-200/45"
           : "border-border bg-card"
@@ -275,7 +302,10 @@ export function RequestConversationInline({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-2.5 [-webkit-overflow-scrolling:touch]">
+      <div
+        ref={scrollContainerRef}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-2.5 [-webkit-overflow-scrolling:touch]"
+      >
         {loading ? (
           <p className="text-[11px] text-muted-foreground">Chargement…</p>
         ) : !hasSeed && rows.length === 0 ? (
@@ -298,6 +328,7 @@ export function RequestConversationInline({
                 onSoftDelete={(commentId) => void softDelete(commentId)}
               />
             ))}
+            <li ref={bottomSentinelRef} className="h-px shrink-0" aria-hidden />
           </ul>
         )}
       </div>

@@ -87,7 +87,6 @@ function lineBadgeLabelFr(opts: {
   if (opts.isAlt) return "Alternative";
   if (opts.requestType === "prescription" && opts.isOrdonnancePrincipal) return "Ordonnance";
   if (opts.requestType === "prescription" && opts.isExtraProposed) return "Produit proposé par la pharmacie";
-  if (opts.requestType === "free_consultation" && opts.isProposedLine) return "Produit";
   if (opts.isProposedLine) return opts.pharmacistProposedBadgeLabel || "Ajout Officine";
   return respondedPrincipalTabLabelFr(opts.requestType);
 }
@@ -837,9 +836,15 @@ export function RespondedPatientLineChooser({
         ? Math.max(0, Math.floor(Number(row.available_qty)))
         : null;
     const isConsultation = requestType === "free_consultation";
+    const principalTabLabel =
+      isConsultation && prod?.name?.trim()
+        ? prod.name.trim()
+        : isConsultation
+          ? "Ligne"
+          : respondedPrincipalTabLabelFr(requestType);
     return {
       tabId: "principal",
-      tabLabel: respondedPrincipalTabLabelFr(requestType),
+      tabLabel: principalTabLabel,
       badgeLabel: lineBadgeLabelFr({
         requestType,
         isAlt: false,

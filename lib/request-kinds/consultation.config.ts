@@ -32,7 +32,7 @@ export const consultationRequestKindConfig: RequestKindConfig = {
     patientNotEnabledMessage: "",
     pharmacistNotEnabledMessage: "",
     workflow: {
-      pharmacistProposedBadge: "Produit",
+      pharmacistProposedBadge: "",
       patientProposedBadge: "",
       pharmacistProposeSectionTitle: "Ajouter des produits",
       pharmacistProposeSectionSubtitle: "Catalogue · disponibilité · publier au patient.",

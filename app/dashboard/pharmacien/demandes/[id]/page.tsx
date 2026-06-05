@@ -126,7 +126,7 @@ import {
   PlatformStickyFooterStack,
   PlatformStickyFooterStackRow,
 } from "@/components/layout/platform-sticky-footer";
-import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
+import { stickyFooterPadClass, consultationConversationViewportHeightClass } from "@/lib/platform-sticky-footer";
 import {
   PHARMA_LINE_EDITOR_ALTS,
   PHARMA_LINE_EDITOR_CARD,
@@ -4372,7 +4372,11 @@ export default function PharmacienDemandeDetailPage() {
       setError("");
       setRespondedEditMode(false);
       resetRespondedLineAltUi();
+      if (request.request_type === "free_consultation") {
+        setConsultationTab("products");
+      }
       await load();
+      dispatchRequestDetailRefresh(id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Une erreur est survenue.");
     } finally {
@@ -4782,8 +4786,7 @@ export default function PharmacienDemandeDetailPage() {
           ? request.request_type === "prescription"
             ? PRESCRIPTION_ADDITIONAL_PROPOSED_REASON
             : request.request_type === "free_consultation"
-              ? getRequestKindConfig(request.request_type).copy.workflow.pharmacistProposedBadge ||
-                "Produit"
+              ? getRequestKindConfig(request.request_type).copy.workflow.pharmacistProposedBadge || null
               : requestItemLineSourceFr.pharmacist_proposed
           : null;
       const thumbUrl = prod?.photo_url ? resolvePublicMediaUrl(prod.photo_url) : null;
@@ -4927,7 +4930,9 @@ export default function PharmacienDemandeDetailPage() {
     : "";
   if (consultationTabSyncKey && consultationTabSyncKey !== prevConsultationTabSyncKey) {
     setPrevConsultationTabSyncKey(consultationTabSyncKey);
-    setConsultationTab(getConsultationDefaultTab(request.status, request.responded_at));
+    const nextTab = getConsultationDefaultTab(request.status, request.responded_at);
+    setConsultationTab(nextTab);
+    if (nextTab === "products") setConversationOpen(false);
   }
 
   const patientPhone = patientProfile?.whatsapp?.trim();
@@ -5383,7 +5388,12 @@ export default function PharmacienDemandeDetailPage() {
       {kindConfig.capabilities.workflowEnabled ? (
         <>
           {showConsultationTabbed && consultationTab === "conversation" && sessionUserId ? (
-            <div className="flex min-h-0 flex-col max-h-[calc(100dvh-11rem)]">
+            <div
+              className={clsx(
+                "flex min-h-0 min-w-0 flex-1 flex-col",
+                consultationConversationViewportHeightClass("none")
+              )}
+            >
               <RequestConversationInline
                 requestId={request.id}
                 viewerRole="pharmacien"
@@ -5525,12 +5535,6 @@ export default function PharmacienDemandeDetailPage() {
                       patientPrescriptionLineBadge(request.request_type, row as PatientLineLike, supplyAmendmentBundles) ??
                       undefined
                     );
-                  }
-                  if (
-                    request.request_type === "free_consultation" &&
-                    row.line_source === "pharmacist_proposed"
-                  ) {
-                    return proposedBadgeLabel || "Produit";
                   }
                   return undefined;
                 }}
@@ -5674,9 +5678,7 @@ export default function PharmacienDemandeDetailPage() {
               const availUi = availabilityStatusUi(statusForBadge);
               const AvailIcon = availUi.Icon;
               const lineProposedBadge = isConsultation
-                ? isProposedLine
-                  ? proposedBadgeLabel || "Produit"
-                  : null
+                ? null
                 : isOrdonnancePrincipalLine
                   ? ordonnanceLineBadge
                   : isPrescriptionExtraProposed || isAjoutOfficineLine || isProposedLine
@@ -6327,9 +6329,7 @@ export default function PharmacienDemandeDetailPage() {
                             ? "Proposé"
                             : isOrdonnancePrincipalLine
                               ? "Ordonnance"
-                              : isConsultation
-                                ? "Produit"
-                                : "Demandé"
+                              : "Demandé"
                         }
                         tabs={[
                           ...rowAlts.map((alt, altIndex) => ({
