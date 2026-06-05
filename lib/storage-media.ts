@@ -9,6 +9,7 @@
  * | Ordonnances            | private-media   | ordonnances/{request_id}/…        |
  * | Consultations libres     | private-media   | consultations/{request_id}/…    |
  * | Photos patient (dossier)| private-media  | patient/{request_id}/…          |
+ * | Vocaux conversation      | private-media  | conversation/{request_id}/…     |
  */
 
 export const STORAGE_BUCKET_PUBLIC = "public-assets";
@@ -20,6 +21,7 @@ export const STORAGE_PATH_PREFIX = {
   ordonnances: "ordonnances",
   consultations: "consultations",
   patient: "patient",
+  conversation: "conversation",
 } as const;
 
 export type PharmacyImageKind = "logo" | "cover";
@@ -50,6 +52,11 @@ export function consultationMediaObjectPath(requestId: string, slot: 1 | 2 | 3, 
 /** Photos patient liées à une demande (boutons, brûlures, etc.). */
 export function patientRequestMediaObjectPath(requestId: string, fileId: string, ext = "webp"): string {
   return `${STORAGE_PATH_PREFIX.patient}/${requestId}/${fileId}.${ext}`;
+}
+
+/** Message vocal fil conversation (`request_comments.audio_path`). */
+export function conversationAudioObjectPath(requestId: string, commentId: string, ext: "webm" | "mp4" | "m4a"): string {
+  return `${STORAGE_PATH_PREFIX.conversation}/${requestId}/${commentId}.${ext}`;
 }
 
 function supabaseProjectUrl(): string {

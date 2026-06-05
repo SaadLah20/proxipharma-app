@@ -54,7 +54,7 @@ export async function POST(req: Request) {
   const objectPath = String(body.path ?? "")
     .trim()
     .replace(/^\//, "");
-  const m = objectPath.match(/^(ordonnances|consultations)\/([0-9a-f-]{36})\/[^/]+$/i);
+  const m = objectPath.match(/^(ordonnances|consultations|conversation)\/([0-9a-f-]{36})\/[^/]+$/i);
   if (!m) {
     return Response.json({ error: "Chemin média invalide." }, { status: 400 });
   }

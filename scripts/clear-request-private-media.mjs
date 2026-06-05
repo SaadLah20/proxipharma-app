@@ -5,10 +5,11 @@
  * SUPPRIME :
  *   - private-media/ordonnances/**
  *   - private-media/consultations/**
+ *   - private-media/patient/** (photos jointes aux demandes produits)
+ *   - private-media/conversation/** (messages vocaux fil conversation)
  *
  * CONSERVE :
  *   - public-assets/** (products/, pharmacies/ — catalogue + photos officine)
- *   - private-media/patient/** (photos dossier demande produits, si présentes)
  *
  * À lancer après supabase/scripts/clear-all-requests.sql si vous repartez les tests.
  *
@@ -27,7 +28,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BUCKET_PRIVATE = "private-media";
-const PREFIXES_TO_DELETE = ["ordonnances", "consultations"];
+const PREFIXES_TO_DELETE = ["ordonnances", "consultations", "patient", "conversation"];
 const LIST_LIMIT = 200;
 const MAX_RETRIES = 4;
 
@@ -141,9 +142,8 @@ try {
   process.exit(1);
 }
 
-console.log("--- Storage : ordonnances + consultations uniquement ---");
+console.log("--- Storage : médias liés aux demandes (private-media) ---");
 console.log("CONSERVÉ : public-assets (products/, pharmacies/)");
-console.log("CONSERVÉ : private-media/patient/ (photos demandes produits, si besoin)");
 for (const prefix of PREFIXES_TO_DELETE) {
   console.log(`${prefix}/ : ${byPrefix[prefix].length} fichier(s) à supprimer`);
 }
