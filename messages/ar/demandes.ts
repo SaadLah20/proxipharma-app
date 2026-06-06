@@ -35,6 +35,20 @@ export const demandesAr = {
   header: {
     journeyAria: "عرض تفاصيل الحالة ومسار الطلب",
   },
+  statusBadges: {
+    draft: "مسودة",
+    submitted: "مُرسلة",
+    inReview: "قيد المعالجة",
+    responded: "تم الرد — للتأكيد",
+    confirmed: "مُؤكدة",
+    processing: "تحضير في الصيدلية",
+    treated: "مُعالَجة",
+    completed: "مُغلَقة",
+    cancelled: "مُلغاة",
+    abandoned: "مُهمَلة",
+    expired: "منتهية",
+    inProgressVirtual: "متابعة حجز / طلب",
+  },
   sections: {
     toReserve: "للحجز",
     toOrder: "للطلب",

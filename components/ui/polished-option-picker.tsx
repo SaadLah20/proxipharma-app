@@ -45,10 +45,18 @@ export function PolishedOptionPicker({
   const [menuOpenInternal, setMenuOpenInternal] = useState(false);
   const menuOpen = menuOpenProp ?? menuOpenInternal;
   const setMenuOpen = onMenuOpenChange ?? setMenuOpenInternal;
-  const [menuRect, setMenuRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [menuRect, setMenuRect] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+    width: number;
+    openUpward: boolean;
+  } | null>(null);
 
   const selected = options.find((o) => o.value === value);
   const label = selected?.label ?? placeholder;
+
+  const MENU_MAX_HEIGHT_PX = 224;
 
   useLayoutEffect(() => {
     if (!menuOpen || !anchorRef.current) {
@@ -60,10 +68,19 @@ export function PolishedOptionPicker({
       if (!el) return;
       const r = el.getBoundingClientRect();
       const vw = typeof window !== "undefined" ? window.innerWidth : 400;
+      const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+      const safeBottom = 12;
       const width = Math.max(r.width, minMenuWidth);
       let left = r.left;
       if (left + width > vw - 8) left = Math.max(8, vw - width - 8);
-      setMenuRect({ top: r.bottom + 4, left, width });
+      const spaceBelow = vh - r.bottom - safeBottom;
+      const spaceAbove = r.top - safeBottom;
+      const openUpward = spaceBelow < MENU_MAX_HEIGHT_PX && spaceAbove > spaceBelow;
+      if (openUpward) {
+        setMenuRect({ bottom: vh - r.top + 4, left, width, openUpward: true });
+      } else {
+        setMenuRect({ top: r.bottom + 4, left, width, openUpward: false });
+      }
     };
     sync();
     window.addEventListener("scroll", sync, true);
@@ -117,7 +134,9 @@ export function PolishedOptionPicker({
                 aria-label={ariaLabel}
                 style={{
                   position: "fixed",
-                  top: menuRect.top,
+                  ...(menuRect.openUpward
+                    ? { bottom: menuRect.bottom }
+                    : { top: menuRect.top }),
                   left: menuRect.left,
                   width: menuRect.width,
                   zIndex: 11050,

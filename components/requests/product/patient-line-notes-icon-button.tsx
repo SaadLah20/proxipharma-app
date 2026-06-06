@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 import { MessageCircle, X } from "lucide-react";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
-import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
+import { requestKindUiTheme } from "@/lib/request-kind-ui-theme";
 import { uiActionBtnModalDismiss } from "@/lib/ui-action-buttons";
 import { cn } from "@/lib/utils";
 
@@ -12,13 +12,22 @@ export function PatientLineNotesIconButton({
   productName,
   client,
   pharmacist,
+  requestType = "product_request",
 }: {
   productName: string;
   client: string;
   pharmacist: string;
+  requestType?: string;
 }) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
+  const kindTheme = requestKindUiTheme(requestType);
+  const patientNoteBorderClass =
+    requestType === "prescription"
+      ? "border-l-amber-500/70"
+      : requestType === "free_consultation"
+        ? "border-l-violet-500/70"
+        : "border-l-sky-500/70";
   const c = client.trim();
   const p = pharmacist.trim();
   const hasNotes = Boolean(c || p);
@@ -40,11 +49,11 @@ export function PatientLineNotesIconButton({
         <div
           className={cn(
             "max-h-[min(80vh,20rem)] w-full max-w-sm overflow-hidden rounded-2xl border bg-card shadow-2xl sm:mx-auto",
-            t.modalShell
+            kindTheme.modalShell
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className={cn("flex items-start justify-between gap-2 border-b px-3 py-2", t.modalHeader)}>
+          <div className={cn("flex items-start justify-between gap-2 border-b px-3 py-2", kindTheme.modalHeader)}>
             <div className="min-w-0 flex-1">
               <h2 id={titleId} className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 <span className="block">Message</span>
@@ -64,7 +73,7 @@ export function PatientLineNotesIconButton({
           </div>
           <div className="max-h-[min(60vh,16rem)] space-y-2 overflow-y-auto overscroll-y-contain px-3 py-2.5 text-[11px] [-webkit-overflow-scrolling:touch]">
             {c ? (
-              <div className="rounded-lg border border-border/80 border-l-2 border-l-sky-500/70 bg-muted/20 px-2.5 py-2">
+              <div className={cn("rounded-lg border border-border/80 border-l-2 bg-muted/20 px-2.5 py-2", patientNoteBorderClass)}>
                 <p className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">Vous</p>
                 <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-foreground">{c}</p>
               </div>

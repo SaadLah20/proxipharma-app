@@ -375,17 +375,11 @@ function rowForValidatedLineLabels(
   };
 }
 
-/** Ajouts officine en brouillon : dispo / date lues depuis le draft pour le classement en liste. */
-function rowForValidatedSupplyBucket(row: ItemRow, d: Draft): PatientLineLike {
-  if (!isLocalProposedItemId(row.id)) return row as PatientLineLike;
+/** Ligne + brouillon officine pour classement bucket validé (aligné labels). */
+function rowForValidatedSupplyBucket(row: ItemRow, d: Draft, requestType: string): PatientLineLike {
   const f = d[row.id];
   if (!f) return row as PatientLineLike;
-  const eta = f.expected_availability_date?.trim();
-  return {
-    ...(row as PatientLineLike),
-    availability_status: f.availability_status ?? row.availability_status,
-    expected_availability_date: eta !== "" ? eta : row.expected_availability_date,
-  };
+  return rowForValidatedLineLabels(row, f, requestType);
 }
 
 type ProductCatalogHit = {
@@ -640,15 +634,17 @@ function effectiveAvailSupplyDraft(
     if (altSt === "partially_available" || altSt === "available" || altSt === "to_order") {
       const altNorm = altSt === "partially_available" ? "available" : altSt;
       const mainSt = row.availability_status ?? "";
+      const draftActivelyEdited = f.availability_status !== mainSt;
       /** Brouillon encore sur la ligne principale alors que le patient a validé l’alternative. */
       const postConfirmSupply =
         requestStatus != null &&
         ["confirmed", "treated"].includes(requestStatus) &&
         Boolean(row.is_selected_by_patient);
       const staleMainDraft =
-        postConfirmSupply ||
-        status === mainSt ||
-        Boolean(mainSt && ["unavailable", "market_shortage"].includes(String(mainSt)));
+        !draftActivelyEdited &&
+        (postConfirmSupply ||
+          status === mainSt ||
+          Boolean(mainSt && ["unavailable", "market_shortage"].includes(String(mainSt))));
       if (staleMainDraft) {
         status = altNorm;
         const aq = Number(chosenAlt.available_qty ?? 0);
@@ -684,9 +680,19 @@ function effectiveEtaSupplyDraft(
   if (chosen) {
     const alts = normalizeAlts(row.request_item_alternatives);
     const a = alts.find((x) => x.id === chosen);
-    return a?.expected_availability_date?.trim() || row.expected_availability_date?.trim() || null;
+    if (
+      pharmacistSupplyDraftNeedsReceptionDate({
+        draftStatus: f.availability_status,
+        inferredEffectiveStatus: effectiveAvailSupplyDraft(row, f, requestType, requestStatus),
+      })
+    ) {
+      const d = f.expected_availability_date?.trim();
+      if (d) return d;
+      return a?.expected_availability_date?.trim() || row.expected_availability_date?.trim() || null;
+    }
+    return null;
   }
-  return row.expected_availability_date?.trim() || null;
+  return null;
 }
 
 function buildItemUpdatePayload(f: ItemDraft, row: ItemRow, requestType?: string) {
@@ -729,7 +735,10 @@ function buildItemUpdatePayload(f: ItemDraft, row: ItemRow, requestType?: string
     available_qty: availQty,
     unit_price: price,
     pharmacist_comment: f.pharmacist_comment.trim() || null,
-    expected_availability_date: f.expected_availability_date.trim() !== "" ? f.expected_availability_date : null,
+    expected_availability_date:
+      inferred === "to_order" && f.expected_availability_date.trim() !== ""
+        ? f.expected_availability_date
+        : null,
   };
 }
 
@@ -2545,6 +2554,7 @@ export default function PharmacienDemandeDetailPage() {
           current.fulfillment_draft,
           inferredStatus
         );
+        const clearEta = inferredStatus !== "to_order";
         return {
           ...prev,
           [row.id]: {
@@ -2552,6 +2562,7 @@ export default function PharmacienDemandeDetailPage() {
             availability_status: inferredStatus,
             available_qty: String(patch.availableQty),
             fulfillment_draft,
+            expected_availability_date: clearEta ? "" : current.expected_availability_date,
           },
         };
       }
@@ -2563,6 +2574,7 @@ export default function PharmacienDemandeDetailPage() {
         isProposedLine: isProposedForAvailInference,
       });
       const fulfillment_draft = fulfillmentDraftAfterAvailabilityChange(current.fulfillment_draft, inferred);
+      const clearEta = inferred !== "to_order";
       return {
         ...prev,
         [row.id]: {
@@ -2570,6 +2582,7 @@ export default function PharmacienDemandeDetailPage() {
           availability_status: inferred,
           available_qty: nextAvail,
           fulfillment_draft,
+          expected_availability_date: clearEta ? "" : current.expected_availability_date,
         },
       };
     });
@@ -4534,7 +4547,7 @@ export default function PharmacienDemandeDetailPage() {
     const eff = rowsWithEffectiveWithdrawnForSupply(displayRows, draft).filter(
       (r) => !removedPersistedProposedIds.includes(r.id)
     );
-    const forBuckets = eff.map((row) => rowForValidatedSupplyBucket(row, draft));
+    const forBuckets = eff.map((row) => rowForValidatedSupplyBucket(row, draft, request?.request_type ?? "product_request"));
     const sorted = sortPharmacistSupplyRowsBySection(forBuckets);
     const bucketGroups = buildPharmacistValidatedBucketGroups(
       sorted,
@@ -5141,7 +5154,7 @@ export default function PharmacienDemandeDetailPage() {
               </p>
             </section>
           ) : null}
-          {(isProductRequest || isPrescription) && sharedShowPlannedVisitBlock(request.status) ? (
+          {(isProductRequest || isPrescription || isConsultation) && sharedShowPlannedVisitBlock(request.status) ? (
             <section className={pharmacistProductPlannedVisitClass} aria-label="Date de passage patient">
               <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 Date de passage
@@ -5521,6 +5534,17 @@ export default function PharmacienDemandeDetailPage() {
                   : "mt-2 gap-3"
             )}
           >
+            {isPrescription &&
+            prescriptionPaths?.page1 &&
+            !ordonnanceCatalogEditable &&
+            (showClosedBucketsLayout || showArchiveFrozenProducts) ? (
+              <PrescriptionScanCollapsible
+                id="prescription-scan-panel-archive"
+                className="mb-2"
+                paths={prescriptionPaths}
+                defaultOpen={false}
+              />
+            ) : null}
             {showClosedBucketsLayout ? (
               <PharmacistClosedProductBucketsView
                 items={displayRows}
@@ -7073,7 +7097,11 @@ export default function PharmacienDemandeDetailPage() {
             </>
           ) : null}
 
-          {isPrescription && prescriptionPaths?.page1 && !ordonnanceCatalogEditable ? (
+          {isPrescription &&
+          prescriptionPaths?.page1 &&
+          !ordonnanceCatalogEditable &&
+          !showClosedBucketsLayout &&
+          !showArchiveFrozenProducts ? (
             <PrescriptionScanCollapsible
               id="prescription-scan-panel"
               className="mt-3"

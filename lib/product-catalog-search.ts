@@ -7,6 +7,9 @@ export const PRODUCT_CATALOG_SEARCH_MIN_CHARS = 2 as const;
 /** Assez large pour un scroll ; reste raisonnable côté réseau. */
 export const PRODUCT_CATALOG_SEARCH_LIMIT = 48 as const;
 
+/** Page Explorer catalogue patient (scroll infini). */
+export const PRODUCT_CATALOG_EXPLORER_PAGE_SIZE = 60 as const;
+
 /**
  * Retire les caractères qui modifient le comportement de `ILIKE` ou cassent `.or(...)`.
  */

@@ -16,6 +16,7 @@ export type RequestKindUiTheme = {
   photoRing: string;
   linkAccent: string;
   modalShell: string;
+  modalHeader: string;
 };
 
 const consultationTheme: RequestKindUiTheme = {
@@ -31,6 +32,7 @@ const consultationTheme: RequestKindUiTheme = {
   photoRing: "hover:ring-violet-400/35 focus-visible:ring-violet-400/45",
   linkAccent: "text-violet-900 underline",
   modalShell: "border-border/90 shadow-xl",
+  modalHeader: "border-violet-200/80 bg-violet-50/40",
 };
 
 const productTheme: RequestKindUiTheme = {
@@ -45,6 +47,7 @@ const productTheme: RequestKindUiTheme = {
   photoRing: productRequestPublicTheme.photoRing,
   linkAccent: "text-sky-900 underline",
   modalShell: productRequestPublicTheme.modalShell,
+  modalHeader: productRequestPublicTheme.modalHeader,
 };
 
 const prescriptionTheme: RequestKindUiTheme = {
@@ -60,6 +63,7 @@ const prescriptionTheme: RequestKindUiTheme = {
   photoRing: "hover:ring-amber-400/35 focus-visible:ring-amber-400/45",
   linkAccent: "text-amber-950 underline",
   modalShell: "border-amber-200/70 shadow-xl",
+  modalHeader: "border-amber-200/80 bg-amber-50/40",
 };
 
 export function requestKindUiTheme(requestType: string | null | undefined): RequestKindUiTheme {
