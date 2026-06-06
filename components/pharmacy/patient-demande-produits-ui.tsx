@@ -375,7 +375,7 @@ export function ProductRequestLineDeleteButton({ onClick }: { onClick: () => voi
       type="button"
       aria-label={td("removeProduct")}
       onClick={onClick}
-      className="absolute -right-1.5 -top-1.5 z-10 flex size-7 items-center justify-center rounded-full border border-rose-200/90 bg-white text-destructive shadow-md transition hover:bg-rose-50"
+      className="absolute -end-1.5 -top-1.5 z-10 flex size-7 items-center justify-center rounded-full border border-rose-200/90 bg-white text-destructive shadow-md transition hover:bg-rose-50"
     >
       <Trash2 className="size-3.5" strokeWidth={2.25} aria-hidden />
     </button>
@@ -407,11 +407,11 @@ export function ProductRequestLinePanel({
       <div className={cn("shrink-0", THUMB, thumbClassName)}>{thumb}</div>
       <div className={cn("flex min-w-0 flex-1 flex-col gap-1", contentMinHeight)}>
         <div className="min-w-0 overflow-hidden pe-5 leading-tight">{title}</div>
-        <div className="relative flex min-h-7 w-full items-center overflow-visible">
-          <div className="z-0 min-w-0 max-w-[42%] shrink-0 leading-none">
+        <div className="flex min-h-7 w-full min-w-0 items-center justify-between gap-2">
+          <div className="min-w-0 shrink leading-none">
             <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
           </div>
-          <div className="absolute left-[calc(50%+6mm)] top-1/2 z-[1] flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 overflow-visible">
+          <div className="flex shrink-0 items-center gap-2">
             {qtyControl}
             {bottomRight ?? null}
           </div>
@@ -472,7 +472,7 @@ export function ProductRequestLineBodyGrid({
     >
       <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
       {qtyControl}
-      {messageButton ? <div className="ml-auto flex shrink-0 items-center">{messageButton}</div> : null}
+      {messageButton ? <div className="ms-auto flex shrink-0 items-center">{messageButton}</div> : null}
     </div>
   );
 }
