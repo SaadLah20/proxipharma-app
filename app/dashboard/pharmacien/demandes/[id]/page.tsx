@@ -170,6 +170,7 @@ import {
   validatedBranchDescriptionHtml,
   validatedBranchPhotoPath,
   validatedProductBrand,
+  validatedProductType,
   validatedProductLabel,
   validatedQtyForPatientLine,
   type PatientLineLike,
@@ -200,7 +201,7 @@ import {
   type CatalogProductPhotoPreview,
 } from "@/components/requests/patient-product-photo-preview-modal";
 import { PharmacistProductPhotoThumb } from "@/components/pharmacist/pharmacist-product-photo-thumb";
-import { ProductBrandLabel } from "@/components/products/product-brand-label";
+import { ProductCatalogMetaLabel } from "@/components/products/product-brand-label";
 import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
 import { PharmacistProductRequestDossierHeader } from "@/components/requests/product/pharmacist-product-request-dossier-header";
 import { patientBucketProductListClass } from "@/lib/patient-bucket-product-row-ui";
@@ -1844,12 +1845,22 @@ export default function PharmacienDemandeDetailPage() {
   const [pharmaHistoryRowId, setPharmaHistoryRowId] = useState<string | null>(null);
   const [productPhotoPreview, setProductPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
   const openProductPhotoPreview = useCallback(
-    (url: string, title: string, descriptionHtml?: string | null, brand?: string | null) => {
+    (
+      url: string | null,
+      title: string,
+      descriptionHtml?: string | null,
+      brand?: string | null,
+      productType?: string | null,
+      options?: { catalogExplorerPreview?: boolean }
+    ) => {
+      if (!options?.catalogExplorerPreview && !url?.trim()) return;
       setProductPhotoPreview({
-        url: url.trim(),
+        url: url?.trim() || null,
         title: title.trim() || "Produit",
         brand: brand ?? null,
+        product_type: productType ?? null,
         descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
+        catalogExplorerPreview: options?.catalogExplorerPreview ?? false,
       });
     },
     []
@@ -5763,6 +5774,7 @@ export default function PharmacienDemandeDetailPage() {
                 const pl = row as PatientLineLike;
                 const validatedName = validatedProductLabel(pl);
                 const validatedBrand = validatedProductBrand(pl);
+                const validatedType = validatedProductType(pl);
                 const validatedQty = validatedQtyForPatientLine(pl);
                 const effSupply = effectiveAvailSupplyDraft(row, f, request?.request_type, request?.status);
                 const etaSupply = effectiveEtaSupplyDraft(row, f, request?.request_type, request?.status);
@@ -6211,6 +6223,7 @@ export default function PharmacienDemandeDetailPage() {
                       header={header}
                       validatedName={validatedName}
                       validatedBrand={validatedBrand}
+                      validatedProductType={validatedType}
                       validatedQty={validatedQty}
                       ordonnancePrescribedQty={ordonnancePrescribedQty}
                       availSentence={availSentence}
@@ -6448,6 +6461,7 @@ export default function PharmacienDemandeDetailPage() {
                           }
                           title={prod?.name ?? "Produit"}
                           brand={prod?.brand}
+                          productType={prod?.product_type}
                           descriptionHtml={prod?.full_description}
                           onPhotoPreview={openProductPhotoPreview}
                           iconClassName={clsx(
@@ -7359,14 +7373,16 @@ export default function PharmacienDemandeDetailPage() {
                                 photoUrl={h.photo_url}
                                 title={h.name}
                                 brand={h.brand}
+                                productType={h.product_type}
                                 descriptionHtml={h.full_description}
                                 onPhotoPreview={openProductPhotoPreview}
+                                catalogExplorerPreview
                                 iconClassName="text-violet-500/80"
                               />
                             </div>
                             <span className="min-w-0 flex-1">
                               <span className="block font-medium text-foreground">{h.name}</span>
-                              <ProductBrandLabel brand={h.brand} />
+                              <ProductCatalogMetaLabel productType={h.product_type} brand={h.brand} />
                               {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h)) !== "—" ? (
                                 <span className="mt-0.5 block text-[11px] font-medium text-teal-800">
                                   PU {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h))}
@@ -8260,7 +8276,9 @@ export default function PharmacienDemandeDetailPage() {
         imageUrl={productPhotoPreview?.url ?? null}
         title={productPhotoPreview?.title ?? ""}
         brand={productPhotoPreview?.brand}
+        productType={productPhotoPreview?.product_type}
         descriptionHtml={productPhotoPreview?.descriptionHtml}
+        catalogExplorerPreview={productPhotoPreview?.catalogExplorerPreview}
         onClose={() => setProductPhotoPreview(null)}
       />
       {usesLineWorkflow &&

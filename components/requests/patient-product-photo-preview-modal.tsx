@@ -5,21 +5,31 @@ import Image from "next/image";
 import { createPortal } from "react-dom";
 import { clsx } from "clsx";
 import { X } from "lucide-react";
-import { lockBodyScroll } from "@/lib/ui-body-scroll-lock";
-import { ProductBrandLabel } from "@/components/products/product-brand-label";
+import { useTranslations } from "next-intl";
+import { lockBodyScroll } from "@/lib/ui-body-scroll-lock";import { ProductCatalogMetaLabel } from "@/components/products/product-brand-label";
+import { ProductPhotoComingSoonFrame } from "@/components/products/product-photo-coming-soon-frame";
 
 export type CatalogProductPhotoPreview = {
-  url: string;
+  url?: string | null;
   title: string;
   brand?: string | null;
+  product_type?: string | null;
   descriptionHtml?: string | null;
+  /** Explorateur catalogue : zone photo = « disponible prochainement » (pas d’agrandissement). */
+  catalogExplorerPreview?: boolean;
+};
+
+export type ProductPhotoPreviewOpenOptions = {
+  catalogExplorerPreview?: boolean;
 };
 
 export type ProductPhotoPreviewHandler = (
-  url: string,
+  url: string | null,
   title: string,
   descriptionHtml?: string | null,
-  brand?: string | null
+  brand?: string | null,
+  productType?: string | null,
+  options?: ProductPhotoPreviewOpenOptions
 ) => void;
 
 /** Vignette catalogue cliquable → ouvre `PatientProductPhotoPreviewModal` via `onPreview`. */
@@ -27,6 +37,7 @@ export function CatalogProductPhotoThumb({
   imageUrl,
   title,
   brand,
+  productType,
   descriptionHtml,
   size,
   className,
@@ -37,6 +48,7 @@ export function CatalogProductPhotoThumb({
   imageUrl: string;
   title: string;
   brand?: string | null;
+  productType?: string | null;
   descriptionHtml?: string | null;
   size: number;
   className?: string;
@@ -57,7 +69,13 @@ export function CatalogProductPhotoThumb({
       onClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
-        onPreview({ url: imageUrl, title, brand: brand ?? null, descriptionHtml: descriptionHtml ?? null });
+        onPreview({
+          url: imageUrl,
+          title,
+          brand: brand ?? null,
+          product_type: productType ?? null,
+          descriptionHtml: descriptionHtml ?? null,
+        });
       }}
     >
       <Image
@@ -80,16 +98,24 @@ export function PatientProductPhotoPreviewModal({
   imageUrl,
   title,
   brand,
+  productType,
   descriptionHtml,
+  catalogExplorerPreview = false,
   onClose,
 }: {
   open: boolean;
   imageUrl: string | null;
   title: string;
   brand?: string | null;
+  productType?: string | null;
   descriptionHtml?: string | null;
+  catalogExplorerPreview?: boolean;
   onClose: () => void;
 }) {
+  const tModal = useTranslations("modals.photoPreview");
+  const tCommon = useTranslations("common");
+  const tPublic = useTranslations("demandePublic");
+
   useEffect(() => {
     if (!open) return;
     const releaseScroll = lockBodyScroll();
@@ -103,14 +129,16 @@ export function PatientProductPhotoPreviewModal({
     };
   }, [open, onClose]);
 
-  if (!open || !imageUrl) return null;
+  if (!open) return null;
+
+  const showComingSoonPhoto = catalogExplorerPreview || !imageUrl?.trim();
 
   return createPortal(
     <div className="fixed inset-0 z-[20050] flex items-center justify-center p-2 sm:p-5" role="presentation">
       <button
         type="button"
         className="absolute inset-0 bg-black/55 backdrop-blur-[1px]"
-        aria-label="Fermer l’aperçu photo"
+        aria-label={tModal("closePreviewAria")}
         onClick={onClose}
       />
       <div
@@ -125,16 +153,24 @@ export function PatientProductPhotoPreviewModal({
       >
         <div className="relative z-20 flex shrink-0 items-start justify-between gap-2 border-b border-border/80 bg-card px-3 py-2.5 sm:px-4">
           <div className="min-w-0 flex-1 pr-2">
-            <h2 id="patient-photo-preview-title" className="min-w-0 text-sm font-bold leading-snug text-foreground sm:text-base">
+            <h2
+              id="patient-photo-preview-title"
+              className="min-w-0 break-words text-sm font-bold leading-snug text-foreground sm:text-base"
+            >
               {title}
             </h2>
-            <ProductBrandLabel brand={brand} variant="modal" className="mt-1" />
+            <ProductCatalogMetaLabel
+              productType={productType}
+              brand={brand}
+              variant="modal"
+              className="mt-1"
+            />
           </div>
           <button
             type="button"
             className="relative z-10 shrink-0 rounded-lg border border-border/80 bg-card p-1.5 text-foreground shadow-sm hover:bg-muted/70"
             onClick={onClose}
-            aria-label="Fermer"
+            aria-label={tCommon("close")}
           >
             <X className="size-5" strokeWidth={2} aria-hidden />
           </button>
@@ -151,16 +187,20 @@ export function PatientProductPhotoPreviewModal({
               descriptionHtml?.trim() ? "lg:min-w-0 lg:flex-[1.1]" : ""
             )}
           >
-            <img
-              src={imageUrl}
-              alt=""
-              className="max-h-[min(58dvh,520px)] w-auto max-w-full rounded-lg object-contain shadow-md ring-1 ring-black/5"
-            />
+            {showComingSoonPhoto ? (
+              <ProductPhotoComingSoonFrame />
+            ) : (
+              <img
+                src={imageUrl!}
+                alt=""
+                className="max-h-[min(58dvh,520px)] w-auto max-w-full rounded-lg object-contain shadow-md ring-1 ring-black/5"
+              />
+            )}
           </div>
           {descriptionHtml?.trim() ? (
             <div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-border/80 lg:max-w-[min(42%,28rem)] lg:border-l lg:border-t-0 lg:pl-1">
               <p className="shrink-0 border-b border-border/60 bg-muted/15 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground sm:text-[11px]">
-                Description
+                {tModal("description")}
               </p>
               <div
                 className="product-description-html min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 text-[13px] leading-relaxed text-foreground [-webkit-overflow-scrolling:touch] [&_li]:ml-4 [&_p+p]:mt-2 [&_ul]:list-disc [&_ul]:pl-4"
@@ -170,7 +210,9 @@ export function PatientProductPhotoPreviewModal({
           ) : null}
         </div>
         <p className="shrink-0 border-t border-border/60 bg-muted/15 px-3 py-2 text-center text-[10px] text-muted-foreground sm:text-[11px]">
-          Photo catalogue — visuel indicatif.
+          {catalogExplorerPreview
+            ? tPublic("photoPreviewCatalogFooter")
+            : tPublic("photoPreviewIndicativeFooter")}
         </p>
       </div>
     </div>,

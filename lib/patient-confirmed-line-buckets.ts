@@ -190,6 +190,15 @@ export function validatedProductBrand(row: PatientLineLike): string | null {
   return oneProd(alt?.products)?.brand?.trim() || oneProd(row.products)?.brand?.trim() || null;
 }
 
+export function validatedProductType(row: PatientLineLike): string | null {
+  const chosenId = row.patient_chosen_alternative_id ?? null;
+  if (!chosenId) return oneProd(row.products)?.product_type?.trim() || null;
+  const alt = altRowsOf(row).find((a) => a.id === chosenId);
+  return (
+    oneProd(alt?.products)?.product_type?.trim() || oneProd(row.products)?.product_type?.trim() || null
+  );
+}
+
 /** Photo catalogue de la branche retenue (alternative choisie ou produit principal). */
 export function validatedBranchPhotoPath(row: PatientLineLike): string | null {
   const chosenId = row.patient_chosen_alternative_id ?? null;

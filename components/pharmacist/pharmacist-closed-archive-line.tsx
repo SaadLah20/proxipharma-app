@@ -13,6 +13,7 @@ import {
   validatedBranchDescriptionHtml,
   validatedBranchPhotoPath,
   validatedProductBrand,
+  validatedProductType,
   validatedProductLabel,
   validatedQtyForPatientLine,
 } from "@/lib/patient-confirmed-line-buckets";
@@ -202,6 +203,7 @@ export function PharmacistClosedArchiveValidatedLine({
       header={null}
       validatedName={validatedName}
       validatedBrand={validatedProductBrand(row)}
+      validatedProductType={validatedProductType(row)}
       validatedQty={validatedQty}
       availSentence=""
       unitLabel={unitPriceMad != null ? `${unitPriceMad.toFixed(2)} MAD` : "—"}

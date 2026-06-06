@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
@@ -68,6 +69,8 @@ type ProductLite = {
 type CartLine = PatientDemandeProduitsDraftLine;
 
 export default function DemandeProduitsPage() {
+  const td = useTranslations("demandePublic");
+  const tc = useTranslations("common");
   const params = useParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -86,12 +89,21 @@ export default function DemandeProduitsPage() {
   const [feedback, setFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [photoPreview, setPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
   const openPhotoPreview = useCallback(
-    (url: string, title: string, descriptionHtml?: string | null, brand?: string | null) => {
+    (
+      url: string | null,
+      title: string,
+      descriptionHtml?: string | null,
+      brand?: string | null,
+      productType?: string | null,
+      options?: { catalogExplorerPreview?: boolean }
+    ) => {
       setPhotoPreview({
-        url,
-        title,
+        url: url?.trim() || null,
+        title: title.trim() || tc("product"),
         brand: brand ?? null,
+        product_type: productType ?? null,
         descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
+        catalogExplorerPreview: options?.catalogExplorerPreview ?? false,
       });
     },
     []
@@ -195,6 +207,7 @@ export default function DemandeProduitsPage() {
             product_id: p.id,
             name: p.name,
             brand: p.brand,
+            product_type: p.product_type,
             photo_url: resolvePublicMediaUrl(p.photo_url),
             full_description: p.full_description ?? null,
             qty: 1,
@@ -219,10 +232,10 @@ export default function DemandeProduitsPage() {
   };
 
   const validateBeforeSend = (): string | null => {
-    if (!pharmacyId) return "Pharmacie introuvable.";
-    if (lines.length === 0) return "Ajoute au moins un produit.";
+    if (!pharmacyId) return td("pharmacyNotFound");
+    if (lines.length === 0) return td("addAtLeastOne");
     for (const l of lines) {
-      if (l.qty < 1 || l.qty > 10) return "Chaque quantité doit être entre 1 et 10.";
+      if (l.qty < 1 || l.qty > 10) return td("qtyRange");
     }
     return null;
   };
@@ -239,7 +252,7 @@ export default function DemandeProduitsPage() {
 
     const { data: userData, error: userErr } = await supabase.auth.getUser();
     if (userErr || !userData.user) {
-      setFeedback({ type: "err", text: "Session expirée. Reconnecte-toi." });
+      setFeedback({ type: "err", text: td("sessionExpired") });
       return;
     }
 
@@ -258,7 +271,7 @@ export default function DemandeProduitsPage() {
 
     if (reqErr || !reqRow) {
       setSubmitLoading(false);
-      setFeedback({ type: "err", text: reqErr?.message ?? "Création de la demande impossible." });
+      setFeedback({ type: "err", text: reqErr?.message ?? td("createFailed") });
       return;
     }
 
@@ -306,8 +319,7 @@ export default function DemandeProduitsPage() {
         setSubmitLoading(false);
         setFeedback({
           type: "err",
-          text:
-            "Ta demande a bien été créée, mais le premier message n’a pas pu être enregistré. Ouvre « Conversation » sur le dossier pour le renvoyer.",
+          text: td("convFailed"),
         });
         router.push(`/dashboard/demandes/${reqRow.id}`);
         return;
@@ -356,7 +368,7 @@ export default function DemandeProduitsPage() {
   if (!sessionReady) {
     return (
       <main className="min-h-screen bg-background p-6">
-        <p className="text-sm text-muted-foreground">Vérification de la session…</p>
+        <p className="text-sm text-muted-foreground">{td("sessionCheck")}</p>
       </main>
     );
   }
@@ -370,7 +382,7 @@ export default function DemandeProduitsPage() {
     >
       <div className="mx-auto max-w-lg space-y-4 px-4 py-4 sm:px-5 sm:py-5">
         <PharmacyPublicBackLink href={`/pharmacie/${pharmacyId}`} className={cn("mb-0", t.backLink)}>
-          Fiche officine
+          {td("backToProfile")}
         </PharmacyPublicBackLink>
 
         <ProductRequestHeaderSearch
@@ -392,37 +404,40 @@ export default function DemandeProduitsPage() {
                         id: p.id,
                         name: p.name,
                         brand: p.brand,
+                        product_type: p.product_type,
                         photo_url: p.photo_url,
                         unitPrice: resolveCatalogPrice(catalogHitToPricingInput(p)),
                       }}
                       onAdd={() => addProduct(p)}
-                      onPhotoPreview={() => {
-                        if (p.photo_url) openPhotoPreview(p.photo_url, p.name, p.full_description, p.brand);
-                      }}
+                      onPhotoPreview={() =>
+                        openPhotoPreview(p.photo_url, p.name, p.full_description, p.brand, p.product_type, {
+                          catalogExplorerPreview: true,
+                        })
+                      }
                     />
                   ))}
                 </ul>
               ) : debouncedQuery.length >= PRODUCT_CATALOG_SEARCH_MIN_CHARS && !searchLoading ? (
-                <p className="mt-2 text-xs text-muted-foreground">Aucun résultat.</p>
+                <p className="mt-2 text-xs text-muted-foreground">{td("noResults")}</p>
               ) : null}
             </>
           }
         />
 
         <ProductRequestSection
-          title="Votre sélection"
-          hint={lines.length > 0 ? "Quantité et message par produit si besoin." : undefined}
+          title={td("yourSelection")}
+          hint={lines.length > 0 ? td("selectionHint") : undefined}
           badge={
             lines.length > 0 ? (
               <span className={cn("shrink-0", t.sectionBadge)}>
-                {lines.length} {lines.length > 1 ? "produits" : "produit"}
+                {lines.length} {lines.length > 1 ? td("productPlural") : td("product")}
               </span>
             ) : null
           }
         >
           {lines.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border/80 bg-muted/10 px-3 py-6 text-center text-sm text-muted-foreground">
-              Aucun produit pour l’instant
+              {td("emptySelection")}
             </p>
           ) : (
             <ul className="w-full min-w-0 space-y-2">
@@ -432,9 +447,11 @@ export default function DemandeProduitsPage() {
                   line={l}
                   unitPrice={draftLineUnitPrice(l)}
                   onRemove={() => removeLine(l.product_id)}
-                  onPhotoPreview={() => {
-                    if (l.photo_url) openPhotoPreview(l.photo_url, l.name, l.full_description, l.brand);
-                  }}
+                  onPhotoPreview={() =>
+                    openPhotoPreview(l.photo_url, l.name, l.full_description, l.brand, l.product_type, {
+                      catalogExplorerPreview: true,
+                    })
+                  }
                   onSetQty={(qty) => setQty(l.product_id, qty)}
                   onOpenComment={() =>
                     setLineCommentModal({
@@ -473,7 +490,7 @@ export default function DemandeProduitsPage() {
         ) : null}
 
         <Link href="/dashboard/demandes" className={uiActionBtnFullOutline("flex h-11 items-center justify-center")}>
-          Mes demandes de produits
+          {td("myProductRequests")}
         </Link>
       </div>
 
@@ -483,7 +500,7 @@ export default function DemandeProduitsPage() {
             left={
               <>
                 <span className="font-bold tabular-nums text-foreground">{lines.length}</span>{" "}
-                {lines.length > 1 ? "produits" : "produit"}
+                {lines.length > 1 ? td("productPlural") : td("product")}
               </>
             }
             right={
@@ -501,7 +518,7 @@ export default function DemandeProduitsPage() {
             className={cn(uiActionBtnFull("h-11 text-base"), t.cta)}
             onClick={() => openSendConfirm()}
           >
-            {submitLoading ? "Envoi…" : "Envoyer la demande"}
+            {submitLoading ? tc("sending") : td("sendRequest")}
           </Button>
         </div>
       </PlatformStickyFooter>
@@ -535,7 +552,9 @@ export default function DemandeProduitsPage() {
         imageUrl={photoPreview?.url ?? null}
         title={photoPreview?.title ?? ""}
         brand={photoPreview?.brand}
+        productType={photoPreview?.product_type}
         descriptionHtml={photoPreview?.descriptionHtml}
+        catalogExplorerPreview={photoPreview?.catalogExplorerPreview}
         onClose={() => setPhotoPreview(null)}
       />
     </main>

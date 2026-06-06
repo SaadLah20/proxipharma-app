@@ -266,6 +266,7 @@ type VariantData = {
   badgeLabel: string;
   productName: string;
   brand: string | null;
+  productType: string | null;
   photoUrl: string | null;
   descriptionHtml: string | null;
   showRequested: boolean;
@@ -680,7 +681,15 @@ function RespondedLineBlock({
       <button
         type="button"
         className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", kindTheme.photoRing)}
-        onClick={() => onPhotoPreview(variant.photoUrl!, variant.productName, variant.descriptionHtml, variant.brand)}
+        onClick={() =>
+          onPhotoPreview(
+            variant.photoUrl!,
+            variant.productName,
+            variant.descriptionHtml,
+            variant.brand,
+            variant.productType
+          )
+        }
         aria-label={`Agrandir la photo · ${variant.productName}`}
       >
         <img src={variant.photoUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
@@ -914,6 +923,7 @@ export function RespondedPatientLineChooser({
       }),
       productName: prod?.name ?? tCommon("product"),
       brand: prod?.brand?.trim() || null,
+      productType: prod?.product_type?.trim() || null,
       photoUrl: resolvePublicMediaUrl(prod?.photo_url ?? null),
       descriptionHtml: productDescriptionHtmlForDisplay(prod?.full_description),
       showRequested: isConsultation || !isProposedLine,
@@ -952,6 +962,7 @@ export function RespondedPatientLineChooser({
       badgeLabel: tCommon("alternative"),
       productName: altProd?.name ?? tCommon("alternative"),
       brand: altProd?.brand?.trim() || null,
+      productType: altProd?.product_type?.trim() || null,
       photoUrl: resolvePublicMediaUrl(altProd?.photo_url ?? null),
       descriptionHtml: productDescriptionHtmlForDisplay(altProd?.full_description),
       showRequested: false,

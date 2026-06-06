@@ -7,6 +7,7 @@ export type PatientDemandeProduitsDraftLine = {
   product_id: string;
   name: string;
   brand?: string | null;
+  product_type?: string | null;
   photo_url: string | null;
   full_description?: string | null;
   qty: number;

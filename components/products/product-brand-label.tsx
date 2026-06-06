@@ -5,7 +5,11 @@ export function productBrandOrNull(brand: string | null | undefined): string | n
   return trimmed ? trimmed : null;
 }
 
-type ProductBrandLabelVariant = "catalog" | "modal";
+export function isMedicamentProductType(productType?: string | null): boolean {
+  return productType?.trim().toLowerCase() === "medicament";
+}
+
+type ProductCatalogMetaVariant = "catalog" | "modal";
 
 /** Explorateur catalogue : méta-ligne discrète sous le nom produit. */
 function CatalogBrandLabel({ label, className }: { label: string; className?: string }) {
@@ -40,6 +44,37 @@ function ModalBrandLabel({ label, className }: { label: string; className?: stri
   );
 }
 
+/** Explorateur catalogue : pastille médicament. */
+function CatalogMedicamentLabel({ className }: { className?: string }) {
+  return (
+    <span
+      className={clsx(
+        "inline-flex w-fit max-w-full truncate rounded-full border border-sky-200/85 bg-sky-50/95 px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.12em] text-sky-800",
+        className
+      )}
+    >
+      Médicament
+    </span>
+  );
+}
+
+/** Modale photo : encart type médicament. */
+function ModalMedicamentLabel({ className }: { className?: string }) {
+  return (
+    <div
+      className={clsx(
+        "inline-flex max-w-full flex-col gap-0.5 rounded-lg border border-sky-200/85 bg-gradient-to-r from-sky-50/95 to-cyan-50/45 px-2.5 py-1.5 shadow-sm",
+        className
+      )}
+    >
+      <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-sky-800/85">Type</span>
+      <span className="min-w-0 truncate text-[15px] font-bold leading-tight text-sky-950 sm:text-base">
+        Médicament
+      </span>
+    </div>
+  );
+}
+
 /** Libellé marque — explorateur catalogue et modale photo produit uniquement. */
 export function ProductBrandLabel({
   brand,
@@ -48,7 +83,7 @@ export function ProductBrandLabel({
 }: {
   brand?: string | null;
   className?: string;
-  variant?: ProductBrandLabelVariant;
+  variant?: ProductCatalogMetaVariant;
 }) {
   const label = productBrandOrNull(brand);
   if (!label) return null;
@@ -56,4 +91,26 @@ export function ProductBrandLabel({
     return <ModalBrandLabel label={label} className={className} />;
   }
   return <CatalogBrandLabel label={label} className={className} />;
+}
+
+/** Marque (parapharmacie) ou libellé Médicament — explorateur + modale photo uniquement. */
+export function ProductCatalogMetaLabel({
+  productType,
+  brand,
+  className,
+  variant = "catalog",
+}: {
+  productType?: string | null;
+  brand?: string | null;
+  className?: string;
+  variant?: ProductCatalogMetaVariant;
+}) {
+  if (isMedicamentProductType(productType)) {
+    return variant === "modal" ? (
+      <ModalMedicamentLabel className={className} />
+    ) : (
+      <CatalogMedicamentLabel className={className} />
+    );
+  }
+  return <ProductBrandLabel brand={brand} variant={variant} className={className} />;
 }

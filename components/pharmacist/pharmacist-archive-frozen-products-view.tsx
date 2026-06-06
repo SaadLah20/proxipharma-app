@@ -62,6 +62,7 @@ type ArchiveFrozenProductEmbed = {
   photo_url?: string | null;
   full_description?: string | null;
   brand?: string | null;
+  product_type?: string | null;
 };
 
 function oneProduct(
@@ -139,6 +140,7 @@ export function PharmacistArchiveFrozenProductsView<T extends ArchiveFrozenItem>
                 line={{
                   product_id: row.product_id ?? "",
                   name: prod?.name ?? "Produit",
+                  product_type: prod?.product_type ?? null,
                   photo_url: photoPath ?? null,
                   qty: row.requested_qty,
                   client_comment: row.client_comment ?? "",
@@ -148,12 +150,12 @@ export function PharmacistArchiveFrozenProductsView<T extends ArchiveFrozenItem>
                 unitPrice={unit}
                 editMode={false}
                 onPhotoPreview={() => {
-                  if (!photoPath) return;
                   onPhotoPreview(
-                    resolvePublicMediaUrl(photoPath) ?? photoPath,
+                    photoPath ? resolvePublicMediaUrl(photoPath) ?? photoPath : null,
                     prod?.name ?? "Produit",
                     prod?.full_description,
-                    prod?.brand
+                    prod?.brand,
+                    prod?.product_type
                   );
                 }}
                 onSetQty={noop}
