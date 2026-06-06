@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, ChevronDown, FileImage, Maximize2, Pencil, Trash2 } from "lucide-react";
+import { Camera, ChevronDown, FileImage, Pencil, Trash2 } from "lucide-react";
 import { clsx } from "clsx";
 import { ConsultationPhotoLightbox } from "@/components/requests/consultation/consultation-photo-lightbox";
 import { supabase } from "@/lib/supabase";
@@ -41,16 +41,7 @@ function pathsFromPhotos(list: PhotoSlot[]): ConsultationImagePaths {
   return out;
 }
 
-export function ConsultationBriefPanel({
-  requestId,
-  initialText,
-  initialPaths,
-  editable,
-  viewerRole = "patient",
-  accent = "violet",
-  onSaved,
-  defaultExpanded = false,
-}: {
+type ConsultationBriefPanelProps = {
   requestId: string;
   initialText: string;
   initialPaths: ConsultationImagePaths;
@@ -60,8 +51,23 @@ export function ConsultationBriefPanel({
   onSaved?: () => void | Promise<void>;
   /** Patient : panneau replié jusqu’au clic « Modifier ». */
   defaultExpanded?: boolean;
-}) {
-  const panelKey = `${requestId}|${initialText}|${initialPaths.photo1 ?? ""}|${initialPaths.photo2 ?? ""}|${initialPaths.photo3 ?? ""}`;
+};
+
+export function ConsultationBriefPanel(props: ConsultationBriefPanelProps) {
+  const syncKey = `${props.requestId}|${props.initialText}|${props.initialPaths.photo1 ?? ""}|${props.initialPaths.photo2 ?? ""}|${props.initialPaths.photo3 ?? ""}`;
+  return <ConsultationBriefPanelBody key={syncKey} {...props} />;
+}
+
+function ConsultationBriefPanelBody({
+  requestId,
+  initialText,
+  initialPaths,
+  editable,
+  viewerRole = "patient",
+  accent = "violet",
+  onSaved,
+  defaultExpanded = false,
+}: ConsultationBriefPanelProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [textDraft, setTextDraft] = useState(initialText);
   const [photos, setPhotos] = useState<PhotoSlot[]>([]);
@@ -79,16 +85,6 @@ export function ConsultationBriefPanel({
       : "rounded-xl border border-border bg-card";
 
   useEffect(() => {
-    setTextDraft(initialText);
-    setExpanded(defaultExpanded);
-    setFeedback("");
-    blobUrlsRef.current.forEach((u) => {
-      if (u.startsWith("blob:")) URL.revokeObjectURL(u);
-    });
-    blobUrlsRef.current = [];
-    setPhotos([]);
-    setPhotosLoading(true);
-
     let cancelled = false;
     void (async () => {
       const slots: (1 | 2 | 3)[] = [1, 2, 3];
@@ -116,7 +112,7 @@ export function ConsultationBriefPanel({
     return () => {
       cancelled = true;
     };
-  }, [panelKey, initialPaths, initialText, defaultExpanded, viewerRole]);
+  }, [initialPaths, viewerRole]);
 
   useEffect(
     () => () => {
