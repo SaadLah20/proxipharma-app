@@ -555,6 +555,25 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
+### Session 2026-06-06 (suite 7) — lignes produit RTL + modale photo catalogue
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`4989304`** (lignes RTL) · **`aea9fd4`** (modale photo).
+
+**Lignes produit patient (AR / FR)** — **`ProductRequestLinePanel`** (`patient-demande-produits-ui.tsx`) :
+- Remplacement positionnement absolu `left` par **flex `justify-between`** (prix vs qté + icône message) ; bouton supprimer en **`-end`**.
+- Parcours concernés : panier saisie, dossier (envoyée / répondue / …), recherche catalogue inline.
+
+**Modale aperçu photo** — **`PatientProductPhotoPreviewModal`** :
+- Affiche la **vraie photo** quand **`photo_url`** est résolu (**`resolvePublicMediaUrl`**) — le flag **`catalogExplorerPreview`** ne force plus le placeholder « disponible prochainement » si une URL existe.
+- **Cadrage** : image **`max-h-full max-w-full object-contain`** dans un cadre **`overflow-hidden`** ; hauteur photo plafonnée quand description présente (mobile / desktop) pour éviter débordement sur le panneau description.
+- Placeholder **`ProductPhotoComingSoonFrame`** : produits sans photo (explorateur, médicaments).
+
+**Migration** : aucune.
+
+**Phrase de reprise** : **§13.48**.
+
+---
+
 ### Session 2026-06-05 (suite) — Vocaux envoi initial, MIME Storage, consultation UX lot 2, ordonnance pharma
 
 **Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`fa897de`** (MIME audio bucket) · **`cb90da3`** (vocal envoi initial) · **`6cb3160`** (retours ordonnance pharmacien) · **`081fc02`** (consultation UX lot 2).
@@ -2344,13 +2363,19 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.47) Phrase de reprise (recommandée — après session **2026-06-06 (suite 6)** explorateur catalogue patient)
+### 13.48) Phrase de reprise (recommandée — après session **2026-06-06 (suite 7)** lignes RTL + modale photo catalogue)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`4989304`** lignes RTL, **`aea9fd4`** modale photo). **Migrations** si pas fait : **`20260709_001`** → **`20260713_001`**. **UI patient** : lignes produit flex + RTL (qté / message / prix) ; **modale photo** : vraie photo si URL, cadrage sans chevauchement description. Explorateur catalogue filtres type/marque (**§13.47**). Je te donne la tâche ou les retours preview. »**
+
+### 13.47) Phrase de reprise (dépassée — session **2026-06-06 (suite 6)** explorateur catalogue patient)
+
+Voir **§13.48**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`fe3921f`** filtres catalogue type/marque, **`4989304`** lignes RTL). **Migrations** si pas fait : **`20260709_001`** → **`20260713_001`**. **Explorateur catalogue patient** : filtres parapharmacie / médicament + marque searchable, cartes produit refaites, i18n FR/AR. **Catalogue** : **~19 677** lignes ; pricing onglet **Marques** (recherche marques pharmacien). Lots antérieurs : i18n complet (**§13.46**), consultation (**§13.43**). Je te donne la tâche ou les retours preview. »**
 
 ### 13.46) Phrase de reprise (dépassée — session **2026-06-06 (suite 5)** couverture i18n patient vagues 1–6)
 
-Voir **§13.47**.
+Voir **§13.48**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal`. **Migrations** si pas fait : **`20260709_001`** (notifs in-app ar) puis **`20260710_001`** → **`20260713_001`**. **i18n patient ar/fr — couverture complète** : cookie `pp_locale`, switcher header, RTL, **`messages/fr` + `messages/ar`** (`.ts`), CI **`i18n:parity`** ; conversation, pages publiques demande, hubs, détail dossier, paramètres, dates locale ; pharmacien/admin et SMS restent FR. **Catalogue** : **~19 677** lignes (BeautyMall + médicaments), marques para **~93,65 %**, pricing onglet **Marques**. Lots antérieurs : catalogue/vignettes (**§13.45**), consultation (**§13.43**), vocaux. Je te donne la tâche ou les retours preview. »**
 

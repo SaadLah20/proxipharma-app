@@ -8,7 +8,7 @@ export function ProductPhotoComingSoonFrame({ className }: { className?: string 
   return (
     <div
       className={clsx(
-        "flex min-h-[min(32dvh,280px)] w-full max-w-md flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border/80 bg-muted/20 px-6 py-10 text-center sm:min-h-[min(40dvh,360px)]",
+        "flex min-h-[min(28dvh,240px)] w-full max-w-md flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border/80 bg-muted/20 px-6 py-8 text-center",
         className
       )}
     >
