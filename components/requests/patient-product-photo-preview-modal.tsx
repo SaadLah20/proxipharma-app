@@ -133,7 +133,8 @@ export function PatientProductPhotoPreviewModal({
   if (!open) return null;
 
   const showComingSoonPhoto = !imageUrl?.trim();
-  const hasDescription = Boolean(descriptionHtml?.trim());
+  const descriptionHtmlContent = descriptionHtml?.trim() ?? "";
+  const hasDescription = descriptionHtmlContent.length > 0;
 
   return createPortal(
     <div className="fixed inset-0 z-[20050] flex items-center justify-center p-2 sm:p-5" role="presentation">
@@ -149,7 +150,7 @@ export function PatientProductPhotoPreviewModal({
         aria-labelledby="patient-photo-preview-title"
         className={clsx(
           "relative z-10 flex max-h-[min(94dvh,900px)] w-full flex-col overflow-hidden rounded-2xl border-2 border-border bg-card shadow-2xl",
-          descriptionHtml?.trim() ? "max-w-6xl" : "max-w-5xl"
+          hasDescription ? "max-w-6xl" : "max-w-5xl"
         )}
         onClick={(e) => e.stopPropagation()}
       >
@@ -210,7 +211,7 @@ export function PatientProductPhotoPreviewModal({
               </p>
               <div
                 className="product-description-html min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 text-[13px] leading-relaxed text-foreground [-webkit-overflow-scrolling:touch] [&_li]:ml-4 [&_p+p]:mt-2 [&_ul]:list-disc [&_ul]:pl-4"
-                dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+                dangerouslySetInnerHTML={{ __html: descriptionHtmlContent }}
               />
             </div>
           ) : null}
