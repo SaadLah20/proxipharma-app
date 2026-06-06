@@ -6,7 +6,8 @@ import { createPortal } from "react-dom";
 import { clsx } from "clsx";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { lockBodyScroll } from "@/lib/ui-body-scroll-lock";import { ProductCatalogMetaLabel } from "@/components/products/product-brand-label";
+import { lockBodyScroll } from "@/lib/ui-body-scroll-lock";
+import { ProductCatalogMetaLabel } from "@/components/products/product-brand-label";
 import { ProductPhotoComingSoonFrame } from "@/components/products/product-photo-coming-soon-frame";
 
 export type CatalogProductPhotoPreview = {
@@ -15,7 +16,7 @@ export type CatalogProductPhotoPreview = {
   brand?: string | null;
   product_type?: string | null;
   descriptionHtml?: string | null;
-  /** Explorateur catalogue : zone photo = « disponible prochainement » (pas d’agrandissement). */
+  /** Explorateur catalogue sans photo : libellé pied de modale « fiche catalogue ». */
   catalogExplorerPreview?: boolean;
 };
 
@@ -131,7 +132,8 @@ export function PatientProductPhotoPreviewModal({
 
   if (!open) return null;
 
-  const showComingSoonPhoto = catalogExplorerPreview || !imageUrl?.trim();
+  const showComingSoonPhoto = !imageUrl?.trim();
+  const hasDescription = Boolean(descriptionHtml?.trim());
 
   return createPortal(
     <div className="fixed inset-0 z-[20050] flex items-center justify-center p-2 sm:p-5" role="presentation">
@@ -177,28 +179,32 @@ export function PatientProductPhotoPreviewModal({
         </div>
         <div
           className={clsx(
-            "flex min-h-0 flex-1 flex-col",
-            descriptionHtml?.trim() ? "lg:flex-row lg:gap-4" : ""
+            "flex min-h-0 flex-1 flex-col overflow-hidden",
+            hasDescription ? "lg:flex-row lg:gap-0" : ""
           )}
         >
           <div
             className={clsx(
-              "flex min-h-[min(32dvh,280px)] flex-1 items-center justify-center bg-gradient-to-b from-muted/40 to-muted/15 p-3 sm:min-h-[min(40dvh,360px)] sm:p-6",
-              descriptionHtml?.trim() ? "lg:min-w-0 lg:flex-[1.1]" : ""
+              "flex min-h-0 items-center justify-center overflow-hidden bg-gradient-to-b from-muted/40 to-muted/15 p-3 sm:p-4",
+              hasDescription
+                ? "max-h-[min(38dvh,320px)] shrink-0 lg:max-h-none lg:min-h-0 lg:flex-[1.1] lg:basis-0"
+                : "min-h-[min(32dvh,280px)] flex-1 sm:min-h-[min(40dvh,360px)]"
             )}
           >
             {showComingSoonPhoto ? (
-              <ProductPhotoComingSoonFrame />
+              <ProductPhotoComingSoonFrame className="h-full max-h-full min-h-0 w-full max-w-md" />
             ) : (
-              <img
-                src={imageUrl!}
-                alt=""
-                className="max-h-[min(58dvh,520px)] w-auto max-w-full rounded-lg object-contain shadow-md ring-1 ring-black/5"
-              />
+              <div className="flex h-full max-h-full w-full min-h-0 items-center justify-center">
+                <img
+                  src={imageUrl!}
+                  alt=""
+                  className="max-h-full max-w-full rounded-lg object-contain shadow-md ring-1 ring-black/5"
+                />
+              </div>
             )}
           </div>
-          {descriptionHtml?.trim() ? (
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-border/80 lg:max-w-[min(42%,28rem)] lg:border-l lg:border-t-0 lg:pl-1">
+          {hasDescription ? (
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-t border-border/80 lg:max-w-[min(42%,28rem)] lg:border-l lg:border-t-0">
               <p className="shrink-0 border-b border-border/60 bg-muted/15 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground sm:text-[11px]">
                 {tModal("description")}
               </p>
@@ -210,7 +216,7 @@ export function PatientProductPhotoPreviewModal({
           ) : null}
         </div>
         <p className="shrink-0 border-t border-border/60 bg-muted/15 px-3 py-2 text-center text-[10px] text-muted-foreground sm:text-[11px]">
-          {catalogExplorerPreview
+          {showComingSoonPhoto && catalogExplorerPreview
             ? tPublic("photoPreviewCatalogFooter")
             : tPublic("photoPreviewIndicativeFooter")}
         </p>
