@@ -73,8 +73,8 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 - **Badge Ouverte / Fermée** (mai 2026, commit **`e7540d3`**) : rouge uniforme pour **Fermée** et libellés « fermé » — **`lib/pharmacy-open-status-ui.ts`** (annuaire, fiche, édition **`horaires-garde`**).
 
 **Mise à jour 2026-05-19 — moteur de pricing officine** :
-- **SQL** : **`20260619_001`** (**appliquée**) — grille parapharmacie (PPH ± marge, règles labo/produit), PPV médicaments, RPC public + pharmacien.
-- **UI** : **`/dashboard/pharmacien/pricing`** ; résolution prix sur demandes, catalogue patient, promos via **`lib/pharmacy-pricing/`**.
+- **SQL** : **`20260619_001`** + **`20260713_001`** (règles **marque**, remplace laboratoire) — **appliquer **`20260713_001`** si l’onglet Marques pricing absent**.
+- **UI** : **`/dashboard/pharmacien/pricing`** ; **médicament = PPV fixe** ; **parapharmacie = PPH + marge** (global / marque / produit) via **`lib/pharmacy-pricing/`**.
 
 **Mise à jour 2026-05-19 — packs promo + horaires** :
 - **SQL** : **`20260610_001`** — offres/réservations packs, refs **`P042/26`**, **`promo_in_app_notifications`** (workflow isolé des demandes D/O/C).
@@ -92,6 +92,10 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 - **Fix MIME Storage vocal** (commit **`fa897de`**) : migration **`20260707_001`** — bucket **`private-media`** accepte **`audio/webm`** et autres MIME audio (sinon erreur à l’upload).
 - **Ordonnance pharmacien** (commit **`6cb3160`**) : retours UX saisie/réponse ; migrations **`20260707_002`** (note patient → conversation + drift), **`20260708_001`** (pas notif « mise à jour » au premier attach scan).
 - **Ordonnance / consultation archive patient** : bandeau dossier seul (plus récap header doublon). Phrase reprise **§13.42**.
+
+**Mise à jour 2026-06-06 — catalogue médicaments officine + marques parapharmacie** :
+- **Médicaments** : Excel officine (**TVA = 0**) → **`convert-medicaments-xlsx.py`** + **`import-medicaments-officine.mjs`** (additif, ne vide pas la para). Pilote : **6 026** lignes (`product_type = medicament`, PPH/PPV, sans photo). Doc **`scripts/README-medicaments-officine.md`**. **Catalogue total ~19 677** (13 651 para + 6 026 méd.).
+- **Marques para** : extraction **`extract-product-brands.py`** v2.1 appliquée Supabase — **~93,65 %** sur BeautyMall ; colonnes **`brand`** / **`brand_confidence`** (**`20260710_001`**) ; pricing par marque (**`20260713_001`**). Phrase reprise **§13.45**.
 
 **Mise à jour 2026-06-04 — catalogue BeautyMall (CSV + import pilote + aperçu photo)** :
 - **Sitemap** : `scripts/fetch-beautymall-sitemap-products.mjs` → `beautymall_sitemap_products.csv` (~13,5k URLs).
