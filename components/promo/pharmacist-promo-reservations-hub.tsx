@@ -79,7 +79,6 @@ export function PharmacistPromoReservationsHub() {
 
   useEffect(() => {
     if (searchParams.get("filtres") !== "0") return;
-    setFiltersExpandedUser(false);
     const next = new URLSearchParams(searchParams.toString());
     next.delete("filtres");
     router.replace(`${HUB_PATH}?${next.toString()}`, { scroll: false });

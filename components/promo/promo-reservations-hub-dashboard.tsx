@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { clsx } from "clsx";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronRight } from "lucide-react";
 import {
