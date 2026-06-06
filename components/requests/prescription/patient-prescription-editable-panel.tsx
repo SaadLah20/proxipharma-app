@@ -11,13 +11,13 @@ import {
   type PrescriptionPagePaths,
   uploadPrescriptionPageBlob,
 } from "@/lib/prescription-media";
+import { preparePatientRequestPhoto } from "@/lib/patient-request-photo-upload";
 import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
 import { REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
 
 type PageSlot = { page: 1 | 2; previewUrl: string; path: string; isNew?: boolean };
 
 const MAX_PAGES = 2;
-const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
 export type PatientPrescriptionPanelHandle = {
   startEdit: () => void;
@@ -124,10 +124,6 @@ export const PatientPrescriptionEditablePanel = forwardRef<PatientPrescriptionPa
       const list = Array.from(files);
       if (list.length === 0) return;
       const file = list[0]!;
-      if (file.size > MAX_FILE_BYTES) {
-        setFeedback("Fichier trop volumineux (max 8 Mo).");
-        return;
-      }
       const targetPage: 1 | 2 =
         pages.length === 0 || !pages.some((p) => p.page === 1) ? 1 : 2;
       if (targetPage === 2 && pages.some((p) => p.page === 2)) {
@@ -136,7 +132,12 @@ export const PatientPrescriptionEditablePanel = forwardRef<PatientPrescriptionPa
       }
       setBusy(true);
       try {
-        const blob = await compressImageFileForPrescription(file);
+        const prepared = await preparePatientRequestPhoto(file, compressImageFileForPrescription);
+        if (!prepared.ok) {
+          setFeedback(prepared.error);
+          return;
+        }
+        const blob = prepared.blob;
         const { path, error: upErr } = await uploadPrescriptionPageBlob(requestId, targetPage, blob);
         if (upErr) {
           setFeedback(upErr);

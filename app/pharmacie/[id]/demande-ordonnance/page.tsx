@@ -15,6 +15,7 @@ import {
   compressImageFileForPrescription,
   uploadPrescriptionPageBlob,
 } from "@/lib/prescription-media";
+import { preparePatientRequestPhoto } from "@/lib/patient-request-photo-upload";
 import { REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
 import { sendRequestConversationMessage } from "@/lib/send-request-conversation-message";
 import {
@@ -29,7 +30,6 @@ type PageSlot = {
 };
 
 const MAX_PAGES = 2;
-const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
 export default function DemandeOrdonnancePage() {
   const params = useParams();
@@ -90,22 +90,13 @@ export default function DemandeOrdonnancePage() {
     const toAdd = list.slice(0, remaining);
     const next: PageSlot[] = [];
     for (const f of toAdd) {
-      if (!f.type.startsWith("image/")) {
-        setFeedback({ type: "err", text: "Formats acceptés : photos (JPEG, PNG, WebP)." });
+      const prepared = await preparePatientRequestPhoto(f, compressImageFileForPrescription);
+      if (!prepared.ok) {
+        setFeedback({ type: "err", text: prepared.error });
         return;
       }
-      if (f.size > MAX_FILE_BYTES) {
-        setFeedback({ type: "err", text: "Chaque image doit faire moins de 8 Mo." });
-        return;
-      }
-      try {
-        const compressed = await compressImageFileForPrescription(f);
-        const previewFile = new File([compressed], f.name.replace(/\.\w+$/, ".webp"), { type: "image/webp" });
-        next.push({ file: previewFile, previewUrl: URL.createObjectURL(previewFile) });
-      } catch (e) {
-        setFeedback({ type: "err", text: e instanceof Error ? e.message : "Image illisible." });
-        return;
-      }
+      const previewFile = new File([prepared.blob], f.name.replace(/\.\w+$/, ".webp"), { type: "image/webp" });
+      next.push({ file: previewFile, previewUrl: URL.createObjectURL(previewFile) });
     }
     setPages((prev) => [...prev, ...next]);
   };
