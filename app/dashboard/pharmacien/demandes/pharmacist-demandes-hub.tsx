@@ -91,7 +91,6 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
 
   useEffect(() => {
     if (searchParams.get("filtres") !== "0") return;
-    setFiltersExpandedUser(false);
     const next = new URLSearchParams(searchParams.toString());
     next.delete("filtres");
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });

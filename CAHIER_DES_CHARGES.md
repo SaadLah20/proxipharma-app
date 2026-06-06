@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260713_001`**) → phrase **§13.45** (catalogue para + medicaments + marques). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260713_001`**) → phrase **§13.50** (hub packs promo + préfixe Pharmacie ; catalogue/marques **§13.45–49**). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -121,11 +121,11 @@ Point cle:
 ### 3.3 Promos et offres (packs promo — workflow dédié)
 
 - Workflow **séparé** des demandes produits / ordonnances / consultations (`requests`) — migration **`20260610_001`**
-- **Pharmacien** : **`/dashboard/pharmacien/offres-promos`** (CRUD pack : max **5 produits** + **5 cadeaux**, remise %, validité, brouillon / publier) ; **`/dashboard/pharmacien/reservations-packs`** (confirmer, non disponible + motif, récupérée, annuler)
+- **Pharmacien** : **`/dashboard/pharmacien/offres-promos`** (CRUD pack : max **5 produits** + **5 cadeaux**, remise %, validité, brouillon / publier) ; **`/dashboard/pharmacien/reservations-packs`** (hub **tableau de bord + liste filtrable**, détail : confirmer, non disponible + motif, récupérée, annuler)
 - **Public** : onglet **Offres** sur **`/pharmacie/[id]`** (`PublicPromoOffers`) — cartes + **Réserver** (connexion patient, date passage **J→J+3**, heure facultative)
-- **Patient** : **`/dashboard/patient/packs-promo`** (+ détail `[id]`) — suivi statuts courtois
+- **Patient** : **`/dashboard/patient/packs-promo`** (+ détail `[id]`) — hub **tableau de bord + liste filtrable** (5 tuiles statut, cartes hub, filtres pharmacie/réf./tri), annulation si `submitted` / `confirmed`
 - Réf. réservation **`P042/26`** (compteur par officine + année) ; notifs in-app **`promo_in_app_notifications`** (fusionnées dans la cloche header avec **`app_notifications`**)
-- Code : **`lib/promo/`**, **`components/promo/`** — voir journal §10 **session 2026-05-19 (promo)**
+- Code : **`lib/promo/`** (`reservation-hub-buckets.ts`, `reservation-hub-sections.ts`, …), **`components/promo/`** (`PromoReservationsHubDashboard`, `promo-reservation-hub-card.tsx`, …) — voir journal §10 **session 2026-05-19 (promo)** et **2026-06-06 (suite 9)**
 
 ## 4) Workflow metier central (demande -> reponse)
 
@@ -571,6 +571,27 @@ git checkout pilote-stable-2026-05-24
 **Migration** : aucune.
 
 **Phrase de reprise** : **§13.48**.
+
+---
+
+### Session 2026-06-06 (suite 9) — hub réservations packs promo (patient + pharmacien) + préfixe Pharmacie
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`fbe2445`** (hub promo) · **`91c6edc`** (lint `set-state-in-effect`).
+
+**Hub patient** (`/dashboard/patient/packs-promo`) et **pharmacien** (`/dashboard/pharmacien/reservations-packs`) alignés sur parcours demandes produits :
+- Onglets **Tableau de bord** / **Liste** (`DemandeHubTabBar`, `?vue=dashboard|liste`).
+- **`PromoStatDashboard`** — 5 tuiles statut (soumise, confirmée, récupérée, indisponible, annulée) regroupées En cours / Historique (patient) ou À suivre / Terminées (pharmacien).
+- **`PromoReservationsHubDashboard`** — stats, reprise rapide, sections activité, cartes **`PatientPromoReservationHubCard`** / **`PharmacistPromoReservationHubCard`**.
+- Liste filtrable : statut URL, pharmacie (patient) / patient (pharmacien), recherche réf., tri.
+- Libs : **`lib/promo/reservation-hub-buckets.ts`**, **`reservation-hub-sections.ts`**, **`reservation-hub-dashboard.ts`**, **`reservation-hub-list-filters.ts`** ; i18n patient **`promo.dashboard.*`** (FR/AR).
+
+**Préfixe « Pharmacie »** côté patient : **`pharmacyPublicLabel`** sur cartes/détail pack ; **`formatPatientNotificationPharmacyText`** dans **`pick-notification-text.ts`** (titres/corps notifs) ; filtre hub demandes produits ; e-mails externes worker.
+
+**ESLint** : pas de **`setFiltersExpandedUser` dans `useEffect`** pour `filtres=0` — repli géré par **`hubListFiltersPanelExpanded`** (hubs promo + hubs demandes).
+
+**Migration** : aucune.
+
+**Phrase de reprise** : **§13.50**.
 
 ---
 
@@ -1086,10 +1107,10 @@ git checkout pilote-stable-2026-05-24
 - **`20260610_001_promo_offers_reservations.sql`** — tables **`pharmacy_promo_offers`**, **`pharmacy_promo_offer_lines`**, **`pharmacy_promo_reservations`**, historique statuts, refs **`P042/26`**, **`promo_in_app_notifications`** ; RLS + RPC (`patient_submit_promo_reservation`, `pharmacist_confirm_promo_reservation`, `pharmacist_decline_promo_reservation`, `pharmacist_mark_promo_reservation_collected`, `cancel_promo_reservation`). **Prérequis** : jusqu’à **`20260609_001`** (Storage cover/logo versionnés).
 
 **Packs promo (workflow séparé des demandes)** :
-- Pharmacien : **`components/promo/pharmacy-promo-offers-manager.tsx`** — **`/dashboard/pharmacien/offres-promos`** ; **`/dashboard/pharmacien/reservations-packs`** (+ détail actions RPC).
+- Pharmacien : **`components/promo/pharmacy-promo-offers-manager.tsx`** — **`/dashboard/pharmacien/offres-promos`** ; **`/dashboard/pharmacien/reservations-packs`** (hub **tableau de bord + liste** + détail actions RPC).
 - Public : **`components/promo/public-promo-offers.tsx`** + **`promo-reserve-modal.tsx`** — onglet Offres **`pharmacy-public-profile.tsx`** (remplace stub).
-- Patient : **`/dashboard/patient/packs-promo`** — hub + détail, annulation si `submitted` / `confirmed`.
-- Libs : **`lib/promo/`** (`save-offer.ts`, `dates.ts`, `pricing.ts`, `reservation-copy-fr.ts`, …).
+- Patient : **`/dashboard/patient/packs-promo`** — hub **tableau de bord + liste** (`?vue=dashboard|liste`, tuiles 5 statuts, cartes hub, filtres pharmacie/réf./tri) + détail ; annulation si `submitted` / `confirmed`.
+- Libs : **`lib/promo/`** (`save-offer.ts`, `dates.ts`, `pricing.ts`, `reservation-hub-buckets.ts`, `reservation-status-ui.ts`, `reservation-copy-fr.ts`, …).
 - Header : **`platform-header.tsx`** — cloche = **`app_notifications`** + **`promo_in_app_notifications`** (compteur + liste fusionnés, liens détail pack).
 
 **Horaires pharmacien** (commit **`1499e7e`**, fix mobile **`71acf25`**) :
@@ -2381,7 +2402,13 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.49) Phrase de reprise (recommandée — après session **2026-06-06 (suite 8)** explorateur UX compact + scroll infini)
+### 13.50) Phrase de reprise (recommandée — après session **2026-06-06 (suite 9)** hub réservations packs promo)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`fbe2445`** hub packs promo, **`91c6edc`** lint). **Migrations** si pas fait : **`20260709_001`** → **`20260713_001`**. **Packs promo** : hubs patient **`/dashboard/patient/packs-promo`** et pharmacien **`/dashboard/pharmacien/reservations-packs`** — tableau de bord + liste (5 statuts, cartes hub, filtres) ; préfixe **Pharmacie** sur nom officine (cartes, détail, notifs patient). Workflow RPC inchangé. Lots antérieurs : explorateur catalogue (**§13.49**), modale photo (**§13.48**). Je te donne la tâche ou les retours preview. »**
+
+### 13.49) Phrase de reprise (dépassée — session **2026-06-06 (suite 8)** explorateur UX compact + scroll infini)
+
+Voir **§13.50**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`bd9b310`** toolbar explorateur, **`d7622d6`** scroll infini). **Migrations** si pas fait : **`20260709_001`** → **`20260713_001`**. **Explorateur catalogue** : barre unique recherche/filtres, marque en modale, liste scrollable plein écran, pagination 60/lot. Lots **`4989304`** / **`aea9fd4`** : lignes RTL + modale photo (**§13.48**). Je te donne la tâche ou les retours preview. »**
 
