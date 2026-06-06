@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260713_001`**) → phrase **§13.44** (archive ordonnance annulee + marques/pricing). Catalogue BeautyMall : **§13.39** / **`736100f`**. La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260713_001`**) → phrase **§13.45** (catalogue para + medicaments + marques). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -20,9 +20,13 @@ Au **demarrage** d une session :
 **Catalogue BeautyMall (juin 2026)** — chaîne complète dans `scripts/README-beautymall-catalog.md` :
 1. `node scripts/fetch-beautymall-sitemap-products.mjs` → `beautymall_sitemap_products.csv`.
 2. `node scripts/merge-beautymall-products.mjs` (+ CSV WooCommerce `--main` si besoin) → `products_final.csv` + `products_unmatched.csv` (fuzzy ≥ 85 %).
-3. SQL `supabase/scripts/wipe-catalog-beautymall-import.sql` (vider catalogue + lignes promo liées) puis `node scripts/import-beautymall-catalog.mjs` (`--dry-run` possible). **Pilote** : **13 651** produits, **12 171** avec photo URL BeautyMall, **1 480** sans photo (icône UI). Pas de migration Git — colonne **`full_description`** déjà en schéma. Détail §10 session **2026-06-04 (suite 2)** · phrase **§13.39**.
+3. SQL `supabase/scripts/wipe-catalog-beautymall-import.sql` (vider catalogue + lignes promo liées) puis `node scripts/import-beautymall-catalog.mjs` (`--dry-run` possible). **Pilote** : **13 651** parapharmacie BeautyMall, **12 171** avec photo URL, **1 480** sans photo. Pas de migration Git — colonne **`full_description`** déjà en schéma. Détail §10 session **2026-06-04 (suite 2)** · phrase **§13.39**.
 
-**Marques catalogue (juin 2026)** — **`20260710_001`** + **`20260713_001`** (pricing marque) · extraction **`scripts/README-product-brands.md`** (**v2.1 ~93,65 %** appliquée Supabase) · UI **`ProductBrandLabel`**. Journal §10 session **2026-06-06 (suite)**.
+**Médicaments officine (juin 2026)** — Excel « Base de données médicaments » (colonne **TVA = 0**) · **`scripts/README-medicaments-officine.md`** :
+1. `python scripts/convert-medicaments-xlsx.py "<chemin>.xlsx"` → `medicaments_officine.csv`.
+2. `node --use-system-ca scripts/import-medicaments-officine.mjs` (additif, **ne vide pas** la parapharmacie). **Pilote** : **6 026** médicaments (`product_type = medicament`, `category = medicaments_officine`, PPH/PPV, sans photo). **Catalogue total** : **~19 677** lignes (13 651 para + 6 026 méd.). Pas de migration Git. Journal §10 session **2026-06-06 (suite 4)**.
+
+**Marques catalogue (juin 2026)** — **`20260710_001`** + **`20260713_001`** (pricing marque) · extraction **`scripts/README-product-brands.md`** (**v2.1 ~93,65 %** appliquée Supabase) · UI **`ProductBrandLabel`**. Journal §10 sessions **2026-06-06 (suite)** et **(suite 4)**.
 
 A la **sortie**: demander ou accepter la mise a jour de ce cahier (Journal + Etat actuel + prompt de reprise du §12).
 
@@ -379,6 +383,26 @@ git checkout pilote-stable-2026-05-24
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
 
 ---
+
+---
+
+### Session 2026-06-06 (suite 4) — Médicaments officine (Excel TVA=0) + consolidation marques en prod données
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`fae90d9`** (extraction marques v2.1) · **`7f6f675`** (scripts import médicaments).
+
+**Médicaments — import additif Supabase** (sans migration Git) :
+- Source : fichier Excel officine (**Article**, **Ppv**, **Pph**, **TVA**) — **TVA = 0** = médicament.
+- Scripts : **`scripts/convert-medicaments-xlsx.py`** · **`scripts/import-medicaments-officine.mjs`** · doc **`scripts/README-medicaments-officine.md`**.
+- **6 026** médicaments uniques importés (`product_type = medicament`, `category = medicaments_officine`, PPH/PPV, pas de photo).
+- Parapharmacie BeautyMall **inchangée** (**13 651**). **Total catalogue pilote : ~19 677**.
+
+**Marques parapharmacie** (rappel session **suite**) :
+- Extraction **`extract-product-brands.py`** v2.1 appliquée : **~93,65 %** couverture sur les 13 651 para (**~867** sans marque).
+- Colonnes **`brand`** / **`brand_confidence`** (**`20260710_001`**) · pricing par marque (**`20260713_001`**) — appliquer **`20260713_001`** en SQL Editor si l’onglet **Marques** pricing ne répond pas encore.
+
+**Pricing app** : médicament = **PPV** fixe ; parapharmacie = PPH + marge (marque / produit / global).
+
+**Phrase de reprise** : **§13.45**.
 
 ---
 
@@ -2003,7 +2027,7 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260710_001_products_brand_columns.sql` (**products.brand** + **brand_confidence**)
   - `supabase/migrations/20260713_001_pharmacy_pricing_brand_rules.sql` (**pricing parapharmacie par marque**) (**`patient_save_consultation_brief`**, pas de double notif au 1er envoi avec photos)
 
-**Pilote (état infra 2026-06-06)** : appliquer les migrations **`20260701_*`** … **`20260713_001`** dans l’ordre des noms si pas déjà fait — inclut **`20260710_001`** (colonnes marque) et **`20260713_001`** (pricing par marque) — voir **§13.43** pour la reprise courte.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260713_001`** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. Reprise courte : **§13.45**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2018,7 +2042,7 @@ Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-
 - **`/`** annuaire interactif (**`components/annuaire/`** — hero, filtres, rayon portail, cartes avec avis + actions contact) + recherche **`public_ref`** → fiche **`/pharmacie/[id]`**
 - **`/pharmacie/[id]`** : fiche digitale (**`PharmacyPublicProfile`** + **`pharmacy-public-chrome`**) — Services (grille contact + liens demande), Offres (**`PublicPromoOffers`**), Horaires, Infos (blocs cartes + **`PharmacyRatingForm`**).
 - **`/pharmacie/[id]/demande-produits`** (+ **`/catalogue`**) : parcours patient aligné visuellement sur l’annuaire (hero émeraude, cartes produits) ; **aperçu photo + description** catalogue au clic vignette (**`736100f`**).
-- **Catalogue pilote BeautyMall** : **13 651** produits en BDD (juin 2026) ; photos = URLs **`beautymall.ma`** ; descriptions HTML **`full_description`** ; voir **`scripts/README-beautymall-catalog.md`**.
+- **Catalogue pilote** : **~19 677** produits en BDD (juin 2026) — **13 651** parapharmacie BeautyMall (photos URL **`beautymall.ma`**, descriptions HTML **`full_description`**, marques **~93,65 %**) + **6 026** médicaments officine (PPH/PPV, sans photo) ; voir **`scripts/README-beautymall-catalog.md`** et **`scripts/README-medicaments-officine.md`**.
 - **`/dashboard/pharmacien/ma-fiche`** + **`/dashboard/pharmacien/horaires-garde`** : édition fiche officine (onglets **Coordonnées** / Accueil / Photos / Liens / Services ; titulaire + **`titular_public`** ; horaires compacts + fériés auto + garde ; upload **couverture** / **logo** versionnés via **`lib/pharmacy-media.ts`**).
 - **`/admin`** : onboarding officine + pharmacien (**`AdminOnboardPharmacyForm`**, MDP provisoire copié manuellement).
 - **`/dashboard/pharmacien/offres-promos`** + **`/dashboard/pharmacien/reservations-packs`** ; **`/dashboard/patient/packs-promo`** — workflow packs promo (après **`20260610_001`**).
@@ -2274,7 +2298,13 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.44) Phrase de reprise (recommandée — après session **2026-06-06 (suite 3)** archive ordonnance annulée + marques/pricing)
+### 13.45) Phrase de reprise (recommandée — après session **2026-06-06 (suite 4)** catalogue médicaments + marques v2.1)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`fae90d9`** marques v2.1, **`7f6f675`** import médicaments). **Migrations** si pas fait : **`20260710_001`** → **`20260713_001`**. **Catalogue pilote Supabase** : **13 651** parapharmacie BeautyMall + **6 026** médicaments officine (Excel TVA=0, **`scripts/README-medicaments-officine.md`**) ≈ **19 677** lignes ; marques para **~93,65 %** (**`scripts/README-product-brands.md`**). **Pricing** : médicament = PPV fixe ; para = PPH + marge, onglet **Marques** pharmacien. Lots antérieurs : archive ordonnance annulée (**§13.44**), consultation lot 3 (**§13.43**), i18n ar/fr, vocaux. Je te donne la tâche ou les retours preview. »**
+
+### 13.44) Phrase de reprise (dépassée — session **2026-06-06 (suite 3)** archive ordonnance annulée + marques/pricing)
+
+Voir **§13.45**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`56bc5bc`** archive ordonnance annulée sans lignes, **`640346c`** marques + pricing officine par marque). **Migrations à appliquer** si pas fait : **`20260710_001`** → **`20260713_001`** (après **`20260712_001`**). **Ordonnance archive annulée/abandonnée/expirée** avant saisie produit : bandeau dossier + scan + lien annuaire (plus de fiche vide). **Marques** : **`ProductBrandLabel`**, onglet **Marques** pricing pharmacien. Lots antérieurs : consultation lot 3 (**§13.43**), i18n ar/fr, vocaux. Catalogue BeautyMall : **§13.39**. Je te donne la tâche ou les retours preview. »**
 
@@ -2326,7 +2356,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-06 (suite 3)** — archive ordonnance annulée + marques/pricing). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260713_001`** ; catalogue **13 651** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.44**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-06 (suite 4)** — médicaments officine + marques v2.1). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260713_001`** ; catalogue **~19 677** produits (13 651 para + 6 026 méd.). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.45**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
