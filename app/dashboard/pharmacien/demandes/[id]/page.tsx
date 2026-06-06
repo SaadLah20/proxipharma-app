@@ -1843,13 +1843,17 @@ export default function PharmacienDemandeDetailPage() {
   const [supplyMenuRowId, setSupplyMenuRowId] = useState<string | null>(null);
   const [pharmaHistoryRowId, setPharmaHistoryRowId] = useState<string | null>(null);
   const [productPhotoPreview, setProductPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
-  const openProductPhotoPreview = useCallback((url: string, title: string, descriptionHtml?: string | null) => {
-    setProductPhotoPreview({
-      url: url.trim(),
-      title: title.trim() || "Produit",
-      descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
-    });
-  }, []);
+  const openProductPhotoPreview = useCallback(
+    (url: string, title: string, descriptionHtml?: string | null, brand?: string | null) => {
+      setProductPhotoPreview({
+        url: url.trim(),
+        title: title.trim() || "Produit",
+        brand: brand ?? null,
+        descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
+      });
+    },
+    []
+  );
   const [supplyAmendmentBundles, setSupplyAmendmentBundles] = useState<
     { id: string; created_at: string; amendments: unknown }[]
   >([]);
@@ -6443,6 +6447,7 @@ export default function PharmacienDemandeDetailPage() {
                               : null
                           }
                           title={prod?.name ?? "Produit"}
+                          brand={prod?.brand}
                           descriptionHtml={prod?.full_description}
                           onPhotoPreview={openProductPhotoPreview}
                           iconClassName={clsx(
@@ -6470,7 +6475,6 @@ export default function PharmacienDemandeDetailPage() {
                         <p className="break-words text-[13px] font-bold leading-snug text-foreground sm:text-sm">
                           {prod?.name ?? "Produit"}
                         </p>
-                        <ProductBrandLabel brand={prod?.brand} />
                         {lineProposedBadge ? (
                           <span
                             className={clsx(
@@ -7354,6 +7358,7 @@ export default function PharmacienDemandeDetailPage() {
                               <PharmacistProductPhotoThumb
                                 photoUrl={h.photo_url}
                                 title={h.name}
+                                brand={h.brand}
                                 descriptionHtml={h.full_description}
                                 onPhotoPreview={openProductPhotoPreview}
                                 iconClassName="text-violet-500/80"
@@ -8254,6 +8259,7 @@ export default function PharmacienDemandeDetailPage() {
         open={productPhotoPreview != null}
         imageUrl={productPhotoPreview?.url ?? null}
         title={productPhotoPreview?.title ?? ""}
+        brand={productPhotoPreview?.brand}
         descriptionHtml={productPhotoPreview?.descriptionHtml}
         onClose={() => setProductPhotoPreview(null)}
       />

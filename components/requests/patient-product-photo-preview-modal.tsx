@@ -128,7 +128,7 @@ export function PatientProductPhotoPreviewModal({
             <h2 id="patient-photo-preview-title" className="min-w-0 text-sm font-bold leading-snug text-foreground sm:text-base">
               {title}
             </h2>
-            <ProductBrandLabel brand={brand} className="mt-0.5" />
+            <ProductBrandLabel brand={brand} variant="modal" className="mt-1" />
           </div>
           <button
             type="button"

@@ -152,7 +152,8 @@ export function PharmacistArchiveFrozenProductsView<T extends ArchiveFrozenItem>
                   onPhotoPreview(
                     resolvePublicMediaUrl(photoPath) ?? photoPath,
                     prod?.name ?? "Produit",
-                    prod?.full_description
+                    prod?.full_description,
+                    prod?.brand
                   );
                 }}
                 onSetQty={noop}
