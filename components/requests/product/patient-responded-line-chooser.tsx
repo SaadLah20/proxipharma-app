@@ -27,7 +27,7 @@ import {
   isPrescriptionAdditionalProposedLine,
   isPrescriptionOrdonnancePrincipalLine,
 } from "@/lib/prescription-pharmacist-lines";
-import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
+import { requestKindUiTheme } from "@/lib/request-kind-ui-theme";
 import { usePrescriptionUiCopy } from "@/lib/use-prescription-ui-copy";
 import { useConsultationUiCopy } from "@/lib/use-consultation-ui-copy";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
@@ -166,16 +166,25 @@ function RespondedLineNotesButton({
   productName,
   client,
   pharmacist,
+  requestType = "product_request",
 }: {
   productName: string;
   client: string;
   pharmacist: string;
+  requestType?: string;
 }) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
   const tCommon = useTranslations("common");
   const tConversation = useTranslations("conversation");
   const tDemandes = useTranslations("demandes");
+  const kindTheme = requestKindUiTheme(requestType);
+  const patientNoteBorderClass =
+    requestType === "prescription"
+      ? "border-l-amber-500/70"
+      : requestType === "free_consultation"
+        ? "border-l-violet-500/70"
+        : "border-l-sky-500/70";
   const c = client.trim();
   const p = pharmacist.trim();
   const visual = lineConversationVisual(c, p);
@@ -191,10 +200,10 @@ function RespondedLineNotesButton({
       {open ? (
         <AppModalOverlay open aria-labelledby={titleId} onBackdropClick={() => setOpen(false)}>
               <div
-                className={cn("max-h-[min(80vh,20rem)] w-full max-w-sm overflow-hidden rounded-2xl border bg-card shadow-2xl sm:mx-auto", t.modalShell)}
+                className={cn("max-h-[min(80vh,20rem)] w-full max-w-sm overflow-hidden rounded-2xl border bg-card shadow-2xl sm:mx-auto", kindTheme.modalShell)}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className={cn("flex items-start justify-between gap-2 border-b px-3 py-2", t.modalHeader)}>
+                <div className={cn("flex items-start justify-between gap-2 border-b px-3 py-2", kindTheme.modalHeader)}>
                   <div className="min-w-0 flex-1">
                     <h2 id={titleId} className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                       <span className="block">{tDemandes("responded.messageTitle")}</span>
@@ -219,7 +228,7 @@ function RespondedLineNotesButton({
                     </p>
                   ) : null}
                   {c ? (
-                    <div className="rounded-lg border border-border/80 border-l-2 border-l-sky-500/70 bg-muted/20 px-2.5 py-2">
+                    <div className={cn("rounded-lg border border-border/80 border-l-2 bg-muted/20 px-2.5 py-2", patientNoteBorderClass)}>
                       <p className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">
                         {tConversation("you")}
                       </p>
@@ -653,6 +662,7 @@ function RespondedLineBlock({
   formatDateShort: (iso: string) => string;
   tCommon: ReturnType<typeof useTranslations<"common">>;
 }) {
+  const kindTheme = requestKindUiTheme(requestType);
   const unavailable = variant.cap < 1;
   /** Avec onglets : PU/Tot/qty visibles sur l’onglet consulté (comparaison), pas seulement si cette branche est cochée. */
   const showQty = variantTabsAbove
@@ -668,7 +678,7 @@ function RespondedLineBlock({
     onPhotoPreview ? (
       <button
         type="button"
-        className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
+        className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", kindTheme.photoRing)}
         onClick={() => onPhotoPreview(variant.photoUrl!, variant.productName, variant.descriptionHtml)}
         aria-label={`Agrandir la photo · ${variant.productName}`}
       >
@@ -789,6 +799,7 @@ function RespondedLineBlock({
                 productName={variant.productName}
                 client={variant.clientComment}
                 pharmacist={variant.pharmacistComment}
+                requestType={requestType}
               />
             </div>
           </div>

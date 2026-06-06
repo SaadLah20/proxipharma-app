@@ -181,7 +181,7 @@ export function buildPatientValidatedLineLabelsFr(input: {
     const eta = effectiveEtaForPatientLine(row);
     const pcf = row.post_confirm_fulfillment ?? "unset";
     const receivedAtPharmacy = pcf === "arrived_reserved";
-    if (eta && (eff === "to_order" || ajoutOrigin) && !receivedAtPharmacy) {
+    if (eta && eff === "to_order" && !receivedAtPharmacy) {
       out.push({
         key: "reception",
         text:

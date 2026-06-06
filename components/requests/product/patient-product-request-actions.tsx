@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useTranslations } from "next-intl";
+import { usePatientRequestStatusLabel } from "@/lib/i18n/patient-request-status-label";
 import { Button } from "@/components/ui/button";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { cn } from "@/lib/utils";
@@ -375,6 +376,7 @@ export function PatientValidatedCompactLineCard({
     [prescriptionCopy, requestType, tCommon],
   );
   const { buildLabels } = usePatientValidatedLineLabels(defaultOrigins);
+  const lineKindTheme = requestKindUiTheme(requestType);
   const validatedName = validatedProductLabel(row);
   const descriptionHtml = validatedBranchDescriptionHtml(row);
   const displayQty = patientDisplayQtyForLine(row, requestStatusForCard);
@@ -405,7 +407,7 @@ export function PatientValidatedCompactLineCard({
     onPhotoPreview ? (
       <button
         type="button"
-        className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", productRequestTheme.photoRing)}
+        className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", lineKindTheme.photoRing)}
         onClick={() => onPhotoPreview(thumbUrl, validatedName, descriptionHtml)}
         aria-label={`Agrandir la photo · ${validatedName}`}
       >
@@ -467,6 +469,7 @@ export function PatientValidatedCompactLineCard({
                 productName={validatedName}
                 client={row.client_comment ?? ""}
                 pharmacist={row.pharmacist_comment ?? ""}
+                requestType={requestType}
               />
             </div>
           </div>
@@ -501,6 +504,7 @@ function PatientTraceNotRetainedRow({
 }) {
   const tCommon = useTranslations("common");
   const prescriptionCopy = usePrescriptionUiCopy();
+  const lineKindTheme = requestKindUiTheme(requestType);
   const prod = one(row.products);
   const name = prod?.name ?? tCommon("product");
   const eff = row.availability_status;
@@ -521,7 +525,7 @@ function PatientTraceNotRetainedRow({
             onPhotoPreview ? (
               <button
                 type="button"
-                className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", productRequestTheme.photoRing)}
+                className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", lineKindTheme.photoRing)}
                 onClick={() => onPhotoPreview(photoUrl, name, prod?.full_description)}
                 aria-label={`Agrandir la photo · ${name}`}
               >
@@ -574,6 +578,7 @@ function PatientTraceNotRetainedRow({
                 productName={name}
                 client={row.client_comment ?? ""}
                 pharmacist={row.pharmacist_comment ?? ""}
+                requestType={requestType}
               />
             </div>
           </div>
@@ -1323,6 +1328,7 @@ export function PatientSentEnvoyeeSummaryCard({
 }) {
   const ph = pharmacyContact;
   const t = summaryThemeClasses(accent);
+  const statusBadgeLabel = usePatientRequestStatusLabel(status);
   return (
     <div className={t.shell}>
       <div className={clsx("border-b pb-1.5", t.borderB)}>
@@ -1348,7 +1354,7 @@ export function PatientSentEnvoyeeSummaryCard({
       </p>
       <div className="mt-1.5 flex flex-wrap items-start gap-2">
         <span className={clsx("shrink-0 shadow-sm", requestStatusBadgeClass(status))}>
-          {requestStatusFr[status] ?? status}
+          {statusBadgeLabel}
         </span>
         <p className={clsx("min-w-0 flex-1 text-[9px] leading-snug", t.hint)}>{statusHint}</p>
       </div>
@@ -2770,7 +2776,13 @@ export function PatientProductRequestActions({
   const useCompactPassageBlock = useNeutralProductDossierShell;
   const useSkyProductShell =
     !useNeutralProductDossierShell &&
+    !isPrescription &&
     (showProductResubmit || showConfirm) &&
+    !forceReadOnly;
+  const useAmberPrescriptionShell =
+    isPrescription &&
+    !useNeutralProductDossierShell &&
+    (showPrescriptionWaiting || showConfirm) &&
     !forceReadOnly;
   const useAmberPrescriptionWaitingShell =
     !forceReadOnly && showPrescriptionWaiting && !useNeutralProductDossierShell;
@@ -2862,7 +2874,7 @@ export function PatientProductRequestActions({
               ? "mt-2 border-0 bg-transparent p-0 shadow-none ring-0"
               : useSkyProductShell
                 ? "border-sky-300/45 bg-gradient-to-br from-sky-50/95 via-white to-teal-50/25 ring-1 ring-sky-200/55"
-                : useAmberPrescriptionWaitingShell
+                : useAmberPrescriptionShell || useAmberPrescriptionWaitingShell
                   ? "border-amber-300/45 bg-gradient-to-br from-amber-50/95 via-white to-orange-50/25 ring-1 ring-amber-200/55"
                   : "border-slate-200 bg-slate-50/95",
         isConsultation && showConsultationWaiting && !needsStickyFooterPad && "pb-2"
@@ -2986,7 +2998,7 @@ export function PatientProductRequestActions({
         </p>
       ) : null}
 
-      {isPrescription && prescriptionPaths?.page1 && (showConfirm || showConfirmedCards) && !forceReadOnly ? (
+      {isPrescription && prescriptionPaths?.page1 && (showConfirm || showConfirmedCards || forceReadOnly) ? (
         <PrescriptionScanCollapsible
           paths={prescriptionPaths}
           defaultOpen={false}

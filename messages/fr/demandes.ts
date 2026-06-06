@@ -35,6 +35,20 @@ export const demandesFr = {
   header: {
     journeyAria: "Voir le détail du statut et le parcours de la demande",
   },
+  statusBadges: {
+    draft: "Brouillon",
+    submitted: "Envoyée",
+    inReview: "En cours de traitement",
+    responded: "Répondue - à valider",
+    confirmed: "Validée",
+    processing: "En préparation officine",
+    treated: "Traitée",
+    completed: "Clôturée",
+    cancelled: "Annulée",
+    abandoned: "Abandonnée",
+    expired: "Expirée",
+    inProgressVirtual: "Suivi résa. / commande",
+  },
   sections: {
     toReserve: "À réserver",
     toOrder: "À commander",

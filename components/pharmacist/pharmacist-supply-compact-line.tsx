@@ -420,36 +420,33 @@ export function PharmacistSupplyCompactLine({
 
   const bottomLabels = (
     <>
-      {validatedLineLabels && validatedLineLabels.length > 0 ? (
-        <div className="flex flex-wrap gap-1 pt-0.5">
-          {validatedLineLabels.map((label) => (
-            <span key={label.key} className={validatedLineLabelChipClass(label)}>
-              {label.text}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <>
-          {showAjoutOfficineBadge ? (
-            <span className="inline-flex max-w-full rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-              {ajoutOfficineBadgeLabel ?? pharmacistProposedProductBadgeFr}
-            </span>
-          ) : lineOriginBadgeLabel ? (
-            <span
-              className={clsx(
-                "inline-flex w-fit max-w-full rounded-full border px-1.5 py-px text-[8px] font-bold uppercase tracking-wide",
-                lineOriginBadgeTone === "ordonnance"
-                  ? "border-amber-300/70 bg-amber-50/40 text-amber-900/90"
-                  : "border-violet-300/70 bg-violet-50/50 text-violet-900"
-              )}
-            >
-              {lineOriginBadgeLabel}
-            </span>
-          ) : inBucketList ? null : (
-            <p className="line-clamp-2 text-[10px] leading-snug text-muted-foreground">{availSentence}</p>
-          )}
-        </>
-      )}
+      <div className="flex flex-wrap gap-1 pt-0.5">
+        {showAjoutOfficineBadge ? (
+          <span className="inline-flex max-w-full rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+            {ajoutOfficineBadgeLabel ?? pharmacistProposedProductBadgeFr}
+          </span>
+        ) : lineOriginBadgeLabel ? (
+          <span
+            className={clsx(
+              "inline-flex w-fit max-w-full rounded-full border px-1.5 py-px text-[8px] font-bold uppercase tracking-wide",
+              lineOriginBadgeTone === "ordonnance"
+                ? "border-amber-300/70 bg-amber-50/40 text-amber-900/90"
+                : "border-violet-300/70 bg-violet-50/50 text-violet-900"
+            )}
+          >
+            {lineOriginBadgeLabel}
+          </span>
+        ) : null}
+        {validatedLineLabels && validatedLineLabels.length > 0
+          ? validatedLineLabels.map((label) => (
+              <span key={label.key} className={validatedLineLabelChipClass(label)}>
+                {label.text}
+              </span>
+            ))
+          : !lineOriginBadgeLabel && !showAjoutOfficineBadge && !inBucketList ? (
+              <p className="line-clamp-2 text-[10px] leading-snug text-muted-foreground">{availSentence}</p>
+            ) : null}
+      </div>
       {!validatedLineLabels?.length && postConfirmAmendmentBadges && postConfirmAmendmentBadges.length > 0 ? (
         <div className="flex flex-wrap gap-1 pt-0.5">
           {postConfirmAmendmentBadges.map((label) => (

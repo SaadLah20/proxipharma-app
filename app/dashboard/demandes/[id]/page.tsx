@@ -516,9 +516,7 @@ export default function DemandeDetailPage() {
     if (nextTab === "products") setConversationOpen(false);
   }
 
-  const consultationConversationViewportClass = consultationConversationViewportHeightClass(
-    showConsultationWaitingFooter ? effectiveStickyFooterTier : "none"
-  );
+  const consultationConversationViewportClass = consultationConversationViewportHeightClass("none");
 
   const pharmacyContact = (() => {
     const ph = one(request.pharmacies);
@@ -565,9 +563,7 @@ export default function DemandeDetailPage() {
       className={clsx(
         "min-w-0 max-w-full space-y-3 bg-slate-50",
         detailStickyFooterPad,
-        showConsultationTabbed &&
-          consultationTab === "conversation" &&
-          "flex min-h-0 flex-col overflow-hidden pb-3 sm:pb-4"
+        showConsultationTabbed && consultationTab === "conversation" && "flex min-h-0 flex-col pb-3 sm:pb-4"
       )}
     >
       <RequestDetailBackLink config={kindConfig} viewerRole="patient" />
@@ -648,39 +644,23 @@ export default function DemandeDetailPage() {
       ) : null}
 
       {showConsultationTabbed && consultationTab === "conversation" && sessionUserId ? (
-        <>
-          <div
-            className={clsx(
-              "flex min-h-0 min-w-0 flex-1 flex-col",
-              consultationConversationViewportClass
-            )}
-          >
-            <RequestConversationInline
-              requestId={request.id}
-              viewerRole="patient"
-              currentUserId={sessionUserId}
-              variant="consultation"
-              consultationSeed={consultationSeed}
-              refreshToken={conversationRefreshToken}
-              fillViewport
-              onMarkedRead={handleConversationMarkedRead}
-            />
-          </div>
-          {consultationEditable ? (
-            <details className="shrink-0 rounded-lg border border-violet-200/70 bg-violet-50/30 px-2.5 py-2 text-[11px] text-violet-950">
-              <summary className="cursor-pointer font-semibold">Modifier mon message ou mes photos</summary>
-              <div className="mt-2">
-                <ConsultationBriefPanel
-                  requestId={request.id}
-                  initialText={consultationBrief!.text}
-                  initialPaths={consultationBrief!.paths}
-                  editable
-                  viewerRole="patient"
-                />
-              </div>
-            </details>
-          ) : null}
-        </>
+        <div
+          className={clsx(
+            "flex min-h-0 min-w-0 flex-1 flex-col",
+            consultationConversationViewportClass
+          )}
+        >
+          <RequestConversationInline
+            requestId={request.id}
+            viewerRole="patient"
+            currentUserId={sessionUserId}
+            variant="consultation"
+            consultationSeed={consultationSeed}
+            refreshToken={conversationRefreshToken}
+            fillViewport
+            onMarkedRead={handleConversationMarkedRead}
+          />
+        </div>
       ) : null}
 
       {(hasBottomActions || (showArchivedReadonly && items.length > 0)) &&

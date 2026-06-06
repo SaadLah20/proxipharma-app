@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Check, Package } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
-  filterCatalogProductsLocal,
   markPatientDemandeCatalogueReturnEdit,
   mergeCatalogProductsIntoDraft,
   readPatientDemandeProduitsDraft,
@@ -32,8 +31,8 @@ import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-requ
 import { uiActionBtnFull } from "@/lib/ui-action-buttons";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
+import { useProductCatalogExplorer } from "@/lib/use-product-catalog-explorer";
 
-const CATALOG_FETCH_LIMIT = 500;
 const THUMB = "box-border size-14 shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
 
 export default function DemandeProduitsCataloguePage() {
@@ -45,14 +44,20 @@ export default function DemandeProduitsCataloguePage() {
   const returnToParam = searchParams.get("returnTo")?.trim();
 
   const [sessionReady, setSessionReady] = useState(false);
-  const [products, setProducts] = useState<PatientDemandeProduitsCatalogProduct[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [filterQuery, setFilterQuery] = useState("");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [selectedById, setSelectedById] = useState<Map<string, PatientDemandeProduitsCatalogProduct>>(
+    () => new Map()
+  );
   const [photoPreview, setPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
   const [adding, setAdding] = useState(false);
+  const loadMoreSentinelRef = useRef<HTMLLIElement>(null);
+  const listScrollRef = useRef<HTMLUListElement>(null);
   const { resolve: resolveCatalogPrice } = usePharmacyPricingForPatient(pharmacyId);
+
+  const { products, loading, loadingMore, error: loadError, hasMore, loadMore } = useProductCatalogExplorer(
+    sessionReady,
+    filterQuery
+  );
 
   const fieldFocus = t.focus;
 
@@ -82,51 +87,46 @@ export default function DemandeProduitsCataloguePage() {
     return new Set(draft.map((l) => l.product_id));
   }, [sessionReady, pharmacyId, editRequestId]);
 
-  useEffect(() => {
-    if (!sessionReady) return;
-    const run = async () => {
-      setLoading(true);
-      setLoadError(null);
-      const { data, error } = await supabase
-        .from("products")
-        .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv,full_description")
-        .eq("is_active", true)
-        .order("name")
-        .limit(CATALOG_FETCH_LIMIT);
-
-      setLoading(false);
-      if (error) {
-        setLoadError(error.message);
-        setProducts([]);
-        return;
-      }
-      setProducts(
-        ((data as PatientDemandeProduitsCatalogProduct[]) ?? []).map((p) => ({
-          ...p,
-          photo_url: resolvePublicMediaUrl(p.photo_url),
-        }))
-      );
-    };
-    void run();
-  }, [sessionReady]);
+  const displayProducts = useMemo(
+    () =>
+      products.map((p) => ({
+        ...p,
+        photo_url: resolvePublicMediaUrl(p.photo_url),
+      })),
+    [products]
+  );
 
   const filtered = useMemo(() => {
-    const matched = filterCatalogProductsLocal(products, filterQuery);
-    if (cartProductIds.size === 0) return matched;
-    return matched.filter((p) => !cartProductIds.has(p.id));
-  }, [products, filterQuery, cartProductIds]);
+    if (cartProductIds.size === 0) return displayProducts;
+    return displayProducts.filter((p) => !cartProductIds.has(p.id));
+  }, [displayProducts, cartProductIds]);
 
-  const toggleSelect = (productId: string) => {
-    if (cartProductIds.has(productId)) return;
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(productId)) next.delete(productId);
-      else next.add(productId);
+  useEffect(() => {
+    const root = listScrollRef.current;
+    const sentinel = loadMoreSentinelRef.current;
+    if (!root || !sentinel || loading || loadingMore || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) loadMore();
+      },
+      { root, rootMargin: "120px", threshold: 0 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loading, loadingMore, hasMore, loadMore, filtered.length]);
+
+  const toggleSelect = (product: PatientDemandeProduitsCatalogProduct) => {
+    if (cartProductIds.has(product.id)) return;
+    setSelectedById((prev) => {
+      const next = new Map(prev);
+      if (next.has(product.id)) next.delete(product.id);
+      else next.set(product.id, product);
       return next;
     });
   };
 
-  const selectedCount = selectedIds.size;
+  const selectedCount = selectedById.size;
 
   const addButtonLabel = (() => {
     if (adding) return "Ajout…";
@@ -138,7 +138,7 @@ export default function DemandeProduitsCataloguePage() {
   const addSelectedAndReturn = () => {
     if (!pharmacyId || selectedCount === 0) return;
     setAdding(true);
-    const toAdd = products.filter((p) => selectedIds.has(p.id));
+    const toAdd = Array.from(selectedById.values());
     const existing = readPatientDemandeProduitsDraft(pharmacyId, editRequestId);
     const merged = mergeCatalogProductsIntoDraft(
       existing,
@@ -177,7 +177,9 @@ export default function DemandeProduitsCataloguePage() {
           hint="Filtrez par nom ou laboratoire, puis cochez les produits à ajouter."
           badge={
             selectedCount > 0 ? (
-              <span className={cn("shrink-0", t.sectionBadge)}>{selectedCount} coché{selectedCount > 1 ? "s" : ""}</span>
+              <span className={cn("shrink-0", t.sectionBadge)}>
+                {selectedCount} coché{selectedCount > 1 ? "s" : ""}
+              </span>
             ) : null
           }
         >
@@ -190,10 +192,13 @@ export default function DemandeProduitsCataloguePage() {
             ) : filtered.length === 0 ? (
               <p className="px-3 py-6 text-center text-sm text-muted-foreground">Aucun produit trouvé.</p>
             ) : (
-              <ul className="max-h-[min(58dvh,520px)] divide-y divide-border/60 overflow-y-auto">
+              <ul
+                ref={listScrollRef}
+                className="max-h-[min(58dvh,520px)] divide-y divide-border/60 overflow-y-auto overscroll-y-contain touch-pan-y"
+              >
                 {filtered.map((p) => {
                   const inCart = cartProductIds.has(p.id);
-                  const checked = !inCart && selectedIds.has(p.id);
+                  const checked = !inCart && selectedById.has(p.id);
                   const unitPrice = resolveCatalogPrice(catalogHitToPricingInput(p));
                   return (
                     <li key={p.id}>
@@ -206,7 +211,7 @@ export default function DemandeProduitsCataloguePage() {
                         <button
                           type="button"
                           disabled={inCart}
-                          onClick={() => toggleSelect(p.id)}
+                          onClick={() => toggleSelect(p)}
                           className={cn(
                             "flex size-9 shrink-0 self-center items-center justify-center rounded-lg border-2 transition",
                             inCart
@@ -257,7 +262,7 @@ export default function DemandeProduitsCataloguePage() {
                         <button
                           type="button"
                           disabled={inCart}
-                          onClick={() => toggleSelect(p.id)}
+                          onClick={() => toggleSelect(p)}
                           className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-0.5 text-left disabled:cursor-not-allowed"
                         >
                           <p className="truncate text-[13px] font-semibold leading-tight text-foreground" title={p.name}>
@@ -278,6 +283,13 @@ export default function DemandeProduitsCataloguePage() {
                     </li>
                   );
                 })}
+                {hasMore ? (
+                  <li ref={loadMoreSentinelRef} className="px-3 py-3 text-center text-xs text-muted-foreground">
+                    {loadingMore ? "Chargement…" : "Faites défiler pour voir plus de produits"}
+                  </li>
+                ) : filtered.length > 0 ? (
+                  <li className="px-3 py-2 text-center text-[10px] text-muted-foreground">Fin du catalogue</li>
+                ) : null}
               </ul>
             )}
           </div>

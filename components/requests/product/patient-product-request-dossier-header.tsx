@@ -7,6 +7,7 @@ import { PatientProductRequestJourneyModal } from "@/components/requests/product
 import { PatientPharmacyDossierBand } from "@/components/requests/product/patient-pharmacy-dossier-band";
 import type { PatientPharmacyContactInfo } from "@/components/requests/product/patient-pharmacy-quick-contact";
 import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
+import { usePatientRequestStatusLabel } from "@/lib/i18n/patient-request-status-label";
 import { requestStatusBadgeClass } from "@/lib/request-display";
 import { uiDossierHeaderShell } from "@/lib/ui-surfaces";
 import { cn } from "@/lib/utils";
@@ -41,8 +42,9 @@ export function PatientProductRequestDossierHeader({
 }) {
   const tCommon = useTranslations("common");
   const tDemandes = useTranslations("demandes");
+  const translatedStatusLabel = usePatientRequestStatusLabel(status);
   const [journeyOpen, setJourneyOpen] = useState(false);
-  const badgeLabel = statusLabel ?? status;
+  const badgeLabel = statusLabel ?? translatedStatusLabel;
 
   return (
     <>
