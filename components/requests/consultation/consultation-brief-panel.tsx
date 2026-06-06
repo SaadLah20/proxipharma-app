@@ -14,6 +14,7 @@ import {
   uploadConsultationPhotoBlob,
 } from "@/lib/consultation-media";
 import { CONSULTATION_TEXT_MAX, CONSULTATION_TEXT_MIN } from "@/lib/patient-request-form-limits";
+import { preparePatientRequestPhoto } from "@/lib/patient-request-photo-upload";
 
 type PhotoSlot = {
   slot: 1 | 2 | 3;
@@ -21,8 +22,6 @@ type PhotoSlot = {
   path: string | null;
   pendingFile?: Blob;
 };
-
-const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
 function pathsEqual(a: ConsultationImagePaths, b: ConsultationImagePaths): boolean {
   return (
@@ -165,13 +164,12 @@ function ConsultationBriefPanelBody({
     try {
       const added: PhotoSlot[] = [...photos];
       for (const f of list.slice(0, free.length)) {
-        if (!f.type.startsWith("image/")) throw new Error("Formats acceptés : JPEG, PNG, WebP.");
-        if (f.size > MAX_FILE_BYTES) throw new Error("Chaque image doit faire moins de 8 Mo.");
+        const prepared = await preparePatientRequestPhoto(f, compressImageFileForConsultation);
+        if (!prepared.ok) throw new Error(prepared.error);
         const slot = free.shift()!;
-        const blob = await compressImageFileForConsultation(f);
-        const previewUrl = URL.createObjectURL(blob);
+        const previewUrl = URL.createObjectURL(prepared.blob);
         blobUrlsRef.current.push(previewUrl);
-        added.push({ slot, previewUrl, path: null, pendingFile: blob });
+        added.push({ slot, previewUrl, path: null, pendingFile: prepared.blob });
       }
       setPhotos(added);
     } catch (e) {

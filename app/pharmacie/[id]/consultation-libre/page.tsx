@@ -14,14 +14,13 @@ import {
   pathsToAttachPayload,
   uploadConsultationPhotoBlob,
 } from "@/lib/consultation-media";
+import { preparePatientRequestPhoto } from "@/lib/patient-request-photo-upload";
 import { CONSULTATION_TEXT_MAX, CONSULTATION_TEXT_MIN } from "@/lib/patient-request-form-limits";
 import { sendRequestConversationMessage } from "@/lib/send-request-conversation-message";
 import { ConversationMessageDraftField } from "@/components/requests/conversation/conversation-message-draft-field";
 import type { ConversationAudioDraft } from "@/lib/use-conversation-audio-recorder";
 
 type PhotoSlot = { slot: 1 | 2 | 3; file?: File; previewUrl: string };
-
-const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
 export default function ConsultationLibrePage() {
   const params = useParams();
@@ -81,23 +80,14 @@ export default function ConsultationLibrePage() {
     const free = ([1, 2, 3] as const).filter((s) => !used.has(s));
     const next: PhotoSlot[] = [...photos];
     for (const f of list.slice(0, remaining)) {
-      if (!f.type.startsWith("image/")) {
-        setFeedback({ type: "err", text: "Formats acceptés : JPEG, PNG, WebP." });
+      const prepared = await preparePatientRequestPhoto(f, compressImageFileForConsultation);
+      if (!prepared.ok) {
+        setFeedback({ type: "err", text: prepared.error });
         return;
       }
-      if (f.size > MAX_FILE_BYTES) {
-        setFeedback({ type: "err", text: "Chaque image doit faire moins de 8 Mo." });
-        return;
-      }
-      try {
-        const blob = await compressImageFileForConsultation(f);
-        const slot = free.shift()!;
-        const previewFile = new File([blob], `photo${slot}.webp`, { type: "image/webp" });
-        next.push({ slot, file: previewFile, previewUrl: URL.createObjectURL(previewFile) });
-      } catch (e) {
-        setFeedback({ type: "err", text: e instanceof Error ? e.message : "Image illisible." });
-        return;
-      }
+      const slot = free.shift()!;
+      const previewFile = new File([prepared.blob], `photo${slot}.webp`, { type: "image/webp" });
+      next.push({ slot, file: previewFile, previewUrl: URL.createObjectURL(previewFile) });
     }
     setPhotos(next);
   };

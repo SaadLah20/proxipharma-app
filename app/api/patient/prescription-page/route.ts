@@ -4,7 +4,9 @@ import { ordonnanceMediaObjectPath, STORAGE_BUCKET_PRIVATE } from "@/lib/storage
 import { createSupabaseServiceClient } from "@/lib/supabase-service";
 import { verifyBearerUser } from "@/lib/verify-bearer-user";
 
-const MAX_BYTES = 8 * 1024 * 1024;
+/** Upload déjà compressé côté client (WebP ~1600px). */
+const MAX_BYTES = 4 * 1024 * 1024;
+const RAW_FALLBACK_MAX_BYTES = 30 * 1024 * 1024;
 
 function bearerToken(req: Request): string | null {
   const h = req.headers.get("authorization") ?? req.headers.get("Authorization");
@@ -45,8 +47,12 @@ export async function POST(req: Request) {
   if (!(file instanceof File)) {
     return Response.json({ error: "Fichier image manquant." }, { status: 400 });
   }
-  if (file.size > MAX_BYTES) {
-    return Response.json({ error: "Image trop volumineuse (max 8 Mo)." }, { status: 400 });
+  const sizeLimit = file.type === "image/webp" ? MAX_BYTES : RAW_FALLBACK_MAX_BYTES;
+  if (file.size > sizeLimit) {
+    return Response.json(
+      { error: "Image trop volumineuse après compression. Réessayez avec une photo plus légère." },
+      { status: 400 }
+    );
   }
   if (!file.type.startsWith("image/")) {
     return Response.json({ error: "Format non supporté." }, { status: 400 });
