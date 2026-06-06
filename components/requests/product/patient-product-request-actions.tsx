@@ -2745,7 +2745,10 @@ export function PatientProductRequestActions({
   const showConsultationWaiting =
     isConsultation && (uiStatus === "submitted" || uiStatus === "in_review");
   const showPrescriptionWaiting =
-    isPrescription && (uiStatus === "submitted" || uiStatus === "in_review") && prescriptionPaths?.page1;
+    !forceReadOnly &&
+    isPrescription &&
+    (uiStatus === "submitted" || uiStatus === "in_review") &&
+    prescriptionPaths?.page1;
   const showWaitingShell = showProductResubmit || showPrescriptionWaiting || showConsultationWaiting;
   const showPatientExitCTA =
     !forceReadOnly &&
