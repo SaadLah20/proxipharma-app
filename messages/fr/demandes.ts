@@ -123,6 +123,128 @@ export const demandesFr = {
   notes: {
     lineNotes: "Note sur cette ligne",
     saveNote: "Enregistrer la note",
+    viewLineMessagesAria: "Voir les messages sur ce produit",
+  },
+  validation: {
+    keepAtLeastOneLine:
+      "Garde au moins une ligne sélectionnée, modifie ta liste avant renvoi, ou abandonne la demande.",
+    qtyExceedsMax:
+      "Pour « {label} », la quantité ne peut pas dépasser {cap} (proposée par la pharmacie). Vous pouvez diminuer, pas augmenter.",
+    missingEtaOnToOrder:
+      "Une ligne « à commander » n'a pas de date de réception côté pharmacie. Contacte l'officine ou modifie ta sélection.",
+    qtyExceedsServer:
+      "La quantité dépasse ce que la pharmacie a proposé pour une alternative. Diminuez la quantité (vous ne pouvez pas l'augmenter au-delà de l'offre).",
+    duplicateProduct: "Chaque produit ne peut apparaître qu'une seule fois dans ta liste.",
+  },
+  archive: {
+    buckets: {
+      recuperes: { title: "Récupérés", aria: "Produits récupérés au comptoir" },
+      ecartes: { title: "Retirés", aria: "Produits retirés ou non récupérés" },
+      non_retenus: { title: "Non retenus", aria: "Produits non retenus lors de la validation" },
+    },
+    closure: {
+      pickedUp: "Récupéré",
+      withdrawn: "Retiré",
+      notPickedUp: "Non récupéré",
+    },
+    outcome: {
+      kickers: {
+        cancellation: "Annulation",
+        abandonment: "Abandon",
+        expiration: "Expiration",
+        partialPickup: "Retrait partiel",
+        fullPickup: "Tout retiré",
+        closure: "Clôture",
+      },
+      stateLabel: "État du dossier · {kicker}",
+      summary: "Résumé",
+      productsPickedUp: "Produits récupérés : ",
+      pickedUpOfRetained: "{picked} sur {retained} retenu",
+      pickedUpOfRetainedPlural: "{picked} sur {retained} retenus",
+      totalLines: " · {count} ligne au total",
+      totalLinesPlural: " · {count} lignes au total",
+      closedAt: "Clôturée le : ",
+      pharmacy: "Officine : ",
+      lines: "Lignes : ",
+      prescriptionProducts: "Produits saisis : ",
+      prescriptionCount: "{count} produit sur l'ordonnance",
+      prescriptionCountPlural: "{count} produits sur l'ordonnance",
+      retainedOnValidation: " · {count} retenu lors de votre validation",
+      retainedOnValidationPlural: " · {count} retenus lors de votre validation",
+      retainedProducts: "{count} produit retenu",
+      retainedProductsPlural: "{count} produits retenus",
+      otherNotRetained: " · {count} autre non retenu",
+      otherNotRetainedPlural: " · {count} autres non retenus",
+      conversationKept: "Des messages d'échange patient / officine sont conservés (conversation).",
+      lastUpdate: "Dernière mise à jour enregistrée : ",
+      footerCancelled:
+        "Demande annulée — consultation seule. Les produits ci-dessous reprennent l'état du dossier avant fermeture.",
+      footerAbandoned:
+        "Demande abandonnée — consultation seule. Les produits ci-dessous reprennent l'état du dossier avant fermeture.",
+      footerExpired:
+        "Demande expirée — vous n'avez pas validé à temps. Les produits ci-dessous reprennent la réponse de la pharmacie.",
+      footerPartiallyCollected:
+        "Une partie des produits retenus a été retirée au comptoir ; le reste figure comme non retiré dans l'archive.",
+      footerFullyCollected: "Tous les produits retenus ont été enregistrés comme retirés au comptoir.",
+      lastRecorded: "Dernier enregistrement le {date}.",
+      closedNoHistory:
+        "Ce dossier est fermé. L'historique du dossier en bas de page reprend les étapes et précisions enregistrées.",
+    },
+  },
+  respondedBuckets: {
+    available: { title: "Disponibles", ariaPatient: "Produits disponibles en officine", ariaPharmacist: "Produits disponibles en officine" },
+    partially_available: { title: "Partiellement disponibles", ariaPatient: "Produits partiellement disponibles", ariaPharmacist: "Produits partiellement disponibles" },
+    to_order: { title: "À commander", ariaPatient: "Produits à commander pour vous", ariaPharmacist: "Produits à commander pour le patient" },
+    indispo_with_alts: {
+      title: "Indisponibles + alternatives",
+      ariaPatient: "Produit indisponible ou en rupture — l'officine propose des alternatives",
+      ariaPharmacist: "Indisponible ou en rupture — alternatives proposées au patient",
+    },
+    indispo_no_alts: {
+      title: "Indisponibles",
+      ariaPatient: "Produit indisponible ou en rupture — sans alternative",
+      ariaPharmacist: "Indisponible ou en rupture — sans alternative proposée",
+    },
+  },
+  pageErrors: {
+    notFound: "Demande introuvable.",
+    notOwned: "Demande introuvable ou elle ne t'appartient pas.",
+    patientsOnly: "Cette page concerne les patients.",
+  },
+  journeyModal: {
+    titleProduct: "Parcours d'une demande de produits",
+    titlePrescription: "Parcours d'une ordonnance",
+    subtitleProduct: "Les grandes étapes, de l'envoi à la clôture.",
+    subtitlePrescription: "Du scan à la clôture, comme une demande produits.",
+    aboutDossier: "À propos de ce dossier",
+    close: "Fermer",
+    productSteps: {
+      s0: { status: "Envoyée", title: "Vous envoyez votre liste", body: "La pharmacie reçoit la demande et peut la modifier tant qu'elle n'a pas publié sa réponse." },
+      s1: { status: "En cours de traitement", title: "L'officine examine le dossier", body: "Disponibilité, prix indicatifs et éventuelles alternatives sont renseignés produit par produit." },
+      s2: { status: "Répondue — à valider", title: "Vous validez votre choix", body: "Pour chaque ligne : garder ou non, quantité, alternative éventuelle, puis date de passage et validation." },
+      s3: { status: "Validée", title: "Préparation en officine", body: "Réservation ou commande fournisseur selon les produits retenus ; suivi visible sur chaque carte." },
+      s4: { status: "Traitée", title: "Passage au comptoir", body: "Retrait des produits prêts ; la pharmacie peut clôturer le dossier après les retraits." },
+      s5: { status: "Clôturée", title: "Dossier terminé", body: "Tout a été récupéré ou le dossier est clos (annulation, expiration, etc.)." },
+    },
+    prescriptionSteps: {
+      s0: { status: "Envoyée", title: "Vous transmettez l'ordonnance", body: "Scan (et message éventuel) envoyés à l'officine — aucun produit à saisir de votre côté." },
+      s1: { status: "En cours de traitement", title: "Saisie par la pharmacie", body: "L'officine lit votre ordonnance et saisit les produits (qté prescrite, disponibilité, alternatives)." },
+      s2: { status: "Répondue — à valider", title: "Vous validez les produits proposés", body: "Pour chaque ligne : garder ou non, quantité, alternative éventuelle, puis date de passage et validation." },
+      s3: { status: "Validée", title: "Préparation en officine", body: "Réservation ou commande selon les produits retenus ; suivi visible sur chaque carte." },
+      s4: { status: "Traitée", title: "Passage au comptoir", body: "Retrait des produits prêts ; la pharmacie peut clôturer le dossier après les retraits." },
+      s5: { status: "Clôturée", title: "Ordonnance close", body: "Tout a été récupéré ou le dossier est clos (annulation, expiration, etc.)." },
+    },
+  },
+  consultationWaiting: {
+    noProductsYet: "La pharmacie n'a pas encore ajouté de produit. Consultez l'onglet Conversation pour échanger.",
+  },
+  cancelReasons: {
+    no_longer_needed: "Je n'ai plus besoin de ces produits",
+    found_elsewhere: "J'ai trouvé ailleurs",
+    price: "Prix / budget",
+    delay: "Délai trop long",
+    mistake: "Erreur de demande",
+    other: "Autre (préciser)",
   },
 };
 
@@ -131,18 +253,62 @@ export const timelineFr = {
   addedByPharmacy: "Ajouté par la pharmacie",
   withdrawn: "Retiré",
   collectedAtCounter: "Récupéré au comptoir",
+  dossier: {
+    loading: "Chargement de l'historique…",
+    intro: "Du plus ancien au plus récent — chaque étape du dossier avec ses détails.",
+    empty: "Aucun événement enregistré pour ce dossier.",
+    sectionTitle: "Historique du dossier",
+    noEventsLoaded: "Aucun événement chargé",
+    eventsOpen: "{count} événement — ouvrir pour le détail",
+    eventsOpenPlural: "{count} événements — ouvrir pour le détail",
+    refresh: "Rafraîchir",
+    emptyTimeline: "Aucun événement à afficher pour le moment.",
+  },
+  lineModal: {
+    eyebrow: "Historique du produit",
+    steps: "{count} étape — racontée du début à aujourd'hui.",
+    stepsPlural: "{count} étapes — racontées du début à aujourd'hui.",
+    journeyFallback: "Parcours de ce produit dans le dossier.",
+    empty: "Impossible d'afficher la chronologie. Consultez l'historique du dossier sur la page.",
+  },
+  phases: {
+    origin: "Envoi",
+    response: "Réponse",
+    validation: "Validation",
+    preparation: "Préparation",
+    counter: "Comptoir",
+    epilogue: "Situation",
+  },
 };
 
 export const conversationFr = {
   title: "Conversation",
   placeholder: "Votre message…",
+  placeholderDetail: "Précision, question…",
   send: "Envoyer",
   voiceRecord: "Message vocal",
   voiceStop: "Arrêter",
   voiceMaxDuration: "Maximum 30 secondes",
+  voiceDelete: "Supprimer",
+  deleteVoice: "Message vocal",
+  recording: "Enregistrement… {elapsed}/{max} s",
+  yourMessageLabel: "Votre message",
+  modifiedAt: "Modifié le {date}",
+  sentInitially: "Envoyé initialement le {date}",
+  initialMessage: "message initial",
+  patientLabel: "Patient",
+  photoN: "Photo {n}",
   empty: "Aucun message pour l'instant.",
+  emptyWriteFirst: "Aucun message pour l'instant. Écrivez le premier ci-dessous.",
   you: "Vous",
   pharmacy: "Officine",
+  exchangesWithPharmacy: "Échanges avec votre pharmacie",
+  exchangesWithPatient: "Échanges avec le patient",
+  exchangesWithOffice: "Échanges avec l'officine",
+  readonlyClosed: "Cette demande est fermée — la conversation est en lecture seule.",
+  voiceDraftSeconds: "Message vocal · {seconds} s",
+  voiceRecordTitle: "Enregistrer un message vocal (max {max} s)",
+  voiceRecordAria: "Enregistrer un message vocal",
 };
 
 export const modalsFr = {
@@ -152,9 +318,54 @@ export const modalsFr = {
     stay: "Rester",
     leave: "Quitter",
   },
+  exitCancel: {
+    step1of2: "Étape 1 sur 2",
+    finalConfirmation: "Confirmation finale",
+    confirmTitle: "Confirmer ?",
+    cancelTitle: "Annuler la demande",
+    abandonTitle: "Abandonner la demande",
+    introBeforeResponse:
+      "La pharmacie n'a pas encore publié de réponse. Indiquez un motif — l'officine verra que la demande ne vous intéresse plus.",
+    introAbandon:
+      "Vous avez déjà une réponse ou une commande en cours sur ce dossier. Expliquez pourquoi vous souhaitez l'abandonner.",
+    reasonLabel: "Motif",
+    reasonAria: "Motif d'annulation",
+    detailLabel: "Précision (au moins 8 caractères)",
+    detailPlaceholder: "Expliquez brièvement…",
+    back: "Retour",
+    continue: "Continuer",
+    warningTitle: "Attention — décision définitive",
+    warningPatient:
+      "Vous ne pourrez pas réactiver cette demande. La pharmacie ne pourra plus la traiter comme un dossier ouvert (historique conservé).",
+    reasonKept: "Motif retenu :",
+    edit: "Modifier",
+    busy: "En cours…",
+    confirmCancel: "Confirmer l'annulation",
+    confirmAbandon: "Confirmer l'abandon",
+    reasons: {
+      no_longer_needed: "Je n'ai plus besoin de ces produits",
+      found_elsewhere: "J'ai trouvé ailleurs",
+      price: "Prix / budget",
+      delay: "Délai trop long",
+      mistake: "Erreur de demande",
+      other: "Autre (préciser)",
+    },
+  },
+  exitCancelPharmacist: {
+    cancelTitle: "Annuler la demande côté pharmacie",
+    intro:
+      "Motif obligatoire (visible pour le patient dans son suivi). Cette action est définitive.",
+    reasonLabel: "Motif (au moins 5 caractères)",
+    reasonPlaceholder: "Exemple : doublon, erreur de saisie, rupture prolongée…",
+    warning:
+      "Le patient sera informé et ne pourra pas rouvrir ce dossier. Votre officine ne pourra plus le traiter non plus.",
+    reasonPrefix: "Motif :",
+    confirmCancel: "Confirmer l'annulation officine",
+  },
   photoPreview: {
     description: "Description",
     noDescription: "Aucune description disponible.",
+    closePreviewAria: "Fermer l'aperçu photo",
   },
 };
 
@@ -299,6 +510,50 @@ export const accountFr = {
   promoReservationCount: "{count} réservation promo",
   promoReservationCountPlural: "{count} réservations promo",
   updatedAt: "Màj. {when}",
+  lastDossierStatus: {
+    closed: "Clôturé",
+    submitted: "Envoyée",
+    cancelled: "Annulé",
+    expired: "Expiré",
+    abandoned: "Abandonné",
+    responded: "Répondue",
+    confirmed: "Validée",
+    treated: "Traitée",
+    in_review: "En cours",
+  },
+  notificationPrefs: {
+    titleDefault: "Alertes hors application (pilote)",
+    introPatientSettings:
+      "E-mail : mêmes alertes que dans l'app si votre profil a une adresse. SMS : réponse officine, rappel avant expiration, dossier traité, produit reçu ou de nouveau disponible, dossier expiré — si votre numéro est renseigné.",
+    introPatientDefault:
+      "En plus des notifications dans ProxiPharma, vous pouvez activer l'e-mail (mêmes alertes que dans l'app) ou le SMS pour les étapes importantes de vos dossiers : réponse pharmacie, rappel de validation, préparation terminée, produit reçu, rupture disponible, expiration — lorsque votre profil contient une adresse e-mail ou un numéro mobile (champ WhatsApp, format international).",
+    introPharmacist:
+      "En plus des notifications dans ProxiPharma, vous pouvez activer l'envoi par e-mail (mêmes alertes que dans l'app) lorsque votre profil contient une adresse e-mail. Les SMS automatiques sont réservés aux patients.",
+    whatsappLater:
+      " WhatsApp automatique arrive plus tard ; les liens manuels sur la fiche officine restent disponibles.",
+    email: "E-mail",
+    sms: "SMS",
+    whatsapp: "WhatsApp",
+    save: "Enregistrer",
+    saving: "Enregistrement…",
+    saved: "Préférences enregistrées.",
+  },
+  loginMethods: {
+    summaryEmailAndPhone: "Connexion avec votre e-mail ou votre numéro de téléphone, et votre mot de passe.",
+    summaryEmailOnly: "Connexion avec votre e-mail et votre mot de passe.",
+    summaryPhoneOnly: "Connexion avec votre numéro de téléphone et votre mot de passe.",
+    summaryIncomplete: "Identifiant de connexion incomplet — contactez le support.",
+    phoneLine: "Téléphone : {phone}",
+    phoneProfilePending:
+      "Téléphone (profil) : {phone} — liaison connexion à finaliser ci-dessous",
+    emailLine: "E-mail : {email}",
+  },
+  wishlist: {
+    subtitle: "Produits à suivre ou à commander plus tard (fonctionnalité à venir).",
+    empty:
+      "Vous pourrez enregistrer ici des produits favoris ou à rappeler. Aucune donnée n'est encore reliée à cette vue.",
+    browsePharmacies: "Parcourir les pharmacies",
+  },
 };
 
 export const promoFr = {
@@ -402,4 +657,30 @@ export const demandePublicFr = {
   noCatalogPhoto: "Pas de photo catalogue",
   unitPrice: "PU",
   totalShort: "Tot",
+  backToRequest: "Retour à la demande",
+  backToDossier: "Retour au dossier",
+  explorerCatalogTitle: "Explorer le catalogue",
+  explorerCatalogHint: "Filtrez par nom ou laboratoire, puis cochez les produits à ajouter.",
+  selectedChecked: "{count} coché",
+  selectedCheckedPlural: "{count} cochés",
+  noProductsFound: "Aucun produit trouvé.",
+  alreadyInRequest: "Déjà dans la demande",
+  selectProductAria: "Sélectionner {name}",
+  deselectProductAria: "Désélectionner {name}",
+  alreadyInRequestAria: "{name} — déjà dans la demande",
+  scrollForMore: "Faites défiler pour voir plus de produits",
+  catalogEnd: "Fin du catalogue",
+  adding: "Ajout…",
+  selectProductsFirst: "Sélectionnez des produits",
+  addCountToRequest: "Ajouter {count} produit à la demande",
+  addCountToRequestPlural: "Ajouter {count} produits à la demande",
+  addCountToDossier: "Ajouter {count} produit au dossier",
+  addCountToDossierPlural: "Ajouter {count} produits au dossier",
+  qtyReadonlyAria: "Quantité {qty}",
+  qtyPickerChangeAria: "Quantité {qty}, choisir une autre valeur",
+  lineMessageViewOrEditAria: "Voir ou modifier le message sur ce produit",
+  lineMessageAddAria: "Ajouter un message sur ce produit",
+  qtyLabel: "Quantité",
+  photoPreviewCatalogFooter: "Fiche produit catalogue",
+  photoPreviewIndicativeFooter: "Photo catalogue — visuel indicatif.",
 };

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { Mic, Square, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { REQUEST_CONVERSATION_AUDIO_MAX_SECONDS, REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
 import {
@@ -17,9 +18,10 @@ export function ConversationAudioDraftPreview({
   draft: ConversationAudioDraft;
   className?: string;
 }) {
+  const t = useTranslations("conversation");
   return (
     <div className={cn("rounded-xl border border-border/80 bg-muted/20 px-3 py-2", className)}>
-      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Message vocal</p>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{t("deleteVoice")}</p>
       <p className="mt-0.5 text-sm text-foreground">{draft.durationSeconds} s</p>
     </div>
   );
@@ -52,7 +54,7 @@ export function ConversationMessageDraftField({
   onDraftChange,
   maxLength = REQUEST_CONVERSATION_MESSAGE_MAX,
   disabled = false,
-  placeholder = "Précision, question…",
+  placeholder,
   onAudioDraftChange,
   textareaClassName,
   counterClassName,
@@ -64,6 +66,7 @@ export function ConversationMessageDraftField({
   trailingActions,
   audioDraftClearSignal = 0,
 }: Props) {
+  const t = useTranslations("conversation");
   const recorder = useConversationAudioRecorder();
 
   useEffect(() => {
@@ -82,7 +85,7 @@ export function ConversationMessageDraftField({
       onChange={(e) => onDraftChange(e.target.value.slice(0, maxLength))}
       rows={3}
       maxLength={maxLength}
-      placeholder={placeholder}
+      placeholder={placeholder ?? t("placeholderDetail")}
       disabled={disabled}
       className={textareaClassName}
     />
@@ -100,7 +103,7 @@ export function ConversationMessageDraftField({
         <div className="mb-2 rounded-lg border border-border/80 bg-muted/30 px-2.5 py-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[10px] font-semibold text-foreground">
-              Message vocal · {recorder.draft.durationSeconds} s
+              {t("voiceDraftSeconds", { seconds: recorder.draft.durationSeconds })}
             </p>
             <button
               type="button"
@@ -109,7 +112,7 @@ export function ConversationMessageDraftField({
               className="inline-flex items-center gap-1 rounded-md border border-destructive/25 px-2 py-0.5 text-[9px] font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-50"
             >
               <Trash2 className="size-3" aria-hidden />
-              Supprimer
+              {t("voiceDelete")}
             </button>
           </div>
           <audio controls preload="none" src={recorder.draft.previewUrl} className="mt-1.5 h-8 w-full max-w-full" />
@@ -119,7 +122,10 @@ export function ConversationMessageDraftField({
       {recorder.recording ? (
         <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-2.5 py-2">
           <p className="text-[10px] font-semibold text-destructive tabular-nums">
-            Enregistrement… {recorder.elapsedSeconds}/{REQUEST_CONVERSATION_AUDIO_MAX_SECONDS} s
+            {t("recording", {
+              elapsed: recorder.elapsedSeconds,
+              max: REQUEST_CONVERSATION_AUDIO_MAX_SECONDS,
+            })}
           </p>
           <button
             type="button"
@@ -127,7 +133,7 @@ export function ConversationMessageDraftField({
             className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-background px-2 py-1 text-[9px] font-semibold text-destructive"
           >
             <Square className="size-3 fill-current" aria-hidden />
-            Arrêter
+            {t("voiceStop")}
           </button>
         </div>
       ) : null}
@@ -135,7 +141,7 @@ export function ConversationMessageDraftField({
       {textEnabled ? (
         showFieldLabel ? (
           <label className="block text-[10px] font-semibold text-foreground">
-            Votre message
+            {t("yourMessageLabel")}
             <div className="mt-1">{textarea}</div>
           </label>
         ) : (
@@ -165,11 +171,11 @@ export function ConversationMessageDraftField({
             disabled={disabled || recorder.recording || Boolean(recorder.draft)}
             onClick={() => void recorder.startRecording()}
             className={cn("h-8 gap-1 px-2 text-xs", micButtonClassName)}
-            title={`Enregistrer un message vocal (max ${REQUEST_CONVERSATION_AUDIO_MAX_SECONDS} s)`}
-            aria-label="Enregistrer un message vocal"
+            title={t("voiceRecordTitle", { max: REQUEST_CONVERSATION_AUDIO_MAX_SECONDS })}
+            aria-label={t("voiceRecordAria")}
           >
             <Mic className="size-3.5" aria-hidden />
-            Vocal
+            {t("voiceRecord")}
           </Button>
         ) : null}
         {trailingActions}

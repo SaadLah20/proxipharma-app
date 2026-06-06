@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Check, Package } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
@@ -31,12 +32,15 @@ import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-requ
 import { uiActionBtnFull } from "@/lib/ui-action-buttons";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
-import { ProductBrandLabel } from "@/components/products/product-brand-label";
+import { ProductCatalogExplorerThumb } from "@/components/products/product-catalog-explorer-thumb";
+import { ProductCatalogMetaLabel } from "@/components/products/product-brand-label";
 import { useProductCatalogExplorer } from "@/lib/use-product-catalog-explorer";
 
 const THUMB = "box-border size-14 shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
 
 export default function DemandeProduitsCataloguePage() {
+  const td = useTranslations("demandePublic");
+  const tc = useTranslations("common");
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -68,7 +72,7 @@ export default function DemandeProduitsCataloguePage() {
       : editRequestId
         ? `/dashboard/demandes/${editRequestId}`
         : `/pharmacie/${pharmacyId}/demande-produits`;
-  const backLabel = editRequestId ? "Retour au dossier" : "Retour à la demande";
+  const backLabel = editRequestId ? td("backToDossier") : td("backToRequest");
 
   useEffect(() => {
     const gate = async () => {
@@ -130,10 +134,11 @@ export default function DemandeProduitsCataloguePage() {
   const selectedCount = selectedById.size;
 
   const addButtonLabel = (() => {
-    if (adding) return "Ajout…";
-    if (selectedCount === 0) return "Sélectionnez des produits";
-    const suffix = editRequestId ? " au dossier" : " à la demande";
-    return `Ajouter ${selectedCount} produit${selectedCount > 1 ? "s" : ""}${suffix}`;
+    if (adding) return td("adding");
+    if (selectedCount === 0) return td("selectProductsFirst");
+    const suffixKey = editRequestId ? "addCountToDossier" : "addCountToRequest";
+    const suffixKeyPlural = editRequestId ? "addCountToDossierPlural" : "addCountToRequestPlural";
+    return td(selectedCount > 1 ? suffixKeyPlural : suffixKey, { count: selectedCount });
   })();
 
   const addSelectedAndReturn = () => {
@@ -156,7 +161,7 @@ export default function DemandeProduitsCataloguePage() {
   if (!sessionReady) {
     return (
       <main className="min-h-screen bg-background p-6">
-        <p className="text-sm text-muted-foreground">Vérification de la session…</p>
+        <p className="text-sm text-muted-foreground">{td("sessionCheck")}</p>
       </main>
     );
   }
@@ -174,24 +179,29 @@ export default function DemandeProduitsCataloguePage() {
         </PharmacyPublicBackLink>
 
         <ProductRequestSection
-          title="Explorer le catalogue"
-          hint="Filtrez par nom ou laboratoire, puis cochez les produits à ajouter."
+          title={td("explorerCatalogTitle")}
+          hint={td("explorerCatalogHint")}
           badge={
             selectedCount > 0 ? (
               <span className={cn("shrink-0", t.sectionBadge)}>
-                {selectedCount} coché{selectedCount > 1 ? "s" : ""}
+                {td(selectedCount > 1 ? "selectedCheckedPlural" : "selectedChecked", { count: selectedCount })}
               </span>
             ) : null
           }
         >
-          <ProductRequestExplorerSearchBar query={filterQuery} onQueryChange={setFilterQuery} fieldFocus={fieldFocus} />
+          <ProductRequestExplorerSearchBar
+            query={filterQuery}
+            onQueryChange={setFilterQuery}
+            fieldFocus={fieldFocus}
+            placeholder={td("searchProduct")}
+          />
 
           <div className={cn(pharmacyPublicCard, "mt-2 overflow-hidden p-0", t.shell)}>
             {loadError ? <p className="px-3 py-3 text-sm text-destructive">{loadError}</p> : null}
             {loading ? (
-              <p className="px-3 py-6 text-center text-sm text-muted-foreground">Chargement…</p>
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">{tc("loading")}</p>
             ) : filtered.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-muted-foreground">Aucun produit trouvé.</p>
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">{td("noProductsFound")}</p>
             ) : (
               <ul
                 ref={listScrollRef}
@@ -223,44 +233,32 @@ export default function DemandeProduitsCataloguePage() {
                           )}
                           aria-label={
                             inCart
-                              ? `${p.name} — déjà dans la demande`
+                              ? td("alreadyInRequestAria", { name: p.name })
                               : checked
-                                ? `Désélectionner ${p.name}`
-                                : `Sélectionner ${p.name}`
+                                ? td("deselectProductAria", { name: p.name })
+                                : td("selectProductAria", { name: p.name })
                           }
                           aria-pressed={inCart ? undefined : checked}
                         >
                           {inCart ? null : checked ? <Check className="size-4" strokeWidth={2.5} /> : null}
                         </button>
-                        <button
-                          type="button"
-                          disabled={!p.photo_url}
-                          className={cn(
-                            THUMB,
-                            "self-center",
-                            p.photo_url ? cn("cursor-zoom-in", t.photoRing) : "cursor-default opacity-80"
-                          )}
-                          aria-label={p.photo_url ? `Agrandir la photo · ${p.name}` : "Pas de photo catalogue"}
-                          onClick={(ev) => {
-                            ev.stopPropagation();
-                            if (p.photo_url) {
-                              setPhotoPreview({
-                                url: p.photo_url,
-                                title: p.name,
-                                brand: p.brand,
-                                descriptionHtml: productDescriptionHtmlForDisplay(p.full_description),
-                              });
-                            }
-                          }}
-                        >
-                          {p.photo_url ? (
-                            <img src={p.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
-                          ) : (
-                            <span className="flex h-full w-full items-center justify-center">
-                              <Package className="size-5 text-muted-foreground" aria-hidden />
-                            </span>
-                          )}
-                        </button>
+                        <ProductCatalogExplorerThumb
+                          photoUrl={p.photo_url}
+                          productType={p.product_type}
+                          productName={p.name}
+                          className={cn(THUMB, "self-center")}
+                          ringClassName={t.photoRing}
+                          onOpenPreview={() =>
+                            setPhotoPreview({
+                              url: p.photo_url,
+                              title: p.name,
+                              brand: p.brand,
+                              product_type: p.product_type,
+                              descriptionHtml: productDescriptionHtmlForDisplay(p.full_description),
+                              catalogExplorerPreview: true,
+                            })
+                          }
+                        />
                         <button
                           type="button"
                           disabled={inCart}
@@ -270,7 +268,7 @@ export default function DemandeProduitsCataloguePage() {
                           <p className="truncate text-[13px] font-semibold leading-tight text-foreground" title={p.name}>
                             {p.name}
                           </p>
-                          <ProductBrandLabel brand={p.brand} />
+                          <ProductCatalogMetaLabel productType={p.product_type} brand={p.brand} />
                           <p className={cn("text-xs font-semibold leading-none", t.price)}>
                             <PriceDhInline
                               value={unitPrice}
@@ -279,7 +277,7 @@ export default function DemandeProduitsCataloguePage() {
                             />
                           </p>
                           {inCart ? (
-                            <span className="text-[10px] font-medium text-muted-foreground">Déjà dans la demande</span>
+                            <span className="text-[10px] font-medium text-muted-foreground">{td("alreadyInRequest")}</span>
                           ) : null}
                         </button>
                       </div>
@@ -288,10 +286,10 @@ export default function DemandeProduitsCataloguePage() {
                 })}
                 {hasMore ? (
                   <li ref={loadMoreSentinelRef} className="px-3 py-3 text-center text-xs text-muted-foreground">
-                    {loadingMore ? "Chargement…" : "Faites défiler pour voir plus de produits"}
+                    {loadingMore ? tc("loading") : td("scrollForMore")}
                   </li>
                 ) : filtered.length > 0 ? (
-                  <li className="px-3 py-2 text-center text-[10px] text-muted-foreground">Fin du catalogue</li>
+                  <li className="px-3 py-2 text-center text-[10px] text-muted-foreground">{td("catalogEnd")}</li>
                 ) : null}
               </ul>
             )}
@@ -316,7 +314,9 @@ export default function DemandeProduitsCataloguePage() {
         imageUrl={photoPreview?.url ?? null}
         title={photoPreview?.title ?? ""}
         brand={photoPreview?.brand}
+        productType={photoPreview?.product_type}
         descriptionHtml={photoPreview?.descriptionHtml}
+        catalogExplorerPreview={photoPreview?.catalogExplorerPreview}
         onClose={() => setPhotoPreview(null)}
       />
     </main>

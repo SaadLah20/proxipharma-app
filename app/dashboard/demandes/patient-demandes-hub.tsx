@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
 import { Search } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { RequestKindHubDashboard } from "@/components/requests/hub/request-kind-hub-dashboard";
 import {
@@ -33,6 +34,7 @@ import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { formatShortId } from "@/lib/request-display";
+import { useRequestKindPatientCopy } from "@/lib/i18n/request-kind-patient-copy";
 import { supabase } from "@/lib/supabase";
 import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
 
@@ -46,6 +48,11 @@ function tabToSearch(t: HubTab): string {
 
 export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const kindConfig = getRequestKindConfig(kindId);
+  const workflowCopy = useRequestKindPatientCopy(kindId);
+  const tHub = useTranslations("hub");
+  const tList = useTranslations("hub.listChrome");
+  const tAccount = useTranslations("account");
+  const tCommon = useTranslations("common");
   const hubPath = kindConfig.routes.patientHubPath;
   const refPlaceholder =
     kindConfig.publicRefPrefix === "O" ? "Ex. O042/26" : kindConfig.publicRefPrefix === "C" ? "Ex. C042/26" : "Ex. D042/26";
@@ -115,7 +122,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
       const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
       if ((profile as { role?: string } | null)?.role !== "patient") {
         if (!cancelled) {
-          setError("Cet espace est réservé aux patients.");
+          setError(tList("patientsOnly"));
           setLoading(false);
         }
         return;
@@ -259,23 +266,22 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
 
   const listTabLabel =
     kindId === "prescription"
-      ? "Toutes les ordonnances"
+      ? tHub("dashboard.allPrescriptions")
       : kindId === "free_consultation"
-        ? "Toutes les consultations"
-        : "Toutes les demandes";
+        ? tHub("dashboard.allConsultations")
+        : tHub("dashboard.allRequests");
 
-  const filterBtn = uiActionBtnFilterToggle();
   const hubSubtitle =
     kindId === "prescription"
-      ? "Suivi de vos ordonnances envoyées aux pharmacies."
+      ? tList("subtitlePrescription")
       : kindId === "free_consultation"
-        ? "Suivi de vos consultations libres : message, échange et proposition produits."
-        : "8 statuts en tête, reprise rapide et liste filtrable par statut, pharmacie ou référence.";
+        ? tList("subtitleConsultation")
+        : tList("subtitleProduct");
 
   if (loading) {
     return (
       <PageShell maxWidthClass="max-w-3xl">
-        <p className="text-muted-foreground">Chargement…</p>
+        <p className="text-muted-foreground">{tCommon("loading")}</p>
       </PageShell>
     );
   }
@@ -293,10 +299,19 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
 
   const emptyHint =
     kindId === "prescription"
-      ? "Annuaire → pharmacie → envoyer une ordonnance."
+      ? tList("emptyHintPrescription")
       : kindId === "free_consultation"
-        ? "Annuaire → pharmacie → consultation libre."
-        : "Annuaire → pharmacie → demande de produits.";
+        ? tList("emptyHintConsultation")
+        : tList("emptyHintProduct");
+
+  const emptyTitle =
+    kindId === "prescription"
+      ? tList("noPrescriptions")
+      : kindId === "free_consultation"
+        ? tList("noConsultations")
+        : tList("noRequests");
+
+  const filterBtn = uiActionBtnFilterToggle();
 
   return (
     <PageShell
@@ -304,12 +319,12 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
       className="space-y-4"
     >
       <PatientAccountPageHeader
-        eyebrow="Mes dossiers"
-        title={kindConfig.copy.patientHubTitle}
+        eyebrow={tAccount("myDossiers")}
+        title={workflowCopy.patientHubTitle}
         subtitle={hubSubtitle}
         trailing={
           <Link href="/dashboard/notifications" className={p.headerAction}>
-            Notifications
+            {tCommon("notifications")}
           </Link>
         }
       />
@@ -319,13 +334,8 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
           tab={tab}
           onTab={setTab}
           labels={{
-            dashboard: "Tableau de bord",
-            list:
-              kindId === "prescription"
-                ? "Toutes les ordonnances"
-                : kindId === "free_consultation"
-                  ? "Toutes les consultations"
-                  : "Toutes les demandes",
+            dashboard: tList("dashboardTab"),
+            list: listTabLabel,
           }}
         />
       </div>
@@ -334,19 +344,13 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
         <>
           {rows.length === 0 ? (
             <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center sm:p-8">
-              <p className="text-sm font-medium text-foreground">
-                {kindId === "prescription"
-                  ? "Aucune ordonnance"
-                  : kindId === "free_consultation"
-                    ? "Aucune consultation"
-                    : "Aucune demande"}
-              </p>
+              <p className="text-sm font-medium text-foreground">{emptyTitle}</p>
               <p className="mt-1 text-[11px] text-muted-foreground">{emptyHint}</p>
               <Link
                 href="/"
                 className="mt-4 inline-flex rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-95"
               >
-                Annuaire
+                {tList("directory")}
               </Link>
             </div>
           ) : (
@@ -370,17 +374,17 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
               onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
               className={filterBtn}
             >
-              {filtersPanelExpanded ? "Masquer les filtres" : "Filtres"}
+              {filtersPanelExpanded ? tList("hideFilters") : tList("filters")}
             </button>
           </div>
 
           {listHasActiveFilters && !filtersPanelExpanded ? (
             <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-[11px] leading-snug text-foreground">
               <p>
-                <span className="font-semibold">Filtres actifs :</span> {listFiltersSummary}
+                <span className="font-semibold">{tList("activeFilters")}</span> {listFiltersSummary}
               </p>
               <button type="button" onClick={clearListFilters} className={clsx("mt-1.5", filterChrome.clearLink)}>
-                Tout effacer
+                {tList("clearAll")}
               </button>
             </div>
           ) : null}
@@ -390,7 +394,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
               <div className="grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4">
                 <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
                   <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                    Référence dossier
+                    {tList("dossierRef")}
                   </span>
                   <span className="relative block">
                     <Search
@@ -406,13 +410,13 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                   </span>
                 </label>
                 <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Statut</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{tList("status")}</span>
                   <select
                     value={activeBucket?.key ?? ""}
                     onChange={(e) => setStatutFilter(e.target.value)}
                     className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
                   >
-                    <option value="">Tous les statuts</option>
+                    <option value="">{tList("allStatuses")}</option>
                     {dashboardBuckets.map((b) => (
                       <option key={b.key} value={b.key}>
                         {b.label}
@@ -421,13 +425,13 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                   </select>
                 </label>
                 <label className="flex min-w-0 flex-col gap-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Pharmacie</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{tList("pharmacy")}</span>
                   <select
                     value={pharmacyFilter}
                     onChange={(e) => setPharmacyFilter(e.target.value)}
                     className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
                   >
-                    <option value="">Toutes</option>
+                    <option value="">{tList("allPharmacies")}</option>
                     {pharmacyOptions.map(([id, label]) => (
                       <option key={id} value={id}>
                         {label}
@@ -436,14 +440,14 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                   </select>
                 </label>
                 <label className="flex min-w-0 flex-col gap-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Tri</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{tList("sort")}</span>
                   <select
                     value={sortNewestFirst ? "desc" : "asc"}
                     onChange={(e) => setSortNewestFirst(e.target.value === "desc")}
                     className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
                   >
-                    <option value="desc">Plus récentes d’abord</option>
-                    <option value="asc">Plus anciennes d’abord</option>
+                    <option value="desc">{tList("sortNewest")}</option>
+                    <option value="asc">{tList("sortOldest")}</option>
                   </select>
                 </label>
               </div>
@@ -452,10 +456,10 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
 
           {filteredSorted.length === 0 ? (
             <div className="space-y-2 py-6 text-center text-xs text-muted-foreground">
-              <p>Aucun résultat.</p>
+              <p>{tList("noResults")}</p>
               {listHasActiveFilters ? (
                 <button type="button" onClick={clearListFilters} className={filterChrome.clearLink}>
-                  Effacer les filtres
+                  {tList("clearFilters")}
                 </button>
               ) : null}
             </div>

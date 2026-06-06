@@ -4,7 +4,7 @@ import { authFr } from "./auth";
 import { commonFr } from "./common";
 import { headerFr } from "./header";
 import { hubFr } from "./hub";
-import { consultationCopyFr, prescriptionCopyFr, workflowFr } from "./workflow";
+import { consultationCopyFr, prescriptionCopyFr, prescriptionPublicFr, consultationPublicFr, workflowFr } from "./workflow";
 import { pharmacyPublicFr } from "./pharmacyPublic";
 
 const messages = {
@@ -25,6 +25,8 @@ const messages = {
   promo: promoFr,
   pharmacyPublic: pharmacyPublicFr,
   demandePublic: demandePublicFr,
+  prescriptionPublic: prescriptionPublicFr,
+  consultationPublic: consultationPublicFr,
 };
 
 export default messages;

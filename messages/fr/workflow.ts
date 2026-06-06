@@ -62,6 +62,17 @@ export const prescriptionCopyFr = {
   prepPrescription: "Préparation en cours selon l'ordonnance.",
   prepPharmacy: "Préparation en cours à l'officine.",
   pharmacyProposedProduct: "Produit proposé par la pharmacie",
+  scan: {
+    title: "Ordonnance scannée",
+  },
+  panel: {
+    page1Required: "La page 1 est obligatoire.",
+    maxPages: "Maximum 2 pages.",
+    removePage2First: "Retirez d'abord la page 2.",
+    atLeastPage1: "Au moins la page 1 de l'ordonnance est requise.",
+    addError: "Erreur lors de l'ajout.",
+    saveFailed: "Enregistrement impossible.",
+  },
 };
 
 export const consultationCopyFr = {
@@ -71,4 +82,82 @@ export const consultationCopyFr = {
   respondedTabPrincipal: "Produit",
   consultationSent: "Consultation envoyée",
   consultation: "Consultation",
+  panel: {
+    photoDisplayError: "Impossible d'afficher une ou plusieurs photos (droits ou fichier manquant).",
+    photoError: "Erreur photo.",
+    saveError: "Erreur lors de l'enregistrement.",
+    removePhotoTitle: "Retirer (enregistrez pour valider)",
+    saveChanges: "Enregistrer les modifications",
+    patientTitle: "Votre consultation",
+    pharmacistTitle: "Message du patient",
+    patientSubtitle: "Message et photos envoyés au départ du dossier.",
+    pharmacistSubtitle: "Texte et photos transmis au départ du dossier.",
+    patientExpandHint: "Toucher pour modifier le texte ou les photos.",
+    pharmacistExpandHint: "Texte et photos — une seule validation pour la pharmacie.",
+    collapse: "Replier",
+    expand: "Ouvrir",
+  },
+  tabs: {
+    ariaLabel: "Consultation libre",
+    conversation: "Conversation",
+    products: "Produits",
+    newMessages: "Nouveaux messages",
+  },
+};
+
+export const prescriptionPublicFr = {
+  sessionCheck: "Vérification de la session…",
+  backToPharmacy: "Retour à la pharmacie",
+  eyebrow: "Ordonnance",
+  title: "Envoyer une ordonnance",
+  subtitleWithPharmacy: "Pharmacie {name} — photo nette, bien éclairée (max. 2 pages).",
+  subtitleGeneric: "Photo nette, bien éclairée (max. 2 pages).",
+  photosSectionTitle: "Photos de l'ordonnance",
+  takePhoto: "Prendre une photo",
+  chooseFile: "Choisir un fichier",
+  pageAlt: "Page {n}",
+  removePageAria: "Supprimer cette page",
+  pageLabel: "Page {n}",
+  noPhotosYet: "Aucune photo pour le moment.",
+  messageOptional: "Message pour la pharmacie (facultatif)",
+  messagePlaceholder: "Ex. ordonnance pour mon enfant, urgence…",
+  maxPagesError: "Maximum 2 pages (recto / verso ou 2 feuilles).",
+  addAtLeastOnePhoto: "Ajoutez au moins une photo de l'ordonnance.",
+  sessionExpired: "Session expirée. Reconnecte-toi.",
+  unexpectedResponse: "Réponse serveur inattendue.",
+  voiceConvFailed:
+    "Ordonnance envoyée, mais le message vocal n'a pas pu être enregistré. Ajoutez-le depuis la conversation du dossier.",
+  sendPrescription: "Envoyer l'ordonnance",
+  page: "page",
+  pages: "pages",
+  confirmSend: "Confirmer l'envoi",
+  confirmSendHint:
+    "{count} {pagesWord} — la pharmacie saisira les produits après lecture de l'ordonnance.",
+  confirmSendButton: "Confirmer l'envoi",
+  yourMessageForPharmacy: "Votre message pour la pharmacie",
+  noMessageLater: "Aucun message — vous pourrez en ajouter plus tard depuis le dossier.",
+};
+
+export const consultationPublicFr = {
+  sessionCheck: "Chargement…",
+  backFallback: "Pharmacie",
+  eyebrow: "Consultation",
+  title: "Consultation libre",
+  subtitle:
+    "Décrivez votre besoin. La pharmacie pourra échanger avec vous puis vous proposer des produits.",
+  yourMessage: "Votre message",
+  messagePlaceholder: "Symptômes, contexte, produits recherchés…",
+  charCounter: "{current}/{max} · min. {min}",
+  voiceOptional: "Message vocal (facultatif, max 30 s)",
+  photosOptional: "Photos (facultatif, {max} max)",
+  camera: "Appareil",
+  gallery: "Galerie",
+  removePhotoAria: "Supprimer cette photo",
+  maxPhotosError: "Maximum {max} photos.",
+  textTooShort: "Décrivez votre besoin en au moins {min} caractères.",
+  submitFailed: "Échec de l'envoi.",
+  sessionExpired: "Session expirée. Reconnectez-vous.",
+  voiceConvFailed:
+    "Consultation envoyée, mais le message vocal n'a pas pu être enregistré. Ajoutez-le depuis la conversation du dossier.",
+  sendConsultation: "Envoyer la consultation",
 };

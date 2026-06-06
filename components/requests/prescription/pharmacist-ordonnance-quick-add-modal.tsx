@@ -137,9 +137,10 @@ function QtyStepper({
 
 export function PharmacistOrdonnanceQuickAddModal(props: Props) {
   const [photoPreview, setPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
-  const openPhotoPreview = (url: string, title: string, descriptionHtml?: string | null) => {
+  const openPhotoPreview = (url: string | null, title: string, descriptionHtml?: string | null) => {
+    if (!url?.trim()) return;
     setPhotoPreview({
-      url,
+      url: url.trim(),
       title,
       descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
     });

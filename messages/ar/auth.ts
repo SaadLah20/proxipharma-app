@@ -110,5 +110,7 @@ export const authAr = {
     validationForgotNeedEmail: "لإعادة التعيين بالبريد، أدخل بريدك في حقل المعرّف.",
     validationResetRequestFailed: "تعذّر إرسال الطلب. تحقق من الاتصال وأعد المحاولة.",
     validationResetRequestLater: "تعذّر إرسال الطلب حالياً. أعد المحاولة لاحقاً.",
+    provisionedPasswordHint:
+      "أنشأ المسؤول حسابك. اختر كلمة مرور شخصية: ستسجّل الدخول بعد ذلك برقمك وكلمة المرور هذه.",
   },
 };

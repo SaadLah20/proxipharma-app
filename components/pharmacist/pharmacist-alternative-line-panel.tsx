@@ -1,7 +1,7 @@
 "use client";
 
 import { clsx } from "clsx";
-import { Layers, Package, Trash2 } from "lucide-react";
+import { Package, Trash2 } from "lucide-react";
 import {
   ProductRequestLineQtyPicker,
   ProductRequestLineQtyReadonly,
@@ -103,9 +103,10 @@ export function PharmacistAlternativeLinePanel({
           <PharmacistProductPhotoThumb
             photoUrl={photo}
             title={altName}
+            brand={altProd?.brand}
+            productType={altProd?.product_type}
             descriptionHtml={altProd?.full_description}
             onPhotoPreview={onPhotoPreview}
-            placeholderIcon={Layers}
             iconClassName="text-teal-600/70 size-6"
           />
         </div>

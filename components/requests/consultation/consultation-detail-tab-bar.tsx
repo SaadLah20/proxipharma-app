@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { MessageCircle, Package } from "lucide-react";
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
 import type { ConsultationDetailTab } from "@/lib/consultation-detail-tabs";
 
 export function ConsultationDetailTabBar({
@@ -16,24 +17,27 @@ export function ConsultationDetailTabBar({
   conversationUnread?: boolean;
   productLineCount?: number;
 }) {
+  const t = useTranslations("consultation.tabs");
+
   return (
     <div
       className="flex rounded-xl border-2 border-violet-200/80 bg-gradient-to-r from-violet-50/90 via-white to-fuchsia-50/40 p-1 shadow-sm ring-1 ring-violet-200/50"
       role="tablist"
-      aria-label="Consultation libre"
+      aria-label={t("ariaLabel")}
     >
       <TabButton
         active={tab === "conversation"}
         onClick={() => onTab("conversation")}
         icon={<MessageCircle className="size-4 shrink-0" aria-hidden />}
-        label="Conversation"
+        label={t("conversation")}
         badge={conversationUnread ? "new" : undefined}
+        newMessagesLabel={t("newMessages")}
       />
       <TabButton
         active={tab === "products"}
         onClick={() => onTab("products")}
         icon={<Package className="size-4 shrink-0" aria-hidden />}
-        label="Produits"
+        label={t("products")}
         badge={productLineCount > 0 ? String(productLineCount) : undefined}
       />
     </div>
@@ -46,12 +50,14 @@ function TabButton({
   icon,
   label,
   badge,
+  newMessagesLabel,
 }: {
   active: boolean;
   onClick: () => void;
   icon: ReactNode;
   label: string;
   badge?: string;
+  newMessagesLabel?: string;
 }) {
   return (
     <button
@@ -71,7 +77,7 @@ function TabButton({
       {badge === "new" ? (
         <span
           className="absolute end-2 top-1.5 size-2 rounded-full bg-destructive ring-2 ring-white"
-          aria-label="Nouveaux messages"
+          aria-label={newMessagesLabel}
         />
       ) : badge ? (
         <span className="min-w-[1.125rem] rounded-full bg-violet-700 px-1 py-px text-center text-[9px] font-bold tabular-nums text-white">

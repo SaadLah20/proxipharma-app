@@ -22,10 +22,9 @@ import { PatientSettingsSection } from "@/components/patient/patient-settings-se
 import { linkMyPhoneOnAuth } from "@/lib/auth-client-phone-link";
 import { authEmailRedirectUrl, resolveClientAppBaseUrl } from "@/lib/auth-site-url";
 import {
-  patientLoginIdentifiersListFr,
   patientLoginMethodsFromAuthAndProfile,
-  patientLoginMethodsSummaryFr,
 } from "@/lib/patient-auth-login-methods-fr";
+import { usePatientLoginMethodsCopy } from "@/lib/i18n/use-patient-login-methods-copy";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { supabase } from "@/lib/supabase";
 
@@ -50,6 +49,7 @@ export function PatientSettingsPage() {
   const router = useRouter();
   const t = useTranslations("account");
   const tc = useTranslations("common");
+  const { summary: loginMethodsSummary, identifiers: loginMethodsIdentifiers } = usePatientLoginMethodsCopy();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -247,8 +247,8 @@ export function PatientSettingsPage() {
     [authUser, profile?.whatsapp]
   );
   const loginIdentifierLines = useMemo(
-    () => patientLoginIdentifiersListFr(loginMethods),
-    [loginMethods]
+    () => loginMethodsIdentifiers(loginMethods),
+    [loginMethods, loginMethodsIdentifiers]
   );
 
   const activatePhoneLogin = async () => {
@@ -383,7 +383,7 @@ export function PatientSettingsPage() {
           <div className="rounded-lg border border-border/80 bg-muted/25 px-3 py-2.5">
             <p className="text-xs font-semibold text-foreground">{t("howYouLogin")}</p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              {patientLoginMethodsSummaryFr(loginMethods)}
+              {loginMethodsSummary(loginMethods)}
             </p>
             {loginIdentifierLines.length > 0 ? (
               <ul className="mt-2 space-y-0.5 text-[11px] text-foreground">

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { clsx } from "clsx";
 import { ChevronDown, FileImage } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { PrescriptionImageViewer } from "@/components/requests/prescription/prescription-image-viewer";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 
@@ -35,6 +36,7 @@ export function PrescriptionScanCollapsible({
   onControlledActiveTabChange,
   onPanelOpenChange,
 }: Props) {
+  const t = useTranslations("prescription.scan");
   const [panelOpen, setPanelOpen] = useState(defaultOpen);
 
   const setPanelOpenAndNotify = (next: boolean | ((open: boolean) => boolean)) => {
@@ -65,7 +67,7 @@ export function PrescriptionScanCollapsible({
           <FileImage className="size-4" aria-hidden />
         </span>
         <span className="min-w-0 flex-1 text-[10px] font-bold uppercase tracking-wide text-amber-900/90">
-          Ordonnance scannée
+          {t("title")}
         </span>
         <ChevronDown
           className="size-4 shrink-0 text-amber-800 transition-transform group-open:rotate-180"

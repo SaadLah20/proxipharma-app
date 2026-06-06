@@ -2,6 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Camera, FileImage, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { supabase } from "@/lib/supabase";
 import { RequestExitConfirmModalFr } from "@/components/requests/request-exit-confirm-modal-fr";
 import type { PatientCancelReasonCode } from "@/lib/patient-flow-reasons";
@@ -45,6 +46,7 @@ export const PatientPrescriptionEditablePanel = forwardRef<PatientPrescriptionPa
     { requestId, status, paths, patientNote, onReload, editMode, onEditModeChange, onFooterStateChange },
     ref
   ) {
+    const tPanel = useTranslations("prescription.panel");
     const [localNote, setLocalNote] = useState<string | null>(null);
     const [prevNote, setPrevNote] = useState(patientNote ?? "");
     if ((patientNote ?? "") !== prevNote) {
@@ -96,7 +98,7 @@ export const PatientPrescriptionEditablePanel = forwardRef<PatientPrescriptionPa
 
     const persistPages = async (slots: PageSlot[]) => {
       const p1 = slots.find((s) => s.page === 1);
-      if (!p1) throw new Error("La page 1 est obligatoire.");
+      if (!p1) throw new Error(tPanel("page1Required"));
       const p2 = slots.find((s) => s.page === 2);
       const { error } = await supabase.rpc("patient_attach_prescription_pages", {
         p_request_id: requestId,
@@ -127,7 +129,7 @@ export const PatientPrescriptionEditablePanel = forwardRef<PatientPrescriptionPa
       const targetPage: 1 | 2 =
         pages.length === 0 || !pages.some((p) => p.page === 1) ? 1 : 2;
       if (targetPage === 2 && pages.some((p) => p.page === 2)) {
-        setFeedback("Maximum 2 pages.");
+        setFeedback(tPanel("maxPages"));
         return;
       }
       setBusy(true);
@@ -151,7 +153,7 @@ export const PatientPrescriptionEditablePanel = forwardRef<PatientPrescriptionPa
         });
         setDirty(true);
       } catch (e) {
-        setFeedback(e instanceof Error ? e.message : "Erreur lors de l'ajout.");
+        setFeedback(e instanceof Error ? e.message : tPanel("addError"));
       } finally {
         setBusy(false);
       }
@@ -159,7 +161,7 @@ export const PatientPrescriptionEditablePanel = forwardRef<PatientPrescriptionPa
 
     const removePage = (page: 1 | 2) => {
       if (page === 1 && pages.some((p) => p.page === 2)) {
-        setFeedback("Retirez d'abord la page 2.");
+        setFeedback(tPanel("removePage2First"));
         return;
       }
       setPages((prev) => {
@@ -173,7 +175,7 @@ export const PatientPrescriptionEditablePanel = forwardRef<PatientPrescriptionPa
     const saveAll = async () => {
       setFeedback("");
       if (!pages.some((p) => p.page === 1)) {
-        setFeedback("Au moins la page 1 de l'ordonnance est requise.");
+        setFeedback(tPanel("atLeastPage1"));
         return;
       }
       setBusy(true);
@@ -190,7 +192,7 @@ export const PatientPrescriptionEditablePanel = forwardRef<PatientPrescriptionPa
         onEditModeChange(false);
         await onReload();
       } catch (e) {
-        setFeedback(e instanceof Error ? e.message : "Enregistrement impossible.");
+        setFeedback(e instanceof Error ? e.message : tPanel("saveFailed"));
       } finally {
         setBusy(false);
       }

@@ -13,7 +13,7 @@ import { authAr } from "./auth";
 import { commonAr } from "./common";
 import { headerAr } from "./header";
 import { hubAr } from "./hub";
-import { consultationCopyAr, prescriptionCopyAr, workflowAr } from "./workflow";
+import { consultationCopyAr, prescriptionCopyAr, prescriptionPublicAr, consultationPublicAr, workflowAr } from "./workflow";
 import { pharmacyPublicAr } from "./pharmacyPublic";
 
 const messages = {
@@ -34,6 +34,8 @@ const messages = {
   promo: promoAr,
   pharmacyPublic: pharmacyPublicAr,
   demandePublic: demandePublicAr,
+  prescriptionPublic: prescriptionPublicAr,
+  consultationPublic: consultationPublicAr,
 };
 
 export default messages;

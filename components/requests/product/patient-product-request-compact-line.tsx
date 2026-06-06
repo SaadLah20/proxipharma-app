@@ -1,6 +1,6 @@
 "use client";
 
-import { Package } from "lucide-react";
+import { ProductCatalogExplorerThumb } from "@/components/products/product-catalog-explorer-thumb";
 import {
   PatientLineCommentModal,
   PRODUCT_REQUEST_LINE_CARD_SHELL,
@@ -19,6 +19,7 @@ export type PatientDossierCompactLine = {
   product_id: string;
   name: string;
   brand?: string | null;
+  product_type?: string | null;
   photo_url?: string | null;
   qty: number;
   client_comment?: string;
@@ -50,19 +51,15 @@ export function PatientProductRequestCompactLine({
   const hasComment = Boolean(line.client_comment?.trim());
   const isProposed = line.line_source === "pharmacist_proposed";
 
-  const thumbInner = line.photo_url ? (
-    <button
-      type="button"
-      className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
-      aria-label={`Agrandir la photo · ${line.name}`}
-      onClick={onPhotoPreview}
-    >
-      <img src={line.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
-    </button>
-  ) : (
-    <span className="flex h-full w-full items-center justify-center">
-      <Package className="size-5 text-muted-foreground" aria-hidden />
-    </span>
+  const thumbInner = (
+    <ProductCatalogExplorerThumb
+      photoUrl={line.photo_url}
+      productType={line.product_type}
+      productName={line.name}
+      className="size-full"
+      ringClassName={t.photoRing}
+      onOpenPreview={onPhotoPreview}
+    />
   );
 
   return (

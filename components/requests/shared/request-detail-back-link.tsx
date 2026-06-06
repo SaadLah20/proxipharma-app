@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { RequestKindConfig } from "@/lib/request-kinds/types";
 
 type RequestDetailBackLinkProps = {
@@ -7,14 +11,16 @@ type RequestDetailBackLinkProps = {
 };
 
 export function RequestDetailBackLink({ config, viewerRole }: RequestDetailBackLinkProps) {
+  const t = useTranslations("common");
   const href = viewerRole === "patient" ? config.routes.patientHubPath : config.routes.pharmacistHubPath;
   const label = viewerRole === "patient" ? config.copy.patientHubTitle : config.copy.pharmacistHubTitle;
   const linkClass =
     viewerRole === "patient" ? config.theme.patientBackLinkClass : config.theme.pharmacistBackLinkClass;
 
   return (
-    <Link href={href} className={`inline-block text-xs font-medium underline ${linkClass}`}>
-      ← Retour — {label}
+    <Link href={href} className={`inline-flex items-center gap-1 text-xs font-medium underline ${linkClass}`}>
+      <ChevronLeft className="size-3.5 shrink-0 rtl:rotate-180" aria-hidden />
+      {t("back")} — {label}
     </Link>
   );
 }

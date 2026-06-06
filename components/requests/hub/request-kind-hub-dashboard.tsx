@@ -16,6 +16,7 @@ import { PatientProductDemandeHubCard } from "@/components/requests/product/pati
 import { PharmacistProductDemandeHubCard } from "@/components/requests/product/pharmacist-product-demande-hub-card";
 import {
   countInPatientProductHubSection,
+  getPatientProductHubSections,
   patientProductHubListHref,
   rowsInPatientProductHubSection,
 } from "@/lib/patient-product-hub-sections";
@@ -27,7 +28,6 @@ import {
 import {
   HUB_DASHBOARD_PREVIEW,
   hubDashboardQuickStats,
-  patientHubSections,
   pharmacistHubSections,
   pickRecentActiveHubRows,
   sortHubRowsByRecency,
@@ -123,6 +123,7 @@ export function RequestKindHubDashboard({
   unreadById: Record<string, boolean>;
 }) {
   const tHub = useTranslations("hub");
+  const patientSections = getPatientProductHubSections(tHub);
   const baseBuckets =
     role === "patient"
       ? PATIENT_DASHBOARD_BUCKETS.map((b) => {
@@ -162,7 +163,7 @@ export function RequestKindHubDashboard({
     role === "patient" ? (
       <>
         {PATIENT_SECTION_ORDER.map((sectionId) => {
-          const section = patientHubSections().find((s) => s.id === sectionId)!;
+          const section = patientSections.find((s) => s.id === sectionId)!;
           const sectionRows = sortHubRowsByRecency(
             rowsInPatientProductHubSection(rows as PatientRequestRow[], sectionId)
           );
@@ -172,6 +173,7 @@ export function RequestKindHubDashboard({
               key={sectionId}
               sectionDomId={`hub-section-${kindId}-${sectionId}`}
               title={section.title}
+              subtitle={section.subtitle}
               count={count}
               listHref={patientProductHubListHref(basePath)}
               defaultCollapsed={sectionId === "archives" && count > HUB_DASHBOARD_PREVIEW}

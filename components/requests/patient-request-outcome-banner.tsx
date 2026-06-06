@@ -2,14 +2,14 @@
 
 import type { ReactNode } from "react";
 import { clsx } from "clsx";
-import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
+import { useLocale, useTranslations } from "next-intl";
+import { formatDateTimeShortForLocale } from "@/lib/datetime-locale";
+import type { AppLocale } from "@/lib/i18n/config";
+import { usePatientRequestStatusLabel } from "@/lib/i18n/patient-request-status-label";
 import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
-import { historyActorLabel, requestStatusFr } from "@/lib/request-display";
+import { historyActorLabel } from "@/lib/request-display";
 import { patientOutcomeExpiredHint } from "@/lib/request-kinds/hub-and-terminal-copy";
-import {
-  patientArchiveTerminalActorLineFr,
-  patientArchiveTerminalMotiveParagraphsFr,
-} from "@/lib/patient-archive-outcome-fr";
+import { patientArchiveTerminalActorLineFr } from "@/lib/patient-archive-outcome-fr";
 import { isRequestKindId } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 
@@ -55,6 +55,30 @@ export type PatientOutcomeDetailContext = {
   };
 };
 
+function archiveHubKey(status: PatientProductArchiveStatus): string {
+  if (status === "partially_collected") return "partially_collected";
+  if (status === "fully_collected") return "fully_collected";
+  if (status === "completed") return "completed";
+  return status;
+}
+
+function outcomeKickerKey(status: PatientProductArchiveStatus): string {
+  switch (status) {
+    case "cancelled":
+      return "cancellation";
+    case "abandoned":
+      return "abandonment";
+    case "expired":
+      return "expiration";
+    case "partially_collected":
+      return "partialPickup";
+    case "fully_collected":
+      return "fullPickup";
+    default:
+      return "closure";
+  }
+}
+
 /**
  * Bloc mis en avant en tête de fiche patient pour dossiers produits terminés
  * (annulé, abandonné, expiré, clôturé).
@@ -69,13 +93,18 @@ export function PatientRequestOutcomeBanner({
 }: {
   status: string;
   historyRows: OutcomeHistoryRow[];
-  /** Infos disponibles à l’écran (officine, lignes, messages) — optionnel. */
+  /** Infos disponibles à l'écran (officine, lignes, messages) — optionnel. */
   detailContext?: PatientOutcomeDetailContext | null;
   /** Surcharge du texte de clôture (ex. ordonnance). */
   closedFooterNote?: string | null;
   requestKindId?: RequestKindId;
   children?: ReactNode;
 }) {
+  const locale = useLocale() as AppLocale;
+  const tOutcome = useTranslations("demandes.archive.outcome");
+  const tHubArchive = useTranslations("hub.archive");
+  const statLabel = usePatientRequestStatusLabel(status);
+
   if (!isPatientProductArchiveStatus(status)) return null;
 
   const kindId: RequestKindId =
@@ -83,27 +112,44 @@ export function PatientRequestOutcomeBanner({
 
   const entry = historyRows.find((h) => h.new_status === status) ?? historyRows[0] ?? null;
 
-  const paras = patientArchiveTerminalMotiveParagraphsFr(entry);
+  const paras = entry?.reason ? patientDossierHistoryDetailParagraphsFr(entry.reason) : [];
   const actorLine = patientArchiveTerminalActorLineFr(entry);
-  const statLabel = requestStatusFr[status] ?? status;
+  const hubKey = archiveHubKey(status);
+  const kicker = tOutcome(`kickers.${outcomeKickerKey(status)}`);
 
   const theme =
     status === "cancelled"
-      ? { title: "text-rose-950", accent: "text-rose-900/90", kicker: "Annulation" }
+      ? { title: "text-rose-950", accent: "text-rose-900/90" }
       : status === "abandoned"
-        ? { title: "text-orange-950", accent: "text-orange-950/88", kicker: "Abandon" }
+        ? { title: "text-orange-950", accent: "text-orange-950/88" }
         : status === "expired"
-          ? { title: "text-amber-950", accent: "text-amber-950/90", kicker: "Expiration" }
+          ? { title: "text-amber-950", accent: "text-amber-950/90" }
           : status === "partially_collected"
-            ? { title: "text-teal-950", accent: "text-teal-950/90", kicker: "Retrait partiel" }
+            ? { title: "text-teal-950", accent: "text-teal-950/90" }
             : status === "fully_collected"
-              ? { title: "text-emerald-950", accent: "text-emerald-950/90", kicker: "Tout retiré" }
-              : { title: "text-emerald-950", accent: "text-emerald-950/90", kicker: "Clôture" };
+              ? { title: "text-emerald-950", accent: "text-emerald-950/90" }
+              : { title: "text-emerald-950", accent: "text-emerald-950/90" };
+
+  const footerNote =
+    status === "cancelled"
+      ? tOutcome("footerCancelled")
+      : status === "abandoned"
+        ? tOutcome("footerAbandoned")
+        : status === "expired"
+          ? tOutcome("footerExpired")
+          : status === "partially_collected"
+            ? tOutcome("footerPartiallyCollected")
+            : status === "fully_collected"
+              ? tOutcome("footerFullyCollected")
+              : (closedFooterNote ?? tHubArchive(`${hubKey}.lede`));
 
   return (
     <section className="rounded-xl border border-border bg-card px-3 py-2.5 shadow-sm">
-      <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">État du dossier · {theme.kicker}</p>
+      <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+        {tOutcome("stateLabel", { kicker })}
+      </p>
       <h2 className={clsx("mt-1 text-sm font-bold leading-snug sm:text-base", theme.title)}>{statLabel}</h2>
+      <p className={clsx("mt-1 text-[11px] leading-snug", theme.accent)}>{tHubArchive(`${hubKey}.lede`)}</p>
 
       {actorLine && (status === "cancelled" || status === "abandoned" || status === "expired") ? (
         <p className={clsx("mt-2 rounded-md border border-border bg-muted/25 px-2.5 py-1.5 text-[11px] font-semibold leading-snug", theme.accent)}>
@@ -113,25 +159,32 @@ export function PatientRequestOutcomeBanner({
 
       {detailContext ? (
         <div className={clsx("mt-2.5 rounded-lg border border-border bg-muted/20 px-2.5 py-2 sm:px-3", theme.accent)}>
-          <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Résumé</p>
+          <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">{tOutcome("summary")}</p>
           <ul className="mt-1.5 space-y-1 text-[11px] leading-snug">
             {detailContext.closedRecap ? (
               <>
                 <li>
-                  <span className="font-semibold text-foreground">Produits récupérés : </span>
-                  {detailContext.closedRecap.pickedUpCount} sur {detailContext.closedRecap.retainedCount} retenu
-                  {detailContext.closedRecap.retainedCount !== 1 ? "s" : ""}
+                  <span className="font-semibold text-foreground">{tOutcome("productsPickedUp")}</span>
+                  {detailContext.closedRecap.retainedCount === 1
+                    ? tOutcome("pickedUpOfRetained", {
+                        picked: detailContext.closedRecap.pickedUpCount,
+                        retained: detailContext.closedRecap.retainedCount,
+                      })
+                    : tOutcome("pickedUpOfRetainedPlural", {
+                        picked: detailContext.closedRecap.pickedUpCount,
+                        retained: detailContext.closedRecap.retainedCount,
+                      })}
                   {detailContext.closedRecap.totalLines !== detailContext.closedRecap.retainedCount ? (
                     <span className="text-muted-foreground">
-                      {" "}
-                      · {detailContext.closedRecap.totalLines} ligne
-                      {detailContext.closedRecap.totalLines !== 1 ? "s" : ""} au total
+                      {detailContext.closedRecap.totalLines === 1
+                        ? tOutcome("totalLines", { count: detailContext.closedRecap.totalLines })
+                        : tOutcome("totalLinesPlural", { count: detailContext.closedRecap.totalLines })}
                     </span>
                   ) : null}
                 </li>
                 {detailContext.closedRecap.closedAtLabel ? (
                   <li className="tabular-nums">
-                    <span className="font-semibold text-foreground">Clôturée le : </span>
+                    <span className="font-semibold text-foreground">{tOutcome("closedAt")}</span>
                     {detailContext.closedRecap.closedAtLabel}
                   </li>
                 ) : null}
@@ -140,35 +193,41 @@ export function PatientRequestOutcomeBanner({
               <>
                 {detailContext.pharmacyLine ? (
                   <li>
-                    <span className="font-semibold text-foreground">Officine : </span>
+                    <span className="font-semibold text-foreground">{tOutcome("pharmacy")}</span>
                     {detailContext.pharmacyLine}
                   </li>
                 ) : null}
                 <li>
                   <span className="font-semibold text-foreground">
-                    {detailContext.linesMode === "prescription" ? "Produits saisis : " : "Lignes : "}
+                    {detailContext.linesMode === "prescription" ? tOutcome("prescriptionProducts") : tOutcome("lines")}
                   </span>
                   {detailContext.linesMode === "prescription" ? (
                     <>
-                      {detailContext.totalLines} produit{detailContext.totalLines !== 1 ? "s" : ""} sur l’ordonnance
+                      {detailContext.totalLines === 1
+                        ? tOutcome("prescriptionCount", { count: detailContext.totalLines })
+                        : tOutcome("prescriptionCountPlural", { count: detailContext.totalLines })}
                       {detailContext.retainedCount !== detailContext.totalLines ? (
                         <span className="text-muted-foreground">
-                          {" "}
-                          · {detailContext.retainedCount} retenu{detailContext.retainedCount !== 1 ? "s" : ""} lors de
-                          votre validation
+                          {detailContext.retainedCount === 1
+                            ? tOutcome("retainedOnValidation", { count: detailContext.retainedCount })
+                            : tOutcome("retainedOnValidationPlural", { count: detailContext.retainedCount })}
                         </span>
                       ) : null}
                     </>
                   ) : (
                     <>
-                      {detailContext.retainedCount} produit{detailContext.retainedCount !== 1 ? "s" : ""} retenu
-                      {detailContext.retainedCount !== 1 ? "s" : ""}
+                      {detailContext.retainedCount === 1
+                        ? tOutcome("retainedProducts", { count: detailContext.retainedCount })
+                        : tOutcome("retainedProductsPlural", { count: detailContext.retainedCount })}
                       {detailContext.totalLines !== detailContext.retainedCount ? (
                         <span className="text-muted-foreground">
-                          {" "}
-                          · {detailContext.totalLines - detailContext.retainedCount} autre
-                          {detailContext.totalLines - detailContext.retainedCount > 1 ? "s" : ""} non retenu
-                          {detailContext.totalLines - detailContext.retainedCount > 1 ? "s" : ""}
+                          {detailContext.totalLines - detailContext.retainedCount === 1
+                            ? tOutcome("otherNotRetained", {
+                                count: detailContext.totalLines - detailContext.retainedCount,
+                              })
+                            : tOutcome("otherNotRetainedPlural", {
+                                count: detailContext.totalLines - detailContext.retainedCount,
+                              })}
                         </span>
                       ) : null}
                     </>
@@ -177,29 +236,16 @@ export function PatientRequestOutcomeBanner({
               </>
             )}
             {detailContext.hasConversationMessages ? (
-              <li className="text-muted-foreground">Des messages d&apos;échange patient / officine sont conservés (conversation).</li>
+              <li className="text-muted-foreground">{tOutcome("conversationKept")}</li>
             ) : null}
             {detailContext.lastUpdatedLabel ? (
               <li className="tabular-nums text-muted-foreground">
-                Dernière mise à jour enregistrée :{" "}
+                {tOutcome("lastUpdate")}
                 <span className="font-medium text-foreground">{detailContext.lastUpdatedLabel}</span>
               </li>
             ) : null}
           </ul>
-          <p className="mt-2 border-t border-border/60 pt-2 text-[10px] leading-snug text-muted-foreground">
-            {status === "cancelled"
-              ? "Demande annulée — consultation seule. Les produits ci-dessous reprennent l’état du dossier avant fermeture."
-              : status === "abandoned"
-                ? "Demande abandonnée — consultation seule. Les produits ci-dessous reprennent l’état du dossier avant fermeture."
-                : status === "expired"
-                  ? "Demande expirée — vous n’avez pas validé à temps. Les produits ci-dessous reprennent la réponse de la pharmacie."
-                  : status === "partially_collected"
-                    ? "Une partie des produits retenus a été retirée au comptoir ; le reste figure comme non retiré dans l’archive."
-                    : status === "fully_collected"
-                      ? "Tous les produits retenus ont été enregistrés comme retirés au comptoir."
-                      : (closedFooterNote ??
-                        "Le dossier est clos côté officine. Les montants et libellés reflètent l’état au moment de la clôture.")}
-          </p>
+          <p className="mt-2 border-t border-border/60 pt-2 text-[10px] leading-snug text-muted-foreground">{footerNote}</p>
         </div>
       ) : null}
 
@@ -215,12 +261,12 @@ export function PatientRequestOutcomeBanner({
         </div>
       ) : entry && status !== "expired" ? (
         <p className={clsx("mt-2 text-[11px] leading-snug", theme.accent)}>
-          Dernier enregistrement le {formatDateTimeShort24hFr(entry.created_at)}.
+          {tOutcome("lastRecorded", {
+            date: formatDateTimeShortForLocale(entry.created_at, locale),
+          })}
         </p>
       ) : !entry && status !== "expired" ? (
-        <p className={clsx("mt-2 text-[11px] leading-snug", theme.accent)}>
-          Ce dossier est fermé. L’historique du dossier en bas de page reprend les étapes et précisions enregistrées.
-        </p>
+        <p className={clsx("mt-2 text-[11px] leading-snug", theme.accent)}>{tOutcome("closedNoHistory")}</p>
       ) : null}
 
       {entry && !actorLine && status !== "expired" ? (
@@ -230,7 +276,7 @@ export function PatientRequestOutcomeBanner({
           </span>
           <span aria-hidden>·</span>
           <time dateTime={entry.created_at} className="tabular-nums">
-            {formatDateTimeShort24hFr(entry.created_at)}
+            {formatDateTimeShortForLocale(entry.created_at, locale)}
           </time>
         </p>
       ) : null}

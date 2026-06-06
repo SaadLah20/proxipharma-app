@@ -3,6 +3,7 @@ import { getLocale, getMessages } from "next-intl/server";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Noto_Sans_Arabic } from "next/font/google";
 import type { Metadata, Viewport } from "next";
+import { getTranslations } from "next-intl/server";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { localeDirection, type AppLocale } from "@/lib/i18n/config";
 import "./globals.css";
@@ -23,10 +24,13 @@ const notoSansArabic = Noto_Sans_Arabic({
   weight: ["400", "500", "600", "700"],
 });
 
-export const metadata: Metadata = {
-  title: "ProxiPharma",
-  description: "Annuaire et services pharmacies au Maroc",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return {
+    title: t("siteTitle"),
+    description: t("siteDescription"),
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",

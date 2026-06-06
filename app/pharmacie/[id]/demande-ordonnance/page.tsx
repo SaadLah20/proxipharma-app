@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Camera, FileImage, FileText, Trash2, X } from "lucide-react";
 import { PharmacyFlowHero, PharmacyPublicBackLink, pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
 import { platformDashboardChrome } from "@/lib/platform-dashboard-chrome";
@@ -32,6 +33,8 @@ type PageSlot = {
 const MAX_PAGES = 2;
 
 export default function DemandeOrdonnancePage() {
+  const tp = useTranslations("prescriptionPublic");
+  const tc = useTranslations("common");
   const params = useParams();
   const router = useRouter();
   const pharmacyId = typeof params.id === "string" ? params.id : "";
@@ -84,7 +87,7 @@ export default function DemandeOrdonnancePage() {
     if (list.length === 0) return;
     const remaining = MAX_PAGES - pages.length;
     if (remaining <= 0) {
-      setFeedback({ type: "err", text: "Maximum 2 pages (recto / verso ou 2 feuilles)." });
+      setFeedback({ type: "err", text: tp("maxPagesError") });
       return;
     }
     const toAdd = list.slice(0, remaining);
@@ -111,7 +114,7 @@ export default function DemandeOrdonnancePage() {
   };
 
   const validate = () => {
-    if (pages.length < 1) return "Ajoutez au moins une photo de l’ordonnance.";
+    if (pages.length < 1) return tp("addAtLeastOnePhoto");
     return null;
   };
 
@@ -126,7 +129,7 @@ export default function DemandeOrdonnancePage() {
 
     const { data: userData, error: userErr } = await supabase.auth.getUser();
     if (userErr || !userData.user) {
-      setFeedback({ type: "err", text: "Session expirée. Reconnecte-toi." });
+      setFeedback({ type: "err", text: tp("sessionExpired") });
       return;
     }
 
@@ -156,7 +159,7 @@ export default function DemandeOrdonnancePage() {
 
     if (!requestId) {
       setSubmitLoading(false);
-      setFeedback({ type: "err", text: "Réponse serveur inattendue." });
+      setFeedback({ type: "err", text: tp("unexpectedResponse") });
       return;
     }
 
@@ -214,8 +217,7 @@ export default function DemandeOrdonnancePage() {
         setSubmitLoading(false);
         setFeedback({
           type: "err",
-          text:
-            "Ordonnance envoyée, mais le message vocal n’a pas pu être enregistré. Ajoutez-le depuis la conversation du dossier.",
+          text: tp("voiceConvFailed"),
         });
         router.push(`/dashboard/demandes/${requestId}`);
         return;
@@ -230,10 +232,12 @@ export default function DemandeOrdonnancePage() {
   if (!sessionReady) {
     return (
       <main className="min-h-screen bg-background p-6">
-        <p className="text-sm text-muted-foreground">Vérification de la session…</p>
+        <p className="text-sm text-muted-foreground">{tp("sessionCheck")}</p>
       </main>
     );
   }
+
+  const pagesWord = pages.length > 1 ? tp("pages") : tp("page");
 
   return (
     <main
@@ -243,22 +247,22 @@ export default function DemandeOrdonnancePage() {
       )}
     >
       <div className="mx-auto max-w-lg">
-        <PharmacyPublicBackLink href={`/pharmacie/${pharmacyId}`}>Retour à la pharmacie</PharmacyPublicBackLink>
+        <PharmacyPublicBackLink href={`/pharmacie/${pharmacyId}`}>{tp("backToPharmacy")}</PharmacyPublicBackLink>
 
         <PharmacyFlowHero
           theme="prescription"
           icon={FileText}
-          eyebrow="Ordonnance"
-          title="Envoyer une ordonnance"
+          eyebrow={tp("eyebrow")}
+          title={tp("title")}
           subtitle={
             pharmacyName
-              ? `Pharmacie ${pharmacyName} — photo nette, bien éclairée (max. 2 pages).`
-              : "Photo nette, bien éclairée (max. 2 pages)."
+              ? tp("subtitleWithPharmacy", { name: pharmacyName })
+              : tp("subtitleGeneric")
           }
         />
 
         <section className={cn("mt-4 space-y-3 p-4", pharmacyPublicCard)}>
-          <p className="text-sm font-semibold text-slate-900">Photos de l’ordonnance</p>
+          <p className="text-sm font-semibold text-slate-900">{tp("photosSectionTitle")}</p>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -268,7 +272,7 @@ export default function DemandeOrdonnancePage() {
               disabled={pages.length >= MAX_PAGES}
             >
               <Camera className="size-4" aria-hidden />
-              Prendre une photo
+              {tp("takePhoto")}
             </Button>
             <Button
               type="button"
@@ -278,7 +282,7 @@ export default function DemandeOrdonnancePage() {
               disabled={pages.length >= MAX_PAGES}
             >
               <FileImage className="size-4" aria-hidden />
-              Choisir un fichier
+              {tp("chooseFile")}
             </Button>
           </div>
           <input
@@ -309,37 +313,37 @@ export default function DemandeOrdonnancePage() {
               {pages.map((p, i) => (
                 <li key={p.previewUrl} className="relative overflow-hidden rounded-xl border border-border/80">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.previewUrl} alt={`Page ${i + 1}`} className="aspect-[3/4] w-full object-cover" />
+                  <img src={p.previewUrl} alt={tp("pageAlt", { n: i + 1 })} className="aspect-[3/4] w-full object-cover" />
                   <button
                     type="button"
                     onClick={() => removePage(i)}
                     className="absolute right-2 top-2 rounded-full bg-black/55 p-1.5 text-white"
-                    aria-label="Supprimer cette page"
+                    aria-label={tp("removePageAria")}
                   >
                     <Trash2 className="size-4" />
                   </button>
                   <span className="absolute bottom-2 left-2 rounded bg-black/50 px-2 py-0.5 text-[10px] font-semibold text-white">
-                    Page {i + 1}
+                    {tp("pageLabel", { n: i + 1 })}
                   </span>
                 </li>
               ))}
             </ul>
           ) : (
             <p className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
-              Aucune photo pour le moment.
+              {tp("noPhotosYet")}
             </p>
           )}
         </section>
 
         <section className="mt-4 rounded-2xl border-2 border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-semibold text-slate-900">Message pour la pharmacie (facultatif)</p>
+          <p className="text-sm font-semibold text-slate-900">{tp("messageOptional")}</p>
           <div className="mt-2">
             <ConversationMessageDraftField
               draft={note}
               onDraftChange={setNote}
               maxLength={REQUEST_CONVERSATION_MESSAGE_MAX}
               onAudioDraftChange={setPendingAudio}
-              placeholder="Ex. ordonnance pour mon enfant, urgence…"
+              placeholder={tp("messagePlaceholder")}
               counterClassName="text-[10px]"
               textareaClassName="w-full rounded-xl border-2 border-slate-200 p-3 text-sm"
             />
@@ -372,7 +376,7 @@ export default function DemandeOrdonnancePage() {
             setConfirmOpen(true);
           }}
         >
-          {submitLoading ? "Envoi…" : "Envoyer l’ordonnance"}
+          {submitLoading ? tc("sending") : tp("sendPrescription")}
         </Button>
       </PlatformStickyFooter>
 
@@ -391,11 +395,10 @@ export default function DemandeOrdonnancePage() {
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h2 id="ordonnance-send-confirm-title" className="text-lg font-bold leading-tight text-amber-950">
-                  Confirmer l&apos;envoi
+                  {tp("confirmSend")}
                 </h2>
                 <p className="mt-1 text-sm text-amber-900/85">
-                  {pages.length} page{pages.length > 1 ? "s" : ""} — la pharmacie saisira les produits après lecture de
-                  l&apos;ordonnance.
+                  {tp("confirmSendHint", { count: pages.length, pagesWord })}
                 </p>
               </div>
               <button
@@ -403,7 +406,7 @@ export default function DemandeOrdonnancePage() {
                 disabled={submitLoading}
                 className="rounded-lg p-1 text-amber-800/70 hover:bg-amber-100/80 hover:text-amber-950 disabled:opacity-40"
                 onClick={() => setConfirmOpen(false)}
-                aria-label="Fermer"
+                aria-label={tc("closeAria")}
               >
                 <X className="size-5" />
               </button>
@@ -413,7 +416,7 @@ export default function DemandeOrdonnancePage() {
             {note.trim() ? (
               <div className="rounded-xl border border-amber-200/70 bg-amber-50/40 px-3 py-2">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-amber-900/80">
-                  Votre message pour la pharmacie
+                  {tp("yourMessageForPharmacy")}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{note.trim()}</p>
               </div>
@@ -422,7 +425,7 @@ export default function DemandeOrdonnancePage() {
               <ConversationAudioDraftPreview draft={pendingAudio} className="mt-3 border-amber-200/70 bg-amber-50/40" />
             ) : null}
             {!note.trim() && !pendingAudio ? (
-              <p className="text-sm text-muted-foreground">Aucun message — vous pourrez en ajouter plus tard depuis le dossier.</p>
+              <p className="text-sm text-muted-foreground">{tp("noMessageLater")}</p>
             ) : null}
           </div>
           <div className="border-t border-amber-200/60 bg-muted/25 px-4 py-3">
@@ -434,7 +437,7 @@ export default function DemandeOrdonnancePage() {
                 disabled={submitLoading}
                 onClick={() => setConfirmOpen(false)}
               >
-                Annuler
+                {tc("cancel")}
               </Button>
               <Button
                 type="button"
@@ -442,7 +445,7 @@ export default function DemandeOrdonnancePage() {
                 disabled={submitLoading}
                 onClick={() => void submit()}
               >
-                {submitLoading ? "Envoi…" : "Confirmer l'envoi"}
+                {submitLoading ? tc("sending") : tp("confirmSendButton")}
               </Button>
             </div>
           </div>

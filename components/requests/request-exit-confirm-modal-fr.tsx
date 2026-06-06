@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { PolishedOptionPicker } from "@/components/ui/polished-option-picker";
 import {
@@ -11,7 +12,6 @@ import {
 } from "@/lib/ui-action-buttons";
 import {
   PATIENT_CANCEL_REASON_CODES,
-  PATIENT_CANCEL_REASON_LABELS,
   type PatientCancelReasonCode,
 } from "@/lib/patient-flow-reasons";
 
@@ -35,6 +35,9 @@ export function RequestExitConfirmModalFr({
   onConfirmPatient?: (p: PatientPayload) => void | Promise<void>;
   onConfirmPharmacist?: (p: PharmacistPayload) => void | Promise<void>;
 }) {
+  const t = useTranslations("modals.exitCancel");
+  const tPharma = useTranslations("modals.exitCancelPharmacist");
+  const tCommon = useTranslations("common");
   const [step, setStep] = useState<1 | 2>(1);
   const [code, setCode] = useState<PatientCancelReasonCode>("no_longer_needed");
   const [detail, setDetail] = useState("");
@@ -55,16 +58,16 @@ export function RequestExitConfirmModalFr({
   const isBefore = mode === "patient_before_response";
 
   const step1Title = isBefore
-    ? "Annuler la demande"
+    ? t("cancelTitle")
     : isPatient
-      ? "Abandonner la demande"
-      : "Annuler la demande côté pharmacie";
+      ? t("abandonTitle")
+      : tPharma("cancelTitle");
 
   const step1Intro = isBefore
-    ? "La pharmacie n’a pas encore publié de réponse. Indiquez un motif — l’officine verra que la demande ne vous intéresse plus."
+    ? t("introBeforeResponse")
     : isPatient
-      ? "Vous avez déjà une réponse ou une commande en cours sur ce dossier. Expliquez pourquoi vous souhaitez l’abandonner."
-      : "Motif obligatoire (visible pour le patient dans son suivi). Cette action est définitive.";
+      ? t("introAbandon")
+      : tPharma("intro");
 
   const otherOk = code !== "other" || detail.trim().length >= 8;
   const pharmaOk = pharmaMotif.trim().length >= 5;
@@ -91,22 +94,13 @@ export function RequestExitConfirmModalFr({
     await onConfirmPharmacist?.({ kind: "pharmacist", motif: pharmaMotif.trim() });
   };
 
+  const patientReasonLabel = (reasonCode: PatientCancelReasonCode) =>
+    t(`reasons.${reasonCode}` as "reasons.no_longer_needed");
+
   const warningBlock = (
     <div className="rounded-lg border border-amber-300/80 bg-amber-50/90 px-2.5 py-2 text-[11px] leading-snug text-amber-950">
-      <p className="font-semibold">Attention — décision définitive</p>
-      <p className="mt-1">
-        {isPatient ? (
-          <>
-            Vous ne pourrez pas réactiver cette demande. La pharmacie ne pourra plus la traiter comme un dossier ouvert
-            (historique conservé).
-          </>
-        ) : (
-          <>
-            Le patient sera informé et ne pourra pas rouvrir ce dossier. Votre officine ne pourra plus le traiter non
-            plus.
-          </>
-        )}
-      </p>
+      <p className="font-semibold">{t("warningTitle")}</p>
+      <p className="mt-1">{isPatient ? t("warningPatient") : tPharma("warning")}</p>
     </div>
   );
 
@@ -116,16 +110,18 @@ export function RequestExitConfirmModalFr({
         <div className="flex items-start justify-between gap-2 border-b border-border px-3 py-2.5">
           <div className="min-w-0 flex-1">
             <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
-              {step === 1 ? "Étape 1 sur 2" : "Confirmation finale"}
+              {step === 1 ? t("step1of2") : t("finalConfirmation")}
             </p>
-            <p className="mt-0.5 text-sm font-semibold leading-tight text-foreground">{step === 1 ? step1Title : "Confirmer ?"}</p>
+            <p className="mt-0.5 text-sm font-semibold leading-tight text-foreground">
+              {step === 1 ? step1Title : t("confirmTitle")}
+            </p>
           </div>
           <button
             type="button"
             disabled={busy}
             onClick={onClose}
             className="shrink-0 rounded-lg p-1 text-foreground hover:bg-muted disabled:opacity-40"
-            aria-label="Fermer"
+            aria-label={tCommon("closeAria")}
           >
             <X className="size-4" />
           </button>
@@ -138,55 +134,50 @@ export function RequestExitConfirmModalFr({
               {isPatient ? (
                 <>
                   <label className="block text-[11px] font-medium text-foreground">
-                    Motif
+                    {t("reasonLabel")}
                     <div className="mt-1">
                       <PolishedOptionPicker
                         options={PATIENT_CANCEL_REASON_CODES.map((c) => ({
                           value: c,
-                          label: PATIENT_CANCEL_REASON_LABELS[c],
+                          label: patientReasonLabel(c),
                         }))}
                         value={code}
                         disabled={busy}
                         onPick={(v) => setCode(v as PatientCancelReasonCode)}
-                        ariaLabel="Motif d'annulation"
+                        ariaLabel={t("reasonAria")}
                       />
                     </div>
                   </label>
                   {code === "other" ? (
                     <label className="block text-[11px] font-medium text-foreground">
-                      Précision (au moins 8 caractères)
+                      {t("detailLabel")}
                       <textarea
                         value={detail}
                         disabled={busy}
                         rows={3}
                         onChange={(e) => setDetail(e.target.value)}
                         className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-2 text-xs"
-                        placeholder="Expliquez brièvement…"
+                        placeholder={t("detailPlaceholder")}
                       />
                     </label>
                   ) : null}
                 </>
               ) : (
                 <label className="block text-[11px] font-medium text-foreground">
-                  Motif (au moins 5 caractères)
+                  {tPharma("reasonLabel")}
                   <textarea
                     value={pharmaMotif}
                     disabled={busy}
                     rows={4}
                     onChange={(e) => setPharmaMotif(e.target.value.slice(0, 1000))}
                     className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-2 text-xs"
-                    placeholder="Exemple : doublon, erreur de saisie, rupture prolongée…"
+                    placeholder={tPharma("reasonPlaceholder")}
                   />
                 </label>
               )}
               <div className="flex flex-wrap gap-2 pt-1">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={onClose}
-                  className={uiActionBtnSmOutline()}
-                >
-                  Retour
+                <button type="button" disabled={busy} onClick={onClose} className={uiActionBtnSmOutline()}>
+                  {t("back")}
                 </button>
                 <button
                   type="button"
@@ -194,7 +185,7 @@ export function RequestExitConfirmModalFr({
                   onClick={() => goStep2()}
                   className={uiActionBtnSmPrimary()}
                 >
-                  Continuer
+                  {t("continue")}
                 </button>
               </div>
             </div>
@@ -203,22 +194,17 @@ export function RequestExitConfirmModalFr({
               {warningBlock}
               {isPatient ? (
                 <p className="text-[11px] leading-snug text-foreground">
-                  <span className="font-medium">Motif retenu :</span>{" "}
-                  {code === "other" ? detail.trim() || "—" : PATIENT_CANCEL_REASON_LABELS[code]}
+                  <span className="font-medium">{t("reasonKept")}</span>{" "}
+                  {code === "other" ? detail.trim() || "—" : patientReasonLabel(code)}
                 </p>
               ) : (
                 <p className="text-[11px] leading-snug text-foreground">
-                  <span className="font-medium">Motif :</span> {pharmaMotif.trim()}
+                  <span className="font-medium">{tPharma("reasonPrefix")}</span> {pharmaMotif.trim()}
                 </p>
               )}
               <div className="flex flex-wrap gap-2 border-t border-border/60 pt-3">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setStep(1)}
-                  className={uiActionBtnSmOutline()}
-                >
-                  Modifier
+                <button type="button" disabled={busy} onClick={() => setStep(1)} className={uiActionBtnSmOutline()}>
+                  {t("edit")}
                 </button>
                 <button
                   type="button"
@@ -226,7 +212,13 @@ export function RequestExitConfirmModalFr({
                   onClick={() => void (isPatient ? finalPatient() : finalPharmacist())}
                   className={uiActionBtnSmDestructive()}
                 >
-                  {busy ? "En cours…" : isBefore ? "Confirmer l’annulation" : isPatient ? "Confirmer l’abandon" : "Confirmer l’annulation officine"}
+                  {busy
+                    ? t("busy")
+                    : isBefore
+                      ? t("confirmCancel")
+                      : isPatient
+                        ? t("confirmAbandon")
+                        : tPharma("confirmCancel")}
                 </button>
               </div>
             </div>

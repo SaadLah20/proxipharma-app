@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { supabase } from "@/lib/supabase";
 
 type Prefs = {
@@ -26,6 +27,7 @@ export function ExternalNotificationPrefs({
   /** `settings` : intégré dans la page paramètres patient (style sobre). */
   appearance?: "default" | "settings";
 }) {
+  const t = useTranslations("account.notificationPrefs");
   const showSms = variant === "patient";
   const [prefs, setPrefs] = useState<Prefs>(defaultPrefs);
   const [loaded, setLoaded] = useState(false);
@@ -76,7 +78,7 @@ export function ExternalNotificationPrefs({
       setMsg(error.message);
       return;
     }
-    setMsg("Préférences enregistrées.");
+    setMsg(t("saved"));
   };
 
   if (!userId) {
@@ -89,25 +91,11 @@ export function ExternalNotificationPrefs({
   const body = (
     <>
       {!isSettings ? (
-        <h2 className="text-lg font-semibold text-amber-950">Alertes hors application (pilote)</h2>
+        <h2 className="text-lg font-semibold text-amber-950">{t("titleDefault")}</h2>
       ) : null}
       <p className={isSettings ? "text-[11px] leading-relaxed text-muted-foreground" : "mt-1 text-xs text-amber-900/85"}>
-        {showSms ? (
-          <>
-            {isSettings
-              ? "E-mail : mêmes alertes que dans l’app si votre profil a une adresse. SMS : réponse officine, rappel avant expiration, dossier traité, produit reçu ou de nouveau disponible, dossier expiré — si votre numéro est renseigné."
-              : "En plus des notifications dans ProxiPharma, vous pouvez activer l'e-mail (mêmes alertes que dans l'app) ou le SMS pour les étapes importantes de vos dossiers : réponse pharmacie, rappel de validation, préparation terminée, produit reçu, rupture disponible, expiration — lorsque votre profil contient une adresse e-mail ou un numéro mobile (champ WhatsApp, format international)."}
-          </>
-        ) : (
-          <>
-            En plus des notifications dans ProxiPharma, vous pouvez activer l&apos;envoi par e-mail (mêmes alertes que
-            dans l&apos;app) lorsque votre profil contient une adresse e-mail. Les SMS automatiques sont réservés aux
-            patients.
-          </>
-        )}
-        {!isSettings ? (
-          <> WhatsApp automatique arrive plus tard ; les liens manuels sur la fiche officine restent disponibles.</>
-        ) : null}
+        {showSms ? (isSettings ? t("introPatientSettings") : t("introPatientDefault")) : t("introPharmacist")}
+        {!isSettings ? t("whatsappLater") : null}
       </p>
       <div className={isSettings ? "mt-3 space-y-2" : "mt-4 space-y-2"}>
         <label className="flex cursor-pointer items-start gap-2 text-sm text-foreground">
@@ -118,7 +106,7 @@ export function ExternalNotificationPrefs({
             disabled={!loaded}
             onChange={(e) => setPrefs((p) => ({ ...p, email_enabled: e.target.checked }))}
           />
-          <span>E-mail</span>
+          <span>{t("email")}</span>
         </label>
         {showSms ? (
           <label className="flex cursor-pointer items-start gap-2 text-sm text-foreground">
@@ -129,7 +117,7 @@ export function ExternalNotificationPrefs({
               disabled={!loaded}
               onChange={(e) => setPrefs((p) => ({ ...p, sms_enabled: e.target.checked }))}
             />
-            <span>SMS</span>
+            <span>{t("sms")}</span>
           </label>
         ) : null}
         {showWhatsApp ? (
@@ -141,7 +129,7 @@ export function ExternalNotificationPrefs({
               disabled={!loaded}
               onChange={(e) => setPrefs((p) => ({ ...p, whatsapp_enabled: e.target.checked }))}
             />
-            <span>WhatsApp</span>
+            <span>{t("whatsapp")}</span>
           </label>
         ) : null}
       </div>
@@ -155,7 +143,7 @@ export function ExternalNotificationPrefs({
         disabled={!loaded || saving}
         onClick={() => void save()}
       >
-        {saving ? "Enregistrement…" : "Enregistrer"}
+        {saving ? t("saving") : t("save")}
       </button>
       {msg ? <p className="mt-2 text-xs text-muted-foreground">{msg}</p> : null}
     </>

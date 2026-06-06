@@ -40,6 +40,7 @@ export function PharmacistSupplyCompactLine({
   header,
   validatedName,
   validatedBrand = null,
+  validatedProductType = null,
   validatedQty,
   /** Qté prescrite (ordonnance) — affichée jusqu’à clôture du dossier. */
   ordonnancePrescribedQty = null,
@@ -102,6 +103,7 @@ export function PharmacistSupplyCompactLine({
   header: string | null;
   validatedName: string;
   validatedBrand?: string | null;
+  validatedProductType?: string | null;
   validatedQty: number;
   ordonnancePrescribedQty?: number | null;
   availSentence: string;
@@ -233,7 +235,9 @@ export function PharmacistSupplyCompactLine({
       <button
         type="button"
         className="size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-        onClick={() => onPhotoPreview(thumbUrl, validatedName, descriptionHtml, validatedBrand)}
+        onClick={() =>
+          onPhotoPreview(thumbUrl, validatedName, descriptionHtml, validatedBrand, validatedProductType)
+        }
         aria-label={`Agrandir la photo · ${validatedName}`}
       >
         <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover" />

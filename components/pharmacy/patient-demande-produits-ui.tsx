@@ -21,7 +21,9 @@ import { PATIENT_PRODUCT_LINE_COMMENT_PLACEHOLDER_FR } from "@/lib/product-line-
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import type { PatientDemandeProduitsDraftLine } from "@/lib/patient-demande-produits-draft";
-import { ProductBrandLabel } from "@/components/products/product-brand-label";
+import { ProductCatalogExplorerThumb } from "@/components/products/product-catalog-explorer-thumb";
+import { ProductCatalogMetaLabel } from "@/components/products/product-brand-label";
+import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
 
 /** Vignette compacte — la hauteur du bloc suit la photo (items-stretch). */
 export const PRODUCT_REQUEST_LINE_THUMB =
@@ -98,9 +100,10 @@ export function ProductRequestMessageCard({
 }
 
 function ProductRequestLinePu({ unitPrice }: { unitPrice: number | null }) {
+  const td = useTranslations("demandePublic");
   return (
     <p className="flex min-w-0 items-baseline gap-1 whitespace-nowrap leading-none">
-      <span className="shrink-0 text-[10px] font-medium text-muted-foreground">PU</span>
+      <span className="shrink-0 text-[10px] font-medium text-muted-foreground">{td("unitPrice")}</span>
       <PriceDhInline
         value={unitPrice}
         amountClassName="text-sm font-bold text-foreground"
@@ -111,9 +114,10 @@ function ProductRequestLinePu({ unitPrice }: { unitPrice: number | null }) {
 }
 
 function ProductRequestLineTotIndicative({ totalValue }: { totalValue: number | null }) {
+  const td = useTranslations("demandePublic");
   return (
     <p className="flex min-w-0 items-baseline gap-1 whitespace-nowrap leading-none text-muted-foreground">
-      <span className="shrink-0 text-[9px] font-medium">Total</span>
+      <span className="shrink-0 text-[9px] font-medium">{td("totalShort")}</span>
       {totalValue != null ? (
         <PriceDhInline
           value={totalValue}
@@ -146,9 +150,10 @@ const QTY_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
 /** Libellé quantité (lecture seule ou dans le sélecteur). */
 function ProductRequestLineQtyLabel({ qty, className }: { qty: number; className?: string }) {
+  const td = useTranslations("demandePublic");
   return (
     <span className={cn("inline-flex items-baseline gap-1 whitespace-nowrap leading-none", className)}>
-      <span className="text-[10px] font-medium text-muted-foreground">Quantité&nbsp;:</span>
+      <span className="text-[10px] font-medium text-muted-foreground">{td("qtyLabel")}&nbsp;:</span>
       <span className="text-[12px] font-semibold tabular-nums text-foreground">{qty}</span>
     </span>
   );
@@ -156,9 +161,10 @@ function ProductRequestLineQtyLabel({ qty, className }: { qty: number; className
 
 /** Qté lecture seule, même ligne et typo que PU (label 10px + valeur sm). */
 export function ProductRequestLineQtyInline({ qty }: { qty: number }) {
+  const td = useTranslations("demandePublic");
   return (
     <p className="flex min-w-0 items-baseline gap-1 whitespace-nowrap leading-none">
-      <span className="shrink-0 text-[10px] font-medium text-muted-foreground">Qté</span>
+      <span className="shrink-0 text-[10px] font-medium text-muted-foreground">{td("qty")}</span>
       <span className="text-sm font-bold tabular-nums text-foreground">{qty}</span>
     </p>
   );
@@ -172,6 +178,7 @@ export function ProductRequestLineQtyReadonly({
   qty: number;
   appearance?: "default" | "neutral";
 }) {
+  const td = useTranslations("demandePublic");
   return (
     <span
       className={cn(
@@ -180,7 +187,7 @@ export function ProductRequestLineQtyReadonly({
           ? "border-border/80 bg-muted/25"
           : "border-sky-200/80 bg-sky-50/80"
       )}
-      aria-label={`Quantité ${qty}`}
+      aria-label={td("qtyReadonlyAria", { qty })}
     >
       <ProductRequestLineQtyLabel qty={qty} />
     </span>
@@ -202,6 +209,7 @@ export function ProductRequestLineQtyPicker({
   onSelect: (qty: number) => void;
   appearance?: "default" | "neutral";
 }) {
+  const td = useTranslations("demandePublic");
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -253,7 +261,7 @@ export function ProductRequestLineQtyPicker({
           <ul
             id={listId}
             role="listbox"
-            aria-label="Choisir la quantité"
+            aria-label={td("qtyPickerAria")}
             style={{ top: menuPos.top, left: menuPos.left }}
             className={cn(
               "fixed z-[11050] max-h-44 w-[4.25rem] -translate-x-1/2 overflow-y-auto overscroll-y-contain rounded-xl border bg-card py-1 shadow-xl",
@@ -295,7 +303,7 @@ export function ProductRequestLineQtyPicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
-        aria-label={`Quantité ${qty}, choisir une autre valeur`}
+        aria-label={td("qtyPickerChangeAria", { qty })}
         onClick={() => {
           setOpen((v) => {
             const next = !v;
@@ -339,12 +347,13 @@ export function ProductRequestLineMessageIconButton({
   onClick: () => void;
   className?: string;
 }) {
+  const td = useTranslations("demandePublic");
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={hasComment ? "Voir ou modifier le message sur ce produit" : "Ajouter un message sur ce produit"}
-      title={hasComment ? "Message renseigné" : "Message"}
+      aria-label={hasComment ? td("lineMessageViewOrEditAria") : td("lineMessageAddAria")}
+      title={hasComment ? td("lineMessageFilled") : td("lineMessage")}
       className={cn(
         "inline-flex size-7 shrink-0 items-center justify-center rounded-full border shadow-sm transition",
         hasComment
@@ -360,10 +369,11 @@ export function ProductRequestLineMessageIconButton({
 
 /** Supprimer — épinglé coin haut droit du bloc produit. */
 export function ProductRequestLineDeleteButton({ onClick }: { onClick: () => void }) {
+  const td = useTranslations("demandePublic");
   return (
     <button
       type="button"
-      aria-label="Retirer le produit"
+      aria-label={td("removeProduct")}
       onClick={onClick}
       className="absolute -right-1.5 -top-1.5 z-10 flex size-7 items-center justify-center rounded-full border border-rose-200/90 bg-white text-destructive shadow-md transition hover:bg-rose-50"
     >
@@ -420,6 +430,7 @@ export function ProductRequestLineMessageButton({
   onClick: () => void;
   className?: string;
 }) {
+  const td = useTranslations("demandePublic");
   return (
     <button
       type="button"
@@ -433,7 +444,7 @@ export function ProductRequestLineMessageButton({
       )}
     >
       <MessageSquare className="size-3 shrink-0" aria-hidden />
-      <span>{hasComment ? "Note" : "Message"}</span>
+      <span>{hasComment ? td("note") : td("lineMessage")}</span>
     </button>
   );
 }
@@ -473,7 +484,7 @@ export function ProductRequestSearchExplorerRow({
   explorerHref,
   onExplorerNavigate,
   fieldFocus = t.focus,
-  placeholder = "Chercher un produit",
+  placeholder,
   searchSlot,
 }: {
   query: string;
@@ -484,6 +495,8 @@ export function ProductRequestSearchExplorerRow({
   placeholder?: string;
   searchSlot?: ReactNode;
 }) {
+  const td = useTranslations("demandePublic");
+  const resolvedPlaceholder = placeholder ?? td("searchProduct");
   return (
     <div className={cn(pharmacyPublicCard, "overflow-hidden p-0", t.shell)}>
       <div className="flex items-stretch gap-2 px-3 py-3 sm:px-4">
@@ -496,8 +509,8 @@ export function ProductRequestSearchExplorerRow({
             type="search"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder={placeholder}
-            aria-label={placeholder}
+            placeholder={resolvedPlaceholder}
+            aria-label={resolvedPlaceholder}
             className={cn(
               "h-10 w-full rounded-xl border-2 bg-background py-2 pl-9 pr-3 text-sm leading-normal shadow-sm placeholder:text-muted-foreground",
               t.searchInput,
@@ -507,7 +520,7 @@ export function ProductRequestSearchExplorerRow({
         </div>
         <Link href={explorerHref} onClick={onExplorerNavigate} className={cn(t.explorerBtn, "h-10 px-3")}>
           <LayoutGrid className="size-4 shrink-0" aria-hidden />
-          Explorer
+          {td("explorer")}
         </Link>
       </div>
       {searchSlot ? <div className={cn("border-t px-3 pb-2.5 pt-0", t.searchDivider)}>{searchSlot}</div> : null}
@@ -552,13 +565,15 @@ export function ProductRequestExplorerSearchBar({
   query,
   onQueryChange,
   fieldFocus,
-  placeholder = "Chercher un produit",
+  placeholder,
 }: {
   query: string;
   onQueryChange: (v: string) => void;
   fieldFocus: string;
   placeholder?: string;
 }) {
+  const td = useTranslations("demandePublic");
+  const resolvedPlaceholder = placeholder ?? td("searchProduct");
   return (
     <div className={cn(pharmacyPublicCard, "overflow-hidden p-0", t.shell)}>
       <div className="relative px-3 py-3 sm:px-4">
@@ -570,8 +585,8 @@ export function ProductRequestExplorerSearchBar({
           type="search"
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
-          placeholder={placeholder}
-          aria-label={placeholder}
+          placeholder={resolvedPlaceholder}
+          aria-label={resolvedPlaceholder}
           className={cn(
             "h-11 w-full rounded-xl border-2 bg-background py-2 pl-10 pr-3 text-sm leading-normal shadow-sm placeholder:text-muted-foreground",
             t.searchInput,
@@ -653,6 +668,7 @@ type CatalogHit = {
   id: string;
   name: string;
   brand?: string | null;
+  product_type?: string | null;
   photo_url: string | null;
   unitPrice: number | null;
 };
@@ -674,33 +690,19 @@ export function ProductRequestCatalogHitRow({
           t.hitHover
         )}
       >
-        <button
-          type="button"
-          disabled={!hit.photo_url}
-          className={cn(
-            THUMB,
-            "overflow-hidden rounded-lg border border-border/70 bg-card",
-            hit.photo_url ? cn("cursor-zoom-in hover:ring-2", t.photoRing) : "cursor-default opacity-80"
-          )}
-          aria-label={hit.photo_url ? `Agrandir la photo · ${hit.name}` : "Pas de photo catalogue"}
-          onClick={(ev) => {
-            ev.stopPropagation();
-            if (hit.photo_url) onPhotoPreview();
-          }}
-        >
-          {hit.photo_url ? (
-            <img src={hit.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
-          ) : (
-            <span className="flex h-full w-full items-center justify-center">
-              <Package className="size-5 text-muted-foreground" aria-hidden />
-            </span>
-          )}
-        </button>
+        <ProductCatalogExplorerThumb
+          photoUrl={hit.photo_url}
+          productType={hit.product_type}
+          productName={hit.name}
+          className={cn(THUMB, "rounded-lg border border-border/70 bg-card")}
+          ringClassName={t.photoRing}
+          onOpenPreview={onPhotoPreview}
+        />
         <button type="button" onClick={onAdd} className="flex min-h-0 min-w-0 flex-1 flex-col justify-center gap-0.5 text-left">
           <p className="truncate text-[13px] font-semibold leading-tight text-foreground" title={hit.name}>
             {hit.name}
           </p>
-          <ProductBrandLabel brand={hit.brand} />
+          <ProductCatalogMetaLabel productType={hit.product_type} brand={hit.brand} />
           <p className={cn("text-xs font-semibold", t.price)}>
             <PriceDhInline value={hit.unitPrice} amountClassName={cn("font-semibold", t.price)} />
           </p>
@@ -727,19 +729,15 @@ export function ProductRequestCartLineRow({
   onOpenComment: () => void;
   hasComment: boolean;
 }) {
-  const thumbInner = line.photo_url ? (
-    <button
-      type="button"
-      className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
-      aria-label={`Agrandir la photo · ${line.name}`}
-      onClick={onPhotoPreview}
-    >
-      <img src={line.photo_url} alt="" className="pointer-events-none h-full w-full object-cover" />
-    </button>
-  ) : (
-    <span className="flex h-full w-full items-center justify-center">
-      <Package className="size-5 text-muted-foreground" aria-hidden />
-    </span>
+  const thumbInner = (
+    <ProductCatalogExplorerThumb
+      photoUrl={line.photo_url}
+      productType={line.product_type}
+      productName={line.name}
+      className="size-full"
+      ringClassName={t.photoRing}
+      onOpenPreview={onPhotoPreview}
+    />
   );
 
   return (
@@ -863,7 +861,7 @@ export function PatientDemandeSendConfirmModal({
   submitLoading: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  onPhotoPreview: (url: string, title: string, descriptionHtml?: string | null, brand?: string | null) => void;
+  onPhotoPreview: ProductPhotoPreviewHandler;
 }) {
   const td = useTranslations("demandePublic");
   const tc = useTranslations("common");
@@ -913,20 +911,18 @@ export function PatientDemandeSendConfirmModal({
                   className="flex items-center gap-2.5 rounded-xl border border-border/80 bg-muted/15 px-2.5 py-2"
                 >
                   <div className="relative size-12 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card">
-                    {l.photo_url ? (
-                      <button
-                        type="button"
-                        className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
-                        aria-label={td("enlargePhoto", { name: l.name })}
-                        onClick={() => onPhotoPreview(l.photo_url!, l.name, l.full_description, l.brand)}
-                      >
-                        <img src={l.photo_url} alt="" className="pointer-events-none size-full object-cover" />
-                      </button>
-                    ) : (
-                      <span className="flex size-full items-center justify-center">
-                        <Package className="size-5 text-muted-foreground" aria-hidden />
-                      </span>
-                    )}
+                    <ProductCatalogExplorerThumb
+                      photoUrl={l.photo_url}
+                      productType={l.product_type}
+                      productName={l.name}
+                      className="size-full"
+                      ringClassName={t.photoRing}
+                      onOpenPreview={() =>
+                        onPhotoPreview(l.photo_url, l.name, l.full_description, l.brand, l.product_type, {
+                          catalogExplorerPreview: true,
+                        })
+                      }
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-semibold leading-snug text-foreground">{l.name}</p>

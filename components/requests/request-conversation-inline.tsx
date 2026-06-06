@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Maximize2, MessagesSquare } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { ConsultationPhotoLightbox } from "@/components/requests/consultation/consultation-photo-lightbox";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -10,7 +11,8 @@ import {
   type ConsultationImagePaths,
   createConsultationSignedUrl,
 } from "@/lib/consultation-media";
-import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
+import { formatDateTimeShortForLocale } from "@/lib/datetime-locale";
+import type { AppLocale } from "@/lib/i18n/config";
 import {
   REQUEST_COMMENT_SELECT_FIELDS,
   sendRequestConversationMessage,
@@ -48,14 +50,17 @@ type Props = {
 function ConsultationSeedBubble({
   seed,
   viewerRole,
+  locale,
 }: {
   seed: ConsultationConversationSeed;
   viewerRole: "patient" | "pharmacien";
+  locale: AppLocale;
 }) {
+  const t = useTranslations("conversation");
   const [thumbs, setThumbs] = useState<{ slot: number; url: string }[]>([]);
   const [lightbox, setLightbox] = useState<{ label: string; url: string } | null>(null);
-  const sentAtLabel = seed.createdAt ? formatDateTimeShort24hFr(seed.createdAt) : null;
-  const modifiedAtLabel = seed.modifiedAt ? formatDateTimeShort24hFr(seed.modifiedAt) : null;
+  const sentAtLabel = seed.createdAt ? formatDateTimeShortForLocale(seed.createdAt, locale) : null;
+  const modifiedAtLabel = seed.modifiedAt ? formatDateTimeShortForLocale(seed.modifiedAt, locale) : null;
   const showModified = Boolean(modifiedAtLabel);
   const patientBubble = viewerRole === "patient" ? "ms-4 border-sky-200/90 bg-sky-50/80" : "me-4 border-sky-200/70 bg-sky-50/50";
 
@@ -81,12 +86,12 @@ function ConsultationSeedBubble({
     <li className={cn("rounded-lg border px-3 py-2.5 text-[12px] leading-snug", patientBubble)}>
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
         <span className="font-semibold text-foreground">
-          {viewerRole === "patient" ? "Vous" : "Patient"}
-          <span className="ml-1.5 font-normal text-muted-foreground">· message initial</span>
+          {viewerRole === "patient" ? t("you") : t("patientLabel")}
+          <span className="ml-1.5 font-normal text-muted-foreground">· {t("initialMessage")}</span>
         </span>
         {showModified ? (
           <time className="shrink-0 text-[9px] tabular-nums text-amber-800/90">
-            Modifié le {modifiedAtLabel}
+            {t("modifiedAt", { date: modifiedAtLabel ?? "" })}
           </time>
         ) : sentAtLabel ? (
           <time className="shrink-0 text-[9px] tabular-nums text-muted-foreground">{sentAtLabel}</time>
@@ -94,22 +99,22 @@ function ConsultationSeedBubble({
       </div>
       {showModified && sentAtLabel ? (
         <p className="mt-0.5 text-[9px] text-muted-foreground">
-          Envoyé initialement le {sentAtLabel}
+          {t("sentInitially", { date: sentAtLabel })}
         </p>
       ) : null}
       <p className="mt-1 whitespace-pre-wrap text-foreground">{seed.text.trim()}</p>
       {thumbs.length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {thumbs.map((t) => (
+          {thumbs.map((thumb) => (
             <button
-              key={t.slot}
+              key={thumb.slot}
               type="button"
-              title={`Photo ${t.slot}`}
-              onClick={() => setLightbox({ label: `Photo ${t.slot}`, url: t.url })}
+              title={t("photoN", { n: thumb.slot })}
+              onClick={() => setLightbox({ label: t("photoN", { n: thumb.slot }), url: thumb.url })}
               className="relative size-16 overflow-hidden rounded-lg border border-violet-200/70 bg-muted sm:size-20"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={t.url} alt="" className="size-full object-cover" />
+              <img src={thumb.url} alt="" className="size-full object-cover" />
               <span className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center bg-black/45 py-px">
                 <Maximize2 className="size-2.5 text-white" aria-hidden />
               </span>
@@ -136,6 +141,9 @@ export function RequestConversationInline({
   minHeightClass,
   composerDisabled = false,
 }: Props) {
+  const locale = useLocale() as AppLocale;
+  const t = useTranslations("conversation");
+  const tCommon = useTranslations("common");
   const [rows, setRows] = useState<RequestCommentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -297,11 +305,11 @@ export function RequestConversationInline({
           <p className="truncate text-[12px] font-semibold text-foreground">
             {isConsultation
               ? viewerRole === "pharmacien"
-                ? "Conversation"
-                : "Échanges avec votre pharmacie"
+                ? t("title")
+                : t("exchangesWithPharmacy")
               : viewerRole === "pharmacien"
-                ? "Échanges avec le patient"
-                : "Échanges avec l'officine"}
+                ? t("exchangesWithPatient")
+                : t("exchangesWithOffice")}
           </p>
         </div>
       </div>
@@ -312,15 +320,13 @@ export function RequestConversationInline({
         style={{ touchAction: "pan-y" }}
       >
         {loading ? (
-          <p className="text-[11px] text-muted-foreground">Chargement…</p>
+          <p className="text-[11px] text-muted-foreground">{tCommon("loading")}</p>
         ) : !hasSeed && rows.length === 0 ? (
-          <p className="text-[11px] leading-snug text-muted-foreground">
-            Aucun message pour l&apos;instant. Écrivez le premier ci-dessous.
-          </p>
+          <p className="text-[11px] leading-snug text-muted-foreground">{t("emptyWriteFirst")}</p>
         ) : (
           <ul className="space-y-2">
             {hasSeed && consultationSeed ? (
-              <ConsultationSeedBubble seed={consultationSeed} viewerRole={viewerRole} />
+              <ConsultationSeedBubble seed={consultationSeed} viewerRole={viewerRole} locale={locale} />
             ) : null}
             {rows.map((m) => (
               <ConversationMessageBubble
@@ -352,7 +358,7 @@ export function RequestConversationInline({
           error={err}
           onSend={send}
           sendButtonClassName={isConsultation ? "bg-violet-700 hover:bg-violet-800" : undefined}
-          readonlyMessage="Cette demande est fermée — la conversation est en lecture seule."
+          readonlyMessage={t("readonlyClosed")}
         />
       </div>
     </section>

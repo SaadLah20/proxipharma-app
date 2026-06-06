@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Send } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
 import { type ConversationAudioDraft } from "@/lib/use-conversation-audio-recorder";
@@ -29,6 +30,8 @@ export function ConversationComposer({
   sendButtonClassName,
   readonlyMessage,
 }: Props) {
+  const t = useTranslations("conversation");
+  const tCommon = useTranslations("common");
   const [pendingAudio, setPendingAudio] = useState<ConversationAudioDraft | null>(null);
   const [audioDraftClearSignal, setAudioDraftClearSignal] = useState(0);
 
@@ -72,7 +75,7 @@ export function ConversationComposer({
             className={cn("h-8 gap-1 text-xs", sendButtonClassName)}
           >
             <Send className="size-3.5" aria-hidden />
-            {sending ? "Envoi…" : "Envoyer"}
+            {sending ? tCommon("sending") : t("send")}
           </Button>
         }
       />

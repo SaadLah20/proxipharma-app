@@ -16,6 +16,11 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useTranslations } from "next-intl";
+import {
+  applyTimelinePhaseLabels,
+  localizeTimelineAtLabels,
+  useTimelinePhaseLabels,
+} from "@/lib/i18n/build-patient-timeline";
 import { usePatientRequestStatusLabel } from "@/lib/i18n/patient-request-status-label";
 import { Button } from "@/components/ui/button";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
@@ -34,15 +39,9 @@ import {
   uiActionBtnModalPrimary,
 } from "@/lib/ui-action-buttons";
 import { Z_STICKY_FOOTER } from "@/lib/ui-z-index";
-import {
-  formatDateShortFr,
-  formatDateTimeShort24hFr,
-  formatPlannedVisitFr,
-  formatTime24hFr,
-  archiveTerminalFootnoteFr,
-  patientArchiveLastPlannedVisitFootnoteFr,
-  patientPlannedVisitPassageLineFr,
-} from "@/lib/datetime-fr";
+import { usePatientArchiveClosureLabel } from "@/lib/i18n/patient-archive-closure-label";
+import { usePatientDatetimeFormatters } from "@/lib/i18n/use-patient-datetime-formatters";
+import { usePatientLineCountLabel } from "@/lib/i18n/use-patient-line-count-label";
 import {
   RequestExitConfirmModalFr,
   type RequestExitModalMode,
@@ -137,7 +136,6 @@ import {
   bucketPatientClosedArchiveLines,
   PATIENT_CLOSED_ARCHIVE_BUCKET_ORDER,
   patientClosedArchiveBucketTitleFr,
-  patientClosedArchiveClosureLabelFr,
 } from "@/lib/patient-closed-archive-line-buckets";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
@@ -413,7 +411,15 @@ export function PatientValidatedCompactLineCard({
       <button
         type="button"
         className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", lineKindTheme.photoRing)}
-        onClick={() => onPhotoPreview(thumbUrl, validatedName, descriptionHtml, validatedBrand)}
+        onClick={() =>
+          onPhotoPreview(
+            thumbUrl,
+            validatedName,
+            descriptionHtml,
+            validatedBrand,
+            one(row.products)?.product_type
+          )
+        }
         aria-label={`Agrandir la photo · ${validatedName}`}
       >
         <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
@@ -531,7 +537,9 @@ function PatientTraceNotRetainedRow({
               <button
                 type="button"
                 className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", lineKindTheme.photoRing)}
-                onClick={() => onPhotoPreview(photoUrl, name, prod?.full_description, prod?.brand)}
+                onClick={() =>
+                  onPhotoPreview(photoUrl, name, prod?.full_description, prod?.brand, prod?.product_type)
+                }
                 aria-label={`Agrandir la photo · ${name}`}
               >
                 <img src={photoUrl} alt="" className="pointer-events-none h-full w-full object-cover opacity-90" />
@@ -659,6 +667,7 @@ type ResubmitLine = {
   product_id: string;
   name: string;
   brand?: string | null;
+  product_type?: string | null;
   photo_url?: string | null;
   full_description?: string | null;
   qty: number;
@@ -697,6 +706,9 @@ function resubmitLineFromDraftAndServer(
   return {
     product_id: base.product_id,
     name: base.name,
+    brand: base.brand ?? srv?.brand ?? (itemRow ? one(itemRow.products)?.brand : null) ?? null,
+    product_type:
+      base.product_type ?? srv?.product_type ?? (itemRow ? one(itemRow.products)?.product_type : null) ?? null,
     photo_url: base.photo_url,
     full_description:
       base.full_description ?? srv?.full_description ?? (itemRow ? one(itemRow.products)?.full_description : null) ?? null,
@@ -717,6 +729,8 @@ function computeResubmitLinesFromItems(
   return items.map((row) => ({
     product_id: row.product_id,
     name: one(row.products)?.name ?? "Produit",
+    brand: one(row.products)?.brand ?? null,
+    product_type: one(row.products)?.product_type ?? null,
     photo_url: resolvePublicMediaUrl(one(row.products)?.photo_url ?? null),
     full_description: one(row.products)?.full_description ?? null,
     qty: Math.min(10, Math.max(1, row.requested_qty)),
@@ -870,6 +884,7 @@ function PatientArchiveFrozenProductsView({
   ) => number | null;
 }) {
   const tCommon = useTranslations("common");
+  const archiveClosureLabel = usePatientArchiveClosureLabel();
   const noop = () => {};
 
   if (snapshotStatus === "submitted" || snapshotStatus === "in_review") {
@@ -884,7 +899,8 @@ function PatientArchiveFrozenProductsView({
               key={row.id}
               line={{
                 product_id: row.product_id,
-                name: prod?.name ?? "Produit",
+                name: prod?.name ?? tCommon("product"),
+                product_type: prod?.product_type ?? null,
                 photo_url: prod?.photo_url ?? null,
                 qty: row.requested_qty,
                 client_comment: row.client_comment ?? "",
@@ -895,14 +911,13 @@ function PatientArchiveFrozenProductsView({
               editMode={false}
               onPhotoPreview={() => {
                 const url = prod?.photo_url;
-                if (url) {
-                  onPhotoPreview(
-                    resolvePublicMediaUrl(url) ?? url,
-                    prod?.name ?? "Produit",
-                    prod?.full_description,
-                    prod?.brand
-                  );
-                }
+                onPhotoPreview(
+                  url ? resolvePublicMediaUrl(url) ?? url : null,
+                  prod?.name ?? "Produit",
+                  prod?.full_description,
+                  prod?.brand,
+                  prod?.product_type
+                );
               }}
               onSetQty={noop}
             />
@@ -959,7 +974,7 @@ function PatientArchiveFrozenProductsView({
         tier={validatedTierForClosedArchiveRow(row)}
         onOpenHistory={() => onOpenLineHistory(row.id)}
         requestStatusForCard={terminalStatus}
-        archiveClosureLabel={patientClosedArchiveClosureLabelFr(row)}
+        archiveClosureLabel={archiveClosureLabel(row)}
         onPhotoPreview={onPhotoPreview}
         pharmacistProposedBadgeLabel={badgeForRow(row) ?? pharmacistProposedBadgeLabel}
         requestType={requestType}
@@ -1151,10 +1166,10 @@ function PatientArchiveFrozenProductsView({
 
       {retireesApresValidation.length > 0 ? (
         <PatientArchiveCollapsibleSection
-          title="Retrait après validation"
+          title={tCommon("withdrawalAfterValidation")}
           count={retireesApresValidation.length}
           variant="withdrawn"
-          hint="Retrait convenu avec la pharmacie — trace uniquement."
+          hint={tCommon("withdrawalHint")}
         >
           <ul className={patientBucketProductListClass}>
             {retireesApresValidation.map((row) => (
@@ -1177,7 +1192,7 @@ function PatientArchiveFrozenProductsView({
       ) : null}
 
       {lignesNonRetenues.length > 0 ? (
-        <PatientArchiveCollapsibleSection title="Lignes non retenues" count={lignesNonRetenues.length}>
+        <PatientArchiveCollapsibleSection title={tCommon("unreleasedLines")} count={lignesNonRetenues.length}>
           <ul className={patientBucketProductListClass}>
             {lignesNonRetenues.map((row) => (
               <PatientTraceNotRetainedRow
@@ -1555,6 +1570,8 @@ type PatientConfirmPreviewLine = {
   etaLabel: string | null;
   photoUrl: string | null;
   descriptionHtml: string | null;
+  brand: string | null;
+  productType: string | null;
 };
 
 type PatientConfirmSkippedLine = {
@@ -1577,7 +1594,8 @@ function buildPatientConfirmSelection(
   items: ActionItemRow[],
   sel: Record<string, LineSelState>,
   requestType: string,
-  amendmentBundles: { amendments: unknown }[]
+  amendmentBundles: { amendments: unknown }[],
+  formatDateShort: (ymd: string | null | undefined) => string,
 ): { rpcPayload: PatientConfirmRpcRow[]; preview: PatientConfirmPreviewLine[] } {
   const preview: PatientConfirmPreviewLine[] = [];
   const rpcPayload = items.map((row) => {
@@ -1597,9 +1615,13 @@ function buildPatientConfirmSelection(
       let choiceDetail: string;
       let photoUrl: string | null;
       let descriptionHtml: string | null = null;
+      let brand: string | null = null;
+      let productType: string | null = null;
 
       if (st.branch === "principal") {
         productName = principalProd?.name ?? "Produit";
+        brand = principalProd?.brand?.trim() || null;
+        productType = principalProd?.product_type?.trim() || null;
         unitPrice = row.unit_price != null ? Number(row.unit_price) : null;
         effStatus = row.availability_status;
         try {
@@ -1619,7 +1641,7 @@ function buildPatientConfirmSelection(
           branch: "principal",
         });
         if (effStatus === "to_order" && row.expected_availability_date) {
-          eta = formatDateShortFr(row.expected_availability_date);
+          eta = formatDateShort(row.expected_availability_date);
         }
         photoUrl = resolvePublicMediaUrl(principalProd?.photo_url ?? null);
         descriptionHtml = productDescriptionHtmlForDisplay(principalProd?.full_description);
@@ -1627,6 +1649,8 @@ function buildPatientConfirmSelection(
         const alt = alts.find((a) => a.id === st.branch);
         const altProd = alt ? one(alt.products) : null;
         productName = altProd?.name ?? "Alternative";
+        brand = altProd?.brand?.trim() || null;
+        productType = altProd?.product_type?.trim() || null;
         unitPrice = alt?.unit_price != null ? Number(alt.unit_price) : null;
         effStatus = alt?.availability_status ?? null;
         try {
@@ -1646,7 +1670,7 @@ function buildPatientConfirmSelection(
           branch: "alternative",
         });
         if (effStatus === "to_order" && alt?.expected_availability_date) {
-          eta = formatDateShortFr(alt.expected_availability_date);
+          eta = formatDateShort(alt.expected_availability_date);
         }
         photoUrl = resolvePublicMediaUrl(altProd?.photo_url ?? null);
         descriptionHtml = productDescriptionHtmlForDisplay(altProd?.full_description);
@@ -1667,6 +1691,8 @@ function buildPatientConfirmSelection(
         etaLabel: eta,
         photoUrl,
         descriptionHtml,
+        brand,
+        productType,
       });
     }
 
@@ -1712,17 +1738,27 @@ function buildNonRetainedConfirmLines(
   return out;
 }
 
+type PatientConfirmValidationCopy = {
+  keepAtLeastOneLine: string;
+  qtyExceedsMax: (label: string, cap: number) => string;
+  missingEtaOnToOrder: string;
+  visitDateRequired: string;
+  visitDateOutOfRange: (maxDate: string, hasToOrder: boolean) => string;
+};
+
 function validatePatientConfirmBeforeReview(
   items: ActionItemRow[],
   sel: Record<string, LineSelState>,
   rpcPayload: PatientConfirmRpcRow[],
   visitWin: ReturnType<typeof plannedVisitWindow>,
   resolvedVisitDate: string,
-  visitDateRaw: string
+  visitDateRaw: string,
+  copy: PatientConfirmValidationCopy,
+  formatMaxVisitDate: (ymd: string) => string
 ): string | null {
   const anyOn = rpcPayload.some((p) => p.is_selected);
   if (!anyOn) {
-    return "Garde au moins une ligne sélectionnée, modifie ta liste avant renvoi, ou abandonne la demande.";
+    return copy.keepAtLeastOneLine;
   }
   for (const row of items) {
     const st = sel[row.id];
@@ -1735,20 +1771,19 @@ function validatePatientConfirmBeforeReview(
       const alt = st.branch !== "principal" ? alts.find((a) => a.id === st.branch) : null;
       const label =
         st.branch === "principal" ? (one(row.products)?.name ?? "Produit") : (one(alt?.products)?.name ?? "Alternative");
-      return `Pour « ${label} », la quantité ne peut pas dépasser ${cap} (proposée par la pharmacie). Vous pouvez diminuer, pas augmenter.`;
+      return copy.qtyExceedsMax(label, cap);
     }
   }
   if (visitWin.missingEtaOnToOrder) {
-    return "Une ligne « à commander » n’a pas de date de réception côté pharmacie. Contacte l’officine ou modifie ta sélection.";
+    return copy.missingEtaOnToOrder;
   }
   const rawVisit = visitDateRaw.trim();
   if (rawVisit === "") {
-    return "Indiquez la date de passage en officine.";
+    return copy.visitDateRequired;
   }
   if (rawVisit !== "" && rawVisit !== resolvedVisitDate) {
-    return visitWin.hasToOrder
-      ? `Date hors plage autorisée (jusqu’au ${new Date(visitWin.maxYmd + "T12:00:00").toLocaleDateString("fr-FR")} inclus selon les produits à commander).`
-      : `Date hors plage : au plus tard le ${new Date(visitWin.maxYmd + "T12:00:00").toLocaleDateString("fr-FR")} (4 jours).`;
+    const maxDate = formatMaxVisitDate(visitWin.maxYmd);
+    return copy.visitDateOutOfRange(maxDate, visitWin.hasToOrder);
   }
   return null;
 }
@@ -1807,7 +1842,15 @@ function PatientConfirmReviewLineCard({
               <button
                 type="button"
                 className="relative size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-                onClick={() => onPhotoPreview(line.photoUrl!, line.productName, line.descriptionHtml)}
+                onClick={() =>
+                  onPhotoPreview(
+                    line.photoUrl!,
+                    line.productName,
+                    line.descriptionHtml,
+                    line.brand,
+                    line.productType
+                  )
+                }
                 aria-label={`Agrandir la photo · ${line.productName}`}
               >
                 <img src={line.photoUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
@@ -1872,7 +1915,27 @@ export function PatientProductRequestActions({
 }: Props) {
   const tCommon = useTranslations("common");
   const tDemandes = useTranslations("demandes");
+  const tValidation = useTranslations("demandes.validation");
+  const dt = usePatientDatetimeFormatters();
+  const lineCountLabel = usePatientLineCountLabel();
+  const phaseLabels = useTimelinePhaseLabels();
   const prescriptionCopy = usePrescriptionUiCopy();
+
+  const formatMaxVisitDate = useCallback((ymd: string) => dt.formatDateShort(ymd), [dt]);
+
+  const validationCopy = useMemo<PatientConfirmValidationCopy>(
+    () => ({
+      keepAtLeastOneLine: tValidation("keepAtLeastOneLine"),
+      qtyExceedsMax: (label, cap) => tValidation("qtyExceedsMax", { label, cap }),
+      missingEtaOnToOrder: tValidation("missingEtaOnToOrder"),
+      visitDateRequired: tCommon("visitDateRequired"),
+      visitDateOutOfRange: (maxDate, hasToOrder) =>
+        hasToOrder
+          ? tCommon("visitDateOutOfRangeOrder", { maxDate })
+          : tCommon("visitDateOutOfRange", { maxDate }),
+    }),
+    [tValidation, tCommon]
+  );
   const { hint: summaryStatusHint, detail: summaryStatusDetail, workflowCopy: i18nWorkflowCopy } =
     usePatientSummaryStatusCopy(requestType);
   const pathname = usePathname();
@@ -1932,13 +1995,22 @@ export function PatientProductRequestActions({
   const [exitModalMode, setExitModalMode] = useState<RequestExitModalMode>("patient_abandon");
   const [productPhotoPreview, setProductPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
   const openProductPhotoPreview = useCallback(
-    (url: string, title: string, descriptionHtml?: string | null, brand?: string | null) => {
-      if (!url.trim()) return;
+    (
+      url: string | null,
+      title: string,
+      descriptionHtml?: string | null,
+      brand?: string | null,
+      productType?: string | null,
+      options?: { catalogExplorerPreview?: boolean }
+    ) => {
+      if (!options?.catalogExplorerPreview && !url?.trim()) return;
       setProductPhotoPreview({
-        url: url.trim(),
+        url: url?.trim() || null,
         title: title.trim() || "Produit",
         brand: brand ?? null,
+        product_type: productType ?? null,
         descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
+        catalogExplorerPreview: options?.catalogExplorerPreview ?? false,
       });
     },
     []
@@ -2154,7 +2226,7 @@ export function PatientProductRequestActions({
 
   const historyModalBlocks = useMemo((): PatientLineTimelineBlockFr[] => {
     if (!historyModalRow || !requestTimelineMeta?.created_at) return [];
-    return buildPatientLineTimelineFr({
+    const blocks = buildPatientLineTimelineFr({
       row: historyModalRow,
       requestCreatedAt: requestTimelineMeta.created_at,
       requestSubmittedAt: requestTimelineMeta.submitted_at,
@@ -2166,7 +2238,11 @@ export function PatientProductRequestActions({
       pharmacistProposedOriginLabel: workflowCopy.timelinePharmacistProposedOrigin,
       patientLineOriginLabel: workflowCopy.patientLineOriginLabel,
       requestType,
+      timelineAudience: "patient",
+      locale: dt.locale,
+      phaseLabels,
     });
+    return applyTimelinePhaseLabels(localizeTimelineAtLabels(blocks, dt.locale), phaseLabels);
   }, [
     historyModalRow,
     requestTimelineMeta,
@@ -2176,6 +2252,8 @@ export function PatientProductRequestActions({
     workflowCopy.timelinePharmacistProposedOrigin,
     workflowCopy.patientLineOriginLabel,
     requestType,
+    dt.locale,
+    phaseLabels,
   ]);
 
   const visibleHits = useMemo(() => {
@@ -2257,6 +2335,7 @@ export function PatientProductRequestActions({
           product_id: p.id,
           name: p.name,
           brand: p.brand,
+          product_type: p.product_type,
           photo_url: resolvePublicMediaUrl(p.photo_url ?? null),
           full_description: p.full_description ?? null,
           qty: 1,
@@ -2369,8 +2448,17 @@ export function PatientProductRequestActions({
 
   const openConfirmReview = useCallback(() => {
     setConfirmReviewMode("initial");
-    const built = buildPatientConfirmSelection(items, sel, requestType, supplyAmendmentBundles);
-    const err = validatePatientConfirmBeforeReview(items, sel, built.rpcPayload, visitWin, resolvedVisitDate, visitDate);
+    const built = buildPatientConfirmSelection(items, sel, requestType, supplyAmendmentBundles, dt.formatDateShort);
+    const err = validatePatientConfirmBeforeReview(
+      items,
+      sel,
+      built.rpcPayload,
+      visitWin,
+      resolvedVisitDate,
+      visitDate,
+      validationCopy,
+      formatMaxVisitDate
+    );
     if (err) {
       setActionError(err);
       return;
@@ -2384,10 +2472,21 @@ export function PatientProductRequestActions({
       skippedLines,
       plannedVisitDate: resolvedVisitDate,
       plannedVisitTimePg: timePg,
-      visitSummaryFr: formatPlannedVisitFr(resolvedVisitDate, timePg ?? null),
+      visitSummaryFr: dt.formatPlannedVisit(resolvedVisitDate, timePg ?? null),
     });
     setConfirmReviewOpen(true);
-  }, [items, sel, requestType, supplyAmendmentBundles, visitWin, resolvedVisitDate, visitDate, visitTimeComposed]);
+  }, [
+    items,
+    sel,
+    requestType,
+    supplyAmendmentBundles,
+    visitWin,
+    resolvedVisitDate,
+    visitDate,
+    visitTimeComposed,
+    validationCopy,
+    formatMaxVisitDate,
+  ]);
 
   const openConfirmedRevalidationReview = useCallback(() => {
     if (detailStale) {
@@ -2395,14 +2494,16 @@ export function PatientProductRequestActions({
       return;
     }
     setConfirmReviewMode("revalidation");
-    const built = buildPatientConfirmSelection(items, sel, requestType, supplyAmendmentBundles);
+    const built = buildPatientConfirmSelection(items, sel, requestType, supplyAmendmentBundles, dt.formatDateShort);
     const err = validatePatientConfirmBeforeReview(
       items,
       sel,
       built.rpcPayload,
       visitWin,
       resolvedVisitDate,
-      resolvedVisitDate
+      resolvedVisitDate,
+      validationCopy,
+      formatMaxVisitDate
     );
     if (err) {
       setActionError(err);
@@ -2416,7 +2517,7 @@ export function PatientProductRequestActions({
       skippedLines,
       plannedVisitDate: resolvedVisitDate,
       plannedVisitTimePg: htmlTimeToPg(visitTimeComposed),
-      visitSummaryFr: formatPlannedVisitFr(resolvedVisitDate, htmlTimeToPg(visitTimeComposed) ?? null),
+      visitSummaryFr: dt.formatPlannedVisit(resolvedVisitDate, htmlTimeToPg(visitTimeComposed) ?? null),
     });
     setConfirmReviewOpen(true);
   }, [
@@ -2428,6 +2529,8 @@ export function PatientProductRequestActions({
     resolvedVisitDate,
     visitTimeComposed,
     detailStale,
+    validationCopy,
+    formatMaxVisitDate,
   ]);
 
   const startConfirmedRevalidation = useCallback(() => {
@@ -2488,9 +2591,7 @@ export function PatientProductRequestActions({
       if (/modifié entre-temps|Actualisez la page/i.test(msg)) {
         setActionError(msg);
       } else if (/selected_qty out of range|Quantité invalide pour cette ligne/i.test(msg)) {
-        setActionError(
-          "La quantité dépasse ce que la pharmacie a proposé pour une alternative. Diminuez la quantité (vous ne pouvez pas l’augmenter au-delà de l’offre)."
-        );
+        setActionError(tValidation("qtyExceedsServer"));
       } else {
         setActionError(msg);
       }
@@ -2502,12 +2603,12 @@ export function PatientProductRequestActions({
   };
 
   const validateResubmitLines = (): string | null => {
-    if (lines.length === 0) return "Ajoute au moins un produit à la liste.";
+    if (lines.length === 0) return tCommon("addAtLeastOneProduct");
     const seen = new Set<string>();
     for (const l of lines) {
-      if (seen.has(l.product_id)) return "Chaque produit ne peut apparaître qu’une seule fois dans ta liste.";
+      if (seen.has(l.product_id)) return tValidation("duplicateProduct");
       seen.add(l.product_id);
-      if (l.qty < 1 || l.qty > 10) return "Les quantités doivent être entre 1 et 10 pour chaque produit.";
+      if (l.qty < 1 || l.qty > 10) return tCommon("qtyBetween1And10");
     }
     return null;
   };
@@ -2595,10 +2696,11 @@ export function PatientProductRequestActions({
     setActionError("");
     const rawVisit = visitDate.trim();
     if (rawVisit !== "" && rawVisit !== resolvedVisitDate) {
+      const maxDate = formatMaxVisitDate(visitWin.maxYmd);
       setActionError(
         visitWin.hasToOrder
-          ? `Date hors plage autorisée (jusqu’au ${new Date(visitWin.maxYmd + "T12:00:00").toLocaleDateString("fr-FR")} inclus selon les produits à commander).`
-          : `Date hors plage : au plus tard le ${new Date(visitWin.maxYmd + "T12:00:00").toLocaleDateString("fr-FR")} (4 jours).`
+          ? tCommon("visitDateOutOfRangeOrder", { maxDate })
+          : tCommon("visitDateOutOfRange", { maxDate })
       );
       return;
     }
@@ -2675,13 +2777,13 @@ export function PatientProductRequestActions({
 
   const treatedPassageLine = useMemo(() => {
     if (!isTreatedActiveView) return "";
-    return patientPlannedVisitPassageLineFr(plannedVisitDateYmd, plannedVisitTimePg);
-  }, [isTreatedActiveView, plannedVisitDateYmd, plannedVisitTimePg]);
+    return dt.plannedVisitPassageLine(plannedVisitDateYmd, plannedVisitTimePg);
+  }, [isTreatedActiveView, plannedVisitDateYmd, plannedVisitTimePg, dt.plannedVisitPassageLine]);
 
   const archivePassageFootnote = useMemo(() => {
     if (!showArchivePassageLine) return null;
-    return patientArchiveLastPlannedVisitFootnoteFr(plannedVisitDateYmd, plannedVisitTimePg);
-  }, [showArchivePassageLine, plannedVisitDateYmd, plannedVisitTimePg]);
+    return dt.archiveLastPlannedVisitFootnote(plannedVisitDateYmd, plannedVisitTimePg);
+  }, [showArchivePassageLine, plannedVisitDateYmd, plannedVisitTimePg, dt.archiveLastPlannedVisitFootnote]);
 
   const archiveSel = useMemo(() => {
     if (!readOnlyArchive) return {} as Record<string, LineSelState>;
@@ -2703,7 +2805,9 @@ export function PatientProductRequestActions({
       imageUrl={productPhotoPreview?.url ?? null}
       title={productPhotoPreview?.title ?? ""}
       brand={productPhotoPreview?.brand}
+      productType={productPhotoPreview?.product_type}
       descriptionHtml={productPhotoPreview?.descriptionHtml}
+      catalogExplorerPreview={productPhotoPreview?.catalogExplorerPreview}
       onClose={() => setProductPhotoPreview(null)}
     />
   );
@@ -2778,7 +2882,7 @@ export function PatientProductRequestActions({
   const showVisitFields = (showConfirm || showConfirmedCards) && !forceReadOnly;
   const visitFieldsEditable = showVisitFields && !forceReadOnly;
 
-  const visitTimeFr = visitTimeComposed ? formatTime24hFr(htmlTimeToPg(visitTimeComposed) ?? visitTimeComposed) : "";
+  const visitTimeFr = visitTimeComposed ? dt.formatTimePg(htmlTimeToPg(visitTimeComposed) ?? visitTimeComposed) : "";
 
   const dossierRefLabel = requestPublicRef?.trim() || `Dossier ${requestId.slice(0, 8)}…`;
 
@@ -2821,7 +2925,7 @@ export function PatientProductRequestActions({
     : null;
   const archiveTerminalFootnote =
     readOnlyArchive && terminalHistoryEntry?.created_at
-      ? archiveTerminalFootnoteFr(terminalHistoryEntry.created_at)
+      ? dt.archiveTerminalFootnote(terminalHistoryEntry.created_at)
       : null;
   const archiveDossierStatusLabel = isExpiredProductArchive
     ? "expired"
@@ -2907,8 +3011,7 @@ export function PatientProductRequestActions({
 
       {showConsultationWaiting && items.length === 0 ? (
         <p className="mb-2 rounded-lg border border-violet-200/70 bg-white/80 px-2.5 py-2 text-[11px] leading-snug text-violet-950">
-          La pharmacie n&apos;a pas encore ajouté de produit. Consultez l&apos;onglet <strong>Conversation</strong> pour
-          échanger.
+          {tDemandes("consultationWaiting.noProductsYet")}
         </p>
       ) : null}
 
@@ -2935,10 +3038,10 @@ export function PatientProductRequestActions({
             pharmacyId={pharmacyId}
             dossierRefLabel={dossierRefLabel}
             lineCount={items.length}
-            lineCountLabel={buildPatientLineCountLabel(
+            lineCountLabel={lineCountLabel(
               requestType,
               showConfirm ? "responded" : status,
-              items.length
+              items.length,
             )}
             status={status}
             createdAt={requestTimelineMeta?.created_at ?? ""}
@@ -3343,13 +3446,21 @@ export function PatientProductRequestActions({
                             id: h.id,
                             name: h.name,
                             brand: h.brand,
+                            product_type: h.product_type,
                             photo_url: h.photo_url ?? null,
                             unitPrice: resolveCatalogPrice(catalogHitToPricingInput(h)),
                           }}
                           onAdd={() => addProduct(h)}
-                          onPhotoPreview={() => {
-                            if (h.photo_url) openProductPhotoPreview(h.photo_url, h.name, h.full_description, h.brand);
-                          }}
+                          onPhotoPreview={() =>
+                            openProductPhotoPreview(
+                              h.photo_url ?? null,
+                              h.name,
+                              h.full_description,
+                              h.brand,
+                              h.product_type,
+                              { catalogExplorerPreview: true }
+                            )
+                          }
                         />
                       ))}
                     </ul>
@@ -3368,6 +3479,7 @@ export function PatientProductRequestActions({
                   product_id: l.product_id,
                   name: l.name,
                   brand: l.brand,
+                  product_type: l.product_type,
                   photo_url: l.photo_url,
                   qty: l.qty,
                   client_comment: l.client_comment,
@@ -3377,9 +3489,16 @@ export function PatientProductRequestActions({
                 unitPrice={resubmitLineUnitPrice(l)}
                 editMode={editMode}
                 onRemove={editMode ? () => setLines((prev) => prev.filter((_, i) => i !== idx)) : undefined}
-                onPhotoPreview={() => {
-                  if (l.photo_url) openProductPhotoPreview(l.photo_url, l.name, l.full_description, l.brand);
-                }}
+                onPhotoPreview={() =>
+                  openProductPhotoPreview(
+                    l.photo_url ?? null,
+                    l.name,
+                    l.full_description,
+                    l.brand,
+                    l.product_type,
+                    { catalogExplorerPreview: true }
+                  )
+                }
                 onSetQty={(qty) =>
                   setLines((prev) =>
                     prev.map((row, i) => (i === idx ? { ...row, qty: Math.min(10, Math.max(1, qty)) } : row))
@@ -4233,6 +4352,7 @@ export function PatientProductRequestActions({
         title={historyModalRow ? validatedProductLabel(historyModalRow) : ""}
         blocks={historyModalBlocks}
         onClose={() => setHistoryModalItemId(null)}
+        patientView
       />
       {productPhotoPreviewModal}
     </>

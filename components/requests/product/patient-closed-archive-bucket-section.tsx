@@ -4,13 +4,12 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Ban, CheckCircle2, Package } from "lucide-react";
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
 import {
   type PatientClosedArchiveLineBucketId,
   patientClosedArchiveBucketAccentTextClass,
-  patientClosedArchiveBucketAriaTitleFr,
   patientClosedArchiveBucketCountBadgeClass,
   patientClosedArchiveBucketHeaderBarClass,
-  patientClosedArchiveBucketTitleFr,
 } from "@/lib/patient-closed-archive-line-buckets";
 
 type Props = {
@@ -32,15 +31,13 @@ export function PatientClosedArchiveBucketSection({
   subtotalLabel,
   children,
 }: Props) {
+  const t = useTranslations("demandes.archive.buckets");
   const Icon = BUCKET_ICONS[bucketId];
-  const title = patientClosedArchiveBucketTitleFr(bucketId);
+  const title = t(`${bucketId}.title`);
   const accentText = patientClosedArchiveBucketAccentTextClass(bucketId);
 
   return (
-    <section
-      className="w-full min-w-0 space-y-1"
-      aria-label={patientClosedArchiveBucketAriaTitleFr(bucketId)}
-    >
+    <section className="w-full min-w-0 space-y-1" aria-label={t(`${bucketId}.aria`)}>
       <div
         className={clsx(
           "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg px-2.5 py-1.5",

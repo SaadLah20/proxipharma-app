@@ -2,77 +2,14 @@
 
 import { useEffect, useMemo } from "react";
 import { Check, Circle, Info, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { productRequestPublicTheme as productTheme } from "@/lib/request-kinds/product-request-public-theme";
 import { requestKindUiTheme } from "@/lib/request-kind-ui-theme";
 import { cn } from "@/lib/utils";
 
-const PRODUCT_STEPS = [
-  {
-    status: "Envoyée",
-    title: "Vous envoyez votre liste",
-    body: "La pharmacie reçoit la demande et peut la modifier tant qu'elle n'a pas publié sa réponse.",
-  },
-  {
-    status: "En cours de traitement",
-    title: "L'officine examine le dossier",
-    body: "Disponibilité, prix indicatifs et éventuelles alternatives sont renseignés produit par produit.",
-  },
-  {
-    status: "Répondue — à valider",
-    title: "Vous validez votre choix",
-    body: "Pour chaque ligne : garder ou non, quantité, alternative éventuelle, puis date de passage et validation.",
-  },
-  {
-    status: "Validée",
-    title: "Préparation en officine",
-    body: "Réservation ou commande fournisseur selon les produits retenus ; suivi visible sur chaque carte.",
-  },
-  {
-    status: "Traitée",
-    title: "Passage au comptoir",
-    body: "Retrait des produits prêts ; la pharmacie peut clôturer le dossier après les retraits.",
-  },
-  {
-    status: "Clôturée",
-    title: "Dossier terminé",
-    body: "Tout a été récupéré ou le dossier est clos (annulation, expiration, etc.).",
-  },
-] as const;
-
-const PRESCRIPTION_STEPS = [
-  {
-    status: "Envoyée",
-    title: "Vous transmettez l'ordonnance",
-    body: "Scan (et message éventuel) envoyés à l'officine — aucun produit à saisir de votre côté.",
-  },
-  {
-    status: "En cours de traitement",
-    title: "Saisie par la pharmacie",
-    body: "L'officine lit votre ordonnance et saisit les produits (qté prescrite, disponibilité, alternatives).",
-  },
-  {
-    status: "Répondue — à valider",
-    title: "Vous validez les produits proposés",
-    body: "Pour chaque ligne : garder ou non, quantité, alternative éventuelle, puis date de passage et validation.",
-  },
-  {
-    status: "Validée",
-    title: "Préparation en officine",
-    body: "Réservation ou commande selon les produits retenus ; suivi visible sur chaque carte.",
-  },
-  {
-    status: "Traitée",
-    title: "Passage au comptoir",
-    body: "Retrait des produits prêts ; la pharmacie peut clôturer le dossier après les retraits.",
-  },
-  {
-    status: "Clôturée",
-    title: "Ordonnance close",
-    body: "Tout a été récupéré ou le dossier est clos (annulation, expiration, etc.).",
-  },
-] as const;
+const STEP_KEYS = ["s0", "s1", "s2", "s3", "s4", "s5"] as const;
 
 export function PatientProductRequestJourneyModal({
   open,
@@ -87,10 +24,17 @@ export function PatientProductRequestJourneyModal({
   requestType?: string | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("demandes.journeyModal");
+  const tCommon = useTranslations("common");
   const isPrescription = requestType === "prescription";
   const steps = useMemo(
-    () => (isPrescription ? PRESCRIPTION_STEPS : PRODUCT_STEPS),
-    [isPrescription]
+    () =>
+      STEP_KEYS.map((key) => ({
+        status: t(`${isPrescription ? "prescriptionSteps" : "productSteps"}.${key}.status`),
+        title: t(`${isPrescription ? "prescriptionSteps" : "productSteps"}.${key}.title`),
+        body: t(`${isPrescription ? "prescriptionSteps" : "productSteps"}.${key}.body`),
+      })),
+    [isPrescription, t],
   );
   const ui = requestKindUiTheme(requestType);
   const accentIcon = isPrescription ? "bg-amber-100 text-amber-800" : "bg-sky-100 text-sky-800";
@@ -124,26 +68,26 @@ export function PatientProductRequestJourneyModal({
             : currentStatus === "treated"
               ? 4
               : ["completed", "partially_collected", "fully_collected", "cancelled", "abandoned", "expired"].includes(
-                    currentStatus
+                    currentStatus,
                   )
                 ? 5
                 : 0;
 
-  const title = isPrescription ? "Parcours d'une ordonnance" : "Parcours d'une demande de produits";
+  const title = isPrescription ? t("titlePrescription") : t("titleProduct");
 
   return (
     <AppModalOverlay open aria-labelledby="product-journey-title" onBackdropClick={onClose}>
       <div
         className={cn(
           "flex max-h-[min(88dvh,520px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl sm:mx-auto",
-          isPrescription ? ui.modalShell : productTheme.modalShell
+          isPrescription ? ui.modalShell : productTheme.modalShell,
         )}
         onClick={(e) => e.stopPropagation()}
       >
         <div
           className={cn(
             "flex shrink-0 items-start justify-between gap-2 border-b px-4 py-3",
-            isPrescription ? "border-amber-200/80 bg-amber-50/30" : productTheme.modalHeader
+            isPrescription ? "border-amber-200/80 bg-amber-50/30" : productTheme.modalHeader,
           )}
         >
           <div className="flex min-w-0 items-start gap-2">
@@ -155,16 +99,14 @@ export function PatientProductRequestJourneyModal({
                 {title}
               </h2>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {isPrescription
-                  ? "Du scan à la clôture, comme une demande produits."
-                  : "Les grandes étapes, de l'envoi à la clôture."}
+                {isPrescription ? t("subtitlePrescription") : t("subtitleProduct")}
               </p>
             </div>
           </div>
           <button
             type="button"
             className="rounded-lg p-1 text-muted-foreground hover:bg-muted/50"
-            aria-label="Fermer"
+            aria-label={tCommon("closeAria")}
             onClick={onClose}
           >
             <X className="size-5" />
@@ -173,7 +115,7 @@ export function PatientProductRequestJourneyModal({
         {statusDetail?.trim() ? (
           <div className={cn("shrink-0 border-b px-4 py-3", accentDetail)}>
             <p className={cn("text-[10px] font-bold uppercase tracking-wide", accentDetailLabel)}>
-              À propos de ce dossier
+              {t("aboutDossier")}
             </p>
             <p className="mt-1 text-xs leading-relaxed">{statusDetail.trim()}</p>
           </div>
@@ -184,17 +126,17 @@ export function PatientProductRequestJourneyModal({
             const current = i === activeIndex;
             return (
               <li
-                key={step.status}
+                key={step.status + i}
                 className={cn(
                   "relative flex gap-3 pb-4 last:pb-0",
                   i < steps.length - 1 &&
-                    cn("before:absolute before:bottom-0 before:left-[0.9rem] before:top-8 before:w-px", timelineLine)
+                    cn("before:absolute before:bottom-0 before:left-[0.9rem] before:top-8 before:w-px", timelineLine),
                 )}
               >
                 <span
                   className={cn(
                     "relative z-[1] flex size-7 shrink-0 items-center justify-center rounded-full ring-2 ring-background",
-                    done ? doneBg : current ? cn(currentBg, currentRing) : "bg-muted text-muted-foreground"
+                    done ? doneBg : current ? cn(currentBg, currentRing) : "bg-muted text-muted-foreground",
                   )}
                   aria-hidden
                 >
@@ -215,7 +157,7 @@ export function PatientProductRequestJourneyModal({
         </ol>
         <div className="shrink-0 border-t px-4 py-3">
           <Button type="button" variant="outline" className="w-full" onClick={onClose}>
-            Fermer
+            {t("close")}
           </Button>
         </div>
       </div>

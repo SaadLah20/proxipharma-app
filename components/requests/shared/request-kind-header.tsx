@@ -1,7 +1,9 @@
 "use client";
 
 import { clsx } from "clsx";
-import { formatDossierSentAtCompactFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
+import { useLocale } from "next-intl";
+import { formatDossierSentAtCompactForLocale, formatPlannedVisitForLocale } from "@/lib/datetime-locale";
+import type { AppLocale } from "@/lib/i18n/config";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import type { RequestKindConfig } from "@/lib/request-kinds/types";
 import { requestStatusBadgeClass, requestStatusFr } from "@/lib/request-display";
@@ -35,6 +37,7 @@ export function RequestKindHeader({
   viewerRole = "patient",
   statusDetail = null,
 }: RequestKindHeaderProps) {
+  const locale = useLocale() as AppLocale;
   const shellClass =
     viewerRole === "pharmacien" && config.capabilities.workflowEnabled && config.theme.headerShellForStatus
       ? config.theme.headerShellForStatus(request.status)
@@ -62,7 +65,7 @@ export function RequestKindHeader({
           <span className="text-muted-foreground">
             Envoyée le{" "}
             <span className="font-semibold tabular-nums text-foreground">
-              {formatDossierSentAtCompactFr(request.submitted_at ?? request.created_at)}
+              {formatDossierSentAtCompactForLocale(request.submitted_at ?? request.created_at, locale)}
             </span>
           </span>
           {showPlannedVisit ? (
@@ -74,7 +77,11 @@ export function RequestKindHeader({
                 Passage{" "}
                 <span className="font-semibold text-foreground">
                   {request.patient_planned_visit_date
-                    ? formatPlannedVisitFr(request.patient_planned_visit_date, request.patient_planned_visit_time)
+                    ? formatPlannedVisitForLocale(
+                        request.patient_planned_visit_date,
+                        request.patient_planned_visit_time,
+                        locale,
+                      )
                     : "À définir"}
                 </span>
               </span>

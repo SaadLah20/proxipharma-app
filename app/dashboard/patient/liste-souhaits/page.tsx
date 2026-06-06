@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
@@ -10,6 +11,9 @@ import { supabase } from "@/lib/supabase";
 
 export default function PatientListeSouhaitsPage() {
   const router = useRouter();
+  const t = useTranslations("account");
+  const tw = useTranslations("account.wishlist");
+  const tc = useTranslations("common");
   const [ok, setOk] = useState(false);
 
   useEffect(() => {
@@ -33,7 +37,7 @@ export default function PatientListeSouhaitsPage() {
   if (!ok) {
     return (
       <PageShell>
-        <p className="text-sm text-muted-foreground">Chargement…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       </PageShell>
     );
   }
@@ -41,15 +45,15 @@ export default function PatientListeSouhaitsPage() {
   return (
     <PageShell maxWidthClass="max-w-lg" className={p.page}>
       <PatientAccountPageHeader
-        eyebrow="Espace patient"
-        title="Liste de souhaits"
-        subtitle="Produits à suivre ou à commander plus tard (fonctionnalité à venir)."
+        eyebrow={t("patientSpace")}
+        title={t("wishlistTitle")}
+        subtitle={tw("subtitle")}
       />
       <div className="rounded-xl border border-dashed border-border bg-muted/20 p-6 text-sm text-muted-foreground">
-        Vous pourrez enregistrer ici des produits favoris ou à rappeler. Aucune donnée n’est encore reliée à cette vue.
+        {tw("empty")}
       </div>
       <Link href="/" className={p.linkInline}>
-        Parcourir les pharmacies
+        {tw("browsePharmacies")}
       </Link>
     </PageShell>
   );
