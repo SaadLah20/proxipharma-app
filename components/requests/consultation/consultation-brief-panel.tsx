@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Camera, FileImage, Maximize2, Pencil, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Camera, ChevronDown, FileImage, Pencil, Trash2 } from "lucide-react";
+import { clsx } from "clsx";
 import { ConsultationPhotoLightbox } from "@/components/requests/consultation/consultation-photo-lightbox";
 import { supabase } from "@/lib/supabase";
 import {
@@ -14,19 +15,33 @@ import {
 } from "@/lib/consultation-media";
 import { CONSULTATION_TEXT_MAX, CONSULTATION_TEXT_MIN } from "@/lib/patient-request-form-limits";
 
-type PhotoSlot = { slot: 1 | 2 | 3; previewUrl: string; path: string | null; isNew?: boolean };
+type PhotoSlot = {
+  slot: 1 | 2 | 3;
+  previewUrl: string;
+  path: string | null;
+  pendingFile?: Blob;
+};
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
-export function ConsultationBriefPanel({
-  requestId,
-  initialText,
-  initialPaths,
-  editable,
-  viewerRole = "patient",
-  accent = "violet",
-  onSaved,
-}: {
+function pathsEqual(a: ConsultationImagePaths, b: ConsultationImagePaths): boolean {
+  return (
+    (a.photo1 ?? "") === (b.photo1 ?? "") &&
+    (a.photo2 ?? "") === (b.photo2 ?? "") &&
+    (a.photo3 ?? "") === (b.photo3 ?? "")
+  );
+}
+
+function pathsFromPhotos(list: PhotoSlot[]): ConsultationImagePaths {
+  const out: ConsultationImagePaths = { photo1: null, photo2: null, photo3: null };
+  for (const p of list) {
+    const key = `photo${p.slot}` as keyof ConsultationImagePaths;
+    out[key] = p.path;
+  }
+  return out;
+}
+
+type ConsultationBriefPanelProps = {
   requestId: string;
   initialText: string;
   initialPaths: ConsultationImagePaths;
@@ -34,27 +49,40 @@ export function ConsultationBriefPanel({
   viewerRole?: "patient" | "pharmacien";
   accent?: "violet";
   onSaved?: () => void | Promise<void>;
-}) {
-  const [localText, setLocalText] = useState<string | null>(null);
-  const [prevInitialText, setPrevInitialText] = useState(initialText);
-  if (prevInitialText !== initialText) {
-    setPrevInitialText(initialText);
-    setLocalText(null);
-  }
-  const displayText = localText ?? initialText;
-  const [textDraft, setTextDraft] = useState(displayText);
-  const [editingText, setEditingText] = useState(false);
+  /** Patient : panneau replié jusqu’au clic « Modifier ». */
+  defaultExpanded?: boolean;
+};
+
+export function ConsultationBriefPanel(props: ConsultationBriefPanelProps) {
+  const syncKey = `${props.requestId}|${props.initialText}|${props.initialPaths.photo1 ?? ""}|${props.initialPaths.photo2 ?? ""}|${props.initialPaths.photo3 ?? ""}`;
+  return <ConsultationBriefPanelBody key={syncKey} {...props} />;
+}
+
+function ConsultationBriefPanelBody({
+  requestId,
+  initialText,
+  initialPaths,
+  editable,
+  viewerRole = "patient",
+  accent = "violet",
+  onSaved,
+  defaultExpanded = false,
+}: ConsultationBriefPanelProps) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [textDraft, setTextDraft] = useState(initialText);
   const [photos, setPhotos] = useState<PhotoSlot[]>([]);
+  const [photosLoading, setPhotosLoading] = useState(true);
   const [lightbox, setLightbox] = useState<{ label: string; url: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const blobUrlsRef = useRef<string[]>([]);
 
   const shell =
     accent === "violet"
-      ? "rounded-xl border-2 border-violet-200/80 bg-gradient-to-br from-violet-50/70 via-white to-fuchsia-50/25 p-3 shadow-sm ring-1 ring-violet-200/45"
-      : "rounded-xl border border-border bg-card p-3";
+      ? "rounded-xl border-2 border-violet-200/80 bg-gradient-to-br from-violet-50/70 via-white to-fuchsia-50/25 shadow-sm ring-1 ring-violet-200/45"
+      : "rounded-xl border border-border bg-card";
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +100,7 @@ export function ConsultationBriefPanel({
       }
       if (cancelled) return;
       setPhotos(next);
+      setPhotosLoading(false);
       if (loadErrors.length > 0) {
         setFeedback(
           viewerRole === "pharmacien"
@@ -85,43 +114,42 @@ export function ConsultationBriefPanel({
     };
   }, [initialPaths, viewerRole]);
 
-  const persistPaths = async (nextPaths: ConsultationImagePaths) => {
-    const { error } = await supabase.rpc("patient_attach_consultation_images", {
-      p_request_id: requestId,
-      ...pathsToAttachPayload(nextPaths),
-    });
-    if (error) throw new Error(error.message);
-  };
+  useEffect(
+    () => () => {
+      blobUrlsRef.current.forEach((u) => {
+        if (u.startsWith("blob:")) URL.revokeObjectURL(u);
+      });
+    },
+    []
+  );
 
-  const pathsFromPhotos = (list: PhotoSlot[]): ConsultationImagePaths => {
-    const out: ConsultationImagePaths = { photo1: null, photo2: null, photo3: null };
-    for (const p of list) {
-      const key = `photo${p.slot}` as keyof ConsultationImagePaths;
-      out[key] = p.path;
-    }
-    return out;
-  };
+  const draftPaths = useMemo(() => pathsFromPhotos(photos), [photos]);
+  const isDirty =
+    editable &&
+    (textDraft.trim() !== initialText.trim() || !pathsEqual(draftPaths, initialPaths) || photos.some((p) => p.pendingFile));
 
-  const saveText = async () => {
+  const resetDraft = () => {
+    setTextDraft(initialText);
     setFeedback("");
-    const t = textDraft.trim();
-    if (t.length < CONSULTATION_TEXT_MIN) {
-      setFeedback(`Minimum ${CONSULTATION_TEXT_MIN} caractères (le texte ne peut pas être vide).`);
-      return;
-    }
-    setBusy(true);
-    const { error } = await supabase.rpc("patient_update_consultation_text", {
-      p_request_id: requestId,
-      p_consultation_text: t,
+    blobUrlsRef.current.forEach((u) => {
+      if (u.startsWith("blob:")) URL.revokeObjectURL(u);
     });
-    setBusy(false);
-    if (error) {
-      setFeedback(error.message);
-      return;
-    }
-    setLocalText(t);
-    setEditingText(false);
-    await onSaved?.();
+    blobUrlsRef.current = [];
+    setPhotos([]);
+    setPhotosLoading(true);
+    void (async () => {
+      const slots: (1 | 2 | 3)[] = [1, 2, 3];
+      const keys: (keyof ConsultationImagePaths)[] = ["photo1", "photo2", "photo3"];
+      const next: PhotoSlot[] = [];
+      for (let i = 0; i < slots.length; i++) {
+        const path = initialPaths[keys[i]];
+        if (!path) continue;
+        const { url } = await createConsultationSignedUrl(path);
+        if (url) next.push({ slot: slots[i], previewUrl: url, path });
+      }
+      setPhotos(next);
+      setPhotosLoading(false);
+    })();
   };
 
   const addFiles = async (files: FileList | File[]) => {
@@ -134,7 +162,6 @@ export function ConsultationBriefPanel({
       setFeedback(`Maximum ${CONSULTATION_MAX_PHOTOS} photos.`);
       return;
     }
-    setBusy(true);
     try {
       const added: PhotoSlot[] = [...photos];
       for (const f of list.slice(0, free.length)) {
@@ -142,110 +169,109 @@ export function ConsultationBriefPanel({
         if (f.size > MAX_FILE_BYTES) throw new Error("Chaque image doit faire moins de 8 Mo.");
         const slot = free.shift()!;
         const blob = await compressImageFileForConsultation(f);
-        const { path, error: upErr } = await uploadConsultationPhotoBlob(requestId, slot, blob);
-        if (upErr) throw new Error(upErr);
-        added.push({ slot, previewUrl: URL.createObjectURL(blob), path, isNew: true });
+        const previewUrl = URL.createObjectURL(blob);
+        blobUrlsRef.current.push(previewUrl);
+        added.push({ slot, previewUrl, path: null, pendingFile: blob });
       }
-      await persistPaths(pathsFromPhotos(added));
       setPhotos(added);
-      await onSaved?.();
     } catch (e) {
       setFeedback(e instanceof Error ? e.message : "Erreur photo.");
     }
-    setBusy(false);
   };
 
-  const removePhoto = async (slot: 1 | 2 | 3) => {
+  const removePhoto = (slot: 1 | 2 | 3) => {
     if (!editable) return;
-    setBusy(true);
+    setPhotos((prev) => {
+      const removed = prev.find((p) => p.slot === slot);
+      if (removed?.previewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(removed.previewUrl);
+        blobUrlsRef.current = blobUrlsRef.current.filter((u) => u !== removed.previewUrl);
+      }
+      return prev.filter((p) => p.slot !== slot);
+    });
+  };
+
+  const saveAll = async () => {
+    if (!editable || !isDirty) return;
     setFeedback("");
+    const t = textDraft.trim();
+    if (t.length < CONSULTATION_TEXT_MIN) {
+      setFeedback(`Minimum ${CONSULTATION_TEXT_MIN} caractères (le texte ne peut pas être vide).`);
+      return;
+    }
+    setBusy(true);
     try {
-      const next = photos.filter((p) => p.slot !== slot);
-      await persistPaths(pathsFromPhotos(next));
-      setPhotos(next);
+      const nextPhotos: PhotoSlot[] = [];
+      for (const p of photos) {
+        if (p.pendingFile) {
+          const { path, error: upErr } = await uploadConsultationPhotoBlob(requestId, p.slot, p.pendingFile);
+          if (upErr) throw new Error(upErr);
+          nextPhotos.push({ slot: p.slot, previewUrl: p.previewUrl, path });
+        } else {
+          nextPhotos.push(p);
+        }
+      }
+      const paths = pathsFromPhotos(nextPhotos);
+      const { error } = await supabase.rpc("patient_save_consultation_brief", {
+        p_request_id: requestId,
+        p_consultation_text: t,
+        ...pathsToAttachPayload(paths),
+      });
+      if (error) throw new Error(error.message);
+      setExpanded(false);
       await onSaved?.();
     } catch (e) {
-      setFeedback(e instanceof Error ? e.message : "Erreur.");
+      setFeedback(e instanceof Error ? e.message : "Erreur lors de l’enregistrement.");
     }
     setBusy(false);
   };
 
-  return (
-    <section className={shell}>
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-[9px] font-bold uppercase tracking-wide text-violet-900/80">
-            {viewerRole === "pharmacien" ? "Message du patient" : "Votre consultation"}
-          </p>
-          <p className="text-[11px] text-muted-foreground">
-            {editable
-              ? "Modifiez le texte ou les photos ; la pharmacie verra la version à jour."
-              : viewerRole === "pharmacien"
-                ? "Texte et photos transmis au départ du dossier."
-                : "Message et photos envoyés au départ du dossier."}
-          </p>
-        </div>
-        {editable && !editingText ? (
-          <button
-            type="button"
-            onClick={() => {
-              setTextDraft(displayText);
-              setEditingText(true);
-            }}
-            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-violet-200 bg-white px-2 py-1 text-[10px] font-semibold text-violet-900 shadow-sm hover:bg-violet-50"
-          >
-            <Pencil className="size-3" aria-hidden />
-            Modifier le texte
-          </button>
-        ) : null}
-      </div>
-
-      {editingText && editable ? (
-        <div className="mt-2 space-y-2">
-          <textarea
-            value={textDraft}
-            onChange={(e) => setTextDraft(e.target.value)}
-            maxLength={CONSULTATION_TEXT_MAX}
-            rows={5}
-            className="w-full rounded-lg border border-violet-200/80 bg-white px-2.5 py-2 text-sm text-foreground shadow-inner"
-          />
-          <p className="text-[10px] text-muted-foreground tabular-nums">
-            {textDraft.length}/{CONSULTATION_TEXT_MAX} · min. {CONSULTATION_TEXT_MIN}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void saveText()}
-              className="rounded-md bg-violet-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-800 disabled:opacity-50"
-            >
-              Enregistrer le texte
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setTextDraft(displayText);
-                setEditingText(false);
-              }}
-              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium"
-            >
-              Annuler
-            </button>
-          </div>
-        </div>
-      ) : (
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{displayText}</p>
-      )}
-
+  const readonlyBody = (
+    <>
+      <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{initialText}</p>
       <div className="mt-3">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-950/90">Photos (facultatif)</p>
         <div className="mt-2 flex flex-wrap gap-2">
-          {photos.length === 0 &&
-          (initialPaths.photo1 || initialPaths.photo2 || initialPaths.photo3) &&
-          !editable &&
-          !feedback ? (
+          {photosLoading && (initialPaths.photo1 || initialPaths.photo2 || initialPaths.photo3) ? (
             <p className="text-[11px] text-muted-foreground">Chargement des photos…</p>
           ) : null}
+          {photos.map((p) => (
+            <button
+              key={p.slot}
+              type="button"
+              title={`Agrandir la photo ${p.slot}`}
+              onClick={() => setLightbox({ label: `Photo ${p.slot}`, url: p.previewUrl })}
+              className="relative size-24 overflow-hidden rounded-lg border border-violet-200/70 bg-muted shadow-sm sm:size-28"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.previewUrl} alt="" className="size-full object-cover" />
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+
+  const editableBody = (
+    <div className="mt-2 space-y-3 border-t border-violet-200/60 pt-3">
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-950/90">Message</p>
+        <textarea
+          value={textDraft}
+          onChange={(e) => setTextDraft(e.target.value)}
+          maxLength={CONSULTATION_TEXT_MAX}
+          rows={5}
+          disabled={busy}
+          className="mt-1.5 w-full rounded-lg border border-violet-200/80 bg-white px-2.5 py-2 text-sm text-foreground shadow-inner disabled:opacity-60"
+        />
+        <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">
+          {textDraft.length}/{CONSULTATION_TEXT_MAX} · min. {CONSULTATION_TEXT_MIN}
+        </p>
+      </div>
+
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-950/90">Photos (facultatif)</p>
+        <div className="mt-2 flex flex-wrap gap-2">
           {photos.map((p) => (
             <div key={p.slot} className="relative size-24 overflow-hidden rounded-lg border border-violet-200/70 bg-muted shadow-sm sm:size-28">
               <button
@@ -256,38 +282,26 @@ export function ConsultationBriefPanel({
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={p.previewUrl} alt="" className="size-full object-cover" />
-                <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-0.5 bg-gradient-to-t from-black/55 to-transparent py-1 text-[9px] font-semibold text-white">
-                  <Maximize2 className="size-3" aria-hidden />
-                  Agrandir
-                </span>
               </button>
-              {editable ? (
-                <button
-                  type="button"
-                  title="Supprimer"
-                  disabled={busy}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void removePhoto(p.slot);
-                  }}
-                  className="absolute right-0.5 top-0.5 z-10 rounded bg-black/55 p-0.5 text-white hover:bg-black/70"
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
-              ) : null}
+              <button
+                type="button"
+                title="Retirer (enregistrez pour valider)"
+                disabled={busy}
+                onClick={() => removePhoto(p.slot)}
+                className="absolute right-0.5 top-0.5 z-10 rounded bg-black/55 p-0.5 text-white hover:bg-black/70 disabled:opacity-50"
+              >
+                <Trash2 className="size-3.5" />
+              </button>
             </div>
           ))}
         </div>
-        {photos.length > 0 ? (
-          <p className="mt-1.5 text-[10px] text-muted-foreground">Touchez une photo pour l’afficher en plein écran.</p>
-        ) : null}
-        {editable && photos.length < CONSULTATION_MAX_PHOTOS ? (
+        {photos.length < CONSULTATION_MAX_PHOTOS ? (
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
               disabled={busy}
               onClick={() => cameraRef.current?.click()}
-              className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-violet-900"
+              className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-violet-900 disabled:opacity-50"
             >
               <Camera className="size-3.5" /> Photo
             </button>
@@ -295,7 +309,7 @@ export function ConsultationBriefPanel({
               type="button"
               disabled={busy}
               onClick={() => fileRef.current?.click()}
-              className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-violet-900"
+              className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-violet-900 disabled:opacity-50"
             >
               <FileImage className="size-3.5" /> Galerie
             </button>
@@ -325,9 +339,88 @@ export function ConsultationBriefPanel({
             />
           </div>
         ) : null}
+        <p className="mt-1.5 text-[10px] text-muted-foreground">
+          Ajouts et suppressions sont pris en compte après « Enregistrer les modifications ».
+        </p>
       </div>
 
-      {feedback ? <p className="mt-2 text-[11px] text-red-700">{feedback}</p> : null}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={busy || !isDirty}
+          onClick={() => void saveAll()}
+          className="rounded-md bg-violet-700 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-800 disabled:opacity-50"
+        >
+          {busy ? "Enregistrement…" : "Enregistrer les modifications"}
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            resetDraft();
+            setExpanded(false);
+          }}
+          className="rounded-md border border-border px-3 py-2 text-xs font-medium disabled:opacity-50"
+        >
+          Annuler
+        </button>
+      </div>
+    </div>
+  );
+
+  if (!editable) {
+    return (
+      <section className={clsx(shell, "p-3")}>
+        <div>
+          <p className="text-[9px] font-bold uppercase tracking-wide text-violet-900/80">
+            {viewerRole === "pharmacien" ? "Message du patient" : "Votre consultation"}
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            {viewerRole === "pharmacien"
+              ? "Texte et photos transmis au départ du dossier."
+              : "Message et photos envoyés au départ du dossier."}
+          </p>
+        </div>
+        {readonlyBody}
+        {feedback ? <p className="mt-2 text-[11px] text-red-700">{feedback}</p> : null}
+        {lightbox ? (
+          <ConsultationPhotoLightbox label={lightbox.label} url={lightbox.url} onClose={() => setLightbox(null)} />
+        ) : null}
+      </section>
+    );
+  }
+
+  return (
+    <section className={clsx(shell, "overflow-hidden")}>
+      <button
+        type="button"
+        onClick={() => {
+          if (expanded && isDirty) {
+            resetDraft();
+          }
+          setExpanded((v) => !v);
+        }}
+        className="flex w-full items-center justify-between gap-2 p-3 text-left"
+        aria-expanded={expanded}
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-violet-900/80">Modifier mon message</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {expanded
+              ? "Texte et photos — une seule validation pour la pharmacie."
+              : "Toucher pour modifier le texte ou les photos."}
+          </p>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-violet-200 bg-white px-2 py-1 text-[10px] font-semibold text-violet-900 shadow-sm">
+          {expanded ? null : <Pencil className="size-3" aria-hidden />}
+          {expanded ? "Replier" : "Ouvrir"}
+          <ChevronDown className={clsx("size-3.5 transition-transform", expanded && "rotate-180")} aria-hidden />
+        </span>
+      </button>
+
+      {expanded ? <div className="px-3 pb-3">{editableBody}</div> : null}
+
+      {feedback ? <p className="px-3 pb-3 text-[11px] text-red-700">{feedback}</p> : null}
 
       {lightbox ? (
         <ConsultationPhotoLightbox label={lightbox.label} url={lightbox.url} onClose={() => setLightbox(null)} />
