@@ -31,6 +31,7 @@ export function useProductCatalogExplorer(
   const [hasMore, setHasMore] = useState(true);
   const offsetRef = useRef(0);
   const queryKeyRef = useRef("");
+  const fetchInFlightRef = useRef(false);
 
   const filtersKey = productCatalogFiltersKey(filters);
 
@@ -47,9 +48,12 @@ export function useProductCatalogExplorer(
         setLoading(true);
         setError(null);
         setHasMore(true);
+        fetchInFlightRef.current = true;
       } else {
         if (queryKeyRef.current !== queryKey) return;
+        if (fetchInFlightRef.current) return;
         setLoadingMore(true);
+        fetchInFlightRef.current = true;
       }
 
       const from = reset ? 0 : offsetRef.current;
@@ -78,6 +82,7 @@ export function useProductCatalogExplorer(
 
       if (queryKeyRef.current !== queryKey) {
         setLoadingMore(false);
+        fetchInFlightRef.current = false;
         return;
       }
 
@@ -87,6 +92,7 @@ export function useProductCatalogExplorer(
         setLoading(false);
         setLoadingMore(false);
         setHasMore(false);
+        fetchInFlightRef.current = false;
         return;
       }
 
@@ -105,6 +111,7 @@ export function useProductCatalogExplorer(
 
       offsetRef.current = from + rows.length;
       setHasMore(rows.length >= PRODUCT_CATALOG_EXPLORER_PAGE_SIZE);
+      fetchInFlightRef.current = false;
     },
     [enabled, filterQuery, filters, filtersKey],
   );
@@ -117,7 +124,7 @@ export function useProductCatalogExplorer(
   }, [enabled, filterQuery, filtersKey, fetchPage]);
 
   const loadMore = useCallback(() => {
-    if (loading || loadingMore || !hasMore) return;
+    if (loading || loadingMore || !hasMore || fetchInFlightRef.current) return;
     void fetchPage(false);
   }, [loading, loadingMore, hasMore, fetchPage]);
 

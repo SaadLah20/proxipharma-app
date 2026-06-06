@@ -52,6 +52,7 @@ export default function DemandeProduitsCataloguePage() {
   const [adding, setAdding] = useState(false);
   const loadMoreSentinelRef = useRef<HTMLLIElement>(null);
   const listScrollRef = useRef<HTMLUListElement>(null);
+  const loadMoreLockRef = useRef(false);
   const { resolve: resolveCatalogPrice } = usePharmacyPricingForPatient(pharmacyId);
 
   const { brands, loading: brandsLoading } = useCatalogDistinctBrands(sessionReady);
@@ -111,13 +112,24 @@ export default function DemandeProduitsCataloguePage() {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((e) => e.isIntersecting)) loadMore();
+        if (!entries.some((e) => e.isIntersecting)) return;
+        if (loadMoreLockRef.current) return;
+        loadMoreLockRef.current = true;
+        loadMore();
       },
-      { root, rootMargin: "160px", threshold: 0 }
+      { root, rootMargin: "64px", threshold: 0 }
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [loading, loadingMore, hasMore, loadMore, filtered.length]);
+
+  useEffect(() => {
+    if (!loadingMore) loadMoreLockRef.current = false;
+  }, [loadingMore]);
+
+  useEffect(() => {
+    listScrollRef.current?.scrollTo({ top: 0 });
+  }, [filterQuery, catalogFilters.productType, catalogFilters.brand]);
 
   const toggleSelect = (product: PatientDemandeProduitsCatalogProduct) => {
     if (cartProductIds.has(product.id)) return;
@@ -176,11 +188,11 @@ export default function DemandeProduitsCataloguePage() {
   return (
     <main
       className={cn(
-        "flex min-h-[100dvh] flex-col touch-pan-y bg-gradient-to-b from-sky-50/35 via-background to-background text-foreground antialiased",
+        "flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden touch-pan-y bg-gradient-to-b from-sky-50/35 via-background to-background text-foreground antialiased",
         stickyFooterPadClass("standard")
       )}
     >
-      <div className="mx-auto flex w-full max-w-lg min-h-0 flex-1 flex-col px-4 pt-3 sm:px-5 sm:pt-4">
+      <div className="mx-auto flex w-full max-w-lg min-h-0 flex-1 flex-col overflow-hidden px-4 pt-3 pb-2 sm:px-5 sm:pt-4">
         <div className="shrink-0 space-y-2 pb-2">
           <div className="flex items-center justify-between gap-2">
             <PharmacyPublicBackLink href={backHref} className={cn("mb-0 shrink-0", t.backLink)}>
@@ -217,7 +229,7 @@ export default function DemandeProduitsCataloguePage() {
 
         <div
           className={cn(
-            "min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/80 bg-card/90 shadow-sm",
+            "flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/80 bg-card/90 shadow-sm",
             t.shell
           )}
         >
@@ -228,7 +240,7 @@ export default function DemandeProduitsCataloguePage() {
           ) : (
             <ul
               ref={listScrollRef}
-              className="h-full overflow-y-auto overscroll-y-contain touch-pan-y py-1"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y py-1 [-webkit-overflow-scrolling:touch]"
             >
               {filtered.map((p) => {
                 const inCart = cartProductIds.has(p.id);
