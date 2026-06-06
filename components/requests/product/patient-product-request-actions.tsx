@@ -124,8 +124,10 @@ import {
   findTerminalStatusHistoryEntry,
   patientAbandonedDossierStatusHintFr,
   patientAbandonedDossierStatusHintShortFr,
+  patientAbandonedPrescriptionEmptyArchiveDetailFr,
   patientCancelledDossierStatusHintFr,
   patientCancelledDossierStatusHintShortFr,
+  patientCancelledPrescriptionEmptyArchiveDetailFr,
   patientClosedDossierStatusHintFr,
   patientClosedDossierStatusHintShortFr,
   patientExpiredDossierStatusHintFr,
@@ -2844,9 +2846,13 @@ export function PatientProductRequestActions({
         respondedAt: requestTimelineMeta?.responded_at ?? null,
       })
     : isCancelledProductArchive
-      ? patientCancelledDossierStatusHintFr(terminalHistoryEntry)
+      ? isPrescription && items.length === 0
+        ? patientCancelledPrescriptionEmptyArchiveDetailFr(terminalHistoryEntry)
+        : patientCancelledDossierStatusHintFr(terminalHistoryEntry)
       : isAbandonedProductArchive
-        ? patientAbandonedDossierStatusHintFr(terminalHistoryEntry)
+        ? isPrescription && items.length === 0
+          ? patientAbandonedPrescriptionEmptyArchiveDetailFr(terminalHistoryEntry)
+          : patientAbandonedDossierStatusHintFr(terminalHistoryEntry)
         : isClosedProductArchive
           ? patientClosedDossierStatusHintFr({
               terminalStatus: status,
@@ -2975,7 +2981,7 @@ export function PatientProductRequestActions({
         </div>
       ) : null}
 
-      {isResubmitDraftArchive && pharmacyId ? (
+      {isResubmitDraftArchive && pharmacyId && !isPrescription ? (
         <div className="mt-3">
           <button
             type="button"
@@ -3014,12 +3020,19 @@ export function PatientProductRequestActions({
       {isPrescription && prescriptionPaths?.page1 && (showConfirm || showConfirmedCards || forceReadOnly) ? (
         <PrescriptionScanCollapsible
           paths={prescriptionPaths}
-          defaultOpen={false}
+          defaultOpen={forceReadOnly && items.length === 0}
           className="mb-2"
         />
       ) : null}
 
-      {forceReadOnly && archiveSnapshotStatus && usesLineWorkflowUi ? (
+      {forceReadOnly && isPrescription && prescriptionNote?.trim() ? (
+        <div className="mb-2 rounded-xl border border-border/80 bg-card px-3 py-2.5 text-sm">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Votre message</p>
+          <p className="mt-1 whitespace-pre-wrap text-foreground">{prescriptionNote.trim()}</p>
+        </div>
+      ) : null}
+
+      {forceReadOnly && archiveSnapshotStatus && usesLineWorkflowUi && items.length > 0 ? (
         <>
           <PatientArchiveFrozenProductsView
             snapshotStatus={archiveSnapshotStatus}

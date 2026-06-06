@@ -59,6 +59,21 @@ export function patientCancelledDossierStatusHintFr(entry: ArchiveHistoryRow | n
   return "Demande annulée. Les produits ci-dessous reprennent l'état du dossier avant annulation.";
 }
 
+/** Ordonnance annulée avant saisie produit — scan seul consultable. */
+export function patientCancelledPrescriptionEmptyArchiveDetailFr(entry: ArchiveHistoryRow | null): string {
+  const actorLine = patientArchiveTerminalActorLineFr(entry);
+  const motiveParts = patientArchiveTerminalMotiveParagraphsFr(entry);
+  const motive =
+    motiveParts.length > 0 ? ` Motif : ${motiveParts.join(" ")}` : "";
+  if (actorLine) {
+    return `Ordonnance annulée · ${actorLine}.${motive} Votre scan reste consultable ci-dessous.`;
+  }
+  if (motive.trim()) {
+    return `Ordonnance annulée.${motive} Votre scan reste consultable ci-dessous.`;
+  }
+  return "Ordonnance annulée. Votre scan reste consultable ci-dessous.";
+}
+
 /** Phrase courte du bandeau dossier (statut Abandonnée). */
 export function patientAbandonedDossierStatusHintShortFr(): string {
   return "Demande abandonnée.";
@@ -77,6 +92,21 @@ export function patientAbandonedDossierStatusHintFr(entry: ArchiveHistoryRow | n
     return `Demande abandonnée.${motive} Les produits ci-dessous reprennent l'état du dossier avant abandon.`;
   }
   return "Demande abandonnée. Les produits ci-dessous reprennent l'état du dossier avant abandon.";
+}
+
+/** Ordonnance abandonnée avant saisie produit — scan seul consultable. */
+export function patientAbandonedPrescriptionEmptyArchiveDetailFr(entry: ArchiveHistoryRow | null): string {
+  const actorLine = patientArchiveTerminalActorLineFr(entry);
+  const motiveParts = patientArchiveTerminalMotiveParagraphsFr(entry);
+  const motive =
+    motiveParts.length > 0 ? ` Motif : ${motiveParts.join(" ")}` : "";
+  if (actorLine) {
+    return `Ordonnance abandonnée · ${actorLine}.${motive} Votre scan reste consultable ci-dessous.`;
+  }
+  if (motive.trim()) {
+    return `Ordonnance abandonnée.${motive} Votre scan reste consultable ci-dessous.`;
+  }
+  return "Ordonnance abandonnée. Votre scan reste consultable ci-dessous.";
 }
 
 export type PatientProductClosedArchiveStatus =
