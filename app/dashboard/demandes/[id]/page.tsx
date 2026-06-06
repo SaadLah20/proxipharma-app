@@ -43,8 +43,10 @@ import {
 } from "@/lib/patient-archive-outcome-fr";
 import { patientOutcomeStatusFooter } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
+import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
 import {
   patientDetailStickyFooterPadTier,
+  consultationConversationMinHeightClass,
   stickyFooterFabMinBottomPx,
   stickyFooterPadClass,
   stickyFooterScrollMarginClass,
@@ -150,6 +152,7 @@ export default function DemandeDetailPage() {
   const [consultationBrief, setConsultationBrief] = useState<{
     text: string;
     paths: ConsultationImagePaths;
+    contentUpdatedAt: string | null;
   } | null>(null);
   const [consultationTab, setConsultationTab] = useState<ConsultationDetailTab>("conversation");
   const [prevConsultationTabSyncKey, setPrevConsultationTabSyncKey] = useState("");
@@ -258,7 +261,7 @@ export default function DemandeDetailPage() {
         isConsultation
           ? supabase
               .from("free_consultation_requests")
-              .select("consultation_text,image_1_path,image_2_path,image_3_path")
+              .select("consultation_text,image_1_path,image_2_path,image_3_path,patient_content_updated_at")
               .eq("request_id", id)
               .maybeSingle()
           : Promise.resolve({ data: null, error: null } as const),
@@ -323,6 +326,7 @@ export default function DemandeDetailPage() {
           image_1_path: string | null;
           image_2_path: string | null;
           image_3_path: string | null;
+          patient_content_updated_at: string | null;
         };
         setConsultationBrief({
           text: cr.consultation_text,
@@ -331,6 +335,7 @@ export default function DemandeDetailPage() {
             photo2: cr.image_2_path,
             photo3: cr.image_3_path,
           },
+          contentUpdatedAt: cr.patient_content_updated_at,
         });
       } else {
         setConsultationBrief(null);
@@ -464,7 +469,7 @@ export default function DemandeDetailPage() {
   const showConsultationTabbed =
     isConsultationRequest &&
     consultationBrief != null &&
-    ["submitted", "in_review"].includes(request.status) &&
+    ["submitted", "in_review", "responded"].includes(request.status) &&
     !showArchivedReadonly;
   const showConsultationWaitingFooter =
     showConsultationTabbed && ["submitted", "in_review"].includes(request.status);
@@ -478,7 +483,10 @@ export default function DemandeDetailPage() {
     hasBottomActions || showConsultationWaitingFooter ? effectiveStickyFooterTier : "none"
   );
   const consultationEditable =
-    isConsultationRequest && ["submitted", "in_review"].includes(request.status) && consultationBrief != null;
+    isConsultationRequest &&
+    ["submitted", "in_review", "responded"].includes(request.status) &&
+    consultationBrief != null &&
+    !showArchivedReadonly;
 
   const kindConfig = getRequestKindConfig(request.request_type);
   const workflowCopy = kindConfig.copy.workflow;
@@ -500,8 +508,12 @@ export default function DemandeDetailPage() {
           text: consultationBrief.text,
           paths: consultationBrief.paths,
           createdAt: request.submitted_at ?? request.created_at,
+          modifiedAt: consultationBrief.contentUpdatedAt,
         }
       : null;
+
+  const showConsultationConversationPane =
+    showConsultationTabbed && consultationTab === "conversation" && Boolean(sessionUserId);
 
   const consultationTabSyncKey =
     isConsultationRequest && request
@@ -513,9 +525,6 @@ export default function DemandeDetailPage() {
     setConsultationTab(nextTab);
     if (nextTab === "products") setConversationOpen(false);
   }
-
-  const consultationConversationFocus =
-    showConsultationTabbed && consultationTab === "conversation" && Boolean(sessionUserId);
 
   const pharmacyContact = (() => {
     const ph = one(request.pharmacies);
@@ -558,24 +567,13 @@ export default function DemandeDetailPage() {
   };
 
   return (
-    <PageShell
-      className={clsx(
-        "min-w-0 max-w-full bg-slate-50",
-        consultationConversationFocus
-          ? clsx(
-              "flex h-[calc(100dvh-3.25rem)] max-h-[calc(100dvh-3.25rem)] flex-col space-y-2 overflow-hidden",
-              "sm:h-[calc(100dvh-3.5rem)] sm:max-h-[calc(100dvh-3.5rem)]",
-              showConsultationWaitingFooter ? stickyFooterPadClass("standard") : "pb-3 sm:pb-4"
-            )
-          : clsx("space-y-3", detailStickyFooterPad)
-      )}
-    >
-      <div className={consultationConversationFocus ? "shrink-0" : undefined}>
+    <PageShell className={clsx("min-w-0 max-w-full space-y-3 bg-slate-50", detailStickyFooterPad)}>
+      <div>
         <RequestDetailBackLink config={kindConfig} viewerRole="patient" />
       </div>
 
       {showConsultationTabbed ? (
-        <div className={consultationConversationFocus ? "shrink-0" : undefined}>
+        <div>
           <ConsultationRequestDetailChrome
             header={
               <PatientProductRequestDossierHeader
@@ -651,8 +649,8 @@ export default function DemandeDetailPage() {
         </div>
       ) : null}
 
-      {consultationConversationFocus ? (
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {showConsultationConversationPane ? (
+        <>
           <RequestConversationInline
             requestId={request.id}
             viewerRole="patient"
@@ -660,10 +658,22 @@ export default function DemandeDetailPage() {
             variant="consultation"
             consultationSeed={consultationSeed}
             refreshToken={conversationRefreshToken}
-            fillViewport
+            minHeightClass={consultationConversationMinHeightClass(effectiveStickyFooterTier)}
             onMarkedRead={handleConversationMarkedRead}
           />
-        </div>
+          {consultationEditable && consultationBrief ? (
+            <ConsultationBriefPanel
+              requestId={request.id}
+              initialText={consultationBrief.text}
+              initialPaths={consultationBrief.paths}
+              editable
+              onSaved={async () => {
+                await loadDetail(true);
+                setConversationRefreshToken((n) => n + 1);
+              }}
+            />
+          ) : null}
+        </>
       ) : null}
 
       {(hasBottomActions || (showArchivedReadonly && items.length > 0)) &&
@@ -779,7 +789,6 @@ export default function DemandeDetailPage() {
         </PlatformStickyFooter>
       ) : null}
 
-      {!consultationConversationFocus ? (
       <details
         className={clsx(
           "group rounded-xl border border-border/80 bg-card shadow-sm",
@@ -830,10 +839,10 @@ export default function DemandeDetailPage() {
           />
         </div>
       </details>
-      ) : null}
+
       {usesLineWorkflow &&
       sessionUserId &&
-      (!isConsultationRequest || !["submitted", "in_review"].includes(request.status)) ? (
+      (!isConsultationRequest || !["submitted", "in_review", "responded"].includes(request.status)) ? (
         <>
           <RequestConversationFabDock
             hasUnread={conversationUnread}

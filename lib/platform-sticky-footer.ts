@@ -79,10 +79,7 @@ export function stickyFooterFabMinBottomPx(tier: StickyFooterPadTier): number {
   return FAB_MIN_BOTTOM_PX[tier];
 }
 
-/** Hauteur utile onglet Conversation (chrome sticky + footer patient si présent). */
-export function consultationConversationViewportHeightClass(
-  footerTier: StickyFooterPadTier
-): string {
+function consultationConversationHeightCalc(footerTier: StickyFooterPadTier): string {
   const footerExtra =
     footerTier === "none"
       ? "0px"
@@ -91,7 +88,20 @@ export function consultationConversationViewportHeightClass(
         : footerTier === "compact"
           ? "3.75rem"
           : "6.5rem";
-  return `h-[calc(100dvh-12.25rem-${footerExtra}-env(safe-area-inset-bottom))] max-h-[calc(100dvh-12.25rem-${footerExtra}-env(safe-area-inset-bottom))]`;
+  return `calc(100dvh-12.25rem-${footerExtra}-env(safe-area-inset-bottom))`;
+}
+
+/** Hauteur fixe onglet Conversation (pharmacien — panneau interne scrollable). */
+export function consultationConversationViewportHeightClass(
+  footerTier: StickyFooterPadTier
+): string {
+  const h = consultationConversationHeightCalc(footerTier);
+  return `h-[${h}] max-h-[${h}]`;
+}
+
+/** Hauteur minimale onglet Conversation patient (page scrollable + scroll chaining). */
+export function consultationConversationMinHeightClass(footerTier: StickyFooterPadTier): string {
+  return `min-h-[${consultationConversationHeightCalc(footerTier)}]`;
 }
 
 /** Palier footer pour le détail patient (produits / ordonnance). */
