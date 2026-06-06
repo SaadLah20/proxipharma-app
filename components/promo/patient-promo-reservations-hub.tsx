@@ -1,91 +1,229 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
+import { Search } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
-import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
-import { formatDateForLocale } from "@/lib/datetime-locale";
+import { DemandeHubTabBar, type HubTab } from "@/components/requests/demande-hub-ui";
+import { PatientPromoReservationHubCard } from "@/components/promo/promo-reservation-hub-card";
+import { PromoReservationsHubDashboard } from "@/components/promo/promo-reservations-hub-dashboard";
+import { PageShell } from "@/components/ui/compact-shell";
+import {
+  hubListFilterChrome as filterChrome,
+  hubListFiltersPanelExpanded,
+  hubListHasManualFilters,
+} from "@/lib/hub-list-filter-chrome";
 import type { AppLocale } from "@/lib/i18n/config";
-import { promoPatientStatusHint, promoPatientStatusLabel } from "@/lib/i18n/promo-patient-status";
+import { patientPromoDashboardBuckets } from "@/lib/i18n/promo-hub-buckets";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
+import {
+  bucketForPromoStatusParam,
+  filterPromoHubListRows,
+} from "@/lib/promo/reservation-hub-buckets";
+import {
+  promoHubListActiveFiltersSummary,
+  promoHubListHasActiveFilters,
+} from "@/lib/promo/reservation-hub-list-filters";
+import type { PromoReservationHubRow } from "@/lib/promo/reservation-hub-sections";
+import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
+import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { supabase } from "@/lib/supabase";
-import { promoReservationBadgeClass } from "@/lib/promo/reservation-status-ui";
-import type { PromoReservationStatus } from "@/lib/promo/types";
+import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
 
-type Row = {
-  id: string;
-  status: PromoReservationStatus;
-  pickup_date: string;
-  pickup_time: string | null;
-  public_ref: string | null;
-  updated_at: string;
-  offer: { title: string; discount_percent: number } | null;
-  pharmacy: { nom: string } | null;
-};
+const HUB_PATH = "/dashboard/patient/packs-promo";
 
-function formatPickup(date: string, time: string | null, locale: AppLocale) {
-  const d = formatDateForLocale(`${date}T12:00:00`, locale, {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-  if (!time) return d;
-  return `${d} · ${time.slice(0, 5)}`;
+function tabFromSearch(v: string | null): HubTab {
+  return v === "liste" ? "list" : "dashboard";
+}
+
+function tabToSearch(t: HubTab): string {
+  return t === "list" ? "liste" : "dashboard";
 }
 
 export function PatientPromoReservationsHub() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = tabFromSearch(searchParams.get("vue"));
+  const locale = useLocale() as AppLocale;
   const t = useTranslations("promo");
   const ta = useTranslations("account");
+  const tList = useTranslations("hub.listChrome");
   const tc = useTranslations("common");
-  const locale = useLocale() as AppLocale;
-  const [loading, setLoading] = useState(true);
-  const [rows, setRows] = useState<Row[]>([]);
-  const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
-    setError("");
-    const { data: auth } = await supabase.auth.getSession();
-    if (!auth.session?.user) {
-      router.replace("/auth?redirect=/dashboard/patient/packs-promo");
-      return;
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<PromoReservationHubRow[]>([]);
+  const [error, setError] = useState("");
+  const [pharmacyFilter, setPharmacyFilter] = useState("");
+  const [refQuery, setRefQuery] = useState("");
+  const [sortNewestFirst, setSortNewestFirst] = useState(true);
+  const [filtersExpandedUser, setFiltersExpandedUser] = useState<boolean | null>(null);
+
+  const dashboardBuckets = useMemo(() => patientPromoDashboardBuckets(t), [t]);
+  const listStatutParam = tab === "list" ? searchParams.get("statut") : null;
+  const activeBucket = bucketForPromoStatusParam(listStatutParam, dashboardBuckets);
+
+  const setTab = (nextTab: HubTab) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("vue", tabToSearch(nextTab));
+    if (nextTab === "dashboard") {
+      next.delete("statut");
+      setFiltersExpandedUser(null);
     }
-    const { data, error: qErr } = await supabase
-      .from("pharmacy_promo_reservations")
-      .select(
-        "id,status,pickup_date,pickup_time,public_ref,updated_at,pharmacy_promo_offers(title,discount_percent),pharmacies:pharmacy_id(nom)"
-      )
-      .order("updated_at", { ascending: false });
-    if (qErr) {
-      setError(qErr.message);
-      setRows([]);
-    } else {
-      setRows(
-        (data ?? []).map((r: Record<string, unknown>) => ({
-          id: r.id as string,
-          status: r.status as PromoReservationStatus,
-          pickup_date: r.pickup_date as string,
-          pickup_time: r.pickup_time as string | null,
-          public_ref: r.public_ref as string | null,
-          updated_at: r.updated_at as string,
-          offer: r.pharmacy_promo_offers as Row["offer"],
-          pharmacy: r.pharmacies as Row["pharmacy"],
-        }))
-      );
-    }
-    setLoading(false);
-  }, [router]);
+    router.replace(`${HUB_PATH}?${next.toString()}`, { scroll: false });
+  };
 
   useEffect(() => {
-    const tid = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(tid);
-  }, [load]);
+    if (tab !== "dashboard") return;
+    if (!searchParams.has("statut")) return;
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("statut");
+    router.replace(`${HUB_PATH}?${next.toString()}`, { scroll: false });
+  }, [tab, searchParams, router]);
 
-  const active = useMemo(() => rows.filter((r) => !["collected", "cancelled", "unavailable"].includes(r.status)), [rows]);
-  const done = useMemo(() => rows.filter((r) => ["collected", "cancelled", "unavailable"].includes(r.status)), [rows]);
+  useEffect(() => {
+    if (searchParams.get("filtres") !== "0") return;
+    setFiltersExpandedUser(false);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("filtres");
+    router.replace(`${HUB_PATH}?${next.toString()}`, { scroll: false });
+  }, [searchParams, router]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setError("");
+      const { data: auth } = await supabase.auth.getSession();
+      if (!auth.session?.user) {
+        router.replace("/auth?redirect=/dashboard/patient/packs-promo");
+        return;
+      }
+
+      const { data, error: qErr } = await supabase
+        .from("pharmacy_promo_reservations")
+        .select(
+          "id,status,pickup_date,pickup_time,public_ref,updated_at,pharmacy_id,pharmacy_promo_offers(title,discount_percent),pharmacies:pharmacy_id(nom,ville)",
+        )
+        .order("updated_at", { ascending: false });
+
+      if (cancelled) return;
+
+      if (qErr) {
+        setError(qErr.message);
+        setRows([]);
+      } else {
+        setRows(
+          (data ?? []).map((r: Record<string, unknown>) => ({
+            id: r.id as string,
+            status: r.status as PromoReservationHubRow["status"],
+            pickup_date: r.pickup_date as string,
+            pickup_time: r.pickup_time as string | null,
+            public_ref: r.public_ref as string | null,
+            updated_at: r.updated_at as string,
+            pharmacy_id: r.pharmacy_id as string | undefined,
+            offer: r.pharmacy_promo_offers as PromoReservationHubRow["offer"],
+            pharmacy: r.pharmacies as PromoReservationHubRow["pharmacy"],
+          })),
+        );
+      }
+      setLoading(false);
+    }
+
+    const tid = window.setTimeout(() => void load(), 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(tid);
+    };
+  }, [router]);
+
+  const pharmacyOptions = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of rows) {
+      if (!r.pharmacy_id || m.has(r.pharmacy_id)) continue;
+      const ph = r.pharmacy;
+      m.set(
+        r.pharmacy_id,
+        ph?.nom
+          ? `${pharmacyPublicLabel(ph.nom)}${ph.ville ? ` (${ph.ville})` : ""}`
+          : `Pharmacie ${r.pharmacy_id.slice(0, 8)}…`,
+      );
+    }
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], locale));
+  }, [rows, locale]);
+
+  const pharmacyFilterLabel = pharmacyOptions.find(([id]) => id === pharmacyFilter)?.[1] ?? null;
+
+  let filteredList = filterPromoHubListRows(rows, {
+    bucketStatuses: activeBucket?.statuses ?? null,
+  });
+  if (pharmacyFilter) filteredList = filteredList.filter((r) => r.pharmacy_id === pharmacyFilter);
+  if (refQuery.trim().length >= 2) {
+    filteredList = filteredList.filter((r) =>
+      rowMatchesPublicRefQuery(refQuery, [
+        r.public_ref,
+        r.offer?.title,
+        r.pharmacy?.nom,
+        r.pharmacy?.ville,
+      ]),
+    );
+  }
+  const filteredSorted = [...filteredList].sort((a, b) => {
+    const ta = new Date(a.updated_at).getTime();
+    const tb = new Date(b.updated_at).getTime();
+    return sortNewestFirst ? tb - ta : ta - tb;
+  });
+
+  const listFiltersSummary = promoHubListActiveFiltersSummary({
+    activeBucket,
+    entityLabel: pharmacyFilterLabel,
+    referenceQuery: refQuery,
+    sortNewestFirst,
+    entityFieldLabel: "Pharmacie",
+  });
+
+  const listHasActiveFilters = promoHubListHasActiveFilters({
+    activeBucket,
+    entityLabel: pharmacyFilterLabel,
+    referenceQuery: refQuery,
+    sortNewestFirst,
+  });
+
+  const hasManualListFilters = hubListHasManualFilters({
+    entityFilter: pharmacyFilter,
+    referenceQuery: refQuery,
+    sortNewestFirst,
+  });
+
+  const filtersPanelExpanded = hubListFiltersPanelExpanded({
+    tabIsList: tab === "list",
+    listStatutParam,
+    hasManualFilters: hasManualListFilters,
+    filtersExpandedUser,
+  });
+
+  const clearListFilters = () => {
+    setPharmacyFilter("");
+    setRefQuery("");
+    setSortNewestFirst(true);
+    setFiltersExpandedUser(null);
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("vue", "liste");
+    next.delete("statut");
+    router.replace(`${HUB_PATH}?${next.toString()}`, { scroll: false });
+  };
+
+  const setStatutFilter = (key: string) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("vue", "liste");
+    if (key === "") next.delete("statut");
+    else next.set("statut", key);
+    router.replace(`${HUB_PATH}?${next.toString()}`, { scroll: false });
+  };
+
+  const filterBtn = uiActionBtnFilterToggle();
 
   if (loading) {
     return (
@@ -103,66 +241,154 @@ export function PatientPromoReservationsHub() {
         subtitle={t("hubSubtitle")}
         backHref="/dashboard/patient/pharmacies"
         backLabel={ta("backToPharmacies")}
-      />
-      {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
-      {rows.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground space-y-2">
-          <p>{t("empty")}</p>
-          <Link href="/dashboard/patient/pharmacies" className={p.linkInline}>
-            {t("findPharmacy")}
+        trailing={
+          <Link href="/dashboard/notifications" className={p.headerAction}>
+            {tc("notifications")}
           </Link>
-        </div>
-      ) : null}
-      {active.length > 0 ? (
-        <section className="space-y-2">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{t("activeSection")}</h2>
-          {active.map((r) => (
-            <ReservationCard key={r.id} row={r} locale={locale} />
-          ))}
-        </section>
-      ) : null}
-      {done.length > 0 ? (
-        <section className="space-y-2">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{t("historySection")}</h2>
-          {done.map((r) => (
-            <ReservationCard key={r.id} row={r} locale={locale} />
-          ))}
-        </section>
-      ) : null}
-    </PageShell>
-  );
-}
+        }
+      />
 
-function ReservationCard({ row, locale }: { row: Row; locale: AppLocale }) {
-  const t = useTranslations("promo");
-  const when = formatPickup(row.pickup_date, row.pickup_time, locale);
+      <DemandeHubTabBar
+        tab={tab}
+        onTab={setTab}
+        labels={{
+          dashboard: tList("dashboardTab"),
+          list: t("dashboard.allReservations"),
+        }}
+      />
 
-  return (
-    <Link href={`/dashboard/patient/packs-promo/${row.id}`} className="block">
-      <CompactCard>
-        <CompactCardBody className="space-y-1.5">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-sm font-bold">{row.offer?.title ?? t("packFallback")}</p>
-              <p className="text-[11px] text-muted-foreground">{row.pharmacy?.nom ?? t("pharmacyFallback")}</p>
-            </div>
-            <span
-              className={clsx(
-                "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
-                promoReservationBadgeClass(row.status)
-              )}
+      {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
+
+      {tab === "dashboard" ? (
+        rows.length === 0 ? (
+          <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground space-y-2">
+            <p>{t("empty")}</p>
+            <Link href="/dashboard/patient/pharmacies" className={p.linkInline}>
+              {t("findPharmacy")}
+            </Link>
+          </div>
+        ) : (
+          <PromoReservationsHubDashboard role="patient" rows={rows} basePath={HUB_PATH} />
+        )
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-bold text-foreground">{t("dashboard.allReservations")}</h2>
+            <button
+              type="button"
+              onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
+              className={filterBtn}
             >
-              {promoPatientStatusLabel(t, row.status)}
-            </span>
+              {filtersPanelExpanded ? tList("hideFilters") : tList("filters")}
+            </button>
           </div>
-          <p className="text-[11px] text-muted-foreground">{promoPatientStatusHint(t, row.status)}</p>
-          <div className="flex flex-wrap gap-x-3 text-[10px] tabular-nums text-muted-foreground">
-            {row.public_ref ? <span>{row.public_ref}</span> : null}
-            <span>{t("visit", { when })}</span>
-            {row.offer?.discount_percent ? <span>−{row.offer.discount_percent} %</span> : null}
-          </div>
-        </CompactCardBody>
-      </CompactCard>
-    </Link>
+
+          {listHasActiveFilters && !filtersPanelExpanded ? (
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-[11px] leading-snug text-foreground">
+              <p>
+                <span className="font-semibold">{tList("activeFilters")}</span> {listFiltersSummary}
+              </p>
+              <button type="button" onClick={clearListFilters} className={clsx("mt-1.5", filterChrome.clearLink)}>
+                {tList("clearAll")}
+              </button>
+            </div>
+          ) : null}
+
+          {filtersPanelExpanded ? (
+            <section className={filterChrome.shell}>
+              <div className="grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4">
+                <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {tList("dossierRef")}
+                  </span>
+                  <span className="relative block">
+                    <Search
+                      className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60"
+                      aria-hidden
+                    />
+                    <input
+                      value={refQuery}
+                      onChange={(e) => setRefQuery(e.target.value)}
+                      placeholder="Ex. P042/26"
+                      className="w-full rounded-lg border border-input bg-background py-2 pl-8 pr-2.5 text-xs text-foreground shadow-sm placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    />
+                  </span>
+                </label>
+                <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {tList("status")}
+                  </span>
+                  <select
+                    value={activeBucket?.key ?? ""}
+                    onChange={(e) => setStatutFilter(e.target.value)}
+                    className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
+                  >
+                    <option value="">{tList("allStatuses")}</option>
+                    {dashboardBuckets.map((b) => (
+                      <option key={b.key} value={b.key}>
+                        {b.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {tList("pharmacy")}
+                  </span>
+                  <select
+                    value={pharmacyFilter}
+                    onChange={(e) => setPharmacyFilter(e.target.value)}
+                    className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
+                  >
+                    <option value="">{tList("allPharmacies")}</option>
+                    {pharmacyOptions.map(([id, label]) => (
+                      <option key={id} value={id}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {tList("sort")}
+                  </span>
+                  <select
+                    value={sortNewestFirst ? "desc" : "asc"}
+                    onChange={(e) => setSortNewestFirst(e.target.value === "desc")}
+                    className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
+                  >
+                    <option value="desc">{tList("sortNewest")}</option>
+                    <option value="asc">{tList("sortOldest")}</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+          ) : null}
+
+          {filteredSorted.length === 0 ? (
+            <div className="space-y-2 py-6 text-center text-xs text-muted-foreground">
+              <p>{rows.length === 0 ? t("empty") : tList("noResults")}</p>
+              {rows.length === 0 ? (
+                <Link href="/dashboard/patient/pharmacies" className={filterChrome.clearLink}>
+                  {t("findPharmacy")}
+                </Link>
+              ) : listHasActiveFilters ? (
+                <button type="button" onClick={clearListFilters} className={filterChrome.clearLink}>
+                  {tList("clearFilters")}
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <ul className="space-y-2.5">
+              {filteredSorted.map((r) => (
+                <li key={r.id}>
+                  <PatientPromoReservationHubCard row={r} locale={locale} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </PageShell>
   );
 }

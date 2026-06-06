@@ -11,6 +11,7 @@ import { formatDateForLocale } from "@/lib/datetime-locale";
 import type { AppLocale } from "@/lib/i18n/config";
 import { promoPatientStatusHint, promoPatientStatusLabel } from "@/lib/i18n/promo-patient-status";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
+import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { PromoOfferPackSummary } from "@/components/promo/promo-offer-pack-summary";
 import { fetchPromoOfferLines } from "@/lib/promo/load-offer-lines";
 import { markPromoReservationNotificationsRead } from "@/lib/promo/mark-reservation-notifs-read";
@@ -137,7 +138,7 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
         title={row.offer?.title ?? t("packFallback")}
         subtitle={
           <>
-            {row.pharmacy?.nom}
+            {row.pharmacy?.nom ? pharmacyPublicLabel(row.pharmacy.nom) : t("pharmacyFallback")}
             {row.public_ref ? (
               <span className="mt-1 block font-mono text-xs">{row.public_ref}</span>
             ) : null}
