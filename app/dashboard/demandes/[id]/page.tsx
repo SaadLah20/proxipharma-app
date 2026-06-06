@@ -626,7 +626,11 @@ export default function DemandeDetailPage() {
         />
       ) : null}
 
-      {showArchivedReadonly && request.status === "expired" && isPrescriptionRequest ? (
+      {showArchivedReadonly &&
+      isPrescriptionRequest &&
+      (request.status === "expired" ||
+        request.status === "cancelled" ||
+        request.status === "abandoned") ? (
         <Link
           href="/"
           className={uiActionBtnFullOutline("inline-flex w-full justify-center")}
@@ -676,7 +680,7 @@ export default function DemandeDetailPage() {
         </>
       ) : null}
 
-      {(hasBottomActions || (showArchivedReadonly && items.length > 0)) &&
+      {(hasBottomActions || showArchivedReadonly) &&
       (!showConsultationTabbed || consultationTab === "products") ? (
         <>
         {!showConsultationTabbed && requestDrift.stale ? (
@@ -756,10 +760,6 @@ export default function DemandeDetailPage() {
         />
         </section>
         </>
-      ) : showArchivedReadonly && items.length === 0 ? (
-        <p className="text-center text-xs text-muted-foreground">
-          {isPrescriptionRequest ? workflowCopy.patientArchiveEmptyLines : workflowCopy.patientArchiveEmptyLines}
-        </p>
       ) : null}
 
       {showConsultationWaitingFooter ? (
