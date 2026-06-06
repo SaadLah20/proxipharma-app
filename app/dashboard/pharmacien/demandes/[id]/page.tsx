@@ -1871,6 +1871,7 @@ export default function PharmacienDemandeDetailPage() {
   const [consultationBrief, setConsultationBrief] = useState<{
     text: string;
     paths: ConsultationImagePaths;
+    contentUpdatedAt: string | null;
   } | null>(null);
   const [consultationTab, setConsultationTab] = useState<ConsultationDetailTab>("conversation");
   const [prevConsultationTabSyncKey, setPrevConsultationTabSyncKey] = useState("");
@@ -2173,7 +2174,7 @@ export default function PharmacienDemandeDetailPage() {
       setPrescriptionNote(null);
       const { data: crRow, error: crErr } = await supabase
         .from("free_consultation_requests")
-        .select("consultation_text,image_1_path,image_2_path,image_3_path")
+        .select("consultation_text,image_1_path,image_2_path,image_3_path,patient_content_updated_at")
         .eq("request_id", id)
         .maybeSingle();
       if (crErr) {
@@ -2187,10 +2188,12 @@ export default function PharmacienDemandeDetailPage() {
           image_1_path: string | null;
           image_2_path: string | null;
           image_3_path: string | null;
+          patient_content_updated_at: string | null;
         };
         setConsultationBrief({
           text: cr.consultation_text,
           paths: { photo1: cr.image_1_path, photo2: cr.image_2_path, photo3: cr.image_3_path },
+          contentUpdatedAt: cr.patient_content_updated_at,
         });
       } else {
         setConsultationBrief(null);
@@ -4936,7 +4939,7 @@ export default function PharmacienDemandeDetailPage() {
     isConsultation &&
     consultationBrief != null &&
     !pharmacistRequestIsHardStopped(request.status) &&
-    ["submitted", "in_review"].includes(request.status);
+    ["submitted", "in_review", "responded"].includes(request.status);
   const consultationDossierRef =
     displayRequestPublicRef(request) || `Dossier ${request.id.slice(0, 8)}…`;
   const consultationSeed =
@@ -4945,6 +4948,7 @@ export default function PharmacienDemandeDetailPage() {
           text: consultationBrief.text,
           paths: consultationBrief.paths,
           createdAt: request.submitted_at ?? request.created_at,
+          modifiedAt: consultationBrief.contentUpdatedAt,
         }
       : null;
   const showConsultationProductsPane = !showConsultationTabbed || consultationTab === "products";
@@ -8247,7 +8251,7 @@ export default function PharmacienDemandeDetailPage() {
       />
       {usesLineWorkflow &&
       sessionUserId &&
-      (!isConsultation || !["submitted", "in_review"].includes(request.status)) ? (
+      (!isConsultation || !["submitted", "in_review", "responded"].includes(request.status)) ? (
         <>
           <RequestConversationFabDock
             hasUnread={conversationUnread}

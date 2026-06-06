@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Maximize2, MessagesSquare } from "lucide-react";
+import { ConsultationPhotoLightbox } from "@/components/requests/consultation/consultation-photo-lightbox";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { type RequestCommentRow } from "@/lib/request-conversation";
@@ -21,6 +22,8 @@ export type ConsultationConversationSeed = {
   text: string;
   paths: ConsultationImagePaths;
   createdAt?: string | null;
+  /** Dernière modification patient (texte ou photos). */
+  modifiedAt?: string | null;
 };
 
 type Props = {
@@ -35,6 +38,8 @@ type Props = {
   refreshToken?: number;
   /** Onglet consultation : contraindre la hauteur pour scroll interne tactile. */
   fillViewport?: boolean;
+  /** Hauteur minimale du bloc (patient — page scrollable, scroll chaining au bord du fil). */
+  minHeightClass?: string;
   /** Dossier fermé : lecture seule. */
   composerDisabled?: boolean;
 };
@@ -49,7 +54,9 @@ function ConsultationSeedBubble({
 }) {
   const [thumbs, setThumbs] = useState<{ slot: number; url: string }[]>([]);
   const [lightbox, setLightbox] = useState<{ label: string; url: string } | null>(null);
-  const atLabel = seed.createdAt ? formatDateTimeShort24hFr(seed.createdAt) : null;
+  const sentAtLabel = seed.createdAt ? formatDateTimeShort24hFr(seed.createdAt) : null;
+  const modifiedAtLabel = seed.modifiedAt ? formatDateTimeShort24hFr(seed.modifiedAt) : null;
+  const showModified = Boolean(modifiedAtLabel);
   const patientBubble = viewerRole === "patient" ? "ms-4 border-sky-200/90 bg-sky-50/80" : "me-4 border-sky-200/70 bg-sky-50/50";
 
   useEffect(() => {
@@ -77,10 +84,19 @@ function ConsultationSeedBubble({
           {viewerRole === "patient" ? "Vous" : "Patient"}
           <span className="ml-1.5 font-normal text-muted-foreground">· message initial</span>
         </span>
-        {atLabel ? (
-          <time className="shrink-0 text-[9px] tabular-nums text-muted-foreground">{atLabel}</time>
+        {showModified ? (
+          <time className="shrink-0 text-[9px] tabular-nums text-amber-800/90">
+            Modifié le {modifiedAtLabel}
+          </time>
+        ) : sentAtLabel ? (
+          <time className="shrink-0 text-[9px] tabular-nums text-muted-foreground">{sentAtLabel}</time>
         ) : null}
       </div>
+      {showModified && sentAtLabel ? (
+        <p className="mt-0.5 text-[9px] text-muted-foreground">
+          Envoyé initialement le {sentAtLabel}
+        </p>
+      ) : null}
       <p className="mt-1 whitespace-pre-wrap text-foreground">{seed.text.trim()}</p>
       {thumbs.length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -102,20 +118,7 @@ function ConsultationSeedBubble({
         </div>
       ) : null}
       {lightbox ? (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/85 p-4"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setLightbox(null)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={lightbox.url}
-            alt={lightbox.label}
-            className="max-h-full max-w-full object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
+        <ConsultationPhotoLightbox label={lightbox.label} url={lightbox.url} onClose={() => setLightbox(null)} />
       ) : null}
     </li>
   );
@@ -130,6 +133,7 @@ export function RequestConversationInline({
   consultationSeed = null,
   refreshToken = 0,
   fillViewport = false,
+  minHeightClass,
   composerDisabled = false,
 }: Props) {
   const [rows, setRows] = useState<RequestCommentRow[]>([]);
@@ -272,7 +276,7 @@ export function RequestConversationInline({
     <section
       className={cn(
         "flex flex-col overflow-hidden rounded-xl border-2 shadow-sm",
-        fillViewport ? "min-h-0 flex-1" : "min-h-[min(24rem,50vh)]",
+        fillViewport ? "min-h-0 flex-1" : minHeightClass ?? "min-h-[min(24rem,50vh)]",
         isConsultation
           ? "border-violet-200/80 bg-gradient-to-b from-violet-50/50 to-white ring-1 ring-violet-200/45"
           : "border-border bg-card"
@@ -304,7 +308,7 @@ export function RequestConversationInline({
 
       <div
         ref={scrollContainerRef}
-        className="min-h-0 flex-1 touch-pan-y overflow-y-scroll overscroll-y-contain px-3 py-2.5 [-webkit-overflow-scrolling:touch]"
+        className="min-h-[14rem] flex-1 touch-pan-y overflow-y-auto overscroll-y-auto px-3 py-2.5 [-webkit-overflow-scrolling:touch]"
         style={{ touchAction: "pan-y" }}
       >
         {loading ? (

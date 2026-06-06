@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, FileImage, Maximize2, Pencil, Trash2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Camera, FileImage, Maximize2, Pencil, Trash2 } from "lucide-react";
+import { ConsultationPhotoLightbox } from "@/components/requests/consultation/consultation-photo-lightbox";
 import { supabase } from "@/lib/supabase";
 import {
   CONSULTATION_MAX_PHOTOS,
@@ -24,6 +25,7 @@ export function ConsultationBriefPanel({
   editable,
   viewerRole = "patient",
   accent = "violet",
+  onSaved,
 }: {
   requestId: string;
   initialText: string;
@@ -31,6 +33,7 @@ export function ConsultationBriefPanel({
   editable: boolean;
   viewerRole?: "patient" | "pharmacien";
   accent?: "violet";
+  onSaved?: () => void | Promise<void>;
 }) {
   const [localText, setLocalText] = useState<string | null>(null);
   const [prevInitialText, setPrevInitialText] = useState(initialText);
@@ -118,6 +121,7 @@ export function ConsultationBriefPanel({
     }
     setLocalText(t);
     setEditingText(false);
+    await onSaved?.();
   };
 
   const addFiles = async (files: FileList | File[]) => {
@@ -144,6 +148,7 @@ export function ConsultationBriefPanel({
       }
       await persistPaths(pathsFromPhotos(added));
       setPhotos(added);
+      await onSaved?.();
     } catch (e) {
       setFeedback(e instanceof Error ? e.message : "Erreur photo.");
     }
@@ -158,6 +163,7 @@ export function ConsultationBriefPanel({
       const next = photos.filter((p) => p.slot !== slot);
       await persistPaths(pathsFromPhotos(next));
       setPhotos(next);
+      await onSaved?.();
     } catch (e) {
       setFeedback(e instanceof Error ? e.message : "Erreur.");
     }
@@ -173,7 +179,7 @@ export function ConsultationBriefPanel({
           </p>
           <p className="text-[11px] text-muted-foreground">
             {editable
-              ? "Modifiez le texte ou les photos tant que la pharmacie n’a pas publié de proposition."
+              ? "Modifiez le texte ou les photos ; la pharmacie verra la version à jour."
               : viewerRole === "pharmacien"
                 ? "Texte et photos transmis au départ du dossier."
                 : "Message et photos envoyés au départ du dossier."}
@@ -327,82 +333,5 @@ export function ConsultationBriefPanel({
         <ConsultationPhotoLightbox label={lightbox.label} url={lightbox.url} onClose={() => setLightbox(null)} />
       ) : null}
     </section>
-  );
-}
-
-function ConsultationPhotoLightbox({
-  label,
-  url,
-  onClose,
-}: {
-  label: string;
-  url: string;
-  onClose: () => void;
-}) {
-  const [zoom, setZoom] = useState(1);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <div
-      className="fixed inset-0 z-[80] flex flex-col bg-black/85 p-3 md:p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Visualisation ${label}`}
-      onClick={onClose}
-    >
-      <div
-        className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2 text-white"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="text-sm font-semibold">{label}</p>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
-            className="rounded-lg bg-white/15 p-2 hover:bg-white/25"
-            aria-label="Zoom arrière"
-          >
-            <ZoomOut className="size-4" aria-hidden />
-          </button>
-          <span className="min-w-[3rem] text-center text-xs tabular-nums">{Math.round(zoom * 100)}%</span>
-          <button
-            type="button"
-            onClick={() => setZoom((z) => Math.min(3, z + 0.25))}
-            className="rounded-lg bg-white/15 p-2 hover:bg-white/25"
-            aria-label="Zoom avant"
-          >
-            <ZoomIn className="size-4" aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="ml-1 rounded-lg bg-white/15 p-2 hover:bg-white/25"
-            aria-label="Fermer"
-          >
-            <X className="size-4" aria-hidden />
-          </button>
-        </div>
-      </div>
-      <div
-        className="flex min-h-0 flex-1 items-center justify-center overflow-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={url}
-          alt={label}
-          className="max-h-full max-w-full object-contain ring-2 ring-violet-300/60 transition-transform duration-150"
-          style={{ transform: `scale(${zoom})` }}
-          onClick={(e) => e.stopPropagation()}
-        />
-      </div>
-    </div>
   );
 }
