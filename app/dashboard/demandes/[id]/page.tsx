@@ -47,11 +47,9 @@ import {
   patientDetailStickyFooterPadTier,
   stickyFooterFabMinBottomPx,
   stickyFooterPadClass,
-  consultationConversationViewportHeightClass,
   stickyFooterScrollMarginClass,
 } from "@/lib/platform-sticky-footer";
 import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
-import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
 import type { ConsultationImagePaths } from "@/lib/consultation-media";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 
@@ -516,7 +514,8 @@ export default function DemandeDetailPage() {
     if (nextTab === "products") setConversationOpen(false);
   }
 
-  const consultationConversationViewportClass = consultationConversationViewportHeightClass("none");
+  const consultationConversationFocus =
+    showConsultationTabbed && consultationTab === "conversation" && Boolean(sessionUserId);
 
   const pharmacyContact = (() => {
     const ph = one(request.pharmacies);
@@ -561,34 +560,43 @@ export default function DemandeDetailPage() {
   return (
     <PageShell
       className={clsx(
-        "min-w-0 max-w-full space-y-3 bg-slate-50",
-        detailStickyFooterPad,
-        showConsultationTabbed && consultationTab === "conversation" && "flex min-h-0 flex-col pb-3 sm:pb-4"
+        "min-w-0 max-w-full bg-slate-50",
+        consultationConversationFocus
+          ? clsx(
+              "flex h-[calc(100dvh-3.25rem)] max-h-[calc(100dvh-3.25rem)] flex-col space-y-2 overflow-hidden",
+              "sm:h-[calc(100dvh-3.5rem)] sm:max-h-[calc(100dvh-3.5rem)]",
+              showConsultationWaitingFooter ? stickyFooterPadClass("standard") : "pb-3 sm:pb-4"
+            )
+          : clsx("space-y-3", detailStickyFooterPad)
       )}
     >
-      <RequestDetailBackLink config={kindConfig} viewerRole="patient" />
+      <div className={consultationConversationFocus ? "shrink-0" : undefined}>
+        <RequestDetailBackLink config={kindConfig} viewerRole="patient" />
+      </div>
 
       {showConsultationTabbed ? (
-        <ConsultationRequestDetailChrome
-          header={
-            <PatientProductRequestDossierHeader
-              dossierRefLabel={dossierRefLabel}
-              pharmacyContact={pharmacyContact}
-              pharmacyId={request.pharmacy_id}
-              kindLabel={workflowCopy.patientSummaryKindLabel}
-              requestType={request.request_type}
-              status={request.status}
-              statusHint={summaryStatusHint(request.status)}
-              statusDetail={summaryStatusDetail(request.status)}
-              submittedAt={request.submitted_at}
-              createdAt={request.created_at}
-            />
-          }
-          tab={consultationTab}
-          onTab={setConsultationTab}
-          conversationUnread={conversationUnread}
-          productLineCount={items.length}
-        />
+        <div className={consultationConversationFocus ? "shrink-0" : undefined}>
+          <ConsultationRequestDetailChrome
+            header={
+              <PatientProductRequestDossierHeader
+                dossierRefLabel={dossierRefLabel}
+                pharmacyContact={pharmacyContact}
+                pharmacyId={request.pharmacy_id}
+                kindLabel={workflowCopy.patientSummaryKindLabel}
+                requestType={request.request_type}
+                status={request.status}
+                statusHint={summaryStatusHint(request.status)}
+                statusDetail={summaryStatusDetail(request.status)}
+                submittedAt={request.submitted_at}
+                createdAt={request.created_at}
+              />
+            }
+            tab={consultationTab}
+            onTab={setConsultationTab}
+            conversationUnread={conversationUnread}
+            productLineCount={items.length}
+          />
+        </div>
       ) : !hideMainRequestHeader ||
         (showArchivedReadonly &&
           request.request_type !== "product_request" &&
@@ -643,17 +651,12 @@ export default function DemandeDetailPage() {
         </div>
       ) : null}
 
-      {showConsultationTabbed && consultationTab === "conversation" && sessionUserId ? (
-        <div
-          className={clsx(
-            "flex min-h-0 min-w-0 flex-1 flex-col",
-            consultationConversationViewportClass
-          )}
-        >
+      {consultationConversationFocus ? (
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <RequestConversationInline
             requestId={request.id}
             viewerRole="patient"
-            currentUserId={sessionUserId}
+            currentUserId={sessionUserId!}
             variant="consultation"
             consultationSeed={consultationSeed}
             refreshToken={conversationRefreshToken}
@@ -776,6 +779,7 @@ export default function DemandeDetailPage() {
         </PlatformStickyFooter>
       ) : null}
 
+      {!consultationConversationFocus ? (
       <details
         className={clsx(
           "group rounded-xl border border-border/80 bg-card shadow-sm",
@@ -826,6 +830,7 @@ export default function DemandeDetailPage() {
           />
         </div>
       </details>
+      ) : null}
       {usesLineWorkflow &&
       sessionUserId &&
       (!isConsultationRequest || !["submitted", "in_review"].includes(request.status)) ? (
