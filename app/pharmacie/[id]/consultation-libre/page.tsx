@@ -145,6 +145,7 @@ export default function ConsultationLibrePage() {
     if (paths.photo1 || paths.photo2 || paths.photo3) {
       const { error: attachErr } = await supabase.rpc("patient_attach_consultation_images", {
         p_request_id: rid,
+        p_initial_submit: true,
         ...pathsToAttachPayload(paths),
       });
       if (attachErr) {
