@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
 import { appendSmsRequestLinkIfEnabled } from "@/lib/sms-request-short-link";
+import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 
 export type ExternalNotificationChannel = "email" | "sms";
 
@@ -77,7 +78,7 @@ export function buildOutboundNotificationText(args: {
 }): { subject: string; text: string } {
   const subject = args.row.title;
   const requestLink = `${args.requestOrigin}${requestPathForRole(args.role, args.row.request_id)}`;
-  const pharmacyLabel = args.pharmacyName ?? "Pharmacie";
+  const pharmacyLabel = args.pharmacyName ? pharmacyPublicLabel(args.pharmacyName) : "Pharmacie";
   const bodyLine = (args.row.body ?? "").trim();
 
   if (args.channel === "sms") {

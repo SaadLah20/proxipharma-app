@@ -1,5 +1,6 @@
 import type { AppLocale } from "@/lib/i18n/config";
 import { fallbackPatientNotificationArabic } from "@/lib/i18n/patient-notification-ar-fallback";
+import { formatPatientNotificationPharmacyText } from "@/lib/patient-notification-pharmacy-label";
 import { rewriteForPatientView } from "@/lib/patient-copy";
 
 type NotificationRow = {
@@ -31,7 +32,7 @@ export function pickPatientNotificationText(
     return fallbackPatientNotificationArabic(row.title, row.body);
   }
   return {
-    title: rewriteForPatientView(row.title) ?? row.title,
-    body: rewriteForPatientView(row.body),
+    title: formatPatientNotificationPharmacyText(rewriteForPatientView(row.title) ?? row.title) ?? row.title,
+    body: formatPatientNotificationPharmacyText(rewriteForPatientView(row.body)),
   };
 }

@@ -30,6 +30,7 @@ import { PageShell } from "@/components/ui/compact-shell";
 import { bucketForStatusParam } from "@/lib/demandes-hub-buckets";
 import { one } from "@/lib/embed";
 import { dashboardBucketsForKind } from "@/lib/request-kinds/hub-and-terminal-copy";
+import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
@@ -178,7 +179,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     for (const r of rows) {
       if (m.has(r.pharmacy_id)) continue;
       const ph = one(r.pharmacies);
-      m.set(r.pharmacy_id, ph?.nom ? `${ph.nom} (${ph.ville})` : `Pharmacie ${r.pharmacy_id.slice(0, 8)}…`);
+      m.set(r.pharmacy_id, ph?.nom ? `${pharmacyPublicLabel(ph.nom)}${ph.ville ? ` (${ph.ville})` : ""}` : `Pharmacie ${r.pharmacy_id.slice(0, 8)}…`);
     }
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], "fr"));
   }, [rows]);

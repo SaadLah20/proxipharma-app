@@ -574,6 +574,24 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
+### Session 2026-06-06 (suite 8) — explorateur catalogue UX compact + scroll infini
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`bd9b310`** (toolbar + modale marque) · **`d7622d6`** (scroll + garde pagination).
+
+**Explorateur patient** (`/pharmacie/[id]/demande-produits/catalogue`) :
+- **`ProductCatalogExplorerToolbar`** : une seule barre (recherche + puces type + bouton **Marque**) — plus de bandeau titre ni liste marque inline qui masquait les produits.
+- **Marque** : sélection en **modale** (sheet mobile) avec recherche dédiée ; puce amovible sur la barre.
+- **Liste produits** : occupe l’espace restant sous les filtres (`h-[100dvh]`, flex `min-h-0`, **`overflow-y-auto`** sur la liste).
+- **Scroll infini** : sentinel dans le conteneur scrollable ; verrou anti-rafale (**`fetchInFlightRef`** hook + page) ; reset scroll haut au changement filtres/recherche ; pages **`PRODUCT_CATALOG_EXPLORER_PAGE_SIZE`** (60).
+
+**Fix build** (`bd9b310`) : typage **`descriptionHtmlContent`** modale photo (`dangerouslySetInnerHTML`).
+
+**Migration** : aucune.
+
+**Phrase de reprise** : **§13.49**.
+
+---
+
 ### Session 2026-06-05 (suite) — Vocaux envoi initial, MIME Storage, consultation UX lot 2, ordonnance pharma
 
 **Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`fa897de`** (MIME audio bucket) · **`cb90da3`** (vocal envoi initial) · **`6cb3160`** (retours ordonnance pharmacien) · **`081fc02`** (consultation UX lot 2).
@@ -1321,7 +1339,7 @@ git checkout pilote-stable-2026-05-24
 - Scripts : **`scripts/attach-catalog-images.mjs`**, **`scripts/reset-pilot-catalog.mjs`**, **`supabase/scripts/reset-pilot-catalog.sql`** ; doc **`catalog/LISTE_PHOTOS.md`**.
 
 **UI patient — saisie & modification** :
-- **`/pharmacie/[id]/demande-produits`** + **`/demande-produits/catalogue`** : explorateur multi-sélection (filtres **type** para/médicament + **marque** searchable, recherche nom/marque/labo, scroll infini, produits déjà en panier / dossier grisés), brouillon **`sessionStorage`** (`lib/patient-demande-produits-draft.ts`, **`ProductCatalogExplorerFilters`**, **`useProductCatalogExplorer`**).
+- **`/pharmacie/[id]/demande-produits`** + **`/demande-produits/catalogue`** : explorateur multi-sélection (**`ProductCatalogExplorerToolbar`** : recherche + type + marque modale ; liste plein écran scrollable ; scroll infini 60/lot via **`useProductCatalogExplorer`**), produits déjà en panier / dossier grisés ; brouillon **`sessionStorage`** (`lib/patient-demande-produits-draft.ts`, **`lib/product-catalog-filters.ts`**).
 - **`PatientProductRequestActions`** : même lien catalogue en **mode modification** demande **`submitted`/`in_review`** (`?requestId=` + retour dossier) ; vignettes corrigées après envoi et sur tout le détail demande.
 - **`next.config.ts`** : domaine **`*.supabase.co`** pour images.
 
@@ -2363,19 +2381,25 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.48) Phrase de reprise (recommandée — après session **2026-06-06 (suite 7)** lignes RTL + modale photo catalogue)
+### 13.49) Phrase de reprise (recommandée — après session **2026-06-06 (suite 8)** explorateur UX compact + scroll infini)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`bd9b310`** toolbar explorateur, **`d7622d6`** scroll infini). **Migrations** si pas fait : **`20260709_001`** → **`20260713_001`**. **Explorateur catalogue** : barre unique recherche/filtres, marque en modale, liste scrollable plein écran, pagination 60/lot. Lots **`4989304`** / **`aea9fd4`** : lignes RTL + modale photo (**§13.48**). Je te donne la tâche ou les retours preview. »**
+
+### 13.48) Phrase de reprise (dépassée — session **2026-06-06 (suite 7)** lignes RTL + modale photo catalogue)
+
+Voir **§13.49**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`4989304`** lignes RTL, **`aea9fd4`** modale photo). **Migrations** si pas fait : **`20260709_001`** → **`20260713_001`**. **UI patient** : lignes produit flex + RTL (qté / message / prix) ; **modale photo** : vraie photo si URL, cadrage sans chevauchement description. Explorateur catalogue filtres type/marque (**§13.47**). Je te donne la tâche ou les retours preview. »**
 
 ### 13.47) Phrase de reprise (dépassée — session **2026-06-06 (suite 6)** explorateur catalogue patient)
 
-Voir **§13.48**.
+Voir **§13.49**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`fe3921f`** filtres catalogue type/marque, **`4989304`** lignes RTL). **Migrations** si pas fait : **`20260709_001`** → **`20260713_001`**. **Explorateur catalogue patient** : filtres parapharmacie / médicament + marque searchable, cartes produit refaites, i18n FR/AR. **Catalogue** : **~19 677** lignes ; pricing onglet **Marques** (recherche marques pharmacien). Lots antérieurs : i18n complet (**§13.46**), consultation (**§13.43**). Je te donne la tâche ou les retours preview. »**
 
 ### 13.46) Phrase de reprise (dépassée — session **2026-06-06 (suite 5)** couverture i18n patient vagues 1–6)
 
-Voir **§13.48**.
+Voir **§13.49**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal`. **Migrations** si pas fait : **`20260709_001`** (notifs in-app ar) puis **`20260710_001`** → **`20260713_001`**. **i18n patient ar/fr — couverture complète** : cookie `pp_locale`, switcher header, RTL, **`messages/fr` + `messages/ar`** (`.ts`), CI **`i18n:parity`** ; conversation, pages publiques demande, hubs, détail dossier, paramètres, dates locale ; pharmacien/admin et SMS restent FR. **Catalogue** : **~19 677** lignes (BeautyMall + médicaments), marques para **~93,65 %**, pricing onglet **Marques**. Lots antérieurs : catalogue/vignettes (**§13.45**), consultation (**§13.43**), vocaux. Je te donne la tâche ou les retours preview. »**
 

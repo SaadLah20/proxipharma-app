@@ -1,106 +1,228 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
+import { Search } from "lucide-react";
 import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
-import { PageShell, CompactCard, CompactCardBody } from "@/components/ui/compact-shell";
+import { DemandeHubTabBar, type HubTab } from "@/components/requests/demande-hub-ui";
+import { PharmacistPromoReservationHubCard } from "@/components/promo/promo-reservation-hub-card";
+import { PromoReservationsHubDashboard } from "@/components/promo/promo-reservations-hub-dashboard";
+import { PageShell } from "@/components/ui/compact-shell";
+import {
+  hubListFilterChrome as filterChrome,
+  hubListFiltersPanelExpanded,
+  hubListHasManualFilters,
+} from "@/lib/hub-list-filter-chrome";
 import { platformDashboardChrome as chrome } from "@/lib/platform-dashboard-chrome";
 import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
-import { supabase } from "@/lib/supabase";
+import {
+  bucketForPromoStatusParam,
+  filterPromoHubListRows,
+  promoDashboardBucketsForRole,
+} from "@/lib/promo/reservation-hub-buckets";
+import {
+  promoHubListActiveFiltersSummary,
+  promoHubListHasActiveFilters,
+} from "@/lib/promo/reservation-hub-list-filters";
+import type { PromoReservationHubRow } from "@/lib/promo/reservation-hub-sections";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
-import { PROMO_RESERVATION_BUCKETS, promoReservationBadgeClass, promoReservationLabel } from "@/lib/promo/reservation-status-ui";
-import type { PromoReservationStatus } from "@/lib/promo/types";
+import { formatShortId } from "@/lib/request-display";
+import { supabase } from "@/lib/supabase";
+import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
 
-type Row = {
-  id: string;
-  status: PromoReservationStatus;
-  pickup_date: string;
-  pickup_time: string | null;
-  public_ref: string | null;
-  updated_at: string;
-  offer: { title: string } | null;
-  patient: { full_name: string | null } | null;
-};
+const HUB_PATH = "/dashboard/pharmacien/reservations-packs";
 
-function formatPickupShort(date: string, time: string | null) {
-  const d = new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
-  return time ? `${d} · ${time.slice(0, 5)}` : d;
+function tabFromSearch(v: string | null): HubTab {
+  return v === "liste" ? "list" : "dashboard";
+}
+
+function tabToSearch(t: HubTab): string {
+  return t === "list" ? "liste" : "dashboard";
 }
 
 export function PharmacistPromoReservationsHub() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = tabFromSearch(searchParams.get("vue"));
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [rows, setRows] = useState<Row[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [rows, setRows] = useState<PromoReservationHubRow[]>([]);
+  const [patientFilter, setPatientFilter] = useState("");
+  const [refQuery, setRefQuery] = useState("");
+  const [sortNewestFirst, setSortNewestFirst] = useState(true);
+  const [filtersExpandedUser, setFiltersExpandedUser] = useState<boolean | null>(null);
 
-  const load = useCallback(async () => {
-    setError("");
-    const ctx = await loadPharmacistPharmacyId();
-    if (!ctx.pharmacyId) {
-      setError(ctx.error ?? "Erreur");
-      setLoading(false);
-      return;
+  const dashboardBuckets = useMemo(() => promoDashboardBucketsForRole("pharmacien"), []);
+  const listStatutParam = tab === "list" ? searchParams.get("statut") : null;
+  const activeBucket = bucketForPromoStatusParam(listStatutParam, dashboardBuckets);
+
+  const setTab = (nextTab: HubTab) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("vue", tabToSearch(nextTab));
+    if (nextTab === "dashboard") {
+      next.delete("statut");
+      setFiltersExpandedUser(null);
     }
-    const { data: auth } = await supabase.auth.getSession();
-    if (!auth.session?.user) {
-      router.replace("/auth?redirect=/dashboard/pharmacien/reservations-packs");
-      return;
-    }
-    const { data, error: qErr } = await supabase
-      .from("pharmacy_promo_reservations")
-      .select(
-        "id,status,pickup_date,pickup_time,public_ref,updated_at,pharmacy_promo_offers(title),profiles:patient_id(full_name)"
-      )
-      .eq("pharmacy_id", ctx.pharmacyId)
-      .order("updated_at", { ascending: false });
-    if (qErr) setError(qErr.message);
-    else {
-      setRows(
-        (data ?? []).map((r: Record<string, unknown>) => ({
-          id: r.id as string,
-          status: r.status as PromoReservationStatus,
-          pickup_date: r.pickup_date as string,
-          pickup_time: r.pickup_time as string | null,
-          public_ref: r.public_ref as string | null,
-          updated_at: r.updated_at as string,
-          offer: r.pharmacy_promo_offers as Row["offer"],
-          patient: r.profiles as Row["patient"],
-        }))
-      );
-    }
-    setLoading(false);
-  }, [router]);
+    router.replace(`${HUB_PATH}?${next.toString()}`, { scroll: false });
+  };
 
   useEffect(() => {
+    if (tab !== "dashboard") return;
+    if (!searchParams.has("statut")) return;
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("statut");
+    router.replace(`${HUB_PATH}?${next.toString()}`, { scroll: false });
+  }, [tab, searchParams, router]);
+
+  useEffect(() => {
+    if (searchParams.get("filtres") !== "0") return;
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("filtres");
+    router.replace(`${HUB_PATH}?${next.toString()}`, { scroll: false });
+  }, [searchParams, router]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setError("");
+      const ctx = await loadPharmacistPharmacyId();
+      if (!ctx.pharmacyId) {
+        if (!cancelled) {
+          setError(ctx.error ?? "Erreur");
+          setLoading(false);
+        }
+        return;
+      }
+      const { data: auth } = await supabase.auth.getSession();
+      if (!auth.session?.user) {
+        router.replace("/auth?redirect=/dashboard/pharmacien/reservations-packs");
+        return;
+      }
+
+      const { data, error: qErr } = await supabase
+        .from("pharmacy_promo_reservations")
+        .select(
+          "id,status,pickup_date,pickup_time,public_ref,updated_at,patient_id,pharmacy_promo_offers(title),profiles:patient_id(full_name)",
+        )
+        .eq("pharmacy_id", ctx.pharmacyId)
+        .order("updated_at", { ascending: false });
+
+      if (cancelled) return;
+
+      if (qErr) {
+        setError(qErr.message);
+        setRows([]);
+      } else {
+        setRows(
+          (data ?? []).map((r: Record<string, unknown>) => ({
+            id: r.id as string,
+            status: r.status as PromoReservationHubRow["status"],
+            pickup_date: r.pickup_date as string,
+            pickup_time: r.pickup_time as string | null,
+            public_ref: r.public_ref as string | null,
+            updated_at: r.updated_at as string,
+            pharmacy_id: ctx.pharmacyId ?? undefined,
+            offer: r.pharmacy_promo_offers as PromoReservationHubRow["offer"],
+            patient: r.profiles as PromoReservationHubRow["patient"],
+            patient_id: r.patient_id as string,
+          })),
+        );
+      }
+      setLoading(false);
+    }
+
     const tid = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(tid);
-  }, [load]);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(tid);
+    };
+  }, [router]);
 
-  const filteredRows = useMemo(() => {
-    if (searchQuery.trim().length < 2) return rows;
-    return rows.filter((r) =>
-      rowMatchesPublicRefQuery(searchQuery, [
-        r.public_ref,
-        r.offer?.title,
-        r.patient?.full_name,
-      ])
-    );
-  }, [rows, searchQuery]);
+  type RowWithPatientId = PromoReservationHubRow;
 
+  const patientOptions = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of rows as RowWithPatientId[]) {
+      const pid = r.patient_id;
+      if (!pid || m.has(pid)) continue;
+      const name = r.patient?.full_name?.trim();
+      m.set(pid, name ? `${name} · #${formatShortId(pid)}` : `Patient #${formatShortId(pid)}`);
+    }
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], "fr"));
+  }, [rows]);
+
+  const patientFilterLabel = patientOptions.find(([id]) => id === patientFilter)?.[1] ?? null;
   const submittedCount = useMemo(() => rows.filter((r) => r.status === "submitted").length, [rows]);
 
-  const byBucket = useMemo(() => {
-    const map = new Map<string, Row[]>();
-    for (const b of PROMO_RESERVATION_BUCKETS) map.set(b.key, []);
-    for (const r of filteredRows) {
-      const bucket = PROMO_RESERVATION_BUCKETS.find((b) => b.statuses.includes(r.status));
-      if (bucket) map.get(bucket.key)!.push(r);
-    }
-    return map;
-  }, [filteredRows]);
+  let filteredList = filterPromoHubListRows(rows, {
+    bucketStatuses: activeBucket?.statuses ?? null,
+  });
+  if (patientFilter) {
+    filteredList = (filteredList as RowWithPatientId[]).filter((r) => r.patient_id === patientFilter);
+  }
+  if (refQuery.trim().length >= 2) {
+    filteredList = filteredList.filter((r) =>
+      rowMatchesPublicRefQuery(refQuery, [r.public_ref, r.offer?.title, r.patient?.full_name]),
+    );
+  }
+  const filteredSorted = [...filteredList].sort((a, b) => {
+    const ta = new Date(a.updated_at).getTime();
+    const tb = new Date(b.updated_at).getTime();
+    return sortNewestFirst ? tb - ta : ta - tb;
+  });
+
+  const listFiltersSummary = promoHubListActiveFiltersSummary({
+    activeBucket,
+    entityLabel: patientFilterLabel,
+    referenceQuery: refQuery,
+    sortNewestFirst,
+    entityFieldLabel: "Patient",
+  });
+
+  const listHasActiveFilters = promoHubListHasActiveFilters({
+    activeBucket,
+    entityLabel: patientFilterLabel,
+    referenceQuery: refQuery,
+    sortNewestFirst,
+  });
+
+  const hasManualListFilters = hubListHasManualFilters({
+    entityFilter: patientFilter,
+    referenceQuery: refQuery,
+    sortNewestFirst,
+  });
+
+  const filtersPanelExpanded = hubListFiltersPanelExpanded({
+    tabIsList: tab === "list",
+    listStatutParam,
+    hasManualFilters: hasManualListFilters,
+    filtersExpandedUser,
+  });
+
+  const clearListFilters = () => {
+    setPatientFilter("");
+    setRefQuery("");
+    setSortNewestFirst(true);
+    setFiltersExpandedUser(null);
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("vue", "liste");
+    next.delete("statut");
+    router.replace(`${HUB_PATH}?${next.toString()}`, { scroll: false });
+  };
+
+  const setStatutFilter = (key: string) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("vue", "liste");
+    if (key === "") next.delete("statut");
+    else next.set("statut", key);
+    router.replace(`${HUB_PATH}?${next.toString()}`, { scroll: false });
+  };
+
+  const filterBtn = uiActionBtnFilterToggle();
 
   if (loading) {
     return (
@@ -122,67 +244,140 @@ export function PharmacistPromoReservationsHub() {
           </Link>
         }
       />
+
+      <DemandeHubTabBar
+        tab={tab}
+        onTab={setTab}
+        labels={{
+          dashboard: "Tableau de bord",
+          list: "Toutes les réservations",
+        }}
+      />
+
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
 
-      {submittedCount > 0 ? (
+      {submittedCount > 0 && tab === "dashboard" ? (
         <p className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-medium text-foreground">
           {submittedCount} réservation{submittedCount > 1 ? "s" : ""} en attente de votre réponse.
         </p>
       ) : null}
 
-      {rows.length > 0 ? (
-        <label className="flex max-w-md flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Recherche (réf., pack, patient)
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Ex. P042/26"
-            className="rounded-md border px-2 py-1.5 text-xs font-normal normal-case tracking-normal"
-          />
-        </label>
-      ) : null}
-
-      {rows.length === 0 ? (
-        <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Aucune réservation pour le moment.
-        </p>
+      {tab === "dashboard" ? (
+        rows.length === 0 ? (
+          <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+            Aucune réservation pour le moment.
+          </p>
+        ) : (
+          <PromoReservationsHubDashboard role="pharmacien" rows={rows} basePath={HUB_PATH} />
+        )
       ) : (
-        PROMO_RESERVATION_BUCKETS.map((bucket) => {
-          const list = byBucket.get(bucket.key) ?? [];
-          if (list.length === 0) return null;
-          return (
-            <section key={bucket.key} className="space-y-2">
-              <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                {bucket.label} ({list.length})
-              </h2>
-              {list.map((r) => (
-                <Link key={r.id} href={`/dashboard/pharmacien/reservations-packs/${r.id}`} className="block">
-                  <CompactCard>
-                    <CompactCardBody className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold">{r.offer?.title ?? "Pack"}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {r.patient?.full_name?.trim() || "Patient"} · {formatPickupShort(r.pickup_date, r.pickup_time)}
-                        </p>
-                        {r.public_ref ? (
-                          <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{r.public_ref}</p>
-                        ) : null}
-                      </div>
-                      <span
-                        className={clsx(
-                          "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
-                          promoReservationBadgeClass(r.status)
-                        )}
-                      >
-                        {promoReservationLabel(r.status, "pharmacien")}
-                      </span>
-                    </CompactCardBody>
-                  </CompactCard>
-                </Link>
-              ))}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-bold text-foreground">Toutes les réservations</h2>
+            <button
+              type="button"
+              onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
+              className={filterBtn}
+            >
+              {filtersPanelExpanded ? "Masquer les filtres" : "Filtres"}
+            </button>
+          </div>
+
+          {listHasActiveFilters && !filtersPanelExpanded ? (
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-[11px] leading-snug text-foreground">
+              <p>
+                <span className="font-semibold">Filtres actifs :</span> {listFiltersSummary}
+              </p>
+              <button type="button" onClick={clearListFilters} className={clsx("mt-1.5", filterChrome.clearLink)}>
+                Tout effacer
+              </button>
+            </div>
+          ) : null}
+
+          {filtersPanelExpanded ? (
+            <section className={filterChrome.shell}>
+              <div className="grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4">
+                <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    Référence / pack / patient
+                  </span>
+                  <span className="relative block">
+                    <Search
+                      className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60"
+                      aria-hidden
+                    />
+                    <input
+                      value={refQuery}
+                      onChange={(e) => setRefQuery(e.target.value)}
+                      placeholder="Ex. P042/26"
+                      className="w-full rounded-lg border border-input bg-background py-2 pl-8 pr-2.5 text-xs text-foreground shadow-sm placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    />
+                  </span>
+                </label>
+                <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Statut</span>
+                  <select
+                    value={activeBucket?.key ?? ""}
+                    onChange={(e) => setStatutFilter(e.target.value)}
+                    className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
+                  >
+                    <option value="">Tous les statuts</option>
+                    {dashboardBuckets.map((b) => (
+                      <option key={b.key} value={b.key}>
+                        {b.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Patient</span>
+                  <select
+                    value={patientFilter}
+                    onChange={(e) => setPatientFilter(e.target.value)}
+                    className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
+                  >
+                    <option value="">Tous les patients</option>
+                    {patientOptions.map(([id, label]) => (
+                      <option key={id} value={id}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Tri</span>
+                  <select
+                    value={sortNewestFirst ? "desc" : "asc"}
+                    onChange={(e) => setSortNewestFirst(e.target.value === "desc")}
+                    className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
+                  >
+                    <option value="desc">Plus récentes d&apos;abord</option>
+                    <option value="asc">Plus anciennes d&apos;abord</option>
+                  </select>
+                </label>
+              </div>
             </section>
-          );
-        })
+          ) : null}
+
+          {filteredSorted.length === 0 ? (
+            <div className="space-y-2 py-6 text-center text-xs text-muted-foreground">
+              <p>{rows.length === 0 ? "Aucune réservation pour le moment." : "Aucun résultat pour ces filtres."}</p>
+              {listHasActiveFilters ? (
+                <button type="button" onClick={clearListFilters} className={filterChrome.clearLink}>
+                  Effacer les filtres
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <ul className="space-y-2.5">
+              {filteredSorted.map((r) => (
+                <li key={r.id}>
+                  <PharmacistPromoReservationHubCard row={r} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </PageShell>
   );

@@ -580,6 +580,48 @@ export const promoAr = {
   },
   hintCancelledWithMessage: "ألغت الصيدلية هذا الحجز. راجع السبب أدناه.",
   hintConfirmedWithMessage: "باقتك مُؤكدة. رسالة من الصيدلية مرفقة أدناه.",
+  dashboard: {
+    title: "5 حالات",
+    subtitle: "تابع حجوزات الباقات الترويجية حسب المرحلة.",
+    allReservations: "كل حجوزاتي",
+    lastActivity: "آخر نشاط · {when}",
+    buckets: {
+      soumise: {
+        label: "طلب مُرسل",
+        hint: "ستؤكد الصيدلية توفر الباقة.",
+      },
+      confirmee: {
+        label: "مُؤكد",
+        hint: "توجّه في التاريخ المحدد لاستلام باقتك.",
+      },
+      recuperee: {
+        label: "مُستَلَم",
+        hint: "تم استلام الباقة من الصيدلية.",
+      },
+      indisponible: {
+        label: "غير متاح",
+        hint: "لم تتمكن الصيدلية من تنفيذ الحجز.",
+      },
+      annulee: {
+        label: "ملغى",
+        hint: "هذا الطلب لم يعد نشطاً.",
+      },
+    },
+    sections: {
+      at_pharmacy: {
+        title: "لدى الصيدلية",
+        subtitle: "في انتظار تأكيد الصيدلية.",
+      },
+      action_required: {
+        title: "زيارة مُخطّطة",
+        subtitle: "باقة مُؤكدة — توجّه في التاريخ المحدد.",
+      },
+      archives: {
+        title: "السجل",
+        subtitle: "مُستَلَمة، غير متاحة أو ملغاة.",
+      },
+    },
+  },
 };
 
 export const demandePublicAr = {

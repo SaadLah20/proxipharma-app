@@ -603,6 +603,48 @@ export const promoFr = {
     "L'officine a annulé cette réservation. Consultez le motif ci-dessous.",
   hintConfirmedWithMessage:
     "Votre pack est confirmé. Un message de l'officine est joint ci-dessous.",
+  dashboard: {
+    title: "5 statuts",
+    subtitle: "Suivez vos réservations de packs promo par étape.",
+    allReservations: "Toutes mes réservations",
+    lastActivity: "Dernière activité · {when}",
+    buckets: {
+      soumise: {
+        label: "Demande envoyée",
+        hint: "L'officine va confirmer la disponibilité du pack.",
+      },
+      confirmee: {
+        label: "Confirmée",
+        hint: "Présentez-vous à la date indiquée pour retirer votre pack.",
+      },
+      recuperee: {
+        label: "Récupérée",
+        hint: "Pack retiré en officine.",
+      },
+      indisponible: {
+        label: "Non disponible",
+        hint: "L'officine n'a pas pu honorer cette réservation.",
+      },
+      annulee: {
+        label: "Annulée",
+        hint: "Cette demande n'est plus active.",
+      },
+    },
+    sections: {
+      at_pharmacy: {
+        title: "Chez l'officine",
+        subtitle: "En attente de confirmation pharmacie.",
+      },
+      action_required: {
+        title: "Passage prévu",
+        subtitle: "Pack confirmé — présentez-vous à la date indiquée.",
+      },
+      archives: {
+        title: "Historique",
+        subtitle: "Récupérées, indisponibles ou annulées.",
+      },
+    },
+  },
 };
 
 export const demandePublicFr = {
