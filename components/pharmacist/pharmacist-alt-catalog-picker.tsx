@@ -2,6 +2,7 @@
 
 import { Package, Search } from "lucide-react";
 import { PharmacistProductPhotoThumb } from "@/components/pharmacist/pharmacist-product-photo-thumb";
+import { ProductBrandLabel } from "@/components/products/product-brand-label";
 import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
 import { formatPharmacyCatalogPrice } from "@/lib/product-price";
@@ -11,6 +12,7 @@ export type AltCatalogHit = {
   id: string;
   name: string;
   product_type: string;
+  brand: string | null;
   laboratory: string | null;
   photo_url?: string | null;
   price_pph?: number | null;
@@ -90,6 +92,7 @@ export function PharmacistAltCatalogPicker({
                 </div>
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold leading-tight text-foreground">{h.name}</span>
+                  <ProductBrandLabel brand={h.brand} />
                   {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h)) !== "—" ? (
                     <span className="mt-0.5 block text-[10px] font-semibold text-primary">
                       PU {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h))}

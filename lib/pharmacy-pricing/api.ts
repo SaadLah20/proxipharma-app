@@ -16,8 +16,8 @@ export async function savePharmacistPricingConfig(
 ): Promise<PharmacyPricingConfig | null> {
   const payload = {
     settings: config.settings,
-    laboratory_rules: config.laboratory_rules.map((r) => ({
-      laboratory_key: r.laboratory_key,
+    brand_rules: config.brand_rules.map((r) => ({
+      brand_key: r.brand_key,
       margin_pct: r.margin_pct,
     })),
     product_overrides: config.product_overrides.map((o) => ({
@@ -32,18 +32,18 @@ export async function savePharmacistPricingConfig(
   return (data as PharmacyPricingConfig | null) ?? null;
 }
 
-export type DistinctLaboratoryRow = {
-  laboratory_key: string;
-  laboratory_display: string;
+export type DistinctBrandRow = {
+  brand_key: string;
+  brand_display: string;
   product_count: number;
 };
 
-export async function fetchDistinctParapharmacyLaboratories(
+export async function fetchDistinctParapharmacyBrands(
   supabase: SupabaseClient
-): Promise<DistinctLaboratoryRow[]> {
-  const { data, error } = await supabase.rpc("pharmacist_pricing_distinct_laboratories");
+): Promise<DistinctBrandRow[]> {
+  const { data, error } = await supabase.rpc("pharmacist_pricing_distinct_brands");
   if (error) throw error;
-  return (data ?? []) as DistinctLaboratoryRow[];
+  return (data ?? []) as DistinctBrandRow[];
 }
 
 export async function fetchPharmacyPricingConfigPublic(

@@ -9,33 +9,34 @@ import {
   PARAPHARMACY_MARGIN_MAX,
   PARAPHARMACY_MARGIN_MIN,
   type PharmacyPricingConfig,
-  type PharmacyPricingLaboratoryRule,
+  type PharmacyPricingBrandRule,
   type PharmacyPricingProductOverride,
   type ParapharmacyPricingMode,
 } from "@/lib/pharmacy-pricing/types";
 import {
-  fetchDistinctParapharmacyLaboratories,
+  fetchDistinctParapharmacyBrands,
   fetchPharmacistPricingConfig,
   savePharmacistPricingConfig,
 } from "@/lib/pharmacy-pricing/api";
 import { productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 import { resolvePharmacyUnitPrice } from "@/lib/pharmacy-pricing/resolve";
-import { normalizeLaboratoryKey } from "@/lib/pharmacy-pricing/normalize";
+import { normalizeBrandKey } from "@/lib/pharmacy-pricing/normalize";
 import { formatPriceDh } from "@/lib/product-price";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
+  PRODUCT_PRICING_SEARCH_SELECT,
   productNameOrLaboratoryIlikeOr,
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
 
-type TabId = "general" | "laboratories" | "products";
+type TabId = "general" | "brands" | "products";
 
 type CatalogHit = {
   id: string;
   name: string;
   product_type: string;
-  laboratory: string | null;
+  brand: string | null;
   price_pph: number | null;
   price_ppv: number | null;
 };
@@ -51,8 +52,8 @@ export function PharmacistPricingManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<PharmacyPricingConfig | null>(null);
-  const [labsCatalog, setLabsCatalog] = useState<
-    { laboratory_key: string; laboratory_display: string; product_count: number }[]
+  const [brandsCatalog, setBrandsCatalog] = useState<
+    { brand_key: string; brand_display: string; product_count: number }[]
   >([]);
   const [feedback, setFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [productQuery, setProductQuery] = useState("");
@@ -69,8 +70,8 @@ export function PharmacistPricingManager() {
         return;
       }
       setConfig(row);
-      const labs = await fetchDistinctParapharmacyLaboratories(supabase);
-      setLabsCatalog(labs);
+      const brands = await fetchDistinctParapharmacyBrands(supabase);
+      setBrandsCatalog(brands);
     } catch (e) {
       setFeedback({ type: "err", text: e instanceof Error ? e.message : "Chargement impossible." });
     } finally {
@@ -85,7 +86,7 @@ export function PharmacistPricingManager() {
 
   const previewPara = useMemo(() => {
     if (!config) return null;
-    const sample = { product_type: "parapharmacie", price_pph: 100, laboratory: null as string | null };
+    const sample = { product_type: "parapharmacie", price_pph: 100, brand: null as string | null };
     return resolvePharmacyUnitPrice(config, sample);
   }, [config]);
 
@@ -94,31 +95,31 @@ export function PharmacistPricingManager() {
     setConfig({ ...config, settings: { ...config.settings, ...patch } });
   };
 
-  const labRulesByKey = useMemo(() => {
-    const m = new Map<string, PharmacyPricingLaboratoryRule>();
-    for (const r of config?.laboratory_rules ?? []) m.set(r.laboratory_key, r);
+  const brandRulesByKey = useMemo(() => {
+    const m = new Map<string, PharmacyPricingBrandRule>();
+    for (const r of config?.brand_rules ?? []) m.set(r.brand_key, r);
     return m;
-  }, [config?.laboratory_rules]);
+  }, [config?.brand_rules]);
 
-  const setLabMargin = (laboratoryKey: string, laboratoryDisplay: string, marginPct: number) => {
+  const setBrandMargin = (brandKey: string, brandDisplay: string, marginPct: number) => {
     if (!config) return;
     const clamped = Math.min(PARAPHARMACY_MARGIN_MAX, Math.max(PARAPHARMACY_MARGIN_MIN, marginPct));
-    const others = config.laboratory_rules.filter((r) => r.laboratory_key !== laboratoryKey);
+    const others = config.brand_rules.filter((r) => r.brand_key !== brandKey);
     if (Number.isNaN(clamped)) return;
     setConfig({
       ...config,
-      laboratory_rules: [
+      brand_rules: [
         ...others,
-        { laboratory_key: laboratoryKey, laboratory_display: laboratoryDisplay, margin_pct: clamped },
+        { brand_key: brandKey, brand_display: brandDisplay, margin_pct: clamped },
       ],
     });
   };
 
-  const removeLabRule = (laboratoryKey: string) => {
+  const removeBrandRule = (brandKey: string) => {
     if (!config) return;
     setConfig({
       ...config,
-      laboratory_rules: config.laboratory_rules.filter((r) => r.laboratory_key !== laboratoryKey),
+      brand_rules: config.brand_rules.filter((r) => r.brand_key !== brandKey),
     });
   };
 
@@ -133,7 +134,7 @@ export function PharmacistPricingManager() {
         {
           product_id: hit.id,
           product_name: hit.name,
-          laboratory: hit.laboratory,
+          brand: hit.brand,
           product_type: hit.product_type,
           price_pph: hit.price_pph,
           price_ppv: hit.price_ppv,
@@ -164,7 +165,7 @@ export function PharmacistPricingManager() {
     void (async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id,name,product_type,laboratory,price_pph,price_ppv")
+        .select(PRODUCT_PRICING_SEARCH_SELECT)
         .eq("is_active", true)
         .eq("product_type", "parapharmacie")
         .or(productNameOrLaboratoryIlikeOr(productSearchQ))
@@ -224,7 +225,7 @@ export function PharmacistPricingManager() {
 
   const tabs: { id: TabId; label: string }[] = [
     { id: "general", label: "Général" },
-    { id: "laboratories", label: "Laboratoires" },
+    { id: "brands", label: "Marques" },
     { id: "products", label: "Produits" },
   ];
 
@@ -268,7 +269,7 @@ export function PharmacistPricingManager() {
       <div className="rounded-lg border border-violet-100 bg-violet-50/40 px-3 py-2 text-[11px] leading-snug text-violet-950">
         <strong>Médicaments</strong> : toujours au <strong>PPV</strong> catalogue (non modifiable ici).{" "}
         <strong>Parapharmacie</strong> : marge sur le PPH entre {PARAPHARMACY_MARGIN_MIN} % et +{PARAPHARMACY_MARGIN_MAX} %.
-        Priorité : produit &gt; laboratoire &gt; règle globale.
+        Priorité : produit &gt; marque &gt; règle globale.
       </div>
 
       {tab === "general" ? (
@@ -332,19 +333,19 @@ export function PharmacistPricingManager() {
         </section>
       ) : null}
 
-      {tab === "laboratories" ? (
+      {tab === "brands" ? (
         <section className="space-y-3 rounded-xl border border-border bg-card p-4">
-          <h2 className="text-sm font-bold">Marges par laboratoire</h2>
+          <h2 className="text-sm font-bold">Marges par marque</h2>
           <p className="text-[11px] text-muted-foreground">
-            Remplace la règle globale pour les produits parapharmacie du laboratoire concerné.
+            Remplace la règle globale pour les produits parapharmacie de la marque concernée (colonne catalogue).
           </p>
           <ul className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
-            {labsCatalog.length === 0 ? (
-              <li className="text-xs text-muted-foreground">Aucun laboratoire parapharmacie dans le catalogue.</li>
+            {brandsCatalog.length === 0 ? (
+              <li className="text-xs text-muted-foreground">Aucune marque renseignée dans le catalogue parapharmacie.</li>
             ) : (
-              labsCatalog.map((lab) => {
-                const key = lab.laboratory_key || normalizeLaboratoryKey(lab.laboratory_display);
-                const rule = labRulesByKey.get(key);
+              brandsCatalog.map((brandRow) => {
+                const key = brandRow.brand_key || normalizeBrandKey(brandRow.brand_display);
+                const rule = brandRulesByKey.get(key);
                 const margin = rule?.margin_pct ?? config.settings.parapharmacy_margin_pct;
                 const active = Boolean(rule);
                 return (
@@ -353,8 +354,8 @@ export function PharmacistPricingManager() {
                     className="flex flex-col gap-2 rounded-lg border border-border/80 bg-muted/20 px-3 py-2 sm:flex-row sm:items-center"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-semibold">{lab.laboratory_display}</p>
-                      <p className="text-[10px] text-muted-foreground">{lab.product_count} produit(s)</p>
+                      <p className="truncate text-xs font-semibold">{brandRow.brand_display}</p>
+                      <p className="text-[10px] text-muted-foreground">{brandRow.product_count} produit(s)</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <input
@@ -364,10 +365,10 @@ export function PharmacistPricingManager() {
                         step={1}
                         value={margin}
                         onChange={(e) =>
-                          setLabMargin(key, lab.laboratory_display, Number(e.target.value))
+                          setBrandMargin(key, brandRow.brand_display, Number(e.target.value))
                         }
                         className="w-32 accent-violet-600 sm:w-40"
-                        aria-label={`Marge ${lab.laboratory_display}`}
+                        aria-label={`Marge ${brandRow.brand_display}`}
                       />
                       <span className="w-20 text-right text-[11px] font-semibold tabular-nums">
                         {marginLabel(margin)}
@@ -377,7 +378,7 @@ export function PharmacistPricingManager() {
                           type="button"
                           className="rounded p-1 text-rose-700 hover:bg-rose-50"
                           title="Revenir à la règle globale"
-                          onClick={() => removeLabRule(key)}
+                          onClick={() => removeBrandRule(key)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -385,8 +386,8 @@ export function PharmacistPricingManager() {
                         <button
                           type="button"
                           className="rounded p-1 text-violet-700 hover:bg-violet-50"
-                          title="Personnaliser ce laboratoire"
-                          onClick={() => setLabMargin(key, lab.laboratory_display, config.settings.parapharmacy_margin_pct)}
+                          title="Personnaliser cette marque"
+                          onClick={() => setBrandMargin(key, brandRow.brand_display, config.settings.parapharmacy_margin_pct)}
                         >
                           <Plus className="h-3.5 w-3.5" />
                         </button>
@@ -449,7 +450,7 @@ export function PharmacistPricingManager() {
                       id: o.product_id,
                       name: o.product_name ?? "Produit",
                       product_type: "parapharmacie",
-                      laboratory: o.laboratory ?? null,
+                      brand: o.brand ?? null,
                       price_pph: o.price_pph ?? null,
                       price_ppv: o.price_ppv ?? null,
                     };
@@ -484,7 +485,7 @@ function ProductOverrideRow({
         product_type: o.product_type ?? "parapharmacie",
         price_pph: o.price_pph,
         price_ppv: o.price_ppv,
-        laboratory: o.laboratory,
+        brand: o.brand,
       },
       o.product_id
     )

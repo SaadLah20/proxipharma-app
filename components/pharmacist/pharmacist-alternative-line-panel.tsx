@@ -20,6 +20,7 @@ type AltProduct = {
   product_type?: string | null;
   price_pph?: number | null;
   price_ppv?: number | null;
+  brand?: string | null;
   laboratory?: string | null;
 };
 
@@ -79,7 +80,7 @@ export function PharmacistAlternativeLinePanel({
             product_type: altProd.product_type ?? "parapharmacie",
             price_pph: altProd.price_pph,
             price_ppv: altProd.price_ppv,
-            laboratory: altProd.laboratory,
+            brand: altProd.brand,
           }
         : null,
       alt.product_id

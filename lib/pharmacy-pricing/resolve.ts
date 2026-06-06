@@ -1,5 +1,5 @@
 import type { PharmacyPricingConfig, ProductPricingInput } from "./types";
-import { normalizeLaboratoryKey } from "./normalize";
+import { normalizeBrandKey } from "./normalize";
 
 function roundMad(value: number): number {
   return Math.round(value * 100) / 100;
@@ -17,10 +17,10 @@ function marginForParapharmacy(
     if (override != null) return override.margin_pct;
   }
 
-  const labKey = normalizeLaboratoryKey(product.laboratory);
-  if (labKey) {
-    const labRule = config.laboratory_rules.find((r) => r.laboratory_key === labKey);
-    if (labRule != null) return labRule.margin_pct;
+  const brandKey = normalizeBrandKey(product.brand);
+  if (brandKey) {
+    const brandRule = config.brand_rules.find((r) => r.brand_key === brandKey);
+    if (brandRule != null) return brandRule.margin_pct;
   }
 
   if (config.settings.parapharmacy_mode === "at_pph") return 0;

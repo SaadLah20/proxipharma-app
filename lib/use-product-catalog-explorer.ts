@@ -6,12 +6,12 @@ import type { PatientDemandeProduitsCatalogProduct } from "@/lib/patient-demande
 import {
   PRODUCT_CATALOG_EXPLORER_PAGE_SIZE,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
+  PRODUCT_CATALOG_SELECT,
   productNameOrLaboratoryIlikeOr,
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
 
-const CATALOG_SELECT =
-  "id,name,product_type,laboratory,photo_url,price_pph,price_ppv,full_description";
+const CATALOG_SELECT = PRODUCT_CATALOG_SELECT;
 
 export function useProductCatalogExplorer(enabled: boolean, filterQuery: string) {
   const [products, setProducts] = useState<PatientDemandeProduitsCatalogProduct[]>([]);

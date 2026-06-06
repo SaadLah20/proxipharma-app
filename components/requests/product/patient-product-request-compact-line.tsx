@@ -10,6 +10,7 @@ import {
   ProductRequestLineQtyPicker,
   ProductRequestLineQtyReadonly,
 } from "@/components/pharmacy/patient-demande-produits-ui";
+import { ProductBrandLabel } from "@/components/products/product-brand-label";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ import { useState } from "react";
 export type PatientDossierCompactLine = {
   product_id: string;
   name: string;
+  brand?: string | null;
   photo_url?: string | null;
   qty: number;
   client_comment?: string;
@@ -75,6 +77,7 @@ export function PatientProductRequestCompactLine({
               <p className="line-clamp-2 min-w-0 pb-px text-[13px] font-semibold leading-snug text-foreground" title={line.name}>
                 {line.name}
               </p>
+              <ProductBrandLabel brand={line.brand} />
               {isProposed ? (
                 <p
                   className="truncate text-[9px] font-medium text-violet-900"

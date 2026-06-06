@@ -4,7 +4,7 @@ export type ProductEmbedLike = {
   product_type?: string | null;
   price_pph?: number | string | null;
   price_ppv?: number | string | null;
-  laboratory?: string | null;
+  brand?: string | null;
 };
 
 export function productEmbedToPricingInput(
@@ -23,7 +23,7 @@ export function productEmbedToPricingInput(
       product.price_ppv != null && product.price_ppv !== ""
         ? Number(product.price_ppv)
         : null,
-    laboratory: product.laboratory ?? null,
+    brand: product.brand ?? null,
   };
 }
 
@@ -32,13 +32,13 @@ export function catalogHitToPricingInput(hit: {
   product_type: string;
   price_pph?: number | null;
   price_ppv?: number | null;
-  laboratory?: string | null;
+  brand?: string | null;
 }): ProductPricingInput {
   return {
     product_id: hit.id,
     product_type: hit.product_type,
     price_pph: hit.price_pph ?? null,
     price_ppv: hit.price_ppv ?? null,
-    laboratory: hit.laboratory ?? null,
+    brand: hit.brand ?? null,
   };
 }

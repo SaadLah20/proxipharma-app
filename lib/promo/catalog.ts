@@ -2,6 +2,7 @@ export type PromoCatalogProduct = {
   id: string;
   name: string;
   product_type: string;
+  brand: string | null;
   laboratory: string | null;
   price_pph: number | null;
   price_ppv: number | null;
@@ -15,8 +16,9 @@ export function filterPromoCatalogProducts(products: PromoCatalogProduct[], quer
   return products
     .filter((p) => {
       const name = p.name.toLowerCase();
+      const brand = (p.brand ?? "").toLowerCase();
       const lab = (p.laboratory ?? "").toLowerCase();
-      return name.includes(q) || lab.includes(q);
+      return name.includes(q) || brand.includes(q) || lab.includes(q);
     })
     .slice(0, 40);
 }

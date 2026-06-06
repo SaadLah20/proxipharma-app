@@ -6,6 +6,7 @@
 export type PatientDemandeProduitsDraftLine = {
   product_id: string;
   name: string;
+  brand?: string | null;
   photo_url: string | null;
   full_description?: string | null;
   qty: number;
@@ -31,6 +32,7 @@ export type PatientDemandeProduitsCatalogProduct = {
   name: string;
   product_type: string;
   laboratory: string | null;
+  brand?: string | null;
   photo_url: string | null;
   full_description?: string | null;
   price_pph?: number | null;
@@ -175,6 +177,7 @@ export function mergeCatalogProductsIntoDraft(
     added.push({
       product_id: p.id,
       name: p.name,
+      brand: p.brand,
       photo_url: resolvePhoto(p.photo_url),
       full_description: p.full_description ?? null,
       qty: 1,
@@ -193,7 +196,8 @@ export function filterCatalogProductsLocal(
   if (!q) return products;
   return products.filter((p) => {
     const name = p.name.toLowerCase();
+    const brand = (p.brand ?? "").toLowerCase();
     const lab = (p.laboratory ?? "").toLowerCase();
-    return name.includes(q) || lab.includes(q);
+    return name.includes(q) || brand.includes(q) || lab.includes(q);
   });
 }

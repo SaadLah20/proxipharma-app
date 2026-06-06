@@ -46,7 +46,7 @@ export default function PharmacienPricingPage() {
       <PharmacistAccountPageHeader
         eyebrow="Officine & visibilité"
         title="Moteur de pricing"
-        subtitle="Grille parapharmacie (PPH ± marge), règles par laboratoire ou par produit. Médicaments : PPV catalogue fixe."
+        subtitle="Grille parapharmacie (PPH ± marge), règles par marque ou par produit. Médicaments : PPV catalogue fixe."
       />
       <PharmacistPricingManager />
     </PageShell>

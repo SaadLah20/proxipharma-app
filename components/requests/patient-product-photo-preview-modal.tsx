@@ -6,23 +6,27 @@ import { createPortal } from "react-dom";
 import { clsx } from "clsx";
 import { X } from "lucide-react";
 import { lockBodyScroll } from "@/lib/ui-body-scroll-lock";
+import { ProductBrandLabel } from "@/components/products/product-brand-label";
 
 export type CatalogProductPhotoPreview = {
   url: string;
   title: string;
+  brand?: string | null;
   descriptionHtml?: string | null;
 };
 
 export type ProductPhotoPreviewHandler = (
   url: string,
   title: string,
-  descriptionHtml?: string | null
+  descriptionHtml?: string | null,
+  brand?: string | null
 ) => void;
 
 /** Vignette catalogue cliquable → ouvre `PatientProductPhotoPreviewModal` via `onPreview`. */
 export function CatalogProductPhotoThumb({
   imageUrl,
   title,
+  brand,
   descriptionHtml,
   size,
   className,
@@ -32,6 +36,7 @@ export function CatalogProductPhotoThumb({
 }: {
   imageUrl: string;
   title: string;
+  brand?: string | null;
   descriptionHtml?: string | null;
   size: number;
   className?: string;
@@ -52,7 +57,7 @@ export function CatalogProductPhotoThumb({
       onClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
-        onPreview({ url: imageUrl, title, descriptionHtml: descriptionHtml ?? null });
+        onPreview({ url: imageUrl, title, brand: brand ?? null, descriptionHtml: descriptionHtml ?? null });
       }}
     >
       <Image
@@ -74,12 +79,14 @@ export function PatientProductPhotoPreviewModal({
   open,
   imageUrl,
   title,
+  brand,
   descriptionHtml,
   onClose,
 }: {
   open: boolean;
   imageUrl: string | null;
   title: string;
+  brand?: string | null;
   descriptionHtml?: string | null;
   onClose: () => void;
 }) {
@@ -117,9 +124,12 @@ export function PatientProductPhotoPreviewModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative z-20 flex shrink-0 items-start justify-between gap-2 border-b border-border/80 bg-card px-3 py-2.5 sm:px-4">
-          <h2 id="patient-photo-preview-title" className="min-w-0 flex-1 pr-2 text-sm font-bold leading-snug text-foreground sm:text-base">
-            {title}
-          </h2>
+          <div className="min-w-0 flex-1 pr-2">
+            <h2 id="patient-photo-preview-title" className="min-w-0 text-sm font-bold leading-snug text-foreground sm:text-base">
+              {title}
+            </h2>
+            <ProductBrandLabel brand={brand} className="mt-0.5" />
+          </div>
           <button
             type="button"
             className="relative z-10 shrink-0 rounded-lg border border-border/80 bg-card p-1.5 text-foreground shadow-sm hover:bg-muted/70"

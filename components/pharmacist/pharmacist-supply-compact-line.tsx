@@ -13,6 +13,7 @@ import {
   ProductRequestLinePrices,
   ProductRequestLineQtyInline,
 } from "@/components/pharmacy/patient-demande-produits-ui";
+import { ProductBrandLabel } from "@/components/products/product-brand-label";
 import { patientBucketProductRowClass } from "@/lib/patient-bucket-product-row-ui";
 import { pharmacistProposedProductBadgeFr } from "@/lib/request-display";
 
@@ -39,6 +40,7 @@ function validatedLineRowClass(tier: PharmacistSupplyLineTier, withdrawnGrey: bo
 export function PharmacistSupplyCompactLine({
   header,
   validatedName,
+  validatedBrand = null,
   validatedQty,
   /** Qté prescrite (ordonnance) — affichée jusqu’à clôture du dossier. */
   ordonnancePrescribedQty = null,
@@ -100,6 +102,7 @@ export function PharmacistSupplyCompactLine({
 }: {
   header: string | null;
   validatedName: string;
+  validatedBrand?: string | null;
   validatedQty: number;
   ordonnancePrescribedQty?: number | null;
   availSentence: string;
@@ -491,6 +494,7 @@ export function PharmacistSupplyCompactLine({
               >
                 {validatedName}
               </p>
+              <ProductBrandLabel brand={validatedBrand} />
               <div
                 className={clsx(
                   "flex w-full items-end justify-between gap-3 leading-none",
@@ -542,6 +546,7 @@ export function PharmacistSupplyCompactLine({
                   </p>
                   <div className="flex shrink-0 flex-col items-center gap-2">{lineActionButtons}</div>
                 </div>
+                <ProductBrandLabel brand={validatedBrand} />
                 {bottomLabels}
               </div>
             </div>

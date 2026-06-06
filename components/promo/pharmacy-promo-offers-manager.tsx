@@ -91,7 +91,7 @@ export function PharmacyPromoOffersManager() {
     setPharmacyId(ctx.pharmacyId);
     const { data: prods } = await supabase
       .from("products")
-      .select("id,name,product_type,laboratory,price_pph,price_ppv,photo_url,full_description")
+      .select("id,name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description")
       .eq("is_active", true)
       .order("name")
       .limit(500);
@@ -213,7 +213,7 @@ export function PharmacyPromoOffersManager() {
           product_type: (cat as { product_type?: string }).product_type ?? "parapharmacie",
           price_pph: cat.price_pph,
           price_ppv: (cat as { price_ppv?: number | null }).price_ppv ?? null,
-          laboratory: cat.laboratory,
+          brand: cat.brand ?? null,
         })
       );
     });

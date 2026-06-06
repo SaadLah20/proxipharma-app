@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260709_001`**) → phrase **§13.42** (i18n patient ar/fr + fix date réception ordonnance validée). Catalogue BeautyMall : **§13.39** / **`736100f`**. La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260712_001`**) → phrase **§13.43** (consultation libre lot 3 + photos patient). Catalogue BeautyMall : **§13.39** / **`736100f`**. La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -21,6 +21,8 @@ Au **demarrage** d une session :
 1. `node scripts/fetch-beautymall-sitemap-products.mjs` → `beautymall_sitemap_products.csv`.
 2. `node scripts/merge-beautymall-products.mjs` (+ CSV WooCommerce `--main` si besoin) → `products_final.csv` + `products_unmatched.csv` (fuzzy ≥ 85 %).
 3. SQL `supabase/scripts/wipe-catalog-beautymall-import.sql` (vider catalogue + lignes promo liées) puis `node scripts/import-beautymall-catalog.mjs` (`--dry-run` possible). **Pilote** : **13 651** produits, **12 171** avec photo URL BeautyMall, **1 480** sans photo (icône UI). Pas de migration Git — colonne **`full_description`** déjà en schéma. Détail §10 session **2026-06-04 (suite 2)** · phrase **§13.39**.
+
+**Marques catalogue (juin 2026)** — **`20260710_001`** + **`20260713_001`** (pricing marque) · extraction **`scripts/README-product-brands.md`** (v2 en pause) · UI **`ProductBrandLabel`**. Journal §10 sessions **2026-06-06 (suite)** et **(suite 2)**.
 
 A la **sortie**: demander ou accepter la mise a jour de ce cahier (Journal + Etat actuel + prompt de reprise du §12).
 
@@ -380,6 +382,70 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
+### Session 2026-06-06 (suite) — Marques catalogue BeautyMall (extraction automatique, en pause)
+
+**Branche** : travail local / scripts (pas de PR dédiée au moment de la pause).
+
+**Migration** : **`20260710_001_products_brand_columns.sql`** — colonnes **`products.brand`**, **`products.brand_confidence`** (0 / 50 / 80 / 100) + index.
+
+**Script** : **`scripts/extract-product-brands.py`** · deps **`scripts/requirements-product-brands.txt`** · doc **`scripts/README-product-brands.md`**.
+
+**Algorithme** : dictionnaire marques depuis préfixes nom + slug Beautymall (`subcategory`) ; marques composées ; décodage entités HTML (`L'Oréal`) ; fallback description ; **packs / offres / lots** (marque embarquée ou slug pack).
+
+**Résultats pilote** :
+
+| Passe | Couverture | Supabase |
+|-------|------------|----------|
+| v1 (appliquée) | **83,62 %** | **13 651** produits mis à jour |
+| v2 (code seul, dry-run CSV) | **~92,37 %** | **non** réécrite (script trop lent en local) |
+
+**Audit v1** : **`scripts/brand-unidentified-audit.csv`** (~2 236 non identifiés) — motifs HTML entities, marques rares, packs multi-marques, slug absent.
+
+**Reprise différée (extraction v2)** : optimiser perf script → dry-run v2 → **`python scripts/extract-product-brands.py --yes`**. **App (juin 2026, suite 2)** : colonne **`brand`** lue en catalogue + dossiers ; pricing officine par marque — voir session **2026-06-06 (suite 2)**.
+
+**Phrase de reprise marques (extraction)** : **`scripts/README-product-brands.md`** § « État au 2026-06-06 ».
+
+---
+
+### Session 2026-06-06 (suite 2) — Marques en app : pricing par marque + libellé catalogue
+
+**Branche** : `fix/validated-supply-ecart-ui-modal`.
+
+**Migration** : **`20260713_001_pharmacy_pricing_brand_rules.sql`** — table **`pharmacy_pricing_brand_rules`** ; RPC **`pharmacist_pricing_distinct_brands`** ; résolution prix sur **`products.brand`** (remplace **`products.laboratory`**). Priorité inchangée : produit > marque > global. Anciennes règles laboratoire **non migrées** — reconfigurer l’onglet **Marques** dans **`/dashboard/pharmacien/pricing`**.
+
+**UI pricing** : **`PharmacistPricingManager`** — onglet **Marques** (ex-Laboratoires) · **`lib/pharmacy-pricing/*`**.
+
+**Affichage marque produit** : **`components/products/product-brand-label.tsx`** · sous le nom quand **`products.brand`** renseigné — explorateur catalogue patient, recherche inline, panier, lignes compactes dossier (patient + pharmacien), modale **`PatientProductPhotoPreviewModal`**. Selects Supabase : **`brand`** ajouté aux embeds **`request_items`** et requêtes catalogue (**`PRODUCT_CATALOG_SELECT`** dans **`lib/product-catalog-search.ts`**). Recherche catalogue : nom + marque (+ laboratoire conservé).
+
+**Migrations à appliquer en pilote (ordre)** : **`20260710_001`** (si pas déjà fait) → **`20260713_001`**.
+
+---
+
+### Session 2026-06-06 — Consultation libre lot 3 (scroll, édition post-réponse, photos patient)
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`428d662`** (scroll + édition + lightbox) · **`718913f`** (double notif + brief replié) · **`10ddc65`** (lint ESLint brief) · **`bf9b94f`** (photos compress-before-check).
+
+**Consultation libre — patient** :
+- Fil conversation : **hauteur minimale confortable** (`consultationConversationMinHeightClass`), **scroll chaining** vers la page (plus de layout `overflow-hidden` plein écran).
+- **`ConsultationBriefPanel`** : panneau **replié** « Modifier mon message » ; **un seul** bouton **Enregistrer les modifications** (texte + ajout/suppression photos en brouillon).
+- Édition autorisée en **`submitted`**, **`in_review`**, **`responded`** ; onglets Conversation / Produits conservés en **`responded`**.
+- Bulle message initial : **Modifié le…** + **Envoyé initialement le…** (`free_consultation_requests.patient_content_updated_at`).
+- Lightbox photos : **`ConsultationPhotoLightbox`** — bouton Fermer, retour navigateur/téléphone ferme l’image seulement.
+
+**Consultation libre — backend** :
+- **`20260711_001_patient_consultation_edit_after_response.sql`** — colonne **`patient_content_updated_at`**, édition **`responded`**, notif **`patient_consultation_updated`**.
+- **`20260712_001_consultation_first_attach_and_save_brief.sql`** — RPC **`patient_save_consultation_brief`** ; **`p_initial_submit`** sur **`patient_attach_consultation_images`** (pas de notif « mise à jour » au 1er envoi avec photos).
+
+**Photos ordonnance + consultation (saisie publique et modification)** :
+- **`lib/patient-request-photo-upload.ts`** — compression WebP **avant** contrôle de taille (limite **30 Mo** brut, **4 Mo** après compression).
+- Remplace l’ancien rejet systématique **8 Mo** sur fichier téléphone brut (photos 10–15 Mo courantes).
+
+**Migrations à appliquer en pilote (ordre, après lot précédent)** : **`20260711_001`** → **`20260712_001`**.
+
+**Phrase de reprise** : **§13.43**.
+
+---
+
 ### Session 2026-06-05 (suite 3) — i18n patient ar/fr + fix date réception ordonnance validée
 
 **Branche** : `fix/validated-supply-ecart-ui-modal`.
@@ -397,7 +463,7 @@ git checkout pilote-stable-2026-05-24
 
 **Migrations à appliquer en pilote (ordre)** : **`20260709_001`** (après **`20260708_001`**).
 
-**Phrase de reprise** : **§13.42**.
+**Phrase de reprise** : **§13.42** (dépassée → **§13.43**).
 
 ---
 
@@ -1914,8 +1980,12 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260707_002_patient_prescription_update_sync.sql` (note ordonnance patient → conversation + drift)
   - `supabase/migrations/20260708_001_prescription_first_attach_no_update_notif.sql` (pas notif « mise à jour » au 1er attach ordonnance)
   - `supabase/migrations/20260709_001_i18n_patient_notification_ar.sql` (notifs in-app patient bilingues ar/fr)
+  - `supabase/migrations/20260711_001_patient_consultation_edit_after_response.sql` (consultation patient éditable jusqu’à **`responded`**, **`patient_content_updated_at`**)
+  - `supabase/migrations/20260712_001_consultation_first_attach_and_save_brief.sql`
+  - `supabase/migrations/20260710_001_products_brand_columns.sql` (**products.brand** + **brand_confidence**)
+  - `supabase/migrations/20260713_001_pharmacy_pricing_brand_rules.sql` (**pricing parapharmacie par marque**) (**`patient_save_consultation_brief`**, pas de double notif au 1er envoi avec photos)
 
-**Pilote (état infra 2026-06-05)** : appliquer les migrations **`20260701_*`** … **`20260709_001`** dans l’ordre des noms si pas déjà fait — voir **§13.42** pour la reprise courte.
+**Pilote (état infra 2026-06-06)** : appliquer les migrations **`20260701_*`** … **`20260713_001`** dans l’ordre des noms si pas déjà fait — inclut **`20260710_001`** (colonnes marque) et **`20260713_001`** (pricing par marque) — voir **§13.43** pour la reprise courte.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2186,7 +2256,13 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.42) Phrase de reprise (recommandée — après session **2026-06-05 (suite 3)** i18n patient + fix ordonnance validée)
+### 13.43) Phrase de reprise (recommandée — après session **2026-06-06** consultation lot 3 + photos patient)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`428d662`** scroll/édition/lightbox, **`718913f`** brief replié + save unique, **`bf9b94f`** photos compress-before-check). **Migrations à appliquer** si pas fait : **`20260711_001`** → **`20260712_001`** (après **`20260709_001`**). **Consultation patient** : fil conversation scroll chaining ; **`ConsultationBriefPanel`** replié + **Enregistrer les modifications** (texte + photos) jusqu’à **`responded`** ; bulle **Modifié le…** ; lightbox **`ConsultationPhotoLightbox`** ; **une seule notif** pharmacien à l’envoi avec photos. **Photos** ordonnance/consultation : **`lib/patient-request-photo-upload.ts`** (compresser puis valider, plus faux rejet 8 Mo brut). Lots antérieurs : i18n ar/fr (**§13.42**), vocaux, ordonnance pharma. Catalogue BeautyMall : **§13.39**. Je te donne la tâche ou les retours preview. »**
+
+### 13.42) Phrase de reprise (dépassée — session **2026-06-05 (suite 3)** i18n patient + fix ordonnance validée)
+
+Voir **§13.43**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal`. **Migrations à appliquer** si pas fait : **`20260705_001`** → **`20260709_001`** (dernière **`20260709_001`** = notifs in-app ar). **i18n patient ar/fr** : cookie `pp_locale`, switcher header, RTL, `messages/fr` + `messages/ar` ; pharmacien/admin restent FR ; SMS externes FR. **Ordonnance validée** : dispo **À commander** → champ **Réception prévue** visible en édition supply. Lots antérieurs : vocaux (**`cb90da3`**, **`ea54827`**, **`20260706_001`**), consultation UX (**`081fc02`**, **`c507609`**), ordonnance pharma (**`6cb3160`**). Catalogue BeautyMall : **§13.39**. Je te donne la tâche ou les retours preview. »**
 
@@ -2226,7 +2302,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-05 (suite 3)** — i18n patient ar/fr + fix date réception ordonnance validée). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260709_001`** ; catalogue **13 651** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.42**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-06** — consultation libre lot 3 + photos patient). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260712_001`** ; catalogue **13 651** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.43**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
