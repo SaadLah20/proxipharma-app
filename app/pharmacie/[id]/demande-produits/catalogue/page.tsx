@@ -204,7 +204,6 @@ export default function DemandeProduitsCataloguePage() {
 
         <ProductRequestSection
           title={td("catalogBrowseSection")}
-          hint={null}
           badge={
             selectedCount > 0 ? (
               <span className={cn("shrink-0", t.sectionBadge)}>
