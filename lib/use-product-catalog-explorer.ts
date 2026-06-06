@@ -4,16 +4,26 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { PatientDemandeProduitsCatalogProduct } from "@/lib/patient-demande-produits-draft";
 import {
+  defaultProductCatalogExplorerFilters,
+  productCatalogFiltersKey,
+  type ProductCatalogExplorerFilters,
+} from "@/lib/product-catalog-filters";
+import {
   PRODUCT_CATALOG_EXPLORER_PAGE_SIZE,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
   PRODUCT_CATALOG_SELECT,
+  productBrandDisplayIlikePattern,
   productNameOrLaboratoryIlikeOr,
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
 
 const CATALOG_SELECT = PRODUCT_CATALOG_SELECT;
 
-export function useProductCatalogExplorer(enabled: boolean, filterQuery: string) {
+export function useProductCatalogExplorer(
+  enabled: boolean,
+  filterQuery: string,
+  filters: ProductCatalogExplorerFilters = defaultProductCatalogExplorerFilters(),
+) {
   const [products, setProducts] = useState<PatientDemandeProduitsCatalogProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -22,12 +32,14 @@ export function useProductCatalogExplorer(enabled: boolean, filterQuery: string)
   const offsetRef = useRef(0);
   const queryKeyRef = useRef("");
 
+  const filtersKey = productCatalogFiltersKey(filters);
+
   const fetchPage = useCallback(
     async (reset: boolean) => {
       if (!enabled) return;
 
       const sanitized = sanitizeProductSearchQuery(filterQuery);
-      const queryKey = sanitized;
+      const queryKey = `${sanitized}|${filtersKey}`;
 
       if (reset) {
         offsetRef.current = 0;
@@ -48,6 +60,15 @@ export function useProductCatalogExplorer(enabled: boolean, filterQuery: string)
         .select(CATALOG_SELECT)
         .eq("is_active", true)
         .order("name");
+
+      if (filters.productType !== "all") {
+        q = q.eq("product_type", filters.productType);
+      }
+
+      const brandPattern = filters.brand ? productBrandDisplayIlikePattern(filters.brand) : null;
+      if (brandPattern) {
+        q = q.ilike("brand", brandPattern);
+      }
 
       if (sanitized.length >= PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
         q = q.or(productNameOrLaboratoryIlikeOr(sanitized));
@@ -85,7 +106,7 @@ export function useProductCatalogExplorer(enabled: boolean, filterQuery: string)
       offsetRef.current = from + rows.length;
       setHasMore(rows.length >= PRODUCT_CATALOG_EXPLORER_PAGE_SIZE);
     },
-    [enabled, filterQuery]
+    [enabled, filterQuery, filters, filtersKey],
   );
 
   useEffect(() => {
@@ -93,7 +114,7 @@ export function useProductCatalogExplorer(enabled: boolean, filterQuery: string)
     const debounceMs = filterQuery.trim().length > 0 ? 300 : 0;
     const timer = window.setTimeout(() => void fetchPage(true), debounceMs);
     return () => window.clearTimeout(timer);
-  }, [enabled, filterQuery, fetchPage]);
+  }, [enabled, filterQuery, filtersKey, fetchPage]);
 
   const loadMore = useCallback(() => {
     if (loading || loadingMore || !hasMore) return;

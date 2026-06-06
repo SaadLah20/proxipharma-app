@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Check } from "lucide-react";
+import { LayoutGrid } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
@@ -13,9 +13,8 @@ import {
   type PatientDemandeProduitsCatalogProduct,
   writePatientDemandeProduitsDraft,
 } from "@/lib/patient-demande-produits-draft";
-import { PharmacyPublicBackLink, pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
+import { PharmacyPublicBackLink } from "@/components/pharmacy/pharmacy-public-chrome";
 import {
-  PriceDhInline,
   ProductRequestExplorerSearchBar,
   ProductRequestSection,
 } from "@/components/pharmacy/patient-demande-produits-ui";
@@ -32,11 +31,11 @@ import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-requ
 import { uiActionBtnFull } from "@/lib/ui-action-buttons";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
-import { ProductCatalogExplorerThumb } from "@/components/products/product-catalog-explorer-thumb";
-import { ProductCatalogMetaLabel } from "@/components/products/product-brand-label";
+import { ProductCatalogExplorerFilters } from "@/components/products/product-catalog-explorer-filters";
+import { ProductCatalogExplorerListRow } from "@/components/products/product-catalog-explorer-list-row";
+import { defaultProductCatalogExplorerFilters } from "@/lib/product-catalog-filters";
+import { useCatalogDistinctBrands } from "@/lib/use-catalog-distinct-brands";
 import { useProductCatalogExplorer } from "@/lib/use-product-catalog-explorer";
-
-const THUMB = "box-border size-14 shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
 
 export default function DemandeProduitsCataloguePage() {
   const td = useTranslations("demandePublic");
@@ -50,6 +49,7 @@ export default function DemandeProduitsCataloguePage() {
 
   const [sessionReady, setSessionReady] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
+  const [catalogFilters, setCatalogFilters] = useState(defaultProductCatalogExplorerFilters);
   const [selectedById, setSelectedById] = useState<Map<string, PatientDemandeProduitsCatalogProduct>>(
     () => new Map()
   );
@@ -59,9 +59,12 @@ export default function DemandeProduitsCataloguePage() {
   const listScrollRef = useRef<HTMLUListElement>(null);
   const { resolve: resolveCatalogPrice } = usePharmacyPricingForPatient(pharmacyId);
 
+  const { brands, loading: brandsLoading } = useCatalogDistinctBrands(sessionReady);
+
   const { products, loading, loadingMore, error: loadError, hasMore, loadMore } = useProductCatalogExplorer(
     sessionReady,
-    filterQuery
+    filterQuery,
+    catalogFilters
   );
 
   const fieldFocus = t.focus;
@@ -169,18 +172,39 @@ export default function DemandeProduitsCataloguePage() {
   return (
     <main
       className={cn(
-        "min-h-screen touch-pan-y bg-background text-foreground antialiased",
+        "min-h-screen touch-pan-y bg-gradient-to-b from-sky-50/35 via-background to-background text-foreground antialiased",
         stickyFooterPadClass("standard")
       )}
     >
-      <div className="mx-auto max-w-lg space-y-4 px-4 py-4 sm:px-5 sm:py-5">
+      <div className="mx-auto max-w-lg space-y-3 px-4 py-4 sm:px-5 sm:py-5">
         <PharmacyPublicBackLink href={backHref} className={cn("mb-0", t.backLink)}>
           {backLabel}
         </PharmacyPublicBackLink>
 
+        <div
+          className={cn(
+            "flex items-start gap-3 rounded-2xl border border-sky-200/60 bg-gradient-to-br from-sky-50/80 via-card to-white px-4 py-3 shadow-sm",
+            t.shell
+          )}
+        >
+          <span
+            className={cn(
+              "flex size-10 shrink-0 items-center justify-center rounded-xl ring-1",
+              t.accentIconBg,
+              t.accentIcon
+            )}
+          >
+            <LayoutGrid className="size-5" strokeWidth={2} aria-hidden />
+          </span>
+          <div className="min-w-0 pt-0.5">
+            <h1 className="text-base font-bold leading-tight text-foreground">{td("explorerCatalogTitle")}</h1>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{td("explorerCatalogHint")}</p>
+          </div>
+        </div>
+
         <ProductRequestSection
-          title={td("explorerCatalogTitle")}
-          hint={td("explorerCatalogHint")}
+          title={td("catalogBrowseSection")}
+          hint={null}
           badge={
             selectedCount > 0 ? (
               <span className={cn("shrink-0", t.sectionBadge)}>
@@ -189,110 +213,83 @@ export default function DemandeProduitsCataloguePage() {
             ) : null
           }
         >
-          <ProductRequestExplorerSearchBar
-            query={filterQuery}
-            onQueryChange={setFilterQuery}
-            fieldFocus={fieldFocus}
-            placeholder={td("searchProduct")}
-          />
+          <div className="space-y-2">
+            <ProductRequestExplorerSearchBar
+              query={filterQuery}
+              onQueryChange={setFilterQuery}
+              fieldFocus={fieldFocus}
+              placeholder={td("catalogSearchPlaceholder")}
+            />
 
-          <div className={cn(pharmacyPublicCard, "mt-2 overflow-hidden p-0", t.shell)}>
-            {loadError ? <p className="px-3 py-3 text-sm text-destructive">{loadError}</p> : null}
-            {loading ? (
-              <p className="px-3 py-6 text-center text-sm text-muted-foreground">{tc("loading")}</p>
-            ) : filtered.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-muted-foreground">{td("noProductsFound")}</p>
-            ) : (
-              <ul
-                ref={listScrollRef}
-                className="max-h-[min(58dvh,520px)] divide-y divide-border/60 overflow-y-auto overscroll-y-contain touch-pan-y"
-              >
-                {filtered.map((p) => {
-                  const inCart = cartProductIds.has(p.id);
-                  const checked = !inCart && selectedById.has(p.id);
-                  const unitPrice = resolveCatalogPrice(catalogHitToPricingInput(p));
-                  return (
-                    <li key={p.id}>
-                      <div
-                        className={cn(
-                          "flex min-h-14 items-stretch gap-2 px-3 py-2 transition",
-                          inCart ? "bg-muted/25 opacity-80" : checked ? "bg-sky-50/40" : "hover:bg-muted/20"
-                        )}
-                      >
-                        <button
-                          type="button"
-                          disabled={inCart}
-                          onClick={() => toggleSelect(p)}
-                          className={cn(
-                            "flex size-9 shrink-0 self-center items-center justify-center rounded-lg border-2 transition",
-                            inCart
-                              ? "border-border/60 bg-muted"
-                              : checked
-                                ? "border-sky-600 bg-sky-600 text-white"
-                                : "border-border/80 bg-card hover:border-sky-400/60"
-                          )}
-                          aria-label={
-                            inCart
-                              ? td("alreadyInRequestAria", { name: p.name })
-                              : checked
-                                ? td("deselectProductAria", { name: p.name })
-                                : td("selectProductAria", { name: p.name })
-                          }
-                          aria-pressed={inCart ? undefined : checked}
-                        >
-                          {inCart ? null : checked ? <Check className="size-4" strokeWidth={2.5} /> : null}
-                        </button>
-                        <ProductCatalogExplorerThumb
-                          photoUrl={p.photo_url}
-                          productType={p.product_type}
-                          productName={p.name}
-                          className={cn(THUMB, "self-center")}
-                          ringClassName={t.photoRing}
-                          onOpenPreview={() =>
-                            setPhotoPreview({
-                              url: p.photo_url,
-                              title: p.name,
-                              brand: p.brand,
-                              product_type: p.product_type,
-                              descriptionHtml: productDescriptionHtmlForDisplay(p.full_description),
-                              catalogExplorerPreview: true,
-                            })
-                          }
-                        />
-                        <button
-                          type="button"
-                          disabled={inCart}
-                          onClick={() => toggleSelect(p)}
-                          className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-0.5 text-left disabled:cursor-not-allowed"
-                        >
-                          <p className="truncate text-[13px] font-semibold leading-tight text-foreground" title={p.name}>
-                            {p.name}
-                          </p>
-                          <ProductCatalogMetaLabel productType={p.product_type} brand={p.brand} />
-                          <p className={cn("text-xs font-semibold leading-none", t.price)}>
-                            <PriceDhInline
-                              value={unitPrice}
-                              amountClassName={cn("font-semibold", t.price)}
-                              suffixClassName="text-[10px] font-semibold text-sky-700/70"
-                            />
-                          </p>
-                          {inCart ? (
-                            <span className="text-[10px] font-medium text-muted-foreground">{td("alreadyInRequest")}</span>
-                          ) : null}
-                        </button>
-                      </div>
+            <ProductCatalogExplorerFilters
+              filters={catalogFilters}
+              onChange={setCatalogFilters}
+              brands={brands}
+              brandsLoading={brandsLoading}
+              fieldFocus={fieldFocus}
+            />
+
+            <div className={cn("overflow-hidden rounded-2xl border border-border/80 bg-card/90 shadow-sm", t.shell)}>
+              {loadError ? <p className="px-3 py-3 text-sm text-destructive">{loadError}</p> : null}
+              {!loading && !loadError ? (
+                <p className="border-b border-border/60 px-3 py-2 text-[11px] font-medium text-muted-foreground">
+                  {filtered.length > 0
+                    ? td(filtered.length > 1 ? "catalogResultsCountPlural" : "catalogResultsCount", {
+                        count: filtered.length,
+                      })
+                    : td("catalogNoResultsHint")}
+                </p>
+              ) : null}
+              {loading ? (
+                <p className="px-3 py-8 text-center text-sm text-muted-foreground">{tc("loading")}</p>
+              ) : filtered.length === 0 ? (
+                <p className="px-3 py-8 text-center text-sm text-muted-foreground">{td("noProductsFound")}</p>
+              ) : (
+                <ul
+                  ref={listScrollRef}
+                  className="max-h-[min(52dvh,480px)] overflow-y-auto overscroll-y-contain touch-pan-y py-1"
+                >
+                  {filtered.map((p) => {
+                    const inCart = cartProductIds.has(p.id);
+                    const checked = !inCart && selectedById.has(p.id);
+                    const unitPrice = resolveCatalogPrice(catalogHitToPricingInput(p));
+                    return (
+                      <ProductCatalogExplorerListRow
+                        key={p.id}
+                        product={p}
+                        inCart={inCart}
+                        checked={checked}
+                        unitPrice={unitPrice}
+                        onToggleSelect={() => toggleSelect(p)}
+                        onOpenPreview={() =>
+                          setPhotoPreview({
+                            url: p.photo_url,
+                            title: p.name,
+                            brand: p.brand,
+                            product_type: p.product_type,
+                            descriptionHtml: productDescriptionHtmlForDisplay(p.full_description),
+                            catalogExplorerPreview: true,
+                          })
+                        }
+                        labels={{
+                          alreadyInRequest: td("alreadyInRequest"),
+                          selectAria: td("selectProductAria", { name: p.name }),
+                          deselectAria: td("deselectProductAria", { name: p.name }),
+                          inCartAria: td("alreadyInRequestAria", { name: p.name }),
+                        }}
+                      />
+                    );
+                  })}
+                  {hasMore ? (
+                    <li ref={loadMoreSentinelRef} className="px-3 py-3 text-center text-xs text-muted-foreground">
+                      {loadingMore ? tc("loading") : td("scrollForMore")}
                     </li>
-                  );
-                })}
-                {hasMore ? (
-                  <li ref={loadMoreSentinelRef} className="px-3 py-3 text-center text-xs text-muted-foreground">
-                    {loadingMore ? tc("loading") : td("scrollForMore")}
-                  </li>
-                ) : filtered.length > 0 ? (
-                  <li className="px-3 py-2 text-center text-[10px] text-muted-foreground">{td("catalogEnd")}</li>
-                ) : null}
-              </ul>
-            )}
+                  ) : filtered.length > 0 ? (
+                    <li className="px-3 py-2 text-center text-[10px] text-muted-foreground">{td("catalogEnd")}</li>
+                  ) : null}
+                </ul>
+              )}
+            </div>
           </div>
         </ProductRequestSection>
       </div>

@@ -56,6 +56,7 @@ export function PharmacistPricingManager() {
     { brand_key: string; brand_display: string; product_count: number }[]
   >([]);
   const [feedback, setFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [brandQuery, setBrandQuery] = useState("");
   const [productQuery, setProductQuery] = useState("");
   const [productHits, setProductHits] = useState<CatalogHit[]>([]);
   const [productSearchLoading, setProductSearchLoading] = useState(false);
@@ -153,6 +154,13 @@ export function PharmacistPricingManager() {
       product_overrides: config.product_overrides.filter((o) => o.product_id !== productId),
     });
   };
+
+  const brandSearchQ = useMemo(() => sanitizeProductSearchQuery(brandQuery), [brandQuery]);
+  const visibleBrands = useMemo(() => {
+    if (!brandSearchQ) return brandsCatalog;
+    const needle = brandSearchQ.toLowerCase();
+    return brandsCatalog.filter((b) => b.brand_display.toLowerCase().includes(needle));
+  }, [brandsCatalog, brandSearchQ]);
 
   const productSearchQ = useMemo(() => sanitizeProductSearchQuery(productQuery), [productQuery]);
   const productSearchActive = productSearchQ.length >= PRODUCT_CATALOG_SEARCH_MIN_CHARS;
@@ -339,11 +347,32 @@ export function PharmacistPricingManager() {
           <p className="text-[11px] text-muted-foreground">
             Remplace la règle globale pour les produits parapharmacie de la marque concernée (colonne catalogue).
           </p>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              type="search"
+              value={brandQuery}
+              onChange={(e) => setBrandQuery(e.target.value)}
+              placeholder="Rechercher une marque…"
+              className="w-full rounded-lg border border-input py-2 pl-8 pr-3 text-xs"
+            />
+          </div>
+          {brandSearchQ ? (
+            <p className="text-[11px] text-muted-foreground">
+              {visibleBrands.length === 0
+                ? "Aucun résultat"
+                : visibleBrands.length === 1
+                  ? "1 marque trouvée"
+                  : `${visibleBrands.length} marques trouvées`}
+            </p>
+          ) : null}
           <ul className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
             {brandsCatalog.length === 0 ? (
               <li className="text-xs text-muted-foreground">Aucune marque renseignée dans le catalogue parapharmacie.</li>
+            ) : visibleBrands.length === 0 ? (
+              <li className="text-xs text-muted-foreground">Aucune marque ne correspond à votre recherche.</li>
             ) : (
-              brandsCatalog.map((brandRow) => {
+              visibleBrands.map((brandRow) => {
                 const key = brandRow.brand_key || normalizeBrandKey(brandRow.brand_display);
                 const rule = brandRulesByKey.get(key);
                 const margin = rule?.margin_pct ?? config.settings.parapharmacy_margin_pct;

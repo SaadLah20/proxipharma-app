@@ -36,6 +36,13 @@ export function productNameOrLaboratoryIlikeOr(sanitized: string): string {
   return `name.ilike.${p},brand.ilike.${p},laboratory.ilike.${p}`;
 }
 
+/** Filtre marque exacte (insensible à la casse) pour l'explorateur catalogue. */
+export function productBrandDisplayIlikePattern(brandDisplay: string): string {
+  const trimmed = brandDisplay.trim();
+  if (!trimmed) return "%";
+  return trimmed;
+}
+
 export type ProductCatalogHitWithId = { id: string };
 
 /** Retire les produits déjà présents dans une liste active (panier / lignes dossier). */
