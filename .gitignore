@@ -50,4 +50,5 @@ next-env.d.ts
 # exports BeautyMall (générés localement)
 /scripts/beautymall_sitemap_products.csv
 /scripts/products_final.csv
+/scripts/medicaments_officine.csv
 /scripts/products_unmatched.csv
