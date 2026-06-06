@@ -169,6 +169,7 @@ import {
   validatedBranchUnitPriceMad,
   validatedBranchDescriptionHtml,
   validatedBranchPhotoPath,
+  validatedProductBrand,
   validatedProductLabel,
   validatedQtyForPatientLine,
   type PatientLineLike,
@@ -199,6 +200,7 @@ import {
   type CatalogProductPhotoPreview,
 } from "@/components/requests/patient-product-photo-preview-modal";
 import { PharmacistProductPhotoThumb } from "@/components/pharmacist/pharmacist-product-photo-thumb";
+import { ProductBrandLabel } from "@/components/products/product-brand-label";
 import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
 import { PharmacistProductRequestDossierHeader } from "@/components/requests/product/pharmacist-product-request-dossier-header";
 import { patientBucketProductListClass } from "@/lib/patient-bucket-product-row-ui";
@@ -279,6 +281,7 @@ type RequestRow = {
 type ProdEmbedDb = {
   name: string;
   product_type?: string | null;
+  brand?: string | null;
   laboratory?: string | null;
   price_pph?: number | null;
   price_ppv?: number | null;
@@ -344,7 +347,7 @@ type ItemDraft = {
 type Draft = Record<string, ItemDraft>;
 
 const PHARMA_REQUEST_ITEMS_SELECT =
-  "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,is_selected_by_patient,selected_qty,patient_chosen_alternative_id,post_confirm_fulfillment,withdrawn_after_confirm,line_source,pharmacist_proposal_reason,client_comment,updated_at,products(name,product_type,laboratory,price_pph,price_ppv,photo_url,full_description),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,product_type,laboratory,price_pph,price_ppv,photo_url,full_description))";
+  "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,is_selected_by_patient,selected_qty,patient_chosen_alternative_id,post_confirm_fulfillment,withdrawn_after_confirm,line_source,pharmacist_proposal_reason,client_comment,updated_at,products(name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description))";
 
 function rowsWithEffectiveWithdrawnForSupply(rows: ItemRow[], d: Draft): ItemRow[] {
   return rows.map((row) => {
@@ -386,6 +389,7 @@ type ProductCatalogHit = {
   id: string;
   name: string;
   product_type: string;
+  brand: string | null;
   laboratory: string | null;
   photo_url?: string | null;
   price_pph?: number | null;
@@ -764,7 +768,7 @@ function catalogPriceMadLabel(
             product_type: prod.product_type ?? "parapharmacie",
             price_pph: prod.price_pph,
             price_ppv: prod.price_ppv,
-            laboratory: prod.laboratory,
+            brand: prod.brand,
           }
         : null,
       productId
@@ -2350,7 +2354,7 @@ export default function PharmacienDemandeDetailPage() {
         }
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv,full_description")
+          .select("id,name,product_type,brand,laboratory,photo_url,price_pph,price_ppv,full_description")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -2397,7 +2401,7 @@ export default function PharmacienDemandeDetailPage() {
         }
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv,full_description")
+          .select("id,name,product_type,brand,laboratory,photo_url,price_pph,price_ppv,full_description")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -2430,7 +2434,7 @@ export default function PharmacienDemandeDetailPage() {
         }
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv,full_description")
+          .select("id,name,product_type,brand,laboratory,photo_url,price_pph,price_ppv,full_description")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -5587,7 +5591,7 @@ export default function PharmacienDemandeDetailPage() {
                             product_type: embed.product_type ?? "parapharmacie",
                             price_pph: embed.price_pph,
                             price_ppv: embed.price_ppv,
-                            laboratory: embed.laboratory,
+                            brand: embed.brand,
                           }
                         : null,
                       productId
@@ -5633,7 +5637,7 @@ export default function PharmacienDemandeDetailPage() {
                               product_type: prod.product_type ?? "parapharmacie",
                               price_pph: prod.price_pph,
                               price_ppv: prod.price_ppv,
-                              laboratory: prod.laboratory,
+                              brand: prod.brand,
                             }
                           : null,
                         row.product_id
@@ -5754,6 +5758,7 @@ export default function PharmacienDemandeDetailPage() {
               if (canManageSupply) {
                 const pl = row as PatientLineLike;
                 const validatedName = validatedProductLabel(pl);
+                const validatedBrand = validatedProductBrand(pl);
                 const validatedQty = validatedQtyForPatientLine(pl);
                 const effSupply = effectiveAvailSupplyDraft(row, f, request?.request_type, request?.status);
                 const etaSupply = effectiveEtaSupplyDraft(row, f, request?.request_type, request?.status);
@@ -6201,6 +6206,7 @@ export default function PharmacienDemandeDetailPage() {
                     <PharmacistSupplyCompactLine
                       header={header}
                       validatedName={validatedName}
+                      validatedBrand={validatedBrand}
                       validatedQty={validatedQty}
                       ordonnancePrescribedQty={ordonnancePrescribedQty}
                       availSentence={availSentence}
@@ -6464,6 +6470,7 @@ export default function PharmacienDemandeDetailPage() {
                         <p className="break-words text-[13px] font-bold leading-snug text-foreground sm:text-sm">
                           {prod?.name ?? "Produit"}
                         </p>
+                        <ProductBrandLabel brand={prod?.brand} />
                         {lineProposedBadge ? (
                           <span
                             className={clsx(
@@ -7354,6 +7361,7 @@ export default function PharmacienDemandeDetailPage() {
                             </div>
                             <span className="min-w-0 flex-1">
                               <span className="block font-medium text-foreground">{h.name}</span>
+                              <ProductBrandLabel brand={h.brand} />
                               {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h)) !== "—" ? (
                                 <span className="mt-0.5 block text-[11px] font-medium text-teal-800">
                                   PU {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h))}

@@ -30,6 +30,7 @@ export type PatientLineLike = {
     | {
         name?: string | null;
         product_type?: string | null;
+        brand?: string | null;
         laboratory?: string | null;
         price_pph?: number | string | null;
         price_ppv?: number | string | null;
@@ -39,6 +40,7 @@ export type PatientLineLike = {
     | {
         name?: string | null;
         product_type?: string | null;
+        brand?: string | null;
         laboratory?: string | null;
         price_pph?: number | string | null;
         price_ppv?: number | string | null;
@@ -181,6 +183,13 @@ export function validatedProductLabel(row: PatientLineLike): string {
   return oneProd(alt?.products)?.name ?? oneProd(row.products)?.name ?? "Produit";
 }
 
+export function validatedProductBrand(row: PatientLineLike): string | null {
+  const chosenId = row.patient_chosen_alternative_id ?? null;
+  if (!chosenId) return oneProd(row.products)?.brand?.trim() || null;
+  const alt = altRowsOf(row).find((a) => a.id === chosenId);
+  return oneProd(alt?.products)?.brand?.trim() || oneProd(row.products)?.brand?.trim() || null;
+}
+
 /** Photo catalogue de la branche retenue (alternative choisie ou produit principal). */
 export function validatedBranchPhotoPath(row: PatientLineLike): string | null {
   const chosenId = row.patient_chosen_alternative_id ?? null;
@@ -222,7 +231,7 @@ export function validatedBranchUnitPriceMad(
               product_type: prod.product_type ?? "parapharmacie",
               price_pph: prod.price_pph,
               price_ppv: prod.price_ppv,
-              laboratory: prod.laboratory,
+              brand: prod.brand,
             }
           : null,
         productId
@@ -240,7 +249,7 @@ export function validatedBranchUnitPriceMad(
             product_type: prod.product_type ?? "parapharmacie",
             price_pph: prod.price_pph,
             price_ppv: prod.price_ppv,
-            laboratory: prod.laboratory,
+            brand: prod.brand,
           }
         : null,
       alt?.product_id

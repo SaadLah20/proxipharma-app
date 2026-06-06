@@ -21,6 +21,7 @@ import { PATIENT_PRODUCT_LINE_COMMENT_PLACEHOLDER_FR } from "@/lib/product-line-
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import type { PatientDemandeProduitsDraftLine } from "@/lib/patient-demande-produits-draft";
+import { ProductBrandLabel } from "@/components/products/product-brand-label";
 
 /** Vignette compacte — la hauteur du bloc suit la photo (items-stretch). */
 export const PRODUCT_REQUEST_LINE_THUMB =
@@ -651,6 +652,7 @@ export function ProductRequestHeaderSearch({
 type CatalogHit = {
   id: string;
   name: string;
+  brand?: string | null;
   photo_url: string | null;
   unitPrice: number | null;
 };
@@ -698,6 +700,7 @@ export function ProductRequestCatalogHitRow({
           <p className="truncate text-[13px] font-semibold leading-tight text-foreground" title={hit.name}>
             {hit.name}
           </p>
+          <ProductBrandLabel brand={hit.brand} />
           <p className={cn("text-xs font-semibold", t.price)}>
             <PriceDhInline value={hit.unitPrice} amountClassName={cn("font-semibold", t.price)} />
           </p>
@@ -744,9 +747,12 @@ export function ProductRequestCartLineRow({
       <ProductRequestLineDeleteButton onClick={onRemove} />
       <ProductRequestLinePanel
         title={
-          <p className="truncate pb-px text-[13px] font-semibold leading-snug text-foreground" title={line.name}>
-            {line.name}
-          </p>
+          <div className="min-w-0">
+            <p className="truncate pb-px text-[13px] font-semibold leading-snug text-foreground" title={line.name}>
+              {line.name}
+            </p>
+            <ProductBrandLabel brand={line.brand} />
+          </div>
         }
         unitPrice={unitPrice}
         totalValue={unitPrice != null ? unitPrice * line.qty : null}

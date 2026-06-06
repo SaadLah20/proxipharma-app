@@ -10,6 +10,17 @@ export const PRODUCT_CATALOG_SEARCH_LIMIT = 48 as const;
 /** Page Explorer catalogue patient (scroll infini). */
 export const PRODUCT_CATALOG_EXPLORER_PAGE_SIZE = 60 as const;
 
+/** Champs communs pour les requêtes catalogue produits. */
+export const PRODUCT_CATALOG_SELECT =
+  "id,name,product_type,brand,laboratory,photo_url,price_pph,price_ppv,full_description";
+
+/** Embed produit sur lignes dossier (request_items). */
+export const PRODUCT_EMBED_SELECT =
+  "name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description";
+
+/** Recherche pricing pharmacien (sans photo / description). */
+export const PRODUCT_PRICING_SEARCH_SELECT = "id,name,product_type,brand,price_pph,price_ppv";
+
 /**
  * Retire les caractères qui modifient le comportement de `ILIKE` ou cassent `.or(...)`.
  */
@@ -18,11 +29,11 @@ export function sanitizeProductSearchQuery(raw: string): string {
 }
 
 /**
- * Filtre PostgREST : nom OU laboratoire (laboratoire souvent null → inchangé si pas de lab).
+ * Filtre PostgREST : nom, marque ou laboratoire.
  */
 export function productNameOrLaboratoryIlikeOr(sanitized: string): string {
   const p = `%${sanitized}%`;
-  return `name.ilike.${p},laboratory.ilike.${p}`;
+  return `name.ilike.${p},brand.ilike.${p},laboratory.ilike.${p}`;
 }
 
 export type ProductCatalogHitWithId = { id: string };

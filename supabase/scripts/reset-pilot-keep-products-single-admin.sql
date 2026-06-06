@@ -76,6 +76,7 @@ delete from public.pharmacy_engagement_events;
 
 delete from public.pharmacy_pricing_product_overrides;
 delete from public.pharmacy_pricing_laboratory_rules;
+delete from public.pharmacy_pricing_brand_rules;
 delete from public.pharmacy_pricing_settings;
 
 delete from public.pharmacy_services;

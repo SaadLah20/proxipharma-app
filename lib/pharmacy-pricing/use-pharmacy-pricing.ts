@@ -27,7 +27,7 @@ export function usePharmacyPricing(pharmacyId: string | undefined) {
         setConfig({
           pharmacy_id: pharmacyId,
           settings: { parapharmacy_mode: "at_pph", parapharmacy_margin_pct: 0 },
-          laboratory_rules: [],
+          brand_rules: [],
           product_overrides: [],
         });
       }
@@ -35,7 +35,7 @@ export function usePharmacyPricing(pharmacyId: string | undefined) {
       setConfig({
         pharmacy_id: pharmacyId,
         settings: { parapharmacy_mode: "at_pph", parapharmacy_margin_pct: 0 },
-        laboratory_rules: [],
+        brand_rules: [],
         product_overrides: [],
       });
     } finally {
@@ -90,7 +90,7 @@ export function usePharmacyPricingForPatient(pharmacyId: string | undefined) {
           setConfig({
             pharmacy_id: pharmacyId,
             settings: { parapharmacy_mode: "at_pph", parapharmacy_margin_pct: 0 },
-            laboratory_rules: [],
+            brand_rules: [],
             product_overrides: [],
           });
           return;
@@ -101,7 +101,7 @@ export function usePharmacyPricingForPatient(pharmacyId: string | undefined) {
           setConfig({
             pharmacy_id: pharmacyId,
             settings: { parapharmacy_mode: "at_pph", parapharmacy_margin_pct: 0 },
-            laboratory_rules: [],
+            brand_rules: [],
             product_overrides: [],
           });
         }

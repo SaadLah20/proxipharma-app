@@ -31,6 +31,7 @@ import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-requ
 import { uiActionBtnFull } from "@/lib/ui-action-buttons";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
+import { ProductBrandLabel } from "@/components/products/product-brand-label";
 import { useProductCatalogExplorer } from "@/lib/use-product-catalog-explorer";
 
 const THUMB = "box-border size-14 shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
@@ -246,6 +247,7 @@ export default function DemandeProduitsCataloguePage() {
                               setPhotoPreview({
                                 url: p.photo_url,
                                 title: p.name,
+                                brand: p.brand,
                                 descriptionHtml: productDescriptionHtmlForDisplay(p.full_description),
                               });
                             }
@@ -268,6 +270,7 @@ export default function DemandeProduitsCataloguePage() {
                           <p className="truncate text-[13px] font-semibold leading-tight text-foreground" title={p.name}>
                             {p.name}
                           </p>
+                          <ProductBrandLabel brand={p.brand} />
                           <p className={cn("text-xs font-semibold leading-none", t.price)}>
                             <PriceDhInline
                               value={unitPrice}
@@ -312,6 +315,7 @@ export default function DemandeProduitsCataloguePage() {
         open={photoPreview != null}
         imageUrl={photoPreview?.url ?? null}
         title={photoPreview?.title ?? ""}
+        brand={photoPreview?.brand}
         descriptionHtml={photoPreview?.descriptionHtml}
         onClose={() => setPhotoPreview(null)}
       />

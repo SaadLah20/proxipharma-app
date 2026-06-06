@@ -5,17 +5,17 @@ export type PharmacyPricingSettings = {
   parapharmacy_margin_pct: number;
 };
 
-export type PharmacyPricingLaboratoryRule = {
+export type PharmacyPricingBrandRule = {
   id?: string;
-  laboratory_key: string;
-  laboratory_display?: string;
+  brand_key: string;
+  brand_display?: string;
   margin_pct: number;
 };
 
 export type PharmacyPricingProductOverride = {
   product_id: string;
   product_name?: string;
-  laboratory?: string | null;
+  brand?: string | null;
   product_type?: string;
   price_pph?: number | null;
   price_ppv?: number | null;
@@ -26,7 +26,7 @@ export type PharmacyPricingProductOverride = {
 export type PharmacyPricingConfig = {
   pharmacy_id: string;
   settings: PharmacyPricingSettings;
-  laboratory_rules: PharmacyPricingLaboratoryRule[];
+  brand_rules: PharmacyPricingBrandRule[];
   product_overrides: PharmacyPricingProductOverride[];
 };
 
@@ -34,7 +34,7 @@ export type ProductPricingInput = {
   product_type: string;
   price_pph?: number | null;
   price_ppv?: number | null;
-  laboratory?: string | null;
+  brand?: string | null;
   product_id?: string;
 };
 

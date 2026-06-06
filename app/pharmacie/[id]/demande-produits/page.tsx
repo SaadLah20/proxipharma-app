@@ -57,6 +57,7 @@ type ProductLite = {
   id: string;
   name: string;
   product_type: string;
+  brand: string | null;
   laboratory: string | null;
   photo_url: string | null;
   full_description?: string | null;
@@ -84,13 +85,17 @@ export default function DemandeProduitsPage() {
   const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [photoPreview, setPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
-  const openPhotoPreview = useCallback((url: string, title: string, descriptionHtml?: string | null) => {
-    setPhotoPreview({
-      url,
-      title,
-      descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
-    });
-  }, []);
+  const openPhotoPreview = useCallback(
+    (url: string, title: string, descriptionHtml?: string | null, brand?: string | null) => {
+      setPhotoPreview({
+        url,
+        title,
+        brand: brand ?? null,
+        descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
+      });
+    },
+    []
+  );
   const [lineCommentModal, setLineCommentModal] = useState<{
     productId: string;
     productName: string;
@@ -157,7 +162,7 @@ export default function DemandeProduitsPage() {
         setSearchLoading(true);
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv,full_description")
+          .select("id,name,product_type,brand,laboratory,photo_url,price_pph,price_ppv,full_description")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -189,6 +194,7 @@ export default function DemandeProduitsPage() {
           {
             product_id: p.id,
             name: p.name,
+            brand: p.brand,
             photo_url: resolvePublicMediaUrl(p.photo_url),
             full_description: p.full_description ?? null,
             qty: 1,
@@ -385,12 +391,13 @@ export default function DemandeProduitsPage() {
                       hit={{
                         id: p.id,
                         name: p.name,
+                        brand: p.brand,
                         photo_url: p.photo_url,
                         unitPrice: resolveCatalogPrice(catalogHitToPricingInput(p)),
                       }}
                       onAdd={() => addProduct(p)}
                       onPhotoPreview={() => {
-                        if (p.photo_url) openPhotoPreview(p.photo_url, p.name, p.full_description);
+                        if (p.photo_url) openPhotoPreview(p.photo_url, p.name, p.full_description, p.brand);
                       }}
                     />
                   ))}
@@ -527,6 +534,7 @@ export default function DemandeProduitsPage() {
         open={photoPreview != null}
         imageUrl={photoPreview?.url ?? null}
         title={photoPreview?.title ?? ""}
+        brand={photoPreview?.brand}
         descriptionHtml={photoPreview?.descriptionHtml}
         onClose={() => setPhotoPreview(null)}
       />

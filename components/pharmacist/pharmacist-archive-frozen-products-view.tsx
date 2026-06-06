@@ -115,6 +115,7 @@ export function PharmacistArchiveFrozenProductsView<T extends ArchiveFrozenItem>
       product_type?: string | null;
       price_pph?: number | null;
       price_ppv?: number | null;
+      brand?: string | null;
       laboratory?: string | null;
     } | null
   ) => number | null;

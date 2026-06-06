@@ -18,6 +18,7 @@ import { clsx } from "clsx";
 import { useTranslations } from "next-intl";
 import { usePatientRequestStatusLabel } from "@/lib/i18n/patient-request-status-label";
 import { Button } from "@/components/ui/button";
+import { ProductBrandLabel } from "@/components/products/product-brand-label";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { cn } from "@/lib/utils";
 import {
@@ -79,6 +80,7 @@ import {
   validatedBranchDescriptionHtml,
   validatedBranchUnitPriceMad,
   validatedBranchPhotoPath,
+  validatedProductBrand,
   validatedProductLabel,
   patientDisplayQtyForLine,
 } from "@/lib/patient-confirmed-line-buckets";
@@ -199,6 +201,7 @@ import {
 type ProdBrief = {
   name: string;
   product_type?: string | null;
+  brand?: string | null;
   laboratory?: string | null;
   price_pph?: number | null;
   price_ppv?: number | null;
@@ -378,6 +381,7 @@ export function PatientValidatedCompactLineCard({
   const { buildLabels } = usePatientValidatedLineLabels(defaultOrigins);
   const lineKindTheme = requestKindUiTheme(requestType);
   const validatedName = validatedProductLabel(row);
+  const validatedBrand = validatedProductBrand(row);
   const descriptionHtml = validatedBranchDescriptionHtml(row);
   const displayQty = patientDisplayQtyForLine(row, requestStatusForCard);
   const unitMad = validatedBranchUnitPriceMad(row, pricingConfig, row.product_id);
@@ -439,6 +443,7 @@ export function PatientValidatedCompactLineCard({
           >
             {validatedName}
           </p>
+          <ProductBrandLabel brand={validatedBrand} />
 
           <div
             className={cn(
@@ -653,6 +658,7 @@ export function computeSelFromItems(items: ActionItemRow[]): Record<string, Line
 type ResubmitLine = {
   product_id: string;
   name: string;
+  brand?: string | null;
   photo_url?: string | null;
   full_description?: string | null;
   qty: number;
@@ -1366,6 +1372,7 @@ type ProductHit = {
   id: string;
   name: string;
   product_type: string;
+  brand: string | null;
   laboratory: string | null;
   photo_url?: string | null;
   full_description?: string | null;
@@ -1884,7 +1891,7 @@ export function PatientProductRequestActions({
                 product_type: prod.product_type ?? "parapharmacie",
                 price_pph: prod.price_pph,
                 price_ppv: prod.price_ppv,
-                laboratory: prod.laboratory,
+                brand: prod.brand,
               }
             : null,
           row.product_id
@@ -1895,7 +1902,7 @@ export function PatientProductRequestActions({
   );
 
   const resolveCatalogUnitPriceForProduct = useCallback(
-    (productId: string, embed: { product_type?: string | null; price_pph?: number | null; price_ppv?: number | null; laboratory?: string | null } | null) =>
+    (productId: string, embed: { product_type?: string | null; price_pph?: number | null; price_ppv?: number | null; brand?: string | null; laboratory?: string | null } | null) =>
       resolveCatalogPrice(
         productEmbedToPricingInput(
           embed
@@ -1903,7 +1910,7 @@ export function PatientProductRequestActions({
                 product_type: embed.product_type ?? "parapharmacie",
                 price_pph: embed.price_pph,
                 price_ppv: embed.price_ppv,
-                laboratory: embed.laboratory,
+                brand: embed.brand,
               }
             : null,
           productId
@@ -1923,14 +1930,18 @@ export function PatientProductRequestActions({
   const [exitModalNonce, setExitModalNonce] = useState(0);
   const [exitModalMode, setExitModalMode] = useState<RequestExitModalMode>("patient_abandon");
   const [productPhotoPreview, setProductPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
-  const openProductPhotoPreview = useCallback((url: string, title: string, descriptionHtml?: string | null) => {
-    if (!url.trim()) return;
-    setProductPhotoPreview({
-      url: url.trim(),
-      title: title.trim() || "Produit",
-      descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
-    });
-  }, []);
+  const openProductPhotoPreview = useCallback(
+    (url: string, title: string, descriptionHtml?: string | null, brand?: string | null) => {
+      if (!url.trim()) return;
+      setProductPhotoPreview({
+        url: url.trim(),
+        title: title.trim() || "Produit",
+        brand: brand ?? null,
+        descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
+      });
+    },
+    []
+  );
   const [prescriptionEditMode, setPrescriptionEditMode] = useState(false);
   const [prescriptionPanelBusy, setPrescriptionPanelBusy] = useState(false);
   const [prescriptionPanelCanSave, setPrescriptionPanelCanSave] = useState(false);
@@ -2216,7 +2227,7 @@ export function PatientProductRequestActions({
         }
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,product_type,laboratory,photo_url,price_pph,price_ppv,full_description")
+          .select("id,name,product_type,brand,laboratory,photo_url,price_pph,price_ppv,full_description")
           .eq("is_active", true)
           .or(productNameOrLaboratoryIlikeOr(sanitized))
           .order("name")
@@ -2244,6 +2255,7 @@ export function PatientProductRequestActions({
         {
           product_id: p.id,
           name: p.name,
+          brand: p.brand,
           photo_url: resolvePublicMediaUrl(p.photo_url ?? null),
           full_description: p.full_description ?? null,
           qty: 1,
@@ -2689,6 +2701,7 @@ export function PatientProductRequestActions({
       open={productPhotoPreview !== null}
       imageUrl={productPhotoPreview?.url ?? null}
       title={productPhotoPreview?.title ?? ""}
+      brand={productPhotoPreview?.brand}
       descriptionHtml={productPhotoPreview?.descriptionHtml}
       onClose={() => setProductPhotoPreview(null)}
     />
@@ -3314,12 +3327,13 @@ export function PatientProductRequestActions({
                           hit={{
                             id: h.id,
                             name: h.name,
+                            brand: h.brand,
                             photo_url: h.photo_url ?? null,
                             unitPrice: resolveCatalogPrice(catalogHitToPricingInput(h)),
                           }}
                           onAdd={() => addProduct(h)}
                           onPhotoPreview={() => {
-                            if (h.photo_url) openProductPhotoPreview(h.photo_url, h.name, h.full_description);
+                            if (h.photo_url) openProductPhotoPreview(h.photo_url, h.name, h.full_description, h.brand);
                           }}
                         />
                       ))}
@@ -3338,6 +3352,7 @@ export function PatientProductRequestActions({
                 line={{
                   product_id: l.product_id,
                   name: l.name,
+                  brand: l.brand,
                   photo_url: l.photo_url,
                   qty: l.qty,
                   client_comment: l.client_comment,

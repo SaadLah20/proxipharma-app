@@ -84,6 +84,18 @@ select count(*) from products where full_description is not null and trim(full_d
 
 **UI (juin 2026)** : vignette produit cliquable côté patient et pharmacien → modale photo + panneau **Description** (`lib/product-description-html.ts`). Commit **`736100f`**.
 
+## 4. Marques produits (optionnel — en pause)
+
+Migration **`20260710_001_products_brand_columns.sql`** puis script Python :
+
+```powershell
+pip install -r scripts/requirements-product-brands.txt
+python scripts/extract-product-brands.py --dry-run
+python scripts/extract-product-brands.py --yes
+```
+
+Détail, état pilote et reprise v2 : **`scripts/README-product-brands.md`**.
+
 **Piège wipe** : si `DELETE FROM products` échoue avec **`23514`** sur `pharmacy_promo_offer_lines`, le script wipe supprime d’abord les lignes promo (CHECK `line_kind = 'product'` exige `product_id NOT NULL` malgré `ON DELETE SET NULL`).
 
 ## Python (optionnel)
