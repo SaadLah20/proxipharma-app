@@ -8,6 +8,7 @@ import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-p
 export function PharmacistProductPhotoThumb({
   photoUrl,
   title,
+  brand,
   descriptionHtml,
   onPhotoPreview,
   className,
@@ -16,6 +17,7 @@ export function PharmacistProductPhotoThumb({
 }: {
   photoUrl: string | null | undefined;
   title: string;
+  brand?: string | null;
   descriptionHtml?: string | null;
   onPhotoPreview?: ProductPhotoPreviewHandler;
   className?: string;
@@ -51,7 +53,7 @@ export function PharmacistProductPhotoThumb({
       onClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
-        onPhotoPreview(url, title, descriptionHtml);
+        onPhotoPreview(url, title, descriptionHtml, brand);
       }}
     >
       <img src={url} alt="" className="pointer-events-none h-full w-full object-cover" />

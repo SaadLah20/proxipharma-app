@@ -13,7 +13,6 @@ import {
   ProductRequestLinePrices,
   ProductRequestLineQtyInline,
 } from "@/components/pharmacy/patient-demande-produits-ui";
-import { ProductBrandLabel } from "@/components/products/product-brand-label";
 import { patientBucketProductRowClass } from "@/lib/patient-bucket-product-row-ui";
 import { pharmacistProposedProductBadgeFr } from "@/lib/request-display";
 
@@ -234,7 +233,7 @@ export function PharmacistSupplyCompactLine({
       <button
         type="button"
         className="size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-        onClick={() => onPhotoPreview(thumbUrl, validatedName, descriptionHtml)}
+        onClick={() => onPhotoPreview(thumbUrl, validatedName, descriptionHtml, validatedBrand)}
         aria-label={`Agrandir la photo · ${validatedName}`}
       >
         <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
@@ -494,7 +493,6 @@ export function PharmacistSupplyCompactLine({
               >
                 {validatedName}
               </p>
-              <ProductBrandLabel brand={validatedBrand} />
               <div
                 className={clsx(
                   "flex w-full items-end justify-between gap-3 leading-none",
@@ -546,7 +544,6 @@ export function PharmacistSupplyCompactLine({
                   </p>
                   <div className="flex shrink-0 flex-col items-center gap-2">{lineActionButtons}</div>
                 </div>
-                <ProductBrandLabel brand={validatedBrand} />
                 {bottomLabels}
               </div>
             </div>

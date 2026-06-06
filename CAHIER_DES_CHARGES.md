@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260712_001`**) → phrase **§13.43** (consultation libre lot 3 + photos patient). Catalogue BeautyMall : **§13.39** / **`736100f`**. La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260713_001`**) → phrase **§13.44** (archive ordonnance annulee + marques/pricing). Catalogue BeautyMall : **§13.39** / **`736100f`**. La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -22,7 +22,7 @@ Au **demarrage** d une session :
 2. `node scripts/merge-beautymall-products.mjs` (+ CSV WooCommerce `--main` si besoin) → `products_final.csv` + `products_unmatched.csv` (fuzzy ≥ 85 %).
 3. SQL `supabase/scripts/wipe-catalog-beautymall-import.sql` (vider catalogue + lignes promo liées) puis `node scripts/import-beautymall-catalog.mjs` (`--dry-run` possible). **Pilote** : **13 651** produits, **12 171** avec photo URL BeautyMall, **1 480** sans photo (icône UI). Pas de migration Git — colonne **`full_description`** déjà en schéma. Détail §10 session **2026-06-04 (suite 2)** · phrase **§13.39**.
 
-**Marques catalogue (juin 2026)** — **`20260710_001`** + **`20260713_001`** (pricing marque) · extraction **`scripts/README-product-brands.md`** (v2 en pause) · UI **`ProductBrandLabel`**. Journal §10 sessions **2026-06-06 (suite)** et **(suite 2)**.
+**Marques catalogue (juin 2026)** — **`20260710_001`** + **`20260713_001`** (pricing marque) · extraction **`scripts/README-product-brands.md`** (**v2.1 ~93,65 %** appliquée Supabase) · UI **`ProductBrandLabel`**. Journal §10 session **2026-06-06 (suite)**.
 
 A la **sortie**: demander ou accepter la mise a jour de ce cahier (Journal + Etat actuel + prompt de reprise du §12).
 
@@ -382,28 +382,46 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
-### Session 2026-06-06 (suite) — Marques catalogue BeautyMall (extraction automatique, en pause)
+### Session 2026-06-06 (suite 3) — Archive ordonnance annulée sans lignes produit
 
-**Branche** : travail local / scripts (pas de PR dédiée au moment de la pause).
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commit **`56bc5bc`**.
 
-**Migration** : **`20260710_001_products_brand_columns.sql`** — colonnes **`products.brand`**, **`products.brand_confidence`** (0 / 50 / 80 / 100) + index.
+**Problème** : ordonnance **envoyée** puis **annulée** / **abandonnée** avant réponse pharma (0 ligne `request_items`) → fiche patient quasi vide (pas de bandeau dossier ni scan).
 
-**Script** : **`scripts/extract-product-brands.py`** · deps **`scripts/requirements-product-brands.txt`** · doc **`scripts/README-product-brands.md`**.
+**Correctif patient** (`app/dashboard/demandes/[id]/page.tsx`, **`PatientProductRequestActions`**) :
+- Archive affichée **même sans lignes** (`showArchivedReadonly` sans garde `items.length > 0`).
+- Bandeau **`PatientProductRequestDossierHeader`** + statut terminal ; libellés dédiés sans produit (**`patientCancelledPrescriptionEmptyArchiveDetailFr`**, **`patientAbandonedPrescriptionEmptyArchiveDetailFr`** dans **`lib/patient-archive-outcome-fr.ts`**).
+- **`PrescriptionScanCollapsible`** + message patient en lecture seule ; scan **ouvert par défaut** si archive vide.
+- Lien **Annuaire — envoyer une nouvelle ordonnance** pour **`cancelled`** / **`abandoned`** / **`expired`** (aligné expirée).
+- Pas de bouton « Ajuster et renvoyer une nouvelle **demande produits** » sur ordonnance archive.
 
-**Algorithme** : dictionnaire marques depuis préfixes nom + slug Beautymall (`subcategory`) ; marques composées ; décodage entités HTML (`L'Oréal`) ; fallback description ; **packs / offres / lots** (marque embarquée ou slug pack).
+**SQL** : aucune migration.
 
-**Résultats pilote** :
+**Phrase de reprise** : **§13.44**.
+
+---
+
+### Session 2026-06-06 (suite) — Marques catalogue BeautyMall (extraction v2 + v2.1 appliquée)
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` · script **`scripts/extract-product-brands.py`**.
+
+**Migration** : **`20260710_001_products_brand_columns.sql`** — colonnes **`products.brand`**, **`products.brand_confidence`**.
+
+**Résultats pilote Supabase** (session reprise **2026-06-06**) :
 
 | Passe | Couverture | Supabase |
 |-------|------------|----------|
-| v1 (appliquée) | **83,62 %** | **13 651** produits mis à jour |
-| v2 (code seul, dry-run CSV) | **~92,37 %** | **non** réécrite (script trop lent en local) |
+| v1 | **83,62 %** | remplacée |
+| v2 | **92,37 %** (~12 609 / 13 651) | **13 651** lignes mises à jour |
+| v2.1 (+ seeds audit) | **93,65 %** (~12 784 / 13 651) | **13 651** lignes mises à jour |
 
-**Audit v1** : **`scripts/brand-unidentified-audit.csv`** (~2 236 non identifiés) — motifs HTML entities, marques rares, packs multi-marques, slug absent.
+**v2.1 seeds** : Elancyl, I Love My Hair, MGD Nature, P'anticell, BioMin, Vitae, Pharco, Jumiso, etc. (~30 entrées **`KNOWN_BRAND_DISPLAY`**).
 
-**Reprise différée (extraction v2)** : optimiser perf script → dry-run v2 → **`python scripts/extract-product-brands.py --yes`**. **App (juin 2026, suite 2)** : colonne **`brand`** lue en catalogue + dossiers ; pricing officine par marque — voir session **2026-06-06 (suite 2)**.
+**Reste ~867 non identifiés** : surtout sans slug Beautymall, marques 1–2 SKU, accessoires génériques. Audit : **`scripts/brand-unidentified-patterns.json`**.
 
-**Phrase de reprise marques (extraction)** : **`scripts/README-product-brands.md`** § « État au 2026-06-06 ».
+**Commande** : `python scripts/extract-product-brands.py --yes` (~35 min REST ; bulk plus rapide si **`DATABASE_URL`**).
+
+**Phrase de reprise marques** : **`scripts/README-product-brands.md`** § « État au 2026-06-06 ».
 
 ---
 
@@ -2256,7 +2274,13 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.43) Phrase de reprise (recommandée — après session **2026-06-06** consultation lot 3 + photos patient)
+### 13.44) Phrase de reprise (recommandée — après session **2026-06-06 (suite 3)** archive ordonnance annulée + marques/pricing)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`56bc5bc`** archive ordonnance annulée sans lignes, **`640346c`** marques + pricing officine par marque). **Migrations à appliquer** si pas fait : **`20260710_001`** → **`20260713_001`** (après **`20260712_001`**). **Ordonnance archive annulée/abandonnée/expirée** avant saisie produit : bandeau dossier + scan + lien annuaire (plus de fiche vide). **Marques** : **`ProductBrandLabel`**, onglet **Marques** pricing pharmacien. Lots antérieurs : consultation lot 3 (**§13.43**), i18n ar/fr, vocaux. Catalogue BeautyMall : **§13.39**. Je te donne la tâche ou les retours preview. »**
+
+### 13.43) Phrase de reprise (dépassée — session **2026-06-06** consultation lot 3 + photos patient)
+
+Voir **§13.44**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`428d662`** scroll/édition/lightbox, **`718913f`** brief replié + save unique, **`bf9b94f`** photos compress-before-check). **Migrations à appliquer** si pas fait : **`20260711_001`** → **`20260712_001`** (après **`20260709_001`**). **Consultation patient** : fil conversation scroll chaining ; **`ConsultationBriefPanel`** replié + **Enregistrer les modifications** (texte + photos) jusqu’à **`responded`** ; bulle **Modifié le…** ; lightbox **`ConsultationPhotoLightbox`** ; **une seule notif** pharmacien à l’envoi avec photos. **Photos** ordonnance/consultation : **`lib/patient-request-photo-upload.ts`** (compresser puis valider, plus faux rejet 8 Mo brut). Lots antérieurs : i18n ar/fr (**§13.42**), vocaux, ordonnance pharma. Catalogue BeautyMall : **§13.39**. Je te donne la tâche ou les retours preview. »**
 
@@ -2302,7 +2326,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-06** — consultation libre lot 3 + photos patient). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260712_001`** ; catalogue **13 651** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.43**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-06 (suite 3)** — archive ordonnance annulée + marques/pricing). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260713_001`** ; catalogue **13 651** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.44**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 

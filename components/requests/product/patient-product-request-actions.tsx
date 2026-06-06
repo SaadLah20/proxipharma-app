@@ -18,7 +18,6 @@ import { clsx } from "clsx";
 import { useTranslations } from "next-intl";
 import { usePatientRequestStatusLabel } from "@/lib/i18n/patient-request-status-label";
 import { Button } from "@/components/ui/button";
-import { ProductBrandLabel } from "@/components/products/product-brand-label";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { cn } from "@/lib/utils";
 import {
@@ -414,7 +413,7 @@ export function PatientValidatedCompactLineCard({
       <button
         type="button"
         className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", lineKindTheme.photoRing)}
-        onClick={() => onPhotoPreview(thumbUrl, validatedName, descriptionHtml)}
+        onClick={() => onPhotoPreview(thumbUrl, validatedName, descriptionHtml, validatedBrand)}
         aria-label={`Agrandir la photo · ${validatedName}`}
       >
         <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
@@ -445,7 +444,6 @@ export function PatientValidatedCompactLineCard({
           >
             {validatedName}
           </p>
-          <ProductBrandLabel brand={validatedBrand} />
 
           <div
             className={cn(
@@ -533,7 +531,7 @@ function PatientTraceNotRetainedRow({
               <button
                 type="button"
                 className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", lineKindTheme.photoRing)}
-                onClick={() => onPhotoPreview(photoUrl, name, prod?.full_description)}
+                onClick={() => onPhotoPreview(photoUrl, name, prod?.full_description, prod?.brand)}
                 aria-label={`Agrandir la photo · ${name}`}
               >
                 <img src={photoUrl} alt="" className="pointer-events-none h-full w-full object-cover opacity-90" />
@@ -901,7 +899,8 @@ function PatientArchiveFrozenProductsView({
                   onPhotoPreview(
                     resolvePublicMediaUrl(url) ?? url,
                     prod?.name ?? "Produit",
-                    prod?.full_description
+                    prod?.full_description,
+                    prod?.brand
                   );
                 }
               }}
@@ -2745,7 +2744,10 @@ export function PatientProductRequestActions({
   const showConsultationWaiting =
     isConsultation && (uiStatus === "submitted" || uiStatus === "in_review");
   const showPrescriptionWaiting =
-    isPrescription && (uiStatus === "submitted" || uiStatus === "in_review") && prescriptionPaths?.page1;
+    !forceReadOnly &&
+    isPrescription &&
+    (uiStatus === "submitted" || uiStatus === "in_review") &&
+    prescriptionPaths?.page1;
   const showWaitingShell = showProductResubmit || showPrescriptionWaiting || showConsultationWaiting;
   const showPatientExitCTA =
     !forceReadOnly &&
@@ -3376,7 +3378,7 @@ export function PatientProductRequestActions({
                 editMode={editMode}
                 onRemove={editMode ? () => setLines((prev) => prev.filter((_, i) => i !== idx)) : undefined}
                 onPhotoPreview={() => {
-                  if (l.photo_url) openProductPhotoPreview(l.photo_url, l.name, l.full_description);
+                  if (l.photo_url) openProductPhotoPreview(l.photo_url, l.name, l.full_description, l.brand);
                 }}
                 onSetQty={(qty) =>
                   setLines((prev) =>

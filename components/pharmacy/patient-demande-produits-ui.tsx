@@ -751,7 +751,6 @@ export function ProductRequestCartLineRow({
             <p className="truncate pb-px text-[13px] font-semibold leading-snug text-foreground" title={line.name}>
               {line.name}
             </p>
-            <ProductBrandLabel brand={line.brand} />
           </div>
         }
         unitPrice={unitPrice}
@@ -864,7 +863,7 @@ export function PatientDemandeSendConfirmModal({
   submitLoading: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  onPhotoPreview: (url: string, title: string, descriptionHtml?: string | null) => void;
+  onPhotoPreview: (url: string, title: string, descriptionHtml?: string | null, brand?: string | null) => void;
 }) {
   const td = useTranslations("demandePublic");
   const tc = useTranslations("common");
@@ -919,7 +918,7 @@ export function PatientDemandeSendConfirmModal({
                         type="button"
                         className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", t.photoRing)}
                         aria-label={td("enlargePhoto", { name: l.name })}
-                        onClick={() => onPhotoPreview(l.photo_url!, l.name, l.full_description)}
+                        onClick={() => onPhotoPreview(l.photo_url!, l.name, l.full_description, l.brand)}
                       >
                         <img src={l.photo_url} alt="" className="pointer-events-none size-full object-cover" />
                       </button>

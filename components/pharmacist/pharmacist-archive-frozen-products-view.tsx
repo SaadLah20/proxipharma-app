@@ -57,12 +57,15 @@ function archiveRetainedTotalsFooter(input: {
   );
 }
 
+type ArchiveFrozenProductEmbed = {
+  name?: string | null;
+  photo_url?: string | null;
+  full_description?: string | null;
+  brand?: string | null;
+};
+
 function oneProduct(
-  products:
-    | { name?: string | null; photo_url?: string | null; full_description?: string | null }
-    | { name?: string | null; photo_url?: string | null; full_description?: string | null }[]
-    | null
-    | undefined
+  products: ArchiveFrozenProductEmbed | ArchiveFrozenProductEmbed[] | null | undefined
 ) {
   if (!products) return null;
   return Array.isArray(products) ? products[0] ?? null : products;
@@ -75,10 +78,7 @@ type ArchiveFrozenItem = PatientLineLike & {
   client_comment?: string | null;
   line_source?: string | null;
   pharmacist_proposal_reason?: string | null;
-  products?:
-    | { name?: string | null; photo_url?: string | null; full_description?: string | null }
-    | { name?: string | null; photo_url?: string | null; full_description?: string | null }[]
-    | null;
+  products?: ArchiveFrozenProductEmbed | ArchiveFrozenProductEmbed[] | null;
 };
 
 /** Archive figée (annulée / expirée / abandonnée) — alignée `PatientArchiveFrozenProductsView`. */
@@ -152,7 +152,8 @@ export function PharmacistArchiveFrozenProductsView<T extends ArchiveFrozenItem>
                   onPhotoPreview(
                     resolvePublicMediaUrl(photoPath) ?? photoPath,
                     prod?.name ?? "Produit",
-                    prod?.full_description
+                    prod?.full_description,
+                    prod?.brand
                   );
                 }}
                 onSetQty={noop}

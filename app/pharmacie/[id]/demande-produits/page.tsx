@@ -433,7 +433,7 @@ export default function DemandeProduitsPage() {
                   unitPrice={draftLineUnitPrice(l)}
                   onRemove={() => removeLine(l.product_id)}
                   onPhotoPreview={() => {
-                    if (l.photo_url) openPhotoPreview(l.photo_url, l.name, l.full_description);
+                    if (l.photo_url) openPhotoPreview(l.photo_url, l.name, l.full_description, l.brand);
                   }}
                   onSetQty={(qty) => setQty(l.product_id, qty)}
                   onOpenComment={() =>
