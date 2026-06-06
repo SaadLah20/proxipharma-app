@@ -340,6 +340,42 @@ KNOWN_BRAND_DISPLAY: dict[str, str] = {
     "nature soin": "NaturEsoin",
     "dietaroma": "Dietaroma",
     "ultra compact": "Ultra Compact",
+    # v2.1 — audit juin 2026 (slug / seuil fréquence / marque embarquée)
+    "elancyl": "Elancyl",
+    "panticell": "P'anticell",
+    "p anticell": "P'anticell",
+    "mgd": "MGD Nature",
+    "biomin": "BioMin",
+    "vitae": "Vitae",
+    "pharco": "Pharco",
+    "sylaplaie": "Sylaplaie",
+    "soins sur mesure": "Soins Sur Mesure",
+    "i love my hair": "I Love My Hair",
+    "dr althea": "Dr. Althea",
+    "dr shuller": "Dr. Shuller",
+    "dr shoes": "Dr Shoes",
+    "jumiso": "Jumiso",
+    "pilea": "Pilea",
+    "egosan": "Egosan",
+    "delia": "Delia",
+    "cosmetix": "Cosmetix",
+    "ss laboratory": "SS Laboratory",
+    "contour": "Contour",
+    "df": "DF",
+    "cotton plus": "Cotton Plus",
+    "remescar": "Remescar",
+    "sinomarin": "Sinomarin",
+    "dyson": "Dyson",
+    "joone": "Joone",
+    "biokarite": "Biokarite",
+    "elcea": "Elcea",
+    "kanellia": "Kanellia",
+    "chlorhexil": "Chlorhexil",
+    "lero": "Lero",
+    "malia s": "Malia's",
+    "ahlam": "Ahlam",
+    "magics": "Magics",
+    "h and t": "H&T",
 }
 
 BRAND_DDL_SQL = """
@@ -1294,7 +1330,7 @@ def ensure_brand_columns() -> bool:
         conn.autocommit = True
         with conn.cursor() as cur:
             cur.execute(BRAND_DDL_SQL)
-    print("\n✓ Colonnes brand / brand_confidence vérifiées (ALTER TABLE).")
+    print("\nOK — colonnes brand / brand_confidence verifiees (ALTER TABLE).")
     return True
 
 
@@ -1552,7 +1588,7 @@ def main() -> int:
 
     print("\nMise à jour Supabase…")
     count = update_supabase(supabase_client, assignments)
-    print(f"✓ Terminé : {count} produit(s) mis à jour.")
+    print(f"Termine : {count} produit(s) mis a jour.")
     return 0
 
 

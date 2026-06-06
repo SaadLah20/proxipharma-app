@@ -22,7 +22,7 @@ Au **demarrage** d une session :
 2. `node scripts/merge-beautymall-products.mjs` (+ CSV WooCommerce `--main` si besoin) → `products_final.csv` + `products_unmatched.csv` (fuzzy ≥ 85 %).
 3. SQL `supabase/scripts/wipe-catalog-beautymall-import.sql` (vider catalogue + lignes promo liées) puis `node scripts/import-beautymall-catalog.mjs` (`--dry-run` possible). **Pilote** : **13 651** produits, **12 171** avec photo URL BeautyMall, **1 480** sans photo (icône UI). Pas de migration Git — colonne **`full_description`** déjà en schéma. Détail §10 session **2026-06-04 (suite 2)** · phrase **§13.39**.
 
-**Marques catalogue (juin 2026)** — **`20260710_001`** + **`20260713_001`** (pricing marque) · extraction **`scripts/README-product-brands.md`** (v2 en pause) · UI **`ProductBrandLabel`**. Journal §10 sessions **2026-06-06 (suite)** et **(suite 2)**.
+**Marques catalogue (juin 2026)** — **`20260710_001`** + **`20260713_001`** (pricing marque) · extraction **`scripts/README-product-brands.md`** (**v2.1 ~93,65 %** appliquée Supabase) · UI **`ProductBrandLabel`**. Journal §10 session **2026-06-06 (suite)**.
 
 A la **sortie**: demander ou accepter la mise a jour de ce cahier (Journal + Etat actuel + prompt de reprise du §12).
 
@@ -401,28 +401,27 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
-### Session 2026-06-06 (suite) — Marques catalogue BeautyMall (extraction automatique, en pause)
+### Session 2026-06-06 (suite) — Marques catalogue BeautyMall (extraction v2 + v2.1 appliquée)
 
-**Branche** : travail local / scripts (pas de PR dédiée au moment de la pause).
+**Branche** : `fix/validated-supply-ecart-ui-modal` · script **`scripts/extract-product-brands.py`**.
 
-**Migration** : **`20260710_001_products_brand_columns.sql`** — colonnes **`products.brand`**, **`products.brand_confidence`** (0 / 50 / 80 / 100) + index.
+**Migration** : **`20260710_001_products_brand_columns.sql`** — colonnes **`products.brand`**, **`products.brand_confidence`**.
 
-**Script** : **`scripts/extract-product-brands.py`** · deps **`scripts/requirements-product-brands.txt`** · doc **`scripts/README-product-brands.md`**.
-
-**Algorithme** : dictionnaire marques depuis préfixes nom + slug Beautymall (`subcategory`) ; marques composées ; décodage entités HTML (`L'Oréal`) ; fallback description ; **packs / offres / lots** (marque embarquée ou slug pack).
-
-**Résultats pilote** :
+**Résultats pilote Supabase** (session reprise **2026-06-06**) :
 
 | Passe | Couverture | Supabase |
 |-------|------------|----------|
-| v1 (appliquée) | **83,62 %** | **13 651** produits mis à jour |
-| v2 (code seul, dry-run CSV) | **~92,37 %** | **non** réécrite (script trop lent en local) |
+| v1 | **83,62 %** | remplacée |
+| v2 | **92,37 %** (~12 609 / 13 651) | **13 651** lignes mises à jour |
+| v2.1 (+ seeds audit) | **93,65 %** (~12 784 / 13 651) | **13 651** lignes mises à jour |
 
-**Audit v1** : **`scripts/brand-unidentified-audit.csv`** (~2 236 non identifiés) — motifs HTML entities, marques rares, packs multi-marques, slug absent.
+**v2.1 seeds** : Elancyl, I Love My Hair, MGD Nature, P'anticell, BioMin, Vitae, Pharco, Jumiso, etc. (~30 entrées **`KNOWN_BRAND_DISPLAY`**).
 
-**Reprise différée (extraction v2)** : optimiser perf script → dry-run v2 → **`python scripts/extract-product-brands.py --yes`**. **App (juin 2026, suite 2)** : colonne **`brand`** lue en catalogue + dossiers ; pricing officine par marque — voir session **2026-06-06 (suite 2)**.
+**Reste ~867 non identifiés** : surtout sans slug Beautymall, marques 1–2 SKU, accessoires génériques. Audit : **`scripts/brand-unidentified-patterns.json`**.
 
-**Phrase de reprise marques (extraction)** : **`scripts/README-product-brands.md`** § « État au 2026-06-06 ».
+**Commande** : `python scripts/extract-product-brands.py --yes` (~35 min REST ; bulk plus rapide si **`DATABASE_URL`**).
+
+**Phrase de reprise marques** : **`scripts/README-product-brands.md`** § « État au 2026-06-06 ».
 
 ---
 

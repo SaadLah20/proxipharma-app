@@ -93,28 +93,21 @@ Rapport dry-run : **`scripts/brand-extraction-report.json`**.
 
 ---
 
-## État au 2026-06-06 (session interrompue — reprise plus tard)
+## État au 2026-06-06 (reprise session)
 
 | Passe | Couverture | En base Supabase ? | Remarque |
 |-------|------------|--------------------|----------|
-| **v1** | **83,62 %** (~11 415 / 13 651) | **Oui** — 13 651 lignes mises à jour | Première extraction réussie |
-| **v2** (améliorations code) | **~92,37 %** (~12 609 / 13 651) en dry-run CSV | **Non** | Script trop lent en local (~10–15 min+) ; **non relancé** sur Supabase |
+| **v1** | **83,62 %** (~11 415 / 13 651) | **Oui** (remplacé par v2) | Première extraction |
+| **v2** | **92,37 %** (~12 609 / 13 651) | **Oui** | Dry-run CSV validé puis **`--yes`** |
+| **v2.1** | **93,65 %** (~12 784 / 13 651) | **Oui** | +175 vs v2 (seeds audit) |
 
-**Améliorations v2 déjà dans le code** (pas encore poussées en prod données) :
+**Améliorations v2** : entités HTML, marques composées, packs/offres, seeds élargis, **`--audit-unidentified`**, index **`BrandMatcher`**.
 
-- décodage entités HTML dans les noms (`L&rsquo;Oréal`, `&#038;`)
-- marques composées (`Dr`, `MGD`, `Pro`, `Bio`…)
-- packs / offres / lots (marque dans le nom ou le slug)
-- seeds **`KNOWN_BRAND_DISPLAY`** élargis (Eluday, Elgydium, Bio-Oil, Wella…)
-- mode **`--audit-unidentified`**
-- index **`BrandMatcher`** (perf partielle — boucles description HTML encore lentes)
+**v2.1** : ~30 seeds **`KNOWN_BRAND_DISPLAY`** depuis **`brand-unidentified-patterns.json`** (marques slug sous seuil, MGD générique, brosse → I Love My Hair embarquée).
 
-**Prochain jalon** (quand on reprend l’extraction) :
+**Reste ~867 non identifiés** : produits sans slug Beautymall, marques 1–2 SKU, accessoires génériques.
 
-1. Valider dry-run v2 (couverture + échantillon qualité).
-2. Relancer **`--yes`** sur Supabase (ou bulk via `DATABASE_URL`).
-
-**Déjà livré côté app** (migration **`20260713_001`**) : pricing officine par **marque** (plus laboratoire) ; libellé marque dans le catalogue et les dossiers patient/pharmacien. Optionnel restant : filtre catalogue par `brand`.
+**Déjà livré côté app** (migration **`20260713_001`**) : pricing officine par **marque** ; libellé **`ProductBrandLabel`**. Optionnel : filtre catalogue par `brand`.
 
 ---
 
