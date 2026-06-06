@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { clsx } from "clsx";
+import { useLocale } from "next-intl";
 import type { PatientRequestRow } from "@/components/requests/demande-hub-ui";
 import { RequestStatusBadge } from "@/components/requests/demande-hub-ui";
 import { displayRequestPublicRef } from "@/lib/public-ref";
-import { patientProductHubCardContextFr } from "@/lib/patient-product-hub-sections";
+import { usePatientProductHubCardContext } from "@/lib/i18n/patient-product-hub-card-context";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { one } from "@/lib/embed";
-import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
+import { formatDateTimeShortForLocale } from "@/lib/datetime-locale";
+import type { AppLocale } from "@/lib/i18n/config";
+import { usePatientHubCardCopy } from "@/lib/i18n/patient-hub-card-copy";
 import { uiSecondaryLabel } from "@/lib/ui-label-styles";
 
 /** Carte hub uniforme — le statut porte la couleur (badge), pas toute la carte. */
@@ -25,10 +28,12 @@ export function PatientProductDemandeHubCard({
   compact?: boolean;
   conversationUnread?: boolean;
 }) {
+  const locale = useLocale() as AppLocale;
+  const cardCopy = usePatientHubCardCopy();
   const ph = one(row.pharmacies);
-  const ctx = patientProductHubCardContextFr(row);
+  const ctx = usePatientProductHubCardContext(row);
   const refVisuel = displayRequestPublicRef(row);
-  const when = formatDateTimeShort24hFr(row.updated_at ?? row.submitted_at ?? row.created_at);
+  const when = formatDateTimeShortForLocale(row.updated_at ?? row.submitted_at ?? row.created_at, locale);
 
   return (
     <article className={clsx(cardShell(row.status), "transition hover:-translate-y-px hover:shadow-md")}>
@@ -41,15 +46,15 @@ export function PatientProductDemandeHubCard({
             <div className="flex flex-wrap items-center gap-1.5">
               <RequestStatusBadge status={row.status} role="patient" />
               {conversationUnread ? (
-                <span className={uiSecondaryLabel} title="Conversation non lue">
-                  Message
+                <span className={uiSecondaryLabel} title={cardCopy.messageUnreadTitle}>
+                  {cardCopy.message}
                 </span>
               ) : null}
             </div>
 
             <div>
               <p className="text-sm font-bold leading-snug break-words text-foreground sm:text-[15px]">
-                {ph?.nom ? pharmacyPublicLabel(ph.nom) : "Pharmacie"}
+                {ph?.nom ? pharmacyPublicLabel(ph.nom) : cardCopy.pharmacyFallback}
               </p>
               {ph?.ville ? (
                 <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">{ph.ville}</p>
@@ -64,7 +69,7 @@ export function PatientProductDemandeHubCard({
               ) : null}
             </div>
 
-            <p className="text-[10px] tabular-nums text-muted-foreground">Dernière activité · {when}</p>
+            <p className="text-[10px] tabular-nums text-muted-foreground">{cardCopy.lastActivity(when)}</p>
           </div>
 
           <span

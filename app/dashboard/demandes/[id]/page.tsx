@@ -5,6 +5,7 @@ import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { PageShell } from "@/components/ui/compact-shell";
 import { uiActionBtnFilterToggle, uiActionBtnFullOutline } from "@/lib/ui-action-buttons";
 import { supabase } from "@/lib/supabase";
@@ -130,6 +131,8 @@ type RequestItemRow = {
 };
 
 export default function DemandeDetailPage() {
+  const tDemandes = useTranslations("demandes");
+  const tTimeline = useTranslations("timeline.dossier");
   const params = useParams();
   const router = useRouter();
   const id = typeof params.id === "string" ? params.id : "";
@@ -167,7 +170,7 @@ export default function DemandeDetailPage() {
     async (silent?: boolean): Promise<{ updatedAt: string; status: string } | null> => {
       if (!id) {
         setLoading(false);
-        setError("Demande introuvable.");
+        setError(tDemandes("pageErrors.notFound"));
         return null;
       }
       if (!silent) {
@@ -185,7 +188,7 @@ export default function DemandeDetailPage() {
       const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
 
       if (profile && (profile as { role: string }).role !== "patient") {
-        setError("Cette page concerne les patients.");
+        setError(tDemandes("pageErrors.patientsOnly"));
         setLoading(false);
         return null;
       }
@@ -208,7 +211,7 @@ export default function DemandeDetailPage() {
       }
 
       if (!reqRow) {
-        setError("Demande introuvable ou elle ne t’appartient pas.");
+        setError(tDemandes("pageErrors.notOwned"));
         setLoading(false);
         return null;
       }
@@ -802,8 +805,8 @@ export default function DemandeDetailPage() {
             <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Historique du dossier</span>
             <span className="text-[11px] font-medium text-foreground">
               {historyRows.length === 0
-                ? "Aucun événement chargé"
-                : `${historyRows.length} événement${historyRows.length > 1 ? "s" : ""} — ouvrir pour le détail`}
+                ? tTimeline("noEventsLoaded")
+                : historyRows.length === 1 ? tTimeline("eventsOpen", { count: historyRows.length }) : tTimeline("eventsOpenPlural", { count: historyRows.length })}
             </span>
           </div>
           <ChevronDown

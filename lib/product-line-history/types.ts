@@ -1,5 +1,6 @@
 import type { HistoryActorTone } from "@/lib/request-history-fr";
 import type { PatientLineLike } from "@/lib/patient-confirmed-line-buckets";
+import type { AppLocale } from "@/lib/i18n/config";
 
 /** Grandes étapes du parcours produit — affichées comme chapitres dans l’historique. */
 export type LineHistoryPhase =
@@ -66,6 +67,8 @@ export type ProductLineHistoryContext = {
   patientLineOriginLabel?: string;
   requestType?: string | null;
   audience: "patient" | "pharmacist";
+  locale?: AppLocale;
+  phaseLabels?: Partial<Record<LineHistoryPhase, string>>;
 };
 
 /** Événement normalisé avant rendu UI. */

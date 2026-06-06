@@ -1,16 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
 import { accountBackForRole } from "@/lib/platform-dashboard-chrome";
 import { InAppNotificationItem } from "@/components/notifications/in-app-notification-item";
-import { rewriteForPatientView, rewriteForPharmacistView } from "@/lib/patient-copy";
+import type { AppLocale } from "@/lib/i18n/config";
+import { pickPatientNotificationText } from "@/lib/i18n/pick-notification-text";
+import { rewriteForPharmacistView } from "@/lib/patient-copy";
 import { supabase } from "@/lib/supabase";
 
 type FeedRow = {
@@ -18,6 +19,8 @@ type FeedRow = {
   created_at: string;
   title: string;
   body: string | null;
+  title_ar: string | null;
+  body_ar: string | null;
   read_at: string | null;
   event_type: string | null;
   href: string;
@@ -37,6 +40,7 @@ function promoHref(role: string, reservationId: string) {
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const locale = useLocale() as AppLocale;
   const tn = useTranslations("notifications");
   const tc = useTranslations("common");
   const [loading, setLoading] = useState(true);
@@ -82,7 +86,7 @@ export default function NotificationsPage() {
     const [{ data: reqNotifs, error: re }, { data: promoNotifs, error: pe2 }] = await Promise.all([
       supabase
         .from("app_notifications")
-        .select("id,created_at,title,body,request_id,read_at,event_type")
+        .select("id,created_at,title,body,title_ar,body_ar,request_id,read_at,event_type")
         .eq("recipient_id", user.id)
         .order("created_at", { ascending: false })
         .limit(60),
@@ -107,6 +111,8 @@ export default function NotificationsPage() {
           created_at: string;
           title: string;
           body: string | null;
+          title_ar?: string | null;
+          body_ar?: string | null;
           request_id: string;
           read_at: string | null;
           event_type: string | null;
@@ -116,6 +122,8 @@ export default function NotificationsPage() {
           created_at: row.created_at,
           title: row.title,
           body: row.body,
+          title_ar: row.title_ar ?? null,
+          body_ar: row.body_ar ?? null,
           read_at: row.read_at,
           event_type: row.event_type,
           href: requestHref(r, row.request_id),
@@ -137,6 +145,8 @@ export default function NotificationsPage() {
           created_at: row.created_at,
           title: row.title,
           body: row.body,
+          title_ar: null,
+          body_ar: null,
           read_at: row.read_at,
           event_type: row.event_type,
           href: promoHref(r, row.reservation_id),
@@ -163,6 +173,30 @@ export default function NotificationsPage() {
   }, [rows, filter]);
 
   const promoCount = rows.filter((x) => x.source === "promo").length;
+
+  const audience = role === "pharmacien" ? "pharmacien" : role === "admin" ? "admin" : "patient";
+
+  const displayRows = useMemo(
+    () =>
+      filtered.map((n) => {
+        const picked = pickPatientNotificationText(
+          {
+            title: n.title,
+            body: n.body,
+            title_ar: n.title_ar,
+            body_ar: n.body_ar,
+          },
+          locale,
+          audience,
+        );
+        const displayTitle =
+          audience === "pharmacien" ? (rewriteForPharmacistView(picked.title) ?? picked.title) : picked.title;
+        const displayBody =
+          audience === "pharmacien" ? rewriteForPharmacistView(picked.body) : picked.body;
+        return { ...n, displayTitle, displayBody };
+      }),
+    [filtered, locale, audience],
+  );
 
   if (loading) {
     return (
@@ -229,23 +263,11 @@ export default function NotificationsPage() {
         </p>
       ) : (
         <ul className="w-full min-w-0 max-w-full space-y-3">
-          {filtered.map((n) => (
+          {displayRows.map((n) => (
             <li key={n.id} className="min-w-0 max-w-full">
               <InAppNotificationItem
-                title={
-                  role === "patient"
-                    ? rewriteForPatientView(n.title) ?? n.title
-                    : role === "pharmacien"
-                      ? rewriteForPharmacistView(n.title) ?? n.title
-                      : n.title
-                }
-                body={
-                  role === "patient"
-                    ? rewriteForPatientView(n.body)
-                    : role === "pharmacien"
-                      ? rewriteForPharmacistView(n.body)
-                      : n.body
-                }
+                title={n.displayTitle}
+                body={n.displayBody}
                 createdAt={n.created_at}
                 eventType={n.event_type}
                 href={n.href}

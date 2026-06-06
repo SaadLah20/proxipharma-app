@@ -32,5 +32,8 @@ jobs:
       - name: Run linter
         run: npm run lint
 
+      - name: Check i18n key parity
+        run: npm run i18n:parity
+
       - name: Build application
         run: npm run build

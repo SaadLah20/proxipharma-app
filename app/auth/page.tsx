@@ -681,7 +681,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
           : t("page.titleLogin");
 
   const subtitle = isProvisionedPharmacistStep
-    ? "Votre compte a été créé par l’administrateur. Choisissez un mot de passe personnel : vous vous connecterez ensuite avec votre numéro et ce mot de passe."
+    ? t("validation.provisionedPasswordHint")
     : isSignup
       ? signupStep === "form"
         ? t("page.subtitleSignupForm")

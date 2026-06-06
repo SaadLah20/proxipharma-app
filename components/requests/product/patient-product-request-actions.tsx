@@ -41,6 +41,7 @@ import {
 import { Z_STICKY_FOOTER } from "@/lib/ui-z-index";
 import { usePatientArchiveClosureLabel } from "@/lib/i18n/patient-archive-closure-label";
 import { usePatientDatetimeFormatters } from "@/lib/i18n/use-patient-datetime-formatters";
+import { usePatientLineCountLabel } from "@/lib/i18n/use-patient-line-count-label";
 import {
   RequestExitConfirmModalFr,
   type RequestExitModalMode,
@@ -898,7 +899,7 @@ function PatientArchiveFrozenProductsView({
               key={row.id}
               line={{
                 product_id: row.product_id,
-                name: prod?.name ?? "Produit",
+                name: prod?.name ?? tCommon("product"),
                 product_type: prod?.product_type ?? null,
                 photo_url: prod?.photo_url ?? null,
                 qty: row.requested_qty,
@@ -1165,10 +1166,10 @@ function PatientArchiveFrozenProductsView({
 
       {retireesApresValidation.length > 0 ? (
         <PatientArchiveCollapsibleSection
-          title="Retrait après validation"
+          title={tCommon("withdrawalAfterValidation")}
           count={retireesApresValidation.length}
           variant="withdrawn"
-          hint="Retrait convenu avec la pharmacie — trace uniquement."
+          hint={tCommon("withdrawalHint")}
         >
           <ul className={patientBucketProductListClass}>
             {retireesApresValidation.map((row) => (
@@ -1191,7 +1192,7 @@ function PatientArchiveFrozenProductsView({
       ) : null}
 
       {lignesNonRetenues.length > 0 ? (
-        <PatientArchiveCollapsibleSection title="Lignes non retenues" count={lignesNonRetenues.length}>
+        <PatientArchiveCollapsibleSection title={tCommon("unreleasedLines")} count={lignesNonRetenues.length}>
           <ul className={patientBucketProductListClass}>
             {lignesNonRetenues.map((row) => (
               <PatientTraceNotRetainedRow
@@ -1916,6 +1917,7 @@ export function PatientProductRequestActions({
   const tDemandes = useTranslations("demandes");
   const tValidation = useTranslations("demandes.validation");
   const dt = usePatientDatetimeFormatters();
+  const lineCountLabel = usePatientLineCountLabel();
   const phaseLabels = useTimelinePhaseLabels();
   const prescriptionCopy = usePrescriptionUiCopy();
 
@@ -2237,10 +2239,10 @@ export function PatientProductRequestActions({
       patientLineOriginLabel: workflowCopy.patientLineOriginLabel,
       requestType,
       timelineAudience: "patient",
-      locale,
+      locale: dt.locale,
       phaseLabels,
     });
-    return applyTimelinePhaseLabels(localizeTimelineAtLabels(blocks, locale), phaseLabels);
+    return applyTimelinePhaseLabels(localizeTimelineAtLabels(blocks, dt.locale), phaseLabels);
   }, [
     historyModalRow,
     requestTimelineMeta,
@@ -2250,7 +2252,7 @@ export function PatientProductRequestActions({
     workflowCopy.timelinePharmacistProposedOrigin,
     workflowCopy.patientLineOriginLabel,
     requestType,
-    locale,
+    dt.locale,
     phaseLabels,
   ]);
 
@@ -3009,8 +3011,7 @@ export function PatientProductRequestActions({
 
       {showConsultationWaiting && items.length === 0 ? (
         <p className="mb-2 rounded-lg border border-violet-200/70 bg-white/80 px-2.5 py-2 text-[11px] leading-snug text-violet-950">
-          La pharmacie n&apos;a pas encore ajouté de produit. Consultez l&apos;onglet <strong>Conversation</strong> pour
-          échanger.
+          {tDemandes("consultationWaiting.noProductsYet")}
         </p>
       ) : null}
 
@@ -3037,10 +3038,10 @@ export function PatientProductRequestActions({
             pharmacyId={pharmacyId}
             dossierRefLabel={dossierRefLabel}
             lineCount={items.length}
-            lineCountLabel={buildPatientLineCountLabel(
+            lineCountLabel={lineCountLabel(
               requestType,
               showConfirm ? "responded" : status,
-              items.length
+              items.length,
             )}
             status={status}
             createdAt={requestTimelineMeta?.created_at ?? ""}

@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { MessageCircle, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { requestKindUiTheme } from "@/lib/request-kind-ui-theme";
 import { uiActionBtnModalDismiss } from "@/lib/ui-action-buttons";
@@ -19,6 +20,9 @@ export function PatientLineNotesIconButton({
   pharmacist: string;
   requestType?: string;
 }) {
+  const tCommon = useTranslations("common");
+  const tConversation = useTranslations("conversation");
+  const tDemandes = useTranslations("demandes");
   const [open, setOpen] = useState(false);
   const titleId = useId();
   const kindTheme = requestKindUiTheme(requestType);
@@ -40,8 +44,8 @@ export function PatientLineNotesIconButton({
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-card text-foreground shadow-sm hover:bg-muted/40"
-        aria-label="Voir les messages sur ce produit"
-        title="Messages"
+        aria-label={tDemandes("notes.viewLineMessagesAria")}
+        title={tDemandes("responded.messageTitle")}
       >
         <MessageCircle className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
       </button>
@@ -56,7 +60,7 @@ export function PatientLineNotesIconButton({
           <div className={cn("flex items-start justify-between gap-2 border-b px-3 py-2", kindTheme.modalHeader)}>
             <div className="min-w-0 flex-1">
               <h2 id={titleId} className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                <span className="block">Message</span>
+                <span className="block">{tDemandes("responded.messageTitle")}</span>
                 <span className="mt-1 block text-[13px] font-semibold normal-case leading-snug text-foreground">
                   {productName}
                 </span>
@@ -65,7 +69,7 @@ export function PatientLineNotesIconButton({
             <button
               type="button"
               className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted/60"
-              aria-label="Fermer"
+              aria-label={tCommon("closeAria")}
               onClick={() => setOpen(false)}
             >
               <X className="size-4" aria-hidden />
@@ -74,20 +78,20 @@ export function PatientLineNotesIconButton({
           <div className="max-h-[min(60vh,16rem)] space-y-2 overflow-y-auto overscroll-y-contain px-3 py-2.5 text-[11px] [-webkit-overflow-scrolling:touch]">
             {c ? (
               <div className={cn("rounded-lg border border-border/80 border-l-2 bg-muted/20 px-2.5 py-2", patientNoteBorderClass)}>
-                <p className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">Vous</p>
+                <p className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">{tConversation("you")}</p>
                 <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-foreground">{c}</p>
               </div>
             ) : null}
             {p ? (
               <div className="rounded-lg border border-border/80 border-l-2 border-l-emerald-500/70 bg-muted/20 px-2.5 py-2">
-                <p className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">Officine</p>
+                <p className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">{tConversation("pharmacy")}</p>
                 <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-foreground">{p}</p>
               </div>
             ) : null}
           </div>
           <div className="border-t border-border/60 px-3 py-2">
             <button type="button" className={uiActionBtnModalDismiss()} onClick={() => setOpen(false)}>
-              Fermer
+              {tCommon("close")}
             </button>
           </div>
         </div>

@@ -75,7 +75,7 @@ export function patientClosedArchiveBucketHeaderClass(id: PatientClosedArchiveLi
   return patientClosedArchiveBucketAccentTextClass(id);
 }
 
-type ClosedArchiveLineLike = {
+export type ClosedArchiveLineLike = {
   is_selected_by_patient: boolean;
   counter_outcome?: string | null;
   withdrawn_after_confirm?: boolean | null;

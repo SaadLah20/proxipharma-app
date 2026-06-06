@@ -1,4 +1,6 @@
 import { formatDateTimeShort24hFr, patientPlannedVisitPassageLineFr } from "@/lib/datetime-fr";
+import { formatDateTimeShortForLocale } from "@/lib/datetime-locale";
+import type { AppLocale } from "@/lib/i18n/config";
 import {
   counterOutcomeReasonPayload,
   counterOutcomeReasonProductName,
@@ -54,6 +56,8 @@ export type DossierTimelineInputs = {
   patientNote?: string | null;
   plannedVisitDate?: string | null;
   plannedVisitTime?: string | null;
+  /** Dates localisées (patient AR/FR). */
+  locale?: AppLocale;
 };
 
 const TERMINAL_REQUEST_STATUSES = new Set([
@@ -211,7 +215,12 @@ function shouldSkipCounterRow(
   return false;
 }
 
-function eventsToBlocks(events: PendingEvent[]): DossierTimelineBlockFr[] {
+function formatTimelineAtLabel(iso: string, locale?: AppLocale): string {
+  if (locale) return formatDateTimeShortForLocale(iso, locale);
+  return formatDateTimeShort24hFr(iso);
+}
+
+function eventsToBlocks(events: PendingEvent[], locale?: AppLocale): DossierTimelineBlockFr[] {
   const sorted = [...events].sort((a, b) => {
     const ta = new Date(a.atIso).getTime();
     const tb = new Date(b.atIso).getTime();
@@ -221,7 +230,7 @@ function eventsToBlocks(events: PendingEvent[]): DossierTimelineBlockFr[] {
   return sorted.map((e) => ({
     id: e.id,
     atIso: e.atIso,
-    atLabel: formatDateTimeShort24hFr(e.atIso),
+    atLabel: formatTimelineAtLabel(e.atIso, locale),
     title: e.title,
     body: e.bodyLines.join("\n"),
     actorLabel: e.actorLabel,
@@ -386,5 +395,5 @@ export function buildDossierTimelineFr(input: DossierTimelineInputs): DossierTim
     });
   }
 
-  return eventsToBlocks(events);
+  return eventsToBlocks(events, input.locale);
 }

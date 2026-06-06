@@ -120,5 +120,7 @@ export const authFr = {
       "Pour réinitialiser par e-mail, saisissez votre adresse e-mail dans le champ identifiant.",
     validationResetRequestFailed: "Impossible d'envoyer la demande. Vérifiez votre connexion et réessayez.",
     validationResetRequestLater: "Impossible d'envoyer la demande pour le moment. Réessayez plus tard.",
+    provisionedPasswordHint:
+      "Votre compte a été créé par l'administrateur. Choisissez un mot de passe personnel : vous vous connecterez ensuite avec votre numéro et ce mot de passe.",
   },
 };

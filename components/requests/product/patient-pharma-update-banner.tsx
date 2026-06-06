@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "next-intl";
 import { ClipboardList, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
-import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
+import { formatDateTimeShortForLocale } from "@/lib/datetime-locale";
+import type { AppLocale } from "@/lib/i18n/config";
 import {
   buildPatientPharmaAmendmentResumeFr,
   type PatientPharmaAmendmentResumeSection,
@@ -17,6 +19,7 @@ export function PatientPharmaUpdateBanner({
   whenLabel?: string;
   bundles: { created_at: string; amendments: unknown }[];
 }) {
+  const locale = useLocale() as AppLocale;
   const [open, setOpen] = useState(false);
   const resume = buildPatientPharmaAmendmentResumeFr(bundles);
 
@@ -57,8 +60,9 @@ export function PatientPharmaUpdateBanner({
             </h2>
             <p className="mt-0.5 text-[11px] text-muted-foreground">
               {resume.batchCount > 1
-                ? `${resume.batchCount} mises à jour depuis votre validation · dernière ${formatDateTimeShort24hFr(
-                    bundles[0]?.created_at ?? ""
+                ? `${resume.batchCount} mises à jour depuis votre validation · dernière ${formatDateTimeShortForLocale(
+                    bundles[0]?.created_at ?? "",
+                    locale,
                   )}`
                 : `Mise à jour ${resume.whenLabel}`}
             </p>

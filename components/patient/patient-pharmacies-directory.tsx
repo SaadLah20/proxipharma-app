@@ -9,7 +9,6 @@ import { useLocale, useTranslations } from "next-intl";
 import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
 import { one } from "@/lib/embed";
-import { PATIENT_DASHBOARD_BUCKETS } from "@/lib/demandes-hub-buckets";
 import {
   formatActivityFr,
   pharmacyDisplayName,
@@ -19,6 +18,7 @@ import {
   type PatientPharmacyDirectoryRow,
 } from "@/lib/patient-pharmacy-crm";
 import { collatorForLocale } from "@/lib/datetime-locale";
+import { usePatientLastDossierStatusHint } from "@/lib/i18n/patient-last-dossier-status-hint";
 import type { AppLocale } from "@/lib/i18n/config";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
@@ -34,37 +34,18 @@ const ACTIVE_REQUEST_STATUSES = new Set([
   "treated",
 ]);
 
-function lastRequestStatusLabelFr(status: string | null): string | null {
-  if (!status) return null;
-  const bucket = PATIENT_DASHBOARD_BUCKETS.find((b) => b.statuses.includes(status));
-  return bucket?.label ?? status;
-}
-
-/** Libellé court singulier pour le dernier dossier sur une carte officine (évite « Clôturées » ambigu). */
-function lastDossierStatusHintFr(status: string | null): string | null {
-  const label = lastRequestStatusLabelFr(status);
-  if (!label) return null;
-  if (label === "Clôturées") return "Clôturé";
-  if (label === "Envoyées") return "Envoyée";
-  if (label === "Annulées") return "Annulé";
-  if (label === "Expirées") return "Expiré";
-  if (label === "Abandonnées") return "Abandonné";
-  if (label.endsWith("ées")) return `${label.slice(0, -2)}ée`;
-  if (label.endsWith("és")) return `${label.slice(0, -1)}é`;
-  return label;
-}
-
 function pharmacyCardActivityLine(
   lastActivityAt: string | null,
   lastStatus: string | null,
   activeCount: number,
-  t: ReturnType<typeof useTranslations<"account">>
+  t: ReturnType<typeof useTranslations<"account">>,
+  lastDossierHint: (status: string | null) => string | null,
 ): string {
   const when = formatActivityFr(lastActivityAt);
   if (activeCount > 0) {
     return t("lastActivity", { when });
   }
-  const dossier = lastDossierStatusHintFr(lastStatus);
+  const dossier = lastDossierHint(lastStatus);
   if (dossier) {
     return t("lastDossier", { status: dossier, when });
   }
@@ -195,6 +176,7 @@ export function PatientPharmaciesDirectory() {
   const t = useTranslations("account");
   const tp = useTranslations("pharmacyPublic");
   const tc = useTranslations("common");
+  const lastDossierHint = usePatientLastDossierStatusHint();
   const locale = useLocale() as AppLocale;
   const nameCollator = useMemo(() => collatorForLocale(locale), [locale]);
   const [loading, setLoading] = useState(true);
@@ -382,7 +364,8 @@ export function PatientPharmaciesDirectory() {
               r.last_activity_at,
               r.last_request_status,
               r.active_request_count,
-              t
+              t,
+              lastDossierHint,
             );
             return (
               <li key={r.pharmacy_id}>

@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import {
   formatShortId,
   requestStatusBadgeClass,
   requestStatusFr,
-  requestStatusShortFr,
   requestStatusShortFrPharmacien,
 } from "@/lib/request-display";
-import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
+import { formatDateTimeShortForLocale } from "@/lib/datetime-locale";
+import type { AppLocale } from "@/lib/i18n/config";
+import { usePatientRequestStatusLabel } from "@/lib/i18n/patient-request-status-label";
 import { summarizeRequestForPatientCard, type PatientRequestItemRow } from "@/lib/patient-request-list-summary";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindAccent } from "@/lib/request-kinds/types";
@@ -21,20 +23,24 @@ function demandeCardShell(_status: string, _role: "patient" | "pharmacien", _acc
   return "rounded-lg border border-border bg-card shadow-sm transition hover:border-primary/25 hover:shadow-md";
 }
 
-function patientCardLineBadge(row: PatientRequestRow, summary: ReturnType<typeof summarizeRequestForPatientCard>): string {
+function patientCardLineBadge(
+  row: PatientRequestRow,
+  summary: ReturnType<typeof summarizeRequestForPatientCard>,
+  t: ReturnType<typeof useTranslations<"hub.listChrome">>,
+): string {
   if (row.request_type === "free_consultation" && ["submitted", "in_review"].includes(row.status) && summary.lineCount === 0) {
-    return "En discussion";
+    return t("inDiscussion");
   }
   if (row.request_type === "free_consultation" && summary.lineCount > 0) {
-    return `${summary.lineCount} produit${summary.lineCount > 1 ? "s" : ""} proposé${summary.lineCount > 1 ? "s" : ""}`;
+    return t("productsProposed", { count: summary.lineCount });
   }
   if (row.request_type === "prescription" && ["submitted", "in_review"].includes(row.status) && summary.lineCount === 0) {
-    return "Scan envoyé";
+    return t("scanSent");
   }
   if (row.request_type === "prescription" && summary.lineCount > 0) {
-    return `${summary.lineCount} produit${summary.lineCount > 1 ? "s" : ""} saisi${summary.lineCount > 1 ? "s" : ""}`;
+    return t("productsEntered", { count: summary.lineCount });
   }
-  return `${summary.lineCount} ligne${summary.lineCount === 1 ? "" : "s"}`;
+  return t("lines", { count: summary.lineCount });
 }
 
 function pharmacistCardLineBadge(row: PharmacistRequestRow, lineCount: number): string {
@@ -54,12 +60,12 @@ function pharmacistCardLineBadge(row: PharmacistRequestRow, lineCount: number): 
 }
 
 /** Une date si identique, sinon MAJ seule (plus courte que création + MAJ). */
-function hubCardTimestamp(created: string, updated?: string | null): string {
+function hubCardTimestamp(created: string, updated: string | null | undefined, locale: AppLocale): string {
   const u = updated?.trim() || created;
   if (updated?.trim() && updated.trim() !== created) {
-    return formatDateTimeShort24hFr(u);
+    return formatDateTimeShortForLocale(u, locale);
   }
-  return formatDateTimeShort24hFr(created);
+  return formatDateTimeShortForLocale(created, locale);
 }
 
 export type HubTab = "dashboard" | "list";
@@ -152,7 +158,8 @@ export function RequestStatusBadge({
   status: string;
   role?: "patient" | "pharmacien";
 }) {
-  const label = role === "pharmacien" ? requestStatusShortFrPharmacien(status) : requestStatusShortFr(status);
+  const patientLabel = usePatientRequestStatusLabel(status);
+  const label = role === "pharmacien" ? requestStatusShortFrPharmacien(status) : patientLabel;
   return (
     <span className={clsx(requestStatusBadgeClass(status), "sm:text-[11px]")}>
       {label}
@@ -171,9 +178,12 @@ export function PatientDemandeCard({
   /** Message(s) conversation d’autrui non lus pour l’utilisateur courant. */
   conversationUnread?: boolean;
 }) {
+  const locale = useLocale() as AppLocale;
+  const tList = useTranslations("hub.listChrome");
+  const tDossier = useTranslations("demandes.dossierBand");
   const ph = one(row.pharmacies);
   const when = row.submitted_at ?? row.created_at;
-  const ts = hubCardTimestamp(when, row.updated_at);
+  const ts = hubCardTimestamp(when, row.updated_at, locale);
   const itemsRaw = row.request_items;
   const items = (Array.isArray(itemsRaw) ? itemsRaw : []) as PatientRequestItemRow[];
   const summary = summarizeRequestForPatientCard(items.length ? items : null, row.status);
@@ -181,7 +191,8 @@ export function PatientDemandeCard({
   const cardStatus = row.status;
   const kindConfig = getRequestKindConfig(row.request_type);
   const cardAccent = kindConfig.theme.accent;
-  const lineBadge = patientCardLineBadge(row, summary);
+  const lineBadge = patientCardLineBadge(row, summary, tList);
+  const pharmacyFallback = tDossier("pharmacyFallback");
   if (variant === "list") {
     return (
       <div className={clsx(demandeCardShell(cardStatus, "patient", cardAccent), "transition hover:-translate-y-px")}>
@@ -189,14 +200,16 @@ export function PatientDemandeCard({
           href={`/dashboard/demandes/${row.id}`}
           className="group block p-2.5 sm:p-3"
           aria-label={
-            conversationUnread ? `${ph?.nom ?? "Pharmacie"} — conversation non lue` : undefined
+            conversationUnread
+              ? tList("conversationUnreadAria", { pharmacy: ph?.nom ?? pharmacyFallback })
+              : undefined
           }
         >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <p className="truncate text-[13px] font-semibold leading-tight text-foreground sm:text-sm">
-                  {ph?.nom ?? "Pharmacie"}
+                  {ph?.nom ?? pharmacyFallback}
                 </p>
                 {ph?.ville ? (
                   <span className="shrink-0 text-[10px] text-muted-foreground">({ph.ville})</span>
@@ -215,10 +228,10 @@ export function PatientDemandeCard({
               {conversationUnread ? (
                 <span
                   className="size-2 shrink-0 rounded-full bg-primary shadow-sm ring-2 ring-white"
-                  title="Conversation non lue"
+                  title={tList("conversationUnread")}
                 />
               ) : null}
-              <span className="text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary">
+              <span className="text-muted-foreground transition group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 group-hover:text-primary rtl:rotate-180">
                 →
               </span>
             </span>
@@ -233,12 +246,12 @@ export function PatientDemandeCard({
       <Link
         href={`/dashboard/demandes/${row.id}`}
         className="group block p-2.5 sm:p-3"
-        aria-label={conversationUnread ? "Demande — conversation non lue" : undefined}
+        aria-label={conversationUnread ? tList("requestUnreadAria") : undefined}
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] text-muted-foreground">
-              {formatDateTimeShort24hFr(when)}
+              {formatDateTimeShortForLocale(when, locale)}
               {ph ? (
                 <>
                   {" "}
@@ -254,9 +267,9 @@ export function PatientDemandeCard({
           </div>
           <span className="relative flex shrink-0 items-center gap-1" aria-hidden>
             {conversationUnread ? (
-              <span className="size-2 shrink-0 rounded-full bg-sky-600 shadow-sm ring-2 ring-white" title="Conversation non lue" />
+              <span className="size-2 shrink-0 rounded-full bg-sky-600 shadow-sm ring-2 ring-white" title={tList("conversationUnread")} />
             ) : null}
-            <span className="text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary">→</span>
+            <span className="text-muted-foreground transition group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 group-hover:text-primary rtl:rotate-180">→</span>
           </span>
         </div>
       </Link>
@@ -278,7 +291,7 @@ export function PharmacistDemandeCard({
   conversationUnread?: boolean;
 }) {
   const when = row.submitted_at ?? row.created_at;
-  const ts = hubCardTimestamp(when, row.updated_at);
+  const ts = hubCardTimestamp(when, row.updated_at, "fr");
   const name = patientDisplayName(row);
   const lines = Array.isArray(row.request_items) ? row.request_items : [];
   const nReserved = lines.filter(
@@ -335,7 +348,7 @@ export function PharmacistDemandeCard({
                 title="Conversation non lue"
               />
             ) : null}
-            <span className="text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary">→</span>
+            <span className="text-muted-foreground transition group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 group-hover:text-primary rtl:rotate-180">→</span>
           </span>
         </div>
       </Link>

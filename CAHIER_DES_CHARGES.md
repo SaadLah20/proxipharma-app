@@ -56,9 +56,9 @@ A la **sortie**: demander ou accepter la mise a jour de ce cahier (Journal + Eta
 | 4 | **URLs (démarrage)** | **Le plus simple** : **mêmes URLs** + locale en **cookie** ou `localStorage` (pas de préfixe `/ar/` au pilote). Réévaluer `/ar/...` seulement si besoin SEO/partage WhatsApp. |
 | 5 | **SMS / notifs externes** | **SMS** : restent **français** (ASCII, 1 segment). **In-app** : colonnes **`title_ar`** / **`body_ar`** sur **`app_notifications`** (**`20260709_001`**) ; affichage selon locale patient. |
 | 6 | **RTL** | Locale `ar` → `dir="rtl"`, police arabe lisible, revue layout (footers sticky, grilles). **Implémenté** (`app/layout.tsx`, `globals.css`). |
-| 7 | **Implémentation** | **`next-intl`** + **`messages/fr.json`** / **`messages/ar.json`** ; **`middleware.ts`**, **`i18n/`**, **`lib/i18n/`** ; **`locale-role-guard`** (pharmacien/admin toujours FR). Déploiement par vagues — lot juin 2026 : annuaire, auth patient, parcours demandes, hubs, paramètres, fiche publique, promos. |
+| 7 | **Implémentation** | **`next-intl`** + **`messages/fr/*.ts`** / **`messages/ar/*.ts`** (namespaces : `common`, `auth`, `demandes`, `hub`, `workflow`, `annuaire`, `pharmacyPublic`, `header`, …) ; **`middleware.ts`**, **`i18n/request.ts`**, **`lib/i18n/`** ; **`locale-role-guard`** (pharmacien/admin toujours FR). **Couverture patient complète juin 2026 (vagues 1–6)** : conversation + modales sortie ; pages publiques demande produits / ordonnance / consultation ; hubs + cartes dossier ; détail dossier (actions, archives, timeline, panels ordonnance/consultation) ; paramètres (prefs notif, méthodes connexion, liste souhaits) ; dates **`lib/datetime-locale.ts`** + **`usePatientDatetimeFormatters`** ; RTL mobile ; CI **`npm run i18n:parity`** (**`scripts/i18n-key-parity.mjs`**). **Hors scope** : espace pharmacien/admin, SMS externes, descriptions catalogue BeautyMall. |
 
-**Références** : `CONTEXTE.md` §4 (vision bilinguisme) ; `AGENTS.md` paragraphe **i18n patient**.
+**Références** : `CONTEXTE.md` §4 (vision bilinguisme) ; `AGENTS.md` paragraphe **i18n patient** ; journal §10 session **2026-06-06 (suite 5)** ; phrase reprise **§13.46**.
 
 ---
 
@@ -495,7 +495,7 @@ git checkout pilote-stable-2026-05-24
 **Internationalisation patient (ar / fr)** :
 - **`next-intl`** + **`middleware.ts`** ; locales **`fr`** | **`ar`** ; cookie **`pp_locale`** ; détection **`Accept-Language`**.
 - **Périmètre** : annuaire public, auth patient, fiche pharmacie, parcours demandes (produits / ordonnance / consultation), hubs, paramètres, promos — **pas** l’espace pharmacien ni admin (**`locale-role-guard`**, **`isFrenchOnlyPath`**).
-- **UI** : switcher **AR | FR** header (**`locale-switcher.tsx`**) ; **`dir="rtl"`** locale ar ; messages **`messages/fr.json`** + **`messages/ar.json`**.
+- **UI** : switcher **AR | FR** header (**`locale-switcher.tsx`**) ; **`dir="rtl"`** locale ar ; messages **`messages/fr/*.ts`** + **`messages/ar/*.ts`**.
 - **Hooks copy** : **`use-prescription-ui-copy`**, **`use-consultation-ui-copy`**, **`use-patient-validated-line-labels`** (wrappers sur libs FR existantes).
 - Migration **`20260709_001_i18n_patient_notification_ar.sql`** — colonnes **`title_ar`** / **`body_ar`** sur **`app_notifications`** + surcharge patient selon locale.
 
@@ -506,6 +506,34 @@ git checkout pilote-stable-2026-05-24
 **Migrations à appliquer en pilote (ordre)** : **`20260709_001`** (après **`20260708_001`**).
 
 **Phrase de reprise** : **§13.42** (dépassée → **§13.43**).
+
+---
+
+### Session 2026-06-06 (suite 5) — couverture i18n patient vagues 1–6
+
+**Branche** : `fix/validated-supply-ecart-ui-modal`.
+
+**Objectif** : traduire l’UI **patient / public** restée en français après le lot initial (**§13.42**), sans toucher pharmacien ni admin.
+
+**Infrastructure** :
+- **`scripts/i18n-key-parity.mjs`** + **`npm run i18n:parity`** — parité clés FR/AR + détection chaînes FR dans chemins patient ; étape CI **`.github/workflows/ci.yml`**.
+- Helpers **`lib/i18n/`** : **`build-patient-timeline`**, **`use-patient-datetime-formatters`**, **`patient-archive-closure-label`**, **`patient-hub-card-copy`**, **`patient-product-hub-card-context`**, **`patient-last-dossier-status-hint`**, **`use-patient-line-count-label`**, **`use-patient-login-methods-copy`**.
+
+**Vagues (composants / pages)** :
+1. Conversation dossier, modales sortie, badges hub, aperçu photo produit.
+2. Pages publiques **`demande-produits`**, **`demande-ordonnance`**, **`consultation-libre`** ; metadata **`app/layout.tsx`**.
+3. **`patient-demandes-hub`**, **`demande-hub-ui`**, cartes hub produits.
+4. Actions validation / archives, timeline, panels ordonnance & consultation, historique ligne.
+5. **`external-notification-prefs`**, méthodes connexion auth, **`liste-souhaits`**, fallback notifs AR enrichi.
+6. Revue RTL (footers, FAB, modales) ; dates locale partout patient.
+
+**Messages** : namespaces **`demandes`**, **`hub`**, **`workflow`** (`prescriptionPublic`, `consultationPublic`), **`common`**, **`auth`**, etc.
+
+**Hors scope volontaire** : pharmacien/admin FR ; SMS externes FR ; ~28 chaînes FR résiduelles (historique narratif `*-fr.ts`, libellés internes) ; descriptions catalogue BeautyMall.
+
+**Migration** : aucune nouvelle — rappel **`20260709_001`** (notifs in-app **`title_ar`** / **`body_ar`**) si pas appliquée.
+
+**Phrase de reprise** : **§13.46**.
 
 ---
 
@@ -2298,7 +2326,13 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.45) Phrase de reprise (recommandée — après session **2026-06-06 (suite 4)** catalogue médicaments + marques v2.1)
+### 13.46) Phrase de reprise (recommandée — après session **2026-06-06 (suite 5)** couverture i18n patient vagues 1–6)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal`. **Migrations** si pas fait : **`20260709_001`** (notifs in-app ar) puis **`20260710_001`** → **`20260713_001`**. **i18n patient ar/fr — couverture complète** : cookie `pp_locale`, switcher header, RTL, **`messages/fr` + `messages/ar`** (`.ts`), CI **`i18n:parity`** ; conversation, pages publiques demande, hubs, détail dossier, paramètres, dates locale ; pharmacien/admin et SMS restent FR. **Catalogue** : **~19 677** lignes (BeautyMall + médicaments), marques para **~93,65 %**, pricing onglet **Marques**. Lots antérieurs : catalogue/vignettes (**§13.45**), consultation (**§13.43**), vocaux. Je te donne la tâche ou les retours preview. »**
+
+### 13.45) Phrase de reprise (dépassée — session **2026-06-06 (suite 4)** catalogue médicaments + marques v2.1)
+
+Voir **§13.46**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`fae90d9`** marques v2.1, **`7f6f675`** import médicaments). **Migrations** si pas fait : **`20260710_001`** → **`20260713_001`**. **Catalogue pilote Supabase** : **13 651** parapharmacie BeautyMall + **6 026** médicaments officine (Excel TVA=0, **`scripts/README-medicaments-officine.md`**) ≈ **19 677** lignes ; marques para **~93,65 %** (**`scripts/README-product-brands.md`**). **Pricing** : médicament = PPV fixe ; para = PPH + marge, onglet **Marques** pharmacien. Lots antérieurs : archive ordonnance annulée (**§13.44**), consultation lot 3 (**§13.43**), i18n ar/fr, vocaux. Je te donne la tâche ou les retours preview. »**
 

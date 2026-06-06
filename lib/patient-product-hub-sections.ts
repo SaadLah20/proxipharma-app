@@ -3,6 +3,7 @@
  * (pas de filtre URL ni liste ; la liste utilise les buckets statut comme les autres types).
  */
 
+import type { useTranslations } from "next-intl";
 import type { PatientRequestRow } from "@/components/requests/demande-hub-ui";
 import { summarizeRequestForPatientCard, type PatientRequestItemRow } from "@/lib/patient-request-list-summary";
 import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
@@ -16,35 +17,71 @@ export type PatientProductHubSection = {
   statuses: readonly string[];
 };
 
+const PATIENT_PRODUCT_HUB_SECTION_STATUSES: Record<
+  PatientProductHubSectionId,
+  readonly string[]
+> = {
+  action_required: ["responded", "treated"],
+  at_pharmacy: ["submitted", "in_review", "confirmed"],
+  archives: [
+    "completed",
+    "partially_collected",
+    "fully_collected",
+    "expired",
+    "abandoned",
+    "cancelled",
+    "draft",
+  ],
+};
+
+/** Sections traduites (titres / sous-titres via next-intl `hub.dashboardSections.*`). */
+export function getPatientProductHubSections(
+  t: ReturnType<typeof useTranslations<"hub">>,
+): PatientProductHubSection[] {
+  return [
+    {
+      id: "action_required",
+      title: t("dashboardSections.actionRequired.title"),
+      subtitle: t("dashboardSections.actionRequired.subtitle"),
+      statuses: PATIENT_PRODUCT_HUB_SECTION_STATUSES.action_required,
+    },
+    {
+      id: "at_pharmacy",
+      title: t("dashboardSections.atPharmacy.title"),
+      subtitle: t("dashboardSections.atPharmacy.subtitle"),
+      statuses: PATIENT_PRODUCT_HUB_SECTION_STATUSES.at_pharmacy,
+    },
+    {
+      id: "archives",
+      title: t("dashboardSections.archives.title"),
+      subtitle: t("dashboardSections.archives.subtitle"),
+      statuses: PATIENT_PRODUCT_HUB_SECTION_STATUSES.archives,
+    },
+  ];
+}
+
 /** Aperçu par bloc sur le tableau de bord patient. */
 export const PATIENT_PRODUCT_HUB_DASHBOARD_PREVIEW = 3;
 
+/** @deprecated Préférer `getPatientProductHubSections(t)` côté UI patient. */
 export const PATIENT_PRODUCT_HUB_SECTIONS: PatientProductHubSection[] = [
   {
     id: "action_required",
     title: "À votre action",
     subtitle: "Répondue à valider ou passage en officine prévu",
-    statuses: ["responded", "treated"],
+    statuses: PATIENT_PRODUCT_HUB_SECTION_STATUSES.action_required,
   },
   {
     id: "at_pharmacy",
     title: "Chez la pharmacie",
-    subtitle: "Envoyée ou validée — l’officine traite votre dossier",
-    statuses: ["submitted", "in_review", "confirmed"],
+    subtitle: "Envoyée ou validée — l'officine traite votre dossier",
+    statuses: PATIENT_PRODUCT_HUB_SECTION_STATUSES.at_pharmacy,
   },
   {
     id: "archives",
     title: "Archives",
     subtitle: "Clôturées, expirées, abandonnées ou annulées",
-    statuses: [
-      "completed",
-      "partially_collected",
-      "fully_collected",
-      "expired",
-      "abandoned",
-      "cancelled",
-      "draft",
-    ],
+    statuses: PATIENT_PRODUCT_HUB_SECTION_STATUSES.archives,
   },
 ];
 
@@ -89,7 +126,7 @@ export function patientProductHubListHref(basePath: string, opts?: { statutKey?:
   return `${basePath}?${next.toString()}`;
 }
 
-/** Jusqu’à 5 dossiers récents ou consultés (tous statuts, priorité messages non lus). */
+/** Jusqu'à 5 dossiers récents ou consultés (tous statuts, priorité messages non lus). */
 export function pickRecentActiveProductRequests(
   rows: PatientRequestRow[],
   unreadById: Record<string, boolean>,
@@ -156,7 +193,7 @@ export function patientProductHubCardContextFr(row: PatientRequestRow): PatientP
         return {
           primaryLine:
             n > 0
-              ? `${n} produit${n !== 1 ? "s" : ""} saisi${n !== 1 ? "s" : ""} par l’officine`
+              ? `${n} produit${n !== 1 ? "s" : ""} saisi${n !== 1 ? "s" : ""} par l'officine`
               : "Ordonnance transmise — saisie en cours",
           secondaryLine:
             n > 0
@@ -170,7 +207,7 @@ export function patientProductHubCardContextFr(row: PatientRequestRow): PatientP
         secondaryLine:
           summary.totalInitialDh != null
             ? `En attente de réponse · env. ${summary.totalInitialDh.toFixed(2)} MAD`
-            : "En attente de réponse de l’officine",
+            : "En attente de réponse de l'officine",
         emphasis: "info",
       };
     case "confirmed": {

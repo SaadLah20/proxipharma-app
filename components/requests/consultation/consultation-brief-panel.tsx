@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, ChevronDown, FileImage, Pencil, Trash2 } from "lucide-react";
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
 import { ConsultationPhotoLightbox } from "@/components/requests/consultation/consultation-photo-lightbox";
 import { supabase } from "@/lib/supabase";
 import {
@@ -67,6 +68,9 @@ function ConsultationBriefPanelBody({
   onSaved,
   defaultExpanded = false,
 }: ConsultationBriefPanelProps) {
+  const tPanel = useTranslations("consultation.panel");
+  const tCommon = useTranslations("common");
+  const isPatient = viewerRole === "patient";
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [textDraft, setTextDraft] = useState(initialText);
   const [photos, setPhotos] = useState<PhotoSlot[]>([]);
@@ -173,7 +177,7 @@ function ConsultationBriefPanelBody({
       }
       setPhotos(added);
     } catch (e) {
-      setFeedback(e instanceof Error ? e.message : "Erreur photo.");
+      setFeedback(e instanceof Error ? e.message : isPatient ? tPanel("photoError") : "Erreur photo.");
     }
   };
 
@@ -283,7 +287,7 @@ function ConsultationBriefPanelBody({
               </button>
               <button
                 type="button"
-                title="Retirer (enregistrez pour valider)"
+                title={isPatient ? tPanel("removePhotoTitle") : "Retirer (enregistrez pour valider)"}
                 disabled={busy}
                 onClick={() => removePhoto(p.slot)}
                 className="absolute right-0.5 top-0.5 z-10 rounded bg-black/55 p-0.5 text-white hover:bg-black/70 disabled:opacity-50"
@@ -349,7 +353,7 @@ function ConsultationBriefPanelBody({
           onClick={() => void saveAll()}
           className="rounded-md bg-violet-700 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-800 disabled:opacity-50"
         >
-          {busy ? "Enregistrement…" : "Enregistrer les modifications"}
+          {busy ? tCommon("saving") : isPatient ? tPanel("saveChanges") : "Enregistrer les modifications"}
         </button>
         <button
           type="button"
@@ -371,12 +375,10 @@ function ConsultationBriefPanelBody({
       <section className={clsx(shell, "p-3")}>
         <div>
           <p className="text-[9px] font-bold uppercase tracking-wide text-violet-900/80">
-            {viewerRole === "pharmacien" ? "Message du patient" : "Votre consultation"}
+            {viewerRole === "pharmacien" ? tPanel("pharmacistTitle") : tPanel("patientTitle")}
           </p>
           <p className="text-[11px] text-muted-foreground">
-            {viewerRole === "pharmacien"
-              ? "Texte et photos transmis au départ du dossier."
-              : "Message et photos envoyés au départ du dossier."}
+            {viewerRole === "pharmacien" ? tPanel("pharmacistSubtitle") : tPanel("patientSubtitle")}
           </p>
         </div>
         {readonlyBody}
@@ -404,14 +406,12 @@ function ConsultationBriefPanelBody({
         <div className="min-w-0 flex-1">
           <p className="text-[9px] font-bold uppercase tracking-wide text-violet-900/80">Modifier mon message</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {expanded
-              ? "Texte et photos — une seule validation pour la pharmacie."
-              : "Toucher pour modifier le texte ou les photos."}
+            {expanded ? tPanel("pharmacistExpandHint") : tPanel("patientExpandHint")}
           </p>
         </div>
         <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-violet-200 bg-white px-2 py-1 text-[10px] font-semibold text-violet-900 shadow-sm">
           {expanded ? null : <Pencil className="size-3" aria-hidden />}
-          {expanded ? "Replier" : "Ouvrir"}
+          {expanded ? tPanel("collapse") : tPanel("expand")}
           <ChevronDown className={clsx("size-3.5 transition-transform", expanded && "rotate-180")} aria-hidden />
         </span>
       </button>

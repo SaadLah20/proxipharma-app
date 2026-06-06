@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "i18n:parity": "node scripts/i18n-key-parity.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

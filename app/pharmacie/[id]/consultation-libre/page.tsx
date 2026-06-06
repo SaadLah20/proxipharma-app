@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Camera, FileImage, MessageSquare, Trash2 } from "lucide-react";
 import { PharmacyFlowHero, PharmacyPublicBackLink, pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
 import { platformDashboardChrome } from "@/lib/platform-dashboard-chrome";
@@ -23,6 +24,8 @@ import type { ConversationAudioDraft } from "@/lib/use-conversation-audio-record
 type PhotoSlot = { slot: 1 | 2 | 3; file?: File; previewUrl: string };
 
 export default function ConsultationLibrePage() {
+  const tc = useTranslations("consultationPublic");
+  const tCommon = useTranslations("common");
   const params = useParams();
   const router = useRouter();
   const pharmacyId = typeof params.id === "string" ? params.id : "";
@@ -73,7 +76,7 @@ export default function ConsultationLibrePage() {
     const list = Array.from(files);
     const remaining = CONSULTATION_MAX_PHOTOS - photos.length;
     if (remaining <= 0) {
-      setFeedback({ type: "err", text: `Maximum ${CONSULTATION_MAX_PHOTOS} photos.` });
+      setFeedback({ type: "err", text: tc("maxPhotosError", { max: CONSULTATION_MAX_PHOTOS }) });
       return;
     }
     const used = new Set(photos.map((p) => p.slot));
@@ -103,19 +106,19 @@ export default function ConsultationLibrePage() {
 
   const submit = async () => {
     setFeedback(null);
-    const t = text.trim();
-    if (t.length < CONSULTATION_TEXT_MIN) {
-      setFeedback({ type: "err", text: `Décrivez votre besoin en au moins ${CONSULTATION_TEXT_MIN} caractères.` });
+    const trimmed = text.trim();
+    if (trimmed.length < CONSULTATION_TEXT_MIN) {
+      setFeedback({ type: "err", text: tc("textTooShort", { min: CONSULTATION_TEXT_MIN }) });
       return;
     }
     setSubmitLoading(true);
     const { data: requestId, error: rpcErr } = await supabase.rpc("patient_submit_free_consultation_request", {
       p_pharmacy_id: pharmacyId,
-      p_consultation_text: t,
+      p_consultation_text: trimmed,
     });
     if (rpcErr || !requestId) {
       setSubmitLoading(false);
-      setFeedback({ type: "err", text: rpcErr?.message ?? "Échec de l’envoi." });
+      setFeedback({ type: "err", text: rpcErr?.message ?? tc("submitFailed") });
       return;
     }
     const rid = String(requestId);
@@ -148,7 +151,7 @@ export default function ConsultationLibrePage() {
       const { data: userData, error: userErr } = await supabase.auth.getUser();
       if (userErr || !userData.user) {
         setSubmitLoading(false);
-        setFeedback({ type: "err", text: "Session expirée. Reconnectez-vous." });
+        setFeedback({ type: "err", text: tc("sessionExpired") });
         return;
       }
       const convResult = await sendRequestConversationMessage({
@@ -163,8 +166,7 @@ export default function ConsultationLibrePage() {
         setSubmitLoading(false);
         setFeedback({
           type: "err",
-          text:
-            "Consultation envoyée, mais le message vocal n’a pas pu être enregistré. Ajoutez-le depuis la conversation du dossier.",
+          text: tc("voiceConvFailed"),
         });
         router.push(`/dashboard/demandes/${rid}`);
         return;
@@ -178,42 +180,46 @@ export default function ConsultationLibrePage() {
   if (!sessionReady) {
     return (
       <main className="mx-auto min-h-screen max-w-lg px-4 py-8">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
+        <p className="text-sm text-muted-foreground">{tc("sessionCheck")}</p>
       </main>
     );
   }
 
   return (
     <main className={cn("mx-auto min-h-screen max-w-lg bg-background px-4 py-6")}>
-      <PharmacyPublicBackLink href={`/pharmacie/${pharmacyId}`}>{pharmacyName || "Pharmacie"}</PharmacyPublicBackLink>
+      <PharmacyPublicBackLink href={`/pharmacie/${pharmacyId}`}>
+        {pharmacyName || tc("backFallback")}
+      </PharmacyPublicBackLink>
       <PharmacyFlowHero
         theme="consultation"
         icon={MessageSquare}
-        eyebrow="Consultation"
-        title="Consultation libre"
-        subtitle="Décrivez votre besoin. La pharmacie pourra échanger avec vous puis vous proposer des produits."
+        eyebrow={tc("eyebrow")}
+        title={tc("title")}
+        subtitle={tc("subtitle")}
       />
 
       <section className={cn("mt-5 space-y-4 p-4", pharmacyPublicCard)}>
         <label className="block">
-          <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Votre message</span>
+          <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{tc("yourMessage")}</span>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             maxLength={CONSULTATION_TEXT_MAX}
             rows={6}
-            placeholder="Symptômes, contexte, produits recherchés…"
+            placeholder={tc("messagePlaceholder")}
             className="mt-1.5 w-full rounded-lg border border-input px-3 py-2 text-sm shadow-inner focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
           <span className="mt-1 block text-[10px] text-muted-foreground tabular-nums">
-            {text.trim().length}/{CONSULTATION_TEXT_MAX} · min. {CONSULTATION_TEXT_MIN}
+            {tc("charCounter", {
+              current: text.trim().length,
+              max: CONSULTATION_TEXT_MAX,
+              min: CONSULTATION_TEXT_MIN,
+            })}
           </span>
         </label>
 
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            Message vocal (facultatif, max 30 s)
-          </p>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{tc("voiceOptional")}</p>
           <div className="mt-1.5">
             <ConversationMessageDraftField
               draft=""
@@ -226,7 +232,9 @@ export default function ConsultationLibrePage() {
         </div>
 
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Photos (facultatif, {CONSULTATION_MAX_PHOTOS} max)</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            {tc("photosOptional", { max: CONSULTATION_MAX_PHOTOS })}
+          </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {photos.map((p) => (
               <div key={p.slot} className="relative size-24 overflow-hidden rounded-xl border border-border bg-muted">
@@ -236,6 +244,7 @@ export default function ConsultationLibrePage() {
                   type="button"
                   onClick={() => removePhoto(p.slot)}
                   className="absolute right-1 top-1 rounded-full bg-black/55 p-1 text-white"
+                  aria-label={tc("removePhotoAria")}
                 >
                   <Trash2 className="size-3.5" />
                 </button>
@@ -249,24 +258,51 @@ export default function ConsultationLibrePage() {
                 onClick={() => cameraRef.current?.click()}
                 className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-border py-2.5 text-xs font-semibold text-foreground"
               >
-                <Camera className="size-4" /> Appareil
+                <Camera className="size-4" /> {tc("camera")}
               </button>
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-border py-2.5 text-xs font-semibold text-foreground"
               >
-                <FileImage className="size-4" /> Galerie
+                <FileImage className="size-4" /> {tc("gallery")}
               </button>
             </div>
           ) : null}
-          <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files; if (f?.length) void addFiles(f); e.target.value = ""; }} />
-          <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { const f = e.target.files; if (f?.length) void addFiles(f); e.target.value = ""; }} />
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files;
+              if (f?.length) void addFiles(f);
+              e.target.value = "";
+            }}
+          />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files;
+              if (f?.length) void addFiles(f);
+              e.target.value = "";
+            }}
+          />
         </div>
       </section>
 
       {feedback ? (
-        <p className={cn("mt-3 rounded-lg p-2.5 text-sm", feedback.type === "ok" ? "bg-emerald-50 text-emerald-900" : "bg-red-50 text-red-800")}>
+        <p
+          className={cn(
+            "mt-3 rounded-lg p-2.5 text-sm",
+            feedback.type === "ok" ? "bg-emerald-50 text-emerald-900" : "bg-red-50 text-red-800"
+          )}
+        >
           {feedback.text}
         </p>
       ) : null}
@@ -278,7 +314,7 @@ export default function ConsultationLibrePage() {
         className={cn("mt-5 w-full py-6 text-base font-semibold", platformDashboardChrome.cta)}
       >
         <MessageSquare className="mr-2 size-5" aria-hidden />
-        {submitLoading ? "Envoi…" : "Envoyer la consultation"}
+        {submitLoading ? tCommon("sending") : tc("sendConsultation")}
       </Button>
     </main>
   );

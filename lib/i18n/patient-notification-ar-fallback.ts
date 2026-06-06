@@ -18,6 +18,21 @@ const TITLE_AR_BY_FR: Record<string, string> = {
   "Mise à jour": "تحديث",
   "Demande validée mise à jour": "تم تحديث الطلب المُؤكد",
   "Demande traitée": "تمت معالجة الطلب",
+  "Message de votre pharmacie": "رسالة من صيدليتك",
+  "Ordonnance mise à jour": "تم تحديث الوصفة",
+  "Votre pack est confirmé": "تم تأكيد باقتك",
+  "Pack non disponible": "الباقة غير متاحة",
+  "Réservation pack annulée": "تم إلغاء حجز الباقة",
+  "Réservation annulée par l'officine": "ألغت الصيدلية الحجز",
+  "Réservation annulée": "تم إلغاء الحجز",
+  "Nouvelle réservation pack promo": "حجز باقة ترويجية جديد",
+  "Votre demande est en cours de traitement": "طلبك قيد المعالجة",
+  "La pharmacie vous a répondu": "ردّت الصيدلية",
+  "Votre commande est prête en pharmacie": "طلبك جاهز في الصيدلية",
+  "Votre demande est clôturée": "طلبك مُغلق",
+  "Votre demande a été annulée": "تم إلغاء طلبك",
+  "Votre demande a été abandonnée": "تم التخلي عن طلبك",
+  "Votre demande a expiré": "انتهت صلاحية طلبك",
 };
 
 export function fallbackPatientNotificationArabic(titleFr: string, bodyFr: string | null): {

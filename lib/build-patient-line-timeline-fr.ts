@@ -12,6 +12,7 @@ import { normalizedProductTokensForTimeline } from "@/lib/product-line-history/p
 import type { PatientLineLike } from "@/lib/patient-confirmed-line-buckets";
 import type { SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
 import type { HistoryActorTone } from "@/lib/request-history-fr";
+import type { AppLocale } from "@/lib/i18n/config";
 import type { LineHistoryPhase } from "@/lib/product-line-history/types";
 
 export { normalizedProductTokensForTimeline };
@@ -45,6 +46,8 @@ export type PatientLineTimelineInputs = {
   patientLineOriginLabel?: string;
   requestType?: string | null;
   timelineAudience?: "patient" | "pharmacist";
+  locale?: AppLocale;
+  phaseLabels?: Partial<Record<LineHistoryPhase, string>>;
 };
 
 /** Entrées `request_supply_amendments` concernant cette ligne. */
@@ -90,5 +93,7 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
     patientLineOriginLabel: input.patientLineOriginLabel,
     requestType: input.requestType,
     audience: input.timelineAudience === "pharmacist" ? "pharmacist" : "patient",
+    locale: input.locale,
+    phaseLabels: input.phaseLabels,
   });
 }

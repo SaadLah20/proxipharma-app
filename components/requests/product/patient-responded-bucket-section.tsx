@@ -4,14 +4,14 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { ArrowLeftRight, Ban, CheckCircle2, Package, Truck } from "lucide-react";
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
 import type { HubCopyAudience } from "@/lib/hub-copy-audience";
+import { isPharmacienCopyAudience } from "@/lib/hub-copy-audience";
 import {
   type PatientRespondedBucketId,
   patientRespondedBucketAccentTextClass,
-  patientRespondedBucketAriaTitleFr,
   patientRespondedBucketCountBadgeClass,
   patientRespondedBucketHeaderBarClass,
-  patientRespondedBucketTitleFr,
 } from "@/lib/patient-responded-line-buckets";
 
 type Props = {
@@ -30,12 +30,14 @@ const BUCKET_ICONS: Record<PatientRespondedBucketId, LucideIcon> = {
 };
 
 export function PatientRespondedBucketSection({ bucketId, count, audience = "patient", children }: Props) {
+  const t = useTranslations("demandes.respondedBuckets");
   const Icon = BUCKET_ICONS[bucketId];
-  const title = patientRespondedBucketTitleFr(bucketId);
+  const title = t(`${bucketId}.title`);
   const accentText = patientRespondedBucketAccentTextClass(bucketId);
+  const ariaKey = isPharmacienCopyAudience(audience) ? "ariaPharmacist" : "ariaPatient";
 
   return (
-    <section className="w-full min-w-0 space-y-1" aria-label={patientRespondedBucketAriaTitleFr(bucketId, audience)}>
+    <section className="w-full min-w-0 space-y-1" aria-label={t(`${bucketId}.${ariaKey}`)}>
       <div className={clsx("flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-1.5", patientRespondedBucketHeaderBarClass(bucketId))}>
         <Icon className={clsx("size-3.5 shrink-0", accentText)} strokeWidth={2.25} aria-hidden />
         <h4 className="min-w-0 flex-1 truncate text-[12px] font-bold leading-none text-foreground sm:text-[13px]">

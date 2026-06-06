@@ -1,4 +1,8 @@
-import { formatDossierSentAtCompactFr } from "@/lib/datetime-fr";
+"use client";
+
+import { useLocale, useTranslations } from "next-intl";
+import { formatDossierSentAtCompactForLocale } from "@/lib/datetime-locale";
+import type { AppLocale } from "@/lib/i18n/config";
 import { uiEyebrowLabel } from "@/lib/ui-label-styles";
 import { cn } from "@/lib/utils";
 
@@ -19,8 +23,10 @@ export function DossierHeaderRequestLine({
   hideSentAt?: boolean;
   className?: string;
 }) {
+  const locale = useLocale() as AppLocale;
+  const t = useTranslations("common");
   const iso = submittedAt ?? createdAt;
-  const sentCompact = iso?.trim() ? formatDossierSentAtCompactFr(iso) : null;
+  const sentCompact = iso?.trim() ? formatDossierSentAtCompactForLocale(iso, locale) : null;
 
   return (
     <p className={cn("text-[11px] font-bold leading-snug text-foreground sm:text-xs", className)}>
@@ -32,7 +38,7 @@ export function DossierHeaderRequestLine({
             ·
           </span>
           <span className="font-normal text-muted-foreground">
-            Envoyée le{" "}
+            {t("sentOn")}{" "}
             <time dateTime={iso ?? undefined} className="font-semibold tabular-nums text-foreground">
               {sentCompact}
             </time>
