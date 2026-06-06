@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260712_001`**) → phrase **§13.43** (consultation libre lot 3 + photos patient). Catalogue BeautyMall : **§13.39** / **`736100f`**. La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260713_001`**) → phrase **§13.44** (archive ordonnance annulee + marques/pricing). Catalogue BeautyMall : **§13.39** / **`736100f`**. La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -379,6 +379,25 @@ git checkout pilote-stable-2026-05-24
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
 
 ---
+
+---
+
+### Session 2026-06-06 (suite 3) — Archive ordonnance annulée sans lignes produit
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commit **`56bc5bc`**.
+
+**Problème** : ordonnance **envoyée** puis **annulée** / **abandonnée** avant réponse pharma (0 ligne `request_items`) → fiche patient quasi vide (pas de bandeau dossier ni scan).
+
+**Correctif patient** (`app/dashboard/demandes/[id]/page.tsx`, **`PatientProductRequestActions`**) :
+- Archive affichée **même sans lignes** (`showArchivedReadonly` sans garde `items.length > 0`).
+- Bandeau **`PatientProductRequestDossierHeader`** + statut terminal ; libellés dédiés sans produit (**`patientCancelledPrescriptionEmptyArchiveDetailFr`**, **`patientAbandonedPrescriptionEmptyArchiveDetailFr`** dans **`lib/patient-archive-outcome-fr.ts`**).
+- **`PrescriptionScanCollapsible`** + message patient en lecture seule ; scan **ouvert par défaut** si archive vide.
+- Lien **Annuaire — envoyer une nouvelle ordonnance** pour **`cancelled`** / **`abandoned`** / **`expired`** (aligné expirée).
+- Pas de bouton « Ajuster et renvoyer une nouvelle **demande produits** » sur ordonnance archive.
+
+**SQL** : aucune migration.
+
+**Phrase de reprise** : **§13.44**.
 
 ---
 
@@ -2256,7 +2275,13 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.43) Phrase de reprise (recommandée — après session **2026-06-06** consultation lot 3 + photos patient)
+### 13.44) Phrase de reprise (recommandée — après session **2026-06-06 (suite 3)** archive ordonnance annulée + marques/pricing)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`56bc5bc`** archive ordonnance annulée sans lignes, **`640346c`** marques + pricing officine par marque). **Migrations à appliquer** si pas fait : **`20260710_001`** → **`20260713_001`** (après **`20260712_001`**). **Ordonnance archive annulée/abandonnée/expirée** avant saisie produit : bandeau dossier + scan + lien annuaire (plus de fiche vide). **Marques** : **`ProductBrandLabel`**, onglet **Marques** pricing pharmacien. Lots antérieurs : consultation lot 3 (**§13.43**), i18n ar/fr, vocaux. Catalogue BeautyMall : **§13.39**. Je te donne la tâche ou les retours preview. »**
+
+### 13.43) Phrase de reprise (dépassée — session **2026-06-06** consultation lot 3 + photos patient)
+
+Voir **§13.44**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`428d662`** scroll/édition/lightbox, **`718913f`** brief replié + save unique, **`bf9b94f`** photos compress-before-check). **Migrations à appliquer** si pas fait : **`20260711_001`** → **`20260712_001`** (après **`20260709_001`**). **Consultation patient** : fil conversation scroll chaining ; **`ConsultationBriefPanel`** replié + **Enregistrer les modifications** (texte + photos) jusqu’à **`responded`** ; bulle **Modifié le…** ; lightbox **`ConsultationPhotoLightbox`** ; **une seule notif** pharmacien à l’envoi avec photos. **Photos** ordonnance/consultation : **`lib/patient-request-photo-upload.ts`** (compresser puis valider, plus faux rejet 8 Mo brut). Lots antérieurs : i18n ar/fr (**§13.42**), vocaux, ordonnance pharma. Catalogue BeautyMall : **§13.39**. Je te donne la tâche ou les retours preview. »**
 
@@ -2302,7 +2327,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-06** — consultation libre lot 3 + photos patient). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260712_001`** ; catalogue **13 651** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.43**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-06 (suite 3)** — archive ordonnance annulée + marques/pricing). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260713_001`** ; catalogue **13 651** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.44**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
