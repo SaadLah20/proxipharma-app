@@ -537,6 +537,24 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
+### Session 2026-06-06 (suite 6) — explorateur catalogue patient (filtres type / marque + UI)
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`fe3921f`** (filtres + pricing marque) · **`c3f394e`** · **`4989304`** (alignement lignes RTL).
+
+**Explorateur patient** (`/pharmacie/[id]/demande-produits/catalogue`) :
+- Filtres **type** : Tout · **Parapharmacie** · **Médicament** (`product_type`, requête Supabase paginée).
+- Filtre **marque** (parapharmacie) : liste searchable via RPC **`pharmacist_pricing_distinct_brands`** ; **`ProductCatalogExplorerFilters`** · **`useCatalogDistinctBrands`** · **`lib/product-catalog-filters.ts`**.
+- Recherche texte inchangée (nom, marque, laboratoire) — combinable avec filtres ; scroll infini **`useProductCatalogExplorer`**.
+- UI : bandeau titre, cartes produit arrondies, vignettes **`ProductCatalogExplorerListRow`** ; i18n **`demandePublic`** FR/AR.
+
+**Pricing pharmacien** (même commit) : recherche marques dans l’onglet **Marques** (`pharmacist-pricing-manager.tsx`).
+
+**Migration** : aucune.
+
+**Phrase de reprise** : **§13.47**.
+
+---
+
 ### Session 2026-06-05 (suite) — Vocaux envoi initial, MIME Storage, consultation UX lot 2, ordonnance pharma
 
 **Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`fa897de`** (MIME audio bucket) · **`cb90da3`** (vocal envoi initial) · **`6cb3160`** (retours ordonnance pharmacien) · **`081fc02`** (consultation UX lot 2).
@@ -1284,7 +1302,7 @@ git checkout pilote-stable-2026-05-24
 - Scripts : **`scripts/attach-catalog-images.mjs`**, **`scripts/reset-pilot-catalog.mjs`**, **`supabase/scripts/reset-pilot-catalog.sql`** ; doc **`catalog/LISTE_PHOTOS.md`**.
 
 **UI patient — saisie & modification** :
-- **`/pharmacie/[id]/demande-produits`** + **`/demande-produits/catalogue`** : **Voir tous les produits** (multi-sélection, filtre, produits déjà en panier / dossier grisés), brouillon **`sessionStorage`** (`lib/patient-demande-produits-draft.ts`).
+- **`/pharmacie/[id]/demande-produits`** + **`/demande-produits/catalogue`** : explorateur multi-sélection (filtres **type** para/médicament + **marque** searchable, recherche nom/marque/labo, scroll infini, produits déjà en panier / dossier grisés), brouillon **`sessionStorage`** (`lib/patient-demande-produits-draft.ts`, **`ProductCatalogExplorerFilters`**, **`useProductCatalogExplorer`**).
 - **`PatientProductRequestActions`** : même lien catalogue en **mode modification** demande **`submitted`/`in_review`** (`?requestId=` + retour dossier) ; vignettes corrigées après envoi et sur tout le détail demande.
 - **`next.config.ts`** : domaine **`*.supabase.co`** pour images.
 
@@ -2326,7 +2344,13 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.46) Phrase de reprise (recommandée — après session **2026-06-06 (suite 5)** couverture i18n patient vagues 1–6)
+### 13.47) Phrase de reprise (recommandée — après session **2026-06-06 (suite 6)** explorateur catalogue patient)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`fe3921f`** filtres catalogue type/marque, **`4989304`** lignes RTL). **Migrations** si pas fait : **`20260709_001`** → **`20260713_001`**. **Explorateur catalogue patient** : filtres parapharmacie / médicament + marque searchable, cartes produit refaites, i18n FR/AR. **Catalogue** : **~19 677** lignes ; pricing onglet **Marques** (recherche marques pharmacien). Lots antérieurs : i18n complet (**§13.46**), consultation (**§13.43**). Je te donne la tâche ou les retours preview. »**
+
+### 13.46) Phrase de reprise (dépassée — session **2026-06-06 (suite 5)** couverture i18n patient vagues 1–6)
+
+Voir **§13.47**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal`. **Migrations** si pas fait : **`20260709_001`** (notifs in-app ar) puis **`20260710_001`** → **`20260713_001`**. **i18n patient ar/fr — couverture complète** : cookie `pp_locale`, switcher header, RTL, **`messages/fr` + `messages/ar`** (`.ts`), CI **`i18n:parity`** ; conversation, pages publiques demande, hubs, détail dossier, paramètres, dates locale ; pharmacien/admin et SMS restent FR. **Catalogue** : **~19 677** lignes (BeautyMall + médicaments), marques para **~93,65 %**, pricing onglet **Marques**. Lots antérieurs : catalogue/vignettes (**§13.45**), consultation (**§13.43**), vocaux. Je te donne la tâche ou les retours preview. »**
 
