@@ -44,6 +44,7 @@ function qtyAccentReadonlyClass(
 ): string {
   if (appearance === "neutral") return "border-border/80 bg-muted/25";
   if (lineAccent === "amber") return "border-amber-200/55 bg-amber-50/40";
+  if (lineAccent === "violet") return "border-violet-200/50 bg-violet-50/35";
   return "border-sky-200/80 bg-sky-50/80";
 }
 
@@ -64,6 +65,12 @@ function qtyAccentPickerButtonClass(
       open && "border-amber-400/55 ring-2 ring-amber-200/35",
     );
   }
+  if (lineAccent === "violet") {
+    return cn(
+      "border-violet-200/50 hover:bg-violet-50/40",
+      open && "border-violet-400/50 ring-2 ring-violet-200/30",
+    );
+  }
   return cn("border-sky-300/80 hover:bg-sky-50", open && "border-sky-500/70 ring-2 ring-sky-400/30");
 }
 
@@ -72,7 +79,9 @@ function qtyAccentPickerChevronClass(
   lineAccent: PatientWorkflowLineAccent,
 ): string {
   if (appearance === "neutral") return "text-muted-foreground";
-  return lineAccent === "amber" ? "text-amber-800" : "text-sky-700";
+  if (lineAccent === "amber") return "text-amber-800";
+  if (lineAccent === "violet") return "text-violet-800";
+  return "text-sky-700";
 }
 
 function qtyAccentPickerOptionClass(
@@ -86,6 +95,9 @@ function qtyAccentPickerOptionClass(
   if (lineAccent === "amber") {
     return selected ? "bg-amber-100/80 text-amber-950" : "text-foreground hover:bg-amber-50/60";
   }
+  if (lineAccent === "violet") {
+    return selected ? "bg-violet-100/75 text-violet-950" : "text-foreground hover:bg-violet-50/55";
+  }
   return selected ? "bg-sky-100/90 text-sky-950" : "text-foreground hover:bg-sky-50";
 }
 
@@ -97,6 +109,11 @@ function messageAccentButtonClass(
     return hasComment
       ? "border-amber-300/60 bg-amber-100/80 text-amber-950 hover:bg-amber-100"
       : "border-amber-200/55 bg-white text-amber-700/85 hover:border-amber-300/55 hover:bg-amber-50/50 hover:text-amber-900";
+  }
+  if (lineAccent === "violet") {
+    return hasComment
+      ? "border-violet-300/55 bg-violet-100/75 text-violet-950 hover:bg-violet-100"
+      : "border-violet-200/50 bg-white text-violet-700/85 hover:border-violet-300/50 hover:bg-violet-50/45 hover:text-violet-900";
   }
   return hasComment
     ? "border-sky-400/70 bg-sky-100 text-sky-900 hover:bg-sky-200/80"

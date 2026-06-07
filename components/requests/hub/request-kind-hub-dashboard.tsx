@@ -39,6 +39,7 @@ import {
   patientHubDashboardAccent,
   patientHubListLinkClass,
   patientHubRecentSectionClass,
+  patientHubRecentSectionTitleClass,
   patientHubSectionBadgeClass,
   patientHubSectionHeaderBorderClass,
   patientHubSectionShellClass,
@@ -193,7 +194,7 @@ export function RequestKindHubDashboard({
         : tHub("dashboard.allRequests");
 
   const renderPatientCard = (row: PatientRequestRow, compact: boolean) =>
-    kindId === "product_request" || kindId === "prescription" ? (
+    kindId === "product_request" || kindId === "prescription" || kindId === "free_consultation" ? (
       <PatientProductDemandeHubCard row={row} compact={compact} conversationUnread={unreadById[row.id] === true} />
     ) : (
       <PatientDemandeCard row={row} variant="list" conversationUnread={unreadById[row.id] === true} />
@@ -325,11 +326,7 @@ export function RequestKindHubDashboard({
           <h2
             className={clsx(
               "text-[13px] font-bold",
-              hubAccent && hubAccent === "sky"
-                ? "text-sky-950"
-                : hubAccent === "amber"
-                  ? "text-amber-950"
-                  : "text-foreground",
+              hubAccent ? patientHubRecentSectionTitleClass(hubAccent) : "text-foreground",
             )}
           >
             {tHub("dashboard.resumeQuickly")}

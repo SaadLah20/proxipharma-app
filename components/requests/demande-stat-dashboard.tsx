@@ -70,7 +70,9 @@ function StatBucketTile({
           ? "border-sky-200/70 ring-sky-100/30 hover:border-sky-300/70 hover:shadow-md focus-visible:ring-sky-300/50"
           : hubAccent === "amber"
             ? "border-amber-200/50 ring-amber-100/25 hover:border-amber-300/50 hover:shadow-md focus-visible:ring-amber-200/40"
-            : "border-border/90 ring-black/[0.03] hover:border-primary/35 hover:shadow-md focus-visible:ring-ring",
+            : hubAccent === "violet"
+              ? "border-violet-200/50 ring-violet-100/25 hover:border-violet-300/50 hover:shadow-md focus-visible:ring-violet-200/40"
+              : "border-border/90 ring-black/[0.03] hover:border-primary/35 hover:shadow-md focus-visible:ring-ring",
         compact ? "min-h-[5.5rem] p-2" : "min-h-[118px] rounded-xl p-2.5",
         "focus-visible:outline-none focus-visible:ring-2"
       )}
@@ -83,7 +85,9 @@ function StatBucketTile({
               ? "bg-sky-100/90 text-sky-700"
               : hubAccent === "amber"
                 ? "bg-amber-100/75 text-amber-800"
-                : "bg-primary/10 text-primary",
+                : hubAccent === "violet"
+                  ? "bg-violet-100/75 text-violet-800"
+                  : "bg-primary/10 text-primary",
             compact ? "size-7" : "size-8"
           )}
           aria-hidden
@@ -106,7 +110,9 @@ function StatBucketTile({
               ? "bg-sky-500/55"
               : hubAccent === "amber"
                 ? "bg-amber-500/45"
-                : "bg-primary/60"
+                : hubAccent === "violet"
+                  ? "bg-violet-500/45"
+                  : "bg-primary/60"
           )}
           style={{ width: `${pct}%` }}
           aria-hidden

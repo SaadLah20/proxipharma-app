@@ -26,6 +26,7 @@ export { t as patientProductRequestPublicTheme };
 
 export {
   hasPatientWorkflowAccentShell,
+  isPatientConsultationRequestType,
   isPatientPrescriptionRequestType,
   patientLineQtyAppearance,
   patientLineRowClass,

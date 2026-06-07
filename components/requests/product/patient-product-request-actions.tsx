@@ -1318,14 +1318,29 @@ function PatientSentLineNotesModalFr({
 function summaryThemeClasses(accent: RequestKindAccent, requestType?: string | null) {
   const sky = isPatientProductRequestType(requestType) || accent === "sky";
   const amber = requestType === "prescription" || accent === "amber";
+  const violet = requestType === "free_consultation" || accent === "violet";
   return {
     shell: sky
       ? "mb-2 rounded-lg border border-sky-200/75 bg-sky-50/30 px-2 py-1.5 text-[10px] leading-snug shadow-sm ring-1 ring-sky-100/45 sm:px-2.5"
       : amber
         ? "mb-2 rounded-lg border border-amber-200/50 bg-amber-50/25 px-2 py-1.5 text-[10px] leading-snug shadow-sm ring-1 ring-amber-100/30 sm:px-2.5"
-        : "mb-2 rounded-lg border border-border bg-muted/25 px-2 py-1.5 text-[10px] leading-snug shadow-sm sm:px-2.5",
-    borderB: sky ? "border-sky-200/60" : amber ? "border-amber-200/45" : "border-border",
-    borderB2: sky ? "border-sky-200/50" : amber ? "border-amber-200/40" : "border-border/80",
+        : violet
+          ? "mb-2 rounded-lg border border-violet-200/45 bg-violet-50/20 px-2 py-1.5 text-[10px] leading-snug shadow-sm ring-1 ring-violet-100/30 sm:px-2.5"
+          : "mb-2 rounded-lg border border-border bg-muted/25 px-2 py-1.5 text-[10px] leading-snug shadow-sm sm:px-2.5",
+    borderB: sky
+      ? "border-sky-200/60"
+      : amber
+        ? "border-amber-200/45"
+        : violet
+          ? "border-violet-200/40"
+          : "border-border",
+    borderB2: sky
+      ? "border-sky-200/50"
+      : amber
+        ? "border-amber-200/40"
+        : violet
+          ? "border-violet-200/35"
+          : "border-border/80",
     title: "text-foreground",
     meta: "text-muted-foreground",
     chip: "border-border text-foreground",
@@ -2914,8 +2929,6 @@ export function PatientProductRequestActions({
   const confirmSkippedLines = confirmReviewSnap?.skippedLines ?? [];
 
   const useCompactPassageBlock = !forceReadOnly && showConfirmedCards;
-  const useNeutralConsultationDossierShell =
-    !forceReadOnly && showConfirmedCards && isConsultation;
   const workflowDossierSectionShell = patientWorkflowDossierSectionShellClass(requestType);
   const useWorkflowAccentDossierShell = hasPatientWorkflowAccentShell(requestType) && usesLineWorkflowUi;
   const useArchiveShell = forceReadOnly && usesLineWorkflowUi && !useWorkflowAccentDossierShell;
@@ -3003,15 +3016,11 @@ export function PatientProductRequestActions({
       className={clsx(
         "touch-pan-y w-full min-w-0 max-w-full overflow-x-hidden rounded-xl border-2 p-2.5 sm:p-3",
         isConsultation ? "mt-0" : "mt-2",
-        isConsultation
-          ? "border-violet-200/80 bg-gradient-to-b from-violet-50/40 via-white to-fuchsia-50/15"
-          : useNeutralConsultationDossierShell
+        useWorkflowAccentDossierShell && workflowDossierSectionShell
+          ? workflowDossierSectionShell
+          : useArchiveShell
             ? "mt-2 border-0 bg-transparent p-0 shadow-none ring-0"
-            : useWorkflowAccentDossierShell && workflowDossierSectionShell
-              ? workflowDossierSectionShell
-              : useArchiveShell
-                ? "mt-2 border-0 bg-transparent p-0 shadow-none ring-0"
-                : "border-slate-200 bg-slate-50/95",
+            : "border-slate-200 bg-slate-50/95",
         isConsultation && showConsultationWaiting && !needsStickyFooterPad && "pb-2"
       )}
     >
@@ -3020,7 +3029,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConsultationWaiting && items.length === 0 ? (
-        <p className="mb-2 rounded-lg border border-violet-200/70 bg-white/80 px-2.5 py-2 text-[11px] leading-snug text-violet-950">
+        <p className="mb-2 rounded-lg border border-violet-200/50 bg-white/80 px-2.5 py-2 text-[11px] leading-snug text-violet-950 ring-1 ring-violet-100/25">
           {tDemandes("consultationWaiting.noProductsYet")}
         </p>
       ) : null}

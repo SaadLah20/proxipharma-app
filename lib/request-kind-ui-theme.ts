@@ -31,8 +31,8 @@ const consultationTheme: RequestKindUiTheme = {
   confirmAccentBorder: "border-violet-300/70",
   photoRing: "hover:ring-violet-400/35 focus-visible:ring-violet-400/45",
   linkAccent: "text-violet-900 underline",
-  modalShell: "border-border/90 shadow-xl",
-  modalHeader: "border-violet-200/80 bg-violet-50/40",
+  modalShell: "border-violet-200/55 shadow-xl",
+  modalHeader: "border-violet-200/50 bg-violet-50/25",
 };
 
 const productTheme: RequestKindUiTheme = {
