@@ -19,7 +19,7 @@ export function DossierHeaderRequestLine({
   dossierRefLabel: string;
   submittedAt?: string | null;
   createdAt?: string | null;
-  /** Archives : masquer la date d'envoi (affichée en bas de page). */
+  /** Masquer la date d'envoi (ex. bandeau pharmacien archives). */
   hideSentAt?: boolean;
   className?: string;
 }) {

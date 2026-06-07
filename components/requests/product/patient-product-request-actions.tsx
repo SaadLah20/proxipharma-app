@@ -3094,7 +3094,6 @@ export function PatientProductRequestActions({
           statusDetail={archiveDossierStatusDetail}
           submittedAt={requestTimelineMeta?.submitted_at}
           createdAt={requestTimelineMeta?.created_at}
-          hideSentAt={isDossierTerminalArchive}
         />
       ) : null}
 
