@@ -61,9 +61,11 @@ import {
 } from "@/lib/patient-responded-line-buckets";
 import { patientBucketProductListClass } from "@/lib/patient-bucket-product-row-ui";
 import {
+  hasPatientWorkflowAccentShell,
   isPatientProductRequestType,
   patientLineRowClass,
-  patientProductRequestDossierSectionShellClass,
+  patientWorkflowDossierSectionShellClass,
+  patientWorkflowLineAccent,
 } from "@/lib/patient-product-request-line-ui";
 import { PatientRespondedBucketSection } from "@/components/requests/product/patient-responded-bucket-section";
 import { PatientValidatedBucketSection } from "@/components/requests/product/patient-validated-bucket-section";
@@ -470,8 +472,11 @@ export function PatientValidatedCompactLineCard({
                   lineTotalMad != null && row.is_selected_by_patient ? lineTotalMad : null
                 }
               />
-              {isPatientProductRequestType(requestType) ? (
-                <ProductRequestLineQtyReadonly qty={displayQty} />
+              {hasPatientWorkflowAccentShell(requestType) ? (
+                <ProductRequestLineQtyReadonly
+                  qty={displayQty}
+                  lineAccent={patientWorkflowLineAccent(requestType) ?? "sky"}
+                />
               ) : (
                 <ProductRequestLineQtyInline qty={displayQty} />
               )}
@@ -1311,14 +1316,16 @@ function PatientSentLineNotesModalFr({
 }
 
 function summaryThemeClasses(accent: RequestKindAccent, requestType?: string | null) {
-  const sky =
-    isPatientProductRequestType(requestType) || accent === "sky";
+  const sky = isPatientProductRequestType(requestType) || accent === "sky";
+  const amber = requestType === "prescription" || accent === "amber";
   return {
     shell: sky
       ? "mb-2 rounded-lg border border-sky-200/75 bg-sky-50/30 px-2 py-1.5 text-[10px] leading-snug shadow-sm ring-1 ring-sky-100/45 sm:px-2.5"
-      : "mb-2 rounded-lg border border-border bg-muted/25 px-2 py-1.5 text-[10px] leading-snug shadow-sm sm:px-2.5",
-    borderB: sky ? "border-sky-200/60" : "border-border",
-    borderB2: sky ? "border-sky-200/50" : "border-border/80",
+      : amber
+        ? "mb-2 rounded-lg border border-amber-200/50 bg-amber-50/25 px-2 py-1.5 text-[10px] leading-snug shadow-sm ring-1 ring-amber-100/30 sm:px-2.5"
+        : "mb-2 rounded-lg border border-border bg-muted/25 px-2 py-1.5 text-[10px] leading-snug shadow-sm sm:px-2.5",
+    borderB: sky ? "border-sky-200/60" : amber ? "border-amber-200/45" : "border-border",
+    borderB2: sky ? "border-sky-200/50" : amber ? "border-amber-200/40" : "border-border/80",
     title: "text-foreground",
     meta: "text-muted-foreground",
     chip: "border-border text-foreground",
@@ -2907,24 +2914,11 @@ export function PatientProductRequestActions({
   const confirmSkippedLines = confirmReviewSnap?.skippedLines ?? [];
 
   const useCompactPassageBlock = !forceReadOnly && showConfirmedCards;
-  const useNeutralOtherKindDossierShell =
-    !forceReadOnly && showConfirmedCards && (isPrescription || isConsultation);
-  const useProductRequestDossierShell =
-    isPatientProductRequestType(requestType) && usesLineWorkflowUi;
-  const useSkyProductShell =
-    useProductRequestDossierShell ||
-    (!isPrescription &&
-      !isPatientProductRequestType(requestType) &&
-      (showProductResubmit || showConfirm) &&
-      !forceReadOnly);
-  const useAmberPrescriptionShell =
-    isPrescription &&
-    !showConfirmedCards &&
-    (showPrescriptionWaiting || showConfirm) &&
-    !forceReadOnly;
-  const useAmberPrescriptionWaitingShell =
-    !forceReadOnly && showPrescriptionWaiting && !showConfirmedCards;
-  const useArchiveShell = forceReadOnly && usesLineWorkflowUi && !useProductRequestDossierShell;
+  const useNeutralConsultationDossierShell =
+    !forceReadOnly && showConfirmedCards && isConsultation;
+  const workflowDossierSectionShell = patientWorkflowDossierSectionShellClass(requestType);
+  const useWorkflowAccentDossierShell = hasPatientWorkflowAccentShell(requestType) && usesLineWorkflowUi;
+  const useArchiveShell = forceReadOnly && usesLineWorkflowUi && !useWorkflowAccentDossierShell;
   const showArchiveDossierHeader = forceReadOnly && usesLineWorkflowUi;
   const isExpiredProductArchive = status === "expired" && usesLineWorkflowUi;
   const isCancelledProductArchive = status === "cancelled" && usesLineWorkflowUi;
@@ -3011,17 +3005,13 @@ export function PatientProductRequestActions({
         isConsultation ? "mt-0" : "mt-2",
         isConsultation
           ? "border-violet-200/80 bg-gradient-to-b from-violet-50/40 via-white to-fuchsia-50/15"
-          : useNeutralOtherKindDossierShell
+          : useNeutralConsultationDossierShell
             ? "mt-2 border-0 bg-transparent p-0 shadow-none ring-0"
-            : useProductRequestDossierShell
-            ? patientProductRequestDossierSectionShellClass
-            : useArchiveShell
-              ? "mt-2 border-0 bg-transparent p-0 shadow-none ring-0"
-              : useSkyProductShell
-                ? patientProductRequestDossierSectionShellClass
-                : useAmberPrescriptionShell || useAmberPrescriptionWaitingShell
-                  ? "border-amber-300/45 bg-gradient-to-br from-amber-50/95 via-white to-orange-50/25 ring-1 ring-amber-200/55"
-                  : "border-slate-200 bg-slate-50/95",
+            : useWorkflowAccentDossierShell && workflowDossierSectionShell
+              ? workflowDossierSectionShell
+              : useArchiveShell
+                ? "mt-2 border-0 bg-transparent p-0 shadow-none ring-0"
+                : "border-slate-200 bg-slate-50/95",
         isConsultation && showConsultationWaiting && !needsStickyFooterPad && "pb-2"
       )}
     >

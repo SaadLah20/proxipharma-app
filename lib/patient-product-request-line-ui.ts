@@ -1,10 +1,10 @@
 /**
  * Accent sky — parcours patient « demande de produits » (tous statuts hub).
  * Référence charte : `lib/request-kinds/product-request-public-theme.ts`.
+ * Routage multi-parcours : `lib/patient-workflow-line-ui.ts`.
  */
 
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
-import { patientBucketProductRowClass } from "@/lib/patient-bucket-product-row-ui";
 
 /** Contour page / section dossier produit (8 statuts patient). */
 export const patientProductRequestDossierSectionShellClass =
@@ -18,21 +18,19 @@ export function isPatientProductRequestType(requestType: string | null | undefin
   return requestType === "product_request";
 }
 
-export function patientLineRowClass(requestType: string | null | undefined): string {
-  return isPatientProductRequestType(requestType)
-    ? patientProductRequestLineCardClass
-    : patientBucketProductRowClass;
-}
-
-/** Qté / message : accent sky sur demande produits ; neutre sur ordonnance / consultation. */
-export function patientLineQtyAppearance(
-  requestType: string | null | undefined,
-): "default" | "neutral" {
-  return isPatientProductRequestType(requestType) ? "default" : "neutral";
-}
-
 export function patientProductRequestDossierHeaderShellClass(): string {
-  return `rounded-xl border border-sky-200/70 bg-card shadow-sm ring-1 ring-sky-100/50`;
+  return "rounded-xl border border-sky-200/70 bg-card shadow-sm ring-1 ring-sky-100/50";
 }
 
 export { t as patientProductRequestPublicTheme };
+
+export {
+  hasPatientWorkflowAccentShell,
+  isPatientPrescriptionRequestType,
+  patientLineQtyAppearance,
+  patientLineRowClass,
+  patientWorkflowDossierHeaderShellClass,
+  patientWorkflowDossierSectionShellClass,
+  patientWorkflowLineAccent,
+  type PatientWorkflowLineAccent,
+} from "@/lib/patient-workflow-line-ui";

@@ -36,13 +36,19 @@ import { dashboardBucketsForKind, hubDashboardChrome } from "@/lib/request-kinds
 import { statBucketGroupsForRole, PATIENT_DASHBOARD_BUCKETS } from "@/lib/demandes-hub-buckets";
 import { patientDashboardBucketLabels } from "@/lib/i18n/request-kind-patient-copy";
 import {
-  patientProductHubRecentSectionClass,
-  patientProductHubSectionBadgeClass,
-  patientProductHubSectionShellClass,
-  patientProductHubSectionTierForId,
-  patientProductHubSummaryBarClass,
-  type PatientHubSectionTier,
-} from "@/lib/patient-product-hub-dashboard-ui";
+  patientHubDashboardAccent,
+  patientHubListLinkClass,
+  patientHubRecentSectionClass,
+  patientHubSectionBadgeClass,
+  patientHubSectionHeaderBorderClass,
+  patientHubSectionShellClass,
+  patientHubSectionTierForId,
+  patientHubSectionTitleClass,
+  patientHubSummaryBarClass,
+  patientHubUnreadTextClass,
+  type PatientHubDashboardAccent,
+} from "@/lib/patient-workflow-hub-dashboard-ui";
+import type { PatientHubSectionTier } from "@/lib/patient-product-hub-dashboard-ui";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 import type { PatientProductHubSectionId } from "@/lib/patient-product-hub-sections";
 
@@ -65,6 +71,7 @@ function HubSectionBlock({
   seeAllLabel,
   showCountLabel,
   sectionTier,
+  hubAccent,
 }: {
   title: string;
   subtitle?: string;
@@ -76,28 +83,27 @@ function HubSectionBlock({
   seeAllLabel: string;
   showCountLabel: string;
   sectionTier?: PatientHubSectionTier;
+  hubAccent?: PatientHubDashboardAccent | null;
 }) {
   if (count === 0) return null;
 
   const body = <ul className="space-y-1.5">{children}</ul>;
-  const shellClass = sectionTier
-    ? patientProductHubSectionShellClass(sectionTier)
-    : "border-border/80 bg-card shadow-sm";
-  const countBadgeClass = sectionTier
-    ? patientProductHubSectionBadgeClass(sectionTier)
-    : "bg-muted text-foreground";
+  const shellClass =
+    sectionTier && hubAccent
+      ? patientHubSectionShellClass(hubAccent, sectionTier)
+      : "border-border/80 bg-card shadow-sm";
+  const countBadgeClass =
+    sectionTier && hubAccent
+      ? patientHubSectionBadgeClass(hubAccent, sectionTier)
+      : "bg-muted text-foreground";
   const headerBorderClass =
-    sectionTier === "primary"
-      ? "border-sky-200/50"
-      : sectionTier === "secondary"
-        ? "border-sky-100/45"
-        : "border-border/60";
+    sectionTier && hubAccent
+      ? patientHubSectionHeaderBorderClass(hubAccent, sectionTier)
+      : "border-border/60";
   const titleClass =
-    sectionTier === "primary"
-      ? "text-[13px] font-bold text-sky-950"
-      : sectionTier === "secondary"
-        ? "text-[13px] font-bold text-foreground"
-        : "text-[12px] font-semibold text-muted-foreground";
+    sectionTier && hubAccent
+      ? patientHubSectionTitleClass(hubAccent, sectionTier)
+      : "text-[13px] font-bold text-foreground";
 
   return (
     <section id={sectionDomId} className={clsx("scroll-mt-4 rounded-lg border", shellClass)}>
@@ -174,7 +180,7 @@ export function RequestKindHubDashboard({
       : dashboardBucketsForKind(kindId, role);
   const buckets = baseBuckets;
   const chrome = hubDashboardChrome(kindId, role);
-  const productRequestPatient = kindId === "product_request" && role === "patient";
+  const hubAccent = patientHubDashboardAccent(kindId, role);
   const rowsWithStatus = rows.map((r) => ({ ...r, status_for_dashboard: r.status }));
   const stats = hubDashboardQuickStats(rowsWithStatus, buckets, unreadById);
   const recent = pickRecentActiveHubRows(rowsWithStatus, unreadById, 5, role);
@@ -221,10 +227,11 @@ export function RequestKindHubDashboard({
               seeAllLabel={tHub("dashboard.seeAll")}
               showCountLabel={tHub("dashboard.showCount", { count })}
               sectionTier={
-                productRequestPatient
-                  ? patientProductHubSectionTierForId(sectionId as PatientProductHubSectionId)
+                hubAccent
+                  ? patientHubSectionTierForId(sectionId as PatientProductHubSectionId)
                   : undefined
               }
+              hubAccent={hubAccent}
             >
               {sectionRows.slice(0, HUB_DASHBOARD_PREVIEW).map((r) => (
                 <li key={r.id}>{renderPatientCard(r, true)}</li>
@@ -281,7 +288,7 @@ export function RequestKindHubDashboard({
       <div
         className={clsx(
           "flex flex-wrap items-center gap-2 rounded-lg border px-2.5 py-2 text-[10px]",
-          productRequestPatient ? patientProductHubSummaryBarClass : "border-border/70 bg-muted/15",
+          hubAccent ? patientHubSummaryBarClass(hubAccent) : "border-border/70 bg-muted/15",
         )}
       >
         <span className="font-semibold tabular-nums text-foreground">{stats.total}</span>
@@ -297,7 +304,7 @@ export function RequestKindHubDashboard({
             <span
               className={clsx(
                 "inline-flex items-center gap-1 font-semibold",
-                productRequestPatient ? "text-sky-800" : "text-primary",
+                hubAccent ? patientHubUnreadTextClass(hubAccent) : "text-primary",
               )}
             >
               <MessageCircle className="size-3" aria-hidden />
@@ -312,13 +319,17 @@ export function RequestKindHubDashboard({
         <section
           className={clsx(
             "rounded-lg border p-2.5 shadow-sm",
-            productRequestPatient ? patientProductHubRecentSectionClass : "border-border/80 bg-card",
+            hubAccent ? patientHubRecentSectionClass(hubAccent) : "border-border/80 bg-card",
           )}
         >
           <h2
             className={clsx(
               "text-[13px] font-bold",
-              productRequestPatient ? "text-sky-950" : "text-foreground",
+              hubAccent && hubAccent === "sky"
+                ? "text-sky-950"
+                : hubAccent === "amber"
+                  ? "text-amber-950"
+                  : "text-foreground",
             )}
           >
             {tHub("dashboard.resumeQuickly")}
@@ -342,9 +353,7 @@ export function RequestKindHubDashboard({
           href={`${basePath}?vue=liste`}
           className={clsx(
             "inline-flex items-center gap-1 rounded-lg border bg-card px-3 py-2 text-xs font-semibold shadow-sm hover:bg-muted/40",
-            productRequestPatient
-              ? "border-sky-200/70 text-sky-900 hover:border-sky-300/70 hover:bg-sky-50/50"
-              : "border-border text-primary",
+            hubAccent ? patientHubListLinkClass(hubAccent) : "border-border text-primary",
           )}
         >
           {listAllLabel}

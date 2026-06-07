@@ -7,4 +7,6 @@ export const prescriptionRequestPublicTheme = {
   headerSubtitle: "text-muted-foreground",
   sectionBadge: "rounded-md bg-amber-100/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-950",
   footerBorder: "border-border/80",
+  modalShell: "border-amber-200/55 shadow-xl",
+  modalHeader: "border-amber-200/60 bg-amber-50/30",
 } as const;
