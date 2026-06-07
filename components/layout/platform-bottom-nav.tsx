@@ -73,7 +73,7 @@ export function PlatformBottomNav() {
       data-bottom-nav
       aria-label={tNav("bottomNavAria")}
       className={clsx(
-        "fixed inset-x-0 bottom-0 z-40 border-t border-slate-800/90 bg-slate-900/95 text-slate-100 shadow-[0_-4px_18px_rgba(15,23,42,0.12)] backdrop-blur-md supports-[backdrop-filter]:bg-slate-900/90",
+        "fixed inset-x-0 bottom-0 z-40 border-t border-border/90 bg-card/95 text-foreground shadow-[0_-4px_18px_rgba(15,23,42,0.06)] backdrop-blur-md supports-[backdrop-filter]:bg-card/90",
         STICKY_FOOTER_SAFE_BOTTOM
       )}
     >
@@ -88,12 +88,12 @@ export function PlatformBottomNav() {
               className={clsx(
                 "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1.5 text-[10px] font-semibold leading-tight transition sm:text-[11px]",
                 active
-                  ? "bg-white/12 text-sky-200"
-                  : "text-slate-400 hover:bg-white/6 hover:text-slate-200"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               )}
               aria-current={active ? "page" : undefined}
             >
-              <Icon className={clsx("size-5 shrink-0", active ? "text-sky-300" : "text-slate-400")} aria-hidden />
+              <Icon className={clsx("size-5 shrink-0", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
               <span className="max-w-full truncate text-center">{t(tab.labelKey)}</span>
             </Link>
           );
