@@ -10,7 +10,7 @@ import {
   type PatientPharmacyContactInfo,
 } from "@/components/requests/product/patient-pharmacy-quick-contact";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
-import { requestKindUiTheme } from "@/lib/request-kind-ui-theme";
+import { requestKindUiTheme, type RequestKindUiTheme } from "@/lib/request-kind-ui-theme";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { uiActionBtnCompactOutline, uiActionBtnCompactPrimary } from "@/lib/ui-action-buttons";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ export function PatientPharmacyDossierBand({
   pharmacyId,
   dossierRefLabel,
   requestType = "product_request",
+  uiTheme,
   compact = false,
   className,
 }: {
@@ -27,13 +28,15 @@ export function PatientPharmacyDossierBand({
   pharmacyId: string;
   dossierRefLabel: string;
   requestType?: string | null;
+  /** Surcharge thème (ex. réservation pack promo). */
+  uiTheme?: RequestKindUiTheme;
   /** Bandeau réduit (carte récap envoyée). */
   compact?: boolean;
   className?: string;
 }) {
   const tCommon = useTranslations("common");
   const tDemandes = useTranslations("demandes");
-  const theme = requestKindUiTheme(requestType);
+  const theme = uiTheme ?? requestKindUiTheme(requestType);
   const [contactOpen, setContactOpen] = useState(false);
   const phLabel = pharmacyContact?.nom?.trim()
     ? pharmacyPublicLabel(pharmacyContact.nom)

@@ -71,6 +71,7 @@ export const commonAr = {
   backToDirectory: "العودة إلى الدليل",
   backToLogin: "العودة إلى تسجيل الدخول",
   sentOn: "أُرسل في",
+  reservedOn: "حُجز في",
   lastRecordedOn: "آخر تسجيل في",
   plannedVisitPassageWithTime: "زيارتك المقررة في {date} الساعة {time}",
   plannedVisitPassageDateOnly: "زيارتك المقررة في {date}",

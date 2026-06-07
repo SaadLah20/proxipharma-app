@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import { clsx } from "clsx";
 import { ChevronRight } from "lucide-react";
 import {
   PatientPromoReservationHubCard,
@@ -25,10 +26,25 @@ import {
   promoHubSectionOrderForRole,
   promoHubSectionsForRole,
   rowsInPromoHubSection,
+  type PromoHubSectionId,
   type PromoReservationHubRow,
 } from "@/lib/promo/reservation-hub-sections";
 import type { AppLocale } from "@/lib/i18n/config";
 import { patientPromoDashboardBuckets } from "@/lib/i18n/promo-hub-buckets";
+import {
+  patientPromoHubDashboardAccent,
+  patientPromoHubListLinkClass,
+  patientPromoHubRecentSectionClass,
+  patientPromoHubRecentSectionTitleClass,
+  patientPromoHubSectionBadgeClass,
+  patientPromoHubSectionHeaderBorderClass,
+  patientPromoHubSectionShellClass,
+  patientPromoHubSectionTierForId,
+  patientPromoHubSectionTitleClass,
+  patientPromoHubSummaryBarClass,
+  type PatientPromoHubDashboardAccent,
+} from "@/lib/patient-promo-hub-dashboard-ui";
+import type { PatientHubSectionTier } from "@/lib/patient-product-hub-dashboard-ui";
 
 function HubSectionBlock({
   title,
@@ -40,6 +56,8 @@ function HubSectionBlock({
   sectionDomId,
   seeAllLabel,
   showCountLabel,
+  sectionTier,
+  hubAccent,
 }: {
   title: string;
   subtitle?: string;
@@ -50,22 +68,51 @@ function HubSectionBlock({
   sectionDomId: string;
   seeAllLabel: string;
   showCountLabel: string;
+  sectionTier?: PatientHubSectionTier;
+  hubAccent?: PatientPromoHubDashboardAccent | null;
 }) {
   if (count === 0) return null;
 
   const body = <ul className="space-y-1.5">{children}</ul>;
+  const shellClass =
+    sectionTier && hubAccent
+      ? patientPromoHubSectionShellClass(sectionTier)
+      : "border-border/80 bg-card shadow-sm";
+  const countBadgeClass =
+    sectionTier && hubAccent
+      ? patientPromoHubSectionBadgeClass(sectionTier)
+      : "bg-muted text-foreground";
+  const headerBorderClass =
+    sectionTier && hubAccent
+      ? patientPromoHubSectionHeaderBorderClass(sectionTier)
+      : "border-border/60";
+  const titleClass =
+    sectionTier && hubAccent
+      ? patientPromoHubSectionTitleClass(sectionTier)
+      : "text-[13px] font-bold text-foreground";
 
   return (
-    <section
-      id={sectionDomId}
-      className="scroll-mt-4 rounded-lg border border-border/80 bg-card shadow-sm"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-2.5 py-2">
+    <section id={sectionDomId} className={clsx("scroll-mt-4 rounded-lg border", shellClass)}>
+      <div className={clsx("flex flex-wrap items-center justify-between gap-2 border-b px-2.5 py-2", headerBorderClass)}>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[13px] font-bold text-foreground">{title}</h3>
-          {subtitle ? <p className="text-[10px] leading-snug text-muted-foreground">{subtitle}</p> : null}
+          <h3 className={titleClass}>{title}</h3>
+          {subtitle ? (
+            <p
+              className={clsx(
+                "text-[10px] leading-snug",
+                sectionTier === "tertiary" ? "text-muted-foreground/90" : "text-muted-foreground",
+              )}
+            >
+              {subtitle}
+            </p>
+          ) : null}
         </div>
-        <span className="inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold tabular-nums text-foreground">
+        <span
+          className={clsx(
+            "inline-flex min-w-[1.75rem] items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums",
+            countBadgeClass,
+          )}
+        >
           {count}
         </span>
         {count > PROMO_HUB_DASHBOARD_PREVIEW ? (
@@ -107,6 +154,7 @@ export function PromoReservationsHubDashboard({
   const tHub = useTranslations("hub");
   const tPromo = useTranslations("promo");
 
+  const hubAccent = patientPromoHubDashboardAccent(role);
   const buckets =
     role === "patient"
       ? patientPromoDashboardBuckets(tPromo)
@@ -134,9 +182,15 @@ export function PromoReservationsHubDashboard({
         dashboardTitle={dashboardTitle}
         dashboardSubtitle={dashboardSubtitle}
         bucketGroups={promoStatBucketGroupsForRole(role)}
+        hubAccent={hubAccent}
       />
 
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-muted/15 px-2.5 py-2 text-[10px]">
+      <div
+        className={clsx(
+          "flex flex-wrap items-center gap-2 rounded-lg border px-2.5 py-2 text-[10px]",
+          hubAccent ? patientPromoHubSummaryBarClass : "border-border/70 bg-muted/15",
+        )}
+      >
         <span className="font-semibold tabular-nums text-foreground">{stats.total}</span>
         <span className="text-muted-foreground">
           {stats.total !== 1 ? tHub("dashboard.dossiers") : tHub("dashboard.dossier")}
@@ -147,8 +201,20 @@ export function PromoReservationsHubDashboard({
       </div>
 
       {recent.length > 0 ? (
-        <section className="rounded-lg border border-border/80 bg-card p-2.5 shadow-sm">
-          <h2 className="text-[13px] font-bold text-foreground">{tHub("dashboard.resumeQuickly")}</h2>
+        <section
+          className={clsx(
+            "rounded-lg border p-2.5 shadow-sm",
+            hubAccent ? patientPromoHubRecentSectionClass : "border-border/80 bg-card",
+          )}
+        >
+          <h2
+            className={clsx(
+              "text-[13px] font-bold",
+              hubAccent ? patientPromoHubRecentSectionTitleClass() : "text-foreground",
+            )}
+          >
+            {tHub("dashboard.resumeQuickly")}
+          </h2>
           <ul className="mt-2 flex gap-2 overflow-x-auto pb-0.5 [-webkit-overflow-scrolling:touch]">
             {recent.map((r) => (
               <li key={r.id} className="w-[min(100%,260px)] shrink-0 sm:w-[min(80%,280px)]">
@@ -184,6 +250,10 @@ export function PromoReservationsHubDashboard({
               defaultCollapsed={sectionId === "archives" && count > PROMO_HUB_DASHBOARD_PREVIEW}
               seeAllLabel={tHub("dashboard.seeAll")}
               showCountLabel={tHub("dashboard.showCount", { count })}
+              sectionTier={
+                hubAccent ? patientPromoHubSectionTierForId(sectionId as PromoHubSectionId) : undefined
+              }
+              hubAccent={hubAccent}
             >
               {sectionRows.slice(0, PROMO_HUB_DASHBOARD_PREVIEW).map((r) => (
                 <li key={r.id}>
@@ -202,7 +272,10 @@ export function PromoReservationsHubDashboard({
       <p className="pt-1 text-center">
         <Link
           href={`${basePath}?vue=liste`}
-          className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-primary shadow-sm hover:bg-muted/40"
+          className={clsx(
+            "inline-flex items-center gap-1 rounded-lg border bg-card px-3 py-2 text-xs font-semibold shadow-sm hover:bg-muted/40",
+            hubAccent ? patientPromoHubListLinkClass() : "border-border text-primary",
+          )}
         >
           {listAllLabel}
           <ChevronRight className="size-4" aria-hidden />

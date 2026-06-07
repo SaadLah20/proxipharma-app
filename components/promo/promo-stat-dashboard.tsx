@@ -13,6 +13,11 @@ import {
 } from "lucide-react";
 import { InfoHint } from "@/components/ui/info-hint";
 import {
+  patientPromoHubDashboardShellClass,
+  patientPromoHubStatGroupAccent,
+  type PatientPromoHubDashboardAccent,
+} from "@/lib/patient-promo-hub-dashboard-ui";
+import {
   countInPromoBucket,
   type PromoStatBucket,
   type PromoStatBucketGroup,
@@ -29,18 +34,33 @@ const BUCKET_ICONS: Record<PromoStatBucketKey, LucideIcon> = {
 
 type Row = { status: string };
 
+const PHARMA_GROUP_ACCENT: Record<string, { shell: string; label: string; badge: string }> = {
+  a_suivre: {
+    shell: "border-primary/20 bg-gradient-to-br from-card via-card to-primary/[0.06] ring-primary/15",
+    label: "text-foreground",
+    badge: "bg-primary/10 text-primary",
+  },
+  archives: {
+    shell: "border-border/60 bg-muted/15 ring-border/40",
+    label: "text-muted-foreground",
+    badge: "bg-muted text-muted-foreground",
+  },
+};
+
 function StatBucketTile({
   bucket,
   rows,
   max,
   compact,
   onOpen,
+  hubAccent,
 }: {
   bucket: PromoStatBucket;
   rows: Row[];
   max: number;
   compact: boolean;
   onOpen: (key: PromoStatBucketKey) => void;
+  hubAccent?: PatientPromoHubDashboardAccent | null;
 }) {
   const n = countInPromoBucket(rows, bucket);
   const pct = Math.round((n / max) * 100);
@@ -51,15 +71,21 @@ function StatBucketTile({
       type="button"
       onClick={() => onOpen(bucket.key)}
       className={clsx(
-        "flex flex-col rounded-lg border border-border/90 bg-card text-left shadow-sm ring-1 ring-black/[0.03] transition",
+        "flex flex-col rounded-lg border bg-card text-left shadow-sm ring-1 transition",
+        hubAccent === "emerald"
+          ? "border-emerald-200/50 ring-emerald-100/25 hover:border-emerald-300/50 hover:shadow-md focus-visible:ring-emerald-200/40"
+          : "border-border/90 ring-black/[0.03] hover:border-primary/35 hover:shadow-md focus-visible:ring-ring",
         compact ? "min-h-[5.5rem] p-2" : "min-h-[118px] rounded-xl p-2.5",
-        "hover:border-primary/35 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "focus-visible:outline-none focus-visible:ring-2",
       )}
     >
       <div className="flex items-start justify-between gap-1">
         <span
           className={clsx(
-            "flex shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary",
+            "flex shrink-0 items-center justify-center rounded-md",
+            hubAccent === "emerald"
+              ? "bg-emerald-100/75 text-emerald-800"
+              : "bg-primary/10 text-primary",
             compact ? "size-7" : "size-8",
           )}
           aria-hidden
@@ -76,7 +102,10 @@ function StatBucketTile({
       </p>
       <div className={clsx("w-full overflow-hidden rounded-full bg-muted", compact ? "mt-1 h-1" : "mt-2 h-1.5")}>
         <div
-          className="h-full rounded-full bg-primary/60 transition-[width]"
+          className={clsx(
+            "h-full rounded-full transition-[width]",
+            hubAccent === "emerald" ? "bg-emerald-500/45" : "bg-primary/60",
+          )}
           style={{ width: `${pct}%` }}
           aria-hidden
         />
@@ -84,24 +113,6 @@ function StatBucketTile({
     </button>
   );
 }
-
-const GROUP_ACCENT: Record<string, { shell: string; label: string; badge: string }> = {
-  en_cours: {
-    shell: "border-sky-200/80 bg-gradient-to-br from-sky-50/90 via-card to-sky-50/40 ring-sky-200/50",
-    label: "text-sky-950",
-    badge: "bg-sky-600/10 text-sky-900",
-  },
-  a_suivre: {
-    shell: "border-emerald-200/80 bg-gradient-to-br from-emerald-50/90 via-card to-emerald-50/35 ring-emerald-200/50",
-    label: "text-emerald-950",
-    badge: "bg-emerald-600/10 text-emerald-900",
-  },
-  archives: {
-    shell: "border-border/60 bg-muted/15 ring-border/40",
-    label: "text-muted-foreground",
-    badge: "bg-muted text-muted-foreground",
-  },
-};
 
 function StatGroupHelp({
   group,
@@ -139,6 +150,7 @@ export function PromoStatDashboard({
   dashboardTitle = "Réservations packs",
   dashboardSubtitle,
   bucketGroups,
+  hubAccent = null,
 }: {
   rows: Row[];
   buckets: PromoStatBucket[];
@@ -147,6 +159,7 @@ export function PromoStatDashboard({
   dashboardTitle?: string;
   dashboardSubtitle?: string;
   bucketGroups?: PromoStatBucketGroup[];
+  hubAccent?: PatientPromoHubDashboardAccent | null;
 }) {
   const router = useRouter();
   const max = Math.max(1, ...buckets.map((b) => countInPromoBucket(rows, b)));
@@ -173,6 +186,7 @@ export function PromoStatDashboard({
           max={max}
           compact={compact}
           onOpen={openBucket}
+          hubAccent={hubAccent}
         />
       );
     });
@@ -180,7 +194,10 @@ export function PromoStatDashboard({
   return (
     <div
       className={clsx(
-        "overflow-visible rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06] shadow-sm sm:shadow-sm",
+        "overflow-visible rounded-2xl border shadow-sm sm:shadow-sm",
+        hubAccent
+          ? patientPromoHubDashboardShellClass
+          : "border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06]",
         compact ? "p-2.5 sm:p-3" : "p-3 sm:p-3.5",
       )}
     >
@@ -197,7 +214,10 @@ export function PromoStatDashboard({
             ) : null}
           </div>
           <span
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+            className={clsx(
+              "flex size-8 shrink-0 items-center justify-center rounded-lg",
+              hubAccent === "emerald" ? "bg-emerald-100/80 text-emerald-800" : "bg-primary/10 text-primary",
+            )}
             aria-hidden
           >
             <Gift className="size-4" strokeWidth={2.25} />
@@ -210,7 +230,9 @@ export function PromoStatDashboard({
           {bucketGroups.map((group) => {
             const tiles = renderTiles(group.bucketKeys).filter(Boolean);
             if (tiles.length === 0) return null;
-            const accent = GROUP_ACCENT[group.id] ?? GROUP_ACCENT.archives;
+            const accent = hubAccent
+              ? patientPromoHubStatGroupAccent(group.id)
+              : (PHARMA_GROUP_ACCENT[group.id] ?? PHARMA_GROUP_ACCENT.archives);
             return (
               <div
                 key={group.id}
@@ -249,6 +271,7 @@ export function PromoStatDashboard({
               max={max}
               compact={compact}
               onOpen={openBucket}
+              hubAccent={hubAccent}
             />
           ))}
         </div>

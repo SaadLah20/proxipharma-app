@@ -557,6 +557,42 @@ export const accountFr = {
 };
 
 export const promoFr = {
+  dossierKindLabel: "Réservation pack",
+  journeyAria: "Voir le détail du statut et le parcours de la réservation",
+  archiveClosedOn: "Clôturée le",
+  history: {
+    title: "Historique de la réservation",
+    empty: "Aucun événement enregistré",
+    eventsOpen: "{count} événement — ouvrir",
+    eventsOpenPlural: "{count} événements — ouvrir",
+    emptyDetail: "Les changements de statut apparaîtront ici.",
+  },
+  journeyModal: {
+    title: "Parcours de la réservation",
+    subtitle: "Les étapes possibles d'une réservation pack promo.",
+    steps: {
+      submitted: {
+        title: "Demande envoyée",
+        body: "Votre pharmacie va confirmer la disponibilité du pack.",
+      },
+      confirmed: {
+        title: "Confirmée par l'officine",
+        body: "Présentez-vous à la date indiquée pour retirer votre pack.",
+      },
+      collected: {
+        title: "Récupérée",
+        body: "Pack retiré en officine — dossier clôturé.",
+      },
+      unavailable: {
+        title: "Non disponible",
+        body: "L'officine n'a pas pu honorer cette réservation.",
+      },
+      cancelled: {
+        title: "Annulée",
+        body: "Cette demande n'est plus active.",
+      },
+    },
+  },
   hubTitle: "Mes packs promo",
   hubSubtitle: "Réservations de packs promotionnels auprès de vos officines.",
   detailTitle: "Réservation pack promo",

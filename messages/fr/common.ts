@@ -71,6 +71,7 @@ export const commonFr = {
   backToDirectory: "Retour à l'annuaire",
   backToLogin: "Retour à la connexion",
   sentOn: "Envoyée le",
+  reservedOn: "Réservée le",
   lastRecordedOn: "Dernier enregistrement le",
   plannedVisitPassageWithTime: "Votre passage est prévu le {date} à {time}",
   plannedVisitPassageDateOnly: "Votre passage est prévu le {date}",

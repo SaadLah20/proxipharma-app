@@ -12,14 +12,15 @@ import {
   Tag,
 } from "lucide-react";
 import { clsx } from "clsx";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import {
-  buildCurrentWeekScheduleFr,
+  buildCurrentWeekSchedule,
   resolvePharmacyOpenStatus,
 } from "@/lib/pharmacy-schedule-fr";
+import type { AppLocale } from "@/lib/i18n/config";
 import type {
   PharmacyDayOverrideRow,
   PharmacyOnCallPeriodRow,
@@ -115,7 +116,7 @@ function PharmacyWeekScheduleView({
                 </span>
               ) : day.isException ? (
                 <span className="mt-0.5 inline-block text-[9px] font-semibold uppercase tracking-wide text-amber-800">
-                  {day.lines[0]?.startsWith("Férié") ? t("holiday") : t("exception")}
+                  {day.isPublicHoliday ? t("holiday") : t("exception")}
                 </span>
               ) : null}
             </div>
@@ -147,6 +148,7 @@ export function PharmacyPublicProfile({
   serviceCatalog: PharmacyServiceCatalogRow[];
 }) {
   const t = useTranslations("pharmacyPublic");
+  const locale = useLocale() as AppLocale;
   const [tab, setTab] = useState<TabId>("services");
   const [navOpen, setNavOpen] = useState(false);
   const [ratingAvg, setRatingAvg] = useState<number | null>(pharmacy.rating_avg ?? null);
@@ -172,8 +174,8 @@ export function PharmacyPublicProfile({
   );
   const openLabel = openState.status === "open" ? t("openNow") : t("closedNow");
   const weekLines = useMemo(
-    () => buildCurrentWeekScheduleFr(weeklyHours, dayOverrides, onCallPeriods),
-    [weeklyHours, dayOverrides, onCallPeriods]
+    () => buildCurrentWeekSchedule(weeklyHours, dayOverrides, onCallPeriods, locale),
+    [weeklyHours, dayOverrides, onCallPeriods, locale]
   );
 
   const servicesOffered = useMemo(() => {
@@ -319,7 +321,13 @@ export function PharmacyPublicProfile({
         </div>
       </div>
 
-      <PharmacySegmentTabs tabs={tabs} active={tab} onChange={setTab} ariaLabel={t("tabsAria")} />
+      <PharmacySegmentTabs
+        tabs={tabs}
+        active={tab}
+        onChange={setTab}
+        ariaLabel={t("tabsAria")}
+        activeAccent={tab === "promos" ? "emerald" : "default"}
+      />
 
       <div className="p-3 sm:p-4">
         {tab === "services" ? (

@@ -65,7 +65,7 @@ export const PHARMACIST_PROMO_HUB_SECTIONS_FR: PromoHubSection[] = [
   },
 ];
 
-const PATIENT_SECTION_ORDER: PromoHubSectionId[] = ["at_pharmacy", "action_required", "archives"];
+const PATIENT_SECTION_ORDER: PromoHubSectionId[] = ["action_required", "at_pharmacy", "archives"];
 const PHARMACIST_SECTION_ORDER: PromoHubSectionId[] = ["action_required", "at_pharmacy", "archives"];
 
 export function promoHubSectionsForRole(role: "patient" | "pharmacien"): PromoHubSection[] {
