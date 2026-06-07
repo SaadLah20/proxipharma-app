@@ -2,7 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import { MapPin, Stethoscope, UserRound } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   PharmacyProfileContactGrid,
   type PharmacyProfileContactItem,
@@ -10,7 +10,17 @@ import {
 import { PharmacyRatingForm } from "@/components/pharmacy/pharmacy-rating-form";
 import { pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
 import type { PharmacyPublicProfileRow, PharmacyServiceCatalogRow } from "@/lib/pharmacy-profile-types";
+import type { AppLocale } from "@/lib/i18n/config";
 import { cn } from "@/lib/utils";
+
+function serviceCatalogLabel(
+  service: PharmacyServiceCatalogRow,
+  locale: AppLocale,
+  tCatalog: (key: string) => string,
+): string {
+  if (locale !== "ar") return service.label_fr;
+  return tCatalog(service.id);
+}
 
 const PRIMARY_CONTACT_IDS = new Set(["phone", "whatsapp", "maps"]);
 
@@ -87,6 +97,8 @@ export function PharmacyPublicInfoTab({
   onRatingUpdated: (avg: number, count: number) => void;
 }) {
   const t = useTranslations("pharmacyPublic");
+  const tCatalog = useTranslations("pharmacyPublic.serviceCatalog");
+  const locale = useLocale() as AppLocale;
   const primaryContacts = contactItems.filter((i) => PRIMARY_CONTACT_IDS.has(i.id));
   const secondaryContacts = contactItems.filter((i) => !PRIMARY_CONTACT_IDS.has(i.id));
 
@@ -155,7 +167,7 @@ export function PharmacyPublicInfoTab({
                     key={s.id}
                     className="rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-medium text-emerald-950"
                   >
-                    {s.label_fr}
+                    {serviceCatalogLabel(s, locale, tCatalog)}
                   </li>
                 ))}
               </ul>

@@ -1,5 +1,10 @@
-import { formatDateShortFr } from "@/lib/datetime-fr";
+import type { AppLocale } from "@/lib/i18n/config";
 import { findMoroccoHolidayOnDate } from "@/lib/morocco-public-holidays";
+import {
+  moroccoHolidayLabelForLocale,
+  pharmacyScheduleLabelsForLocale,
+  type PharmacyScheduleLabels,
+} from "@/lib/pharmacy-schedule-labels";
 import type {
   PharmacyDayOverrideRow,
   PharmacyDayScheduleLine,
@@ -8,23 +13,10 @@ import type {
   PharmacyWeeklyHourRow,
 } from "@/lib/pharmacy-profile-types";
 
+export { OVERRIDE_TYPE_LABEL_FR } from "@/lib/pharmacy-schedule-labels";
+export { ON_CALL_KIND_LABEL_FR } from "@/lib/pharmacy-schedule-labels-legacy";
+
 const TZ = "Africa/Casablanca";
-
-const WEEKDAY_FR = ["", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-
-export const OVERRIDE_TYPE_LABEL_FR: Record<PharmacyDayOverrideRow["override_type"], string> = {
-  closed: "Fermeture exceptionnelle",
-  holiday: "Jour férié",
-  custom: "Horaires spécifiques",
-};
-
-export const ON_CALL_KIND_LABEL_FR: Record<string, string> = {
-  weekend_48h: "Garde 48 h (week-end)",
-  weekday_24h: "Garde 24 h (jour ouvré)",
-  holiday_24h: "Garde 24 h (jour férié)",
-};
-
-const GARDE_FULL_DAY_LINE = "Permanence de garde — journée entière";
 
 function parseTimeToMinutes(t: string | null | undefined): number | null {
   if (!t?.trim()) return null;
@@ -33,18 +25,17 @@ function parseTimeToMinutes(t: string | null | undefined): number | null {
   return Number(m[1]) * 60 + Number(m[2]);
 }
 
-function formatMinutesFr(min: number): string {
-  const h = Math.floor(min / 60);
-  const mm = min % 60;
-  return `${String(h).padStart(2, "0")}h${String(mm).padStart(2, "0")}`;
-}
-
-function slotLabel(opens: string | null, closes: string | null, closed: boolean): string | null {
+function slotLabel(
+  opens: string | null,
+  closes: string | null,
+  closed: boolean,
+  labels: PharmacyScheduleLabels,
+): string | null {
   if (closed) return null;
   const o = parseTimeToMinutes(opens);
   const c = parseTimeToMinutes(closes);
   if (o == null || c == null) return null;
-  return `${formatMinutesFr(o)} – ${formatMinutesFr(c)}`;
+  return labels.formatSlot(o, c);
 }
 
 function nowInCasablanca(): Date {
@@ -88,7 +79,6 @@ function periodOverlapsDate(p: PharmacyOnCallPeriodRow, dateIso: string): boolea
   return dateIso >= startDay && dateIso <= endDay;
 }
 
-/** Journée calendaire affichée « garde entière » (pas les créneaux habituels). */
 function isGardeFullDisplayDay(p: PharmacyOnCallPeriodRow, dateIso: string): boolean {
   if (!periodOverlapsDate(p, dateIso)) return false;
   const startDay = periodStartDateIso(p);
@@ -98,7 +88,6 @@ function isGardeFullDisplayDay(p: PharmacyOnCallPeriodRow, dateIso: string): boo
   return dateIso > startDay && dateIso < endDay;
 }
 
-/** Fin de garde le même jour calendaire (ex. 9 mai 9h → 10 mai 9h : le 10 à 9h). */
 function gardeTailEndMinutesOnDate(onCall: PharmacyOnCallPeriodRow[], dateIso: string): number | null {
   let max: number | null = null;
   for (const p of onCall) {
@@ -111,14 +100,14 @@ function gardeTailEndMinutesOnDate(onCall: PharmacyOnCallPeriodRow[], dateIso: s
   return max;
 }
 
-function gardeFullDayLine(periods: PharmacyOnCallPeriodRow[]): string {
+function gardeFullDayLine(periods: PharmacyOnCallPeriodRow[], labels: PharmacyScheduleLabels): string {
   const kind = periods[0]?.kind;
-  const kindLab = kind ? ON_CALL_KIND_LABEL_FR[kind] : null;
-  return kindLab ? `${GARDE_FULL_DAY_LINE} (${kindLab})` : GARDE_FULL_DAY_LINE;
+  const kindLab = kind ? labels.onCallKind[kind] : null;
+  return kindLab ? `${labels.onCallFullDay} (${kindLab})` : labels.onCallFullDay;
 }
 
-function gardeTailLine(endMinutes: number): string {
-  return `Garde jusqu'à ${formatMinutesFr(endMinutes)}`;
+function gardeTailLine(endMinutes: number, labels: PharmacyScheduleLabels): string {
+  return labels.onCallUntil(labels.formatMinutes(endMinutes));
 }
 
 function weeklyForDay(weekly: PharmacyWeeklyHourRow[], weekday: number): PharmacyWeeklyHourRow[] {
@@ -128,10 +117,11 @@ function weeklyForDay(weekly: PharmacyWeeklyHourRow[], weekday: number): Pharmac
 function buildDayLinesFromWeekly(
   weekly: PharmacyWeeklyHourRow[],
   weekday: number,
-  opts?: { treatOpenFromMinutes?: number }
+  labels: PharmacyScheduleLabels,
+  opts?: { treatOpenFromMinutes?: number },
 ): string[] {
   const rows = weeklyForDay(weekly, weekday);
-  if (!rows.length) return ["Horaires non renseignés"];
+  if (!rows.length) return [labels.notProvided];
 
   const treatFrom = opts?.treatOpenFromMinutes ?? 0;
   const morning = rows.find((r) => r.period === "morning");
@@ -143,59 +133,86 @@ function buildDayLinesFromWeekly(
 
   const lines: string[] = [];
 
-  const am = morning ? slotLabel(morning.opens_at, morning.closes_at, morning.is_closed) : null;
+  const am = morning ? slotLabel(morning.opens_at, morning.closes_at, morning.is_closed, labels) : null;
   if (am && morningOpen != null && morningOpen >= treatFrom) {
-    lines.push(`Matin : ${am}`);
+    lines.push(labels.periodLine(labels.morning, am));
   }
 
-  const pm = afternoon ? slotLabel(afternoon.opens_at, afternoon.closes_at, afternoon.is_closed) : null;
+  const pm = afternoon
+    ? slotLabel(afternoon.opens_at, afternoon.closes_at, afternoon.is_closed, labels)
+    : null;
   if (pm && afternoonOpen != null && afternoonOpen >= treatFrom) {
-    lines.push(`Après-midi : ${pm}`);
+    lines.push(labels.periodLine(labels.afternoon, pm));
   }
 
   if (!am && afternoon?.is_closed && afternoonOpen != null && afternoonOpen >= treatFrom) {
-    lines.push("Après-midi : fermé");
+    lines.push(labels.afternoonClosed);
   }
-  if (!pm && morning && !morning.is_closed && afternoon?.is_closed && afternoonOpen != null && afternoonOpen >= treatFrom) {
-    lines.push("Après-midi : fermé");
+  if (
+    !pm &&
+    morning &&
+    !morning.is_closed &&
+    afternoon?.is_closed &&
+    afternoonOpen != null &&
+    afternoonOpen >= treatFrom
+  ) {
+    lines.push(labels.afternoonClosed);
   }
 
   if (lines.length === 0) {
     const anyOpenAfter =
       (morningOpen != null && morningOpen >= treatFrom && !morning?.is_closed) ||
       (afternoonOpen != null && afternoonOpen >= treatFrom && !afternoon?.is_closed);
-    if (!anyOpenAfter && treatFrom === 0) lines.push("Fermé");
+    if (!anyOpenAfter && treatFrom === 0) lines.push(labels.closed);
   }
 
   return lines;
 }
 
-function buildMoroccoHolidayLines(dateIso: string): string[] {
+function buildMoroccoHolidayLines(dateIso: string, locale: AppLocale, labels: PharmacyScheduleLabels): string[] {
   const h = findMoroccoHolidayOnDate(dateIso);
-  if (!h) return ["Fermé"];
-  const suffix = h.uncertainDate ? " (date estimée)" : "";
-  return [`Férié — ${h.labelFr}${suffix}`];
+  if (!h) return [labels.closed];
+  const name = moroccoHolidayLabelForLocale(h, locale);
+  return [labels.holidayLine(name, Boolean(h.uncertainDate))];
 }
 
-function buildDayLinesFromOverride(o: PharmacyDayOverrideRow, opts?: { treatOpenFromMinutes?: number }): string[] {
+function isClosedLine(line: string, labels: PharmacyScheduleLabels): boolean {
+  return (
+    line === labels.closed ||
+    line.startsWith(labels.closed) ||
+    line.startsWith(labels.holidayPrefix) ||
+    line.startsWith("Férié") ||
+    line.startsWith("مغلق") ||
+    line.startsWith("عطلة")
+  );
+}
+
+function buildDayLinesFromOverride(
+  o: PharmacyDayOverrideRow,
+  labels: PharmacyScheduleLabels,
+  opts?: { treatOpenFromMinutes?: number },
+): string[] {
   if (o.override_type === "closed" || o.override_type === "holiday") {
-    const closedLabel = o.label?.trim()
-      ? `${o.override_type === "holiday" ? "Férié" : "Fermé"} (${o.label.trim()})`
-      : o.override_type === "holiday"
-        ? "Férié"
-        : "Fermé exceptionnellement";
-    return [closedLabel];
+    const trimmed = o.label?.trim();
+    if (trimmed) {
+      return [
+        o.override_type === "holiday"
+          ? labels.holidayWithLabel(trimmed)
+          : labels.closedWithLabel(trimmed),
+      ];
+    }
+    return [o.override_type === "holiday" ? labels.holidayPrefix : labels.closedExceptional];
   }
   const lines: string[] = [];
   if (o.label?.trim()) lines.push(o.label.trim());
-  const am = slotLabel(o.morning_opens_at, o.morning_closes_at, false);
-  const pm = slotLabel(o.afternoon_opens_at, o.afternoon_closes_at, false);
+  const am = slotLabel(o.morning_opens_at, o.morning_closes_at, false, labels);
+  const pm = slotLabel(o.afternoon_opens_at, o.afternoon_closes_at, false, labels);
   const treatFrom = opts?.treatOpenFromMinutes ?? 0;
   const amOpen = parseTimeToMinutes(o.morning_opens_at);
   const pmOpen = parseTimeToMinutes(o.afternoon_opens_at);
-  if (am && amOpen != null && amOpen >= treatFrom) lines.push(`Matin : ${am}`);
-  if (pm && pmOpen != null && pmOpen >= treatFrom) lines.push(`Après-midi : ${pm}`);
-  if (lines.length === 0) lines.push("Horaires spécifiques");
+  if (am && amOpen != null && amOpen >= treatFrom) lines.push(labels.periodLine(labels.morning, am));
+  if (pm && pmOpen != null && pmOpen >= treatFrom) lines.push(labels.periodLine(labels.afternoon, pm));
+  if (lines.length === 0) lines.push(labels.customHours);
   return lines;
 }
 
@@ -204,55 +221,62 @@ function buildPublicDayLines(
   weekday: number,
   weekly: PharmacyWeeklyHourRow[],
   override: PharmacyDayOverrideRow | undefined,
-  onCall: PharmacyOnCallPeriodRow[]
-): { lines: string[]; isOnCallFullDay: boolean; isOnCallTailDay: boolean } {
+  onCall: PharmacyOnCallPeriodRow[],
+  locale: AppLocale,
+  labels: PharmacyScheduleLabels,
+): { lines: string[]; isOnCallFullDay: boolean; isOnCallTailDay: boolean; isPublicHoliday: boolean } {
   const fullPeriods = onCall.filter((p) => isGardeFullDisplayDay(p, dateIso));
   if (fullPeriods.length > 0) {
-    return { lines: [gardeFullDayLine(fullPeriods)], isOnCallFullDay: true, isOnCallTailDay: false };
+    return { lines: [gardeFullDayLine(fullPeriods, labels)], isOnCallFullDay: true, isOnCallTailDay: false, isPublicHoliday: false };
   }
 
   const tailEnd = gardeTailEndMinutesOnDate(onCall, dateIso);
   const treatFrom = tailEnd ?? 0;
   const lines: string[] = [];
+  const publicHoliday = findMoroccoHolidayOnDate(dateIso);
 
-  if (tailEnd != null) lines.push(gardeTailLine(tailEnd));
+  if (tailEnd != null) lines.push(gardeTailLine(tailEnd, labels));
 
-  // Jour de fin de garde : horaires habituels (ou exception) à partir de l'heure de fin — ex. mer. 24h → jeu. « Garde jusqu'à 9h » + créneaux du jeu.
   const base = override
-    ? buildDayLinesFromOverride(override, { treatOpenFromMinutes: treatFrom })
-    : findMoroccoHolidayOnDate(dateIso)
-      ? buildMoroccoHolidayLines(dateIso)
-      : buildDayLinesFromWeekly(weekly, weekday, { treatOpenFromMinutes: treatFrom });
+    ? buildDayLinesFromOverride(override, labels, { treatOpenFromMinutes: treatFrom })
+    : publicHoliday
+      ? buildMoroccoHolidayLines(dateIso, locale, labels)
+      : buildDayLinesFromWeekly(weekly, weekday, labels, { treatOpenFromMinutes: treatFrom });
 
   for (const line of base) {
-    if (tailEnd != null && (line === "Fermé" || line.startsWith("Fermé"))) continue;
+    if (tailEnd != null && isClosedLine(line, labels)) continue;
     lines.push(line);
   }
 
   if (tailEnd != null && base.length > 0 && lines.length === 1) {
-    const weeklyFallback = buildDayLinesFromWeekly(weekly, weekday, { treatOpenFromMinutes: treatFrom });
+    const weeklyFallback = buildDayLinesFromWeekly(weekly, weekday, labels, {
+      treatOpenFromMinutes: treatFrom,
+    });
     for (const line of weeklyFallback) {
-      if (line !== "Fermé" && !line.startsWith("Fermé") && !lines.includes(line)) lines.push(line);
+      if (!isClosedLine(line, labels) && !lines.includes(line)) lines.push(line);
     }
   }
 
   if (lines.length === 0 && tailEnd != null) {
-    lines.push(gardeTailLine(tailEnd));
+    lines.push(gardeTailLine(tailEnd, labels));
   }
 
   return {
     lines,
     isOnCallFullDay: false,
     isOnCallTailDay: tailEnd != null,
+    isPublicHoliday: Boolean(publicHoliday && !override),
   };
 }
 
-/** 7 jours glissants (aujourd’hui + 6 suivants) — affichage public garde / horaires. */
-export function buildCurrentWeekScheduleFr(
+/** 7 jours glissants (aujourd'hui + 6 suivants) — affichage public garde / horaires. */
+export function buildCurrentWeekSchedule(
   weekly: PharmacyWeeklyHourRow[],
   overrides: PharmacyDayOverrideRow[],
-  onCall: PharmacyOnCallPeriodRow[]
+  onCall: PharmacyOnCallPeriodRow[],
+  locale: AppLocale = "fr",
 ): PharmacyDayScheduleLine[] {
+  const labels = pharmacyScheduleLabelsForLocale(locale);
   const now = nowInCasablanca();
   const todayIso = isoDateInCasablanca(now);
 
@@ -265,27 +289,38 @@ export function buildCurrentWeekScheduleFr(
     const dateIso = isoDateInCasablanca(d);
     const weekday = isoWeekdayInCasablanca(d);
     const override = overrideByDate.get(dateIso);
-    const publicHoliday = findMoroccoHolidayOnDate(dateIso);
-    const { lines, isOnCallFullDay, isOnCallTailDay } = buildPublicDayLines(
+    const { lines, isOnCallFullDay, isOnCallTailDay, isPublicHoliday } = buildPublicDayLines(
       dateIso,
       weekday,
       weekly,
       override,
-      onCall
+      onCall,
+      locale,
+      labels,
     );
 
     out.push({
       dateIso,
-      weekdayLabel: WEEKDAY_FR[weekday] ?? "",
-      dateLabel: formatDateShortFr(dateIso),
+      weekdayLabel: labels.weekdayLabel(weekday),
+      dateLabel: labels.dateLabel(dateIso),
       lines,
       isToday: dateIso === todayIso,
-      isException: Boolean((override || publicHoliday) && !isOnCallFullDay),
+      isException: Boolean((override || isPublicHoliday) && !isOnCallFullDay),
       isOnCallFullDay,
       isOnCallTailDay,
+      isPublicHoliday,
     });
   }
   return out;
+}
+
+/** @deprecated Préférer `buildCurrentWeekSchedule(..., locale)`. */
+export function buildCurrentWeekScheduleFr(
+  weekly: PharmacyWeeklyHourRow[],
+  overrides: PharmacyDayOverrideRow[],
+  onCall: PharmacyOnCallPeriodRow[],
+): PharmacyDayScheduleLine[] {
+  return buildCurrentWeekSchedule(weekly, overrides, onCall, "fr");
 }
 
 function isOpenFromWeeklyAt(weekly: PharmacyWeeklyHourRow[], weekday: number, minutes: number): boolean {
@@ -322,26 +357,22 @@ function isOnCallOnDate(onCall: PharmacyOnCallPeriodRow[], dateIso: string): boo
   return onCall.some((p) => periodOverlapsDate(p, dateIso));
 }
 
-/** Badge public « En garde » : uniquement pendant la permanence active (ends_at exclusif). */
 export function isOnCallBadgeVisibleAt(
   onCall: PharmacyOnCallPeriodRow[],
-  at: Date = new Date()
+  at: Date = new Date(),
 ): boolean {
   return isOnCallNowAt(onCall, at);
 }
 
-/** Statut Ouverte/Fermée + badges garde (garde = ouvert pour le public entre starts_at et ends_at). */
 export function resolvePharmacyOpenStatus(
   weekly: PharmacyWeeklyHourRow[],
   overrides: PharmacyDayOverrideRow[],
-  onCall: PharmacyOnCallPeriodRow[]
+  onCall: PharmacyOnCallPeriodRow[],
 ): {
   status: PharmacyOpenStatus;
   openLabel: string;
   onCallNow: boolean;
-  /** Calendrier / onglet Horaires (journée touchée par une garde). */
   onCallToday: boolean;
-  /** Badge annuaire / fiche : garde en cours seulement (pas le lendemain après 9h). */
   onCallBadgeVisible: boolean;
 } {
   const now = new Date();

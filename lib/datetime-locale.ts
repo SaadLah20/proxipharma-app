@@ -50,6 +50,16 @@ export function collatorForLocale(locale: AppLocale): Intl.Collator {
   return new Intl.Collator(localeToBcp47(locale));
 }
 
+/** Minutes depuis minuit → `09h05` (FR) ou `09:05` (AR). */
+export function formatMinutesForLocale(min: number, locale: AppLocale): string {
+  const h = Math.floor(min / 60);
+  const mm = min % 60;
+  if (locale === "fr") {
+    return `${String(h).padStart(2, "0")}h${String(mm).padStart(2, "0")}`;
+  }
+  return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
 /** Heure Postgres (`time` / `HH:MM`) → `09h05` (FR) ou équivalent 24 h. */
 export function formatTimePgForLocale(pgTime: string | null | undefined, locale: AppLocale): string {
   if (pgTime == null) return "";

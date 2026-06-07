@@ -44,11 +44,11 @@ export function pharmacyOpenStatusInlineBadgeClass(status: PharmacyOpenStatus): 
   );
 }
 
-/** Ligne d'horaire publique contenant fermé / férié. */
+/** Ligne d'horaire publique contenant fermé / férié / مناوبة. */
 export function pharmacyScheduleLineBadgeClass(line: string): string {
-  const closed = /fermé|férié/i.test(line);
-  const oncall = /garde/i.test(line);
-  const open = /matin|après-midi|\d{1,2}h\d/i.test(line);
+  const closed = /fermé|férié|مغلق|عطلة/i.test(line);
+  const oncall = /garde|مناوب/i.test(line);
+  const open = /matin|après-midi|صباح|بعد الظهر|\d{1,2}h\d|\d{1,2}:\d{2}/i.test(line);
   return clsx(
     "inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium leading-snug",
     closed && "bg-rose-50 text-rose-900 ring-1 ring-rose-200/80",
