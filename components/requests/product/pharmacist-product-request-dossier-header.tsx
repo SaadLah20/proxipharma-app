@@ -2,16 +2,13 @@
 
 import { useState } from "react";
 import { clsx } from "clsx";
-import { Info, MessageCircle, Phone, User } from "lucide-react";
+import { Info } from "lucide-react";
+import { PharmacistPatientDossierBand } from "@/components/requests/product/pharmacist-patient-dossier-band";
+import type { PharmacistPatientContactInfo } from "@/components/requests/product/pharmacist-patient-quick-contact";
 import { PatientProductRequestJourneyModal } from "@/components/requests/product/patient-product-request-journey-modal";
 import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
 import { pharmacistProductRequestDossierHeaderShellClass } from "@/lib/pharmacist-product-request-line-ui";
 import { requestStatusBadgeClass, requestStatusFr } from "@/lib/request-display";
-import { uiActionBtnCompactOutline } from "@/lib/ui-action-buttons";
-
-function phoneDigits(raw: string): string {
-  return raw.replace(/\D/g, "");
-}
 
 function isProductRequestType(requestType: string | null | undefined): boolean {
   return requestType === "product_request";
@@ -21,9 +18,11 @@ export function PharmacistProductRequestDossierHeader({
   dossierRefLabel,
   kindLabel = "Demande",
   requestType = "product_request",
+  patientId,
   patientName,
   patientRef,
   patientPhone,
+  patientEmail,
   status,
   statusHint,
   submittedAt,
@@ -33,9 +32,11 @@ export function PharmacistProductRequestDossierHeader({
   dossierRefLabel: string;
   kindLabel?: string;
   requestType?: string | null;
+  patientId: string;
   patientName: string | null;
   patientRef: string | null;
   patientPhone: string | null;
+  patientEmail?: string | null;
   status: string;
   statusHint: string;
   submittedAt?: string | null;
@@ -44,9 +45,16 @@ export function PharmacistProductRequestDossierHeader({
 }) {
   const [journeyOpen, setJourneyOpen] = useState(false);
   const statusLabel = requestStatusFr[status] ?? status;
-  const displayName = patientName?.trim() || null;
-  const displayRef = patientRef?.trim() || null;
   const useSkyChrome = isProductRequestType(requestType);
+
+  const patientContact: PharmacistPatientContactInfo | null = patientId
+    ? {
+        full_name: patientName,
+        patient_ref: patientRef,
+        whatsapp: patientPhone,
+        email: patientEmail ?? null,
+      }
+    : null;
 
   return (
     <>
@@ -65,47 +73,13 @@ export function PharmacistProductRequestDossierHeader({
           />
         </div>
 
-        <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border px-3 py-2 sm:px-3.5">
-          <div className="min-w-0 flex-1">
-            <p className="flex min-w-0 items-center gap-1.5 text-sm font-bold leading-snug text-foreground">
-              <span
-                className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground shadow-sm ring-1 ring-border/80"
-                aria-hidden
-              >
-                <User className="size-[1.125rem]" strokeWidth={2.25} />
-              </span>
-              <span className="min-w-0 truncate" title={displayName ?? undefined}>
-                {displayName ?? "Patient"}
-              </span>
-            </p>
-            {displayRef ? (
-              <p className="mt-0.5 pl-[2.625rem] text-[11px] font-medium tabular-nums text-muted-foreground">
-                {displayRef}
-              </p>
-            ) : null}
-          </div>
-          {patientPhone ? (
-            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-              <a
-                href={`tel:${patientPhone.replace(/\s/g, "")}`}
-                className={uiActionBtnCompactOutline("inline-flex size-8 items-center justify-center p-0")}
-                title={`Appeler ${patientPhone}`}
-                aria-label="Appeler le patient"
-              >
-                <Phone className="size-3.5" aria-hidden />
-              </a>
-              <a
-                href={`https://wa.me/${phoneDigits(patientPhone)}`}
-                target="_blank"
-                rel="noreferrer"
-                className={uiActionBtnCompactOutline("inline-flex size-8 items-center justify-center p-0")}
-                title={`WhatsApp ${patientPhone}`}
-                aria-label="Contacter le patient sur WhatsApp"
-              >
-                <MessageCircle className="size-3.5" aria-hidden />
-              </a>
-            </div>
-          ) : null}
+        <div className="border-b border-border px-3 py-2 sm:px-3.5">
+          <PharmacistPatientDossierBand
+            patientId={patientId}
+            patientContact={patientContact}
+            dossierRefLabel={dossierRefLabel}
+            requestType={requestType}
+          />
         </div>
 
         <div className="flex flex-wrap items-start gap-2 px-3 py-2 sm:px-3.5">

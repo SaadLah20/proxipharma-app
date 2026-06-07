@@ -13,7 +13,7 @@ import {
   ProductRequestLinePrices,
   ProductRequestLineQtyInline,
 } from "@/components/pharmacy/patient-demande-produits-ui";
-import { patientBucketProductRowClass } from "@/lib/patient-bucket-product-row-ui";
+import { patientProductRequestLineCardClass } from "@/lib/patient-product-request-line-ui";
 import { pharmacistProposedProductBadgeFr } from "@/lib/request-display";
 
 const VALIDATED_LINE_THUMB =
@@ -181,14 +181,12 @@ export function PharmacistSupplyCompactLine({
     supplyMutationsEnabled && selected && !lineLockedTrace && !withdrawn && !lineCounterLocked;
   const inBucketList = Boolean(supplyTier);
   const cardShell = inBucketList
-    ? clsx(patientBucketProductRowClass, validatedLineRowClass(supplyTier!, withdrawnGrey || withdrawn))
+    ? clsx(patientProductRequestLineCardClass, validatedLineRowClass(supplyTier!, withdrawnGrey || withdrawn))
     : withdrawn
       ? "rounded-lg border border-border/80 bg-muted/20 px-2 py-1.5 sm:px-2.5 sm:py-2"
       : !selected
         ? "rounded-lg border border-border/70 bg-muted/25 px-2 py-1.5 opacity-[0.92] sm:px-2.5 sm:py-2 shadow-sm"
-        : effAvailRow === "to_order"
-          ? "rounded-lg border border-border/80 border-l-[3px] border-l-teal-700 bg-teal-50/15 px-2 py-1.5 sm:px-2.5 sm:py-2 shadow-sm"
-          : "rounded-lg border border-border/80 border-l-[3px] border-l-sky-600 bg-sky-50/15 px-2 py-1.5 sm:px-2.5 sm:py-2 shadow-sm";
+        : patientProductRequestLineCardClass;
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);

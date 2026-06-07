@@ -32,8 +32,12 @@ export const patientProductHubGroupArchives: HubDashboardGroupAccent = {
 };
 
 export function patientProductHubGroupAccent(groupId: string): HubDashboardGroupAccent {
-  if (groupId === "your_action") return patientProductHubGroupActionRequired;
-  if (groupId === "at_pharmacy") return patientProductHubGroupAtPharmacy;
+  if (groupId === "your_action" || groupId === "action_required") {
+    return patientProductHubGroupActionRequired;
+  }
+  if (groupId === "at_pharmacy") {
+    return patientProductHubGroupAtPharmacy;
+  }
   return patientProductHubGroupArchives;
 }
 
