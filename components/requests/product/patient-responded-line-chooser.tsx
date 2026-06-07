@@ -32,7 +32,10 @@ import { usePrescriptionUiCopy } from "@/lib/use-prescription-ui-copy";
 import { useConsultationUiCopy } from "@/lib/use-consultation-ui-copy";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { cn } from "@/lib/utils";
-import { patientBucketProductRowClass } from "@/lib/patient-bucket-product-row-ui";
+import {
+  patientLineQtyAppearance,
+  patientLineRowClass,
+} from "@/lib/patient-product-request-line-ui";
 import {
   lineSelQtyForBranch,
   type ActionItemAltRow,
@@ -195,7 +198,7 @@ function RespondedLineNotesButton({
         visual={visual}
         open={open}
         onClick={() => setOpen(true)}
-        appearance="neutral"
+        appearance={patientLineQtyAppearance(requestType)}
       />
       {open ? (
         <AppModalOverlay open aria-labelledby={titleId} onBackdropClick={() => setOpen(false)}>
@@ -795,12 +798,15 @@ function RespondedLineBlock({
             <div className="flex shrink-0 items-center gap-2">
               {showQty ? (
                 readOnly ? (
-                  <ProductRequestLineQtyReadonly qty={selQty} appearance="neutral" />
+                  <ProductRequestLineQtyReadonly
+                    qty={selQty}
+                    appearance={patientLineQtyAppearance(requestType)}
+                  />
                 ) : (
                   <ProductRequestLineQtyPicker
                     qty={selQty}
                     maxQty={variant.cap}
-                    appearance="neutral"
+                    appearance={patientLineQtyAppearance(requestType)}
                     onSelect={(n) => onSetQty(Math.min(variant.cap, Math.max(1, n)))}
                   />
                 )
@@ -1017,7 +1023,7 @@ export function RespondedPatientLineChooser({
   if (!hasAlts) {
     const v = buildPrincipalVariant();
     return (
-      <li className={patientBucketProductRowClass}>
+      <li className={patientLineRowClass(requestType)}>
         {requestType === "prescription" && isOrdonnancePrincipal ? (
           <p className="mb-1.5 text-[10px] font-semibold text-muted-foreground">{tCommon("ordonnance")}</p>
         ) : null}
@@ -1042,7 +1048,7 @@ export function RespondedPatientLineChooser({
   }
 
   return (
-    <li className={cn(patientBucketProductRowClass, "overflow-visible")}>
+    <li className={cn(patientLineRowClass(requestType), "overflow-visible")}>
       <div className="space-y-2 pb-2">
         <RespondedVariantTabs
           tabs={variants.map((v) => ({

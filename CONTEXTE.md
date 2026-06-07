@@ -76,6 +76,10 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 - **SQL** : **`20260619_001`** + **`20260713_001`** (règles **marque**, remplace laboratoire) — **appliquer **`20260713_001`** si l’onglet Marques pricing absent**.
 - **UI** : **`/dashboard/pharmacien/pricing`** ; **médicament = PPV fixe** ; **parapharmacie = PPH + marge** (global / marque / produit) via **`lib/pharmacy-pricing/`**.
 
+**Mise à jour 2026-06-06 — hub réservations packs promo** :
+- Hubs **`/dashboard/patient/packs-promo`** et **`/dashboard/pharmacien/reservations-packs`** : tableau de bord + liste (5 statuts, cartes hub, filtres) — analogie demandes produits.
+- Préfixe **Pharmacie** sur nom officine (cartes pack, notifs patient).
+
 **Mise à jour 2026-05-19 — packs promo + horaires** :
 - **SQL** : **`20260610_001`** — offres/réservations packs, refs **`P042/26`**, **`promo_in_app_notifications`** (workflow isolé des demandes D/O/C).
 - **UI** : `offres-promos`, `reservations-packs`, `packs-promo`, onglet Offres fiche publique, cloche header fusionnée.

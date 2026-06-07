@@ -20,6 +20,11 @@ import type {
   DemandeStatBucketKey,
 } from "@/lib/demandes-hub-buckets";
 import { countInBucket } from "@/lib/demandes-hub-buckets";
+import {
+  patientProductHubDashboardShellClass,
+  patientProductHubGroupAccent,
+} from "@/lib/patient-product-hub-dashboard-ui";
+import type { RequestKindId } from "@/lib/request-kinds/types";
 
 const BUCKET_ICONS: Record<DemandeStatBucketKey, LucideIcon> = {
   envoyees: Send,
@@ -40,12 +45,14 @@ function StatBucketTile({
   max,
   compact,
   onOpen,
+  productRequestPatient,
 }: {
   bucket: DemandeStatBucket;
   rows: Row[];
   max: number;
   compact: boolean;
   onOpen: (key: DemandeStatBucketKey) => void;
+  productRequestPatient?: boolean;
 }) {
   const n = countInBucket(rows, bucket);
   const pct = Math.round((n / max) * 100);
@@ -56,15 +63,19 @@ function StatBucketTile({
       type="button"
       onClick={() => onOpen(bucket.key)}
       className={clsx(
-        "flex flex-col rounded-lg border border-border/90 bg-card text-left shadow-sm ring-1 ring-black/[0.03] transition",
+        "flex flex-col rounded-lg border bg-card text-left shadow-sm ring-1 transition",
+        productRequestPatient
+          ? "border-sky-200/70 ring-sky-100/30 hover:border-sky-300/70 hover:shadow-md focus-visible:ring-sky-300/50"
+          : "border-border/90 ring-black/[0.03] hover:border-primary/35 hover:shadow-md focus-visible:ring-ring",
         compact ? "min-h-[5.5rem] p-2" : "min-h-[118px] rounded-xl p-2.5",
-        "hover:border-primary/35 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        "focus-visible:outline-none focus-visible:ring-2"
       )}
     >
       <div className="flex items-start justify-between gap-1">
         <span
           className={clsx(
-            "flex shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary",
+            "flex shrink-0 items-center justify-center rounded-md",
+            productRequestPatient ? "bg-sky-100/90 text-sky-700" : "bg-primary/10 text-primary",
             compact ? "size-7" : "size-8"
           )}
           aria-hidden
@@ -81,7 +92,10 @@ function StatBucketTile({
       </p>
       <div className={clsx("w-full overflow-hidden rounded-full bg-muted", compact ? "mt-1 h-1" : "mt-2 h-1.5")}>
         <div
-          className="h-full rounded-full bg-primary/60 transition-[width]"
+          className={clsx(
+            "h-full rounded-full transition-[width]",
+            productRequestPatient ? "bg-sky-500/55" : "bg-primary/60"
+          )}
           style={{ width: `${pct}%` }}
           aria-hidden
         />
@@ -149,6 +163,8 @@ export function DemandeStatDashboard({
   dashboardTitle = "8 statuts",
   dashboardSubtitle,
   bucketGroups,
+  kindId,
+  viewerRole = "patient",
 }: {
   rows: Row[];
   buckets: DemandeStatBucket[];
@@ -158,11 +174,14 @@ export function DemandeStatDashboard({
   dashboardSubtitle?: string;
   /** Tuiles regroupées par repère patient / pharmacie / archives. */
   bucketGroups?: DemandeStatBucketGroup[];
+  kindId?: RequestKindId;
+  viewerRole?: "patient" | "pharmacien";
 }) {
   const router = useRouter();
   const max = Math.max(1, ...buckets.map((b) => countInBucket(rows, b)));
   const compact = density === "compact";
   const bucketByKey = new Map(buckets.map((b) => [b.key, b]));
+  const productRequestPatient = kindId === "product_request" && viewerRole === "patient";
 
   const openBucket = (key: DemandeStatBucketKey) => {
     const next = new URLSearchParams();
@@ -185,6 +204,7 @@ export function DemandeStatDashboard({
           max={max}
           compact={compact}
           onOpen={openBucket}
+          productRequestPatient={productRequestPatient}
         />
       );
     });
@@ -192,7 +212,10 @@ export function DemandeStatDashboard({
   return (
     <div
       className={clsx(
-        "overflow-visible rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06] shadow-sm sm:shadow-sm",
+        "overflow-visible rounded-2xl border shadow-sm sm:shadow-sm",
+        productRequestPatient
+          ? patientProductHubDashboardShellClass
+          : "border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06]",
         compact ? "p-2.5 sm:p-3" : "p-3 sm:p-3.5"
       )}
     >
@@ -214,7 +237,9 @@ export function DemandeStatDashboard({
           {bucketGroups.map((group) => {
             const tiles = renderTiles(group.bucketKeys).filter(Boolean);
             if (tiles.length === 0) return null;
-            const accent = GROUP_ACCENT[group.id] ?? GROUP_ACCENT.archives;
+            const accent = productRequestPatient
+              ? patientProductHubGroupAccent(group.id)
+              : (GROUP_ACCENT[group.id] ?? GROUP_ACCENT.archives);
             return (
               <div
                 key={group.id}
@@ -256,6 +281,7 @@ export function DemandeStatDashboard({
               max={max}
               compact={compact}
               onOpen={openBucket}
+              productRequestPatient={productRequestPatient}
             />
           ))}
         </div>
