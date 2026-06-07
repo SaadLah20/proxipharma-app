@@ -62,8 +62,8 @@ const prescriptionTheme: RequestKindUiTheme = {
   confirmAccentBorder: "border-amber-300/70",
   photoRing: "hover:ring-amber-400/35 focus-visible:ring-amber-400/45",
   linkAccent: "text-amber-950 underline",
-  modalShell: "border-amber-200/70 shadow-xl",
-  modalHeader: "border-amber-200/80 bg-amber-50/40",
+  modalShell: prescriptionRequestPublicTheme.modalShell,
+  modalHeader: prescriptionRequestPublicTheme.modalHeader,
 };
 
 export function requestKindUiTheme(requestType: string | null | undefined): RequestKindUiTheme {

@@ -5,7 +5,10 @@ import { MessageCircle, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { ProductRequestLineMessageIconButton } from "@/components/pharmacy/patient-demande-produits-ui";
-import { isPatientProductRequestType } from "@/lib/patient-product-request-line-ui";
+import {
+  hasPatientWorkflowAccentShell,
+  patientWorkflowLineAccent,
+} from "@/lib/patient-product-request-line-ui";
 import { requestKindUiTheme } from "@/lib/request-kind-ui-theme";
 import { uiActionBtnModalDismiss } from "@/lib/ui-action-buttons";
 import { cn } from "@/lib/utils";
@@ -42,8 +45,12 @@ export function PatientLineNotesIconButton({
 
   return (
     <>
-      {isPatientProductRequestType(requestType) ? (
-        <ProductRequestLineMessageIconButton hasComment onClick={() => setOpen(true)} />
+      {hasPatientWorkflowAccentShell(requestType) ? (
+        <ProductRequestLineMessageIconButton
+          hasComment
+          onClick={() => setOpen(true)}
+          lineAccent={patientWorkflowLineAccent(requestType) ?? "sky"}
+        />
       ) : (
         <button
           type="button"

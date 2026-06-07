@@ -20,6 +20,7 @@ import type { ConversationAudioDraft } from "@/lib/use-conversation-audio-record
 import { PATIENT_PRODUCT_LINE_COMMENT_PLACEHOLDER_FR } from "@/lib/product-line-comment-copy";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
+import type { PatientWorkflowLineAccent } from "@/lib/patient-workflow-line-ui";
 import type { PatientDemandeProduitsDraftLine } from "@/lib/patient-demande-produits-draft";
 import { ProductCatalogExplorerThumb } from "@/components/products/product-catalog-explorer-thumb";
 import { ProductCatalogMetaLabel } from "@/components/products/product-brand-label";
@@ -36,6 +37,71 @@ export const PRODUCT_REQUEST_LINE_CARD_SHELL = cn(
   "p-1",
 );
 const THUMB = PRODUCT_REQUEST_LINE_THUMB;
+
+function qtyAccentReadonlyClass(
+  appearance: "default" | "neutral",
+  lineAccent: PatientWorkflowLineAccent = "sky",
+): string {
+  if (appearance === "neutral") return "border-border/80 bg-muted/25";
+  if (lineAccent === "amber") return "border-amber-200/55 bg-amber-50/40";
+  return "border-sky-200/80 bg-sky-50/80";
+}
+
+function qtyAccentPickerButtonClass(
+  appearance: "default" | "neutral",
+  lineAccent: PatientWorkflowLineAccent,
+  open: boolean,
+): string {
+  if (appearance === "neutral") {
+    return cn(
+      "border-border/80 hover:bg-muted/30",
+      open && "border-foreground/25 ring-2 ring-foreground/10",
+    );
+  }
+  if (lineAccent === "amber") {
+    return cn(
+      "border-amber-200/55 hover:bg-amber-50/45",
+      open && "border-amber-400/55 ring-2 ring-amber-200/35",
+    );
+  }
+  return cn("border-sky-300/80 hover:bg-sky-50", open && "border-sky-500/70 ring-2 ring-sky-400/30");
+}
+
+function qtyAccentPickerChevronClass(
+  appearance: "default" | "neutral",
+  lineAccent: PatientWorkflowLineAccent,
+): string {
+  if (appearance === "neutral") return "text-muted-foreground";
+  return lineAccent === "amber" ? "text-amber-800" : "text-sky-700";
+}
+
+function qtyAccentPickerOptionClass(
+  appearance: "default" | "neutral",
+  lineAccent: PatientWorkflowLineAccent,
+  selected: boolean,
+): string {
+  if (appearance === "neutral") {
+    return selected ? "bg-muted text-foreground" : "text-foreground hover:bg-muted/60";
+  }
+  if (lineAccent === "amber") {
+    return selected ? "bg-amber-100/80 text-amber-950" : "text-foreground hover:bg-amber-50/60";
+  }
+  return selected ? "bg-sky-100/90 text-sky-950" : "text-foreground hover:bg-sky-50";
+}
+
+function messageAccentButtonClass(
+  hasComment: boolean,
+  lineAccent: PatientWorkflowLineAccent = "sky",
+): string {
+  if (lineAccent === "amber") {
+    return hasComment
+      ? "border-amber-300/60 bg-amber-100/80 text-amber-950 hover:bg-amber-100"
+      : "border-amber-200/55 bg-white text-amber-700/85 hover:border-amber-300/55 hover:bg-amber-50/50 hover:text-amber-900";
+  }
+  return hasComment
+    ? "border-sky-400/70 bg-sky-100 text-sky-900 hover:bg-sky-200/80"
+    : "border-sky-200/70 bg-white text-sky-600/80 hover:border-sky-300/80 hover:bg-sky-50 hover:text-sky-800";
+}
 
 /** Section de page (saisie publique / catalogue) — titres alignés charte globale. */
 export function ProductRequestSection({
@@ -177,18 +243,18 @@ export function ProductRequestLineQtyInline({ qty }: { qty: number }) {
 export function ProductRequestLineQtyReadonly({
   qty,
   appearance = "default",
+  lineAccent = "sky",
 }: {
   qty: number;
   appearance?: "default" | "neutral";
+  lineAccent?: PatientWorkflowLineAccent;
 }) {
   const td = useTranslations("demandePublic");
   return (
     <span
       className={cn(
         "inline-flex h-7 w-full max-w-[6.75rem] items-center justify-center rounded-full border px-2.5",
-        appearance === "neutral"
-          ? "border-border/80 bg-muted/25"
-          : "border-sky-200/80 bg-sky-50/80"
+        qtyAccentReadonlyClass(appearance, lineAccent)
       )}
       aria-label={td("qtyReadonlyAria", { qty })}
     >
@@ -204,6 +270,7 @@ export function ProductRequestLineQtyPicker({
   maxQty = 10,
   onSelect,
   appearance = "default",
+  lineAccent = "sky",
 }: {
   qty: number;
   disabled?: boolean;
@@ -211,6 +278,7 @@ export function ProductRequestLineQtyPicker({
   maxQty?: number;
   onSelect: (qty: number) => void;
   appearance?: "default" | "neutral";
+  lineAccent?: PatientWorkflowLineAccent;
 }) {
   const td = useTranslations("demandePublic");
   const [open, setOpen] = useState(false);
@@ -253,7 +321,7 @@ export function ProductRequestLineQtyPicker({
     };
   }, [open, listId]);
 
-  if (disabled) return <ProductRequestLineQtyReadonly qty={qty} appearance={appearance} />;
+  if (disabled) return <ProductRequestLineQtyReadonly qty={qty} appearance={appearance} lineAccent={lineAccent} />;
 
   const cap = Math.min(10, Math.max(1, maxQty));
   const options = QTY_OPTIONS.filter((n) => n <= cap);
@@ -277,13 +345,7 @@ export function ProductRequestLineQtyPicker({
                   type="button"
                   className={cn(
                     "flex w-full items-center justify-center px-2 py-1.5 text-[13px] font-semibold tabular-nums transition",
-                    appearance === "neutral"
-                      ? n === qty
-                        ? "bg-muted text-foreground"
-                        : "text-foreground hover:bg-muted/60"
-                      : n === qty
-                        ? "bg-sky-100/90 text-sky-950"
-                        : "text-foreground hover:bg-sky-50"
+                    qtyAccentPickerOptionClass(appearance, lineAccent, n === qty)
                   )}
                   onClick={() => {
                     onSelect(n);
@@ -316,20 +378,14 @@ export function ProductRequestLineQtyPicker({
         }}
         className={cn(
           "inline-flex h-7 w-full max-w-[6.75rem] items-center justify-center gap-0.5 rounded-full border bg-white px-2 shadow-sm transition",
-          appearance === "neutral"
-            ? "border-border/80 hover:bg-muted/30"
-            : "border-sky-300/80 hover:bg-sky-50",
-          open &&
-            (appearance === "neutral"
-              ? "border-foreground/25 ring-2 ring-foreground/10"
-              : "border-sky-500/70 ring-2 ring-sky-400/30")
+          qtyAccentPickerButtonClass(appearance, lineAccent, open)
         )}
       >
         <ProductRequestLineQtyLabel qty={qty} />
         <ChevronDown
           className={cn(
             "size-3 shrink-0 transition",
-            appearance === "neutral" ? "text-muted-foreground" : "text-sky-700",
+            qtyAccentPickerChevronClass(appearance, lineAccent),
             open && "rotate-180"
           )}
           aria-hidden
@@ -345,10 +401,12 @@ export function ProductRequestLineMessageIconButton({
   hasComment,
   onClick,
   className,
+  lineAccent = "sky",
 }: {
   hasComment: boolean;
   onClick: () => void;
   className?: string;
+  lineAccent?: PatientWorkflowLineAccent;
 }) {
   const td = useTranslations("demandePublic");
   return (
@@ -359,9 +417,7 @@ export function ProductRequestLineMessageIconButton({
       title={hasComment ? td("lineMessageFilled") : td("lineMessage")}
       className={cn(
         "inline-flex size-7 shrink-0 items-center justify-center rounded-full border shadow-sm transition",
-        hasComment
-          ? "border-sky-400/70 bg-sky-100 text-sky-900 hover:bg-sky-200/80"
-          : "border-sky-200/70 bg-white text-sky-600/80 hover:border-sky-300/80 hover:bg-sky-50 hover:text-sky-800",
+        messageAccentButtonClass(hasComment, lineAccent),
         className
       )}
     >

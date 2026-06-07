@@ -4,6 +4,7 @@ import { useId, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Package, X } from "lucide-react";
 import {
+  ProductRequestLineMessageIconButton,
   ProductRequestLinePrices,
   ProductRequestLineQtyPicker,
   ProductRequestLineQtyReadonly,
@@ -33,8 +34,10 @@ import { useConsultationUiCopy } from "@/lib/use-consultation-ui-copy";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { cn } from "@/lib/utils";
 import {
+  hasPatientWorkflowAccentShell,
   patientLineQtyAppearance,
   patientLineRowClass,
+  patientWorkflowLineAccent,
 } from "@/lib/patient-product-request-line-ui";
 import {
   lineSelQtyForBranch,
@@ -192,14 +195,25 @@ function RespondedLineNotesButton({
   const p = pharmacist.trim();
   const visual = lineConversationVisual(c, p);
 
+  const lineAccent = patientWorkflowLineAccent(requestType) ?? "sky";
+  const useWorkflowMessageButton = hasPatientWorkflowAccentShell(requestType);
+
   return (
     <>
-      <PharmacistLineMessageButton
-        visual={visual}
-        open={open}
-        onClick={() => setOpen(true)}
-        appearance={patientLineQtyAppearance(requestType)}
-      />
+      {useWorkflowMessageButton ? (
+        <ProductRequestLineMessageIconButton
+          hasComment={visual !== "empty"}
+          onClick={() => setOpen(true)}
+          lineAccent={lineAccent}
+        />
+      ) : (
+        <PharmacistLineMessageButton
+          visual={visual}
+          open={open}
+          onClick={() => setOpen(true)}
+          appearance={patientLineQtyAppearance(requestType)}
+        />
+      )}
       {open ? (
         <AppModalOverlay open aria-labelledby={titleId} onBackdropClick={() => setOpen(false)}>
               <div
@@ -708,6 +722,8 @@ function RespondedLineBlock({
 
   const unit = variant.unitPrice != null ? Number(variant.unitPrice) : null;
   const isProposedBlock = variant.showProposalMotif;
+  const lineAccent = patientWorkflowLineAccent(requestType) ?? "sky";
+  const qtyAppearance = patientLineQtyAppearance(requestType);
 
   return (
     <div
@@ -798,15 +814,13 @@ function RespondedLineBlock({
             <div className="flex shrink-0 items-center gap-2">
               {showQty ? (
                 readOnly ? (
-                  <ProductRequestLineQtyReadonly
-                    qty={selQty}
-                    appearance={patientLineQtyAppearance(requestType)}
-                  />
+                  <ProductRequestLineQtyReadonly qty={selQty} appearance={qtyAppearance} lineAccent={lineAccent} />
                 ) : (
                   <ProductRequestLineQtyPicker
                     qty={selQty}
                     maxQty={variant.cap}
-                    appearance={patientLineQtyAppearance(requestType)}
+                    appearance={qtyAppearance}
+                    lineAccent={lineAccent}
                     onSelect={(n) => onSetQty(Math.min(variant.cap, Math.max(1, n)))}
                   />
                 )
