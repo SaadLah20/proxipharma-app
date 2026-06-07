@@ -47,13 +47,13 @@ export function LocaleSwitcher({ visible = true }: LocaleSwitcherProps) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50"
+        className="relative flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm hover:bg-muted/50"
         aria-label={t("ariaLabel")}
         aria-expanded={open}
         aria-haspopup="listbox"
       >
         <Languages className="h-5 w-5" />
-        <span className="absolute -bottom-0.5 -right-0.5 rounded bg-slate-900 px-1 text-[9px] font-bold uppercase text-white">
+        <span className="absolute -bottom-0.5 -right-0.5 rounded bg-primary px-1 text-[9px] font-bold uppercase text-primary-foreground">
           {locale}
         </span>
       </button>

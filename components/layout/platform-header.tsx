@@ -539,15 +539,15 @@ export function PlatformHeader() {
     <header
       data-proxipharma-platform-header
       dir="ltr"
-      className="fixed inset-x-0 top-0 z-50 border-b border-slate-800/90 bg-slate-900 text-slate-100 shadow-md"
+      className="fixed inset-x-0 top-0 z-50 border-b border-border/90 bg-card/95 text-foreground shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-card/90"
     >
       <div className="mx-auto flex h-[3.25rem] max-w-6xl items-center justify-between gap-3 px-4 sm:h-14 sm:px-5">
         <Link
           href="/"
-          className="group flex shrink-0 items-center gap-2 text-lg font-bold tracking-tight text-white"
+          className="group flex shrink-0 items-center gap-2 text-lg font-bold tracking-tight text-foreground"
         >
           <span
-            className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-sky-200 ring-1 ring-white/15 transition group-hover:bg-white/15"
+            className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20 transition group-hover:bg-primary/15"
             aria-hidden
           >
             <Cross className="size-[1.125rem]" strokeWidth={2.25} />
@@ -573,7 +573,7 @@ export function PlatformHeader() {
                         void markNotificationsAsRead();
                       }
                     }}
-                    className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50"
+                    className="relative flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm hover:bg-muted/50"
                     aria-label={tHeader("notifications.ariaLabel")}
                   >
                     <Bell className="h-5 w-5" />
