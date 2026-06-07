@@ -150,6 +150,16 @@ export function pharmacistProductHubCardContextFr(row: PharmacistRequestRow): Ph
           emphasis: "urgent",
         };
       }
+      if (row.request_type === "free_consultation") {
+        return {
+          primaryLine: patientName ? `${patientName} — consultation à lire` : "Consultation à lire",
+          secondaryLine:
+            n > 0
+              ? `${n} produit${n !== 1 ? "s" : ""} proposé${n !== 1 ? "s" : ""} — compléter puis publier`
+              : "Échanger avec le patient, proposer des produits, publier la réponse",
+          emphasis: "urgent",
+        };
+      }
       return {
         primaryLine: patientName ? `${patientName} — ${n} ligne${n !== 1 ? "s" : ""}` : `${n} ligne${n !== 1 ? "s" : ""} à traiter`,
         secondaryLine: "Répondre au patient ou compléter la saisie",

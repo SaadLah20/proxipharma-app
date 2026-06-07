@@ -41,6 +41,6 @@ export const headerAr = {
     prescriptions: "وصفات",
     consultations: "استشارات",
     promos: "عروض",
-    reservations: "حجوزات",
+    reservations: "باقات",
   },
 };

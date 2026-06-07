@@ -224,6 +224,11 @@ import {
   pharmacistProductRequestLineCardClass,
 } from "@/lib/pharmacist-product-request-line-ui";
 import {
+  pharmacistConsultationRequestDossierSectionShellClass,
+  pharmacistConsultationRequestLineCardClass,
+  pharmacistConsultationSecondaryBannerClass,
+} from "@/lib/pharmacist-consultation-request-line-ui";
+import {
   pharmacistPrescriptionRequestDossierSectionShellClass,
   pharmacistPrescriptionRequestLineCardClass,
 } from "@/lib/pharmacist-prescription-request-line-ui";
@@ -5055,10 +5060,13 @@ export default function PharmacienDemandeDetailPage() {
       pharmacistRequestIsHardStopped(request.status) ||
       pharmacistRequestIsClosedSuccess(request.status));
   const useFlatPharmaWorkflowLineCard =
-    (isProductRequest || isPrescription) && (hideMainRequestHeader || usePharmaSentLineLayout);
+    (isProductRequest || isPrescription || isConsultation) &&
+    (hideMainRequestHeader || usePharmaSentLineLayout);
   const pharmacistDossierSectionShellClass = isPrescription
     ? pharmacistPrescriptionRequestDossierSectionShellClass
-    : pharmacistProductRequestDossierSectionShellClass;
+    : isConsultation
+      ? pharmacistConsultationRequestDossierSectionShellClass
+      : pharmacistProductRequestDossierSectionShellClass;
 
   const isPharmacistTerminalArchive =
     pharmacistRequestIsHardStopped(request.status) || pharmacistRequestIsClosedSuccess(request.status);
@@ -5158,7 +5166,7 @@ export default function PharmacienDemandeDetailPage() {
         />
       ) : (
         <PharmacistProductRequestDossierShell
-          active={(isProductRequest || isPrescription) && hideMainRequestHeader}
+          active={(isProductRequest || isPrescription || isConsultation) && hideMainRequestHeader}
           sectionShellClass={pharmacistDossierSectionShellClass}
         >
           {hideMainRequestHeader ? (
@@ -5181,9 +5189,9 @@ export default function PharmacienDemandeDetailPage() {
           {!showConsultationTabbed &&
           isConsultation &&
           ["submitted", "in_review"].includes(request.status) ? (
-            <section className={pharmacistProductSecondaryBannerClass}>
+            <section className={pharmacistConsultationSecondaryBannerClass}>
               <p className="font-semibold">Consultation en cours</p>
-              <p className="mt-0.5 text-muted-foreground">
+              <p className="mt-0.5 text-violet-900/85">
                 Échangez dans l&apos;onglet Conversation, puis ajoutez des produits avant publication.
               </p>
             </section>
@@ -6416,9 +6424,9 @@ export default function PharmacienDemandeDetailPage() {
                               ? usePharmaSentLineLayout
                                 ? PRODUCT_REQUEST_LINE_CARD_SHELL
                                 : pharmacistProductRequestLineCardClass
-                              : usePharmaSentLineLayout
+                              : isPrescription
                                 ? pharmacistPrescriptionRequestLineCardClass
-                                : pharmacistPrescriptionRequestLineCardClass,
+                                : pharmacistConsultationRequestLineCardClass,
                           )
                         : usePharmaSentLineLayout
                           ? clsx(PRODUCT_REQUEST_LINE_CARD_SHELL, "list-none overflow-visible border-l-[3px]")

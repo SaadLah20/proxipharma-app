@@ -259,7 +259,7 @@ export function AnnuairePage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("search.placeholder")}
-            className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-2.5 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-2.5 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
           />
         </span>
       </label>
@@ -311,7 +311,7 @@ export function AnnuairePage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-[50vh] flex-col items-center justify-center gap-3 bg-background p-6">
+      <main className="flex min-h-[50vh] flex-col items-center justify-center gap-3 bg-muted/20 p-6">
         <Loader2 className="size-8 animate-spin text-primary" aria-hidden />
         <p className="text-sm font-medium text-foreground">{t("loading")}</p>
       </main>
@@ -319,30 +319,23 @@ export function AnnuairePage() {
   }
 
   return (
-    <div className="flex flex-col bg-background">
-      <section
-        className="relative hidden border-b border-emerald-800/40 bg-slate-900 text-white sm:block"
-        aria-hidden={false}
-      >
+    <div className="flex flex-col bg-muted/20">
+      <section className="relative border-b border-border/80 bg-gradient-to-b from-primary/[0.07] via-card to-muted/30">
         <div
-          className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-[0.18]"
-          style={{ backgroundImage: "url(/brand/annuaire-hero.png)" }}
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(16,185,129,0.08),transparent_55%)]"
           aria-hidden
         />
-        <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-800/80"
-          aria-hidden
-        />
-        <div className="relative mx-auto max-w-5xl px-5 py-4">
-          <h1 className="text-xl font-bold tracking-tight">{t("hero.title")}</h1>
-          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-300">{t("hero.subtitle")}</p>
+        <div className="relative mx-auto max-w-5xl px-4 py-3.5 sm:px-5 sm:py-4">
+          <h1 className="text-lg font-bold tracking-tight text-foreground sm:text-xl">{t("hero.title")}</h1>
+          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground sm:text-sm">
+            {t("hero.subtitle")}
+          </p>
         </div>
       </section>
 
-      <div className="sticky top-[3.25rem] z-30 border-b border-border bg-background/95 shadow-sm backdrop-blur-sm supports-[backdrop-filter]:bg-background/90 sm:top-14">
-        <div className="mx-auto max-w-5xl px-4 py-2.5 sm:px-5 sm:py-3">
-          <h1 className="mb-2 text-base font-bold tracking-tight text-foreground sm:hidden">{t("hero.title")}</h1>
-          {searchToolbar}
+      <div className="sticky top-[3.25rem] z-30 sm:top-14">
+        <div className="border-b border-border bg-card/95 shadow-[0_6px_18px_rgba(15,23,42,0.06)] backdrop-blur-md supports-[backdrop-filter]:bg-card/90">
+          <div className="mx-auto max-w-5xl px-4 py-3 sm:px-5 sm:py-3.5">{searchToolbar}</div>
         </div>
       </div>
 

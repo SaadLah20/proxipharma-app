@@ -17,6 +17,9 @@ function cardShell(requestType: string | null | undefined): string {
   if (requestType === "prescription") {
     return "rounded-xl border border-amber-200/50 bg-card shadow-sm ring-1 ring-amber-100/30";
   }
+  if (requestType === "free_consultation") {
+    return "rounded-xl border border-violet-200/55 bg-card shadow-sm ring-1 ring-violet-100/35";
+  }
   return "rounded-xl border border-border bg-card shadow-sm ring-1 ring-black/[0.02]";
 }
 

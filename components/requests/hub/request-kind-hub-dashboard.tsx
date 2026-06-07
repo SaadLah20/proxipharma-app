@@ -26,6 +26,7 @@ import {
   rowsInPharmacistProductHubSection,
   type PharmacistProductHubSectionId,
 } from "@/lib/pharmacist-product-hub-sections";
+import { pharmacistConsultationHubSectionTierForId } from "@/lib/pharmacist-consultation-hub-dashboard-ui";
 import { pharmacistPrescriptionHubSectionTierForId } from "@/lib/pharmacist-prescription-hub-dashboard-ui";
 import { pharmacistProductHubSectionTierForId } from "@/lib/pharmacist-product-hub-dashboard-ui";
 import {
@@ -204,7 +205,7 @@ export function RequestKindHubDashboard({
     );
 
   const renderPharmaCard = (row: PharmacistRequestRow, compact: boolean) =>
-    kindId === "product_request" || kindId === "prescription" ? (
+    kindId === "product_request" || kindId === "prescription" || kindId === "free_consultation" ? (
       <PharmacistProductDemandeHubCard row={row} compact={compact} conversationUnread={unreadById[row.id] === true} />
     ) : (
       <PharmacistDemandeCard row={row} conversationUnread={unreadById[row.id] === true} />
@@ -271,10 +272,15 @@ export function RequestKindHubDashboard({
                   ? pharmacistProductHubSectionTierForId(sectionId as PharmacistProductHubSectionId)
                   : hubAccent && kindId === "prescription"
                     ? pharmacistPrescriptionHubSectionTierForId(sectionId as PharmacistProductHubSectionId)
-                    : undefined
+                    : hubAccent && kindId === "free_consultation"
+                      ? pharmacistConsultationHubSectionTierForId(sectionId as PharmacistProductHubSectionId)
+                      : undefined
               }
               hubAccent={
-                hubAccent && (kindId === "product_request" || kindId === "prescription") ? hubAccent : null
+                hubAccent &&
+                (kindId === "product_request" || kindId === "prescription" || kindId === "free_consultation")
+                  ? hubAccent
+                  : null
               }
             >
               {sectionRows.slice(0, HUB_DASHBOARD_PREVIEW).map((r) => (

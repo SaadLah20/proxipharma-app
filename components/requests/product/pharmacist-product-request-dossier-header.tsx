@@ -8,12 +8,14 @@ import type { PharmacistPatientContactInfo } from "@/components/requests/product
 import { PatientProductRequestJourneyModal } from "@/components/requests/product/patient-product-request-journey-modal";
 import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
 import { pharmacistProductRequestDossierHeaderShellClass } from "@/lib/pharmacist-product-request-line-ui";
+import { pharmacistConsultationRequestDossierHeaderShellClass } from "@/lib/pharmacist-consultation-request-line-ui";
 import { pharmacistPrescriptionRequestDossierHeaderShellClass } from "@/lib/pharmacist-prescription-request-line-ui";
 import { requestStatusBadgeClass, requestStatusFr } from "@/lib/request-display";
 
 function pharmacistDossierHeaderShellClass(requestType: string | null | undefined): string {
   if (requestType === "product_request") return pharmacistProductRequestDossierHeaderShellClass();
   if (requestType === "prescription") return pharmacistPrescriptionRequestDossierHeaderShellClass();
+  if (requestType === "free_consultation") return pharmacistConsultationRequestDossierHeaderShellClass();
   return "rounded-xl border border-border bg-card shadow-sm";
 }
 

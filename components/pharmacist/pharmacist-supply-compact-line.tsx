@@ -14,6 +14,7 @@ import {
   ProductRequestLineQtyInline,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import { patientProductRequestLineCardClass } from "@/lib/patient-product-request-line-ui";
+import { pharmacistConsultationRequestLineCardClass } from "@/lib/pharmacist-consultation-request-line-ui";
 import { pharmacistPrescriptionRequestLineCardClass } from "@/lib/pharmacist-prescription-request-line-ui";
 import { pharmacistProposedProductBadgeFr } from "@/lib/request-display";
 
@@ -172,7 +173,9 @@ export function PharmacistSupplyCompactLine({
   const workflowLineCardClass =
     requestType === "prescription"
       ? pharmacistPrescriptionRequestLineCardClass
-      : patientProductRequestLineCardClass;
+      : requestType === "free_consultation"
+        ? pharmacistConsultationRequestLineCardClass
+        : patientProductRequestLineCardClass;
   const pill =
     "inline-flex min-h-8 items-center justify-center rounded-md border px-2 text-[10px] font-semibold shadow-sm ring-1 ring-black/5 transition disabled:opacity-45";
   const pillActiveReserved = "border-sky-700 bg-sky-600 text-white ring-sky-800/25";

@@ -31,11 +31,10 @@ export type PatientHubDashboardAccent = "sky" | "amber" | "violet";
 
 export function patientHubDashboardAccent(
   kindId: RequestKindId,
-  role: "patient" | "pharmacien",
+  _role: "patient" | "pharmacien",
 ): PatientHubDashboardAccent | null {
   if (kindId === "product_request") return "sky";
   if (kindId === "prescription") return "amber";
-  if (role !== "patient") return null;
   if (kindId === "free_consultation") return "violet";
   return null;
 }
