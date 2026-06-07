@@ -32,6 +32,7 @@ import type { PatientCancelReasonCode } from "@/lib/patient-flow-reasons";
 import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
 import { uiActionBtnFullDestructive } from "@/lib/ui-action-buttons";
 import { platformBottomNavFabMinBottomPx } from "@/lib/platform-bottom-nav";
+import { useSyncBottomNavDossierTab } from "@/lib/platform-bottom-nav-dossier-tab";
 import {
   getConsultationDefaultTab,
   type ConsultationDetailTab,
@@ -162,6 +163,7 @@ export default function DemandeDetailPage() {
   const { hint: summaryStatusHint, detail: summaryStatusDetail } = usePatientSummaryStatusCopy(
     request?.request_type ?? "product_request",
   );
+  useSyncBottomNavDossierTab(request?.request_type);
   const loadDetail = useCallback(
     async (silent?: boolean): Promise<{ updatedAt: string; status: string } | null> => {
       if (!id) {

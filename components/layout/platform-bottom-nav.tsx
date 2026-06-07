@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
+import { useBottomNavDossierTab } from "@/lib/platform-bottom-nav-dossier-tab";
 import {
   bottomNavTabsForRole,
   isBottomNavTabActive,
@@ -24,6 +25,7 @@ export function PlatformBottomNav() {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<ProfileRole>(null);
   const [booting, setBooting] = useState(true);
+  const { dossierTabId } = useBottomNavDossierTab();
 
   const loadRole = useCallback(async (userId: string) => {
     const { data } = await supabase.from("profiles").select("role").eq("id", userId).maybeSingle();
@@ -80,7 +82,7 @@ export function PlatformBottomNav() {
       <div className="mx-auto flex h-14 max-w-6xl items-stretch justify-around gap-0.5 px-1 sm:px-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;
-          const active = isBottomNavTabActive(pathname, tab, navRole);
+          const active = isBottomNavTabActive(pathname, tab, navRole, dossierTabId);
           return (
             <Link
               key={tab.id}
