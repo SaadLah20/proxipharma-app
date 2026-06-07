@@ -25,6 +25,7 @@ import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@
 import { useRequestDetailDrift } from "@/lib/use-request-detail-drift";
 import { PatientProductRequestActions, type PatientPharmacyContactInfo, usePatientSummaryStatusCopy } from "@/components/requests/product/patient-product-request-actions";
 import { PatientProductRequestDossierHeader } from "@/components/requests/product/patient-product-request-dossier-header";
+import { patientConsultationRequestDossierSectionShellClass } from "@/lib/patient-consultation-request-line-ui";
 import { ConsultationRequestDetailChrome } from "@/components/requests/consultation/consultation-request-detail-chrome";
 import { RequestExitConfirmModalFr } from "@/components/requests/request-exit-confirm-modal-fr";
 import type { PatientCancelReasonCode } from "@/lib/patient-flow-reasons";
@@ -576,7 +577,12 @@ export default function DemandeDetailPage() {
       </div>
 
       {showConsultationTabbed ? (
-        <div>
+        <div
+          className={clsx(
+            "min-w-0 w-full max-w-full space-y-3 overflow-x-hidden rounded-xl border-2 p-2.5 sm:p-3",
+            patientConsultationRequestDossierSectionShellClass,
+          )}
+        >
           <ConsultationRequestDetailChrome
             header={
               <PatientProductRequestDossierHeader
@@ -597,6 +603,111 @@ export default function DemandeDetailPage() {
             conversationUnread={conversationUnread}
             productLineCount={items.length}
           />
+
+          {requestDrift.stale ? (
+            <div className="rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">
+              <p className="font-bold">{requestDrift.stale.title}</p>
+              <p className="mt-1 leading-snug">{requestDrift.stale.message}</p>
+              <button
+                type="button"
+                className={uiActionBtnFilterToggle("mt-2")}
+                onClick={() => void requestDrift.refresh()}
+              >
+                Actualiser la page
+              </button>
+            </div>
+          ) : null}
+
+          {showConsultationConversationPane ? (
+            <>
+              <RequestConversationInline
+                requestId={request.id}
+                viewerRole="patient"
+                currentUserId={sessionUserId!}
+                variant="consultation"
+                consultationSeed={consultationSeed}
+                refreshToken={conversationRefreshToken}
+                minHeightClass={consultationConversationMinHeightClass(effectiveStickyFooterTier)}
+                onMarkedRead={handleConversationMarkedRead}
+              />
+              {consultationEditable && consultationBrief ? (
+                <ConsultationBriefPanel
+                  requestId={request.id}
+                  initialText={consultationBrief.text}
+                  initialPaths={consultationBrief.paths}
+                  editable
+                  onSaved={async () => {
+                    await loadDetail(true);
+                    setConversationRefreshToken((n) => n + 1);
+                  }}
+                />
+              ) : null}
+            </>
+          ) : null}
+
+          {(hasBottomActions || showArchivedReadonly) && consultationTab === "products" ? (
+            <PatientProductRequestActions
+              key={
+                [
+                  request.status,
+                  request.patient_planned_visit_date ?? "",
+                  request.patient_planned_visit_time ?? "",
+                  one(request.pharmacies)?.telephone ?? "",
+                  one(request.pharmacies)?.contact_email ?? "",
+                  one(request.pharmacies)?.public_ref ?? "",
+                  ...items.map((i) =>
+                    [
+                      i.id,
+                      i.selected_qty,
+                      i.is_selected_by_patient,
+                      i.available_qty,
+                      i.requested_qty,
+                      i.counter_outcome,
+                      i.post_confirm_fulfillment ?? "",
+                      i.withdrawn_after_confirm ? "1" : "0",
+                      i.client_comment ?? "",
+                      i.pharmacist_comment ?? "",
+                      i.line_source ?? "",
+                    ].join(":")
+                  ),
+                  supplyAmendments.map((a) => a.id).join(","),
+                  request.submitted_at ?? "",
+                  request.responded_at ?? "",
+                  request.confirmed_at ?? "",
+                  request.updated_at ?? "",
+                  historyRows.map((h) => `${h.id}:${h.created_at}:${h.reason ?? ""}`).join(";"),
+                ].join("|")
+              }
+              requestId={request.id}
+              status={request.status}
+              items={items}
+              supplyAmendmentBundles={supplyAmendments}
+              initialPlannedVisitDate={request.patient_planned_visit_date}
+              initialPlannedVisitTime={request.patient_planned_visit_time}
+              requestPublicRef={displayRequestPublicRef(request)}
+              pharmacyContact={pharmacyContact}
+              onReload={async () => {
+                await loadDetail(true);
+              }}
+              requestTimelineMeta={{
+                created_at: request.created_at,
+                submitted_at: request.submitted_at,
+                responded_at: request.responded_at,
+                confirmed_at: request.confirmed_at,
+                expires_at: request.expires_at ?? null,
+              }}
+              productPatientNote={productPatientNote}
+              dossierHistoryRows={historyRows}
+              pharmacyId={request.pharmacy_id}
+              requestUpdatedAt={request.updated_at}
+              requestType={request.request_type}
+              prescriptionPaths={isPrescriptionRequest ? prescriptionPaths : null}
+              prescriptionNote={isPrescriptionRequest ? prescriptionNote : null}
+              summaryInPageChrome
+              detailStale={null}
+              archiveTerminalOldStatus={archiveTerminalOldStatus}
+            />
+          ) : null}
         </div>
       ) : !hideMainRequestHeader ||
         (showArchivedReadonly &&
@@ -642,49 +753,7 @@ export default function DemandeDetailPage() {
         </Link>
       ) : null}
 
-      {showConsultationTabbed && requestDrift.stale ? (
-        <div className="rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">
-          <p className="font-bold">{requestDrift.stale.title}</p>
-          <p className="mt-1 leading-snug">{requestDrift.stale.message}</p>
-          <button
-            type="button"
-            className={uiActionBtnFilterToggle("mt-2")}
-            onClick={() => void requestDrift.refresh()}
-          >
-            Actualiser la page
-          </button>
-        </div>
-      ) : null}
-
-      {showConsultationConversationPane ? (
-        <>
-          <RequestConversationInline
-            requestId={request.id}
-            viewerRole="patient"
-            currentUserId={sessionUserId!}
-            variant="consultation"
-            consultationSeed={consultationSeed}
-            refreshToken={conversationRefreshToken}
-            minHeightClass={consultationConversationMinHeightClass(effectiveStickyFooterTier)}
-            onMarkedRead={handleConversationMarkedRead}
-          />
-          {consultationEditable && consultationBrief ? (
-            <ConsultationBriefPanel
-              requestId={request.id}
-              initialText={consultationBrief.text}
-              initialPaths={consultationBrief.paths}
-              editable
-              onSaved={async () => {
-                await loadDetail(true);
-                setConversationRefreshToken((n) => n + 1);
-              }}
-            />
-          ) : null}
-        </>
-      ) : null}
-
-      {(hasBottomActions || showArchivedReadonly) &&
-      (!showConsultationTabbed || consultationTab === "products") ? (
+      {(hasBottomActions || showArchivedReadonly) && !showConsultationTabbed ? (
         <>
         {!showConsultationTabbed && requestDrift.stale ? (
           <div className="mb-2 rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">

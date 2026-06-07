@@ -2930,7 +2930,10 @@ export function PatientProductRequestActions({
 
   const useCompactPassageBlock = !forceReadOnly && showConfirmedCards;
   const workflowDossierSectionShell = patientWorkflowDossierSectionShellClass(requestType);
-  const useWorkflowAccentDossierShell = hasPatientWorkflowAccentShell(requestType) && usesLineWorkflowUi;
+  const useWorkflowAccentDossierShell =
+    hasPatientWorkflowAccentShell(requestType) &&
+    usesLineWorkflowUi &&
+    !(summaryInPageChrome && isConsultation);
   const useArchiveShell = forceReadOnly && usesLineWorkflowUi && !useWorkflowAccentDossierShell;
   const showArchiveDossierHeader = forceReadOnly && usesLineWorkflowUi;
   const isExpiredProductArchive = status === "expired" && usesLineWorkflowUi;
