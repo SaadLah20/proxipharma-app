@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260713_001`**) → phrase **§13.50** (hub packs promo + préfixe Pharmacie ; catalogue/marques **§13.45–49**). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260713_001`**) → phrase **§13.51** (charte pharmacien sky/amber/violet/emerald + barre basse ; catalogue/marques **§13.45–49**). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -383,6 +383,44 @@ git checkout pilote-stable-2026-05-24
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
 
 ---
+
+### Session 2026-06-07 — Charte pharmacien par type (sky / amber / violet / emerald) + barre basse
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`6ee6630`** · **`e910c29`** · **`8e718f6`** · **`64b8d13`** · **`d19a00f`** · **`8304eee`** · **`0af127a`** · **`4a484b6`** · **`f2875c0`**.
+
+**Principe** : même parcours hub + dossier + cartes que le patient, avec une **couleur par type** côté pharmacien — **sky** demandes produits, **amber** ordonnances, **violet** consultations libres, **emerald** réservations packs promo. Charte **compte/officine** (slate / primary) inchangée pour paramètres, clients, pricing, etc.
+
+**Demandes produits (sky)** :
+- Hubs **`/dashboard/pharmacien/demandes`** : tuiles + sections **`lib/pharmacist-product-hub-dashboard-ui.ts`** ; cartes **`PharmacistProductDemandeHubCard`** (contour sky).
+- Détail : **`PharmacistPatientDossierBand`** (Contacter / Voir le client) ; coquille **`PharmacistProductRequestDossierShell`** ; cartes lignes plates **`pharmacistProductRequestLineCardClass`** ; supply **`PharmacistSupplyCompactLine`** ton sky.
+
+**Ordonnances (amber)** :
+- Miroir produits : **`lib/pharmacist-prescription-hub-dashboard-ui.ts`**, **`lib/pharmacist-prescription-request-line-ui.ts`**.
+- Détail : scan **au-dessus** des lignes en saisie ; espacements dossier (`pharmacistDossierProductsStackClass`, buckets aérés) ; badges archives sans doublon « Ajout officine » / « Ajouté après validation » ; **Envoyée le** visible en archive ; **`hideSentAt={false}`**.
+
+**Consultations libres (violet)** :
+- **`lib/pharmacist-consultation-hub-dashboard-ui.ts`**, **`lib/pharmacist-consultation-request-line-ui.ts`**.
+- Hub : cartes riches + tuiles violettes (`patientHubDashboardAccent` inclut pharmacien pour **`free_consultation`**).
+- Détail : onglets **Conversation / Produits** inchangés (`ConsultationRequestDetailChrome`) ; validée/traitée = coquille violet + lignes plates ; bandeau « Consultation en cours » teinté violet.
+
+**Réservations packs promo (emerald)** :
+- Pharmacien : thème emerald sur hub/détail (commits **`8e718f6`**) — **`lib/pharmacist-promo-reservation-line-ui.ts`**, **`lib/promo/load-pharmacist-promo-patient-contacts.ts`**.
+- **Noms patient** : plus de join `profiles` côté client (RLS) — annuaire RPC **`pharmacist_patient_directory_enriched_for_my_pharmacy`** (hub) et **`pharmacist_patient_detail`** (fiche) ; bandeau **`PharmacistPatientDossierBand`**.
+
+**Barre navigation basse (patient + pharmacien)** :
+- **`components/layout/platform-bottom-nav.tsx`**, **`lib/platform-bottom-nav.ts`** — 4 onglets dossiers (produits, ordonnances, consultations, packs/réservations) ; masquée hors session / admin / auth.
+- Menu profil header : section **Mes dossiers** retirée (dossiers = barre basse) ; pharmacien idem pour **Dossiers & réservations**.
+- Détail partagé : onglet actif déduit du **`request_type`** (`lib/platform-bottom-nav-dossier-tab.tsx`, footer **`8304eee`**).
+
+**Patient — autres** :
+- Bandeau officine : réf. pharmacie **`ville · P042/26`** (`patient-pharmacy-dossier-band.tsx`).
+- Menu profil : **Annuaire** et **Notifications** retirés (cloche header conservée).
+
+**Annuaire public** : hero/header clarifiés sous header clair (**`0af127a`**).
+
+**SQL** : aucune migration.
+
+**Phrase de reprise** : **§13.51**.
 
 ---
 
@@ -2131,7 +2169,7 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260710_001_products_brand_columns.sql` (**products.brand** + **brand_confidence**)
   - `supabase/migrations/20260713_001_pharmacy_pricing_brand_rules.sql` (**pricing parapharmacie par marque**) (**`patient_save_consultation_brief`**, pas de double notif au 1er envoi avec photos)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260713_001`** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. Reprise courte : **§13.45**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260713_001`** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. Reprise courte : **§13.51**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2152,16 +2190,17 @@ Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-
 - **`/dashboard/pharmacien/offres-promos`** + **`/dashboard/pharmacien/reservations-packs`** ; **`/dashboard/patient/packs-promo`** — workflow packs promo (après **`20260610_001`**).
 - **`/dashboard/pharmacien/pricing`** — moteur de pricing officine (**`20260619_001`**, appliquée).
 - **`/dashboard/pharmacien/parametres`** — **Mes paramètres** pharmacien (**`pharmacist-settings-page.tsx`**, charte **`platform-dashboard-chrome`**).
-- **Hub produits pharmacien** : **`/dashboard/pharmacien/demandes`** — dashboard sky + KPIs + compteur liste (**`PharmacistProductDemandesDashboard`**).
+- **Hubs pharmacien par type** : **`/dashboard/pharmacien/demandes`** (sky), **`/ordonnances`** (amber), **`/consultations-libres`** (violet), **`/reservations-packs`** (emerald) — **`RequestKindHubDashboard`** + **`PharmacistProductDemandeHubCard`** ; libs **`pharmacist-*-hub-dashboard-ui.ts`**.
+- **Barre basse** : **`PlatformBottomNav`** — 4 onglets dossiers patient/pharmacien ; détail dossier = onglet actif selon type (**`platform-bottom-nav-dossier-tab`**).
 - **`/pharmacie/[id]/demande-produits`**: création demande **`submitted`**
 - **`/dashboard`** (résumé / routage rôle), **`/dashboard/demandes`** (hub + **filtre par réf.** + codes **`request_public_ref`** sur cartes), **`/dashboard/demandes/[id]`** (ref mémorable + code officine en détail)
 - **`/dashboard/demandes`** (vue liste) : refonte UX des filtres/cartes ; suppression bouton copie ; compteurs et montants contextualisés (`responded` vs validé/en traitement/clôturé) ; statut intermédiaire UI **En traitement** (virtuel : `confirmed` + **`post_confirm_fulfillment`** `reserved`/`ordered`, migration **`20260507_005`**)
 - **`/dashboard/demandes`** et **`/dashboard/pharmacien/demandes`** (vue dashboard) : bloc **En traitement** alimenté par le même statut dérivé ; bucket **Validée par vous / le client** pour **`confirmed`** sans réservation/commande
 - **`/dashboard/demandes/[id]`** (détail patient) : refonte orientée produit avec header sticky montant+volume+passage prévu et actions globales en bas ; date de passage modifiable aussi en `confirmed` côté UI/app
 - **`/dashboard/pharmacien`** (tableau de bord analytics + liens), **`/dashboard/pharmacien/demandes`** (idem refs + **code client** sur cartes), **`/dashboard/pharmacien/demandes/[id]`**, **`/dashboard/pharmacien/clients`** (recherche par **`patient_ref`**)
-- **Chrome** : **`components/layout/platform-*.tsx`** — nav patient & pharmacien (ordonnances / consultations libres / **packs promo** en menu, etc.), cloche = **`app_notifications`** + **`promo_in_app_notifications`**
-- **Patient** : **`/dashboard/patient/*`** (paramètres avec **code client**, pharmacies, liste souhaits, ordonnances/consultations libres désormais branchées en listes filtrées par type)
-- **Pharmacien** : **`/dashboard/pharmacien/ordonnances`** et **`/dashboard/pharmacien/consultations-libres`** branchées sur les demandes existantes de l’officine (filtre `request_type`, cartes simples, lien détail)
+- **Chrome** : **`platform-header.tsx`** + **`platform-bottom-nav.tsx`** — dossiers = barre basse (4 types) ; menu profil = pharmacies / paramètres / déconnexion (plus Annuaire ni Notifications patient) ; cloche = **`app_notifications`** + **`promo_in_app_notifications`**
+- **Patient** : **`/dashboard/patient/*`** (paramètres, **Mes pharmacies**, hubs par type via barre basse)
+- **Pharmacien** : détail unique **`/dashboard/pharmacien/demandes/[id]`** pour D/O/C ; charte couleur par **`request_type`** ; contact patient via RPC (**`pharmacist_patient_contact_for_request`**, annuaire enrichi, **`pharmacist_patient_detail`** pour promos)
 - Auth **`/auth`** + **`lib/post-auth-redirect.ts`**
 - **`lib/patient-request-history-audit.ts`** — sérialisation / lecture **`audit_v1:`** dans `request_status_history.reason` pour l’historique patient après ajustements **`confirmed`**.
 - **`scripts/clear-all-requests.mjs`** — reset complet des demandes + compteurs ref publique (tests ; clé **`SUPABASE_SERVICE_ROLE_KEY`**).
@@ -2402,7 +2441,13 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.50) Phrase de reprise (recommandée — après session **2026-06-06 (suite 9)** hub réservations packs promo)
+### 13.51) Phrase de reprise (recommandée — après session **2026-06-07** charte pharmacien + barre basse)
+
+**« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`f2875c0`** consultations violet pharma, **`8e718f6`** ordonnances amber + packs emerald, **`6ee6630`** / **`e910c29`** sky produits, **`64b8d13`** barre basse). **Migrations** si pas fait : **`20260709_001`** → **`20260713_001`**. **Pharmacien** : hubs + dossiers **sky** (produits), **amber** (ordonnances), **violet** (consultations), **emerald** (packs) — cartes riches, bandeau patient RPC, coquilles dossier ; **barre basse** 4 onglets. **Patient** : bandeau officine avec ref pharmacie ; menu profil sans Annuaire/Notifications (cloche OK). Pas de migration Git pour ce lot. Je te donne la tâche ou les retours preview. »**
+
+### 13.50) Phrase de reprise (dépassée — session **2026-06-06 (suite 9)** hub réservations packs promo)
+
+Voir **§13.51**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`fbe2445`** hub packs promo, **`91c6edc`** lint). **Migrations** si pas fait : **`20260709_001`** → **`20260713_001`**. **Packs promo** : hubs patient **`/dashboard/patient/packs-promo`** et pharmacien **`/dashboard/pharmacien/reservations-packs`** — tableau de bord + liste (5 statuts, cartes hub, filtres) ; préfixe **Pharmacie** sur nom officine (cartes, détail, notifs patient). Workflow RPC inchangé. Lots antérieurs : explorateur catalogue (**§13.49**), modale photo (**§13.48**). Je te donne la tâche ou les retours preview. »**
 
