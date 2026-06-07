@@ -132,8 +132,9 @@
   }
 }
 
-/* Modale ouverte : masquer les footers sticky restés dans le DOM (filet de sécurité). */
-body[data-modal-open] [data-sticky-footer] {
+/* Modale ouverte : masquer chrome bas fixe (filet de sécurité). */
+body[data-modal-open] [data-sticky-footer],
+body[data-modal-open] [data-bottom-nav] {
   visibility: hidden;
   pointer-events: none;
 }

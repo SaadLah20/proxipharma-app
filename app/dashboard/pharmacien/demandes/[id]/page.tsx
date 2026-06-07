@@ -121,13 +121,8 @@ import {
 import { PageShell } from "@/components/ui/compact-shell";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { PolishedOptionPicker } from "@/components/ui/polished-option-picker";
-import { Z_STICKY_FOOTER } from "@/lib/ui-z-index";
-import {
-  PlatformStickyFooter,
-  PlatformStickyFooterStack,
-  PlatformStickyFooterStackRow,
-} from "@/components/layout/platform-sticky-footer";
-import { stickyFooterPadClass, consultationConversationViewportHeightClass } from "@/lib/platform-sticky-footer";
+import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
+import { consultationConversationViewportHeightClass } from "@/lib/platform-sticky-footer";
 import {
   PHARMA_LINE_EDITOR_ALTS,
   PHARMA_LINE_EDITOR_CARD,
@@ -5109,18 +5104,7 @@ export default function PharmacienDemandeDetailPage() {
   const showMainSupplyFooter =
     !respondedEditMode && (showBottomActionSticky || showSupplyStatsFooter || showSupplyDirtyBar);
 
-  let bottomChromePaddingClass = "";
-  if (respondedEditMode) {
-    bottomChromePaddingClass = stickyFooterPadClass("pharmaEdit");
-  } else if (showBottomActionSticky && showSupplyStatsFooter) {
-    bottomChromePaddingClass = stickyFooterPadClass(showSupplyDirtyBar ? "pharmaTriple" : "pharmaDouble");
-  } else if (showBottomActionSticky) {
-    bottomChromePaddingClass = stickyFooterPadClass(showSupplyDirtyBar ? "pharmaDouble" : "pharmaSingle");
-  } else if (showSupplyStatsFooter) {
-    bottomChromePaddingClass = stickyFooterPadClass(showSupplyDirtyBar ? "pharmaDouble" : "compact");
-  } else if (showSupplyDirtyBar) {
-    bottomChromePaddingClass = stickyFooterPadClass("pharmaSingle");
-  }
+  const supplyInlineTone = isProductRequest ? "sky" : isPrescription ? "amber" : isConsultation ? "violet" : "sky";
 
   const stickyFooterObscured =
     publishConfirmOpen ||
@@ -5142,8 +5126,7 @@ export default function PharmacienDemandeDetailPage() {
         usesLineWorkflow && hideMainRequestHeader
           ? pharmacistProductDossierPageClass
           : "space-y-2 sm:space-y-3",
-        usesLineWorkflow && !hideMainRequestHeader && "bg-slate-50",
-        bottomChromePaddingClass
+        usesLineWorkflow && !hideMainRequestHeader && "bg-slate-50"
       )}
     >
       <RequestDetailBackLink config={kindConfig} viewerRole="pharmacien" />
@@ -7584,6 +7567,146 @@ export default function PharmacienDemandeDetailPage() {
             </p>
           ) : null}
 
+          {canManageResponded && respondedEditMode && !stickyFooterObscured ? (
+            <DossierInlineActionPanel tone="amber" className="mt-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    resetDraftFromRows();
+                    setRespondedEditMode(false);
+                    resetRespondedLineAltUi();
+                    setPendingProposalRows([]);
+                    setPendingAlternatives([]);
+                    setPendingDeletedAlternativeIds([]);
+                    setRemovedPersistedRespondedEditIds([]);
+                    setError("");
+                  }}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-amber-400/90 bg-white px-4 py-2.5 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-50/90 disabled:opacity-50 sm:order-1 sm:w-auto sm:min-w-[9rem]"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    const b = respondedEditBaselineRef.current;
+                    if (!b) {
+                      setError("Réouvrez « Modifier la réponse » puis réessayez.");
+                      return;
+                    }
+                    setError("");
+                    const diffs = diffRespondedSnapshots(
+                      b,
+                      displayRows,
+                      draft,
+                      altQtyDrafts,
+                      pendingProposalRows,
+                      pendingAlternatives,
+                      pendingDeletedAlternativeIds,
+                      removedPersistedRespondedEditIds
+                    );
+                    setRespondedSaveDiffLines(diffs);
+                    setRespondedSaveConfirmOpen(true);
+                  }}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-amber-600 bg-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-amber-700 disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
+                >
+                  Enregistrer
+                </button>
+              </div>
+            </DossierInlineActionPanel>
+          ) : null}
+
+          {showMainSupplyFooter && !stickyFooterObscured ? (
+            <DossierInlineActionPanel tone={supplyInlineTone} className="mt-4 space-y-3">
+              {showSupplyStatsFooter ? (
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-foreground">
+                  <span className="shrink-0 font-semibold tabular-nums text-muted-foreground">
+                    {supplyFooterTotals.count} produit{supplyFooterTotals.count > 1 ? "s" : ""}
+                  </span>
+                  <span className="min-w-0 text-end font-bold tabular-nums text-foreground">
+                    Total :{" "}
+                    {supplyFooterTotals.count === 0
+                      ? "—"
+                      : supplyFooterTotals.missingPrice && supplyFooterTotals.total === 0
+                        ? "prix partiellement renseigné"
+                        : `${supplyFooterTotals.total.toLocaleString("fr-FR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })} MAD`}
+                    {supplyFooterTotals.missingPrice && supplyFooterTotals.total > 0 ? (
+                      <span className="ml-1 font-normal text-muted-foreground">(estimation partielle)</span>
+                    ) : null}
+                  </span>
+                </div>
+              ) : null}
+              {showDeclareTreatedSticky ? (
+                <div className="flex min-w-0 items-center gap-2 border-t border-inherit pt-3">
+                  <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold leading-snug text-foreground">
+                    Préparation prête ?
+                    <InfoHint label="À propos de « Déclarer la demande traitée »" placement="up" align="start">
+                      Quand la préparation est prête, déclarez la demande traitée. Le patient pourra suivre le passage au
+                      comptoir ; vous marquerez ensuite les réceptions en officine et les retraits ligne par ligne.
+                    </InfoHint>
+                  </span>
+                  <button
+                    type="button"
+                    disabled={declareTreatedBusy || Boolean(requestDrift.stale)}
+                    title={requestDrift.stale?.message}
+                    onClick={() => setDeclareTreatedModalOpen(true)}
+                    className={uiActionBtnModalPrimary(
+                      "h-10 min-w-0 flex-1 px-4 text-sm font-bold whitespace-nowrap disabled:opacity-50"
+                    )}
+                  >
+                    Déclarer traitée
+                  </button>
+                </div>
+              ) : null}
+              {showCloseCounterSticky ? (
+                <div className="flex flex-col gap-2 border-t border-inherit pt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                  <p className="text-center text-[11px] leading-snug text-muted-foreground sm:flex-1 sm:text-left">
+                    Au moins un produit est récupéré — vous pouvez clôturer (les autres seront retirés).
+                  </p>
+                  <button
+                    type="button"
+                    disabled={completeBusy}
+                    onClick={() => setCloseConfirmOpen(true)}
+                    className={uiActionBtnModalPrimary(
+                      "h-10 w-full shrink-0 px-4 text-sm font-bold disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
+                    )}
+                  >
+                    {completeBusy ? "Clôture…" : "Clôturer le dossier"}
+                  </button>
+                </div>
+              ) : null}
+              {showSupplyDirtyBar ? (
+                <div className="flex flex-col gap-2 border-t border-inherit pt-3 sm:flex-row sm:justify-end sm:gap-3">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => cancelConfirmedSupplyEdits()}
+                    className={uiActionBtnModalOutline(
+                      "h-10 w-full text-sm font-semibold disabled:opacity-50 sm:order-1 sm:w-auto sm:min-w-[9rem]"
+                    )}
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => startSaveConfirmedAdjustments()}
+                    className={uiActionBtnModalPrimary(
+                      "h-10 w-full text-sm font-bold disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
+                    )}
+                  >
+                    {busy ? "Enregistrement…" : "Enregistrer les modifications"}
+                  </button>
+                </div>
+              ) : null}
+            </DossierInlineActionPanel>
+          ) : null}
+
           {(request.status === "submitted" ||
             request.status === "in_review" ||
             request.status === "responded" ||
@@ -7821,56 +7944,6 @@ export default function PharmacienDemandeDetailPage() {
           </div>
         </AppModalOverlay>
       ) : null}
-      {canManageResponded && respondedEditMode && !stickyFooterObscured ? (
-        <PlatformStickyFooter tone="amber" width="3xl" zIndex={10050}>
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                resetDraftFromRows();
-                setRespondedEditMode(false);
-                resetRespondedLineAltUi();
-                setPendingProposalRows([]);
-                setPendingAlternatives([]);
-                setPendingDeletedAlternativeIds([]);
-                setRemovedPersistedRespondedEditIds([]);
-                setError("");
-              }}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-amber-400/90 bg-white px-4 py-2.5 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-50/90 disabled:opacity-50 sm:order-1 sm:w-auto sm:min-w-[9rem]"
-            >
-              Annuler
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                const b = respondedEditBaselineRef.current;
-                if (!b) {
-                  setError("Réouvrez « Modifier la réponse » puis réessayez.");
-                  return;
-                }
-                setError("");
-                const diffs = diffRespondedSnapshots(
-                  b,
-                  displayRows,
-                  draft,
-                  altQtyDrafts,
-                  pendingProposalRows,
-                  pendingAlternatives,
-                  pendingDeletedAlternativeIds,
-                  removedPersistedRespondedEditIds
-                );
-                setRespondedSaveDiffLines(diffs);
-                setRespondedSaveConfirmOpen(true);
-              }}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-amber-600 bg-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-amber-700 disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
-            >
-              Enregistrer
-            </button>
-          </div>
-        </PlatformStickyFooter>
-      ) : null}
       {respondedSaveConfirmOpen ? (
         <AppModalOverlay
           open
@@ -8028,107 +8101,6 @@ export default function PharmacienDemandeDetailPage() {
             </div>
           </div>
         </AppModalOverlay>
-      ) : null}
-
-      {showMainSupplyFooter && !stickyFooterObscured ? (
-        <PlatformStickyFooterStack
-          tone={isProductRequest ? "sky" : isPrescription ? "amber" : isConsultation ? "violet" : "sky"}
-        >
-          {showSupplyStatsFooter ? (
-            <PlatformStickyFooterStackRow compact bordered={false}>
-              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-foreground">
-                <span className="shrink-0 font-semibold tabular-nums text-muted-foreground">
-                  {supplyFooterTotals.count} produit{supplyFooterTotals.count > 1 ? "s" : ""}
-                </span>
-                <span className="min-w-0 text-end font-bold tabular-nums text-foreground">
-                  Total :{" "}
-                  {supplyFooterTotals.count === 0
-                    ? "—"
-                    : supplyFooterTotals.missingPrice && supplyFooterTotals.total === 0
-                      ? "prix partiellement renseigné"
-                      : `${supplyFooterTotals.total.toLocaleString("fr-FR", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })} MAD`}
-                  {supplyFooterTotals.missingPrice && supplyFooterTotals.total > 0 ? (
-                    <span className="ml-1 font-normal text-muted-foreground">(estimation partielle)</span>
-                  ) : null}
-                </span>
-              </div>
-            </PlatformStickyFooterStackRow>
-          ) : null}
-          {showDeclareTreatedSticky ? (
-            <PlatformStickyFooterStackRow compact bordered={showSupplyStatsFooter}>
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold leading-snug text-foreground">
-                  Préparation prête ?
-                  <InfoHint label="À propos de « Déclarer la demande traitée »" placement="up" align="start">
-                    Quand la préparation est prête, déclarez la demande traitée. Le patient pourra suivre le passage au
-                    comptoir ; vous marquerez ensuite les réceptions en officine et les retraits ligne par ligne.
-                  </InfoHint>
-                </span>
-                <button
-                  type="button"
-                  disabled={declareTreatedBusy || Boolean(requestDrift.stale)}
-                  title={requestDrift.stale?.message}
-                  onClick={() => setDeclareTreatedModalOpen(true)}
-                  className={uiActionBtnModalPrimary(
-                    "h-10 min-w-0 flex-1 px-4 text-sm font-bold whitespace-nowrap disabled:opacity-50"
-                  )}
-                >
-                  Déclarer traitée
-                </button>
-              </div>
-            </PlatformStickyFooterStackRow>
-          ) : null}
-          {showCloseCounterSticky ? (
-            <PlatformStickyFooterStackRow
-              bordered={Boolean(showSupplyStatsFooter || showDeclareTreatedSticky)}
-            >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <p className="text-center text-[11px] leading-snug text-muted-foreground sm:flex-1 sm:text-left">
-                  Au moins un produit est récupéré — vous pouvez clôturer (les autres seront retirés).
-                </p>
-                <button
-                  type="button"
-                  disabled={completeBusy}
-                  onClick={() => setCloseConfirmOpen(true)}
-                  className={uiActionBtnModalPrimary(
-                    "h-10 w-full shrink-0 px-4 text-sm font-bold disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
-                  )}
-                >
-                  {completeBusy ? "Clôture…" : "Clôturer le dossier"}
-                </button>
-              </div>
-            </PlatformStickyFooterStackRow>
-          ) : null}
-          {showSupplyDirtyBar ? (
-            <PlatformStickyFooterStackRow bordered={false}>
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => cancelConfirmedSupplyEdits()}
-                  className={uiActionBtnModalOutline(
-                    "h-10 w-full text-sm font-semibold disabled:opacity-50 sm:order-1 sm:w-auto sm:min-w-[9rem]"
-                  )}
-                >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => startSaveConfirmedAdjustments()}
-                  className={uiActionBtnModalPrimary(
-                    "h-10 w-full text-sm font-bold disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
-                  )}
-                >
-                  {busy ? "Enregistrement…" : "Enregistrer les modifications"}
-                </button>
-              </div>
-            </PlatformStickyFooterStackRow>
-          ) : null}
-        </PlatformStickyFooterStack>
       ) : null}
 
       <PharmacistDeclareTreatedConfirmModal

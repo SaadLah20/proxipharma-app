@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { PageShell } from "@/components/ui/compact-shell";
-import { PlatformStickyFooter } from "@/components/layout/platform-sticky-footer";
+import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
 import { PharmacistPromoReservationDossierHeader } from "@/components/promo/pharmacist-promo-reservation-dossier-header";
 import { PromoReservationHistoryPanel } from "@/components/promo/promo-reservation-history-panel";
 import { PromoOfferPackSummary } from "@/components/promo/promo-offer-pack-summary";
@@ -16,7 +16,6 @@ import { markPromoReservationNotificationsRead } from "@/lib/promo/mark-reservat
 import type { PromoReservationHistoryRow } from "@/lib/promo/promo-reservation-history-labels";
 import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
-import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
 import { supabase } from "@/lib/supabase";
 import type { PromoLineWithPrice } from "@/lib/promo/pricing";
 import type { PromoReservationStatus } from "@/lib/promo/types";
@@ -237,7 +236,6 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
   });
   const canAct = row.status === "submitted" || row.status === "confirmed";
   const dossierRefLabel = row.public_ref?.trim() || row.id.slice(0, 8);
-  const stickyPad = canAct && panel === "none" ? stickyFooterPadClass("standard") : panel !== "none" ? stickyFooterPadClass("tall") : "";
 
   const actionBlock =
     row.status === "submitted" && panel === "none" ? (
@@ -347,7 +345,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     ) : null;
 
   return (
-    <PageShell maxWidthClass="max-w-3xl" className={clsx("space-y-3 bg-slate-50", stickyPad)}>
+    <PageShell maxWidthClass="max-w-3xl" className="space-y-3 bg-slate-50">
       <Link href="/dashboard/pharmacien/reservations-packs" className={p.backLink}>
         ← Réservations packs
       </Link>
@@ -410,16 +408,16 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
         {panel !== "none" ? <div className="pt-1">{actionBlock}</div> : null}
       </section>
 
+      {canAct && panel === "none" ? (
+        <DossierInlineActionPanel tone="emerald">{actionBlock}</DossierInlineActionPanel>
+      ) : null}
+
       <PromoReservationHistoryPanel
         rows={historyRows}
         role="pharmacien"
         busy={historyBusy}
         onRefresh={() => void loadHistory()}
       />
-
-      {canAct && panel === "none" ? (
-        <PlatformStickyFooter tone="emerald">{actionBlock}</PlatformStickyFooter>
-      ) : null}
     </PageShell>
   );
 }

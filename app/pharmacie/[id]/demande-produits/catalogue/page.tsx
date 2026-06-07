@@ -20,8 +20,7 @@ import {
 } from "@/components/requests/patient-product-photo-preview-modal";
 import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
 import { cn } from "@/lib/utils";
-import { PlatformStickyFooter } from "@/components/layout/platform-sticky-footer";
-import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
+import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { uiActionBtnFull } from "@/lib/ui-action-buttons";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
@@ -186,12 +185,7 @@ export default function DemandeProduitsCataloguePage() {
   }
 
   return (
-    <main
-      className={cn(
-        "flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden touch-pan-y bg-gradient-to-b from-sky-50/35 via-background to-background text-foreground antialiased",
-        stickyFooterPadClass("standard")
-      )}
-    >
+    <main className="flex min-h-[100dvh] flex-col touch-pan-y bg-gradient-to-b from-sky-50/35 via-background to-background text-foreground antialiased">
       <div className="mx-auto flex w-full max-w-lg min-h-0 flex-1 flex-col overflow-hidden px-4 pt-3 pb-2 sm:px-5 sm:pt-4">
         <div className="shrink-0 space-y-2 pb-2">
           <div className="flex items-center justify-between gap-2">
@@ -283,19 +277,19 @@ export default function DemandeProduitsCataloguePage() {
             </ul>
           )}
         </div>
-      </div>
 
-      <PlatformStickyFooter tone="neutral" className={t.footerBorder}>
-        <Button
-          type="button"
-          size="lg"
-          disabled={selectedCount === 0 || adding}
-          className={cn(uiActionBtnFull("h-11 text-sm"), t.cta)}
-          onClick={() => addSelectedAndReturn()}
-        >
-          {addButtonLabel}
-        </Button>
-      </PlatformStickyFooter>
+        <DossierInlineActionPanel tone="neutral" className={cn("mt-3 shrink-0", t.footerBorder)}>
+          <Button
+            type="button"
+            size="lg"
+            disabled={selectedCount === 0 || adding}
+            className={cn(uiActionBtnFull("h-11 text-sm"), t.cta)}
+            onClick={() => addSelectedAndReturn()}
+          >
+            {addButtonLabel}
+          </Button>
+        </DossierInlineActionPanel>
+      </div>
 
       <PatientProductPhotoPreviewModal
         open={photoPreview != null}

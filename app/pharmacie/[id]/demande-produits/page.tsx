@@ -31,11 +31,7 @@ import {
 } from "@/components/requests/patient-product-photo-preview-modal";
 import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
 import { cn } from "@/lib/utils";
-import {
-  PlatformStickyFooter,
-  PlatformStickyFooterSummaryRow,
-} from "@/components/layout/platform-sticky-footer";
-import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
+import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX, REQUEST_CONVERSATION_MESSAGE_MAX } from "@/lib/patient-request-form-limits";
 import { sendRequestConversationMessage } from "@/lib/send-request-conversation-message";
 import type { ConversationAudioDraft } from "@/lib/use-conversation-audio-recorder";
@@ -374,12 +370,7 @@ export default function DemandeProduitsPage() {
   }
 
   return (
-    <main
-      className={cn(
-        "min-h-screen touch-pan-y bg-background text-foreground antialiased",
-        stickyFooterPadClass("tall")
-      )}
-    >
+    <main className="min-h-screen touch-pan-y bg-background text-foreground antialiased">
       <div className="mx-auto max-w-lg space-y-4 px-4 py-4 sm:px-5 sm:py-5">
         <PharmacyPublicBackLink href={`/pharmacie/${pharmacyId}`} className={cn("mb-0", t.backLink)}>
           {td("backToProfile")}
@@ -489,28 +480,23 @@ export default function DemandeProduitsPage() {
           </div>
         ) : null}
 
-        <Link href="/dashboard/demandes" className={uiActionBtnFullOutline("flex h-11 items-center justify-center")}>
-          {td("myProductRequests")}
-        </Link>
-      </div>
-
-      <PlatformStickyFooter tone="neutral" className={t.footerBorder}>
-        <div className="space-y-2">
-          <PlatformStickyFooterSummaryRow
-            left={
-              <>
-                <span className="font-bold tabular-nums text-foreground">{lines.length}</span>{" "}
-                {lines.length > 1 ? td("productPlural") : td("product")}
-              </>
-            }
-            right={
-              <PriceDhInline
-                value={totalAmount}
-                amountClassName={cn("font-bold", t.price)}
-                suffixClassName="font-bold text-sky-700/80"
-              />
-            }
-          />
+        <DossierInlineActionPanel
+          tone="neutral"
+          className={t.footerBorder}
+          summaryLeft={
+            <>
+              <span className="font-bold tabular-nums text-foreground">{lines.length}</span>{" "}
+              {lines.length > 1 ? td("productPlural") : td("product")}
+            </>
+          }
+          summaryRight={
+            <PriceDhInline
+              value={totalAmount}
+              amountClassName={cn("font-bold", t.price)}
+              suffixClassName="font-bold text-sky-700/80"
+            />
+          }
+        >
           <Button
             type="button"
             size="lg"
@@ -520,8 +506,12 @@ export default function DemandeProduitsPage() {
           >
             {submitLoading ? tc("sending") : td("sendRequest")}
           </Button>
-        </div>
-      </PlatformStickyFooter>
+        </DossierInlineActionPanel>
+
+        <Link href="/dashboard/demandes" className={uiActionBtnFullOutline("flex h-11 items-center justify-center")}>
+          {td("myProductRequests")}
+        </Link>
+      </div>
 
       <PatientDemandeSendConfirmModal
         open={sendConfirmOpen}

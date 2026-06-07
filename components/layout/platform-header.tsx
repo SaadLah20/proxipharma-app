@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Bell,
+  Building2,
   Calculator,
   CalendarClock,
   ChevronDown,
@@ -151,19 +152,11 @@ function ProfileNavLogoutButton({ onLogout, label }: { onLogout: () => void; lab
 
 function usePatientNavMenu(): PlatformNavBlock[] {
   const t = useTranslations("header.patient");
+  const tn = useTranslations("header.notifications");
   return [
-    {
-      kind: "section",
-      id: "dossiers",
-      heading: t("sectionDossiers"),
-      items: [
-        { href: "/dashboard/demandes", label: t("productRequests"), icon: Package },
-        { href: "/dashboard/patient/ordonnances", label: t("prescriptions"), icon: FileText },
-        { href: "/dashboard/patient/consultations-libres", label: t("consultations"), icon: MessageSquare },
-        { href: "/dashboard/patient/packs-promo", label: t("promoPacks"), icon: Gift },
-      ],
-    },
+    { kind: "link", item: { href: "/dashboard/notifications", label: tn("title"), icon: Bell } },
     { kind: "link", item: { href: "/dashboard/patient/pharmacies", label: t("myPharmacies"), icon: MapPin } },
+    { kind: "link", item: { href: "/", label: t("directory"), icon: Building2 } },
     { kind: "link", item: { href: "/dashboard/patient/parametres", label: t("settings"), icon: Settings } },
   ];
 }
@@ -179,42 +172,22 @@ function flattenNavBlocks(blocks: PlatformNavBlock[]): PlatformNavItem[] {
   return blocks.flatMap((b) => (b.kind === "section" ? b.items : [b.item]));
 }
 
-/** Patient : dossiers (4 parcours) puis raccourcis isolés. */
+/** Patient : raccourcis compte (dossiers = barre basse). */
 export const patientNavMenu: PlatformNavBlock[] = [
-  {
-    kind: "section",
-    id: "dossiers",
-    heading: "Mes dossiers",
-    items: [
-      { href: "/dashboard/demandes", label: "Demandes de produits", icon: Package },
-      { href: "/dashboard/patient/ordonnances", label: "Ordonnances", icon: FileText },
-      { href: "/dashboard/patient/consultations-libres", label: "Consultations libres", icon: MessageSquare },
-      { href: "/dashboard/patient/packs-promo", label: "Packs promo", icon: Gift },
-    ],
-  },
+  { kind: "link", item: { href: "/dashboard/notifications", label: "Notifications", icon: Bell } },
   { kind: "link", item: { href: "/dashboard/patient/pharmacies", label: "Mes pharmacies", icon: MapPin } },
+  { kind: "link", item: { href: "/", label: "Annuaire pharmacies", icon: Building2 } },
   { kind: "link", item: { href: "/dashboard/patient/parametres", label: "Mes paramètres", icon: Settings } },
 ];
 
 /**
- * Pharmacien : accueil seul → dossiers + réservations packs → supply → officine (dont promos) → outil → paramètres.
+ * Pharmacien : accueil → supply → officine (dont promos) → outil → paramètres (dossiers = barre basse).
  */
 export const pharmacienNavMenu: PlatformNavBlock[] = [
   {
     kind: "link",
     emphasis: "primary",
     item: { href: "/dashboard/pharmacien", label: "Tableau de bord", icon: LayoutDashboard },
-  },
-  {
-    kind: "section",
-    id: "dossiers",
-    heading: "Dossiers & réservations",
-    items: [
-      { href: "/dashboard/pharmacien/demandes", label: "Demandes de produits", icon: Package },
-      { href: "/dashboard/pharmacien/ordonnances", label: "Ordonnances", icon: FileText },
-      { href: "/dashboard/pharmacien/consultations-libres", label: "Consultations libres", icon: MessageSquare },
-      { href: "/dashboard/pharmacien/reservations-packs", label: "Réservations packs promo", icon: CalendarClock },
-    ],
   },
   {
     kind: "section",

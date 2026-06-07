@@ -29,8 +29,9 @@ import { patientConsultationRequestDossierSectionShellClass } from "@/lib/patien
 import { ConsultationRequestDetailChrome } from "@/components/requests/consultation/consultation-request-detail-chrome";
 import { RequestExitConfirmModalFr } from "@/components/requests/request-exit-confirm-modal-fr";
 import type { PatientCancelReasonCode } from "@/lib/patient-flow-reasons";
-import { PlatformStickyFooter } from "@/components/layout/platform-sticky-footer";
+import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
 import { uiActionBtnFullDestructive } from "@/lib/ui-action-buttons";
+import { platformBottomNavFabMinBottomPx } from "@/lib/platform-bottom-nav";
 import {
   getConsultationDefaultTab,
   type ConsultationDetailTab,
@@ -46,13 +47,7 @@ import {
 import { patientOutcomeStatusFooter } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
-import {
-  patientDetailStickyFooterPadTier,
-  consultationConversationMinHeightClass,
-  stickyFooterFabMinBottomPx,
-  stickyFooterPadClass,
-  stickyFooterScrollMarginClass,
-} from "@/lib/platform-sticky-footer";
+import { consultationConversationMinHeightClass } from "@/lib/platform-sticky-footer";
 import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
 import type { ConsultationImagePaths } from "@/lib/consultation-media";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
@@ -477,15 +472,7 @@ export default function DemandeDetailPage() {
     !showArchivedReadonly;
   const showConsultationWaitingFooter =
     showConsultationTabbed && ["submitted", "in_review"].includes(request.status);
-  const detailStickyFooterTier = patientDetailStickyFooterPadTier(request.request_type, request.status);
-  const effectiveStickyFooterTier = showConsultationWaitingFooter ? "standard" : detailStickyFooterTier;
-  const detailStickyFooterPad =
-    hasBottomActions || showConsultationWaitingFooter
-      ? stickyFooterPadClass(effectiveStickyFooterTier)
-      : "";
-  const conversationFabMinBottomPx = stickyFooterFabMinBottomPx(
-    hasBottomActions || showConsultationWaitingFooter ? effectiveStickyFooterTier : "none"
-  );
+  const conversationFabMinBottomPx = platformBottomNavFabMinBottomPx();
   const consultationEditable =
     isConsultationRequest &&
     ["submitted", "in_review", "responded"].includes(request.status) &&
@@ -571,7 +558,7 @@ export default function DemandeDetailPage() {
   };
 
   return (
-    <PageShell className={clsx("min-w-0 max-w-full space-y-3 bg-slate-50", detailStickyFooterPad)}>
+    <PageShell className="min-w-0 max-w-full space-y-3 bg-slate-50">
       <div>
         <RequestDetailBackLink config={kindConfig} viewerRole="patient" />
       </div>
@@ -627,7 +614,7 @@ export default function DemandeDetailPage() {
                 variant="consultation"
                 consultationSeed={consultationSeed}
                 refreshToken={conversationRefreshToken}
-                minHeightClass={consultationConversationMinHeightClass(effectiveStickyFooterTier)}
+                minHeightClass={consultationConversationMinHeightClass("none")}
                 onMarkedRead={handleConversationMarkedRead}
               />
               {consultationEditable && consultationBrief ? (
@@ -835,7 +822,7 @@ export default function DemandeDetailPage() {
       ) : null}
 
       {showConsultationWaitingFooter ? (
-        <PlatformStickyFooter tone="violet">
+        <DossierInlineActionPanel tone="violet">
           <button
             type="button"
             disabled={consultationExitBusy}
@@ -858,17 +845,10 @@ export default function DemandeDetailPage() {
             }}
             onConfirmPatient={handleConsultationCancelConfirm}
           />
-        </PlatformStickyFooter>
+        </DossierInlineActionPanel>
       ) : null}
 
-      <details
-        className={clsx(
-          "group rounded-xl border border-border/80 bg-card shadow-sm",
-          hasBottomActions || showConsultationWaitingFooter
-            ? stickyFooterScrollMarginClass(effectiveStickyFooterTier)
-            : "scroll-mb-8"
-        )}
-      >
+      <details className="group scroll-mb-8 rounded-xl border border-border/80 bg-card shadow-sm">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 marker:content-none [&::-webkit-details-marker]:hidden sm:px-3">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Historique du dossier</span>
