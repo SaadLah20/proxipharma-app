@@ -222,6 +222,7 @@ import {
   ProductRequestLineQtyPicker,
   ProductRequestLineQtyReadonly,
 } from "@/components/pharmacy/patient-demande-produits-ui";
+import { pharmacistProductRequestLineCardClass } from "@/lib/pharmacist-product-request-line-ui";
 import { pharmacistSentProductLineQtyUi } from "@/lib/pharmacist-sent-product-line-qty";
 import {
   inferredAvailabilityForPharmacistPublish,
@@ -5139,9 +5140,11 @@ export default function PharmacienDemandeDetailPage() {
               dossierRefLabel={consultationDossierRef}
               kindLabel={kindConfig.copy.labelFr}
               requestType={request.request_type}
+              patientId={request.patient_id}
               patientName={patientProfile?.full_name ?? null}
               patientRef={patientProfile?.patient_ref ?? null}
               patientPhone={patientPhone ?? null}
+              patientEmail={patientEmail ?? null}
               status={request.status}
               statusHint={dossierStatusHint}
               submittedAt={request.submitted_at}
@@ -5161,9 +5164,11 @@ export default function PharmacienDemandeDetailPage() {
             dossierRefLabel={displayRequestPublicRef(request) || formatShortId(request.id)}
             kindLabel={kindConfig.copy.labelFr}
             requestType={request.request_type}
+            patientId={request.patient_id}
             patientName={patientProfile?.full_name ?? null}
             patientRef={patientProfile?.patient_ref ?? null}
             patientPhone={patientPhone ?? null}
+            patientEmail={patientEmail ?? null}
             status={request.status}
             statusHint={dossierStatusHint}
             submittedAt={request.submitted_at}
@@ -6379,23 +6384,41 @@ export default function PharmacienDemandeDetailPage() {
                   ) : null}
                   <li
                     className={clsx(
-                      usePharmaSentLineLayout
-                        ? clsx(PRODUCT_REQUEST_LINE_CARD_SHELL, "list-none overflow-visible border-l-[3px]")
-                        : PHARMA_LINE_EDITOR_CARD,
-                      "list-none overflow-visible",
+                      isProductRequest
+                        ? clsx(
+                            "relative w-full min-w-0 list-none overflow-visible",
+                            usePharmaSentLineLayout
+                              ? PRODUCT_REQUEST_LINE_CARD_SHELL
+                              : pharmacistProductRequestLineCardClass,
+                          )
+                        : usePharmaSentLineLayout
+                          ? clsx(PRODUCT_REQUEST_LINE_CARD_SHELL, "list-none overflow-visible border-l-[3px]")
+                          : PHARMA_LINE_EDITOR_CARD,
+                      !isProductRequest && "list-none overflow-visible",
                       usePharmaSentLineLayout && isProposedLine && "mx-auto w-full max-w-md",
-                      !usePharmaSentLineLayout && isAjoutOfficineLine && "border-l-[3px] border-l-violet-500/70",
-                      !usePharmaSentLineLayout && isOrdonnancePrincipalLine && "border-l-[3px] border-l-amber-500/70",
-                      !usePharmaSentLineLayout &&
+                      !isProductRequest &&
+                        !usePharmaSentLineLayout &&
+                        isAjoutOfficineLine &&
+                        "border-l-[3px] border-l-violet-500/70",
+                      !isProductRequest &&
+                        !usePharmaSentLineLayout &&
+                        isOrdonnancePrincipalLine &&
+                        "border-l-[3px] border-l-amber-500/70",
+                      !isProductRequest &&
+                        !usePharmaSentLineLayout &&
                         !isAjoutOfficineLine &&
                         !isOrdonnancePrincipalLine &&
                         "border-l-[3px] border-l-sky-500/60",
-                      usePharmaSentLineLayout &&
+                      !isProductRequest &&
+                        usePharmaSentLineLayout &&
                         !isProposedLine &&
                         (isOrdonnancePrincipalLine || isOrdonnancePharmacistLine
                           ? "border-l-amber-500/65"
                           : "border-l-sky-500/65"),
-                      usePharmaSentLineLayout && isProposedLine && "border-l-violet-500/65"
+                      !isProductRequest &&
+                        usePharmaSentLineLayout &&
+                        isProposedLine &&
+                        "border-l-violet-500/65",
                     )}
                   >
                   {showVariantTabs ? (
