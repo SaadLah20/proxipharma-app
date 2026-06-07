@@ -138,16 +138,14 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
 
       <header className={p.hero}>
         <div className="flex items-start gap-3">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/15 shadow-inner">
-            <Store className="h-6 w-6" />
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground shadow-sm ring-1 ring-border/80">
+            <Store className="h-6 w-6" strokeWidth={2.25} />
           </div>
           <div className="min-w-0 flex-1">
             {pharmacy.pharmacy_public_ref?.trim() ? (
-              <p className="font-mono text-xs font-bold text-primary-foreground/95">
-                {pharmacy.pharmacy_public_ref.trim()}
-              </p>
+              <p className={clsx("text-xs", p.monoAccent)}>{pharmacy.pharmacy_public_ref.trim()}</p>
             ) : null}
-            <h1 className="text-lg font-bold leading-tight">{pharmacyDisplayName(pharmacy.nom)}</h1>
+            <h1 className={clsx(p.heroTitle, "text-lg leading-tight")}>{pharmacyDisplayName(pharmacy.nom)}</h1>
             <p className={clsx("mt-1 flex items-start gap-1 text-xs", p.heroSubtitle)}>
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
@@ -177,26 +175,23 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
+          <Link href={newProductRequestHref} className={clsx("inline-flex items-center gap-1.5", p.cta)}>
+            <Package className="h-3.5 w-3.5" />
+            {t("newProductRequest")}
+          </Link>
           <Link
             href={publicProfileHref}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary-foreground px-3 py-2 text-xs font-semibold text-primary shadow-sm hover:opacity-95"
+            className={clsx("inline-flex items-center gap-1.5", p.ctaOutline)}
           >
             <ExternalLink className="h-3.5 w-3.5" />
             {t("publicProfile")}
-          </Link>
-          <Link
-            href={newProductRequestHref}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20"
-          >
-            <Package className="h-3.5 w-3.5" />
-            {t("newProductRequest")}
           </Link>
           {wa ? (
             <a
               href={wa}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20"
+              className={clsx("inline-flex items-center gap-1.5", p.ctaOutline)}
             >
               <MessageSquare className="h-3.5 w-3.5" />
               {tpp("whatsapp")}
@@ -205,7 +200,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
           {pharmacy.telephone ? (
             <a
               href={`tel:${pharmacy.telephone}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20"
+              className={clsx("inline-flex items-center gap-1.5", p.ctaOutline)}
             >
               <Phone className="h-3.5 w-3.5" />
               {tpp("call")}
