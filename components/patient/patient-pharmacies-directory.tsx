@@ -398,19 +398,20 @@ export function PatientPharmaciesDirectory() {
                       {r.active_request_count > 0 ? (
                         <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-950">
                           <Package className="h-3 w-3" />
-                          {r.active_request_count} {t("activeCount", { count: r.active_request_count })}
+                          {t("activeCount", { count: r.active_request_count })}
                         </span>
                       ) : null}
                       {r.request_count > 0 ? (
                         <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                          {r.request_count}{" "}
-                          {r.request_count > 1 ? t("dossierCountPlural", { count: r.request_count }) : t("dossierCount", { count: r.request_count })}
+                          {r.request_count > 1
+                            ? t("dossierCountPlural", { count: r.request_count })
+                            : t("dossierCount", { count: r.request_count })}
                         </span>
                       ) : null}
                       {r.promo_reservation_count > 0 ? (
                         <span className="inline-flex items-center gap-0.5 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-950">
                           <Gift className="h-3 w-3" />
-                          {r.promo_reservation_count} {t("promoCount", { count: r.promo_reservation_count })}
+                          {t("promoCount", { count: r.promo_reservation_count })}
                         </span>
                       ) : null}
                       {rating ? (

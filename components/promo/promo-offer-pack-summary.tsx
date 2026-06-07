@@ -10,6 +10,7 @@ import {
 } from "@/components/requests/patient-product-photo-preview-modal";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { computePromoPackTotals, formatDh, type PromoLineWithPrice } from "@/lib/promo/pricing";
+import { promoPublicTheme as pt } from "@/lib/promo/promo-public-theme";
 
 type PackSummaryVariant = "compact" | "default" | "detail" | "public";
 
@@ -94,9 +95,8 @@ export function PromoOfferPackSummary({
         {gifts.length > 0 ? (
           <section
             className={clsx(
-              isPublic && "rounded-lg border border-amber-200/70 bg-amber-50/50 px-2 py-1.5",
-              isRich &&
-                "rounded-xl border-2 border-amber-300/80 bg-gradient-to-br from-amber-50 via-orange-50/90 to-amber-100/60 p-3 shadow-sm ring-1 ring-amber-200/60"
+              isPublic && clsx("rounded-lg border px-2 py-1.5", pt.giftBlock),
+              isRich && pt.giftBlockRich,
             )}
           >
             <SectionHeading icon={Gift} label="Cadeaux" variant={resolvedVariant} tone="amber" />
@@ -105,7 +105,8 @@ export function PromoOfferPackSummary({
                 <li
                   key={l.id || `g-${i}`}
                   className={clsx(
-                    "flex items-start gap-2 text-amber-950",
+                    "flex items-start gap-2",
+                    pt.giftText,
                     isRich && "rounded-lg border border-amber-200/70 bg-white/70 px-2.5 py-2 font-medium"
                   )}
                 >
@@ -151,16 +152,14 @@ export function PromoOfferPackSummary({
           <div
             className={clsx(
               "tabular-nums",
-              isDetail
-                ? "rounded-xl border border-emerald-200/80 bg-emerald-50/50 px-3 py-2.5 text-sm"
-                : "rounded-lg bg-muted/25 px-2 py-1.5 text-[11px]"
+              isDetail ? pt.totalsBlockDetail : "rounded-lg bg-muted/25 px-2 py-1.5 text-[11px]",
             )}
           >
             <p className="flex items-baseline justify-between gap-3">
               <span className="shrink-0 text-muted-foreground">Sous-total</span>
               <span className="text-right tabular-nums">{formatDh(subtotal)}</span>
             </p>
-            <p className="flex items-baseline justify-between gap-3 text-emerald-800">
+            <p className={clsx("flex items-baseline justify-between gap-3", pt.discountLine)}>
               <span className="shrink-0">Remise −{discountPercent} %</span>
               <span className="text-right tabular-nums">−{formatDh(discount)}</span>
             </p>
@@ -199,7 +198,7 @@ function SectionHeading({
       <p
         className={clsx(
           "text-[10px] font-bold uppercase tracking-wide",
-          tone === "amber" ? "text-amber-900/90" : "text-muted-foreground"
+          tone === "amber" ? pt.giftTextMuted : "text-muted-foreground"
         )}
       >
         {label}
@@ -240,7 +239,7 @@ function ProductThumb({
       <span
         className={clsx(
           "flex shrink-0 items-center justify-center rounded-lg",
-          gift ? "bg-amber-100 text-amber-800" : variant === "public" ? "bg-emerald-50 text-emerald-700" : "bg-muted text-muted-foreground"
+          gift ? "bg-amber-100 text-amber-800" : variant === "public" ? pt.productThumb : "bg-muted text-muted-foreground"
         )}
         style={{ width: size, height: size }}
       >
@@ -255,7 +254,7 @@ function ProductThumb({
       size={size}
       objectFit={objectFit}
       className={variant === "public" ? "rounded-md" : undefined}
-      imageClassName={gift ? "border-amber-200/60" : undefined}
+      imageClassName={gift ? pt.giftThumbBorder : undefined}
       onPreview={onPreview}
     />
   );

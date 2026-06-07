@@ -536,6 +536,42 @@ export const accountAr = {
 };
 
 export const promoAr = {
+  dossierKindLabel: "حجز باقة",
+  journeyAria: "عرض تفاصيل الحالة ومسار الحجز",
+  archiveClosedOn: "أُغلق في",
+  history: {
+    title: "سجل الحجز",
+    empty: "لا أحداث مسجّلة",
+    eventsOpen: "{count} حدث — فتح",
+    eventsOpenPlural: "{count} أحداث — فتح",
+    emptyDetail: "ستظهر تغييرات الحالة هنا.",
+  },
+  journeyModal: {
+    title: "مسار الحجز",
+    subtitle: "المراحل الممكنة لحجز باقة ترويجية.",
+    steps: {
+      submitted: {
+        title: "طلب مُرسل",
+        body: "ستؤكد صيدليتك توفر الباقة.",
+      },
+      confirmed: {
+        title: "مُؤكد من الصيدلية",
+        body: "توجّه في التاريخ المحدد لاستلام باقتك.",
+      },
+      collected: {
+        title: "مُستَلَم",
+        body: "تم استلام الباقة من الصيدلية — الملف مُغلق.",
+      },
+      unavailable: {
+        title: "غير متاح",
+        body: "لم تتمكن الصيدلية من تنفيذ الحجز.",
+      },
+      cancelled: {
+        title: "ملغى",
+        body: "هذا الطلب لم يعد نشطاً.",
+      },
+    },
+  },
   hubTitle: "باقاتي الترويجية",
   hubSubtitle: "حجوزات الباقات الترويجية لدى صيدلياتك.",
   detailTitle: "حجز باقة ترويجية",

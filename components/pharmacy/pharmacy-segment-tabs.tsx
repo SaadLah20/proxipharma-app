@@ -1,6 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
+import { promoPublicTheme as pt } from "@/lib/promo/promo-public-theme";
 import { clsx } from "clsx";
 
 export type PharmacySegmentTab<T extends string> = {
@@ -22,6 +23,7 @@ export function PharmacySegmentTabs<T extends string>({
   onChange,
   ariaLabel,
   columnClass,
+  activeAccent = "default",
 }: {
   tabs: PharmacySegmentTab<T>[];
   active: T;
@@ -29,6 +31,8 @@ export function PharmacySegmentTabs<T extends string>({
   ariaLabel: string;
   /** Override ex. `grid-cols-5` — sinon dérivé du nombre d’onglets */
   columnClass?: string;
+  /** Accent onglet actif : emerald discret (fiche publique — onglet Offres). */
+  activeAccent?: "default" | "emerald";
 }) {
   const gridCols =
     columnClass ?? GRID_COLS_BY_COUNT[tabs.length] ?? "grid-cols-4";
@@ -53,12 +57,21 @@ export function PharmacySegmentTabs<T extends string>({
               className={clsx(
                 "flex min-h-[3.5rem] w-full min-w-0 flex-col items-center justify-center gap-1 border-b-[3px] px-1 py-2.5 text-[11px] font-semibold leading-tight transition sm:min-h-[3.75rem] sm:text-xs",
                 isActive
-                  ? "border-primary bg-primary/10 text-primary"
+                  ? activeAccent === "emerald"
+                    ? pt.tabActive
+                    : "border-primary bg-primary/10 text-primary"
                   : "border-transparent text-muted-foreground hover:bg-muted/30 hover:text-foreground"
               )}
             >
               <Icon
-                className={clsx("size-[1.125rem] shrink-0 sm:size-5", isActive ? "text-primary" : "opacity-75")}
+                className={clsx(
+                  "size-[1.125rem] shrink-0 sm:size-5",
+                  isActive
+                    ? activeAccent === "emerald"
+                      ? pt.tabActiveIcon
+                      : "text-primary"
+                    : "opacity-75",
+                )}
                 aria-hidden
               />
               <span className="max-w-full truncate text-center">{t.label}</span>

@@ -4,22 +4,20 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
-import { MessageCircle } from "lucide-react";
 import { PageShell } from "@/components/ui/compact-shell";
+import { PlatformStickyFooter } from "@/components/layout/platform-sticky-footer";
+import { PharmacistPromoReservationDossierHeader } from "@/components/promo/pharmacist-promo-reservation-dossier-header";
+import { PromoReservationHistoryPanel } from "@/components/promo/promo-reservation-history-panel";
 import { PromoOfferPackSummary } from "@/components/promo/promo-offer-pack-summary";
 import { fetchPromoOfferLines } from "@/lib/promo/load-offer-lines";
 import { markPromoReservationNotificationsRead } from "@/lib/promo/mark-reservation-notifs-read";
+import type { PromoReservationHistoryRow } from "@/lib/promo/promo-reservation-history-labels";
 import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
+import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
+import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
 import { supabase } from "@/lib/supabase";
-import { promoReservationBadgeClass, promoReservationLabel } from "@/lib/promo/reservation-status-ui";
 import type { PromoLineWithPrice } from "@/lib/promo/pricing";
 import type { PromoReservationStatus } from "@/lib/promo/types";
-
-function whatsAppHref(phone: string | null | undefined) {
-  const digits = (phone ?? "").replace(/[^\d]/g, "");
-  if (!digits) return null;
-  return `https://wa.me/${digits}`;
-}
 
 function PharmacistNoteForm({
   label,
@@ -50,7 +48,7 @@ function PharmacistNoteForm({
     <div
       className={clsx(
         "space-y-2 rounded-xl border p-3",
-        tone === "danger" ? "border-rose-200 bg-rose-50/50" : "border-emerald-200/80 bg-emerald-50/30"
+        tone === "danger" ? "border-rose-200 bg-rose-50/50" : "border-emerald-200/80 bg-emerald-50/30",
       )}
     >
       <label className="block text-xs font-bold text-foreground">
@@ -81,11 +79,11 @@ function PharmacistNoteForm({
           disabled={busy || disabled || (required && !value.trim())}
           className={clsx(
             "rounded-lg px-3 py-2 text-xs font-bold text-white disabled:opacity-50",
-            tone === "danger" ? "bg-rose-800 hover:bg-rose-900" : "bg-emerald-700 hover:bg-emerald-800"
+            tone === "danger" ? "bg-rose-800 hover:bg-rose-900" : "bg-emerald-700 hover:bg-emerald-800",
           )}
           onClick={onSubmit}
         >
-          {busy ? "…" : submitLabel}
+          {submitLabel}
         </button>
       </div>
     </div>
@@ -96,12 +94,14 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [historyBusy, setHistoryBusy] = useState(false);
   const [error, setError] = useState("");
   const [declineReason, setDeclineReason] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [confirmMessage, setConfirmMessage] = useState("");
   const [panel, setPanel] = useState<"none" | "decline" | "cancel">("none");
   const [lines, setLines] = useState<PromoLineWithPrice[]>([]);
+  const [historyRows, setHistoryRows] = useState<PromoReservationHistoryRow[]>([]);
   const [row, setRow] = useState<{
     id: string;
     offer_id: string;
@@ -111,9 +111,21 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     patient_note: string | null;
     pharmacist_note: string | null;
     public_ref: string | null;
+    created_at: string;
     offer: { title: string; discount_percent: number } | null;
     patient: { full_name: string | null; whatsapp: string | null } | null;
   } | null>(null);
+
+  const loadHistory = useCallback(async () => {
+    setHistoryBusy(true);
+    const { data } = await supabase
+      .from("pharmacy_promo_reservation_status_history")
+      .select("id,old_status,new_status,note,created_at")
+      .eq("reservation_id", reservationId)
+      .order("created_at", { ascending: false });
+    setHistoryRows((data ?? []) as PromoReservationHistoryRow[]);
+    setHistoryBusy(false);
+  }, [reservationId]);
 
   const load = useCallback(async () => {
     setError("");
@@ -131,7 +143,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     const { data, error: qErr } = await supabase
       .from("pharmacy_promo_reservations")
       .select(
-        "id,offer_id,status,pickup_date,pickup_time,patient_note,pharmacist_note,public_ref,pharmacy_promo_offers(title,discount_percent),profiles:patient_id(full_name,whatsapp)"
+        "id,offer_id,status,pickup_date,pickup_time,patient_note,pharmacist_note,public_ref,created_at,pharmacy_promo_offers(title,discount_percent),profiles:patient_id(full_name,whatsapp)",
       )
       .eq("id", reservationId)
       .eq("pharmacy_id", ctx.pharmacyId)
@@ -140,6 +152,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
       setError(qErr?.message ?? "Réservation introuvable.");
       setRow(null);
       setLines([]);
+      setHistoryRows([]);
     } else {
       const r = data as Record<string, unknown>;
       const offerId = r.offer_id as string;
@@ -152,14 +165,16 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
         patient_note: r.patient_note as string | null,
         pharmacist_note: r.pharmacist_note as string | null,
         public_ref: r.public_ref as string | null,
+        created_at: r.created_at as string,
         offer: r.pharmacy_promo_offers as { title: string; discount_percent: number } | null,
         patient: r.profiles as { full_name: string | null; whatsapp: string | null } | null,
       });
       setLines(await fetchPromoOfferLines(offerId));
       void markPromoReservationNotificationsRead(reservationId);
+      await loadHistory();
     }
     setLoading(false);
-  }, [reservationId, router]);
+  }, [reservationId, router, loadHistory]);
 
   useEffect(() => {
     const tid = window.setTimeout(() => void load(), 0);
@@ -196,7 +211,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
   if (!row) {
     return (
       <PageShell maxWidthClass="max-w-3xl">
-        <Link href="/dashboard/pharmacien/reservations-packs" className="text-xs font-medium text-sky-800 underline">
+        <Link href="/dashboard/pharmacien/reservations-packs" className={p.backLink}>
           ← Réservations packs
         </Link>
         <p className="mt-4 text-sm text-red-800">{error || "Introuvable."}</p>
@@ -209,183 +224,41 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     day: "numeric",
     month: "long",
   });
-  const wa = whatsAppHref(row.patient?.whatsapp);
   const canAct = row.status === "submitted" || row.status === "confirmed";
+  const dossierRefLabel = row.public_ref?.trim() || row.id.slice(0, 8);
+  const stickyPad = canAct && panel === "none" ? stickyFooterPadClass("standard") : panel !== "none" ? stickyFooterPadClass("tall") : "";
 
-  return (
-    <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
-      <div>
-        <Link href="/dashboard/pharmacien/reservations-packs" className="text-xs font-medium text-sky-800 underline">
-          ← Réservations packs
-        </Link>
-        <div className="mt-2 flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <h1 className="text-lg font-bold">{row.offer?.title ?? "Pack promo"}</h1>
-            <p className="text-sm text-muted-foreground">{row.patient?.full_name?.trim() || "Patient"}</p>
-            {row.patient?.whatsapp ? (
-              <p className="text-xs tabular-nums text-muted-foreground">{row.patient.whatsapp}</p>
-            ) : null}
-            {wa ? (
-              <a
-                href={wa}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 underline"
-              >
-                <MessageCircle className="size-3.5" aria-hidden />
-                WhatsApp patient
-              </a>
-            ) : null}
-          </div>
-          <span
-            className={clsx(
-              "rounded-full px-2.5 py-1 text-[11px] font-bold",
-              promoReservationBadgeClass(row.status)
-            )}
-          >
-            {promoReservationLabel(row.status, "pharmacien")}
-          </span>
-        </div>
-        {row.public_ref ? <p className="mt-1 font-mono text-xs">{row.public_ref}</p> : null}
-      </div>
-
-      <section className="rounded-xl border-2 border-slate-200/90 bg-card p-4 shadow-sm">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Contenu du pack réservé</p>
-        <div className="mt-3">
-          <PromoOfferPackSummary
-            lines={lines}
-            discountPercent={row.offer?.discount_percent ?? 0}
-            variant="detail"
-          />
-        </div>
-      </section>
-
-      <dl className="space-y-2 rounded-xl border p-3 text-sm">
-        <div>
-          <dt className="text-[10px] font-bold uppercase text-muted-foreground">Passage souhaité</dt>
-          <dd>
-            {pickupLabel}
-            {row.pickup_time ? ` · ${row.pickup_time.slice(0, 5)}` : ""}
-          </dd>
-        </div>
-      </dl>
-
-      {row.patient_note?.trim() ? (
-        <div className="rounded-xl border border-sky-200/80 bg-sky-50/60 px-3 py-2.5">
-          <p className="text-[10px] font-bold uppercase text-sky-900">Message du patient</p>
-          <p className="mt-1 text-sm leading-snug text-sky-950">{row.patient_note.trim()}</p>
-        </div>
-      ) : null}
-
-      {!canAct && row.pharmacist_note?.trim() ? (
-        <div className="rounded-xl border bg-muted/20 px-3 py-2.5 text-sm">
-          <p className="text-[10px] font-bold uppercase text-muted-foreground">Votre message au patient</p>
-          <p className="mt-1">{row.pharmacist_note.trim()}</p>
-        </div>
-      ) : null}
-
-      {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
-
-      {row.status === "submitted" && panel === "none" ? (
-        <div className="space-y-3">
-          <PharmacistNoteForm
-            label="Réponse / message au patient (avec la confirmation)"
-            placeholder={
-              row.patient_note?.trim()
-                ? "Ex. Bonjour, votre pack est prêt pour le créneau choisi…"
-                : "Message facultatif transmis au patient avec la confirmation"
-            }
-            value={confirmMessage}
-            onChange={setConfirmMessage}
-            submitLabel="Confirmer la réservation"
-            busy={busy}
-            onSubmit={() =>
-              void runRpc(async () =>
-                supabase.rpc("pharmacist_confirm_promo_reservation", {
-                  p_reservation_id: reservationId,
-                  p_pharmacist_note: confirmMessage.trim() || null,
-                })
-              )
-            }
-          />
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <button
-              type="button"
-              disabled={busy}
-              className="rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-900 disabled:opacity-50"
-              onClick={() => setPanel("decline")}
-            >
-              Non disponible
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              className="rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
-              onClick={() => setPanel("cancel")}
-            >
-              Annuler la réservation
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {row.status === "submitted" && panel === "decline" ? (
+  const actionBlock =
+    row.status === "submitted" && panel === "none" ? (
+      <div className="space-y-3">
         <PharmacistNoteForm
-          label="Motif visible par le patient"
-          placeholder="Ex. Stock insuffisant pour ce pack"
-          value={declineReason}
-          onChange={setDeclineReason}
-          required
-          submitLabel="Envoyer au patient"
+          label="Réponse / message au patient (avec la confirmation)"
+          placeholder={
+            row.patient_note?.trim()
+              ? "Ex. Bonjour, votre pack est prêt pour le créneau choisi…"
+              : "Message facultatif transmis au patient avec la confirmation"
+          }
+          value={confirmMessage}
+          onChange={setConfirmMessage}
+          submitLabel="Confirmer la réservation"
           busy={busy}
-          tone="danger"
-          onCancel={() => setPanel("none")}
           onSubmit={() =>
             void runRpc(async () =>
-              supabase.rpc("pharmacist_decline_promo_reservation", {
+              supabase.rpc("pharmacist_confirm_promo_reservation", {
                 p_reservation_id: reservationId,
-                p_reason: declineReason.trim(),
-              })
+                p_pharmacist_note: confirmMessage.trim() || null,
+              }),
             )
           }
         />
-      ) : null}
-
-      {canAct && panel === "cancel" ? (
-        <PharmacistNoteForm
-          label="Motif d'annulation (visible par le patient)"
-          placeholder="Ex. Erreur de stock, report impossible…"
-          value={cancelReason}
-          onChange={setCancelReason}
-          required
-          submitLabel="Confirmer l'annulation"
-          busy={busy}
-          tone="danger"
-          onCancel={() => setPanel("none")}
-          onSubmit={() =>
-            void runRpc(async () =>
-              supabase.rpc("cancel_promo_reservation", {
-                p_reservation_id: reservationId,
-                p_note: cancelReason.trim(),
-              })
-            )
-          }
-        />
-      ) : null}
-
-      {row.status === "confirmed" && panel === "none" ? (
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <button
             type="button"
             disabled={busy}
-            className="rounded-xl bg-violet-800 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
-            onClick={() =>
-              void runRpc(async () =>
-                supabase.rpc("pharmacist_mark_promo_reservation_collected", { p_reservation_id: reservationId })
-              )
-            }
+            className="rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-900 disabled:opacity-50"
+            onClick={() => setPanel("decline")}
           >
-            Marquer comme récupérée
+            Non disponible
           </button>
           <button
             type="button"
@@ -396,6 +269,140 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
             Annuler la réservation
           </button>
         </div>
+      </div>
+    ) : row.status === "submitted" && panel === "decline" ? (
+      <PharmacistNoteForm
+        label="Motif visible par le patient"
+        placeholder="Ex. Stock insuffisant pour ce pack"
+        value={declineReason}
+        onChange={setDeclineReason}
+        required
+        submitLabel="Envoyer au patient"
+        busy={busy}
+        tone="danger"
+        onCancel={() => setPanel("none")}
+        onSubmit={() =>
+          void runRpc(async () =>
+            supabase.rpc("pharmacist_decline_promo_reservation", {
+              p_reservation_id: reservationId,
+              p_reason: declineReason.trim(),
+            }),
+          )
+        }
+      />
+    ) : canAct && panel === "cancel" ? (
+      <PharmacistNoteForm
+        label="Motif d'annulation (visible par le patient)"
+        placeholder="Ex. Erreur de stock, report impossible…"
+        value={cancelReason}
+        onChange={setCancelReason}
+        required
+        submitLabel="Confirmer l'annulation"
+        busy={busy}
+        tone="danger"
+        onCancel={() => setPanel("none")}
+        onSubmit={() =>
+          void runRpc(async () =>
+            supabase.rpc("cancel_promo_reservation", {
+              p_reservation_id: reservationId,
+              p_note: cancelReason.trim(),
+            }),
+          )
+        }
+      />
+    ) : row.status === "confirmed" && panel === "none" ? (
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <button
+          type="button"
+          disabled={busy}
+          className="rounded-xl bg-violet-800 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+          onClick={() =>
+            void runRpc(async () =>
+              supabase.rpc("pharmacist_mark_promo_reservation_collected", { p_reservation_id: reservationId }),
+            )
+          }
+        >
+          Marquer comme récupérée
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          className="rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
+          onClick={() => setPanel("cancel")}
+        >
+          Annuler la réservation
+        </button>
+      </div>
+    ) : null;
+
+  return (
+    <PageShell maxWidthClass="max-w-3xl" className={clsx("space-y-3 bg-slate-50", stickyPad)}>
+      <Link href="/dashboard/pharmacien/reservations-packs" className={p.backLink}>
+        ← Réservations packs
+      </Link>
+
+      <section className="min-w-0 w-full max-w-full space-y-3 overflow-x-hidden rounded-xl border-2 border-slate-200/90 bg-slate-50/95 p-2.5 sm:p-3">
+        <PharmacistPromoReservationDossierHeader
+          dossierRefLabel={dossierRefLabel}
+          offerTitle={row.offer?.title ?? "Pack promo"}
+          status={row.status}
+          reservedAt={row.created_at}
+          createdAt={row.created_at}
+          patientName={row.patient?.full_name}
+          patientWhatsapp={row.patient?.whatsapp}
+        />
+
+        <section className="rounded-xl border border-border/80 bg-card p-4 shadow-sm">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            Contenu du pack réservé
+          </p>
+          <div className="mt-3">
+            <PromoOfferPackSummary
+              lines={lines}
+              discountPercent={row.offer?.discount_percent ?? 0}
+              variant="detail"
+            />
+          </div>
+        </section>
+
+        <dl className="space-y-2 rounded-xl border border-border/80 bg-card p-3 text-sm">
+          <div>
+            <dt className="text-[10px] font-bold uppercase text-muted-foreground">Passage souhaité</dt>
+            <dd>
+              {pickupLabel}
+              {row.pickup_time ? ` · ${row.pickup_time.slice(0, 5)}` : ""}
+            </dd>
+          </div>
+        </dl>
+
+        {row.patient_note?.trim() ? (
+          <div className="rounded-xl border border-sky-200/80 bg-sky-50/60 px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase text-sky-900">Message du patient</p>
+            <p className="mt-1 text-sm leading-snug text-sky-950">{row.patient_note.trim()}</p>
+          </div>
+        ) : null}
+
+        {!canAct && row.pharmacist_note?.trim() ? (
+          <div className="rounded-xl border bg-muted/20 px-3 py-2.5 text-sm">
+            <p className="text-[10px] font-bold uppercase text-muted-foreground">Votre message au patient</p>
+            <p className="mt-1">{row.pharmacist_note.trim()}</p>
+          </div>
+        ) : null}
+
+        {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
+
+        {panel !== "none" ? <div className="pt-1">{actionBlock}</div> : null}
+      </section>
+
+      <PromoReservationHistoryPanel
+        rows={historyRows}
+        role="pharmacien"
+        busy={historyBusy}
+        onRefresh={() => void loadHistory()}
+      />
+
+      {canAct && panel === "none" ? (
+        <PlatformStickyFooter tone="slate">{actionBlock}</PlatformStickyFooter>
       ) : null}
     </PageShell>
   );

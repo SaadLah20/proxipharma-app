@@ -4,6 +4,8 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { todayIsoCasablanca, maxPickupDateIso } from "@/lib/promo/dates";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
+import { promoPublicTheme as pt } from "@/lib/promo/promo-public-theme";
+import { cn } from "@/lib/utils";
 
 /** Formulaire monté/démonté avec la modale — état initial sans useEffect (ESLint set-state-in-effect). */
 function PromoReserveForm({
@@ -53,7 +55,7 @@ function PromoReserveForm({
         Réserver ce pack
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">{offerTitle}</p>
-      <p className="mt-2 rounded-lg bg-sky-50 px-2.5 py-2 text-[11px] leading-snug text-sky-950 ring-1 ring-sky-100">
+      <p className={cn("mt-2", pt.modalHint)}>
         Choisissez votre date de passage (aujourd&apos;hui → 3 jours max). L&apos;officine confirmera la
         disponibilité du pack.
       </p>

@@ -5,6 +5,7 @@ import { CalendarClock, ChevronDown, Package } from "lucide-react";
 import { PromoOfferPackSummary } from "@/components/promo/promo-offer-pack-summary";
 import { pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
 import { formatPromoValidityFr } from "@/lib/promo/dates";
+import { promoPublicTheme as pt } from "@/lib/promo/promo-public-theme";
 import type { PromoLineWithPrice } from "@/lib/promo/pricing";
 import type { PromoOfferRow } from "@/lib/promo/types";
 import { cn } from "@/lib/utils";
@@ -51,21 +52,25 @@ function PublicPromoOfferBanner({
   return (
     <div
       className={cn(
-        "relative overflow-hidden bg-gradient-to-br from-emerald-600/[0.12] via-card to-amber-400/[0.08] px-3 py-2.5",
+        "relative overflow-hidden px-3 py-2.5",
+        pt.bannerGradient,
         roundedClassName
       )}
     >
       <div
-        className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-emerald-500/10 blur-2xl"
+        className={cn("pointer-events-none absolute -right-6 -top-6 size-24 rounded-full blur-2xl", pt.bannerOrb)}
         aria-hidden
       />
       <div className="relative flex items-start gap-2.5">
         <div className="relative mt-0.5 shrink-0" aria-hidden>
-          <span className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-md ring-2 ring-white/80">
+          <span className={cn("flex size-10 items-center justify-center rounded-xl text-white shadow-md", pt.iconBadge, pt.iconRing)}>
             <Package className="size-5" strokeWidth={2.25} />
           </span>
           <span
-            className="absolute -bottom-1 -right-1 rounded-md bg-emerald-600 px-1 py-px text-[9px] font-bold leading-none tabular-nums text-white shadow-sm ring-2 ring-white"
+            className={cn(
+              "absolute -bottom-1 -right-1 rounded-md px-1 py-px text-[9px] font-bold leading-none tabular-nums shadow-sm ring-2 ring-white",
+              pt.discountBadge,
+            )}
             aria-label={`Remise ${offer.discount_percent} pour cent`}
           >
             −{offer.discount_percent}%
@@ -78,7 +83,7 @@ function PublicPromoOfferBanner({
               {offer.title}
             </h3>
             {existingReservationId ? (
-              <span className="shrink-0 rounded-full border border-amber-300/80 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold leading-tight text-amber-950">
+              <span className={cn("shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-bold leading-tight", pt.reservedPill)}>
                 Réservé
               </span>
             ) : null}
@@ -111,7 +116,8 @@ function PublicPromoOfferBanner({
       {offer.description?.trim() ? (
         <p
           className={cn(
-            "relative mt-2 w-full break-words rounded-lg border border-white/60 bg-white/50 px-2 py-1.5 text-[11px] leading-snug text-foreground/85",
+            "relative mt-2 w-full break-words rounded-lg border px-2 py-1.5 text-[11px] leading-snug text-foreground/85",
+            pt.descriptionInset,
             collapsible && !expanded && "line-clamp-2"
           )}
         >
@@ -166,7 +172,8 @@ export function PublicPromoOfferCard({
     <article
       className={cn(
         pharmacyPublicCard,
-        "overflow-hidden border-l-[3px] border-l-emerald-500/80"
+        "overflow-hidden border-l-[3px]",
+        pt.cardAccentBorder,
       )}
     >
       {collapsible ? (
@@ -174,7 +181,7 @@ export function PublicPromoOfferCard({
           type="button"
           className={cn(
             "block w-full p-0 text-left transition-opacity hover:opacity-95",
-            showBody && "border-b border-emerald-200/40"
+            showBody && cn("border-b", pt.cardDivider)
           )}
           aria-expanded={expanded}
           onClick={onToggle}
@@ -182,7 +189,7 @@ export function PublicPromoOfferCard({
           {banner}
         </button>
       ) : (
-        <header className="border-b border-emerald-200/40 p-0">{banner}</header>
+        <header className={cn("border-b p-0", pt.cardDivider)}>{banner}</header>
       )}
 
       {showBody ? (
@@ -212,7 +219,7 @@ export function PublicPromoOfferCard({
           existingReservationId ? (
             <Link
               href={`/dashboard/patient/packs-promo/${existingReservationId}`}
-              className="flex w-full items-center justify-center rounded-xl border border-emerald-600/70 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-950"
+              className={cn("flex w-full items-center justify-center rounded-xl border py-2.5 text-sm font-bold", pt.ctaSecondary)}
             >
               Voir ma réservation
             </Link>

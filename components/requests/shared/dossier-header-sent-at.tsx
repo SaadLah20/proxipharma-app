@@ -13,6 +13,7 @@ export function DossierHeaderRequestLine({
   submittedAt,
   createdAt,
   hideSentAt = false,
+  dateLabelKey = "sentOn",
   className,
 }: {
   kindLabel?: string;
@@ -21,6 +22,8 @@ export function DossierHeaderRequestLine({
   createdAt?: string | null;
   /** Masquer la date d'envoi (ex. bandeau pharmacien archives). */
   hideSentAt?: boolean;
+  /** Libellé date : `sentOn` (demandes) ou `reservedOn` (packs promo). */
+  dateLabelKey?: "sentOn" | "reservedOn";
   className?: string;
 }) {
   const locale = useLocale() as AppLocale;
@@ -38,7 +41,7 @@ export function DossierHeaderRequestLine({
             ·
           </span>
           <span className="font-normal text-muted-foreground">
-            {t("sentOn")}{" "}
+            {t(dateLabelKey)}{" "}
             <time dateTime={iso ?? undefined} className="font-semibold tabular-nums text-foreground">
               {sentCompact}
             </time>
