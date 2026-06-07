@@ -63,7 +63,8 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   };
 
   const isProductHub = kindId === "product_request";
-  const useRichPharmacistHubCard = kindId === "product_request" || kindId === "prescription";
+  const useRichPharmacistHubCard =
+    kindId === "product_request" || kindId === "prescription" || kindId === "free_consultation";
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

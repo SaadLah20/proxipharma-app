@@ -20,6 +20,7 @@ import type {
   DemandeStatBucketKey,
 } from "@/lib/demandes-hub-buckets";
 import { countInBucket } from "@/lib/demandes-hub-buckets";
+import { pharmacistConsultationHubGroupAccent } from "@/lib/pharmacist-consultation-hub-dashboard-ui";
 import { pharmacistPrescriptionHubGroupAccent } from "@/lib/pharmacist-prescription-hub-dashboard-ui";
 import { pharmacistProductHubGroupAccent } from "@/lib/pharmacist-product-hub-dashboard-ui";
 import {
@@ -262,7 +263,9 @@ export function DemandeStatDashboard({
                 ? pharmacistProductHubGroupAccent(group.id)
                 : viewerRole === "pharmacien" && hubAccent === "amber"
                   ? pharmacistPrescriptionHubGroupAccent(group.id)
-                  : patientHubGroupAccent(hubAccent, group.id)
+                  : viewerRole === "pharmacien" && hubAccent === "violet"
+                    ? pharmacistConsultationHubGroupAccent(group.id)
+                    : patientHubGroupAccent(hubAccent, group.id)
               : (GROUP_ACCENT[group.id] ?? GROUP_ACCENT.archives);
             return (
               <div
