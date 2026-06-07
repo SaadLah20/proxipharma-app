@@ -35,7 +35,16 @@ import {
 import { dashboardBucketsForKind, hubDashboardChrome } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { statBucketGroupsForRole, PATIENT_DASHBOARD_BUCKETS } from "@/lib/demandes-hub-buckets";
 import { patientDashboardBucketLabels } from "@/lib/i18n/request-kind-patient-copy";
+import {
+  patientProductHubRecentSectionClass,
+  patientProductHubSectionBadgeClass,
+  patientProductHubSectionShellClass,
+  patientProductHubSectionTierForId,
+  patientProductHubSummaryBarClass,
+  type PatientHubSectionTier,
+} from "@/lib/patient-product-hub-dashboard-ui";
 import type { RequestKindId } from "@/lib/request-kinds/types";
+import type { PatientProductHubSectionId } from "@/lib/patient-product-hub-sections";
 
 const PATIENT_SECTION_ORDER = ["action_required", "at_pharmacy", "archives"] as const;
 const PHARMA_SECTION_ORDER = [
@@ -55,6 +64,7 @@ function HubSectionBlock({
   sectionDomId,
   seeAllLabel,
   showCountLabel,
+  sectionTier,
 }: {
   title: string;
   subtitle?: string;
@@ -65,22 +75,52 @@ function HubSectionBlock({
   sectionDomId: string;
   seeAllLabel: string;
   showCountLabel: string;
+  sectionTier?: PatientHubSectionTier;
 }) {
   if (count === 0) return null;
 
   const body = <ul className="space-y-1.5">{children}</ul>;
+  const shellClass = sectionTier
+    ? patientProductHubSectionShellClass(sectionTier)
+    : "border-border/80 bg-card shadow-sm";
+  const countBadgeClass = sectionTier
+    ? patientProductHubSectionBadgeClass(sectionTier)
+    : "bg-muted text-foreground";
+  const headerBorderClass =
+    sectionTier === "primary"
+      ? "border-sky-200/50"
+      : sectionTier === "secondary"
+        ? "border-sky-100/45"
+        : "border-border/60";
+  const titleClass =
+    sectionTier === "primary"
+      ? "text-[13px] font-bold text-sky-950"
+      : sectionTier === "secondary"
+        ? "text-[13px] font-bold text-foreground"
+        : "text-[12px] font-semibold text-muted-foreground";
 
   return (
-    <section
-      id={sectionDomId}
-      className="scroll-mt-4 rounded-lg border border-border/80 bg-card shadow-sm"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-2.5 py-2">
+    <section id={sectionDomId} className={clsx("scroll-mt-4 rounded-lg border", shellClass)}>
+      <div className={clsx("flex flex-wrap items-center justify-between gap-2 border-b px-2.5 py-2", headerBorderClass)}>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[13px] font-bold text-foreground">{title}</h3>
-          {subtitle ? <p className="text-[10px] leading-snug text-muted-foreground">{subtitle}</p> : null}
+          <h3 className={titleClass}>{title}</h3>
+          {subtitle ? (
+            <p
+              className={clsx(
+                "text-[10px] leading-snug",
+                sectionTier === "tertiary" ? "text-muted-foreground/90" : "text-muted-foreground",
+              )}
+            >
+              {subtitle}
+            </p>
+          ) : null}
         </div>
-        <span className="inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold tabular-nums text-foreground">
+        <span
+          className={clsx(
+            "inline-flex min-w-[1.75rem] items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums",
+            countBadgeClass,
+          )}
+        >
           {count}
         </span>
         {count > HUB_DASHBOARD_PREVIEW ? (
@@ -134,6 +174,7 @@ export function RequestKindHubDashboard({
       : dashboardBucketsForKind(kindId, role);
   const buckets = baseBuckets;
   const chrome = hubDashboardChrome(kindId, role);
+  const productRequestPatient = kindId === "product_request" && role === "patient";
   const rowsWithStatus = rows.map((r) => ({ ...r, status_for_dashboard: r.status }));
   const stats = hubDashboardQuickStats(rowsWithStatus, buckets, unreadById);
   const recent = pickRecentActiveHubRows(rowsWithStatus, unreadById, 5, role);
@@ -179,6 +220,11 @@ export function RequestKindHubDashboard({
               defaultCollapsed={sectionId === "archives" && count > HUB_DASHBOARD_PREVIEW}
               seeAllLabel={tHub("dashboard.seeAll")}
               showCountLabel={tHub("dashboard.showCount", { count })}
+              sectionTier={
+                productRequestPatient
+                  ? patientProductHubSectionTierForId(sectionId as PatientProductHubSectionId)
+                  : undefined
+              }
             >
               {sectionRows.slice(0, HUB_DASHBOARD_PREVIEW).map((r) => (
                 <li key={r.id}>{renderPatientCard(r, true)}</li>
@@ -228,9 +274,16 @@ export function RequestKindHubDashboard({
         density="compact"
         dashboardTitle={chrome.title}
         bucketGroups={statBucketGroupsForRole(role)}
+        kindId={kindId}
+        viewerRole={role}
       />
 
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-muted/15 px-2.5 py-2 text-[10px]">
+      <div
+        className={clsx(
+          "flex flex-wrap items-center gap-2 rounded-lg border px-2.5 py-2 text-[10px]",
+          productRequestPatient ? patientProductHubSummaryBarClass : "border-border/70 bg-muted/15",
+        )}
+      >
         <span className="font-semibold tabular-nums text-foreground">{stats.total}</span>
         <span className="text-muted-foreground">
           {stats.total !== 1 ? tHub("dashboard.dossiers") : tHub("dashboard.dossier")}
@@ -241,7 +294,12 @@ export function RequestKindHubDashboard({
         {stats.unread > 0 ? (
           <>
             <span className="text-border">·</span>
-            <span className="inline-flex items-center gap-1 font-semibold text-primary">
+            <span
+              className={clsx(
+                "inline-flex items-center gap-1 font-semibold",
+                productRequestPatient ? "text-sky-800" : "text-primary",
+              )}
+            >
               <MessageCircle className="size-3" aria-hidden />
               {stats.unread}{" "}
               {stats.unread !== 1 ? tHub("dashboard.messages") : tHub("dashboard.message")}
@@ -251,8 +309,20 @@ export function RequestKindHubDashboard({
       </div>
 
       {recent.length > 0 ? (
-        <section className="rounded-lg border border-border/80 bg-card p-2.5 shadow-sm">
-          <h2 className="text-[13px] font-bold text-foreground">{tHub("dashboard.resumeQuickly")}</h2>
+        <section
+          className={clsx(
+            "rounded-lg border p-2.5 shadow-sm",
+            productRequestPatient ? patientProductHubRecentSectionClass : "border-border/80 bg-card",
+          )}
+        >
+          <h2
+            className={clsx(
+              "text-[13px] font-bold",
+              productRequestPatient ? "text-sky-950" : "text-foreground",
+            )}
+          >
+            {tHub("dashboard.resumeQuickly")}
+          </h2>
           <ul className="mt-2 flex gap-2 overflow-x-auto pb-0.5 [-webkit-overflow-scrolling:touch]">
             {recent.map((r) => (
               <li key={r.id} className="w-[min(100%,260px)] shrink-0 sm:w-[min(80%,280px)]">
@@ -270,7 +340,12 @@ export function RequestKindHubDashboard({
       <p className="text-center pt-1">
         <Link
           href={`${basePath}?vue=liste`}
-          className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-primary shadow-sm hover:bg-muted/40"
+          className={clsx(
+            "inline-flex items-center gap-1 rounded-lg border bg-card px-3 py-2 text-xs font-semibold shadow-sm hover:bg-muted/40",
+            productRequestPatient
+              ? "border-sky-200/70 text-sky-900 hover:border-sky-300/70 hover:bg-sky-50/50"
+              : "border-border text-primary",
+          )}
         >
           {listAllLabel}
           <ChevronRight className="size-4" aria-hidden />

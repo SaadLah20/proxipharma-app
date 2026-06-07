@@ -30,8 +30,11 @@ export const PRODUCT_REQUEST_LINE_THUMB =
   "box-border size-14 shrink-0 overflow-hidden rounded-md border border-border/80 bg-card";
 /** Alias compat (lecture seule / grilles). */
 export const PRODUCT_REQUEST_LINE_BLOCK_H = "min-h-14";
-/** Contour discret sans changer la boîte de contenu (ombre interne). */
-export const PRODUCT_REQUEST_LINE_CARD_SHELL = cn(uiSurfaceCard, "p-1");
+/** Contour carte ligne — accent sky demande produits. */
+export const PRODUCT_REQUEST_LINE_CARD_SHELL = cn(
+  "rounded-xl border border-sky-200/75 bg-card text-card-foreground shadow-sm ring-1 ring-sky-100/45",
+  "p-1",
+);
 const THUMB = PRODUCT_REQUEST_LINE_THUMB;
 
 /** Section de page (saisie publique / catalogue) — titres alignés charte globale. */

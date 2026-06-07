@@ -150,16 +150,16 @@ export type DemandeStatBucketGroup = {
 
 export const PATIENT_STAT_BUCKET_GROUPS: DemandeStatBucketGroup[] = [
   {
+    id: "your_action",
+    label: "À votre action",
+    subtitle: "Validation de la réponse ou passage en officine — à traiter en premier.",
+    bucketKeys: ["repondues", "traitee_retrait"],
+  },
+  {
     id: "at_pharmacy",
     label: "Chez la pharmacie",
     subtitle: "L’officine reçoit, répond ou prépare votre commande.",
     bucketKeys: ["envoyees", "validees_traitees"],
-  },
-  {
-    id: "your_action",
-    label: "À votre action",
-    subtitle: "Validation de la réponse ou passage en officine.",
-    bucketKeys: ["repondues", "traitee_retrait"],
   },
   {
     id: "archives",

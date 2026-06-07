@@ -4,6 +4,8 @@ import { useId, useState } from "react";
 import { MessageCircle, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
+import { ProductRequestLineMessageIconButton } from "@/components/pharmacy/patient-demande-produits-ui";
+import { isPatientProductRequestType } from "@/lib/patient-product-request-line-ui";
 import { requestKindUiTheme } from "@/lib/request-kind-ui-theme";
 import { uiActionBtnModalDismiss } from "@/lib/ui-action-buttons";
 import { cn } from "@/lib/utils";
@@ -40,15 +42,19 @@ export function PatientLineNotesIconButton({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-card text-foreground shadow-sm hover:bg-muted/40"
-        aria-label={tDemandes("notes.viewLineMessagesAria")}
-        title={tDemandes("responded.messageTitle")}
-      >
-        <MessageCircle className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
-      </button>
+      {isPatientProductRequestType(requestType) ? (
+        <ProductRequestLineMessageIconButton hasComment onClick={() => setOpen(true)} />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-card text-foreground shadow-sm hover:bg-muted/40"
+          aria-label={tDemandes("notes.viewLineMessagesAria")}
+          title={tDemandes("responded.messageTitle")}
+        >
+          <MessageCircle className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+        </button>
+      )}
       <AppModalOverlay open={open} aria-labelledby={titleId} onBackdropClick={() => setOpen(false)}>
         <div
           className={cn(

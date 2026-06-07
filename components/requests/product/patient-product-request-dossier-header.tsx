@@ -9,6 +9,7 @@ import type { PatientPharmacyContactInfo } from "@/components/requests/product/p
 import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
 import { usePatientRequestStatusLabel } from "@/lib/i18n/patient-request-status-label";
 import { requestStatusBadgeClass } from "@/lib/request-display";
+import { patientProductRequestDossierHeaderShellClass } from "@/lib/patient-product-request-line-ui";
 import { uiDossierHeaderShell } from "@/lib/ui-surfaces";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +49,11 @@ export function PatientProductRequestDossierHeader({
 
   return (
     <>
-      <header className={uiDossierHeaderShell}>
+      <header
+        className={cn(
+          requestType === "product_request" ? patientProductRequestDossierHeaderShellClass() : uiDossierHeaderShell,
+        )}
+      >
         <div className="border-b border-border px-3 py-2 sm:px-3.5">
           <DossierHeaderRequestLine
             kindLabel={kindLabel}
@@ -74,7 +79,12 @@ export function PatientProductRequestDossierHeader({
           <button
             type="button"
             onClick={() => setJourneyOpen(true)}
-            className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition hover:bg-muted/40 hover:text-foreground"
+            className={cn(
+              "inline-flex size-7 shrink-0 items-center justify-center rounded-full border bg-card shadow-sm transition",
+              requestType === "product_request"
+                ? "border-sky-200/80 text-sky-700 hover:border-sky-300/80 hover:bg-sky-50/80 hover:text-sky-900"
+                : "border-border text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+            )}
             aria-label={tDemandes("header.journeyAria")}
             title={tCommon("detailAndJourney")}
           >
