@@ -116,7 +116,7 @@ export function patientPromoHubRecentSectionTitleClass(): string {
 }
 
 export function patientPromoHubDashboardAccent(
-  role: "patient" | "pharmacien",
+  _role: "patient" | "pharmacien",
 ): PatientPromoHubDashboardAccent | null {
-  return role === "patient" ? "emerald" : null;
+  return "emerald";
 }

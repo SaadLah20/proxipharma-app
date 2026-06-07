@@ -8,6 +8,7 @@ import {
 import {
   isPatientAjoutOfficineLine,
   isRequestItemAddedAfterPatientConfirmation,
+  POST_CONFIRM_LINE_ADDED_BADGE_FR,
 } from "@/lib/supply-line-post-confirm";
 import {
   PRESCRIPTION_PRINCIPAL_BADGE,
@@ -144,14 +145,15 @@ export function buildPatientValidatedLineLabelsFr(input: {
     labelAudience = "patient",
   } = input;
   const out: ValidatedLineLabel[] = [];
-  if (originLabel.trim() && !isDefaultPatientOriginLabel(originLabel)) {
+  const isPostConfirmAdd = isRequestItemAddedAfterPatientConfirmation(row.id, supplyAmendmentBundles);
+  if (isPostConfirmAdd) {
+    out.push({ key: "origin-post-confirm", text: POST_CONFIRM_LINE_ADDED_BADGE_FR, tone: "event" });
+  } else if (originLabel.trim() && !isDefaultPatientOriginLabel(originLabel)) {
     out.push({ key: "origin", text: originLabel, tone: "origin" });
   }
 
   const withdrawn = Boolean(row.withdrawn_after_confirm);
-  const ajoutOrigin =
-    isPatientAjoutOfficineLine(row) ||
-    isRequestItemAddedAfterPatientConfirmation(row.id, supplyAmendmentBundles);
+  const ajoutOrigin = isPatientAjoutOfficineLine(row) || isPostConfirmAdd;
 
   const closure = archiveClosureLabel?.trim();
   const pickedUp = (row.counter_outcome ?? "unset") === "picked_up";

@@ -1,18 +1,13 @@
 "use client";
 
-import { MessageCircle, User } from "lucide-react";
 import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
+import { PharmacistPatientDossierBand } from "@/components/requests/product/pharmacist-patient-dossier-band";
+import type { PharmacistPatientContactInfo } from "@/components/requests/product/pharmacist-patient-quick-contact";
+import { pharmacistPromoReservationDossierHeaderShellClass } from "@/lib/pharmacist-promo-reservation-line-ui";
 import { promoReservationBadgeClass, promoReservationHint, promoReservationLabel } from "@/lib/promo/reservation-status-ui";
+import { promoReservationUiTheme } from "@/lib/promo/promo-reservation-ui-theme";
 import type { PromoReservationStatus } from "@/lib/promo/types";
-import { uiActionBtnCompactOutline } from "@/lib/ui-action-buttons";
-import { uiDossierHeaderShell } from "@/lib/ui-surfaces";
 import { cn } from "@/lib/utils";
-
-function whatsAppHref(phone: string | null | undefined) {
-  const digits = (phone ?? "").replace(/[^\d]/g, "");
-  if (!digits) return null;
-  return `https://wa.me/${digits}`;
-}
 
 export function PharmacistPromoReservationDossierHeader({
   dossierRefLabel,
@@ -20,23 +15,20 @@ export function PharmacistPromoReservationDossierHeader({
   status,
   reservedAt,
   createdAt,
-  patientName,
-  patientWhatsapp,
+  patientId,
+  patientContact,
 }: {
   dossierRefLabel: string;
   offerTitle: string;
   status: PromoReservationStatus;
   reservedAt?: string | null;
   createdAt?: string | null;
-  patientName?: string | null;
-  patientWhatsapp?: string | null;
+  patientId: string;
+  patientContact: PharmacistPatientContactInfo | null;
 }) {
-  const wa = whatsAppHref(patientWhatsapp);
-  const displayName = patientName?.trim() || "Patient";
-
   return (
-    <header className={cn(uiDossierHeaderShell)}>
-      <div className="border-b border-border px-3 py-2 sm:px-3.5">
+    <header className={cn(pharmacistPromoReservationDossierHeaderShellClass())}>
+      <div className="border-b border-emerald-200/40 px-3 py-2 sm:px-3.5">
         <DossierHeaderRequestLine
           kindLabel="Réservation pack"
           dossierRefLabel={dossierRefLabel}
@@ -47,34 +39,14 @@ export function PharmacistPromoReservationDossierHeader({
         <p className="mt-1 text-[11px] font-semibold text-foreground">{offerTitle}</p>
       </div>
 
-      <div className="border-b border-border px-3 py-2 sm:px-3.5">
-        <div className="flex min-w-0 items-start gap-2">
-          <span
-            className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground shadow-sm ring-1 ring-border/80"
-            aria-hidden
-          >
-            <User className="size-[1.125rem]" strokeWidth={2.25} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold leading-snug text-foreground">{displayName}</p>
-            {patientWhatsapp?.trim() ? (
-              <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">{patientWhatsapp.trim()}</p>
-            ) : null}
-          </div>
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {wa ? (
-            <a
-              href={wa}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={uiActionBtnCompactOutline("inline-flex items-center gap-1")}
-            >
-              <MessageCircle className="size-3.5" aria-hidden />
-              WhatsApp
-            </a>
-          ) : null}
-        </div>
+      <div className="border-b border-emerald-200/40 px-3 py-2 sm:px-3.5">
+        <PharmacistPatientDossierBand
+          patientId={patientId}
+          patientContact={patientContact}
+          dossierRefLabel={dossierRefLabel}
+          requestType="promo_reservation"
+          uiTheme={promoReservationUiTheme}
+        />
       </div>
 
       <div className="flex flex-wrap items-start gap-2 px-3 py-2 sm:px-3.5">

@@ -9,8 +9,7 @@ import { platformDashboardChrome } from "@/lib/platform-dashboard-chrome";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
-import { PlatformStickyFooter } from "@/components/layout/platform-sticky-footer";
-import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
+import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
 import { cn } from "@/lib/utils";
 import {
   compressImageFileForPrescription,
@@ -240,12 +239,7 @@ export default function DemandeOrdonnancePage() {
   const pagesWord = pages.length > 1 ? tp("pages") : tp("page");
 
   return (
-    <main
-      className={cn(
-        "min-h-screen touch-pan-y bg-background p-4 text-foreground antialiased sm:p-5",
-        stickyFooterPadClass("standard")
-      )}
-    >
+    <main className="min-h-screen touch-pan-y bg-background p-4 text-foreground antialiased sm:p-5">
       <div className="mx-auto max-w-lg">
         <PharmacyPublicBackLink href={`/pharmacie/${pharmacyId}`}>{tp("backToPharmacy")}</PharmacyPublicBackLink>
 
@@ -360,25 +354,25 @@ export default function DemandeOrdonnancePage() {
             {feedback.text}
           </p>
         ) : null}
-      </div>
 
-      <PlatformStickyFooter tone="neutral" zIndex={10020}>
-        <Button
-          type="button"
-          className={cn("h-10 w-full text-sm font-semibold", platformDashboardChrome.cta)}
-          disabled={submitLoading}
-          onClick={() => {
-            const err = validate();
-            if (err) {
-              setFeedback({ type: "err", text: err });
-              return;
-            }
-            setConfirmOpen(true);
-          }}
-        >
-          {submitLoading ? tc("sending") : tp("sendPrescription")}
-        </Button>
-      </PlatformStickyFooter>
+        <DossierInlineActionPanel tone="neutral" className="mt-4">
+          <Button
+            type="button"
+            className={cn("h-10 w-full text-sm font-semibold", platformDashboardChrome.cta)}
+            disabled={submitLoading}
+            onClick={() => {
+              const err = validate();
+              if (err) {
+                setFeedback({ type: "err", text: err });
+                return;
+              }
+              setConfirmOpen(true);
+            }}
+          >
+            {submitLoading ? tc("sending") : tp("sendPrescription")}
+          </Button>
+        </DossierInlineActionPanel>
+      </div>
 
       <AppModalOverlay
         open={confirmOpen}

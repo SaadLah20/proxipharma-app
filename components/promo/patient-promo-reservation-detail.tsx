@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { useLocale, useTranslations } from "next-intl";
 import { PageShell } from "@/components/ui/compact-shell";
-import { PlatformStickyFooter } from "@/components/layout/platform-sticky-footer";
+import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
 import { PatientPromoReservationDossierHeader } from "@/components/promo/patient-promo-reservation-dossier-header";
 import { PromoReservationHistoryPanel } from "@/components/promo/promo-reservation-history-panel";
 import type { PatientPharmacyContactInfo } from "@/components/requests/product/patient-pharmacy-quick-contact";
@@ -26,7 +26,6 @@ import { PromoOfferPackSummary } from "@/components/promo/promo-offer-pack-summa
 import { fetchPromoOfferLines } from "@/lib/promo/load-offer-lines";
 import { markPromoReservationNotificationsRead } from "@/lib/promo/mark-reservation-notifs-read";
 import { supabase } from "@/lib/supabase";
-import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
 import { uiActionBtnFullDestructive } from "@/lib/ui-action-buttons";
 import type { PromoLineWithPrice } from "@/lib/promo/pricing";
 import type { PromoReservationStatus } from "@/lib/promo/types";
@@ -148,7 +147,6 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
   };
 
   const canCancel = row && ["submitted", "confirmed"].includes(row.status);
-  const stickyPad = canCancel ? stickyFooterPadClass("standard") : "";
 
   if (loading) {
     return (
@@ -180,7 +178,7 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
   const terminalEntry = terminal ? historyRows[0] : null;
 
   return (
-    <PageShell maxWidthClass="max-w-3xl" className={clsx("space-y-3 bg-slate-50", stickyPad)}>
+    <PageShell maxWidthClass="max-w-3xl" className="space-y-3 bg-slate-50">
       <Link href="/dashboard/patient/packs-promo" className={p.backLink}>
         {ta("backToPromoHub")}
       </Link>
@@ -262,15 +260,8 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
         ) : null}
       </section>
 
-      <PromoReservationHistoryPanel
-        rows={historyRows}
-        role="patient"
-        busy={historyBusy}
-        onRefresh={() => void loadHistory()}
-      />
-
       {canCancel ? (
-        <PlatformStickyFooter tone="emerald">
+        <DossierInlineActionPanel tone="emerald">
           <button
             type="button"
             disabled={busy}
@@ -279,8 +270,15 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
           >
             {busy ? t("cancelling") : t("cancelReservation")}
           </button>
-        </PlatformStickyFooter>
+        </DossierInlineActionPanel>
       ) : null}
+
+      <PromoReservationHistoryPanel
+        rows={historyRows}
+        role="patient"
+        busy={historyBusy}
+        onRefresh={() => void loadHistory()}
+      />
     </PageShell>
   );
 }

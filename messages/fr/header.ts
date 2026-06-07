@@ -34,4 +34,13 @@ export const headerFr = {
     patientFallback: "Patient",
     logout: "Déconnexion",
   },
+  bottomNavAria: "Navigation principale",
+  bottomNav: {
+    products: "Produits",
+    demandes: "Demandes",
+    prescriptions: "Ordonnances",
+    consultations: "Conseils",
+    promos: "Promos",
+    reservations: "Réservations",
+  },
 };

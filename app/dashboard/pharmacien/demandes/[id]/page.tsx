@@ -121,13 +121,8 @@ import {
 import { PageShell } from "@/components/ui/compact-shell";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { PolishedOptionPicker } from "@/components/ui/polished-option-picker";
-import { Z_STICKY_FOOTER } from "@/lib/ui-z-index";
-import {
-  PlatformStickyFooter,
-  PlatformStickyFooterStack,
-  PlatformStickyFooterStackRow,
-} from "@/components/layout/platform-sticky-footer";
-import { stickyFooterPadClass, consultationConversationViewportHeightClass } from "@/lib/platform-sticky-footer";
+import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
+import { consultationConversationViewportHeightClass } from "@/lib/platform-sticky-footer";
 import {
   PHARMA_LINE_EDITOR_ALTS,
   PHARMA_LINE_EDITOR_CARD,
@@ -205,8 +200,9 @@ import { ProductCatalogMetaLabel } from "@/components/products/product-brand-lab
 import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
 import { PharmacistProductRequestDossierShell } from "@/components/pharmacist/pharmacist-product-request-dossier-shell";
 import { PharmacistProductRequestDossierHeader } from "@/components/requests/product/pharmacist-product-request-dossier-header";
-import { patientBucketProductListClass } from "@/lib/patient-bucket-product-row-ui";
 import {
+  pharmacistBucketProductListClass,
+  pharmacistDossierProductsStackClass,
   pharmacistProductDossierPageClass,
   pharmacistProductLinesWrapperClass,
   pharmacistProductPlannedVisitClass,
@@ -222,7 +218,14 @@ import {
   ProductRequestLineQtyPicker,
   ProductRequestLineQtyReadonly,
 } from "@/components/pharmacy/patient-demande-produits-ui";
-import { pharmacistProductRequestLineCardClass } from "@/lib/pharmacist-product-request-line-ui";
+import {
+  pharmacistProductRequestDossierSectionShellClass,
+  pharmacistProductRequestLineCardClass,
+} from "@/lib/pharmacist-product-request-line-ui";
+import {
+  pharmacistPrescriptionRequestDossierSectionShellClass,
+  pharmacistPrescriptionRequestLineCardClass,
+} from "@/lib/pharmacist-prescription-request-line-ui";
 import { pharmacistSentProductLineQtyUi } from "@/lib/pharmacist-sent-product-line-qty";
 import {
   inferredAvailabilityForPharmacistPublish,
@@ -4801,7 +4804,6 @@ export default function PharmacienDemandeDetailPage() {
         menuOpen={supplyMenuRowId === row.id}
         onMenuOpenChange={(open) => setSupplyMenuRowId(open ? row.id : null)}
         onMenuHistory={onOpenHistory}
-        postConfirmAmendmentBadges={supplyAmendmentBadgeLabelsByItemId[row.id]}
         onPhotoPreview={openProductPhotoPreview}
       />
     );
@@ -4881,7 +4883,6 @@ export default function PharmacienDemandeDetailPage() {
         menuOpen={supplyMenuRowId === row.id}
         onMenuOpenChange={(open) => setSupplyMenuRowId(open ? row.id : null)}
         onMenuHistory={onOpenHistory}
-        postConfirmAmendmentBadges={supplyAmendmentBadgeLabelsByItemId[row.id]}
         onPhotoPreview={openProductPhotoPreview}
       />
     );
@@ -5039,15 +5040,23 @@ export default function PharmacienDemandeDetailPage() {
     isProductRequestSent || isPrescriptionWorkflowSent || isConsultationWorkflowSent;
   const isProductRequestValidated =
     isProductRequest && ["confirmed", "treated"].includes(request.status);
+  const isPrescriptionValidated =
+    isPrescription && ["confirmed", "treated"].includes(request.status);
   const isConsultationValidated =
     isConsultation && ["confirmed", "treated"].includes(request.status);
-  const useCompactProductLineSupplyEditor = isProductRequestValidated || isConsultationValidated;
+  const useCompactProductLineSupplyEditor =
+    isProductRequestValidated || isPrescriptionValidated || isConsultationValidated;
   const consultationProposeFormAlwaysOpen = isConsultation && !canManageSupply;
   const hideMainRequestHeader =
     usesLineWorkflow &&
     (["submitted", "in_review", "responded", "confirmed", "treated"].includes(request.status) ||
       pharmacistRequestIsHardStopped(request.status) ||
       pharmacistRequestIsClosedSuccess(request.status));
+  const useFlatPharmaWorkflowLineCard =
+    (isProductRequest || isPrescription) && (hideMainRequestHeader || usePharmaSentLineLayout);
+  const pharmacistDossierSectionShellClass = isPrescription
+    ? pharmacistPrescriptionRequestDossierSectionShellClass
+    : pharmacistProductRequestDossierSectionShellClass;
 
   const isPharmacistTerminalArchive =
     pharmacistRequestIsHardStopped(request.status) || pharmacistRequestIsClosedSuccess(request.status);
@@ -5066,7 +5075,8 @@ export default function PharmacienDemandeDetailPage() {
   if (usesLineWorkflow && hideMainRequestHeader) {
     if (request.status === "submitted" || request.status === "in_review") {
       if (isPrescription) {
-        dossierStatusHint = "";
+        dossierStatusHint =
+          "Saisissez les produits depuis le scan, puis publiez la réponse au patient.";
       } else if (isConsultation) {
         dossierStatusHint =
           "Échangez avec le patient ou ajoutez des produits, puis publiez la réponse.";
@@ -5094,18 +5104,7 @@ export default function PharmacienDemandeDetailPage() {
   const showMainSupplyFooter =
     !respondedEditMode && (showBottomActionSticky || showSupplyStatsFooter || showSupplyDirtyBar);
 
-  let bottomChromePaddingClass = "";
-  if (respondedEditMode) {
-    bottomChromePaddingClass = stickyFooterPadClass("pharmaEdit");
-  } else if (showBottomActionSticky && showSupplyStatsFooter) {
-    bottomChromePaddingClass = stickyFooterPadClass(showSupplyDirtyBar ? "pharmaTriple" : "pharmaDouble");
-  } else if (showBottomActionSticky) {
-    bottomChromePaddingClass = stickyFooterPadClass(showSupplyDirtyBar ? "pharmaDouble" : "pharmaSingle");
-  } else if (showSupplyStatsFooter) {
-    bottomChromePaddingClass = stickyFooterPadClass(showSupplyDirtyBar ? "pharmaDouble" : "compact");
-  } else if (showSupplyDirtyBar) {
-    bottomChromePaddingClass = stickyFooterPadClass("pharmaSingle");
-  }
+  const supplyInlineTone = isProductRequest ? "sky" : isPrescription ? "amber" : isConsultation ? "violet" : "sky";
 
   const stickyFooterObscured =
     publishConfirmOpen ||
@@ -5127,8 +5126,7 @@ export default function PharmacienDemandeDetailPage() {
         usesLineWorkflow && hideMainRequestHeader
           ? pharmacistProductDossierPageClass
           : "space-y-2 sm:space-y-3",
-        usesLineWorkflow && !hideMainRequestHeader && "bg-slate-50",
-        bottomChromePaddingClass
+        usesLineWorkflow && !hideMainRequestHeader && "bg-slate-50"
       )}
     >
       <RequestDetailBackLink config={kindConfig} viewerRole="pharmacien" />
@@ -5157,7 +5155,10 @@ export default function PharmacienDemandeDetailPage() {
           productLineCount={displayRows.length}
         />
       ) : (
-        <PharmacistProductRequestDossierShell active={isProductRequest && hideMainRequestHeader}>
+        <PharmacistProductRequestDossierShell
+          active={(isProductRequest || isPrescription) && hideMainRequestHeader}
+          sectionShellClass={pharmacistDossierSectionShellClass}
+        >
           {hideMainRequestHeader ? (
         <>
           <PharmacistProductRequestDossierHeader
@@ -5173,7 +5174,7 @@ export default function PharmacienDemandeDetailPage() {
             statusHint={dossierStatusHint}
             submittedAt={request.submitted_at}
             createdAt={request.created_at}
-            hideSentAt={isPharmacistTerminalArchive}
+            hideSentAt={false}
           />
           {!showConsultationTabbed &&
           isConsultation &&
@@ -5533,8 +5534,28 @@ export default function PharmacienDemandeDetailPage() {
             </div>
           </div>
               )}
+          <div
+            className={clsx(
+              hideMainRequestHeader &&
+                !showClosedBucketsLayout &&
+                !showArchiveFrozenProducts &&
+                pharmacistDossierProductsStackClass
+            )}
+          >
+          {isPrescription &&
+          prescriptionPaths?.page1 &&
+          !ordonnanceCatalogEditable &&
+          !showClosedBucketsLayout &&
+          !showArchiveFrozenProducts &&
+          displayRows.length > 0 ? (
+            <PrescriptionScanCollapsible
+              id="prescription-scan-panel"
+              paths={prescriptionPaths}
+              defaultOpen={false}
+            />
+          ) : null}
           {hideMainRequestHeader &&
-          (isProductRequest || isConsultation) &&
+          (isProductRequest || isPrescription || isConsultation) &&
           displayRows.length > 0 &&
           !showClosedBucketsLayout &&
           !showArchiveFrozenProducts ? (
@@ -5571,7 +5592,6 @@ export default function PharmacienDemandeDetailPage() {
             (showClosedBucketsLayout || showArchiveFrozenProducts) ? (
               <PrescriptionScanCollapsible
                 id="prescription-scan-panel-archive"
-                className="mb-2"
                 paths={prescriptionPaths}
                 defaultOpen={false}
               />
@@ -5637,8 +5657,8 @@ export default function PharmacienDemandeDetailPage() {
                   className={clsx(
                     "flex w-full min-w-0 flex-col overflow-visible",
                     bucket
-                      ? patientBucketProductListClass
-                      : hideMainRequestHeader && (isProductRequest || isConsultation)
+                      ? pharmacistBucketProductListClass
+                      : hideMainRequestHeader && (isProductRequest || isPrescription || isConsultation)
                         ? "flex w-full min-w-0 flex-col gap-2"
                         : usePharmaSentLineLayout
                           ? "gap-2"
@@ -6326,7 +6346,9 @@ export default function PharmacienDemandeDetailPage() {
                           }}
                         />
                       }
-                      postConfirmAmendmentBadges={supplyAmendmentBadgeLabelsByItemId[row.id]}
+                      postConfirmAmendmentBadges={
+                        bucket ? undefined : supplyAmendmentBadgeLabelsByItemId[row.id]
+                      }
                       menuOpen={supplyMenuRowId === row.id}
                       onMenuOpenChange={(open) => setSupplyMenuRowId(open ? row.id : null)}
                       onMenuModify={() => {
@@ -6358,7 +6380,7 @@ export default function PharmacienDemandeDetailPage() {
                         });
                         setSupplyMenuRowId(null);
                       }}
-                      showAjoutOfficineBadge={isAjoutOfficineLine}
+                      showAjoutOfficineBadge={isAjoutOfficineLine && !bucket}
                       ajoutOfficineBadgeLabel={ajoutOfficineBadgeLabel}
                       lineOriginBadgeLabel={compactOriginBadgeLabel}
                       lineOriginBadgeTone={compactOriginBadgeTone}
@@ -6370,6 +6392,7 @@ export default function PharmacienDemandeDetailPage() {
                       supplyTier={supplyTier}
                       validatedLineLabels={validatedLineLabels}
                       onPhotoPreview={bucket ? openProductPhotoPreview : undefined}
+                      requestType={request.request_type}
                     />
                   </Fragment>
                 );
@@ -6384,38 +6407,42 @@ export default function PharmacienDemandeDetailPage() {
                   ) : null}
                   <li
                     className={clsx(
-                      isProductRequest
+                      useFlatPharmaWorkflowLineCard
                         ? clsx(
                             "relative w-full min-w-0 list-none overflow-visible",
-                            usePharmaSentLineLayout
-                              ? PRODUCT_REQUEST_LINE_CARD_SHELL
-                              : pharmacistProductRequestLineCardClass,
+                            isProductRequest
+                              ? usePharmaSentLineLayout
+                                ? PRODUCT_REQUEST_LINE_CARD_SHELL
+                                : pharmacistProductRequestLineCardClass
+                              : usePharmaSentLineLayout
+                                ? pharmacistPrescriptionRequestLineCardClass
+                                : pharmacistPrescriptionRequestLineCardClass,
                           )
                         : usePharmaSentLineLayout
                           ? clsx(PRODUCT_REQUEST_LINE_CARD_SHELL, "list-none overflow-visible border-l-[3px]")
                           : PHARMA_LINE_EDITOR_CARD,
-                      !isProductRequest && "list-none overflow-visible",
+                      !useFlatPharmaWorkflowLineCard && "list-none overflow-visible",
                       usePharmaSentLineLayout && isProposedLine && "mx-auto w-full max-w-md",
-                      !isProductRequest &&
+                      !useFlatPharmaWorkflowLineCard &&
                         !usePharmaSentLineLayout &&
                         isAjoutOfficineLine &&
                         "border-l-[3px] border-l-violet-500/70",
-                      !isProductRequest &&
+                      !useFlatPharmaWorkflowLineCard &&
                         !usePharmaSentLineLayout &&
                         isOrdonnancePrincipalLine &&
                         "border-l-[3px] border-l-amber-500/70",
-                      !isProductRequest &&
+                      !useFlatPharmaWorkflowLineCard &&
                         !usePharmaSentLineLayout &&
                         !isAjoutOfficineLine &&
                         !isOrdonnancePrincipalLine &&
                         "border-l-[3px] border-l-sky-500/60",
-                      !isProductRequest &&
+                      !useFlatPharmaWorkflowLineCard &&
                         usePharmaSentLineLayout &&
                         !isProposedLine &&
                         (isOrdonnancePrincipalLine || isOrdonnancePharmacistLine
                           ? "border-l-amber-500/65"
                           : "border-l-sky-500/65"),
-                      !isProductRequest &&
+                      !useFlatPharmaWorkflowLineCard &&
                         usePharmaSentLineLayout &&
                         isProposedLine &&
                         "border-l-violet-500/65",
@@ -7124,7 +7151,7 @@ export default function PharmacienDemandeDetailPage() {
                     return (
                       <div
                         key={bucket.kind}
-                        className={clsx("w-full min-w-0", gi > 0 && "border-t border-border/40 pt-3")}
+                        className={clsx("w-full min-w-0", gi > 0 && "border-t border-border/40 pt-4")}
                       >
                         <PharmacistValidatedBucketSection
                           group={bucket}
@@ -7138,7 +7165,7 @@ export default function PharmacienDemandeDetailPage() {
                   return (
               <div
                 key={gi}
-                className={clsx("w-full min-w-0", gi > 0 && "border-t border-border/40 pt-3")}
+                className={clsx("w-full min-w-0", gi > 0 && "border-t border-border/40 pt-4")}
               >
                 {listBody}
               </div>
@@ -7147,22 +7174,10 @@ export default function PharmacienDemandeDetailPage() {
               </>
             ) : null}
           </div>
+          </div>
               </>
               ) : null}
             </>
-          ) : null}
-
-          {isPrescription &&
-          prescriptionPaths?.page1 &&
-          !ordonnanceCatalogEditable &&
-          !showClosedBucketsLayout &&
-          !showArchiveFrozenProducts ? (
-            <PrescriptionScanCollapsible
-              id="prescription-scan-panel"
-              className="mt-3"
-              paths={prescriptionPaths}
-              defaultOpen={false}
-            />
           ) : null}
 
           {showLineAndPublishEdits ? (
@@ -7552,6 +7567,146 @@ export default function PharmacienDemandeDetailPage() {
             </p>
           ) : null}
 
+          {canManageResponded && respondedEditMode && !stickyFooterObscured ? (
+            <DossierInlineActionPanel tone="amber" className="mt-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    resetDraftFromRows();
+                    setRespondedEditMode(false);
+                    resetRespondedLineAltUi();
+                    setPendingProposalRows([]);
+                    setPendingAlternatives([]);
+                    setPendingDeletedAlternativeIds([]);
+                    setRemovedPersistedRespondedEditIds([]);
+                    setError("");
+                  }}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-amber-400/90 bg-white px-4 py-2.5 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-50/90 disabled:opacity-50 sm:order-1 sm:w-auto sm:min-w-[9rem]"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    const b = respondedEditBaselineRef.current;
+                    if (!b) {
+                      setError("Réouvrez « Modifier la réponse » puis réessayez.");
+                      return;
+                    }
+                    setError("");
+                    const diffs = diffRespondedSnapshots(
+                      b,
+                      displayRows,
+                      draft,
+                      altQtyDrafts,
+                      pendingProposalRows,
+                      pendingAlternatives,
+                      pendingDeletedAlternativeIds,
+                      removedPersistedRespondedEditIds
+                    );
+                    setRespondedSaveDiffLines(diffs);
+                    setRespondedSaveConfirmOpen(true);
+                  }}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-amber-600 bg-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-amber-700 disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
+                >
+                  Enregistrer
+                </button>
+              </div>
+            </DossierInlineActionPanel>
+          ) : null}
+
+          {showMainSupplyFooter && !stickyFooterObscured ? (
+            <DossierInlineActionPanel tone={supplyInlineTone} className="mt-4 space-y-3">
+              {showSupplyStatsFooter ? (
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-foreground">
+                  <span className="shrink-0 font-semibold tabular-nums text-muted-foreground">
+                    {supplyFooterTotals.count} produit{supplyFooterTotals.count > 1 ? "s" : ""}
+                  </span>
+                  <span className="min-w-0 text-end font-bold tabular-nums text-foreground">
+                    Total :{" "}
+                    {supplyFooterTotals.count === 0
+                      ? "—"
+                      : supplyFooterTotals.missingPrice && supplyFooterTotals.total === 0
+                        ? "prix partiellement renseigné"
+                        : `${supplyFooterTotals.total.toLocaleString("fr-FR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })} MAD`}
+                    {supplyFooterTotals.missingPrice && supplyFooterTotals.total > 0 ? (
+                      <span className="ml-1 font-normal text-muted-foreground">(estimation partielle)</span>
+                    ) : null}
+                  </span>
+                </div>
+              ) : null}
+              {showDeclareTreatedSticky ? (
+                <div className="flex min-w-0 items-center gap-2 border-t border-inherit pt-3">
+                  <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold leading-snug text-foreground">
+                    Préparation prête ?
+                    <InfoHint label="À propos de « Déclarer la demande traitée »" placement="up" align="start">
+                      Quand la préparation est prête, déclarez la demande traitée. Le patient pourra suivre le passage au
+                      comptoir ; vous marquerez ensuite les réceptions en officine et les retraits ligne par ligne.
+                    </InfoHint>
+                  </span>
+                  <button
+                    type="button"
+                    disabled={declareTreatedBusy || Boolean(requestDrift.stale)}
+                    title={requestDrift.stale?.message}
+                    onClick={() => setDeclareTreatedModalOpen(true)}
+                    className={uiActionBtnModalPrimary(
+                      "h-10 min-w-0 flex-1 px-4 text-sm font-bold whitespace-nowrap disabled:opacity-50"
+                    )}
+                  >
+                    Déclarer traitée
+                  </button>
+                </div>
+              ) : null}
+              {showCloseCounterSticky ? (
+                <div className="flex flex-col gap-2 border-t border-inherit pt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                  <p className="text-center text-[11px] leading-snug text-muted-foreground sm:flex-1 sm:text-left">
+                    Au moins un produit est récupéré — vous pouvez clôturer (les autres seront retirés).
+                  </p>
+                  <button
+                    type="button"
+                    disabled={completeBusy}
+                    onClick={() => setCloseConfirmOpen(true)}
+                    className={uiActionBtnModalPrimary(
+                      "h-10 w-full shrink-0 px-4 text-sm font-bold disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
+                    )}
+                  >
+                    {completeBusy ? "Clôture…" : "Clôturer le dossier"}
+                  </button>
+                </div>
+              ) : null}
+              {showSupplyDirtyBar ? (
+                <div className="flex flex-col gap-2 border-t border-inherit pt-3 sm:flex-row sm:justify-end sm:gap-3">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => cancelConfirmedSupplyEdits()}
+                    className={uiActionBtnModalOutline(
+                      "h-10 w-full text-sm font-semibold disabled:opacity-50 sm:order-1 sm:w-auto sm:min-w-[9rem]"
+                    )}
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => startSaveConfirmedAdjustments()}
+                    className={uiActionBtnModalPrimary(
+                      "h-10 w-full text-sm font-bold disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
+                    )}
+                  >
+                    {busy ? "Enregistrement…" : "Enregistrer les modifications"}
+                  </button>
+                </div>
+              ) : null}
+            </DossierInlineActionPanel>
+          ) : null}
+
           {(request.status === "submitted" ||
             request.status === "in_review" ||
             request.status === "responded" ||
@@ -7689,13 +7844,15 @@ export default function PharmacienDemandeDetailPage() {
                       "rounded-xl border p-2.5",
                       isProductRequest
                         ? "border-sky-300/75 bg-sky-100/45"
-                        : "border-emerald-300/75 bg-emerald-100/45",
+                        : isPrescription
+                          ? "border-amber-300/70 bg-amber-100/40"
+                          : "border-emerald-300/75 bg-emerald-100/45",
                     )}
                   >
                     <h3
                       className={clsx(
                         "mb-2 text-[10px] font-bold uppercase tracking-wide",
-                        isProductRequest ? "text-sky-950" : "text-emerald-950",
+                        isProductRequest ? "text-sky-950" : isPrescription ? "text-amber-950" : "text-emerald-950",
                       )}
                     >
                       Disponibles · {publishConfirmGroups.ready.length}
@@ -7786,56 +7943,6 @@ export default function PharmacienDemandeDetailPage() {
             </div>
           </div>
         </AppModalOverlay>
-      ) : null}
-      {canManageResponded && respondedEditMode && !stickyFooterObscured ? (
-        <PlatformStickyFooter tone="amber" width="3xl" zIndex={10050}>
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                resetDraftFromRows();
-                setRespondedEditMode(false);
-                resetRespondedLineAltUi();
-                setPendingProposalRows([]);
-                setPendingAlternatives([]);
-                setPendingDeletedAlternativeIds([]);
-                setRemovedPersistedRespondedEditIds([]);
-                setError("");
-              }}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-amber-400/90 bg-white px-4 py-2.5 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-50/90 disabled:opacity-50 sm:order-1 sm:w-auto sm:min-w-[9rem]"
-            >
-              Annuler
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                const b = respondedEditBaselineRef.current;
-                if (!b) {
-                  setError("Réouvrez « Modifier la réponse » puis réessayez.");
-                  return;
-                }
-                setError("");
-                const diffs = diffRespondedSnapshots(
-                  b,
-                  displayRows,
-                  draft,
-                  altQtyDrafts,
-                  pendingProposalRows,
-                  pendingAlternatives,
-                  pendingDeletedAlternativeIds,
-                  removedPersistedRespondedEditIds
-                );
-                setRespondedSaveDiffLines(diffs);
-                setRespondedSaveConfirmOpen(true);
-              }}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-amber-600 bg-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-amber-700 disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
-            >
-              Enregistrer
-            </button>
-          </div>
-        </PlatformStickyFooter>
       ) : null}
       {respondedSaveConfirmOpen ? (
         <AppModalOverlay
@@ -7994,107 +8101,6 @@ export default function PharmacienDemandeDetailPage() {
             </div>
           </div>
         </AppModalOverlay>
-      ) : null}
-
-      {showMainSupplyFooter && !stickyFooterObscured ? (
-        <PlatformStickyFooterStack
-          tone="sky"
-        >
-          {showSupplyStatsFooter ? (
-            <PlatformStickyFooterStackRow compact bordered={false}>
-              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-foreground">
-                <span className="shrink-0 font-semibold tabular-nums text-muted-foreground">
-                  {supplyFooterTotals.count} produit{supplyFooterTotals.count > 1 ? "s" : ""}
-                </span>
-                <span className="min-w-0 text-end font-bold tabular-nums text-foreground">
-                  Total :{" "}
-                  {supplyFooterTotals.count === 0
-                    ? "—"
-                    : supplyFooterTotals.missingPrice && supplyFooterTotals.total === 0
-                      ? "prix partiellement renseigné"
-                      : `${supplyFooterTotals.total.toLocaleString("fr-FR", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })} MAD`}
-                  {supplyFooterTotals.missingPrice && supplyFooterTotals.total > 0 ? (
-                    <span className="ml-1 font-normal text-muted-foreground">(estimation partielle)</span>
-                  ) : null}
-                </span>
-              </div>
-            </PlatformStickyFooterStackRow>
-          ) : null}
-          {showDeclareTreatedSticky ? (
-            <PlatformStickyFooterStackRow compact bordered={showSupplyStatsFooter}>
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold leading-snug text-foreground">
-                  Préparation prête ?
-                  <InfoHint label="À propos de « Déclarer la demande traitée »" placement="up" align="start">
-                    Quand la préparation est prête, déclarez la demande traitée. Le patient pourra suivre le passage au
-                    comptoir ; vous marquerez ensuite les réceptions en officine et les retraits ligne par ligne.
-                  </InfoHint>
-                </span>
-                <button
-                  type="button"
-                  disabled={declareTreatedBusy || Boolean(requestDrift.stale)}
-                  title={requestDrift.stale?.message}
-                  onClick={() => setDeclareTreatedModalOpen(true)}
-                  className={uiActionBtnModalPrimary(
-                    "h-10 min-w-0 flex-1 px-4 text-sm font-bold whitespace-nowrap disabled:opacity-50"
-                  )}
-                >
-                  Déclarer traitée
-                </button>
-              </div>
-            </PlatformStickyFooterStackRow>
-          ) : null}
-          {showCloseCounterSticky ? (
-            <PlatformStickyFooterStackRow
-              bordered={Boolean(showSupplyStatsFooter || showDeclareTreatedSticky)}
-            >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <p className="text-center text-[11px] leading-snug text-muted-foreground sm:flex-1 sm:text-left">
-                  Au moins un produit est récupéré — vous pouvez clôturer (les autres seront retirés).
-                </p>
-                <button
-                  type="button"
-                  disabled={completeBusy}
-                  onClick={() => setCloseConfirmOpen(true)}
-                  className={uiActionBtnModalPrimary(
-                    "h-10 w-full shrink-0 px-4 text-sm font-bold disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
-                  )}
-                >
-                  {completeBusy ? "Clôture…" : "Clôturer le dossier"}
-                </button>
-              </div>
-            </PlatformStickyFooterStackRow>
-          ) : null}
-          {showSupplyDirtyBar ? (
-            <PlatformStickyFooterStackRow bordered={false}>
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => cancelConfirmedSupplyEdits()}
-                  className={uiActionBtnModalOutline(
-                    "h-10 w-full text-sm font-semibold disabled:opacity-50 sm:order-1 sm:w-auto sm:min-w-[9rem]"
-                  )}
-                >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => startSaveConfirmedAdjustments()}
-                  className={uiActionBtnModalPrimary(
-                    "h-10 w-full text-sm font-bold disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"
-                  )}
-                >
-                  {busy ? "Enregistrement…" : "Enregistrer les modifications"}
-                </button>
-              </div>
-            </PlatformStickyFooterStackRow>
-          ) : null}
-        </PlatformStickyFooterStack>
       ) : null}
 
       <PharmacistDeclareTreatedConfirmModal

@@ -18,8 +18,7 @@ import {
 } from "lucide-react";
 import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { CompactCard, CompactCardBody, PageShell } from "@/components/ui/compact-shell";
-import { PlatformStickyFooter } from "@/components/layout/platform-sticky-footer";
-import { stickyFooterPadClass } from "@/lib/platform-sticky-footer";
+import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
 import { platformDashboardChrome as chrome } from "@/lib/platform-dashboard-chrome";
 import { PharmacyFormField } from "@/components/pharmacy/pharmacy-form-field";
 import { PharmacyImageUploadField } from "@/components/pharmacy/pharmacy-image-upload-field";
@@ -273,7 +272,7 @@ export function PharmacyMaFichePage() {
   }
 
   return (
-    <PageShell maxWidthClass="max-w-4xl" className={clsx("space-y-4", stickyFooterPadClass("tall"))}>
+    <PageShell maxWidthClass="max-w-4xl" className="space-y-4">
       <header className="space-y-3">
         <PharmacistAccountPageHeader
           eyebrow="Officine & visibilité"
@@ -479,7 +478,7 @@ export function PharmacyMaFichePage() {
         </CompactCardBody>
       </CompactCard>
 
-      <PlatformStickyFooter tone="neutral" width="3xl" innerClassName="!max-w-4xl">
+      <DossierInlineActionPanel tone="neutral" className="mt-2">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <button
             type="button"
@@ -501,7 +500,7 @@ export function PharmacyMaFichePage() {
             </Link>
           ) : null}
         </div>
-      </PlatformStickyFooter>
+      </DossierInlineActionPanel>
     </PageShell>
   );
 }

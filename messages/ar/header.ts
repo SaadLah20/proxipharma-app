@@ -34,4 +34,13 @@ export const headerAr = {
     patientFallback: "مريض",
     logout: "تسجيل الخروج",
   },
+  bottomNavAria: "التنقل الرئيسي",
+  bottomNav: {
+    products: "منتجات",
+    demandes: "طلبات",
+    prescriptions: "وصفات",
+    consultations: "استشارات",
+    promos: "عروض",
+    reservations: "حجوزات",
+  },
 };

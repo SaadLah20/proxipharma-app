@@ -9,7 +9,7 @@ import {
   CONVERSATION_FAB_SIZE_PX,
   clampConversationFabInset,
 } from "@/lib/conversation-fab-position";
-import { STICKY_FOOTER_FAB_DEFAULT_BOTTOM_PX } from "@/lib/platform-sticky-footer";
+import { platformBottomNavFabMinBottomPx } from "@/lib/platform-bottom-nav";
 import { Z_FLOATING_ABOVE_STICKY_FOOTER } from "@/lib/ui-z-index";
 import { type RequestCommentRow } from "@/lib/request-conversation";
 import {
@@ -49,8 +49,8 @@ export function RequestConversationFabDock({
   hasUnread,
   onOpen,
   tone,
-  /** Marge basse minimale (px) pour dégager le footer sticky du dossier. */
-  minBottomPx = STICKY_FOOTER_FAB_DEFAULT_BOTTOM_PX,
+  /** Marge basse minimale (px) pour dégager la barre de navigation basse. */
+  minBottomPx = platformBottomNavFabMinBottomPx(),
   hidden = false,
 }: {
   hasUnread: boolean;

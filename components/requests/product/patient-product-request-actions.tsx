@@ -38,7 +38,6 @@ import {
   uiActionBtnModalOutline,
   uiActionBtnModalPrimary,
 } from "@/lib/ui-action-buttons";
-import { Z_STICKY_FOOTER } from "@/lib/ui-z-index";
 import { usePatientArchiveClosureLabel } from "@/lib/i18n/patient-archive-closure-label";
 import { usePatientDatetimeFormatters } from "@/lib/i18n/use-patient-datetime-formatters";
 import { usePatientLineCountLabel } from "@/lib/i18n/use-patient-line-count-label";
@@ -71,14 +70,7 @@ import { PatientRespondedBucketSection } from "@/components/requests/product/pat
 import { PatientValidatedBucketSection } from "@/components/requests/product/patient-validated-bucket-section";
 import { PatientClosedArchiveBucketSection } from "@/components/requests/product/patient-closed-archive-bucket-section";
 import { PatientArchiveCollapsibleSection } from "@/components/requests/product/patient-archive-collapsible-section";
-import {
-  PlatformStickyFooter,
-  PlatformStickyFooterSummaryRow,
-} from "@/components/layout/platform-sticky-footer";
-import {
-  stickyFooterScrollSpacerClass,
-  type StickyFooterPadTier,
-} from "@/lib/platform-sticky-footer";
+import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
 import {
   bucketPatientValidatedLinesThreeWays,
   type PatientLineLike,
@@ -2902,18 +2894,6 @@ export function PatientProductRequestActions({
     status === "submitted" || status === "in_review"
       ? i18nWorkflowCopy.patientCancelWhileWaitingLabel
       : tCommon("abandonRequest");
-  const needsStickyFooterPad =
-    showProductResubmit ||
-    (showPrescriptionWaiting && !forceReadOnly) ||
-    ((showConfirm || showConfirmedCards) && !forceReadOnly);
-
-  const stickyFooterPadTier: StickyFooterPadTier = !needsStickyFooterPad
-    ? "none"
-    : showProductResubmit
-      ? "resubmit"
-      : showPrescriptionWaiting
-        ? "tall"
-        : "standard";
   /** Date/heure de passage : à la validation (responded) et pour modifier après coup. */
   const showVisitFields = (showConfirm || showConfirmedCards) && !forceReadOnly;
   const visitFieldsEditable = showVisitFields && !forceReadOnly;
@@ -3024,7 +3004,7 @@ export function PatientProductRequestActions({
           : useArchiveShell
             ? "mt-2 border-0 bg-transparent p-0 shadow-none ring-0"
             : "border-slate-200 bg-slate-50/95",
-        isConsultation && showConsultationWaiting && !needsStickyFooterPad && "pb-2"
+        isConsultation && showConsultationWaiting && "pb-2"
       )}
     >
       {actionError ? (
@@ -3703,14 +3683,198 @@ export function PatientProductRequestActions({
           </p>
         ) : null}
 
-        {showPatientExitCTA ? (
-          <div
-            className={clsx(
-              "mt-4 border-t border-rose-200/50 pt-3",
-              showConfirm && !showProductResubmit && "mb-24",
-              showConfirmedCards && "mb-32"
-            )}
+        {showProductResubmit && !stickyFooterObscured ? (
+          <DossierInlineActionPanel
+            tone="slate"
+            summaryLeft={
+              <>
+                <span className="font-bold tabular-nums text-foreground">{lines.length}</span>{" "}
+                produit{lines.length > 1 ? "s" : ""}
+              </>
+            }
+            summaryRight={formatPriceDh(resubmitTotal)}
           >
+            {!editMode ? (
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={busyAction !== ""}
+                  onClick={() => {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    setEditMode(true);
+                  }}
+                  className={uiActionBtnFullOutline("flex items-center justify-center")}
+                >
+                  <Pencil size={16} aria-hidden />
+                  {tCommon("edit")}
+                </button>
+                {resubmitDirty ? (
+                  <button
+                    type="button"
+                    disabled={busyAction !== "" || lines.length === 0}
+                    onClick={() => openResubmitConfirm()}
+                    className={uiActionBtnFull("h-9 text-xs")}
+                  >
+                    {busyAction === "resubmit" ? tCommon("sending") : tCommon("resendToPharmacy")}
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <div className={uiActionBtnFlexRow()}>
+                <button
+                  type="button"
+                  disabled={busyAction !== ""}
+                  onClick={() => {
+                    resetResubmitDraft();
+                    setEditMode(false);
+                  }}
+                  className={uiActionBtnFlexCancel()}
+                >
+                  {tCommon("cancel")}
+                </button>
+                <button
+                  type="button"
+                  disabled={busyAction !== "" || !resubmitDirty || lines.length === 0}
+                  onClick={() => openResubmitConfirm()}
+                  className={uiActionBtnFlexPrimary()}
+                >
+                  {busyAction === "resubmit" ? tCommon("saving") : tCommon("saveChanges")}
+                </button>
+              </div>
+            )}
+          </DossierInlineActionPanel>
+        ) : null}
+
+        {showPrescriptionWaiting && !forceReadOnly && !stickyFooterObscured ? (
+          <DossierInlineActionPanel tone="amber">
+            {!prescriptionEditMode ? (
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={busyAction !== "" || prescriptionPanelBusy}
+                  onClick={() => prescriptionPanelRef.current?.startEdit()}
+                  className={uiActionBtnFullOutline("flex items-center justify-center")}
+                >
+                  <Pencil size={16} aria-hidden />
+                  {tCommon("edit")}
+                </button>
+                <button
+                  type="button"
+                  disabled={busyAction !== "" || prescriptionPanelBusy}
+                  onClick={() => prescriptionPanelRef.current?.openCancelOrdonnance()}
+                  className={uiActionBtnFullDestructive()}
+                >
+                  {workflowCopy.patientCancelWhileWaitingLabel}
+                </button>
+              </div>
+            ) : (
+              <div className={uiActionBtnFlexRow()}>
+                <button
+                  type="button"
+                  disabled={busyAction !== "" || prescriptionPanelBusy}
+                  onClick={() => prescriptionPanelRef.current?.cancelEdit()}
+                  className={uiActionBtnFlexCancel()}
+                >
+                  {tCommon("cancel")}
+                </button>
+                <button
+                  type="button"
+                  disabled={busyAction !== "" || prescriptionPanelBusy || !prescriptionPanelCanSave}
+                  onClick={() => void prescriptionPanelRef.current?.save()}
+                  className={uiActionBtnFlexPrimary()}
+                >
+                  {prescriptionPanelBusy ? tCommon("saving") : tCommon("saveChanges")}
+                </button>
+              </div>
+            )}
+          </DossierInlineActionPanel>
+        ) : null}
+
+        {showConfirm && !forceReadOnly && !stickyFooterObscured ? (
+          <DossierInlineActionPanel
+            tone={isPrescription ? "amber" : "sky"}
+            summaryLeft={
+              <>
+                <span className="font-bold tabular-nums text-foreground">{confirmSelectionSummary.count}</span>{" "}
+                {confirmSelectionSummary.count > 1 ? "lignes retenues" : "ligne retenue"}
+              </>
+            }
+            summaryRight={
+              confirmSelectionSummary.total > 0
+                ? `${confirmSelectionSummary.total.toFixed(2)} MAD`
+                : "—"
+            }
+          >
+            <button
+              type="button"
+              disabled={busyAction !== "" || visitWin.missingEtaOnToOrder}
+              onClick={openConfirmReview}
+              className={uiActionBtnFull("flex items-center justify-center")}
+            >
+              Valider ma demande
+            </button>
+          </DossierInlineActionPanel>
+        ) : null}
+
+        {showConfirmedCards && !forceReadOnly && !stickyFooterObscured ? (
+          <DossierInlineActionPanel
+            tone="slate"
+            {...(!confirmedRevalidationMode
+              ? {
+                  summaryLeft: (
+                    <>
+                      <span className="font-bold tabular-nums text-foreground">{totalsRetained.count}</span>{" "}
+                      {isTreatedActiveView
+                        ? totalsRetained.count > 1
+                          ? "produits à retirer"
+                          : "produit à retirer"
+                        : totalsRetained.count > 1
+                          ? "produits retenus"
+                          : "produit retenu"}
+                    </>
+                  ),
+                  summaryRight: totalRetainedGrandLabel,
+                }
+              : {})}
+          >
+            {!confirmedRevalidationMode ? (
+              <button
+                type="button"
+                disabled={busyAction !== "" || !visitPassageDirty || Boolean(detailStale)}
+                onClick={() => void runUpdateVisit()}
+                className={uiActionBtnFull("flex items-center justify-center")}
+              >
+                {busyAction === "visit"
+                  ? tCommon("updating")
+                  : isTreatedActiveView
+                    ? tCommon("updateVisit")
+                    : tCommon("updateVisitDate")}
+              </button>
+            ) : (
+              <div className={uiActionBtnFlexRow()}>
+                <button
+                  type="button"
+                  disabled={busyAction !== ""}
+                  onClick={cancelConfirmedRevalidation}
+                  className={uiActionBtnFlexCancel()}
+                >
+                  {tCommon("cancel")}
+                </button>
+                <button
+                  type="button"
+                  disabled={busyAction !== "" || Boolean(detailStale)}
+                  onClick={openConfirmedRevalidationReview}
+                  className={uiActionBtnFlexPrimary("disabled:cursor-not-allowed")}
+                >
+                  {busyAction === "confirm" ? tCommon("saving") : tCommon("saveChanges")}
+                </button>
+              </div>
+            )}
+          </DossierInlineActionPanel>
+        ) : null}
+
+        {showPatientExitCTA ? (
+          <div className="mt-4 border-t border-rose-200/50 pt-3">
             {canPatientRevalidateConfirmation && !confirmedRevalidationMode ? (
               <button
                 type="button"
@@ -3774,206 +3938,6 @@ export function PatientProductRequestActions({
         </div>
       ) : null}
     </section>
-
-      {needsStickyFooterPad && !stickyFooterObscured ? (
-        <div className={stickyFooterScrollSpacerClass(stickyFooterPadTier)} aria-hidden />
-      ) : null}
-
-      {showProductResubmit && !stickyFooterObscured ? (
-        <PlatformStickyFooter tone="slate">
-          <div className="flex flex-col gap-2">
-            <PlatformStickyFooterSummaryRow
-              left={
-                <>
-                  <span className="font-bold tabular-nums text-foreground">{lines.length}</span>{" "}
-                  produit{lines.length > 1 ? "s" : ""}
-                </>
-              }
-              right={formatPriceDh(resubmitTotal)}
-            />
-            {!editMode ? (
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  disabled={busyAction !== ""}
-                  onClick={() => {
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                    setEditMode(true);
-                  }}
-                  className={uiActionBtnFullOutline("flex items-center justify-center")}
-                >
-                  <Pencil size={16} aria-hidden />
-                  {tCommon("edit")}
-                </button>
-                {resubmitDirty ? (
-                  <button
-                    type="button"
-                    disabled={busyAction !== "" || lines.length === 0}
-                    onClick={() => openResubmitConfirm()}
-                    className={uiActionBtnFull("h-9 text-xs")}
-                  >
-                    {busyAction === "resubmit" ? tCommon("sending") : tCommon("resendToPharmacy")}
-                  </button>
-                ) : null}
-              </div>
-            ) : (
-              <div className={uiActionBtnFlexRow()}>
-                <button
-                  type="button"
-                  disabled={busyAction !== ""}
-                  onClick={() => {
-                    resetResubmitDraft();
-                    setEditMode(false);
-                  }}
-                  className={uiActionBtnFlexCancel()}
-                >
-                  {tCommon("cancel")}
-                </button>
-                <button
-                  type="button"
-                  disabled={busyAction !== "" || !resubmitDirty || lines.length === 0}
-                  onClick={() => openResubmitConfirm()}
-                  className={uiActionBtnFlexPrimary()}
-                >
-                  {busyAction === "resubmit" ? tCommon("saving") : tCommon("saveChanges")}
-                </button>
-              </div>
-            )}
-          </div>
-        </PlatformStickyFooter>
-      ) : null}
-
-      {showPrescriptionWaiting && !forceReadOnly && !stickyFooterObscured ? (
-        <PlatformStickyFooter tone="amber">
-          <div className="flex flex-col gap-1.5">
-            {!prescriptionEditMode ? (
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  disabled={busyAction !== "" || prescriptionPanelBusy}
-                  onClick={() => prescriptionPanelRef.current?.startEdit()}
-                  className={uiActionBtnFullOutline("flex items-center justify-center")}
-                >
-                  <Pencil size={16} aria-hidden />
-                  {tCommon("edit")}
-                </button>
-                <button
-                  type="button"
-                  disabled={busyAction !== "" || prescriptionPanelBusy}
-                  onClick={() => prescriptionPanelRef.current?.openCancelOrdonnance()}
-                  className={uiActionBtnFullDestructive()}
-                >
-                  {workflowCopy.patientCancelWhileWaitingLabel}
-                </button>
-              </div>
-            ) : (
-              <div className={uiActionBtnFlexRow()}>
-                <button
-                  type="button"
-                  disabled={busyAction !== "" || prescriptionPanelBusy}
-                  onClick={() => prescriptionPanelRef.current?.cancelEdit()}
-                  className={uiActionBtnFlexCancel()}
-                >
-                  {tCommon("cancel")}
-                </button>
-                <button
-                  type="button"
-                  disabled={busyAction !== "" || prescriptionPanelBusy || !prescriptionPanelCanSave}
-                  onClick={() => void prescriptionPanelRef.current?.save()}
-                  className={uiActionBtnFlexPrimary()}
-                >
-                  {prescriptionPanelBusy ? tCommon("saving") : tCommon("saveChanges")}
-                </button>
-              </div>
-            )}
-          </div>
-        </PlatformStickyFooter>
-      ) : null}
-
-      {showConfirm && !forceReadOnly && !stickyFooterObscured ? (
-        <PlatformStickyFooter tone={isPrescription ? "amber" : "sky"}>
-          <div className="flex flex-col gap-2">
-            <PlatformStickyFooterSummaryRow
-              left={
-                <>
-                  <span className="font-bold tabular-nums text-foreground">{confirmSelectionSummary.count}</span>{" "}
-                  {confirmSelectionSummary.count > 1 ? "lignes retenues" : "ligne retenue"}
-                </>
-              }
-              right={
-                confirmSelectionSummary.total > 0
-                  ? `${confirmSelectionSummary.total.toFixed(2)} MAD`
-                  : "—"
-              }
-            />
-            <button
-              type="button"
-              disabled={busyAction !== "" || visitWin.missingEtaOnToOrder}
-              onClick={openConfirmReview}
-              className={uiActionBtnFull("flex items-center justify-center")}
-            >
-              Valider ma demande
-            </button>
-          </div>
-        </PlatformStickyFooter>
-      ) : null}
-
-      {showConfirmedCards && !forceReadOnly && !stickyFooterObscured ? (
-        <PlatformStickyFooter tone="slate">
-          <div className="flex flex-col gap-2">
-            {!confirmedRevalidationMode ? (
-              <>
-                <PlatformStickyFooterSummaryRow
-                  left={
-                    <>
-                      <span className="font-bold tabular-nums text-foreground">{totalsRetained.count}</span>{" "}
-                      {isTreatedActiveView
-                        ? totalsRetained.count > 1
-                          ? "produits à retirer"
-                          : "produit à retirer"
-                        : totalsRetained.count > 1
-                          ? "produits retenus"
-                          : "produit retenu"}
-                    </>
-                  }
-                  right={totalRetainedGrandLabel}
-                />
-                <button
-                  type="button"
-                  disabled={busyAction !== "" || !visitPassageDirty || Boolean(detailStale)}
-                  onClick={() => void runUpdateVisit()}
-                  className={uiActionBtnFull("flex items-center justify-center")}
-                >
-                  {busyAction === "visit"
-                    ? tCommon("updating")
-                    : isTreatedActiveView
-                      ? tCommon("updateVisit")
-                      : tCommon("updateVisitDate")}
-                </button>
-              </>
-            ) : (
-              <div className={uiActionBtnFlexRow()}>
-                <button
-                  type="button"
-                  disabled={busyAction !== ""}
-                  onClick={cancelConfirmedRevalidation}
-                  className={uiActionBtnFlexCancel()}
-                >
-                  {tCommon("cancel")}
-                </button>
-                <button
-                  type="button"
-                  disabled={busyAction !== "" || Boolean(detailStale)}
-                  onClick={openConfirmedRevalidationReview}
-                  className={uiActionBtnFlexPrimary("disabled:cursor-not-allowed")}
-                >
-                  {busyAction === "confirm" ? tCommon("saving") : tCommon("saveChanges")}
-                </button>
-              </div>
-            )}
-          </div>
-        </PlatformStickyFooter>
-      ) : null}
 
       {confirmReviewOpen && confirmReviewSnap ? (
         <AppModalOverlay

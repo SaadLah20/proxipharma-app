@@ -8,10 +8,26 @@ import type { PharmacistPatientContactInfo } from "@/components/requests/product
 import { PatientProductRequestJourneyModal } from "@/components/requests/product/patient-product-request-journey-modal";
 import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
 import { pharmacistProductRequestDossierHeaderShellClass } from "@/lib/pharmacist-product-request-line-ui";
+import { pharmacistPrescriptionRequestDossierHeaderShellClass } from "@/lib/pharmacist-prescription-request-line-ui";
 import { requestStatusBadgeClass, requestStatusFr } from "@/lib/request-display";
 
-function isProductRequestType(requestType: string | null | undefined): boolean {
-  return requestType === "product_request";
+function pharmacistDossierHeaderShellClass(requestType: string | null | undefined): string {
+  if (requestType === "product_request") return pharmacistProductRequestDossierHeaderShellClass();
+  if (requestType === "prescription") return pharmacistPrescriptionRequestDossierHeaderShellClass();
+  return "rounded-xl border border-border bg-card shadow-sm";
+}
+
+function pharmacistJourneyButtonClass(requestType: string | null | undefined): string {
+  if (requestType === "product_request") {
+    return "border-sky-200/55 text-sky-800 hover:border-sky-300/55 hover:bg-sky-50/45 hover:text-sky-950";
+  }
+  if (requestType === "prescription") {
+    return "border-amber-200/55 text-amber-800 hover:border-amber-300/55 hover:bg-amber-50/45 hover:text-amber-950";
+  }
+  if (requestType === "free_consultation") {
+    return "border-violet-200/55 text-violet-800 hover:border-violet-300/55 hover:bg-violet-50/45 hover:text-violet-950";
+  }
+  return "border-border text-muted-foreground hover:bg-muted/40 hover:text-foreground";
 }
 
 export function PharmacistProductRequestDossierHeader({
@@ -45,7 +61,6 @@ export function PharmacistProductRequestDossierHeader({
 }) {
   const [journeyOpen, setJourneyOpen] = useState(false);
   const statusLabel = requestStatusFr[status] ?? status;
-  const useSkyChrome = isProductRequestType(requestType);
 
   const patientContact: PharmacistPatientContactInfo | null = patientId
     ? {
@@ -58,11 +73,7 @@ export function PharmacistProductRequestDossierHeader({
 
   return (
     <>
-      <header
-        className={clsx(
-          useSkyChrome ? pharmacistProductRequestDossierHeaderShellClass() : "rounded-xl border border-border bg-card shadow-sm",
-        )}
-      >
+      <header className={pharmacistDossierHeaderShellClass(requestType)}>
         <div className="border-b border-border px-3 py-2 sm:px-3.5">
           <DossierHeaderRequestLine
             kindLabel={kindLabel}
@@ -96,9 +107,7 @@ export function PharmacistProductRequestDossierHeader({
             onClick={() => setJourneyOpen(true)}
             className={clsx(
               "inline-flex size-7 shrink-0 items-center justify-center rounded-full border bg-card shadow-sm transition",
-              useSkyChrome
-                ? "border-sky-200/55 text-sky-800 hover:border-sky-300/55 hover:bg-sky-50/45 hover:text-sky-950"
-                : "border-border text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+              pharmacistJourneyButtonClass(requestType),
             )}
             aria-label={`Voir le parcours de ${kindLabel.toLowerCase()}`}
             title={`Parcours de l’${kindLabel.toLowerCase()}`}
