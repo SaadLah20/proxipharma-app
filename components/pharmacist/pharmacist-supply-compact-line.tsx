@@ -14,6 +14,7 @@ import {
   ProductRequestLineQtyInline,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import { patientProductRequestLineCardClass } from "@/lib/patient-product-request-line-ui";
+import { pharmacistPrescriptionRequestLineCardClass } from "@/lib/pharmacist-prescription-request-line-ui";
 import { pharmacistProposedProductBadgeFr } from "@/lib/request-display";
 
 const VALIDATED_LINE_THUMB =
@@ -99,6 +100,7 @@ export function PharmacistSupplyCompactLine({
   validatedLineLabels,
   descriptionHtml,
   onPhotoPreview,
+  requestType = "product_request",
 }: {
   header: string | null;
   validatedName: string;
@@ -165,7 +167,12 @@ export function PharmacistSupplyCompactLine({
   validatedLineLabels?: ValidatedLineLabel[];
   descriptionHtml?: string | null;
   onPhotoPreview?: ProductPhotoPreviewHandler;
+  requestType?: string | null;
 }) {
+  const workflowLineCardClass =
+    requestType === "prescription"
+      ? pharmacistPrescriptionRequestLineCardClass
+      : patientProductRequestLineCardClass;
   const pill =
     "inline-flex min-h-8 items-center justify-center rounded-md border px-2 text-[10px] font-semibold shadow-sm ring-1 ring-black/5 transition disabled:opacity-45";
   const pillActiveReserved = "border-sky-700 bg-sky-600 text-white ring-sky-800/25";
@@ -181,12 +188,12 @@ export function PharmacistSupplyCompactLine({
     supplyMutationsEnabled && selected && !lineLockedTrace && !withdrawn && !lineCounterLocked;
   const inBucketList = Boolean(supplyTier);
   const cardShell = inBucketList
-    ? clsx(patientProductRequestLineCardClass, validatedLineRowClass(supplyTier!, withdrawnGrey || withdrawn))
+    ? clsx(workflowLineCardClass, validatedLineRowClass(supplyTier!, withdrawnGrey || withdrawn))
     : withdrawn
       ? "rounded-lg border border-border/80 bg-muted/20 px-2 py-1.5 sm:px-2.5 sm:py-2"
       : !selected
         ? "rounded-lg border border-border/70 bg-muted/25 px-2 py-1.5 opacity-[0.92] sm:px-2.5 sm:py-2 shadow-sm"
-        : patientProductRequestLineCardClass;
+        : workflowLineCardClass;
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -428,8 +435,8 @@ export function PharmacistSupplyCompactLine({
   const bottomLabels = (
     <>
       <div className="flex flex-wrap gap-1 pt-0.5">
-        {showAjoutOfficineBadge ? (
-          <span className="inline-flex max-w-full rounded-full bg-violet-600 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+        {showAjoutOfficineBadge && !(validatedLineLabels && validatedLineLabels.length > 0) ? (
+          <span className="inline-flex max-w-full rounded border border-violet-300/70 bg-violet-50/35 px-1.5 py-px text-[8px] font-semibold uppercase tracking-wide text-violet-900/90">
             {ajoutOfficineBadgeLabel ?? pharmacistProposedProductBadgeFr}
           </span>
         ) : lineOriginBadgeLabel ? (
@@ -438,7 +445,7 @@ export function PharmacistSupplyCompactLine({
               "inline-flex w-fit max-w-full rounded-full border px-1.5 py-px text-[8px] font-bold uppercase tracking-wide",
               lineOriginBadgeTone === "ordonnance"
                 ? "border-amber-300/70 bg-amber-50/40 text-amber-900/90"
-                : "border-violet-300/70 bg-violet-50/50 text-violet-900"
+                : "border-violet-300/65 bg-violet-50/35 text-violet-900/90"
             )}
           >
             {lineOriginBadgeLabel}

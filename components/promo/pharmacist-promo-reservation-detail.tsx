@@ -9,7 +9,9 @@ import { PlatformStickyFooter } from "@/components/layout/platform-sticky-footer
 import { PharmacistPromoReservationDossierHeader } from "@/components/promo/pharmacist-promo-reservation-dossier-header";
 import { PromoReservationHistoryPanel } from "@/components/promo/promo-reservation-history-panel";
 import { PromoOfferPackSummary } from "@/components/promo/promo-offer-pack-summary";
+import { pharmacistPromoReservationDossierSectionShellClass } from "@/lib/pharmacist-promo-reservation-line-ui";
 import { fetchPromoOfferLines } from "@/lib/promo/load-offer-lines";
+import { loadPharmacistPromoPatientContact } from "@/lib/promo/load-pharmacist-promo-patient-contacts";
 import { markPromoReservationNotificationsRead } from "@/lib/promo/mark-reservation-notifs-read";
 import type { PromoReservationHistoryRow } from "@/lib/promo/promo-reservation-history-labels";
 import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
@@ -105,6 +107,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
   const [row, setRow] = useState<{
     id: string;
     offer_id: string;
+    patient_id: string;
     status: PromoReservationStatus;
     pickup_date: string;
     pickup_time: string | null;
@@ -113,7 +116,12 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     public_ref: string | null;
     created_at: string;
     offer: { title: string; discount_percent: number } | null;
-    patient: { full_name: string | null; whatsapp: string | null } | null;
+    patient: {
+      full_name: string | null;
+      whatsapp: string | null;
+      email: string | null;
+      patient_ref: string | null;
+    } | null;
   } | null>(null);
 
   const loadHistory = useCallback(async () => {
@@ -143,7 +151,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     const { data, error: qErr } = await supabase
       .from("pharmacy_promo_reservations")
       .select(
-        "id,offer_id,status,pickup_date,pickup_time,patient_note,pharmacist_note,public_ref,created_at,pharmacy_promo_offers(title,discount_percent),profiles:patient_id(full_name,whatsapp)",
+        "id,offer_id,patient_id,status,pickup_date,pickup_time,patient_note,pharmacist_note,public_ref,created_at,pharmacy_promo_offers(title,discount_percent)",
       )
       .eq("id", reservationId)
       .eq("pharmacy_id", ctx.pharmacyId)
@@ -156,9 +164,12 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     } else {
       const r = data as Record<string, unknown>;
       const offerId = r.offer_id as string;
+      const patientId = r.patient_id as string;
+      const patientContact = await loadPharmacistPromoPatientContact(patientId);
       setRow({
         id: r.id as string,
         offer_id: offerId,
+        patient_id: patientId,
         status: r.status as PromoReservationStatus,
         pickup_date: r.pickup_date as string,
         pickup_time: r.pickup_time as string | null,
@@ -167,7 +178,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
         public_ref: r.public_ref as string | null,
         created_at: r.created_at as string,
         offer: r.pharmacy_promo_offers as { title: string; discount_percent: number } | null,
-        patient: r.profiles as { full_name: string | null; whatsapp: string | null } | null,
+        patient: patientContact,
       });
       setLines(await fetchPromoOfferLines(offerId));
       void markPromoReservationNotificationsRead(reservationId);
@@ -341,15 +352,20 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
         ← Réservations packs
       </Link>
 
-      <section className="min-w-0 w-full max-w-full space-y-3 overflow-x-hidden rounded-xl border-2 border-slate-200/90 bg-slate-50/95 p-2.5 sm:p-3">
+      <section
+        className={clsx(
+          "min-w-0 w-full max-w-full space-y-3 overflow-x-hidden rounded-xl border-2 p-2.5 sm:p-3",
+          pharmacistPromoReservationDossierSectionShellClass,
+        )}
+      >
         <PharmacistPromoReservationDossierHeader
           dossierRefLabel={dossierRefLabel}
           offerTitle={row.offer?.title ?? "Pack promo"}
           status={row.status}
           reservedAt={row.created_at}
           createdAt={row.created_at}
-          patientName={row.patient?.full_name}
-          patientWhatsapp={row.patient?.whatsapp}
+          patientId={row.patient_id}
+          patientContact={row.patient}
         />
 
         <section className="rounded-xl border border-border/80 bg-card p-4 shadow-sm">
@@ -402,7 +418,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
       />
 
       {canAct && panel === "none" ? (
-        <PlatformStickyFooter tone="slate">{actionBlock}</PlatformStickyFooter>
+        <PlatformStickyFooter tone="emerald">{actionBlock}</PlatformStickyFooter>
       ) : null}
     </PageShell>
   );

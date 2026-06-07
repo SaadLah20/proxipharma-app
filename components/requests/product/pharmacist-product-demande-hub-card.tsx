@@ -10,7 +10,13 @@ import { formatShortId } from "@/lib/request-display";
 import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
 import { uiSecondaryLabel } from "@/lib/ui-label-styles";
 
-function cardShell(_status: string): string {
+function cardShell(requestType: string | null | undefined): string {
+  if (requestType === "product_request") {
+    return "rounded-xl border border-sky-200/55 bg-card shadow-sm ring-1 ring-sky-100/40";
+  }
+  if (requestType === "prescription") {
+    return "rounded-xl border border-amber-200/50 bg-card shadow-sm ring-1 ring-amber-100/30";
+  }
   return "rounded-xl border border-border bg-card shadow-sm ring-1 ring-black/[0.02]";
 }
 
@@ -36,7 +42,7 @@ export function PharmacistProductDemandeHubCard({
   const detailPath = `/dashboard/pharmacien/demandes/${row.id}`;
 
   return (
-    <article className={clsx(cardShell(row.status), "transition hover:-translate-y-px hover:shadow-md")}>
+    <article className={clsx(cardShell(row.request_type), "transition hover:-translate-y-px hover:shadow-md")}>
       <Link href={detailPath} className={clsx("group block", compact ? "p-2.5" : "p-3 sm:p-3.5")}>
         <div className="flex items-start justify-between gap-2.5">
           <div className="min-w-0 flex-1 space-y-1.5">

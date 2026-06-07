@@ -34,8 +34,8 @@ export function patientHubDashboardAccent(
   role: "patient" | "pharmacien",
 ): PatientHubDashboardAccent | null {
   if (kindId === "product_request") return "sky";
-  if (role !== "patient") return null;
   if (kindId === "prescription") return "amber";
+  if (role !== "patient") return null;
   if (kindId === "free_consultation") return "violet";
   return null;
 }

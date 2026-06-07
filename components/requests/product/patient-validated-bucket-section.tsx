@@ -53,12 +53,17 @@ export function PatientValidatedBucketSection({
       ? patientValidatedBucketAriaTitleFr(bucketId, isTreatedView, audience)
       : patientValidatedBucketAriaTitleI18n(tDemandes, bucketId, isTreatedView);
   const accentText = patientValidatedBucketAccentTextClass(bucketId);
+  const isPharmacist = audience === "pharmacien";
 
   return (
-    <section className="w-full min-w-0 space-y-1" aria-label={ariaTitle}>
+    <section
+      className={clsx("w-full min-w-0", isPharmacist ? "space-y-2.5" : "space-y-1")}
+      aria-label={ariaTitle}
+    >
       <div
         className={clsx(
-          "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg px-2.5 py-1.5",
+          "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg",
+          isPharmacist ? "px-3 py-2" : "px-2.5 py-1.5",
           patientValidatedBucketHeaderBarClass(bucketId),
         )}
       >

@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Bell,
-  Building2,
   Calculator,
   CalendarClock,
   ChevronDown,
@@ -152,7 +151,6 @@ function ProfileNavLogoutButton({ onLogout, label }: { onLogout: () => void; lab
 
 function usePatientNavMenu(): PlatformNavBlock[] {
   const t = useTranslations("header.patient");
-  const tn = useTranslations("header.notifications");
   return [
     {
       kind: "section",
@@ -165,9 +163,7 @@ function usePatientNavMenu(): PlatformNavBlock[] {
         { href: "/dashboard/patient/packs-promo", label: t("promoPacks"), icon: Gift },
       ],
     },
-    { kind: "link", item: { href: "/dashboard/notifications", label: tn("title"), icon: Bell } },
     { kind: "link", item: { href: "/dashboard/patient/pharmacies", label: t("myPharmacies"), icon: MapPin } },
-    { kind: "link", item: { href: "/", label: t("directory"), icon: Building2 } },
     { kind: "link", item: { href: "/dashboard/patient/parametres", label: t("settings"), icon: Settings } },
   ];
 }
@@ -196,9 +192,7 @@ export const patientNavMenu: PlatformNavBlock[] = [
       { href: "/dashboard/patient/packs-promo", label: "Packs promo", icon: Gift },
     ],
   },
-  { kind: "link", item: { href: "/dashboard/notifications", label: "Notifications", icon: Bell } },
   { kind: "link", item: { href: "/dashboard/patient/pharmacies", label: "Mes pharmacies", icon: MapPin } },
-  { kind: "link", item: { href: "/", label: "Annuaire pharmacies", icon: Building2 } },
   { kind: "link", item: { href: "/dashboard/patient/parametres", label: "Mes paramètres", icon: Settings } },
 ];
 

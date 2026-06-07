@@ -63,6 +63,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   };
 
   const isProductHub = kindId === "product_request";
+  const useRichPharmacistHubCard = kindId === "product_request" || kindId === "prescription";
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -228,7 +229,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   const patientFilterLabel = patientFilter ? patientSelectLabel(patientFilter) : null;
 
   let filteredList = rowsWithDashboardStatus;
-  if (isProductHub) {
+  if (useRichPharmacistHubCard) {
     filteredList = filterPharmacistProductHubListRows(filteredList, {
       bucketStatuses: activeBucket?.statuses ?? null,
     });
@@ -504,7 +505,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
             <ul className="flex flex-col gap-3">
               {filteredSorted.map((r) => (
                 <li key={r.id} className="list-none">
-                  {isProductHub ? (
+                  {useRichPharmacistHubCard ? (
                     <PharmacistProductDemandeHubCard
                       row={r}
                       conversationUnread={unreadById[r.id] === true}

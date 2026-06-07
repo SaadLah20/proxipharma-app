@@ -7,12 +7,21 @@ import { promoPatientStatusHint, promoPatientStatusLabel } from "@/lib/i18n/prom
 import { formatDateForLocale, formatDateTimeShortForLocale } from "@/lib/datetime-locale";
 import type { AppLocale } from "@/lib/i18n/config";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
+import { pharmacistPromoReservationHubCardShellClass } from "@/lib/pharmacist-promo-reservation-line-ui";
 import { promoReservationBadgeClass } from "@/lib/promo/reservation-status-ui";
 import type { PromoReservationHubRow } from "@/lib/promo/reservation-hub-sections";
 import type { PromoReservationStatus } from "@/lib/promo/types";
+import { formatShortId } from "@/lib/request-display";
 
-function cardShell(): string {
+function patientCardShell(): string {
   return "rounded-xl border border-border bg-card shadow-sm ring-1 ring-black/[0.02]";
+}
+
+function pharmacistPatientDisplayName(row: PromoReservationHubRow): string {
+  const name = row.patient?.full_name?.trim();
+  if (name) return name;
+  if (row.patient_id) return `Patient #${formatShortId(row.patient_id)}`;
+  return "Patient";
 }
 
 function formatPickup(date: string, time: string | null, locale: AppLocale) {
@@ -79,7 +88,7 @@ export function PatientPromoReservationHubCard({
   const activity = formatDateTimeShortForLocale(row.updated_at, locale);
 
   return (
-    <article className={clsx(cardShell(), "transition hover:-translate-y-px hover:shadow-md")}>
+    <article className={clsx(patientCardShell(), "transition hover:-translate-y-px hover:shadow-md")}>
       <Link
         href={`/dashboard/patient/packs-promo/${row.id}`}
         className={clsx("group block", compact ? "p-2.5" : "p-3 sm:p-3.5")}
@@ -134,7 +143,7 @@ export function PharmacistPromoReservationHubCard({
 }) {
   const whenPickup = formatPickup(row.pickup_date, row.pickup_time, "fr");
   const whenActivity = formatDateTimeShortForLocale(row.updated_at, "fr");
-  const patientName = row.patient?.full_name?.trim() || "Patient";
+  const patientName = pharmacistPatientDisplayName(row);
 
   let contextPrimary = "";
   let contextSecondary = "";
@@ -159,7 +168,7 @@ export function PharmacistPromoReservationHubCard({
   }
 
   return (
-    <article className={clsx(cardShell(), "transition hover:-translate-y-px hover:shadow-md")}>
+    <article className={clsx(pharmacistPromoReservationHubCardShellClass, "hover:-translate-y-px hover:shadow-md")}>
       <Link
         href={`/dashboard/pharmacien/reservations-packs/${row.id}`}
         className={clsx("group block", compact ? "p-2.5" : "p-3 sm:p-3.5")}

@@ -3,13 +3,24 @@
 export const pharmacistProductDossierPageClass =
   "min-w-0 max-w-full space-y-3 bg-slate-50";
 
-export const pharmacistProductSectionTitleClass =
-  "pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground";
+/** Espacement vertical entre blocs dans la coquille dossier (header, scan, produits…). */
+export const pharmacistDossierShellContentGapClass = "flex flex-col gap-4 sm:gap-5";
 
-export const pharmacistProductLinesWrapperClass = "mt-3 w-full min-w-0 space-y-7";
+/** Scan ordonnance, titre section et blocs À réserver / lignes. */
+export const pharmacistDossierProductsStackClass =
+  "flex w-full min-w-0 flex-col gap-4 sm:gap-5";
+
+export const pharmacistProductSectionTitleClass =
+  "text-[10px] font-bold uppercase tracking-wide text-muted-foreground";
+
+export const pharmacistProductLinesWrapperClass = "w-full min-w-0 space-y-6";
+
+/** Liste produits dans un bucket validé — pharmacien (un peu plus aéré que patient). */
+export const pharmacistBucketProductListClass =
+  "flex w-full min-w-0 flex-col gap-3";
 
 export const pharmacistProductSecondaryBannerClass =
   "rounded-lg border border-border/80 bg-muted/20 px-3 py-2 text-[11px] leading-snug text-foreground shadow-sm";
 
 export const pharmacistProductPlannedVisitClass =
-  "rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5 shadow-sm";
+  "rounded-lg border border-border/80 bg-muted/20 px-3 py-3 shadow-sm";

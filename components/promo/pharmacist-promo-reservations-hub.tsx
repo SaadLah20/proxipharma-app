@@ -27,6 +27,7 @@ import {
   promoHubListHasActiveFilters,
 } from "@/lib/promo/reservation-hub-list-filters";
 import type { PromoReservationHubRow } from "@/lib/promo/reservation-hub-sections";
+import { loadPharmacistPromoPatientDirectory } from "@/lib/promo/load-pharmacist-promo-patient-contacts";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { formatShortId } from "@/lib/request-display";
 import { supabase } from "@/lib/supabase";
@@ -103,33 +104,43 @@ export function PharmacistPromoReservationsHub() {
         return;
       }
 
-      const { data, error: qErr } = await supabase
-        .from("pharmacy_promo_reservations")
-        .select(
-          "id,status,pickup_date,pickup_time,public_ref,updated_at,patient_id,pharmacy_promo_offers(title),profiles:patient_id(full_name)",
-        )
-        .eq("pharmacy_id", ctx.pharmacyId)
-        .order("updated_at", { ascending: false });
+      const [reservationsRes, patientDirectory] = await Promise.all([
+        supabase
+          .from("pharmacy_promo_reservations")
+          .select(
+            "id,status,pickup_date,pickup_time,public_ref,updated_at,patient_id,pharmacy_promo_offers(title)",
+          )
+          .eq("pharmacy_id", ctx.pharmacyId)
+          .order("updated_at", { ascending: false }),
+        loadPharmacistPromoPatientDirectory(),
+      ]);
 
       if (cancelled) return;
 
+      const { data, error: qErr } = reservationsRes;
       if (qErr) {
         setError(qErr.message);
         setRows([]);
       } else {
         setRows(
-          (data ?? []).map((r: Record<string, unknown>) => ({
-            id: r.id as string,
-            status: r.status as PromoReservationHubRow["status"],
-            pickup_date: r.pickup_date as string,
-            pickup_time: r.pickup_time as string | null,
-            public_ref: r.public_ref as string | null,
-            updated_at: r.updated_at as string,
-            pharmacy_id: ctx.pharmacyId ?? undefined,
-            offer: r.pharmacy_promo_offers as PromoReservationHubRow["offer"],
-            patient: r.profiles as PromoReservationHubRow["patient"],
-            patient_id: r.patient_id as string,
-          })),
+          (data ?? []).map((r: Record<string, unknown>) => {
+            const patientId = r.patient_id as string;
+            const contact = patientDirectory.get(patientId);
+            return {
+              id: r.id as string,
+              status: r.status as PromoReservationHubRow["status"],
+              pickup_date: r.pickup_date as string,
+              pickup_time: r.pickup_time as string | null,
+              public_ref: r.public_ref as string | null,
+              updated_at: r.updated_at as string,
+              pharmacy_id: ctx.pharmacyId ?? undefined,
+              offer: r.pharmacy_promo_offers as PromoReservationHubRow["offer"],
+              patient: contact
+                ? { full_name: contact.full_name, whatsapp: contact.whatsapp }
+                : null,
+              patient_id: patientId,
+            };
+          }),
         );
       }
       setLoading(false);
@@ -257,7 +268,7 @@ export function PharmacistPromoReservationsHub() {
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
 
       {submittedCount > 0 && tab === "dashboard" ? (
-        <p className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-medium text-foreground">
+        <p className="rounded-xl border border-emerald-200/55 bg-emerald-50/40 px-3 py-2 text-sm font-medium text-emerald-950">
           {submittedCount} réservation{submittedCount > 1 ? "s" : ""} en attente de votre réponse.
         </p>
       ) : null}

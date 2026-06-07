@@ -41,6 +41,8 @@ export function PatientPharmacyDossierBand({
   const phLabel = pharmacyContact?.nom?.trim()
     ? pharmacyPublicLabel(pharmacyContact.nom)
     : tDemandes("dossierBand.pharmacyFallback");
+  const ville = pharmacyContact?.ville?.trim() ?? "";
+  const officeRef = pharmacyContact?.public_ref?.trim() ?? "";
   const iconBox = compact ? "size-8 rounded-lg" : "size-9 rounded-lg";
   const iconSize = compact ? "size-4" : "size-[1.125rem]";
   const nameClass = compact
@@ -79,12 +81,24 @@ export function PatientPharmacyDossierBand({
           </span>
           <div className="min-w-0 flex-1">
             <p className={cn(nameClass, "break-words")}>{phLabel}</p>
-            {pharmacyContact?.ville?.trim() ? (
-              <p className={cn("mt-0.5", villeClass)}>{pharmacyContact.ville.trim()}</p>
-            ) : null}
-            {compact && pharmacyContact?.public_ref?.trim() ? (
-              <p className="mt-0.5 font-mono text-[9px] font-semibold text-muted-foreground">
-                {tDemandes("dossierBand.officeRef")} {pharmacyContact.public_ref.trim()}
+            {ville || officeRef ? (
+              <p className={cn("mt-0.5 flex min-w-0 flex-wrap items-baseline gap-x-1.5", villeClass)}>
+                {ville ? <span>{ville}</span> : null}
+                {ville && officeRef ? (
+                  <span className="text-muted-foreground/55" aria-hidden>
+                    ·
+                  </span>
+                ) : null}
+                {officeRef ? (
+                  <span
+                    className={cn(
+                      "font-mono font-semibold tabular-nums text-muted-foreground",
+                      compact ? "text-[9px]" : "text-[10px] sm:text-[11px]",
+                    )}
+                  >
+                    {officeRef}
+                  </span>
+                ) : null}
               </p>
             ) : null}
           </div>

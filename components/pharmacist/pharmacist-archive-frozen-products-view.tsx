@@ -30,7 +30,7 @@ import { pharmacistProductSectionTitleClass } from "@/lib/pharmacist-product-dos
 function archiveProductsFrozenSectionShell(title: string, children: ReactNode) {
   return (
     <section className="w-full min-w-0 space-y-4">
-      <div className="space-y-1">
+      <div className="space-y-2">
         <h3 className={pharmacistProductSectionTitleClass}>{title}</h3>
         <p className="text-[10px] leading-snug text-muted-foreground sm:text-[11px]">
           État enregistré au moment de la fermeture — consultation seule.
