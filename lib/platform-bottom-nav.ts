@@ -42,8 +42,29 @@ export function shouldHideBottomNav(pathname: string, role: string | null, hasSe
   return false;
 }
 
-export function isBottomNavTabActive(pathname: string, tab: BottomNavTabConfig, role: BottomNavRole): boolean {
+/** Détail dossier partagé (`/dashboard/demandes/[id]`) — l’URL ne reflète pas le type. */
+export function isSharedDemandeDetailPath(pathname: string, role: BottomNavRole): boolean {
   const normalized = pathname.split("?")[0] ?? pathname;
+  if (role === "patient") {
+    return normalized.startsWith("/dashboard/demandes/") && normalized !== "/dashboard/demandes";
+  }
+  return (
+    normalized.startsWith("/dashboard/pharmacien/demandes/") && normalized !== "/dashboard/pharmacien/demandes"
+  );
+}
+
+export function isBottomNavTabActive(
+  pathname: string,
+  tab: BottomNavTabConfig,
+  role: BottomNavRole,
+  dossierTabId?: BottomNavTabId | null
+): boolean {
+  const normalized = pathname.split("?")[0] ?? pathname;
+
+  if (isSharedDemandeDetailPath(pathname, role)) {
+    if (!dossierTabId) return false;
+    return tab.id === dossierTabId;
+  }
 
   if (tab.id === "products") {
     if (role === "patient") {

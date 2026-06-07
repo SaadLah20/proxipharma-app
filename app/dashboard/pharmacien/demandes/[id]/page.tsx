@@ -65,6 +65,7 @@ import {
   pharmacistHardStopSectionCopy,
 } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
+import { useSyncBottomNavDossierTab } from "@/lib/platform-bottom-nav-dossier-tab";
 import { getRequestKindWorkflowCopy } from "@/lib/request-kinds/workflow-copy";
 import {
   requestUsesProductLineWorkflow,
@@ -1815,6 +1816,7 @@ export default function PharmacienDemandeDetailPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [request, setRequest] = useState<RequestRow | null>(null);
+  useSyncBottomNavDossierTab(request?.request_type);
   const { config: pricingConfig, resolve: resolveCatalogPrice } = usePharmacyPricing(request?.pharmacy_id);
   const [items, setItems] = useState<ItemRow[]>([]);
   const [draft, setDraft] = useState<Draft>({});
