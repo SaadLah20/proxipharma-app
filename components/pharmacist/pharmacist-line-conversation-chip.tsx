@@ -44,7 +44,7 @@ function LineConvoBadgeDots({ visual }: { visual: LineConvoVisual }) {
   if (visual === "pharma_only") {
     return (
       <span
-        className="pointer-events-none absolute -end-0.5 -top-0.5 size-2 rounded-full bg-emerald-600 shadow-sm ring-2 ring-white"
+        className="pointer-events-none absolute -end-0.5 -top-0.5 size-2 rounded-full bg-sky-600 shadow-sm ring-2 ring-white"
         aria-hidden
       />
     );
@@ -52,7 +52,7 @@ function LineConvoBadgeDots({ visual }: { visual: LineConvoVisual }) {
   return (
     <span className="pointer-events-none absolute -end-1 -top-1 flex gap-px" aria-hidden>
       <span className="size-[7px] rounded-full bg-sky-500 ring-[1.5px] ring-white" />
-      <span className="size-[7px] rounded-full bg-emerald-600 ring-[1.5px] ring-white" />
+      <span className="size-[7px] rounded-full bg-sky-600 ring-[1.5px] ring-white" />
     </span>
   );
 }
@@ -132,11 +132,11 @@ export function lineConversationChipButtonClass(
 
   const ring =
     visual === "thread"
-      ? "border-violet-400/90 bg-gradient-to-br from-violet-50 via-white to-emerald-50 text-violet-800 shadow-sm ring-2 ring-violet-200/75"
+      ? "border-violet-400/90 bg-gradient-to-br from-violet-50 via-white to-sky-50/40 text-violet-800 shadow-sm ring-2 ring-violet-200/75"
       : visual === "patient_only"
         ? "border-sky-400/90 bg-sky-50 text-sky-800 shadow-sm ring-2 ring-sky-300/80"
         : visual === "pharma_only"
-          ? "border-emerald-400/85 bg-emerald-50 text-emerald-800 shadow-sm ring-2 ring-emerald-200/70"
+          ? "border-sky-500/85 bg-sky-50/90 text-sky-900 shadow-sm ring-2 ring-sky-200/70"
           : "border-dashed border-slate-300/90 bg-slate-50/80 text-slate-400/90 shadow-sm";
   return clsx(
     base,
@@ -155,11 +155,11 @@ export function lineConversationStripButtonClass(
     "relative inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-lg border px-2 py-1 transition touch-manipulation active:scale-[0.98] sm:gap-2 sm:px-2.5";
   const ring =
     visual === "thread"
-      ? "border-violet-300/80 bg-gradient-to-r from-violet-50/90 to-emerald-50/50 text-violet-900 shadow-sm ring-1 ring-violet-200/60"
+      ? "border-violet-300/80 bg-gradient-to-r from-violet-50/90 to-sky-50/40 text-violet-900 shadow-sm ring-1 ring-violet-200/60"
       : visual === "patient_only"
         ? "border-sky-300/85 bg-sky-50/90 text-sky-950 shadow-sm ring-1 ring-sky-200/70"
         : visual === "pharma_only"
-          ? "border-emerald-300/80 bg-emerald-50/85 text-emerald-950 shadow-sm ring-1 ring-emerald-200/65"
+          ? "border-sky-300/80 bg-sky-50/85 text-sky-950 shadow-sm ring-1 ring-sky-200/65"
           : "border-border/70 bg-muted/25 text-muted-foreground shadow-sm ring-1 ring-border/40";
   return clsx(base, ring, opts.open && "ring-2 ring-offset-1 ring-offset-background", opts.disabled && "pointer-events-none opacity-40");
 }
@@ -268,7 +268,7 @@ export function PharmacistLineConversationModal({
 
           {allowEdit || showPersistButton ? (
             <div className="mt-3 space-y-2">
-              <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900/90">
+              <p className="text-[9px] font-bold uppercase tracking-wide text-sky-900/90">
                 {patientText.trim() ? "Votre réponse" : "Note officine (optionnel)"}
               </p>
               <textarea
@@ -277,7 +277,7 @@ export function PharmacistLineConversationModal({
                 onChange={(e) => onPharmacistDraftChange(e.target.value.slice(0, 1000))}
                 placeholder={pharmacistLineNotePlaceholderFr(Boolean(patientText.trim()))}
                 disabled={!allowEdit && !showPersistButton}
-                className="min-h-[5.5rem] w-full resize-y rounded-xl border border-emerald-200/80 bg-emerald-50/40 px-2.5 py-2 text-[12px] leading-snug text-foreground shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 disabled:opacity-60"
+                className="min-h-[5.5rem] w-full resize-y rounded-xl border border-sky-200/80 bg-sky-50/40 px-2.5 py-2 text-[12px] leading-snug text-foreground shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/35 disabled:opacity-60"
               />
               <p className="text-[9px] leading-snug text-muted-foreground">
                 Saisissez votre note puis confirmez. Elle sera envoyée au patient avec votre réponse officine.
@@ -285,7 +285,7 @@ export function PharmacistLineConversationModal({
               <div className="flex flex-wrap justify-end gap-2">
                 <button
                   type="button"
-                  className="rounded-lg border border-emerald-300/80 bg-emerald-700 px-3 py-1.5 text-[10px] font-bold text-white shadow-sm hover:bg-emerald-800 disabled:opacity-50"
+                  className="rounded-lg border border-sky-300/80 bg-sky-700 px-3 py-1.5 text-[10px] font-bold text-white shadow-sm hover:bg-sky-800 disabled:opacity-50"
                   disabled={!canConfirmNote || !noteTrimmed}
                   onClick={() => confirmNote()}
                 >
@@ -294,9 +294,9 @@ export function PharmacistLineConversationModal({
               </div>
             </div>
           ) : pharmacistDraft.trim() ? (
-            <div className="mt-3 rounded-xl border border-emerald-200/75 bg-emerald-50/70 px-2.5 py-2">
-              <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-900/90">Officine</p>
-              <p className="mt-1 whitespace-pre-wrap break-words text-[11px] leading-snug text-emerald-950">{pharmacistDraft.trim()}</p>
+            <div className="mt-3 rounded-xl border border-sky-200/75 bg-sky-50/70 px-2.5 py-2">
+              <p className="text-[9px] font-bold uppercase tracking-wide text-sky-900/90">Officine</p>
+              <p className="mt-1 whitespace-pre-wrap break-words text-[11px] leading-snug text-sky-950">{pharmacistDraft.trim()}</p>
             </div>
           ) : (
             <p className="mt-3 text-[10px] italic text-muted-foreground">Aucune note officine.</p>
@@ -309,7 +309,7 @@ export function PharmacistLineConversationModal({
               type="button"
               disabled={persistBusy}
               onClick={() => void onPersist()}
-              className="inline-flex h-9 w-full items-center justify-center rounded-xl bg-emerald-700 px-3 text-[11px] font-bold text-white shadow-sm hover:bg-emerald-800 disabled:opacity-50"
+              className="inline-flex h-9 w-full items-center justify-center rounded-xl bg-primary px-3 text-[11px] font-bold text-primary-foreground shadow-sm hover:opacity-95 disabled:opacity-50"
             >
               {persistBusy ? "Enregistrement…" : "Enregistrer la réponse"}
             </button>

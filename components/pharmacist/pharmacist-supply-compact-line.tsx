@@ -168,7 +168,8 @@ export function PharmacistSupplyCompactLine({
 }) {
   const pill =
     "inline-flex min-h-8 items-center justify-center rounded-md border px-2 text-[10px] font-semibold shadow-sm ring-1 ring-black/5 transition disabled:opacity-45";
-  const pillActive = "border-emerald-700 bg-emerald-600 text-white ring-emerald-800/25";
+  const pillActiveReserved = "border-sky-700 bg-sky-600 text-white ring-sky-800/25";
+  const pillActiveOrdered = "border-teal-700 bg-teal-600 text-white ring-teal-800/25";
   const pillIdle = "border-border/90 bg-card text-foreground hover:bg-muted/55";
   const treatedActionBtn =
     "inline-flex h-9 w-full min-w-0 items-center justify-center whitespace-nowrap rounded-lg border px-1 py-2 text-center text-[9px] font-semibold leading-none shadow-sm transition disabled:opacity-45 sm:px-1.5 sm:text-[10px]";
@@ -369,7 +370,7 @@ export function PharmacistSupplyCompactLine({
                 type="button"
                 disabled={busy || supplyConfirmBusy || lineCounterLocked || fulfillmentActionsBusy || counterOutcomeBusy}
                 onClick={onToggleReserved}
-                className={clsx(pill, fulfillmentDraft === "reserved" ? pillActive : pillIdle)}
+                className={clsx(pill, fulfillmentDraft === "reserved" ? pillActiveReserved : pillIdle)}
               >
                 {fulfillmentDraft === "reserved" ? "Réservé" : "Marquer réservé"}
               </button>
@@ -381,7 +382,9 @@ export function PharmacistSupplyCompactLine({
                 onClick={onToggleOrdered}
                 className={clsx(
                   pill,
-                  fulfillmentDraft === "ordered" || fulfillmentDraft === "arrived_reserved" ? pillActive : pillIdle
+                  fulfillmentDraft === "ordered" || fulfillmentDraft === "arrived_reserved"
+                    ? pillActiveOrdered
+                    : pillIdle
                 )}
               >
                 {fulfillmentDraft === "ordered" || fulfillmentDraft === "arrived_reserved"
@@ -414,7 +417,7 @@ export function PharmacistSupplyCompactLine({
             className={clsx(
               compactTreatedActions ? treatedActionBtn : pill,
               counterPickupActive
-                ? "border-emerald-700 bg-emerald-600 text-white ring-emerald-800/20"
+                ? "border-violet-700 bg-violet-600 text-white ring-violet-800/20"
                 : "border-violet-500/70 bg-violet-50 text-violet-950 hover:bg-violet-100/90"
             )}
           >

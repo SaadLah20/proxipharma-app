@@ -203,6 +203,7 @@ import {
 import { PharmacistProductPhotoThumb } from "@/components/pharmacist/pharmacist-product-photo-thumb";
 import { ProductCatalogMetaLabel } from "@/components/products/product-brand-label";
 import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
+import { PharmacistProductRequestDossierShell } from "@/components/pharmacist/pharmacist-product-request-dossier-shell";
 import { PharmacistProductRequestDossierHeader } from "@/components/requests/product/pharmacist-product-request-dossier-header";
 import { patientBucketProductListClass } from "@/lib/patient-bucket-product-row-ui";
 import {
@@ -5152,7 +5153,9 @@ export default function PharmacienDemandeDetailPage() {
           conversationUnread={conversationUnread}
           productLineCount={displayRows.length}
         />
-      ) : hideMainRequestHeader ? (
+      ) : (
+        <PharmacistProductRequestDossierShell active={isProductRequest && hideMainRequestHeader}>
+          {hideMainRequestHeader ? (
         <>
           <PharmacistProductRequestDossierHeader
             dossierRefLabel={displayRequestPublicRef(request) || formatShortId(request.id)}
@@ -6556,7 +6559,7 @@ export default function PharmacienDemandeDetailPage() {
                               "fully_collected",
                             ].includes(request.status) ? (
                             selected ? (
-                              <span className="rounded-md bg-emerald-100 px-1.5 py-px text-[9px] font-semibold text-emerald-900">
+                              <span className="rounded-md bg-sky-100 px-1.5 py-px text-[9px] font-semibold text-sky-900">
                                 Retenu
                               </span>
                             ) : (
@@ -7608,6 +7611,8 @@ export default function PharmacienDemandeDetailPage() {
           </details>
         </>
       ) : null}
+        </PharmacistProductRequestDossierShell>
+      )}
       {lineConvoEffectiveRowId
         ? (() => {
             const entry = lineEntriesForList.find((e) => e.row.id === lineConvoEffectiveRowId);
@@ -7656,8 +7661,20 @@ export default function PharmacienDemandeDetailPage() {
             <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
               <div className="space-y-3 text-[11px]">
                 {publishConfirmGroups.ready.length > 0 ? (
-                  <section className="rounded-xl border border-emerald-300/75 bg-emerald-100/45 p-2.5">
-                    <h3 className="mb-2 text-[10px] font-bold uppercase tracking-wide text-emerald-950">
+                  <section
+                    className={clsx(
+                      "rounded-xl border p-2.5",
+                      isProductRequest
+                        ? "border-sky-300/75 bg-sky-100/45"
+                        : "border-emerald-300/75 bg-emerald-100/45",
+                    )}
+                  >
+                    <h3
+                      className={clsx(
+                        "mb-2 text-[10px] font-bold uppercase tracking-wide",
+                        isProductRequest ? "text-sky-950" : "text-emerald-950",
+                      )}
+                    >
                       Disponibles · {publishConfirmGroups.ready.length}
                     </h3>
                     <ul className="space-y-2">
@@ -7958,7 +7975,7 @@ export default function PharmacienDemandeDetailPage() {
 
       {showMainSupplyFooter && !stickyFooterObscured ? (
         <PlatformStickyFooterStack
-          tone={hideMainRequestHeader && isProductRequest ? "slate" : "sky"}
+          tone="sky"
         >
           {showSupplyStatsFooter ? (
             <PlatformStickyFooterStackRow compact bordered={false}>

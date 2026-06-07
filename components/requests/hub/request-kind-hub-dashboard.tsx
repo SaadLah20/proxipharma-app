@@ -24,7 +24,9 @@ import {
   countInPharmacistProductHubSection,
   pharmacistProductHubListHref,
   rowsInPharmacistProductHubSection,
+  type PharmacistProductHubSectionId,
 } from "@/lib/pharmacist-product-hub-sections";
+import { pharmacistProductHubSectionTierForId } from "@/lib/pharmacist-product-hub-dashboard-ui";
 import {
   HUB_DASHBOARD_PREVIEW,
   hubDashboardQuickStats,
@@ -263,6 +265,12 @@ export function RequestKindHubDashboard({
               }
               seeAllLabel={tHub("dashboard.seeAll")}
               showCountLabel={tHub("dashboard.showCount", { count })}
+              sectionTier={
+                hubAccent && kindId === "product_request"
+                  ? pharmacistProductHubSectionTierForId(sectionId as PharmacistProductHubSectionId)
+                  : undefined
+              }
+              hubAccent={hubAccent && kindId === "product_request" ? hubAccent : null}
             >
               {sectionRows.slice(0, HUB_DASHBOARD_PREVIEW).map((r) => (
                 <li key={r.id}>{renderPharmaCard(r, true)}</li>
