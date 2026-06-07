@@ -33,8 +33,8 @@ export function patientHubDashboardAccent(
   kindId: RequestKindId,
   role: "patient" | "pharmacien",
 ): PatientHubDashboardAccent | null {
-  if (role !== "patient") return null;
   if (kindId === "product_request") return "sky";
+  if (role !== "patient") return null;
   if (kindId === "prescription") return "amber";
   if (kindId === "free_consultation") return "violet";
   return null;

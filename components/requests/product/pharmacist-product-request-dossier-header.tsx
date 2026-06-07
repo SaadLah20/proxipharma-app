@@ -5,12 +5,16 @@ import { clsx } from "clsx";
 import { Info, MessageCircle, Phone, User } from "lucide-react";
 import { PatientProductRequestJourneyModal } from "@/components/requests/product/patient-product-request-journey-modal";
 import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
+import { pharmacistProductRequestDossierHeaderShellClass } from "@/lib/pharmacist-product-request-line-ui";
 import { requestStatusBadgeClass, requestStatusFr } from "@/lib/request-display";
-import { uiDossierHeaderShell } from "@/lib/ui-surfaces";
 import { uiActionBtnCompactOutline } from "@/lib/ui-action-buttons";
 
 function phoneDigits(raw: string): string {
   return raw.replace(/\D/g, "");
+}
+
+function isProductRequestType(requestType: string | null | undefined): boolean {
+  return requestType === "product_request";
 }
 
 export function PharmacistProductRequestDossierHeader({
@@ -42,10 +46,15 @@ export function PharmacistProductRequestDossierHeader({
   const statusLabel = requestStatusFr[status] ?? status;
   const displayName = patientName?.trim() || null;
   const displayRef = patientRef?.trim() || null;
+  const useSkyChrome = isProductRequestType(requestType);
 
   return (
     <>
-      <header className={uiDossierHeaderShell}>
+      <header
+        className={clsx(
+          useSkyChrome ? pharmacistProductRequestDossierHeaderShellClass() : "rounded-xl border border-border bg-card shadow-sm",
+        )}
+      >
         <div className="border-b border-border px-3 py-2 sm:px-3.5">
           <DossierHeaderRequestLine
             kindLabel={kindLabel}
@@ -59,13 +68,18 @@ export function PharmacistProductRequestDossierHeader({
         <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border px-3 py-2 sm:px-3.5">
           <div className="min-w-0 flex-1">
             <p className="flex min-w-0 items-center gap-1.5 text-sm font-bold leading-snug text-foreground">
-              <User className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-              <span className="truncate" title={displayName ?? undefined}>
+              <span
+                className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground shadow-sm ring-1 ring-border/80"
+                aria-hidden
+              >
+                <User className="size-[1.125rem]" strokeWidth={2.25} />
+              </span>
+              <span className="min-w-0 truncate" title={displayName ?? undefined}>
                 {displayName ?? "Patient"}
               </span>
             </p>
             {displayRef ? (
-              <p className="mt-0.5 pl-[1.375rem] text-[11px] font-medium tabular-nums text-muted-foreground">
+              <p className="mt-0.5 pl-[2.625rem] text-[11px] font-medium tabular-nums text-muted-foreground">
                 {displayRef}
               </p>
             ) : null}
@@ -84,7 +98,7 @@ export function PharmacistProductRequestDossierHeader({
                 href={`https://wa.me/${phoneDigits(patientPhone)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex size-8 items-center justify-center rounded-lg border border-emerald-500/80 bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
+                className={uiActionBtnCompactOutline("inline-flex size-8 items-center justify-center p-0")}
                 title={`WhatsApp ${patientPhone}`}
                 aria-label="Contacter le patient sur WhatsApp"
               >
@@ -95,7 +109,9 @@ export function PharmacistProductRequestDossierHeader({
         </div>
 
         <div className="flex flex-wrap items-start gap-2 px-3 py-2 sm:px-3.5">
-          <span className={clsx("shrink-0 shadow-sm", requestStatusBadgeClass(status))}>{statusLabel}</span>
+          <span className={clsx("shrink-0 shadow-sm rounded-full px-2.5 py-1 text-[11px] font-bold", requestStatusBadgeClass(status))}>
+            {statusLabel}
+          </span>
           {statusHint ? (
             <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">{statusHint}</p>
           ) : (
@@ -104,7 +120,12 @@ export function PharmacistProductRequestDossierHeader({
           <button
             type="button"
             onClick={() => setJourneyOpen(true)}
-            className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition hover:bg-muted/40 hover:text-foreground"
+            className={clsx(
+              "inline-flex size-7 shrink-0 items-center justify-center rounded-full border bg-card shadow-sm transition",
+              useSkyChrome
+                ? "border-sky-200/55 text-sky-800 hover:border-sky-300/55 hover:bg-sky-50/45 hover:text-sky-950"
+                : "border-border text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+            )}
             aria-label={`Voir le parcours de ${kindLabel.toLowerCase()}`}
             title={`Parcours de l’${kindLabel.toLowerCase()}`}
           >
