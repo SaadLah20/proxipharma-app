@@ -3632,6 +3632,27 @@ export function PatientProductRequestActions({
                 />
               </div>
             </div>
+            {showConfirmedCards &&
+            !showConfirm &&
+            !forceReadOnly &&
+            !confirmedRevalidationMode &&
+            visitFieldsEditable ? (
+              <button
+                type="button"
+                disabled={busyAction !== "" || !visitPassageDirty || Boolean(detailStale)}
+                onClick={() => void runUpdateVisit()}
+                className={clsx(
+                  uiActionBtnFull("flex items-center justify-center"),
+                  useCompactPassageBlock ? "mx-auto mt-1 max-w-md" : "mt-2"
+                )}
+              >
+                {busyAction === "visit"
+                  ? tCommon("updating")
+                  : isTreatedActiveView
+                    ? tCommon("updateVisit")
+                    : tCommon("updateVisitDate")}
+              </button>
+            ) : null}
             {visitTimeFr ? (
               <span
                 className={clsx(
@@ -3652,11 +3673,11 @@ export function PatientProductRequestActions({
               </p>
             ) : useCompactPassageBlock && visitFieldsEditable && isTreatedActiveView ? (
               <p className="mx-auto max-w-md text-[10px] leading-snug text-muted-foreground">
-                La pharmacie est informée si vous modifiez votre passage (bouton en bas de l&apos;écran).
+                La pharmacie est informée lorsque vous enregistrez votre passage ci-dessus.
               </p>
             ) : !useCompactPassageBlock && visitFieldsEditable && isTreatedActiveView ? (
               <p className="text-[10px] leading-snug text-sky-900/85">
-                La pharmacie est informée si vous modifiez votre passage (bouton en bas de l&apos;écran).
+                La pharmacie est informée lorsque vous enregistrez votre passage ci-dessus.
               </p>
             ) : null}
           </div>
@@ -3817,40 +3838,8 @@ export function PatientProductRequestActions({
         ) : null}
 
         {showConfirmedCards && !forceReadOnly && !stickyFooterObscured ? (
-          <DossierInlineActionPanel
-            tone="slate"
-            {...(!confirmedRevalidationMode
-              ? {
-                  summaryLeft: (
-                    <>
-                      <span className="font-bold tabular-nums text-foreground">{totalsRetained.count}</span>{" "}
-                      {isTreatedActiveView
-                        ? totalsRetained.count > 1
-                          ? "produits à retirer"
-                          : "produit à retirer"
-                        : totalsRetained.count > 1
-                          ? "produits retenus"
-                          : "produit retenu"}
-                    </>
-                  ),
-                  summaryRight: totalRetainedGrandLabel,
-                }
-              : {})}
-          >
-            {!confirmedRevalidationMode ? (
-              <button
-                type="button"
-                disabled={busyAction !== "" || !visitPassageDirty || Boolean(detailStale)}
-                onClick={() => void runUpdateVisit()}
-                className={uiActionBtnFull("flex items-center justify-center")}
-              >
-                {busyAction === "visit"
-                  ? tCommon("updating")
-                  : isTreatedActiveView
-                    ? tCommon("updateVisit")
-                    : tCommon("updateVisitDate")}
-              </button>
-            ) : (
+          confirmedRevalidationMode ? (
+            <DossierInlineActionPanel tone="slate">
               <div className={uiActionBtnFlexRow()}>
                 <button
                   type="button"
@@ -3869,8 +3858,25 @@ export function PatientProductRequestActions({
                   {busyAction === "confirm" ? tCommon("saving") : tCommon("saveChanges")}
                 </button>
               </div>
-            )}
-          </DossierInlineActionPanel>
+            </DossierInlineActionPanel>
+          ) : (
+            <DossierInlineActionPanel
+              tone="slate"
+              summaryLeft={
+                <>
+                  <span className="font-bold tabular-nums text-foreground">{totalsRetained.count}</span>{" "}
+                  {isTreatedActiveView
+                    ? totalsRetained.count > 1
+                      ? "produits à retirer"
+                      : "produit à retirer"
+                    : totalsRetained.count > 1
+                      ? "produits retenus"
+                      : "produit retenu"}
+                </>
+              }
+              summaryRight={totalRetainedGrandLabel}
+            />
+          )
         ) : null}
 
         {showPatientExitCTA ? (

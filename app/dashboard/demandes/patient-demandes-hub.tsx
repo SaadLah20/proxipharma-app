@@ -38,6 +38,7 @@ import { formatShortId } from "@/lib/request-display";
 import { useRequestKindPatientCopy } from "@/lib/i18n/request-kind-patient-copy";
 import { supabase } from "@/lib/supabase";
 import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
+import { usePersistHubVisitUrl } from "@/lib/use-persist-hub-visit-url";
 
 function tabFromSearch(v: string | null): HubTab {
   return v === "liste" ? "list" : "dashboard";
@@ -60,6 +61,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  usePersistHubVisitUrl(hubPath);
   const tab = tabFromSearch(searchParams.get("vue"));
 
   const setTab = (t: HubTab) => {

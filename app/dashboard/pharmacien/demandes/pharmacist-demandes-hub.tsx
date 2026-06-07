@@ -32,6 +32,7 @@ import type { RequestKindId } from "@/lib/request-kinds/types";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { formatShortId } from "@/lib/request-display";
 import { supabase } from "@/lib/supabase";
+import { usePersistHubVisitUrl } from "@/lib/use-persist-hub-visit-url";
 
 function tabFromSearch(v: string | null): HubTab {
   return v === "liste" ? "list" : "dashboard";
@@ -49,6 +50,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  usePersistHubVisitUrl(hubPath);
   const tab = tabFromSearch(searchParams.get("vue"));
 
   const setTab = (t: HubTab) => {

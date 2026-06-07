@@ -32,6 +32,7 @@ import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { formatShortId } from "@/lib/request-display";
 import { supabase } from "@/lib/supabase";
 import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
+import { usePersistHubVisitUrl } from "@/lib/use-persist-hub-visit-url";
 
 const HUB_PATH = "/dashboard/pharmacien/reservations-packs";
 
@@ -46,6 +47,7 @@ function tabToSearch(t: HubTab): string {
 export function PharmacistPromoReservationsHub() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  usePersistHubVisitUrl(HUB_PATH);
   const tab = tabFromSearch(searchParams.get("vue"));
 
   const [loading, setLoading] = useState(true);
