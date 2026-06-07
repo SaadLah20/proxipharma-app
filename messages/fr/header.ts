@@ -39,8 +39,8 @@ export const headerFr = {
     products: "Produits",
     demandes: "Demandes",
     prescriptions: "Ordonnances",
-    consultations: "Consultations",
+    consultations: "Conseils",
     promos: "Promos",
-    reservations: "Packs",
+    reservations: "Réservations",
   },
 };

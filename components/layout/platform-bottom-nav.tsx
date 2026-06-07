@@ -6,13 +6,11 @@ import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
-import { readHubLastVisitUrl } from "@/lib/hub-last-visit-url";
 import {
   bottomNavTabsForRole,
   isBottomNavTabActive,
   shouldHideBottomNav,
   type BottomNavRole,
-  type BottomNavTabConfig,
 } from "@/lib/platform-bottom-nav";
 import { STICKY_FOOTER_SAFE_BOTTOM } from "@/lib/platform-sticky-footer";
 import { supabase } from "@/lib/supabase";
@@ -26,7 +24,6 @@ export function PlatformBottomNav() {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<ProfileRole>(null);
   const [booting, setBooting] = useState(true);
-  const [tabHrefs, setTabHrefs] = useState<Partial<Record<BottomNavTabConfig["id"], string>>>({});
 
   const loadRole = useCallback(async (userId: string) => {
     const { data } = await supabase.from("profiles").select("role").eq("id", userId).maybeSingle();
@@ -62,17 +59,6 @@ export function PlatformBottomNav() {
     };
   }, [loadRole]);
 
-  useEffect(() => {
-    if (role !== "patient" && role !== "pharmacien") return;
-    const navRole = role as BottomNavRole;
-    const tabs = bottomNavTabsForRole(navRole);
-    const next: Partial<Record<BottomNavTabConfig["id"], string>> = {};
-    for (const tab of tabs) {
-      next[tab.id] = readHubLastVisitUrl(tab.href);
-    }
-    setTabHrefs(next);
-  }, [role, pathname]);
-
   if (booting) return null;
 
   const navRole: BottomNavRole | null =
@@ -98,7 +84,7 @@ export function PlatformBottomNav() {
           return (
             <Link
               key={tab.id}
-              href={tabHrefs[tab.id] ?? tab.href}
+              href={tab.href}
               className={clsx(
                 "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1.5 text-[10px] font-semibold leading-tight transition sm:text-[11px]",
                 active

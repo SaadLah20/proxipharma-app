@@ -7,7 +7,7 @@ import type { StickyFooterTone } from "@/lib/platform-sticky-footer";
 import { stickyFooterToneBorderClass } from "@/lib/platform-sticky-footer";
 
 type DossierInlineActionPanelProps = {
-  children?: ReactNode;
+  children: ReactNode;
   tone?: StickyFooterTone;
   className?: string;
   summaryLeft?: ReactNode;
@@ -32,9 +32,7 @@ export function DossierInlineActionPanel({
       {summaryLeft != null && summaryRight != null ? (
         <PlatformStickyFooterSummaryRow left={summaryLeft} right={summaryRight} />
       ) : null}
-      {children ? (
-        <div className={clsx(summaryLeft != null && summaryRight != null && "mt-2")}>{children}</div>
-      ) : null}
+      <div className={clsx(summaryLeft != null && summaryRight != null && "mt-2")}>{children}</div>
     </section>
   );
 }
