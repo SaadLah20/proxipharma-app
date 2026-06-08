@@ -12,6 +12,8 @@ type PharmetoLogoProps = {
   /** Hauteur cible (largeur auto pour lockup). */
   height?: number;
   priority?: boolean;
+  /** Icône seulement décorative quand le wordmark est affiché à côté. */
+  decorative?: boolean;
 };
 
 export function PharmetoLogo({
@@ -19,6 +21,7 @@ export function PharmetoLogo({
   className,
   height = 36,
   priority = false,
+  decorative = false,
 }: PharmetoLogoProps) {
   if (variant === "wordmark") {
     return (
@@ -35,7 +38,8 @@ export function PharmetoLogo({
     return (
       <Image
         src={ICON_SRC}
-        alt="Pharmeto"
+        alt={decorative ? "" : "Pharmeto"}
+        aria-hidden={decorative ? true : undefined}
         width={height}
         height={height}
         unoptimized
