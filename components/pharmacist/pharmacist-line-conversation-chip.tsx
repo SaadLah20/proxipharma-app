@@ -30,13 +30,30 @@ export function lineConversationAriaLabel(visual: LineConvoVisual): string {
   }
 }
 
-/** Pastilles : 0 = vide · 1 bleu = patient · 1 vert = officine · 2 = les deux. */
-function LineConvoBadgeDots({ visual }: { visual: LineConvoVisual }) {
+function patientDotClass(accent: "sky" | "amber" | "violet" | "default" = "default"): string {
+  if (accent === "amber") return "bg-amber-500";
+  if (accent === "violet") return "bg-violet-500";
+  return "bg-sky-500";
+}
+
+/** Pastilles : 0 = vide · 1 = patient · 1 vert = officine · 2 = les deux. */
+export function LineConvoBadgeDots({
+  visual,
+  accent = "default",
+}: {
+  visual: LineConvoVisual;
+  accent?: "sky" | "amber" | "violet" | "default";
+}) {
+  const patientDot = patientDotClass(accent);
+  const pharmaDot = "bg-emerald-600";
   if (visual === "empty") return null;
   if (visual === "patient_only") {
     return (
       <span
-        className="pointer-events-none absolute -end-0.5 -top-0.5 size-2 rounded-full bg-sky-500 shadow-sm ring-2 ring-white"
+        className={clsx(
+          "pointer-events-none absolute -end-0.5 -top-0.5 size-2 rounded-full shadow-sm ring-2 ring-white",
+          patientDot
+        )}
         aria-hidden
       />
     );
@@ -44,15 +61,18 @@ function LineConvoBadgeDots({ visual }: { visual: LineConvoVisual }) {
   if (visual === "pharma_only") {
     return (
       <span
-        className="pointer-events-none absolute -end-0.5 -top-0.5 size-2 rounded-full bg-sky-600 shadow-sm ring-2 ring-white"
+        className={clsx(
+          "pointer-events-none absolute -end-0.5 -top-0.5 size-2 rounded-full shadow-sm ring-2 ring-white",
+          pharmaDot
+        )}
         aria-hidden
       />
     );
   }
   return (
     <span className="pointer-events-none absolute -end-1 -top-1 flex gap-px" aria-hidden>
-      <span className="size-[7px] rounded-full bg-sky-500 ring-[1.5px] ring-white" />
-      <span className="size-[7px] rounded-full bg-sky-600 ring-[1.5px] ring-white" />
+      <span className={clsx("size-[7px] rounded-full ring-[1.5px] ring-white", patientDot)} />
+      <span className={clsx("size-[7px] rounded-full ring-[1.5px] ring-white", pharmaDot)} />
     </span>
   );
 }
@@ -136,7 +156,7 @@ export function lineConversationChipButtonClass(
       : visual === "patient_only"
         ? "border-sky-400/90 bg-sky-50 text-sky-800 shadow-sm ring-2 ring-sky-300/80"
         : visual === "pharma_only"
-          ? "border-sky-500/85 bg-sky-50/90 text-sky-900 shadow-sm ring-2 ring-sky-200/70"
+          ? "border-emerald-400/85 bg-emerald-50/90 text-emerald-950 shadow-sm ring-2 ring-emerald-200/70"
           : "border-dashed border-slate-300/90 bg-slate-50/80 text-slate-400/90 shadow-sm";
   return clsx(
     base,

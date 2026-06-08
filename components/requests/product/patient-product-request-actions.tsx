@@ -22,6 +22,7 @@ import {
   useTimelinePhaseLabels,
 } from "@/lib/i18n/build-patient-timeline";
 import { usePatientRequestStatusLabel } from "@/lib/i18n/patient-request-status-label";
+import { lineConversationVisual } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import { ProductLinePhotoThumb } from "@/components/products/product-line-photo-thumb";
 import { Button } from "@/components/ui/button";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
@@ -1216,12 +1217,12 @@ function PatientSentLineNotesModalFr({
   const titleId = useId();
   const c = client.trim();
   const p = pharmacist.trim();
-  const hasNotes = Boolean(c || p);
+  const visual = lineConversationVisual(c, p);
 
   return (
     <>
       <ProductRequestLineMessageIconButton
-        hasComment={hasNotes}
+        visual={visual}
         onClick={() => setOpen(true)}
       />
       <AppModalOverlay open={open} aria-labelledby={titleId} onBackdropClick={() => setOpen(false)}>
