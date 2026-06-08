@@ -62,7 +62,6 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
 
-  const isProductHub = kindId === "product_request";
   const useRichPharmacistHubCard =
     kindId === "product_request" || kindId === "prescription" || kindId === "free_consultation";
 

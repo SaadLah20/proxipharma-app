@@ -1,3 +1,4 @@
+import type { PromoLineWithPrice } from "@/lib/promo/pricing";
 import type { PromoReservationStatus } from "@/lib/promo/types";
 
 export type PromoReservationHubRow = {
@@ -7,11 +8,14 @@ export type PromoReservationHubRow = {
   pickup_time: string | null;
   public_ref: string | null;
   updated_at: string;
+  offer_id?: string;
   pharmacy_id?: string;
   patient_id?: string;
   offer: { title: string; discount_percent?: number } | null;
   pharmacy?: { nom: string; ville?: string | null } | null;
   patient?: { full_name: string | null } | null;
+  /** Lignes du pack pour l’aperçu sur les cartes hub. */
+  pack_lines?: PromoLineWithPrice[];
 };
 
 export type PromoHubSectionId = "at_pharmacy" | "action_required" | "archives";

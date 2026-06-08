@@ -102,14 +102,7 @@ export function usePromoProductSearch(query: string, enabled = true) {
   );
 
   useEffect(() => {
-    if (!searchActive) {
-      setProducts([]);
-      setLoading(false);
-      setLoadingMore(false);
-      setHasMore(false);
-      setError(null);
-      return;
-    }
+    if (!searchActive) return;
     const timer = window.setTimeout(() => void fetchPage(true), 300);
     return () => window.clearTimeout(timer);
   }, [searchActive, sanitized, fetchPage]);
@@ -119,5 +112,14 @@ export function usePromoProductSearch(query: string, enabled = true) {
     void fetchPage(false);
   }, [searchActive, loading, loadingMore, hasMore, fetchPage]);
 
-  return { products, loading, loadingMore, error, hasMore, loadMore, searchActive, minChars: PRODUCT_CATALOG_SEARCH_MIN_CHARS };
+  return {
+    products: searchActive ? products : [],
+    loading: searchActive && loading,
+    loadingMore: searchActive && loadingMore,
+    error: searchActive ? error : null,
+    hasMore: searchActive && hasMore,
+    loadMore,
+    searchActive,
+    minChars: PRODUCT_CATALOG_SEARCH_MIN_CHARS,
+  };
 }
