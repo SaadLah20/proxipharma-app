@@ -541,16 +541,35 @@ export function PlatformHeader() {
       dir="ltr"
       className="fixed inset-x-0 top-0 z-50 border-b border-border/90 bg-card/95 text-foreground shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-card/90"
     >
-      <div className="mx-auto flex h-[3.25rem] max-w-6xl items-center justify-between gap-3 px-4 sm:h-14 sm:px-5">
+      <div className="mx-auto flex h-[3.25rem] max-w-6xl min-w-0 items-center justify-between gap-2 px-3 sm:h-14 sm:gap-3 sm:px-5">
         <Link
           href="/"
-          className="group flex shrink-0 items-center gap-2 text-lg font-bold tracking-tight text-foreground"
+          className="group flex min-w-0 shrink items-center gap-2 text-lg font-bold tracking-tight text-foreground"
           aria-label="Pharmeto"
         >
-          <PharmetoLogo variant="lockup" height={32} className="transition group-hover:opacity-90" priority />
+          <span className="flex min-w-0 items-center gap-1.5 overflow-hidden sm:hidden">
+            <PharmetoLogo
+              variant="icon"
+              height={28}
+              decorative
+              className="transition group-hover:opacity-90"
+              priority
+            />
+            <PharmetoLogo
+              variant="wordmark"
+              height={28}
+              className="truncate transition group-hover:opacity-90"
+            />
+          </span>
+          <PharmetoLogo
+            variant="lockup"
+            height={32}
+            className="hidden w-auto transition group-hover:opacity-90 sm:block"
+            priority
+          />
         </Link>
 
-        <div ref={wrapRef} className="relative flex items-center gap-2">
+        <div ref={wrapRef} className="relative flex shrink-0 items-center gap-1.5 sm:gap-2">
           {booting ? (
             <div className="h-9 w-9 animate-pulse rounded-full bg-muted" />
           ) : (
