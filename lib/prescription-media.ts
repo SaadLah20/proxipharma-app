@@ -6,6 +6,10 @@ export type PrescriptionPagePaths = {
   page2: string | null;
 };
 
+export function hasPrescriptionScan(paths: PrescriptionPagePaths | null | undefined): boolean {
+  return Boolean(paths?.page1?.trim() || paths?.page2?.trim());
+}
+
 /** Chemins Storage page 1 / 2 pour une demande ordonnance. */
 export function prescriptionPageStoragePaths(requestId: string): { page1: string; page2: string } {
   return {

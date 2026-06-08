@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { clsx } from "clsx";
+import { ChevronRight } from "lucide-react";
 import { useLocale } from "next-intl";
 import type { PatientRequestRow } from "@/components/requests/demande-hub-ui";
 import { RequestStatusBadge } from "@/components/requests/demande-hub-ui";
@@ -13,15 +14,15 @@ import { formatDateTimeShortForLocale } from "@/lib/datetime-locale";
 import type { AppLocale } from "@/lib/i18n/config";
 import { usePatientHubCardCopy } from "@/lib/i18n/patient-hub-card-copy";
 import { uiSecondaryLabel } from "@/lib/ui-label-styles";
-
-/** Carte hub uniforme — le statut porte la couleur (badge), pas toute la carte. */
-function cardShell(_status: string): string {
-  return "rounded-xl border border-border bg-card shadow-sm ring-1 ring-black/[0.02]";
-}
+import {
+  hubDemandeCardAccent,
+  hubDemandeCardAccentBarClass,
+  hubDemandeCardContextClass,
+  hubDemandeCardShellClass,
+} from "@/lib/hub-demande-card-chrome";
 
 export function PatientProductDemandeHubCard({
   row,
-  compact = false,
   conversationUnread = false,
 }: {
   row: PatientRequestRow;
@@ -34,50 +35,60 @@ export function PatientProductDemandeHubCard({
   const ctx = usePatientProductHubCardContext(row);
   const refVisuel = displayRequestPublicRef(row);
   const when = formatDateTimeShortForLocale(row.updated_at ?? row.submitted_at ?? row.created_at, locale);
+  const accent = hubDemandeCardAccent(row.request_type);
+  const pharmacyTitle = ph?.nom ? pharmacyPublicLabel(ph.nom) : cardCopy.pharmacyFallback;
+  const locationLine = ph?.ville?.trim() ? ph.ville.trim() : null;
+  const contextLine = ctx.secondaryLine ? `${ctx.primaryLine} · ${ctx.secondaryLine}` : ctx.primaryLine;
 
   return (
-    <article className={clsx(cardShell(row.status), "transition hover:-translate-y-px hover:shadow-md")}>
-      <Link
-        href={`/dashboard/demandes/${row.id}`}
-        className={clsx("group block", compact ? "p-2.5" : "p-3 sm:p-3.5")}
-      >
-        <div className="flex items-start justify-between gap-2.5">
+    <article
+      className={clsx(
+        hubDemandeCardShellClass(accent),
+        "relative overflow-hidden transition hover:-translate-y-px hover:shadow-md",
+      )}
+    >
+      <div className={clsx("absolute inset-y-0 left-0 w-1", hubDemandeCardAccentBarClass(accent))} aria-hidden />
+      <Link href={`/dashboard/demandes/${row.id}`} className="group block py-3 pl-3.5 pr-3 sm:py-3.5 sm:pl-4">
+        <div className="flex items-start gap-2 sm:gap-3">
           <div className="min-w-0 flex-1 space-y-1.5">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <RequestStatusBadge status={row.status} role="patient" />
-              {conversationUnread ? (
-                <span className={uiSecondaryLabel} title={cardCopy.messageUnreadTitle}>
-                  {cardCopy.message}
-                </span>
-              ) : null}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                <RequestStatusBadge status={row.status} role="patient" />
+                {conversationUnread ? (
+                  <span className={uiSecondaryLabel} title={cardCopy.messageUnreadTitle}>
+                    {cardCopy.message}
+                  </span>
+                ) : null}
+              </div>
+              <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-[11px]">
+                {refVisuel}
+              </span>
             </div>
 
-            <div>
-              <p className="text-sm font-bold leading-snug break-words text-foreground sm:text-[15px]">
-                {ph?.nom ? pharmacyPublicLabel(ph.nom) : cardCopy.pharmacyFallback}
-              </p>
-              {ph?.ville ? (
-                <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">{ph.ville}</p>
-              ) : null}
-              <p className="mt-0.5 font-mono text-[11px] font-semibold text-muted-foreground">{refVisuel}</p>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold leading-snug text-foreground sm:text-[15px]">{pharmacyTitle}</p>
+                {locationLine ? (
+                  <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">{locationLine}</p>
+                ) : null}
+              </div>
+              <ChevronRight
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground/70 transition group-hover:text-foreground"
+                aria-hidden
+              />
             </div>
 
-            <div className="rounded-lg border border-border/80 bg-muted/25 px-2 py-1.5 text-[11px] leading-snug text-foreground sm:text-xs">
-              <p className="font-semibold">{ctx.primaryLine}</p>
-              {ctx.secondaryLine ? (
-                <p className="mt-0.5 text-[10px] font-medium opacity-90 sm:text-[11px]">{ctx.secondaryLine}</p>
-              ) : null}
-            </div>
+            <p
+              className={clsx(
+                "line-clamp-2 text-[11px] leading-snug sm:text-xs",
+                hubDemandeCardContextClass(ctx.emphasis, accent),
+              )}
+            >
+              {contextLine}
+            </p>
 
             <p className="text-[10px] tabular-nums text-muted-foreground">{cardCopy.lastActivity(when)}</p>
           </div>
-
-          <span
-            className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition group-hover:bg-muted/50"
-            aria-hidden
-          >
-            →
-          </span>
         </div>
       </Link>
     </article>

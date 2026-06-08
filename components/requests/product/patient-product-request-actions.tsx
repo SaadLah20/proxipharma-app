@@ -172,6 +172,7 @@ import { inferArchiveSnapshotStatus } from "@/lib/request-archive-snapshot-statu
 import { patientLineProposedBadgeLabel } from "@/lib/patient-line-proposed-badge";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 import { PrescriptionScanCollapsible } from "@/components/requests/prescription/prescription-scan-collapsible";
+import { hasPrescriptionScan } from "@/lib/prescription-media";
 import { getRequestKindWorkflowCopy } from "@/lib/request-kinds/workflow-copy";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindAccent } from "@/lib/request-kinds/types";
@@ -3081,9 +3082,11 @@ export function PatientProductRequestActions({
         </p>
       ) : null}
 
-      {isPrescription && prescriptionPaths?.page1 && (showConfirm || showConfirmedCards || forceReadOnly) ? (
+      {isPrescription &&
+      hasPrescriptionScan(prescriptionPaths) &&
+      (showConfirm || showConfirmedCards || forceReadOnly) ? (
         <PrescriptionScanCollapsible
-          paths={prescriptionPaths}
+          paths={prescriptionPaths!}
           defaultOpen={forceReadOnly && items.length === 0}
           className="mb-2"
         />
