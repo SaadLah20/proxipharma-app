@@ -1,6 +1,7 @@
 "use client";
 
 import { Mail, MessageCircle, MessageSquare, Phone } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 
 export type PatientPharmacyContactInfo = {
@@ -42,6 +43,7 @@ export function PatientPharmacyQuickContact({
   requestRef: string;
   variant?: "default" | "iconsOnly";
 }) {
+  const tCommon = useTranslations("common");
   const telRaw = pharmacy.telephone?.trim() ?? "";
   const digits = telRaw.replace(/\D/g, "");
   const telOk = digits.length >= 8 || telRaw.length >= 8;
@@ -49,8 +51,8 @@ export function PatientPharmacyQuickContact({
   const mailOk = mail.length > 4 && mail.includes("@");
 
   const mailHref = mailOk
-    ? `mailto:${mail}?subject=${encodeURIComponent(`Demande ${requestRef}`)}&body=${encodeURIComponent(
-        `Bonjour,\n\nConcernant ma demande ${requestRef} :\n\n`
+    ? `mailto:${mail}?subject=${encodeURIComponent(tCommon("mailSubjectRequest", { ref: requestRef }))}&body=${encodeURIComponent(
+        tCommon("mailBodyHello", { ref: requestRef })
       )}`
     : "";
 
@@ -64,7 +66,7 @@ export function PatientPharmacyQuickContact({
             href={telHrefPatient(telRaw)}
             className={contactIconBtn}
             title="Appeler"
-            aria-label="Appeler la pharmacie"
+            aria-label={tCommon("callPharmacy")}
           >
             <Phone className="size-4 shrink-0" strokeWidth={2} aria-hidden />
           </a>
@@ -72,7 +74,7 @@ export function PatientPharmacyQuickContact({
             href={smsHrefPatient(telRaw)}
             className={contactIconBtn}
             title="SMS"
-            aria-label="Envoyer un SMS"
+            aria-label={tCommon("sendSms")}
           >
             <MessageSquare className="size-4 shrink-0" strokeWidth={2} aria-hidden />
           </a>

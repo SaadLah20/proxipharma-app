@@ -1,3 +1,5 @@
+import { timelineEventsFr } from "./timeline-events";
+
 export const demandesFr = {
   statusHints: {
     responded: "Validez votre choix et votre date de passage.",
@@ -124,6 +126,7 @@ export const demandesFr = {
     lineNotes: "Note sur cette ligne",
     saveNote: "Enregistrer la note",
     viewLineMessagesAria: "Voir les messages sur ce produit",
+    noNoteOnProduct: "Aucune note sur ce produit.",
   },
   validation: {
     keepAtLeastOneLine:
@@ -279,6 +282,7 @@ export const timelineFr = {
     counter: "Comptoir",
     epilogue: "Situation",
   },
+  events: timelineEventsFr,
 };
 
 export const conversationFr = {

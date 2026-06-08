@@ -174,7 +174,6 @@ import {
 } from "@/lib/prescription-patient-labels";
 import {
   isPrescriptionAdditionalProposedLine,
-  PRESCRIPTION_ADDITIONAL_PROPOSED_REASON,
 } from "@/lib/prescription-pharmacist-lines";
 import { inferArchiveSnapshotStatus } from "@/lib/request-archive-snapshot-status";
 import { patientLineProposedBadgeLabel } from "@/lib/patient-line-proposed-badge";
@@ -515,8 +514,8 @@ function PatientTraceNotRetainedRow({
   const lineKind =
     row.line_source === "pharmacist_proposed" ? (
       requestType === "prescription"
-        ? PRESCRIPTION_ADDITIONAL_PROPOSED_REASON
-        : requestItemLineSourceFr.pharmacist_proposed
+        ? prescriptionCopy.pharmacyProposedProduct
+        : tCommon("proposal")
     ) : null;
   const photoUrl = prod?.photo_url ? resolvePublicMediaUrl(prod.photo_url) : null;
 
@@ -912,7 +911,7 @@ function PatientArchiveFrozenProductsView({
                 const url = raw ? resolvePublicMediaUrl(raw) ?? raw : null;
                 onPhotoPreview(
                   url,
-                  prod?.name ?? "Produit",
+                  prod?.name ?? tCommon("product"),
                   prod?.full_description,
                   prod?.brand,
                   prod?.product_type,
@@ -1235,6 +1234,9 @@ function PatientSentLineNotesModalFr({
   client: string;
   pharmacist: string;
 }) {
+  const tCommon = useTranslations("common");
+  const tNotes = useTranslations("demandes.notes");
+  const tConversation = useTranslations("conversation");
   const [open, setOpen] = useState(false);
   const titleId = useId();
   const c = client.trim();
@@ -1258,7 +1260,7 @@ function PatientSentLineNotesModalFr({
           <div className={cn("flex items-start justify-between gap-2 border-b px-3 py-2", productRequestTheme.modalHeader)}>
             <div className="min-w-0 flex-1">
               <h2 id={titleId} className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                <span className="block">Notes — produit</span>
+                <span className="block">{tNotes("lineNotes")}</span>
                 <span className="mt-1 block text-[13px] font-semibold normal-case leading-snug text-foreground">
                   {productName}
                 </span>
@@ -1267,7 +1269,7 @@ function PatientSentLineNotesModalFr({
             <button
               type="button"
               className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted/60"
-              aria-label="Fermer"
+              aria-label={tCommon("closeAria")}
               onClick={() => setOpen(false)}
             >
               <X className="size-4" aria-hidden />
@@ -1275,17 +1277,17 @@ function PatientSentLineNotesModalFr({
           </div>
           <div className="max-h-[min(60vh,16rem)] space-y-2 overflow-y-auto overscroll-y-contain px-3 py-2.5 text-[11px] [-webkit-overflow-scrolling:touch]">
             {!c && !p ? (
-              <p className="text-[11px] leading-snug text-muted-foreground">Aucune note sur ce produit.</p>
+              <p className="text-[11px] leading-snug text-muted-foreground">{tNotes("noNoteOnProduct")}</p>
             ) : null}
             {c ? (
               <div className="rounded-lg border border-sky-200/80 bg-sky-50/90 px-2.5 py-2">
-                <p className="text-[8px] font-bold uppercase tracking-wide text-sky-900">Vous</p>
+                <p className="text-[8px] font-bold uppercase tracking-wide text-sky-900">{tConversation("you")}</p>
                 <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-sky-950">{c}</p>
               </div>
             ) : null}
             {p ? (
               <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-2">
-                <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-900">Officine</p>
+                <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-900">{tConversation("pharmacy")}</p>
                 <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-emerald-950">{p}</p>
               </div>
             ) : null}
@@ -1296,7 +1298,7 @@ function PatientSentLineNotesModalFr({
               className="h-9 w-full rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
               onClick={() => setOpen(false)}
             >
-              Fermer
+              {tCommon("close")}
             </button>
           </div>
         </div>
@@ -1970,7 +1972,7 @@ export function PatientProductRequestActions({
       if (!options?.catalogExplorerPreview && !url?.trim()) return;
       setProductPhotoPreview({
         url: url?.trim() || null,
-        title: title.trim() || "Produit",
+        title: title.trim() || tCommon("product"),
         brand: brand ?? null,
         product_type: productType ?? null,
         descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
@@ -2103,7 +2105,8 @@ export function PatientProductRequestActions({
     setLines(
       computeResubmitLinesFromItems(
         visibleItemsForPatientBeforePharmacyResponse(items, status),
-        resolveItemCatalogPrice
+        resolveItemCatalogPrice,
+        confirmLineCopy.productFallback,
       )
     );
     setQuery("");
@@ -2734,16 +2737,17 @@ export function PatientProductRequestActions({
         missingPrice: totalsRetained.missingPrice,
         empty: totalsRetained.count < 1,
       }),
-    [totalsRetained]
+    [totalsRetained, compactTotalMadLabel]
   );
 
   const resubmitBaseline = useMemo(
     () =>
       computeResubmitLinesFromItems(
         visibleItemsForPatientBeforePharmacyResponse(items, status),
-        resolveItemCatalogPrice
+        resolveItemCatalogPrice,
+        confirmLineCopy.productFallback,
       ),
-    [items, status]
+    [items, status, resolveItemCatalogPrice, confirmLineCopy.productFallback]
   );
   const resubmitDirty = useMemo(() => {
     if (status !== "submitted" && status !== "in_review") return false;
@@ -2823,8 +2827,8 @@ export function PatientProductRequestActions({
   if (!interactiveAllowed && !readOnlyArchive) return null;
 
   const badgeDefaults = {
-    ordonnance: workflowCopy.pharmacistOrdonnanceLineBadge ?? "Ordonnance",
-    proposed: PRESCRIPTION_ADDITIONAL_PROPOSED_REASON,
+    ordonnance: workflowCopy.pharmacistOrdonnanceLineBadge ?? prescriptionCopy.principalBadge,
+    proposed: prescriptionCopy.pharmacyProposedProduct,
     officine: pharmacistProposedProductBadgeFr,
   };
   const badgeForRow = (row: ActionItemRow): string | undefined => {
@@ -3589,18 +3593,18 @@ export function PatientProductRequestActions({
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-foreground">
-                    Date de passage
+                    {tCommon("visitDateLabel")}
                   </p>
                   <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
                     {visitFieldsEditable
-                      ? "Indique quand tu prévois de passer à l'officine."
-                      : "Consultation seule — ce dossier n'accepte plus de modification."}
+                      ? tCommon("visitDateHint")
+                      : tCommon("readOnlyConsultationDossier")}
                   </p>
                 </div>
               </div>
             ) : (
               <div className="mx-auto max-w-md space-y-1">
-                <p className="text-xs font-bold text-foreground">Passage en officine</p>
+                <p className="text-xs font-bold text-foreground">{tCommon("visitAtPharmacy")}</p>
                 {isTreatedActiveView && treatedPassageLine ? (
                   <p className="text-[11px] font-semibold leading-snug text-foreground" role="status">
                     {treatedPassageLine}
@@ -3711,16 +3715,15 @@ export function PatientProductRequestActions({
           ) : (
             <section className="mt-2 rounded-xl border border-border bg-muted/25 px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
               {showConfirmedCards
-                ? "Après validation, les changements passent par votre pharmacie."
-                : "Les coordonnées de l’officine seront affichées ici lorsqu’elles sont disponibles."}
+                ? tCommon("afterValidationPharmacyChanges")
+                : tCommon("pharmacyContactPending")}
             </section>
           )
         ) : null}
 
         {showConfirmedCards && !showConfirm && usesLineWorkflowUi && !forceReadOnly ? (
           <p className="mt-3 rounded-lg border border-border bg-muted/20 px-2.5 py-2 text-[10px] leading-snug text-muted-foreground">
-            Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
-            <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
+            {tModal("conversationFabHint")}
           </p>
         ) : null}
 
@@ -4125,7 +4128,7 @@ export function PatientProductRequestActions({
                           <span
                             className={clsx(
                               "shrink-0 rounded px-1 py-px text-[8px] font-semibold uppercase",
-                              s.skipLabel === "Ordonnance" || s.skipLabel === "Produit proposé par la pharmacie"
+                              s.skipLabel === prescriptionCopy.principalBadge || s.skipLabel === prescriptionCopy.pharmacyProposedProduct
                                 ? "bg-amber-100 text-amber-950"
                                 : "bg-violet-100 text-violet-900"
                             )}
@@ -4242,29 +4245,36 @@ export function PatientProductRequestActions({
                 disabled={busyAction === "resubmit" || Boolean(detailStale)}
                 className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-40"
                 onClick={() => setResubmitConfirmOpen(false)}
-                aria-label="Fermer"
+                aria-label={tCommon("closeAria")}
               >
                 <X className="size-5" />
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 sm:px-4">
               {resubmitChanges.length === 0 ? (
-                <p className="text-xs leading-snug text-slate-600">Aucune modification détectée sur les produits.</p>
+                <p className="text-xs leading-snug text-slate-600">{tModal("resubmitNoChanges")}</p>
               ) : (
                 <>
                   <p className="text-xs leading-snug text-slate-600">
-                    {resubmitChanges.length} modification{resubmitChanges.length > 1 ? "s" : ""} — liste finale :{" "}
-                    {lines.length} produit{lines.length > 1 ? "s" : ""}.
+                    {resubmitChanges.length > 1
+                      ? tModal("resubmitSummaryPlural", {
+                          changes: resubmitChanges.length,
+                          lines: lines.length,
+                        })
+                      : tModal("resubmitSummary", {
+                          changes: resubmitChanges.length,
+                          lines: lines.length,
+                        })}
                   </p>
                   <ul className="mt-2 space-y-2">
                     {resubmitChanges.map((ch, idx) => {
                       const l = ch.line;
                       const badge =
                         ch.kind === "added"
-                          ? "Ajouté"
+                          ? tCommon("added")
                           : ch.kind === "removed"
-                            ? "Retiré"
-                            : "Modifié";
+                            ? tCommon("removed")
+                            : tCommon("modified");
                       return (
                         <li
                           key={`${l.product_id}-${ch.kind}-${idx}`}
@@ -4290,7 +4300,7 @@ export function PatientProductRequestActions({
                             </div>
                             {ch.kind === "modified" && ch.qtyBefore != null && ch.qtyAfter != null ? (
                               <p className="mt-0.5 text-[11px] text-slate-600">
-                                Qté <span className="tabular-nums line-through">{ch.qtyBefore}</span>
+                                {tModal("resubmitQty")} <span className="tabular-nums line-through">{ch.qtyBefore}</span>
                                 {" → "}
                                 <span className="font-bold tabular-nums text-slate-900">{ch.qtyAfter}</span>
                               </p>
@@ -4300,13 +4310,13 @@ export function PatientProductRequestActions({
                               </p>
                             ) : (
                               <p className="mt-0.5 text-[11px] text-slate-600">
-                                Qté précédente :{" "}
+                                {tModal("resubmitPreviousQty")}{" "}
                                 <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
                               </p>
                             )}
                             {ch.kind === "modified" && ch.commentBefore != null && ch.commentAfter != null ? (
                               <p className="mt-1 text-[10px] leading-snug text-slate-700">
-                                Note : « {ch.commentBefore || "—"} » → « {ch.commentAfter || "—"} »
+                                {tModal("resubmitNoteChange", { before: ch.commentBefore || "—", after: ch.commentAfter || "—" })}
                               </p>
                             ) : ch.kind !== "removed" && l.client_comment?.trim() ? (
                               <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-slate-700">

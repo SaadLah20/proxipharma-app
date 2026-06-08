@@ -94,4 +94,10 @@ export const commonAr = {
   next: "التالي",
   km: "{n} كم",
   meters: "{n} م",
+  callPharmacy: "الاتصال بالصيدلية",
+  sendSms: "إرسال SMS",
+  whatsappChat: "محادثة واتساب",
+  mailSubjectRequest: "طلب {ref}",
+  mailBodyHello: "مرحباً،\n\nبخصوص طلبي {ref} :\n\n",
+  defaultRequestKindLabel: "طلب",
 };

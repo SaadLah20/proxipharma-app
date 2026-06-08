@@ -49,6 +49,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const tList = useTranslations("hub.listChrome");
   const tAccount = useTranslations("account");
   const tCommon = useTranslations("common");
+  const tDemandes = useTranslations("demandes");
   const hubPath = kindConfig.routes.patientHubPath;
   const refPlaceholder =
     kindConfig.publicRefPrefix === "O" ? "Ex. O042/26" : kindConfig.publicRefPrefix === "C" ? "Ex. C042/26" : "Ex. D042/26";
@@ -172,10 +173,10 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     for (const r of rows) {
       if (m.has(r.pharmacy_id)) continue;
       const ph = one(r.pharmacies);
-      m.set(r.pharmacy_id, ph?.nom ? `${pharmacyPublicLabel(ph.nom)}${ph.ville ? ` (${ph.ville})` : ""}` : `Pharmacie ${r.pharmacy_id.slice(0, 8)}…`);
+      m.set(r.pharmacy_id, ph?.nom ? `${pharmacyPublicLabel(ph.nom)}${ph.ville ? ` (${ph.ville})` : ""}` : `${tDemandes("pharmacyFallback")} ${r.pharmacy_id.slice(0, 8)}…`);
     }
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], "fr"));
-  }, [rows]);
+  }, [rows, tDemandes]);
 
   const rowsWithDashboardStatus = useMemo(() => rows.map((r) => ({ ...r, status_for_dashboard: r.status })), [rows]);
 

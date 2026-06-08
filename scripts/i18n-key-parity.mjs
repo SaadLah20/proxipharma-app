@@ -182,6 +182,11 @@ function main() {
   console.log(`Hits: ${stringHits.length}`);
 
   if (missingInAr.length > 0 || (strictStrings && stringHits.length > 0)) {
+    if (strictStrings && stringHits.length > 0) {
+      for (const h of stringHits.slice(0, 30)) {
+        console.log(`  ${h.file}:${h.line} ${h.snippet}`);
+      }
+    }
     process.exitCode = 1;
     console.log("\nFAILED: fix key parity" + (strictStrings ? " and/or French strings" : "") + ".");
   } else {

@@ -95,4 +95,10 @@ export const commonFr = {
   next: "Suiv.",
   km: "{n} km",
   meters: "{n} m",
+  callPharmacy: "Appeler la pharmacie",
+  sendSms: "Envoyer un SMS",
+  whatsappChat: "Discuter sur WhatsApp",
+  mailSubjectRequest: "Demande {ref}",
+  mailBodyHello: "Bonjour,\n\nConcernant ma demande {ref} :\n\n",
+  defaultRequestKindLabel: "Demande",
 };
