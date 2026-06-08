@@ -8,6 +8,7 @@ import { PageShell } from "@/components/ui/compact-shell";
 import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
 import { PharmacistPromoReservationDossierHeader } from "@/components/promo/pharmacist-promo-reservation-dossier-header";
 import { PromoReservationHistoryPanel } from "@/components/promo/promo-reservation-history-panel";
+import { PromoOfferDescriptionPanel } from "@/components/promo/promo-offer-description-panel";
 import { PromoOfferPackSummary } from "@/components/promo/promo-offer-pack-summary";
 import { pharmacistPromoReservationDossierSectionShellClass } from "@/lib/pharmacist-promo-reservation-line-ui";
 import { fetchPromoOfferLines } from "@/lib/promo/load-offer-lines";
@@ -114,7 +115,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     pharmacist_note: string | null;
     public_ref: string | null;
     created_at: string;
-    offer: { title: string; discount_percent: number } | null;
+    offer: { title: string; discount_percent: number; description: string | null } | null;
     patient: {
       full_name: string | null;
       whatsapp: string | null;
@@ -150,7 +151,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     const { data, error: qErr } = await supabase
       .from("pharmacy_promo_reservations")
       .select(
-        "id,offer_id,patient_id,status,pickup_date,pickup_time,patient_note,pharmacist_note,public_ref,created_at,pharmacy_promo_offers(title,discount_percent)",
+        "id,offer_id,patient_id,status,pickup_date,pickup_time,patient_note,pharmacist_note,public_ref,created_at,pharmacy_promo_offers(title,description,discount_percent)",
       )
       .eq("id", reservationId)
       .eq("pharmacy_id", ctx.pharmacyId)
@@ -176,7 +177,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
         pharmacist_note: r.pharmacist_note as string | null,
         public_ref: r.public_ref as string | null,
         created_at: r.created_at as string,
-        offer: r.pharmacy_promo_offers as { title: string; discount_percent: number } | null,
+        offer: r.pharmacy_promo_offers as { title: string; discount_percent: number; description: string | null } | null,
         patient: patientContact,
       });
       setLines(await fetchPromoOfferLines(offerId));
@@ -370,6 +371,10 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
           <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             Contenu du pack réservé
           </p>
+          {row.offer?.title ? (
+            <p className="mt-1 text-sm font-semibold leading-snug text-foreground">{row.offer.title}</p>
+          ) : null}
+          <PromoOfferDescriptionPanel className="mt-2" description={row.offer?.description} />
           <div className="mt-3">
             <PromoOfferPackSummary
               lines={lines}
