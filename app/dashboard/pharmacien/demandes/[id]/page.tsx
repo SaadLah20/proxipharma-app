@@ -1916,8 +1916,9 @@ export default function PharmacienDemandeDetailPage() {
   const [supplySaveConfirmOpen, setSupplySaveConfirmOpen] = useState(false);
   const [supplySaveConfirmLines, setSupplySaveConfirmLines] = useState<string[]>([]);
   const [supplySaveConfirmNeedsChannel, setSupplySaveConfirmNeedsChannel] = useState(false);
-  const respondedEditBaselineRef = useRef<RespondedEditSnapshot | null>(null);
-  const prevRespondedEditMode = useRef(false);
+  const [respondedEditBaseline, setRespondedEditBaseline] = useState<RespondedEditSnapshot | null>(
+    null
+  );
   /** Statut sous lequel le brouillon courant a été construit : un changement (ex. responded → confirmed)
    *  reconstruit le brouillon à neuf au lieu de préserver des valeurs périmées (faux « modifications »). */
   const draftBuiltForStatusRef = useRef<string | null>(null);
@@ -2115,6 +2116,7 @@ export default function PharmacienDemandeDetailPage() {
     setRequest(r);
     if (r.status !== "responded") {
       setRespondedEditMode(false);
+      setRespondedEditBaseline(null);
       resetRespondedLineAltUi();
     }
     const { data: contactRpc, error: patErr } = await supabase.rpc("pharmacist_patient_contact_for_request", {
@@ -4269,6 +4271,7 @@ export default function PharmacienDemandeDetailPage() {
       if (h) throw new Error(h.message);
       dispatchRequestDetailRefresh(id);
       setRespondedEditMode(false);
+      setRespondedEditBaseline(null);
       resetRespondedLineAltUi();
       setRespondedSaveConfirmOpen(false);
       setRespondedSaveDiffLines([]);
@@ -4431,6 +4434,7 @@ export default function PharmacienDemandeDetailPage() {
       if (h2) throw new Error(h2.message);
       setError("");
       setRespondedEditMode(false);
+      setRespondedEditBaseline(null);
       resetRespondedLineAltUi();
       if (request.request_type === "free_consultation") {
         setConsultationTab("products");
@@ -4614,11 +4618,10 @@ export default function PharmacienDemandeDetailPage() {
 
   const respondedEditDirty = useMemo(() => {
     if (!respondedEditMode || request?.status !== "responded") return false;
-    const baseline = respondedEditBaselineRef.current;
-    if (!baseline) return false;
+    if (!respondedEditBaseline) return false;
     return (
       diffRespondedSnapshots(
-        baseline,
+        respondedEditBaseline,
         displayRows,
         draft,
         altQtyDrafts,
@@ -4631,6 +4634,7 @@ export default function PharmacienDemandeDetailPage() {
   }, [
     respondedEditMode,
     request?.status,
+    respondedEditBaseline,
     displayRows,
     draft,
     altQtyDrafts,
@@ -4666,32 +4670,6 @@ export default function PharmacienDemandeDetailPage() {
     if (!lineConvoRowId) return null;
     return lineEntriesForList.some((e) => e.row.id === lineConvoRowId) ? lineConvoRowId : null;
   }, [lineConvoRowId, lineEntriesForList]);
-
-  useLayoutEffect(() => {
-    if (respondedEditMode && request?.status === "responded" && !prevRespondedEditMode.current) {
-      respondedEditBaselineRef.current = takeRespondedEditSnapshot(
-        draft,
-        altQtyDrafts,
-        pendingProposalRows,
-        pendingAlternatives,
-        pendingDeletedAlternativeIds,
-        removedPersistedRespondedEditIds
-      );
-    }
-    if (!respondedEditMode) {
-      respondedEditBaselineRef.current = null;
-    }
-    prevRespondedEditMode.current = respondedEditMode;
-  }, [
-    respondedEditMode,
-    request?.status,
-    draft,
-    altQtyDrafts,
-    pendingProposalRows,
-    pendingAlternatives,
-    pendingDeletedAlternativeIds,
-    removedPersistedRespondedEditIds,
-  ]);
 
   const publishConfirmGroups = useMemo(() => {
     const all: PublishConfirmRowMeta[] = [];
@@ -4938,6 +4916,38 @@ export default function PharmacienDemandeDetailPage() {
       return next;
     });
   }, [items, request?.status, request?.request_type]);
+
+  const startRespondedEditMode = useCallback(() => {
+    resetDraftFromRows();
+    setPendingProposalRows([]);
+    setPendingAlternatives([]);
+    setPendingDeletedAlternativeIds([]);
+    const st = request?.status ?? null;
+    const rt = request?.request_type ?? undefined;
+    const nextDraft: Draft = {};
+    for (const row of items) {
+      nextDraft[row.id] = buildItemDraftFromRow(row, st, rt);
+    }
+    setRespondedEditBaseline(
+      takeRespondedEditSnapshot(
+        nextDraft,
+        altQtyDrafts,
+        [],
+        [],
+        [],
+        removedPersistedRespondedEditIds
+      )
+    );
+    setRespondedEditMode(true);
+    setError("");
+  }, [
+    resetDraftFromRows,
+    items,
+    request?.status,
+    request?.request_type,
+    altQtyDrafts,
+    removedPersistedRespondedEditIds,
+  ]);
 
   const cancelConfirmedSupplyEdits = useCallback(() => {
     resetDraftFromRows();
@@ -7518,12 +7528,7 @@ export default function PharmacienDemandeDetailPage() {
               <button
                 type="button"
                 onClick={() => {
-                  resetDraftFromRows();
-                  setPendingProposalRows([]);
-                  setPendingAlternatives([]);
-                  setPendingDeletedAlternativeIds([]);
-                  setRespondedEditMode(true);
-                  setError("");
+                  startRespondedEditMode();
                   window.setTimeout(() => {
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }, 0);
@@ -7546,12 +7551,7 @@ export default function PharmacienDemandeDetailPage() {
               <button
                 type="button"
                 onClick={() => {
-                  resetDraftFromRows();
-                  setPendingProposalRows([]);
-                  setPendingAlternatives([]);
-                  setPendingDeletedAlternativeIds([]);
-                  setRespondedEditMode(true);
-                  setError("");
+                  startRespondedEditMode();
                   window.setTimeout(() => {
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }, 0);
@@ -7646,6 +7646,7 @@ export default function PharmacienDemandeDetailPage() {
                   onClick={() => {
                     resetDraftFromRows();
                     setRespondedEditMode(false);
+                    setRespondedEditBaseline(null);
                     resetRespondedLineAltUi();
                     setPendingProposalRows([]);
                     setPendingAlternatives([]);
@@ -7661,7 +7662,7 @@ export default function PharmacienDemandeDetailPage() {
                   type="button"
                   disabled={busy || !respondedEditDirty}
                   onClick={() => {
-                    const b = respondedEditBaselineRef.current;
+                    const b = respondedEditBaseline;
                     if (!b) {
                       setError("Réouvrez « Modifier la réponse » puis réessayez.");
                       return;

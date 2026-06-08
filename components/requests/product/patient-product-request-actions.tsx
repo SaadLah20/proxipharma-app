@@ -41,6 +41,11 @@ import {
   uiActionBtnModalPrimary,
 } from "@/lib/ui-action-buttons";
 import { usePatientArchiveClosureLabel } from "@/lib/i18n/patient-archive-closure-label";
+import {
+  useCompactTotalMadLabel,
+  useGrandTotalMadLabel,
+  useSubtotalBlockMadLabel,
+} from "@/lib/i18n/use-compact-total-mad-label";
 import { usePatientDatetimeFormatters } from "@/lib/i18n/use-patient-datetime-formatters";
 import { usePatientLineCountLabel } from "@/lib/i18n/use-patient-line-count-label";
 import {
@@ -323,14 +328,6 @@ function monetaryTotalsForRetainedLines(
     else sumKnown += unit * qty;
   }
   return { count, sumKnown, missingPrice };
-}
-
-/** Libellé court sur une ligne (mobile). */
-function compactTotalMadLabel(t: { sumKnown: number; missingPrice: boolean; empty: boolean }): string {
-  if (t.empty) return "—";
-  if (t.missingPrice && t.sumKnown === 0) return "Total —";
-  if (t.missingPrice) return `Total · ${t.sumKnown.toFixed(2)} MAD · partiel`;
-  return `Total · ${t.sumKnown.toFixed(2)} MAD`;
 }
 
 /** Vignette validée — même gabarit que demande répondue (~62px). */
@@ -728,11 +725,12 @@ function resubmitLineFromDraftAndServer(
 
 function computeResubmitLinesFromItems(
   items: ActionItemRow[],
-  resolveCatalog?: (row: ActionItemRow) => number | null
+  resolveCatalog: ((row: ActionItemRow) => number | null) | undefined,
+  productFallback: string,
 ): ResubmitLine[] {
   return items.map((row) => ({
     product_id: row.product_id,
-    name: one(row.products)?.name ?? "Produit",
+    name: one(row.products)?.name ?? productFallback,
     brand: one(row.products)?.brand ?? null,
     product_type: one(row.products)?.product_type ?? null,
     photo_url: resolvePublicMediaUrl(one(row.products)?.photo_url ?? null),
@@ -803,12 +801,6 @@ function diffResubmitLines(baseline: ResubmitLine[], current: ResubmitLine[]): R
   return out;
 }
 
-function patientArchiveClosureLabelFr(row: ActionItemRow): string | null {
-  if ((row.counter_outcome ?? "unset") === "picked_up") return "Récupéré";
-  if (row.withdrawn_after_confirm) return "Retiré";
-  return null;
-}
-
 function validatedTierForClosedArchiveRow(row: ActionItemRow): "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation" {
   const { dispoOfficine, aCommander, horsPerimetre } = bucketPatientValidatedLinesThreeWays([row]);
   if (dispoOfficine.some((r) => r.id === row.id)) return "dispo_officine";
@@ -817,16 +809,14 @@ function validatedTierForClosedArchiveRow(row: ActionItemRow): "dispo_officine" 
   return row.withdrawn_after_confirm ? "retire_apres_validation" : "dispo_officine";
 }
 
-function archiveProductsFrozenSectionShell(title: string, children: ReactNode) {
+function archiveProductsFrozenSectionShell(title: string, frozenHint: string, children: ReactNode) {
   return (
     <section className="mt-4 w-full min-w-0 space-y-4 px-0">
       <div className="space-y-1">
         <h3 className="pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
           {title}
         </h3>
-        <p className="text-[10px] leading-snug text-muted-foreground">
-          État enregistré au moment de la clôture — consultation seule.
-        </p>
+        <p className="text-[10px] leading-snug text-muted-foreground">{frozenHint}</p>
       </div>
       {children}
     </section>
@@ -888,12 +878,16 @@ function PatientArchiveFrozenProductsView({
   ) => number | null;
 }) {
   const tCommon = useTranslations("common");
+  const tArchiveFooter = useTranslations("demandes.archive.footer");
   const archiveClosureLabel = usePatientArchiveClosureLabel();
+  const compactTotalMadLabel = useCompactTotalMadLabel();
+  const frozenHint = tArchiveFooter("frozenStateHint");
   const noop = () => {};
 
   if (snapshotStatus === "submitted" || snapshotStatus === "in_review") {
     return archiveProductsFrozenSectionShell(
       productsSectionTitle,
+      frozenHint,
       <ul className={patientBucketProductListClass}>
         {items.map((row) => {
           const prod = one(row.products);
@@ -937,6 +931,7 @@ function PatientArchiveFrozenProductsView({
     const respondedBuckets = bucketPatientRespondedLines(items, requestType, supplyAmendmentBundles);
     return archiveProductsFrozenSectionShell(
       productsSectionTitle,
+      frozenHint,
       <div className="w-full min-w-0 space-y-5">
         {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
           const rows = respondedBuckets[bucketId];
@@ -991,6 +986,7 @@ function PatientArchiveFrozenProductsView({
 
     return archiveProductsFrozenSectionShell(
       productsSectionTitle,
+      frozenHint,
       <>
         {PATIENT_CLOSED_ARCHIVE_BUCKET_ORDER.map((bucketId) => {
           const rows = closedBuckets[bucketId];
@@ -1056,7 +1052,8 @@ function PatientArchiveFrozenProductsView({
 
         {archiveRetainedTotalsFooter({
           count: pickedUpTotals.count,
-          countLabel: pickedUpTotals.count > 1 ? "produits récupérés" : "produit récupéré",
+          countLabel:
+          pickedUpTotals.count > 1 ? tCommon("productsPickedUp") : tCommon("productPickedUp"),
           totalLabel: compactTotalMadLabel({
             sumKnown: pickedUpTotals.sumKnown,
             missingPrice: pickedUpTotals.missingPrice,
@@ -1085,6 +1082,7 @@ function PatientArchiveFrozenProductsView({
 
   return archiveProductsFrozenSectionShell(
     productsSectionTitle,
+    frozenHint,
     <>
       {dispoRetenues.length > 0 ? (
         <PatientValidatedBucketSection
@@ -1105,7 +1103,7 @@ function PatientArchiveFrozenProductsView({
                 tier="dispo_officine"
                 onOpenHistory={() => onOpenLineHistory(row.id)}
                 requestStatusForCard={cardStatus}
-                archiveClosureLabel={patientArchiveClosureLabelFr(row)}
+                archiveClosureLabel={archiveClosureLabel(row)}
                 onPhotoPreview={onPhotoPreview}
                 pharmacistProposedBadgeLabel={badgeForRow(row) ?? pharmacistProposedBadgeLabel}
                 requestType={requestType}
@@ -1136,7 +1134,7 @@ function PatientArchiveFrozenProductsView({
                 tier="commande"
                 onOpenHistory={() => onOpenLineHistory(row.id)}
                 requestStatusForCard={cardStatus}
-                archiveClosureLabel={patientArchiveClosureLabelFr(row)}
+                archiveClosureLabel={archiveClosureLabel(row)}
                 onPhotoPreview={onPhotoPreview}
                 pharmacistProposedBadgeLabel={badgeForRow(row) ?? pharmacistProposedBadgeLabel}
                 requestType={requestType}
@@ -1158,7 +1156,7 @@ function PatientArchiveFrozenProductsView({
                 tier="hors_perimetre"
                 onOpenHistory={() => onOpenLineHistory(row.id)}
                 requestStatusForCard={cardStatus}
-                archiveClosureLabel={patientArchiveClosureLabelFr(row)}
+                archiveClosureLabel={archiveClosureLabel(row)}
                 onPhotoPreview={onPhotoPreview}
                 pharmacistProposedBadgeLabel={badgeForRow(row) ?? pharmacistProposedBadgeLabel}
                 requestType={requestType}
@@ -1185,7 +1183,7 @@ function PatientArchiveFrozenProductsView({
                 tier="retire_apres_validation"
                 onOpenHistory={() => onOpenLineHistory(row.id)}
                 requestStatusForCard={cardStatus}
-                archiveClosureLabel={patientArchiveClosureLabelFr(row)}
+                archiveClosureLabel={archiveClosureLabel(row)}
                 onPhotoPreview={onPhotoPreview}
                 pharmacistProposedBadgeLabel={badgeForRow(row) ?? pharmacistProposedBadgeLabel}
                 requestType={requestType}
@@ -1215,7 +1213,8 @@ function PatientArchiveFrozenProductsView({
 
       {archiveRetainedTotalsFooter({
         count: totalsRetained.count,
-        countLabel: totalsRetained.count > 1 ? "produits retenus" : "produit retenu",
+        countLabel:
+          totalsRetained.count > 1 ? tCommon("productsRetained") : tCommon("productRetained"),
         totalLabel: compactTotalMadLabel({
           sumKnown: totalsRetained.sumKnown,
           missingPrice: totalsRetained.missingPrice,
@@ -1497,68 +1496,6 @@ export function usePatientSummaryStatusCopy(requestType: string) {
   return { hint, detail, workflowCopy };
 }
 
-export function buildPatientSummaryStatusHint(
-  status: string,
-  requestType: string,
-  _workflow: ReturnType<typeof getRequestKindWorkflowCopy>
-): string {
-  if (status === "responded") return "Validez votre choix et votre date de passage.";
-  if (status === "confirmed") {
-    return requestType === "prescription"
-      ? "Préparation en cours selon l'ordonnance."
-      : "Préparation en cours à l'officine.";
-  }
-  if (status === "treated") return "Passez à l'officine pour retirer vos produits.";
-  if (status === "in_review") {
-    if (requestType === "free_consultation") return _workflow.patientWaitingInReviewHint;
-    return "L'officine examine votre demande.";
-  }
-  if (status === "submitted" && requestType === "free_consultation") {
-    return _workflow.patientWaitingSubmittedHint;
-  }
-  return "Demande envoyée — en attente de réponse.";
-}
-
-/** Détail affiché dans le modal (i) du bandeau dossier. */
-export function buildPatientSummaryStatusDetail(
-  status: string,
-  requestType: string,
-  workflow: ReturnType<typeof getRequestKindWorkflowCopy>
-): string | null {
-  if (status === "responded") {
-    return "Pour chaque produit : garder ou non, quantité, alternative éventuelle, puis date de passage et validation.";
-  }
-  if (status === "confirmed") {
-    return requestType === "prescription"
-      ? "La pharmacie prépare votre commande selon les produits saisis sur l'ordonnance. Les mises à jour restent visibles sur cette page."
-      : "Votre pharmacie prépare la commande (mise de côté et commandes fournisseur selon les produits). Les mises à jour restent visibles sur cette page.";
-  }
-  if (status === "treated") {
-    return "Vous pouvez passer à l'officine pour retirer les produits réservés et ceux commandés déjà reçus. Le suivi par produit est indiqué sur chaque carte.";
-  }
-  if (status === "in_review") return workflow.patientWaitingInReviewHint;
-  return workflow.patientWaitingSubmittedHint;
-}
-
-export function buildPatientLineCountLabel(
-  requestType: string,
-  status: string,
-  lineCount: number
-): string {
-  if (requestType === "prescription" && ["submitted", "in_review"].includes(status)) {
-    return "Scan envoyé";
-  }
-  if (requestType === "prescription" && lineCount > 0) {
-    return `${lineCount} produit${lineCount > 1 ? "s" : ""} saisi${lineCount > 1 ? "s" : ""}`;
-  }
-  if (requestType === "free_consultation") {
-    if (["submitted", "in_review"].includes(status)) return "Consultation envoyée";
-    if (lineCount > 0) return `${lineCount} produit${lineCount > 1 ? "s" : ""} proposé${lineCount > 1 ? "s" : ""}`;
-    return "Consultation";
-  }
-  return `${lineCount} ligne${lineCount > 1 ? "s" : ""}`;
-}
-
 function clampVisitYmd(ymd: string, minY: string, maxY: string): string {
   if (ymd < minY) return minY;
   if (ymd > maxY) return maxY;
@@ -1617,12 +1554,20 @@ type PatientConfirmReviewSnapshot = {
   visitSummaryFr: string;
 };
 
+type ConfirmLineCopy = {
+  productFallback: string;
+  alternativeFallback: string;
+  proposalLabel: string;
+  pharmacyProposedProduct: string;
+};
+
 function buildPatientConfirmSelection(
   items: ActionItemRow[],
   sel: Record<string, LineSelState>,
   requestType: string,
   amendmentBundles: { amendments: unknown }[],
   formatDateShort: (ymd: string | null | undefined) => string,
+  copy: ConfirmLineCopy,
 ): { rpcPayload: PatientConfirmRpcRow[]; preview: PatientConfirmPreviewLine[] } {
   const preview: PatientConfirmPreviewLine[] = [];
   const rpcPayload = items.map((row) => {
@@ -1646,7 +1591,7 @@ function buildPatientConfirmSelection(
       let productType: string | null = null;
 
       if (st.branch === "principal") {
-        productName = principalProd?.name ?? "Produit";
+        productName = principalProd?.name ?? copy.productFallback;
         brand = principalProd?.brand?.trim() || null;
         productType = principalProd?.product_type?.trim() || null;
         unitPrice = row.unit_price != null ? Number(row.unit_price) : null;
@@ -1675,7 +1620,7 @@ function buildPatientConfirmSelection(
       } else {
         const alt = alts.find((a) => a.id === st.branch);
         const altProd = alt ? one(alt.products) : null;
-        productName = altProd?.name ?? "Alternative";
+        productName = altProd?.name ?? copy.alternativeFallback;
         brand = altProd?.brand?.trim() || null;
         productType = altProd?.product_type?.trim() || null;
         unitPrice = alt?.unit_price != null ? Number(alt.unit_price) : null;
@@ -1738,7 +1683,8 @@ function buildNonRetainedConfirmLines(
   items: ActionItemRow[],
   sel: Record<string, LineSelState>,
   requestType: string,
-  amendmentBundles: { amendments: unknown }[]
+  amendmentBundles: { amendments: unknown }[],
+  copy: ConfirmLineCopy,
 ): PatientConfirmSkippedLine[] {
   const out: PatientConfirmSkippedLine[] = [];
   for (const row of items) {
@@ -1752,12 +1698,12 @@ function buildNonRetainedConfirmLines(
         isRxProp && isPrescriptionAdditionalProposedLine(requestType, row, amendmentBundles);
       out.push({
         rowId: row.id,
-        productName: one(row.products)?.name ?? "Produit",
+        productName: one(row.products)?.name ?? copy.productFallback,
         isProposed: isExtra || (row.line_source === "pharmacist_proposed" && requestType !== "prescription"),
         skipLabel: isRxProp
-          ? PRESCRIPTION_ADDITIONAL_PROPOSED_REASON
+          ? copy.pharmacyProposedProduct
           : row.line_source === "pharmacist_proposed"
-            ? "Proposition"
+            ? copy.proposalLabel
             : null,
       });
     }
@@ -1780,7 +1726,7 @@ function validatePatientConfirmBeforeReview(
   visitWin: ReturnType<typeof plannedVisitWindow>,
   resolvedVisitDate: string,
   visitDateRaw: string,
-  copy: PatientConfirmValidationCopy,
+  copy: PatientConfirmValidationCopy & Pick<ConfirmLineCopy, "productFallback" | "alternativeFallback">,
   formatMaxVisitDate: (ymd: string) => string
 ): string | null {
   const anyOn = rpcPayload.some((p) => p.is_selected);
@@ -1797,7 +1743,9 @@ function validatePatientConfirmBeforeReview(
     if (effQty > cap) {
       const alt = st.branch !== "principal" ? alts.find((a) => a.id === st.branch) : null;
       const label =
-        st.branch === "principal" ? (one(row.products)?.name ?? "Produit") : (one(alt?.products)?.name ?? "Alternative");
+        st.branch === "principal"
+          ? (one(row.products)?.name ?? copy.productFallback)
+          : (one(alt?.products)?.name ?? copy.alternativeFallback);
       return copy.qtyExceedsMax(label, cap);
     }
   }
@@ -1823,22 +1771,6 @@ function blockMonetarySummary(lines: PatientConfirmPreviewLine[]): { sumKnown: n
     else sumKnown += L.lineTotalMad;
   }
   return { sumKnown, missingUnitPrice };
-}
-
-function formatBlockSubtotalLabel(lines: PatientConfirmPreviewLine[]): string {
-  const { sumKnown, missingUnitPrice } = blockMonetarySummary(lines);
-  if (lines.length === 0) return "";
-  if (missingUnitPrice && sumKnown === 0) return "Sous-total du bloc — prix non communiqué sur une ou plusieurs lignes";
-  if (missingUnitPrice) return `Sous-total du bloc (partiel) · ${sumKnown.toFixed(2)} MAD · certaines lignes sans prix unitaire`;
-  return `Sous-total du bloc · ${sumKnown.toFixed(2)} MAD`;
-}
-
-function formatGrandTotalLabel(all: PatientConfirmPreviewLine[]): string {
-  const { sumKnown, missingUnitPrice } = blockMonetarySummary(all);
-  if (all.length === 0) return "";
-  if (missingUnitPrice && sumKnown === 0) return "TOTAL: — (prix incomplet)";
-  if (missingUnitPrice) return `TOTAL: ${sumKnown.toFixed(2)} MAD (partiel)`;
-  return `TOTAL: ${sumKnown.toFixed(2)} MAD`;
 }
 
 function PatientConfirmReviewLineCard({
@@ -1925,10 +1857,33 @@ export function PatientProductRequestActions({
   const tCommon = useTranslations("common");
   const tDemandes = useTranslations("demandes");
   const tValidation = useTranslations("demandes.validation");
+  const tModal = useTranslations("demandes.modal");
   const dt = usePatientDatetimeFormatters();
   const lineCountLabel = usePatientLineCountLabel();
   const phaseLabels = useTimelinePhaseLabels();
   const prescriptionCopy = usePrescriptionUiCopy();
+  const compactTotalMadLabel = useCompactTotalMadLabel();
+  const subtotalBlockMadLabel = useSubtotalBlockMadLabel();
+  const grandTotalMadLabel = useGrandTotalMadLabel();
+
+  const confirmLineCopy = useMemo<ConfirmLineCopy>(
+    () => ({
+      productFallback: tCommon("product"),
+      alternativeFallback: tCommon("alternative"),
+      proposalLabel: tCommon("proposal"),
+      pharmacyProposedProduct: prescriptionCopy.pharmacyProposedProduct,
+    }),
+    [tCommon, prescriptionCopy.pharmacyProposedProduct],
+  );
+
+  const formatBlockSubtotalLabel = useCallback(
+    (lines: PatientConfirmPreviewLine[]) => {
+      if (lines.length === 0) return "";
+      const { sumKnown, missingUnitPrice } = blockMonetarySummary(lines);
+      return subtotalBlockMadLabel(sumKnown, missingUnitPrice);
+    },
+    [subtotalBlockMadLabel],
+  );
 
   const formatMaxVisitDate = useCallback((ymd: string) => dt.formatDateShort(ymd), [dt]);
 
@@ -2061,7 +2016,10 @@ export function PatientProductRequestActions({
   const [hits, setHits] = useState<ProductHit[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [confirmedRevalidationMode, setConfirmedRevalidationMode] = useState(false);
-  const confirmedRevalidationBaselineRef = useRef<Record<string, LineSelState> | null>(null);
+  const [confirmedRevalidationBaseline, setConfirmedRevalidationBaseline] = useState<Record<
+    string,
+    LineSelState
+  > | null>(null);
   const [confirmReviewMode, setConfirmReviewMode] = useState<"initial" | "revalidation">("initial");
   const [resubmitConfirmOpen, setResubmitConfirmOpen] = useState(false);
   const [shouldRestoreFromCatalogue] = useState(() =>
@@ -2073,9 +2031,10 @@ export function PatientProductRequestActions({
     () =>
       computeResubmitLinesFromItems(
         visibleItemsForPatientBeforePharmacyResponse(items, status),
-        resolveItemCatalogPrice
+        resolveItemCatalogPrice,
+        confirmLineCopy.productFallback,
       ),
-    [items, status, resolveItemCatalogPrice]
+    [items, status, resolveItemCatalogPrice, confirmLineCopy.productFallback]
   );
   const linesSyncKey = editMode
     ? "edit"
@@ -2458,7 +2417,14 @@ export function PatientProductRequestActions({
 
   const openConfirmReview = useCallback(() => {
     setConfirmReviewMode("initial");
-    const built = buildPatientConfirmSelection(items, sel, requestType, supplyAmendmentBundles, dt.formatDateShort);
+    const built = buildPatientConfirmSelection(
+      items,
+      sel,
+      requestType,
+      supplyAmendmentBundles,
+      dt.formatDateShort,
+      confirmLineCopy,
+    );
     const err = validatePatientConfirmBeforeReview(
       items,
       sel,
@@ -2466,7 +2432,7 @@ export function PatientProductRequestActions({
       visitWin,
       resolvedVisitDate,
       visitDate,
-      validationCopy,
+      { ...validationCopy, ...confirmLineCopy },
       formatMaxVisitDate
     );
     if (err) {
@@ -2475,7 +2441,13 @@ export function PatientProductRequestActions({
     }
     setActionError("");
     const timePg = htmlTimeToPg(visitTimeComposed);
-    const skippedLines = buildNonRetainedConfirmLines(items, sel, requestType, supplyAmendmentBundles);
+    const skippedLines = buildNonRetainedConfirmLines(
+      items,
+      sel,
+      requestType,
+      supplyAmendmentBundles,
+      confirmLineCopy,
+    );
     setConfirmReviewSnap({
       rpcPayload: built.rpcPayload,
       preview: built.preview,
@@ -2504,7 +2476,14 @@ export function PatientProductRequestActions({
       return;
     }
     setConfirmReviewMode("revalidation");
-    const built = buildPatientConfirmSelection(items, sel, requestType, supplyAmendmentBundles, dt.formatDateShort);
+    const built = buildPatientConfirmSelection(
+      items,
+      sel,
+      requestType,
+      supplyAmendmentBundles,
+      dt.formatDateShort,
+      confirmLineCopy,
+    );
     const err = validatePatientConfirmBeforeReview(
       items,
       sel,
@@ -2512,7 +2491,7 @@ export function PatientProductRequestActions({
       visitWin,
       resolvedVisitDate,
       resolvedVisitDate,
-      validationCopy,
+      { ...validationCopy, ...confirmLineCopy },
       formatMaxVisitDate
     );
     if (err) {
@@ -2520,7 +2499,13 @@ export function PatientProductRequestActions({
       return;
     }
     setActionError("");
-    const skippedLines = buildNonRetainedConfirmLines(items, sel, requestType, supplyAmendmentBundles);
+    const skippedLines = buildNonRetainedConfirmLines(
+      items,
+      sel,
+      requestType,
+      supplyAmendmentBundles,
+      confirmLineCopy,
+    );
     setConfirmReviewSnap({
       rpcPayload: built.rpcPayload,
       preview: built.preview,
@@ -2549,7 +2534,7 @@ export function PatientProductRequestActions({
       return;
     }
     const baseline = computeSelFromConfirmedItems(items);
-    confirmedRevalidationBaselineRef.current = baseline;
+    setConfirmedRevalidationBaseline(baseline);
     setConfirmedRevalidationMode(true);
     setSel(baseline);
     setActionError("");
@@ -2557,17 +2542,16 @@ export function PatientProductRequestActions({
 
   const cancelConfirmedRevalidation = useCallback(() => {
     setConfirmedRevalidationMode(false);
-    confirmedRevalidationBaselineRef.current = null;
+    setConfirmedRevalidationBaseline(null);
     setSel(computeSelFromConfirmedItems(items));
     setActionError("");
   }, [items]);
 
   const confirmedRevalidationDirty = useMemo(() => {
     if (!confirmedRevalidationMode) return false;
-    const baseline = confirmedRevalidationBaselineRef.current;
-    if (!baseline) return false;
-    return !lineSelMapsEqual(sel, baseline);
-  }, [confirmedRevalidationMode, sel]);
+    if (!confirmedRevalidationBaseline) return false;
+    return !lineSelMapsEqual(sel, confirmedRevalidationBaseline);
+  }, [confirmedRevalidationMode, confirmedRevalidationBaseline, sel]);
 
   useEffect(() => {
     if (!confirmReviewOpen) return;
@@ -2619,7 +2603,7 @@ export function PatientProductRequestActions({
     }
     closeConfirmReview();
     setConfirmedRevalidationMode(false);
-    confirmedRevalidationBaselineRef.current = null;
+    setConfirmedRevalidationBaseline(null);
     await onReload();
   };
 
