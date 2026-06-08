@@ -1,11 +1,11 @@
 ================================================================================
-PROXIPHARM — PROMPTS POUR OUTIL IA DE DESIGN / MOODBOARD / RÉFÉRENCES UI
+PHARMETO — PROMPTS POUR OUTIL IA DE DESIGN / MOODBOARD / RÉFÉRENCES UI
 Usage : copier-coller chaque bloc dans votre outil (Figma IA, Galileo, Uizard,
 Midjourney pour mood uniquement, etc.). Adapter si l’outil exige une langue ou
 un format (ratio, plat / perspective).
 Contexte produit : plateforme pharma Maroc — mobile-first — arabe / français —
 réduction de friction — confiance santé sans aspect clinique froid — proximité quartier.
-Marque exemple : proxipharma.ma (non définitive) — palettes à proposer dans les sorties.
+Marque : Pharmeto — pharmeto.ma — palette primaire teal #0d9488 (pilote).
 
 ================================================================================
 0) PROMPT RACINE (“DESIGN LANGUAGE”) — À LANCER EN PREMIER
@@ -28,7 +28,7 @@ et une matrice tokens type design system léger pour dev (noms FR optionnels).
 ================================================================================
 Design d’un bandeau fixe top mobile : logo texte discret, menu hamburger ou onglets
 selon rôle, icône notifications avec pastille, avatar ou initiales. Sur desktop :
-barre plus large avec mêmes éléments. Style ProxiPharma — confiance locale — CTA
+barre plus large avec mêmes éléments. Style Pharmeto — confiance locale — CTA
 secondaire “mon espace”. États : scroll compressé ; notification non lues ; RTL
 avec miroitement logique sans casser UX.
 
@@ -205,7 +205,7 @@ style back-office calme santé réglementaire implication soft.
 ================================================================================
 20) PROMPT “SYNTHÈSE LIVRAISON” À FAIRE GÉNÉRER ENSUITE À PARTIR DES SORTIES IA
 ================================================================================
-À partir des références précédentes, produis une fiche concise “Guidelines Proxipharma
+À partir des références précédentes, produis une fiche concise “Guidelines Pharmeto
 relook final” fusionnée : grille 8 px, rayon unique, palettes finales codées HEX,
 liste composants nécessitant variant dark optionnel RTL, exemple couverture onboarding
 avec capture fictive téléphone Morocco city subtle background blur medical abstract.

@@ -26,7 +26,7 @@ export const authFr = {
     otpVerifiedPassword: "Numéro vérifié. Choisissez un nouveau mot de passe (au moins 6 caractères).",
     passwordDone: "Mot de passe mis à jour. Redirection…",
     phoneNotFound:
-      "Aucun compte n'est associé à ce numéro. Vérifiez le numéro ou contactez votre administrateur ProxiPharma.",
+      "Aucun compte n'est associé à ce numéro. Vérifiez le numéro ou contactez votre administrateur Pharmeto.",
   },
   callback: {
     linkExpired:

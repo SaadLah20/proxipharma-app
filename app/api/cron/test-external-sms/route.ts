@@ -3,14 +3,14 @@ import { assertCronAuthorized, sendSmsViaTwilio } from "@/lib/external-notificat
 /**
  * Test d’envoi SMS hors file (diagnostic Twilio).
  * POST + Authorization: Bearer CRON_SECRET
- * Body JSON optionnel : { "to": "+212...", "text": "Test ProxiPharma" }
+ * Body JSON optionnel : { "to": "+212...", "text": "Test Pharmeto" }
  */
 async function handle(req: Request) {
   const denied = assertCronAuthorized(req);
   if (denied) return denied;
 
   let to = process.env.SMS_TEST_TO?.trim() ?? "";
-  let text = "Test ProxiPharma — notification SMS (hors file).";
+  let text = "Test Pharmeto — notification SMS (hors file).";
 
   if (req.method === "POST") {
     try {

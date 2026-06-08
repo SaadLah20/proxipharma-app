@@ -38,7 +38,8 @@ export const annuaireAr = {
     privacy: "سياسة الخصوصية",
     dataProcessing: "معالجة البيانات الشخصية",
     pharmacistSignup: "انضم كصيدلي",
-    legalPending: "© {year} ProxiPharma — الصفحات القانونية قريباً",
+    brand: "Pharmeto",
+    legalPending: "© {year} Pharmeto — الصفحات القانونية قريباً",
   },
   pagination: {
     ariaLabel: "ترقيم صفحات الدليل",

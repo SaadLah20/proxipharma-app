@@ -121,16 +121,16 @@ export function patientArchiveIntroCopy(
       return cons
         ? {
             title: "Archive — consultation sans suite",
-            lede: "Plus d’actions sur ProxiPharma. Message, photos et échanges restent consultables.",
+            lede: "Plus d’actions sur Pharmeto. Message, photos et échanges restent consultables.",
           }
         : ord
         ? {
             title: "Archive — ordonnance sans suite",
-            lede: "Plus d’actions sur ProxiPharma. Scan, produits saisis et messages restent consultables.",
+            lede: "Plus d’actions sur Pharmeto. Scan, produits saisis et messages restent consultables.",
           }
         : {
             title: "Archive — dossier abandonné",
-            lede: "Plus d’actions possibles sur ProxiPharma. Les lignes et messages restent consultables en lecture seule.",
+            lede: "Plus d’actions possibles sur Pharmeto. Les lignes et messages restent consultables en lecture seule.",
           };
     case "expired":
       return cons
@@ -200,7 +200,7 @@ export function patientOutcomeStatusFooter(
     case "abandoned":
       return ord
         ? "Vous avez mis fin au parcours pour cette ordonnance. Le scan et les échanges restent consultables ci-dessous."
-        : "Vous avez mis fin au parcours sur ProxiPharma pour ce dossier. Les échanges restent consultables ci-dessous.";
+        : "Vous avez mis fin au parcours sur Pharmeto pour ce dossier. Les échanges restent consultables ci-dessous.";
     case "expired":
       return ord
         ? "Sans validation de votre part dans le délai prévu, l’ordonnance s’est fermée. Envoyez une nouvelle ordonnance depuis l’annuaire si besoin."

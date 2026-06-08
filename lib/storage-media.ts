@@ -1,5 +1,5 @@
 /**
- * Conventions stockage ProxiPharma (Supabase Storage).
+ * Conventions stockage Pharmeto (Supabase Storage).
  * Buckets + chemins stables : même code en Free et en Pro.
  *
  * | Catégorie              | Bucket          | Préfixe chemin                    |

@@ -447,7 +447,7 @@ export const accountFr = {
   accountSession: "Compte et session",
   accountSessionSubtitle: "Déconnexion ou suppression définitive",
   logoutTitle: "Déconnexion",
-  logoutHint: "Quitter ProxiPharma sur cet appareil sans supprimer vos données.",
+  logoutHint: "Quitter Pharmeto sur cet appareil sans supprimer vos données.",
   logout: "Se déconnecter",
   deleteTitle: "Supprimer mon compte",
   deleteHint:
@@ -530,9 +530,9 @@ export const accountFr = {
     introPatientSettings:
       "E-mail : mêmes alertes que dans l'app si votre profil a une adresse. SMS : réponse officine, rappel avant expiration, dossier traité, produit reçu ou de nouveau disponible, dossier expiré — si votre numéro est renseigné.",
     introPatientDefault:
-      "En plus des notifications dans ProxiPharma, vous pouvez activer l'e-mail (mêmes alertes que dans l'app) ou le SMS pour les étapes importantes de vos dossiers : réponse pharmacie, rappel de validation, préparation terminée, produit reçu, rupture disponible, expiration — lorsque votre profil contient une adresse e-mail ou un numéro mobile (champ WhatsApp, format international).",
+      "En plus des notifications dans Pharmeto, vous pouvez activer l'e-mail (mêmes alertes que dans l'app) ou le SMS pour les étapes importantes de vos dossiers : réponse pharmacie, rappel de validation, préparation terminée, produit reçu, rupture disponible, expiration — lorsque votre profil contient une adresse e-mail ou un numéro mobile (champ WhatsApp, format international).",
     introPharmacist:
-      "En plus des notifications dans ProxiPharma, vous pouvez activer l'envoi par e-mail (mêmes alertes que dans l'app) lorsque votre profil contient une adresse e-mail. Les SMS automatiques sont réservés aux patients.",
+      "En plus des notifications dans Pharmeto, vous pouvez activer l'envoi par e-mail (mêmes alertes que dans l'app) lorsque votre profil contient une adresse e-mail. Les SMS automatiques sont réservés aux patients.",
     whatsappLater:
       " WhatsApp automatique arrive plus tard ; les liens manuels sur la fiche officine restent disponibles.",
     email: "E-mail",

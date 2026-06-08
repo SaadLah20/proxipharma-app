@@ -118,7 +118,7 @@ export function AdminOnboardPharmacyForm({ onCreated }: Props) {
   const copyCredentials = async () => {
     if (!result) return;
     const text = [
-      `ProxiPharma — accès officine`,
+      `Pharmeto — accès officine`,
       `Téléphone : ${result.pharmacist_phone_e164}`,
       `Mot de passe provisoire : ${result.provisional_password}`,
       `Connexion : ${typeof window !== "undefined" ? window.location.origin : ""}/auth`,

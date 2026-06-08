@@ -320,9 +320,9 @@ export function AnnuairePage() {
 
   return (
     <div className="flex flex-col bg-muted/20">
-      <section className="relative border-b border-border/80 bg-gradient-to-b from-primary/[0.07] via-card to-muted/30">
+      <section className="relative border-b border-border/80 bg-gradient-to-b from-primary/[0.08] via-card to-muted/30">
         <div
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(16,185,129,0.08),transparent_55%)]"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(13,148,136,0.1),transparent_55%)]"
           aria-hidden
         />
         <div className="relative mx-auto max-w-5xl px-4 py-3.5 sm:px-5 sm:py-4">
