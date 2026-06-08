@@ -440,7 +440,7 @@ export const accountFr = {
   externalAlerts: "Alertes hors application",
   help: "Aide",
   helpSubtitle: "Parcourir et comprendre le pilote",
-  directoryLink: "Annuaire des pharmacies",
+  directoryLink: "Annuaire interactif des pharmacies",
   helpHint:
     "Envoyez une demande depuis la fiche d'une officine, suivez les réponses dans Mes demandes, validez sous 24 h après la réponse pharmacie.",
   myRequests: "Mes demandes",

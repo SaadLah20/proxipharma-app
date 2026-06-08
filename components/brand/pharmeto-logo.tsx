@@ -29,7 +29,7 @@ export function PharmetoLogo({
     return (
       <span
         className={cn("font-bold tracking-tight text-foreground", className)}
-        style={{ fontSize: Math.round(height * 0.5) }}
+        style={{ fontSize: Math.round(height * 0.53) }}
       >
         Pharmeto
       </span>
@@ -52,7 +52,7 @@ export function PharmetoLogo({
   }
 
   return (
-    <span className={cn("inline-flex min-w-0 items-center gap-2", className)}>
+    <span className={cn("inline-flex min-w-0 items-center gap-2.5", className)}>
       <Image
         src={ICON_SRC}
         alt=""
@@ -65,7 +65,7 @@ export function PharmetoLogo({
       />
       <span
         className="truncate font-bold tracking-tight text-foreground"
-        style={{ fontSize: Math.round(height * 0.5) }}
+        style={{ fontSize: Math.round(height * 0.53) }}
       >
         Pharmeto
       </span>

@@ -524,7 +524,7 @@ export function PharmacistSettingsPage() {
           <li>
             <Link href="/" className={clsx("inline-flex items-center gap-1.5", p.linkInline)}>
               <MapPin className="size-3.5" aria-hidden />
-              Annuaire des pharmacies
+              Annuaire interactif des pharmacies
             </Link>
           </li>
         </ul>

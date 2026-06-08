@@ -429,7 +429,7 @@ export const accountAr = {
   externalAlerts: "تنبيهات خارج التطبيق",
   help: "مساعدة",
   helpSubtitle: "استكشاف وفهم النسخة التجريبية",
-  directoryLink: "دليل الصيدليات",
+  directoryLink: "دليل الصيدليات التفاعلي",
   helpHint: "أرسل طلباً من صفحة صيدلية، تابع الردود في طلباتي، أكّد خلال 24 ساعة بعد رد الصيدلية.",
   myRequests: "طلباتي",
   accountSession: "الحساب والجلسة",
