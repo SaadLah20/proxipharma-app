@@ -121,7 +121,9 @@ import {
 import { PageShell } from "@/components/ui/compact-shell";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { PolishedOptionPicker } from "@/components/ui/polished-option-picker";
+import { DossierEditModeIndicator } from "@/components/requests/dossier-edit-mode-indicator";
 import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
+import { dossierEditModeShellClass } from "@/lib/dossier-edit-mode-ui";
 import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
 import { consultationConversationMinHeightStyle } from "@/lib/platform-sticky-footer";
 import {
@@ -5123,6 +5125,18 @@ export default function PharmacienDemandeDetailPage() {
 
   const supplyInlineTone = isProductRequest ? "sky" : isPrescription ? "amber" : isConsultation ? "violet" : "sky";
 
+  const pharmaDossierEditActive = Boolean(
+    usesLineWorkflow &&
+      ((respondedEditMode && request.status === "responded") || showSupplyDirtyBar),
+  );
+
+  const pharmaDossierEditTone = respondedEditMode && request.status === "responded" ? "amber" : supplyInlineTone;
+
+  const pharmaEditBannerHint =
+    respondedEditMode && request.status === "responded" && !hideMainRequestHeader
+      ? "Visible patient après enregistrement. Enregistrez ou annulez en bas de la page."
+      : "Enregistrez ou annulez en bas de la page.";
+
   const stickyFooterObscured =
     publishConfirmOpen ||
     respondedSaveConfirmOpen ||
@@ -5151,6 +5165,7 @@ export default function PharmacienDemandeDetailPage() {
       <PharmacistProductRequestDossierShell
         active={(isProductRequest || isPrescription || isConsultation) && hideMainRequestHeader && !showConsultationTabbed}
         sectionShellClass={pharmacistDossierSectionShellClass}
+        className={pharmaDossierEditActive ? dossierEditModeShellClass(pharmaDossierEditTone) : undefined}
       >
         {showConsultationTabbed ? (
           <div
@@ -5444,23 +5459,14 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      {respondedEditMode && request?.status === "responded" && usesLineWorkflow ? (
-        <section
-          id="pharma-demande-mode-edition"
-          className={clsx(
-            "sticky top-0 z-20 text-center text-[10px] shadow-sm",
-            hideMainRequestHeader
-              ? clsx(PHARMA_STATUS_BANNER, "text-foreground")
-              : "rounded-lg border border-amber-300/80 bg-amber-50/90 px-2.5 py-1.5 ring-1 ring-amber-200/50"
-          )}
-        >
-          <p className={clsx("font-bold", hideMainRequestHeader ? "text-foreground" : "text-amber-950")}>
-            Modification en cours
-          </p>
-          {!hideMainRequestHeader ? (
-            <p className="text-amber-900/85">Visible patient après enregistrement.</p>
-          ) : null}
-        </section>
+      {pharmaDossierEditActive ? (
+        <DossierEditModeIndicator
+          active
+          tone={pharmaDossierEditTone}
+          title="Modification en cours"
+          hint={pharmaEditBannerHint}
+          sticky
+        />
       ) : null}
 
       {respondedFrozenView && usesLineWorkflow && !hideMainRequestHeader ? (
@@ -7604,7 +7610,7 @@ export default function PharmacienDemandeDetailPage() {
           ) : null}
 
           {canManageResponded && respondedEditMode && !stickyFooterObscured ? (
-            <DossierInlineActionPanel tone="amber" className="mt-4">
+            <DossierInlineActionPanel tone="amber" editing editingLabel="Enregistrement" className="mt-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
                 <button
                   type="button"
@@ -7655,7 +7661,12 @@ export default function PharmacienDemandeDetailPage() {
           ) : null}
 
           {showMainSupplyFooter && !stickyFooterObscured ? (
-            <DossierInlineActionPanel tone={supplyInlineTone} className="mt-4 space-y-3">
+            <DossierInlineActionPanel
+              tone={supplyInlineTone}
+              editing={showSupplyDirtyBar}
+              editingLabel="Enregistrement"
+              className="mt-4 space-y-3"
+            >
               {showSupplyStatsFooter ? (
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-foreground">
                   <span className="shrink-0 font-semibold tabular-nums text-muted-foreground">

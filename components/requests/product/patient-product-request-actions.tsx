@@ -72,7 +72,10 @@ import { PatientRespondedBucketSection } from "@/components/requests/product/pat
 import { PatientValidatedBucketSection } from "@/components/requests/product/patient-validated-bucket-section";
 import { PatientClosedArchiveBucketSection } from "@/components/requests/product/patient-closed-archive-bucket-section";
 import { PatientArchiveCollapsibleSection } from "@/components/requests/product/patient-archive-collapsible-section";
+import { DossierEditModeIndicator } from "@/components/requests/dossier-edit-mode-indicator";
 import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
+import { dossierEditModeShellClass } from "@/lib/dossier-edit-mode-ui";
+import type { StickyFooterTone } from "@/lib/platform-sticky-footer";
 import {
   bucketPatientValidatedLinesThreeWays,
   type PatientLineLike,
@@ -2952,6 +2955,19 @@ export function PatientProductRequestActions({
     exitModalOpen ||
     historyModalItemId !== null;
 
+  const dossierEditActive =
+    !forceReadOnly &&
+    ((showProductResubmit && editMode) ||
+      (showPrescriptionWaiting && prescriptionEditMode) ||
+      (showConfirmedCards && confirmedRevalidationMode));
+
+  const dossierEditTone: StickyFooterTone =
+    showPrescriptionWaiting && prescriptionEditMode
+      ? "amber"
+      : showConfirmedCards && confirmedRevalidationMode
+        ? "sky"
+        : "slate";
+
   return (
     <>
     <section
@@ -2963,9 +2979,21 @@ export function PatientProductRequestActions({
           : useArchiveShell
             ? "mt-2 border-0 bg-transparent p-0 shadow-none ring-0"
             : "border-slate-200 bg-slate-50/95",
-        isConsultation && showConsultationWaiting && "pb-2"
+        isConsultation && showConsultationWaiting && "pb-2",
+        dossierEditActive && dossierEditModeShellClass(dossierEditTone),
       )}
     >
+      {dossierEditActive ? (
+        <DossierEditModeIndicator
+          active
+          tone={dossierEditTone}
+          title={tCommon("editModeBannerTitle")}
+          hint={tCommon("editModeBannerHint")}
+          className="mb-2.5"
+          sticky
+        />
+      ) : null}
+
       {actionError ? (
         <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{actionError}</p>
       ) : null}
@@ -3647,6 +3675,8 @@ export function PatientProductRequestActions({
         {showProductResubmit && !stickyFooterObscured ? (
           <DossierInlineActionPanel
             tone="slate"
+            editing={editMode}
+            editingLabel={tCommon("editModePanelLabel")}
             summaryLeft={
               <>
                 <span className="font-bold tabular-nums text-foreground">{lines.length}</span>{" "}
@@ -3707,7 +3737,11 @@ export function PatientProductRequestActions({
         ) : null}
 
         {showPrescriptionWaiting && !forceReadOnly && !stickyFooterObscured ? (
-          <DossierInlineActionPanel tone="amber">
+          <DossierInlineActionPanel
+            tone="amber"
+            editing={prescriptionEditMode}
+            editingLabel={tCommon("editModePanelLabel")}
+          >
             {!prescriptionEditMode ? (
               <div className="flex flex-col gap-2">
                 <button
@@ -3779,7 +3813,9 @@ export function PatientProductRequestActions({
 
         {showConfirmedCards && !forceReadOnly && !stickyFooterObscured ? (
           <DossierInlineActionPanel
-            tone="slate"
+            tone={confirmedRevalidationMode ? "sky" : "slate"}
+            editing={confirmedRevalidationMode}
+            editingLabel={tCommon("editModePanelLabel")}
             {...(!confirmedRevalidationMode
               ? {
                   summaryLeft: (
