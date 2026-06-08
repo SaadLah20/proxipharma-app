@@ -8,12 +8,7 @@ import { Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { RequestKindHubDashboard } from "@/components/requests/hub/request-kind-hub-dashboard";
-import {
-  DemandeHubTabBar,
-  type HubTab,
-  PatientDemandeCard,
-  type PatientRequestRow,
-} from "@/components/requests/demande-hub-ui";
+import { DemandeHubTabBar, type HubTab, type PatientRequestRow } from "@/components/requests/demande-hub-ui";
 import { PatientProductDemandeHubCard } from "@/components/requests/product/patient-product-demande-hub-card";
 import { filterPatientProductHubListRows } from "@/lib/patient-product-hub-sections";
 import {
@@ -83,7 +78,6 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   /** `null` = ouverture auto si filtres URL ou actifs sur la liste. */
   const [filtersExpandedUser, setFiltersExpandedUser] = useState<boolean | null>(null);
 
-  const isProductHub = kindId === "product_request";
   const dashboardBuckets = useMemo(() => dashboardBucketsForKind(kindId, "patient"), [kindId]);
 
   /** Filtres URL : réservés à l’onglet liste — le tableau de bord reste toujours complet. */
@@ -188,17 +182,9 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const pharmacyFilterLabel =
     pharmacyOptions.find(([id]) => id === pharmacyFilter)?.[1] ?? null;
 
-  let filteredList = rowsWithDashboardStatus;
-  if (isProductHub) {
-    filteredList = filterPatientProductHubListRows(filteredList, {
-      bucketStatuses: activeBucket?.statuses ?? null,
-    });
-  } else if (activeBucket) {
-    const allow = new Set(activeBucket.statuses);
-    filteredList = filteredList.filter((r) =>
-      allow.has((r as { status_for_dashboard?: string }).status_for_dashboard ?? r.status)
-    );
-  }
+  let filteredList = filterPatientProductHubListRows(rowsWithDashboardStatus, {
+    bucketStatuses: activeBucket?.statuses ?? null,
+  });
   if (pharmacyFilter) filteredList = filteredList.filter((r) => r.pharmacy_id === pharmacyFilter);
   if (refQuery.trim().length >= 2) {
     filteredList = filteredList.filter((r) => {
@@ -467,11 +453,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
             <ul className="space-y-2.5">
               {filteredSorted.map((r) => (
                 <li key={r.id}>
-                  {isProductHub ? (
-                    <PatientProductDemandeHubCard row={r} conversationUnread={unreadById[r.id] === true} />
-                  ) : (
-                    <PatientDemandeCard row={r} variant="list" conversationUnread={unreadById[r.id] === true} />
-                  )}
+                  <PatientProductDemandeHubCard row={r} conversationUnread={unreadById[r.id] === true} />
                 </li>
               ))}
             </ul>

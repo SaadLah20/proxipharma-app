@@ -5537,7 +5537,7 @@ export default function PharmacienDemandeDetailPage() {
               {displayRows.length === 0 && isPrescription && showLineAndPublishEdits ? (
                 <p className="mt-2 text-[11px] leading-snug text-amber-950/90">{workflowCopy.pharmacistEmptyLinesHint}</p>
               ) : null}
-              {displayRows.length > 0 ? (
+              {displayRows.length > 0 || showArchiveFrozenProducts || showClosedBucketsLayout ? (
               <>
               {(hideMainRequestHeader && !ordonnanceCatalogEditable) ? null : (
               <div className="flex flex-wrap items-end justify-between gap-1.5 sm:gap-2">
@@ -5629,7 +5629,7 @@ export default function PharmacienDemandeDetailPage() {
               <PrescriptionScanCollapsible
                 id="prescription-scan-panel-archive"
                 paths={prescriptionPaths}
-                defaultOpen={false}
+                defaultOpen={showArchiveFrozenProducts && displayRows.length === 0}
               />
             ) : null}
             {showClosedBucketsLayout ? (
