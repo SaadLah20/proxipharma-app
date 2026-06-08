@@ -12,9 +12,9 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: PHARMETO_BRAND.colors.primary,
     icons: [
       {
-        src: "/brand/pharmeto-icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
+        src: "/brand/pharmeto-icon.png",
+        sizes: "500x500",
+        type: "image/png",
         purpose: "any",
       },
     ],

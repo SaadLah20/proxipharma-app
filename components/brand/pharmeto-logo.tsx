@@ -3,8 +3,10 @@ import { cn } from "@/lib/utils";
 
 type PharmetoLogoVariant = "icon" | "lockup" | "wordmark";
 
-const ICON_SRC = "/brand/pharmeto-icon.svg";
-const LOCKUP_SRC = "/brand/pharmeto-lockup.svg";
+const ICON_SRC = "/brand/pharmeto-icon.png";
+/** Dimensions source `public/brand/pharmeto-icon.png` */
+const ICON_INTRINSIC_WIDTH = 500;
+const ICON_INTRINSIC_HEIGHT = 500;
 
 type PharmetoLogoProps = {
   variant?: PharmetoLogoVariant;
@@ -40,25 +42,33 @@ export function PharmetoLogo({
         src={ICON_SRC}
         alt={decorative ? "" : "Pharmeto"}
         aria-hidden={decorative ? true : undefined}
-        width={height}
-        height={height}
-        unoptimized
-        className={cn("shrink-0", className)}
+        width={ICON_INTRINSIC_WIDTH}
+        height={ICON_INTRINSIC_HEIGHT}
+        className={cn("w-auto shrink-0", className)}
+        style={{ height, width: "auto" }}
         priority={priority}
       />
     );
   }
 
-  const width = Math.round(height * (320 / 44));
   return (
-    <Image
-      src={LOCKUP_SRC}
-      alt="Pharmeto"
-      width={width}
-      height={height}
-      unoptimized
-      className={cn("shrink-0", className)}
-      priority={priority}
-    />
+    <span className={cn("inline-flex min-w-0 items-center gap-2", className)}>
+      <Image
+        src={ICON_SRC}
+        alt=""
+        aria-hidden
+        width={ICON_INTRINSIC_WIDTH}
+        height={ICON_INTRINSIC_HEIGHT}
+        className="w-auto shrink-0"
+        style={{ height, width: "auto" }}
+        priority={priority}
+      />
+      <span
+        className="truncate font-bold tracking-tight text-foreground"
+        style={{ fontSize: Math.round(height * 0.5) }}
+      >
+        Pharmeto
+      </span>
+    </span>
   );
 }
