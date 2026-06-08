@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { History, Package } from "lucide-react";
+import { History } from "lucide-react";
+import { ProductLinePhotoThumb } from "@/components/products/product-line-photo-thumb";
 import { clsx } from "clsx";
 import { PharmacistLineMessageButton } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import { PharmacistSupplyCompactLine, type PharmacistSupplyLineTier } from "@/components/pharmacist/pharmacist-supply-compact-line";
@@ -51,6 +52,8 @@ export function PharmacistClosedArchiveNotRetainedLine({
   onOpenHistory,
   descriptionHtml,
   onPhotoPreview,
+  productType,
+  brand,
 }: {
   row: { id: string; requested_qty: number };
   productName: string;
@@ -62,24 +65,20 @@ export function PharmacistClosedArchiveNotRetainedLine({
   onOpenHistory: () => void;
   descriptionHtml?: string | null;
   onPhotoPreview?: ProductPhotoPreviewHandler;
+  productType?: string | null;
+  brand?: string | null;
 }) {
-  const thumbInner = thumbUrl ? (
-    onPhotoPreview ? (
-      <button
-        type="button"
-        className="size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-        onClick={() => onPhotoPreview(thumbUrl, productName, descriptionHtml)}
-        aria-label={`Agrandir la photo · ${productName}`}
-      >
-        <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover opacity-90" />
-      </button>
-    ) : (
-      <img src={thumbUrl} alt="" className="h-full w-full object-cover opacity-90" />
-    )
-  ) : (
-    <span className="flex h-full w-full items-center justify-center">
-      <Package className="size-5 text-muted-foreground" aria-hidden />
-    </span>
+  const thumbInner = (
+    <ProductLinePhotoThumb
+      photoUrl={thumbUrl}
+      productType={productType}
+      productName={productName}
+      descriptionHtml={descriptionHtml}
+      brand={brand}
+      onPhotoPreview={onPhotoPreview}
+      ringClassName="focus-visible:ring-sky-400"
+      className="size-full opacity-90"
+    />
   );
 
   return (

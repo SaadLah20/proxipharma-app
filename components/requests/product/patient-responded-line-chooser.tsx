@@ -2,7 +2,8 @@
 
 import { useId, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Package, X } from "lucide-react";
+import { Check, X } from "lucide-react";
+import { ProductLinePhotoThumb } from "@/components/products/product-line-photo-thumb";
 import {
   ProductRequestLineMessageIconButton,
   ProductRequestLinePrices,
@@ -693,31 +694,16 @@ function RespondedLineBlock({
       ? selQty * Number(variant.unitPrice)
       : null;
 
-  const thumbInner = variant.photoUrl ? (
-    onPhotoPreview ? (
-      <button
-        type="button"
-        className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", kindTheme.photoRing)}
-        onClick={() =>
-          onPhotoPreview(
-            variant.photoUrl!,
-            variant.productName,
-            variant.descriptionHtml,
-            variant.brand,
-            variant.productType
-          )
-        }
-        aria-label={`Agrandir la photo · ${variant.productName}`}
-      >
-        <img src={variant.photoUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
-      </button>
-    ) : (
-      <img src={variant.photoUrl} alt="" className="h-full w-full object-cover" />
-    )
-  ) : (
-    <span className="flex h-full w-full items-center justify-center">
-      <Package className="size-5 text-muted-foreground" aria-hidden />
-    </span>
+  const thumbInner = (
+    <ProductLinePhotoThumb
+      photoUrl={variant.photoUrl}
+      productType={variant.productType}
+      productName={variant.productName}
+      descriptionHtml={variant.descriptionHtml}
+      brand={variant.brand}
+      onPhotoPreview={onPhotoPreview}
+      ringClassName={kindTheme.photoRing}
+    />
   );
 
   const unit = variant.unitPrice != null ? Number(variant.unitPrice) : null;

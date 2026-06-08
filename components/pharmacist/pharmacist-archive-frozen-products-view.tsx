@@ -150,12 +150,14 @@ export function PharmacistArchiveFrozenProductsView<T extends ArchiveFrozenItem>
                 unitPrice={unit}
                 editMode={false}
                 onPhotoPreview={() => {
+                  const url = photoPath ? resolvePublicMediaUrl(photoPath) ?? photoPath : null;
                   onPhotoPreview(
-                    photoPath ? resolvePublicMediaUrl(photoPath) ?? photoPath : null,
+                    url,
                     prod?.name ?? "Produit",
                     prod?.full_description,
                     prod?.brand,
-                    prod?.product_type
+                    prod?.product_type,
+                    { catalogExplorerPreview: !url?.trim() }
                   );
                 }}
                 onSetQty={noop}
