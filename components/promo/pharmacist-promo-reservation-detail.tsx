@@ -8,7 +8,8 @@ import { PageShell } from "@/components/ui/compact-shell";
 import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
 import { PharmacistPromoReservationDossierHeader } from "@/components/promo/pharmacist-promo-reservation-dossier-header";
 import { PromoReservationHistoryPanel } from "@/components/promo/promo-reservation-history-panel";
-import { PromoOfferDescriptionPanel } from "@/components/promo/promo-offer-description-panel";
+import { PromoOfferPackDossierSection } from "@/components/promo/promo-offer-description-panel";
+import { PharmacistPromoDeclineFollowUpModal } from "@/components/promo/pharmacist-promo-decline-follow-up-modal";
 import { PromoOfferPackSummary } from "@/components/promo/promo-offer-pack-summary";
 import { pharmacistPromoReservationDossierSectionShellClass } from "@/lib/pharmacist-promo-reservation-line-ui";
 import { fetchPromoOfferLines } from "@/lib/promo/load-offer-lines";
@@ -16,6 +17,10 @@ import { loadPharmacistPromoPatientContact } from "@/lib/promo/load-pharmacist-p
 import { markPromoReservationNotificationsRead } from "@/lib/promo/mark-reservation-notifs-read";
 import type { PromoReservationHistoryRow } from "@/lib/promo/promo-reservation-history-labels";
 import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
+import {
+  PROMO_RESERVATION_DETAIL_REFRESH_EVENT,
+  type PromoReservationDetailRefreshDetail,
+} from "@/lib/request-detail-refresh-bus";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { supabase } from "@/lib/supabase";
 import type { PromoLineWithPrice } from "@/lib/promo/pricing";
@@ -102,6 +107,8 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
   const [cancelReason, setCancelReason] = useState("");
   const [confirmMessage, setConfirmMessage] = useState("");
   const [panel, setPanel] = useState<"none" | "decline" | "cancel">("none");
+  const [declineFollowUp, setDeclineFollowUp] = useState<{ offerId: string; offerTitle: string } | null>(null);
+  const [offerFollowUpBanner, setOfferFollowUpBanner] = useState("");
   const [lines, setLines] = useState<PromoLineWithPrice[]>([]);
   const [historyRows, setHistoryRows] = useState<PromoReservationHistoryRow[]>([]);
   const [row, setRow] = useState<{
@@ -192,13 +199,26 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     return () => window.clearTimeout(tid);
   }, [load]);
 
+  useEffect(() => {
+    const listener = (ev: Event) => {
+      const detail = (ev as CustomEvent<PromoReservationDetailRefreshDetail>).detail;
+      if (detail?.reservationId !== reservationId) return;
+      void load();
+    };
+    window.addEventListener(PROMO_RESERVATION_DETAIL_REFRESH_EVENT, listener);
+    return () => window.removeEventListener(PROMO_RESERVATION_DETAIL_REFRESH_EVENT, listener);
+  }, [reservationId, load]);
+
   const resetPanels = () => {
     setPanel("none");
     setDeclineReason("");
     setCancelReason("");
   };
 
-  const runRpc = async (fn: () => PromiseLike<{ error: { message: string } | null }>) => {
+  const runRpc = async (
+    fn: () => PromiseLike<{ error: { message: string } | null }>,
+    opts?: { onSuccess?: () => void },
+  ) => {
     setBusy(true);
     setError("");
     const { error: rpcErr } = await fn();
@@ -207,6 +227,7 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
     else {
       resetPanels();
       setConfirmMessage("");
+      opts?.onSuccess?.();
       await load();
     }
   };
@@ -291,14 +312,23 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
         busy={busy}
         tone="danger"
         onCancel={() => setPanel("none")}
-        onSubmit={() =>
-          void runRpc(async () =>
-            supabase.rpc("pharmacist_decline_promo_reservation", {
-              p_reservation_id: reservationId,
-              p_reason: declineReason.trim(),
-            }),
-          )
-        }
+        onSubmit={() => {
+          const offerId = row.offer_id;
+          const offerTitle = row.offer?.title ?? "Pack promo";
+          void runRpc(
+            async () =>
+              supabase.rpc("pharmacist_decline_promo_reservation", {
+                p_reservation_id: reservationId,
+                p_reason: declineReason.trim(),
+              }),
+            {
+              onSuccess: () => {
+                setOfferFollowUpBanner("");
+                setDeclineFollowUp({ offerId, offerTitle });
+              },
+            },
+          );
+        }}
       />
     ) : canAct && panel === "cancel" ? (
       <PharmacistNoteForm
@@ -367,22 +397,17 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
           patientContact={row.patient}
         />
 
-        <section className="rounded-xl border border-border/80 bg-card p-4 shadow-sm">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            Contenu du pack réservé
-          </p>
-          {row.offer?.title ? (
-            <p className="mt-1 text-sm font-semibold leading-snug text-foreground">{row.offer.title}</p>
-          ) : null}
-          <PromoOfferDescriptionPanel className="mt-2" description={row.offer?.description} />
-          <div className="mt-3">
-            <PromoOfferPackSummary
-              lines={lines}
-              discountPercent={row.offer?.discount_percent ?? 0}
-              variant="detail"
-            />
-          </div>
-        </section>
+        <PromoOfferPackDossierSection
+          title={row.offer?.title ?? "Pack promo"}
+          description={row.offer?.description}
+          discountPercent={row.offer?.discount_percent ?? 0}
+        >
+          <PromoOfferPackSummary
+            lines={lines}
+            discountPercent={row.offer?.discount_percent ?? 0}
+            variant="detail"
+          />
+        </PromoOfferPackDossierSection>
 
         <dl className="space-y-2 rounded-xl border border-border/80 bg-card p-3 text-sm">
           <div>
@@ -408,6 +433,12 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
           </div>
         ) : null}
 
+        {offerFollowUpBanner ? (
+          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950">
+            {offerFollowUpBanner}
+          </p>
+        ) : null}
+
         {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
 
         {panel !== "none" ? <div className="pt-1">{actionBlock}</div> : null}
@@ -423,6 +454,19 @@ export function PharmacistPromoReservationDetail({ reservationId }: { reservatio
         busy={historyBusy}
         onRefresh={() => void loadHistory()}
       />
+
+      {declineFollowUp ? (
+        <PharmacistPromoDeclineFollowUpModal
+          open
+          offerId={declineFollowUp.offerId}
+          offerTitle={declineFollowUp.offerTitle}
+          busy={busy}
+          onClose={() => setDeclineFollowUp(null)}
+          onUnpublished={() =>
+            setOfferFollowUpBanner("Pack retiré de la publication — il n'apparaît plus sur votre fiche publique.")
+          }
+        />
+      ) : null}
     </PageShell>
   );
 }

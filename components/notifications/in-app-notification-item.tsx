@@ -4,10 +4,12 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  dispatchPromoReservationDetailRefresh,
   dispatchRequestDetailRefresh,
   notificationEventFocusConversation,
   notificationHrefTargetsCurrentPath,
   requestIdFromNotificationDemandeHref,
+  reservationIdFromNotificationPromoHref,
 } from "@/lib/request-detail-refresh-bus";
 import {
   Bell,
@@ -143,12 +145,19 @@ export function InAppNotificationItem({
         href={href}
         onClick={(e) => {
           onNavigate?.();
-          const rid = requestIdFromNotificationDemandeHref(href);
-          if (rid && notificationHrefTargetsCurrentPath(pathname, href)) {
+          if (!notificationHrefTargetsCurrentPath(pathname, href)) return;
+          const requestId = requestIdFromNotificationDemandeHref(href);
+          if (requestId) {
             e.preventDefault();
-            dispatchRequestDetailRefresh(rid, {
+            dispatchRequestDetailRefresh(requestId, {
               focus: notificationEventFocusConversation(eventType) ? "conversation" : undefined,
             });
+            return;
+          }
+          const reservationId = reservationIdFromNotificationPromoHref(href);
+          if (reservationId) {
+            e.preventDefault();
+            dispatchPromoReservationDetailRefresh(reservationId);
           }
         }}
         className={commonClass}
