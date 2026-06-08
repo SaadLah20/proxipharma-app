@@ -1,7 +1,7 @@
 export const annuaireFr = {
   loading: "Chargement de l'annuaire…",
   hero: {
-    title: "Annuaire des pharmacies",
+    title: "Annuaire interactif des pharmacies",
     subtitle: "Trouvez une officine, contactez-la ou lancez une demande depuis sa fiche.",
   },
   search: {

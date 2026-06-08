@@ -20,7 +20,7 @@ Variables:
 - `SUPABASE_SERVICE_ROLE_KEY` (serveur uniquement: cron/worker, **ne jamais** exposer au navigateur)
 - `CRON_SECRET` (secret partagé pour protéger les endpoints cron)
 - `RESEND_API_KEY` (prestataire e-mail, free tier possible)
-- `EMAIL_FROM` (ex: `Pharmeto <onboarding@resend.dev>` en dev, puis `Pharmeto <noreply@pharmeto.ma>` après validation Resend)
+- `EMAIL_FROM` (prod pilote : `Pharmeto <noreply@pharmeto.ma>` — validé terrain notif patient ; dev : `onboarding@resend.dev` si domaine non vérifié)
 - `APP_BASE_URL` (URL publique Vercel/custom domain, utilisée dans les liens e-mail Auth côté serveur)
 - `NEXT_PUBLIC_APP_BASE_URL` (même URL que `APP_BASE_URL`, exposée au navigateur pour OTP / confirmation e-mail)
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` (SMS alertes hors-app, même compte que l’auth si possible)
@@ -346,13 +346,29 @@ git log --oneline -n 10
 
 ## 11) Checklist rebrand Pharmeto (preview + prod)
 
-Après merge du lot rebrand (code + assets) :
+**État pilote juin 2026 (session 2026-06-08)** — voir journal `CAHIER_DES_CHARGES.md` §10 et phrase reprise **§13.52**.
 
-1. **Preview Vercel** : header/footer/auth affichent **Pharmeto** + logo ; favicon onglet navigateur ; partage lien (OG) correct.
-2. **i18n AR** : pas de régression RTL sur le header.
-3. **SMS** (si activé) : préfixe `Pharmeto:` sur répondu/traité.
-4. **Infra prod** (§2c) : DNS `pharmeto.ma` → Vercel ; `APP_BASE_URL` + `NEXT_PUBLIC_APP_BASE_URL` = `https://pharmeto.ma` ; GitHub secret `APP_BASE_URL` idem.
-5. **Supabase Auth** : Site URL + Redirect URLs `pharmeto.ma/auth/**` ; templates e-mail « Votre code Pharmeto » ; webhook SMS → `https://pharmeto.ma/api/webhooks/dispatch-external-sms`.
-6. **Resend** : domaine `pharmeto.ma` vérifié ; `EMAIL_FROM` = `Pharmeto <noreply@pharmeto.ma>`.
-7. **Migration** : appliquer `20260715_001_rebrand_pharmeto_notification_copy.sql` si pas déjà fait (après `20260714_001`).
-8. **Prod** : tester auth reset MDP, demande test, sur **Chrome/Edge** (pas navigateur IDE).
+| Étape | Statut |
+|-------|--------|
+| Code rebrand (nom, i18n, SMS préfixe, metadata) | OK (merge prod) |
+| Logo PNG transparent 500×500 + favicons | OK (`public/brand/pharmeto-icon.png`, `PharmetoLogo`) |
+| Header logo (40 px desktop / 34 px mobile) | OK |
+| Image OG partage lien (logo réel) | OK (`app/opengraph-image.tsx`) |
+| Titre annuaire **« Annuaire interactif des pharmacies »** | OK (FR/AR) |
+| Prod `pharmeto.ma` + Vercel URLs | OK |
+| Supabase Auth + template OTP Pharmeto | OK |
+| Resend domaine `pharmeto.ma` Verified | OK |
+| E-mail notif patient expéditeur **Pharmeto** | OK (test terrain) |
+| Migration `20260714_001` + `20260715_001` | À confirmer sur Supabase |
+| SMS préfixe `Pharmeto:` (code) | OK |
+| SMS **réception** sur téléphone test | Reporté |
+| OTP Auth Supabase (quota / e-mail) | Reporté si quota atteint |
+
+**Vérifications après chaque merge marque/UI** :
+
+1. **Preview Vercel** : header **Pharmeto** + logo sans fond gris ; favicon ; partage WhatsApp `pharmeto.ma` (OG — cache possible).
+2. **i18n AR** : pas de régression RTL header + titre annuaire.
+3. **Infra** (§2c) : `APP_BASE_URL` / `NEXT_PUBLIC_APP_BASE_URL` = `https://pharmeto.ma` ; webhook SMS `https://pharmeto.ma/api/webhooks/dispatch-external-sms`.
+4. **Prod** : auth reset MDP, demande test, sur **Chrome/Edge** (pas navigateur IDE).
+
+**Dev local** : `npm run dev:clean` si recompilations Turbopack Windows bloquantes ; erreur `Failed to fetch RSC` pendant « Compiling… » = recharger après fin compile.

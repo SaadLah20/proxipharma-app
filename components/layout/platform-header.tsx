@@ -547,23 +547,23 @@ export function PlatformHeader() {
           className="group flex min-w-0 shrink items-center gap-2 text-lg font-bold tracking-tight text-foreground"
           aria-label="Pharmeto"
         >
-          <span className="flex min-w-0 items-center gap-1.5 overflow-hidden sm:hidden">
+          <span className="flex min-w-0 items-center gap-2 overflow-hidden sm:hidden">
             <PharmetoLogo
               variant="icon"
-              height={28}
+              height={34}
               decorative
               className="transition group-hover:opacity-90"
               priority
             />
             <PharmetoLogo
               variant="wordmark"
-              height={28}
+              height={34}
               className="truncate transition group-hover:opacity-90"
             />
           </span>
           <PharmetoLogo
             variant="lockup"
-            height={32}
+            height={40}
             className="hidden w-auto transition group-hover:opacity-90 sm:block"
             priority
           />
