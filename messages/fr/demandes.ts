@@ -612,6 +612,7 @@ export const promoFr = {
   visit: "Passage : {when}",
   notFound: "Réservation introuvable.",
   packContent: "Contenu du pack",
+  packDescription: "Description du pack",
   visitDate: "Date de passage",
   yourMessage: "Votre message",
   pharmacyMessage: "Message de l'officine",

@@ -22,6 +22,7 @@ import {
   isPromoReservationTerminalStatus,
   type PromoReservationHistoryRow,
 } from "@/lib/promo/promo-reservation-history-labels";
+import { PromoOfferDescriptionPanel } from "@/components/promo/promo-offer-description-panel";
 import { PromoOfferPackSummary } from "@/components/promo/promo-offer-pack-summary";
 import { fetchPromoOfferLines } from "@/lib/promo/load-offer-lines";
 import { markPromoReservationNotificationsRead } from "@/lib/promo/mark-reservation-notifs-read";
@@ -222,7 +223,12 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
           <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             {row.offer?.title ?? t("packFallback")}
           </p>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">{t("packContent")}</p>
+          <PromoOfferDescriptionPanel
+            className="mt-2"
+            description={row.offer?.description}
+            label={t("packDescription")}
+          />
+          <p className="mt-2 text-[10px] text-muted-foreground">{t("packContent")}</p>
           <div className="mt-3">
             <PromoOfferPackSummary
               lines={lines}

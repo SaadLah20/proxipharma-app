@@ -591,6 +591,7 @@ export const promoAr = {
   visit: "الزيارة: {when}",
   notFound: "الحجز غير موجود.",
   packContent: "محتوى الباقة",
+  packDescription: "وصف الباقة",
   visitDate: "تاريخ الزيارة",
   yourMessage: "رسالتك",
   pharmacyMessage: "رسالة الصيدلية",
