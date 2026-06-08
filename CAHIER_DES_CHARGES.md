@@ -1,4 +1,4 @@
-# Cahier des Charges - ProxiPharma (Document vivant)
+# Cahier des Charges - Pharmeto (ex-ProxiPharma, document vivant)
 
 Ce document sert de reference produit et technique entre nous.
 Il doit etre mis a jour a chaque fin de session pour garder un historique clair des decisions.
@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260713_001`**) → phrase **§13.51** (charte pharmacien sky/amber/violet/emerald + barre basse ; catalogue/marques **§13.45–49**). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260715_001`**) → phrase **§13.52** (rebrand **Pharmeto** + logo + OG + annuaire interactif ; charte pharmacien **§13.51**). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -381,6 +381,41 @@ git checkout pilote-stable-2026-05-24
 **Branche de travail après retour** : `git switch -c reprise-depuis-stable-2026-05-24`
 
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
+
+---
+
+### Session 2026-06-08 — Rebrand Pharmeto (marque, logo, infra prod, OG, annuaire interactif)
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`18163bd`** (rebrand code/i18n/SMS/metadata) · **`23287be`** (logo + `dev:clean`) · **`a330fef`** (PNG transparent 500×500) · **`2671f5a`** (OG logo réel) · **`478dec1`** (header logo + titre annuaire) · merges PR **#306**–**#307**.
+
+**Marque & domaine** :
+- Nom affiché **Pharmeto** (FR/AR patient/public) ; prod **`https://pharmeto.ma`** (avec et sans `www` validés).
+- Tokens **`lib/brand-theme.ts`** ; metadata/PWA **`app/layout.tsx`**, **`app/manifest.ts`**, **`app/robots.ts`**, **`app/sitemap.ts`**.
+
+**Logo & assets** :
+- Composant **`components/brand/pharmeto-logo.tsx`** — variantes `icon` / `lockup` / `wordmark` ; source **`public/brand/pharmeto-icon.png`** (500×500 RGBA transparent, P + pointe).
+- Favicons statiques **`app/icon.png`**, **`app/apple-icon.png`** (plus de `app/icon.tsx` / `app/apple-icon.tsx` dynamiques).
+- Header **`platform-header.tsx`** : mobile icône + wordmark **34 px** (gap 8 px) ; desktop lockup **40 px** (gap icône/texte **10 px** via `gap-2.5`).
+
+**Image OG (partage lien)** :
+- **`app/opengraph-image.tsx`** — 1200×630, logo PNG embarqué, slogan **`PHARMETO_BRAND.taglineFr`**, domaine **`pharmeto.ma`**.
+
+**Annuaire public** :
+- Titre hero **« Annuaire interactif des pharmacies »** (`messages/fr/annuaire.ts` · AR **« دليل الصيدليات التفاعلي »**) ; liens **`directoryLink`** alignés.
+
+**Communications** :
+- SMS préfixe **`Pharmeto:`** (`lib/external-notification-queue-worker.ts`).
+- Migration **`20260715_001_rebrand_pharmeto_notification_copy.sql`** (ancre rebrand ; copy in-app patient déjà sans « ProxiPharma » depuis **`20260701_001`**).
+- **E-mail notif patient** : expéditeur **Pharmeto** validé en prod (test terrain réponse pharmacie) ; Resend domaine **`pharmeto.ma`** Verified ; **`EMAIL_FROM`** prod aligné (`Pharmeto <noreply@pharmeto.ma>` ou équivalent).
+- **SMS réception Twilio** : reporté (messages partent côté Twilio, non reçus sur téléphone test — à traiter plus tard).
+
+**Infra prod (utilisateur)** : Supabase Auth URLs + template OTP **Pharmeto** ; Vercel `APP_BASE_URL` / `NEXT_PUBLIC_APP_BASE_URL` ; webhook SMS `pharmeto.ma` ; GitHub secret `APP_BASE_URL` ; DNS Resend Cap Connect.
+
+**Dev local** : **`npm run dev:clean`** (`scripts/dev-clean.mjs` — purge `.next`) ; `next.config.ts` ignore `.cursor/debug-*.log` ; Turbopack Windows peut afficher « Compiling… » / `Failed to fetch RSC` pendant recompile — normal en dev, pas en prod.
+
+**Migrations à appliquer en pilote (ordre)** : **`20260714_001`** (notifs in-app ar enrichissement) → **`20260715_001`** (ancre rebrand).
+
+**Phrase de reprise** : **§13.52**.
 
 ---
 
@@ -2168,8 +2203,10 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260712_001_consultation_first_attach_and_save_brief.sql`
   - `supabase/migrations/20260710_001_products_brand_columns.sql` (**products.brand** + **brand_confidence**)
   - `supabase/migrations/20260713_001_pharmacy_pricing_brand_rules.sql` (**pricing parapharmacie par marque**) (**`patient_save_consultation_brief`**, pas de double notif au 1er envoi avec photos)
+  - `supabase/migrations/20260714_001_i18n_patient_notification_ar_enrichment.sql` (notifs in-app patient ar enrichissement)
+  - `supabase/migrations/20260715_001_rebrand_pharmeto_notification_copy.sql` (ancre rebrand Pharmeto)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260713_001`** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. Reprise courte : **§13.51**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260715_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. Reprise courte : **§13.52**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2441,7 +2478,13 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.51) Phrase de reprise (recommandée — après session **2026-06-07** charte pharmacien + barre basse)
+### 13.52) Phrase de reprise (recommandée — après session **2026-06-08** rebrand Pharmeto)
+
+**« On reprend Pharmeto (`pharmeto.ma`). Branche `fix/validated-supply-ecart-ui-modal` (commits **`18163bd`** rebrand, **`a330fef`** logo PNG, **`2671f5a`** OG, **`478dec1`** header + annuaire interactif). **Migrations** si pas fait : **`20260714_001`** → **`20260715_001`**. **Marque** : **`PharmetoLogo`** + **`public/brand/pharmeto-icon.png`** (500×500 transparent) ; header lockup **40 px** ; hero **« Annuaire interactif des pharmacies »** ; OG **`app/opengraph-image.tsx`**. **Infra prod** : domaine + Resend Verified + notif e-mail **Pharmeto** OK ; **SMS réception** reporté. Lots antérieurs : charte pharmacien sky/amber/violet/emerald + barre basse (**§13.51**). Je te donne la tâche ou les retours preview. »**
+
+### 13.51) Phrase de reprise (dépassée — session **2026-06-07** charte pharmacien + barre basse)
+
+Voir **§13.52**.
 
 **« On reprend ProxiPharma. Branche `fix/validated-supply-ecart-ui-modal` (commits **`f2875c0`** consultations violet pharma, **`8e718f6`** ordonnances amber + packs emerald, **`6ee6630`** / **`e910c29`** sky produits, **`64b8d13`** barre basse). **Migrations** si pas fait : **`20260709_001`** → **`20260713_001`**. **Pharmacien** : hubs + dossiers **sky** (produits), **amber** (ordonnances), **violet** (consultations), **emerald** (packs) — cartes riches, bandeau patient RPC, coquilles dossier ; **barre basse** 4 onglets. **Patient** : bandeau officine avec ref pharmacie ; menu profil sans Annuaire/Notifications (cloche OK). Pas de migration Git pour ce lot. Je te donne la tâche ou les retours preview. »**
 
@@ -2535,7 +2578,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« ProxiPharma — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-06 (suite 4)** — médicaments officine + marques v2.1). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260713_001`** ; catalogue **~19 677** produits (13 651 para + 6 026 méd.). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.45**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-08** — rebrand Pharmeto + logo + OG + annuaire interactif). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260715_001`** ; catalogue **~19 677** produits (13 651 para + 6 026 méd.). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.52**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 

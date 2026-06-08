@@ -1,6 +1,9 @@
-# CONTEXTE.md : ProxiPharma
+# CONTEXTE.md : Pharmeto (ex-ProxiPharma)
+
+> **Marque publique (juin 2026)** : **Pharmeto** — domaine prod **`pharmeto.ma`**. Le dépôt Git conserve le nom historique `proxipharma-app`. Détail rebrand : `CAHIER_DES_CHARGES.md` §10 session **2026-06-08**, `AGENTS.md`, `RUNBOOK.md` §11.
+
 ## 1. Vision du Produit
-ProxiPharma est une plateforme de transformation digitale visant à moderniser les pharmacies au Maroc. Le MVP (12 pharmacies pilotes) a pour objectif de valider un modèle de fidélisation patient et d'efficacité opérationnelle.
+Pharmeto est une plateforme de transformation digitale visant à moderniser les pharmacies au Maroc. Le MVP (12 pharmacies pilotes) a pour objectif de valider un modèle de fidélisation patient et d'efficacité opérationnelle.
 La philosophie directrice est la **"réduction de la friction"** : l'application doit être instantanée, mobile-first, et intégrer des usages familiers (WhatsApp) pour éviter toute barrière technologique.
 
 ## 2. Proposition de Valeur
