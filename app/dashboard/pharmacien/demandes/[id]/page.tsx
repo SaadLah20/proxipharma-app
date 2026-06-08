@@ -76,7 +76,6 @@ import { findTerminalStatusHistoryEntry } from "@/lib/patient-archive-outcome-fr
 import { RequestDetailBackLink } from "@/components/requests/shared/request-detail-back-link";
 import { RequestKindHeader } from "@/components/requests/shared/request-kind-header";
 import { ConsultationRequestDetailChrome } from "@/components/requests/consultation/consultation-request-detail-chrome";
-import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
 import {
   getConsultationDefaultTab,
   type ConsultationDetailTab,
@@ -123,7 +122,8 @@ import { PageShell } from "@/components/ui/compact-shell";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { PolishedOptionPicker } from "@/components/ui/polished-option-picker";
 import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
-import { consultationConversationViewportHeightClass } from "@/lib/platform-sticky-footer";
+import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
+import { consultationConversationPanelMaxHeightStyle } from "@/lib/platform-sticky-footer";
 import {
   PHARMA_LINE_EDITOR_ALTS,
   PHARMA_LINE_EDITOR_CARD,
@@ -4981,6 +4981,11 @@ export default function PharmacienDemandeDetailPage() {
         }
       : null;
   const showConsultationProductsPane = !showConsultationTabbed || consultationTab === "products";
+  const showConsultationConversationPane =
+    showConsultationTabbed && consultationTab === "conversation" && Boolean(sessionUserId);
+  /** Consultation à onglets : proposition / publication uniquement sur l'onglet Produits. */
+  const showPharmacistProposePublishSection =
+    showLineAndPublishEdits && (!showConsultationTabbed || showConsultationProductsPane);
 
   const consultationTabSyncKey = showConsultationTabbed
     ? `${request.id}|${request.status}|${request.responded_at ?? ""}`
@@ -5141,35 +5146,79 @@ export default function PharmacienDemandeDetailPage() {
     >
       <RequestDetailBackLink config={kindConfig} viewerRole="pharmacien" />
 
-      {showConsultationTabbed ? (
-        <ConsultationRequestDetailChrome
-          header={
-            <PharmacistProductRequestDossierHeader
-              dossierRefLabel={consultationDossierRef}
-              kindLabel={kindConfig.copy.labelFr}
-              requestType={request.request_type}
-              patientId={request.patient_id}
-              patientName={patientProfile?.full_name ?? null}
-              patientRef={patientProfile?.patient_ref ?? null}
-              patientPhone={patientPhone ?? null}
-              patientEmail={patientEmail ?? null}
-              status={request.status}
-              statusHint={dossierStatusHint}
-              submittedAt={request.submitted_at}
-              createdAt={request.created_at}
+      <PharmacistProductRequestDossierShell
+        active={(isProductRequest || isPrescription || isConsultation) && hideMainRequestHeader && !showConsultationTabbed}
+        sectionShellClass={pharmacistDossierSectionShellClass}
+      >
+        {showConsultationTabbed ? (
+          <div
+            className={clsx(
+              "min-w-0 w-full max-w-full space-y-3 overflow-x-hidden rounded-xl border-2 p-2.5 sm:p-3",
+              pharmacistConsultationRequestDossierSectionShellClass
+            )}
+          >
+            <ConsultationRequestDetailChrome
+              header={
+                <PharmacistProductRequestDossierHeader
+                  dossierRefLabel={consultationDossierRef}
+                  kindLabel={kindConfig.copy.labelFr}
+                  requestType={request.request_type}
+                  patientId={request.patient_id}
+                  patientName={patientProfile?.full_name ?? null}
+                  patientRef={patientProfile?.patient_ref ?? null}
+                  patientPhone={patientPhone ?? null}
+                  patientEmail={patientEmail ?? null}
+                  status={request.status}
+                  statusHint={dossierStatusHint}
+                  submittedAt={request.submitted_at}
+                  createdAt={request.created_at}
+                />
+              }
+              tab={consultationTab}
+              onTab={setConsultationTab}
+              conversationUnread={conversationUnread}
+              productLineCount={displayRows.length}
             />
-          }
-          tab={consultationTab}
-          onTab={setConsultationTab}
-          conversationUnread={conversationUnread}
-          productLineCount={displayRows.length}
-        />
-      ) : (
-        <PharmacistProductRequestDossierShell
-          active={(isProductRequest || isPrescription || isConsultation) && hideMainRequestHeader}
-          sectionShellClass={pharmacistDossierSectionShellClass}
-        >
-          {hideMainRequestHeader ? (
+
+            {requestDrift.stale ? (
+              <div className="shrink-0 rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">
+                <p className="font-bold">{requestDrift.stale.title}</p>
+                <p className="mt-1 leading-snug">{requestDrift.stale.message}</p>
+                <button
+                  type="button"
+                  className="mt-2 inline-flex min-h-9 items-center justify-center rounded-lg border border-amber-500/80 bg-white px-3 font-semibold text-amber-950 hover:bg-amber-50"
+                  onClick={() => void requestDrift.refresh()}
+                >
+                  Actualiser la page
+                </button>
+              </div>
+            ) : null}
+
+            {error ? (
+              <p className="shrink-0 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">
+                {error}
+              </p>
+            ) : null}
+
+            {showConsultationConversationPane ? (
+              <div
+                className="flex min-h-0 w-full flex-col max-h-[calc(100dvh-11rem-3.5rem-env(safe-area-inset-bottom))]"
+                style={consultationConversationPanelMaxHeightStyle()}
+              >
+                <RequestConversationInline
+                  requestId={request.id}
+                  viewerRole="pharmacien"
+                  currentUserId={sessionUserId!}
+                  variant="consultation"
+                  consultationSeed={consultationSeed}
+                  refreshToken={conversationRefreshToken}
+                  fillViewport
+                  onMarkedRead={handleConversationMarkedRead}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : hideMainRequestHeader ? (
         <>
           <PharmacistProductRequestDossierHeader
             dossierRefLabel={displayRequestPublicRef(request) || formatShortId(request.id)}
@@ -5433,7 +5482,7 @@ export default function PharmacienDemandeDetailPage() {
         </section>
       ) : null}
 
-      {requestDrift.stale ? (
+      {!showConsultationTabbed && requestDrift.stale ? (
         <div className="rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">
           <p className="font-bold">{requestDrift.stale.title}</p>
           <p className="mt-1 leading-snug">{requestDrift.stale.message}</p>
@@ -5447,32 +5496,12 @@ export default function PharmacienDemandeDetailPage() {
         </div>
       ) : null}
 
-      {error ? (
+      {!showConsultationTabbed && error ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{error}</p>
       ) : null}
 
       {kindConfig.capabilities.workflowEnabled ? (
         <>
-          {showConsultationTabbed && consultationTab === "conversation" && sessionUserId ? (
-            <div
-              className={clsx(
-                "flex min-h-0 min-w-0 flex-1 flex-col",
-                consultationConversationViewportHeightClass("none")
-              )}
-            >
-              <RequestConversationInline
-                requestId={request.id}
-                viewerRole="pharmacien"
-                currentUserId={sessionUserId}
-                variant="consultation"
-                consultationSeed={consultationSeed}
-                refreshToken={conversationRefreshToken}
-                fillViewport
-                onMarkedRead={handleConversationMarkedRead}
-              />
-            </div>
-          ) : null}
-
           {showConsultationProductsPane && isPrescription && request.status === "draft" ? (
             <p className="mt-2 rounded-lg border border-amber-300/80 bg-amber-50/60 p-2.5 text-[11px] leading-snug text-amber-950">
               Envoi patient incomplet (brouillon). Aucune action officine : le patient doit renvoyer l’ordonnance depuis la fiche
@@ -7190,7 +7219,7 @@ export default function PharmacienDemandeDetailPage() {
             </>
           ) : null}
 
-          {showLineAndPublishEdits ? (
+          {showPharmacistProposePublishSection ? (
             <section
               className={clsx(
                 "mt-2 flex min-h-0 flex-col rounded-xl px-2 py-1.5 shadow-sm sm:px-2.5 sm:py-2",
@@ -7504,7 +7533,7 @@ export default function PharmacienDemandeDetailPage() {
             </section>
           ) : null}
 
-          {showLineAndPublishEdits ? (
+          {showPharmacistProposePublishSection ? (
             <section className="mt-3 space-y-2 sm:mt-4">
               {canEditResponse ? (
                 <>
@@ -7800,7 +7829,6 @@ export default function PharmacienDemandeDetailPage() {
         </>
       ) : null}
         </PharmacistProductRequestDossierShell>
-      )}
       {lineConvoEffectiveRowId
         ? (() => {
             const entry = lineEntriesForList.find((e) => e.row.id === lineConvoEffectiveRowId);
