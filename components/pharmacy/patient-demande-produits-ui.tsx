@@ -520,7 +520,7 @@ export function ProductRequestLinePanel({
           <div className="min-w-0 shrink leading-none">
             <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2 me-3 sm:me-4">
             {qtyControl}
             {bottomRight ?? null}
           </div>

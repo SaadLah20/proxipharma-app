@@ -92,6 +92,74 @@ Vérifier les mêmes **Site URL** / **Redirect URLs** et le template *Change ema
 
 L’app affiche un libellé français via `mapAuthErrorToFrench` (`lib/auth-messages-fr.ts`).
 
+## 2c) Domaine production `pharmeto.ma` (Cap Connect → Vercel)
+
+Registrar : **Cap Connect** (titulaire `.ma`). Hébergement app : **Vercel** projet `proxipharma-app` (prod = branche `main`).
+
+**Ordre recommandé** : d’abord ajouter le domaine dans Vercel (pour voir les enregistrements exacts), puis coller le DNS chez Cap Connect, puis variables d’env + Supabase, puis redéployer.
+
+### A) Vercel — ajouter le domaine
+
+1. [Vercel Dashboard](https://vercel.com) → projet **proxipharma-app** → **Settings** → **Domains**.
+2. Ajouter **`pharmeto.ma`** (production).
+3. Ajouter **`www.pharmeto.ma`** → rediriger vers **`pharmeto.ma`** (recommandé).
+4. Noter les enregistrements DNS affichés par Vercel (apex + `www`). En secours si l’UI montre les valeurs « classiques » :
+   - **`pharmeto.ma`** (apex) → **A** → `76.76.21.21`
+   - **`www.pharmeto.ma`** → **CNAME** → `cname.vercel-dns.com`
+   - Vercel peut aussi proposer des valeurs **dynamiques** (`*.vercel-dns-0xx.com`) : **priorité aux valeurs affichées dans le dashboard**.
+
+### B) Cap Connect — zone DNS `pharmeto.ma`
+
+Espace client → domaine **PHARMETO.MA** → icône **globe / DNS** (gestion des enregistrements).
+
+| Type | Nom / hôte | Valeur | TTL |
+|------|------------|--------|-----|
+| **A** | `@` ou vide (apex) | `76.76.21.21` *(ou IP Vercel affichée)* | 3600 |
+| **CNAME** | `www` | `cname.vercel-dns.com` *(ou CNAME Vercel affiché)* | 3600 |
+
+- Supprimer les anciens enregistrements **A / CNAME** conflictuels sur `@` et `www` s’il y en a.
+- Ne pas activer l’**hébergement web** Cap Connect pour ce domaine (le site reste sur Vercel).
+- Propagation : 15 min à 48 h. Vercel affiche **Valid Configuration** + certificat HTTPS auto.
+
+Badge **ID MANQUANT** (CIN ANRT) : n’empêche pas le DNS ; téléverser la CIN quand même (conformité).
+
+### C) Vercel — variables d’environnement (Production)
+
+**Settings** → **Environment Variables** → scope **Production** :
+
+| Variable | Valeur |
+|----------|--------|
+| `APP_BASE_URL` | `https://pharmeto.ma` |
+| `NEXT_PUBLIC_APP_BASE_URL` | `https://pharmeto.ma` |
+
+Sans slash final. Puis **Redeploy** du dernier déploiement production.
+
+### D) Supabase — Auth (obligatoire)
+
+Dashboard Supabase du pilote → **Authentication** → **URL Configuration** :
+
+| Champ | Valeur |
+|-------|--------|
+| **Site URL** | `https://pharmeto.ma` |
+| **Redirect URLs** | `https://pharmeto.ma/auth/callback` |
+| | `https://pharmeto.ma/auth/update-password` |
+| | `https://pharmeto.ma/auth/**` |
+
+Conserver les URLs Vercel (`https://proxipharma-app.vercel.app/...`) en redirect si des previews / anciens liens doivent encore fonctionner.
+
+### E) Tests après mise en ligne
+
+Sur **`https://pharmeto.ma`** (Chrome ou Edge, pas le navigateur intégré IDE) :
+
+1. Annuaire / page d’accueil.
+2. Connexion ou inscription patient.
+3. « Mot de passe oublié » → lien e-mail pointe vers **`pharmeto.ma`**, pas `localhost`.
+4. Une demande produit test (parcours pilote).
+
+### F) Webhook SMS (si déjà configuré)
+
+Supabase Database Webhook → `POST https://pharmeto.ma/api/webhooks/dispatch-external-sms` (remplacer l’URL `*.vercel.app` si c’était l’URL de prod).
+
 ## 3) Process de release (solo founder)
 
 **Répartition** : l’agent Cursor gère branche, commits, push et **PR ouverte** (voir `.cursor/rules/delivery-workflow-user.mdc`). Vous : migrations Supabase si besoin, attendre la preview, tester, **Merge** sur GitHub.
