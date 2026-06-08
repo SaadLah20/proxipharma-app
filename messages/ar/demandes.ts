@@ -1,3 +1,5 @@
+import { timelineEventsAr } from "./timeline-events";
+
 export const demandesAr = {
   statusHints: {
     responded: "أكّد اختيارك وتاريخ زيارتك.",
@@ -123,6 +125,7 @@ export const demandesAr = {
     lineNotes: "ملاحظة على هذا السطر",
     saveNote: "حفظ الملاحظة",
     viewLineMessagesAria: "عرض الرسائل على هذا المنتج",
+    noNoteOnProduct: "لا ملاحظة على هذا المنتج.",
   },
   validation: {
     keepAtLeastOneLine:
@@ -278,6 +281,7 @@ export const timelineAr = {
     counter: "الصندوق",
     epilogue: "الوضع",
   },
+  events: timelineEventsAr,
 };
 
 export const conversationAr = {

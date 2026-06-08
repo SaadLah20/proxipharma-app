@@ -17,7 +17,7 @@ export function PatientProductRequestDossierHeader({
   dossierRefLabel,
   pharmacyContact,
   pharmacyId,
-  kindLabel = "Demande",
+  kindLabel,
   requestType = "product_request",
   status,
   statusHint,
@@ -43,6 +43,7 @@ export function PatientProductRequestDossierHeader({
 }) {
   const tCommon = useTranslations("common");
   const tDemandes = useTranslations("demandes");
+  const resolvedKindLabel = kindLabel ?? tCommon("defaultRequestKindLabel");
   const translatedStatusLabel = usePatientRequestStatusLabel(status);
   const [journeyOpen, setJourneyOpen] = useState(false);
   const badgeLabel = statusLabel ?? translatedStatusLabel;
@@ -56,7 +57,7 @@ export function PatientProductRequestDossierHeader({
       >
         <div className="border-b border-border px-3 py-2 sm:px-3.5">
           <DossierHeaderRequestLine
-            kindLabel={kindLabel}
+            kindLabel={resolvedKindLabel}
             dossierRefLabel={dossierRefLabel}
             submittedAt={submittedAt}
             createdAt={createdAt}

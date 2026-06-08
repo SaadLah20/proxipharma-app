@@ -52,6 +52,7 @@ export function PatientPromoReservationsHub() {
   const t = useTranslations("promo");
   const ta = useTranslations("account");
   const tList = useTranslations("hub.listChrome");
+  const tDemandes = useTranslations("demandes");
   const tc = useTranslations("common");
 
   const [loading, setLoading] = useState(true);
@@ -157,11 +158,11 @@ export function PatientPromoReservationsHub() {
         r.pharmacy_id,
         ph?.nom
           ? `${pharmacyPublicLabel(ph.nom)}${ph.ville ? ` (${ph.ville})` : ""}`
-          : `Pharmacie ${r.pharmacy_id.slice(0, 8)}…`,
+          : `${tDemandes("pharmacyFallback")} ${r.pharmacy_id.slice(0, 8)}…`,
       );
     }
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], locale));
-  }, [rows, locale]);
+  }, [rows, locale, tDemandes]);
 
   const pharmacyFilterLabel = pharmacyOptions.find(([id]) => id === pharmacyFilter)?.[1] ?? null;
 
@@ -190,7 +191,7 @@ export function PatientPromoReservationsHub() {
     entityLabel: pharmacyFilterLabel,
     referenceQuery: refQuery,
     sortNewestFirst,
-    entityFieldLabel: "Pharmacie",
+    entityFieldLabel: tList("pharmacy"),
   });
 
   const listHasActiveFilters = promoHubListHasActiveFilters({

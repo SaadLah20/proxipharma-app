@@ -13,7 +13,7 @@ import { stickyFooterToneBorderClass } from "@/lib/platform-sticky-footer";
 export const DOSSIER_INLINE_ACTIONS_ID = "dossier-inline-actions";
 
 type DossierInlineActionPanelProps = {
-  children: ReactNode;
+  children?: ReactNode;
   tone?: StickyFooterTone;
   className?: string;
   summaryLeft?: ReactNode;
@@ -34,7 +34,7 @@ export function DossierInlineActionPanel({
 }: DossierInlineActionPanelProps) {
   return (
     <section
-      id={DOSSIER_INLINE_ACTIONS_ID}
+      id={children != null ? DOSSIER_INLINE_ACTIONS_ID : undefined}
       className={clsx(
         "mt-4 w-full min-w-0 rounded-xl border bg-card p-3 shadow-sm",
         editing ? dossierEditModePanelClass(tone) : stickyFooterToneBorderClass(tone),
@@ -54,7 +54,9 @@ export function DossierInlineActionPanel({
       {summaryLeft != null && summaryRight != null ? (
         <PlatformStickyFooterSummaryRow left={summaryLeft} right={summaryRight} />
       ) : null}
-      <div className={clsx(summaryLeft != null && summaryRight != null && "mt-2")}>{children}</div>
+      {children != null ? (
+        <div className={clsx(summaryLeft != null && summaryRight != null && "mt-2")}>{children}</div>
+      ) : null}
     </section>
   );
 }

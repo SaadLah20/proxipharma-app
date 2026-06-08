@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { X, ZoomIn, ZoomOut } from "lucide-react";
 import { Z_PRESCRIPTION_LIGHTBOX } from "@/lib/ui-z-index";
 
@@ -12,6 +13,7 @@ type ConsultationPhotoLightboxProps = {
 
 /** Lightbox consultation : bouton Fermer + retour navigateur / téléphone ferme l’image seulement. */
 export function ConsultationPhotoLightbox({ label, url, onClose }: ConsultationPhotoLightboxProps) {
+  const tCommon = useTranslations("common");
   const [zoom, setZoom] = useState(1);
   const historyPushedRef = useRef(false);
   const closingViaButtonRef = useRef(false);
@@ -62,7 +64,7 @@ export function ConsultationPhotoLightbox({ label, url, onClose }: ConsultationP
             type="button"
             onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
             className="rounded-lg bg-white/15 p-2 hover:bg-white/25"
-            aria-label="Zoom arrière"
+            aria-label={tCommon("zoomOut")}
           >
             <ZoomOut className="size-4" aria-hidden />
           </button>
@@ -71,7 +73,7 @@ export function ConsultationPhotoLightbox({ label, url, onClose }: ConsultationP
             type="button"
             onClick={() => setZoom((z) => Math.min(3, z + 0.25))}
             className="rounded-lg bg-white/15 p-2 hover:bg-white/25"
-            aria-label="Zoom avant"
+            aria-label={tCommon("zoomIn")}
           >
             <ZoomIn className="size-4" aria-hidden />
           </button>
@@ -79,7 +81,7 @@ export function ConsultationPhotoLightbox({ label, url, onClose }: ConsultationP
             type="button"
             onClick={closeLightbox}
             className="ml-1 rounded-lg bg-white/15 p-2 hover:bg-white/25"
-            aria-label="Fermer"
+            aria-label={tCommon("closeAria")}
           >
             <X className="size-4" aria-hidden />
           </button>

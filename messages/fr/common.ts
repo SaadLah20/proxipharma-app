@@ -22,6 +22,15 @@ export const commonFr = {
   closed: "Fermée",
   totalDash: "Total —",
   totalIncomplete: "TOTAL: — (prix incomplet)",
+  totalMad: "Total · {amount} MAD",
+  totalMadPartial: "Total · {amount} MAD · partiel",
+  subtotalBlock: "Sous-total du bloc · {amount} MAD",
+  subtotalBlockPartial:
+    "Sous-total du bloc (partiel) · {amount} MAD · certaines lignes sans prix unitaire",
+  subtotalBlockMissingPrice:
+    "Sous-total du bloc — prix non communiqué sur une ou plusieurs lignes",
+  totalMadLong: "TOTAL: {amount} MAD",
+  totalMadPartialLong: "TOTAL: {amount} MAD (partiel)",
   added: "Ajouté",
   removed: "Retiré",
   modified: "Modifié",
@@ -86,4 +95,10 @@ export const commonFr = {
   next: "Suiv.",
   km: "{n} km",
   meters: "{n} m",
+  callPharmacy: "Appeler la pharmacie",
+  sendSms: "Envoyer un SMS",
+  whatsappChat: "Discuter sur WhatsApp",
+  mailSubjectRequest: "Demande {ref}",
+  mailBodyHello: "Bonjour,\n\nConcernant ma demande {ref} :\n\n",
+  defaultRequestKindLabel: "Demande",
 };

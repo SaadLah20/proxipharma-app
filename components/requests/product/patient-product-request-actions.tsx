@@ -41,6 +41,11 @@ import {
   uiActionBtnModalPrimary,
 } from "@/lib/ui-action-buttons";
 import { usePatientArchiveClosureLabel } from "@/lib/i18n/patient-archive-closure-label";
+import {
+  useCompactTotalMadLabel,
+  useGrandTotalMadLabel,
+  useSubtotalBlockMadLabel,
+} from "@/lib/i18n/use-compact-total-mad-label";
 import { usePatientDatetimeFormatters } from "@/lib/i18n/use-patient-datetime-formatters";
 import { usePatientLineCountLabel } from "@/lib/i18n/use-patient-line-count-label";
 import {
@@ -169,7 +174,6 @@ import {
 } from "@/lib/prescription-patient-labels";
 import {
   isPrescriptionAdditionalProposedLine,
-  PRESCRIPTION_ADDITIONAL_PROPOSED_REASON,
 } from "@/lib/prescription-pharmacist-lines";
 import { inferArchiveSnapshotStatus } from "@/lib/request-archive-snapshot-status";
 import { patientLineProposedBadgeLabel } from "@/lib/patient-line-proposed-badge";
@@ -323,14 +327,6 @@ function monetaryTotalsForRetainedLines(
     else sumKnown += unit * qty;
   }
   return { count, sumKnown, missingPrice };
-}
-
-/** Libellé court sur une ligne (mobile). */
-function compactTotalMadLabel(t: { sumKnown: number; missingPrice: boolean; empty: boolean }): string {
-  if (t.empty) return "—";
-  if (t.missingPrice && t.sumKnown === 0) return "Total —";
-  if (t.missingPrice) return `Total · ${t.sumKnown.toFixed(2)} MAD · partiel`;
-  return `Total · ${t.sumKnown.toFixed(2)} MAD`;
 }
 
 /** Vignette validée — même gabarit que demande répondue (~62px). */
@@ -518,8 +514,8 @@ function PatientTraceNotRetainedRow({
   const lineKind =
     row.line_source === "pharmacist_proposed" ? (
       requestType === "prescription"
-        ? PRESCRIPTION_ADDITIONAL_PROPOSED_REASON
-        : requestItemLineSourceFr.pharmacist_proposed
+        ? prescriptionCopy.pharmacyProposedProduct
+        : tCommon("proposal")
     ) : null;
   const photoUrl = prod?.photo_url ? resolvePublicMediaUrl(prod.photo_url) : null;
 
@@ -609,6 +605,25 @@ function pickDefaultBranch(row: ActionItemRow, alts: ActionItemAltRow[]): LineBr
     return null;
   }
   return null;
+}
+
+function lineSelMapsEqual(
+  a: Record<string, LineSelState>,
+  b: Record<string, LineSelState>
+): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const k of keys) {
+    const sa = a[k];
+    const sb = b[k];
+    if (!sa && !sb) continue;
+    if (!sa || !sb) return false;
+    if (sa.branch !== sb.branch || sa.qty !== sb.qty) return false;
+    const browseKeys = new Set([...Object.keys(sa.browseQty), ...Object.keys(sb.browseQty)]);
+    for (const bk of browseKeys) {
+      if ((sa.browseQty[bk] ?? null) !== (sb.browseQty[bk] ?? null)) return false;
+    }
+  }
+  return true;
 }
 
 export function computeSelFromConfirmedItems(items: ActionItemRow[]): Record<string, LineSelState> {
@@ -709,11 +724,12 @@ function resubmitLineFromDraftAndServer(
 
 function computeResubmitLinesFromItems(
   items: ActionItemRow[],
-  resolveCatalog?: (row: ActionItemRow) => number | null
+  resolveCatalog: ((row: ActionItemRow) => number | null) | undefined,
+  productFallback: string,
 ): ResubmitLine[] {
   return items.map((row) => ({
     product_id: row.product_id,
-    name: one(row.products)?.name ?? "Produit",
+    name: one(row.products)?.name ?? productFallback,
     brand: one(row.products)?.brand ?? null,
     product_type: one(row.products)?.product_type ?? null,
     photo_url: resolvePublicMediaUrl(one(row.products)?.photo_url ?? null),
@@ -784,12 +800,6 @@ function diffResubmitLines(baseline: ResubmitLine[], current: ResubmitLine[]): R
   return out;
 }
 
-function patientArchiveClosureLabelFr(row: ActionItemRow): string | null {
-  if ((row.counter_outcome ?? "unset") === "picked_up") return "Récupéré";
-  if (row.withdrawn_after_confirm) return "Retiré";
-  return null;
-}
-
 function validatedTierForClosedArchiveRow(row: ActionItemRow): "dispo_officine" | "commande" | "hors_perimetre" | "retire_apres_validation" {
   const { dispoOfficine, aCommander, horsPerimetre } = bucketPatientValidatedLinesThreeWays([row]);
   if (dispoOfficine.some((r) => r.id === row.id)) return "dispo_officine";
@@ -798,16 +808,14 @@ function validatedTierForClosedArchiveRow(row: ActionItemRow): "dispo_officine" 
   return row.withdrawn_after_confirm ? "retire_apres_validation" : "dispo_officine";
 }
 
-function archiveProductsFrozenSectionShell(title: string, children: ReactNode) {
+function archiveProductsFrozenSectionShell(title: string, frozenHint: string, children: ReactNode) {
   return (
     <section className="mt-4 w-full min-w-0 space-y-4 px-0">
       <div className="space-y-1">
         <h3 className="pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
           {title}
         </h3>
-        <p className="text-[10px] leading-snug text-muted-foreground">
-          État enregistré au moment de la clôture — consultation seule.
-        </p>
+        <p className="text-[10px] leading-snug text-muted-foreground">{frozenHint}</p>
       </div>
       {children}
     </section>
@@ -869,12 +877,16 @@ function PatientArchiveFrozenProductsView({
   ) => number | null;
 }) {
   const tCommon = useTranslations("common");
+  const tArchiveFooter = useTranslations("demandes.archive.footer");
   const archiveClosureLabel = usePatientArchiveClosureLabel();
+  const compactTotalMadLabel = useCompactTotalMadLabel();
+  const frozenHint = tArchiveFooter("frozenStateHint");
   const noop = () => {};
 
   if (snapshotStatus === "submitted" || snapshotStatus === "in_review") {
     return archiveProductsFrozenSectionShell(
       productsSectionTitle,
+      frozenHint,
       <ul className={patientBucketProductListClass}>
         {items.map((row) => {
           const prod = one(row.products);
@@ -899,7 +911,7 @@ function PatientArchiveFrozenProductsView({
                 const url = raw ? resolvePublicMediaUrl(raw) ?? raw : null;
                 onPhotoPreview(
                   url,
-                  prod?.name ?? "Produit",
+                  prod?.name ?? tCommon("product"),
                   prod?.full_description,
                   prod?.brand,
                   prod?.product_type,
@@ -918,6 +930,7 @@ function PatientArchiveFrozenProductsView({
     const respondedBuckets = bucketPatientRespondedLines(items, requestType, supplyAmendmentBundles);
     return archiveProductsFrozenSectionShell(
       productsSectionTitle,
+      frozenHint,
       <div className="w-full min-w-0 space-y-5">
         {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
           const rows = respondedBuckets[bucketId];
@@ -972,6 +985,7 @@ function PatientArchiveFrozenProductsView({
 
     return archiveProductsFrozenSectionShell(
       productsSectionTitle,
+      frozenHint,
       <>
         {PATIENT_CLOSED_ARCHIVE_BUCKET_ORDER.map((bucketId) => {
           const rows = closedBuckets[bucketId];
@@ -1037,7 +1051,8 @@ function PatientArchiveFrozenProductsView({
 
         {archiveRetainedTotalsFooter({
           count: pickedUpTotals.count,
-          countLabel: pickedUpTotals.count > 1 ? "produits récupérés" : "produit récupéré",
+          countLabel:
+          pickedUpTotals.count > 1 ? tCommon("productsPickedUp") : tCommon("productPickedUp"),
           totalLabel: compactTotalMadLabel({
             sumKnown: pickedUpTotals.sumKnown,
             missingPrice: pickedUpTotals.missingPrice,
@@ -1066,6 +1081,7 @@ function PatientArchiveFrozenProductsView({
 
   return archiveProductsFrozenSectionShell(
     productsSectionTitle,
+    frozenHint,
     <>
       {dispoRetenues.length > 0 ? (
         <PatientValidatedBucketSection
@@ -1086,7 +1102,7 @@ function PatientArchiveFrozenProductsView({
                 tier="dispo_officine"
                 onOpenHistory={() => onOpenLineHistory(row.id)}
                 requestStatusForCard={cardStatus}
-                archiveClosureLabel={patientArchiveClosureLabelFr(row)}
+                archiveClosureLabel={archiveClosureLabel(row)}
                 onPhotoPreview={onPhotoPreview}
                 pharmacistProposedBadgeLabel={badgeForRow(row) ?? pharmacistProposedBadgeLabel}
                 requestType={requestType}
@@ -1117,7 +1133,7 @@ function PatientArchiveFrozenProductsView({
                 tier="commande"
                 onOpenHistory={() => onOpenLineHistory(row.id)}
                 requestStatusForCard={cardStatus}
-                archiveClosureLabel={patientArchiveClosureLabelFr(row)}
+                archiveClosureLabel={archiveClosureLabel(row)}
                 onPhotoPreview={onPhotoPreview}
                 pharmacistProposedBadgeLabel={badgeForRow(row) ?? pharmacistProposedBadgeLabel}
                 requestType={requestType}
@@ -1139,7 +1155,7 @@ function PatientArchiveFrozenProductsView({
                 tier="hors_perimetre"
                 onOpenHistory={() => onOpenLineHistory(row.id)}
                 requestStatusForCard={cardStatus}
-                archiveClosureLabel={patientArchiveClosureLabelFr(row)}
+                archiveClosureLabel={archiveClosureLabel(row)}
                 onPhotoPreview={onPhotoPreview}
                 pharmacistProposedBadgeLabel={badgeForRow(row) ?? pharmacistProposedBadgeLabel}
                 requestType={requestType}
@@ -1166,7 +1182,7 @@ function PatientArchiveFrozenProductsView({
                 tier="retire_apres_validation"
                 onOpenHistory={() => onOpenLineHistory(row.id)}
                 requestStatusForCard={cardStatus}
-                archiveClosureLabel={patientArchiveClosureLabelFr(row)}
+                archiveClosureLabel={archiveClosureLabel(row)}
                 onPhotoPreview={onPhotoPreview}
                 pharmacistProposedBadgeLabel={badgeForRow(row) ?? pharmacistProposedBadgeLabel}
                 requestType={requestType}
@@ -1196,7 +1212,8 @@ function PatientArchiveFrozenProductsView({
 
       {archiveRetainedTotalsFooter({
         count: totalsRetained.count,
-        countLabel: totalsRetained.count > 1 ? "produits retenus" : "produit retenu",
+        countLabel:
+          totalsRetained.count > 1 ? tCommon("productsRetained") : tCommon("productRetained"),
         totalLabel: compactTotalMadLabel({
           sumKnown: totalsRetained.sumKnown,
           missingPrice: totalsRetained.missingPrice,
@@ -1217,6 +1234,9 @@ function PatientSentLineNotesModalFr({
   client: string;
   pharmacist: string;
 }) {
+  const tCommon = useTranslations("common");
+  const tNotes = useTranslations("demandes.notes");
+  const tConversation = useTranslations("conversation");
   const [open, setOpen] = useState(false);
   const titleId = useId();
   const c = client.trim();
@@ -1240,7 +1260,7 @@ function PatientSentLineNotesModalFr({
           <div className={cn("flex items-start justify-between gap-2 border-b px-3 py-2", productRequestTheme.modalHeader)}>
             <div className="min-w-0 flex-1">
               <h2 id={titleId} className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                <span className="block">Notes — produit</span>
+                <span className="block">{tNotes("lineNotes")}</span>
                 <span className="mt-1 block text-[13px] font-semibold normal-case leading-snug text-foreground">
                   {productName}
                 </span>
@@ -1249,7 +1269,7 @@ function PatientSentLineNotesModalFr({
             <button
               type="button"
               className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted/60"
-              aria-label="Fermer"
+              aria-label={tCommon("closeAria")}
               onClick={() => setOpen(false)}
             >
               <X className="size-4" aria-hidden />
@@ -1257,17 +1277,17 @@ function PatientSentLineNotesModalFr({
           </div>
           <div className="max-h-[min(60vh,16rem)] space-y-2 overflow-y-auto overscroll-y-contain px-3 py-2.5 text-[11px] [-webkit-overflow-scrolling:touch]">
             {!c && !p ? (
-              <p className="text-[11px] leading-snug text-muted-foreground">Aucune note sur ce produit.</p>
+              <p className="text-[11px] leading-snug text-muted-foreground">{tNotes("noNoteOnProduct")}</p>
             ) : null}
             {c ? (
               <div className="rounded-lg border border-sky-200/80 bg-sky-50/90 px-2.5 py-2">
-                <p className="text-[8px] font-bold uppercase tracking-wide text-sky-900">Vous</p>
+                <p className="text-[8px] font-bold uppercase tracking-wide text-sky-900">{tConversation("you")}</p>
                 <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-sky-950">{c}</p>
               </div>
             ) : null}
             {p ? (
               <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-2">
-                <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-900">Officine</p>
+                <p className="text-[8px] font-bold uppercase tracking-wide text-emerald-900">{tConversation("pharmacy")}</p>
                 <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-emerald-950">{p}</p>
               </div>
             ) : null}
@@ -1278,7 +1298,7 @@ function PatientSentLineNotesModalFr({
               className="h-9 w-full rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
               onClick={() => setOpen(false)}
             >
-              Fermer
+              {tCommon("close")}
             </button>
           </div>
         </div>
@@ -1478,68 +1498,6 @@ export function usePatientSummaryStatusCopy(requestType: string) {
   return { hint, detail, workflowCopy };
 }
 
-export function buildPatientSummaryStatusHint(
-  status: string,
-  requestType: string,
-  _workflow: ReturnType<typeof getRequestKindWorkflowCopy>
-): string {
-  if (status === "responded") return "Validez votre choix et votre date de passage.";
-  if (status === "confirmed") {
-    return requestType === "prescription"
-      ? "Préparation en cours selon l'ordonnance."
-      : "Préparation en cours à l'officine.";
-  }
-  if (status === "treated") return "Passez à l'officine pour retirer vos produits.";
-  if (status === "in_review") {
-    if (requestType === "free_consultation") return _workflow.patientWaitingInReviewHint;
-    return "L'officine examine votre demande.";
-  }
-  if (status === "submitted" && requestType === "free_consultation") {
-    return _workflow.patientWaitingSubmittedHint;
-  }
-  return "Demande envoyée — en attente de réponse.";
-}
-
-/** Détail affiché dans le modal (i) du bandeau dossier. */
-export function buildPatientSummaryStatusDetail(
-  status: string,
-  requestType: string,
-  workflow: ReturnType<typeof getRequestKindWorkflowCopy>
-): string | null {
-  if (status === "responded") {
-    return "Pour chaque produit : garder ou non, quantité, alternative éventuelle, puis date de passage et validation.";
-  }
-  if (status === "confirmed") {
-    return requestType === "prescription"
-      ? "La pharmacie prépare votre commande selon les produits saisis sur l'ordonnance. Les mises à jour restent visibles sur cette page."
-      : "Votre pharmacie prépare la commande (mise de côté et commandes fournisseur selon les produits). Les mises à jour restent visibles sur cette page.";
-  }
-  if (status === "treated") {
-    return "Vous pouvez passer à l'officine pour retirer les produits réservés et ceux commandés déjà reçus. Le suivi par produit est indiqué sur chaque carte.";
-  }
-  if (status === "in_review") return workflow.patientWaitingInReviewHint;
-  return workflow.patientWaitingSubmittedHint;
-}
-
-export function buildPatientLineCountLabel(
-  requestType: string,
-  status: string,
-  lineCount: number
-): string {
-  if (requestType === "prescription" && ["submitted", "in_review"].includes(status)) {
-    return "Scan envoyé";
-  }
-  if (requestType === "prescription" && lineCount > 0) {
-    return `${lineCount} produit${lineCount > 1 ? "s" : ""} saisi${lineCount > 1 ? "s" : ""}`;
-  }
-  if (requestType === "free_consultation") {
-    if (["submitted", "in_review"].includes(status)) return "Consultation envoyée";
-    if (lineCount > 0) return `${lineCount} produit${lineCount > 1 ? "s" : ""} proposé${lineCount > 1 ? "s" : ""}`;
-    return "Consultation";
-  }
-  return `${lineCount} ligne${lineCount > 1 ? "s" : ""}`;
-}
-
 function clampVisitYmd(ymd: string, minY: string, maxY: string): string {
   if (ymd < minY) return minY;
   if (ymd > maxY) return maxY;
@@ -1598,12 +1556,20 @@ type PatientConfirmReviewSnapshot = {
   visitSummaryFr: string;
 };
 
+type ConfirmLineCopy = {
+  productFallback: string;
+  alternativeFallback: string;
+  proposalLabel: string;
+  pharmacyProposedProduct: string;
+};
+
 function buildPatientConfirmSelection(
   items: ActionItemRow[],
   sel: Record<string, LineSelState>,
   requestType: string,
   amendmentBundles: { amendments: unknown }[],
   formatDateShort: (ymd: string | null | undefined) => string,
+  copy: ConfirmLineCopy,
 ): { rpcPayload: PatientConfirmRpcRow[]; preview: PatientConfirmPreviewLine[] } {
   const preview: PatientConfirmPreviewLine[] = [];
   const rpcPayload = items.map((row) => {
@@ -1627,7 +1593,7 @@ function buildPatientConfirmSelection(
       let productType: string | null = null;
 
       if (st.branch === "principal") {
-        productName = principalProd?.name ?? "Produit";
+        productName = principalProd?.name ?? copy.productFallback;
         brand = principalProd?.brand?.trim() || null;
         productType = principalProd?.product_type?.trim() || null;
         unitPrice = row.unit_price != null ? Number(row.unit_price) : null;
@@ -1656,7 +1622,7 @@ function buildPatientConfirmSelection(
       } else {
         const alt = alts.find((a) => a.id === st.branch);
         const altProd = alt ? one(alt.products) : null;
-        productName = altProd?.name ?? "Alternative";
+        productName = altProd?.name ?? copy.alternativeFallback;
         brand = altProd?.brand?.trim() || null;
         productType = altProd?.product_type?.trim() || null;
         unitPrice = alt?.unit_price != null ? Number(alt.unit_price) : null;
@@ -1719,7 +1685,8 @@ function buildNonRetainedConfirmLines(
   items: ActionItemRow[],
   sel: Record<string, LineSelState>,
   requestType: string,
-  amendmentBundles: { amendments: unknown }[]
+  amendmentBundles: { amendments: unknown }[],
+  copy: ConfirmLineCopy,
 ): PatientConfirmSkippedLine[] {
   const out: PatientConfirmSkippedLine[] = [];
   for (const row of items) {
@@ -1733,12 +1700,12 @@ function buildNonRetainedConfirmLines(
         isRxProp && isPrescriptionAdditionalProposedLine(requestType, row, amendmentBundles);
       out.push({
         rowId: row.id,
-        productName: one(row.products)?.name ?? "Produit",
+        productName: one(row.products)?.name ?? copy.productFallback,
         isProposed: isExtra || (row.line_source === "pharmacist_proposed" && requestType !== "prescription"),
         skipLabel: isRxProp
-          ? PRESCRIPTION_ADDITIONAL_PROPOSED_REASON
+          ? copy.pharmacyProposedProduct
           : row.line_source === "pharmacist_proposed"
-            ? "Proposition"
+            ? copy.proposalLabel
             : null,
       });
     }
@@ -1761,7 +1728,7 @@ function validatePatientConfirmBeforeReview(
   visitWin: ReturnType<typeof plannedVisitWindow>,
   resolvedVisitDate: string,
   visitDateRaw: string,
-  copy: PatientConfirmValidationCopy,
+  copy: PatientConfirmValidationCopy & Pick<ConfirmLineCopy, "productFallback" | "alternativeFallback">,
   formatMaxVisitDate: (ymd: string) => string
 ): string | null {
   const anyOn = rpcPayload.some((p) => p.is_selected);
@@ -1778,7 +1745,9 @@ function validatePatientConfirmBeforeReview(
     if (effQty > cap) {
       const alt = st.branch !== "principal" ? alts.find((a) => a.id === st.branch) : null;
       const label =
-        st.branch === "principal" ? (one(row.products)?.name ?? "Produit") : (one(alt?.products)?.name ?? "Alternative");
+        st.branch === "principal"
+          ? (one(row.products)?.name ?? copy.productFallback)
+          : (one(alt?.products)?.name ?? copy.alternativeFallback);
       return copy.qtyExceedsMax(label, cap);
     }
   }
@@ -1804,22 +1773,6 @@ function blockMonetarySummary(lines: PatientConfirmPreviewLine[]): { sumKnown: n
     else sumKnown += L.lineTotalMad;
   }
   return { sumKnown, missingUnitPrice };
-}
-
-function formatBlockSubtotalLabel(lines: PatientConfirmPreviewLine[]): string {
-  const { sumKnown, missingUnitPrice } = blockMonetarySummary(lines);
-  if (lines.length === 0) return "";
-  if (missingUnitPrice && sumKnown === 0) return "Sous-total du bloc — prix non communiqué sur une ou plusieurs lignes";
-  if (missingUnitPrice) return `Sous-total du bloc (partiel) · ${sumKnown.toFixed(2)} MAD · certaines lignes sans prix unitaire`;
-  return `Sous-total du bloc · ${sumKnown.toFixed(2)} MAD`;
-}
-
-function formatGrandTotalLabel(all: PatientConfirmPreviewLine[]): string {
-  const { sumKnown, missingUnitPrice } = blockMonetarySummary(all);
-  if (all.length === 0) return "";
-  if (missingUnitPrice && sumKnown === 0) return "TOTAL: — (prix incomplet)";
-  if (missingUnitPrice) return `TOTAL: ${sumKnown.toFixed(2)} MAD (partiel)`;
-  return `TOTAL: ${sumKnown.toFixed(2)} MAD`;
 }
 
 function PatientConfirmReviewLineCard({
@@ -1906,10 +1859,33 @@ export function PatientProductRequestActions({
   const tCommon = useTranslations("common");
   const tDemandes = useTranslations("demandes");
   const tValidation = useTranslations("demandes.validation");
+  const tModal = useTranslations("demandes.modal");
   const dt = usePatientDatetimeFormatters();
   const lineCountLabel = usePatientLineCountLabel();
   const phaseLabels = useTimelinePhaseLabels();
   const prescriptionCopy = usePrescriptionUiCopy();
+  const compactTotalMadLabel = useCompactTotalMadLabel();
+  const subtotalBlockMadLabel = useSubtotalBlockMadLabel();
+  const grandTotalMadLabel = useGrandTotalMadLabel();
+
+  const confirmLineCopy = useMemo<ConfirmLineCopy>(
+    () => ({
+      productFallback: tCommon("product"),
+      alternativeFallback: tCommon("alternative"),
+      proposalLabel: tCommon("proposal"),
+      pharmacyProposedProduct: prescriptionCopy.pharmacyProposedProduct,
+    }),
+    [tCommon, prescriptionCopy.pharmacyProposedProduct],
+  );
+
+  const formatBlockSubtotalLabel = useCallback(
+    (lines: PatientConfirmPreviewLine[]) => {
+      if (lines.length === 0) return "";
+      const { sumKnown, missingUnitPrice } = blockMonetarySummary(lines);
+      return subtotalBlockMadLabel(sumKnown, missingUnitPrice);
+    },
+    [subtotalBlockMadLabel],
+  );
 
   const formatMaxVisitDate = useCallback((ymd: string) => dt.formatDateShort(ymd), [dt]);
 
@@ -1996,7 +1972,7 @@ export function PatientProductRequestActions({
       if (!options?.catalogExplorerPreview && !url?.trim()) return;
       setProductPhotoPreview({
         url: url?.trim() || null,
-        title: title.trim() || "Produit",
+        title: title.trim() || tCommon("product"),
         brand: brand ?? null,
         product_type: productType ?? null,
         descriptionHtml: productDescriptionHtmlForDisplay(descriptionHtml),
@@ -2042,6 +2018,10 @@ export function PatientProductRequestActions({
   const [hits, setHits] = useState<ProductHit[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [confirmedRevalidationMode, setConfirmedRevalidationMode] = useState(false);
+  const [confirmedRevalidationBaseline, setConfirmedRevalidationBaseline] = useState<Record<
+    string,
+    LineSelState
+  > | null>(null);
   const [confirmReviewMode, setConfirmReviewMode] = useState<"initial" | "revalidation">("initial");
   const [resubmitConfirmOpen, setResubmitConfirmOpen] = useState(false);
   const [shouldRestoreFromCatalogue] = useState(() =>
@@ -2053,9 +2033,10 @@ export function PatientProductRequestActions({
     () =>
       computeResubmitLinesFromItems(
         visibleItemsForPatientBeforePharmacyResponse(items, status),
-        resolveItemCatalogPrice
+        resolveItemCatalogPrice,
+        confirmLineCopy.productFallback,
       ),
-    [items, status, resolveItemCatalogPrice]
+    [items, status, resolveItemCatalogPrice, confirmLineCopy.productFallback]
   );
   const linesSyncKey = editMode
     ? "edit"
@@ -2124,7 +2105,8 @@ export function PatientProductRequestActions({
     setLines(
       computeResubmitLinesFromItems(
         visibleItemsForPatientBeforePharmacyResponse(items, status),
-        resolveItemCatalogPrice
+        resolveItemCatalogPrice,
+        confirmLineCopy.productFallback,
       )
     );
     setQuery("");
@@ -2438,7 +2420,14 @@ export function PatientProductRequestActions({
 
   const openConfirmReview = useCallback(() => {
     setConfirmReviewMode("initial");
-    const built = buildPatientConfirmSelection(items, sel, requestType, supplyAmendmentBundles, dt.formatDateShort);
+    const built = buildPatientConfirmSelection(
+      items,
+      sel,
+      requestType,
+      supplyAmendmentBundles,
+      dt.formatDateShort,
+      confirmLineCopy,
+    );
     const err = validatePatientConfirmBeforeReview(
       items,
       sel,
@@ -2446,7 +2435,7 @@ export function PatientProductRequestActions({
       visitWin,
       resolvedVisitDate,
       visitDate,
-      validationCopy,
+      { ...validationCopy, ...confirmLineCopy },
       formatMaxVisitDate
     );
     if (err) {
@@ -2455,7 +2444,13 @@ export function PatientProductRequestActions({
     }
     setActionError("");
     const timePg = htmlTimeToPg(visitTimeComposed);
-    const skippedLines = buildNonRetainedConfirmLines(items, sel, requestType, supplyAmendmentBundles);
+    const skippedLines = buildNonRetainedConfirmLines(
+      items,
+      sel,
+      requestType,
+      supplyAmendmentBundles,
+      confirmLineCopy,
+    );
     setConfirmReviewSnap({
       rpcPayload: built.rpcPayload,
       preview: built.preview,
@@ -2484,7 +2479,14 @@ export function PatientProductRequestActions({
       return;
     }
     setConfirmReviewMode("revalidation");
-    const built = buildPatientConfirmSelection(items, sel, requestType, supplyAmendmentBundles, dt.formatDateShort);
+    const built = buildPatientConfirmSelection(
+      items,
+      sel,
+      requestType,
+      supplyAmendmentBundles,
+      dt.formatDateShort,
+      confirmLineCopy,
+    );
     const err = validatePatientConfirmBeforeReview(
       items,
       sel,
@@ -2492,7 +2494,7 @@ export function PatientProductRequestActions({
       visitWin,
       resolvedVisitDate,
       resolvedVisitDate,
-      validationCopy,
+      { ...validationCopy, ...confirmLineCopy },
       formatMaxVisitDate
     );
     if (err) {
@@ -2500,7 +2502,13 @@ export function PatientProductRequestActions({
       return;
     }
     setActionError("");
-    const skippedLines = buildNonRetainedConfirmLines(items, sel, requestType, supplyAmendmentBundles);
+    const skippedLines = buildNonRetainedConfirmLines(
+      items,
+      sel,
+      requestType,
+      supplyAmendmentBundles,
+      confirmLineCopy,
+    );
     setConfirmReviewSnap({
       rpcPayload: built.rpcPayload,
       preview: built.preview,
@@ -2528,16 +2536,25 @@ export function PatientProductRequestActions({
       setActionError(detailStale.message);
       return;
     }
+    const baseline = computeSelFromConfirmedItems(items);
+    setConfirmedRevalidationBaseline(baseline);
     setConfirmedRevalidationMode(true);
-    setSel(computeSelFromConfirmedItems(items));
+    setSel(baseline);
     setActionError("");
   }, [items, detailStale]);
 
   const cancelConfirmedRevalidation = useCallback(() => {
     setConfirmedRevalidationMode(false);
+    setConfirmedRevalidationBaseline(null);
     setSel(computeSelFromConfirmedItems(items));
     setActionError("");
   }, [items]);
+
+  const confirmedRevalidationDirty = useMemo(() => {
+    if (!confirmedRevalidationMode) return false;
+    if (!confirmedRevalidationBaseline) return false;
+    return !lineSelMapsEqual(sel, confirmedRevalidationBaseline);
+  }, [confirmedRevalidationMode, confirmedRevalidationBaseline, sel]);
 
   useEffect(() => {
     if (!confirmReviewOpen) return;
@@ -2589,6 +2606,7 @@ export function PatientProductRequestActions({
     }
     closeConfirmReview();
     setConfirmedRevalidationMode(false);
+    setConfirmedRevalidationBaseline(null);
     await onReload();
   };
 
@@ -2719,16 +2737,17 @@ export function PatientProductRequestActions({
         missingPrice: totalsRetained.missingPrice,
         empty: totalsRetained.count < 1,
       }),
-    [totalsRetained]
+    [totalsRetained, compactTotalMadLabel]
   );
 
   const resubmitBaseline = useMemo(
     () =>
       computeResubmitLinesFromItems(
         visibleItemsForPatientBeforePharmacyResponse(items, status),
-        resolveItemCatalogPrice
+        resolveItemCatalogPrice,
+        confirmLineCopy.productFallback,
       ),
-    [items, status]
+    [items, status, resolveItemCatalogPrice, confirmLineCopy.productFallback]
   );
   const resubmitDirty = useMemo(() => {
     if (status !== "submitted" && status !== "in_review") return false;
@@ -2808,8 +2827,8 @@ export function PatientProductRequestActions({
   if (!interactiveAllowed && !readOnlyArchive) return null;
 
   const badgeDefaults = {
-    ordonnance: workflowCopy.pharmacistOrdonnanceLineBadge ?? "Ordonnance",
-    proposed: PRESCRIPTION_ADDITIONAL_PROPOSED_REASON,
+    ordonnance: workflowCopy.pharmacistOrdonnanceLineBadge ?? prescriptionCopy.principalBadge,
+    proposed: prescriptionCopy.pharmacyProposedProduct,
     officine: pharmacistProposedProductBadgeFr,
   };
   const badgeForRow = (row: ActionItemRow): string | undefined => {
@@ -3525,6 +3544,26 @@ export function PatientProductRequestActions({
       ) : null}
 
       <div className="mt-2 space-y-2">
+        {showConfirmedCards && !confirmedRevalidationMode && !forceReadOnly ? (
+          <DossierInlineActionPanel
+            tone="slate"
+            className="mt-2"
+            summaryLeft={
+              <>
+                <span className="font-bold tabular-nums text-foreground">{totalsRetained.count}</span>{" "}
+                {isTreatedActiveView
+                  ? totalsRetained.count > 1
+                    ? "produits à retirer"
+                    : "produit à retirer"
+                  : totalsRetained.count > 1
+                    ? "produits retenus"
+                    : "produit retenu"}
+              </>
+            }
+            summaryRight={totalRetainedGrandLabel}
+          />
+        ) : null}
+
         {showVisitFields ? (
           <div
             className={clsx(
@@ -3554,18 +3593,18 @@ export function PatientProductRequestActions({
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-foreground">
-                    Date de passage
+                    {tCommon("visitDateLabel")}
                   </p>
                   <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
                     {visitFieldsEditable
-                      ? "Indique quand tu prévois de passer à l'officine."
-                      : "Consultation seule — ce dossier n'accepte plus de modification."}
+                      ? tCommon("visitDateHint")
+                      : tCommon("readOnlyConsultationDossier")}
                   </p>
                 </div>
               </div>
             ) : (
               <div className="mx-auto max-w-md space-y-1">
-                <p className="text-xs font-bold text-foreground">Passage en officine</p>
+                <p className="text-xs font-bold text-foreground">{tCommon("visitAtPharmacy")}</p>
                 {isTreatedActiveView && treatedPassageLine ? (
                   <p className="text-[11px] font-semibold leading-snug text-foreground" role="status">
                     {treatedPassageLine}
@@ -3641,12 +3680,29 @@ export function PatientProductRequestActions({
               </p>
             ) : useCompactPassageBlock && visitFieldsEditable && isTreatedActiveView ? (
               <p className="mx-auto max-w-md text-[10px] leading-snug text-muted-foreground">
-                La pharmacie est informée si vous modifiez votre passage (bouton en bas de l&apos;écran).
+                Modifiez la date ou l&apos;heure puis enregistrez ci-dessous.
               </p>
             ) : !useCompactPassageBlock && visitFieldsEditable && isTreatedActiveView ? (
               <p className="text-[10px] leading-snug text-sky-900/85">
-                La pharmacie est informée si vous modifiez votre passage (bouton en bas de l&apos;écran).
+                Modifiez la date ou l&apos;heure puis enregistrez ci-dessous.
               </p>
+            ) : null}
+            {showConfirmedCards && !confirmedRevalidationMode && visitFieldsEditable ? (
+              <button
+                type="button"
+                disabled={busyAction !== "" || !visitPassageDirty || Boolean(detailStale)}
+                onClick={() => void runUpdateVisit()}
+                className={clsx(
+                  uiActionBtnFull("mt-2 flex items-center justify-center"),
+                  useCompactPassageBlock && "mx-auto max-w-md",
+                )}
+              >
+                {busyAction === "visit"
+                  ? tCommon("updating")
+                  : isTreatedActiveView
+                    ? tCommon("updateVisit")
+                    : tCommon("updateVisitDate")}
+              </button>
             ) : null}
           </div>
         ) : null}
@@ -3659,16 +3715,15 @@ export function PatientProductRequestActions({
           ) : (
             <section className="mt-2 rounded-xl border border-border bg-muted/25 px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
               {showConfirmedCards
-                ? "Après validation, les changements passent par votre pharmacie."
-                : "Les coordonnées de l’officine seront affichées ici lorsqu’elles sont disponibles."}
+                ? tCommon("afterValidationPharmacyChanges")
+                : tCommon("pharmacyContactPending")}
             </section>
           )
         ) : null}
 
         {showConfirmedCards && !showConfirm && usesLineWorkflowUi && !forceReadOnly ? (
           <p className="mt-3 rounded-lg border border-border bg-muted/20 px-2.5 py-2 text-[10px] leading-snug text-muted-foreground">
-            Pour échanger avec la pharmacie à tout moment, utilise le bouton{" "}
-            <strong className="font-semibold">Conversation</strong> en bas à droite de l&apos;écran.
+            {tModal("conversationFabHint")}
           </p>
         ) : null}
 
@@ -3811,62 +3866,30 @@ export function PatientProductRequestActions({
           </DossierInlineActionPanel>
         ) : null}
 
-        {showConfirmedCards && !forceReadOnly && !stickyFooterObscured ? (
+        {showConfirmedCards && !forceReadOnly && !stickyFooterObscured && confirmedRevalidationMode ? (
           <DossierInlineActionPanel
-            tone={confirmedRevalidationMode ? "sky" : "slate"}
-            editing={confirmedRevalidationMode}
+            tone="sky"
+            editing
             editingLabel={tCommon("editModePanelLabel")}
-            {...(!confirmedRevalidationMode
-              ? {
-                  summaryLeft: (
-                    <>
-                      <span className="font-bold tabular-nums text-foreground">{totalsRetained.count}</span>{" "}
-                      {isTreatedActiveView
-                        ? totalsRetained.count > 1
-                          ? "produits à retirer"
-                          : "produit à retirer"
-                        : totalsRetained.count > 1
-                          ? "produits retenus"
-                          : "produit retenu"}
-                    </>
-                  ),
-                  summaryRight: totalRetainedGrandLabel,
-                }
-              : {})}
           >
-            {!confirmedRevalidationMode ? (
+            <div className={uiActionBtnFlexRow()}>
               <button
                 type="button"
-                disabled={busyAction !== "" || !visitPassageDirty || Boolean(detailStale)}
-                onClick={() => void runUpdateVisit()}
-                className={uiActionBtnFull("flex items-center justify-center")}
+                disabled={busyAction !== ""}
+                onClick={cancelConfirmedRevalidation}
+                className={uiActionBtnFlexCancel()}
               >
-                {busyAction === "visit"
-                  ? tCommon("updating")
-                  : isTreatedActiveView
-                    ? tCommon("updateVisit")
-                    : tCommon("updateVisitDate")}
+                {tCommon("cancel")}
               </button>
-            ) : (
-              <div className={uiActionBtnFlexRow()}>
-                <button
-                  type="button"
-                  disabled={busyAction !== ""}
-                  onClick={cancelConfirmedRevalidation}
-                  className={uiActionBtnFlexCancel()}
-                >
-                  {tCommon("cancel")}
-                </button>
-                <button
-                  type="button"
-                  disabled={busyAction !== "" || Boolean(detailStale)}
-                  onClick={openConfirmedRevalidationReview}
-                  className={uiActionBtnFlexPrimary("disabled:cursor-not-allowed")}
-                >
-                  {busyAction === "confirm" ? tCommon("saving") : tCommon("saveChanges")}
-                </button>
-              </div>
-            )}
+              <button
+                type="button"
+                disabled={busyAction !== "" || Boolean(detailStale) || !confirmedRevalidationDirty}
+                onClick={openConfirmedRevalidationReview}
+                className={uiActionBtnFlexPrimary("disabled:cursor-not-allowed")}
+              >
+                {busyAction === "confirm" ? tCommon("saving") : tCommon("saveChanges")}
+              </button>
+            </div>
           </DossierInlineActionPanel>
         ) : null}
 
@@ -4105,7 +4128,7 @@ export function PatientProductRequestActions({
                           <span
                             className={clsx(
                               "shrink-0 rounded px-1 py-px text-[8px] font-semibold uppercase",
-                              s.skipLabel === "Ordonnance" || s.skipLabel === "Produit proposé par la pharmacie"
+                              s.skipLabel === prescriptionCopy.principalBadge || s.skipLabel === prescriptionCopy.pharmacyProposedProduct
                                 ? "bg-amber-100 text-amber-950"
                                 : "bg-violet-100 text-violet-900"
                             )}
@@ -4222,29 +4245,36 @@ export function PatientProductRequestActions({
                 disabled={busyAction === "resubmit" || Boolean(detailStale)}
                 className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-40"
                 onClick={() => setResubmitConfirmOpen(false)}
-                aria-label="Fermer"
+                aria-label={tCommon("closeAria")}
               >
                 <X className="size-5" />
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 sm:px-4">
               {resubmitChanges.length === 0 ? (
-                <p className="text-xs leading-snug text-slate-600">Aucune modification détectée sur les produits.</p>
+                <p className="text-xs leading-snug text-slate-600">{tModal("resubmitNoChanges")}</p>
               ) : (
                 <>
                   <p className="text-xs leading-snug text-slate-600">
-                    {resubmitChanges.length} modification{resubmitChanges.length > 1 ? "s" : ""} — liste finale :{" "}
-                    {lines.length} produit{lines.length > 1 ? "s" : ""}.
+                    {resubmitChanges.length > 1
+                      ? tModal("resubmitSummaryPlural", {
+                          changes: resubmitChanges.length,
+                          lines: lines.length,
+                        })
+                      : tModal("resubmitSummary", {
+                          changes: resubmitChanges.length,
+                          lines: lines.length,
+                        })}
                   </p>
                   <ul className="mt-2 space-y-2">
                     {resubmitChanges.map((ch, idx) => {
                       const l = ch.line;
                       const badge =
                         ch.kind === "added"
-                          ? "Ajouté"
+                          ? tCommon("added")
                           : ch.kind === "removed"
-                            ? "Retiré"
-                            : "Modifié";
+                            ? tCommon("removed")
+                            : tCommon("modified");
                       return (
                         <li
                           key={`${l.product_id}-${ch.kind}-${idx}`}
@@ -4270,7 +4300,7 @@ export function PatientProductRequestActions({
                             </div>
                             {ch.kind === "modified" && ch.qtyBefore != null && ch.qtyAfter != null ? (
                               <p className="mt-0.5 text-[11px] text-slate-600">
-                                Qté <span className="tabular-nums line-through">{ch.qtyBefore}</span>
+                                {tModal("resubmitQty")} <span className="tabular-nums line-through">{ch.qtyBefore}</span>
                                 {" → "}
                                 <span className="font-bold tabular-nums text-slate-900">{ch.qtyAfter}</span>
                               </p>
@@ -4280,13 +4310,13 @@ export function PatientProductRequestActions({
                               </p>
                             ) : (
                               <p className="mt-0.5 text-[11px] text-slate-600">
-                                Qté précédente :{" "}
+                                {tModal("resubmitPreviousQty")}{" "}
                                 <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
                               </p>
                             )}
                             {ch.kind === "modified" && ch.commentBefore != null && ch.commentAfter != null ? (
                               <p className="mt-1 text-[10px] leading-snug text-slate-700">
-                                Note : « {ch.commentBefore || "—"} » → « {ch.commentAfter || "—"} »
+                                {tModal("resubmitNoteChange", { before: ch.commentBefore || "—", after: ch.commentAfter || "—" })}
                               </p>
                             ) : ch.kind !== "removed" && l.client_comment?.trim() ? (
                               <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-slate-700">
