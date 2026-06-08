@@ -4,6 +4,9 @@ export type PromoLineWithPrice = PromoOfferLineRow & {
   product_name?: string | null;
   price_pph?: number | null;
   photo_url?: string | null;
+  brand?: string | null;
+  product_type?: string | null;
+  full_description?: string | null;
 };
 
 export function computePromoPackTotals(

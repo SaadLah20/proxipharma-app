@@ -9,6 +9,7 @@ import {
   type CatalogProductPhotoPreview,
 } from "@/components/requests/patient-product-photo-preview-modal";
 import { promoProductDisplayName } from "@/lib/promo/display";
+import { productDescriptionHtmlForDisplay } from "@/lib/product-description-html";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { computePromoPackTotals, formatDh, type PromoLineWithPrice } from "@/lib/promo/pricing";
 import { promoPublicTheme as pt } from "@/lib/promo/promo-public-theme";
@@ -122,6 +123,9 @@ export function PromoOfferPackSummary({
         open={Boolean(preview)}
         imageUrl={preview?.url ?? null}
         title={preview?.title ?? ""}
+        brand={preview?.brand}
+        productType={preview?.product_type}
+        descriptionHtml={preview?.descriptionHtml}
         onClose={() => setPreview(null)}
       />
     </>
@@ -196,7 +200,7 @@ function PromoPackLineCard({
     >
       <div className="relative shrink-0">
         <ProductThumb
-          photoUrl={line.photo_url}
+          line={line}
           productLabel={label}
           variant={variant}
           gift={gift}
@@ -251,21 +255,22 @@ function QtyBadge({ quantity, gift }: { quantity: number; gift?: boolean }) {
 }
 
 function ProductThumb({
-  photoUrl,
+  line,
   productLabel,
   variant,
   gift,
   size,
   onPreview,
 }: {
-  photoUrl?: string | null;
+  line: PromoLineWithPrice;
   productLabel: string;
   variant: PackSummaryVariant;
   gift?: boolean;
   size: number;
   onPreview: (preview: CatalogProductPhotoPreview) => void;
 }) {
-  const url = resolvePublicMediaUrl(photoUrl ?? null);
+  const url = resolvePublicMediaUrl(line.photo_url ?? null);
+  const descriptionHtml = productDescriptionHtmlForDisplay(line.full_description);
   const isPublic = variant === "public";
 
   if (!url) {
@@ -286,6 +291,9 @@ function ProductThumb({
     <CatalogProductPhotoThumb
       imageUrl={url}
       title={productLabel}
+      brand={line.brand}
+      productType={line.product_type}
+      descriptionHtml={descriptionHtml}
       size={size}
       objectFit="contain"
       className="rounded-xl border border-border/60 bg-white"

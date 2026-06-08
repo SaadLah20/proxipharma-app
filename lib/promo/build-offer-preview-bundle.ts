@@ -37,6 +37,9 @@ export function buildPromoPreviewLines(
       product_name: l._name ?? cat?.name ?? l.label,
       price_pph,
       photo_url: cat?.photo_url ?? null,
+      brand: cat?.brand ?? null,
+      product_type: cat?.product_type ?? null,
+      full_description: cat?.full_description ?? null,
     };
   });
 }

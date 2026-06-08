@@ -16,16 +16,19 @@ import { promoPatientStatusHint, promoPatientStatusLabel } from "@/lib/i18n/prom
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import {
   patientPromoReservationDossierSectionShellClass,
-  patientPromoReservationLineCardClass,
 } from "@/lib/patient-promo-reservation-line-ui";
 import {
   isPromoReservationTerminalStatus,
   type PromoReservationHistoryRow,
 } from "@/lib/promo/promo-reservation-history-labels";
-import { PromoOfferDescriptionPanel } from "@/components/promo/promo-offer-description-panel";
+import { PromoOfferPackDossierSection } from "@/components/promo/promo-offer-description-panel";
 import { PromoOfferPackSummary } from "@/components/promo/promo-offer-pack-summary";
 import { fetchPromoOfferLines } from "@/lib/promo/load-offer-lines";
 import { markPromoReservationNotificationsRead } from "@/lib/promo/mark-reservation-notifs-read";
+import {
+  PROMO_RESERVATION_DETAIL_REFRESH_EVENT,
+  type PromoReservationDetailRefreshDetail,
+} from "@/lib/request-detail-refresh-bus";
 import { supabase } from "@/lib/supabase";
 import { uiActionBtnFullDestructive } from "@/lib/ui-action-buttons";
 import type { PromoLineWithPrice } from "@/lib/promo/pricing";
@@ -133,6 +136,16 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
     return () => window.clearTimeout(tid);
   }, [load]);
 
+  useEffect(() => {
+    const listener = (ev: Event) => {
+      const detail = (ev as CustomEvent<PromoReservationDetailRefreshDetail>).detail;
+      if (detail?.reservationId !== reservationId) return;
+      void load();
+    };
+    window.addEventListener(PROMO_RESERVATION_DETAIL_REFRESH_EVENT, listener);
+    return () => window.removeEventListener(PROMO_RESERVATION_DETAIL_REFRESH_EVENT, listener);
+  }, [reservationId, load]);
+
   const cancel = async () => {
     if (!row || !["submitted", "confirmed"].includes(row.status)) return;
     if (!window.confirm(t("cancelConfirm"))) return;
@@ -219,24 +232,19 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
           </div>
         ) : null}
 
-        <section className={clsx(patientPromoReservationLineCardClass)}>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            {row.offer?.title ?? t("packFallback")}
-          </p>
-          <PromoOfferDescriptionPanel
-            className="mt-2"
-            description={row.offer?.description}
-            label={t("packDescription")}
+        <PromoOfferPackDossierSection
+          title={row.offer?.title ?? t("packFallback")}
+          description={row.offer?.description}
+          descriptionLabel={t("packDescription")}
+          kindLabel={t("packFallback")}
+          discountPercent={row.offer?.discount_percent ?? 0}
+        >
+          <PromoOfferPackSummary
+            lines={lines}
+            discountPercent={row.offer?.discount_percent ?? 0}
+            variant="detail"
           />
-          <p className="mt-2 text-[10px] text-muted-foreground">{t("packContent")}</p>
-          <div className="mt-3">
-            <PromoOfferPackSummary
-              lines={lines}
-              discountPercent={row.offer?.discount_percent ?? 0}
-              variant="detail"
-            />
-          </div>
-        </section>
+        </PromoOfferPackDossierSection>
 
         <dl className="space-y-2 rounded-xl border border-emerald-200/40 bg-card/80 p-3 text-sm ring-1 ring-emerald-100/25">
           <div>

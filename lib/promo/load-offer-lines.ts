@@ -2,7 +2,14 @@ import { supabase } from "@/lib/supabase";
 import type { PromoLineWithPrice } from "@/lib/promo/pricing";
 
 function mapLineRow(row: Record<string, unknown>): PromoLineWithPrice {
-  const prod = row.products as { name?: string; price_pph?: number; photo_url?: string } | null;
+  const prod = row.products as {
+    name?: string;
+    price_pph?: number;
+    photo_url?: string;
+    brand?: string | null;
+    product_type?: string | null;
+    full_description?: string | null;
+  } | null;
   return {
     id: (row.id as string) ?? "",
     offer_id: row.offer_id as string,
@@ -14,6 +21,9 @@ function mapLineRow(row: Record<string, unknown>): PromoLineWithPrice {
     product_name: prod?.name ?? (row.label as string | null) ?? null,
     price_pph: prod?.price_pph ?? null,
     photo_url: prod?.photo_url ?? null,
+    brand: prod?.brand ?? null,
+    product_type: prod?.product_type ?? null,
+    full_description: prod?.full_description ?? null,
   };
 }
 
@@ -26,7 +36,9 @@ export async function fetchPromoOfferLinesByOfferIds(
 
   const { data, error } = await supabase
     .from("pharmacy_promo_offer_lines")
-    .select("id,offer_id,line_kind,product_id,label,quantity,sort_order,products(name,price_pph,photo_url)")
+    .select(
+      "id,offer_id,line_kind,product_id,label,quantity,sort_order,products(name,price_pph,photo_url,brand,product_type,full_description)",
+    )
     .in("offer_id", offerIds)
     .order("sort_order");
 
