@@ -38,6 +38,12 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 ## 6. État technique récent (aligné repo — mai–juin 2026)
 
+**Mise à jour 2026-06-07 — charte pharmacien par type + barre basse (branche `fix/validated-supply-ecart-ui-modal`, commits **`6ee6630`** … **`f2875c0`)** :
+- **Pharmacien** : hubs + dossiers **sky** (produits), **amber** (ordonnances), **violet** (consultations), **emerald** (packs promo) — libs **`pharmacist-*-hub-dashboard-ui.ts`** et **`pharmacist-*-request-line-ui.ts`** ; cartes hub **`PharmacistProductDemandeHubCard`** ; bandeau patient **`PharmacistPatientDossierBand`** (RPC CRM, pas `profiles` direct).
+- **Barre basse** : **`PlatformBottomNav`** — 4 onglets dossiers ; menu profil allégé ; détail dossier = onglet actif selon **`request_type`**.
+- **Patient** : bandeau officine **`ville · ref pharmacie`** ; menu profil sans Annuaire/Notifications (cloche OK).
+- **SQL** : aucune migration. Phrase reprise **`CAHIER_DES_CHARGES.md` §13.51** · journal **§10 session 2026-06-07**.
+
 **Mise à jour 2026-06-02 — demande produits patient §4.6 + pharmacien aligné (branche `fix/validated-supply-ecart-ui-modal`, commit **`773ad62`**)**
 - **Patient** : parcours **envoyée → répondue → validée → traitée → archives** épuré (couleurs indicatives, groupes bucket, cartes séparées) ; répondue : alternatives **sans présélection**, barre **Retenir cette alternative** ; modales **`AppModalOverlay`** (notes ligne, z-index au-dessus footers sticky).
 - **Pharmacien** : détail **`/dashboard/pharmacien/demandes/[id]`** même clarté — **`PharmacistProductRequestDossierHeader`**, groupes **`PharmacistValidatedBucketSection`**, cartes **`PharmacistSupplyCompactLine`**, archives **`PharmacistClosedProductBucketsView`**, hub **`PharmacistProductDemandeHubCard`** ; logique supply/post-validé **inchangée**.
@@ -55,7 +61,7 @@ Réduire la dépendance aux UUID pour les humains ; annuaire, support téléphon
 Implémentation : séquences PostgreSQL, table `pharmacy_request_ref_counters`, triggers (trigger demande en **SECURITY DEFINER**). Si la signature **`RETURNS TABLE`** des RPC `pharmacist_patient_contact_for_request` / `pharmacist_patient_directory_for_my_pharmacy` change → **`DROP FUNCTION` puis `CREATE`** (sinon erreur **`42P13`**). Front : **`lib/public-ref.ts`**, filtres hubs demandes patient/pharmacien, annuaire `/`.
 
 ### Chrome plateforme
-`components/layout/platform-chrome.tsx` + `platform-header.tsx` : header fixe, menus patient/pharmacien (demandes produits, ordonnances, consultations libres, etc.), cloche notifications in-app. Redirection après auth : **`lib/post-auth-redirect.ts`**.
+`components/layout/platform-chrome.tsx` + `platform-header.tsx` + **`platform-bottom-nav.tsx`** : header fixe ; **dossiers = barre basse** (4 types D/O/C/packs) ; menu profil = pharmacies + paramètres (patient sans Annuaire/Notifications dans le menu — cloche in-app conservée). Redirection après auth : **`lib/post-auth-redirect.ts`**.
 
 ### Notifications & analytics pharmacie (migrations `20260505_003` … `006`)
 Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_engagement_events`** pour vues/clics fiche ; dashboard pharmacien (Recharts) avec repli si table absente (`lib/pharmacy-engagement.ts`). Fallback nom patient dans le trigger d’émission si **`full_name` vide** (**`20260505_006`**, fichier SQL daté même jour).
@@ -63,7 +69,7 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 ### Types de demande — ordonnances & consultations libres (mise à jour 2026-05-17)
 - **Registre** : **`lib/request-kinds/`** + UI partagée **`components/requests/shared/`** ; détail patient/pharmacien routé par type.
 - **Ordonnances** : capture **`/pharmacie/[id]/demande-ordonnance`** ; saisie pharmacien via scan + modal (**qté prescrite / qté dispo**, rupture/indispo → **dispo 0**, complémentaires = **qté proposée** seule) ; badges **Ordonnance** / **Ordonnance + alternative** / **Proposé** ; enregistrement post-validé compare la **branche alternative retenue** (`supplyRowPersistedSupplyFields` dans **`app/dashboard/pharmacien/demandes/[id]/page.tsx`**) ; hubs ambre ; migrations **`20260525_001`**–**`004`**, **`20260526_001`**, **`20260530_001`**, **`20260531_001`** ; synthèse **`docs/workflow-ordonnance-consultation-REPONSES.md`**.
-- **Consultations libres** : **`/pharmacie/[id]/consultation-libre`** (texte + 3 photos) ; détail patient/pharmacien = **une page scroll** (brief + messagerie inline + lignes proposées) — **sans** onglets sticky (mai 2026) ; dispos proposées = **Disponible / À commander** ; patient **`responded`** : qté proposée = `available_qty` par branche (alternatives : plafond = qté alternative) ; hubs violet ; migration **`20260529_001`** ; `workflowEnabled: true`.
+- **Consultations libres** : **`/pharmacie/[id]/consultation-libre`** (texte + 3 photos) ; détail pharmacien = onglets **Conversation / Produits** puis parcours produits post-réponse ; charte **violet** hubs + dossier pharma (**juin 2026**, **`f2875c0`**) ; patient hubs violet ; migration **`20260529_001`** ; `workflowEnabled: true`.
 - **Demande produits** : notif pharmacien dédiée si patient change la date de passage — **`20260531_002`**.
 - **Phrase de reprise** : **`CAHIER_DES_CHARGES.md` §13.36** (patient bandeau officine + pharmacien validée/traitée/archives ; voir §10 session **2026-06-03 suite 3**).
 
@@ -79,6 +85,7 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 **Mise à jour 2026-06-06 — hub réservations packs promo** :
 - Hubs **`/dashboard/patient/packs-promo`** et **`/dashboard/pharmacien/reservations-packs`** : tableau de bord + liste (5 statuts, cartes hub, filtres) — analogie demandes produits.
 - Préfixe **Pharmacie** sur nom officine (cartes pack, notifs patient).
+- **Pharmacien emerald (juin 2026)** : thème hub/détail + noms patient via RPC annuaire (**`load-pharmacist-promo-patient-contacts.ts`**).
 
 **Mise à jour 2026-05-19 — packs promo + horaires** :
 - **SQL** : **`20260610_001`** — offres/réservations packs, refs **`P042/26`**, **`promo_in_app_notifications`** (workflow isolé des demandes D/O/C).

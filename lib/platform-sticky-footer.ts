@@ -3,6 +3,7 @@
  * La navigation basse globale vit dans `lib/platform-bottom-nav.ts`.
  */
 
+import type { CSSProperties } from "react";
 import { PLATFORM_BOTTOM_NAV_HEIGHT_PX, platformBottomNavFabMinBottomPx } from "@/lib/platform-bottom-nav";
 
 export const STICKY_FOOTER_SAFE_BOTTOM =
@@ -21,22 +22,50 @@ export function stickyFooterFabMinBottomPx(_tier: StickyFooterPadTier = "none"):
 
 function consultationConversationHeightCalc(): string {
   const bottomNavExtra = `${PLATFORM_BOTTOM_NAV_HEIGHT_PX / 16}rem`;
-  return `calc(100dvh-12.25rem-${bottomNavExtra}-env(safe-area-inset-bottom))`;
+  return `calc(100dvh - 12.25rem - ${bottomNavExtra} - env(safe-area-inset-bottom))`;
 }
 
-/** Hauteur fixe onglet Conversation (pharmacien — panneau interne scrollable). */
+/** Hauteur fixe onglet Conversation (legacy — préférer fill + coquille flex pharmacien). */
+export function consultationConversationViewportStyle(
+  _footerTier: StickyFooterPadTier = "none"
+): CSSProperties {
+  const height = consultationConversationHeightCalc();
+  return { height, maxHeight: height };
+}
+
+/** Pharmacien — max-height du wrapper (scroll interne uniquement, pas de scroll page). */
+export function consultationConversationPanelMaxHeightStyle(): CSSProperties {
+  const bottomNav = `${PLATFORM_BOTTOM_NAV_HEIGHT_PX / 16}rem`;
+  return {
+    maxHeight: `calc(100dvh - 11rem - ${bottomNav} - env(safe-area-inset-bottom))`,
+  };
+}
+
+/** Patient — min-height confortable (page scrollable, scroll chaining). */
+export function consultationConversationMinHeightStyle(
+  _footerTier: StickyFooterPadTier = "none"
+): CSSProperties {
+  return { minHeight: consultationConversationHeightCalc() };
+}
+
+/**
+ * @deprecated Préférer `consultationConversationViewportStyle()` — Tailwind ne génère pas les classes arbitraires construites à l'exécution.
+ */
 export function consultationConversationViewportHeightClass(
-  _footerTier: StickyFooterPadTier = "none"
+  tier: StickyFooterPadTier = "none"
 ): string {
-  const h = consultationConversationHeightCalc();
-  return `h-[${h}] max-h-[${h}]`;
+  void tier;
+  return "";
 }
 
-/** Hauteur minimale onglet Conversation patient (page scrollable + scroll chaining). */
+/**
+ * @deprecated Préférer `consultationConversationMinHeightStyle()` — Tailwind ne génère pas les classes arbitraires construites à l'exécution.
+ */
 export function consultationConversationMinHeightClass(
-  _footerTier: StickyFooterPadTier = "none"
+  tier: StickyFooterPadTier = "none"
 ): string {
-  return `min-h-[${consultationConversationHeightCalc()}]`;
+  void tier;
+  return "";
 }
 
 export type StickyFooterTone = "neutral" | "sky" | "amber" | "slate" | "emerald" | "violet";

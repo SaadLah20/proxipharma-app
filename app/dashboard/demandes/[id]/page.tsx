@@ -48,8 +48,8 @@ import {
 import { patientOutcomeStatusFooter } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
-import { consultationConversationMinHeightClass } from "@/lib/platform-sticky-footer";
 import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
+import { consultationConversationMinHeightStyle } from "@/lib/platform-sticky-footer";
 import type { ConsultationImagePaths } from "@/lib/consultation-media";
 import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 
@@ -616,7 +616,7 @@ export default function DemandeDetailPage() {
                 variant="consultation"
                 consultationSeed={consultationSeed}
                 refreshToken={conversationRefreshToken}
-                minHeightClass={consultationConversationMinHeightClass("none")}
+                viewportStyle={consultationConversationMinHeightStyle("none")}
                 onMarkedRead={handleConversationMarkedRead}
               />
               {consultationEditable && consultationBrief ? (

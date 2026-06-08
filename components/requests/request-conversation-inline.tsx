@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Maximize2, MessagesSquare } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { ConsultationPhotoLightbox } from "@/components/requests/consultation/consultation-photo-lightbox";
@@ -40,6 +40,8 @@ type Props = {
   refreshToken?: number;
   /** Onglet consultation : contraindre la hauteur pour scroll interne tactile. */
   fillViewport?: boolean;
+  /** Hauteur viewport (style inline — évite classes Tailwind dynamiques non générées). */
+  viewportStyle?: CSSProperties;
   /** Hauteur minimale du bloc (patient — page scrollable, scroll chaining au bord du fil). */
   minHeightClass?: string;
   /** Dossier fermé : lecture seule. */
@@ -138,6 +140,7 @@ export function RequestConversationInline({
   consultationSeed = null,
   refreshToken = 0,
   fillViewport = false,
+  viewportStyle,
   minHeightClass,
   composerDisabled = false,
 }: Props) {
@@ -282,6 +285,7 @@ export function RequestConversationInline({
 
   return (
     <section
+      style={viewportStyle}
       className={cn(
         "flex flex-col overflow-hidden rounded-xl border-2 shadow-sm",
         fillViewport ? "min-h-0 flex-1" : minHeightClass ?? "min-h-[min(24rem,50vh)]",
@@ -293,6 +297,7 @@ export function RequestConversationInline({
       <div
         className={cn(
           "flex items-center gap-2 border-b px-3 py-2.5",
+          fillViewport && "shrink-0",
           isConsultation ? "border-violet-200/70 bg-violet-50/60" : "border-border bg-muted/20"
         )}
       >
@@ -316,7 +321,10 @@ export function RequestConversationInline({
 
       <div
         ref={scrollContainerRef}
-        className="min-h-[14rem] flex-1 touch-pan-y overflow-y-auto overscroll-y-auto px-3 py-2.5 [-webkit-overflow-scrolling:touch]"
+        className={cn(
+          "flex-1 touch-pan-y overflow-y-auto px-3 py-2.5 [-webkit-overflow-scrolling:touch]",
+          fillViewport ? "min-h-0 overscroll-y-contain" : "min-h-[14rem] overscroll-y-auto"
+        )}
         style={{ touchAction: "pan-y" }}
       >
         {loading ? (
@@ -347,6 +355,7 @@ export function RequestConversationInline({
       <div
         className={cn(
           "border-t px-3 py-2.5",
+          fillViewport && "shrink-0",
           isConsultation ? "border-violet-200/70 bg-violet-50/25" : "border-border bg-muted/20"
         )}
       >
