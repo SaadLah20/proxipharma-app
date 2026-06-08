@@ -27,6 +27,7 @@ import {
   promoHubListActiveFiltersSummary,
   promoHubListHasActiveFilters,
 } from "@/lib/promo/reservation-hub-list-filters";
+import { fetchPromoOfferLinesByOfferIds } from "@/lib/promo/load-offer-lines";
 import type { PromoReservationHubRow } from "@/lib/promo/reservation-hub-sections";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
@@ -104,7 +105,7 @@ export function PatientPromoReservationsHub() {
       const { data, error: qErr } = await supabase
         .from("pharmacy_promo_reservations")
         .select(
-          "id,status,pickup_date,pickup_time,public_ref,updated_at,pharmacy_id,pharmacy_promo_offers(title,discount_percent),pharmacies:pharmacy_id(nom,ville)",
+          "id,offer_id,status,pickup_date,pickup_time,public_ref,updated_at,pharmacy_id,pharmacy_promo_offers(title,discount_percent),pharmacies:pharmacy_id(nom,ville)",
         )
         .order("updated_at", { ascending: false });
 
@@ -114,18 +115,27 @@ export function PatientPromoReservationsHub() {
         setError(qErr.message);
         setRows([]);
       } else {
+        const rawRows = (data ?? []) as Record<string, unknown>[];
+        const offerIds = [...new Set(rawRows.map((r) => r.offer_id as string).filter(Boolean))];
+        const linesMap = await fetchPromoOfferLinesByOfferIds(offerIds);
+
         setRows(
-          (data ?? []).map((r: Record<string, unknown>) => ({
-            id: r.id as string,
-            status: r.status as PromoReservationHubRow["status"],
-            pickup_date: r.pickup_date as string,
-            pickup_time: r.pickup_time as string | null,
-            public_ref: r.public_ref as string | null,
-            updated_at: r.updated_at as string,
-            pharmacy_id: r.pharmacy_id as string | undefined,
-            offer: r.pharmacy_promo_offers as PromoReservationHubRow["offer"],
-            pharmacy: r.pharmacies as PromoReservationHubRow["pharmacy"],
-          })),
+          rawRows.map((r) => {
+            const offerId = r.offer_id as string | undefined;
+            return {
+              id: r.id as string,
+              status: r.status as PromoReservationHubRow["status"],
+              pickup_date: r.pickup_date as string,
+              pickup_time: r.pickup_time as string | null,
+              public_ref: r.public_ref as string | null,
+              updated_at: r.updated_at as string,
+              offer_id: offerId,
+              pharmacy_id: r.pharmacy_id as string | undefined,
+              offer: r.pharmacy_promo_offers as PromoReservationHubRow["offer"],
+              pharmacy: r.pharmacies as PromoReservationHubRow["pharmacy"],
+              pack_lines: offerId ? linesMap.get(offerId) ?? [] : [],
+            };
+          }),
         );
       }
       setLoading(false);

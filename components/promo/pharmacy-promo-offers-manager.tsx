@@ -17,7 +17,11 @@ import { deletePromoOffer, savePromoOffer, type PromoLineDraft, type PromoOfferD
 import { computePromoPackTotals, formatDh } from "@/lib/promo/pricing";
 import { defaultPromoOfferValidity, formatPromoValidityFr, todayIsoCasablanca } from "@/lib/promo/dates";
 import { MAX_PROMO_GIFT_LINES, MAX_PROMO_PRODUCT_LINES, type PromoOfferRow } from "@/lib/promo/types";
-import type { PromoCatalogProduct } from "@/lib/promo/catalog";
+import {
+  fetchPromoCatalogProductsByIds,
+  mergePromoCatalogById,
+  type PromoCatalogProduct,
+} from "@/lib/promo/catalog";
 import { usePharmacyPricing } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 import {
@@ -47,7 +51,7 @@ export function PharmacyPromoOffersManager() {
   const [pharmacyId, setPharmacyId] = useState<string | null>(null);
   const [offers, setOffers] = useState<PromoOfferRow[]>([]);
   const [pendingByOffer, setPendingByOffer] = useState<Map<string, number>>(new Map());
-  const [catalog, setCatalog] = useState<PromoCatalogProduct[]>([]);
+  const [catalogById, setCatalogById] = useState<Record<string, PromoCatalogProduct>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [offer, setOffer] = useState<PromoOfferDraft>(EMPTY_OFFER);
   const [lines, setLines] = useState<LineState[]>([]);
@@ -89,13 +93,6 @@ export function PharmacyPromoOffersManager() {
       return;
     }
     setPharmacyId(ctx.pharmacyId);
-    const { data: prods } = await supabase
-      .from("products")
-      .select("id,name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description")
-      .eq("is_active", true)
-      .order("name")
-      .limit(500);
-    setCatalog((prods ?? []) as PromoCatalogProduct[]);
     await loadOffers(ctx.pharmacyId);
     setLoading(false);
   }, [loadOffers]);
@@ -112,6 +109,12 @@ export function PharmacyPromoOffersManager() {
     };
     void run();
   }, [router]);
+
+  const catalogProducts = useMemo(() => Object.values(catalogById), [catalogById]);
+
+  const rememberCatalogProducts = useCallback((products: PromoCatalogProduct[]) => {
+    setCatalogById((prev) => mergePromoCatalogById(prev, products));
+  }, []);
 
   const startNew = () => {
     const { valid_from, valid_until } = defaultPromoOfferValidity();
@@ -137,10 +140,15 @@ export function PharmacyPromoOffersManager() {
       .select("line_kind,product_id,label,quantity,sort_order")
       .eq("offer_id", id)
       .order("sort_order");
+    const rows = (ln ?? []) as Record<string, unknown>[];
+    const productIds = rows.map((row) => row.product_id as string | null).filter(Boolean) as string[];
+    const fetched = await fetchPromoCatalogProductsByIds(productIds);
+    rememberCatalogProducts(fetched);
+    const byId = Object.fromEntries(fetched.map((p) => [p.id, p]));
     setLines(
-      (ln ?? []).map((row: Record<string, unknown>) => {
+      rows.map((row) => {
         const pid = row.product_id as string | null;
-        const catName = pid ? catalog.find((c) => c.id === pid)?.name : null;
+        const catName = pid ? byId[pid]?.name : null;
         return {
           _key: newKey(),
           _name: catName ?? (row.label as string) ?? "",
@@ -149,7 +157,7 @@ export function PharmacyPromoOffersManager() {
           label: row.label as string | null,
           quantity: row.quantity as number,
         };
-      })
+      }),
     );
   };
 
@@ -179,7 +187,7 @@ export function PharmacyPromoOffersManager() {
       editingId === "new" ? null : editingId,
       offer
     );
-    const pricedLines = buildPromoPreviewLines(lines, catalog);
+    const pricedLines = buildPromoPreviewLines(lines, catalogProducts);
     setPreviewBundle(toPublicPromoOfferBundle(offerRow, pricedLines));
   };
 
@@ -201,11 +209,11 @@ export function PharmacyPromoOffersManager() {
       label: l.label,
       quantity: l.quantity,
       product_name: l._name,
-      price_pph: l.product_id ? catalog.find((c) => c.id === l.product_id)?.price_pph ?? null : null,
+      price_pph: l.product_id ? catalogById[l.product_id]?.price_pph ?? null : null,
     }));
     return computePromoPackTotals(priced, offer.discount_percent || 0, (line) => {
       if (!line.product_id) return null;
-      const cat = catalog.find((c) => c.id === line.product_id);
+      const cat = catalogById[line.product_id];
       if (!cat) return line.price_pph ?? null;
       return resolveCatalogPrice(
         catalogHitToPricingInput({
@@ -217,7 +225,7 @@ export function PharmacyPromoOffersManager() {
         })
       );
     });
-  }, [lines, offer.discount_percent, catalog, resolveCatalogPrice]);
+  }, [lines, offer.discount_percent, catalogById, resolveCatalogPrice]);
 
   const unpublish = async (id: string) => {
     if (!confirm("Retirer cette offre de la fiche publique ?")) return;
@@ -256,6 +264,7 @@ export function PharmacyPromoOffersManager() {
       showToast("Produit déjà dans le pack.", "warning");
       return;
     }
+    rememberCatalogProducts([p]);
     setLines((prev) => [
       ...prev,
       { _key: newKey(), _name: p.name, line_kind: "product", product_id: p.id, label: null, quantity: 1 },
@@ -278,11 +287,22 @@ export function PharmacyPromoOffersManager() {
       showToast(`Maximum ${MAX_PROMO_GIFT_LINES} cadeaux.`, "warning");
       return;
     }
+    rememberCatalogProducts([p]);
     setLines((prev) => [
       ...prev,
       { _key: newKey(), _name: p.name, line_kind: "gift", product_id: p.id, label: p.name, quantity: 1 },
     ]);
   };
+
+  const packProductIds = useMemo(
+    () => new Set(lines.filter((l) => l.line_kind === "product" && l.product_id).map((l) => l.product_id!)),
+    [lines],
+  );
+
+  const giftProductIds = useMemo(
+    () => new Set(lines.filter((l) => l.line_kind === "gift" && l.product_id).map((l) => l.product_id!)),
+    [lines],
+  );
 
   if (loading) {
     return (
@@ -467,7 +487,7 @@ export function PharmacyPromoOffersManager() {
               <p className="flex items-center gap-1 text-xs font-bold">
                 <Package className="size-3.5" /> Produits ({productCount}/{MAX_PROMO_PRODUCT_LINES})
               </p>
-              <PromoProductPicker products={catalog} disabled={busy} onPick={addProduct} />
+              <PromoProductPicker disabled={busy} onPick={addProduct} excludeProductIds={packProductIds} />
               <PromoCompactLinesList
                 lines={lineListUi.filter((l) => l.kind === "product")}
                 onRemove={(k) => setLines((p) => p.filter((l) => l._key !== k))}
@@ -490,7 +510,7 @@ export function PharmacyPromoOffersManager() {
                   + Texte
                 </button>
               </div>
-              <PromoProductPicker products={catalog} disabled={busy} onPick={addGiftProduct} />
+              <PromoProductPicker disabled={busy} onPick={addGiftProduct} excludeProductIds={giftProductIds} />
               <PromoCompactLinesList
                 lines={lineListUi.filter((l) => l.kind === "gift")}
                 onRemove={(k) => setLines((p) => p.filter((l) => l._key !== k))}

@@ -1,3 +1,6 @@
+import { supabase } from "@/lib/supabase";
+import { PRODUCT_CATALOG_SELECT } from "@/lib/product-catalog-search";
+
 export type PromoCatalogProduct = {
   id: string;
   name: string;
@@ -10,15 +13,26 @@ export type PromoCatalogProduct = {
   full_description?: string | null;
 };
 
-export function filterPromoCatalogProducts(products: PromoCatalogProduct[], query: string): PromoCatalogProduct[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return products.slice(0, 40);
-  return products
-    .filter((p) => {
-      const name = p.name.toLowerCase();
-      const brand = (p.brand ?? "").toLowerCase();
-      const lab = (p.laboratory ?? "").toLowerCase();
-      return name.includes(q) || brand.includes(q) || lab.includes(q);
-    })
-    .slice(0, 40);
+export async function fetchPromoCatalogProductsByIds(ids: string[]): Promise<PromoCatalogProduct[]> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (!unique.length) return [];
+
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_CATALOG_SELECT)
+    .in("id", unique)
+    .eq("is_active", true);
+
+  if (error || !data) return [];
+  return data as PromoCatalogProduct[];
+}
+
+export function mergePromoCatalogById(
+  prev: Record<string, PromoCatalogProduct>,
+  products: PromoCatalogProduct[],
+): Record<string, PromoCatalogProduct> {
+  if (!products.length) return prev;
+  const next = { ...prev };
+  for (const p of products) next[p.id] = p;
+  return next;
 }

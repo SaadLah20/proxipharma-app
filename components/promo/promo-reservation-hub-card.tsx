@@ -8,6 +8,7 @@ import { formatDateForLocale, formatDateTimeShortForLocale } from "@/lib/datetim
 import type { AppLocale } from "@/lib/i18n/config";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { pharmacistPromoReservationHubCardShellClass } from "@/lib/pharmacist-promo-reservation-line-ui";
+import { PromoPackPreviewStrip } from "@/components/promo/promo-pack-preview-strip";
 import { promoReservationBadgeClass } from "@/lib/promo/reservation-status-ui";
 import type { PromoReservationHubRow } from "@/lib/promo/reservation-hub-sections";
 import type { PromoReservationStatus } from "@/lib/promo/types";
@@ -109,6 +110,10 @@ export function PatientPromoReservationHubCard({
               ) : null}
             </div>
 
+            {row.pack_lines && row.pack_lines.length > 0 ? (
+              <PromoPackPreviewStrip lines={row.pack_lines} />
+            ) : null}
+
             <div className="rounded-lg border border-border/80 bg-muted/25 px-2 py-1.5 text-[11px] leading-snug text-foreground sm:text-xs">
               <p className="font-semibold">{promoPatientStatusHint(t, row.status)}</p>
               <p className="mt-0.5 text-[10px] font-medium opacity-90 sm:text-[11px]">
@@ -188,6 +193,10 @@ export function PharmacistPromoReservationHubCard({
                 <p className="mt-0.5 font-mono text-[11px] font-semibold text-muted-foreground">{row.public_ref}</p>
               ) : null}
             </div>
+
+            {row.pack_lines && row.pack_lines.length > 0 ? (
+              <PromoPackPreviewStrip lines={row.pack_lines} />
+            ) : null}
 
             {(contextPrimary || contextSecondary) && (
               <div className="rounded-lg border border-border/80 bg-muted/25 px-2 py-1.5 text-[11px] leading-snug text-foreground sm:text-xs">

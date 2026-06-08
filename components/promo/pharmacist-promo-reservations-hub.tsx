@@ -26,6 +26,7 @@ import {
   promoHubListActiveFiltersSummary,
   promoHubListHasActiveFilters,
 } from "@/lib/promo/reservation-hub-list-filters";
+import { fetchPromoOfferLinesByOfferIds } from "@/lib/promo/load-offer-lines";
 import type { PromoReservationHubRow } from "@/lib/promo/reservation-hub-sections";
 import { loadPharmacistPromoPatientDirectory } from "@/lib/promo/load-pharmacist-promo-patient-contacts";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
@@ -108,7 +109,7 @@ export function PharmacistPromoReservationsHub() {
         supabase
           .from("pharmacy_promo_reservations")
           .select(
-            "id,status,pickup_date,pickup_time,public_ref,updated_at,patient_id,pharmacy_promo_offers(title)",
+            "id,offer_id,status,pickup_date,pickup_time,public_ref,updated_at,patient_id,pharmacy_promo_offers(title,discount_percent)",
           )
           .eq("pharmacy_id", ctx.pharmacyId)
           .order("updated_at", { ascending: false }),
@@ -122,9 +123,14 @@ export function PharmacistPromoReservationsHub() {
         setError(qErr.message);
         setRows([]);
       } else {
+        const rawRows = (data ?? []) as Record<string, unknown>[];
+        const offerIds = [...new Set(rawRows.map((r) => r.offer_id as string).filter(Boolean))];
+        const linesMap = await fetchPromoOfferLinesByOfferIds(offerIds);
+
         setRows(
-          (data ?? []).map((r: Record<string, unknown>) => {
+          rawRows.map((r) => {
             const patientId = r.patient_id as string;
+            const offerId = r.offer_id as string | undefined;
             const contact = patientDirectory.get(patientId);
             return {
               id: r.id as string,
@@ -133,12 +139,14 @@ export function PharmacistPromoReservationsHub() {
               pickup_time: r.pickup_time as string | null,
               public_ref: r.public_ref as string | null,
               updated_at: r.updated_at as string,
+              offer_id: offerId,
               pharmacy_id: ctx.pharmacyId ?? undefined,
               offer: r.pharmacy_promo_offers as PromoReservationHubRow["offer"],
               patient: contact
                 ? { full_name: contact.full_name, whatsapp: contact.whatsapp }
                 : null,
               patient_id: patientId,
+              pack_lines: offerId ? linesMap.get(offerId) ?? [] : [],
             };
           }),
         );
