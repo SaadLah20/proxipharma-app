@@ -1,5 +1,5 @@
 export const commonFr = {
-  siteTitle: "ProxiPharma",
+  siteTitle: "Pharmeto",
   siteDescription: "Annuaire et services pharmacies au Maroc",
   save: "Enregistrer",
   cancel: "Annuler",

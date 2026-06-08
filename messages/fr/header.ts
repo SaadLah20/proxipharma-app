@@ -5,7 +5,7 @@ export const headerFr = {
     french: "Français",
     arabic: "العربية",
   },
-  brand: "ProxiPharma",
+  brand: "Pharmeto",
   scrollHint: "Faire défiler",
   navAria: "Navigation du compte",
   guest: {

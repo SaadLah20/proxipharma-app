@@ -4,7 +4,8 @@ import { FormEvent, Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { ArrowLeft, Cross, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { PharmetoLogo } from "@/components/brand/pharmeto-logo";
 import { supabase } from "@/lib/supabase";
 import { defaultPathAfterAuth } from "@/lib/post-auth-redirect";
 import { ensurePatientProfile } from "@/lib/ensure-patient-profile";
@@ -711,12 +712,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
 
       <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.06] p-5 shadow-sm sm:p-6">
         <div className="mb-5 flex items-start gap-3">
-          <span
-            className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary"
-            aria-hidden
-          >
-            <Cross className="size-5" strokeWidth={2.25} />
-          </span>
+          <PharmetoLogo variant="icon" height={44} className="shrink-0 rounded-xl" />
           <div>
             <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">{title}</h1>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{subtitle}</p>

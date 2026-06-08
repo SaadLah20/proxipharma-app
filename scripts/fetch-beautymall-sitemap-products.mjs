@@ -22,7 +22,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SITEMAP_INDEX_URL = "https://beautymall.ma/sitemap_index.xml";
-const USER_AGENT = "ProxiPharma-beautymall-sitemap/1.0 (+catalog import)";
+const USER_AGENT = "Pharmeto-beautymall-sitemap/1.0 (+catalog import)";
 const FETCH_TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 3;
 const SITEMAP_CONCURRENCY = 4;

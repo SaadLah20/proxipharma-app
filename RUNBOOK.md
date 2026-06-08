@@ -1,4 +1,4 @@
-# RUNBOOK - ProxiPharma
+# RUNBOOK - Pharmeto
 
 Guide operationnel minimal pour maintenir la production stable.
 
@@ -20,7 +20,7 @@ Variables:
 - `SUPABASE_SERVICE_ROLE_KEY` (serveur uniquement: cron/worker, **ne jamais** exposer au navigateur)
 - `CRON_SECRET` (secret partagé pour protéger les endpoints cron)
 - `RESEND_API_KEY` (prestataire e-mail, free tier possible)
-- `EMAIL_FROM` (ex: `ProxiPharma <onboarding@resend.dev>` en dev, puis domaine validé)
+- `EMAIL_FROM` (ex: `Pharmeto <onboarding@resend.dev>` en dev, puis `Pharmeto <noreply@pharmeto.ma>` après validation Resend)
 - `APP_BASE_URL` (URL publique Vercel/custom domain, utilisée dans les liens e-mail Auth côté serveur)
 - `NEXT_PUBLIC_APP_BASE_URL` (même URL que `APP_BASE_URL`, exposée au navigateur pour OTP / confirmation e-mail)
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` (SMS alertes hors-app, même compte que l’auth si possible)
@@ -54,7 +54,7 @@ L’app appelle `signInWithOtp` **sans** `emailRedirectTo` à l’inscription, p
 1. *Authentication* → *Email Templates* → modèle **Magic Link** (ou *Confirm signup* selon le flux activé).
 2. Corps recommandé (code uniquement) :
    ```
-   Votre code ProxiPharma : {{ .Token }}
+   Votre code Pharmeto : {{ .Token }}
    (6 chiffres — saisissez-le dans l’application, onglet Créer un compte.)
    ```
 3. **Ne pas** mettre `{{ .ConfirmationURL }}` comme seul contenu si vous voulez forcer le code dans l’app.
@@ -320,8 +320,8 @@ git log --oneline -n 10
 **Test** : `POST /api/cron/test-external-sms` (après deploy route sur `main`) ; logs Twilio : **Delivered** + **1 segment**, pas 30007.
 
 **Format SMS prod (pilote)** — patient, **`responded`** / **`treated`** uniquement ; sans URL ; ASCII ~1 segment :
-- Répondu : `ProxiPharma: Ennasr a repondu. Dossier D042/26.`
-- Traité : `ProxiPharma: Ennasr a traite le dossier D042/26.`
+- Répondu : `Pharmeto: Ennasr a repondu. Dossier D042/26.`
+- Traité : `Pharmeto: Ennasr a traite le dossier D042/26.`
 - Nom officine : sans préfixe « La pharmacie » si le nom commence déjà par « Pharmacie » ; ref = **`requests.request_public_ref`** (sinon `#` + 8 car. UUID).
 
 **Inscription** : si le téléphone existe déjà dans **`auth.users`**, pas d’OTP à l’inscription — **`/api/auth/signup-phone-check`** (migration **`20260522_003`**).
@@ -343,3 +343,16 @@ git log --oneline -n 10
 **Prochaine étape code (étape 2)** : variables d’environnement Twilio WhatsApp + route de test serveur, puis worker cron sur le modèle `send-external-emails`.
 
 **Auth patient** : tester `/auth` dans Chrome ; inscription `?mode=signup` ; connexion identifiant unique téléphone ou e-mail + mot de passe. **OTP inscription** : peut arriver par **WhatsApp** (Twilio Verify / Supabase Phone) ; numéro **pro** souvent en **Failed** SMS — privilégier un **06/07 perso** pour les tests. **Renvoi code** : `shouldCreateUser: false` (évite 2ᵉ `auth.users`). Doublons téléphone en pilote : reset demandes (`clear-all-requests`) + suppression des comptes Auth.
+
+## 11) Checklist rebrand Pharmeto (preview + prod)
+
+Après merge du lot rebrand (code + assets) :
+
+1. **Preview Vercel** : header/footer/auth affichent **Pharmeto** + logo ; favicon onglet navigateur ; partage lien (OG) correct.
+2. **i18n AR** : pas de régression RTL sur le header.
+3. **SMS** (si activé) : préfixe `Pharmeto:` sur répondu/traité.
+4. **Infra prod** (§2c) : DNS `pharmeto.ma` → Vercel ; `APP_BASE_URL` + `NEXT_PUBLIC_APP_BASE_URL` = `https://pharmeto.ma` ; GitHub secret `APP_BASE_URL` idem.
+5. **Supabase Auth** : Site URL + Redirect URLs `pharmeto.ma/auth/**` ; templates e-mail « Votre code Pharmeto » ; webhook SMS → `https://pharmeto.ma/api/webhooks/dispatch-external-sms`.
+6. **Resend** : domaine `pharmeto.ma` vérifié ; `EMAIL_FROM` = `Pharmeto <noreply@pharmeto.ma>`.
+7. **Migration** : appliquer `20260715_001_rebrand_pharmeto_notification_copy.sql` si pas déjà fait (après `20260714_001`).
+8. **Prod** : tester auth reset MDP, demande test, sur **Chrome/Edge** (pas navigateur IDE).

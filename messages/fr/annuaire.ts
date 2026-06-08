@@ -38,7 +38,8 @@ export const annuaireFr = {
     privacy: "Politique de confidentialité",
     dataProcessing: "Traitement des données personnelles",
     pharmacistSignup: "Devenir membre (pharmacien)",
-    legalPending: "© {year} ProxiPharma — pages légales à venir",
+    brand: "Pharmeto",
+    legalPending: "© {year} Pharmeto — pages légales à venir",
   },
   pagination: {
     ariaLabel: "Pagination de l'annuaire",

@@ -514,13 +514,13 @@ export function ProductRequestLinePanel({
   return (
     <div className="flex w-full min-w-0 items-center gap-2">
       <div className={cn("shrink-0", THUMB, thumbClassName)}>{thumb}</div>
-      <div className={cn("flex min-w-0 flex-1 flex-col gap-1", contentMinHeight)}>
+      <div className={cn("flex min-w-0 flex-1 flex-col gap-1.5", contentMinHeight)}>
         <div className="min-w-0 overflow-hidden pe-5 leading-tight">{title}</div>
-        <div className="flex min-h-7 w-full min-w-0 items-center justify-between gap-2">
+        <div className="flex min-h-8 w-full min-w-0 items-center justify-between gap-2">
           <div className="min-w-0 shrink leading-none">
             <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
           </div>
-          <div className="flex shrink-0 items-center gap-2 me-3 sm:me-4">
+          <div className="flex shrink-0 items-center gap-2 me-5 sm:me-6">
             {qtyControl}
             {bottomRight ?? null}
           </div>
@@ -850,9 +850,11 @@ export function ProductRequestCartLineRow({
   );
 
   return (
-    <li className={cn("relative w-full min-w-0 overflow-visible p-1", PRODUCT_REQUEST_LINE_CARD_SHELL)}>
+    <li className={cn("relative w-full min-w-0 overflow-visible p-1.5 sm:p-2", PRODUCT_REQUEST_LINE_CARD_SHELL)}>
       <ProductRequestLineDeleteButton onClick={onRemove} />
       <ProductRequestLinePanel
+        thumbClassName="!size-16"
+        contentMinHeight="min-h-16"
         title={
           <div className="min-w-0">
             <p className="truncate pb-px text-[13px] font-semibold leading-snug text-foreground" title={line.name}>

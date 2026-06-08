@@ -1,6 +1,6 @@
 import { isPlausibleMoroccoCoords } from "@/lib/annuaire/geo";
 
-/** Bornes GPS pilote ProxiPharma (alignées annuaire « près de moi »). */
+/** Bornes GPS pilote Pharmeto (alignées annuaire « près de moi »). */
 export const MOROCCO_LAT_MIN = 20.5;
 export const MOROCCO_LAT_MAX = 36.5;
 export const MOROCCO_LNG_MIN = -17.5;

@@ -10,7 +10,6 @@ import {
   Calculator,
   CalendarClock,
   ChevronDown,
-  Cross,
   FileText,
   Gift,
   LayoutDashboard,
@@ -28,6 +27,7 @@ import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { useLocale, useTranslations } from "next-intl";
+import { PharmetoLogo } from "@/components/brand/pharmeto-logo";
 import { InAppNotificationItem } from "@/components/notifications/in-app-notification-item";
 import { LocaleRoleGuard } from "@/components/layout/locale-role-guard";
 import { LocaleSwitcher } from "@/components/layout/locale-switcher";
@@ -545,14 +545,9 @@ export function PlatformHeader() {
         <Link
           href="/"
           className="group flex shrink-0 items-center gap-2 text-lg font-bold tracking-tight text-foreground"
+          aria-label="Pharmeto"
         >
-          <span
-            className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20 transition group-hover:bg-primary/15"
-            aria-hidden
-          >
-            <Cross className="size-[1.125rem]" strokeWidth={2.25} />
-          </span>
-          <span>ProxiPharma</span>
+          <PharmetoLogo variant="lockup" height={32} className="transition group-hover:opacity-90" priority />
         </Link>
 
         <div ref={wrapRef} className="relative flex items-center gap-2">

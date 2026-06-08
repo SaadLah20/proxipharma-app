@@ -87,19 +87,19 @@ export function buildOutboundNotificationText(args: {
     // ASCII sans accents : 1 segment GSM, évite « r pondu » / « trait » sur livraison MA.
     let text: string;
     if (args.row.event_type === "request_status:responded") {
-      text = `ProxiPharma: ${pharma} a repondu. Dossier ${ref}.`;
+      text = `Pharmeto: ${pharma} a repondu. Dossier ${ref}.`;
     } else if (args.row.event_type === "request_status:treated") {
-      text = `ProxiPharma: ${pharma} a traite le dossier ${ref}.`;
+      text = `Pharmeto: ${pharma} a traite le dossier ${ref}.`;
     } else if (args.row.event_type === "request_status:expired") {
-      text = `ProxiPharma: delai depasse dossier ${ref}.`;
+      text = `Pharmeto: delai depasse dossier ${ref}.`;
     } else if (args.row.event_type === "request_event:post_confirm_product_arrived") {
-      text = `ProxiPharma: produit recu chez ${pharma}. Dossier ${ref}.`;
+      text = `Pharmeto: produit recu chez ${pharma}. Dossier ${ref}.`;
     } else if (args.row.event_type === "request_event:market_shortage_product_available") {
-      text = `ProxiPharma: produit dispo chez ${pharma}. Dossier ${ref}.`;
+      text = `Pharmeto: produit dispo chez ${pharma}. Dossier ${ref}.`;
     } else if (args.row.event_type === "request_event:responded_expiry_reminder") {
-      text = `ProxiPharma: rappel validation dossier ${ref} chez ${pharma}.`;
+      text = `Pharmeto: rappel validation dossier ${ref} chez ${pharma}.`;
     } else {
-      text = trimSmsSegment(`ProxiPharma - ${subject}`, 155);
+      text = trimSmsSegment(`Pharmeto - ${subject}`, 155);
     }
     text = appendSmsRequestLinkIfEnabled({
       text,

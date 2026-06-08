@@ -535,7 +535,7 @@ export function PharmacistSettingsPage() {
           <div>
             <p className="text-xs font-semibold text-foreground">Déconnexion</p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Quitter ProxiPharma sur cet appareil. Vos dossiers et la fiche officine ne sont pas supprimés.
+              Quitter Pharmeto sur cet appareil. Vos dossiers et la fiche officine ne sont pas supprimés.
             </p>
             <button
               type="button"

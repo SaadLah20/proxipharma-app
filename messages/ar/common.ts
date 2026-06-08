@@ -1,5 +1,5 @@
 export const commonAr = {
-  siteTitle: "ProxiPharma",
+  siteTitle: "Pharmeto",
   siteDescription: "دليل الصيدليات وخدماتها في المغرب",
   save: "حفظ",
   cancel: "إلغاء",

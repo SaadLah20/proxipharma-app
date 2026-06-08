@@ -5,6 +5,7 @@ import { Noto_Sans_Arabic } from "next/font/google";
 import type { Metadata, Viewport } from "next";
 import { getTranslations } from "next-intl/server";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
+import { PHARMETO_BRAND } from "@/lib/brand-theme";
 import { localeDirection, type AppLocale } from "@/lib/i18n/config";
 import "./globals.css";
 
@@ -27,8 +28,23 @@ const notoSansArabic = Noto_Sans_Arabic({
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
   return {
+    metadataBase: new URL(PHARMETO_BRAND.productionUrl),
     title: t("siteTitle"),
     description: t("siteDescription"),
+    applicationName: PHARMETO_BRAND.name,
+    openGraph: {
+      title: t("siteTitle"),
+      description: t("siteDescription"),
+      url: PHARMETO_BRAND.productionUrl,
+      siteName: PHARMETO_BRAND.name,
+      locale: "fr_MA",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: t("siteTitle"),
+      description: t("siteDescription"),
+    },
   };
 }
 

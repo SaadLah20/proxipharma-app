@@ -18,7 +18,7 @@ export function AnnuaireFooter() {
   return (
     <footer className="mt-10 border-t border-border/80 bg-muted/30">
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
-        <p className="text-center text-sm font-semibold text-foreground">ProxiPharma</p>
+        <p className="text-center text-sm font-semibold text-foreground">{t("footer.brand")}</p>
         <p className="mt-1 text-center text-xs text-muted-foreground">{t("footer.tagline")}</p>
         <ul className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-2">
           {footerLinks.map((link) => (
