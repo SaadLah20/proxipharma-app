@@ -50,7 +50,7 @@ export default function DemandeProduitsCataloguePage() {
   const [photoPreview, setPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
   const [adding, setAdding] = useState(false);
   const loadMoreSentinelRef = useRef<HTMLLIElement>(null);
-  const listScrollRef = useRef<HTMLUListElement>(null);
+  const listScrollRef = useRef<HTMLDivElement>(null);
   const loadMoreLockRef = useRef(false);
   const { resolve: resolveCatalogPrice } = usePharmacyPricingForPatient(pharmacyId);
 
@@ -185,8 +185,14 @@ export default function DemandeProduitsCataloguePage() {
   }
 
   return (
-    <main className="flex min-h-[100dvh] flex-col touch-pan-y bg-gradient-to-b from-sky-50/35 via-background to-background text-foreground antialiased">
-      <div className="mx-auto flex w-full max-w-lg min-h-0 flex-1 flex-col overflow-hidden px-4 pt-3 pb-2 sm:px-5 sm:pt-4">
+    <main
+      className={cn(
+        "fixed inset-x-0 z-0 flex flex-col overflow-hidden bg-gradient-to-b from-sky-50/35 via-background to-background text-foreground antialiased",
+        "top-[3.25rem] bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]",
+        "sm:top-14 sm:bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))]"
+      )}
+    >
+      <div className="mx-auto flex h-full w-full max-w-lg min-h-0 flex-col overflow-hidden px-4 pt-3 pb-2 sm:px-5 sm:pt-4">
         <div className="shrink-0 space-y-2 pb-2">
           <div className="flex items-center justify-between gap-2">
             <PharmacyPublicBackLink href={backHref} className={cn("mb-0 shrink-0", t.backLink)}>
@@ -232,10 +238,11 @@ export default function DemandeProduitsCataloguePage() {
           ) : filtered.length === 0 ? (
             <p className="px-3 py-8 text-center text-sm text-muted-foreground">{td("noProductsFound")}</p>
           ) : (
-            <ul
+            <div
               ref={listScrollRef}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y py-1 [-webkit-overflow-scrolling:touch]"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
             >
+              <ul className="py-1">
               {filtered.map((p) => {
                 const inCart = cartProductIds.has(p.id);
                 const checked = !inCart && selectedById.has(p.id);
@@ -274,7 +281,8 @@ export default function DemandeProduitsCataloguePage() {
               ) : filtered.length > 0 ? (
                 <li className="px-3 py-2 text-center text-[10px] text-muted-foreground">{td("catalogEnd")}</li>
               ) : null}
-            </ul>
+              </ul>
+            </div>
           )}
         </div>
 

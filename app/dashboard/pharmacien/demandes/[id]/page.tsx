@@ -4612,6 +4612,34 @@ export default function PharmacienDemandeDetailPage() {
     pendingDeletedAlternativeIds
   );
 
+  const respondedEditDirty = useMemo(() => {
+    if (!respondedEditMode || request?.status !== "responded") return false;
+    const baseline = respondedEditBaselineRef.current;
+    if (!baseline) return false;
+    return (
+      diffRespondedSnapshots(
+        baseline,
+        displayRows,
+        draft,
+        altQtyDrafts,
+        pendingProposalRows,
+        pendingAlternatives,
+        pendingDeletedAlternativeIds,
+        removedPersistedRespondedEditIds
+      ).length > 0
+    );
+  }, [
+    respondedEditMode,
+    request?.status,
+    displayRows,
+    draft,
+    altQtyDrafts,
+    pendingProposalRows,
+    pendingAlternatives,
+    pendingDeletedAlternativeIds,
+    removedPersistedRespondedEditIds,
+  ]);
+
   const supplyFooterTotals = useMemo(() => {
     let count = 0;
     let total = 0;
@@ -7631,7 +7659,7 @@ export default function PharmacienDemandeDetailPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || !respondedEditDirty}
                   onClick={() => {
                     const b = respondedEditBaselineRef.current;
                     if (!b) {
@@ -7741,7 +7769,7 @@ export default function PharmacienDemandeDetailPage() {
                   </button>
                   <button
                     type="button"
-                    disabled={busy}
+                    disabled={busy || !supplyStructuralDirty}
                     onClick={() => startSaveConfirmedAdjustments()}
                     className={uiActionBtnModalPrimary(
                       "h-10 w-full text-sm font-bold disabled:opacity-50 sm:w-auto sm:min-w-[11rem]"

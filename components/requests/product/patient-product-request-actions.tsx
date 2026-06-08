@@ -611,6 +611,25 @@ function pickDefaultBranch(row: ActionItemRow, alts: ActionItemAltRow[]): LineBr
   return null;
 }
 
+function lineSelMapsEqual(
+  a: Record<string, LineSelState>,
+  b: Record<string, LineSelState>
+): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const k of keys) {
+    const sa = a[k];
+    const sb = b[k];
+    if (!sa && !sb) continue;
+    if (!sa || !sb) return false;
+    if (sa.branch !== sb.branch || sa.qty !== sb.qty) return false;
+    const browseKeys = new Set([...Object.keys(sa.browseQty), ...Object.keys(sb.browseQty)]);
+    for (const bk of browseKeys) {
+      if ((sa.browseQty[bk] ?? null) !== (sb.browseQty[bk] ?? null)) return false;
+    }
+  }
+  return true;
+}
+
 export function computeSelFromConfirmedItems(items: ActionItemRow[]): Record<string, LineSelState> {
   const next: Record<string, LineSelState> = {};
   for (const row of items) {
@@ -2042,6 +2061,7 @@ export function PatientProductRequestActions({
   const [hits, setHits] = useState<ProductHit[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [confirmedRevalidationMode, setConfirmedRevalidationMode] = useState(false);
+  const confirmedRevalidationBaselineRef = useRef<Record<string, LineSelState> | null>(null);
   const [confirmReviewMode, setConfirmReviewMode] = useState<"initial" | "revalidation">("initial");
   const [resubmitConfirmOpen, setResubmitConfirmOpen] = useState(false);
   const [shouldRestoreFromCatalogue] = useState(() =>
@@ -2528,16 +2548,26 @@ export function PatientProductRequestActions({
       setActionError(detailStale.message);
       return;
     }
+    const baseline = computeSelFromConfirmedItems(items);
+    confirmedRevalidationBaselineRef.current = baseline;
     setConfirmedRevalidationMode(true);
-    setSel(computeSelFromConfirmedItems(items));
+    setSel(baseline);
     setActionError("");
   }, [items, detailStale]);
 
   const cancelConfirmedRevalidation = useCallback(() => {
     setConfirmedRevalidationMode(false);
+    confirmedRevalidationBaselineRef.current = null;
     setSel(computeSelFromConfirmedItems(items));
     setActionError("");
   }, [items]);
+
+  const confirmedRevalidationDirty = useMemo(() => {
+    if (!confirmedRevalidationMode) return false;
+    const baseline = confirmedRevalidationBaselineRef.current;
+    if (!baseline) return false;
+    return !lineSelMapsEqual(sel, baseline);
+  }, [confirmedRevalidationMode, sel]);
 
   useEffect(() => {
     if (!confirmReviewOpen) return;
@@ -2589,6 +2619,7 @@ export function PatientProductRequestActions({
     }
     closeConfirmReview();
     setConfirmedRevalidationMode(false);
+    confirmedRevalidationBaselineRef.current = null;
     await onReload();
   };
 
@@ -3525,6 +3556,26 @@ export function PatientProductRequestActions({
       ) : null}
 
       <div className="mt-2 space-y-2">
+        {showConfirmedCards && !confirmedRevalidationMode && !forceReadOnly ? (
+          <DossierInlineActionPanel
+            tone="slate"
+            className="mt-2"
+            summaryLeft={
+              <>
+                <span className="font-bold tabular-nums text-foreground">{totalsRetained.count}</span>{" "}
+                {isTreatedActiveView
+                  ? totalsRetained.count > 1
+                    ? "produits à retirer"
+                    : "produit à retirer"
+                  : totalsRetained.count > 1
+                    ? "produits retenus"
+                    : "produit retenu"}
+              </>
+            }
+            summaryRight={totalRetainedGrandLabel}
+          />
+        ) : null}
+
         {showVisitFields ? (
           <div
             className={clsx(
@@ -3641,12 +3692,29 @@ export function PatientProductRequestActions({
               </p>
             ) : useCompactPassageBlock && visitFieldsEditable && isTreatedActiveView ? (
               <p className="mx-auto max-w-md text-[10px] leading-snug text-muted-foreground">
-                La pharmacie est informée si vous modifiez votre passage (bouton en bas de l&apos;écran).
+                Modifiez la date ou l&apos;heure puis enregistrez ci-dessous.
               </p>
             ) : !useCompactPassageBlock && visitFieldsEditable && isTreatedActiveView ? (
               <p className="text-[10px] leading-snug text-sky-900/85">
-                La pharmacie est informée si vous modifiez votre passage (bouton en bas de l&apos;écran).
+                Modifiez la date ou l&apos;heure puis enregistrez ci-dessous.
               </p>
+            ) : null}
+            {showConfirmedCards && !confirmedRevalidationMode && visitFieldsEditable ? (
+              <button
+                type="button"
+                disabled={busyAction !== "" || !visitPassageDirty || Boolean(detailStale)}
+                onClick={() => void runUpdateVisit()}
+                className={clsx(
+                  uiActionBtnFull("mt-2 flex items-center justify-center"),
+                  useCompactPassageBlock && "mx-auto max-w-md",
+                )}
+              >
+                {busyAction === "visit"
+                  ? tCommon("updating")
+                  : isTreatedActiveView
+                    ? tCommon("updateVisit")
+                    : tCommon("updateVisitDate")}
+              </button>
             ) : null}
           </div>
         ) : null}
@@ -3811,62 +3879,30 @@ export function PatientProductRequestActions({
           </DossierInlineActionPanel>
         ) : null}
 
-        {showConfirmedCards && !forceReadOnly && !stickyFooterObscured ? (
+        {showConfirmedCards && !forceReadOnly && !stickyFooterObscured && confirmedRevalidationMode ? (
           <DossierInlineActionPanel
-            tone={confirmedRevalidationMode ? "sky" : "slate"}
-            editing={confirmedRevalidationMode}
+            tone="sky"
+            editing
             editingLabel={tCommon("editModePanelLabel")}
-            {...(!confirmedRevalidationMode
-              ? {
-                  summaryLeft: (
-                    <>
-                      <span className="font-bold tabular-nums text-foreground">{totalsRetained.count}</span>{" "}
-                      {isTreatedActiveView
-                        ? totalsRetained.count > 1
-                          ? "produits à retirer"
-                          : "produit à retirer"
-                        : totalsRetained.count > 1
-                          ? "produits retenus"
-                          : "produit retenu"}
-                    </>
-                  ),
-                  summaryRight: totalRetainedGrandLabel,
-                }
-              : {})}
           >
-            {!confirmedRevalidationMode ? (
+            <div className={uiActionBtnFlexRow()}>
               <button
                 type="button"
-                disabled={busyAction !== "" || !visitPassageDirty || Boolean(detailStale)}
-                onClick={() => void runUpdateVisit()}
-                className={uiActionBtnFull("flex items-center justify-center")}
+                disabled={busyAction !== ""}
+                onClick={cancelConfirmedRevalidation}
+                className={uiActionBtnFlexCancel()}
               >
-                {busyAction === "visit"
-                  ? tCommon("updating")
-                  : isTreatedActiveView
-                    ? tCommon("updateVisit")
-                    : tCommon("updateVisitDate")}
+                {tCommon("cancel")}
               </button>
-            ) : (
-              <div className={uiActionBtnFlexRow()}>
-                <button
-                  type="button"
-                  disabled={busyAction !== ""}
-                  onClick={cancelConfirmedRevalidation}
-                  className={uiActionBtnFlexCancel()}
-                >
-                  {tCommon("cancel")}
-                </button>
-                <button
-                  type="button"
-                  disabled={busyAction !== "" || Boolean(detailStale)}
-                  onClick={openConfirmedRevalidationReview}
-                  className={uiActionBtnFlexPrimary("disabled:cursor-not-allowed")}
-                >
-                  {busyAction === "confirm" ? tCommon("saving") : tCommon("saveChanges")}
-                </button>
-              </div>
-            )}
+              <button
+                type="button"
+                disabled={busyAction !== "" || Boolean(detailStale) || !confirmedRevalidationDirty}
+                onClick={openConfirmedRevalidationReview}
+                className={uiActionBtnFlexPrimary("disabled:cursor-not-allowed")}
+              >
+                {busyAction === "confirm" ? tCommon("saving") : tCommon("saveChanges")}
+              </button>
+            </div>
           </DossierInlineActionPanel>
         ) : null}
 
