@@ -4,6 +4,9 @@ import { cn } from "@/lib/utils";
 type PharmetoLogoVariant = "icon" | "lockup" | "wordmark";
 
 const ICON_SRC = "/brand/pharmeto-icon.png";
+/** Dimensions source `public/brand/pharmeto-icon.png` */
+const ICON_INTRINSIC_WIDTH = 500;
+const ICON_INTRINSIC_HEIGHT = 500;
 
 type PharmetoLogoProps = {
   variant?: PharmetoLogoVariant;
@@ -39,9 +42,10 @@ export function PharmetoLogo({
         src={ICON_SRC}
         alt={decorative ? "" : "Pharmeto"}
         aria-hidden={decorative ? true : undefined}
-        width={height}
-        height={height}
-        className={cn("shrink-0", className)}
+        width={ICON_INTRINSIC_WIDTH}
+        height={ICON_INTRINSIC_HEIGHT}
+        className={cn("w-auto shrink-0", className)}
+        style={{ height, width: "auto" }}
         priority={priority}
       />
     );
@@ -53,9 +57,10 @@ export function PharmetoLogo({
         src={ICON_SRC}
         alt=""
         aria-hidden
-        width={height}
-        height={height}
-        className="shrink-0"
+        width={ICON_INTRINSIC_WIDTH}
+        height={ICON_INTRINSIC_HEIGHT}
+        className="w-auto shrink-0"
+        style={{ height, width: "auto" }}
         priority={priority}
       />
       <span

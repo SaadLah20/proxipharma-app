@@ -13,7 +13,7 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [
       {
         src: "/brand/pharmeto-icon.png",
-        sizes: "512x512",
+        sizes: "500x500",
         type: "image/png",
         purpose: "any",
       },
