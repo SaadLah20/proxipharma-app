@@ -1,14 +1,12 @@
 "use client";
 
 import { useId, useState } from "react";
-import { MessageCircle, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { ProductRequestLineMessageIconButton } from "@/components/pharmacy/patient-demande-produits-ui";
-import {
-  hasPatientWorkflowAccentShell,
-  patientWorkflowLineAccent,
-} from "@/lib/patient-product-request-line-ui";
+import { lineConversationVisual } from "@/components/pharmacist/pharmacist-line-conversation-chip";
+import { patientWorkflowLineAccent } from "@/lib/patient-product-request-line-ui";
 import { requestKindUiTheme } from "@/lib/request-kind-ui-theme";
 import { uiActionBtnModalDismiss } from "@/lib/ui-action-buttons";
 import { cn } from "@/lib/utils";
@@ -39,29 +37,16 @@ export function PatientLineNotesIconButton({
         : "border-l-sky-500/70";
   const c = client.trim();
   const p = pharmacist.trim();
-  const hasNotes = Boolean(c || p);
-
-  if (!hasNotes) return null;
+  const visual = lineConversationVisual(c, p);
+  const lineAccent = patientWorkflowLineAccent(requestType) ?? "sky";
 
   return (
     <>
-      {hasPatientWorkflowAccentShell(requestType) ? (
-        <ProductRequestLineMessageIconButton
-          hasComment
-          onClick={() => setOpen(true)}
-          lineAccent={patientWorkflowLineAccent(requestType) ?? "sky"}
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-card text-foreground shadow-sm hover:bg-muted/40"
-          aria-label={tDemandes("notes.viewLineMessagesAria")}
-          title={tDemandes("responded.messageTitle")}
-        >
-          <MessageCircle className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
-        </button>
-      )}
+      <ProductRequestLineMessageIconButton
+        visual={visual}
+        onClick={() => setOpen(true)}
+        lineAccent={lineAccent}
+      />
       <AppModalOverlay open={open} aria-labelledby={titleId} onBackdropClick={() => setOpen(false)}>
         <div
           className={cn(
@@ -100,6 +85,9 @@ export function PatientLineNotesIconButton({
                 <p className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">{tConversation("pharmacy")}</p>
                 <p className="mt-0.5 whitespace-pre-wrap break-words leading-snug text-foreground">{p}</p>
               </div>
+            ) : null}
+            {!c && !p ? (
+              <p className="text-[11px] text-muted-foreground">{tDemandes("responded.noMessageOnProduct")}</p>
             ) : null}
           </div>
           <div className="border-t border-border/60 px-3 py-2">

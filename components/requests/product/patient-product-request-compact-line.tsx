@@ -13,6 +13,7 @@ import {
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { cn } from "@/lib/utils";
+import { lineConversationVisual } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import { useState } from "react";
 
 export type PatientDossierCompactLine = {
@@ -48,7 +49,7 @@ export function PatientProductRequestCompactLine({
 }) {
   const [commentOpen, setCommentOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState(line.client_comment ?? "");
-  const hasComment = Boolean(line.client_comment?.trim());
+  const messageVisual = lineConversationVisual(line.client_comment ?? "", "");
   const isProposed = line.line_source === "pharmacist_proposed";
 
   const thumbInner = (
@@ -99,7 +100,7 @@ export function PatientProductRequestCompactLine({
           bottomRight={
             editMode && onSaveComment ? (
               <ProductRequestLineMessageIconButton
-                hasComment={hasComment}
+                visual={messageVisual}
                 onClick={() => {
                   setCommentDraft(line.client_comment ?? "");
                   setCommentOpen(true);

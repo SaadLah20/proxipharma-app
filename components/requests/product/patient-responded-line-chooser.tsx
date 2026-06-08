@@ -10,10 +10,7 @@ import {
   ProductRequestLineQtyPicker,
   ProductRequestLineQtyReadonly,
 } from "@/components/pharmacy/patient-demande-produits-ui";
-import {
-  lineConversationVisual,
-  PharmacistLineMessageButton,
-} from "@/components/pharmacist/pharmacist-line-conversation-chip";
+import { lineConversationVisual } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import { uiActionBtnModalDismiss } from "@/lib/ui-action-buttons";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
@@ -35,7 +32,6 @@ import { useConsultationUiCopy } from "@/lib/use-consultation-ui-copy";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { cn } from "@/lib/utils";
 import {
-  hasPatientWorkflowAccentShell,
   patientLineQtyAppearance,
   patientLineRowClass,
   patientWorkflowLineAccent,
@@ -197,24 +193,14 @@ function RespondedLineNotesButton({
   const visual = lineConversationVisual(c, p);
 
   const lineAccent = patientWorkflowLineAccent(requestType) ?? "sky";
-  const useWorkflowMessageButton = hasPatientWorkflowAccentShell(requestType);
 
   return (
     <>
-      {useWorkflowMessageButton ? (
-        <ProductRequestLineMessageIconButton
-          hasComment={visual !== "empty"}
-          onClick={() => setOpen(true)}
-          lineAccent={lineAccent}
-        />
-      ) : (
-        <PharmacistLineMessageButton
-          visual={visual}
-          open={open}
-          onClick={() => setOpen(true)}
-          appearance={patientLineQtyAppearance(requestType)}
-        />
-      )}
+      <ProductRequestLineMessageIconButton
+        visual={visual}
+        onClick={() => setOpen(true)}
+        lineAccent={lineAccent}
+      />
       {open ? (
         <AppModalOverlay open aria-labelledby={titleId} onBackdropClick={() => setOpen(false)}>
               <div

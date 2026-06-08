@@ -20,6 +20,11 @@ import type { ConversationAudioDraft } from "@/lib/use-conversation-audio-record
 import { PATIENT_PRODUCT_LINE_COMMENT_PLACEHOLDER_FR } from "@/lib/product-line-comment-copy";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
+import {
+  lineConversationAriaLabel,
+  LineConvoBadgeDots,
+  type LineConvoVisual,
+} from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import type { PatientWorkflowLineAccent } from "@/lib/patient-workflow-line-ui";
 import type { PatientDemandeProduitsDraftLine } from "@/lib/patient-demande-produits-draft";
 import { ProductCatalogExplorerThumb } from "@/components/products/product-catalog-explorer-thumb";
@@ -105,19 +110,41 @@ function messageAccentButtonClass(
   hasComment: boolean,
   lineAccent: PatientWorkflowLineAccent = "sky",
 ): string {
+  return messageAccentVisualButtonClass(hasComment ? "patient_only" : "empty", lineAccent);
+}
+
+function messageAccentVisualButtonClass(
+  visual: LineConvoVisual,
+  lineAccent: PatientWorkflowLineAccent = "sky",
+): string {
+  if (visual === "empty") {
+    if (lineAccent === "amber") {
+      return "border-dashed border-amber-200/70 bg-white text-amber-600/75 hover:border-amber-300/60 hover:bg-amber-50/45 hover:text-amber-900";
+    }
+    if (lineAccent === "violet") {
+      return "border-dashed border-violet-200/65 bg-white text-violet-600/75 hover:border-violet-300/55 hover:bg-violet-50/40 hover:text-violet-900";
+    }
+    return "border-dashed border-sky-200/70 bg-white text-sky-600/75 hover:border-sky-300/70 hover:bg-sky-50 hover:text-sky-800";
+  }
+  if (visual === "thread") {
+    if (lineAccent === "amber") {
+      return "border-amber-400/85 bg-gradient-to-br from-amber-50 via-white to-emerald-50/35 text-amber-950 shadow-sm ring-2 ring-amber-200/70 hover:bg-amber-50";
+    }
+    if (lineAccent === "violet") {
+      return "border-violet-400/85 bg-gradient-to-br from-violet-50 via-white to-emerald-50/35 text-violet-950 shadow-sm ring-2 ring-violet-200/70 hover:bg-violet-50";
+    }
+    return "border-sky-400/85 bg-gradient-to-br from-sky-50 via-white to-emerald-50/35 text-sky-950 shadow-sm ring-2 ring-sky-200/70 hover:bg-sky-100";
+  }
+  if (visual === "pharma_only") {
+    return "border-emerald-400/80 bg-emerald-50/90 text-emerald-950 shadow-sm ring-2 ring-emerald-200/70 hover:bg-emerald-100/80";
+  }
   if (lineAccent === "amber") {
-    return hasComment
-      ? "border-amber-300/60 bg-amber-100/80 text-amber-950 hover:bg-amber-100"
-      : "border-amber-200/55 bg-white text-amber-700/85 hover:border-amber-300/55 hover:bg-amber-50/50 hover:text-amber-900";
+    return "border-amber-400/80 bg-amber-50 text-amber-950 shadow-sm ring-2 ring-amber-200/70 hover:bg-amber-100";
   }
   if (lineAccent === "violet") {
-    return hasComment
-      ? "border-violet-300/55 bg-violet-100/75 text-violet-950 hover:bg-violet-100"
-      : "border-violet-200/50 bg-white text-violet-700/85 hover:border-violet-300/50 hover:bg-violet-50/45 hover:text-violet-900";
+    return "border-violet-400/80 bg-violet-50 text-violet-950 shadow-sm ring-2 ring-violet-200/70 hover:bg-violet-100";
   }
-  return hasComment
-    ? "border-sky-400/70 bg-sky-100 text-sky-900 hover:bg-sky-200/80"
-    : "border-sky-200/70 bg-white text-sky-600/80 hover:border-sky-300/80 hover:bg-sky-50 hover:text-sky-800";
+  return "border-sky-400/80 bg-sky-50 text-sky-950 shadow-sm ring-2 ring-sky-200/70 hover:bg-sky-100";
 }
 
 /** Section de page (saisie publique / catalogue) — titres alignés charte globale. */
@@ -416,29 +443,35 @@ export function ProductRequestLineQtyPicker({
 /** Icône message circulaire (même gabarit que Historique carte validée). */
 export function ProductRequestLineMessageIconButton({
   hasComment,
+  visual,
   onClick,
   className,
   lineAccent = "sky",
 }: {
-  hasComment: boolean;
+  /** @deprecated Préférer `visual` (4 états : vide / patient / officine / les deux). */
+  hasComment?: boolean;
+  visual?: LineConvoVisual;
   onClick: () => void;
   className?: string;
   lineAccent?: PatientWorkflowLineAccent;
 }) {
   const td = useTranslations("demandePublic");
+  const resolvedVisual = visual ?? (hasComment ? "patient_only" : "empty");
+  const filled = resolvedVisual !== "empty";
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={hasComment ? td("lineMessageViewOrEditAria") : td("lineMessageAddAria")}
-      title={hasComment ? td("lineMessageFilled") : td("lineMessage")}
+      aria-label={filled ? lineConversationAriaLabel(resolvedVisual) : td("lineMessageAddAria")}
+      title={filled ? lineConversationAriaLabel(resolvedVisual) : td("lineMessage")}
       className={cn(
-        "inline-flex size-7 shrink-0 items-center justify-center rounded-full border shadow-sm transition",
-        messageAccentButtonClass(hasComment, lineAccent),
+        "relative inline-flex size-7 shrink-0 items-center justify-center rounded-full border shadow-sm transition",
+        messageAccentVisualButtonClass(resolvedVisual, lineAccent),
         className
       )}
     >
-      <MessageCircle className="size-3.5 shrink-0" strokeWidth={hasComment ? 2.35 : 2} aria-hidden />
+      <MessageCircle className="size-3.5 shrink-0" strokeWidth={filled ? 2.35 : 2} aria-hidden />
+      <LineConvoBadgeDots visual={resolvedVisual} accent={lineAccent} />
     </button>
   );
 }
