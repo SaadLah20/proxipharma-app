@@ -4,7 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, ChevronDown, FileImage, Pencil, Trash2 } from "lucide-react";
 import { clsx } from "clsx";
 import { useTranslations } from "next-intl";
+import { DossierEditModeIndicator } from "@/components/requests/dossier-edit-mode-indicator";
 import { ConsultationPhotoLightbox } from "@/components/requests/consultation/consultation-photo-lightbox";
+import { dossierEditModeShellClass } from "@/lib/dossier-edit-mode-ui";
 import { supabase } from "@/lib/supabase";
 import {
   CONSULTATION_MAX_PHOTOS,
@@ -390,8 +392,10 @@ function ConsultationBriefPanelBody({
     );
   }
 
+  const briefEditActive = editable && expanded;
+
   return (
-    <section className={clsx(shell, "overflow-hidden")}>
+    <section className={clsx(shell, "overflow-hidden", briefEditActive && dossierEditModeShellClass("violet"))}>
       <button
         type="button"
         onClick={() => {
@@ -415,6 +419,17 @@ function ConsultationBriefPanelBody({
           <ChevronDown className={clsx("size-3.5 transition-transform", expanded && "rotate-180")} aria-hidden />
         </span>
       </button>
+
+      {briefEditActive ? (
+        <div className="px-3 pb-2">
+          <DossierEditModeIndicator
+            active
+            tone="violet"
+            title={isPatient ? tCommon("editModeBannerTitle") : "Modification en cours"}
+            hint={isPatient ? tCommon("editModeBannerHintBelow") : "Enregistrez ou annulez ci-dessous"}
+          />
+        </div>
+      ) : null}
 
       {expanded ? <div className="px-3 pb-3">{editableBody}</div> : null}
 
