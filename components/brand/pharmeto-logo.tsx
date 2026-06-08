@@ -3,8 +3,7 @@ import { cn } from "@/lib/utils";
 
 type PharmetoLogoVariant = "icon" | "lockup" | "wordmark";
 
-const ICON_SRC = "/brand/pharmeto-icon.svg";
-const LOCKUP_SRC = "/brand/pharmeto-lockup.svg";
+const ICON_SRC = "/brand/pharmeto-icon.png";
 
 type PharmetoLogoProps = {
   variant?: PharmetoLogoVariant;
@@ -42,23 +41,29 @@ export function PharmetoLogo({
         aria-hidden={decorative ? true : undefined}
         width={height}
         height={height}
-        unoptimized
         className={cn("shrink-0", className)}
         priority={priority}
       />
     );
   }
 
-  const width = Math.round(height * (320 / 44));
   return (
-    <Image
-      src={LOCKUP_SRC}
-      alt="Pharmeto"
-      width={width}
-      height={height}
-      unoptimized
-      className={cn("shrink-0", className)}
-      priority={priority}
-    />
+    <span className={cn("inline-flex min-w-0 items-center gap-2", className)}>
+      <Image
+        src={ICON_SRC}
+        alt=""
+        aria-hidden
+        width={height}
+        height={height}
+        className="shrink-0"
+        priority={priority}
+      />
+      <span
+        className="truncate font-bold tracking-tight text-foreground"
+        style={{ fontSize: Math.round(height * 0.5) }}
+      >
+        Pharmeto
+      </span>
+    </span>
   );
 }
