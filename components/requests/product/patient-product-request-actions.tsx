@@ -22,6 +22,7 @@ import {
   useTimelinePhaseLabels,
 } from "@/lib/i18n/build-patient-timeline";
 import { usePatientRequestStatusLabel } from "@/lib/i18n/patient-request-status-label";
+import { ProductLinePhotoThumb } from "@/components/products/product-line-photo-thumb";
 import { Button } from "@/components/ui/button";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { cn } from "@/lib/utils";
@@ -371,11 +372,8 @@ export function PatientValidatedCompactLineCard({
   const tCommon = useTranslations("common");
   const prescriptionCopy = usePrescriptionUiCopy();
   const defaultOrigins = useMemo(
-    () => [
-      prescriptionCopy.validatedOriginFallbackPatient(requestType),
-      tCommon("alternative"),
-    ].filter(Boolean),
-    [prescriptionCopy, requestType, tCommon],
+    () => [prescriptionCopy.validatedOriginFallbackPatient(requestType)].filter(Boolean),
+    [prescriptionCopy, requestType],
   );
   const { buildLabels } = usePatientValidatedLineLabels(defaultOrigins);
   const lineKindTheme = requestKindUiTheme(requestType);
@@ -406,31 +404,16 @@ export function PatientValidatedCompactLineCard({
     treatedLineLabels: requestStatusForCard === "treated",
     sectionBucket: tier,
   });
-  const thumbInner = thumbUrl ? (
-    onPhotoPreview ? (
-      <button
-        type="button"
-        className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", lineKindTheme.photoRing)}
-        onClick={() =>
-          onPhotoPreview(
-            thumbUrl,
-            validatedName,
-            descriptionHtml,
-            validatedBrand,
-            one(row.products)?.product_type
-          )
-        }
-        aria-label={`Agrandir la photo · ${validatedName}`}
-      >
-        <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
-      </button>
-    ) : (
-      <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
-    )
-  ) : (
-    <span className="flex h-full w-full items-center justify-center">
-      <Package className="size-5 text-muted-foreground" aria-hidden />
-    </span>
+  const thumbInner = (
+    <ProductLinePhotoThumb
+      photoUrl={thumbUrl}
+      productType={one(row.products)?.product_type}
+      productName={validatedName}
+      descriptionHtml={descriptionHtml}
+      brand={validatedBrand}
+      onPhotoPreview={onPhotoPreview}
+      ringClassName={lineKindTheme.photoRing}
+    />
   );
 
   return (
@@ -539,26 +522,16 @@ function PatientTraceNotRetainedRow({
     <li className={patientLineRowClass(requestType)}>
       <div className="flex items-start gap-2.5">
         <div className={cn(VALIDATED_LINE_THUMB, "shrink-0 self-start opacity-90")}>
-          {photoUrl ? (
-            onPhotoPreview ? (
-              <button
-                type="button"
-                className={cn("size-full cursor-zoom-in focus:outline-none focus-visible:ring-2", lineKindTheme.photoRing)}
-                onClick={() =>
-                  onPhotoPreview(photoUrl, name, prod?.full_description, prod?.brand, prod?.product_type)
-                }
-                aria-label={`Agrandir la photo · ${name}`}
-              >
-                <img src={photoUrl} alt="" className="pointer-events-none h-full w-full object-cover opacity-90" />
-              </button>
-            ) : (
-              <img src={photoUrl} alt="" className="h-full w-full object-cover opacity-90" />
-            )
-          ) : (
-            <span className="flex h-full w-full items-center justify-center">
-              <Package className="size-5 text-muted-foreground" aria-hidden />
-            </span>
-          )}
+          <ProductLinePhotoThumb
+            photoUrl={photoUrl}
+            productType={prod?.product_type}
+            productName={name}
+            descriptionHtml={prod?.full_description}
+            brand={prod?.brand}
+            onPhotoPreview={onPhotoPreview}
+            ringClassName={lineKindTheme.photoRing}
+            className="size-full opacity-90"
+          />
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -917,13 +890,15 @@ function PatientArchiveFrozenProductsView({
               unitPrice={unit}
               editMode={false}
               onPhotoPreview={() => {
-                const url = prod?.photo_url;
+                const raw = prod?.photo_url;
+                const url = raw ? resolvePublicMediaUrl(raw) ?? raw : null;
                 onPhotoPreview(
-                  url ? resolvePublicMediaUrl(url) ?? url : null,
+                  url,
                   prod?.name ?? "Produit",
                   prod?.full_description,
                   prod?.brand,
-                  prod?.product_type
+                  prod?.product_type,
+                  { catalogExplorerPreview: !url?.trim() }
                 );
               }}
               onSetQty={noop}
@@ -1865,32 +1840,14 @@ function PatientConfirmReviewLineCard({
             isOrder ? "border-teal-200/80" : "border-sky-200/80"
           )}
         >
-          {line.photoUrl ? (
-            onPhotoPreview ? (
-              <button
-                type="button"
-                className="relative size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-                onClick={() =>
-                  onPhotoPreview(
-                    line.photoUrl!,
-                    line.productName,
-                    line.descriptionHtml,
-                    line.brand,
-                    line.productType
-                  )
-                }
-                aria-label={`Agrandir la photo · ${line.productName}`}
-              >
-                <img src={line.photoUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
-              </button>
-            ) : (
-              <img src={line.photoUrl} alt="" className="h-full w-full object-cover" />
-            )
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-muted/30">
-              <Package className="size-5 text-muted-foreground" aria-hidden />
-            </div>
-          )}
+          <ProductLinePhotoThumb
+            photoUrl={line.photoUrl}
+            productType={line.productType}
+            productName={line.productName}
+            descriptionHtml={line.descriptionHtml}
+            brand={line.brand}
+            onPhotoPreview={onPhotoPreview}
+          />
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-semibold leading-tight text-foreground">{line.productName}</p>

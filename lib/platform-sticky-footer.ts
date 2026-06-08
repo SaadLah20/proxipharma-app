@@ -33,7 +33,7 @@ export function consultationConversationViewportStyle(
   return { height, maxHeight: height };
 }
 
-/** Pharmacien — max-height du wrapper (scroll interne uniquement, pas de scroll page). */
+/** @deprecated Préférer `consultationConversationMinHeightStyle()` — scroll chaining page (comme patient). */
 export function consultationConversationPanelMaxHeightStyle(): CSSProperties {
   const bottomNav = `${PLATFORM_BOTTOM_NAV_HEIGHT_PX / 16}rem`;
   return {

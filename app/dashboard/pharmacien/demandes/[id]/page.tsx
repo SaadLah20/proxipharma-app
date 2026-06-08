@@ -123,7 +123,7 @@ import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { PolishedOptionPicker } from "@/components/ui/polished-option-picker";
 import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
 import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
-import { consultationConversationPanelMaxHeightStyle } from "@/lib/platform-sticky-footer";
+import { consultationConversationMinHeightStyle } from "@/lib/platform-sticky-footer";
 import {
   PHARMA_LINE_EDITOR_ALTS,
   PHARMA_LINE_EDITOR_CARD,
@@ -4852,6 +4852,8 @@ export default function PharmacienDemandeDetailPage() {
           row={row}
           productName={prod?.name ?? closedArchiveProductLabel(pl)}
           thumbUrl={thumbUrl}
+          productType={prod?.product_type}
+          brand={prod?.brand}
           descriptionHtml={productDescriptionHtmlForDisplay(closedArchiveDescriptionHtml(pl))}
           statusLabel={statusLabel}
           lineKindLabel={lineKindLabel}
@@ -5201,21 +5203,16 @@ export default function PharmacienDemandeDetailPage() {
             ) : null}
 
             {showConsultationConversationPane ? (
-              <div
-                className="flex min-h-0 w-full flex-col max-h-[calc(100dvh-11rem-3.5rem-env(safe-area-inset-bottom))]"
-                style={consultationConversationPanelMaxHeightStyle()}
-              >
-                <RequestConversationInline
-                  requestId={request.id}
-                  viewerRole="pharmacien"
-                  currentUserId={sessionUserId!}
-                  variant="consultation"
-                  consultationSeed={consultationSeed}
-                  refreshToken={conversationRefreshToken}
-                  fillViewport
-                  onMarkedRead={handleConversationMarkedRead}
-                />
-              </div>
+              <RequestConversationInline
+                requestId={request.id}
+                viewerRole="pharmacien"
+                currentUserId={sessionUserId!}
+                variant="consultation"
+                consultationSeed={consultationSeed}
+                refreshToken={conversationRefreshToken}
+                viewportStyle={consultationConversationMinHeightStyle("none")}
+                onMarkedRead={handleConversationMarkedRead}
+              />
             ) : null}
           </div>
         ) : hideMainRequestHeader ? (

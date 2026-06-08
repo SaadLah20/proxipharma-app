@@ -3,7 +3,8 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { clsx } from "clsx";
-import { History, MoreVertical, Package, Trash2 } from "lucide-react";
+import { History, MoreVertical, Trash2 } from "lucide-react";
+import { ProductLinePhotoThumb } from "@/components/products/product-line-photo-thumb";
 import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
 import {
   validatedLineLabelChipClass,
@@ -239,25 +240,16 @@ export function PharmacistSupplyCompactLine({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [menuOpen, onMenuOpenChange]);
 
-  const thumbInner = thumbUrl ? (
-    onPhotoPreview ? (
-      <button
-        type="button"
-        className="size-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-        onClick={() =>
-          onPhotoPreview(thumbUrl, validatedName, descriptionHtml, validatedBrand, validatedProductType)
-        }
-        aria-label={`Agrandir la photo · ${validatedName}`}
-      >
-        <img src={thumbUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
-      </button>
-    ) : (
-      <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
-    )
-  ) : (
-    <div className="flex h-full w-full items-center justify-center">
-      <Package className="size-5 text-muted-foreground" aria-hidden />
-    </div>
+  const thumbInner = (
+    <ProductLinePhotoThumb
+      photoUrl={thumbUrl}
+      productType={validatedProductType}
+      productName={validatedName}
+      descriptionHtml={descriptionHtml}
+      brand={validatedBrand}
+      onPhotoPreview={onPhotoPreview}
+      ringClassName="focus-visible:ring-sky-400"
+    />
   );
 
   const lineActionButtons = (
