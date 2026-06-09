@@ -36,6 +36,39 @@ export const demandesFr = {
   },
   header: {
     journeyAria: "Voir le détail du statut et le parcours de la demande",
+    amendedBadge: "Modifiée",
+    amendedHint: "Cette demande a été modifiée après validation par la pharmacie",
+    amendedResume: "Résumé",
+    amendedResumeAria: "Voir le résumé des modifications après validation",
+  },
+  drift: {
+    refreshButton: "Actualiser le dossier",
+    patientConfirmedToTreatedTitle: "Demande traitée par la pharmacie",
+    patientConfirmedToTreatedMessage:
+      "L'officine a déclaré votre demande comme traitée. Actualisez le dossier : vous ne pouvez plus modifier votre validation.",
+    patientSubmittedStaleTitle: "La pharmacie a peut-être déjà répondu",
+    patientSubmittedStaleMessage:
+      "Actualisez le dossier : si une réponse a été publiée, vous ne pourrez plus modifier votre liste ici.",
+    patientRespondedUpdatedTitle: "Réponse de la pharmacie mise à jour",
+    patientRespondedUpdatedMessage:
+      "La pharmacie a modifié sa réponse. Actualisez pour valider la version à jour.",
+    patientConfirmedUpdatedTitle: "Commande mise à jour par la pharmacie",
+    patientConfirmedUpdatedMessage:
+      "La pharmacie a modifié un ou plusieurs produits après votre validation. Actualisez pour voir les quantités et libellés à jour.",
+    pharmacienConfirmedToTreatedTitle: "Le patient a peut-être modifié sa validation",
+    pharmacienConfirmedToTreatedMessage:
+      "Le dossier est passé en traitée ou a changé pendant votre consultation. Actualisez avant d'enregistrer ou de déclarer traitée.",
+    pharmacienSubmittedUpdatedTitle: "Demande mise à jour par le patient",
+    pharmacienSubmittedUpdatedMessage:
+      "Le patient a modifié sa demande. Actualisez le dossier pour voir la liste à jour avant de répondre.",
+    pharmacienRespondedStaleTitle: "Réponse obsolète",
+    pharmacienRespondedStaleMessage:
+      "Le dossier a changé (validation patient ou nouvelle version). Actualisez avant de modifier ou publier.",
+    pharmacienConfirmedUpdatedTitle: "Dossier mis à jour",
+    pharmacienConfirmedUpdatedMessage:
+      "Le patient a validé ou le dossier a évolué. Actualisez pour afficher l'état réel avant d'enregistrer.",
+    genericTitle: "Dossier mis à jour",
+    genericMessage: "Actualisez le dossier pour continuer avec les dernières informations.",
   },
   statusBadges: {
     draft: "Brouillon",
@@ -192,6 +225,13 @@ export const demandesFr = {
       lastRecorded: "Dernier enregistrement le {date}.",
       closedNoHistory:
         "Ce dossier est fermé. L'historique du dossier en bas de page reprend les étapes et précisions enregistrées.",
+    },
+    footer: {
+      frozenStateHint: "État enregistré au moment de la clôture — consultation seule.",
+      productPickedUp: "produit récupéré",
+      productsPickedUp: "produits récupérés",
+      productRetained: "produit retenu",
+      productsRetained: "produits retenus",
     },
   },
   respondedBuckets: {

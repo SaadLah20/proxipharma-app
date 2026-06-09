@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { createPortal, flushSync } from "react-dom";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import {
   CalendarClock,
@@ -276,6 +277,8 @@ import {
   type RequestDetailRefreshDetail,
 } from "@/lib/request-detail-refresh-bus";
 import { useRequestDetailDrift } from "@/lib/use-request-detail-drift";
+import { RequestDetailStaleBanner } from "@/components/requests/shared/request-detail-stale-banner";
+import { requestDetailStaleMessage } from "@/lib/i18n/request-detail-stale-copy";
 type RequestRow = {
   id: string;
   status: string;
@@ -1817,6 +1820,7 @@ async function logHistory(requestId: string, oldS: string | null, newS: string, 
 export default function PharmacienDemandeDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const tDrift = useTranslations("demandes.drift");
   const id = typeof params.id === "string" ? params.id : "";
 
   const [loading, setLoading] = useState(true);
@@ -5236,17 +5240,11 @@ export default function PharmacienDemandeDetailPage() {
             />
 
             {requestDrift.stale ? (
-              <div className="shrink-0 rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">
-                <p className="font-bold">{requestDrift.stale.title}</p>
-                <p className="mt-1 leading-snug">{requestDrift.stale.message}</p>
-                <button
-                  type="button"
-                  className="mt-2 inline-flex min-h-9 items-center justify-center rounded-lg border border-amber-500/80 bg-white px-3 font-semibold text-amber-950 hover:bg-amber-50"
-                  onClick={() => void requestDrift.refresh()}
-                >
-                  Actualiser la page
-                </button>
-              </div>
+              <RequestDetailStaleBanner
+                stale={requestDrift.stale}
+                onRefresh={requestDrift.refresh}
+                className="shrink-0 rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm"
+              />
             ) : null}
 
             {error ? (
@@ -5524,17 +5522,11 @@ export default function PharmacienDemandeDetailPage() {
       ) : null}
 
       {!showConsultationTabbed && requestDrift.stale ? (
-        <div className="rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">
-          <p className="font-bold">{requestDrift.stale.title}</p>
-          <p className="mt-1 leading-snug">{requestDrift.stale.message}</p>
-          <button
-            type="button"
-            className="mt-2 inline-flex min-h-9 items-center justify-center rounded-lg border border-amber-500/80 bg-white px-3 font-semibold text-amber-950 hover:bg-amber-50"
-            onClick={() => void requestDrift.refresh()}
-          >
-            Actualiser la page
-          </button>
-        </div>
+        <RequestDetailStaleBanner
+          stale={requestDrift.stale}
+          onRefresh={requestDrift.refresh}
+          className="rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm"
+        />
       ) : null}
 
       {!showConsultationTabbed && error ? (
@@ -7589,11 +7581,13 @@ export default function PharmacienDemandeDetailPage() {
                     title={
                       publishMissingReceptionDate.blocked
                         ? PHARMACIST_PUBLISH_MISSING_RECEPTION_DATE_NOTE_FR
-                        : requestDrift.stale?.message
+                        : requestDrift.stale
+                          ? requestDetailStaleMessage(tDrift, requestDrift.stale)
+                          : undefined
                     }
                     onClick={() => {
                       if (requestDrift.stale) {
-                        setError(requestDrift.stale.message);
+                        setError(requestDetailStaleMessage(tDrift, requestDrift.stale));
                         return;
                       }
                       if (publishMissingReceptionDate.blocked) {
@@ -7729,7 +7723,11 @@ export default function PharmacienDemandeDetailPage() {
                   <button
                     type="button"
                     disabled={declareTreatedBusy || Boolean(requestDrift.stale)}
-                    title={requestDrift.stale?.message}
+                    title={
+                      requestDrift.stale
+                        ? requestDetailStaleMessage(tDrift, requestDrift.stale)
+                        : undefined
+                    }
                     onClick={() => setDeclareTreatedModalOpen(true)}
                     className={uiActionBtnModalPrimary(
                       "h-10 min-w-0 flex-1 px-4 text-sm font-bold whitespace-nowrap disabled:opacity-50"

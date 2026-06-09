@@ -3,6 +3,17 @@ export type RequestContentSnapshot = {
   status: string;
 };
 
+export type RequestStaleScenario =
+  | "pharmacien_confirmed_to_treated"
+  | "patient_confirmed_to_treated"
+  | "pharmacien_submitted_updated"
+  | "pharmacien_responded_stale"
+  | "pharmacien_confirmed_updated"
+  | "patient_submitted_stale"
+  | "patient_responded_updated"
+  | "patient_confirmed_updated"
+  | "generic";
+
 export type RequestStaleContext = {
   viewerRole: "patient" | "pharmacien";
   status: string;
@@ -11,9 +22,8 @@ export type RequestStaleContext = {
 };
 
 export type RequestStaleState = {
-  stale: boolean;
-  title: string;
-  message: string;
+  stale: true;
+  scenario: RequestStaleScenario;
 };
 
 /** Détecte un décalage serveur pendant une action en cours (autre acteur ou version plus récente). */
@@ -23,82 +33,38 @@ export function detectRequestDetailStale(ctx: RequestStaleContext): RequestStale
   if (snapshot.updatedAt === live.updatedAt && snapshot.status === live.status) return null;
 
   if (viewerRole === "pharmacien" && snapshot.status === "confirmed" && live.status === "treated") {
-    return {
-      stale: true,
-      title: "Le patient a peut-être modifié sa validation",
-      message:
-        "Le dossier est passé en traitée ou a changé pendant votre consultation. Actualisez avant d’enregistrer ou de déclarer traitée.",
-    };
+    return { stale: true, scenario: "pharmacien_confirmed_to_treated" };
   }
 
   if (viewerRole === "patient" && snapshot.status === "confirmed" && live.status === "treated") {
-    return {
-      stale: true,
-      title: "Demande traitée par la pharmacie",
-      message:
-        "L’officine a déclaré votre demande comme traitée. Actualisez la page : vous ne pouvez plus modifier votre validation.",
-    };
+    return { stale: true, scenario: "patient_confirmed_to_treated" };
   }
 
   if (viewerRole === "pharmacien") {
     if (["submitted", "in_review"].includes(status)) {
-      return {
-        stale: true,
-        title: "Demande mise à jour par le patient",
-        message:
-          "Le patient a modifié sa demande. Actualisez la page pour voir la liste à jour avant de répondre.",
-      };
+      return { stale: true, scenario: "pharmacien_submitted_updated" };
     }
     if (status === "responded") {
-      return {
-        stale: true,
-        title: "Réponse obsolète",
-        message:
-          "Le dossier a changé (validation patient ou nouvelle version). Actualisez avant de modifier ou publier.",
-      };
+      return { stale: true, scenario: "pharmacien_responded_stale" };
     }
     if (["confirmed", "treated"].includes(status)) {
-      return {
-        stale: true,
-        title: "Dossier mis à jour",
-        message:
-          "Le patient a validé ou le dossier a évolué. Actualisez pour afficher l’état réel avant d’enregistrer.",
-      };
+      return { stale: true, scenario: "pharmacien_confirmed_updated" };
     }
   }
 
   if (viewerRole === "patient") {
     if (["submitted", "in_review"].includes(status)) {
-      return {
-        stale: true,
-        title: "La pharmacie a peut-être déjà répondu",
-        message:
-          "Actualisez la page : si une réponse a été publiée, vous ne pourrez plus modifier votre liste ici.",
-      };
+      return { stale: true, scenario: "patient_submitted_stale" };
     }
     if (status === "responded") {
-      return {
-        stale: true,
-        title: "Réponse de la pharmacie mise à jour",
-        message:
-          "La pharmacie a modifié sa réponse. Actualisez pour valider la version à jour.",
-      };
+      return { stale: true, scenario: "patient_responded_updated" };
     }
     if (["confirmed", "treated"].includes(status)) {
-      return {
-        stale: true,
-        title: "Commande mise à jour par la pharmacie",
-        message:
-          "La pharmacie a modifié un ou plusieurs produits après votre validation. Actualisez pour voir les quantités et libellés à jour.",
-      };
+      return { stale: true, scenario: "patient_confirmed_updated" };
     }
   }
 
-  return {
-    stale: true,
-    title: "Dossier mis à jour",
-    message: "Actualisez la page pour continuer avec les dernières informations.",
-  };
+  return { stale: true, scenario: "generic" };
 }
 
 export function shouldPollRequestDetailDrift(status: string, viewerRole: "patient" | "pharmacien"): boolean {
@@ -106,4 +72,14 @@ export function shouldPollRequestDetailDrift(status: string, viewerRole: "patien
     return ["submitted", "in_review", "responded", "confirmed", "treated"].includes(status);
   }
   return ["submitted", "in_review", "responded", "confirmed", "treated"].includes(status);
+}
+
+/** Intervalle polling drift — plus réactif sur statuts post-validation. */
+export function requestDetailDriftPollIntervalMs(status: string): number {
+  if (["confirmed", "treated"].includes(status)) return 5_000;
+  return 12_000;
+}
+
+export function isPatientConfirmedToTreatedStale(stale: RequestStaleState | null): boolean {
+  return stale?.scenario === "patient_confirmed_to_treated";
 }

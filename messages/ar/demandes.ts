@@ -36,6 +36,36 @@ export const demandesAr = {
   },
   header: {
     journeyAria: "عرض تفاصيل الحالة ومسار الطلب",
+    amendedBadge: "مُعدَّلة",
+    amendedHint: "عُدِّل هذا الطلب بعد التأكيد من طرف الصيدلية",
+    amendedResume: "ملخص",
+    amendedResumeAria: "عرض ملخص التعديلات بعد التأكيد",
+  },
+  drift: {
+    refreshButton: "تحديث الملف",
+    patientConfirmedToTreatedTitle: "عالجت الصيدلية طلبك",
+    patientConfirmedToTreatedMessage:
+      "أعلنت الصيدلية أن طلبك مُعالَج. حدّث الملف: لم يعد بإمكانك تعديل تأكيدك.",
+    patientSubmittedStaleTitle: "ربما ردّت الصيدلية بالفعل",
+    patientSubmittedStaleMessage:
+      "حدّث الملف: إن وُجد رد، لن تتمكن من تعديل قائمتك هنا.",
+    patientRespondedUpdatedTitle: "تعديل على رد الصيدلية",
+    patientRespondedUpdatedMessage: "عدّلت الصيدلية ردّها. حدّث لتأكيد النسخة الحالية.",
+    patientConfirmedUpdatedTitle: "تحديث من الصيدلية",
+    patientConfirmedUpdatedMessage:
+      "عدّلت الصيدلية منتجاً أو أكثر بعد تأكيدك. حدّث لرؤية الكميات والتسميات الحالية.",
+    pharmacienConfirmedToTreatedTitle: "ربما عدّل المريض تأكيده",
+    pharmacienConfirmedToTreatedMessage:
+      "انتقل الملف إلى مُعالَج أو تغيّر أثناء مراجعتك. حدّث قبل الحفظ أو إعلان المعالجة.",
+    pharmacienSubmittedUpdatedTitle: "تحديث من المريض",
+    pharmacienSubmittedUpdatedMessage: "عدّل المريض طلبه. حدّث الملف قبل الرد.",
+    pharmacienRespondedStaleTitle: "ردّ قديم",
+    pharmacienRespondedStaleMessage:
+      "تغيّر الملف (تأكيد المريض أو نسخة جديدة). حدّث قبل التعديل أو النشر.",
+    pharmacienConfirmedUpdatedTitle: "تحديث الملف",
+    pharmacienConfirmedUpdatedMessage: "أكّد المريض أو تطوّر الملف. حدّث قبل الحفظ.",
+    genericTitle: "تحديث الملف",
+    genericMessage: "حدّث الملف للمتابعة بآخر المعلومات.",
   },
   statusBadges: {
     draft: "مسودة",
@@ -191,6 +221,13 @@ export const demandesAr = {
       lastRecorded: "آخر تسجيل في {date}.",
       closedNoHistory:
         "هذا الملف مُغلق. سجل الملف في أسفل الصفحة يعرض المراحل والتفاصيل المسجّلة.",
+    },
+    footer: {
+      frozenStateHint: "الحالة المسجّلة لحظة الإغلاق — للاطلاع فقط.",
+      productPickedUp: "منتج مُستَلَم",
+      productsPickedUp: "منتجات مُستَلَمة",
+      productRetained: "منتج مُختار",
+      productsRetained: "منتجات مُختارة",
     },
   },
   respondedBuckets: {

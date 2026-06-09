@@ -7,7 +7,14 @@ import { PatientProductRequestJourneyModal } from "@/components/requests/product
 import { PatientPharmacyDossierBand } from "@/components/requests/product/patient-pharmacy-dossier-band";
 import type { PatientPharmacyContactInfo } from "@/components/requests/product/patient-pharmacy-quick-contact";
 import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
+import {
+  PatientAmendmentResumeButton,
+  PatientAmendmentResumeModal,
+  patientAmendedStatusBadgeClass,
+  type PatientSupplyAmendmentBundle,
+} from "@/components/requests/product/patient-pharma-update-banner";
 import { usePatientRequestStatusLabel } from "@/lib/i18n/patient-request-status-label";
+import { buildPatientPharmaAmendmentResumeFr } from "@/lib/patient-pharma-amendment-resume-fr";
 import { requestStatusBadgeClass } from "@/lib/request-display";
 import { patientWorkflowDossierHeaderShellClass } from "@/lib/patient-product-request-line-ui";
 import { uiDossierHeaderShell } from "@/lib/ui-surfaces";
@@ -26,6 +33,7 @@ export function PatientProductRequestDossierHeader({
   createdAt,
   hideSentAt = false,
   statusLabel,
+  amendmentResumeBundles,
 }: {
   dossierRefLabel: string;
   pharmacyContact: PatientPharmacyContactInfo | null;
@@ -38,15 +46,20 @@ export function PatientProductRequestDossierHeader({
   submittedAt?: string | null;
   createdAt?: string | null;
   hideSentAt?: boolean;
-  /** Libellé statut déjà traduit (next-intl workflow / demandes). */
   statusLabel?: string;
+  amendmentResumeBundles?: PatientSupplyAmendmentBundle[];
 }) {
   const tCommon = useTranslations("common");
   const tDemandes = useTranslations("demandes");
   const resolvedKindLabel = kindLabel ?? tCommon("defaultRequestKindLabel");
   const translatedStatusLabel = usePatientRequestStatusLabel(status);
   const [journeyOpen, setJourneyOpen] = useState(false);
+  const [resumeOpen, setResumeOpen] = useState(false);
   const badgeLabel = statusLabel ?? translatedStatusLabel;
+  const amendmentResume = amendmentResumeBundles?.length
+    ? buildPatientPharmaAmendmentResumeFr(amendmentResumeBundles)
+    : null;
+  const showAmendedState = Boolean(amendmentResume);
 
   return (
     <>
@@ -75,24 +88,34 @@ export function PatientProductRequestDossierHeader({
         </div>
 
         <div className="flex flex-wrap items-start gap-2 px-3 py-2 sm:px-3.5">
-          <span className={cn("shrink-0 shadow-sm", requestStatusBadgeClass(status))}>{badgeLabel}</span>
-          <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">{statusHint}</p>
-          <button
-            type="button"
-            onClick={() => setJourneyOpen(true)}
-            className={cn(
-              "inline-flex size-7 shrink-0 items-center justify-center rounded-full border bg-card shadow-sm transition",
-              requestType === "product_request"
-                ? "border-sky-200/80 text-sky-700 hover:border-sky-300/80 hover:bg-sky-50/80 hover:text-sky-900"
-                : requestType === "prescription"
-                  ? "border-amber-200/55 text-amber-800 hover:border-amber-300/55 hover:bg-amber-50/45 hover:text-amber-950"
-                  : "border-border text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-            )}
-            aria-label={tDemandes("header.journeyAria")}
-            title={tCommon("detailAndJourney")}
-          >
-            <Info className="size-4" strokeWidth={2.25} aria-hidden />
-          </button>
+          {showAmendedState ? (
+            <span className={patientAmendedStatusBadgeClass()}>{tDemandes("header.amendedBadge")}</span>
+          ) : (
+            <span className={cn("shrink-0 shadow-sm", requestStatusBadgeClass(status))}>{badgeLabel}</span>
+          )}
+          <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">
+            {showAmendedState ? tDemandes("header.amendedHint") : statusHint}
+          </p>
+          {showAmendedState ? (
+            <PatientAmendmentResumeButton onClick={() => setResumeOpen(true)} requestType={requestType} />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setJourneyOpen(true)}
+              className={cn(
+                "inline-flex size-7 shrink-0 items-center justify-center rounded-full border bg-card shadow-sm transition",
+                requestType === "product_request"
+                  ? "border-sky-200/80 text-sky-700 hover:border-sky-300/80 hover:bg-sky-50/80 hover:text-sky-900"
+                  : requestType === "prescription"
+                    ? "border-amber-200/55 text-amber-800 hover:border-amber-300/55 hover:bg-amber-50/45 hover:text-amber-950"
+                    : "border-border text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+              )}
+              aria-label={tDemandes("header.journeyAria")}
+              title={tCommon("detailAndJourney")}
+            >
+              <Info className="size-4" strokeWidth={2.25} aria-hidden />
+            </button>
+          )}
         </div>
       </header>
 
@@ -103,6 +126,14 @@ export function PatientProductRequestDossierHeader({
         requestType={requestType}
         onClose={() => setJourneyOpen(false)}
       />
+
+      {showAmendedState && amendmentResumeBundles ? (
+        <PatientAmendmentResumeModal
+          open={resumeOpen}
+          bundles={amendmentResumeBundles}
+          onClose={() => setResumeOpen(false)}
+        />
+      ) : null}
     </>
   );
 }

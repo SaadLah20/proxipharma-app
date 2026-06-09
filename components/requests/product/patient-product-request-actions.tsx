@@ -67,6 +67,11 @@ import {
 } from "@/lib/patient-responded-line-buckets";
 import { patientBucketProductListClass } from "@/lib/patient-bucket-product-row-ui";
 import {
+  patientPrescriptionBucketProductListClass,
+  patientPrescriptionDossierContentStackClass,
+  patientPrescriptionLinesWrapperClass,
+} from "@/lib/patient-prescription-dossier-shell";
+import {
   hasPatientWorkflowAccentShell,
   isPatientProductRequestType,
   patientLineRowClass,
@@ -108,7 +113,6 @@ import { PatientProductRequestDossierHeader } from "@/components/requests/produc
 import { PatientPharmacyDossierBand } from "@/components/requests/product/patient-pharmacy-dossier-band";
 import { DossierHeaderRequestLine } from "@/components/requests/shared/dossier-header-sent-at";
 import { PatientProductRequestCompactLine } from "@/components/requests/product/patient-product-request-compact-line";
-import { PatientPharmaUpdateBanner } from "@/components/requests/product/patient-pharma-update-banner";
 import { RespondedPatientLineChooser } from "@/components/requests/product/patient-responded-line-chooser";
 import {
   PatientPharmacyQuickContact,
@@ -185,7 +189,8 @@ import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindAccent } from "@/lib/request-kinds/types";
 import { productRequestPublicTheme as productRequestTheme } from "@/lib/request-kinds/product-request-public-theme";
 import { requestKindUiTheme } from "@/lib/request-kind-ui-theme";
-import { archiveClosedQtyLabelFr, validatedOriginFallbackPatientFr } from "@/lib/prescription-ui-copy";
+import type { RequestStaleState } from "@/lib/request-detail-stale";
+import { requestDetailStaleMessage } from "@/lib/i18n/request-detail-stale-copy";
 import { usePrescriptionUiCopy } from "@/lib/use-prescription-ui-copy";
 import { useRequestKindPatientCopy } from "@/lib/i18n/request-kind-patient-copy";
 import { usePatientValidatedLineLabels } from "@/lib/use-patient-validated-line-labels";
@@ -1052,7 +1057,7 @@ function PatientArchiveFrozenProductsView({
         {archiveRetainedTotalsFooter({
           count: pickedUpTotals.count,
           countLabel:
-          pickedUpTotals.count > 1 ? tCommon("productsPickedUp") : tCommon("productPickedUp"),
+          pickedUpTotals.count > 1 ? tArchiveFooter("productsPickedUp") : tArchiveFooter("productPickedUp"),
           totalLabel: compactTotalMadLabel({
             sumKnown: pickedUpTotals.sumKnown,
             missingPrice: pickedUpTotals.missingPrice,
@@ -1213,7 +1218,7 @@ function PatientArchiveFrozenProductsView({
       {archiveRetainedTotalsFooter({
         count: totalsRetained.count,
         countLabel:
-          totalsRetained.count > 1 ? tCommon("productsRetained") : tCommon("productRetained"),
+          totalsRetained.count > 1 ? tArchiveFooter("productsRetained") : tArchiveFooter("productRetained"),
         totalLabel: compactTotalMadLabel({
           sumKnown: totalsRetained.sumKnown,
           missingPrice: totalsRetained.missingPrice,
@@ -1456,7 +1461,7 @@ type Props = {
   /** Récap dossier déjà affiché dans le chrome sticky consultation (évite le doublon). */
   summaryInPageChrome?: boolean;
   /** Dossier modifié côté serveur pendant la saisie — actualisation requise. */
-  detailStale?: { title: string; message: string } | null;
+  detailStale?: RequestStaleState | null;
   /** Statut DB juste avant fermeture (annulée, abandonnée, etc.). */
   archiveTerminalOldStatus?: string | null;
 };
@@ -1860,6 +1865,7 @@ export function PatientProductRequestActions({
   const tDemandes = useTranslations("demandes");
   const tValidation = useTranslations("demandes.validation");
   const tModal = useTranslations("demandes.modal");
+  const tDrift = useTranslations("demandes.drift");
   const dt = usePatientDatetimeFormatters();
   const lineCountLabel = usePatientLineCountLabel();
   const phaseLabels = useTimelinePhaseLabels();
@@ -1867,6 +1873,8 @@ export function PatientProductRequestActions({
   const compactTotalMadLabel = useCompactTotalMadLabel();
   const subtotalBlockMadLabel = useSubtotalBlockMadLabel();
   const grandTotalMadLabel = useGrandTotalMadLabel();
+
+  const staleActionMessage = detailStale ? requestDetailStaleMessage(tDrift, detailStale) : null;
 
   const confirmLineCopy = useMemo<ConfirmLineCopy>(
     () => ({
@@ -2475,7 +2483,7 @@ export function PatientProductRequestActions({
 
   const openConfirmedRevalidationReview = useCallback(() => {
     if (detailStale) {
-      setActionError(detailStale.message);
+      setActionError(staleActionMessage ?? "");
       return;
     }
     setConfirmReviewMode("revalidation");
@@ -2533,7 +2541,7 @@ export function PatientProductRequestActions({
 
   const startConfirmedRevalidation = useCallback(() => {
     if (detailStale) {
-      setActionError(detailStale.message);
+      setActionError(staleActionMessage ?? "");
       return;
     }
     const baseline = computeSelFromConfirmedItems(items);
@@ -2568,7 +2576,7 @@ export function PatientProductRequestActions({
   const performConfirmAfterReview = async () => {
     if (!confirmReviewSnap) return;
     if (detailStale) {
-      setActionError(detailStale.message);
+      setActionError(staleActionMessage ?? "");
       return;
     }
     setActionError("");
@@ -2698,7 +2706,7 @@ export function PatientProductRequestActions({
 
   const runUpdateVisit = async () => {
     if (detailStale) {
-      setActionError(detailStale.message);
+      setActionError(staleActionMessage ?? "");
       return;
     }
     setActionError("");
@@ -2823,6 +2831,8 @@ export function PatientProductRequestActions({
   const showConfirmedCards = uiStatus === "confirmed" || uiStatus === "treated";
   const latestSupplyAmendmentNotice =
     showConfirmedCards ? patientLatestSupplyAmendmentNoticeFr(supplyAmendmentBundles) : null;
+  const amendmentResumeBundles =
+    latestSupplyAmendmentNotice && !forceReadOnly ? supplyAmendmentBundles : undefined;
 
   if (!interactiveAllowed && !readOnlyArchive) return null;
 
@@ -2896,6 +2906,14 @@ export function PatientProductRequestActions({
     usesLineWorkflowUi &&
     !(summaryInPageChrome && isConsultation);
   const useArchiveShell = forceReadOnly && usesLineWorkflowUi && !useWorkflowAccentDossierShell;
+  const usePrescriptionDossierSpacing =
+    isPrescription && !forceReadOnly && !useArchiveShell && (showConfirm || showConfirmedCards);
+  const workflowBucketListClass = usePrescriptionDossierSpacing
+    ? patientPrescriptionBucketProductListClass
+    : patientBucketProductListClass;
+  const workflowBucketGroupsClass = usePrescriptionDossierSpacing
+    ? patientPrescriptionLinesWrapperClass
+    : "w-full min-w-0 space-y-5";
   const showArchiveDossierHeader = forceReadOnly && usesLineWorkflowUi;
   const isExpiredProductArchive = status === "expired" && usesLineWorkflowUi;
   const isCancelledProductArchive = status === "cancelled" && usesLineWorkflowUi;
@@ -3039,6 +3057,7 @@ export function PatientProductRequestActions({
             statusDetail={summaryStatusDetail(showConfirm ? "responded" : status)}
             submittedAt={requestTimelineMeta?.submitted_at}
             createdAt={requestTimelineMeta?.created_at}
+            amendmentResumeBundles={amendmentResumeBundles}
           />
         ) : (
           <PatientSentEnvoyeeSummaryCard
@@ -3062,10 +3081,6 @@ export function PatientProductRequestActions({
             requestType={requestType}
           />
         )
-      ) : null}
-
-      {latestSupplyAmendmentNotice && !forceReadOnly ? (
-        <PatientPharmaUpdateBanner whenLabel={latestSupplyAmendmentNotice.whenLabel} bundles={supplyAmendmentBundles} />
       ) : null}
 
       {showArchiveDossierHeader && pharmacyId ? (
@@ -3129,13 +3144,18 @@ export function PatientProductRequestActions({
         </p>
       ) : null}
 
+      <div
+        className={cn(
+          usePrescriptionDossierSpacing ? patientPrescriptionDossierContentStackClass : "contents",
+        )}
+      >
       {isPrescription &&
       hasPrescriptionScan(prescriptionPaths) &&
       (showConfirm || showConfirmedCards || forceReadOnly) ? (
         <PrescriptionScanCollapsible
           paths={prescriptionPaths!}
           defaultOpen={forceReadOnly && items.length === 0}
-          className="mb-2"
+          className={usePrescriptionDossierSpacing ? undefined : "mb-2"}
         />
       ) : null}
 
@@ -3167,7 +3187,7 @@ export function PatientProductRequestActions({
       ) : null}
 
       {showConfirm && !forceReadOnly ? (
-        <div className="mt-3 w-full min-w-0">
+        <div className={usePrescriptionDossierSpacing ? "w-full min-w-0" : "mt-3 w-full min-w-0"}>
           {items.length > 0 ? (
             (() => {
               const respondedBuckets = bucketPatientRespondedLines(
@@ -3176,13 +3196,13 @@ export function PatientProductRequestActions({
                 supplyAmendmentBundles
               );
               return (
-                <div className="w-full min-w-0 space-y-5">
+                <div className={workflowBucketGroupsClass}>
                   {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
                     const rows = respondedBuckets[bucketId];
                     if (rows.length === 0) return null;
                     return (
                       <PatientRespondedBucketSection key={bucketId} bucketId={bucketId} count={rows.length}>
-                        <ul className={patientBucketProductListClass}>
+                        <ul className={workflowBucketListClass}>
                           {rows.map((row) => (
                             <RespondedPatientLineChooser
                               key={row.id}
@@ -3219,17 +3239,23 @@ export function PatientProductRequestActions({
               supplyAmendmentBundles
             );
             return (
-              <section className="mt-4 w-full min-w-0 space-y-5">
+              <section
+                className={
+                  usePrescriptionDossierSpacing
+                    ? "w-full min-w-0 space-y-5 px-0"
+                    : "mt-4 w-full min-w-0 space-y-5"
+                }
+              >
                 <h3 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                   {tDemandes("validated.modifyValidation")}
                 </h3>
-                <div className="w-full min-w-0 space-y-5">
+                <div className={workflowBucketGroupsClass}>
                   {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
                     const rows = revalBuckets[bucketId];
                     if (rows.length === 0) return null;
                     return (
                       <PatientRespondedBucketSection key={bucketId} bucketId={bucketId} count={rows.length}>
-                        <ul className={patientBucketProductListClass}>
+                        <ul className={workflowBucketListClass}>
                           {rows.map((row) => (
                             <RespondedPatientLineChooser
                               key={row.id}
@@ -3266,7 +3292,13 @@ export function PatientProductRequestActions({
           const isTreatedProductsView = status === "treated";
 
           return (
-            <section className="mt-3 w-full min-w-0 space-y-5 px-0">
+            <section
+              className={
+                usePrescriptionDossierSpacing
+                  ? "w-full min-w-0 space-y-5 px-0"
+                  : "mt-3 w-full min-w-0 space-y-5 px-0"
+              }
+            >
               <h3 className="pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 {workflowCopy.patientProductsSectionTitle}
               </h3>
@@ -3281,7 +3313,7 @@ export function PatientProductRequestActions({
                     empty: subtotalDispo.count < 1,
                   })}
                 >
-                  <ul className={patientBucketProductListClass}>
+                  <ul className={workflowBucketListClass}>
                     {dispoRetenues.map((row) => (
                       <PatientValidatedCompactLineCard
                         key={row.id}
@@ -3311,7 +3343,7 @@ export function PatientProductRequestActions({
                     empty: subtotalCommande.count < 1,
                   })}
                 >
-                  <ul className={patientBucketProductListClass}>
+                  <ul className={workflowBucketListClass}>
                     {aCommanderRetenues.map((row) => (
                       <PatientValidatedCompactLineCard
                         key={row.id}
@@ -3418,6 +3450,7 @@ export function PatientProductRequestActions({
           );
         })()
       ) : null}
+      </div>
 
       {showProductResubmit ? (
         <section className="mt-4 w-full min-w-0 max-w-full space-y-2">
