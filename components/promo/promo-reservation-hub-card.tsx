@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { clsx } from "clsx";
+import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { promoPatientStatusHint, promoPatientStatusLabel } from "@/lib/i18n/promo-patient-status";
+import { promoPatientStatusLabel } from "@/lib/i18n/promo-patient-status";
+import { usePatientPromoHubCardContext } from "@/lib/i18n/patient-promo-hub-card-context";
 import { formatDateForLocale, formatDateTimeShortForLocale } from "@/lib/datetime-locale";
 import type { AppLocale } from "@/lib/i18n/config";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
@@ -15,7 +17,7 @@ import type { PromoReservationStatus } from "@/lib/promo/types";
 import { formatShortId } from "@/lib/request-display";
 
 function patientCardShell(): string {
-  return "rounded-xl border border-border bg-card shadow-sm ring-1 ring-black/[0.02]";
+  return "relative overflow-hidden rounded-xl border border-emerald-200/55 bg-card shadow-sm ring-1 ring-emerald-100/35 transition hover:-translate-y-px hover:shadow-md";
 }
 
 function pharmacistPatientDisplayName(row: PromoReservationHubRow): string {
@@ -85,54 +87,66 @@ export function PatientPromoReservationHubCard({
   compact?: boolean;
 }) {
   const t = useTranslations("promo");
-  const when = formatPickup(row.pickup_date, row.pickup_time, locale);
+  const ctx = usePatientPromoHubCardContext(row, locale);
   const activity = formatDateTimeShortForLocale(row.updated_at, locale);
+  const contextLine = ctx.secondaryLine ? `${ctx.primaryLine} · ${ctx.secondaryLine}` : ctx.primaryLine;
 
   return (
-    <article className={clsx(patientCardShell(), "transition hover:-translate-y-px hover:shadow-md")}>
+    <article className={patientCardShell()}>
+      <div className="absolute inset-y-0 left-0 w-1 bg-emerald-500" aria-hidden />
       <Link
         href={`/dashboard/patient/packs-promo/${row.id}`}
-        className={clsx("group block", compact ? "p-2.5" : "p-3 sm:p-3.5")}
+        className={clsx("group block py-3 pl-3.5 pr-3 sm:py-3.5 sm:pl-4", compact && "py-2.5 pl-3")}
       >
-        <div className="flex items-start justify-between gap-2.5">
+        <div className="flex items-start gap-2 sm:gap-3">
           <div className="min-w-0 flex-1 space-y-1.5">
-            <PromoReservationStatusBadge status={row.status} role="patient" />
-
-            <div>
-              <p className="text-sm font-bold leading-snug break-words text-foreground sm:text-[15px]">
-                {row.offer?.title ?? t("packFallback")}
-              </p>
-              <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
-                {row.pharmacy?.nom ? pharmacyPublicLabel(row.pharmacy.nom) : t("pharmacyFallback")}
-              </p>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <PromoReservationStatusBadge status={row.status} role="patient" />
               {row.public_ref ? (
-                <p className="mt-0.5 font-mono text-[11px] font-semibold text-muted-foreground">{row.public_ref}</p>
+                <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-[11px]">
+                  {row.public_ref}
+                </span>
               ) : null}
+            </div>
+
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold leading-snug text-foreground sm:text-[15px]">
+                  {row.offer?.title ?? t("packFallback")}
+                </p>
+                <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">
+                  {row.pharmacy?.nom ? pharmacyPublicLabel(row.pharmacy.nom) : t("pharmacyFallback")}
+                </p>
+              </div>
+              <ChevronRight
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground/70 transition group-hover:text-foreground"
+                aria-hidden
+              />
             </div>
 
             {row.pack_lines && row.pack_lines.length > 0 ? (
               <PromoPackPreviewStrip lines={row.pack_lines} />
             ) : null}
 
-            <div className="rounded-lg border border-border/80 bg-muted/25 px-2 py-1.5 text-[11px] leading-snug text-foreground sm:text-xs">
-              <p className="font-semibold">{promoPatientStatusHint(t, row.status)}</p>
-              <p className="mt-0.5 text-[10px] font-medium opacity-90 sm:text-[11px]">
-                {t("visit", { when })}
-                {row.offer?.discount_percent ? ` · −${row.offer.discount_percent} %` : ""}
-              </p>
-            </div>
+            <p
+              className={clsx(
+                "line-clamp-2 text-[11px] leading-snug sm:text-xs",
+                ctx.emphasis === "urgent"
+                  ? "text-emerald-950"
+                  : ctx.emphasis === "success"
+                    ? "text-emerald-800"
+                    : ctx.emphasis === "muted"
+                      ? "text-muted-foreground/85"
+                      : "text-muted-foreground",
+              )}
+            >
+              {contextLine}
+            </p>
 
             <p className="text-[10px] tabular-nums text-muted-foreground">
               {t("dashboard.lastActivity", { when: activity })}
             </p>
           </div>
-
-          <span
-            className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition group-hover:bg-muted/50"
-            aria-hidden
-          >
-            →
-          </span>
         </div>
       </Link>
     </article>

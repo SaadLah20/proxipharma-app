@@ -7,7 +7,7 @@ import { clsx } from "clsx";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { PageShell } from "@/components/ui/compact-shell";
-import { uiActionBtnFilterToggle, uiActionBtnFullOutline } from "@/lib/ui-action-buttons";
+import { uiActionBtnFullOutline } from "@/lib/ui-action-buttons";
 import { supabase } from "@/lib/supabase";
 import { DossierHistoryListFr } from "@/components/requests/dossier-history-list-fr";
 import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
@@ -22,7 +22,9 @@ import { RequestKindHeader } from "@/components/requests/shared/request-kind-hea
 import { one } from "@/lib/embed";
 import { mapRequestItemsPhotos } from "@/lib/storage-media";
 import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
+import { isPatientConfirmedToTreatedStale } from "@/lib/request-detail-stale";
 import { useRequestDetailDrift } from "@/lib/use-request-detail-drift";
+import { RequestDetailStaleBanner } from "@/components/requests/shared/request-detail-stale-banner";
 import { PatientProductRequestActions, type PatientPharmacyContactInfo, usePatientSummaryStatusCopy } from "@/components/requests/product/patient-product-request-actions";
 import { PatientProductRequestDossierHeader } from "@/components/requests/product/patient-product-request-dossier-header";
 import { patientConsultationRequestDossierSectionShellClass } from "@/lib/patient-consultation-request-line-ui";
@@ -362,6 +364,13 @@ export default function DemandeDetailPage() {
   }, [request?.id, request?.updated_at, request?.status, acknowledgeRequestDrift]);
 
   useEffect(() => {
+    if (!isPatientConfirmedToTreatedStale(requestDrift.stale)) return;
+    void (async () => {
+      await requestDrift.refresh();
+    })();
+  }, [requestDrift.stale, requestDrift.refresh]);
+
+  useEffect(() => {
     const tid = window.setTimeout(() => {
       void loadDetail();
     }, 0);
@@ -593,18 +602,8 @@ export default function DemandeDetailPage() {
             productLineCount={items.length}
           />
 
-          {requestDrift.stale ? (
-            <div className="rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">
-              <p className="font-bold">{requestDrift.stale.title}</p>
-              <p className="mt-1 leading-snug">{requestDrift.stale.message}</p>
-              <button
-                type="button"
-                className={uiActionBtnFilterToggle("mt-2")}
-                onClick={() => void requestDrift.refresh()}
-              >
-                Actualiser la page
-              </button>
-            </div>
+          {requestDrift.stale && !isPatientConfirmedToTreatedStale(requestDrift.stale) ? (
+            <RequestDetailStaleBanner stale={requestDrift.stale} onRefresh={requestDrift.refresh} />
           ) : null}
 
           {showConsultationConversationPane ? (
@@ -693,7 +692,7 @@ export default function DemandeDetailPage() {
               prescriptionPaths={isPrescriptionRequest ? prescriptionPaths : null}
               prescriptionNote={isPrescriptionRequest ? prescriptionNote : null}
               summaryInPageChrome
-              detailStale={null}
+              detailStale={requestDrift.stale}
               archiveTerminalOldStatus={archiveTerminalOldStatus}
             />
           ) : null}
@@ -744,18 +743,12 @@ export default function DemandeDetailPage() {
 
       {(hasBottomActions || showArchivedReadonly) && !showConsultationTabbed ? (
         <>
-        {!showConsultationTabbed && requestDrift.stale ? (
-          <div className="mb-2 rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm">
-            <p className="font-bold">{requestDrift.stale.title}</p>
-            <p className="mt-1 leading-snug">{requestDrift.stale.message}</p>
-            <button
-              type="button"
-              className={uiActionBtnFilterToggle("mt-2")}
-              onClick={() => void requestDrift.refresh()}
-            >
-              Actualiser la page
-            </button>
-          </div>
+        {!showConsultationTabbed && requestDrift.stale && !isPatientConfirmedToTreatedStale(requestDrift.stale) ? (
+          <RequestDetailStaleBanner
+            stale={requestDrift.stale}
+            onRefresh={requestDrift.refresh}
+            className="mb-2 rounded-lg border border-amber-300/80 bg-amber-50/90 p-3 text-[11px] text-amber-950 shadow-sm"
+          />
         ) : null}
         <section className="min-w-0 w-full max-w-full overflow-x-hidden pb-2">
         <PatientProductRequestActions
@@ -816,7 +809,7 @@ export default function DemandeDetailPage() {
           prescriptionPaths={isPrescriptionRequest ? prescriptionPaths : null}
           prescriptionNote={isPrescriptionRequest ? prescriptionNote : null}
           summaryInPageChrome={showConsultationTabbed}
-          detailStale={showConsultationTabbed ? null : requestDrift.stale}
+          detailStale={requestDrift.stale}
           archiveTerminalOldStatus={archiveTerminalOldStatus}
         />
         </section>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   detectRequestDetailStale,
+  requestDetailDriftPollIntervalMs,
   shouldPollRequestDetailDrift,
   type RequestContentSnapshot,
   type RequestStaleState,
@@ -57,7 +58,8 @@ export function useRequestDetailDrift(
     };
 
     void poll();
-    const id = window.setInterval(() => void poll(), 12_000);
+    const intervalMs = requestDetailDriftPollIntervalMs(status);
+    const id = window.setInterval(() => void poll(), intervalMs);
     return () => {
       cancelled = true;
       window.clearInterval(id);
