@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>ProxiPharma — APIs externes et technologies</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 11pt;
+      line-height: 1.45;
+      color: #0f172a;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 32px 48px;
+    }
+    h1 { font-size: 1.5rem; color: #065f46; border-bottom: 2px solid #10b981; padding-bottom: 8px; }
+    h2 { font-size: 1.15rem; margin-top: 1.5rem; color: #047857; page-break-after: avoid; }
+    h3 { font-size: 1rem; margin-top: 1rem; color: #334155; }
+    p { margin: 0.5rem 0; }
+    code { font-size: 0.9em; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 20px;
+      font-size: 10pt;
+      page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #ecfdf5; font-weight: 600; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    ul { margin: 8px 0 16px; padding-left: 1.25rem; }
+    li { margin: 4px 0; }
+    .print-hint {
+      background: #eff6ff;
+      border: 1px solid #93c5fd;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      font-size: 10pt;
+    }
+    @media print {
+      body { padding: 12px; max-width: none; }
+      .print-hint { display: none; }
+      h2 { page-break-before: auto; }
+    }
+  </style>
+</head>
+<body>
+  <p class="print-hint"><strong>Enregistrer en PDF :</strong> Ctrl+P (ou Fichier → Imprimer) → Destination « Enregistrer au format PDF » → Enregistrer.</p>
+  <h1>ProxiPharma — APIs externes et technologies</h1>
+<p>Document de référence (parcours patient, pharmacien, admin, notifications, médias).  </p>
+<p><strong>Branche de travail</strong> : <code>fix/validated-supply-ecart-ui-modal</code> · <strong>Dernière mise à jour doc</strong> : mai 2026.</p>
+<p><strong>Voir aussi</strong> : <code>RUNBOOK.md</code> (variables d’environnement), <code>CAHIER_DES_CHARGES.md</code> §11 (migrations), phrase de reprise <strong>§13.31</strong>.</p>
+<h2>1. Plateforme et hébergement</h2>
+<table><thead><tr><th>Technologie</th><th>Rôle</th><th>Détails / intégration</th></tr></thead><tbody><tr><td><strong>Next.js 16</strong> (App Router)</td><td>Framework web full-stack</td><td>Pages <code>app/</code>, routes API <code>app/api/</code>, déploiement Vercel</td></tr><tr><td><strong>React 19</strong></td><td>Interface utilisateur</td><td>Composants client / serveur</td></tr><tr><td><strong>TypeScript</strong></td><td>Typage</td><td>Code applicatif</td></tr><tr><td><strong>Tailwind CSS 4</strong></td><td>Styles</td><td><code>app/globals.css</code>, <code>clsx</code>, <code>tailwind-merge</code></td></tr><tr><td><strong>Vercel</strong></td><td>Hébergement production + previews PR</td><td><code>APP_BASE_URL</code>, <code>VERCEL_URL</code> ; build <code>npm run build</code></td></tr><tr><td><strong>GitHub Actions</strong></td><td>CI + crons filet</td><td><code>.github/workflows/ci.yml</code> (lint + build) ; crons e-mail / SMS / expiration (~5 min)</td></tr></tbody></table>
+<h2>2. Backend et données (cœur métier)</h2>
+<table><thead><tr><th>Technologie</th><th>Rôle</th><th>Détails / intégration</th></tr></thead><tbody><tr><td><strong>Supabase</strong> (PostgreSQL)</td><td>BDD, auth, storage, RLS, RPC</td><td>Client : <code>NEXT_PUBLIC_SUPABASE_URL</code> + <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> (<code>lib/supabase.ts</code>). Serveur : <code>SUPABASE_SERVICE_ROLE_KEY</code> (<code>lib/supabase-service.ts</code>)</td></tr><tr><td><strong>Supabase Auth</strong></td><td>Connexion, inscription, OTP, MDP</td><td><code>app/auth/page.tsx</code> — <code>signInWithPassword</code>, <code>signInWithOtp</code>, <code>verifyOtp</code>, reset</td></tr><tr><td><strong>Supabase Storage</strong></td><td>Médias fichiers</td><td>Buckets <strong><code>public-assets</code></strong> et <strong><code>private-media</code></strong> — <code>lib/storage-media.ts</code></td></tr><tr><td><strong>Supabase Database Webhooks</strong></td><td>Notifs rapides</td><td><code>INSERT</code> sur <code>notification_external_queue</code> → <code>POST /api/webhooks/dispatch-external-sms</code></td></tr><tr><td><strong>PostgreSQL</strong> (migrations)</td><td>Logique métier</td><td><code>supabase/migrations/</code> — demandes, pricing, promos, ratings, refs <code>D042/26</code>, etc.</td></tr></tbody></table>
+<h3>Buckets Storage</h3>
+<table><thead><tr><th>Bucket</th><th>Contenu</th><th>Accès</th></tr></thead><tbody><tr><td><code>public-assets</code></td><td>Produits (<code>products/{id}/main.*</code>), officines (`pharmacies/{id}/logo</td><td>cover-*`)</td><td>URL publique <code>*.supabase.co/storage/...</code></td></tr><tr><td><code>private-media</code></td><td>Ordonnances, consultations, photos patient liées au dossier</td><td>URL signée via <code>POST /api/media/private-signed-url</code></td></tr></tbody></table>
+<h2>3. API externes (appels HTTP sortants)</h2>
+<table><thead><tr><th>Service</th><th>Endpoint / canal</th><th>Utilisation</th><th>Variables d’environnement</th></tr></thead><tbody><tr><td><strong>Resend</strong></td><td><code>https://api.resend.com/emails</code></td><td>E-mails hors-app (file <code>notification_external_queue</code>, canal <code>email</code>)</td><td><code>RESEND_API_KEY</code>, <code>EMAIL_FROM</code></td></tr><tr><td><strong>Twilio Messages</strong></td><td><code>https://api.twilio.com/.../Messages.json</code></td><td>SMS métier patient (<code>responded</code>, <code>treated</code>) — texte court, sans URL longue</td><td><code>TWILIO_ACCOUNT_SID</code>, <code>TWILIO_AUTH_TOKEN</code>, <code>TWILIO_SMS_FROM</code> ou <code>TWILIO_MESSAGING_SERVICE_SID</code></td></tr><tr><td><strong>Twilio Verify</strong></td><td>Via <strong>Supabase Auth</strong> (Phone)</td><td>OTP inscription / reset téléphone (SMS ou WhatsApp selon config) — <strong>≠</strong> canal Messages notifs</td><td>Config dashboard Supabase + compte Twilio</td></tr><tr><td><strong>Supabase Auth API</strong></td><td><code>GET .../auth/v1/user</code></td><td>Vérification JWT sur routes API (<code>lib/verify-bearer-user.ts</code>)</td><td>Clés Supabase</td></tr></tbody></table>
+<p><strong>Implémentation</strong> : <code>lib/external-notification-queue-worker.ts</code>.</p>
+<h3>Prévu / documenté (pas de worker applicatif aujourd’hui)</h3>
+<table><thead><tr><th>Service</th><th>Statut</th><th>Usage prévu</th></tr></thead><tbody><tr><td><strong>WhatsApp Business</strong> (Meta + Twilio)</td><td>Infra en cours</td><td>Templates <code>channel=whatsapp</code> — <code>RUNBOOK.md</code> §10, <code>AGENTS.md</code></td></tr><tr><td><strong>SMTP personnalisé Supabase</strong></td><td>Recommandé prod</td><td>E-mails Auth (OTP, reset) via Resend/SendGrid côté Supabase</td></tr></tbody></table>
+<h2>4. APIs navigateur et liens profonds (sans clé API)</h2>
+<table><thead><tr><th>Technologie</th><th>Utilisation</th><th>Fichiers / contexte</th></tr></thead><tbody><tr><td><strong>Geolocation API</strong></td><td>Rayon « près de moi » annuaire</td><td><code>lib/annuaire/geo.ts</code></td></tr><tr><td><strong>Web Share API</strong></td><td>Partager fiche / annuaire</td><td><code>navigator.share</code> — fiche publique, cartes annuaire</td></tr><tr><td><strong><code>tel:</code></strong></td><td>Appeler l’officine</td><td>Annuaire, fiche, CRM pharmacien</td></tr><tr><td><strong><code>https://wa.me/{E.164}</code></strong></td><td>WhatsApp manuel (deep link)</td><td>Pas d’API Meta ; <code>profiles.whatsapp</code> / <code>pharmacies.whatsapp</code></td></tr><tr><td><strong>Google Maps / Waze / Apple Maps</strong></td><td>Itinéraire (URLs uniquement)</td><td><code>lib/pharmacy-navigation.ts</code></td></tr><tr><td><strong>Google Fonts (Geist)</strong></td><td>Typographie</td><td><code>app/layout.tsx</code> — <code>next/font/google</code></td></tr></tbody></table>
+<h2>5. Médias et images distantes</h2>
+<table><thead><tr><th>Source</th><th>Utilisation</th><th>Détails</th></tr></thead><tbody><tr><td><strong>Supabase Storage CDN</strong></td><td>Photos catalogue, officines, médias privés</td><td><code>lib/storage-media.ts</code>, <code>resolvePublicMediaUrl</code></td></tr><tr><td><strong>Unsplash</strong> (<code>images.unsplash.com</code>)</td><td>Seed démo catalogue</td><td>Migrations <code>20260511_002</code> ; <code>next.config.ts</code> <code>remotePatterns</code> — pas d’API runtime patient</td></tr></tbody></table>
+<h2>6. Routes API internes (Next.js)</h2>
+<table><thead><tr><th>Route</th><th>Rôle</th><th>Dépendances</th></tr></thead><tbody><tr><td><code>POST /api/cron/send-external-emails</code></td><td>Worker e-mails</td><td>Resend, Supabase service role</td></tr><tr><td><code>POST /api/cron/send-external-sms</code></td><td>Worker SMS</td><td>Twilio, Supabase</td></tr><tr><td><code>POST /api/webhooks/dispatch-external-sms</code></td><td>Traitement immédiat file (e-mail ou SMS)</td><td>Idem</td></tr><tr><td><code>POST /api/cron/expire-overdue-requests</code></td><td>Expiration <code>responded</code> (24 h par défaut)</td><td>RPC <code>expire_overdue_requests()</code></td></tr><tr><td><code>POST /api/auth/signup-phone-check</code></td><td>Anti-doublon téléphone avant OTP</td><td>RPC <code>auth_phone_user_exists</code></td></tr><tr><td><code>POST /api/auth/request-password-reset</code></td><td>Reset MDP e-mail</td><td>Supabase Auth</td></tr><tr><td><code>POST /api/admin/onboard-pharmacy</code></td><td>Création officine + pharmacien</td><td>Supabase Auth Admin</td></tr><tr><td><code>POST /api/media/private-signed-url</code></td><td>Lecture médias privés</td><td>Storage URL signée</td></tr><tr><td><code>GET /r/[token]</code></td><td>Raccourci SMS → dossier patient</td><td>Redirection interne</td></tr><tr><td><code>POST /api/patient/prescription-page</code></td><td>Ordonnance (serveur)</td><td>Storage / métier prescription</td></tr></tbody></table>
+<p>Protection crons / webhook : en-tête <code>Authorization: Bearer <CRON_SECRET></code>.</p>
+<h2>7. Bibliothèques front (sans API externe)</h2>
+<table><thead><tr><th>Librairie</th><th>Usage</th></tr></thead><tbody><tr><td><code>@supabase/supabase-js</code></td><td>Client Supabase (REST)</td></tr><tr><td><code>lucide-react</code></td><td>Icônes</td></tr><tr><td><code>recharts</code></td><td>Graphiques analytics pharmacien</td></tr><tr><td><code>@base-ui/react</code>, <code>shadcn</code></td><td>Composants UI</td></tr></tbody></table>
+<h2>8. Scripts ops (Node, hors runtime Vercel)</h2>
+<table><thead><tr><th>Script</th><th>Usage</th></tr></thead><tbody><tr><td><code>scripts/clear-all-requests.mjs</code></td><td>Reset demandes pilote</td></tr><tr><td><code>scripts/reset-storage-keep-product-photos-only.mjs</code></td><td>Reset Storage (garde <code>products/</code>)</td></tr><tr><td><code>scripts/attach-catalog-images.mjs</code></td><td>Rattacher photos catalogue</td></tr><tr><td><code>scripts/import-products-catalog.mjs</code></td><td>Import catalogue</td></tr><tr><td><code>supabase/scripts/*.sql</code></td><td>Reset pilote, horaires, etc. (SQL Editor)</td></tr></tbody></table>
+<p>Prérequis scripts : <code>.env.local</code> avec <code>SUPABASE_SERVICE_ROLE_KEY</code> ; sous Windows : <code>node --use-system-ca</code> si erreur TLS.</p>
+<h2>9. Variables d’environnement (synthèse)</h2>
+<table><thead><tr><th>Variable</th><th>Service / usage</th></tr></thead><tbody><tr><td><code>NEXT_PUBLIC_SUPABASE_URL</code></td><td>Supabase (client)</td></tr><tr><td><code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code></td><td>Supabase (client)</td></tr><tr><td><code>SUPABASE_SERVICE_ROLE_KEY</code></td><td>Supabase serveur (crons, admin, signed URLs)</td></tr><tr><td><code>RESEND_API_KEY</code></td><td>Resend</td></tr><tr><td><code>EMAIL_FROM</code></td><td>Expéditeur e-mail Resend</td></tr><tr><td><code>TWILIO_ACCOUNT_SID</code></td><td>Twilio</td></tr><tr><td><code>TWILIO_AUTH_TOKEN</code></td><td>Twilio</td></tr><tr><td><code>TWILIO_SMS_FROM</code></td><td>Numéro expéditeur SMS (ou <code>TWILIO_MESSAGING_SERVICE_SID</code>)</td></tr><tr><td><code>SMS_BLOCKED_DESTINATIONS</code></td><td>Numéros test bloqués</td></tr><tr><td><code>SMS_TEST_TO</code></td><td>Route test SMS (<code>/api/cron/test-external-sms</code>)</td></tr><tr><td><code>CRON_SECRET</code></td><td>Protection crons + webhook Supabase</td></tr><tr><td><code>APP_BASE_URL</code></td><td>URL publique (serveur)</td></tr><tr><td><code>NEXT_PUBLIC_APP_BASE_URL</code></td><td>URL publique (navigateur, Auth)</td></tr><tr><td><code>VERCEL_URL</code></td><td>Fallback URL preview Vercel</td></tr><tr><td><code>EXPIRE_RESPONDED_SILENCE</code></td><td>Surcharge délai expiration <code>responded</code></td></tr><tr><td><code>SMS_INCLUDE_REQUEST_LINK</code></td><td>Lien court dans SMS (désactivé pilote — risque Twilio 30007)</td></tr></tbody></table>
+<h2>10. Non utilisé (état actuel du dépôt)</h2>
+<ul>
+<li>Paiement (Stripe, CMI, etc.)</li>
+<li>Cartographie payante (Google Maps Platform, Mapbox API)</li>
+<li>Analytics tiers (GA4, Posthog, Sentry) — analytics fiche = RPC <code>pharmacist_profile_analytics</code></li>
+<li>Envoi WhatsApp API automatisé (prefs BDD + doc ; pas de worker)</li>
+<li>OpenAI / OCR cloud (ordonnance = upload + saisie pharmacien)</li>
+</ul>
+<h2>11. Export de ce document</h2>
+<ul>
+<li><strong>PDF</strong> : extension VS Code « Markdown PDF », ou <code>pandoc docs/ARCHITECTURE-APIS.md -o docs/ARCHITECTURE-APIS.pdf</code></li>
+<li><strong>Word</strong> : <code>pandoc docs/ARCHITECTURE-APIS.md -o docs/ARCHITECTURE-APIS.docx</code></li>
+<li><strong>Preview</strong> : <code>Ctrl+Shift+V</code> dans Cursor sur ce fichier</li>
+</ul>
+</body>
+</html>

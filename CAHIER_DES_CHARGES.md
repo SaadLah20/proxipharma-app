@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260715_001`**) → phrase **§13.52** (rebrand **Pharmeto** + logo + OG + annuaire interactif ; charte pharmacien **§13.51**). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260715_001`**) → phrase **§13.53** (retours UI drift / archives / ordonnances / promos ; rebrand **§13.52**). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -181,7 +181,7 @@ Cas de rendu attendus:
 
 Sans nouvelle validation patient obligatoire pour les ajustements officine courants :
 
-- **Référence figée** : ce que le patient a validé reste lisible en base via **`selected_qty`**, **`patient_chosen_alternative_id`** (principal vs alternative). **UI (écran actions patient `PatientProductRequestActions`, statuts `confirmed` / `processing` / `treated`)** : **cartes compactes** (photo, historique, note, titre, qté, PU/Tot) ; **`confirmed`** : blocs **À réserver** (contour sky) / **À commander** (teal) + point d’attention + écarts + **`<details>`** non retenues ; bandeau **`PatientPharmaUpdateBanner`** si amendements officine ; **`treated`** : blocs **« Produits réservés pour vous et en attente de votre passage »** / **« Produits commandés pour vous »** ; phrase passage **`patientPlannedVisitPassageLineFr`** sous l’en-tête dossier ; pastilles ligne sans « réservé / commandé » sur **traitée** ; **Réception prévue** (teal/cyan) et **Reçu en officine** (émeraude) — pas de « Réception prévue » si **`arrived_reserved`** ; **bandeau libellés** (**`lib/patient-validated-line-labels-fr.ts`**) ; **Historique** + **notes ligne** → **`lib/build-patient-line-timeline-fr.ts`**. Dossiers **terminés** : **`PatientRequestOutcomeBanner`** + vue lecture seule. Le **détail lecture seule** hors ce bloc peut encore reprendre la liste complète dans **`page.tsx`**.
+- **Référence figée** : ce que le patient a validé reste lisible en base via **`selected_qty`**, **`patient_chosen_alternative_id`** (principal vs alternative). **UI (écran actions patient `PatientProductRequestActions`, statuts `confirmed` / `processing` / `treated`)** : **cartes compactes** (photo, historique, note, titre, qté, PU/Tot) ; **`confirmed`** : blocs **À réserver** (contour sky) / **À commander** (teal) + point d’attention + écarts + **`<details>`** non retenues ; bandeau amendements dans **`PatientProductRequestDossierHeader`** (**Modifiée** + **Résumé**) si amendements officine ; **`treated`** : blocs **« Produits réservés pour vous et en attente de votre passage »** / **« Produits commandés pour vous »** ; phrase passage **`patientPlannedVisitPassageLineFr`** sous l’en-tête dossier ; pastilles ligne sans « réservé / commandé » sur **traitée** ; **Réception prévue** (teal/cyan) et **Reçu en officine** (émeraude) — pas de « Réception prévue » si **`arrived_reserved`** ; **bandeau libellés** (**`lib/patient-validated-line-labels-fr.ts`**) ; **Historique** + **notes ligne** → **`lib/build-patient-line-timeline-fr.ts`**. Dossiers **terminés** : **`PatientRequestOutcomeBanner`** + vue lecture seule. Le **détail lecture seule** hors ce bloc peut encore reprendre la liste complète dans **`page.tsx`**.
 - **Suivi courant** : encart **« Suivi officine »** avec **mêmes champs** (qté, dispo, prix, état). Tant qu'**aucun `counter_outcome` n'est posé** sur la ligne (i.e. la pharmacie n'a pas commencé l'exécution comptoir), l'encart affiche un placeholder **« En cours · la pharmacie n'a pas encore commencé… »** (pas de données techniques exposées). Dès qu'un résultat comptoir est saisi, le bloc bascule en mode complet ; message si **quantité suivie ≠ quantité validée**.
 - **Statuts dossier après validation (DB)** : en plus de **`confirmed`**, le workflow produit utilise **`processing`** (préparation officine enregistrée côté système) et **`treated`** (la pharmacie déclare la préparation terminée ; le suivi actif est le **comptoir** jusqu'à **`completed`**). Transitions typiques : premier lot d'ajustements structurés avec canal patient ou première saisie **`reserved`/`ordered`** depuis **`confirmed`** peut faire passer en **`processing`** ; RPC **`pharmacist_mark_request_treated`** passe en **`treated`** lorsque chaque ligne **retenue et non écartée** est cohérente (**`reserved`** sur voie officine disponible / partiel, **`ordered`** sur voie à commander).
 - **Après validation — réservation / commande (sans comptoir)** : chaque ligne peut porter **`post_confirm_fulfillment`** (`unset` / `reserved` / `ordered`) — saisie pharmacien en **`confirmed`**, **`processing`** ou **`treated`**. Les **hubs** et les **cartes liste** affichent **`processing`** ou **`treated`** quand le statut DB l'est ; le statut virtuel **`in_progress_virtual`** (« **En préparation** ») subsiste tant que le dossier reste **`confirmed`** avec **au moins une ligne** **`reserved`** ou **`ordered`** mais sans encore **`processing`** en base (rétrocompatibilité avec l'ancre **`post_confirm_fulfillment`** seule).
@@ -210,7 +210,7 @@ Sans nouvelle validation patient obligatoire pour les ajustements officine coura
 |-------|----------------------------------------|--------------|-----------------|
 | 1 | **Demande envoyée** (`submitted` / `in_review`) | Page détail + hub — **affinée** (header dossier sky, lignes compactes, mobile) | Page détail + hub — **à clôturer** pour ce jalon |
 | 2 | **Demande répondue** (`responded`) | **Affinée** (header sky, blocs compacts, alternatives groupées, qty conservée au recochage, indispo sans case, modale confirmation) — QA terrain | À affiner |
-| 3 | **Validée** (`confirmed` sans entrée en **`processing`** ni virtuel **`in_progress_virtual`** uniquement via lignes) | **Affinée** (cartes **`PatientValidatedCompactLineCard`**, blocs sky/teal, **`PatientPharmaUpdateBanner`**, **Modifier ma validation** + footer ambre en édition, RPC **`patient_update_confirmation`** + migration **`20260625_001`** si optimistic lock) | Affinée (synthèse alignée patient, réservé/commandé) |
+| 3 | **Validée** (`confirmed` sans entrée en **`processing`** ni virtuel **`in_progress_virtual`** uniquement via lignes) | **Affinée** (cartes **`PatientValidatedCompactLineCard`**, blocs sky/teal, header **Modifiée** + **Résumé** si amendements, **Modifier ma validation** + footer ambre en édition, RPC **`patient_update_confirmation`** + migration **`20260625_001`** si optimistic lock) | Affinée (synthèse alignée patient, réservé/commandé) |
 | 4 | **En préparation officine** (`processing` en DB, ou `confirmed` + `in_progress_virtual` si réservé/commandé sans migration statut) | Affinée (même logique compacte que validée ; pas de liste amendements « pleine page ») | Affinée (enregistrement traçabilité, déclaration traitée si règles OK) |
 | 5 | **Traitée** (`treated`) — suivi retrait comptoir jusqu'à **`completed`** | **Affinée** (deux blocs réservés/commandés, passage visible sous en-tête, pastilles réception/reçu, amendements comme validée, total + date passage en pied) | Affinée |
 
@@ -381,6 +381,36 @@ git checkout pilote-stable-2026-05-24
 **Branche de travail après retour** : `git switch -c reprise-depuis-stable-2026-05-24`
 
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
+
+---
+
+### Session 2026-06-09 — Retours UI patient/pharmacien (drift, archives, ordonnances, promos, amendements)
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commit **`1330407`**.
+
+**Pas de nouvelle migration.**
+
+**Drift dossier** :
+- **`RequestDetailStaleBanner`** + i18n **`demandes.drift.*`** (FR/AR) ; bouton **Actualiser le dossier** (plus « Actualiser la page »).
+- Polling **5 s** sur statuts **`confirmed`** / **`treated`** ; auto-refresh patient **`confirmed → treated`**.
+- Blocage **`detailStale`** corrigé consultation tabbed (onglet Produits).
+
+**Archives clôturées patient** :
+- Clés **`demandes.archive.footer.*`** (totaux « produit(s) récupéré(s) / retenu(s) ») — plus de clé brute **`common.productsPickedUp`**.
+
+**Ordonnances patient** :
+- Espacements alignés pharmacien via **`lib/patient-prescription-dossier-shell.ts`**.
+
+**Pharmacien répondue** :
+- Couleurs champs dispo adoucies (**`lib/pharmacist-availability-ui.ts`**, palette cyan/amber conservée).
+
+**Validée modifiée (amendements officine)** :
+- Badge **Modifiée** + texte + bouton **Résumé** intégrés dans **`PatientProductRequestDossierHeader`** (**`PatientAmendmentResumeModal`**) ; plus de bandeau violet standalone.
+
+**Hub packs promo patient** :
+- **`PatientPromoReservationHubCard`** : badge + ref, ligne contexte (**`lib/i18n/patient-promo-hub-card-context.ts`**) ; suppression bloc encadré sous statut.
+
+**Phrase de reprise** : **§13.53**.
 
 ---
 
@@ -1053,7 +1083,7 @@ git checkout pilote-stable-2026-05-24
 
 **Demande validée** (`confirmed`) — **`patient-product-request-actions.tsx`** :
 - Contours blocs **À réserver** en **sky** (alignement charte demande produits).
-- Bandeau **`PatientPharmaUpdateBanner`** + modale résumé amendements (**`lib/patient-pharma-amendment-resume-fr.ts`**).
+- Bandeau amendements dans **`PatientProductRequestDossierHeader`** (**Modifiée** + modale **Résumé** via **`lib/patient-pharma-amendment-resume-fr.ts`**) — commit **`1330407`** ; ancien **`PatientPharmaUpdateBanner`** standalone retiré.
 - **Modifier ma validation** : bouton au-dessus d’**Abandonner** ; en édition, **Annuler** / **Enregistrer les modifications** en pied fixe **ambre** (à la place de « Mettre à jour ma date de passage »).
 - RPC **`patient_update_confirmation`** ; verrou optimiste **`p_expected_updated_at`** (**`20260625_001`**).
 
@@ -2206,7 +2236,7 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260714_001_i18n_patient_notification_ar_enrichment.sql` (notifs in-app patient ar enrichissement)
   - `supabase/migrations/20260715_001_rebrand_pharmeto_notification_copy.sql` (ancre rebrand Pharmeto)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260715_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. Reprise courte : **§13.52**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260715_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. Reprise courte : **§13.53**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2478,7 +2508,13 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.52) Phrase de reprise (recommandée — après session **2026-06-08** rebrand Pharmeto)
+### 13.53) Phrase de reprise (recommandée — après session **2026-06-09** retours UI)
+
+**« On reprend Pharmeto (`pharmeto.ma`). Branche `fix/validated-supply-ecart-ui-modal` (commit **`1330407`** retours UI). **Migrations** inchangées (**`20260715_001`** ancre). **Drift dossier** : **`RequestDetailStaleBanner`**, i18n **`demandes.drift`**, auto-refresh **`confirmed → treated`**, polling 5 s. **Archives** : totaux **`demandes.archive.footer`**. **Ordonnances patient** : espacements **`lib/patient-prescription-dossier-shell.ts`**. **Pharmacien répondue** : dispo adoucie (**`lib/pharmacist-availability-ui.ts`**). **Validée modifiée** : badge **Modifiée** + **Résumé** dans **`PatientProductRequestDossierHeader`**. **Hub packs promo** : cartes sans bloc sous statut. Rebrand + charte antérieurs : **§13.52** / **§13.51**. Je te donne la tâche ou les retours preview. »**
+
+### 13.52) Phrase de reprise (dépassée — session **2026-06-08** rebrand Pharmeto)
+
+Voir **§13.53**.
 
 **« On reprend Pharmeto (`pharmeto.ma`). Branche `fix/validated-supply-ecart-ui-modal` (commits **`18163bd`** rebrand, **`a330fef`** logo PNG, **`2671f5a`** OG, **`478dec1`** header + annuaire interactif). **Migrations** si pas fait : **`20260714_001`** → **`20260715_001`**. **Marque** : **`PharmetoLogo`** + **`public/brand/pharmeto-icon.png`** (500×500 transparent) ; header lockup **40 px** ; hero **« Annuaire interactif des pharmacies »** ; OG **`app/opengraph-image.tsx`**. **Infra prod** : domaine + Resend Verified + notif e-mail **Pharmeto** OK ; **SMS réception** reporté. Lots antérieurs : charte pharmacien sky/amber/violet/emerald + barre basse (**§13.51**). Je te donne la tâche ou les retours preview. »**
 
@@ -2578,7 +2614,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-08** — rebrand Pharmeto + logo + OG + annuaire interactif). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260715_001`** ; catalogue **~19 677** produits (13 651 para + 6 026 méd.). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.52**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-09** — retours UI drift/archives/ordonnances/promos). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260715_001`** ; catalogue **~19 677** produits (13 651 para + 6 026 méd.). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.53**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
