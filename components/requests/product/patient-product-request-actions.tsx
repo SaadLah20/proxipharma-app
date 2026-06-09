@@ -53,7 +53,6 @@ import {
   type RequestExitModalMode,
 } from "@/components/requests/request-exit-confirm-modal-fr";
 import type { PatientCancelReasonCode } from "@/lib/patient-flow-reasons";
-import { usePatientRequestStatusLabel } from "@/lib/i18n/patient-request-status-label";
 import {
   availabilityStatusFr,
   pharmacistProposedProductBadgeFr,
