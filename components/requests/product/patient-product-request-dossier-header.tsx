@@ -87,18 +87,10 @@ export function PatientProductRequestDossierHeader({
           />
         </div>
 
-        <div className="flex flex-wrap items-start gap-2 px-3 py-2 sm:px-3.5">
-          {showAmendedState ? (
-            <span className={patientAmendedStatusBadgeClass()}>{tDemandes("header.amendedBadge")}</span>
-          ) : (
+        <div className="px-3 py-2 sm:px-3.5">
+          <div className="flex flex-wrap items-start gap-2">
             <span className={cn("shrink-0 shadow-sm", requestStatusBadgeClass(status))}>{badgeLabel}</span>
-          )}
-          <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">
-            {showAmendedState ? tDemandes("header.amendedHint") : statusHint}
-          </p>
-          {showAmendedState ? (
-            <PatientAmendmentResumeButton onClick={() => setResumeOpen(true)} requestType={requestType} />
-          ) : (
+            <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">{statusHint}</p>
             <button
               type="button"
               onClick={() => setJourneyOpen(true)}
@@ -115,7 +107,17 @@ export function PatientProductRequestDossierHeader({
             >
               <Info className="size-4" strokeWidth={2.25} aria-hidden />
             </button>
-          )}
+          </div>
+
+          {showAmendedState ? (
+            <div className="mt-2 flex flex-wrap items-start gap-2 border-t border-border/60 pt-2">
+              <span className={patientAmendedStatusBadgeClass()}>{tDemandes("header.amendedBadge")}</span>
+              <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">
+                {tDemandes("header.amendedHint")}
+              </p>
+              <PatientAmendmentResumeButton onClick={() => setResumeOpen(true)} requestType={requestType} />
+            </div>
+          ) : null}
         </div>
       </header>
 
