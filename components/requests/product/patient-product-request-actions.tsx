@@ -68,8 +68,9 @@ import {
 import { patientBucketProductListClass } from "@/lib/patient-bucket-product-row-ui";
 import {
   patientPrescriptionBucketProductListClass,
-  patientPrescriptionDossierContentStackClass,
   patientPrescriptionLinesWrapperClass,
+  patientPrescriptionProductsStackClass,
+  patientPrescriptionSectionTitleClass,
 } from "@/lib/patient-prescription-dossier-shell";
 import {
   hasPatientWorkflowAccentShell,
@@ -3146,7 +3147,7 @@ export function PatientProductRequestActions({
 
       <div
         className={cn(
-          usePrescriptionDossierSpacing ? patientPrescriptionDossierContentStackClass : "contents",
+          usePrescriptionDossierSpacing ? patientPrescriptionProductsStackClass : "contents",
         )}
       >
       {isPrescription &&
@@ -3238,14 +3239,42 @@ export function PatientProductRequestActions({
               requestType,
               supplyAmendmentBundles
             );
-            return (
-              <section
-                className={
-                  usePrescriptionDossierSpacing
-                    ? "w-full min-w-0 space-y-5 px-0"
-                    : "mt-4 w-full min-w-0 space-y-5"
-                }
-              >
+            return usePrescriptionDossierSpacing ? (
+              <>
+                <h3 className={patientPrescriptionSectionTitleClass}>
+                  {tDemandes("validated.modifyValidation")}
+                </h3>
+                <div className={workflowBucketGroupsClass}>
+                  {PATIENT_RESPONDED_BUCKET_ORDER.map((bucketId) => {
+                    const rows = revalBuckets[bucketId];
+                    if (rows.length === 0) return null;
+                    return (
+                      <PatientRespondedBucketSection key={bucketId} bucketId={bucketId} count={rows.length}>
+                        <ul className={workflowBucketListClass}>
+                          {rows.map((row) => (
+                            <RespondedPatientLineChooser
+                              key={row.id}
+                              row={row}
+                              bucketId={bucketId}
+                              selState={sel[row.id] ?? emptyLineSelState()}
+                              setLineBranch={setLineBranch}
+                              setLineQty={setLineQty}
+                              toggleLineRetention={toggleLineRetention}
+                              onPhotoPreview={openProductPhotoPreview}
+                              pharmacistProposedBadgeLabel={badgeForRow(row) ?? tCommon("pharmacyAddition")}
+                              requestType={requestType}
+                              supplyAmendmentBundles={supplyAmendmentBundles}
+                              resolveCatalogUnitPrice={resolveCatalogUnitPriceForProduct}
+                            />
+                          ))}
+                        </ul>
+                      </PatientRespondedBucketSection>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <section className="mt-4 w-full min-w-0 space-y-5">
                 <h3 className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                   {tDemandes("validated.modifyValidation")}
                 </h3>
@@ -3291,17 +3320,12 @@ export function PatientProductRequestActions({
           const subtotalCommande = monetaryTotalsForRetainedLines(aCommanderRetenues, status);
           const isTreatedProductsView = status === "treated";
 
-          return (
-            <section
-              className={
-                usePrescriptionDossierSpacing
-                  ? "w-full min-w-0 space-y-5 px-0"
-                  : "mt-3 w-full min-w-0 space-y-5 px-0"
-              }
-            >
-              <h3 className="pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+          return usePrescriptionDossierSpacing ? (
+            <>
+              <h3 className={patientPrescriptionSectionTitleClass}>
                 {workflowCopy.patientProductsSectionTitle}
               </h3>
+              <div className={workflowBucketGroupsClass}>
               {dispoRetenues.length > 0 ? (
                 <PatientValidatedBucketSection
                   bucketId="dispo_officine"
@@ -3446,6 +3470,159 @@ export function PatientProductRequestActions({
                   </ul>
                 </details>
               ) : null}
+              </div>
+            </>
+          ) : (
+            <section className="mt-3 w-full min-w-0 space-y-5 px-0">
+              <h3 className="pt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                {workflowCopy.patientProductsSectionTitle}
+              </h3>
+              <div className={workflowBucketGroupsClass}>
+              {dispoRetenues.length > 0 ? (
+                <PatientValidatedBucketSection
+                  bucketId="dispo_officine"
+                  count={dispoRetenues.length}
+                  isTreatedView={isTreatedProductsView}
+                  subtotalLabel={compactTotalMadLabel({
+                    sumKnown: subtotalDispo.sumKnown,
+                    missingPrice: subtotalDispo.missingPrice,
+                    empty: subtotalDispo.count < 1,
+                  })}
+                >
+                  <ul className={workflowBucketListClass}>
+                    {dispoRetenues.map((row) => (
+                      <PatientValidatedCompactLineCard
+                        key={row.id}
+                        row={row}
+                        tier="dispo_officine"
+                        onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        requestStatusForCard={isTreatedProductsView ? "treated" : status}
+                        onPhotoPreview={openProductPhotoPreview}
+                        pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
+                        requestType={requestType}
+                        supplyAmendmentBundles={supplyAmendmentBundles}
+                        pricingConfig={pricingConfig}
+                      />
+                    ))}
+                  </ul>
+                </PatientValidatedBucketSection>
+              ) : null}
+
+              {aCommanderRetenues.length > 0 ? (
+                <PatientValidatedBucketSection
+                  bucketId="commande"
+                  count={aCommanderRetenues.length}
+                  isTreatedView={isTreatedProductsView}
+                  subtotalLabel={compactTotalMadLabel({
+                    sumKnown: subtotalCommande.sumKnown,
+                    missingPrice: subtotalCommande.missingPrice,
+                    empty: subtotalCommande.count < 1,
+                  })}
+                >
+                  <ul className={workflowBucketListClass}>
+                    {aCommanderRetenues.map((row) => (
+                      <PatientValidatedCompactLineCard
+                        key={row.id}
+                        row={row}
+                        tier="commande"
+                        onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        requestStatusForCard={isTreatedProductsView ? "treated" : status}
+                        onPhotoPreview={openProductPhotoPreview}
+                        pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
+                        requestType={requestType}
+                        supplyAmendmentBundles={supplyAmendmentBundles}
+                        pricingConfig={pricingConfig}
+                      />
+                    ))}
+                  </ul>
+                </PatientValidatedBucketSection>
+              ) : null}
+
+              {horsPerimetreRetenues.length > 0 ? (
+                <PatientValidatedBucketSection
+                  bucketId="hors_perimetre"
+                  count={horsPerimetreRetenues.length}
+                  hint={tCommon("confirmWithPharmacyHint")}
+                >
+                  <ul className={patientBucketProductListClass}>
+                    {horsPerimetreRetenues.map((row) => (
+                      <PatientValidatedCompactLineCard
+                        key={row.id}
+                        row={row}
+                        tier="hors_perimetre"
+                        onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        requestStatusForCard={status}
+                        onPhotoPreview={openProductPhotoPreview}
+                        pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
+                        requestType={requestType}
+                        supplyAmendmentBundles={supplyAmendmentBundles}
+                        pricingConfig={pricingConfig}
+                      />
+                    ))}
+                  </ul>
+                </PatientValidatedBucketSection>
+              ) : null}
+
+              {retireesApresValidation.length > 0 ? (
+                <details className="group w-full min-w-0 rounded-lg border border-border/80 bg-muted/15">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-1.5 text-foreground [&::-webkit-details-marker]:hidden">
+                    <span className="text-[12px] font-bold leading-none">
+                      Retrait après validation
+                      <span className="ml-1.5 tabular-nums font-semibold text-muted-foreground">
+                        ({retireesApresValidation.length})
+                      </span>
+                    </span>
+                    <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+                  </summary>
+                  <div className="space-y-2 border-t border-border/60 px-1 pb-1 pt-1">
+                    <p className="px-1 text-[10px] leading-snug text-muted-foreground">
+                      Retrait convenu avec la pharmacie — trace uniquement.
+                    </p>
+                    <ul className={patientBucketProductListClass}>
+                      {retireesApresValidation.map((row) => (
+                        <PatientValidatedCompactLineCard
+                          key={row.id}
+                          row={row}
+                          tier="retire_apres_validation"
+                          onOpenHistory={() => setHistoryModalItemId(row.id)}
+                          requestStatusForCard={status}
+                          onPhotoPreview={openProductPhotoPreview}
+                          pharmacistProposedBadgeLabel={badgeForRow(row) ?? workflowCopy.patientProposedBadge}
+                          requestType={requestType}
+                          supplyAmendmentBundles={supplyAmendmentBundles}
+                          pricingConfig={pricingConfig}
+                        />
+                      ))}
+                    </ul>
+                  </div>
+                </details>
+              ) : null}
+
+              {lignesNonRetenues.length > 0 ? (
+                <details className="group w-full min-w-0 rounded-lg border border-border/80 bg-muted/15">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-1.5 text-foreground [&::-webkit-details-marker]:hidden">
+                    <span className="text-[12px] font-bold leading-none">
+                      Lignes non retenues
+                      <span className="ml-1.5 tabular-nums font-semibold text-muted-foreground">
+                        ({lignesNonRetenues.length})
+                      </span>
+                    </span>
+                    <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+                  </summary>
+                  <ul className={cn(patientBucketProductListClass, "border-t border-border/60 pt-1")}>
+                    {lignesNonRetenues.map((row) => (
+                      <PatientTraceNotRetainedRow
+                        key={row.id}
+                        row={row}
+                        requestType={requestType}
+                        onOpenHistory={() => setHistoryModalItemId(row.id)}
+                        onPhotoPreview={openProductPhotoPreview}
+                      />
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+              </div>
             </section>
           );
         })()
