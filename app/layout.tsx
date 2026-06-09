@@ -1,7 +1,6 @@
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
-import { Geist, Geist_Mono } from "next/font/google";
-import { Noto_Sans_Arabic } from "next/font/google";
+import { Geist_Mono, Noto_Sans_Arabic, Plus_Jakarta_Sans } from "next/font/google";
 import type { Metadata, Viewport } from "next";
 import { getTranslations } from "next-intl/server";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
@@ -9,9 +8,10 @@ import { PHARMETO_BRAND } from "@/lib/brand-theme";
 import { localeDirection, type AppLocale } from "@/lib/i18n/config";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-plus-jakarta-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 const geistMono = Geist_Mono({
@@ -65,12 +65,14 @@ export default async function RootLayout({
   const dir = localeDirection(locale);
   const fontClass =
     locale === "ar"
-      ? `${geistSans.variable} ${geistMono.variable} ${notoSansArabic.variable} font-[family-name:var(--font-noto-arabic)]`
-      : `${geistSans.variable} ${geistMono.variable}`;
+      ? `${geistMono.variable} ${notoSansArabic.variable} font-[family-name:var(--font-noto-arabic)]`
+      : `${plusJakartaSans.variable} ${geistMono.variable}`;
+
+  const bodyFontClass = locale === "ar" ? notoSansArabic.className : plusJakartaSans.className;
 
   return (
     <html lang={locale} dir={dir} className={`${fontClass} antialiased`}>
-      <body className="flex min-h-screen flex-col bg-background text-foreground">
+      <body className={`${bodyFontClass} flex min-h-screen flex-col bg-background text-foreground`}>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <PlatformChrome>{children}</PlatformChrome>
         </NextIntlClientProvider>
