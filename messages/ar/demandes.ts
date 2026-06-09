@@ -236,8 +236,23 @@ export const demandesAr = {
       productsPickedUp: "منتجات مُستَلَمة",
       productRetained: "منتج مُختار",
       productsRetained: "منتجات مُختارة",
+      productToPickup: "منتج للاستلام",
+      productsToPickup: "منتجات للاستلام",
     },
+    closedThankTitle: "شكراً لثقتكم",
+    closedThankBody:
+      "أغلقت صيدليتكم هذا الملف. نأمل أن تكون زيارتكم حسنة ونرحب بكم مجدداً قريباً.",
+    resubmitCta: "تعديل وإرسال طلب جديد",
+    resubmitHint:
+      "يفتح طلباً جديداً لدى هذه الصيدلية مع منتجاتكم المعبّأة مسبقاً — تؤكد الإرسال في الصفحة التالية.",
   },
+  consultationReadonlyBanner: "ملف {status} — استشارة للقراءة فقط.",
+  quickContact: {
+    title: "التواصل مع الصيدلية",
+    validatedHint: "لأي تعديل على منتج مُؤكَّد مسبقاً، تواصل مباشرة مع الصيدلية.",
+    coordinatesMissing: "بيانات الاتصال غير متوفرة في الملف — تواصل مع الصيدلية.",
+  },
+  proposedByPharmacyShort: "مقترح من الصيدلية",
   respondedBuckets: {
     available: { title: "متوفر", ariaPatient: "منتجات متوفرة في الصيدلية", ariaPharmacist: "منتجات متوفرة في الصيدلية" },
     partially_available: { title: "متوفر جزئياً", ariaPatient: "منتجات متوفرة جزئياً", ariaPharmacist: "منتجات متوفرة جزئياً" },

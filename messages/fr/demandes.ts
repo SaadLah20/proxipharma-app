@@ -241,8 +241,23 @@ export const demandesFr = {
       productsPickedUp: "produits récupérés",
       productRetained: "produit retenu",
       productsRetained: "produits retenus",
+      productToPickup: "produit à retirer",
+      productsToPickup: "produits à retirer",
     },
+    closedThankTitle: "Merci pour votre confiance",
+    closedThankBody:
+      "Votre officine a clos ce dossier. Nous espérons que votre passage s'est bien passé et vous accueillir à nouveau bientôt.",
+    resubmitCta: "Ajuster et renvoyer une nouvelle demande",
+    resubmitHint:
+      "Ouvre une nouvelle demande chez cette officine avec vos produits préremplis — vous validez l'envoi sur la page suivante.",
   },
+  consultationReadonlyBanner: "Dossier {status} — consultation en lecture seule.",
+  quickContact: {
+    title: "Contacter l'officine",
+    validatedHint: "Pour un ajustement sur un produit déjà validé, contactez directement la pharmacie.",
+    coordinatesMissing: "Coordonnées non renseignées sur le dossier — rapprochez-vous de l'officine.",
+  },
+  proposedByPharmacyShort: "Proposé officine",
   respondedBuckets: {
     available: { title: "Disponibles", ariaPatient: "Produits disponibles en officine", ariaPharmacist: "Produits disponibles en officine" },
     partially_available: { title: "Partiellement disponibles", ariaPatient: "Produits partiellement disponibles", ariaPharmacist: "Produits partiellement disponibles" },

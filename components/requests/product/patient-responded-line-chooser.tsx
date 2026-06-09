@@ -598,7 +598,7 @@ function RespondedCompactRetainButton({
       ) : (
         <span className={closedBoxClass} aria-hidden />
       )}
-      <span className={labelClass}>Retenir</span>
+      <span className={labelClass}>{tResponded("retainShort")}</span>
     </button>
   );
 }

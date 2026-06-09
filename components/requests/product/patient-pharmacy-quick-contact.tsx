@@ -44,6 +44,8 @@ export function PatientPharmacyQuickContact({
   variant?: "default" | "iconsOnly";
 }) {
   const tCommon = useTranslations("common");
+  const tDemandes = useTranslations("demandes.quickContact");
+  const tPharmacyPublic = useTranslations("pharmacyPublic");
   const telRaw = pharmacy.telephone?.trim() ?? "";
   const digits = telRaw.replace(/\D/g, "");
   const telOk = digits.length >= 8 || telRaw.length >= 8;
@@ -65,7 +67,7 @@ export function PatientPharmacyQuickContact({
           <a
             href={telHrefPatient(telRaw)}
             className={contactIconBtn}
-            title="Appeler"
+            title={tPharmacyPublic("call")}
             aria-label={tCommon("callPharmacy")}
           >
             <Phone className="size-4 shrink-0" strokeWidth={2} aria-hidden />
@@ -84,7 +86,7 @@ export function PatientPharmacyQuickContact({
             rel="noreferrer"
             className={contactIconBtn}
             title="WhatsApp"
-            aria-label="Discuter sur WhatsApp"
+            aria-label={tCommon("whatsappChat")}
           >
             <MessageCircle className="size-4 shrink-0" strokeWidth={2} aria-hidden />
           </a>
@@ -94,8 +96,8 @@ export function PatientPharmacyQuickContact({
         <a
           href={mailHref}
           className={contactIconBtn}
-          title="Courriel"
-          aria-label="Écrire à la pharmacie"
+          title={tCommon("emailTitle")}
+          aria-label={tCommon("writeToPharmacy")}
         >
           <Mail className="size-4 shrink-0" strokeWidth={2} aria-hidden />
         </a>
@@ -105,28 +107,20 @@ export function PatientPharmacyQuickContact({
 
   if (variant === "iconsOnly") {
     if (!telOk && !mailOk) {
-      return (
-        <p className="text-[9px] leading-snug text-muted-foreground">
-          Coordonnées non renseignées sur le dossier — rapprochez-vous de l&apos;officine.
-        </p>
-      );
+      return <p className="text-[9px] leading-snug text-muted-foreground">{tDemandes("coordinatesMissing")}</p>;
     }
     return <div className="flex flex-wrap items-center gap-1.5">{iconButtons}</div>;
   }
 
   return (
     <section className="rounded-xl border border-border/80 bg-muted/20 p-2.5 shadow-sm">
-      <h3 className="text-[10px] font-bold uppercase tracking-wide text-foreground">Contacter l&apos;officine</h3>
-      <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
-        Pour un ajustement sur un produit déjà validé, contactez directement la pharmacie.
-      </p>
+      <h3 className="text-[10px] font-bold uppercase tracking-wide text-foreground">{tDemandes("title")}</h3>
+      <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{tDemandes("validatedHint")}</p>
       {loc ? <p className="mt-1 text-[11px] font-semibold leading-snug text-foreground">{loc}</p> : null}
       {telOk || mailOk ? (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">{iconButtons}</div>
       ) : (
-        <p className="mt-1.5 text-[9px] leading-snug text-muted-foreground">
-          Coordonnées non renseignées sur le dossier — rapprochez-vous de l&apos;officine.
-        </p>
+        <p className="mt-1.5 text-[9px] leading-snug text-muted-foreground">{tDemandes("coordinatesMissing")}</p>
       )}
     </section>
   );
