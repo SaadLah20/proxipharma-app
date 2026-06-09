@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
 import { Search } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { RequestKindHubDashboard } from "@/components/requests/hub/request-kind-hub-dashboard";
 import { DemandeHubTabBar, type HubTab, type PatientRequestRow } from "@/components/requests/demande-hub-ui";
@@ -30,6 +30,8 @@ import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { formatShortId } from "@/lib/request-display";
+import { collatorForLocale } from "@/lib/datetime-locale";
+import type { AppLocale } from "@/lib/i18n/config";
 import { useRequestKindPatientCopy } from "@/lib/i18n/request-kind-patient-copy";
 import { supabase } from "@/lib/supabase";
 import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
@@ -50,6 +52,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const tAccount = useTranslations("account");
   const tCommon = useTranslations("common");
   const tDemandes = useTranslations("demandes");
+  const locale = useLocale() as AppLocale;
   const hubPath = kindConfig.routes.patientHubPath;
   const refPlaceholder =
     kindConfig.publicRefPrefix === "O" ? "Ex. O042/26" : kindConfig.publicRefPrefix === "C" ? "Ex. C042/26" : "Ex. D042/26";
@@ -126,7 +129,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
       const { data, error: re } = await supabase
         .from("requests")
         .select(
-          "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,request_public_ref,pharmacies(nom,ville,public_ref)," +
+          "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,request_public_ref,pharmacies(nom,nom_ar,ville,public_ref)," +
             "request_items(requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient,line_source,patient_chosen_alternative_id,counter_outcome,post_confirm_fulfillment,availability_status,products(price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,unit_price))"
         )
         .eq("patient_id", user.id)
@@ -173,10 +176,15 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     for (const r of rows) {
       if (m.has(r.pharmacy_id)) continue;
       const ph = one(r.pharmacies);
-      m.set(r.pharmacy_id, ph?.nom ? `${pharmacyPublicLabel(ph.nom)}${ph.ville ? ` (${ph.ville})` : ""}` : `${tDemandes("pharmacyFallback")} ${r.pharmacy_id.slice(0, 8)}…`);
+      m.set(
+        r.pharmacy_id,
+        ph?.nom
+          ? `${pharmacyPublicLabel(ph.nom, { locale, nomAr: ph.nom_ar })}${ph.ville ? ` (${ph.ville})` : ""}`
+          : `${tDemandes("pharmacyFallback")} ${r.pharmacy_id.slice(0, 8)}…`,
+      );
     }
-    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], "fr"));
-  }, [rows, tDemandes]);
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], collatorForLocale(locale)));
+  }, [rows, locale, tDemandes]);
 
   const rowsWithDashboardStatus = useMemo(() => rows.map((r) => ({ ...r, status_for_dashboard: r.status })), [rows]);
 
@@ -194,6 +202,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
         r.request_public_ref,
         p?.public_ref,
         p?.nom,
+        p?.nom_ar,
         p?.ville,
         formatShortId(r.id),
       ]);

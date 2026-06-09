@@ -106,7 +106,7 @@ export function PatientPromoReservationsHub() {
       const { data, error: qErr } = await supabase
         .from("pharmacy_promo_reservations")
         .select(
-          "id,offer_id,status,pickup_date,pickup_time,public_ref,updated_at,pharmacy_id,pharmacy_promo_offers(title,discount_percent),pharmacies:pharmacy_id(nom,ville)",
+          "id,offer_id,status,pickup_date,pickup_time,public_ref,updated_at,pharmacy_id,pharmacy_promo_offers(title,discount_percent),pharmacies:pharmacy_id(nom,nom_ar,ville)",
         )
         .order("updated_at", { ascending: false });
 
@@ -157,7 +157,7 @@ export function PatientPromoReservationsHub() {
       m.set(
         r.pharmacy_id,
         ph?.nom
-          ? `${pharmacyPublicLabel(ph.nom)}${ph.ville ? ` (${ph.ville})` : ""}`
+          ? `${pharmacyPublicLabel(ph.nom, { locale, nomAr: ph.nom_ar })}${ph.ville ? ` (${ph.ville})` : ""}`
           : `${tDemandes("pharmacyFallback")} ${r.pharmacy_id.slice(0, 8)}…`,
       );
     }
@@ -176,6 +176,7 @@ export function PatientPromoReservationsHub() {
         r.public_ref,
         r.offer?.title,
         r.pharmacy?.nom,
+        r.pharmacy?.nom_ar,
         r.pharmacy?.ville,
       ]),
     );

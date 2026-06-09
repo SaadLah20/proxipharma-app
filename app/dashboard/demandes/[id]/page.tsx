@@ -56,8 +56,10 @@ import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 
 type PharmacyEmbed = {
   nom: string;
+  nom_ar?: string | null;
   ville: string;
   adresse: string;
+  adresse_ar?: string | null;
   telephone: string | null;
   public_ref?: string | null;
   contact_email?: string | null;
@@ -525,8 +527,10 @@ export default function DemandeDetailPage() {
     if (!ph?.nom?.trim()) return null;
     const c: PatientPharmacyContactInfo = {
       nom: ph.nom,
+      nom_ar: ph.nom_ar ?? null,
       ville: ph.ville,
       adresse: ph.adresse ?? null,
+      adresse_ar: ph.adresse_ar ?? null,
       telephone: ph.telephone,
       contact_email: ph.contact_email ?? null,
       public_ref: ph.public_ref ?? null,

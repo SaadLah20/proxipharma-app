@@ -102,7 +102,9 @@ export function PatientPromoReservationHubCard({
                   {row.offer?.title ?? t("packFallback")}
                 </p>
                 <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">
-                  {row.pharmacy?.nom ? pharmacyPublicLabel(row.pharmacy.nom) : t("pharmacyFallback")}
+                  {row.pharmacy?.nom
+                    ? pharmacyPublicLabel(row.pharmacy.nom, { locale, nomAr: row.pharmacy.nom_ar })
+                    : t("pharmacyFallback")}
                 </p>
               </div>
               <ChevronRight

@@ -36,7 +36,9 @@ export function PatientProductDemandeHubCard({
   const refVisuel = displayRequestPublicRef(row);
   const when = formatDateTimeShortForLocale(row.updated_at ?? row.submitted_at ?? row.created_at, locale);
   const accent = hubDemandeCardAccent(row.request_type);
-  const pharmacyTitle = ph?.nom ? pharmacyPublicLabel(ph.nom) : cardCopy.pharmacyFallback;
+  const pharmacyTitle = ph?.nom
+    ? pharmacyPublicLabel(ph.nom, { locale, nomAr: ph.nom_ar })
+    : cardCopy.pharmacyFallback;
   const locationLine = ph?.ville?.trim() ? ph.ville.trim() : null;
   const contextLine = ctx.secondaryLine ? `${ctx.primaryLine} · ${ctx.secondaryLine}` : ctx.primaryLine;
 

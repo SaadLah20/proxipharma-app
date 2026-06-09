@@ -71,8 +71,8 @@ function hubCardTimestamp(created: string, updated: string | null | undefined, l
 export type HubTab = "dashboard" | "list";
 
 type PharmEmbed =
-  | { nom: string; ville: string; public_ref?: string | null }
-  | { nom: string; ville: string; public_ref?: string | null }[]
+  | { nom: string; nom_ar?: string | null; ville: string; public_ref?: string | null }
+  | { nom: string; nom_ar?: string | null; ville: string; public_ref?: string | null }[]
   | null;
 
 export type PatientRequestRow = {
@@ -193,6 +193,9 @@ export function PatientDemandeCard({
   const cardAccent = kindConfig.theme.accent;
   const lineBadge = patientCardLineBadge(row, summary, tList);
   const pharmacyFallback = tDossier("pharmacyFallback");
+  const pharmacyTitle = ph?.nom
+    ? pharmacyPublicLabel(ph.nom, { locale, nomAr: ph.nom_ar })
+    : pharmacyFallback;
   if (variant === "list") {
     return (
       <div className={clsx(demandeCardShell(cardStatus, "patient", cardAccent), "transition hover:-translate-y-px")}>
@@ -201,7 +204,7 @@ export function PatientDemandeCard({
           className="group block p-2.5 sm:p-3"
           aria-label={
             conversationUnread
-              ? tList("conversationUnreadAria", { pharmacy: ph?.nom ?? pharmacyFallback })
+              ? tList("conversationUnreadAria", { pharmacy: pharmacyTitle })
               : undefined
           }
         >
@@ -209,7 +212,7 @@ export function PatientDemandeCard({
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <p className="truncate text-[13px] font-semibold leading-tight text-foreground sm:text-sm">
-                  {ph?.nom ?? pharmacyFallback}
+                  {pharmacyTitle}
                 </p>
                 {ph?.ville ? (
                   <span className="shrink-0 text-[10px] text-muted-foreground">({ph.ville})</span>
@@ -255,7 +258,7 @@ export function PatientDemandeCard({
               {ph ? (
                 <>
                   {" "}
-                  · <span className="font-medium text-foreground">{pharmacyPublicLabel(ph.nom)}</span>
+                  · <span className="font-medium text-foreground">{pharmacyPublicLabel(ph.nom, { locale, nomAr: ph.nom_ar })}</span>
                   <span className="text-muted-foreground/90"> ({ph.ville})</span>
                 </>
               ) : null}

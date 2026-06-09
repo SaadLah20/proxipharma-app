@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Store } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import type { AppLocale } from "@/lib/i18n/config";
+import { pharmacyLocalizedAdresse } from "@/lib/pharmacy-localized-field";
 import { PharmacyNavigationPicker } from "@/components/pharmacy/pharmacy-navigation-picker";
 import {
   PatientPharmacyQuickContact,
@@ -34,12 +36,13 @@ export function PatientPharmacyDossierBand({
   compact?: boolean;
   className?: string;
 }) {
+  const locale = useLocale() as AppLocale;
   const tCommon = useTranslations("common");
   const tDemandes = useTranslations("demandes");
   const theme = uiTheme ?? requestKindUiTheme(requestType);
   const [contactOpen, setContactOpen] = useState(false);
   const phLabel = pharmacyContact?.nom?.trim()
-    ? pharmacyPublicLabel(pharmacyContact.nom)
+    ? pharmacyPublicLabel(pharmacyContact.nom, { locale, nomAr: pharmacyContact.nom_ar })
     : tDemandes("dossierBand.pharmacyFallback");
   const ville = pharmacyContact?.ville?.trim() ?? "";
   const officeRef = pharmacyContact?.public_ref?.trim() ?? "";
@@ -55,8 +58,12 @@ export function PatientPharmacyDossierBand({
   const navigationTarget = pharmacyContact
     ? {
         pharmacyId,
-        nom: pharmacyContact.nom,
-        adresse: pharmacyContact.adresse ?? null,
+        nom: pharmacyPublicLabel(pharmacyContact.nom, { locale, nomAr: pharmacyContact.nom_ar }),
+        adresse:
+          pharmacyLocalizedAdresse(
+            { adresse: pharmacyContact.adresse, adresse_ar: pharmacyContact.adresse_ar },
+            locale,
+          ) || null,
         ville: pharmacyContact.ville ?? null,
         latitude: pharmacyContact.latitude ?? null,
         longitude: pharmacyContact.longitude ?? null,
