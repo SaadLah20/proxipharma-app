@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260716_001`**) → phrase **§13.56** (nom/adresse ar officine ; lot ville **§13.55** reporte ; affinages antérieurs **§13.54**). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260716_001`**) → phrase **§13.57** (scroll/hint date passage patient ; nom/adresse ar officine ; lot ville **§13.55** reporte ; affinages antérieurs **§13.54**). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -435,7 +435,23 @@ git checkout pilote-stable-2026-05-24
 
 **Fix build** : tri filtre pharmacie hub — **`collatorForLocale(locale).compare(a, b)`** (pas `localeCompare` + Collator).
 
-**Phrase de reprise** : **§13.56**.
+**Phrase de reprise** : **§13.57** (voir **§13.56**).
+
+---
+
+### Session 2026-06-09 (suite 4) — Date passage : scroll + hint inline (validation patient)
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commit **`58909d6`**.
+
+**Pas de nouvelle migration.**
+
+**Patient — validation `responded`** (`components/requests/product/patient-product-request-actions.tsx`) :
+- Si date de passage **vide** ou **hors plage** au clic **Valider ma demande** : **scroll** automatique vers le bloc date (**`scrollIntoView`**, `block: center`) + message **inline** sous le champ (**`visitPassageError`**, `role="alert"`) — plus de bandeau rouge seul en haut du dossier (le patient ne voyait pas l’erreur depuis le pied de page).
+- **`validatePatientConfirmBeforeReview`** : retour structuré `{ ok, message, focus }` — `focus: visit_passage` (date) vs `top` (lignes, qté, ETA) ; les erreurs non-passage conservent le bandeau haut **`actionError`**.
+- **Mettre à jour ma date de passage** (`runUpdateVisit`, `confirmed` / `treated`) : même scroll + hint si date hors plage.
+- i18n **`common.visitDateRequiredToValidate`** (FR/AR) ; **`PlannedVisitDateInput`** prop **`invalid`** (bordure + `aria-invalid`).
+
+**Phrase de reprise** : **§13.57**.
 
 ---
 
@@ -2286,7 +2302,7 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260714_001_i18n_patient_notification_ar_enrichment.sql` (notifs in-app patient ar enrichissement)
   - `supabase/migrations/20260715_001_rebrand_pharmeto_notification_copy.sql` (ancre rebrand Pharmeto)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260716_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. Reprise courte : **§13.56**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260716_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. Reprise courte : **§13.57**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2558,7 +2574,13 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.56) Phrase de reprise (recommandée — après session **2026-06-09 (suite 3)**)
+### 13.57) Phrase de reprise (recommandée — après session **2026-06-09 (suite 4)**)
+
+**« On reprend Pharmeto (`pharmeto.ma`). Branche `fix/validated-supply-ecart-ui-modal` (commits **`58909d6`** scroll/hint date passage · **`2eed65a`**–**`04929df`** nom/ar/ville doc). **Migration** : **`20260716_001`** si pas appliquée (`nom_ar`, `adresse_ar`). **Validation `responded`** : date passage manquante ou hors plage → scroll bloc date + hint inline (**`visitDateRequiredToValidate`**) — pas bandeau haut seul. **Nom/adresse ar** : admin + ma fiche + patient AR (repli FR). **Ville** : **non livré** — **`§13.55`**. Lots antérieurs : **`§13.54`**. Je te donne la tâche ou les retours preview. »**
+
+### 13.56) Phrase de reprise (dépassée — session **2026-06-09 (suite 3)**)
+
+Voir **§13.57**.
 
 **« On reprend Pharmeto (`pharmeto.ma`). Branche `fix/validated-supply-ecart-ui-modal` (commits **`2eed65a`** nom/adresse ar · **`d092794`** dossiers/hubs · **`8e8b47a`** fix Collator · **`e6eb40e`** i18n dossiers · **`6ddcbb6`** Plus Jakarta · **`04929df`** doc ville). **Migration** : **`20260716_001`** si pas appliquée (`nom_ar`, `adresse_ar`). **Nom/adresse ar** : admin + ma fiche + affichage patient AR (repli FR). **Ville** : **non livré** — spec **`§13.55`** (*Reprendre l'implémentation de la ville en arabe*). Lots antérieurs : drift/amendement/packs **`§13.54`**. Je te donne la tâche ou les retours preview. »**
 
