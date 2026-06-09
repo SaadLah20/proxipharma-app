@@ -346,7 +346,7 @@ git log --oneline -n 10
 
 ## 11) Checklist rebrand Pharmeto (preview + prod)
 
-**État pilote juin 2026 (session 2026-06-08)** — voir journal `CAHIER_DES_CHARGES.md` §10 et phrase reprise **§13.52**.
+**État pilote juin 2026 (session 2026-06-08 + affinages 2026-06-09)** — voir journal `CAHIER_DES_CHARGES.md` §10 et phrase reprise **§13.54**.
 
 | Étape | Statut |
 |-------|--------|

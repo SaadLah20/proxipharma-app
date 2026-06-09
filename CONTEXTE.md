@@ -41,6 +41,16 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 ## 6. État technique récent (aligné repo — mai–juin 2026)
 
+**Mise à jour 2026-06-09 (suite 2) — affinages preview drift / ordonnances / packs promo (branche `fix/validated-supply-ecart-ui-modal`, commits **`55336d2`** · **`9768bda`** · **`f38c90b`** · **`f45728e`)** :
+- **Drift dossier patient** : bandeau **`RequestDetailStaleBanner`** **visible** sur **`confirmed → treated`** (consultation incluse) — fin auto-refresh silencieux ; polling **5 s**.
+- **Ordonnances patient** : **`lib/patient-prescription-dossier-shell.ts`** — marge header→scan, stack scan / titre / bandeaux séparés.
+- **Hub packs promo** : tableau de bord = **tuiles seules** (`PromoStatDashboard`) ; cartes liste sans texte sous statut ; groupes sans sous-titre.
+- **Amendement validée** : statut dossier conservé ; hint court **`demandes.header.amendedHint`** + **Résumé** dans header.
+- **SQL** : aucune migration. Phrase reprise **`CAHIER_DES_CHARGES.md` §13.54** · journal **§10 session 2026-06-09 (suite 2)**.
+
+**Mise à jour 2026-06-09 — retours UI drift / archives / ordonnances / amendements (commit `1330407`)** :
+- **Drift** : **`RequestDetailStaleBanner`**, i18n **`demandes.drift`**, archives **`demandes.archive.footer`**, dispo pharmacien adoucie, amendements dans **`PatientProductRequestDossierHeader`**.
+
 **Mise à jour 2026-06-07 — charte pharmacien par type + barre basse (branche `fix/validated-supply-ecart-ui-modal`, commits **`6ee6630`** … **`f2875c0`)** :
 - **Pharmacien** : hubs + dossiers **sky** (produits), **amber** (ordonnances), **violet** (consultations), **emerald** (packs promo) — libs **`pharmacist-*-hub-dashboard-ui.ts`** et **`pharmacist-*-request-line-ui.ts`** ; cartes hub **`PharmacistProductDemandeHubCard`** ; bandeau patient **`PharmacistPatientDossierBand`** (RPC CRM, pas `profiles` direct).
 - **Barre basse** : **`PlatformBottomNav`** — 4 onglets dossiers ; menu profil allégé ; détail dossier = onglet actif selon **`request_type`**.
@@ -86,7 +96,7 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 - **UI** : **`/dashboard/pharmacien/pricing`** ; **médicament = PPV fixe** ; **parapharmacie = PPH + marge** (global / marque / produit) via **`lib/pharmacy-pricing/`**.
 
 **Mise à jour 2026-06-06 — hub réservations packs promo** :
-- Hubs **`/dashboard/patient/packs-promo`** et **`/dashboard/pharmacien/reservations-packs`** : tableau de bord + liste (5 statuts, cartes hub, filtres) — analogie demandes produits.
+- Hubs **`/dashboard/patient/packs-promo`** et **`/dashboard/pharmacien/reservations-packs`** : onglets tableau de bord + liste (5 statuts, cartes hub, filtres) — analogie demandes produits. *(Tableau de bord épuré — tuiles seules — voir **2026-06-09 (suite 2)**.)*
 - Préfixe **Pharmacie** sur nom officine (cartes pack, notifs patient).
 - **Pharmacien emerald (juin 2026)** : thème hub/détail + noms patient via RPC annuaire (**`load-pharmacist-promo-patient-contacts.ts`**).
 
