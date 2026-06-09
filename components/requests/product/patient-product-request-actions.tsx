@@ -3148,6 +3148,7 @@ export function PatientProductRequestActions({
       <div
         className={cn(
           usePrescriptionDossierSpacing ? patientPrescriptionProductsStackClass : "contents",
+          usePrescriptionDossierSpacing && "mt-4 sm:mt-5",
         )}
       >
       {isPrescription &&

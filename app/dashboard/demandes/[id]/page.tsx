@@ -22,7 +22,6 @@ import { RequestKindHeader } from "@/components/requests/shared/request-kind-hea
 import { one } from "@/lib/embed";
 import { mapRequestItemsPhotos } from "@/lib/storage-media";
 import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
-import { isPatientConfirmedToTreatedStale } from "@/lib/request-detail-stale";
 import { useRequestDetailDrift } from "@/lib/use-request-detail-drift";
 import { RequestDetailStaleBanner } from "@/components/requests/shared/request-detail-stale-banner";
 import { PatientProductRequestActions, type PatientPharmacyContactInfo, usePatientSummaryStatusCopy } from "@/components/requests/product/patient-product-request-actions";
@@ -364,13 +363,6 @@ export default function DemandeDetailPage() {
   }, [request?.id, request?.updated_at, request?.status, acknowledgeRequestDrift]);
 
   useEffect(() => {
-    if (!isPatientConfirmedToTreatedStale(requestDrift.stale)) return;
-    void (async () => {
-      await requestDrift.refresh();
-    })();
-  }, [requestDrift.stale, requestDrift.refresh]);
-
-  useEffect(() => {
     const tid = window.setTimeout(() => {
       void loadDetail();
     }, 0);
@@ -602,7 +594,7 @@ export default function DemandeDetailPage() {
             productLineCount={items.length}
           />
 
-          {requestDrift.stale && !isPatientConfirmedToTreatedStale(requestDrift.stale) ? (
+          {requestDrift.stale ? (
             <RequestDetailStaleBanner stale={requestDrift.stale} onRefresh={requestDrift.refresh} />
           ) : null}
 
@@ -743,7 +735,7 @@ export default function DemandeDetailPage() {
 
       {(hasBottomActions || showArchivedReadonly) && !showConsultationTabbed ? (
         <>
-        {!showConsultationTabbed && requestDrift.stale && !isPatientConfirmedToTreatedStale(requestDrift.stale) ? (
+        {requestDrift.stale ? (
           <RequestDetailStaleBanner
             stale={requestDrift.stale}
             onRefresh={requestDrift.refresh}

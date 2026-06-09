@@ -5,7 +5,7 @@ import { clsx } from "clsx";
 import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { promoPatientStatusLabel } from "@/lib/i18n/promo-patient-status";
-import { formatDateForLocale, formatDateTimeShortForLocale } from "@/lib/datetime-locale";
+import { formatDateTimeShortForLocale } from "@/lib/datetime-locale";
 import type { AppLocale } from "@/lib/i18n/config";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { pharmacistPromoReservationHubCardShellClass } from "@/lib/pharmacist-promo-reservation-line-ui";
@@ -24,21 +24,6 @@ function pharmacistPatientDisplayName(row: PromoReservationHubRow): string {
   if (name) return name;
   if (row.patient_id) return `Patient #${formatShortId(row.patient_id)}`;
   return "Patient";
-}
-
-function formatPickup(date: string, time: string | null, locale: AppLocale) {
-  const d = formatDateForLocale(`${date}T12:00:00`, locale, {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-  if (!time) return d;
-  return `${d} · ${time.slice(0, 5)}`;
-}
-
-function activePickupLine(row: PromoReservationHubRow, locale: AppLocale): string | null {
-  if (row.status !== "submitted" && row.status !== "confirmed") return null;
-  return formatPickup(row.pickup_date, row.pickup_time, locale);
 }
 
 function PromoReservationStatusBadge({
@@ -92,11 +77,6 @@ export function PatientPromoReservationHubCard({
 }) {
   const t = useTranslations("promo");
   const activity = formatDateTimeShortForLocale(row.updated_at, locale);
-  const pickupLine = activePickupLine(row, locale);
-  const discount =
-    row.offer?.discount_percent && row.status !== "cancelled" && row.status !== "unavailable"
-      ? ` · −${row.offer.discount_percent} %`
-      : "";
 
   return (
     <article className={patientCardShell()}>
@@ -124,12 +104,6 @@ export function PatientPromoReservationHubCard({
                 <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">
                   {row.pharmacy?.nom ? pharmacyPublicLabel(row.pharmacy.nom) : t("pharmacyFallback")}
                 </p>
-                {pickupLine ? (
-                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground/90">
-                    {t("visit", { when: pickupLine })}
-                    {discount}
-                  </p>
-                ) : null}
               </div>
               <ChevronRight
                 className="mt-0.5 size-4 shrink-0 text-muted-foreground/70 transition group-hover:text-foreground"
@@ -160,7 +134,6 @@ export function PharmacistPromoReservationHubCard({
 }) {
   const whenActivity = formatDateTimeShortForLocale(row.updated_at, "fr");
   const patientName = pharmacistPatientDisplayName(row);
-  const pickupLine = activePickupLine(row, "fr");
 
   return (
     <article
@@ -193,11 +166,6 @@ export function PharmacistPromoReservationHubCard({
                 <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">
                   {row.offer?.title ?? "Pack promo"}
                 </p>
-                {pickupLine ? (
-                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground/90">
-                    {row.status === "submitted" ? "Passage souhaité" : "Passage prévu"} : {pickupLine}
-                  </p>
-                ) : null}
               </div>
               <ChevronRight
                 className="mt-0.5 size-4 shrink-0 text-muted-foreground/70 transition group-hover:text-foreground"

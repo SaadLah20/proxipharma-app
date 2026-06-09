@@ -86,13 +86,11 @@ export const PATIENT_PROMO_STAT_BUCKET_GROUPS: PromoStatBucketGroup[] = [
   {
     id: "en_cours",
     label: "En cours",
-    subtitle: "Demande transmise ou confirmée par l'officine.",
     bucketKeys: ["soumise", "confirmee"],
   },
   {
     id: "archives",
     label: "Historique",
-    subtitle: "Réservations terminées, indisponibles ou annulées.",
     bucketKeys: ["recuperee", "indisponible", "annulee"],
   },
 ];
@@ -101,13 +99,11 @@ export const PHARMACIST_PROMO_STAT_BUCKET_GROUPS: PromoStatBucketGroup[] = [
   {
     id: "a_suivre",
     label: "À suivre",
-    subtitle: "Demandes à traiter ou packs confirmés en attente de retrait.",
     bucketKeys: ["soumise", "confirmee"],
   },
   {
     id: "archives",
     label: "Terminées",
-    subtitle: "Récupérées, refusées ou annulées.",
     bucketKeys: ["recuperee", "indisponible", "annulee"],
   },
 ];
