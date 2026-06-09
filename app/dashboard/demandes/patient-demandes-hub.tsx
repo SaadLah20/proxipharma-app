@@ -183,7 +183,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
           : `${tDemandes("pharmacyFallback")} ${r.pharmacy_id.slice(0, 8)}…`,
       );
     }
-    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], collatorForLocale(locale)));
+    return [...m.entries()].sort((a, b) => collatorForLocale(locale).compare(a[1], b[1]));
   }, [rows, locale, tDemandes]);
 
   const rowsWithDashboardStatus = useMemo(() => rows.map((r) => ({ ...r, status_for_dashboard: r.status })), [rows]);
