@@ -154,6 +154,15 @@ export const demandesFr = {
     partialTotal: "Total partiel — certains prix unitaires manquent.",
     skippedInfo: "Non retenus (information)",
     resubmitTitle: "Confirmer vos modifications",
+    resubmitNoChanges: "Aucune modification détectée sur les produits.",
+    resubmitSummary: "{changes} modification — liste finale : {lines} produit.",
+    resubmitSummaryPlural: "{changes} modifications — liste finale : {lines} produits.",
+    validateMyRequest: "Valider ma demande",
+    conversationFabHint:
+      "Pour échanger avec la pharmacie à tout moment, utilise le bouton Conversation en bas à droite de l'écran.",
+    resubmitQty: "Qté",
+    resubmitPreviousQty: "Qté précédente :",
+    resubmitNoteChange: "Note : « {before} » → « {after} »",
   },
   notes: {
     lineNotes: "Note sur cette ligne",
