@@ -78,6 +78,7 @@ export const commonAr = {
   redirecting: "جاري التحويل…",
   genericError: "خطأ.",
   visitDateRequired: "يرجى تحديد تاريخ الزيارة للصيدلية.",
+  visitDateRequiredToValidate: "اختر تاريخاً أدناه لتأكيد طلبك.",
   visitDateOutOfRangeOrder: "التاريخ خارج النطاق المسموح (حتى {maxDate} شاملاً حسب المنتجات المطلوب طلبها).",
   visitDateOutOfRange: "التاريخ خارج النطاق: في أقصى الحالات حتى {maxDate} (4 أيام).",
   addAtLeastOneProduct: "أضف منتجاً واحداً على الأقل إلى القائمة.",

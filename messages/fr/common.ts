@@ -79,6 +79,7 @@ export const commonFr = {
   redirecting: "Redirection…",
   genericError: "Erreur.",
   visitDateRequired: "Indiquez la date de passage en officine.",
+  visitDateRequiredToValidate: "Choisissez une date ci-dessous pour valider votre demande.",
   visitDateOutOfRangeOrder: "Date hors plage autorisée (jusqu'au {maxDate} inclus selon les produits à commander).",
   visitDateOutOfRange: "Date hors plage : au plus tard le {maxDate} (4 jours).",
   addAtLeastOneProduct: "Ajoute au moins un produit à la liste.",

@@ -41,6 +41,14 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 ## 6. État technique récent (aligné repo — mai–juin 2026)
 
+**Mise à jour 2026-06-09 (suite 3) — typographie, i18n dossiers, nom/adresse arabe officine, lot ville reporté** :
+- **Typographie FR** : **Plus Jakarta Sans** sur `<body>` locale FR (`app/layout.tsx`, `app/globals.css`) — commit **`6ddcbb6`**.
+- **Header** : wordmark Pharmeto rapproché du logo (`gap-1.5`) — **`d7f719c`**.
+- **i18n patient lot 1 (dossiers)** : actions dossier, contact rapide, chooser répondue, compact line, fallbacks hub — commits **`e6eb40e`**, fix import **`f79ad89`** ; parité FR/AR **1211** clés.
+- **Nom / adresse arabe officine (livré)** : migration **`20260716_001`** (`nom_ar`, `adresse_ar`) ; admin onboarding + **Ma fiche → Coordonnées** (section arabe facultative) ; affichage patient locale **ar** avec repli FR — **`lib/pharmacy-localized-field.ts`**, **`pharmacyPublicLabel(..., { locale, nomAr })`** ; fiche publique, annuaire, Mes pharmacies, **bandeau dossier + hubs demandes/promo** — commits **`2eed65a`**, **`d092794`**, fix build tri hub **`8e8b47a`** (`collatorForLocale().compare`).
+- **Reporté** : **ville** liste admin + libellés AR intégrés — spec **`§13.55`** ; esquisse locale annulée ; consigne : *« Reprendre l'implémentation de la ville en arabe »* — doc **`04929df`**.
+- **SQL à appliquer** si pas fait : **`20260716_001`**. Phrase reprise **`§13.56`** · journal **§10 session 2026-06-09 (suite 3)**.
+
 **Mise à jour 2026-06-09 (suite 2) — affinages preview drift / ordonnances / packs promo (branche `fix/validated-supply-ecart-ui-modal`, commits **`55336d2`** · **`9768bda`** · **`f38c90b`** · **`f45728e`)** :
 - **Drift dossier patient** : bandeau **`RequestDetailStaleBanner`** **visible** sur **`confirmed → treated`** (consultation incluse) — fin auto-refresh silencieux ; polling **5 s**.
 - **Ordonnances patient** : **`lib/patient-prescription-dossier-shell.ts`** — marge header→scan, stack scan / titre / bandeaux séparés.

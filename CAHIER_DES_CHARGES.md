@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260715_001`**) → phrase **§13.54** (retours UI drift / archives / ordonnances / promos ; rebrand **§13.52**). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260716_001`**) → phrase **§13.56** (nom/adresse ar officine ; lot ville **§13.55** reporte ; affinages antérieurs **§13.54**). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -408,6 +408,34 @@ git checkout pilote-stable-2026-05-24
 - Badge **Modifiée** + texte + bouton **Résumé** intégrés dans **`PatientProductRequestDossierHeader`** (**`PatientAmendmentResumeModal`**) ; plus de bandeau violet standalone.
 
 **Phrase de reprise** : **§13.54** (affinages preview — voir suite 2 ci-dessous).
+
+---
+
+### Session 2026-06-09 (suite 3) — Typo FR, i18n dossiers, nom/adresse arabe officine, doc ville reportée
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`6ddcbb6`** · **`d7f719c`** · **`e6eb40e`** · **`f79ad89`** · **`2eed65a`** · **`d092794`** · **`8e8b47a`** · **`04929df`** (doc).
+
+**Migration** : **`20260716_001_pharmacy_nom_adresse_ar.sql`** — colonnes **`pharmacies.nom_ar`**, **`adresse_ar`** ; RPC **`patient_pharmacy_detail`** enrichie. **À appliquer** Supabase SQL Editor si pas fait.
+
+**Typographie & header** :
+- Locale **FR** : **Plus Jakarta Sans** (`--font-plus-jakarta-sans` sur `<body>`).
+- Header : espacement logo / wordmark **`gap-1.5`**.
+
+**i18n patient (lot 1 dossiers)** :
+- **`patient-product-request-actions.tsx`**, **`patient-pharmacy-quick-contact.tsx`**, **`patient-responded-line-chooser.tsx`**, **`patient-product-request-compact-line.tsx`**, fallbacks hub ; clés FR/AR **`demandes`** + **`common`**.
+
+**Nom / adresse arabe officine** :
+- **Admin** : **`AdminOnboardPharmacyForm`** — champs arabe facultatifs RTL ; **`lib/admin-onboard-pharmacy.ts`**.
+- **Pharmacien** : **Ma fiche → Coordonnées** — section « Version arabe (facultatif) » ; **`pharmacy-ma-fiche-page.tsx`**.
+- **Helpers** : **`lib/pharmacy-localized-field.ts`**, **`pharmacyPublicLabel(..., { locale, nomAr })`**.
+- **Affichage patient locale ar** : fiche publique, annuaire, Mes pharmacies ; **bandeau dossier** (`PatientPharmacyDossierBand`), hubs demandes/promo, contact rapide — repli FR si champs vides.
+
+**Lot ville (liste + libellé AR)** :
+- Esquisse **annulée** avant merge ; spec figée **`§13.55`** ; doc **`04929df`**. Consigne reprise : *« Reprendre l'implémentation de la ville en arabe »*.
+
+**Fix build** : tri filtre pharmacie hub — **`collatorForLocale(locale).compare(a, b)`** (pas `localeCompare` + Collator).
+
+**Phrase de reprise** : **§13.56**.
 
 ---
 
@@ -2258,7 +2286,7 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260714_001_i18n_patient_notification_ar_enrichment.sql` (notifs in-app patient ar enrichissement)
   - `supabase/migrations/20260715_001_rebrand_pharmeto_notification_copy.sql` (ancre rebrand Pharmeto)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260715_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. Reprise courte : **§13.54**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260716_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. Reprise courte : **§13.56**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2530,7 +2558,43 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.54) Phrase de reprise (recommandée — après session **2026-06-09 (suite 2)** affinages preview)
+### 13.56) Phrase de reprise (recommandée — après session **2026-06-09 (suite 3)**)
+
+**« On reprend Pharmeto (`pharmeto.ma`). Branche `fix/validated-supply-ecart-ui-modal` (commits **`2eed65a`** nom/adresse ar · **`d092794`** dossiers/hubs · **`8e8b47a`** fix Collator · **`e6eb40e`** i18n dossiers · **`6ddcbb6`** Plus Jakarta · **`04929df`** doc ville). **Migration** : **`20260716_001`** si pas appliquée (`nom_ar`, `adresse_ar`). **Nom/adresse ar** : admin + ma fiche + affichage patient AR (repli FR). **Ville** : **non livré** — spec **`§13.55`** (*Reprendre l'implémentation de la ville en arabe*). Lots antérieurs : drift/amendement/packs **`§13.54`**. Je te donne la tâche ou les retours preview. »**
+
+### 13.55) Lot reporté — ville officine (liste admin + libellé arabe)
+
+**Statut** : **non mergé** — esquisse locale **annulée** (2026-06-09) ; reprise ultérieure par petites étapes.
+
+**Consigne utilisateur (reprise)** : *« Reprendre l'implémentation de la ville en arabe »* — lire cette section + **`AGENTS.md`** (paragraphe ville) ; **ne pas** refaire le lot **`nom_ar` / `adresse_ar`** (déjà livré, migration **`20260716_001`**).
+
+**Objectif métier**
+- **Admin** (onboarding + formulaire legacy **`AdminOnboardPharmacyForm`** / **`app/admin/page.tsx`**) : **`ville`** = **liste déroulante** (plus de saisie libre).
+- **Pharmacien** (**Ma fiche → Coordonnées**) : même liste (valeur legacy hors catalogue conservée jusqu’à changement).
+- **Patient / public** (locale **ar**) : afficher le **libellé arabe** de la ville si connue ; sinon repli sur le français stocké en base (comme **`nom_ar`**).
+- **Pas de migration SQL** : colonne **`pharmacies.ville`** reste du texte FR canonique (ex. `Témara`, `Casablanca`).
+
+**Implémentation prévue (spec figée)**
+1. **`lib/pharmacy-cities-morocco.ts`** — catalogue `{ fr, ar }` (~35 villes/communes Maroc pilote) ; helpers :
+   - `pharmacyCityLabel(ville, locale)`
+   - `pharmacyCitySearchTerms(ville)` (annuaire + filtres hub)
+   - `validatePharmacyCityForSubmit(ville, { allowLegacy? })`
+   - `buildPharmacyCitySelectOptions(legacyValue?)`
+2. **`components/pharmacy/pharmacy-city-select.tsx`** — `<select>` réutilisable (admin + ma fiche).
+3. **Validation** : **`lib/admin-onboard-pharmacy.ts`**, **`lib/pharmacy-contact-fields.ts`** (`validatePharmacyContactForm` + option legacy ma fiche).
+4. **Affichage patient** (brancher `pharmacyCityLabel`) : bandeau dossier, quick contact, hubs demandes/promo, annuaire, fiche publique, Mes pharmacies — miroir du lot **`nom_ar`** déjà fait.
+5. **Piège build** : tri avec **`collatorForLocale(locale).compare(a, b)`** — **pas** `localeCompare(..., collator)`.
+
+**Fichiers touchés lors de l’esquisse annulée** (référence reprise) :  
+`AdminOnboardPharmacyForm.tsx`, `app/admin/page.tsx`, `pharmacy-ma-fiche-page.tsx`, `patient-demandes-hub.tsx`, `demande-hub-ui.tsx`, `patient-pharmacy-dossier-band.tsx`, `patient-pharmacy-quick-contact.tsx`, `annuaire-page.tsx`, `annuaire-pharmacy-card.tsx`, `pharmacy-public-info-tab.tsx`, `patient-pharmacy-detail.tsx`, `patient-promo-reservations-hub.tsx`, `promo-reservation-hub-card.tsx`, `patient-product-demande-hub-card.tsx`.
+
+**Phrase de reprise (lot ville seul)** :
+
+**« Reprendre l'implémentation de la ville en arabe — Pharmeto, branche `fix/validated-supply-ecart-ui-modal`. Spec **`CAHIER_DES_CHARGES.md` §13.55`**. Liste admin + ma fiche ; traductions AR intégrées dans le catalogue code ; affichage patient en locale ar. Migration **`20260716_001`** déjà appliquée (nom/adresse ar) — ne pas dupliquer. Livrer par petit commit + preview ; vérifier `npm run build` (Collator). »**
+
+### 13.54) Phrase de reprise (dépassée — session **2026-06-09 (suite 2)** affinages preview)
+
+Voir **§13.56**.
 
 **« On reprend Pharmeto (`pharmeto.ma`). Branche `fix/validated-supply-ecart-ui-modal` (commits **`1330407`** lot initial · **`55336d2`** statut amendement · **`9768bda`** / **`f38c90b`** packs + ordonnances · **`f45728e`** libellé amendement). **Migrations** inchangées (**`20260715_001`** ancre). **Drift dossier** : **`RequestDetailStaleBanner`**, i18n **`demandes.drift`**, polling 5 s — bandeau **visible** patient **`confirmed → treated`** (consultation incluse). **Archives** : totaux **`demandes.archive.footer`**. **Ordonnances patient** : **`lib/patient-prescription-dossier-shell.ts`** (marge header→scan, stack scan/titre/bandeaux). **Hub packs promo** : tableau de bord = **tuiles seules** (`PromoStatDashboard`) ; cartes liste sans texte sous statut. **Amendement** : badge **Modifiée** + hint **« Modifiée par l'officine après votre validation »** + **Résumé** dans header. Rebrand + charte antérieurs : **§13.52** / **§13.51**. Je te donne la tâche ou les retours preview. »**
 

@@ -359,7 +359,7 @@ git log --oneline -n 10
 | Supabase Auth + template OTP Pharmeto | OK |
 | Resend domaine `pharmeto.ma` Verified | OK |
 | E-mail notif patient expéditeur **Pharmeto** | OK (test terrain) |
-| Migration `20260714_001` + `20260715_001` | À confirmer sur Supabase |
+| Migration `20260714_001` + `20260715_001` + `20260716_001` (`nom_ar`, `adresse_ar`) | À confirmer sur Supabase |
 | SMS préfixe `Pharmeto:` (code) | OK |
 | SMS **réception** sur téléphone test | Reporté |
 | OTP Auth Supabase (quota / e-mail) | Reporté si quota atteint |
