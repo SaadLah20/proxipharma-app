@@ -37,7 +37,7 @@ export const demandesFr = {
   header: {
     journeyAria: "Voir le détail du statut et le parcours de la demande",
     amendedBadge: "Modifiée",
-    amendedHint: "Cette demande a été modifiée après validation par la pharmacie",
+    amendedHint: "Modifiée par l'officine après votre validation",
     amendedResume: "Résumé",
     amendedResumeAria: "Voir le résumé des modifications après validation",
   },

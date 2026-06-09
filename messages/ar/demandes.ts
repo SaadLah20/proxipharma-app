@@ -37,7 +37,7 @@ export const demandesAr = {
   header: {
     journeyAria: "عرض تفاصيل الحالة ومسار الطلب",
     amendedBadge: "مُعدَّلة",
-    amendedHint: "عُدِّل هذا الطلب بعد التأكيد من طرف الصيدلية",
+    amendedHint: "تعديل من الصيدلية بعد تأكيدك",
     amendedResume: "ملخص",
     amendedResumeAria: "عرض ملخص التعديلات بعد التأكيد",
   },

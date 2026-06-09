@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260715_001`**) → phrase **§13.53** (retours UI drift / archives / ordonnances / promos ; rebrand **§13.52**). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260715_001`**) → phrase **§13.54** (retours UI drift / archives / ordonnances / promos ; rebrand **§13.52**). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -121,11 +121,11 @@ Point cle:
 ### 3.3 Promos et offres (packs promo — workflow dédié)
 
 - Workflow **séparé** des demandes produits / ordonnances / consultations (`requests`) — migration **`20260610_001`**
-- **Pharmacien** : **`/dashboard/pharmacien/offres-promos`** (CRUD pack : max **5 produits** + **5 cadeaux**, remise %, validité, brouillon / publier) ; **`/dashboard/pharmacien/reservations-packs`** (hub **tableau de bord + liste filtrable**, détail : confirmer, non disponible + motif, récupérée, annuler)
+- **Pharmacien** : **`/dashboard/pharmacien/offres-promos`** (CRUD pack : max **5 produits** + **5 cadeaux**, remise %, validité, brouillon / publier) ; **`/dashboard/pharmacien/reservations-packs`** (hub **5 tuiles statut** + onglet liste filtrable, détail : confirmer, non disponible + motif, récupérée, annuler)
 - **Public** : onglet **Offres** sur **`/pharmacie/[id]`** (`PublicPromoOffers`) — cartes + **Réserver** (connexion patient, date passage **J→J+3**, heure facultative)
-- **Patient** : **`/dashboard/patient/packs-promo`** (+ détail `[id]`) — hub **tableau de bord + liste filtrable** (5 tuiles statut, cartes hub, filtres pharmacie/réf./tri), annulation si `submitted` / `confirmed`
+- **Patient** : **`/dashboard/patient/packs-promo`** (+ détail `[id]`) — hub **tableau de bord = tuiles seules** (`PromoStatDashboard`, aligné **`RequestKindHubDashboard`**) + onglet **liste** filtrable ; annulation si `submitted` / `confirmed`
 - Réf. réservation **`P042/26`** (compteur par officine + année) ; notifs in-app **`promo_in_app_notifications`** (fusionnées dans la cloche header avec **`app_notifications`**)
-- Code : **`lib/promo/`** (`reservation-hub-buckets.ts`, `reservation-hub-sections.ts`, …), **`components/promo/`** (`PromoReservationsHubDashboard`, `promo-reservation-hub-card.tsx`, …) — voir journal §10 **session 2026-05-19 (promo)** et **2026-06-06 (suite 9)**
+- Code : **`lib/promo/`** (`reservation-hub-buckets.ts`, `reservation-hub-sections.ts`, …), **`components/promo/`** (`PromoReservationsHubDashboard` → tuiles seules, `promo-reservation-hub-card.tsx`, …) — voir journal §10 **session 2026-05-19 (promo)**, **2026-06-06 (suite 9)** et **2026-06-09 (suite 2)**
 
 ## 4) Workflow metier central (demande -> reponse)
 
@@ -392,7 +392,7 @@ git checkout pilote-stable-2026-05-24
 
 **Drift dossier** :
 - **`RequestDetailStaleBanner`** + i18n **`demandes.drift.*`** (FR/AR) ; bouton **Actualiser le dossier** (plus « Actualiser la page »).
-- Polling **5 s** sur statuts **`confirmed`** / **`treated`** ; auto-refresh patient **`confirmed → treated`**.
+- Polling **5 s** sur statuts **`confirmed`** / **`treated`** ; auto-refresh patient **`confirmed → treated`** *(remplacé par bandeau visible — voir suite 2)*.
 - Blocage **`detailStale`** corrigé consultation tabbed (onglet Produits).
 
 **Archives clôturées patient** :
@@ -407,10 +407,32 @@ git checkout pilote-stable-2026-05-24
 **Validée modifiée (amendements officine)** :
 - Badge **Modifiée** + texte + bouton **Résumé** intégrés dans **`PatientProductRequestDossierHeader`** (**`PatientAmendmentResumeModal`**) ; plus de bandeau violet standalone.
 
-**Hub packs promo patient** :
-- **`PatientPromoReservationHubCard`** : badge + ref, ligne contexte (**`lib/i18n/patient-promo-hub-card-context.ts`**) ; suppression bloc encadré sous statut.
+**Phrase de reprise** : **§13.54** (affinages preview — voir suite 2 ci-dessous).
 
-**Phrase de reprise** : **§13.53**.
+---
+
+### Session 2026-06-09 (suite 2) — Affinages preview (hub packs, ordonnances, drift, libellé amendement)
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`55336d2`** · **`9768bda`** · **`f38c90b`** · **`f45728e`**.
+
+**Pas de nouvelle migration.**
+
+**Hub packs promo (patient + pharmacien)** :
+- **`PromoReservationsHubDashboard`** aligné **`RequestKindHubDashboard`** : **`PromoStatDashboard` uniquement** (5 tuiles) — suppression barre « X dossiers · Y en cours », section **Reprendre rapidement** et blocs sections sous le tableau de bord.
+- Groupes statut **sans sous-titre** sous le libellé de groupe (`lib/promo/reservation-hub-buckets.ts`).
+- Cartes **`PatientPromoReservationHubCard`** / **`PharmacistPromoReservationHubCard`** (onglet liste) : badge + ref, titre, sous-ligne, vignettes pack, dernière activité — **sans bloc texte sous statut** (plus de hint / passage encadré).
+
+**Ordonnances patient** :
+- **`lib/patient-prescription-dossier-shell.ts`** : stack **`patientPrescriptionProductsStackClass`** ; marge **`mt-4 sm:mt-5`** entre **`PatientProductRequestDossierHeader`** et scan ; titre **Produits ordonnance** et bandeaux = enfants flex séparés (`gap-4 sm:gap-5`).
+
+**Drift dossier patient** :
+- Scénario **`confirmed → treated`** : bandeau **`RequestDetailStaleBanner`** **affiché** (bouton **Actualiser le dossier**) — fin de l’auto-refresh silencieux seul ; consultation incluse.
+
+**Amendement validée** :
+- Statut dossier **conservé** ligne 1 ; ligne 2 **Modifiée** + **Résumé** (**`55336d2`**).
+- Hint i18n **`demandes.header.amendedHint`** raccourci : « Modifiée par l'officine après votre validation » (FR) / équivalent AR.
+
+**Phrase de reprise** : **§13.54**.
 
 ---
 
@@ -684,7 +706,7 @@ git checkout pilote-stable-2026-05-24
 **Hub patient** (`/dashboard/patient/packs-promo`) et **pharmacien** (`/dashboard/pharmacien/reservations-packs`) alignés sur parcours demandes produits :
 - Onglets **Tableau de bord** / **Liste** (`DemandeHubTabBar`, `?vue=dashboard|liste`).
 - **`PromoStatDashboard`** — 5 tuiles statut (soumise, confirmée, récupérée, indisponible, annulée) regroupées En cours / Historique (patient) ou À suivre / Terminées (pharmacien).
-- **`PromoReservationsHubDashboard`** — stats, reprise rapide, sections activité, cartes **`PatientPromoReservationHubCard`** / **`PharmacistPromoReservationHubCard`**.
+- **`PromoReservationsHubDashboard`** — stats, reprise rapide, sections activité, cartes **`PatientPromoReservationHubCard`** / **`PharmacistPromoReservationHubCard`**. *(Tableau de bord épuré — tuiles seules — voir §10 **2026-06-09 (suite 2)**.)*
 - Liste filtrable : statut URL, pharmacie (patient) / patient (pharmacien), recherche réf., tri.
 - Libs : **`lib/promo/reservation-hub-buckets.ts`**, **`reservation-hub-sections.ts`**, **`reservation-hub-dashboard.ts`**, **`reservation-hub-list-filters.ts`** ; i18n patient **`promo.dashboard.*`** (FR/AR).
 
@@ -2236,7 +2258,7 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260714_001_i18n_patient_notification_ar_enrichment.sql` (notifs in-app patient ar enrichissement)
   - `supabase/migrations/20260715_001_rebrand_pharmeto_notification_copy.sql` (ancre rebrand Pharmeto)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260715_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. Reprise courte : **§13.53**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260715_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. Reprise courte : **§13.54**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2508,13 +2530,19 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.53) Phrase de reprise (recommandée — après session **2026-06-09** retours UI)
+### 13.54) Phrase de reprise (recommandée — après session **2026-06-09 (suite 2)** affinages preview)
+
+**« On reprend Pharmeto (`pharmeto.ma`). Branche `fix/validated-supply-ecart-ui-modal` (commits **`1330407`** lot initial · **`55336d2`** statut amendement · **`9768bda`** / **`f38c90b`** packs + ordonnances · **`f45728e`** libellé amendement). **Migrations** inchangées (**`20260715_001`** ancre). **Drift dossier** : **`RequestDetailStaleBanner`**, i18n **`demandes.drift`**, polling 5 s — bandeau **visible** patient **`confirmed → treated`** (consultation incluse). **Archives** : totaux **`demandes.archive.footer`**. **Ordonnances patient** : **`lib/patient-prescription-dossier-shell.ts`** (marge header→scan, stack scan/titre/bandeaux). **Hub packs promo** : tableau de bord = **tuiles seules** (`PromoStatDashboard`) ; cartes liste sans texte sous statut. **Amendement** : badge **Modifiée** + hint **« Modifiée par l'officine après votre validation »** + **Résumé** dans header. Rebrand + charte antérieurs : **§13.52** / **§13.51**. Je te donne la tâche ou les retours preview. »**
+
+### 13.53) Phrase de reprise (dépassée — session **2026-06-09** retours UI initiaux)
+
+Voir **§13.54**.
 
 **« On reprend Pharmeto (`pharmeto.ma`). Branche `fix/validated-supply-ecart-ui-modal` (commit **`1330407`** retours UI). **Migrations** inchangées (**`20260715_001`** ancre). **Drift dossier** : **`RequestDetailStaleBanner`**, i18n **`demandes.drift`**, auto-refresh **`confirmed → treated`**, polling 5 s. **Archives** : totaux **`demandes.archive.footer`**. **Ordonnances patient** : espacements **`lib/patient-prescription-dossier-shell.ts`**. **Pharmacien répondue** : dispo adoucie (**`lib/pharmacist-availability-ui.ts`**). **Validée modifiée** : badge **Modifiée** + **Résumé** dans **`PatientProductRequestDossierHeader`**. **Hub packs promo** : cartes sans bloc sous statut. Rebrand + charte antérieurs : **§13.52** / **§13.51**. Je te donne la tâche ou les retours preview. »**
 
 ### 13.52) Phrase de reprise (dépassée — session **2026-06-08** rebrand Pharmeto)
 
-Voir **§13.53**.
+Voir **§13.54**.
 
 **« On reprend Pharmeto (`pharmeto.ma`). Branche `fix/validated-supply-ecart-ui-modal` (commits **`18163bd`** rebrand, **`a330fef`** logo PNG, **`2671f5a`** OG, **`478dec1`** header + annuaire interactif). **Migrations** si pas fait : **`20260714_001`** → **`20260715_001`**. **Marque** : **`PharmetoLogo`** + **`public/brand/pharmeto-icon.png`** (500×500 transparent) ; header lockup **40 px** ; hero **« Annuaire interactif des pharmacies »** ; OG **`app/opengraph-image.tsx`**. **Infra prod** : domaine + Resend Verified + notif e-mail **Pharmeto** OK ; **SMS réception** reporté. Lots antérieurs : charte pharmacien sky/amber/violet/emerald + barre basse (**§13.51**). Je te donne la tâche ou les retours preview. »**
 
@@ -2614,7 +2642,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-09** — retours UI drift/archives/ordonnances/promos). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260715_001`** ; catalogue **~19 677** produits (13 651 para + 6 026 méd.). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.53**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-09 (suite 2)** — hub packs tuiles seules, espacements ordonnance, drift visible, libellé amendement). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260715_001`** ; catalogue **~19 677** produits (13 651 para + 6 026 méd.). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.54**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
