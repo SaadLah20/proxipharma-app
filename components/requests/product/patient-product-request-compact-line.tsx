@@ -14,6 +14,7 @@ import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-lim
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { cn } from "@/lib/utils";
 import { lineConversationVisual } from "@/components/pharmacist/pharmacist-line-conversation-chip";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 export type PatientDossierCompactLine = {
@@ -47,6 +48,7 @@ export function PatientProductRequestCompactLine({
   onSaveComment?: (comment: string) => void;
   notesSlot?: React.ReactNode;
 }) {
+  const tDemandes = useTranslations("demandes");
   const [commentOpen, setCommentOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState(line.client_comment ?? "");
   const messageVisual = lineConversationVisual(line.client_comment ?? "", "");
@@ -79,7 +81,7 @@ export function PatientProductRequestCompactLine({
                   className="truncate text-[9px] font-medium text-violet-900"
                   title={line.pharmacist_proposal_reason ?? undefined}
                 >
-                  Proposé officine
+                  {tDemandes("proposedByPharmacyShort")}
                   {line.pharmacist_proposal_reason ? ` — ${line.pharmacist_proposal_reason}` : ""}
                 </p>
               ) : null}

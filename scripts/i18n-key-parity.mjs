@@ -139,7 +139,7 @@ const PATIENT_PREFIXES = [
 ];
 
 const FRENCH_RE =
-  /["'`]((?:[^"'\\]|\\.)*[àâäéèêëïîôùûüçÀÂÄÉÈÊËÏÎÔÙÛÜÇœŒ]|(?:Votre|Vous|Ajoute|Envoy|Confir|Annul|Charg|Retour|Message|Produit|Pharmac|Demande|Ordonn|Consult|La pharmacie|L'officine|Fermer|Historique)[^"'`]*)["'`]/g;
+  /["'`]((?:[^"'\\]|\\.)*[àâäéèêëïîôùûüçÀÂÄÉÈÊËÏÎÔÙÛÜÇœŒ]|(?:Votre|Vous|Ajoute|Envoy|Confir|Annul|Charg|Retour|Message|Produit|Pharmac|Demande|Ordonn|Consult|La pharmacie|L'officine|Fermer|Historique|Retenir|TOTAL|Qté|Date|Heure|Merci|Enregistr|Coordonn|Contacter|Proposé|Aucun|résultat|Redirection|Erreur)[^"'`]*)["'`]/g;
 
 const IGNORE = [/useTranslations/, /t\(/, /tCommon\(/, /tDemandes\(/, /tHub\(/, /tAuth\(/, /console\./, /import /, /from "/, /className=/, /\/\//, /supabase/, /\.from\(/, /SUPPRIMER/, /fr-FR/, /product_request/, /free_consultation/, /text-/, /border-/, /bg-/];
 

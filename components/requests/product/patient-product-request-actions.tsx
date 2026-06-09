@@ -58,7 +58,6 @@ import {
   pharmacistProposedProductBadgeFr,
   requestItemLineSourceFr,
   requestStatusBadgeClass,
-  requestStatusFr,
 } from "@/lib/request-display";
 import { plannedVisitWindow } from "@/lib/planned-visit";
 import {
@@ -1788,6 +1787,8 @@ function PatientConfirmReviewLineCard({
   line: PatientConfirmPreviewLine;
   onPhotoPreview?: ProductPhotoPreviewHandler;
 }) {
+  const tDemandePublic = useTranslations("demandePublic");
+  const tValidated = useTranslations("demandes.validated");
   const isOrder = line.bucket === "order";
 
   return (
@@ -1818,9 +1819,10 @@ function PatientConfirmReviewLineCard({
           <p className="mt-0.5 text-[9px] leading-snug text-muted-foreground">{line.choiceDetail}</p>
           <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-[10px]">
             <span className="text-muted-foreground">
-              Qté <strong className="tabular-nums text-foreground">{line.qty}</strong>
+              {tDemandePublic("qty")}{" "}
+              <strong className="tabular-nums text-foreground">{line.qty}</strong>
               <span className="mx-1">·</span>
-              PU{" "}
+              {tDemandePublic("unitPrice")}{" "}
               <strong className={cn("tabular-nums", productRequestTheme.price)}>
                 {line.unitPriceMad != null && Number.isFinite(line.unitPriceMad)
                   ? `${line.unitPriceMad.toFixed(2)} MAD`
@@ -1828,11 +1830,13 @@ function PatientConfirmReviewLineCard({
               </strong>
             </span>
             <span className="shrink-0 font-semibold tabular-nums text-sky-900">
-              Tot · {line.lineTotalMad != null ? `${line.lineTotalMad.toFixed(2)} MAD` : "—"}
+              {tDemandePublic("totalShort")} · {line.lineTotalMad != null ? `${line.lineTotalMad.toFixed(2)} MAD` : "—"}
             </span>
           </div>
           {line.bucket === "order" && line.etaLabel ? (
-            <p className="mt-0.5 text-[9px] font-medium text-teal-900">Réception · {line.etaLabel}</p>
+            <p className="mt-0.5 text-[9px] font-medium text-teal-900">
+              {tValidated("reception", { date: line.etaLabel })}
+            </p>
           ) : null}
         </div>
       </div>
@@ -1867,6 +1871,9 @@ export function PatientProductRequestActions({
   const tValidation = useTranslations("demandes.validation");
   const tModal = useTranslations("demandes.modal");
   const tDrift = useTranslations("demandes.drift");
+  const tArchive = useTranslations("demandes.archive");
+  const tDemandePublic = useTranslations("demandePublic");
+  const patientStatusLabel = usePatientRequestStatusLabel(status);
   const dt = usePatientDatetimeFormatters();
   const lineCountLabel = usePatientLineCountLabel();
   const phaseLabels = useTimelinePhaseLabels();
@@ -3101,11 +3108,8 @@ export function PatientProductRequestActions({
 
       {isClosedProductArchive && pharmacyId ? (
         <div className="mt-3 rounded-xl border border-border/80 border-l-[3px] border-l-emerald-500/70 bg-muted/20 px-3 py-3 text-center">
-          <p className="text-sm font-bold text-foreground">Merci pour votre confiance</p>
-          <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
-            Votre officine a clos ce dossier. Nous espérons que votre passage s&apos;est bien passé et vous accueillir
-            à nouveau bientôt.
-          </p>
+          <p className="text-sm font-bold text-foreground">{tArchive("closedThankTitle")}</p>
+          <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">{tArchive("closedThankBody")}</p>
         </div>
       ) : null}
 
@@ -3116,12 +3120,9 @@ export function PatientProductRequestActions({
             onClick={openArchiveResubmitDraft}
             className={uiActionBtnFull("flex items-center justify-center")}
           >
-            Ajuster et renvoyer une nouvelle demande
+            {tArchive("resubmitCta")}
           </button>
-          <p className="mt-1.5 text-center text-[10px] leading-snug text-muted-foreground">
-            Ouvre une nouvelle demande chez cette officine avec vos produits préremplis — vous validez l&apos;envoi sur
-            la page suivante.
-          </p>
+          <p className="mt-1.5 text-center text-[10px] leading-snug text-muted-foreground">{tArchive("resubmitHint")}</p>
         </div>
       ) : null}
 
@@ -3141,7 +3142,7 @@ export function PatientProductRequestActions({
 
       {forceReadOnly && isConsultation ? (
         <p className="mt-2 rounded-lg border border-border/80 bg-muted/20 px-3 py-2 text-[11px] font-medium text-muted-foreground">
-          Dossier {requestStatusFr[status] ?? status} — consultation en lecture seule.
+          {tDemandes("consultationReadonlyBanner", { status: patientStatusLabel })}
         </p>
       ) : null}
 
@@ -3163,7 +3164,7 @@ export function PatientProductRequestActions({
 
       {forceReadOnly && isPrescription && prescriptionNote?.trim() ? (
         <div className="mb-2 rounded-xl border border-border/80 bg-card px-3 py-2.5 text-sm">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Votre message</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{tDemandes("yourMessage")}</p>
           <p className="mt-1 whitespace-pre-wrap text-foreground">{prescriptionNote.trim()}</p>
         </div>
       ) : null}
@@ -3685,7 +3686,7 @@ export function PatientProductRequestActions({
                       ))}
                     </ul>
                   ) : query.trim().length >= 2 ? (
-                    <p className="mt-2 text-xs text-muted-foreground">Aucun résultat.</p>
+                    <p className="mt-2 text-xs text-muted-foreground">{tDemandePublic("noResults")}</p>
                   ) : null}
                 </>
               }
@@ -3764,11 +3765,11 @@ export function PatientProductRequestActions({
                 <span className="font-bold tabular-nums text-foreground">{totalsRetained.count}</span>{" "}
                 {isTreatedActiveView
                   ? totalsRetained.count > 1
-                    ? "produits à retirer"
-                    : "produit à retirer"
+                    ? tArchive("footer.productsToPickup")
+                    : tArchive("footer.productToPickup")
                   : totalsRetained.count > 1
-                    ? "produits retenus"
-                    : "produit retenu"}
+                    ? tArchive("footer.productsRetained")
+                    : tArchive("footer.productRetained")}
               </>
             }
             summaryRight={totalRetainedGrandLabel}
@@ -3838,7 +3839,7 @@ export function PatientProductRequestActions({
                 )}
               >
                 <span className="text-[11px] font-semibold text-foreground">
-                  Date {visitFieldsEditable && showConfirm ? <span className="text-destructive">*</span> : null}
+                  {tCommon("fieldDate")} {visitFieldsEditable && showConfirm ? <span className="text-destructive">*</span> : null}
                 </span>
                 <PlannedVisitDateInput
                   key={visitSyncKey}
@@ -3857,8 +3858,8 @@ export function PatientProductRequestActions({
                 )}
               >
                 <span className="text-[11px] font-semibold text-foreground">
-                  Heure{" "}
-                  <span className="font-normal text-muted-foreground">(facultatif)</span>
+                  {tCommon("fieldTime")}{" "}
+                  <span className="font-normal text-muted-foreground">{tCommon("optionalParen")}</span>
                 </span>
                 <PlannedVisitTimeInput
                   hour={visitHour}
@@ -3878,24 +3879,24 @@ export function PatientProductRequestActions({
                   useCompactPassageBlock && "mx-auto max-w-md"
                 )}
               >
-                Enregistré : {visitTimeFr}
+                {tCommon("visitSavedAt", { time: visitTimeFr })}
               </span>
             ) : null}
             {useCompactPassageBlock && visitFieldsEditable && showConfirmedCards && status === "confirmed" ? (
               <p className="mx-auto max-w-md text-[10px] leading-snug text-muted-foreground">
-                La pharmacie voit les changements sur la demande.
+                {tCommon("visitChangesVisibleToPharmacy")}
               </p>
             ) : !useCompactPassageBlock && visitFieldsEditable && showConfirmedCards && status === "confirmed" ? (
               <p className="text-[10px] leading-snug text-primary/90">
-                La pharmacie voit les changements sur la demande.
+                {tCommon("visitChangesVisibleToPharmacy")}
               </p>
             ) : useCompactPassageBlock && visitFieldsEditable && isTreatedActiveView ? (
               <p className="mx-auto max-w-md text-[10px] leading-snug text-muted-foreground">
-                Modifiez la date ou l&apos;heure puis enregistrez ci-dessous.
+                {tCommon("visitEditHint")}
               </p>
             ) : !useCompactPassageBlock && visitFieldsEditable && isTreatedActiveView ? (
               <p className="text-[10px] leading-snug text-sky-900/85">
-                Modifiez la date ou l&apos;heure puis enregistrez ci-dessous.
+                {tCommon("visitEditHint")}
               </p>
             ) : null}
             {showConfirmedCards && !confirmedRevalidationMode && visitFieldsEditable ? (
@@ -4229,7 +4230,7 @@ export function PatientProductRequestActions({
                       isPrescription ? "text-amber-900" : "text-sky-900"
                     )}
                   >
-                    Date de passage en officine
+                    {tModal("visitDateTitle")}
                   </p>
                   <p
                     className={cn(
@@ -4245,7 +4246,7 @@ export function PatientProductRequestActions({
                       isPrescription ? "text-amber-900/85" : "text-sky-900/85"
                     )}
                   >
-                    Présentez-vous à la pharmacie à ce créneau pour retirer vos produits réservés.
+                    {tModal("visitInstructions")}
                   </p>
                 </div>
               ) : (
@@ -4257,7 +4258,7 @@ export function PatientProductRequestActions({
                       : "border-sky-200/80 bg-sky-50/80 text-sky-950"
                   )}
                 >
-                  Vérifiez vos produits retenus et quantités avant enregistrement.
+                  {tModal("verifyBeforeSave")}
                 </p>
               )}
 
@@ -4517,7 +4518,7 @@ export function PatientProductRequestActions({
                               </p>
                             ) : ch.kind !== "removed" ? (
                               <p className="mt-0.5 text-[11px] text-slate-600">
-                                Qté <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
+                                {tModal("resubmitQty")} <span className="font-bold tabular-nums text-slate-900">{l.qty}</span>
                               </p>
                             ) : (
                               <p className="mt-0.5 text-[11px] text-slate-600">
@@ -4544,7 +4545,7 @@ export function PatientProductRequestActions({
             </div>
             <div className="border-t border-slate-200 bg-slate-50 px-3 py-2.5 sm:px-4">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-bold text-slate-800">TOTAL</span>
+                <span className="text-sm font-bold text-slate-800">{tCommon("totalLabel")}</span>
                 <span className="text-lg font-bold tabular-nums text-sky-900">{formatPriceDh(resubmitTotal)}</span>
               </div>
               <div className={cn("mt-2", uiActionBtnFlexRow())}>
