@@ -25,6 +25,8 @@ type Props = {
 export function AdminOnboardPharmacyForm({ onCreated }: Props) {
   const [nom, setNom] = useState("");
   const [adresse, setAdresse] = useState("");
+  const [nomAr, setNomAr] = useState("");
+  const [adresseAr, setAdresseAr] = useState("");
   const [ville, setVille] = useState("");
   const [telephone, setTelephone] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
@@ -44,6 +46,8 @@ export function AdminOnboardPharmacyForm({ onCreated }: Props) {
   const resetForm = () => {
     setNom("");
     setAdresse("");
+    setNomAr("");
+    setAdresseAr("");
     setVille("");
     setTelephone("");
     setWhatsapp("");
@@ -84,6 +88,8 @@ export function AdminOnboardPharmacyForm({ onCreated }: Props) {
             nom,
             adresse,
             ville,
+            nom_ar: nomAr || undefined,
+            adresse_ar: adresseAr || undefined,
             telephone: telephone || undefined,
             whatsapp: whatsapp || undefined,
             latitude: coords.latitude,
@@ -213,6 +219,22 @@ export function AdminOnboardPharmacyForm({ onCreated }: Props) {
             value={adresse}
             onChange={(e) => setAdresse(e.target.value)}
             required
+          />
+          <input
+            className="rounded-lg border p-3"
+            placeholder="Nom de l'officine (arabe)"
+            value={nomAr}
+            onChange={(e) => setNomAr(e.target.value)}
+            dir="rtl"
+            lang="ar"
+          />
+          <input
+            className="rounded-lg border p-3 md:col-span-2"
+            placeholder="Adresse (arabe)"
+            value={adresseAr}
+            onChange={(e) => setAdresseAr(e.target.value)}
+            dir="rtl"
+            lang="ar"
           />
           <input
             className="rounded-lg border p-3"

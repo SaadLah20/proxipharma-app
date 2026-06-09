@@ -1,6 +1,13 @@
 /** Champs coordonnées officine — éditables par le pharmacien (ma fiche). */
 
-export type PharmacyContactFieldKey = "nom" | "adresse" | "ville" | "telephone" | "whatsapp";
+export type PharmacyContactFieldKey =
+  | "nom"
+  | "adresse"
+  | "ville"
+  | "telephone"
+  | "whatsapp"
+  | "nom_ar"
+  | "adresse_ar";
 
 export type PharmacyContactFieldMeta = {
   label: string;
@@ -46,6 +53,19 @@ export const PHARMACY_CONTACT_FIELDS: Record<PharmacyContactFieldKey, PharmacyCo
     maxLength: 30,
     type: "tel",
     inputMode: "tel",
+  },
+  nom_ar: {
+    label: "Nom de l'officine (arabe)",
+    hint: "Facultatif — affiché sur la fiche publique et l'annuaire quand le patient choisit العربية.",
+    placeholder: "صيدلية الفجر",
+    maxLength: 120,
+  },
+  adresse_ar: {
+    label: "Adresse (arabe)",
+    hint: "Facultatif — rue et repères en arabe.",
+    placeholder: "شارع الحسن الثاني 12",
+    maxLength: 200,
+    rows: 2,
   },
 };
 

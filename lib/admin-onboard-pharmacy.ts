@@ -12,6 +12,8 @@ export type OnboardPharmacyInput = {
     latitude: number;
     longitude: number;
     statut?: string;
+    nom_ar?: string;
+    adresse_ar?: string;
   };
   pharmacist: {
     full_name: string;
@@ -52,6 +54,8 @@ export function parseOnboardPharmacyBody(body: unknown):
   const nom = String(ph.nom ?? "").trim();
   const adresse = String(ph.adresse ?? "").trim();
   const ville = String(ph.ville ?? "").trim();
+  const nom_ar = String(ph.nom_ar ?? "").trim();
+  const adresse_ar = String(ph.adresse_ar ?? "").trim();
   const full_name = String(tit.full_name ?? "").trim();
   const phoneInput = String(tit.phone ?? "").trim();
 
@@ -97,6 +101,8 @@ export function parseOnboardPharmacyBody(body: unknown):
       nom,
       adresse,
       ville,
+      nom_ar: nom_ar || undefined,
+      adresse_ar: adresse_ar || undefined,
       telephone: String(ph.telephone ?? "").trim() || undefined,
       whatsapp: String(ph.whatsapp ?? "").trim() || phone,
       latitude: coords.latitude,

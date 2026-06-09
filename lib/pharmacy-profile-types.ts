@@ -39,8 +39,10 @@ export type PharmacyServiceCatalogRow = {
 export type PharmacyPublicProfileRow = {
   id: string;
   nom: string;
+  nom_ar?: string | null;
   ville: string;
   adresse: string;
+  adresse_ar?: string | null;
   telephone: string | null;
   whatsapp: string | null;
   statut: string;

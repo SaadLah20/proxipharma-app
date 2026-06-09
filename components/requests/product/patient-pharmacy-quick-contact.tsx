@@ -1,16 +1,19 @@
 "use client";
 
 import { Mail, MessageCircle, MessageSquare, Phone } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import type { AppLocale } from "@/lib/i18n/config";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 
 export type PatientPharmacyContactInfo = {
   nom: string;
+  nom_ar?: string | null;
   ville?: string | null;
   telephone?: string | null;
   contact_email?: string | null;
   public_ref?: string | null;
   adresse?: string | null;
+  adresse_ar?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   maps_url?: string | null;
@@ -43,6 +46,7 @@ export function PatientPharmacyQuickContact({
   requestRef: string;
   variant?: "default" | "iconsOnly";
 }) {
+  const locale = useLocale() as AppLocale;
   const tCommon = useTranslations("common");
   const tDemandes = useTranslations("demandes.quickContact");
   const tPharmacyPublic = useTranslations("pharmacyPublic");
@@ -58,7 +62,12 @@ export function PatientPharmacyQuickContact({
       )}`
     : "";
 
-  const loc = [pharmacyPublicLabel(pharmacy.nom), pharmacy.ville?.trim()].filter(Boolean).join(" · ");
+  const loc = [
+    pharmacyPublicLabel(pharmacy.nom, { locale, nomAr: pharmacy.nom_ar }),
+    pharmacy.ville?.trim(),
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const iconButtons = (
     <>

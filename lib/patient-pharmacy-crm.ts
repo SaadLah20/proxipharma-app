@@ -1,6 +1,7 @@
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import { promoReservationLabel } from "@/lib/promo/reservation-status-ui";
 import type { PromoReservationStatus } from "@/lib/promo/types";
+import type { AppLocale } from "@/lib/i18n/config";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 
 export type PatientPharmacyDirectoryRow = {
@@ -46,8 +47,10 @@ export type PatientPharmacyDetail = {
   pharmacy: {
     pharmacy_id: string;
     nom: string | null;
+    nom_ar?: string | null;
     ville: string | null;
     adresse: string | null;
+    adresse_ar?: string | null;
     telephone: string | null;
     whatsapp: string | null;
     pharmacy_public_ref: string | null;
@@ -67,8 +70,10 @@ export function parsePatientPharmacyDetail(raw: unknown): PatientPharmacyDetail 
     pharmacy: {
       pharmacy_id: String(pharmacy.pharmacy_id),
       nom: pharmacy.nom != null ? String(pharmacy.nom) : null,
+      nom_ar: pharmacy.nom_ar != null ? String(pharmacy.nom_ar) : null,
       ville: pharmacy.ville != null ? String(pharmacy.ville) : null,
       adresse: pharmacy.adresse != null ? String(pharmacy.adresse) : null,
+      adresse_ar: pharmacy.adresse_ar != null ? String(pharmacy.adresse_ar) : null,
       telephone: pharmacy.telephone != null ? String(pharmacy.telephone) : null,
       whatsapp: pharmacy.whatsapp != null ? String(pharmacy.whatsapp) : null,
       pharmacy_public_ref:
@@ -149,8 +154,11 @@ export function formatActivityFr(iso: string | null | undefined): string {
   });
 }
 
-export function pharmacyDisplayName(nom: string | null | undefined): string {
-  return pharmacyPublicLabel(nom);
+export function pharmacyDisplayName(
+  nom: string | null | undefined,
+  options?: { locale?: AppLocale; nomAr?: string | null },
+): string {
+  return pharmacyPublicLabel(nom, options);
 }
 
 export function pharmacyRatingLabelFr(

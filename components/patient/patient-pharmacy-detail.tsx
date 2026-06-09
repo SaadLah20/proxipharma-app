@@ -31,6 +31,7 @@ import {
   promoStatusLabelFr,
   type PatientPharmacyDetail,
 } from "@/lib/patient-pharmacy-crm";
+import { pharmacyLocalizedAdresse } from "@/lib/pharmacy-localized-field";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { clsx } from "clsx";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
@@ -145,12 +146,14 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
             {pharmacy.pharmacy_public_ref?.trim() ? (
               <p className={clsx("text-xs", p.monoAccent)}>{pharmacy.pharmacy_public_ref.trim()}</p>
             ) : null}
-            <h1 className={clsx(p.heroTitle, "text-lg leading-tight")}>{pharmacyDisplayName(pharmacy.nom)}</h1>
+            <h1 className={clsx(p.heroTitle, "text-lg leading-tight")}>
+              {pharmacyDisplayName(pharmacy.nom, { locale, nomAr: pharmacy.nom_ar })}
+            </h1>
             <p className={clsx("mt-1 flex items-start gap-1 text-xs", p.heroSubtitle)}>
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
                 {pharmacy.ville?.trim() ? `${pharmacy.ville.trim()} · ` : ""}
-                {pharmacy.adresse?.trim() || t("addressMissing")}
+                {pharmacyLocalizedAdresse(pharmacy, locale) || t("addressMissing")}
               </span>
             </p>
             {rating ? (

@@ -81,7 +81,7 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
     const { data, error: qErr } = await supabase
       .from("pharmacy_promo_reservations")
       .select(
-        "id,offer_id,status,pickup_date,pickup_time,patient_note,pharmacist_note,public_ref,created_at,pharmacy_promo_offers(title,description,discount_percent),pharmacies:pharmacy_id(id,nom,ville,adresse,telephone,contact_email,public_ref,latitude,longitude,maps_url)",
+        "id,offer_id,status,pickup_date,pickup_time,patient_note,pharmacist_note,public_ref,created_at,pharmacy_promo_offers(title,description,discount_percent),pharmacies:pharmacy_id(id,nom,nom_ar,ville,adresse,adresse_ar,telephone,contact_email,public_ref,latitude,longitude,maps_url)",
       )
       .eq("id", reservationId)
       .maybeSingle();
@@ -113,8 +113,10 @@ export function PatientPromoReservationDetail({ reservationId }: { reservationId
           ? {
               id: ph.id as string,
               nom: (ph.nom as string) ?? "",
+              nom_ar: (ph.nom_ar as string) ?? null,
               ville: (ph.ville as string) ?? null,
               adresse: (ph.adresse as string) ?? null,
+              adresse_ar: (ph.adresse_ar as string) ?? null,
               telephone: (ph.telephone as string) ?? null,
               contact_email: (ph.contact_email as string) ?? null,
               public_ref: (ph.public_ref as string) ?? null,

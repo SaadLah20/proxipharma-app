@@ -7,10 +7,12 @@ export function PharmacyFormField({
   meta,
   value,
   onChange,
+  inputDir,
 }: {
   meta: PharmacyFieldMeta | PharmacyContactFieldMeta;
   value: string;
   onChange: (value: string) => void;
+  inputDir?: "rtl" | "ltr";
 }) {
   const inputClass =
     "mt-1.5 w-full min-h-11 rounded-xl border border-input bg-background px-3 py-2.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -25,6 +27,8 @@ export function PharmacyFormField({
           value={value}
           maxLength={meta.maxLength}
           placeholder={meta.placeholder}
+          dir={inputDir}
+          lang={inputDir === "rtl" ? "ar" : undefined}
           onChange={(e) => onChange(e.target.value)}
         />
       ) : (
@@ -35,6 +39,8 @@ export function PharmacyFormField({
           value={value}
           maxLength={meta.maxLength}
           placeholder={meta.placeholder}
+          dir={inputDir}
+          lang={inputDir === "rtl" ? "ar" : undefined}
           onChange={(e) => onChange(e.target.value)}
         />
       )}
