@@ -52,7 +52,7 @@ export function PharmetoLogo({
   }
 
   return (
-    <span className={cn("inline-flex min-w-0 items-center gap-2.5", className)}>
+    <span className={cn("inline-flex min-w-0 items-center gap-1.5", className)}>
       <Image
         src={ICON_SRC}
         alt=""
