@@ -41,6 +41,11 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 ## 6. État technique récent (aligné repo — mai–juin 2026)
 
+**Mise à jour 2026-06-09 (suite 3) — nom/adresse arabe officine + lot ville reporté** :
+- **Livré** : colonnes **`nom_ar`**, **`adresse_ar`** ; admin onboarding + **Ma fiche → Coordonnées** ; affichage patient locale **ar** (fiche, annuaire, dossiers, hubs). Migration **`20260716_001`**.
+- **Reporté** : **ville** = liste admin + traductions AR intégrées — spec **`CAHIER_DES_CHARGES.md` §13.55** ; consigne reprise : *« Reprendre l'implémentation de la ville en arabe »*.
+- **SQL** (nom/adresse) : **`20260716_001`** si pas encore appliquée.
+
 **Mise à jour 2026-06-09 (suite 2) — affinages preview drift / ordonnances / packs promo (branche `fix/validated-supply-ecart-ui-modal`, commits **`55336d2`** · **`9768bda`** · **`f38c90b`** · **`f45728e`)** :
 - **Drift dossier patient** : bandeau **`RequestDetailStaleBanner`** **visible** sur **`confirmed → treated`** (consultation incluse) — fin auto-refresh silencieux ; polling **5 s**.
 - **Ordonnances patient** : **`lib/patient-prescription-dossier-shell.ts`** — marge header→scan, stack scan / titre / bandeaux séparés.

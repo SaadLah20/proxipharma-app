@@ -2530,6 +2530,36 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
+### 13.55) Lot reporté — ville officine (liste admin + libellé arabe)
+
+**Statut** : **non mergé** — esquisse locale **annulée** (2026-06-09) ; reprise ultérieure par petites étapes.
+
+**Consigne utilisateur (reprise)** : *« Reprendre l'implémentation de la ville en arabe »* — lire cette section + **`AGENTS.md`** (paragraphe ville) ; **ne pas** refaire le lot **`nom_ar` / `adresse_ar`** (déjà livré, migration **`20260716_001`**).
+
+**Objectif métier**
+- **Admin** (onboarding + formulaire legacy **`AdminOnboardPharmacyForm`** / **`app/admin/page.tsx`**) : **`ville`** = **liste déroulante** (plus de saisie libre).
+- **Pharmacien** (**Ma fiche → Coordonnées**) : même liste (valeur legacy hors catalogue conservée jusqu’à changement).
+- **Patient / public** (locale **ar**) : afficher le **libellé arabe** de la ville si connue ; sinon repli sur le français stocké en base (comme **`nom_ar`**).
+- **Pas de migration SQL** : colonne **`pharmacies.ville`** reste du texte FR canonique (ex. `Témara`, `Casablanca`).
+
+**Implémentation prévue (spec figée)**
+1. **`lib/pharmacy-cities-morocco.ts`** — catalogue `{ fr, ar }` (~35 villes/communes Maroc pilote) ; helpers :
+   - `pharmacyCityLabel(ville, locale)`
+   - `pharmacyCitySearchTerms(ville)` (annuaire + filtres hub)
+   - `validatePharmacyCityForSubmit(ville, { allowLegacy? })`
+   - `buildPharmacyCitySelectOptions(legacyValue?)`
+2. **`components/pharmacy/pharmacy-city-select.tsx`** — `<select>` réutilisable (admin + ma fiche).
+3. **Validation** : **`lib/admin-onboard-pharmacy.ts`**, **`lib/pharmacy-contact-fields.ts`** (`validatePharmacyContactForm` + option legacy ma fiche).
+4. **Affichage patient** (brancher `pharmacyCityLabel`) : bandeau dossier, quick contact, hubs demandes/promo, annuaire, fiche publique, Mes pharmacies — miroir du lot **`nom_ar`** déjà fait.
+5. **Piège build** : tri avec **`collatorForLocale(locale).compare(a, b)`** — **pas** `localeCompare(..., collator)`.
+
+**Fichiers touchés lors de l’esquisse annulée** (référence reprise) :  
+`AdminOnboardPharmacyForm.tsx`, `app/admin/page.tsx`, `pharmacy-ma-fiche-page.tsx`, `patient-demandes-hub.tsx`, `demande-hub-ui.tsx`, `patient-pharmacy-dossier-band.tsx`, `patient-pharmacy-quick-contact.tsx`, `annuaire-page.tsx`, `annuaire-pharmacy-card.tsx`, `pharmacy-public-info-tab.tsx`, `patient-pharmacy-detail.tsx`, `patient-promo-reservations-hub.tsx`, `promo-reservation-hub-card.tsx`, `patient-product-demande-hub-card.tsx`.
+
+**Phrase de reprise (lot ville seul)** :
+
+**« Reprendre l'implémentation de la ville en arabe — Pharmeto, branche `fix/validated-supply-ecart-ui-modal`. Spec **`CAHIER_DES_CHARGES.md` §13.55`**. Liste admin + ma fiche ; traductions AR intégrées dans le catalogue code ; affichage patient en locale ar. Migration **`20260716_001`** déjà appliquée (nom/adresse ar) — ne pas dupliquer. Livrer par petit commit + preview ; vérifier `npm run build` (Collator). »**
+
 ### 13.54) Phrase de reprise (recommandée — après session **2026-06-09 (suite 2)** affinages preview)
 
 **« On reprend Pharmeto (`pharmeto.ma`). Branche `fix/validated-supply-ecart-ui-modal` (commits **`1330407`** lot initial · **`55336d2`** statut amendement · **`9768bda`** / **`f38c90b`** packs + ordonnances · **`f45728e`** libellé amendement). **Migrations** inchangées (**`20260715_001`** ancre). **Drift dossier** : **`RequestDetailStaleBanner`**, i18n **`demandes.drift`**, polling 5 s — bandeau **visible** patient **`confirmed → treated`** (consultation incluse). **Archives** : totaux **`demandes.archive.footer`**. **Ordonnances patient** : **`lib/patient-prescription-dossier-shell.ts`** (marge header→scan, stack scan/titre/bandeaux). **Hub packs promo** : tableau de bord = **tuiles seules** (`PromoStatDashboard`) ; cartes liste sans texte sous statut. **Amendement** : badge **Modifiée** + hint **« Modifiée par l'officine après votre validation »** + **Résumé** dans header. Rebrand + charte antérieurs : **§13.52** / **§13.51**. Je te donne la tâche ou les retours preview. »**
