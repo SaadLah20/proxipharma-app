@@ -1726,6 +1726,10 @@ type PatientConfirmValidationCopy = {
   visitDateOutOfRange: (maxDate: string, hasToOrder: boolean) => string;
 };
 
+type PatientConfirmValidationResult =
+  | { ok: true }
+  | { ok: false; message: string; focus: "visit_passage" | "top" };
+
 function validatePatientConfirmBeforeReview(
   items: ActionItemRow[],
   sel: Record<string, LineSelState>,
@@ -1735,10 +1739,16 @@ function validatePatientConfirmBeforeReview(
   visitDateRaw: string,
   copy: PatientConfirmValidationCopy & Pick<ConfirmLineCopy, "productFallback" | "alternativeFallback">,
   formatMaxVisitDate: (ymd: string) => string
-): string | null {
+): PatientConfirmValidationResult {
+  const fail = (message: string, focus: "visit_passage" | "top"): PatientConfirmValidationResult => ({
+    ok: false,
+    message,
+    focus,
+  });
+
   const anyOn = rpcPayload.some((p) => p.is_selected);
   if (!anyOn) {
-    return copy.keepAtLeastOneLine;
+    return fail(copy.keepAtLeastOneLine, "top");
   }
   for (const row of items) {
     const st = sel[row.id];
@@ -1753,21 +1763,21 @@ function validatePatientConfirmBeforeReview(
         st.branch === "principal"
           ? (one(row.products)?.name ?? copy.productFallback)
           : (one(alt?.products)?.name ?? copy.alternativeFallback);
-      return copy.qtyExceedsMax(label, cap);
+      return fail(copy.qtyExceedsMax(label, cap), "top");
     }
   }
   if (visitWin.missingEtaOnToOrder) {
-    return copy.missingEtaOnToOrder;
+    return fail(copy.missingEtaOnToOrder, "top");
   }
   const rawVisit = visitDateRaw.trim();
   if (rawVisit === "") {
-    return copy.visitDateRequired;
+    return fail(copy.visitDateRequired, "visit_passage");
   }
   if (rawVisit !== "" && rawVisit !== resolvedVisitDate) {
     const maxDate = formatMaxVisitDate(visitWin.maxYmd);
-    return copy.visitDateOutOfRange(maxDate, visitWin.hasToOrder);
+    return fail(copy.visitDateOutOfRange(maxDate, visitWin.hasToOrder), "visit_passage");
   }
-  return null;
+  return { ok: true };
 }
 
 function blockMonetarySummary(lines: PatientConfirmPreviewLine[]): { sumKnown: number; missingUnitPrice: boolean } {
@@ -1910,7 +1920,7 @@ export function PatientProductRequestActions({
       keepAtLeastOneLine: tValidation("keepAtLeastOneLine"),
       qtyExceedsMax: (label, cap) => tValidation("qtyExceedsMax", { label, cap }),
       missingEtaOnToOrder: tValidation("missingEtaOnToOrder"),
-      visitDateRequired: tCommon("visitDateRequired"),
+      visitDateRequired: tCommon("visitDateRequiredToValidate"),
       visitDateOutOfRange: (maxDate, hasToOrder) =>
         hasToOrder
           ? tCommon("visitDateOutOfRangeOrder", { maxDate })
@@ -1968,6 +1978,8 @@ export function PatientProductRequestActions({
   const isConsultation = requestType === "free_consultation";
   const dossierUiTheme = requestKindUiTheme(requestType);
   const [actionError, setActionError] = useState("");
+  const [visitPassageError, setVisitPassageError] = useState("");
+  const visitPassageBlockRef = useRef<HTMLDivElement>(null);
   const [historyModalItemId, setHistoryModalItemId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<"" | "confirm" | "resubmit" | "abandon" | "visit">("");
   const [confirmReviewOpen, setConfirmReviewOpen] = useState(false);
@@ -2429,6 +2441,31 @@ export function PatientProductRequestActions({
     });
   };
 
+  const focusVisitPassageBlock = useCallback((message: string) => {
+    setVisitPassageError(message);
+    setActionError("");
+    window.requestAnimationFrame(() => {
+      visitPassageBlockRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, []);
+
+  const applyConfirmValidationError = useCallback(
+    (err: Extract<PatientConfirmValidationResult, { ok: false }>) => {
+      if (err.focus === "visit_passage") {
+        focusVisitPassageBlock(err.message);
+      } else {
+        setVisitPassageError("");
+        setActionError(err.message);
+      }
+    },
+    [focusVisitPassageBlock]
+  );
+
+  const handleVisitDateChange = useCallback((ymd: string) => {
+    setVisitDate(ymd);
+    setVisitPassageError("");
+  }, []);
+
   const closeConfirmReview = useCallback(() => {
     setConfirmReviewOpen(false);
     setConfirmReviewSnap(null);
@@ -2444,7 +2481,7 @@ export function PatientProductRequestActions({
       dt.formatDateShort,
       confirmLineCopy,
     );
-    const err = validatePatientConfirmBeforeReview(
+    const result = validatePatientConfirmBeforeReview(
       items,
       sel,
       built.rpcPayload,
@@ -2454,11 +2491,12 @@ export function PatientProductRequestActions({
       { ...validationCopy, ...confirmLineCopy },
       formatMaxVisitDate
     );
-    if (err) {
-      setActionError(err);
+    if (!result.ok) {
+      applyConfirmValidationError(result);
       return;
     }
     setActionError("");
+    setVisitPassageError("");
     const timePg = htmlTimeToPg(visitTimeComposed);
     const skippedLines = buildNonRetainedConfirmLines(
       items,
@@ -2487,6 +2525,7 @@ export function PatientProductRequestActions({
     visitTimeComposed,
     validationCopy,
     formatMaxVisitDate,
+    applyConfirmValidationError,
   ]);
 
   const openConfirmedRevalidationReview = useCallback(() => {
@@ -2503,7 +2542,7 @@ export function PatientProductRequestActions({
       dt.formatDateShort,
       confirmLineCopy,
     );
-    const err = validatePatientConfirmBeforeReview(
+    const result = validatePatientConfirmBeforeReview(
       items,
       sel,
       built.rpcPayload,
@@ -2513,11 +2552,12 @@ export function PatientProductRequestActions({
       { ...validationCopy, ...confirmLineCopy },
       formatMaxVisitDate
     );
-    if (err) {
-      setActionError(err);
+    if (!result.ok) {
+      applyConfirmValidationError(result);
       return;
     }
     setActionError("");
+    setVisitPassageError("");
     const skippedLines = buildNonRetainedConfirmLines(
       items,
       sel,
@@ -2545,6 +2585,8 @@ export function PatientProductRequestActions({
     detailStale,
     validationCopy,
     formatMaxVisitDate,
+    applyConfirmValidationError,
+    staleActionMessage,
   ]);
 
   const startConfirmedRevalidation = useCallback(() => {
@@ -2721,7 +2763,7 @@ export function PatientProductRequestActions({
     const rawVisit = visitDate.trim();
     if (rawVisit !== "" && rawVisit !== resolvedVisitDate) {
       const maxDate = formatMaxVisitDate(visitWin.maxYmd);
-      setActionError(
+      focusVisitPassageBlock(
         visitWin.hasToOrder
           ? tCommon("visitDateOutOfRangeOrder", { maxDate })
           : tCommon("visitDateOutOfRange", { maxDate })
@@ -3778,6 +3820,7 @@ export function PatientProductRequestActions({
 
         {showVisitFields ? (
           <div
+            ref={visitPassageBlockRef}
             className={clsx(
               "mt-4 space-y-2 border-t border-border/60 pt-3",
               useCompactPassageBlock && "text-center",
@@ -3785,10 +3828,18 @@ export function PatientProductRequestActions({
                 "rounded-xl border-2 p-2.5 shadow-md sm:p-3",
               !useCompactPassageBlock &&
                 visitFieldsEditable &&
+                !visitPassageError &&
                 "border-primary/35 bg-gradient-to-br from-primary/[0.12] via-background to-primary/[0.06] ring-1 ring-primary/25",
               !useCompactPassageBlock &&
+                visitFieldsEditable &&
+                visitPassageError &&
+                "border-destructive/50 bg-destructive/5 ring-2 ring-destructive/25",
+              !useCompactPassageBlock &&
                 !visitFieldsEditable &&
-                "border-slate-200/90 bg-slate-50/80 ring-1 ring-slate-200/50"
+                "border-slate-200/90 bg-slate-50/80 ring-1 ring-slate-200/50",
+              useCompactPassageBlock &&
+                visitPassageError &&
+                "rounded-xl border-2 border-destructive/50 bg-destructive/5 p-2.5 ring-2 ring-destructive/25"
             )}
           >
             {!useCompactPassageBlock ? (
@@ -3844,11 +3895,12 @@ export function PatientProductRequestActions({
                 <PlannedVisitDateInput
                   key={visitSyncKey}
                   valueYmd={showConfirm && visitFieldsEditable ? visitDate : resolvedVisitDate}
-                  onChangeYmd={setVisitDate}
+                  onChangeYmd={handleVisitDateChange}
                   minYmd={visitWin.minYmd}
                   maxYmd={visitWin.maxYmd}
                   disabled={!visitFieldsEditable}
                   required={showConfirm && visitFieldsEditable}
+                  invalid={Boolean(visitPassageError)}
                 />
               </label>
               <div
@@ -3872,6 +3924,17 @@ export function PatientProductRequestActions({
                 />
               </div>
             </div>
+            {visitPassageError ? (
+              <p
+                role="alert"
+                className={clsx(
+                  "text-[11px] font-semibold leading-snug text-destructive",
+                  useCompactPassageBlock && "mx-auto max-w-md"
+                )}
+              >
+                {visitPassageError}
+              </p>
+            ) : null}
             {visitTimeFr ? (
               <span
                 className={clsx(

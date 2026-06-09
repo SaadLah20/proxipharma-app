@@ -12,6 +12,7 @@ type Props = {
   maxYmd?: string;
   disabled?: boolean;
   required?: boolean;
+  invalid?: boolean;
   className?: string;
   /** Style du libellé affiché (jj/mm/…). */
   shellClassName?: string;
@@ -33,6 +34,7 @@ export function PlannedVisitDateInput({
   maxYmd,
   disabled = false,
   required = false,
+  invalid = false,
   className,
   shellClassName,
   id,
@@ -62,7 +64,10 @@ export function PlannedVisitDateInput({
 
   return (
     <div lang="fr-FR" className={clsx("relative min-w-0 flex-1", className)}>
-      <div aria-hidden className={clsx(shell, "pointer-events-none pr-9")}>
+      <div
+        aria-hidden
+        className={clsx(shell, "pointer-events-none pr-9", invalid && "border-destructive/60 ring-2 ring-destructive/20")}
+      >
         {display ? (
           display
         ) : (
@@ -78,6 +83,7 @@ export function PlannedVisitDateInput({
         value={valueYmd}
         onChange={(e) => onChangeYmd(e.target.value)}
         required={required}
+        aria-invalid={invalid || undefined}
         aria-label={label}
         className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
       />
