@@ -73,6 +73,8 @@ export async function onboardPharmacyAndPharmacist(
       nom: input.pharmacy.nom,
       adresse: input.pharmacy.adresse,
       ville: input.pharmacy.ville,
+      nom_ar: input.pharmacy.nom_ar?.trim() || null,
+      adresse_ar: input.pharmacy.adresse_ar?.trim() || null,
       telephone: input.pharmacy.telephone ?? null,
       whatsapp: input.pharmacy.whatsapp ?? phone,
       maps_url: null,

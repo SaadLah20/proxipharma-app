@@ -86,6 +86,8 @@ export function PharmacyMaFichePage() {
     ville: "",
     telephone: "",
     whatsapp: "",
+    nom_ar: "",
+    adresse_ar: "",
   });
   const [titularPublic, setTitularPublic] = useState(true);
   const [form, setForm] = useState<ProfileForm>(EMPTY_FORM);
@@ -109,7 +111,7 @@ export function PharmacyMaFichePage() {
       supabase
         .from("pharmacies")
         .select(
-          "id,nom,ville,adresse,telephone,whatsapp,welcome_text,titular_name,titular_title,titular_public,email,website_url,facebook_url,instagram_url,maps_url,cover_image_path,logo_url"
+          "id,nom,nom_ar,ville,adresse,adresse_ar,telephone,whatsapp,welcome_text,titular_name,titular_title,titular_public,email,website_url,facebook_url,instagram_url,maps_url,cover_image_path,logo_url"
         )
         .eq("id", ctx.pharmacyId)
         .maybeSingle(),
@@ -143,6 +145,8 @@ export function PharmacyMaFichePage() {
         ville: ph.ville ?? "",
         telephone: ph.telephone ?? "",
         whatsapp: ph.whatsapp ?? "",
+        nom_ar: ph.nom_ar ?? "",
+        adresse_ar: ph.adresse_ar ?? "",
       });
       setTitularPublic(ph.titular_public !== false);
       const titularFromPharmacy = ph.titular_name?.trim() ?? "";
@@ -203,6 +207,8 @@ export function PharmacyMaFichePage() {
         nom: contactForm.nom.trim(),
         adresse: contactForm.adresse.trim(),
         ville: contactForm.ville.trim(),
+        nom_ar: contactForm.nom_ar.trim() || null,
+        adresse_ar: contactForm.adresse_ar.trim() || null,
         telephone: contactForm.telephone.trim() || null,
         whatsapp: whatsappE164,
         welcome_text: form.welcome_text.trim() || null,
@@ -333,6 +339,21 @@ export function PharmacyMaFichePage() {
                   onChange={(v) => setContactForm((f) => ({ ...f, [key]: v }))}
                 />
               ))}
+              <div className="space-y-4 border-t border-border/70 pt-4">
+                <p className="text-[11px] font-semibold text-foreground">Version arabe (facultatif)</p>
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  Affichée sur la fiche publique et l&apos;annuaire lorsque le patient choisit العربية.
+                </p>
+                {(["nom_ar", "adresse_ar"] as PharmacyContactFieldKey[]).map((key) => (
+                  <PharmacyFormField
+                    key={key}
+                    meta={PHARMACY_CONTACT_FIELDS[key]}
+                    value={contactForm[key]}
+                    onChange={(v) => setContactForm((f) => ({ ...f, [key]: v }))}
+                    inputDir="rtl"
+                  />
+                ))}
+              </div>
             </div>
           ) : null}
 

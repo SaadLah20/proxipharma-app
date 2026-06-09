@@ -154,6 +154,7 @@ export function PharmacyPublicProfile({
   const [ratingAvg, setRatingAvg] = useState<number | null>(pharmacy.rating_avg ?? null);
   const [ratingCount, setRatingCount] = useState<number | null>(pharmacy.rating_count ?? null);
   const canNavigate = hasPharmacyNavigation(pharmacy);
+  const displayNom = pharmacyPublicLabel(pharmacy.nom, { locale, nomAr: pharmacy.nom_ar });
 
   const tabs = useMemo(
     () => [
@@ -259,7 +260,7 @@ export function PharmacyPublicProfile({
     const url = typeof window !== "undefined" ? window.location.href : "";
     try {
       if (navigator.share) {
-        await navigator.share({ title: pharmacyPublicLabel(pharmacy.nom), url });
+        await navigator.share({ title: displayNom, url });
       } else if (navigator.clipboard) {
         await navigator.clipboard.writeText(url);
       }
@@ -307,7 +308,7 @@ export function PharmacyPublicProfile({
               <p className="font-mono text-[10px] font-bold tracking-wide opacity-90">{pharmacy.public_ref.trim()}</p>
             ) : null}
             <h1 className="text-lg font-bold leading-tight drop-shadow-sm sm:text-xl">
-              {pharmacyPublicLabel(pharmacy.nom)}
+              {displayNom}
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <span className={pharmacyOpenStatusOverlayBadgeClass(openState.status)}>{openLabel}</span>

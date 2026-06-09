@@ -49,7 +49,7 @@ export default function PharmacieFichePage() {
         supabase
           .from("pharmacies")
           .select(
-            "id,nom,ville,adresse,telephone,whatsapp,statut,public_ref,latitude,longitude,cover_image_path,logo_url,welcome_text,titular_name,titular_title,titular_public,email,website_url,facebook_url,instagram_url,maps_url,rating_avg,rating_count"
+            "id,nom,nom_ar,ville,adresse,adresse_ar,telephone,whatsapp,statut,public_ref,latitude,longitude,cover_image_path,logo_url,welcome_text,titular_name,titular_title,titular_public,email,website_url,facebook_url,instagram_url,maps_url,rating_avg,rating_count"
           )
           .eq("id", id)
           .maybeSingle(),

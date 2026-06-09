@@ -79,7 +79,7 @@ export function AnnuairePage() {
     const { data, error } = await supabase
       .from("pharmacies")
       .select(
-        "id,nom,ville,adresse,telephone,whatsapp,statut,public_ref,cover_image_path,logo_url,latitude,longitude,maps_url,rating_avg,rating_count"
+        "id,nom,nom_ar,ville,adresse,adresse_ar,telephone,whatsapp,statut,public_ref,cover_image_path,logo_url,latitude,longitude,maps_url,rating_avg,rating_count"
       )
       .order("nom", { ascending: true });
 
@@ -135,7 +135,16 @@ export function AnnuairePage() {
 
     if (searchQuery.trim().length >= 2) {
       list = list.filter((p) =>
-        rowMatchesPublicRefQuery(searchQuery, [p.public_ref, p.nom, p.ville, p.adresse, p.telephone, p.whatsapp])
+        rowMatchesPublicRefQuery(searchQuery, [
+          p.public_ref,
+          p.nom,
+          p.nom_ar,
+          p.ville,
+          p.adresse,
+          p.adresse_ar,
+          p.telephone,
+          p.whatsapp,
+        ])
       );
     }
 

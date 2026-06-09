@@ -3,8 +3,10 @@ import type { PharmacyOpenSnapshot } from "@/lib/annuaire/schedule-bundle";
 export type AnnuairePharmacyRow = {
   id: string;
   nom: string;
+  nom_ar?: string | null;
   ville: string;
   adresse: string;
+  adresse_ar?: string | null;
   telephone: string | null;
   whatsapp: string | null;
   statut: string;

@@ -2,10 +2,12 @@
 
 import type { MouseEvent } from "react";
 import { MessageCircle, Phone, Share2 } from "lucide-react";
+import { useLocale } from "next-intl";
 import { PharmacyNavigationPicker } from "@/components/pharmacy/pharmacy-navigation-picker";
 import { hasPharmacyNavigation } from "@/lib/pharmacy-navigation";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import type { PharmacyEngagementSource } from "@/lib/pharmacy-engagement";
+import type { AppLocale } from "@/lib/i18n/config";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { uiAnnuaireActionOverlayBtnGhost } from "@/lib/ui-action-buttons";
 import { cn } from "@/lib/utils";
@@ -13,9 +15,11 @@ import { cn } from "@/lib/utils";
 export type PharmacyCoverOverlayTarget = {
   id: string;
   nom: string;
+  nom_ar?: string | null;
   telephone?: string | null;
   whatsapp?: string | null;
   adresse?: string | null;
+  adresse_ar?: string | null;
   ville?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -37,9 +41,10 @@ export function PharmacyCoverOverlayActions({
   onShare: (e: MouseEvent<HTMLButtonElement>) => void;
   className?: string;
 }) {
+  const locale = useLocale() as AppLocale;
   const wa = normalizeWhatsApp(pharmacy.whatsapp);
   const canNavigate = hasPharmacyNavigation(pharmacy);
-  const label = pharmacyPublicLabel(pharmacy.nom);
+  const label = pharmacyPublicLabel(pharmacy.nom, { locale, nomAr: pharmacy.nom_ar });
   const ghostBtn = (disabled?: boolean) =>
     cn(uiAnnuaireActionOverlayBtnGhost(), disabled && "pointer-events-none opacity-40");
 

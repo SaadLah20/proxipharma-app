@@ -3,7 +3,7 @@
 import type { MouseEvent } from "react";
 import Link from "next/link";
 import { ArrowRight, MapPin } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { PharmacyCoverOverlayActions } from "@/components/pharmacy/pharmacy-cover-overlay-actions";
 import { PharmacyRatingOverlayChip } from "@/components/pharmacy/pharmacy-rating-overlay-chip";
 import type { AnnuairePharmacyEnriched } from "@/lib/annuaire/types";
@@ -12,6 +12,8 @@ import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import { buttonVariants } from "@/components/ui/button";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
+import { pharmacyLocalizedAdresse } from "@/lib/pharmacy-localized-field";
+import type { AppLocale } from "@/lib/i18n/config";
 import { cn } from "@/lib/utils";
 import {
   pharmacyOnCallOverlayBadgeClass,
@@ -20,6 +22,9 @@ import {
 
 export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyEnriched }) {
   const t = useTranslations("annuaire");
+  const locale = useLocale() as AppLocale;
+  const displayNom = pharmacyPublicLabel(pharmacy.nom, { locale, nomAr: pharmacy.nom_ar });
+  const displayAdresse = pharmacyLocalizedAdresse(pharmacy, locale);
   const coverUrl = resolvePublicMediaUrl(pharmacy.cover_image_path ?? pharmacy.logo_url ?? null);
   const publicRef = pharmacy.public_ref?.trim() ?? "";
   const openStatusLabel =
@@ -30,7 +35,7 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
     e.stopPropagation();
     const url =
       typeof window !== "undefined" ? `${window.location.origin}/pharmacie/${pharmacy.id}` : "";
-    const label = pharmacyPublicLabel(pharmacy.nom);
+    const label = displayNom;
     const title = publicRef ? `${label} (${publicRef})` : label;
     try {
       if (navigator.share) {
@@ -113,11 +118,9 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
       <div className="space-y-2 p-3 pt-2">
         <div
           className="flex min-w-0 items-baseline gap-1.5 pe-1"
-          title={publicRef ? `${pharmacyPublicLabel(pharmacy.nom)} · ${publicRef}` : pharmacyPublicLabel(pharmacy.nom)}
+          title={publicRef ? `${displayNom} · ${publicRef}` : displayNom}
         >
-          <h2 className="min-w-0 truncate text-base font-bold leading-tight text-foreground">
-            {pharmacyPublicLabel(pharmacy.nom)}
-          </h2>
+          <h2 className="min-w-0 truncate text-base font-bold leading-tight text-foreground">{displayNom}</h2>
           {publicRef ? (
             <span className="shrink-0 font-mono text-[10px] font-bold tabular-nums text-primary">{publicRef}</span>
           ) : null}
@@ -125,7 +128,7 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
         <p className="flex items-start gap-1.5 text-xs leading-snug text-muted-foreground">
           <MapPin className="mt-0.5 size-3.5 shrink-0 text-primary/70" aria-hidden />
           <span>
-            {pharmacy.adresse}
+            {displayAdresse}
             {pharmacy.ville ? `, ${pharmacy.ville}` : ""}
           </span>
         </p>
