@@ -25,6 +25,7 @@ import { PageShell } from "@/components/ui/compact-shell";
 import { bucketForStatusParam } from "@/lib/demandes-hub-buckets";
 import { one } from "@/lib/embed";
 import { dashboardBucketsForKind } from "@/lib/request-kinds/hub-and-terminal-copy";
+import { pharmacyCityLabel, pharmacyCitySearchTerms } from "@/lib/pharmacy-cities-morocco";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
@@ -179,7 +180,9 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
       m.set(
         r.pharmacy_id,
         ph?.nom
-          ? `${pharmacyPublicLabel(ph.nom, { locale, nomAr: ph.nom_ar })}${ph.ville ? ` (${ph.ville})` : ""}`
+          ? `${pharmacyPublicLabel(ph.nom, { locale, nomAr: ph.nom_ar })}${
+              ph.ville ? ` (${pharmacyCityLabel(ph.ville, locale)})` : ""
+            }`
           : `${tDemandes("pharmacyFallback")} ${r.pharmacy_id.slice(0, 8)}…`,
       );
     }
@@ -203,7 +206,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
         p?.public_ref,
         p?.nom,
         p?.nom_ar,
-        p?.ville,
+        ...pharmacyCitySearchTerms(p?.ville),
         formatShortId(r.id),
       ]);
     });

@@ -11,6 +11,7 @@ import { PharmacyRatingForm } from "@/components/pharmacy/pharmacy-rating-form";
 import { pharmacyPublicCard } from "@/components/pharmacy/pharmacy-public-chrome";
 import type { PharmacyPublicProfileRow, PharmacyServiceCatalogRow } from "@/lib/pharmacy-profile-types";
 import type { AppLocale } from "@/lib/i18n/config";
+import { pharmacyCityLabel } from "@/lib/pharmacy-cities-morocco";
 import { pharmacyLocalizedAdresse } from "@/lib/pharmacy-localized-field";
 import { cn } from "@/lib/utils";
 
@@ -107,6 +108,7 @@ export function PharmacyPublicInfoTab({
     pharmacy.titular_public !== false && Boolean(pharmacy.titular_name?.trim());
   const titularTitle = pharmacy.titular_title?.trim() || t("titularDefault");
   const displayAdresse = pharmacyLocalizedAdresse(pharmacy, locale);
+  const displayVille = pharmacyCityLabel(pharmacy.ville, locale);
 
   return (
     <div className="space-y-3">
@@ -127,7 +129,9 @@ export function PharmacyPublicInfoTab({
           <p className="mt-1 text-[12px] font-semibold leading-snug text-foreground [overflow-wrap:anywhere]">
             {displayAdresse}
           </p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">{pharmacy.ville}</p>
+          {displayVille ? (
+            <p className="mt-0.5 text-[11px] text-muted-foreground">{displayVille}</p>
+          ) : null}
         </div>
 
         <div>

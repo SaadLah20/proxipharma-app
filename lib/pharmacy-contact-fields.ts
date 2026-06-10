@@ -1,3 +1,5 @@
+import { validatePharmacyCityForSubmit } from "@/lib/pharmacy-cities-morocco";
+
 /** Champs coordonnées officine — éditables par le pharmacien (ma fiche). */
 
 export type PharmacyContactFieldKey =
@@ -71,9 +73,15 @@ export const PHARMACY_CONTACT_FIELDS: Record<PharmacyContactFieldKey, PharmacyCo
 
 export type PharmacyContactForm = Record<PharmacyContactFieldKey, string>;
 
-export function validatePharmacyContactForm(values: PharmacyContactForm): string | null {
+export function validatePharmacyContactForm(
+  values: PharmacyContactForm,
+  options?: { allowLegacyCity?: boolean },
+): string | null {
   if (!values.nom.trim()) return "Indiquez le nom de l'officine.";
   if (!values.adresse.trim()) return "Indiquez l'adresse.";
-  if (!values.ville.trim()) return "Indiquez la ville.";
+  const cityError = validatePharmacyCityForSubmit(values.ville, {
+    allowLegacy: options?.allowLegacyCity,
+  });
+  if (cityError) return cityError;
   return null;
 }

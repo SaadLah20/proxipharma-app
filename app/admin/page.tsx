@@ -10,6 +10,8 @@ import {
   AdminPharmacyCoordsFields,
   validateAdminPharmacyCoordsForSubmit,
 } from "@/components/admin/AdminPharmacyCoordsFields";
+import { PharmacyCitySelect } from "@/components/pharmacy/pharmacy-city-select";
+import { lookupPharmacyCity, validatePharmacyCityForSubmit } from "@/lib/pharmacy-cities-morocco";
 import { parseAdminPharmacyCoords } from "@/lib/pharmacy-coords-morocco";
 
 type Pharmacy = {
@@ -129,6 +131,12 @@ export default function AdminPage() {
     e.preventDefault();
     setMessage("");
 
+    const cityErr = validatePharmacyCityForSubmit(ville);
+    if (cityErr) {
+      setMessage(cityErr);
+      return;
+    }
+
     const coordsErr = validateAdminPharmacyCoordsForSubmit(latitude, longitude, true);
     if (coordsErr) {
       setMessage(coordsErr);
@@ -140,10 +148,12 @@ export default function AdminPage() {
       return;
     }
 
+    const villeCanon = lookupPharmacyCity(ville)?.fr ?? ville;
+
     const { error } = await supabase.from("pharmacies").insert({
       nom,
       adresse,
-      ville,
+      ville: villeCanon,
       telephone,
       whatsapp,
       latitude: coords.latitude,
@@ -229,12 +239,12 @@ export default function AdminPage() {
             onChange={(e) => setNom(e.target.value)}
             required
           />
-          <input
+          <PharmacyCitySelect
             className="rounded-lg border p-3"
-            placeholder="Ville"
             value={ville}
-            onChange={(e) => setVille(e.target.value)}
+            onChange={setVille}
             required
+            placeholder="Ville"
           />
           <input
             className="rounded-lg border p-3 md:col-span-2"

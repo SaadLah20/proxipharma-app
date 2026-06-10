@@ -20,6 +20,7 @@ import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-
 import { CompactCard, CompactCardBody, PageShell } from "@/components/ui/compact-shell";
 import { DossierInlineActionPanel } from "@/components/requests/dossier-inline-action-panel";
 import { platformDashboardChrome as chrome } from "@/lib/platform-dashboard-chrome";
+import { PharmacyCitySelect } from "@/components/pharmacy/pharmacy-city-select";
 import { PharmacyFormField } from "@/components/pharmacy/pharmacy-form-field";
 import { PharmacyImageUploadField } from "@/components/pharmacy/pharmacy-image-upload-field";
 import { PharmacySegmentTabs } from "@/components/pharmacy/pharmacy-segment-tabs";
@@ -38,6 +39,7 @@ import {
   validatePharmacyProfileForm,
   type PharmacyFieldKey,
 } from "@/lib/pharmacy-form-fields";
+import { lookupPharmacyCity } from "@/lib/pharmacy-cities-morocco";
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
 import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
 import { supabase } from "@/lib/supabase";
@@ -183,7 +185,7 @@ export function PharmacyMaFichePage() {
 
   const save = async () => {
     if (!pharmacyId) return;
-    const contactError = validatePharmacyContactForm(contactForm);
+    const contactError = validatePharmacyContactForm(contactForm, { allowLegacyCity: true });
     if (contactError) {
       showToast(contactError, "error");
       return;
@@ -206,7 +208,7 @@ export function PharmacyMaFichePage() {
       .update({
         nom: contactForm.nom.trim(),
         adresse: contactForm.adresse.trim(),
-        ville: contactForm.ville.trim(),
+        ville: lookupPharmacyCity(contactForm.ville.trim())?.fr ?? contactForm.ville.trim(),
         nom_ar: contactForm.nom_ar.trim() || null,
         adresse_ar: contactForm.adresse_ar.trim() || null,
         telephone: contactForm.telephone.trim() || null,
@@ -331,7 +333,7 @@ export function PharmacyMaFichePage() {
                 Coordonnées affichées sur la fiche publique et l&apos;annuaire. La position GPS reste gérée par
                 l&apos;administration.
               </p>
-              {(["nom", "adresse", "ville", "telephone", "whatsapp"] as PharmacyContactFieldKey[]).map((key) => (
+              {(["nom", "adresse", "telephone", "whatsapp"] as PharmacyContactFieldKey[]).map((key) => (
                 <PharmacyFormField
                   key={key}
                   meta={PHARMACY_CONTACT_FIELDS[key]}
@@ -339,6 +341,19 @@ export function PharmacyMaFichePage() {
                   onChange={(v) => setContactForm((f) => ({ ...f, [key]: v }))}
                 />
               ))}
+              <label className="block text-xs font-bold text-foreground">
+                {PHARMACY_CONTACT_FIELDS.ville.label}
+                <PharmacyCitySelect
+                  className="mt-1.5"
+                  value={contactForm.ville}
+                  legacyValue={contactForm.ville}
+                  onChange={(v) => setContactForm((f) => ({ ...f, ville: v }))}
+                  required
+                />
+                <p className="mt-1 text-[11px] font-normal leading-snug text-muted-foreground">
+                  {PHARMACY_CONTACT_FIELDS.ville.hint}
+                </p>
+              </label>
               <div className="space-y-4 border-t border-border/70 pt-4">
                 <p className="text-[11px] font-semibold text-foreground">Version arabe (facultatif)</p>
                 <p className="text-[11px] leading-snug text-muted-foreground">

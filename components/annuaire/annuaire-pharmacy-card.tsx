@@ -11,6 +11,7 @@ import { formatDistanceKm } from "@/lib/annuaire/geo";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { trackPharmacyEngagement } from "@/lib/pharmacy-engagement";
 import { buttonVariants } from "@/components/ui/button";
+import { pharmacyCityLabel } from "@/lib/pharmacy-cities-morocco";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { pharmacyLocalizedAdresse } from "@/lib/pharmacy-localized-field";
 import type { AppLocale } from "@/lib/i18n/config";
@@ -25,6 +26,7 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
   const locale = useLocale() as AppLocale;
   const displayNom = pharmacyPublicLabel(pharmacy.nom, { locale, nomAr: pharmacy.nom_ar });
   const displayAdresse = pharmacyLocalizedAdresse(pharmacy, locale);
+  const displayVille = pharmacyCityLabel(pharmacy.ville, locale);
   const coverUrl = resolvePublicMediaUrl(pharmacy.cover_image_path ?? pharmacy.logo_url ?? null);
   const publicRef = pharmacy.public_ref?.trim() ?? "";
   const openStatusLabel =
@@ -129,7 +131,7 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
           <MapPin className="mt-0.5 size-3.5 shrink-0 text-primary/70" aria-hidden />
           <span>
             {displayAdresse}
-            {pharmacy.ville ? `, ${pharmacy.ville}` : ""}
+            {displayVille ? `, ${displayVille}` : ""}
           </span>
         </p>
         {!pharmacy.hasValidLocation ? (

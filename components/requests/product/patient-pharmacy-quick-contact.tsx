@@ -3,6 +3,7 @@
 import { Mail, MessageCircle, MessageSquare, Phone } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import type { AppLocale } from "@/lib/i18n/config";
+import { pharmacyCityLabel } from "@/lib/pharmacy-cities-morocco";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 
 export type PatientPharmacyContactInfo = {
@@ -64,7 +65,7 @@ export function PatientPharmacyQuickContact({
 
   const loc = [
     pharmacyPublicLabel(pharmacy.nom, { locale, nomAr: pharmacy.nom_ar }),
-    pharmacy.ville?.trim(),
+    pharmacyCityLabel(pharmacy.ville, locale),
   ]
     .filter(Boolean)
     .join(" · ");
