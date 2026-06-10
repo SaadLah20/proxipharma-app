@@ -21,6 +21,7 @@ import {
 import { userIsProvisionedPharmacist } from "@/lib/provisioned-pharmacist-auth";
 import { checkPhoneRegisteredForPasswordReset } from "@/lib/auth-phone-password-reset";
 import { mapAuthErrorToLocale } from "@/lib/i18n/map-auth-error";
+import { AUTH_SYNC_CODE_NO_ACCOUNT_FOR_PHONE } from "@/lib/auth-sync-codes";
 import { linkSignupPhoneOnAuth, syncPhoneBeforeLogin } from "@/lib/auth-client-phone-link";
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -189,7 +190,7 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
     if (id.kind === "phone") {
       const sync = await syncPhoneBeforeLogin(id.phone, loginPassword);
       if (!sync.ok && sync.error) {
-        const noProfileForSync = sync.error === "Aucun compte pour ce numéro.";
+        const noProfileForSync = sync.code === AUTH_SYNC_CODE_NO_ACCOUNT_FOR_PHONE;
         if (!noProfileForSync) {
           setMessage(sync.error);
           setLoading(false);

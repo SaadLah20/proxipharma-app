@@ -557,6 +557,8 @@ export const accountFr = {
   dossierCount: "{count} dossier",
   dossierCountPlural: "{count} dossiers",
   promoCount: "{count} promo",
+  pharmacyRatingShort: "{avg} · {count} avis",
+  requestKindsSeparator: " · ",
   lastActivity: "Dernière activité : {when}",
   lastDossier: "Dernier dossier ({status}) · {when}",
   pharmacyDetailUnavailable:

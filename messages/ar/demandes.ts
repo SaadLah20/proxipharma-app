@@ -536,6 +536,8 @@ export const accountAr = {
   dossierCount: "{count} ملف",
   dossierCountPlural: "{count} ملفات",
   promoCount: "{count} ترويج",
+  pharmacyRatingShort: "{avg} · {count} رأي",
+  requestKindsSeparator: " · ",
   lastActivity: "آخر نشاط: {when}",
   lastDossier: "آخر ملف ({status}) · {when}",
   pharmacyDetailUnavailable: "صفحة الصيدلية غير متاحة مؤقتاً. أعد المحاولة أو تواصل مع الدعم.",

@@ -1,3 +1,4 @@
+import { AUTH_SYNC_CODE_NO_ACCOUNT_FOR_PHONE } from "@/lib/auth-sync-codes";
 import {
   findAuthUserIdForWhatsApp,
   linkPhoneToAuthUser,
@@ -40,7 +41,10 @@ export async function POST(req: Request) {
 
   const userId = await findAuthUserIdForWhatsApp(admin, e164);
   if (!userId) {
-    return Response.json({ error: "Aucun compte pour ce numéro." }, { status: 404 });
+    return Response.json(
+      { error: "Aucun compte pour ce numéro.", code: AUTH_SYNC_CODE_NO_ACCOUNT_FOR_PHONE },
+      { status: 404 },
+    );
   }
 
   const { data: authData, error: getErr } = await admin.auth.admin.getUserById(userId);

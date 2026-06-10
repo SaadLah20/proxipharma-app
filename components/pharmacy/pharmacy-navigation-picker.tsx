@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useState } from "react";
 import { MapPin, Navigation, X } from "lucide-react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import type { AppLocale } from "@/lib/i18n/config";
 import { pharmacyCityLabel } from "@/lib/pharmacy-cities-morocco";
@@ -55,6 +55,8 @@ export function PharmacyNavigationPicker({
   hideTrigger = false,
 }: Props) {
   const locale = useLocale() as AppLocale;
+  const tPublic = useTranslations("pharmacyPublic");
+  const tCommon = useTranslations("common");
   const titleId = useId();
   const displayVille = pharmacyCityLabel(pharmacy.ville, locale);
   const [openInternal, setOpenInternal] = useState(false);
@@ -141,18 +143,18 @@ export function PharmacyNavigationPicker({
           aria-expanded={open}
         >
           {variant === "compact-outline" ? (
-            "Itinéraire"
+            tPublic("directions")
           ) : variant === "annuaire-rail" || variant === "annuaire-overlay" ? (
             <MapPin className="size-3.5" aria-hidden />
           ) : (
             <Navigation className="size-4" aria-hidden />
           )}
           {variant === "annuaire-rail" || variant === "annuaire-overlay" ? (
-            <span className="sr-only">Localisation</span>
+            <span className="sr-only">{tPublic("locationSr")}</span>
           ) : variant === "annuaire" ? (
-            "Itinéraire"
+            tPublic("directions")
           ) : variant === "compact-outline" ? null : (
-            "Y aller"
+            tPublic("goThere")
           )}
         </button>
       ) : null}
@@ -162,7 +164,7 @@ export function PharmacyNavigationPicker({
           <button
             type="button"
             className="absolute inset-0 bg-black/45"
-            aria-label="Fermer"
+            aria-label={tCommon("closeAria")}
             onClick={close}
           />
           <div
@@ -174,17 +176,15 @@ export function PharmacyNavigationPicker({
             <div className="mb-3 flex items-start justify-between gap-2">
               <div>
                 <h2 id={titleId} className="text-base font-bold text-foreground">
-                  Ouvrir avec…
+                  {tPublic("navigationOpenWith")}
                 </h2>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Choisissez l&apos;application de navigation sur votre téléphone ou ordinateur.
-                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{tPublic("navigationChooseApp")}</p>
               </div>
               <button
                 type="button"
                 onClick={close}
                 className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted"
-                aria-label="Fermer"
+                aria-label={tCommon("closeAria")}
               >
                 <X className="size-5" aria-hidden />
               </button>
@@ -224,9 +224,9 @@ export function PharmacyNavigationPicker({
                     onClick={close}
                     className="flex flex-col rounded-xl border border-dashed border-border px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-muted/30"
                   >
-                    Lien partagé par l&apos;officine
+                    {tPublic("navigationSharedLink")}
                     <span className="text-[11px] font-normal text-muted-foreground">
-                      Ouvre exactement le lien enregistré (Google, Waze, etc.)
+                      {tPublic("navigationSharedLinkHint")}
                     </span>
                   </a>
                 </li>
