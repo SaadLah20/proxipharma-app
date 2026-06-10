@@ -199,7 +199,7 @@ export default function DemandeDetailPage() {
       const { data: reqRow, error: reqErr } = await supabase
         .from("requests")
         .select(
-          "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,expires_at,confirmed_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,pharmacies(nom,ville,adresse,telephone,public_ref,contact_email,latitude,longitude,maps_url)"
+          "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,expires_at,confirmed_at,patient_planned_visit_date,patient_planned_visit_time,request_public_ref,pharmacies(nom,nom_ar,ville,adresse,adresse_ar,telephone,public_ref,contact_email,latitude,longitude,maps_url)"
         )
         .eq("id", id)
         .eq("patient_id", user.id)
