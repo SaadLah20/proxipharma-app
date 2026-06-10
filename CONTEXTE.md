@@ -41,6 +41,12 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 ## 6. État technique récent (aligné repo — mai–juin 2026)
 
+**Mise à jour 2026-06-10 (suite 2–3) — visibilité annuaire pilote (Al Jazira seule en public)** :
+- **Migrations** (ordre obligatoire) : **`20260718_001`** (`pharmacies.public_listed`, `profiles.pilot_access`, RLS annuaire/demandes/promos) puis **`20260718_002`** (fix seed SQL Editor — réapplique `pilot_access` / `public_listed` si tout resté à `false`).
+- **Public + nouveaux patients** : annuaire et fiches = officines **`public_listed = true`** uniquement → **AL JAZIRA** ; Saad / Yassine BJ masquées sauf comptes **`pilot_access`** (admin MIASMO + 4 patients test). **Noureddine SALAMI** (titulaire Al Jazira) : **`pilot_access = false`**.
+- **App** : **`lib/annuaire/pilot-directory-access.ts`** ; rechargement annuaire sur déconnexion ; logout header = rechargement complet (`platform-header.tsx`) ; admin case **Visible dans l'annuaire** à la création ; **`lib/use-pharmacy-public-gate.ts`** sur pages demande.
+- Commits **`b76bdec`**, **`d06520e`**, **`5e70cb7`**, **`1b4eb47`**, **`bdbfcc2`** · phrase reprise **§13.59** · journal **§10 session 2026-06-10 (suite 2–3)**.
+
 **Mise à jour 2026-06-10 — ville AR, i18n affinage étape 1, fix bandeau nom_ar** :
 - **Ville officine (livré, §13.55)** : **`lib/pharmacy-cities-morocco.ts`** + **`PharmacyCitySelect`** (admin, ma fiche) ; affichage AR patient via **`pharmacyCityLabel`** — commit **`cff4fa4`**.
 - **Bandeau dossier** : select détail demande inclut **`nom_ar`** (fix oubli) — **`2d94ffc`**.
@@ -58,7 +64,7 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 - **i18n patient lot 1 (dossiers)** : actions dossier, contact rapide, chooser répondue, compact line, fallbacks hub — commits **`e6eb40e`**, fix import **`f79ad89`** ; parité FR/AR **1211** clés.
 - **Nom / adresse arabe officine (livré)** : migration **`20260716_001`** (`nom_ar`, `adresse_ar`) ; admin onboarding + **Ma fiche → Coordonnées** (section arabe facultative) ; affichage patient locale **ar** avec repli FR — **`lib/pharmacy-localized-field.ts`**, **`pharmacyPublicLabel(..., { locale, nomAr })`** ; fiche publique, annuaire, Mes pharmacies, **bandeau dossier + hubs demandes/promo** — commits **`2eed65a`**, **`d092794`**, fix build tri hub **`8e8b47a`** (`collatorForLocale().compare`).
 - **Ville** : spec **`§13.55`** — **livré session 2026-06-10** (**`cff4fa4`**) ; voir journal **§10 session 2026-06-10**.
-- **SQL à appliquer** si pas fait : **`20260716_001`** puis **`20260717_001`**. Phrase reprise **`§13.58`** · journal **§10 session 2026-06-09 (suite 3)**.
+- **SQL à appliquer** si pas fait : **`20260716_001`** → **`20260717_001`** → **`20260718_001`** → **`20260718_002`**. Phrase reprise courante **`§13.59`** (pilote annuaire) ; i18n **`§13.58`** · journal **§10 session 2026-06-09 (suite 3)**.
 
 **Mise à jour 2026-06-09 (suite 2) — affinages preview drift / ordonnances / packs promo (branche `fix/validated-supply-ecart-ui-modal`, commits **`55336d2`** · **`9768bda`** · **`f38c90b`** · **`f45728e`)** :
 - **Drift dossier patient** : bandeau **`RequestDetailStaleBanner`** **visible** sur **`confirmed → treated`** (consultation incluse) — fin auto-refresh silencieux ; polling **5 s**.

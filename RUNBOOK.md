@@ -176,7 +176,7 @@ Important:
 ## 4) Checklist post-deploiement (5 min)
 
 - Ouvrir URL production
-- Verifier annuaire public (invite)
+- Verifier annuaire public (navigation privee / deconnecte : **Al Jazira seule** ; compte test `pilot_access` : 3 officines)
 - Verifier login patient
 - Verifier espace pharmacien
 - Verifier espace admin
@@ -346,7 +346,7 @@ git log --oneline -n 10
 
 ## 11) Checklist rebrand Pharmeto (preview + prod)
 
-**État pilote juin 2026 (session 2026-06-08 + affinages 2026-06-09)** — voir journal `CAHIER_DES_CHARGES.md` §10 et phrase reprise **§13.54**.
+**État pilote juin 2026 (session 2026-06-10 suite 2–3 + affinages antérieurs)** — voir journal `CAHIER_DES_CHARGES.md` §10 et phrase reprise **§13.59** (visibilité annuaire ; antérieur **§13.54**).
 
 | Étape | Statut |
 |-------|--------|
@@ -359,7 +359,7 @@ git log --oneline -n 10
 | Supabase Auth + template OTP Pharmeto | OK |
 | Resend domaine `pharmeto.ma` Verified | OK |
 | E-mail notif patient expéditeur **Pharmeto** | OK (test terrain) |
-| Migration `20260714_001` + `20260715_001` + `20260716_001` (`nom_ar`, `adresse_ar`) | À confirmer sur Supabase |
+| Migrations jusqu'à `20260718_002` (`nom_ar`, `adresse_ar`, `public_listed`, `pilot_access`) | À confirmer sur Supabase (`001` puis `002` obligatoires) |
 | SMS préfixe `Pharmeto:` (code) | OK |
 | SMS **réception** sur téléphone test | Reporté |
 | OTP Auth Supabase (quota / e-mail) | Reporté si quota atteint |
