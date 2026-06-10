@@ -48,6 +48,7 @@ export type PatientLineTimelineInputs = {
   timelineAudience?: "patient" | "pharmacist";
   locale?: AppLocale;
   phaseLabels?: Partial<Record<LineHistoryPhase, string>>;
+  copy?: import("@/lib/i18n/timeline-copy-port").TimelineCopyPort;
 };
 
 /** Entrées `request_supply_amendments` concernant cette ligne. */
@@ -95,5 +96,6 @@ export function buildPatientLineTimelineFr(input: PatientLineTimelineInputs): Pa
     audience: input.timelineAudience === "pharmacist" ? "pharmacist" : "patient",
     locale: input.locale,
     phaseLabels: input.phaseLabels,
+    copy: input.copy,
   });
 }

@@ -485,9 +485,15 @@ git checkout pilote-stable-2026-05-24
 - Pastilles validé : **`useValidatedOriginLabel`**, chip par **`key`**, **`postConfirmAdded`** ; **`usePatientValidatedLineLabels`** déjà branché.
 - **`i18n:parity`** **1296** clés · **`build`** OK.
 
-**Prochaine étape doc** : **§13.58 étape 4** (timelines dossier & lignes).
+**i18n AR affinage — étape 4 (§13.58 — livré)** :
+- Port **`TimelineCopyPort`** + hook **`usePatientTimelineCopy`** (`timeline.events`, `demandes.supplyAmendment`, `demandes.statusBadges`).
+- Corps des événements i18n : **`build-dossier-timeline-fr`**, **`collect-line-events`** (historique ligne), clés **`timeline.events.lineBody.*`** / **`dossierMeta.*`** (FR/AR).
+- Branché patient : **`DossierHistoryListFr`**, **`usePatientDossierTimeline`** / **`usePatientLineTimeline`**, modale horloge ligne (**`patient-product-request-actions`**).
+- **`i18n:parity`** **1296** clés · **`build`** OK.
 
-**Phrase de reprise** : **§13.58** (étape 4).
+**Prochaine étape doc** : **§13.58 étape 5** (relecture qualité AR humaine).
+
+**Phrase de reprise** : **§13.58** (étape 5).
 
 ---
 
@@ -2635,20 +2641,21 @@ Voir **§13.37**.
 - **`useValidatedOriginLabel`**, pastilles ligne (**réservé / commandé / reçu**), chip CSS par **`key`** (compatible AR).
 - **`patient-line-suivi-fr`** : hors parcours patient actif (pharmacien) — reporté.
 
-**Étape 4 — Timelines dossier & lignes** (prochaine livraison suggérée)
-- **`build-dossier-timeline-fr`**, **`build-patient-line-timeline-fr`**, **`request-history-fr`** : aujourd’hui dates localisées seulement ; corps des événements encore FR.
-- **`HistoryTimelineFr`** / modale ligne : tout passer par **`timeline.*`** / **`timeline-events`**.
+**Étape 4 — Timelines dossier & lignes** : **livré**.
+- Port **`TimelineCopyPort`** + hook **`usePatientTimelineCopy`** ; clés **`timeline.events`** (`lineBody`, `dossierMeta`, titres ligne/dossier, acteurs).
+- **`build-dossier-timeline-fr`** + **`collect-line-events`** : corps des événements via `copy` (patient) ; dates + phases déjà localisées.
+- UI : **`DossierHistoryListFr`**, hooks **`usePatientDossierTimeline`** / **`usePatientLineTimeline`**, modale historique ligne produit.
 
-**Étape 5 — Relecture qualité AR** (humain)
+**Étape 5 — Relecture qualité AR** (prochaine livraison suggérée)
 - Relecture **فصحى** des écrans critiques (dossier répondu → validé → traité, annuaire, auth) ; RTL mobile dense.
 
 **Étape 6 — Hors pilote** (épiques séparées)
 - Descriptions catalogue **~19 677** lignes (BeautyMall HTML FR).
 - SMS externes AR ; interface pharmacien AR ; URLs **`/ar/...`**.
 
-**Phrase de reprise (étape 4)** :
+**Phrase de reprise (étape 5)** :
 
-**« On reprend l'affinage i18n arabe patient — Pharmeto, branche `fix/validated-supply-ecart-ui-modal`. Lire **`CAHIER_DES_CHARGES.md` §13.58`** (étape **4** timelines dossier & lignes). Étapes **1–3** livrées. Livrer petit commit + preview ; **`npm run i18n:parity`** + **`npm run build`**. Je te donne la tâche ou les retours preview. »**
+**« On reprend l'affinage i18n arabe patient — Pharmeto, branche `fix/validated-supply-ecart-ui-modal`. Lire **`CAHIER_DES_CHARGES.md` §13.58`** (étape **5** relecture qualité AR). Étapes **1–4** livrées. Preview AR sur dossier répondu → validé → traité, annuaire, auth ; retours RTL mobile. Je te donne la tâche ou les retours preview. »**
 
 ### 13.57) Phrase de reprise (dépassée — après session **2026-06-09 (suite 4)**)
 

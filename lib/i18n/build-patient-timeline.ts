@@ -15,6 +15,7 @@ import {
   type PatientLineTimelineInputs,
 } from "@/lib/build-patient-line-timeline-fr";
 import type { LineHistoryPhase } from "@/lib/product-line-history/types";
+import { usePatientTimelineCopy } from "@/lib/i18n/patient-timeline-copy";
 
 export type TimelineBlockLike = {
   atIso: string | null;
@@ -59,15 +60,17 @@ export function usePatientDossierTimeline(
 ): DossierTimelineBlockFr[] {
   const locale = useLocale() as AppLocale;
   const phaseLabels = useTimelinePhaseLabels();
+  const copy = usePatientTimelineCopy();
 
   return useMemo(() => {
     const blocks = buildDossierTimelineFr({
       ...input,
       viewerRole: "patient",
       locale,
+      copy,
     });
     return applyTimelinePhaseLabels(localizeTimelineAtLabels(blocks, locale), phaseLabels);
-  }, [input, locale, phaseLabels]);
+  }, [input, locale, phaseLabels, copy]);
 }
 
 export function usePatientLineTimeline(
@@ -75,6 +78,7 @@ export function usePatientLineTimeline(
 ): PatientLineTimelineBlockFr[] {
   const locale = useLocale() as AppLocale;
   const phaseLabels = useTimelinePhaseLabels();
+  const copy = usePatientTimelineCopy();
 
   return useMemo(() => {
     const blocks = buildPatientLineTimelineFr({
@@ -82,7 +86,8 @@ export function usePatientLineTimeline(
       timelineAudience: "patient",
       locale,
       phaseLabels,
+      copy,
     });
     return applyTimelinePhaseLabels(localizeTimelineAtLabels(blocks, locale), phaseLabels);
-  }, [input, locale, phaseLabels]);
+  }, [input, locale, phaseLabels, copy]);
 }

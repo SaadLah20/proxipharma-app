@@ -22,6 +22,7 @@ import {
   type HistoryActorTone,
   type HistoryViewerRole,
 } from "@/lib/request-history-fr";
+import type { TimelineCopyPort } from "@/lib/i18n/timeline-copy-port";
 import type { SupplyAmendmentEntryJson } from "@/lib/supply-amendment-channels";
 import { summarizeSupplyAmendmentEntryLines } from "@/lib/supply-amendment-channels";
 
@@ -58,6 +59,8 @@ export type DossierTimelineInputs = {
   plannedVisitTime?: string | null;
   /** Dates localisées (patient AR/FR). */
   locale?: AppLocale;
+  /** Libellés i18n patient (timeline.events). */
+  copy?: TimelineCopyPort;
 };
 
 const TERMINAL_REQUEST_STATUSES = new Set([
@@ -99,12 +102,17 @@ function historyDetailParagraphs(
   return paras.map(sanitizeHistoryDisplayText).filter(Boolean);
 }
 
-function sameStatusNarrativeTitle(reason: string | null | undefined, ph: boolean): string | null {
+function sameStatusNarrativeTitle(
+  reason: string | null | undefined,
+  ph: boolean,
+  copy?: TimelineCopyPort,
+): string | null {
   const r = (reason ?? "").trim();
   if (!r) return null;
 
   const audit = tryParsePatientHistoryAudit(r);
   if (audit) {
+    if (copy) return copy.dossierAuditTitle(audit.lines.length > 1, ph);
     return ph
       ? audit.lines.length > 1
         ? "Modifications après validation patient"
@@ -116,6 +124,15 @@ function sameStatusNarrativeTitle(reason: string | null | undefined, ph: boolean
     const payload = counterOutcomeReasonPayload(r).slice("counter_outcome:".length);
     const product = counterOutcomeReasonProductName(r);
     const productSuffix = product ? ` (${product})` : "";
+    const key =
+      payload === "picked_up"
+        ? "counter_picked_up"
+        : payload === "unset"
+          ? "counter_unset"
+          : payload.startsWith("cancelled_at_counter")
+            ? "counter_cancelled_at_counter"
+            : "counter_other";
+    if (copy) return copy.dossierReasonTitle(key, ph, productSuffix);
     if (payload === "picked_up") {
       return ph
         ? `Retrait au comptoir enregistré${productSuffix}`
@@ -133,6 +150,7 @@ function sameStatusNarrativeTitle(reason: string | null | undefined, ph: boolean
   }
 
   const key = extractReasonKey(r);
+  if (copy) return copy.dossierReasonTitle(key, ph);
   switch (key) {
     case "publication_disponibilites":
       return ph ? "Réponse publiée au patient" : "La pharmacie a publié sa réponse";
@@ -167,9 +185,18 @@ function sameStatusNarrativeTitle(reason: string | null | undefined, ph: boolean
   }
 }
 
-function statusChangeTitle(oldStatus: string | null, newStatus: string, ph: boolean): string {
+function statusChangeTitle(
+  oldStatus: string | null,
+  newStatus: string,
+  ph: boolean,
+  copy?: TimelineCopyPort,
+): string {
   const o = oldStatus?.trim() || null;
   const n = newStatus.trim();
+  if (copy) {
+    const headline = ph ? copy.dossierPharmacistHeadline(o, n) : copy.dossierPatientHeadline(o, n);
+    return headline.replace(/\.$/, "");
+  }
   if (ph) return requestHistoryPharmacistHeadline(o, n).replace(/\.$/, "");
   return requestHistoryPatientHeadline(o, n).replace(/\.$/, "");
 }
@@ -189,7 +216,8 @@ function hasCreationInHistory(rows: DossierHistoryRowInput[]): boolean {
 function supplyAmendmentDetailLines(
   atIso: string,
   bundles: DossierTimelineInputs["supplyBundles"],
-  ph: boolean
+  ph: boolean,
+  copy?: TimelineCopyPort,
 ): string[] {
   if (!bundles?.length) return [];
   const bundle = bundles.find((b) => b.created_at === atIso);
@@ -197,7 +225,11 @@ function supplyAmendmentDetailLines(
   const arr = Array.isArray(bundle.amendments) ? (bundle.amendments as SupplyAmendmentEntryJson[]) : [];
   const lines: string[] = [];
   for (const entry of arr) {
-    lines.push(...summarizeSupplyAmendmentEntryLines(entry, ph ? "pharmacist" : "patient"));
+    if (copy) {
+      lines.push(...copy.summarizeAmendmentEntryLines(entry, ph ? "pharmacist" : "patient"));
+    } else {
+      lines.push(...summarizeSupplyAmendmentEntryLines(entry, ph ? "pharmacist" : "patient"));
+    }
   }
   return lines;
 }
@@ -242,6 +274,7 @@ function eventsToBlocks(events: PendingEvent[], locale?: AppLocale): DossierTime
 /** Chronologie dossier : du plus ancien au plus récent ; dernier bloc = situation ou clôture. */
 export function buildDossierTimelineFr(input: DossierTimelineInputs): DossierTimelineBlockFr[] {
   const ph = input.viewerRole === "pharmacien";
+  const copy = input.copy;
   const histAsc = [...input.rows].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
@@ -260,17 +293,19 @@ export function buildDossierTimelineFr(input: DossierTimelineInputs): DossierTim
     const originLines: string[] = [];
     if (input.patientNote?.trim()) {
       originLines.push(
-        ph
-          ? `Note du patient à l'envoi : « ${input.patientNote.trim()} »`
-          : `Votre message à l'envoi : « ${input.patientNote.trim()} »`
+        copy
+          ? copy.dossierOriginNote(ph, input.patientNote.trim())
+          : ph
+            ? `Note du patient à l'envoi : « ${input.patientNote.trim()} »`
+            : `Votre message à l'envoi : « ${input.patientNote.trim()} »`,
       );
     }
     push({
       id: "dossier-origin",
       atIso: t0,
-      title: ph ? "Demande reçue" : "Vous avez envoyé votre demande",
+      title: copy ? copy.dossierOriginTitle(ph) : ph ? "Demande reçue" : "Vous avez envoyé votre demande",
       bodyLines: originLines,
-      actorLabel: ph ? "Le patient" : "Vous",
+      actorLabel: copy ? copy.actorLabel(null, input.viewerRole) : ph ? "Le patient" : "Vous",
       actorTone: "patient",
       sortKey: 5,
     });
@@ -291,18 +326,23 @@ export function buildDossierTimelineFr(input: DossierTimelineInputs): DossierTim
 
     let title: string;
     if (audit) {
-      title =
-        ph
+      title = copy
+        ? copy.dossierAuditTitle(audit.lines.length > 1, ph)
+        : ph
           ? audit.lines.length > 1
             ? "Modifications après validation patient"
             : "Modification après validation patient"
           : patientHistoryAuditTitle(audit);
     } else if (sameStatus) {
       title =
-        sameStatusNarrativeTitle(h.reason, ph) ??
-        (ph ? "Mise à jour enregistrée sur le dossier" : "Une mise à jour a été enregistrée");
+        sameStatusNarrativeTitle(h.reason, ph, copy) ??
+        (copy
+          ? copy.dossierSameStatusFallback(ph)
+          : ph
+            ? "Mise à jour enregistrée sur le dossier"
+            : "Une mise à jour a été enregistrée");
     } else {
-      title = statusChangeTitle(o, n, ph);
+      title = statusChangeTitle(o, n, ph, copy);
     }
 
     let bodyLines: string[] = [];
@@ -313,7 +353,7 @@ export function buildDossierTimelineFr(input: DossierTimelineInputs): DossierTim
     } else {
       bodyLines = historyDetailParagraphs(h.reason, ph);
       if (r.includes("supply_amendments") || extractReasonKey(r) === "pharmacist_supply_amendments_saved") {
-        const amendLines = supplyAmendmentDetailLines(h.created_at, input.supplyBundles, ph);
+        const amendLines = supplyAmendmentDetailLines(h.created_at, input.supplyBundles, ph, copy);
         if (amendLines.length > 0) {
           bodyLines = amendLines;
         }
@@ -333,7 +373,7 @@ export function buildDossierTimelineFr(input: DossierTimelineInputs): DossierTim
       atIso: h.created_at,
       title,
       bodyLines,
-      actorLabel: historyActorLabelFr(h.reason, input.viewerRole),
+      actorLabel: copy ? copy.actorLabel(h.reason, input.viewerRole) : historyActorLabelFr(h.reason, input.viewerRole),
       actorTone: tone,
       sortKey: sameStatus ? 55 : 45,
     });
@@ -345,38 +385,37 @@ export function buildDossierTimelineFr(input: DossierTimelineInputs): DossierTim
 
   if (isArchived && terminalEntry) {
     const motiveLines = historyDetailParagraphs(terminalEntry.reason, ph);
+    const statusLabel = copy ? copy.requestStatusLabel(reqStatus) : requestStatusFr[reqStatus] ?? reqStatus;
     push({
       id: `dossier-closure-${terminalEntry.id}`,
       atIso: terminalEntry.created_at,
-      title: ph ? "Dossier archivé" : "Fin de votre demande",
+      title: copy ? copy.dossierClosureTitle(ph) : ph ? "Dossier archivé" : "Fin de votre demande",
       bodyLines: [
-        ph
-          ? `Statut final : ${requestStatusFr[reqStatus] ?? reqStatus}.`
-          : `Votre demande est ${requestStatusFr[reqStatus] ?? reqStatus}.`,
+        copy
+          ? copy.dossierFinalStatus(ph, statusLabel)
+          : ph
+            ? `Statut final : ${requestStatusFr[reqStatus] ?? reqStatus}.`
+            : `Votre demande est ${requestStatusFr[reqStatus] ?? reqStatus}.`,
         ...motiveLines,
       ],
-      actorLabel: ph ? "Synthèse" : "Récapitulatif",
+      actorLabel: copy ? copy.actorSummary(ph) : ph ? "Synthèse" : "Récapitulatif",
       actorTone: "system",
       isCurrent: true,
       sortKey: 90,
     });
   } else {
+    const curStatusLabel = copy ? copy.requestStatusLabel(reqStatus) : requestStatusFr[reqStatus] ?? reqStatus;
     const curLines: string[] = [
-      `Statut actuel : ${requestStatusFr[reqStatus] ?? reqStatus}.`,
+      copy ? copy.dossierCurrentStatus(curStatusLabel) : `Statut actuel : ${requestStatusFr[reqStatus] ?? reqStatus}.`,
     ];
-    const passage = patientPlannedVisitPassageLineFr(
-      input.plannedVisitDate,
-      input.plannedVisitTime
-    );
+    const passage = copy
+      ? copy.plannedVisitLine(input.plannedVisitDate, input.plannedVisitTime)
+      : patientPlannedVisitPassageLineFr(input.plannedVisitDate, input.plannedVisitTime);
     if (passage && (reqStatus === "confirmed" || reqStatus === "treated")) {
       curLines.push(passage);
     }
     if (input.requestRespondedAt && reqStatus === "responded" && input.requestConfirmedAt == null) {
-      curLines.push(
-        ph
-          ? "En attente de validation patient."
-          : "En attente de votre validation."
-      );
+      curLines.push(copy ? copy.dossierAwaitingValidation(ph) : ph ? "En attente de validation patient." : "En attente de votre validation.");
     }
     const lastTs =
       histAsc[histAsc.length - 1]?.created_at ??
@@ -386,9 +425,9 @@ export function buildDossierTimelineFr(input: DossierTimelineInputs): DossierTim
     push({
       id: "dossier-current",
       atIso: lastTs,
-      title: ph ? "Situation actuelle du dossier" : "Où en est votre demande aujourd'hui",
+      title: copy ? copy.dossierCurrentTitle(ph) : ph ? "Situation actuelle du dossier" : "Où en est votre demande aujourd'hui",
       bodyLines: curLines,
-      actorLabel: ph ? "Synthèse" : "Aujourd'hui",
+      actorLabel: copy ? copy.actorToday(ph) : ph ? "Maintenant" : "Aujourd'hui",
       actorTone: "system",
       isCurrent: true,
       sortKey: 95,

@@ -106,7 +106,8 @@ function splitAmendmentDetailFacts(detail: string): string[] {
     .filter(Boolean);
 }
 
-function amendmentBodyLines(entry: SupplyAmendmentEntryJson, audience: "patient" | "pharmacist"): string[] {
+function amendmentBodyLines(entry: SupplyAmendmentEntryJson, audience: "patient" | "pharmacist", copy?: ProductLineHistoryContext["copy"]): string[] {
+  if (copy) return copy.amendmentBodyLines(entry, audience);
   const lines: string[] = [];
   const detail = (entry.detail ?? entry.summary ?? "").trim();
   const facts =
@@ -139,6 +140,7 @@ function buildPatientRequestOriginLines(
   ctx: ProductLineHistoryContext,
   pname: string
 ): string[] {
+  if (ctx.copy) return ctx.copy.buildPatientRequestOriginLines(ctx, pname);
   const { row } = ctx;
   const ph = ctx.audience === "pharmacist";
   const lines: string[] = [];
@@ -155,6 +157,7 @@ function buildPatientRequestOriginLines(
 }
 
 function buildPharmacistProposedIntroLines(ctx: ProductLineHistoryContext, pname: string): string[] {
+  if (ctx.copy) return ctx.copy.buildPharmacistProposedIntroLines(ctx, pname);
   const { row } = ctx;
   const lines: string[] = [];
   const originLabel =
@@ -170,6 +173,7 @@ function buildPharmacistProposedIntroLines(ctx: ProductLineHistoryContext, pname
 }
 
 function buildPharmacistResponseLines(ctx: ProductLineHistoryContext, pname: string): string[] {
+  if (ctx.copy) return ctx.copy.buildPharmacistResponseLines(ctx, pname);
   const { row } = ctx;
   const ph = ctx.audience === "pharmacist";
   const rp: string[] = [];
@@ -210,6 +214,7 @@ function buildPharmacistResponseLines(ctx: ProductLineHistoryContext, pname: str
 }
 
 function buildValidationKeptLines(ctx: ProductLineHistoryContext, pname: string): string[] {
+  if (ctx.copy) return ctx.copy.buildValidationKeptLines(ctx, pname);
   const { row } = ctx;
   const valLines: string[] = [];
   const chosenId = row.patient_chosen_alternative_id ?? null;
@@ -224,6 +229,7 @@ function buildValidationKeptLines(ctx: ProductLineHistoryContext, pname: string)
 }
 
 function buildValidationSkippedLines(ctx: ProductLineHistoryContext): string[] {
+  if (ctx.copy) return ctx.copy.buildValidationSkippedLines(ctx);
   const ph = ctx.audience === "pharmacist";
   const journey = resolveProductLineJourney(ctx.row, ctx.supplyBundles, ctx.requestType);
   if (journey === "pharmacist_proposed_in_response") {
@@ -395,7 +401,11 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
   const events: ProductLineEvent[] = [];
   const t0 = ctx.requestSubmittedAt ?? ctx.requestCreatedAt;
   const pname = principalProductName(row);
-  const title = (kind: LineEventKind) => lineEventTitle(kind, audience, journey);
+  const copy = ctx.copy;
+  const title = (kind: LineEventKind) =>
+    copy ? copy.lineEventTitle(kind, audience, journey) : lineEventTitle(kind, audience, journey);
+  const patientActor = copy ? copy.actorLabel(null, viewerRole) : ph ? "Le patient" : "Vous";
+  const pharmacyActor = copy ? copy.actorLabel("pharmacist_ui", viewerRole) : ph ? "Vous" : "La pharmacie";
 
   /** — Envoi (demande produits : liste patient) — */
   if (journey === "patient_requested") {
@@ -406,7 +416,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
       sortKey: 10,
       title: title("origin_patient_request"),
       bodyLines: buildPatientRequestOriginLines(ctx, pname),
-      actorLabel: ph ? "Le patient" : "Vous",
+      actorLabel: patientActor,
       actorTone: "patient",
       isSynthetic: true,
     });
@@ -422,7 +432,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
         sortKey: 12,
         title: title("origin_patient_request_updated"),
         bodyLines: updateLines,
-        actorLabel: ph ? "Le patient" : "Vous",
+        actorLabel: patientActor,
         actorTone: "patient",
       });
     }
@@ -442,7 +452,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
       sortKey: 20,
       title: title("pharmacist_response"),
       bodyLines: responseLines,
-      actorLabel: ph ? "Vous" : "La pharmacie",
+      actorLabel: pharmacyActor,
       actorTone: "pharmacy",
       isSynthetic: true,
     });
@@ -458,7 +468,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
         sortKey: 22,
         title: title("pharmacist_response_updated_line"),
         bodyLines: buildPharmacistResponseLines(ctx, pname),
-        actorLabel: ph ? "Vous" : "La pharmacie",
+        actorLabel: pharmacyActor,
         actorTone: "pharmacy",
       });
     }
@@ -474,8 +484,8 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
         atIso: addedAmend.created_at,
         sortKey: 32,
         title: title("amend_line_added_after_confirm"),
-        bodyLines: amendmentBodyLines(addedAmend.entry, audience),
-        actorLabel: "La pharmacie",
+        bodyLines: amendmentBodyLines(addedAmend.entry, audience, copy),
+        actorLabel: pharmacyActor,
         actorTone: "pharmacy",
       });
     }
@@ -488,7 +498,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
         sortKey: 30,
         title: title("patient_validation_kept"),
         bodyLines: buildValidationKeptLines(ctx, pname),
-        actorLabel: ph ? "Le patient" : "Vous",
+        actorLabel: patientActor,
         actorTone: "patient",
         isSynthetic: true,
       });
@@ -500,7 +510,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
         sortKey: 30,
         title: title("patient_validation_skipped"),
         bodyLines: buildValidationSkippedLines(ctx),
-        actorLabel: ph ? "Le patient" : "Vous",
+        actorLabel: patientActor,
         actorTone: "patient",
         isSynthetic: true,
       });
@@ -518,7 +528,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
         bodyLines: row.is_selected_by_patient
           ? buildValidationKeptLines(ctx, pname)
           : buildValidationSkippedLines(ctx),
-        actorLabel: ph ? "Le patient" : "Vous",
+        actorLabel: patientActor,
         actorTone: "patient",
       });
     }
@@ -543,7 +553,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
         sortKey: 55,
         title: title(kind),
         bodyLines: detailLines.length > 0 ? detailLines.slice(0, 4) : [title(kind)],
-        actorLabel: historyActorLabelFr(h.reason, viewerRole),
+        actorLabel: copy ? copy.actorLabel(h.reason, viewerRole) : historyActorLabelFr(h.reason, viewerRole),
         actorTone: historyActorToneFromReason(h.reason, viewerRole),
       });
       continue;
@@ -561,7 +571,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
         sortKey: 50,
         title: title("legacy_audit_adjustment"),
         bodyLines: patientHistoryAuditDetailLines({ ...audit, lines: linesDetail }, ph ? "pharmacist" : "patient"),
-        actorLabel: "La pharmacie",
+        actorLabel: pharmacyActor,
         actorTone: "pharmacy",
       });
       continue;
@@ -577,7 +587,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
       sortKey: 52,
       title: title("dossier_line_note"),
       bodyLines: detailLines.slice(0, 4),
-      actorLabel: historyActorLabelFr(h.reason, viewerRole),
+      actorLabel: copy ? copy.actorLabel(h.reason, viewerRole) : historyActorLabelFr(h.reason, viewerRole),
       actorTone: historyActorToneFromReason(h.reason, viewerRole),
     });
   }
@@ -597,8 +607,8 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
       atIso: am.created_at,
       sortKey: eventKind === "amend_line_added_after_confirm" ? 32 : 60,
       title: title(eventKind),
-      bodyLines: amendmentBodyLines(am.entry, audience),
-      actorLabel: "La pharmacie",
+      bodyLines: amendmentBodyLines(am.entry, audience, copy),
+      actorLabel: pharmacyActor,
       actorTone: "pharmacy",
     });
   }
@@ -608,16 +618,32 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
   if (row.is_selected_by_patient && Boolean(row.withdrawn_after_confirm) && !hasWithdrawAmend) {
     const { atIso, autoAtClosure } = inferWithdrawTimestamp(ctx, histAsc);
     const kind: LineEventKind = autoAtClosure ? "withdraw_auto_at_closure" : "withdraw_inferred";
-    const bodyLines = [`Produit : ${validatedProductLabel(row)}`];
-    bodyLines.push(
-      autoAtClosure
-        ? ph
-          ? "Retiré automatiquement à la clôture (non récupéré au comptoir)."
-          : "Retiré automatiquement à la clôture, car non récupéré au comptoir."
-        : ph
-          ? "Retiré de la commande active."
-          : "Retiré de votre commande active."
-    );
+    const bodyLines: string[] = [];
+    if (copy) {
+      bodyLines.push(copy.lineBodyText("product", { name: validatedProductLabel(row) }));
+      bodyLines.push(
+        copy.lineBodyText(
+          autoAtClosure
+            ? ph
+              ? "withdrawAutoClosurePharmacist"
+              : "withdrawAutoClosurePatient"
+            : ph
+              ? "withdrawActivePharmacist"
+              : "withdrawActivePatient",
+        ),
+      );
+    } else {
+      bodyLines.push(`Produit : ${validatedProductLabel(row)}`);
+      bodyLines.push(
+        autoAtClosure
+          ? ph
+            ? "Retiré automatiquement à la clôture (non récupéré au comptoir)."
+            : "Retiré automatiquement à la clôture, car non récupéré au comptoir."
+          : ph
+            ? "Retiré de la commande active."
+            : "Retiré de votre commande active.",
+      );
+    }
     pushEvent(events, {
       kind,
       phase: "preparation",
@@ -625,7 +651,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
       sortKey: 62,
       title: title(kind),
       bodyLines,
-      actorLabel: "La pharmacie",
+      actorLabel: pharmacyActor,
       actorTone: "pharmacy",
       isSynthetic: true,
     });
@@ -637,8 +663,17 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
       ? events[events.length - 1]!.atIso
       : ctx.requestConfirmedAt ?? ctx.requestRespondedAt ?? t0;
 
-  const skippedEpilogueLine =
-    journey === "pharmacist_proposed_in_response"
+  const skippedEpilogueLine = copy
+    ? copy.lineBodyText(
+        journey === "pharmacist_proposed_in_response"
+          ? ph
+            ? "epilogueNotAcceptedPharmacist"
+            : "epilogueNotAcceptedPatient"
+          : ph
+            ? "epilogueNotRetainedPharmacist"
+            : "epilogueNotRetainedPatient",
+      )
+    : journey === "pharmacist_proposed_in_response"
       ? ph
         ? "Proposition non acceptée."
         : "Vous ne l'avez pas accepté."
@@ -646,24 +681,54 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
         ? "Non retenu à la validation."
         : "Vous ne l'avez pas retenu.";
 
+  const epilogueSummaryActor = copy ? copy.actorSummary(ph) : ph ? "Synthèse" : "Récap";
+  const epilogueTodayActor = copy ? copy.actorToday(ph) : ph ? "Maintenant" : "Aujourd'hui";
+
   if (isArchived) {
     const closureLines: string[] = [];
     if (row.is_selected_by_patient) {
       if ((row.counter_outcome ?? "unset") === "picked_up") {
-        closureLines.push("Récupéré au comptoir.");
+        closureLines.push(copy ? copy.lineBodyText("epiloguePickedUp") : "Récupéré au comptoir.");
       } else if (row.withdrawn_after_confirm) {
-        closureLines.push("Retiré de la commande active.");
+        closureLines.push(
+          copy
+            ? copy.lineBodyText(ph ? "withdrawActivePharmacist" : "withdrawActivePatient")
+            : "Retiré de la commande active.",
+        );
       } else {
-        closureLines.push(`Produit : ${validatedProductLabel(row)}`);
+        closureLines.push(
+          copy
+            ? copy.lineBodyText("product", { name: validatedProductLabel(row) })
+            : `Produit : ${validatedProductLabel(row)}`,
+        );
       }
     } else {
       closureLines.push(skippedEpilogueLine);
     }
-    if (reqStatus === "expired") closureLines.push(ph ? "Dossier expiré." : "Demande expirée.");
-    else if (reqStatus === "cancelled" || reqStatus === "abandoned") {
-      closureLines.push(ph ? "Dossier annulé ou abandonné." : "Demande annulée ou abandonnée.");
+    if (reqStatus === "expired") {
+      closureLines.push(
+        copy
+          ? copy.lineBodyText(ph ? "epilogueExpiredPharmacist" : "epilogueExpiredPatient")
+          : ph
+            ? "Dossier expiré."
+            : "Demande expirée.",
+      );
+    } else if (reqStatus === "cancelled" || reqStatus === "abandoned") {
+      closureLines.push(
+        copy
+          ? copy.lineBodyText(ph ? "epilogueCancelledPharmacist" : "epilogueCancelledPatient")
+          : ph
+            ? "Dossier annulé ou abandonné."
+            : "Demande annulée ou abandonnée.",
+      );
     } else if (TERMINAL_REQUEST_STATUSES.has(reqStatus)) {
-      closureLines.push(ph ? "Dossier clôturé." : "Demande terminée.");
+      closureLines.push(
+        copy
+          ? copy.lineBodyText(ph ? "epilogueClosedPharmacist" : "epilogueClosedPatient")
+          : ph
+            ? "Dossier clôturé."
+            : "Demande terminée.",
+      );
     }
     pushEvent(events, {
       kind: "epilogue_archived",
@@ -672,7 +737,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
       sortKey: 90,
       title: title("epilogue_archived"),
       bodyLines: closureLines,
-      actorLabel: ph ? "Synthèse" : "Récap",
+      actorLabel: epilogueSummaryActor,
       actorTone: "system",
       isCurrent: true,
       isSynthetic: true,
@@ -684,28 +749,55 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
     const co = row.counter_outcome ?? "unset";
 
     if (row.withdrawn_after_confirm) {
-      epilogueLines.push(ph ? "Retiré — plus dans la commande active." : "Retiré de votre commande active.");
+      epilogueLines.push(
+        copy
+          ? copy.lineBodyText(ph ? "epilogueWithdrawnActivePharmacist" : "epilogueWithdrawnActivePatient")
+          : ph
+            ? "Retiré — plus dans la commande active."
+            : "Retiré de votre commande active.",
+      );
     } else if (co === "picked_up") {
-      epilogueLines.push("Récupéré au comptoir.");
+      epilogueLines.push(copy ? copy.lineBodyText("epiloguePickedUp") : "Récupéré au comptoir.");
     } else {
-      const prep = postConfirmFulfillmentShortFr(pcf);
-      if (pcf !== "unset") epilogueLines.push(`Préparation : ${prep}.`);
-      else if (eff === "to_order") epilogueLines.push("En attente de réception fournisseur.");
-      else if (eff === "available" || eff === "partially_available") {
-        epilogueLines.push(ph ? "En attente du passage patient." : "En attente de votre passage.");
+      const prep = copy ? copy.postConfirmFulfillmentShort(pcf) : postConfirmFulfillmentShortFr(pcf);
+      if (pcf !== "unset") {
+        epilogueLines.push(
+          copy ? copy.lineBodyText("preparation", { status: prep }) : `Préparation : ${prep}.`,
+        );
+      } else if (eff === "to_order") {
+        epilogueLines.push(copy ? copy.lineBodyText("awaitingSupplier") : "En attente de réception fournisseur.");
+      } else if (eff === "available" || eff === "partially_available") {
+        epilogueLines.push(
+          copy
+            ? copy.lineBodyText(ph ? "awaitingVisitPharmacist" : "awaitingVisitPatient")
+            : ph
+              ? "En attente du passage patient."
+              : "En attente de votre passage.",
+        );
       }
       const eta = effectiveEtaForPatientLine(row);
       if (eff === "to_order" && eta && pcf !== "arrived_reserved") {
-        epilogueLines.push(`Réception prévue : ${formatDateShortFr(eta)}.`);
+        epilogueLines.push(
+          copy
+            ? copy.lineBodyText("receptionEta", { date: copy.formatDateShort(eta) })
+            : `Réception prévue : ${formatDateShortFr(eta)}.`,
+        );
       }
       const trackedQty = effectiveAvailableQtyForPatientLine(row);
       const validatedQty = validatedQtyForPatientLine(row);
       if (trackedQty != null && trackedQty !== validatedQty) {
-        epilogueLines.push(`Quantité suivie : ${trackedQty} (validée : ${validatedQty}).`);
+        epilogueLines.push(
+          copy
+            ? copy.lineBodyText("trackedQty", { tracked: String(trackedQty), validated: String(validatedQty) })
+            : `Quantité suivie : ${trackedQty} (validée : ${validatedQty}).`,
+        );
       }
       if (co !== "unset") {
+        const counterLabel = copy
+          ? copy.counterOutcomeLabel(co, row.counter_cancel_reason ?? null)
+          : counterOutcomePatientLabel(co, row.counter_cancel_reason ?? null);
         epilogueLines.push(
-          `Comptoir : ${counterOutcomePatientLabel(co, row.counter_cancel_reason ?? null)}.`
+          copy ? copy.lineBodyText("counter", { label: counterLabel }) : `Comptoir : ${counterLabel}.`,
         );
       }
     }
@@ -718,7 +810,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
         sortKey: 95,
         title: title("epilogue_active"),
         bodyLines: epilogueLines.slice(0, 4),
-        actorLabel: ph ? "Maintenant" : "Aujourd'hui",
+        actorLabel: epilogueTodayActor,
         actorTone: "system",
         isCurrent: true,
         isSynthetic: true,
@@ -732,7 +824,7 @@ export function collectProductLineEvents(ctx: ProductLineHistoryContext): Produc
       sortKey: 95,
       title: title("epilogue_active"),
       bodyLines: [skippedEpilogueLine],
-      actorLabel: ph ? "Maintenant" : "Aujourd'hui",
+      actorLabel: epilogueTodayActor,
       actorTone: "system",
       isCurrent: true,
       isSynthetic: true,

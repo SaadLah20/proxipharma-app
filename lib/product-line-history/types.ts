@@ -69,6 +69,7 @@ export type ProductLineHistoryContext = {
   audience: "patient" | "pharmacist";
   locale?: AppLocale;
   phaseLabels?: Partial<Record<LineHistoryPhase, string>>;
+  copy?: import("@/lib/i18n/timeline-copy-port").TimelineCopyPort;
 };
 
 /** Événement normalisé avant rendu UI. */
