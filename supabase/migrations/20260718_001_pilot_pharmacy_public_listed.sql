@@ -73,15 +73,17 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_privileged boolean := current_user in ('postgres', 'supabase_admin');
 begin
   if tg_op = 'INSERT' then
-    if not public.is_admin() then
+    if not public.is_admin() and not v_privileged then
       new.public_listed := false;
     end if;
     return new;
   end if;
 
-  if not public.is_admin() and new.public_listed is distinct from old.public_listed then
+  if not public.is_admin() and not v_privileged and new.public_listed is distinct from old.public_listed then
     new.public_listed := old.public_listed;
   end if;
   return new;
@@ -100,15 +102,17 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_privileged boolean := current_user in ('postgres', 'supabase_admin');
 begin
   if tg_op = 'INSERT' then
-    if not public.is_admin() then
+    if not public.is_admin() and not v_privileged then
       new.pilot_access := false;
     end if;
     return new;
   end if;
 
-  if not public.is_admin() and new.pilot_access is distinct from old.pilot_access then
+  if not public.is_admin() and not v_privileged and new.pilot_access is distinct from old.pilot_access then
     new.pilot_access := old.pilot_access;
   end if;
   return new;
