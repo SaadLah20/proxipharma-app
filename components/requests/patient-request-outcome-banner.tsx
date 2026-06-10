@@ -7,9 +7,7 @@ import { formatDateTimeShortForLocale } from "@/lib/datetime-locale";
 import type { AppLocale } from "@/lib/i18n/config";
 import { usePatientRequestStatusLabel } from "@/lib/i18n/patient-request-status-label";
 import { patientDossierHistoryDetailParagraphsFr } from "@/lib/patient-request-history-audit";
-import { historyActorLabel } from "@/lib/request-display";
-import { patientOutcomeExpiredHint } from "@/lib/request-kinds/hub-and-terminal-copy";
-import { patientArchiveTerminalActorLineFr } from "@/lib/patient-archive-outcome-fr";
+import { usePatientArchiveOutcomeCopy } from "@/lib/i18n/use-patient-archive-outcome-copy";
 import { isRequestKindId } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 
@@ -104,6 +102,7 @@ export function PatientRequestOutcomeBanner({
   const tOutcome = useTranslations("demandes.archive.outcome");
   const tHubArchive = useTranslations("hub.archive");
   const statLabel = usePatientRequestStatusLabel(status);
+  const archiveCopy = usePatientArchiveOutcomeCopy();
 
   if (!isPatientProductArchiveStatus(status)) return null;
 
@@ -113,7 +112,7 @@ export function PatientRequestOutcomeBanner({
   const entry = historyRows.find((h) => h.new_status === status) ?? historyRows[0] ?? null;
 
   const paras = entry?.reason ? patientDossierHistoryDetailParagraphsFr(entry.reason) : [];
-  const actorLine = patientArchiveTerminalActorLineFr(entry);
+  const actorLine = archiveCopy.terminalActorLine(entry);
   const hubKey = archiveHubKey(status);
   const kicker = tOutcome(`kickers.${outcomeKickerKey(status)}`);
 
@@ -250,7 +249,7 @@ export function PatientRequestOutcomeBanner({
       ) : null}
 
       {status === "expired" && paras.length === 0 ? (
-        <p className={clsx("mt-2 text-[11px] leading-snug", theme.accent)}>{patientOutcomeExpiredHint(kindId)}</p>
+        <p className={clsx("mt-2 text-[11px] leading-snug", theme.accent)}>{archiveCopy.expiredOutcomeHint(kindId)}</p>
       ) : null}
 
       {paras.length > 0 ? (
@@ -272,7 +271,7 @@ export function PatientRequestOutcomeBanner({
       {entry && !actorLine && status !== "expired" ? (
         <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9px] text-muted-foreground">
           <span>
-            <strong className="font-medium text-foreground">{historyActorLabel("patient", entry.reason)}</strong>
+            <strong className="font-medium text-foreground">{archiveCopy.patientHistoryActorLabel(entry.reason)}</strong>
           </span>
           <span aria-hidden>·</span>
           <time dateTime={entry.created_at} className="tabular-nums">

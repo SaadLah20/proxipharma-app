@@ -475,9 +475,14 @@ git checkout pilote-stable-2026-05-24
 - **Itinéraire** + modale navigation → **`pharmacyPublic.*`**.
 - **Mes pharmacies** : dates locale, types dossiers **`workflow.*`**, note avis ; **`lib/i18n/patient-pharmacy-kind-labels.ts`**.
 
-**Prochaine étape doc** : **§13.58 étape 2** (archives & statuts terminaux — modules **`*-fr.ts`**).
+**i18n AR affinage — étape 2 (§13.58 — livré)** :
+- **`demandes.archive.terminal.*`** (FR/AR) : bandeaux annulée / abandonnée / expirée / clôture comptoir.
+- Hook **`usePatientArchiveOutcomeCopy`** — remplace appels **`*Fr`** dans **`patient-product-request-actions`**, **`PatientRequestOutcomeBanner`**, détail dossier (**ordonnance / consultation / produits**).
+- **`i18n:parity`** **1263** clés · **`build`** OK.
 
-**Phrase de reprise** : **§13.58** (étape 2).
+**Prochaine étape doc** : **§13.58 étape 3** (amendements & suivi validé).
+
+**Phrase de reprise** : **§13.58** (étape 3).
 
 ---
 
@@ -2615,9 +2620,10 @@ Voir **§13.37**.
 - **Itinéraire** / modale navigation → **`pharmacyPublic.*`**.
 - **Mes pharmacies** : dates locale, `nom_ar`, types dossiers **`workflow.*`**, note avis ; migration **`20260717_001`** (`patient_pharmacy_directory_enriched` + `nom_ar`).
 
-**Étape 2 — Archives & statuts terminaux** (prochaine livraison suggérée)
-- Migrer **`lib/patient-archive-outcome-fr.ts`** et hints annulée / abandonnée / expirée → **`messages/ar/demandes`** (ou helpers locale comme **`build-patient-timeline`**).
-- Fichiers : **`patient-product-request-actions.tsx`**, archives ordonnance / consultation.
+**Étape 2 — Archives & statuts terminaux** : **livré**.
+- **`demandes.archive.terminal.*`** + hook **`usePatientArchiveOutcomeCopy`** (bandeaux dossier, footer archive, hint expirée).
+- Fichiers : **`patient-product-request-actions.tsx`**, **`PatientRequestOutcomeBanner`**, **`demandes/[id]/page.tsx`**.
+- **`lib/patient-archive-outcome-fr.ts`** conservé (utilitaires + fallback pharmacien).
 
 **Étape 3 — Amendements & suivi validé**
 - **`patient-pharma-amendment-resume-fr`**, **`patient-pharma-change-notice-fr`**, **`patient-validated-line-labels-fr`**, **`patient-line-suivi-fr`** → clés AR ou builders bilingues.
@@ -2634,9 +2640,9 @@ Voir **§13.37**.
 - Descriptions catalogue **~19 677** lignes (BeautyMall HTML FR).
 - SMS externes AR ; interface pharmacien AR ; URLs **`/ar/...`**.
 
-**Phrase de reprise (étape 2)** :
+**Phrase de reprise (étape 3)** :
 
-**« On reprend l'affinage i18n arabe patient — Pharmeto, branche `fix/validated-supply-ecart-ui-modal`. Lire **`CAHIER_DES_CHARGES.md` §13.58`** (étape **2** archives & statuts terminaux). Étape **1** déjà livrée ; migrations **`20260716_001`** + **`20260717_001`** si pas appliquées. Ne pas refaire ville (**§13.55**) ni finitions étape 1. Livrer petit commit + preview ; **`npm run i18n:parity`** + **`npm run build`**. Je te donne la tâche ou les retours preview. »**
+**« On reprend l'affinage i18n arabe patient — Pharmeto, branche `fix/validated-supply-ecart-ui-modal`. Lire **`CAHIER_DES_CHARGES.md` §13.58`** (étape **3** amendements & suivi validé). Étapes **1–2** livrées ; migrations **`20260716_001`** + **`20260717_001`** si pas appliquées. Livrer petit commit + preview ; **`npm run i18n:parity`** + **`npm run build`**. Je te donne la tâche ou les retours preview. »**
 
 ### 13.57) Phrase de reprise (dépassée — après session **2026-06-09 (suite 4)**)
 

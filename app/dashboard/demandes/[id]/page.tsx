@@ -46,7 +46,7 @@ import {
   buildPatientArchiveOutcomeDetailContext,
   findTerminalStatusHistoryEntry,
 } from "@/lib/patient-archive-outcome-fr";
-import { patientOutcomeStatusFooter } from "@/lib/request-kinds/hub-and-terminal-copy";
+import { usePatientArchiveOutcomeCopy } from "@/lib/i18n/use-patient-archive-outcome-copy";
 import { RequestConversationFabDock, RequestConversationPanel } from "@/components/requests/request-conversation-panel";
 import { ConsultationBriefPanel } from "@/components/requests/consultation/consultation-brief-panel";
 import { RequestConversationInline } from "@/components/requests/request-conversation-inline";
@@ -166,6 +166,7 @@ export default function DemandeDetailPage() {
   const { hint: summaryStatusHint, detail: summaryStatusDetail } = usePatientSummaryStatusCopy(
     request?.request_type ?? "product_request",
   );
+  const archiveCopy = usePatientArchiveOutcomeCopy();
   useSyncBottomNavDossierTab(request?.request_type);
   const loadDetail = useCallback(
     async (silent?: boolean): Promise<{ updatedAt: string; status: string } | null> => {
@@ -412,11 +413,11 @@ export default function DemandeDetailPage() {
         : request.request_type === "free_consultation"
           ? "free_consultation"
           : "product_request";
-    const footer = patientOutcomeStatusFooter(request.status, kindId);
+    const footer = archiveCopy.statusFooter(request.status, kindId);
     const entry = historyRows.find((h) => h.new_status === request.status) ?? historyRows[0] ?? null;
     const paras = entry ? patientDossierHistoryDetailParagraphsFr(entry.reason) : [];
     return [footer, ...paras].filter((s) => s.trim().length > 0).join(" — ");
-  }, [request, historyRows]);
+  }, [request, historyRows, archiveCopy]);
 
   const archiveTerminalHistoryEntry = useMemo(() => {
     if (!request || !isPatientProductArchiveStatus(request.status)) return null;

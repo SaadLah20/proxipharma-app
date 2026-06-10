@@ -134,18 +134,9 @@ import { buildPatientDemandeProduitsDraftFromArchiveRequest } from "@/lib/patien
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import {
   findTerminalStatusHistoryEntry,
-  patientAbandonedDossierStatusHintFr,
-  patientAbandonedDossierStatusHintShortFr,
-  patientAbandonedPrescriptionEmptyArchiveDetailFr,
-  patientCancelledDossierStatusHintFr,
-  patientCancelledDossierStatusHintShortFr,
-  patientCancelledPrescriptionEmptyArchiveDetailFr,
-  patientClosedDossierStatusHintFr,
-  patientClosedDossierStatusHintShortFr,
-  patientExpiredDossierStatusHintFr,
-  patientExpiredDossierStatusHintShortFr,
   isPatientProductClosedArchiveStatus,
 } from "@/lib/patient-archive-outcome-fr";
+import { usePatientArchiveOutcomeCopy } from "@/lib/i18n/use-patient-archive-outcome-copy";
 import {
   bucketPatientClosedArchiveLines,
   PATIENT_CLOSED_ARCHIVE_BUCKET_ORDER,
@@ -1885,6 +1876,7 @@ export function PatientProductRequestActions({
   const tDemandePublic = useTranslations("demandePublic");
   const patientStatusLabel = usePatientRequestStatusLabel(status);
   const dt = usePatientDatetimeFormatters();
+  const archiveCopy = usePatientArchiveOutcomeCopy();
   const lineCountLabel = usePatientLineCountLabel();
   const phaseLabels = useTimelinePhaseLabels();
   const prescriptionCopy = usePrescriptionUiCopy();
@@ -2994,30 +2986,30 @@ export function PatientProductRequestActions({
           ? status
           : uiStatus;
   const archiveDossierStatusHint = isExpiredProductArchive
-    ? patientExpiredDossierStatusHintShortFr()
+    ? archiveCopy.expiredHintShort()
     : isCancelledProductArchive
-      ? patientCancelledDossierStatusHintShortFr()
+      ? archiveCopy.cancelledHintShort()
       : isAbandonedProductArchive
-        ? patientAbandonedDossierStatusHintShortFr()
+        ? archiveCopy.abandonedHintShort()
         : isClosedProductArchive
-          ? patientClosedDossierStatusHintShortFr({ terminalStatus: status, items })
+          ? archiveCopy.closedHintShort({ terminalStatus: status, items })
           : tCommon("archiveReadOnly");
   const archiveDossierStatusDetail = isExpiredProductArchive
-    ? patientExpiredDossierStatusHintFr({
+    ? archiveCopy.expiredHintDetail({
         expiredAt: terminalHistoryEntry?.created_at ?? null,
         expiresAt: requestTimelineMeta?.expires_at ?? null,
         respondedAt: requestTimelineMeta?.responded_at ?? null,
       })
     : isCancelledProductArchive
       ? isPrescription && items.length === 0
-        ? patientCancelledPrescriptionEmptyArchiveDetailFr(terminalHistoryEntry)
-        : patientCancelledDossierStatusHintFr(terminalHistoryEntry)
+        ? archiveCopy.cancelledPrescriptionEmptyDetail(terminalHistoryEntry)
+        : archiveCopy.cancelledHintDetail(terminalHistoryEntry)
       : isAbandonedProductArchive
         ? isPrescription && items.length === 0
-          ? patientAbandonedPrescriptionEmptyArchiveDetailFr(terminalHistoryEntry)
-          : patientAbandonedDossierStatusHintFr(terminalHistoryEntry)
+          ? archiveCopy.abandonedPrescriptionEmptyDetail(terminalHistoryEntry)
+          : archiveCopy.abandonedHintDetail(terminalHistoryEntry)
         : isClosedProductArchive
-          ? patientClosedDossierStatusHintFr({
+          ? archiveCopy.closedHintDetail({
               terminalStatus: status,
               items,
               historyEntry: terminalHistoryEntry,

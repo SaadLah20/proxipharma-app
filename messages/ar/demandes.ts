@@ -245,6 +245,76 @@ export const demandesAr = {
     resubmitCta: "تعديل وإرسال طلب جديد",
     resubmitHint:
       "يفتح طلباً جديداً لدى هذه الصيدلية مع منتجاتكم المعبّأة مسبقاً — تؤكد الإرسال في الصفحة التالية.",
+    terminal: {
+      motivePrefix: " السبب: {motive}",
+      expired: {
+        short: "انتهت مهلة التأكيد.",
+        detailWithDate:
+          "لم تُؤكّد هذا الطلب خلال 24 ساعة بعد رد الصيدلية. انتهى تلقائياً في {when}.",
+        detailNoDate: "لم تُؤكّد هذا الطلب خلال 24 ساعة بعد رد الصيدلية. انتهى تلقائياً.",
+        hintPrescription:
+          "لم تُؤكّد رد الصيدلية في المهلة المحددة. لإرسال وصفة جديدة، استخدم الدليل وصفحة نفس الصيدلية.",
+        hintProduct:
+          "لم تُؤكّد رد الصيدلية في المهلة المحددة. يمكنك إنشاء طلب جديد بنفس المنتجات إذا لزم.",
+      },
+      cancelled: {
+        short: "طلب ملغى.",
+        detailWithActor:
+          "طلب ملغى · {actor}.{motive} المنتجات أدناه تعكس حالة الملف قبل الإلغاء.",
+        detailWithMotive: "طلب ملغى.{motive} المنتجات أدناه تعكس حالة الملف قبل الإلغاء.",
+        detailDefault: "طلب ملغى. المنتجات أدناه تعكس حالة الملف قبل الإلغاء.",
+        prescriptionEmptyWithActor:
+          "وصفة ملغاة · {actor}.{motive} يبقى المسح الضوئي للاطلاع أدناه.",
+        prescriptionEmptyWithMotive: "وصفة ملغاة.{motive} يبقى المسح الضوئي للاطلاع أدناه.",
+        prescriptionEmptyDefault: "وصفة ملغاة. يبقى المسح الضوئي للاطلاع أدناه.",
+      },
+      abandoned: {
+        short: "طلب مُهمَل.",
+        detailWithActor:
+          "طلب مُهمَل · {actor}.{motive} المنتجات أدناه تعكس حالة الملف قبل التخلي.",
+        detailWithMotive: "طلب مُهمَل.{motive} المنتجات أدناه تعكس حالة الملف قبل التخلي.",
+        detailDefault: "طلب مُهمَل. المنتجات أدناه تعكس حالة الملف قبل التخلي.",
+        prescriptionEmptyWithActor:
+          "وصفة مُهمَلة · {actor}.{motive} يبقى المسح الضوئي للاطلاع أدناه.",
+        prescriptionEmptyWithMotive: "وصفة مُهمَلة.{motive} يبقى المسح الضوئي للاطلاع أدناه.",
+        prescriptionEmptyDefault: "وصفة مُهمَلة. يبقى المسح الضوئي للاطلاع أدناه.",
+      },
+      closed: {
+        shortFullyCollected: "ملف مُغلق — تم استلام الكل.",
+        shortPartialOne: "ملف مُغلق — {picked} من {retained} مُستَلَم.",
+        shortPartialMany: "ملف مُغلق — {picked} من {retained} مُستَلَمة.",
+        shortDefault: "أغلقت صيدليتكم هذا الملف.",
+        recapPickedUpOne: "{picked} منتج مُستَلَم من {retained} مُختار",
+        recapPickedUpMany: "{picked} منتجات مُستَلَمة من {retained} مُختارين",
+        recapTotalLinesOne: "{total} سطر إجمالاً",
+        recapTotalLinesMany: "{total} أسطر إجمالاً",
+        recapClosedAt: "أُغلق في {when}",
+        head: "أغلقت صيدليتكم هذا الملف — {recap}.",
+        tailFullyCollected: "سُجّلت كل المنتجات المُختارة كمُستَلَمة عند الصندوق.",
+        tailPartiallyCollected: "جُزء من المنتجات المُختارة مُستَلَم عند الصندوق.",
+      },
+      statusFooter: {
+        cancelledPrescription:
+          "أُلغيت الوصفة. احتفظ بهذه الصفحة كمرجع؛ يبقى المسح والمنتجات المُدخلة للقراءة فقط.",
+        cancelledDefault:
+          "أنهت الصيدلية الملف. احتفظ بهذه الصفحة كمرجع؛ تفاصيل المنتجات للقراءة فقط.",
+        abandonedPrescription:
+          "أنهيتم مسار هذه الوصفة. يبقى المسح والتبادلات للاطلاع أدناه.",
+        abandonedDefault: "أنهيتم المسار على Pharmeto لهذا الملف. التبادلات للاطلاع أدناه.",
+        expiredPrescription:
+          "دون تأكيد منكم في المهلة، أُغلقت الوصفة. أرسلوا وصفة جديدة من الدليل إذا لزم.",
+        expiredDefault: "دون تأكيد منكم في المهلة، أُغلق الملف تلقائياً.",
+        partiallyCollectedPrescription:
+          "جُزء من المنتجات المُختارة مُستَلَم؛ الباقي يظهر كغير مُستَلَم في الأرشيف.",
+        partiallyCollectedDefault:
+          "جُزء من المنتجات المُختارة مُستَلَم عند الصندوق؛ الباقي يظهر كغير مُستَلَم في الأرشيف.",
+        fullyCollected: "سُجّلت كل المنتجات المُختارة كمُستَلَمة عند الصندوق.",
+        completedPrescription:
+          "الوصفة مُغلقة. المنتجات المُدخلة والمسح للاطلاع أدناه.",
+        completedDefault:
+          "الملف مُغلق لدى الصيدلية. المبالغ والتسميات تعكس الحالة لحظة الإغلاق.",
+      },
+    },
   },
   consultationReadonlyBanner: "ملف {status} — استشارة للقراءة فقط.",
   quickContact: {
