@@ -7,6 +7,8 @@ import {
   AdminPharmacyCoordsFields,
   validateAdminPharmacyCoordsForSubmit,
 } from "@/components/admin/AdminPharmacyCoordsFields";
+import { PharmacyCitySelect } from "@/components/pharmacy/pharmacy-city-select";
+import { validatePharmacyCityForSubmit } from "@/lib/pharmacy-cities-morocco";
 import { parseAdminPharmacyCoords } from "@/lib/pharmacy-coords-morocco";
 
 type OnboardResult = {
@@ -66,6 +68,13 @@ export function AdminOnboardPharmacyForm({ onCreated }: Props) {
     setLoading(true);
     setError("");
     setResult(null);
+
+    const cityErr = validatePharmacyCityForSubmit(ville);
+    if (cityErr) {
+      setError(cityErr);
+      setLoading(false);
+      return;
+    }
 
     const coordsErr = validateAdminPharmacyCoordsForSubmit(latitude, longitude, true);
     if (coordsErr) {
@@ -206,12 +215,12 @@ export function AdminOnboardPharmacyForm({ onCreated }: Props) {
             onChange={(e) => setNom(e.target.value)}
             required
           />
-          <input
+          <PharmacyCitySelect
             className="rounded-lg border p-3"
-            placeholder="Ville *"
             value={ville}
-            onChange={(e) => setVille(e.target.value)}
+            onChange={setVille}
             required
+            placeholder="Ville *"
           />
           <input
             className="rounded-lg border p-3 md:col-span-2"

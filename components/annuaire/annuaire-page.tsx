@@ -19,6 +19,7 @@ import {
   openSnapshotForBundle,
 } from "@/lib/annuaire/schedule-bundle";
 import { ANNUAIRE_PAGE_SIZE, type AnnuairePharmacyEnriched, type AnnuairePharmacyRow } from "@/lib/annuaire/types";
+import { pharmacyCitySearchTerms } from "@/lib/pharmacy-cities-morocco";
 import { collatorForLocale } from "@/lib/datetime-locale";
 import type { AppLocale } from "@/lib/i18n/config";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
@@ -139,7 +140,7 @@ export function AnnuairePage() {
           p.public_ref,
           p.nom,
           p.nom_ar,
-          p.ville,
+          ...pharmacyCitySearchTerms(p.ville),
           p.adresse,
           p.adresse_ar,
           p.telephone,

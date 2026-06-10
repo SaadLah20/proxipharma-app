@@ -13,6 +13,7 @@ import {
 } from "@/components/requests/product/patient-pharmacy-quick-contact";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { requestKindUiTheme, type RequestKindUiTheme } from "@/lib/request-kind-ui-theme";
+import { pharmacyCityLabel } from "@/lib/pharmacy-cities-morocco";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { uiActionBtnCompactOutline, uiActionBtnCompactPrimary } from "@/lib/ui-action-buttons";
 import { cn } from "@/lib/utils";
@@ -44,7 +45,7 @@ export function PatientPharmacyDossierBand({
   const phLabel = pharmacyContact?.nom?.trim()
     ? pharmacyPublicLabel(pharmacyContact.nom, { locale, nomAr: pharmacyContact.nom_ar })
     : tDemandes("dossierBand.pharmacyFallback");
-  const ville = pharmacyContact?.ville?.trim() ?? "";
+  const ville = pharmacyCityLabel(pharmacyContact?.ville, locale);
   const officeRef = pharmacyContact?.public_ref?.trim() ?? "";
   const iconBox = compact ? "size-8 rounded-lg" : "size-9 rounded-lg";
   const iconSize = compact ? "size-4" : "size-[1.125rem]";

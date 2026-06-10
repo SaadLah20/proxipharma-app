@@ -31,6 +31,7 @@ import {
   promoStatusLabelFr,
   type PatientPharmacyDetail,
 } from "@/lib/patient-pharmacy-crm";
+import { pharmacyCityLabel } from "@/lib/pharmacy-cities-morocco";
 import { pharmacyLocalizedAdresse } from "@/lib/pharmacy-localized-field";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { clsx } from "clsx";
@@ -130,6 +131,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
   const rating = pharmacyRatingLabelFr(pharmacy.rating_avg, pharmacy.rating_count);
   const publicProfileHref = `/pharmacie/${pharmacy.pharmacy_id}`;
   const newProductRequestHref = `/pharmacie/${pharmacy.pharmacy_id}/demande-produits`;
+  const displayVille = pharmacyCityLabel(pharmacy.ville, locale);
 
   return (
     <PageShell maxWidthClass="max-w-3xl" className="space-y-5">
@@ -152,7 +154,7 @@ export function PatientPharmacyDetail({ pharmacyId }: { pharmacyId: string }) {
             <p className={clsx("mt-1 flex items-start gap-1 text-xs", p.heroSubtitle)}>
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
-                {pharmacy.ville?.trim() ? `${pharmacy.ville.trim()} · ` : ""}
+                {displayVille ? `${displayVille} · ` : ""}
                 {pharmacyLocalizedAdresse(pharmacy, locale) || t("addressMissing")}
               </span>
             </p>

@@ -29,7 +29,9 @@ import {
 } from "@/lib/promo/reservation-hub-list-filters";
 import { fetchPromoOfferLinesByOfferIds } from "@/lib/promo/load-offer-lines";
 import type { PromoReservationHubRow } from "@/lib/promo/reservation-hub-sections";
+import { pharmacyCityLabel, pharmacyCitySearchTerms } from "@/lib/pharmacy-cities-morocco";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
+import { collatorForLocale } from "@/lib/datetime-locale";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { supabase } from "@/lib/supabase";
 import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
@@ -157,11 +159,13 @@ export function PatientPromoReservationsHub() {
       m.set(
         r.pharmacy_id,
         ph?.nom
-          ? `${pharmacyPublicLabel(ph.nom, { locale, nomAr: ph.nom_ar })}${ph.ville ? ` (${ph.ville})` : ""}`
+          ? `${pharmacyPublicLabel(ph.nom, { locale, nomAr: ph.nom_ar })}${
+              ph.ville ? ` (${pharmacyCityLabel(ph.ville, locale)})` : ""
+            }`
           : `${tDemandes("pharmacyFallback")} ${r.pharmacy_id.slice(0, 8)}…`,
       );
     }
-    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], locale));
+    return [...m.entries()].sort((a, b) => collatorForLocale(locale).compare(a[1], b[1]));
   }, [rows, locale, tDemandes]);
 
   const pharmacyFilterLabel = pharmacyOptions.find(([id]) => id === pharmacyFilter)?.[1] ?? null;
@@ -177,7 +181,7 @@ export function PatientPromoReservationsHub() {
         r.offer?.title,
         r.pharmacy?.nom,
         r.pharmacy?.nom_ar,
-        r.pharmacy?.ville,
+        ...pharmacyCitySearchTerms(r.pharmacy?.ville),
       ]),
     );
   }

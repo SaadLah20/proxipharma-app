@@ -8,6 +8,7 @@ import type { PatientRequestRow } from "@/components/requests/demande-hub-ui";
 import { RequestStatusBadge } from "@/components/requests/demande-hub-ui";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { usePatientProductHubCardContext } from "@/lib/i18n/patient-product-hub-card-context";
+import { pharmacyCityLabel } from "@/lib/pharmacy-cities-morocco";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { one } from "@/lib/embed";
 import { formatDateTimeShortForLocale } from "@/lib/datetime-locale";
@@ -39,7 +40,7 @@ export function PatientProductDemandeHubCard({
   const pharmacyTitle = ph?.nom
     ? pharmacyPublicLabel(ph.nom, { locale, nomAr: ph.nom_ar })
     : cardCopy.pharmacyFallback;
-  const locationLine = ph?.ville?.trim() ? ph.ville.trim() : null;
+  const locationLine = ph?.ville ? pharmacyCityLabel(ph.ville, locale) || null : null;
   const contextLine = ctx.secondaryLine ? `${ctx.primaryLine} · ${ctx.secondaryLine}` : ctx.primaryLine;
 
   return (

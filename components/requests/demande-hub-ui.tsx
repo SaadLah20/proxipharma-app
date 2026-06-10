@@ -16,6 +16,7 @@ import { summarizeRequestForPatientCard, type PatientRequestItemRow } from "@/li
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindAccent } from "@/lib/request-kinds/types";
 import { one } from "@/lib/embed";
+import { pharmacyCityLabel } from "@/lib/pharmacy-cities-morocco";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { clsx } from "clsx";
 
@@ -196,6 +197,7 @@ export function PatientDemandeCard({
   const pharmacyTitle = ph?.nom
     ? pharmacyPublicLabel(ph.nom, { locale, nomAr: ph.nom_ar })
     : pharmacyFallback;
+  const displayVille = ph?.ville ? pharmacyCityLabel(ph.ville, locale) : "";
   if (variant === "list") {
     return (
       <div className={clsx(demandeCardShell(cardStatus, "patient", cardAccent), "transition hover:-translate-y-px")}>
@@ -214,8 +216,8 @@ export function PatientDemandeCard({
                 <p className="truncate text-[13px] font-semibold leading-tight text-foreground sm:text-sm">
                   {pharmacyTitle}
                 </p>
-                {ph?.ville ? (
-                  <span className="shrink-0 text-[10px] text-muted-foreground">({ph.ville})</span>
+                {displayVille ? (
+                  <span className="shrink-0 text-[10px] text-muted-foreground">({displayVille})</span>
                 ) : null}
               </div>
               <p className="font-mono text-[10px] font-medium text-foreground">{refVisuel}</p>
@@ -259,7 +261,7 @@ export function PatientDemandeCard({
                 <>
                   {" "}
                   · <span className="font-medium text-foreground">{pharmacyPublicLabel(ph.nom, { locale, nomAr: ph.nom_ar })}</span>
-                  <span className="text-muted-foreground/90"> ({ph.ville})</span>
+                  <span className="text-muted-foreground/90"> ({displayVille})</span>
                 </>
               ) : null}
             </p>

@@ -1,3 +1,4 @@
+import { lookupPharmacyCity, validatePharmacyCityForSubmit } from "@/lib/pharmacy-cities-morocco";
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
 import { generateProvisionalPassword, validateProvisionalPassword } from "@/lib/generate-provisional-password";
 import { adminPharmacyCoordsFromBody } from "@/lib/pharmacy-coords-morocco";
@@ -61,7 +62,8 @@ export function parseOnboardPharmacyBody(body: unknown):
 
   if (nom.length < 2) return { ok: false, error: "Nom de la pharmacie requis (2 caractères min.)." };
   if (adresse.length < 3) return { ok: false, error: "Adresse requise." };
-  if (ville.length < 2) return { ok: false, error: "Ville requise." };
+  const cityError = validatePharmacyCityForSubmit(ville);
+  if (cityError) return { ok: false, error: cityError };
   if (full_name.length < 2) return { ok: false, error: "Nom du pharmacien requis (2 caractères min.)." };
 
   const phone = normalizePhoneToE164(phoneInput);
@@ -100,7 +102,7 @@ export function parseOnboardPharmacyBody(body: unknown):
     pharmacy: {
       nom,
       adresse,
-      ville,
+      ville: lookupPharmacyCity(ville)?.fr ?? ville,
       nom_ar: nom_ar || undefined,
       adresse_ar: adresse_ar || undefined,
       telephone: String(ph.telephone ?? "").trim() || undefined,

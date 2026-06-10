@@ -17,6 +17,7 @@ import {
   pharmacyWhatsAppHref,
   type PatientPharmacyDirectoryRow,
 } from "@/lib/patient-pharmacy-crm";
+import { pharmacyCityLabel, pharmacyCitySearchTerms } from "@/lib/pharmacy-cities-morocco";
 import { collatorForLocale } from "@/lib/datetime-locale";
 import { usePatientLastDossierStatusHint } from "@/lib/i18n/patient-last-dossier-status-hint";
 import type { AppLocale } from "@/lib/i18n/config";
@@ -238,7 +239,7 @@ export function PatientPharmaciesDirectory() {
         rowMatchesPublicRefQuery(searchQuery, [
           r.pharmacy_public_ref,
           r.nom,
-          r.ville,
+          ...pharmacyCitySearchTerms(r.ville),
           r.adresse,
           r.telephone,
           r.whatsapp,
@@ -367,6 +368,7 @@ export function PatientPharmaciesDirectory() {
               t,
               lastDossierHint,
             );
+            const displayVille = pharmacyCityLabel(r.ville, locale);
             return (
               <li key={r.pharmacy_id}>
                 <div
@@ -386,7 +388,7 @@ export function PatientPharmaciesDirectory() {
                         ) : null}
                         <p className="truncate font-semibold text-foreground">{pharmacyDisplayName(r.nom)}</p>
                         <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                          {r.ville?.trim() ? `${r.ville.trim()} · ` : ""}
+                          {displayVille ? `${displayVille} · ` : ""}
                           {r.adresse?.trim() || "—"}
                         </p>
                         <p className="mt-0.5 text-[11px] text-muted-foreground">{pharmacyKindLabelsFr(r.request_kinds)}</p>

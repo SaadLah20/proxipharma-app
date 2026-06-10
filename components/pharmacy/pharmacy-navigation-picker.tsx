@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useId, useState } from "react";
 import { MapPin, Navigation, X } from "lucide-react";
+import { useLocale } from "next-intl";
 import { clsx } from "clsx";
+import type { AppLocale } from "@/lib/i18n/config";
+import { pharmacyCityLabel } from "@/lib/pharmacy-cities-morocco";
 import {
   buildNavigationProviderLinks,
   resolvePharmacyLocation,
@@ -51,7 +54,9 @@ export function PharmacyNavigationPicker({
   onOpenChange,
   hideTrigger = false,
 }: Props) {
+  const locale = useLocale() as AppLocale;
   const titleId = useId();
+  const displayVille = pharmacyCityLabel(pharmacy.ville, locale);
   const [openInternal, setOpenInternal] = useState(false);
   const open = openControlled ?? openInternal;
   const setOpen = onOpenChange ?? setOpenInternal;
@@ -190,7 +195,7 @@ export function PharmacyNavigationPicker({
                 <MapPin className="mt-0.5 size-3.5 shrink-0 text-primary/70" aria-hidden />
                 <span>
                   {pharmacy.nom}
-                  {pharmacy.ville ? ` — ${pharmacy.ville}` : ""}
+                  {displayVille ? ` — ${displayVille}` : ""}
                 </span>
               </p>
             ) : null}
