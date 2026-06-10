@@ -497,6 +497,12 @@ git checkout pilote-stable-2026-05-24
 - RTL mobile dense : auth retour, recherche hubs demandes / pharmacies, onglets choix répondu (`ps`/`pe`/`start`).
 - **`i18n:parity`** **1296** clés · **`build`** OK.
 
+**Annuaire / fiche — overlay photo RTL (post-§13.58)** :
+- **`PharmacyCoverOverlayActions`** : boutons contact (`end-*`) — **droite** FR, **gauche** AR.
+- **`PharmacyRatingOverlayChip`** : i18n **`pharmacyPublic.ratingOverlay*`** (plus de FR hardcodé) ; pastille avis **`start-*`** (coin opposé aux boutons).
+- **`globals.css`** : variantes Tailwind **`rtl` / `ltr`** (`@custom-variant`).
+- **`i18n:parity`** **1299** clés · **`build`** OK.
+
 **Prochaine étape doc** : **§13.58 étape 6** (hors pilote — épiques séparées).
 
 **Phrase de reprise** : **§13.58** (étape 6 ou retours preview AR).

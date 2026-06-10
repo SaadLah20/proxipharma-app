@@ -81,8 +81,8 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
             </div>
           )}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-10 bg-gradient-to-l from-black/25 to-transparent sm:w-11" />
-          <div className="absolute bottom-2 left-2 right-10 z-[1] flex flex-wrap items-end justify-between gap-1.5 sm:right-11">
+          <div className="pointer-events-none absolute inset-y-0 end-0 z-[1] w-10 bg-gradient-to-l from-black/25 to-transparent sm:w-11 rtl:bg-gradient-to-r" />
+          <div className="absolute bottom-2 start-2 end-10 z-[1] flex flex-wrap items-end justify-between gap-1.5 sm:end-11">
             <div className="flex max-w-full flex-wrap gap-1">
               <span className={pharmacyOpenStatusOverlayBadgeClass(pharmacy.open.status)}>
                 {openStatusLabel}
@@ -103,7 +103,7 @@ export function AnnuairePharmacyCard({ pharmacy }: { pharmacy: AnnuairePharmacyE
           pharmacyId={pharmacy.id}
           ratingAvg={pharmacy.rating_avg ?? null}
           ratingCount={pharmacy.rating_count ?? null}
-          className="absolute left-2 top-2"
+          className="sm:start-3 sm:top-3"
           onPointerEventCapture={(e) => {
             e.preventDefault();
             e.stopPropagation();
