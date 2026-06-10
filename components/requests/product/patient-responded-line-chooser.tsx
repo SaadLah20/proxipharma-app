@@ -290,7 +290,7 @@ type VariantData = {
   principalStatusLabel: string | null;
 };
 
-const TAB_CHECKBOX_PAD = "flex shrink-0 items-center py-1 pl-2 pr-1";
+const TAB_CHECKBOX_PAD = "flex shrink-0 items-center py-1 ps-2 pe-1";
 
 function RespondedVariantTabCheckbox({
   tabId,
@@ -525,7 +525,7 @@ function RespondedVariantTabs({
                       : tResponded("clickToView")
                 }
                 className={cn(
-                  "min-w-0 flex-1 truncate py-1 pr-1.5 text-left text-[10px] font-semibold leading-none transition",
+                  "min-w-0 flex-1 truncate py-1 pe-1.5 text-start text-[10px] font-semibold leading-none transition",
                   dim && !isViewing && "text-muted-foreground",
                   dim && isViewing && "text-foreground",
                   !dim && isViewing && "text-foreground",

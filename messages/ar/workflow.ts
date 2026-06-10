@@ -6,7 +6,7 @@ export const workflowAr = {
     patientArchiveEmptyLines: "لا توجد أسطر لهذا الطلب.",
     patientArchiveClosedFooter:
       "الملف مُغلق لدى الصيدلية. المبالغ والعبارات تعكس الحالة عند الإغلاق.",
-    patientSuiviProposedHint: "اقتراح من الصيدلية (إضافة officine).",
+    patientSuiviProposedHint: "اقتراح من الصيدلية (إضافة الصيدلية).",
     patientSummaryKindLabel: "طلب منتجات",
     patientSummaryRefShort: "طلب",
     patientProductsSectionTitle: "المنتجات",

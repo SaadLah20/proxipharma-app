@@ -26,7 +26,7 @@ export const annuaireAr = {
     unavailable: "الموقع غير متاح. أعد المحاولة لاحقاً.",
   },
   card: {
-    onCall: "منaوبة",
+    onCall: "مناوبة",
     noGps: "موقع GPS غير مُدخل — الترتيب حسب المسافة غير متاح.",
     viewProfile: "عرض الصفحة",
   },

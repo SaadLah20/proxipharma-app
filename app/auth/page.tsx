@@ -704,10 +704,10 @@ function AuthForm({ isSignup }: { isSignup: boolean }) {
         href="/"
         className={cn(
           buttonVariants({ variant: "ghost", size: "sm" }),
-          "mb-6 -ml-2 w-fit gap-1.5 px-2 text-sm font-semibold text-primary"
+          "mb-6 -ms-2 w-fit gap-1.5 px-2 text-sm font-semibold text-primary"
         )}
       >
-        <ArrowLeft className="size-4" aria-hidden />
+        <ArrowLeft className="size-4 rtl:rotate-180" aria-hidden />
         {tc("backToDirectory")}
       </Link>
 

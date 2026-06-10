@@ -491,9 +491,15 @@ git checkout pilote-stable-2026-05-24
 - Branché patient : **`DossierHistoryListFr`**, **`usePatientDossierTimeline`** / **`usePatientLineTimeline`**, modale horloge ligne (**`patient-product-request-actions`**).
 - **`i18n:parity`** **1296** clés · **`build`** OK.
 
-**Prochaine étape doc** : **§13.58 étape 5** (relecture qualité AR humaine).
+**i18n AR affinage — étape 5 (§13.58 — livré)** :
+- Relecture **فصحى** parcours critiques : auth OTP (fuites EN), annuaire, Mes pharmacies, dossier répondu→validé→traité (timelines, archives, amendements).
+- Harmonisation terminologie (**تأكيد**, **صيدليتك**, épilogue expiré/clôturé distinct).
+- RTL mobile dense : auth retour, recherche hubs demandes / pharmacies, onglets choix répondu (`ps`/`pe`/`start`).
+- **`i18n:parity`** **1296** clés · **`build`** OK.
 
-**Phrase de reprise** : **§13.58** (étape 5).
+**Prochaine étape doc** : **§13.58 étape 6** (hors pilote — épiques séparées).
+
+**Phrase de reprise** : **§13.58** (étape 6 ou retours preview AR).
 
 ---
 
@@ -2646,16 +2652,17 @@ Voir **§13.37**.
 - **`build-dossier-timeline-fr`** + **`collect-line-events`** : corps des événements via `copy` (patient) ; dates + phases déjà localisées.
 - UI : **`DossierHistoryListFr`**, hooks **`usePatientDossierTimeline`** / **`usePatientLineTimeline`**, modale historique ligne produit.
 
-**Étape 5 — Relecture qualité AR** (prochaine livraison suggérée)
-- Relecture **فصحى** des écrans critiques (dossier répondu → validé → traité, annuaire, auth) ; RTL mobile dense.
+**Étape 5 — Relecture qualité AR** : **livré**.
+- Auth OTP, annuaire (`onCall`), Mes pharmacies (`account`), parcours dossier (archives, amendements, timelines) — corrections fuites EN/FR et terminologie **فصحى**.
+- RTL mobile : auth, hub demandes, annuaire pharmacies, choix produits répondu.
 
-**Étape 6 — Hors pilote** (épiques séparées)
+**Étape 6 — Hors pilote** (épiques séparées — prochaine doc si besoin)
 - Descriptions catalogue **~19 677** lignes (BeautyMall HTML FR).
 - SMS externes AR ; interface pharmacien AR ; URLs **`/ar/...`**.
 
-**Phrase de reprise (étape 5)** :
+**Phrase de reprise (étape 6 / fin pilote i18n patient)** :
 
-**« On reprend l'affinage i18n arabe patient — Pharmeto, branche `fix/validated-supply-ecart-ui-modal`. Lire **`CAHIER_DES_CHARGES.md` §13.58`** (étape **5** relecture qualité AR). Étapes **1–4** livrées. Preview AR sur dossier répondu → validé → traité, annuaire, auth ; retours RTL mobile. Je te donne la tâche ou les retours preview. »**
+**« Affinage i18n arabe patient §13.58 — étapes 1–5 livrées sur `fix/validated-supply-ecart-ui-modal`. Preview AR ou épique hors pilote (catalogue, SMS, pharmacien AR). Je te donne la tâche ou les retours. »**
 
 ### 13.57) Phrase de reprise (dépassée — après session **2026-06-09 (suite 4)**)
 
