@@ -48,6 +48,7 @@ export default function AdminPage() {
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [statut, setStatut] = useState("ouverte");
+  const [publicListed, setPublicListed] = useState(false);
 
   const [selectedPharmacyId, setSelectedPharmacyId] = useState("");
   const [pharmacienUserId, setPharmacienUserId] = useState("");
@@ -159,6 +160,7 @@ export default function AdminPage() {
       latitude: coords.latitude,
       longitude: coords.longitude,
       statut,
+      public_listed: publicListed,
     });
 
     if (error) {
@@ -174,6 +176,7 @@ export default function AdminPage() {
     setLatitude("");
     setLongitude("");
     setStatut("ouverte");
+    setPublicListed(false);
     setMessage("Pharmacie créée. Horaires Maroc par défaut appliqués automatiquement (migration 20260606_001).");
     await loadData();
   };
@@ -282,6 +285,15 @@ export default function AdminPage() {
             <option value="fermee">fermee</option>
             <option value="garde">garde</option>
           </select>
+          <label className="flex items-start gap-2 text-sm md:col-span-2">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={publicListed}
+              onChange={(e) => setPublicListed(e.target.checked)}
+            />
+            <span>Visible dans l&apos;annuaire public</span>
+          </label>
           <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white">
             Creer
           </button>

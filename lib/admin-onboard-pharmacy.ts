@@ -15,6 +15,7 @@ export type OnboardPharmacyInput = {
     statut?: string;
     nom_ar?: string;
     adresse_ar?: string;
+    public_listed?: boolean;
   };
   pharmacist: {
     full_name: string;
@@ -76,6 +77,8 @@ export function parseOnboardPharmacyBody(body: unknown):
     return { ok: false, error: "Statut invalide (ouverte, fermee ou garde)." };
   }
 
+  const public_listed = ph.public_listed === true;
+
   const coords = adminPharmacyCoordsFromBody(ph.latitude, ph.longitude, { required: true });
   if ("error" in coords) return { ok: false, error: coords.error };
   if (coords.latitude === null || coords.longitude === null) {
@@ -110,6 +113,7 @@ export function parseOnboardPharmacyBody(body: unknown):
       latitude: coords.latitude,
       longitude: coords.longitude,
       statut,
+      public_listed,
     },
     pharmacist: {
       full_name,

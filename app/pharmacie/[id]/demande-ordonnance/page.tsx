@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Camera, FileImage, FileText, Trash2, X } from "lucide-react";
@@ -23,6 +24,7 @@ import {
   ConversationMessageDraftField,
 } from "@/components/requests/conversation/conversation-message-draft-field";
 import type { ConversationAudioDraft } from "@/lib/use-conversation-audio-recorder";
+import { usePharmacyPublicGate } from "@/lib/use-pharmacy-public-gate";
 
 type PageSlot = {
   file: File;
@@ -34,11 +36,11 @@ const MAX_PAGES = 2;
 export default function DemandeOrdonnancePage() {
   const tp = useTranslations("prescriptionPublic");
   const tc = useTranslations("common");
+  const tPharmacy = useTranslations("pharmacyPublic");
   const params = useParams();
   const router = useRouter();
   const pharmacyId = typeof params.id === "string" ? params.id : "";
 
-  const [pharmacyName, setPharmacyName] = useState("");
   const [sessionReady, setSessionReady] = useState(false);
   const [pages, setPages] = useState<PageSlot[]>([]);
   const [note, setNote] = useState("");
@@ -49,6 +51,11 @@ export default function DemandeOrdonnancePage() {
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const {
+    pharmacyName,
+    loading: pharmacyLoading,
+    unavailable: pharmacyUnavailable,
+  } = usePharmacyPublicGate(pharmacyId, sessionReady);
 
   useEffect(() => {
     const gate = async () => {
@@ -61,18 +68,6 @@ export default function DemandeOrdonnancePage() {
     };
     void gate();
   }, [router, pharmacyId]);
-
-  useEffect(() => {
-    if (!pharmacyId || !sessionReady) return;
-    void supabase
-      .from("pharmacies")
-      .select("nom")
-      .eq("id", pharmacyId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.nom) setPharmacyName(data.nom);
-      });
-  }, [pharmacyId, sessionReady]);
 
   const revokePreviews = useCallback((slots: PageSlot[]) => {
     for (const s of slots) URL.revokeObjectURL(s.previewUrl);
@@ -228,10 +223,23 @@ export default function DemandeOrdonnancePage() {
     router.push(`/dashboard/demandes/${requestId}`);
   };
 
-  if (!sessionReady) {
+  if (!sessionReady || pharmacyLoading) {
     return (
       <main className="min-h-screen bg-background p-6">
         <p className="text-sm text-muted-foreground">{tp("sessionCheck")}</p>
+      </main>
+    );
+  }
+
+  if (pharmacyUnavailable) {
+    return (
+      <main className="min-h-screen bg-background p-6">
+        <div className="mx-auto max-w-lg rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          {tPharmacy("pharmacyUnavailable")}
+        </div>
+        <Link href="/" className="mt-4 block text-center text-sm font-medium text-primary">
+          {tc("backToDirectory")}
+        </Link>
       </main>
     );
   }

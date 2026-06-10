@@ -84,6 +84,7 @@ export async function onboardPharmacyAndPharmacist(
       titular_name: input.pharmacist.full_name.trim(),
       titular_title: "Pharmacien titulaire",
       titular_public: true,
+      public_listed: input.pharmacy.public_listed === true,
     })
     .select("id,public_ref")
     .single();
