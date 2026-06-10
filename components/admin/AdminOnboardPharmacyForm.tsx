@@ -35,6 +35,7 @@ export function AdminOnboardPharmacyForm({ onCreated }: Props) {
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [statut, setStatut] = useState("ouverte");
+  const [publicListed, setPublicListed] = useState(false);
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -56,6 +57,7 @@ export function AdminOnboardPharmacyForm({ onCreated }: Props) {
     setLatitude("");
     setLongitude("");
     setStatut("ouverte");
+    setPublicListed(false);
     setFullName("");
     setPhone("");
     setEmail("");
@@ -104,6 +106,7 @@ export function AdminOnboardPharmacyForm({ onCreated }: Props) {
             latitude: coords.latitude,
             longitude: coords.longitude,
             statut,
+            public_listed: publicListed,
           },
           pharmacist: {
             full_name: fullName,
@@ -273,6 +276,20 @@ export function AdminOnboardPharmacyForm({ onCreated }: Props) {
             <option value="fermee">fermee</option>
             <option value="garde">garde</option>
           </select>
+          <label className="flex items-start gap-2 text-sm md:col-span-2">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={publicListed}
+              onChange={(e) => setPublicListed(e.target.checked)}
+            />
+            <span>
+              Visible dans l&apos;annuaire public
+              <span className="mt-0.5 block text-xs text-gray-500">
+                Décoché par défaut (officine pilote / test). Cochez pour une pharmacie réelle prête à être découverte.
+              </span>
+            </span>
+          </label>
         </fieldset>
 
         <fieldset className="grid gap-3 md:grid-cols-2">

@@ -49,6 +49,7 @@ import {
 } from "@/lib/patient-demande-produits-draft";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
+import { usePharmacyPublicGate } from "@/lib/use-pharmacy-public-gate";
 
 type ProductLite = {
   id: string;
@@ -67,12 +68,12 @@ type CartLine = PatientDemandeProduitsDraftLine;
 export default function DemandeProduitsPage() {
   const td = useTranslations("demandePublic");
   const tc = useTranslations("common");
+  const tPharmacy = useTranslations("pharmacyPublic");
   const params = useParams();
   const router = useRouter();
   const pathname = usePathname();
   const pharmacyId = typeof params.id === "string" ? params.id : "";
 
-  const [pharmacyName, setPharmacyName] = useState("");
   const [sessionReady, setSessionReady] = useState(false);
   const [note, setNote] = useState("");
   const [pendingAudio, setPendingAudio] = useState<ConversationAudioDraft | null>(null);
@@ -110,6 +111,11 @@ export default function DemandeProduitsPage() {
     draft: string;
   } | null>(null);
   const { resolve: resolveCatalogPrice } = usePharmacyPricingForPatient(pharmacyId);
+  const {
+    pharmacyName,
+    loading: pharmacyLoading,
+    unavailable: pharmacyUnavailable,
+  } = usePharmacyPublicGate(pharmacyId, sessionReady);
 
   const pharmacyLabel = useMemo(() => pharmacyPublicLabel(pharmacyName), [pharmacyName]);
 
@@ -124,15 +130,6 @@ export default function DemandeProduitsPage() {
     };
     void gate();
   }, [router, pharmacyId]);
-
-  useEffect(() => {
-    if (!pharmacyId || !sessionReady) return;
-    const loadPh = async () => {
-      const { data } = await supabase.from("pharmacies").select("nom").eq("id", pharmacyId).maybeSingle();
-      if (data?.nom) setPharmacyName(data.nom);
-    };
-    void loadPh();
-  }, [pharmacyId, sessionReady]);
 
   const linesDraftKey = `${pharmacyId}|${sessionReady}|${pathname}`;
   const [prevLinesDraftKey, setPrevLinesDraftKey] = useState("");
@@ -361,10 +358,23 @@ export default function DemandeProduitsPage() {
     setLineCommentModal(null);
   };
 
-  if (!sessionReady) {
+  if (!sessionReady || pharmacyLoading) {
     return (
       <main className="min-h-screen bg-background p-6">
         <p className="text-sm text-muted-foreground">{td("sessionCheck")}</p>
+      </main>
+    );
+  }
+
+  if (pharmacyUnavailable) {
+    return (
+      <main className="min-h-screen bg-background p-6">
+        <div className="mx-auto max-w-lg rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          {tPharmacy("pharmacyUnavailable")}
+        </div>
+        <Link href="/" className="mt-4 block text-center text-sm font-medium text-primary">
+          {tc("backToDirectory")}
+        </Link>
       </main>
     );
   }

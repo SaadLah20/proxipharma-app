@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Camera, FileImage, MessageSquare, Trash2 } from "lucide-react";
@@ -20,17 +21,18 @@ import { CONSULTATION_TEXT_MAX, CONSULTATION_TEXT_MIN } from "@/lib/patient-requ
 import { sendRequestConversationMessage } from "@/lib/send-request-conversation-message";
 import { ConversationMessageDraftField } from "@/components/requests/conversation/conversation-message-draft-field";
 import type { ConversationAudioDraft } from "@/lib/use-conversation-audio-recorder";
+import { usePharmacyPublicGate } from "@/lib/use-pharmacy-public-gate";
 
 type PhotoSlot = { slot: 1 | 2 | 3; file?: File; previewUrl: string };
 
 export default function ConsultationLibrePage() {
   const tc = useTranslations("consultationPublic");
   const tCommon = useTranslations("common");
+  const tPharmacy = useTranslations("pharmacyPublic");
   const params = useParams();
   const router = useRouter();
   const pharmacyId = typeof params.id === "string" ? params.id : "";
 
-  const [pharmacyName, setPharmacyName] = useState("");
   const [sessionReady, setSessionReady] = useState(false);
   const [text, setText] = useState("");
   const [pendingAudio, setPendingAudio] = useState<ConversationAudioDraft | null>(null);
@@ -39,6 +41,11 @@ export default function ConsultationLibrePage() {
   const [feedback, setFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const {
+    pharmacyName,
+    loading: pharmacyLoading,
+    unavailable: pharmacyUnavailable,
+  } = usePharmacyPublicGate(pharmacyId, sessionReady);
 
   useEffect(() => {
     void (async () => {
@@ -50,18 +57,6 @@ export default function ConsultationLibrePage() {
       setSessionReady(true);
     })();
   }, [router, pharmacyId]);
-
-  useEffect(() => {
-    if (!pharmacyId || !sessionReady) return;
-    void supabase
-      .from("pharmacies")
-      .select("nom")
-      .eq("id", pharmacyId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.nom) setPharmacyName(data.nom);
-      });
-  }, [pharmacyId, sessionReady]);
 
   const revokePreviews = useCallback((slots: PhotoSlot[]) => {
     for (const s of slots) {
@@ -177,10 +172,23 @@ export default function ConsultationLibrePage() {
     router.push(`/dashboard/demandes/${rid}`);
   };
 
-  if (!sessionReady) {
+  if (!sessionReady || pharmacyLoading) {
     return (
       <main className="mx-auto min-h-screen max-w-lg px-4 py-8">
         <p className="text-sm text-muted-foreground">{tc("sessionCheck")}</p>
+      </main>
+    );
+  }
+
+  if (pharmacyUnavailable) {
+    return (
+      <main className="mx-auto min-h-screen max-w-lg px-4 py-8">
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          {tPharmacy("pharmacyUnavailable")}
+        </div>
+        <Link href="/" className="mt-4 block text-center text-sm font-medium text-primary">
+          {tCommon("backToDirectory")}
+        </Link>
       </main>
     );
   }
