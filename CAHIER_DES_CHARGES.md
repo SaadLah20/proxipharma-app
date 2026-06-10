@@ -431,7 +431,7 @@ git checkout pilote-stable-2026-05-24
 - **Affichage patient locale ar** : fiche publique, annuaire, Mes pharmacies ; **bandeau dossier** (`PatientPharmacyDossierBand`), hubs demandes/promo, contact rapide — repli FR si champs vides.
 
 **Lot ville (liste + libellé AR)** :
-- Esquisse **annulée** avant merge ; spec figée **`§13.55`** ; doc **`04929df`**. Consigne reprise : *« Reprendre l'implémentation de la ville en arabe »*.
+- Spec **`§13.55`** ; doc **`04929df`** — **livré** session **2026-06-10** (**`cff4fa4`**).
 
 **Fix build** : tri filtre pharmacie hub — **`collatorForLocale(locale).compare(a, b)`** (pas `localeCompare` + Collator).
 
@@ -451,7 +451,33 @@ git checkout pilote-stable-2026-05-24
 - **Mettre à jour ma date de passage** (`runUpdateVisit`, `confirmed` / `treated`) : même scroll + hint si date hors plage.
 - i18n **`common.visitDateRequiredToValidate`** (FR/AR) ; **`PlannedVisitDateInput`** prop **`invalid`** (bordure + `aria-invalid`).
 
-**Phrase de reprise** : **§13.57**.
+**Phrase de reprise** : **§13.57** (voir **§13.58**).
+
+---
+
+### Session 2026-06-10 — Ville AR, affinage i18n étape 1, fix bandeau nom_ar
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`cff4fa4`** (ville) · **`2d94ffc`** (bandeau `nom_ar` select) · **`059d712`** (i18n étape 1 + doc **§13.58**).
+
+**Migrations** (ordre) :
+- **`20260716_001`** — `pharmacies.nom_ar`, `adresse_ar` (si pas fait).
+- **`20260717_001`** — RPC **`patient_pharmacy_directory_enriched`** + colonne **`nom_ar`** (Mes pharmacies).
+
+**Ville officine (§13.55 — livré)** :
+- Catalogue **`lib/pharmacy-cities-morocco.ts`** (~35 villes `{ fr, ar }`) ; **`pharmacyCityLabel`**, **`pharmacyCitySearchTerms`**, **`PharmacyCitySelect`**.
+- Admin + **Ma fiche** : liste déroulante ; affichage patient AR (annuaire, bandeau, hubs, fiche publique).
+
+**Fix bandeau dossier** :
+- Détail demande : select Supabase inclut **`nom_ar`** / **`adresse_ar`** (oubli post-**`d092794`**).
+
+**i18n AR affinage — étape 1 (§13.58 — livré)** :
+- **`i18n:parity --strict-strings`** : **0** chaîne FR patient (auth code sync, consultation panel, historique vide).
+- **Itinéraire** + modale navigation → **`pharmacyPublic.*`**.
+- **Mes pharmacies** : dates locale, types dossiers **`workflow.*`**, note avis ; **`lib/i18n/patient-pharmacy-kind-labels.ts`**.
+
+**Prochaine étape doc** : **§13.58 étape 2** (archives & statuts terminaux — modules **`*-fr.ts`**).
+
+**Phrase de reprise** : **§13.58** (étape 2).
 
 ---
 
@@ -2301,8 +2327,10 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260713_001_pharmacy_pricing_brand_rules.sql` (**pricing parapharmacie par marque**) (**`patient_save_consultation_brief`**, pas de double notif au 1er envoi avec photos)
   - `supabase/migrations/20260714_001_i18n_patient_notification_ar_enrichment.sql` (notifs in-app patient ar enrichissement)
   - `supabase/migrations/20260715_001_rebrand_pharmeto_notification_copy.sql` (ancre rebrand Pharmeto)
+  - `supabase/migrations/20260716_001_pharmacy_nom_adresse_ar.sql` (`nom_ar`, `adresse_ar` officine)
+  - `supabase/migrations/20260717_001_patient_pharmacy_directory_nom_ar.sql` (Mes pharmacies + `nom_ar`)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260716_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. Reprise courte : **§13.57**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260717_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. i18n messages patient **1 220** clés FR/AR. Reprise courte : **§13.58**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2582,7 +2610,7 @@ Voir **§13.37**.
 - Ville AR catalogue code (**§13.55**, commit **`cff4fa4`**).
 - Fix bandeau dossier `nom_ar` manquant au select (**`2d94ffc`**).
 
-**Étape 1 — Finitions rapides** : **livré** (commit à pousser avec cette section).
+**Étape 1 — Finitions rapides** : **livré** (commit **`059d712`**).
 - Zéro chaîne FR repérée par **`i18n:parity --strict-strings`** (auth code sync, consultation panel, historique vide).
 - **Itinéraire** / modale navigation → **`pharmacyPublic.*`**.
 - **Mes pharmacies** : dates locale, `nom_ar`, types dossiers **`workflow.*`**, note avis ; migration **`20260717_001`** (`patient_pharmacy_directory_enriched` + `nom_ar`).
@@ -2766,7 +2794,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-09 (suite 2)** — hub packs tuiles seules, espacements ordonnance, drift visible, libellé amendement). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260715_001`** ; catalogue **~19 677** produits (13 651 para + 6 026 méd.). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.54**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-10** — ville AR **§13.55**, i18n étape 1 **§13.58**, fix bandeau `nom_ar`). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260717_001`** ; catalogue **~19 677** produits (13 651 para + 6 026 méd.). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.58**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 

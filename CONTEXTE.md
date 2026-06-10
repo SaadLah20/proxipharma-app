@@ -41,6 +41,12 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 ## 6. État technique récent (aligné repo — mai–juin 2026)
 
+**Mise à jour 2026-06-10 — ville AR, i18n affinage étape 1, fix bandeau nom_ar** :
+- **Ville officine (livré, §13.55)** : **`lib/pharmacy-cities-morocco.ts`** + **`PharmacyCitySelect`** (admin, ma fiche) ; affichage AR patient via **`pharmacyCityLabel`** — commit **`cff4fa4`**.
+- **Bandeau dossier** : select détail demande inclut **`nom_ar`** (fix oubli) — **`2d94ffc`**.
+- **i18n étape 1 (§13.58, livré)** : zéro chaîne FR **`i18n:parity --strict-strings`** ; itinéraire **`pharmacyPublic`** ; Mes pharmacies (dates locale, `nom_ar`, types dossiers) — **`059d712`** ; migration **`20260717_001`**.
+- **Prochaine livraison i18n** : **§13.58 étape 2** (archives & statuts terminaux). Phrase reprise **§13.58**.
+
 **Mise à jour 2026-06-09 (suite 4) — scroll + hint inline date de passage (validation patient)** :
 - **`PatientProductRequestActions`** : si le patient clique **Valider ma demande** sans date (ou date hors plage), la page **défile** vers le bloc **Date de passage** (centré) et affiche un **message rouge sous le champ** — plus d’erreur invisible en haut du dossier ; même logique pour **Mettre à jour ma date de passage** post-validation.
 - **`validatePatientConfirmBeforeReview`** : erreurs typées (`focus: visit_passage` | `top`) ; i18n **`common.visitDateRequiredToValidate`** ; **`PlannedVisitDateInput`** `invalid`.
@@ -51,8 +57,8 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 - **Header** : wordmark Pharmeto rapproché du logo (`gap-1.5`) — **`d7f719c`**.
 - **i18n patient lot 1 (dossiers)** : actions dossier, contact rapide, chooser répondue, compact line, fallbacks hub — commits **`e6eb40e`**, fix import **`f79ad89`** ; parité FR/AR **1211** clés.
 - **Nom / adresse arabe officine (livré)** : migration **`20260716_001`** (`nom_ar`, `adresse_ar`) ; admin onboarding + **Ma fiche → Coordonnées** (section arabe facultative) ; affichage patient locale **ar** avec repli FR — **`lib/pharmacy-localized-field.ts`**, **`pharmacyPublicLabel(..., { locale, nomAr })`** ; fiche publique, annuaire, Mes pharmacies, **bandeau dossier + hubs demandes/promo** — commits **`2eed65a`**, **`d092794`**, fix build tri hub **`8e8b47a`** (`collatorForLocale().compare`).
-- **Reporté** : **ville** liste admin + libellés AR intégrés — spec **`§13.55`** ; esquisse locale annulée ; consigne : *« Reprendre l'implémentation de la ville en arabe »* — doc **`04929df`**.
-- **SQL à appliquer** si pas fait : **`20260716_001`**. Phrase reprise **`§13.56`** · journal **§10 session 2026-06-09 (suite 3)**.
+- **Ville** : spec **`§13.55`** — **livré session 2026-06-10** (**`cff4fa4`**) ; voir journal **§10 session 2026-06-10**.
+- **SQL à appliquer** si pas fait : **`20260716_001`** puis **`20260717_001`**. Phrase reprise **`§13.58`** · journal **§10 session 2026-06-09 (suite 3)**.
 
 **Mise à jour 2026-06-09 (suite 2) — affinages preview drift / ordonnances / packs promo (branche `fix/validated-supply-ecart-ui-modal`, commits **`55336d2`** · **`9768bda`** · **`f38c90b`** · **`f45728e`)** :
 - **Drift dossier patient** : bandeau **`RequestDetailStaleBanner`** **visible** sur **`confirmed → treated`** (consultation incluse) — fin auto-refresh silencieux ; polling **5 s**.
