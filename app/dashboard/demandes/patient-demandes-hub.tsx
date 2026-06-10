@@ -397,14 +397,14 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                   </span>
                   <span className="relative block">
                     <Search
-                      className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60"
+                      className="pointer-events-none absolute start-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60"
                       aria-hidden
                     />
                     <input
                       value={refQuery}
                       onChange={(e) => setRefQuery(e.target.value)}
                       placeholder={refPlaceholder}
-                      className="w-full rounded-lg border border-input bg-background py-2 pl-8 pr-2.5 text-xs text-foreground shadow-sm placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                      className="w-full rounded-lg border border-input bg-background py-2 ps-8 pe-2.5 text-xs text-foreground shadow-sm placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                     />
                   </span>
                 </label>

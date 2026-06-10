@@ -307,7 +307,7 @@ export function PatientPharmaciesDirectory() {
           <span className="relative block">
             <Search
               className={clsx(
-                "pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2",
+                "pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2",
                 p.searchIcon
               )}
             />
@@ -316,7 +316,7 @@ export function PatientPharmaciesDirectory() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("searchPlaceholder")}
               className={clsx(
-                "w-full rounded-lg border bg-background py-2 pl-8 pr-2 text-xs font-normal normal-case tracking-normal text-foreground outline-none focus-visible:ring-2",
+                "w-full rounded-lg border bg-background py-2 ps-8 pe-2 text-xs font-normal normal-case tracking-normal text-foreground outline-none focus-visible:ring-2",
                 p.searchInput
               )}
             />
