@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260717_001`** si pas fait) → phrase **§13.58** (roadmap i18n AR patient ; ville **§13.55** livree ; etape 1 i18n **§13.58** faite). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260718_002`** si pas fait — **`20260718_001`** + **`20260718_002`** visibilite officines pilote) → phrase **§13.59** (annuaire : Al Jazira seule en public ; comptes test **`pilot_access`**). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -384,6 +384,28 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
+### Session 2026-06-10 (suite 2) — Visibilité annuaire pilote (Al Jazira seule en public)
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`b76bdec`** (pilote `public_listed` / `pilot_access`) · **`d06520e`** (fix seed SQL Editor + **`20260718_002`**).
+
+**Migrations** (ordre obligatoire) :
+- **`20260718_001_pilot_pharmacy_public_listed.sql`** — colonnes **`pharmacies.public_listed`** (défaut `false`) et **`profiles.pilot_access`** (défaut `false`) ; fonctions **`is_pilot_access_user()`**, **`can_patient_use_pharmacy()`** ; RLS annuaire / création demandes / promos publiées ; gardes RPC **`patient_submit_prescription_request`**, **`patient_submit_free_consultation_request`**, **`patient_submit_promo_reservation`** ; triggers anti-élévation ; seed pilote (Al Jazira + comptes test).
+- **`20260718_002_pilot_visibility_seed_fix.sql`** — **obligatoire après 001** : triggers autorisent **`postgres`** / **`supabase_admin`** (SQL Editor) ; **réapplique** le seed si **`pilot_access`** est resté à `false` partout.
+
+**Règles produit (prod juin 2026)** :
+- **Public + nouveaux patients** : annuaire et fiches = pharmacies **`public_listed = true`** uniquement → **AL JAZIRA** (`d536a446-…`).
+- **Officines test** (Saad, Yassine BJ) : **`public_listed = false`** — masquées sauf comptes **`pilot_access = true`** (admin MIASMO + 4 patients test).
+- **Noureddine SALAMI** (titulaire Al Jazira) : **`pilot_access = false`** — dashboard officine inchangé.
+- **Nouvelle officine admin** : case **« Visible dans l'annuaire public »** (décochée par défaut) — **`AdminOnboardPharmacyForm`**, création pharmacie seule **`app/admin/page.tsx`**.
+
+**Code** : **`lib/use-pharmacy-public-gate.ts`** ; pages **`/pharmacie/[id]/demande-*`** (message indisponible si RLS bloque).
+
+**Fin de pilote** : supprimer comptes/officines fake ; une seule officine réelle **`public_listed`** — pas de retrait de colonnes requis.
+
+**Phrase de reprise** : **§13.59**.
+
+---
+
 ### Session 2026-06-09 — Retours UI patient/pharmacien (drift, archives, ordonnances, promos, amendements)
 
 **Branche** : `fix/validated-supply-ecart-ui-modal` — commit **`1330407`**.
@@ -503,9 +525,9 @@ git checkout pilote-stable-2026-05-24
 - **`globals.css`** : variantes Tailwind **`rtl` / `ltr`** (`@custom-variant`).
 - **`i18n:parity`** **1299** clés · **`build`** OK.
 
-**Prochaine étape doc** : **§13.58 étape 6** (hors pilote — épiques séparées).
+**Prochaine étape doc** : **§13.58 étape 6** (hors pilote — épiques séparées). **Reprise courante** : **§13.59** (visibilité annuaire pilote).
 
-**Phrase de reprise** : **§13.58** (étape 6 ou retours preview AR).
+**Phrase de reprise** : **§13.59** (remplace **§13.58** pour reprise courte).
 
 ---
 
@@ -2357,8 +2379,10 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260715_001_rebrand_pharmeto_notification_copy.sql` (ancre rebrand Pharmeto)
   - `supabase/migrations/20260716_001_pharmacy_nom_adresse_ar.sql` (`nom_ar`, `adresse_ar` officine)
   - `supabase/migrations/20260717_001_patient_pharmacy_directory_nom_ar.sql` (Mes pharmacies + `nom_ar`)
+  - `supabase/migrations/20260718_001_pilot_pharmacy_public_listed.sql` (**`public_listed`**, **`pilot_access`**, RLS annuaire pilote)
+  - `supabase/migrations/20260718_002_pilot_visibility_seed_fix.sql` (fix seed SQL Editor — **à appliquer après 001**)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260717_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. i18n messages patient **1 220** clés FR/AR. Reprise courte : **§13.58**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260718_002`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** (officines test masquées) ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. i18n messages patient **1 299** clés FR/AR. Reprise courte : **§13.59**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2670,6 +2694,10 @@ Voir **§13.37**.
 
 **« Affinage i18n arabe patient §13.58 — étapes 1–5 livrées sur `fix/validated-supply-ecart-ui-modal`. Preview AR ou épique hors pilote (catalogue, SMS, pharmacien AR). Je te donne la tâche ou les retours. »**
 
+### 13.59) Phrase de reprise (recommandée — session **2026-06-10 (suite 2)** visibilité annuaire pilote)
+
+**« Pharmeto (`pharmeto.ma`) — branche `fix/validated-supply-ecart-ui-modal` (commits **`b76bdec`**, **`d06520e`**). **Migrations Supabase** : **`20260718_001`** puis **`20260718_002`** (les deux obligatoires — le 002 corrige le seed `pilot_access` / `public_listed` si tout était resté à `false`). **Annuaire public** : **`pharmacies.public_listed = true`** → seule **AL JAZIRA** en prod ; Saad / Yassine BJ masquées. **Comptes test** : **`profiles.pilot_access = true`** (admin MIASMO + 4 patients test) ; **Noureddine SALAMI** titulaire réel → **`pilot_access = false`**. Nouveaux patients et officines non cochées admin → masqués. Admin : case **Visible dans l'annuaire public** à la création. Lots antérieurs : i18n **§13.58**, ville **§13.55**. Je te donne la tâche ou les retours preview. »**
+
 ### 13.57) Phrase de reprise (dépassée — après session **2026-06-09 (suite 4)**)
 
 Voir **§13.58**.
@@ -2826,7 +2854,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-10** — ville AR **§13.55**, i18n étape 1 **§13.58**, fix bandeau `nom_ar`). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260717_001`** ; catalogue **~19 677** produits (13 651 para + 6 026 méd.). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.58**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-10 (suite 2)** — visibilité annuaire pilote **§13.59**, commits **`b76bdec`**, **`d06520e`**). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260718_002`** (**`001`** + **`002`** visibilité officines) ; annuaire public = **Al Jazira seule** ; catalogue **~19 677** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.59**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
