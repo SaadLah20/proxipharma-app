@@ -22,7 +22,10 @@ import { ANNUAIRE_PAGE_SIZE, type AnnuairePharmacyEnriched, type AnnuairePharmac
 import { pharmacyCitySearchTerms } from "@/lib/pharmacy-cities-morocco";
 import { collatorForLocale } from "@/lib/datetime-locale";
 import type { AppLocale } from "@/lib/i18n/config";
-import { annuaireIncludesNonPublicPharmacies } from "@/lib/annuaire/pilot-directory-access";
+import {
+  annuaireIncludesNonPublicPharmacies,
+  annuairePublicListedOnly,
+} from "@/lib/annuaire/pilot-directory-access";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { supabase } from "@/lib/supabase";
 import { uiSurfaceCard } from "@/lib/ui-surfaces";
@@ -98,7 +101,11 @@ export function AnnuairePage() {
       setErrorMessage(error.message);
       setPharmacies([]);
     } else {
-      setPharmacies((data ?? []) as AnnuairePharmacyRow[]);
+      let rows = (data ?? []) as AnnuairePharmacyRow[];
+      if (!includePilot) {
+        rows = annuairePublicListedOnly(rows);
+      }
+      setPharmacies(rows);
     }
     setLoading(false);
   }, []);

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Bell,
@@ -301,7 +300,6 @@ function ProfileNavMenu({ blocks, onNavigate }: { blocks: PlatformNavBlock[]; on
 }
 
 export function PlatformHeader() {
-  const router = useRouter();
   const locale = useLocale() as AppLocale;
   const tHeader = useTranslations("header");
   const tCommon = useTranslations("common");
@@ -523,9 +521,9 @@ export function PlatformHeader() {
 
   const handleLogout = async () => {
     setProfileOpen(false);
-    await supabase.auth.signOut();
-    router.refresh();
-    router.push("/");
+    await supabase.auth.signOut({ scope: "local" });
+    // Rechargement complet : évite session / liste annuaire figée sur mobile (Chrome).
+    window.location.assign("/");
   };
 
   const role = profile?.role ?? "patient";

@@ -384,6 +384,25 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
+### Session 2026-06-10 (suite 3) — Annuaire : déconnexion mobile + filtre filet
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`5e70cb7`** · **`1b4eb47`** · **`bdbfcc2`** (fix typage CI).
+
+**Pas de nouvelle migration.**
+
+**Contexte** : après merge pilote (**suite 2**), compte **`pilot_access`** encore actif sur mobile (session Supabase) → annuaire affichait **3** officines même après F5 ; RLS seul suffit si vraiment déconnecté.
+
+**Correctifs annuaire** (`components/annuaire/annuaire-page.tsx`, **`lib/annuaire/pilot-directory-access.ts`**) :
+- Rechargement liste sur **`onAuthStateChange`** (connexion / déconnexion).
+- Filtre explicite **`public_listed = true`** + filet client pour non-pilotes.
+- **`getUser()`** (pas **`getSession()`**) pour détecter le mode pilote.
+
+**Déconnexion** (`platform-header.tsx`) : **`signOut({ scope: 'local' })`** + **`window.location.assign('/')`** (rechargement complet mobile Chrome).
+
+**Phrase de reprise** : **§13.59**.
+
+---
+
 ### Session 2026-06-10 (suite 2) — Visibilité annuaire pilote (Al Jazira seule en public)
 
 **Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`b76bdec`** (pilote `public_listed` / `pilot_access`) · **`d06520e`** (fix seed SQL Editor + **`20260718_002`**).
@@ -398,7 +417,7 @@ git checkout pilote-stable-2026-05-24
 - **Noureddine SALAMI** (titulaire Al Jazira) : **`pilot_access = false`** — dashboard officine inchangé.
 - **Nouvelle officine admin** : case **« Visible dans l'annuaire public »** (décochée par défaut) — **`AdminOnboardPharmacyForm`**, création pharmacie seule **`app/admin/page.tsx`**.
 
-**Code** : **`lib/use-pharmacy-public-gate.ts`** ; pages **`/pharmacie/[id]/demande-*`** (message indisponible si RLS bloque).
+**Code** : **`lib/use-pharmacy-public-gate.ts`** ; **`lib/annuaire/pilot-directory-access.ts`** (suite 3) ; pages **`/pharmacie/[id]/demande-*`** (message indisponible si RLS bloque).
 
 **Fin de pilote** : supprimer comptes/officines fake ; une seule officine réelle **`public_listed`** — pas de retrait de colonnes requis.
 
@@ -2694,9 +2713,9 @@ Voir **§13.37**.
 
 **« Affinage i18n arabe patient §13.58 — étapes 1–5 livrées sur `fix/validated-supply-ecart-ui-modal`. Preview AR ou épique hors pilote (catalogue, SMS, pharmacien AR). Je te donne la tâche ou les retours. »**
 
-### 13.59) Phrase de reprise (recommandée — session **2026-06-10 (suite 2)** visibilité annuaire pilote)
+### 13.59) Phrase de reprise (recommandée — session **2026-06-10 (suite 2–3)** visibilité annuaire pilote)
 
-**« Pharmeto (`pharmeto.ma`) — branche `fix/validated-supply-ecart-ui-modal` (commits **`b76bdec`**, **`d06520e`**). **Migrations Supabase** : **`20260718_001`** puis **`20260718_002`** (les deux obligatoires — le 002 corrige le seed `pilot_access` / `public_listed` si tout était resté à `false`). **Annuaire public** : **`pharmacies.public_listed = true`** → seule **AL JAZIRA** en prod ; Saad / Yassine BJ masquées. **Comptes test** : **`profiles.pilot_access = true`** (admin MIASMO + 4 patients test) ; **Noureddine SALAMI** titulaire réel → **`pilot_access = false`**. Nouveaux patients et officines non cochées admin → masqués. Admin : case **Visible dans l'annuaire public** à la création. Lots antérieurs : i18n **§13.58**, ville **§13.55**. Je te donne la tâche ou les retours preview. »**
+**« Pharmeto (`pharmeto.ma`) — branche `fix/validated-supply-ecart-ui-modal` (commits **`b76bdec`**, **`d06520e`**, **`bdbfcc2`**). **Migrations Supabase** : **`20260718_001`** puis **`20260718_002`** (les deux obligatoires — le 002 corrige le seed `pilot_access` / `public_listed` si tout était resté à `false`). **Annuaire public** : **`pharmacies.public_listed = true`** → seule **AL JAZIRA** en prod ; Saad / Yassine BJ masquées sauf comptes **`pilot_access`**. **Annuaire app** : rechargement après déconnexion + filtre filet **`lib/annuaire/pilot-directory-access.ts`** ; déconnexion header = rechargement complet (**mobile**). **Comptes test** : admin MIASMO + 4 patients **`pilot_access = true`** ; **Noureddine SALAMI** → **`pilot_access = false`**. Admin : case **Visible dans l'annuaire public** à la création. Lots antérieurs : i18n **§13.58**, ville **§13.55**. Je te donne la tâche ou les retours preview. »**
 
 ### 13.57) Phrase de reprise (dépassée — après session **2026-06-09 (suite 4)**)
 
@@ -2854,7 +2873,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-10 (suite 2)** — visibilité annuaire pilote **§13.59**, commits **`b76bdec`**, **`d06520e`**). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260718_002`** (**`001`** + **`002`** visibilité officines) ; annuaire public = **Al Jazira seule** ; catalogue **~19 677** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.59**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-10 (suite 3)** — annuaire déconnexion mobile + pilote **§13.59**, commits **`bdbfcc2`**). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260718_002`** (**`001`** + **`002`** visibilité officines) ; annuaire public = **Al Jazira seule** ; catalogue **~19 677** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.59**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 

@@ -18,6 +18,8 @@ export type AnnuairePharmacyRow = {
   maps_url: string | null;
   rating_avg: number | null;
   rating_count: number | null;
+  /** Présent si la requête annuaire le sélectionne (filtre pilote). */
+  public_listed?: boolean | null;
 };
 
 export type AnnuairePharmacyEnriched = AnnuairePharmacyRow & {
