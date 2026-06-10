@@ -19,4 +19,9 @@ export const PHARMETO_BRAND = {
   },
   taglineFr: "Votre pharmacie de quartier, en ligne",
   taglineAr: "صيدليتكم في الحي، على الإنترنت",
+  /** Incrémenter quand `public/brand/pharmeto-icon.png` change (splash PWA / cache navigateur). */
+  iconAssetVersion: 2,
 } as const;
+
+/** URL publique de l’icône marque (query `v` = invalidation cache splash mobile). */
+export const PHARMETO_ICON_SRC = `/brand/pharmeto-icon.png?v=${PHARMETO_BRAND.iconAssetVersion}`;
