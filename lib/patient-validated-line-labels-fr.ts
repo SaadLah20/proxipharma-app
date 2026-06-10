@@ -215,20 +215,27 @@ export function buildPatientValidatedLineLabelsFr(input: {
 export function validatedLineLabelChipClass(label: ValidatedLineLabel): string {
   const base =
     "inline-flex max-w-full shrink-0 items-center rounded border px-1.5 py-px text-[8px] font-semibold uppercase tracking-wide leading-tight";
-  if (label.tone === "origin") {
-    const t = label.text;
-    if (t === "Alternative") return `${base} border-teal-300/70 bg-teal-50/40 text-teal-900/90`;
-    if (t === "Ta demande" || t === "Demande patient") return `${base} border-sky-300/70 bg-sky-50/35 text-sky-900/90`;
-    if (t === "Ordonnance" || t.startsWith("Ordonnance")) return `${base} border-amber-300/70 bg-amber-50/40 text-amber-900/90`;
+  if (label.key === "origin-prescription") {
+    return `${base} border-amber-300/70 bg-amber-50/40 text-amber-900/90`;
+  }
+  if (label.key === "origin-alternative") {
+    return `${base} border-teal-300/70 bg-teal-50/40 text-teal-900/90`;
+  }
+  if (label.key === "origin" || label.key === "origin-pharmacy") {
+    return label.key === "origin-pharmacy"
+      ? `${base} border-violet-300/70 bg-violet-50/35 text-violet-900/90`
+      : `${base} border-sky-300/70 bg-sky-50/35 text-sky-900/90`;
+  }
+  if (label.key === "origin-post-confirm") {
     return `${base} border-violet-300/70 bg-violet-50/35 text-violet-900/90`;
   }
   if (label.tone === "reception" || label.key === "reception") {
     return `${base} border-teal-300/70 bg-teal-50/35 text-teal-900/90`;
   }
-  if (label.tone === "collected" || label.text === "Récupéré") {
+  if (label.tone === "collected" || label.key === "collected") {
     return `${base} border-emerald-300/70 bg-emerald-50/35 text-emerald-900/90`;
   }
-  if (label.tone === "arrived" || label.text === "Reçu en officine") {
+  if (label.tone === "arrived" || label.key === "arrived") {
     return `${base} border-emerald-300/70 bg-emerald-50/35 text-emerald-900/90`;
   }
   if (label.tone === "status") {
@@ -266,4 +273,4 @@ export function validatedOriginLabelFr(input: {
   return validatedOriginFallbackPatientFr(requestType);
 }
 
-export { buildPatientValidatedLineLabels, usePatientValidatedLineLabels } from "@/lib/use-patient-validated-line-labels";
+export { buildPatientValidatedLineLabels, usePatientValidatedLineLabels, useValidatedOriginLabel } from "@/lib/use-patient-validated-line-labels";

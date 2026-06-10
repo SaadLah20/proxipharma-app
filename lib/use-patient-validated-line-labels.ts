@@ -14,6 +14,7 @@ import {
   isPatientAjoutOfficineLine,
   isRequestItemAddedAfterPatientConfirmation,
 } from "@/lib/supply-line-post-confirm";
+import { usePrescriptionUiCopy } from "@/lib/use-prescription-ui-copy";
 import {
   type ValidatedLineLabel,
   type ValidatedLineLabelTone,
@@ -128,6 +129,7 @@ export function buildPatientValidatedLineLabels(input: {
   tCommon: CommonT;
   defaultOriginLabels: readonly string[];
   formatDateShort: (iso: string) => string;
+  prescriptionBadge?: string | null;
 }): ValidatedLineLabel[] {
   const {
     row,
@@ -141,17 +143,26 @@ export function buildPatientValidatedLineLabels(input: {
     tCommon,
     defaultOriginLabels,
     formatDateShort,
+    prescriptionBadge = null,
   } = input;
 
   const out: ValidatedLineLabel[] = [];
-  if (originLabel.trim() && !defaultOriginLabels.includes(originLabel)) {
-    out.push({ key: "origin", text: originLabel, tone: "origin" });
+  const isPostConfirmAdd = isRequestItemAddedAfterPatientConfirmation(row.id, supplyAmendmentBundles);
+  if (isPostConfirmAdd) {
+    out.push({ key: "origin-post-confirm", text: tValidated("postConfirmAdded"), tone: "event" });
+  } else if (originLabel.trim() && !defaultOriginLabels.includes(originLabel)) {
+    const originKey = row.patient_chosen_alternative_id
+      ? "origin-alternative"
+      : row.line_source === "pharmacist_proposed"
+        ? "origin-pharmacy"
+        : prescriptionBadge && originLabel === prescriptionBadge
+          ? "origin-prescription"
+          : "origin";
+    out.push({ key: originKey, text: originLabel, tone: "origin" });
   }
 
   const withdrawn = Boolean(row.withdrawn_after_confirm);
-  const ajoutOrigin =
-    isPatientAjoutOfficineLine(row) ||
-    isRequestItemAddedAfterPatientConfirmation(row.id, supplyAmendmentBundles);
+  const ajoutOrigin = isPatientAjoutOfficineLine(row) || isPostConfirmAdd;
 
   const closure = archiveClosureLabel?.trim();
   const pickedUp = (row.counter_outcome ?? "unset") === "picked_up";
@@ -255,4 +266,25 @@ export function usePatientValidatedLineLabels(defaultOriginLabels: readonly stri
   );
 
   return { buildLabels, tValidated, tTimeline, tCommon };
+}
+
+export function useValidatedOriginLabel() {
+  const prescriptionCopy = usePrescriptionUiCopy();
+  const tValidated = useTranslations("demandes.validated");
+
+  return useCallback(
+    (input: {
+      row: PatientLineLike;
+      requestType: string;
+      pharmacistProposedBadgeLabel: string;
+      prescriptionBadge: string | null;
+    }): string => {
+      const { row, prescriptionBadge, pharmacistProposedBadgeLabel, requestType } = input;
+      if (prescriptionBadge) return prescriptionBadge;
+      if (row.patient_chosen_alternative_id) return tValidated("alternative");
+      if (row.line_source === "pharmacist_proposed") return pharmacistProposedBadgeLabel;
+      return prescriptionCopy.validatedOriginFallbackPatient(requestType);
+    },
+    [prescriptionCopy, tValidated],
+  );
 }

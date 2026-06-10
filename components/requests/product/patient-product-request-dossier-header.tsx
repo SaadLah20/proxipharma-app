@@ -14,7 +14,7 @@ import {
   type PatientSupplyAmendmentBundle,
 } from "@/components/requests/product/patient-pharma-update-banner";
 import { usePatientRequestStatusLabel } from "@/lib/i18n/patient-request-status-label";
-import { buildPatientPharmaAmendmentResumeFr } from "@/lib/patient-pharma-amendment-resume-fr";
+import { usePatientPharmaAmendmentCopy } from "@/lib/i18n/use-patient-pharma-amendment-copy";
 import { requestStatusBadgeClass } from "@/lib/request-display";
 import { patientWorkflowDossierHeaderShellClass } from "@/lib/patient-product-request-line-ui";
 import { uiDossierHeaderShell } from "@/lib/ui-surfaces";
@@ -51,13 +51,14 @@ export function PatientProductRequestDossierHeader({
 }) {
   const tCommon = useTranslations("common");
   const tDemandes = useTranslations("demandes");
+  const { buildAmendmentResume } = usePatientPharmaAmendmentCopy();
   const resolvedKindLabel = kindLabel ?? tCommon("defaultRequestKindLabel");
   const translatedStatusLabel = usePatientRequestStatusLabel(status);
   const [journeyOpen, setJourneyOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
   const badgeLabel = statusLabel ?? translatedStatusLabel;
   const amendmentResume = amendmentResumeBundles?.length
-    ? buildPatientPharmaAmendmentResumeFr(amendmentResumeBundles)
+    ? buildAmendmentResume(amendmentResumeBundles)
     : null;
   const showAmendedState = Boolean(amendmentResume);
 

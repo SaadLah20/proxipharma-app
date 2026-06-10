@@ -132,6 +132,51 @@ export const demandesFr = {
     receptionPlanned: "Réception prévue · {date}",
     reception: "Réception · {date}",
     yourRequest: "Ta demande",
+    alternative: "Alternative",
+    postConfirmAdded: "Ajouté après validation",
+  },
+  amendmentResume: {
+    modalTitle: "Modifications après validation",
+    modalSubtitleSingle: "Mise à jour {when}",
+    modalSubtitleMulti: "{count} mises à jour depuis votre validation · dernière {when}",
+    whenRange: "{first} → {last} ({count} mises à jour)",
+    lineEntry: "{when} — {detail}",
+    sections: {
+      supply: "Produits validés modifiés",
+      added: "Ajouts après validation",
+      withdrawn: "Retraits après validation",
+    },
+    entryFallback: {
+      validated_qty_change: "Quantité validée modifiée",
+      line_adjust_supply: "Disponibilité ou quantité modifiée",
+      line_added_after_confirm: "Produit ajouté par la pharmacie",
+      withdraw_after_confirm: "Produit retiré après validation",
+      line_removed_after_confirm: "Produit retiré après validation",
+      default: "Mise à jour enregistrée",
+    },
+  },
+  supplyAmendment: {
+    patientAgreement: "Accord patient : {channel}",
+    precision: "Précision : {motive}",
+    channels: {
+      phone_call: "Appel téléphonique",
+      whatsapp: "WhatsApp",
+      sms: "SMS",
+      email: "Courriel",
+      comptoir: "Comptoir / en personne",
+      autre: "Autre canal",
+    },
+    facts: {
+      withdraw_after_confirm: "Retiré de votre commande après validation.",
+      reintegrate_after_confirm: "Réintégré dans votre commande.",
+      reintegrate: "Réintégré dans votre commande.",
+      validated_qty_change: "Quantité validée modifiée.",
+      line_added_after_confirm: "Produit ajouté avec votre accord.",
+      line_removed_after_confirm: "Proposition retirée par la pharmacie.",
+      line_brought_to_reserve_after_validation: "Replacé en réservation en officine.",
+      line_adjust_supply: "Disponibilité ou quantité modifiée.",
+      default: "Mise à jour enregistrée",
+    },
   },
   journey: {
     sent: "Envoyée",
@@ -250,6 +295,86 @@ export const demandesFr = {
     resubmitCta: "Ajuster et renvoyer une nouvelle demande",
     resubmitHint:
       "Ouvre une nouvelle demande chez cette officine avec vos produits préremplis — vous validez l'envoi sur la page suivante.",
+    terminal: {
+      motivePrefix: " Motif : {motive}",
+      expired: {
+        short: "Délai de validation dépassé.",
+        detailWithDate:
+          "Vous n'avez pas validé cette demande dans le délai de 24 h après la réponse de l'officine. Elle a été expirée automatiquement le {when}.",
+        detailNoDate:
+          "Vous n'avez pas validé cette demande dans le délai de 24 h après la réponse de l'officine. Elle a été expirée automatiquement.",
+        hintPrescription:
+          "Vous n'avez pas validé la réponse de la pharmacie dans le délai prévu. Pour renvoyer une ordonnance, utilisez l'annuaire et la fiche de la même pharmacie.",
+        hintProduct:
+          "Vous n'avez pas validé la réponse de la pharmacie dans le délai prévu. Vous pouvez créer une nouvelle demande avec les mêmes produits si besoin.",
+      },
+      cancelled: {
+        short: "Demande annulée.",
+        detailWithActor:
+          "Demande annulée · {actor}.{motive} Les produits ci-dessous reprennent l'état du dossier avant annulation.",
+        detailWithMotive:
+          "Demande annulée.{motive} Les produits ci-dessous reprennent l'état du dossier avant annulation.",
+        detailDefault:
+          "Demande annulée. Les produits ci-dessous reprennent l'état du dossier avant annulation.",
+        prescriptionEmptyWithActor:
+          "Ordonnance annulée · {actor}.{motive} Votre scan reste consultable ci-dessous.",
+        prescriptionEmptyWithMotive:
+          "Ordonnance annulée.{motive} Votre scan reste consultable ci-dessous.",
+        prescriptionEmptyDefault: "Ordonnance annulée. Votre scan reste consultable ci-dessous.",
+      },
+      abandoned: {
+        short: "Demande abandonnée.",
+        detailWithActor:
+          "Demande abandonnée · {actor}.{motive} Les produits ci-dessous reprennent l'état du dossier avant abandon.",
+        detailWithMotive:
+          "Demande abandonnée.{motive} Les produits ci-dessous reprennent l'état du dossier avant abandon.",
+        detailDefault:
+          "Demande abandonnée. Les produits ci-dessous reprennent l'état du dossier avant abandon.",
+        prescriptionEmptyWithActor:
+          "Ordonnance abandonnée · {actor}.{motive} Votre scan reste consultable ci-dessous.",
+        prescriptionEmptyWithMotive:
+          "Ordonnance abandonnée.{motive} Votre scan reste consultable ci-dessous.",
+        prescriptionEmptyDefault: "Ordonnance abandonnée. Votre scan reste consultable ci-dessous.",
+      },
+      closed: {
+        shortFullyCollected: "Dossier clôturé — tout a été récupéré.",
+        shortPartialOne: "Dossier clôturé — {picked} sur {retained} récupéré.",
+        shortPartialMany: "Dossier clôturé — {picked} sur {retained} récupérés.",
+        shortDefault: "Dossier clôturé par votre officine.",
+        recapPickedUpOne: "{picked} produit récupéré sur {retained} retenu",
+        recapPickedUpMany: "{picked} produits récupérés sur {retained} retenus",
+        recapTotalLinesOne: "{total} ligne au total",
+        recapTotalLinesMany: "{total} lignes au total",
+        recapClosedAt: "clôturée le {when}",
+        head: "Dossier clôturé par votre officine — {recap}.",
+        tailFullyCollected: "Tous les produits retenus ont été retirés au comptoir.",
+        tailPartiallyCollected: "Une partie des produits retenus a été retirée au comptoir.",
+      },
+      statusFooter: {
+        cancelledPrescription:
+          "L'ordonnance a été annulée. Conservez cette page comme trace ; le scan et les produits saisis restent en lecture seule.",
+        cancelledDefault:
+          "La pharmacie a mis fin au dossier. Conservez cette page comme trace ; le détail des produits est en lecture seule.",
+        abandonedPrescription:
+          "Vous avez mis fin au parcours pour cette ordonnance. Le scan et les échanges restent consultables ci-dessous.",
+        abandonedDefault:
+          "Vous avez mis fin au parcours sur Pharmeto pour ce dossier. Les échanges restent consultables ci-dessous.",
+        expiredPrescription:
+          "Sans validation de votre part dans le délai prévu, l'ordonnance s'est fermée. Envoyez une nouvelle ordonnance depuis l'annuaire si besoin.",
+        expiredDefault:
+          "Sans validation de votre part dans le délai prévu, le dossier s'est fermé automatiquement.",
+        partiallyCollectedPrescription:
+          "Une partie des produits retenus a été retirée ; le reste figure comme non retiré dans l'archive.",
+        partiallyCollectedDefault:
+          "Une partie des produits retenus a été retirée au comptoir ; le reste figure comme non retiré dans l'archive.",
+        fullyCollected:
+          "Tous les produits retenus ont été enregistrés comme retirés au comptoir.",
+        completedPrescription:
+          "L'ordonnance est close. Les produits saisis par la pharmacie et le scan restent consultables ci-dessous.",
+        completedDefault:
+          "Le dossier est clos côté officine. Les montants et libellés reflètent l'état au moment de la clôture.",
+      },
+    },
   },
   consultationReadonlyBanner: "Dossier {status} — consultation en lecture seule.",
   quickContact: {
