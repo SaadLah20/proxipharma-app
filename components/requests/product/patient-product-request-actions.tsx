@@ -21,6 +21,7 @@ import {
   localizeTimelineAtLabels,
   useTimelinePhaseLabels,
 } from "@/lib/i18n/build-patient-timeline";
+import { usePatientTimelineCopy } from "@/lib/i18n/patient-timeline-copy";
 import { usePatientRequestStatusLabel } from "@/lib/i18n/patient-request-status-label";
 import { lineConversationVisual } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import { ProductLinePhotoThumb } from "@/components/products/product-line-photo-thumb";
@@ -1884,6 +1885,7 @@ export function PatientProductRequestActions({
   const pharmaAmendmentCopy = usePatientPharmaAmendmentCopy();
   const lineCountLabel = usePatientLineCountLabel();
   const phaseLabels = useTimelinePhaseLabels();
+  const timelineCopy = usePatientTimelineCopy();
   const prescriptionCopy = usePrescriptionUiCopy();
   const compactTotalMadLabel = useCompactTotalMadLabel();
   const subtotalBlockMadLabel = useSubtotalBlockMadLabel();
@@ -2238,6 +2240,7 @@ export function PatientProductRequestActions({
       timelineAudience: "patient",
       locale: dt.locale,
       phaseLabels,
+      copy: timelineCopy,
     });
     return applyTimelinePhaseLabels(localizeTimelineAtLabels(blocks, dt.locale), phaseLabels);
   }, [
@@ -2251,6 +2254,7 @@ export function PatientProductRequestActions({
     requestType,
     dt.locale,
     phaseLabels,
+    timelineCopy,
   ]);
 
   const visibleHits = useMemo(() => {

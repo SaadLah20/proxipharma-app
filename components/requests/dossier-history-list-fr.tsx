@@ -14,6 +14,7 @@ import {
   localizeTimelineAtLabels,
   useTimelinePhaseLabels,
 } from "@/lib/i18n/build-patient-timeline";
+import { usePatientTimelineCopy } from "@/lib/i18n/patient-timeline-copy";
 import type { HistoryViewerRole } from "@/lib/request-history-fr";
 
 export function DossierHistoryListFr({
@@ -35,6 +36,7 @@ export function DossierHistoryListFr({
   const locale = useLocale() as AppLocale;
   const tTimeline = useTranslations("timeline.dossier");
   const phaseLabels = useTimelinePhaseLabels();
+  const timelineCopy = usePatientTimelineCopy();
   const isPatient = viewerRole === "patient";
 
   const blocks = useMemo(() => {
@@ -43,6 +45,7 @@ export function DossierHistoryListFr({
       viewerRole,
       supplyBundles,
       locale: isPatient ? locale : undefined,
+      copy: isPatient ? timelineCopy : undefined,
       requestCreatedAt: timeline?.requestCreatedAt ?? rows[0]?.created_at ?? new Date().toISOString(),
       requestSubmittedAt: timeline?.requestSubmittedAt ?? null,
       requestRespondedAt: timeline?.requestRespondedAt ?? null,
@@ -54,7 +57,7 @@ export function DossierHistoryListFr({
     });
     if (!isPatient) return built;
     return applyTimelinePhaseLabels(localizeTimelineAtLabels(built, locale), phaseLabels);
-  }, [rows, viewerRole, timeline, supplyBundles, locale, isPatient, phaseLabels]);
+  }, [rows, viewerRole, timeline, supplyBundles, locale, isPatient, phaseLabels, timelineCopy]);
 
   if (busy) {
     return <p className="text-[11px] text-muted-foreground">{tTimeline("loading")}</p>;
