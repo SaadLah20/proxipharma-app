@@ -2,8 +2,9 @@ import { supabase } from "@/lib/supabase";
 
 /** Compte admin ou patient pilote : annuaire inclut les officines non listées publiquement. */
 export async function annuaireIncludesNonPublicPharmacies(): Promise<boolean> {
-  const { data: auth } = await supabase.auth.getSession();
-  const userId = auth.session?.user?.id;
+  // getUser() valide le JWT côté serveur (getSession() peut rester « connecté » sur mobile).
+  const { data: auth, error } = await supabase.auth.getUser();
+  const userId = !error ? auth.user?.id : undefined;
   if (!userId) return false;
 
   const { data: profile } = await supabase
@@ -14,4 +15,9 @@ export async function annuaireIncludesNonPublicPharmacies(): Promise<boolean> {
 
   if (!profile) return false;
   return profile.role === "admin" || profile.pilot_access === true;
+}
+
+/** Filtre filet : officines visibles annuaire grand public. */
+export function annuairePublicListedOnly<T extends { public_listed?: boolean | null }>(rows: T[]): T[] {
+  return rows.filter((p) => p.public_listed === true);
 }
