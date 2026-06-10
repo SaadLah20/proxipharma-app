@@ -1,3 +1,4 @@
+import type { AnnuairePharmacyRow } from "@/lib/annuaire/types";
 import { supabase } from "@/lib/supabase";
 
 /** Compte admin ou patient pilote : annuaire inclut les officines non listées publiquement. */
@@ -18,6 +19,6 @@ export async function annuaireIncludesNonPublicPharmacies(): Promise<boolean> {
 }
 
 /** Filtre filet : officines visibles annuaire grand public. */
-export function annuairePublicListedOnly<T extends { public_listed?: boolean | null }>(rows: T[]): T[] {
+export function annuairePublicListedOnly(rows: AnnuairePharmacyRow[]): AnnuairePharmacyRow[] {
   return rows.filter((p) => p.public_listed === true);
 }
