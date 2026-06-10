@@ -1,0 +1,449 @@
+{
+  "generated_at": "2026-06-06T18:49:41.959816+00:00",
+  "total_products": 13651,
+  "identified_products": 12784,
+  "unidentified_products": 867,
+  "coverage_rate_percent": 93.65,
+  "unique_brands_assigned": 645,
+  "unique_brands_dictionary": 662,
+  "confidence_breakdown": {
+    "0": 867,
+    "50": 748,
+    "80": 56,
+    "100": 11980
+  },
+  "top_100_brands": [
+    {
+      "brand": "Maybelline",
+      "count": 209
+    },
+    {
+      "brand": "NaturEsoin",
+      "count": 170
+    },
+    {
+      "brand": "Nuxe",
+      "count": 159
+    },
+    {
+      "brand": "Uriage",
+      "count": 154
+    },
+    {
+      "brand": "La Roche-Posay",
+      "count": 138
+    },
+    {
+      "brand": "Vichy",
+      "count": 123
+    },
+    {
+      "brand": "Benecos",
+      "count": 118
+    },
+    {
+      "brand": "GPH",
+      "count": 117
+    },
+    {
+      "brand": "SVR",
+      "count": 116
+    },
+    {
+      "brand": "Bioderma",
+      "count": 114
+    },
+    {
+      "brand": "Racine Vita",
+      "count": 114
+    },
+    {
+      "brand": "Caudalie",
+      "count": 110
+    },
+    {
+      "brand": "Gum",
+      "count": 109
+    },
+    {
+      "brand": "Ziaja",
+      "count": 107
+    },
+    {
+      "brand": "ISDIN",
+      "count": 105
+    },
+    {
+      "brand": "Naturo Pathica",
+      "count": 104
+    },
+    {
+      "brand": "MGD Nature",
+      "count": 97
+    },
+    {
+      "brand": "BIOKERA",
+      "count": 92
+    },
+    {
+      "brand": "Mason Natural",
+      "count": 92
+    },
+    {
+      "brand": "Rogé Cavailles",
+      "count": 90
+    },
+    {
+      "brand": "Dodie",
+      "count": 89
+    },
+    {
+      "brand": "Eau Thermale Avène",
+      "count": 89
+    },
+    {
+      "brand": "Erayba",
+      "count": 88
+    },
+    {
+      "brand": "AVENT",
+      "count": 87
+    },
+    {
+      "brand": "ANNAFIX",
+      "count": 83
+    },
+    {
+      "brand": "Urgo",
+      "count": 83
+    },
+    {
+      "brand": "Dr Brown's",
+      "count": 81
+    },
+    {
+      "brand": "Pro Vital",
+      "count": 81
+    },
+    {
+      "brand": "ACM",
+      "count": 80
+    },
+    {
+      "brand": "IsisPharma",
+      "count": 80
+    },
+    {
+      "brand": "Absolute New York",
+      "count": 78
+    },
+    {
+      "brand": "Bebe Confort",
+      "count": 73
+    },
+    {
+      "brand": "Urban Care",
+      "count": 73
+    },
+    {
+      "brand": "Filorga",
+      "count": 72
+    },
+    {
+      "brand": "Centifolia",
+      "count": 71
+    },
+    {
+      "brand": "Garnier",
+      "count": 70
+    },
+    {
+      "brand": "Vita Nature",
+      "count": 70
+    },
+    {
+      "brand": "Santé Bio",
+      "count": 69
+    },
+    {
+      "brand": "Tepe",
+      "count": 66
+    },
+    {
+      "brand": "CURASEPT",
+      "count": 65
+    },
+    {
+      "brand": "Janssen Cosmetics",
+      "count": 65
+    },
+    {
+      "brand": "Bjorn Axen",
+      "count": 62
+    },
+    {
+      "brand": "Cattier",
+      "count": 62
+    },
+    {
+      "brand": "Covermark",
+      "count": 61
+    },
+    {
+      "brand": "Puressentiel",
+      "count": 61
+    },
+    {
+      "brand": "REVOX",
+      "count": 60
+    },
+    {
+      "brand": "Dietaroma",
+      "count": 59
+    },
+    {
+      "brand": "Biokap",
+      "count": 58
+    },
+    {
+      "brand": "Farlin",
+      "count": 58
+    },
+    {
+      "brand": "Hartmann",
+      "count": 58
+    },
+    {
+      "brand": "MDC",
+      "count": 58
+    },
+    {
+      "brand": "Notre Bebe",
+      "count": 58
+    },
+    {
+      "brand": "Novexpert",
+      "count": 57
+    },
+    {
+      "brand": "Pastel",
+      "count": 56
+    },
+    {
+      "brand": "Rome",
+      "count": 56
+    },
+    {
+      "brand": "CeraVe",
+      "count": 55
+    },
+    {
+      "brand": "Ducray",
+      "count": 55
+    },
+    {
+      "brand": "Thalgo",
+      "count": 54
+    },
+    {
+      "brand": "VITALL PLUS",
+      "count": 54
+    },
+    {
+      "brand": "BABYBIO",
+      "count": 53
+    },
+    {
+      "brand": "EUCERIN",
+      "count": 53
+    },
+    {
+      "brand": "NUK",
+      "count": 52
+    },
+    {
+      "brand": "Manix",
+      "count": 51
+    },
+    {
+      "brand": "LaCabine",
+      "count": 50
+    },
+    {
+      "brand": "Spirit",
+      "count": 50
+    },
+    {
+      "brand": "Berger",
+      "count": 48
+    },
+    {
+      "brand": "Institut Esthederm",
+      "count": 47
+    },
+    {
+      "brand": "Herbatint",
+      "count": 47
+    },
+    {
+      "brand": "Penta",
+      "count": 47
+    },
+    {
+      "brand": "Elgydium",
+      "count": 46
+    },
+    {
+      "brand": "Elseve",
+      "count": 46
+    },
+    {
+      "brand": "Oral-B",
+      "count": 46
+    },
+    {
+      "brand": "Comfort",
+      "count": 45
+    },
+    {
+      "brand": "Palmer's",
+      "count": 45
+    },
+    {
+      "brand": "ERBORIAN",
+      "count": 44
+    },
+    {
+      "brand": "Tommee Tippee",
+      "count": 44
+    },
+    {
+      "brand": "Camomilla Blu",
+      "count": 43
+    },
+    {
+      "brand": "Klorane",
+      "count": 43
+    },
+    {
+      "brand": "Body",
+      "count": 42
+    },
+    {
+      "brand": "Complemax",
+      "count": 42
+    },
+    {
+      "brand": "Luxeol",
+      "count": 42
+    },
+    {
+      "brand": "Juniors",
+      "count": 41
+    },
+    {
+      "brand": "Some By Mi",
+      "count": 41
+    },
+    {
+      "brand": "YOGI TEA",
+      "count": 41
+    },
+    {
+      "brand": "Cetaphil",
+      "count": 39
+    },
+    {
+      "brand": "NOREVA",
+      "count": 39
+    },
+    {
+      "brand": "Revuele",
+      "count": 39
+    },
+    {
+      "brand": "Algologie",
+      "count": 38
+    },
+    {
+      "brand": "Forte Pharma",
+      "count": 38
+    },
+    {
+      "brand": "Massada",
+      "count": 38
+    },
+    {
+      "brand": "Miniland",
+      "count": 38
+    },
+    {
+      "brand": "Placentor",
+      "count": 38
+    },
+    {
+      "brand": "PRESIDENT",
+      "count": 38
+    },
+    {
+      "brand": "Vertu Plus",
+      "count": 38
+    },
+    {
+      "brand": "Alcool",
+      "count": 37
+    },
+    {
+      "brand": "MKL",
+      "count": 37
+    },
+    {
+      "brand": "Nutrilab",
+      "count": 37
+    },
+    {
+      "brand": "Centaurea",
+      "count": 36
+    },
+    {
+      "brand": "DAVINES",
+      "count": 36
+    },
+    {
+      "brand": "DCP",
+      "count": 36
+    }
+  ],
+  "unidentified_examples": [
+    "8882 Stick labial Haute Protection SPF 30",
+    "A Ta Sante Liniment Oleocalcaire 100ml",
+    "A Ta Sante Liniment Oleocalcaire 500ml",
+    "ABENA SERVIETTE DE MATENITE",
+    "Abena Slip De Maintien Taille Unique Blanc 3 Pieces",
+    "Acerola 1600 14 Comprimé",
+    "ACERUMEN Solution Pour Oreilles Unidoses 10x2ml Hygiène des oreilles",
+    "ACERUMEN Spray – Formule colorée Hygiène des oreilles 40ml",
+    "Acnewin Ecran Fluide Invisible spf50+ 50ml",
+    "Actinica Lotion – 80 g",
+    "Activlab Collagen 20 Comprimes",
+    "ACTIVLAB Omega 3 1000mg 60 Capsules",
+    "Actiwhite Lait Eclaircissant 200ml",
+    "ADRAGA POUDRE ADHESIVE 10G",
+    "Aesthetic Dermal RRS HA Long Lasting AM Serum 30ml",
+    "Aesthetic Dermal RRS HA Long Lasting PM Serum 30ml",
+    "Akildia Creme Pieds 75 Ml",
+    "akilenjur Créme Visage-Mains-Pieds 75ml",
+    "Albaderme HQ Créme Depigmentante 50ml",
+    "Albaderme SH creme Eclaircissante 50ml",
+    "Aldar Medical Seringue Luer Slip 3ml",
+    "Aldar Medical Seringue Luer Slip 5ml",
+    "Alfaderm 3 Unites Expert Beauty 2+1 Mois Offert",
+    "Alfaderm 3 Unites Expert Energie 2+1 Mois Offert",
+    "Alpha Plus Brightening Cream 30g",
+    "Alveolys Propolis Verte Du Bresil 60 Gelules",
+    "ANDROLISTICA HOMMES 50+ Confort Urinaire 40 CAPSULES",
+    "Andromede Brosse en bois Bambou",
+    "Anian Gel De Visage Gogi Berries 150ml",
+    "Antiner 30 Gelules"
+  ]
+}

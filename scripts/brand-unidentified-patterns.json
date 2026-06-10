@@ -1,0 +1,344 @@
+{
+  "generated_at": "2026-06-06T17:03:29.799471+00:00",
+  "unidentified_total": 587,
+  "reason_breakdown": {
+    "premier_mot_tres_rare": 318,
+    "sans_slug_beautymall": 143,
+    "slug_suggere_marque_hors_dict": 63,
+    "entites_html_dans_nom": 30,
+    "premier_mot_generique": 30,
+    "marque_rare_sous_seuil": 2,
+    "nom_commence_par_chiffre": 1
+  },
+  "top_first_tokens_unidentified": [
+    {
+      "token": "brosse",
+      "count": 24
+    },
+    {
+      "token": "mgd",
+      "count": 13
+    },
+    {
+      "token": "new",
+      "count": 7
+    },
+    {
+      "token": "dd ell",
+      "count": 6
+    },
+    {
+      "token": "elcea",
+      "count": 6
+    },
+    {
+      "token": "p anticell",
+      "count": 5
+    },
+    {
+      "token": "malia s",
+      "count": 4
+    },
+    {
+      "token": "vita",
+      "count": 4
+    },
+    {
+      "token": "delia",
+      "count": 4
+    },
+    {
+      "token": "super",
+      "count": 4
+    },
+    {
+      "token": "bio",
+      "count": 4
+    },
+    {
+      "token": "kanellia",
+      "count": 4
+    },
+    {
+      "token": "bebe",
+      "count": 4
+    },
+    {
+      "token": "kera mla",
+      "count": 4
+    },
+    {
+      "token": "la",
+      "count": 4
+    },
+    {
+      "token": "chlorhexil",
+      "count": 4
+    },
+    {
+      "token": "lero",
+      "count": 4
+    },
+    {
+      "token": "elgy",
+      "count": 4
+    },
+    {
+      "token": "elancyl",
+      "count": 3
+    },
+    {
+      "token": "pharco",
+      "count": 3
+    },
+    {
+      "token": "sylaplaie",
+      "count": 3
+    },
+    {
+      "token": "soins",
+      "count": 3
+    },
+    {
+      "token": "h and t",
+      "count": 3
+    },
+    {
+      "token": "pilulier",
+      "count": 3
+    },
+    {
+      "token": "baby",
+      "count": 3
+    },
+    {
+      "token": "dyson",
+      "count": 3
+    },
+    {
+      "token": "df",
+      "count": 3
+    },
+    {
+      "token": "pilea",
+      "count": 3
+    },
+    {
+      "token": "egosan",
+      "count": 3
+    },
+    {
+      "token": "marrak",
+      "count": 3
+    },
+    {
+      "token": "bc",
+      "count": 3
+    },
+    {
+      "token": "ahlam",
+      "count": 3
+    },
+    {
+      "token": "ht",
+      "count": 3
+    },
+    {
+      "token": "magics",
+      "count": 3
+    },
+    {
+      "token": "joone",
+      "count": 3
+    },
+    {
+      "token": "sinomarin",
+      "count": 3
+    },
+    {
+      "token": "biokarite",
+      "count": 3
+    },
+    {
+      "token": "biomin",
+      "count": 2
+    },
+    {
+      "token": "masque",
+      "count": 2
+    },
+    {
+      "token": "dr",
+      "count": 2
+    }
+  ],
+  "top_slug_tokens_unidentified": [
+    {
+      "token": "brosse",
+      "count": 23
+    },
+    {
+      "token": "mgd",
+      "count": 12
+    },
+    {
+      "token": "k",
+      "count": 6
+    },
+    {
+      "token": "vita",
+      "count": 4
+    },
+    {
+      "token": "super",
+      "count": 4
+    },
+    {
+      "token": "o",
+      "count": 4
+    },
+    {
+      "token": "ht",
+      "count": 3
+    },
+    {
+      "token": "baby",
+      "count": 3
+    },
+    {
+      "token": "df",
+      "count": 3
+    },
+    {
+      "token": "bio",
+      "count": 3
+    },
+    {
+      "token": "elancyl",
+      "count": 2
+    },
+    {
+      "token": "panticell",
+      "count": 2
+    },
+    {
+      "token": "sp",
+      "count": 2
+    },
+    {
+      "token": "pti",
+      "count": 2
+    },
+    {
+      "token": "dols",
+      "count": 2
+    },
+    {
+      "token": "prokopl",
+      "count": 2
+    },
+    {
+      "token": "canopus",
+      "count": 2
+    },
+    {
+      "token": "dr",
+      "count": 2
+    },
+    {
+      "token": "tips",
+      "count": 2
+    },
+    {
+      "token": "aldar",
+      "count": 2
+    },
+    {
+      "token": "paul",
+      "count": 2
+    },
+    {
+      "token": "abena",
+      "count": 2
+    },
+    {
+      "token": "sveltesse",
+      "count": 2
+    },
+    {
+      "token": "ss",
+      "count": 2
+    },
+    {
+      "token": "remescar",
+      "count": 2
+    },
+    {
+      "token": "vivacheck",
+      "count": 2
+    },
+    {
+      "token": "lovi",
+      "count": 2
+    },
+    {
+      "token": "dentech",
+      "count": 2
+    },
+    {
+      "token": "horigen",
+      "count": 2
+    },
+    {
+      "token": "capimoz",
+      "count": 2
+    },
+    {
+      "token": "opuntia",
+      "count": 2
+    },
+    {
+      "token": "selenia",
+      "count": 2
+    },
+    {
+      "token": "mountain",
+      "count": 2
+    },
+    {
+      "token": "complemat",
+      "count": 2
+    },
+    {
+      "token": "primeal",
+      "count": 2
+    },
+    {
+      "token": "flacon",
+      "count": 2
+    },
+    {
+      "token": "dermabac",
+      "count": 2
+    },
+    {
+      "token": "evian",
+      "count": 2
+    },
+    {
+      "token": "bepanthen",
+      "count": 2
+    },
+    {
+      "token": "pilea",
+      "count": 2
+    }
+  ],
+  "action_hints": {
+    "marque_rare_sous_seuil": "Baisser --min-frequency ou ajouter des seeds KNOWN_BRAND_DISPLAY",
+    "marque_dans_description_seulement": "Renforcer l'extraction depuis full_description",
+    "entites_html_dans_nom": "Décoder HTML entities avant matching (L'Oréal, etc.)",
+    "slug_suggere_marque_hors_dict": "Ajouter marque depuis slug Beautymall",
+    "sans_slug_beautymall": "Produits sans match sitemap — peu recoverable automatiquement"
+  }
+}

@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+__pycache__/
+*.wip-*
 
 # cursor agent debug (ecriture continue → recompilations en boucle en dev)
 .cursor/debug-*.log
