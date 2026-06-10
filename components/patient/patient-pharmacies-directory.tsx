@@ -10,15 +10,15 @@ import { PatientAccountPageHeader } from "@/components/patient/patient-account-p
 import { PageShell } from "@/components/ui/compact-shell";
 import { one } from "@/lib/embed";
 import {
-  formatActivityFr,
+  formatActivityForLocale,
   pharmacyDisplayName,
-  pharmacyKindLabelsFr,
-  pharmacyRatingLabelFr,
+  pharmacyRatingLabelForLocale,
   pharmacyWhatsAppHref,
   type PatientPharmacyDirectoryRow,
 } from "@/lib/patient-pharmacy-crm";
 import { pharmacyCityLabel, pharmacyCitySearchTerms } from "@/lib/pharmacy-cities-morocco";
 import { collatorForLocale } from "@/lib/datetime-locale";
+import { patientPharmacyRequestKindLabels } from "@/lib/i18n/patient-pharmacy-kind-labels";
 import { usePatientLastDossierStatusHint } from "@/lib/i18n/patient-last-dossier-status-hint";
 import type { AppLocale } from "@/lib/i18n/config";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
@@ -39,10 +39,11 @@ function pharmacyCardActivityLine(
   lastActivityAt: string | null,
   lastStatus: string | null,
   activeCount: number,
+  locale: AppLocale,
   t: ReturnType<typeof useTranslations<"account">>,
   lastDossierHint: (status: string | null) => string | null,
 ): string {
-  const when = formatActivityFr(lastActivityAt);
+  const when = formatActivityForLocale(lastActivityAt, locale);
   if (activeCount > 0) {
     return t("lastActivity", { when });
   }
@@ -61,6 +62,7 @@ async function loadDirectoryLegacy(patientId: string): Promise<PatientPharmacyDi
     ph: {
       id: string;
       nom: string;
+      nom_ar?: string | null;
       ville: string;
       adresse: string;
       telephone?: string | null;
@@ -86,6 +88,7 @@ async function loadDirectoryLegacy(patientId: string): Promise<PatientPharmacyDi
       ({
         pharmacy_id: pharmacyId,
         nom: ph.nom,
+        nom_ar: ph.nom_ar ?? null,
         ville: ph.ville,
         adresse: ph.adresse,
         telephone: ph.telephone ?? null,
@@ -122,7 +125,7 @@ async function loadDirectoryLegacy(patientId: string): Promise<PatientPharmacyDi
   const { data: reqData } = await supabase
     .from("requests")
     .select(
-      "pharmacy_id, status, request_type, updated_at, created_at, pharmacies(id,nom,ville,adresse,telephone,whatsapp,public_ref,rating_avg,rating_count)"
+      "pharmacy_id, status, request_type, updated_at, created_at, pharmacies(id,nom,nom_ar,ville,adresse,telephone,whatsapp,public_ref,rating_avg,rating_count)"
     )
     .eq("patient_id", patientId)
     .neq("status", "draft");
@@ -151,7 +154,7 @@ async function loadDirectoryLegacy(patientId: string): Promise<PatientPharmacyDi
   const { data: promoData } = await supabase
     .from("pharmacy_promo_reservations")
     .select(
-      "pharmacy_id, updated_at, pharmacies(id,nom,ville,adresse,telephone,whatsapp,public_ref,rating_avg,rating_count)"
+      "pharmacy_id, updated_at, pharmacies(id,nom,nom_ar,ville,adresse,telephone,whatsapp,public_ref,rating_avg,rating_count)"
     )
     .eq("patient_id", patientId);
 
@@ -175,6 +178,7 @@ async function loadDirectoryLegacy(patientId: string): Promise<PatientPharmacyDi
 export function PatientPharmaciesDirectory() {
   const router = useRouter();
   const t = useTranslations("account");
+  const tWorkflow = useTranslations("workflow");
   const tp = useTranslations("pharmacyPublic");
   const tc = useTranslations("common");
   const lastDossierHint = usePatientLastDossierStatusHint();
@@ -360,15 +364,23 @@ export function PatientPharmaciesDirectory() {
         <ul className="grid gap-2 sm:grid-cols-2">
           {filteredRows.map((r) => {
             const wa = pharmacyWhatsAppHref(r.whatsapp);
-            const rating = pharmacyRatingLabelFr(r.rating_avg, r.rating_count);
+            const rating = pharmacyRatingLabelForLocale(r.rating_avg, r.rating_count, (avg, count) =>
+              t("pharmacyRatingShort", { avg, count }),
+            );
             const activityLine = pharmacyCardActivityLine(
               r.last_activity_at,
               r.last_request_status,
               r.active_request_count,
+              locale,
               t,
               lastDossierHint,
             );
             const displayVille = pharmacyCityLabel(r.ville, locale);
+            const kindLabels = patientPharmacyRequestKindLabels(
+              r.request_kinds,
+              (kind) => tWorkflow(`${kind}.label`),
+              t("requestKindsSeparator"),
+            );
             return (
               <li key={r.pharmacy_id}>
                 <div
@@ -386,12 +398,14 @@ export function PatientPharmaciesDirectory() {
                         {r.pharmacy_public_ref?.trim() ? (
                           <p className={clsx("font-mono text-[11px] font-bold", p.monoAccent)}>{r.pharmacy_public_ref.trim()}</p>
                         ) : null}
-                        <p className="truncate font-semibold text-foreground">{pharmacyDisplayName(r.nom)}</p>
+                        <p className="truncate font-semibold text-foreground">
+                          {pharmacyDisplayName(r.nom, { locale, nomAr: r.nom_ar })}
+                        </p>
                         <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                           {displayVille ? `${displayVille} · ` : ""}
                           {r.adresse?.trim() || "—"}
                         </p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">{pharmacyKindLabelsFr(r.request_kinds)}</p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">{kindLabels}</p>
                       </div>
                       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" />
                     </div>

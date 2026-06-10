@@ -179,7 +179,7 @@ function ConsultationBriefPanelBody({
       }
       setPhotos(added);
     } catch (e) {
-      setFeedback(e instanceof Error ? e.message : isPatient ? tPanel("photoError") : "Erreur photo.");
+      setFeedback(e instanceof Error ? e.message : tPanel("photoError"));
     }
   };
 
@@ -225,7 +225,7 @@ function ConsultationBriefPanelBody({
       setExpanded(false);
       await onSaved?.();
     } catch (e) {
-      setFeedback(e instanceof Error ? e.message : "Erreur lors de l’enregistrement.");
+      setFeedback(e instanceof Error ? e.message : tPanel("saveError"));
     }
     setBusy(false);
   };
@@ -355,7 +355,7 @@ function ConsultationBriefPanelBody({
           onClick={() => void saveAll()}
           className="rounded-md bg-violet-700 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-800 disabled:opacity-50"
         >
-          {busy ? tCommon("saving") : isPatient ? tPanel("saveChanges") : "Enregistrer les modifications"}
+          {busy ? tCommon("saving") : tPanel("saveChanges")}
         </button>
         <button
           type="button"

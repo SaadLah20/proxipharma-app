@@ -30,16 +30,16 @@ export async function linkSignupPhoneOnAuth(e164: string): Promise<{ ok: boolean
 export async function syncPhoneBeforeLogin(
   phoneE164: string,
   password: string
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; code?: string }> {
   const res = await fetch("/api/auth/sync-phone-login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ phone: phoneE164, password }),
   });
 
-  const json = (await res.json()) as { ok?: boolean; error?: string };
+  const json = (await res.json()) as { ok?: boolean; error?: string; code?: string };
   if (res.status === 404 || res.status === 401) {
-    return { ok: false, error: json.error };
+    return { ok: false, error: json.error, code: json.code };
   }
   if (!res.ok) {
     return { ok: false, error: json.error ?? "Synchronisation du téléphone impossible." };

@@ -2,11 +2,13 @@ import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import { promoReservationLabel } from "@/lib/promo/reservation-status-ui";
 import type { PromoReservationStatus } from "@/lib/promo/types";
 import type { AppLocale } from "@/lib/i18n/config";
+import { formatDateTimeShortForLocale } from "@/lib/datetime-locale";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 
 export type PatientPharmacyDirectoryRow = {
   pharmacy_id: string;
   nom: string | null;
+  nom_ar?: string | null;
   ville: string | null;
   adresse: string | null;
   telephone: string | null;
@@ -146,12 +148,15 @@ export function pharmacyWhatsAppHref(whatsapp: string | null | undefined): strin
 }
 
 export function formatActivityFr(iso: string | null | undefined): string {
+  return formatActivityForLocale(iso, "fr");
+}
+
+export function formatActivityForLocale(
+  iso: string | null | undefined,
+  locale: AppLocale,
+): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("fr-FR", {
-    timeZone: "Africa/Casablanca",
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  return formatDateTimeShortForLocale(iso, locale);
 }
 
 export function pharmacyDisplayName(
@@ -163,8 +168,16 @@ export function pharmacyDisplayName(
 
 export function pharmacyRatingLabelFr(
   ratingAvg: number | null | undefined,
-  ratingCount: number | null | undefined
+  ratingCount: number | null | undefined,
+): string | null {
+  return pharmacyRatingLabelForLocale(ratingAvg, ratingCount, (avg, count) => `${avg} · ${count} avis`);
+}
+
+export function pharmacyRatingLabelForLocale(
+  ratingAvg: number | null | undefined,
+  ratingCount: number | null | undefined,
+  format: (avg: string, count: number) => string,
 ): string | null {
   if (ratingAvg == null || !ratingCount || ratingCount < 1) return null;
-  return `${ratingAvg.toFixed(1)} · ${ratingCount} avis`;
+  return format(ratingAvg.toFixed(1), ratingCount);
 }

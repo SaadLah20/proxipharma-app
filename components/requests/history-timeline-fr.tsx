@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import type { FormattedHistoryEventFr, HistoryActorTone } from "@/lib/request-history-fr";
 import type { LineHistoryPhase } from "@/lib/product-line-history/types";
@@ -80,7 +81,7 @@ function blocksFromDossierEvents(events: FormattedHistoryEventFr[]): HistoryTime
 export function HistoryTimelineFr({
   blocks,
   dossierEvents,
-  emptyLabel = "Aucun événement à afficher pour le moment.",
+  emptyLabel,
   className,
   showPhaseChapters = true,
 }: {
@@ -91,10 +92,12 @@ export function HistoryTimelineFr({
   /** Affiche les en-têtes de chapitre (Début, Réponse, Préparation…). */
   showPhaseChapters?: boolean;
 }) {
+  const tTimeline = useTranslations("timeline.dossier");
+  const resolvedEmptyLabel = emptyLabel ?? tTimeline("emptyTimeline");
   const list = blocks ?? (dossierEvents ? blocksFromDossierEvents(dossierEvents) : []);
 
   if (list.length === 0) {
-    return <p className="text-[12px] leading-snug text-muted-foreground">{emptyLabel}</p>;
+    return <p className="text-[12px] leading-snug text-muted-foreground">{resolvedEmptyLabel}</p>;
   }
 
   const hasPhases = showPhaseChapters && list.some((b) => b.phase && b.isPhaseStart);

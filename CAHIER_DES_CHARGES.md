@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : **toutes migrations appliquees** jusqu a **`20260716_001`**) → phrase **§13.57** (scroll/hint date passage patient ; nom/adresse ar officine ; lot ville **§13.55** reporte ; affinages antérieurs **§13.54**). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260717_001`** si pas fait) → phrase **§13.58** (roadmap i18n AR patient ; ville **§13.55** livree ; etape 1 i18n **§13.58** faite). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -2574,7 +2574,45 @@ Voir **§13.34**.
 
 Voir **§13.37**.
 
-### 13.57) Phrase de reprise (recommandée — après session **2026-06-09 (suite 4)**)
+### 13.58) Roadmap i18n arabe patient — affinage post-couverture (juin 2026)
+
+**Contexte** : couverture **messages** patient **1 212 clés** FR/AR + CI **`npm run i18n:parity`** (juin 2026, **§14**). Reste surtout du **texte métier dynamique** (`*-fr.ts`, timelines) et contenus hors scope (catalogue HTML, SMS, pharmacien).
+
+**Livré avant cette roadmap**
+- Ville AR catalogue code (**§13.55**, commit **`cff4fa4`**).
+- Fix bandeau dossier `nom_ar` manquant au select (**`2d94ffc`**).
+
+**Étape 1 — Finitions rapides** : **livré** (commit à pousser avec cette section).
+- Zéro chaîne FR repérée par **`i18n:parity --strict-strings`** (auth code sync, consultation panel, historique vide).
+- **Itinéraire** / modale navigation → **`pharmacyPublic.*`**.
+- **Mes pharmacies** : dates locale, `nom_ar`, types dossiers **`workflow.*`**, note avis ; migration **`20260717_001`** (`patient_pharmacy_directory_enriched` + `nom_ar`).
+
+**Étape 2 — Archives & statuts terminaux** (prochaine livraison suggérée)
+- Migrer **`lib/patient-archive-outcome-fr.ts`** et hints annulée / abandonnée / expirée → **`messages/ar/demandes`** (ou helpers locale comme **`build-patient-timeline`**).
+- Fichiers : **`patient-product-request-actions.tsx`**, archives ordonnance / consultation.
+
+**Étape 3 — Amendements & suivi validé**
+- **`patient-pharma-amendment-resume-fr`**, **`patient-pharma-change-notice-fr`**, **`patient-validated-line-labels-fr`**, **`patient-line-suivi-fr`** → clés AR ou builders bilingues.
+- Badge **Modifiée**, bandeau mise à jour officine, pastilles réservé / commandé.
+
+**Étape 4 — Timelines dossier & lignes**
+- **`build-dossier-timeline-fr`**, **`build-patient-line-timeline-fr`**, **`request-history-fr`** : aujourd’hui dates localisées seulement ; corps des événements encore FR.
+- **`HistoryTimelineFr`** / modale ligne : tout passer par **`timeline.*`** / **`timeline-events`**.
+
+**Étape 5 — Relecture qualité AR** (humain)
+- Relecture **فصحى** des écrans critiques (dossier répondu → validé → traité, annuaire, auth) ; RTL mobile dense.
+
+**Étape 6 — Hors pilote** (épiques séparées)
+- Descriptions catalogue **~19 677** lignes (BeautyMall HTML FR).
+- SMS externes AR ; interface pharmacien AR ; URLs **`/ar/...`**.
+
+**Phrase de reprise (étape 2)** :
+
+**« On reprend l'affinage i18n arabe patient — Pharmeto, branche `fix/validated-supply-ecart-ui-modal`. Lire **`CAHIER_DES_CHARGES.md` §13.58`** (étape **2** archives & statuts terminaux). Étape **1** déjà livrée ; migrations **`20260716_001`** + **`20260717_001`** si pas appliquées. Ne pas refaire ville (**§13.55**) ni finitions étape 1. Livrer petit commit + preview ; **`npm run i18n:parity`** + **`npm run build`**. Je te donne la tâche ou les retours preview. »**
+
+### 13.57) Phrase de reprise (dépassée — après session **2026-06-09 (suite 4)**)
+
+Voir **§13.58**.
 
 **« On reprend Pharmeto (`pharmeto.ma`). Branche `fix/validated-supply-ecart-ui-modal` (commits **`58909d6`** scroll/hint date passage · **`2eed65a`**–**`04929df`** nom/ar/ville doc). **Migration** : **`20260716_001`** si pas appliquée (`nom_ar`, `adresse_ar`). **Validation `responded`** : date passage manquante ou hors plage → scroll bloc date + hint inline (**`visitDateRequiredToValidate`**) — pas bandeau haut seul. **Nom/adresse ar** : admin + ma fiche + patient AR (repli FR). **Ville** : **non livré** — **`§13.55`**. Lots antérieurs : **`§13.54`**. Je te donne la tâche ou les retours preview. »**
 
@@ -2586,7 +2624,7 @@ Voir **§13.57**.
 
 ### 13.55) Lot reporté — ville officine (liste admin + libellé arabe)
 
-**Statut** : **non mergé** — esquisse locale **annulée** (2026-06-09) ; reprise ultérieure par petites étapes.
+**Statut** : **livré** (2026-06-10, commit **`cff4fa4`**) — spec figée **§13.55** ; catalogue **`lib/pharmacy-cities-morocco.ts`**.
 
 **Consigne utilisateur (reprise)** : *« Reprendre l'implémentation de la ville en arabe »* — lire cette section + **`AGENTS.md`** (paragraphe ville) ; **ne pas** refaire le lot **`nom_ar` / `adresse_ar`** (déjà livré, migration **`20260716_001`**).
 
