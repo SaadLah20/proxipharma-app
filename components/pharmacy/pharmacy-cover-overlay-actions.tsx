@@ -51,7 +51,7 @@ export function PharmacyCoverOverlayActions({
   return (
     <div
       className={cn(
-        "absolute right-1.5 top-1/2 z-[2] flex -translate-y-1/2 flex-col items-center gap-0.5 sm:right-2",
+        "absolute end-1.5 top-1/2 z-[2] flex -translate-y-1/2 flex-col items-center gap-0.5 sm:end-2",
         className
       )}
       onClick={(e) => e.stopPropagation()}

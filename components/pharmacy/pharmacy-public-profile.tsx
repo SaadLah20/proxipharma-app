@@ -277,7 +277,7 @@ export function PharmacyPublicProfile({
             <img src={coverUrl} alt="" className="h-full w-full object-cover object-center" />
           ) : null}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-10 bg-gradient-to-l from-black/25 to-transparent sm:w-11" />
+          <div className="pointer-events-none absolute inset-y-0 end-0 z-[1] w-10 bg-gradient-to-l from-black/25 to-transparent sm:w-11 rtl:bg-gradient-to-r" />
           <PharmacyCoverOverlayActions
             pharmacy={pharmacy}
             source="profile"
@@ -290,14 +290,14 @@ export function PharmacyPublicProfile({
             pharmacyId={pharmacy.id}
             ratingAvg={ratingAvg}
             ratingCount={ratingCount}
-            className="absolute left-2 top-2 sm:left-3 sm:top-3"
+            className="sm:start-3 sm:top-3"
             onRatingUpdated={(avg, count) => {
               setRatingAvg(avg);
               setRatingCount(count);
             }}
           />
         </div>
-        <div className="absolute bottom-0 left-0 right-0 flex items-end gap-3 p-3 pr-10 text-white sm:pr-11">
+        <div className="absolute bottom-0 start-0 end-0 flex items-end gap-3 p-3 pe-10 text-white sm:pe-11">
           {logoUrl ? (
             <div className="size-14 shrink-0 overflow-hidden rounded-2xl border-2 border-white/90 bg-white shadow-lg sm:size-16">
               <img src={logoUrl} alt="" className="h-full w-full object-cover" />
