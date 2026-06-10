@@ -22,6 +22,7 @@ import { ANNUAIRE_PAGE_SIZE, type AnnuairePharmacyEnriched, type AnnuairePharmac
 import { pharmacyCitySearchTerms } from "@/lib/pharmacy-cities-morocco";
 import { collatorForLocale } from "@/lib/datetime-locale";
 import type { AppLocale } from "@/lib/i18n/config";
+import { annuaireIncludesNonPublicPharmacies } from "@/lib/annuaire/pilot-directory-access";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { supabase } from "@/lib/supabase";
 import { uiSurfaceCard } from "@/lib/ui-surfaces";
@@ -76,13 +77,22 @@ export function AnnuairePage() {
   const radiusKm: AnnuaireRadiusKm = radiusMode === "all" ? 5 : radiusMode;
 
   const loadPharmacies = useCallback(async () => {
+    setLoading(true);
     setErrorMessage("");
-    const { data, error } = await supabase
+    const includePilot = await annuaireIncludesNonPublicPharmacies();
+
+    let query = supabase
       .from("pharmacies")
       .select(
-        "id,nom,nom_ar,ville,adresse,adresse_ar,telephone,whatsapp,statut,public_ref,cover_image_path,logo_url,latitude,longitude,maps_url,rating_avg,rating_count"
+        "id,nom,nom_ar,ville,adresse,adresse_ar,telephone,whatsapp,statut,public_ref,cover_image_path,logo_url,latitude,longitude,maps_url,rating_avg,rating_count,public_listed"
       )
       .order("nom", { ascending: true });
+
+    if (!includePilot) {
+      query = query.eq("public_listed", true);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       setErrorMessage(error.message);
@@ -95,7 +105,15 @@ export function AnnuairePage() {
 
   useEffect(() => {
     const tid = window.setTimeout(() => void loadPharmacies(), 0);
-    return () => window.clearTimeout(tid);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      void loadPharmacies();
+    });
+    return () => {
+      window.clearTimeout(tid);
+      subscription.unsubscribe();
+    };
   }, [loadPharmacies]);
 
   const pharmacyIdsKey = useMemo(() => pharmacies.map((p) => p.id).join(","), [pharmacies]);
