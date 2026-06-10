@@ -525,9 +525,9 @@ git checkout pilote-stable-2026-05-24
 - **`globals.css`** : variantes Tailwind **`rtl` / `ltr`** (`@custom-variant`).
 - **`i18n:parity`** **1299** clés · **`build`** OK.
 
-**Prochaine étape doc** : **§13.58 étape 6** (hors pilote — épiques séparées).
+**Prochaine étape doc** : **§13.58 étape 6** (hors pilote — épiques séparées). **Reprise courante** : **§13.59** (visibilité annuaire pilote).
 
-**Phrase de reprise** : **§13.58** (étape 6 ou retours preview AR).
+**Phrase de reprise** : **§13.59** (remplace **§13.58** pour reprise courte).
 
 ---
 
