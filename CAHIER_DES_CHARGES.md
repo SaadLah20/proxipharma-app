@@ -480,9 +480,14 @@ git checkout pilote-stable-2026-05-24
 - Hook **`usePatientArchiveOutcomeCopy`** — remplace appels **`*Fr`** dans **`patient-product-request-actions`**, **`PatientRequestOutcomeBanner`**, détail dossier (**ordonnance / consultation / produits**).
 - **`i18n:parity`** **1263** clés · **`build`** OK.
 
-**Prochaine étape doc** : **§13.58 étape 3** (amendements & suivi validé).
+**i18n AR affinage — étape 3 (§13.58 — livré)** :
+- **`demandes.amendmentResume.*`** + **`demandes.supplyAmendment.*`** ; hook **`usePatientPharmaAmendmentCopy`** (modale Résumé, badge **Modifiée**).
+- Pastilles validé : **`useValidatedOriginLabel`**, chip par **`key`**, **`postConfirmAdded`** ; **`usePatientValidatedLineLabels`** déjà branché.
+- **`i18n:parity`** **1296** clés · **`build`** OK.
 
-**Phrase de reprise** : **§13.58** (étape 3).
+**Prochaine étape doc** : **§13.58 étape 4** (timelines dossier & lignes).
+
+**Phrase de reprise** : **§13.58** (étape 4).
 
 ---
 
@@ -2625,11 +2630,12 @@ Voir **§13.37**.
 - Fichiers : **`patient-product-request-actions.tsx`**, **`PatientRequestOutcomeBanner`**, **`demandes/[id]/page.tsx`**.
 - **`lib/patient-archive-outcome-fr.ts`** conservé (utilitaires + fallback pharmacien).
 
-**Étape 3 — Amendements & suivi validé**
-- **`patient-pharma-amendment-resume-fr`**, **`patient-pharma-change-notice-fr`**, **`patient-validated-line-labels-fr`**, **`patient-line-suivi-fr`** → clés AR ou builders bilingues.
-- Badge **Modifiée**, bandeau mise à jour officine, pastilles réservé / commandé.
+**Étape 3 — Amendements & suivi validé** : **livré**.
+- **`usePatientPharmaAmendmentCopy`** + clés **`demandes.amendmentResume`** / **`supplyAmendment`** (modale Résumé, détection amendements).
+- **`useValidatedOriginLabel`**, pastilles ligne (**réservé / commandé / reçu**), chip CSS par **`key`** (compatible AR).
+- **`patient-line-suivi-fr`** : hors parcours patient actif (pharmacien) — reporté.
 
-**Étape 4 — Timelines dossier & lignes**
+**Étape 4 — Timelines dossier & lignes** (prochaine livraison suggérée)
 - **`build-dossier-timeline-fr`**, **`build-patient-line-timeline-fr`**, **`request-history-fr`** : aujourd’hui dates localisées seulement ; corps des événements encore FR.
 - **`HistoryTimelineFr`** / modale ligne : tout passer par **`timeline.*`** / **`timeline-events`**.
 
@@ -2640,9 +2646,9 @@ Voir **§13.37**.
 - Descriptions catalogue **~19 677** lignes (BeautyMall HTML FR).
 - SMS externes AR ; interface pharmacien AR ; URLs **`/ar/...`**.
 
-**Phrase de reprise (étape 3)** :
+**Phrase de reprise (étape 4)** :
 
-**« On reprend l'affinage i18n arabe patient — Pharmeto, branche `fix/validated-supply-ecart-ui-modal`. Lire **`CAHIER_DES_CHARGES.md` §13.58`** (étape **3** amendements & suivi validé). Étapes **1–2** livrées ; migrations **`20260716_001`** + **`20260717_001`** si pas appliquées. Livrer petit commit + preview ; **`npm run i18n:parity`** + **`npm run build`**. Je te donne la tâche ou les retours preview. »**
+**« On reprend l'affinage i18n arabe patient — Pharmeto, branche `fix/validated-supply-ecart-ui-modal`. Lire **`CAHIER_DES_CHARGES.md` §13.58`** (étape **4** timelines dossier & lignes). Étapes **1–3** livrées. Livrer petit commit + preview ; **`npm run i18n:parity`** + **`npm run build`**. Je te donne la tâche ou les retours preview. »**
 
 ### 13.57) Phrase de reprise (dépassée — après session **2026-06-09 (suite 4)**)
 

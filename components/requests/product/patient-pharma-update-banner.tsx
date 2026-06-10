@@ -7,10 +7,8 @@ import { Button } from "@/components/ui/button";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { formatDateTimeShortForLocale } from "@/lib/datetime-locale";
 import type { AppLocale } from "@/lib/i18n/config";
-import {
-  buildPatientPharmaAmendmentResumeFr,
-  type PatientPharmaAmendmentResumeSection,
-} from "@/lib/patient-pharma-amendment-resume-fr";
+import { usePatientPharmaAmendmentCopy } from "@/lib/i18n/use-patient-pharma-amendment-copy";
+import type { PatientPharmaAmendmentResumeSection } from "@/lib/patient-pharma-amendment-resume-fr";
 import { cn } from "@/lib/utils";
 
 export type PatientSupplyAmendmentBundle = { created_at: string; amendments: unknown };
@@ -25,7 +23,10 @@ export function PatientAmendmentResumeModal({
   onClose: () => void;
 }) {
   const locale = useLocale() as AppLocale;
-  const resume = buildPatientPharmaAmendmentResumeFr(bundles);
+  const tResume = useTranslations("demandes.amendmentResume");
+  const tCommon = useTranslations("common");
+  const { buildAmendmentResume } = usePatientPharmaAmendmentCopy();
+  const resume = buildAmendmentResume(bundles);
 
   if (!resume) return null;
 
@@ -38,15 +39,15 @@ export function PatientAmendmentResumeModal({
       >
         <div className="border-b border-border/80 bg-muted/20 px-3 py-2.5">
           <h2 id="pharma-resume-title" className="text-sm font-bold leading-snug text-foreground">
-            Modifications après validation
+            {tResume("modalTitle")}
           </h2>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             {resume.batchCount > 1
-              ? `${resume.batchCount} mises à jour depuis votre validation · dernière ${formatDateTimeShortForLocale(
-                  bundles[0]?.created_at ?? "",
-                  locale,
-                )}`
-              : `Mise à jour ${resume.whenLabel}`}
+              ? tResume("modalSubtitleMulti", {
+                  count: resume.batchCount,
+                  when: formatDateTimeShortForLocale(bundles[0]?.created_at ?? "", locale),
+                })
+              : tResume("modalSubtitleSingle", { when: resume.whenLabel })}
           </p>
         </div>
         <div className="max-h-[min(60vh,24rem)] space-y-3 overflow-y-auto px-3 py-3 text-[11px] leading-snug text-foreground">
@@ -63,7 +64,7 @@ export function PatientAmendmentResumeModal({
         </div>
         <div className="border-t border-border/80 px-3 py-2">
           <Button type="button" variant="outline" size="sm" className="w-full" onClick={onClose}>
-            Fermer
+            {tCommon("close")}
           </Button>
         </div>
       </div>
@@ -74,7 +75,8 @@ export function PatientAmendmentResumeModal({
 /** @deprecated Utiliser le bandeau intégré dans PatientProductRequestDossierHeader. */
 export function PatientPharmaUpdateBanner({ bundles }: { whenLabel?: string; bundles: PatientSupplyAmendmentBundle[] }) {
   const [open, setOpen] = useState(false);
-  const resume = buildPatientPharmaAmendmentResumeFr(bundles);
+  const { buildAmendmentResume } = usePatientPharmaAmendmentCopy();
+  const resume = buildAmendmentResume(bundles);
   if (!resume) return null;
   return (
     <>

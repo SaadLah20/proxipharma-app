@@ -156,7 +156,7 @@ import {
   buildPatientLineTimelineFr,
   type PatientLineTimelineBlockFr,
 } from "@/lib/build-patient-line-timeline-fr";
-import { patientLatestSupplyAmendmentNoticeFr } from "@/lib/patient-pharma-change-notice-fr";
+import { usePatientPharmaAmendmentCopy } from "@/lib/i18n/use-patient-pharma-amendment-copy";
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { isPatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
 import {
@@ -184,7 +184,10 @@ import type { RequestStaleState } from "@/lib/request-detail-stale";
 import { requestDetailStaleMessage } from "@/lib/i18n/request-detail-stale-copy";
 import { usePrescriptionUiCopy } from "@/lib/use-prescription-ui-copy";
 import { useRequestKindPatientCopy } from "@/lib/i18n/request-kind-patient-copy";
-import { usePatientValidatedLineLabels } from "@/lib/use-patient-validated-line-labels";
+import {
+  usePatientValidatedLineLabels,
+  useValidatedOriginLabel,
+} from "@/lib/use-patient-validated-line-labels";
 import { uiSecondaryLabel } from "@/lib/ui-label-styles";
 import {
   PatientProductPhotoPreviewModal,
@@ -200,7 +203,6 @@ import { patientMaxQtyAlternative, patientMaxQtyPrincipal } from "@/lib/alternat
 import { PatientLineNotesIconButton } from "@/components/requests/product/patient-line-notes-icon-button";
 import {
   validatedLineLabelChipClass,
-  validatedOriginLabelFr,
 } from "@/lib/patient-validated-line-labels-fr";
 
 type ProdBrief = {
@@ -373,6 +375,7 @@ export function PatientValidatedCompactLineCard({
     [prescriptionCopy, requestType],
   );
   const { buildLabels } = usePatientValidatedLineLabels(defaultOrigins);
+  const validatedOriginLabel = useValidatedOriginLabel();
   const lineKindTheme = requestKindUiTheme(requestType);
   const validatedName = validatedProductLabel(row);
   const validatedBrand = validatedProductBrand(row);
@@ -387,7 +390,7 @@ export function PatientValidatedCompactLineCard({
     requestType === "prescription"
       ? patientPrescriptionLineBadge(requestType, row, supplyAmendmentBundles)
       : null;
-  const originLabel = validatedOriginLabelFr({
+  const originLabel = validatedOriginLabel({
     row,
     requestType,
     pharmacistProposedBadgeLabel,
@@ -397,6 +400,7 @@ export function PatientValidatedCompactLineCard({
     row,
     originLabel,
     supplyAmendmentBundles,
+    prescriptionBadge,
     archiveClosureLabel,
     treatedLineLabels: requestStatusForCard === "treated",
     sectionBucket: tier,
@@ -1877,6 +1881,7 @@ export function PatientProductRequestActions({
   const patientStatusLabel = usePatientRequestStatusLabel(status);
   const dt = usePatientDatetimeFormatters();
   const archiveCopy = usePatientArchiveOutcomeCopy();
+  const pharmaAmendmentCopy = usePatientPharmaAmendmentCopy();
   const lineCountLabel = usePatientLineCountLabel();
   const phaseLabels = useTimelinePhaseLabels();
   const prescriptionCopy = usePrescriptionUiCopy();
@@ -2872,7 +2877,7 @@ export function PatientProductRequestActions({
   );
   const showConfirmedCards = uiStatus === "confirmed" || uiStatus === "treated";
   const latestSupplyAmendmentNotice =
-    showConfirmedCards ? patientLatestSupplyAmendmentNoticeFr(supplyAmendmentBundles) : null;
+    showConfirmedCards ? pharmaAmendmentCopy.latestSupplyAmendmentNotice(supplyAmendmentBundles) : null;
   const amendmentResumeBundles =
     latestSupplyAmendmentNotice && !forceReadOnly ? supplyAmendmentBundles : undefined;
 
@@ -2881,7 +2886,7 @@ export function PatientProductRequestActions({
   const badgeDefaults = {
     ordonnance: workflowCopy.pharmacistOrdonnanceLineBadge ?? prescriptionCopy.principalBadge,
     proposed: prescriptionCopy.pharmacyProposedProduct,
-    officine: pharmacistProposedProductBadgeFr,
+    officine: i18nWorkflowCopy.patientProposedBadge || pharmacistProposedProductBadgeFr,
   };
   const badgeForRow = (row: ActionItemRow): string | undefined => {
     if (requestType === "prescription") {
