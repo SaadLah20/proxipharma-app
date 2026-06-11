@@ -405,3 +405,181 @@ export function resolvePharmacyOpenStatus(
     onCallBadgeVisible,
   };
 }
+
+export type PharmacyOpenSlot = { startMin: number; endMin: number };
+
+/** Date calendaire du jour en Africa/Casablanca (YYYY-MM-DD). */
+export function todayIsoCasablanca(): string {
+  return isoDateInCasablanca();
+}
+
+/** HH:MM ou HH:MM:SS → minutes depuis minuit. */
+export function parseTimeHmToMinutes(hm: string | null | undefined): number | null {
+  return parseTimeToMinutes(hm);
+}
+
+function isoWeekdayFromDateIso(dateIso: string): number {
+  const [yStr, moStr, dStr] = dateIso.split("-");
+  const y = Number(yStr);
+  const mo = Number(moStr);
+  const d = Number(dStr);
+  const js = new Date(y, mo - 1, d).getDay();
+  return js === 0 ? 7 : js;
+}
+
+function visitInstantFromDateAndMinutes(dateIso: string, minutes: number): Date {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return new Date(
+    `${dateIso}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00+01:00`,
+  );
+}
+
+function isOnCallAt(onCall: PharmacyOnCallPeriodRow[], dateIso: string, minutes: number): boolean {
+  const at = visitInstantFromDateAndMinutes(dateIso, minutes);
+  return onCall.some((p) => {
+    const start = new Date(p.starts_at);
+    const end = new Date(p.ends_at);
+    return at >= start && at < end;
+  });
+}
+
+function collectWeeklySlots(
+  weekly: PharmacyWeeklyHourRow[],
+  weekday: number,
+  treatFrom = 0,
+): PharmacyOpenSlot[] {
+  const slots: PharmacyOpenSlot[] = [];
+  for (const row of weeklyForDay(weekly, weekday)) {
+    if (row.is_closed) continue;
+    const o = parseTimeToMinutes(row.opens_at);
+    const c = parseTimeToMinutes(row.closes_at);
+    if (o == null || c == null) continue;
+    const start = Math.max(o, treatFrom);
+    if (start < c) slots.push({ startMin: start, endMin: c });
+  }
+  return slots;
+}
+
+function collectOverrideSlots(o: PharmacyDayOverrideRow, treatFrom = 0): PharmacyOpenSlot[] {
+  if (o.override_type === "closed" || o.override_type === "holiday") return [];
+  const slots: PharmacyOpenSlot[] = [];
+  const amO = parseTimeToMinutes(o.morning_opens_at);
+  const amC = parseTimeToMinutes(o.morning_closes_at);
+  const pmO = parseTimeToMinutes(o.afternoon_opens_at);
+  const pmC = parseTimeToMinutes(o.afternoon_closes_at);
+  if (amO != null && amC != null) {
+    const start = Math.max(amO, treatFrom);
+    if (start < amC) slots.push({ startMin: start, endMin: amC });
+  }
+  if (pmO != null && pmC != null) {
+    const start = Math.max(pmO, treatFrom);
+    if (start < pmC) slots.push({ startMin: start, endMin: pmC });
+  }
+  return slots;
+}
+
+function onCallSlotsOnDate(onCall: PharmacyOnCallPeriodRow[], dateIso: string): PharmacyOpenSlot[] {
+  const slots: PharmacyOpenSlot[] = [];
+  for (const p of onCall) {
+    if (!periodOverlapsDate(p, dateIso)) continue;
+    if (isGardeFullDisplayDay(p, dateIso)) {
+      slots.push({ startMin: 0, endMin: 24 * 60 });
+      continue;
+    }
+    const startDay = periodStartDateIso(p);
+    const endDay = periodEndDateIso(p);
+    let startMin = 0;
+    let endMin = 24 * 60;
+    if (dateIso === startDay) {
+      startMin = minutesFromIsoInCasablanca(p.starts_at);
+    }
+    if (dateIso === endDay) {
+      endMin = minutesFromIsoInCasablanca(p.ends_at);
+    }
+    if (startMin < endMin) slots.push({ startMin, endMin });
+  }
+  return slots;
+}
+
+function mergeOpenSlots(slots: PharmacyOpenSlot[]): PharmacyOpenSlot[] {
+  if (slots.length === 0) return [];
+  const sorted = [...slots].sort((a, b) => a.startMin - b.startMin);
+  const merged: PharmacyOpenSlot[] = [{ ...sorted[0]! }];
+  for (let i = 1; i < sorted.length; i++) {
+    const cur = sorted[i]!;
+    const last = merged[merged.length - 1]!;
+    if (cur.startMin <= last.endMin) {
+      last.endMin = Math.max(last.endMin, cur.endMin);
+    } else {
+      merged.push({ ...cur });
+    }
+  }
+  return merged;
+}
+
+/** Créneaux ouverts sur une date (hebdo + exceptions + gardes). */
+export function openSlotsForDay(
+  weekly: PharmacyWeeklyHourRow[],
+  overrides: PharmacyDayOverrideRow[],
+  onCall: PharmacyOnCallPeriodRow[],
+  dateIso: string,
+): PharmacyOpenSlot[] {
+  const fullPeriods = onCall.filter((p) => isGardeFullDisplayDay(p, dateIso));
+  if (fullPeriods.length > 0) {
+    return [{ startMin: 0, endMin: 24 * 60 }];
+  }
+
+  const slots: PharmacyOpenSlot[] = onCallSlotsOnDate(onCall, dateIso);
+  const tailEnd = gardeTailEndMinutesOnDate(onCall, dateIso);
+  const treatFrom = tailEnd ?? 0;
+  const weekday = isoWeekdayFromDateIso(dateIso);
+  const override = overrides.find((o) => o.day_date === dateIso);
+
+  if (override) {
+    slots.push(...collectOverrideSlots(override, treatFrom));
+  } else if (!findMoroccoHolidayOnDate(dateIso)) {
+    slots.push(...collectWeeklySlots(weekly, weekday, treatFrom));
+  }
+
+  return mergeOpenSlots(slots);
+}
+
+/** Aucun créneau ouvert sur la journée. */
+export function isPharmacyClosedAllDay(
+  weekly: PharmacyWeeklyHourRow[],
+  overrides: PharmacyDayOverrideRow[],
+  onCall: PharmacyOnCallPeriodRow[],
+  dateIso: string,
+): boolean {
+  return openSlotsForDay(weekly, overrides, onCall, dateIso).length === 0;
+}
+
+/** Officine ouverte à une minute précise (0–1439) ce jour-là. */
+export function isPharmacyOpenAt(
+  weekly: PharmacyWeeklyHourRow[],
+  overrides: PharmacyDayOverrideRow[],
+  onCall: PharmacyOnCallPeriodRow[],
+  dateIso: string,
+  minutesOfDay: number,
+): boolean {
+  if (onCall.some((p) => isGardeFullDisplayDay(p, dateIso))) return true;
+  if (isOnCallAt(onCall, dateIso, minutesOfDay)) return true;
+
+  return openSlotsForDay(weekly, overrides, onCall, dateIso).some(
+    (s) => minutesOfDay >= s.startMin && minutesOfDay < s.endMin,
+  );
+}
+
+/** Libellé FR des créneaux ouverts (ex. « 9h00–13h00, 15h00–21h00 »). */
+export function formatOpenSlotsLabelFr(
+  weekly: PharmacyWeeklyHourRow[],
+  overrides: PharmacyDayOverrideRow[],
+  onCall: PharmacyOnCallPeriodRow[],
+  dateIso: string,
+): string {
+  const labels = pharmacyScheduleLabelsForLocale("fr");
+  const slots = openSlotsForDay(weekly, overrides, onCall, dateIso);
+  if (slots.length === 0) return "";
+  return slots.map((s) => labels.formatSlot(s.startMin, s.endMin)).join(", ");
+}
