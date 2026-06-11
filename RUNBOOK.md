@@ -326,21 +326,42 @@ git log --oneline -n 10
 
 **Inscription** : si le téléphone existe déjà dans **`auth.users`**, pas d’OTP à l’inscription — **`/api/auth/signup-phone-check`** (migration **`20260522_003`**).
 
-## 10) Notifications WhatsApp (Q35 — en cours, pas déployé)
+## 10) Notifications WhatsApp (Q35 — worker code livré, à activer sur Vercel)
 
-**État repo** : la file `notification_external_queue` et les prefs `whatsapp_enabled` existent ; **aucun** endpoint cron n’envoie encore `channel=whatsapp` (e-mail + SMS branchés, §9 ; WhatsApp après Meta/templates).
+**État repo (juin 2026)** : file `notification_external_queue` + prefs `whatsapp_enabled` + **worker** `channel=whatsapp` (`lib/twilio-whatsapp.ts`, `lib/external-notification-queue-worker.ts`) ; webhook `/api/webhooks/dispatch-external-sms` et cron `/api/cron/send-external-whatsapp` ; test `/api/cron/test-external-whatsapp`.
 
-**Prérequis infra (étape 1 — à faire avant code)** :
-1. Compte **Meta Business** + expéditeur WhatsApp via **Twilio** (Messaging → Try WhatsApp / Senders).
-2. Créer un **modèle** approuvé, catégorie **Utility** (ex. statut demande + nom pharmacie), langue **fr**.
-3. Tester l’envoi **depuis la console Twilio** vers un numéro de test sandbox (`+212…` en E.164).
-4. **Ne pas** envoyer les notifs métier via **Marketing Messages Lite (MM Lite)** : erreur **63055** (*Only marketing messages supported on MM Lite API*) → utiliser l’API WhatsApp **Cloud** / envoi template classique.
+**Infra Meta/Twilio — FAIT ✅** :
+- Expéditeur **+212770165668** (nom **Pharmeto**), sender Twilio **Online**
+- WABA **Miasmo** / Page **Pharmeto.ma**
+- **2 modèles Utility FR approuvés** (Content Template Builder) :
+
+| Événement | Template Twilio | Content SID |
+|-----------|-------------------|-------------|
+| `request_status:responded` | `copy_pharmeto_request_responded_fr` | `HXe97624f91a846e92c56ca0fe2fabd2d5` |
+| `request_status:treated` | `copy_pharmeto_request_treated_fr` | `HX5aa3d5e71dc6242ac53448fb95022f54` |
+
+Corps type : `Pharmeto : {{1}} a répondu. Dossier {{2}}. Ouvrez l'application pour consulter.` (idem **traité**).
+
+**Variables Vercel à ajouter** (en plus de `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN`) :
+- `TWILIO_WHATSAPP_FROM` = `whatsapp:+212770165668`
+- `TWILIO_WHATSAPP_CONTENT_SID_RESPONDED` = `HXe97624f91a846e92c56ca0fe2fabd2d5`
+- `TWILIO_WHATSAPP_CONTENT_SID_TREATED` = `HX5aa3d5e71dc6242ac53448fb95022f54`
+- Optionnel test : `WHATSAPP_TEST_TO` = `+2126…` perso
+
+**Test B (avant prod patient)** — après deploy preview :
+```bash
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
+  -d '{"to":"+2126XXXXXXXX","eventType":"request_status:responded"}' \
+  "$APP_BASE_URL/api/cron/test-external-whatsapp"
+```
+Ou Twilio Console → **Try it out** → From `whatsapp:+212770165668`, ContentSid + variables `{"1":"Pharmacie Centrale","2":"D042/26"}`.
+
+**Pilote worker** : patient uniquement ; événements **répondu** + **traité** (P0). La file SQL peut enqueue d’autres types — le worker les **skip** tant qu’il n’y a pas de modèle. Destination = `profiles.whatsapp` (E.164). **Pas de lien** dans le template phase 1.
 
 **Rappels** :
-- Le numéro **SMS USA** (OTP Auth) n’est **pas** l’expéditeur WhatsApp Business.
-- Les messages ne partent **pas** depuis le WhatsApp personnel du pharmacien via l’API ; les liens `wa.me` sur la fiche officine restent le canal manuel.
-
-**Prochaine étape code (étape 2)** : variables d’environnement Twilio WhatsApp + route de test serveur, puis worker cron sur le modèle `send-external-emails`.
+- Numéro **SMS USA** (OTP Auth) ≠ expéditeur WhatsApp Business.
+- **Ne pas** MM Lite (erreur **63055**) — Content API Twilio classique.
+- `wa.me` fiche officine = canal manuel, pas l’API notifs.
 
 **Auth patient** : tester `/auth` dans Chrome ; inscription `?mode=signup` ; connexion identifiant unique téléphone ou e-mail + mot de passe. **OTP inscription** : peut arriver par **WhatsApp** (Twilio Verify / Supabase Phone) ; numéro **pro** souvent en **Failed** SMS — privilégier un **06/07 perso** pour les tests. **Renvoi code** : `shouldCreateUser: false` (évite 2ᵉ `auth.users`). Doublons téléphone en pilote : reset demandes (`clear-all-requests`) + suppression des comptes Auth.
 
