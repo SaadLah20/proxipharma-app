@@ -580,7 +580,7 @@ export const accountFr = {
   profileSection: "Profil",
   loginSection: "Connexion",
   notificationsSection: "Notifications",
-  notificationsPrefsSubtitle: "Dans l'application et par e-mail / SMS",
+  notificationsPrefsSubtitle: "Dans l'application et par e-mail / WhatsApp",
   deleteAccount: "Supprimer mon compte",
   pharmaciesTitle: "Mes pharmacies",
   pharmacyDetailTitle: "Fiche officine",
@@ -604,7 +604,7 @@ export const accountFr = {
   name: "Nom",
   phoneWhatsapp: "Téléphone / WhatsApp (contact)",
   phoneHint:
-    "Numéro pour les pharmacies et les SMS de suivi. Pour le changer, contactez le support au pilote.",
+    "Numéro pour les pharmacies et les alertes WhatsApp. Pour le changer, contactez le support au pilote.",
   profileEmail: "E-mail sur le profil",
   notProvided: "Non renseigné",
   loginSecurity: "Connexion et sécurité",
@@ -719,11 +719,11 @@ export const accountFr = {
   notificationPrefs: {
     titleDefault: "Alertes hors application (pilote)",
     introPatientSettings:
-      "E-mail : mêmes alertes que dans l'app si votre profil a une adresse. SMS : réponse officine, rappel avant expiration, dossier traité, produit reçu ou de nouveau disponible, dossier expiré. WhatsApp (pilote) : réponse officine et dossier traité — si votre numéro est renseigné.",
+      "E-mail : mêmes alertes que dans l'app si votre profil a une adresse. WhatsApp : réponse officine, rappel avant expiration, dossier traité, produit reçu ou de nouveau disponible, dossier expiré — si votre numéro est renseigné.",
     introPatientDefault:
-      "En plus des notifications dans Pharmeto, vous pouvez activer l'e-mail (mêmes alertes que dans l'app) ou le SMS pour les étapes importantes de vos dossiers : réponse pharmacie, rappel de validation, préparation terminée, produit reçu, rupture disponible, expiration — lorsque votre profil contient une adresse e-mail ou un numéro mobile (champ WhatsApp, format international).",
+      "En plus des notifications dans Pharmeto, vous pouvez activer l'e-mail (mêmes alertes que dans l'app) ou WhatsApp pour les étapes importantes de vos dossiers — lorsque votre profil contient une adresse e-mail ou un numéro mobile (champ WhatsApp, format international).",
     introPharmacist:
-      "En plus des notifications dans Pharmeto, vous pouvez activer l'envoi par e-mail (mêmes alertes que dans l'app) lorsque votre profil contient une adresse e-mail. Les SMS automatiques sont réservés aux patients.",
+      "En plus des notifications dans Pharmeto, vous pouvez activer l'e-mail (mêmes alertes que dans l'app) ou WhatsApp lorsque votre profil contient une adresse e-mail ou un numéro mobile.",
     whatsappLater:
       " WhatsApp automatique arrive plus tard ; les liens manuels sur la fiche officine restent disponibles.",
     email: "E-mail",
