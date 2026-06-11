@@ -2264,8 +2264,45 @@ export function PatientProductRequestActions({
     return plannedVisitWindow(linesPayload);
   }, [itemsFilteredPending, sel, status]);
 
-  const [scheduleBundle, setScheduleBundle] = useState<PharmacyScheduleBundle | null>(null);
-  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const visitPassageStatusEditable =
+    !isPatientProductArchiveStatus(status) &&
+    (status === "responded" || status === "confirmed" || status === "treated");
+  const shouldLoadPharmacySchedule = Boolean(pharmacyId) && visitPassageStatusEditable;
+  const scheduleFetchKey = shouldLoadPharmacySchedule
+    ? `${pharmacyId}|${visitWin.minYmd}|${visitWin.maxYmd}`
+    : "";
+
+  const [scheduleFetchResult, setScheduleFetchResult] = useState<{
+    key: string;
+    bundle: PharmacyScheduleBundle | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!shouldLoadPharmacySchedule || !pharmacyId) return;
+    const key = scheduleFetchKey;
+    let cancelled = false;
+    void loadScheduleBundleForPharmacy(
+      pharmacyId,
+      visitWin.minYmd,
+      dateOnlyAddDays(visitWin.maxYmd, 1),
+    )
+      .then((bundle) => {
+        if (!cancelled) setScheduleFetchResult({ key, bundle });
+      })
+      .catch(() => {
+        if (!cancelled) setScheduleFetchResult({ key, bundle: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldLoadPharmacySchedule, pharmacyId, scheduleFetchKey, visitWin.minYmd, visitWin.maxYmd]);
+
+  const activeScheduleBundle =
+    shouldLoadPharmacySchedule && scheduleFetchResult?.key === scheduleFetchKey
+      ? scheduleFetchResult.bundle
+      : null;
+  const activeScheduleLoading =
+    shouldLoadPharmacySchedule && scheduleFetchResult?.key !== scheduleFetchKey;
 
   const resolvedVisitDate = useMemo(() => {
     const t = visitDate.trim();
@@ -2303,6 +2340,30 @@ export function PatientProductRequestActions({
       resolvedVisitDate !== baselineResolvedVisitDate || visitTimeComposed !== baselineVisitTimeComposed,
     [resolvedVisitDate, baselineResolvedVisitDate, visitTimeComposed, baselineVisitTimeComposed]
   );
+
+  const visitScheduleLiveError = useMemo(() => {
+    if (!visitPassageStatusEditable) return "";
+    const err = validateVisitPassageSchedule(
+      pharmacyId,
+      activeScheduleBundle,
+      activeScheduleLoading,
+      resolvedVisitDate,
+      visitTimeComposed,
+      validationCopy,
+    );
+    return err?.message ?? "";
+  }, [
+    visitPassageStatusEditable,
+    pharmacyId,
+    activeScheduleBundle,
+    activeScheduleLoading,
+    resolvedVisitDate,
+    visitTimeComposed,
+    validationCopy,
+  ]);
+
+  const displayedVisitPassageError = visitPassageError || visitScheduleLiveError;
+  const visitScheduleBlocksSubmit = Boolean(visitScheduleLiveError);
 
   const historyModalRow = useMemo(
     () => (historyModalItemId ? items.find((r) => r.id === historyModalItemId) ?? null : null),
@@ -2587,8 +2648,8 @@ export function PatientProductRequestActions({
       visitDate,
       visitTimeComposed,
       pharmacyId,
-      scheduleBundle,
-      scheduleLoading,
+      activeScheduleBundle,
+      activeScheduleLoading,
       { ...validationCopy, ...confirmLineCopy },
       formatMaxVisitDate
     );
@@ -2628,8 +2689,8 @@ export function PatientProductRequestActions({
     formatMaxVisitDate,
     applyConfirmValidationError,
     pharmacyId,
-    scheduleBundle,
-    scheduleLoading,
+    activeScheduleBundle,
+    activeScheduleLoading,
   ]);
 
   const openConfirmedRevalidationReview = useCallback(() => {
@@ -2655,8 +2716,8 @@ export function PatientProductRequestActions({
       resolvedVisitDate,
       visitTimeComposed,
       pharmacyId,
-      scheduleBundle,
-      scheduleLoading,
+      activeScheduleBundle,
+      activeScheduleLoading,
       { ...validationCopy, ...confirmLineCopy },
       formatMaxVisitDate
     );
@@ -2696,8 +2757,8 @@ export function PatientProductRequestActions({
     applyConfirmValidationError,
     staleActionMessage,
     pharmacyId,
-    scheduleBundle,
-    scheduleLoading,
+    activeScheduleBundle,
+    activeScheduleLoading,
   ]);
 
   const startConfirmedRevalidation = useCallback(() => {
@@ -2883,8 +2944,8 @@ export function PatientProductRequestActions({
     }
     const scheduleErr = validateVisitPassageSchedule(
       pharmacyId,
-      scheduleBundle,
-      scheduleLoading,
+      activeScheduleBundle,
+      activeScheduleLoading,
       resolvedVisitDate,
       visitTimeComposed,
       validationCopy,
@@ -3002,6 +3063,10 @@ export function PatientProductRequestActions({
     />
   );
   const showConfirmedCards = uiStatus === "confirmed" || uiStatus === "treated";
+  const showConfirm = uiStatus === "responded";
+  const showVisitFields = (showConfirm || showConfirmedCards) && !forceReadOnly;
+  const visitFieldsEditable = showVisitFields;
+
   const latestSupplyAmendmentNotice =
     showConfirmedCards ? pharmaAmendmentCopy.latestSupplyAmendmentNotice(supplyAmendmentBundles) : null;
   const amendmentResumeBundles =
@@ -3025,7 +3090,6 @@ export function PatientProductRequestActions({
     return patientLineProposedBadgeLabel(requestType, row, supplyAmendmentBundles, badgeDefaults) ?? undefined;
   };
 
-  const showConfirm = uiStatus === "responded";
   const usesLineWorkflowUi =
     requestType === "product_request" ||
     requestType === "prescription" ||
@@ -3058,63 +3122,6 @@ export function PatientProductRequestActions({
     status === "submitted" || status === "in_review"
       ? i18nWorkflowCopy.patientCancelWhileWaitingLabel
       : tCommon("abandonRequest");
-  /** Date/heure de passage : à la validation (responded) et pour modifier après coup. */
-  const showVisitFields = (showConfirm || showConfirmedCards) && !forceReadOnly;
-  const visitFieldsEditable = showVisitFields && !forceReadOnly;
-
-  useEffect(() => {
-    if (!pharmacyId || !visitFieldsEditable) {
-      setScheduleBundle(null);
-      setScheduleLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setScheduleLoading(true);
-    void loadScheduleBundleForPharmacy(
-      pharmacyId,
-      visitWin.minYmd,
-      dateOnlyAddDays(visitWin.maxYmd, 1),
-    )
-      .then((bundle) => {
-        if (!cancelled) {
-          setScheduleBundle(bundle);
-          setScheduleLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setScheduleBundle(null);
-          setScheduleLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [pharmacyId, visitFieldsEditable, visitWin.minYmd, visitWin.maxYmd]);
-
-  const visitScheduleLiveError = useMemo(() => {
-    if (!visitFieldsEditable) return "";
-    const err = validateVisitPassageSchedule(
-      pharmacyId,
-      scheduleBundle,
-      scheduleLoading,
-      resolvedVisitDate,
-      visitTimeComposed,
-      validationCopy,
-    );
-    return err?.message ?? "";
-  }, [
-    visitFieldsEditable,
-    pharmacyId,
-    scheduleBundle,
-    scheduleLoading,
-    resolvedVisitDate,
-    visitTimeComposed,
-    validationCopy,
-  ]);
-
-  const displayedVisitPassageError = visitPassageError || visitScheduleLiveError;
-  const visitScheduleBlocksSubmit = Boolean(visitScheduleLiveError);
 
   const visitTimeFr = visitTimeComposed ? dt.formatTimePg(htmlTimeToPg(visitTimeComposed) ?? visitTimeComposed) : "";
 
