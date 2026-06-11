@@ -316,40 +316,66 @@ export async function processExternalNotificationQueue(args: {
   channel: ExternalNotificationChannel;
   requestOrigin: string;
   limit?: number;
+  /** Webhook INSERT : traiter uniquement la ligne insérée (évite d'envoyer tout le backlog pending). */
+  onlyQueueRowIds?: string[];
 }): Promise<ProcessQueueResult> {
   const limit = args.limit ?? 20;
   const maxAttempts = maxAttemptsForChannel(args.channel);
+  const queueSelect =
+    "id,recipient_id,destination_snapshot,title,body,request_id,event_type,attempt_count,status";
 
-  const { data: pending, error: pendingErr } = await args.supabase
-    .from("notification_external_queue")
-    .select("id,recipient_id,destination_snapshot,title,body,request_id,event_type,attempt_count,status")
-    .eq("channel", args.channel)
-    .eq("status", "pending")
-    .order("created_at", { ascending: true })
-    .limit(limit);
-
-  if (pendingErr) {
-    throw new Error(pendingErr.message);
-  }
-
-  const pendingRows = (pending ?? []) as unknown as QueueRow[];
-  const remaining = Math.max(0, limit - pendingRows.length);
+  let pendingRows: QueueRow[] = [];
   let retryRows: QueueRow[] = [];
 
-  if (remaining > 0 && maxAttempts > 1) {
-    const { data: failed, error: failedErr } = await args.supabase
+  if (args.onlyQueueRowIds?.length) {
+    const { data: targeted, error: targetedErr } = await args.supabase
       .from("notification_external_queue")
-      .select("id,recipient_id,destination_snapshot,title,body,request_id,event_type,attempt_count,status")
+      .select(queueSelect)
       .eq("channel", args.channel)
-      .eq("status", "failed")
-      .lt("attempt_count", maxAttempts)
-      .order("created_at", { ascending: true })
-      .limit(remaining);
+      .in("id", args.onlyQueueRowIds)
+      .in("status", ["pending", "failed"]);
 
-    if (failedErr) {
-      throw new Error(failedErr.message);
+    if (targetedErr) {
+      throw new Error(targetedErr.message);
     }
-    retryRows = (failed ?? []) as unknown as QueueRow[];
+    for (const row of (targeted ?? []) as unknown as QueueRow[]) {
+      if (row.status === "pending") {
+        pendingRows.push(row);
+      } else if ((row.attempt_count ?? 0) < maxAttempts) {
+        retryRows.push(row);
+      }
+    }
+  } else {
+    const { data: pending, error: pendingErr } = await args.supabase
+      .from("notification_external_queue")
+      .select(queueSelect)
+      .eq("channel", args.channel)
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(limit);
+
+    if (pendingErr) {
+      throw new Error(pendingErr.message);
+    }
+
+    pendingRows = (pending ?? []) as unknown as QueueRow[];
+    const remaining = Math.max(0, limit - pendingRows.length);
+
+    if (remaining > 0 && maxAttempts > 1) {
+      const { data: failed, error: failedErr } = await args.supabase
+        .from("notification_external_queue")
+        .select(queueSelect)
+        .eq("channel", args.channel)
+        .eq("status", "failed")
+        .lt("attempt_count", maxAttempts)
+        .order("created_at", { ascending: true })
+        .limit(remaining);
+
+      if (failedErr) {
+        throw new Error(failedErr.message);
+      }
+      retryRows = (failed ?? []) as unknown as QueueRow[];
+    }
   }
 
   const rows = [...pendingRows, ...retryRows];
