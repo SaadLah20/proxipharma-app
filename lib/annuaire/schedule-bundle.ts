@@ -27,7 +27,7 @@ function weekBoundsCasablanca(): { start: string; end: string } {
   };
 }
 
-/** Charge horaires / gardes pour un lot d’officines (annuaire). */
+/** Charge horaires / gardes pour un lot d'officines (annuaire). */
 export async function loadScheduleBundlesByPharmacyIds(
   pharmacyIds: string[]
 ): Promise<Map<string, PharmacyScheduleBundle>> {
@@ -75,6 +75,41 @@ export async function loadScheduleBundlesByPharmacyIds(
   }
 
   return map;
+}
+
+/** Charge horaires / gardes pour une officine (détail patient, fenêtre calendaire). */
+export async function loadScheduleBundleForPharmacy(
+  pharmacyId: string,
+  fromYmd: string,
+  toYmd: string,
+): Promise<PharmacyScheduleBundle> {
+  const sinceOnCall = new Date(Date.now() - 14 * 86400000).toISOString();
+
+  const [whRes, ovRes, ocRes] = await Promise.all([
+    supabase
+      .from("pharmacy_weekly_hours")
+      .select("weekday,period,opens_at,closes_at,is_closed")
+      .eq("pharmacy_id", pharmacyId),
+    supabase
+      .from("pharmacy_day_overrides")
+      .select(
+        "id,day_date,override_type,label,morning_opens_at,morning_closes_at,afternoon_opens_at,afternoon_closes_at"
+      )
+      .eq("pharmacy_id", pharmacyId)
+      .gte("day_date", fromYmd)
+      .lte("day_date", toYmd),
+    supabase
+      .from("pharmacy_on_call_periods")
+      .select("id,kind,starts_at,ends_at,note")
+      .eq("pharmacy_id", pharmacyId)
+      .gte("ends_at", sinceOnCall),
+  ]);
+
+  return {
+    weekly: (whRes.data ?? []) as PharmacyWeeklyHourRow[],
+    overrides: (ovRes.data ?? []) as PharmacyDayOverrideRow[],
+    onCall: (ocRes.data ?? []) as PharmacyOnCallPeriodRow[],
+  };
 }
 
 export function openSnapshotForBundle(bundle: PharmacyScheduleBundle | undefined): PharmacyOpenSnapshot {

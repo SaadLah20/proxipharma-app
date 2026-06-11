@@ -60,7 +60,15 @@ import {
   requestItemLineSourceFr,
   requestStatusBadgeClass,
 } from "@/lib/request-display";
-import { plannedVisitWindow } from "@/lib/planned-visit";
+import { plannedVisitWindow, dateOnlyAddDays } from "@/lib/planned-visit";
+import {
+  loadScheduleBundleForPharmacy,
+  type PharmacyScheduleBundle,
+} from "@/lib/annuaire/schedule-bundle";
+import {
+  validatePlannedVisitAgainstPharmacy,
+  type PlannedVisitPharmacyValidationResult,
+} from "@/lib/planned-visit-pharmacy-validation";
 import {
   bucketPatientRespondedLines,
   PATIENT_RESPONDED_BUCKET_ORDER,
@@ -1726,6 +1734,56 @@ type PatientConfirmValidationResult =
   | { ok: true }
   | { ok: false; message: string; focus: "visit_passage" | "top" };
 
+type VisitScheduleValidationCopy = {
+  scheduleLoading: string;
+  visitTimeTooSoon: string;
+  visitDayPharmacyClosed: string;
+  visitDayPharmacyClosedNamed: (detail: string) => string;
+  visitTimePharmacyClosed: (time: string, slots: string) => string;
+};
+
+function mapPlannedVisitValidationMessage(
+  result: Extract<PlannedVisitPharmacyValidationResult, { ok: false }>,
+  copy: VisitScheduleValidationCopy,
+): string {
+  if (result.code === "too_soon") return copy.visitTimeTooSoon;
+  if (result.code === "day_closed") {
+    const named = result.message.match(/\(([^)]+)\)/)?.[1]?.trim();
+    if (named && named !== "fermeture exceptionnelle" && named !== "jour férié") {
+      return copy.visitDayPharmacyClosedNamed(named);
+    }
+    return copy.visitDayPharmacyClosed;
+  }
+  return copy.visitTimePharmacyClosed(result.timeLabel ?? "", result.slotsLabel ?? "");
+}
+
+function validateVisitPassageSchedule(
+  pharmacyId: string | null | undefined,
+  scheduleBundle: PharmacyScheduleBundle | null,
+  scheduleLoading: boolean,
+  resolvedVisitDate: string,
+  visitTimeComposed: string,
+  copy: VisitScheduleValidationCopy,
+): Extract<PatientConfirmValidationResult, { ok: false }> | null {
+  if (!pharmacyId) return null;
+  if (scheduleLoading) {
+    return { ok: false, message: copy.scheduleLoading, focus: "visit_passage" };
+  }
+  if (!scheduleBundle) return null;
+
+  const result = validatePlannedVisitAgainstPharmacy(
+    scheduleBundle,
+    resolvedVisitDate,
+    visitTimeComposed.trim() !== "" ? visitTimeComposed : null,
+  );
+  if (result.ok) return null;
+  return {
+    ok: false,
+    message: mapPlannedVisitValidationMessage(result, copy),
+    focus: "visit_passage",
+  };
+}
+
 function validatePatientConfirmBeforeReview(
   items: ActionItemRow[],
   sel: Record<string, LineSelState>,
@@ -1733,7 +1791,13 @@ function validatePatientConfirmBeforeReview(
   visitWin: ReturnType<typeof plannedVisitWindow>,
   resolvedVisitDate: string,
   visitDateRaw: string,
-  copy: PatientConfirmValidationCopy & Pick<ConfirmLineCopy, "productFallback" | "alternativeFallback">,
+  visitTimeComposed: string,
+  pharmacyId: string | null | undefined,
+  scheduleBundle: PharmacyScheduleBundle | null,
+  scheduleLoading: boolean,
+  copy: PatientConfirmValidationCopy &
+    Pick<ConfirmLineCopy, "productFallback" | "alternativeFallback"> &
+    VisitScheduleValidationCopy,
   formatMaxVisitDate: (ymd: string) => string
 ): PatientConfirmValidationResult {
   const fail = (message: string, focus: "visit_passage" | "top"): PatientConfirmValidationResult => ({
@@ -1773,6 +1837,15 @@ function validatePatientConfirmBeforeReview(
     const maxDate = formatMaxVisitDate(visitWin.maxYmd);
     return fail(copy.visitDateOutOfRange(maxDate, visitWin.hasToOrder), "visit_passage");
   }
+  const scheduleErr = validateVisitPassageSchedule(
+    pharmacyId,
+    scheduleBundle,
+    scheduleLoading,
+    resolvedVisitDate,
+    visitTimeComposed,
+    copy,
+  );
+  if (scheduleErr) return scheduleErr;
   return { ok: true };
 }
 
@@ -1914,7 +1987,9 @@ export function PatientProductRequestActions({
 
   const formatMaxVisitDate = useCallback((ymd: string) => dt.formatDateShort(ymd), [dt]);
 
-  const validationCopy = useMemo<PatientConfirmValidationCopy>(
+  const validationCopy = useMemo<
+    PatientConfirmValidationCopy & VisitScheduleValidationCopy
+  >(
     () => ({
       keepAtLeastOneLine: tValidation("keepAtLeastOneLine"),
       qtyExceedsMax: (label, cap) => tValidation("qtyExceedsMax", { label, cap }),
@@ -1924,6 +1999,14 @@ export function PatientProductRequestActions({
         hasToOrder
           ? tCommon("visitDateOutOfRangeOrder", { maxDate })
           : tCommon("visitDateOutOfRange", { maxDate }),
+      scheduleLoading: tCommon("visitScheduleLoading"),
+      visitTimeTooSoon: tCommon("visitTimeTooSoon"),
+      visitDayPharmacyClosed: tCommon("visitDayPharmacyClosed"),
+      visitDayPharmacyClosedNamed: (detail) => tCommon("visitDayPharmacyClosedNamed", { detail }),
+      visitTimePharmacyClosed: (time, slots) =>
+        slots.trim() !== ""
+          ? tCommon("visitTimePharmacyClosed", { time, slots })
+          : tCommon("visitTimePharmacyClosedNoSlots", { time }),
     }),
     [tValidation, tCommon]
   );
@@ -2180,6 +2263,9 @@ export function PatientProductRequestActions({
     });
     return plannedVisitWindow(linesPayload);
   }, [itemsFilteredPending, sel, status]);
+
+  const [scheduleBundle, setScheduleBundle] = useState<PharmacyScheduleBundle | null>(null);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
 
   const resolvedVisitDate = useMemo(() => {
     const t = visitDate.trim();
@@ -2467,6 +2553,16 @@ export function PatientProductRequestActions({
     setVisitPassageError("");
   }, []);
 
+  const handleVisitHourChange = useCallback((v: string) => {
+    setVisitHour(v);
+    setVisitPassageError("");
+  }, []);
+
+  const handleVisitMinuteChange = useCallback((v: string) => {
+    setVisitMinute(v);
+    setVisitPassageError("");
+  }, []);
+
   const closeConfirmReview = useCallback(() => {
     setConfirmReviewOpen(false);
     setConfirmReviewSnap(null);
@@ -2489,6 +2585,10 @@ export function PatientProductRequestActions({
       visitWin,
       resolvedVisitDate,
       visitDate,
+      visitTimeComposed,
+      pharmacyId,
+      scheduleBundle,
+      scheduleLoading,
       { ...validationCopy, ...confirmLineCopy },
       formatMaxVisitDate
     );
@@ -2527,6 +2627,9 @@ export function PatientProductRequestActions({
     validationCopy,
     formatMaxVisitDate,
     applyConfirmValidationError,
+    pharmacyId,
+    scheduleBundle,
+    scheduleLoading,
   ]);
 
   const openConfirmedRevalidationReview = useCallback(() => {
@@ -2550,6 +2653,10 @@ export function PatientProductRequestActions({
       visitWin,
       resolvedVisitDate,
       resolvedVisitDate,
+      visitTimeComposed,
+      pharmacyId,
+      scheduleBundle,
+      scheduleLoading,
       { ...validationCopy, ...confirmLineCopy },
       formatMaxVisitDate
     );
@@ -2588,6 +2695,9 @@ export function PatientProductRequestActions({
     formatMaxVisitDate,
     applyConfirmValidationError,
     staleActionMessage,
+    pharmacyId,
+    scheduleBundle,
+    scheduleLoading,
   ]);
 
   const startConfirmedRevalidation = useCallback(() => {
@@ -2771,6 +2881,18 @@ export function PatientProductRequestActions({
       );
       return;
     }
+    const scheduleErr = validateVisitPassageSchedule(
+      pharmacyId,
+      scheduleBundle,
+      scheduleLoading,
+      resolvedVisitDate,
+      visitTimeComposed,
+      validationCopy,
+    );
+    if (scheduleErr) {
+      focusVisitPassageBlock(scheduleErr.message);
+      return;
+    }
     setBusyAction("visit");
     const { error } = await supabase.rpc("patient_update_planned_visit_after_confirmation", {
       p_request_id: requestId,
@@ -2939,6 +3061,60 @@ export function PatientProductRequestActions({
   /** Date/heure de passage : à la validation (responded) et pour modifier après coup. */
   const showVisitFields = (showConfirm || showConfirmedCards) && !forceReadOnly;
   const visitFieldsEditable = showVisitFields && !forceReadOnly;
+
+  useEffect(() => {
+    if (!pharmacyId || !visitFieldsEditable) {
+      setScheduleBundle(null);
+      setScheduleLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setScheduleLoading(true);
+    void loadScheduleBundleForPharmacy(
+      pharmacyId,
+      visitWin.minYmd,
+      dateOnlyAddDays(visitWin.maxYmd, 1),
+    )
+      .then((bundle) => {
+        if (!cancelled) {
+          setScheduleBundle(bundle);
+          setScheduleLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setScheduleBundle(null);
+          setScheduleLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pharmacyId, visitFieldsEditable, visitWin.minYmd, visitWin.maxYmd]);
+
+  const visitScheduleLiveError = useMemo(() => {
+    if (!visitFieldsEditable) return "";
+    const err = validateVisitPassageSchedule(
+      pharmacyId,
+      scheduleBundle,
+      scheduleLoading,
+      resolvedVisitDate,
+      visitTimeComposed,
+      validationCopy,
+    );
+    return err?.message ?? "";
+  }, [
+    visitFieldsEditable,
+    pharmacyId,
+    scheduleBundle,
+    scheduleLoading,
+    resolvedVisitDate,
+    visitTimeComposed,
+    validationCopy,
+  ]);
+
+  const displayedVisitPassageError = visitPassageError || visitScheduleLiveError;
+  const visitScheduleBlocksSubmit = Boolean(visitScheduleLiveError);
 
   const visitTimeFr = visitTimeComposed ? dt.formatTimePg(htmlTimeToPg(visitTimeComposed) ?? visitTimeComposed) : "";
 
@@ -3829,17 +4005,17 @@ export function PatientProductRequestActions({
                 "rounded-xl border-2 p-2.5 shadow-md sm:p-3",
               !useCompactPassageBlock &&
                 visitFieldsEditable &&
-                !visitPassageError &&
+                !displayedVisitPassageError &&
                 "border-primary/35 bg-gradient-to-br from-primary/[0.12] via-background to-primary/[0.06] ring-1 ring-primary/25",
               !useCompactPassageBlock &&
                 visitFieldsEditable &&
-                visitPassageError &&
+                displayedVisitPassageError &&
                 "border-destructive/50 bg-destructive/5 ring-2 ring-destructive/25",
               !useCompactPassageBlock &&
                 !visitFieldsEditable &&
                 "border-slate-200/90 bg-slate-50/80 ring-1 ring-slate-200/50",
               useCompactPassageBlock &&
-                visitPassageError &&
+                displayedVisitPassageError &&
                 "rounded-xl border-2 border-destructive/50 bg-destructive/5 p-2.5 ring-2 ring-destructive/25"
             )}
           >
@@ -3901,7 +4077,7 @@ export function PatientProductRequestActions({
                   maxYmd={visitWin.maxYmd}
                   disabled={!visitFieldsEditable}
                   required={showConfirm && visitFieldsEditable}
-                  invalid={Boolean(visitPassageError)}
+                  invalid={Boolean(displayedVisitPassageError)}
                 />
               </label>
               <div
@@ -3917,15 +4093,15 @@ export function PatientProductRequestActions({
                 <PlannedVisitTimeInput
                   hour={visitHour}
                   minute={visitMinute}
-                  onHourChange={setVisitHour}
-                  onMinuteChange={setVisitMinute}
+                  onHourChange={handleVisitHourChange}
+                  onMinuteChange={handleVisitMinuteChange}
                   disabled={!visitFieldsEditable}
                   appearance={useCompactPassageBlock ? "unified" : "split"}
                   className="w-full"
                 />
               </div>
             </div>
-            {visitPassageError ? (
+            {displayedVisitPassageError ? (
               <p
                 role="alert"
                 className={clsx(
@@ -3933,7 +4109,7 @@ export function PatientProductRequestActions({
                   useCompactPassageBlock && "mx-auto max-w-md"
                 )}
               >
-                {visitPassageError}
+                {displayedVisitPassageError}
               </p>
             ) : null}
             {visitTimeFr ? (
@@ -3966,7 +4142,12 @@ export function PatientProductRequestActions({
             {showConfirmedCards && !confirmedRevalidationMode && visitFieldsEditable ? (
               <button
                 type="button"
-                disabled={busyAction !== "" || !visitPassageDirty || Boolean(detailStale)}
+                disabled={
+                  busyAction !== "" ||
+                  !visitPassageDirty ||
+                  Boolean(detailStale) ||
+                  visitScheduleBlocksSubmit
+                }
                 onClick={() => void runUpdateVisit()}
                 className={clsx(
                   uiActionBtnFull("mt-2 flex items-center justify-center"),
@@ -4133,7 +4314,7 @@ export function PatientProductRequestActions({
           >
             <button
               type="button"
-              disabled={busyAction !== "" || visitWin.missingEtaOnToOrder}
+              disabled={busyAction !== "" || visitWin.missingEtaOnToOrder || visitScheduleBlocksSubmit}
               onClick={openConfirmReview}
               className={uiActionBtnFull("flex items-center justify-center")}
             >
