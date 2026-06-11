@@ -130,12 +130,6 @@ export function PharmacistClientsDirectory() {
     return sorted;
   }, [rows, searchQuery, sort, onlyActive]);
 
-  const stats = useMemo(() => {
-    const activePatients = rows.filter((r) => r.active_request_count > 0).length;
-    const withPromo = rows.filter((r) => r.promo_reservation_count > 0).length;
-    return { total: rows.length, activePatients, withPromo };
-  }, [rows]);
-
   if (loading) {
     return (
       <PageShell maxWidthClass="max-w-5xl">
@@ -152,21 +146,6 @@ export function PharmacistClientsDirectory() {
         subtitle="Patients ayant interagi avec votre officine (demandes ou réservations promo)."
         pharmacyName={pharmacyNom || undefined}
       />
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className={chrome.statCard}>
-          <p className={chrome.statLabel}>Total</p>
-          <p className={chrome.statValue}>{stats.total}</p>
-        </div>
-        <div className={chrome.statCard}>
-          <p className={chrome.statLabel}>Dossiers actifs</p>
-          <p className={chrome.statValue}>{stats.activePatients}</p>
-        </div>
-        <div className={chrome.statCard}>
-          <p className={chrome.statLabel}>Avec pack promo</p>
-          <p className={chrome.statValue}>{stats.withPromo}</p>
-        </div>
-      </div>
 
       <div className={clsx(chrome.filterShell, "flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between")}>
         <label className="flex min-w-0 flex-1 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">

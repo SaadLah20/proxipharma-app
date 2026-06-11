@@ -265,12 +265,6 @@ export function PatientPharmaciesDirectory() {
     return sorted;
   }, [rows, searchQuery, sort, onlyActive, nameCollator]);
 
-  const stats = useMemo(() => {
-    const withActive = rows.filter((r) => r.active_request_count > 0).length;
-    const withPromo = rows.filter((r) => r.promo_reservation_count > 0).length;
-    return { total: rows.length, withActive, withPromo };
-  }, [rows]);
-
   if (loading) {
     return (
       <PageShell maxWidthClass="max-w-5xl">
@@ -285,21 +279,6 @@ export function PatientPharmaciesDirectory() {
         title={t("pharmaciesTitle")}
         subtitle={t("pharmaciesSubtitle")}
       />
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className={p.statCard}>
-          <p className={p.statLabel}>{t("statTotal")}</p>
-          <p className={p.statValue}>{stats.total}</p>
-        </div>
-        <div className={p.statCard}>
-          <p className={p.statLabel}>{t("statActive")}</p>
-          <p className={p.statValue}>{stats.withActive}</p>
-        </div>
-        <div className={p.statCard}>
-          <p className={p.statLabel}>{t("statPromo")}</p>
-          <p className={p.statValue}>{stats.withPromo}</p>
-        </div>
-      </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <label className="flex min-w-0 flex-1 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
