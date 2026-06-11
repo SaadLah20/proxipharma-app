@@ -86,7 +86,7 @@ export function ExternalNotificationPrefs({
   }
 
   const isSettings = appearance === "settings";
-  const showWhatsApp = !(isSettings && showSms);
+  const showWhatsApp = true;
 
   const body = (
     <>

@@ -719,7 +719,7 @@ export const accountFr = {
   notificationPrefs: {
     titleDefault: "Alertes hors application (pilote)",
     introPatientSettings:
-      "E-mail : mêmes alertes que dans l'app si votre profil a une adresse. SMS : réponse officine, rappel avant expiration, dossier traité, produit reçu ou de nouveau disponible, dossier expiré — si votre numéro est renseigné.",
+      "E-mail : mêmes alertes que dans l'app si votre profil a une adresse. SMS : réponse officine, rappel avant expiration, dossier traité, produit reçu ou de nouveau disponible, dossier expiré. WhatsApp (pilote) : réponse officine et dossier traité — si votre numéro est renseigné.",
     introPatientDefault:
       "En plus des notifications dans Pharmeto, vous pouvez activer l'e-mail (mêmes alertes que dans l'app) ou le SMS pour les étapes importantes de vos dossiers : réponse pharmacie, rappel de validation, préparation terminée, produit reçu, rupture disponible, expiration — lorsque votre profil contient une adresse e-mail ou un numéro mobile (champ WhatsApp, format international).",
     introPharmacist:
