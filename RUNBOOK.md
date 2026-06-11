@@ -23,8 +23,10 @@ Variables:
 - `EMAIL_FROM` (prod pilote : `Pharmeto <noreply@pharmeto.ma>` — validé terrain notif patient ; dev : `onboarding@resend.dev` si domaine non vérifié)
 - `APP_BASE_URL` (URL publique Vercel/custom domain, utilisée dans les liens e-mail Auth côté serveur)
 - `NEXT_PUBLIC_APP_BASE_URL` (même URL que `APP_BASE_URL`, exposée au navigateur pour OTP / confirmation e-mail)
-- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` (SMS alertes hors-app, même compte que l’auth si possible)
-- `TWILIO_SMS_FROM` (numéro expéditeur E.164, ex. `+1…`) **ou** `TWILIO_MESSAGING_SERVICE_SID`
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` (WhatsApp alertes + OTP Auth, même compte si possible)
+- `TWILIO_WHATSAPP_FROM` = `whatsapp:+212770165668` (notifs métier patient — voir §10)
+- `TWILIO_WHATSAPP_CONTENT_SID_RESPONDED`, `TWILIO_WHATSAPP_CONTENT_SID_TREATED` (modèles Utility FR approuvés — §10)
+- `TWILIO_SMS_FROM` (optionnel : route test `/api/cron/test-external-sms` uniquement ; **plus d’enqueue SMS métier** depuis **`20260811_001`**) **ou** `TWILIO_MESSAGING_SERVICE_SID`
 
 Regle:
 - Le nom doit etre exact
@@ -156,9 +158,9 @@ Sur **`https://pharmeto.ma`** (Chrome ou Edge, pas le navigateur intégré IDE) 
 3. « Mot de passe oublié » → lien e-mail pointe vers **`pharmeto.ma`**, pas `localhost`.
 4. Une demande produit test (parcours pilote).
 
-### F) Webhook SMS (si déjà configuré)
+### F) Webhook notifs hors-app (si déjà configuré)
 
-Supabase Database Webhook → `POST https://pharmeto.ma/api/webhooks/dispatch-external-sms` (remplacer l’URL `*.vercel.app` si c’était l’URL de prod).
+Supabase Database Webhook → `POST https://pharmeto.ma/api/webhooks/dispatch-external-sms` (remplacer l’URL `*.vercel.app` si c’était l’URL de prod). Traite **e-mail** et **WhatsApp** à l’INSERT (`notification_external_queue`) — voir §9.
 
 ## 3) Process de release (solo founder)
 
@@ -262,78 +264,44 @@ git log --oneline -n 10
 - **Plan Hobby Vercel** : les Cron Jobs Vercel ne permettent qu’une fréquence **minimale d’une fois par jour** (pas toutes les 2 minutes). Une entrée `vercel.json` avec `*/2 * * * *` peut **faire échouer le déploiement** ou ne jamais s’afficher comme job actif comme attendu.
 - **Référence planifiée** : GitHub Actions (voir §9).
 
-## 9) Cron GitHub Actions (email + SMS)
+## 9) Cron GitHub Actions (e-mail + WhatsApp)
 
-- **E-mail** : `.github/workflows/send-external-emails-cron.yml` — toutes les 5 min + manuel → e-mail puis SMS (filet de sécurité).
-- **SMS** : `.github/workflows/send-external-sms-cron.yml` — planifié **toutes les 5 min** (+ manuel) → `POST /api/cron/send-external-sms`. (GitHub ne permet pas &lt; 5 min en `schedule` ; webhook pour quelques secondes.)
-- **E-mail + SMS rapides (recommandé, quelques secondes)** : Supabase → **Database Webhooks** → `POST https://<APP>/api/webhooks/dispatch-external-sms` avec en-tête `Authorization: Bearer <CRON_SECRET>`, table `notification_external_queue`, événement **INSERT** (une ligne `email` + une ligne `sms` → deux appels, chaque canal traité tout de suite). Sans webhook, délai = cron GitHub (~5 min, irrégulier).
-- Secrets GitHub requis:
-  - `APP_BASE_URL` (ex: `https://proxipharma-app.vercel.app`)
-  - `CRON_SECRET`
-- Variables Vercel en plus pour SMS : `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` (ou `TWILIO_MESSAGING_SERVICE_SID`)
-- Optionnel : `SMS_BLOCKED_DESTINATIONS` (ex. `+212600000123`) — le worker ignore ces numéros sans appeler Twilio
-- Retry auto : e-mail jusqu'à 3 tentatives ; **SMS : 1 seule tentative** (pas de retry cron).
+**État juin 2026** : alertes métier = **e-mail + WhatsApp** patient (P0 répondu / traité). **SMS métier désactivé** (migration **`20260811_001`**) — OTP inscription / reset téléphone **inchangés** (Twilio Verify via Supabase Auth).
 
-### Tester les SMS (pilote)
+- **E-mail + WhatsApp (filet ~5 min)** : `.github/workflows/send-external-emails-cron.yml` — toutes les 5 min + manuel → `POST /api/cron/send-external-emails` puis `POST /api/cron/send-external-whatsapp`.
+- **SMS (legacy)** : `.github/workflows/send-external-sms-cron.yml` — ne traite que d’**anciennes** lignes `channel=sms` encore `pending` ; **aucune nouvelle ligne SMS** n’est enqueue après **`20260811_001`**.
+- **Quasi immédiat (~secondes, recommandé)** : Supabase → **Database Webhooks** → `POST https://<APP>/api/webhooks/dispatch-external-sms` avec en-tête `Authorization: Bearer <CRON_SECRET>`, table `notification_external_queue`, événement **INSERT** (une ligne `email` + une ligne `whatsapp` → deux appels ; le webhook ne traite **que la ligne insérée**). Sans webhook, délai = cron GitHub (~5 min).
+- Secrets GitHub : `APP_BASE_URL`, `CRON_SECRET`.
+- Variables Vercel notifs : `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, `TWILIO_WHATSAPP_CONTENT_SID_*` (§10), `RESEND_*`, `EMAIL_FROM`.
+- Retry auto : e-mail jusqu’à 3 tentatives ; WhatsApp **1 tentative** (pas de retry cron).
 
-1. **Ne pas confondre OTP et notifs** : codes inscription = **Twilio Verify** (libellé **Verify** possible). **Notifs** = API **Messages** + **`TWILIO_SMS_FROM`** (ex. `+19789813065`). Si Twilio affiche **30007**, raccourcir le texte (voir point de reprise ci-dessous).
-2. **Twilio** : envoyer un SMS test depuis la console vers votre `+212…` (même compte que les OTP).
-3. **Vercel** : ajouter les variables Twilio ci-dessus + redéployer.
-4. **Facturation** : activer un plafond de dépenses Twilio ; ne lancer le workflow SMS manuel qu’après geo Maroc + test OK (les échecs sont souvent facturés).
-5. **Utilisateur test** : dans le tableau de bord → *Alertes hors application* → cocher **SMS** ; profil avec numéro E.164 (`profiles.whatsapp`, ex. `+2126…`).
-6. **Déclencher une notif** : action qui crée une `app_notification` (ex. pharmacien répond à une demande).
-7. **File** : Supabase → `notification_external_queue` → ligne `channel=sms`, `status=pending`.
-8. **Cron manuel** : GitHub Actions → *Send External SMS Cron (manual)* → *Run workflow*, ou en local :
-   `curl -X POST -H "Authorization: Bearer $CRON_SECRET" "$APP_BASE_URL/api/cron/send-external-sms"`
-9. **Résultat** : la ligne passe à `sent` + SMS reçu ; en cas d’échec, `last_error` sur la ligne et `status=failed`.
+### Tester WhatsApp (pilote patient P0)
 
-### SMS automatique (délai court)
+1. **Migration** : appliquer **`20260811_001_disable_external_sms_notifications.sql`** si pas fait.
+2. **Vercel** : variables §10 + redeploy.
+3. **Utilisateur test** : *Mes paramètres* → *Alertes hors application* → cocher **WhatsApp** ; profil avec numéro E.164 (`profiles.whatsapp`, ex. `+2126…`).
+4. **Déclencher** : pharmacien répond ou marque traité → file `notification_external_queue` → ligne `channel=whatsapp`, `status=pending`.
+5. **Webhook** ou cron manuel *Send External Emails Cron* → `sent` + message WhatsApp template.
+6. **Test direct** : `POST /api/cron/test-external-whatsapp` (§10) ou Twilio Console **Try it out**.
 
-1. **Fusionner sur `main`** les workflows `.github/workflows/send-external-emails-cron.yml` et `send-external-sms-cron.yml`, puis déployer l’app (route webhook incluse).
-2. **Sans webhook** : SMS traités au plus tard en **~5 min** (cron SMS ou cron e-mail qui appelle aussi `/api/cron/send-external-sms`). Vérifier dans Actions que le workflow n’est pas **désactivé** et qu’il y a des runs `schedule` (pas seulement manuels).
-3. **Quasi immédiat (~secondes)** — Supabase → **Database Webhooks** → Create hook :
-   - Table : `notification_external_queue`
-   - Events : **Insert**
-   - URL : `https://<APP_BASE_URL>/api/webhooks/dispatch-external-sms`
-   - HTTP headers : `Authorization: Bearer <CRON_SECRET>` (même secret que les crons)
-4. Tester : notif avec **e-mail + SMS** cochés → les deux reçus en quelques secondes (sans PowerShell / sans attendre le cron).
+**Destination** : **`profiles.whatsapp`** (E.164) — pas `auth.users.phone`.
 
-### Point de reprise SMS (mai 2026)
+**OTP vs notifs** : inscription = Twilio Verify ; notifs métier = **Content API WhatsApp** + modèles Meta approuvés (§10).
 
-**Chaîne validée** : file `notification_external_queue` → worker Vercel → Twilio Messages (`TWILIO_SMS_FROM`, ex. `+19789813065`) ; **e-mail + SMS** OK au **run manuel** GitHub (*Send External Emails Cron*) ; **webhook Supabase** (`POST /api/webhooks/dispatch-external-sms`, header `Authorization: Bearer <CRON_SECRET>`) → ligne `sms` passe à `sent` en quelques secondes.
+**Inscription** : téléphone déjà dans **`auth.users`** → pas d’OTP — **`/api/auth/signup-phone-check`** (**`20260522_003`**).
 
-**Notifs SMS** : destination = **`profiles.whatsapp`** (E.164), **pas** la colonne Phone de Supabase Auth (comptes legacy e-mail peuvent avoir Auth.phone vide).
+### Historique SMS métier (mai 2026 — désactivé)
 
-**Livraison téléphone** : avec **webhook** + SMS **courts sans URL**, réception **rapide** validée au pilote. Twilio **30007** (*Message filtered*) surtout quand le SMS est **long** et/ou contient une **URL** (souvent 5+ segments vers le MA depuis numéro US).
+Avant **`20260811_001`**, le pilote envoyait des SMS patient (`responded` / `treated`) via API Messages + `TWILIO_SMS_FROM`. Remplacé par WhatsApp (meilleure délivrabilité MA). Le code worker SMS reste pour tests (`/api/cron/test-external-sms`) et lignes legacy en file. UI prefs : case SMS masquée ; `sms_enabled` forcé à `false`. Script annulation file : `supabase/scripts/cancel-sms-queue-bad-destination.sql`.
 
-**Lien dans le SMS (Q35)** :
-- **Oui, techniquement** (concaténer une URL dans `buildOutboundNotificationText`), mais au pilote **fort risque de filtrage** opérateur (30007) — ne pas remettre l’URL longue type `https://proxipharma-app.vercel.app/dashboard/demandes/…`.
-- **Pistes si un lien est requis** : (1) **e-mail** = lien complet (déjà en place) ; (2) SMS = texte court + « ouvrez l’app » ; (3) **URL très courte** sur votre domaine (ex. `https://proxipharma.app/r/Ab12` + redirection Next.js) ; (4) service raccourci (bit.ly, etc.) ; (5) **Twilio Link Shortening** sur un Messaging Service enregistré ; (6) après **A2P / conformité** US→MA, filtres souvent moins agressifs.
-- **Recommandation pilote** : pas de lien en SMS ; webhook + texte court. Réévaluer un lien court après plusieurs **Delivered** stables.
+## 10) Notifications WhatsApp (Q35 — actif prod pilote)
 
-**Cron GitHub `schedule`** : peu fiable (runs espacés ; lignes restent `pending` jusqu’au manuel). **Webhook = chemin principal** ; cron e-mail (+ appel SMS) = filet de sécurité ~5 min.
-
-**Vercel** : `SMS_BLOCKED_DESTINATIONS=+212600000123` (numéros test invalides). Script SQL : `supabase/scripts/cancel-sms-queue-bad-destination.sql`.
-
-**OTP vs notifs** : inscription = Twilio Verify (libellé **Verify** / WhatsApp +44 possible) ; notifs = API Messages + `TWILIO_SMS_FROM`.
-
-**Test** : `POST /api/cron/test-external-sms` (après deploy route sur `main`) ; logs Twilio : **Delivered** + **1 segment**, pas 30007.
-
-**Format SMS prod (pilote)** — patient, **`responded`** / **`treated`** uniquement ; sans URL ; ASCII ~1 segment :
-- Répondu : `Pharmeto: Ennasr a repondu. Dossier D042/26.`
-- Traité : `Pharmeto: Ennasr a traite le dossier D042/26.`
-- Nom officine : sans préfixe « La pharmacie » si le nom commence déjà par « Pharmacie » ; ref = **`requests.request_public_ref`** (sinon `#` + 8 car. UUID).
-
-**Inscription** : si le téléphone existe déjà dans **`auth.users`**, pas d’OTP à l’inscription — **`/api/auth/signup-phone-check`** (migration **`20260522_003`**).
-
-## 10) Notifications WhatsApp (Q35 — worker code livré, à activer sur Vercel)
-
-**État repo (juin 2026)** : file `notification_external_queue` + prefs `whatsapp_enabled` + **worker** `channel=whatsapp` (`lib/twilio-whatsapp.ts`, `lib/external-notification-queue-worker.ts`) ; webhook `/api/webhooks/dispatch-external-sms` et cron `/api/cron/send-external-whatsapp` ; test `/api/cron/test-external-whatsapp`.
+**État repo (juin 2026)** : worker **`channel=whatsapp`** livré et **activé Vercel** (`lib/twilio-whatsapp.ts`, `lib/external-notification-queue-worker.ts`) ; webhook `/api/webhooks/dispatch-external-sms` (e-mail + WhatsApp, **une ligne INSERT à la fois**) ; cron `/api/cron/send-external-whatsapp` (appelé aussi par le workflow e-mail §9) ; test `/api/cron/test-external-whatsapp`. Migration **`20260811_001`** : plus d’enqueue SMS métier — WhatsApp remplace SMS pour répondu / traité.
 
 **Infra Meta/Twilio — FAIT ✅** :
 - Expéditeur **+212770165668** (nom **Pharmeto**), sender Twilio **Online**
 - WABA **Miasmo** / Page **Pharmeto.ma**
-- **2 modèles Utility FR approuvés** (Content Template Builder) :
+- **2 modèles Utility FR approuvés v1 (sans lien)** :
 
 | Événement | Template Twilio | Content SID |
 |-----------|-------------------|-------------|
@@ -342,13 +310,19 @@ git log --oneline -n 10
 
 Corps type : `Pharmeto : {{1}} a répondu. Dossier {{2}}. Ouvrez l'application pour consulter.` (idem **traité**).
 
-**Variables Vercel à ajouter** (en plus de `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN`) :
+**En attente Meta (pilotes CTA avec lien — phase 2)** :
+- `pharmeto_request_responded_fr_v2_link` → `HX887df3db18f89b20a78cfec865745d28` (URL `https://pharmeto.ma/r/{{3}}`)
+- `pharmeto_pharmacy_new_request_fr` → `HX806ef0e68b7e5f2a6cc674b4637e4a60` (URL `https://pharmeto.ma/rp/{{3}}`)
+
+Ne pas basculer le code sur v2 tant que Meta n’a pas **Approved** les pilotes. Garder v1 en secours.
+
+**Variables Vercel** (en plus de `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN`) :
 - `TWILIO_WHATSAPP_FROM` = `whatsapp:+212770165668`
 - `TWILIO_WHATSAPP_CONTENT_SID_RESPONDED` = `HXe97624f91a846e92c56ca0fe2fabd2d5`
 - `TWILIO_WHATSAPP_CONTENT_SID_TREATED` = `HX5aa3d5e71dc6242ac53448fb95022f54`
 - Optionnel test : `WHATSAPP_TEST_TO` = `+2126…` perso
 
-**Test B (avant prod patient)** — après deploy preview :
+**Test B** — après deploy preview :
 ```bash
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
   -d '{"to":"+2126XXXXXXXX","eventType":"request_status:responded"}' \
@@ -356,7 +330,9 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: applicati
 ```
 Ou Twilio Console → **Try it out** → From `whatsapp:+212770165668`, ContentSid + variables `{"1":"Pharmacie Centrale","2":"D042/26"}`.
 
-**Pilote worker** : patient uniquement ; événements **répondu** + **traité** (P0). La file SQL peut enqueue d’autres types — le worker les **skip** tant qu’il n’y a pas de modèle. Destination = `profiles.whatsapp` (E.164). **Pas de lien** dans le template phase 1.
+**Pilote worker** : patient uniquement ; événements **répondu** + **traité** (P0). Autres `event_type` enqueue mais **skip** worker tant qu’il n’y a pas de modèle. Destination = `profiles.whatsapp` (E.164). Phase 1 = **sans lien** (v1).
+
+**Ops** : rafale backlog webhook corrigée (`onlyQueueRowIds` sur INSERT) ; script annulation file WhatsApp obsolète : `supabase/scripts/cancel-pending-whatsapp-backlog.sql`. Plan détaillé : `.cursor/plans/whatsapp_notifs_phases_92071eea.plan.md`.
 
 **Rappels** :
 - Numéro **SMS USA** (OTP Auth) ≠ expéditeur WhatsApp Business.
@@ -381,15 +357,16 @@ Ou Twilio Console → **Try it out** → From `whatsapp:+212770165668`, ContentS
 | Resend domaine `pharmeto.ma` Verified | OK |
 | E-mail notif patient expéditeur **Pharmeto** | OK (test terrain) |
 | Migrations jusqu'à `20260718_002` (`nom_ar`, `adresse_ar`, `public_listed`, `pilot_access`) | À confirmer sur Supabase (`001` puis `002` obligatoires) |
-| SMS préfixe `Pharmeto:` (code) | OK |
-| SMS **réception** sur téléphone test | Reporté |
+| SMS préfixe `Pharmeto:` (code legacy) | OK (SMS métier **désactivé** — §9) |
+| WhatsApp alertes patient (répondu / traité) | OK pilote (§10) |
+| Migration `20260811_001` (désactivation SMS métier) | À confirmer sur Supabase |
 | OTP Auth Supabase (quota / e-mail) | Reporté si quota atteint |
 
 **Vérifications après chaque merge marque/UI** :
 
 1. **Preview Vercel** : header **Pharmeto** + logo sans fond gris ; favicon ; partage WhatsApp `pharmeto.ma` (OG — cache possible).
 2. **i18n AR** : pas de régression RTL header + titre annuaire.
-3. **Infra** (§2c) : `APP_BASE_URL` / `NEXT_PUBLIC_APP_BASE_URL` = `https://pharmeto.ma` ; webhook SMS `https://pharmeto.ma/api/webhooks/dispatch-external-sms`.
+3. **Infra** (§2c) : `APP_BASE_URL` / `NEXT_PUBLIC_APP_BASE_URL` = `https://pharmeto.ma` ; webhook notifs `https://pharmeto.ma/api/webhooks/dispatch-external-sms`.
 4. **Prod** : auth reset MDP, demande test, sur **Chrome/Edge** (pas navigateur IDE).
 
 **Dev local** : `npm run dev:clean` si recompilations Turbopack Windows bloquantes ; erreur `Failed to fetch RSC` pendant « Compiling… » = recharger après fin compile.

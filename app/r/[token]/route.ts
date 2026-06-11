@@ -7,7 +7,7 @@ function appOrigin(req: Request): string {
 }
 
 /**
- * Redirection SMS : /r/{uuid32hex} → détail demande patient.
+ * Redirection lien court : /r/{uuid32hex} → détail demande patient.
  */
 export async function GET(req: Request, ctx: { params: Promise<{ token: string }> }) {
   const origin = appOrigin(req);

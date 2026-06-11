@@ -36,6 +36,8 @@ Ce dossier contient le SQL versionne sous Git (**source de verite schema + RLS /
 | `20260522_002_disable_pharmacist_sms.sql` | Désactive prefs SMS pharmacien + annule file SMS pharmacien |
 | `20260522_003_auth_phone_exists_signup_guard.sql` | RPC **`auth_phone_user_exists`** (inscription : téléphone déjà pris) |
 | `20260523_001_expire_responded_silence_24h.sql` | Défaut expiration **`responded`** → **24 h** (remplace 30 min) |
+| `20260811_001_disable_external_sms_notifications.sql` | **SMS alertes métier off** ; enqueue **e-mail + WhatsApp** patient (P0 répondu/traité) ; annule SMS `pending`/`processing` |
+| `20260812_001_planned_visit_pharmacy_hours_validation.sql` | Passage patient : garde horaires officine (≥ 30 min si aujourd’hui, jour fermé, hors créneaux) dans **`patient_confirm_after_response`** et **`patient_update_planned_visit_after_confirmation`** |
 
 **Ordre** : après **007**, appliquer **009** sur toute base où **007** a été jouée. En pratique **008 + 009** suffisent pour le contact patient côté pharmacien (sans policy **007**).
 
