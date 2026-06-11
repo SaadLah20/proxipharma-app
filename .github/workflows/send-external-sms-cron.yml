@@ -1,4 +1,5 @@
-# SMS hors-app : toutes les 5 min (minimum GitHub Actions). Plus rapide : webhook RUNBOOK §9.
+# Legacy : plus d’enqueue SMS métier depuis 20260811_001 — ne traite que d’anciennes lignes pending.
+# WhatsApp + e-mail : send-external-emails-cron.yml (§ RUNBOOK §9).
 name: Send External SMS Cron
 
 on:

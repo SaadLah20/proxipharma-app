@@ -44,17 +44,19 @@ Document de référence (parcours patient, pharmacien, admin, notifications, mé
 | Service | Endpoint / canal | Utilisation | Variables d’environnement |
 |---------|------------------|-------------|---------------------------|
 | **Resend** | `https://api.resend.com/emails` | E-mails hors-app (file `notification_external_queue`, canal `email`) | `RESEND_API_KEY`, `EMAIL_FROM` |
-| **Twilio Messages** | `https://api.twilio.com/.../Messages.json` | SMS métier patient (`responded`, `treated`) — texte court, sans URL longue | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` ou `TWILIO_MESSAGING_SERVICE_SID` |
-| **Twilio Verify** | Via **Supabase Auth** (Phone) | OTP inscription / reset téléphone (SMS ou WhatsApp selon config) — **≠** canal Messages notifs | Config dashboard Supabase + compte Twilio |
+| **Twilio Content API (WhatsApp)** | Content API + Messages WhatsApp | Alertes métier patient P0 (`responded`, `treated`) — modèles Meta Utility | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, `TWILIO_WHATSAPP_CONTENT_SID_*` |
+| **Twilio Messages** | `https://api.twilio.com/.../Messages.json` | **Legacy** — plus d’enqueue SMS métier (`20260811_001`) ; route test `/api/cron/test-external-sms` seulement | `TWILIO_SMS_FROM` (optionnel) |
+| **Twilio Verify** | Via **Supabase Auth** (Phone) | OTP inscription / reset téléphone (SMS ou WhatsApp selon config) — **≠** notifs métier | Config dashboard Supabase + compte Twilio |
 | **Supabase Auth API** | `GET .../auth/v1/user` | Vérification JWT sur routes API (`lib/verify-bearer-user.ts`) | Clés Supabase |
 
-**Implémentation** : `lib/external-notification-queue-worker.ts`.
+**Implémentation** : `lib/external-notification-queue-worker.ts`, `lib/twilio-whatsapp.ts`.
 
-### Prévu / documenté (pas de worker applicatif aujourd’hui)
+### Prévu (phase 2+ — templates Meta en attente)
 
 | Service | Statut | Usage prévu |
 |---------|--------|-------------|
-| **WhatsApp Business** (Meta + Twilio) | Infra en cours | Templates `channel=whatsapp` — `RUNBOOK.md` §10, `AGENTS.md` |
+| **WhatsApp CTA avec lien** | Pilotes Meta Pending | v2 répondu + nouvelle demande pharma ; routes `/r/`, `/rp/` |
+| **WhatsApp événements étendus** | Code après templates | 6 patient + 5 pharmacien — plan `.cursor/plans/whatsapp_notifs_phases_92071eea.plan.md` |
 | **SMTP personnalisé Supabase** | Recommandé prod | E-mails Auth (OTP, reset) via Resend/SendGrid côté Supabase |
 
 ---
@@ -86,14 +88,15 @@ Document de référence (parcours patient, pharmacien, admin, notifications, mé
 | Route | Rôle | Dépendances |
 |-------|------|-------------|
 | `POST /api/cron/send-external-emails` | Worker e-mails | Resend, Supabase service role |
-| `POST /api/cron/send-external-sms` | Worker SMS | Twilio, Supabase |
-| `POST /api/webhooks/dispatch-external-sms` | Traitement immédiat file (e-mail ou SMS) | Idem |
+| `POST /api/cron/send-external-whatsapp` | Worker WhatsApp | Twilio Content API, Supabase |
+| `POST /api/cron/send-external-sms` | Worker SMS (legacy, plus d’enqueue métier) | Twilio, Supabase |
+| `POST /api/webhooks/dispatch-external-sms` | Traitement immédiat file (e-mail ou WhatsApp par INSERT) | Idem |
 | `POST /api/cron/expire-overdue-requests` | Expiration `responded` (24 h par défaut) | RPC `expire_overdue_requests()` |
 | `POST /api/auth/signup-phone-check` | Anti-doublon téléphone avant OTP | RPC `auth_phone_user_exists` |
 | `POST /api/auth/request-password-reset` | Reset MDP e-mail | Supabase Auth |
 | `POST /api/admin/onboard-pharmacy` | Création officine + pharmacien | Supabase Auth Admin |
 | `POST /api/media/private-signed-url` | Lecture médias privés | Storage URL signée |
-| `GET /r/[token]` | Raccourci SMS → dossier patient | Redirection interne |
+| `GET /r/[token]` | Raccourci lien court → dossier patient | Redirection interne |
 | `POST /api/patient/prescription-page` | Ordonnance (serveur) | Storage / métier prescription |
 
 Protection crons / webhook : en-tête `Authorization: Bearer <CRON_SECRET>`.
@@ -136,15 +139,19 @@ Prérequis scripts : `.env.local` avec `SUPABASE_SERVICE_ROLE_KEY` ; sous Window
 | `EMAIL_FROM` | Expéditeur e-mail Resend |
 | `TWILIO_ACCOUNT_SID` | Twilio |
 | `TWILIO_AUTH_TOKEN` | Twilio |
-| `TWILIO_SMS_FROM` | Numéro expéditeur SMS (ou `TWILIO_MESSAGING_SERVICE_SID`) |
-| `SMS_BLOCKED_DESTINATIONS` | Numéros test bloqués |
-| `SMS_TEST_TO` | Route test SMS (`/api/cron/test-external-sms`) |
+| `TWILIO_WHATSAPP_FROM` | Expéditeur WhatsApp Business (`whatsapp:+212…`) |
+| `TWILIO_WHATSAPP_CONTENT_SID_RESPONDED` | Modèle Meta répondu (v1) |
+| `TWILIO_WHATSAPP_CONTENT_SID_TREATED` | Modèle Meta traité (v1) |
+| `WHATSAPP_TEST_TO` | Route test WhatsApp |
+| `TWILIO_SMS_FROM` | Legacy test SMS (optionnel) |
+| `SMS_BLOCKED_DESTINATIONS` | Numéros test bloqués (legacy SMS) |
+| `SMS_TEST_TO` | Route test SMS legacy |
 | `CRON_SECRET` | Protection crons + webhook Supabase |
 | `APP_BASE_URL` | URL publique (serveur) |
 | `NEXT_PUBLIC_APP_BASE_URL` | URL publique (navigateur, Auth) |
 | `VERCEL_URL` | Fallback URL preview Vercel |
 | `EXPIRE_RESPONDED_SILENCE` | Surcharge délai expiration `responded` |
-| `SMS_INCLUDE_REQUEST_LINK` | Lien court dans SMS (désactivé pilote — risque Twilio 30007) |
+| `SMS_INCLUDE_REQUEST_LINK` | Lien court SMS (legacy — SMS métier off) |
 
 ---
 
@@ -153,7 +160,7 @@ Prérequis scripts : `.env.local` avec `SUPABASE_SERVICE_ROLE_KEY` ; sous Window
 - Paiement (Stripe, CMI, etc.)
 - Cartographie payante (Google Maps Platform, Mapbox API)
 - Analytics tiers (GA4, Posthog, Sentry) — analytics fiche = RPC `pharmacist_profile_analytics`
-- Envoi WhatsApp API automatisé (prefs BDD + doc ; pas de worker)
+- Envoi WhatsApp API automatisé pharmacien + événements étendus (patient P0 livré — `RUNBOOK.md` §10)
 - OpenAI / OCR cloud (ordonnance = upload + saisie pharmacien)
 
 ---

@@ -663,9 +663,6 @@ export const accountFr = {
   emailProfileError: "E-mail mis à jour côté connexion. Erreur profil : {message}",
   pharmaciesSubtitle:
     "Officines avec lesquelles vous avez déjà échangé (demandes, ordonnances, consultations ou packs promo).",
-  statTotal: "Total",
-  statActive: "Dossiers en cours",
-  statPromo: "Avec pack promo",
   search: "Recherche",
   searchPlaceholder: "Nom, ville, code officine…",
   sort: "Trier",

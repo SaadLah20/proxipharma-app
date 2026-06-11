@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260718_002`** si pas fait — **`20260718_001`** + **`20260718_002`** visibilite officines pilote) → phrase **§13.59** (annuaire : Al Jazira seule en public ; comptes test **`pilot_access`**). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260812_001`** si pas fait — après **`20260811_001`** WhatsApp / SMS off) → phrase **§13.60**. La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -381,6 +381,26 @@ git checkout pilote-stable-2026-05-24
 **Branche de travail après retour** : `git switch -c reprise-depuis-stable-2026-05-24`
 
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
+
+---
+
+### Session 2026-06-11 — Passage vs horaires officine + CRM sans KPI
+
+**Branche** : `fix/validated-supply-ecart-ui-modal` — commits **`77bccb7`** · **`5c651ad`** · **`57dc498`**.
+
+**Migrations** (ordre) :
+- **`20260811_001_disable_external_sms_notifications.sql`** — SMS alertes métier off ; enqueue e-mail + WhatsApp patient P0.
+- **`20260812_001_planned_visit_pharmacy_hours_validation.sql`** — **`_assert_pharmacy_open_for_visit`** : ≥ **30 min** si passage aujourd’hui avec heure (Casablanca), jour fermé / férié, hors créneaux ; hooks **`patient_confirm_after_response`** et **`patient_update_planned_visit_after_confirmation`**.
+
+**Passage patient (UI + lib)** :
+- **`lib/planned-visit-pharmacy-validation.ts`**, **`lib/pharmacy-schedule-fr.ts`** (`openSlotsForDay`, `isPharmacyOpenAt`, …), **`lib/annuaire/schedule-bundle.ts`**.
+- **`PatientProductRequestActions`** : chargement horaires officine, messages live, blocage validation / mise à jour passage.
+
+**Mes pharmacies / Clients (UI)** :
+- Retrait grille **3 KPI** (Total / actifs / promo) — **`patient-pharmacies-directory.tsx`**, **`pharmacist-clients-directory.tsx`**.
+- Conservé : en-tête page, barre recherche + tri + filtre, cartes.
+
+**Phrase de reprise** : **§13.60**.
 
 ---
 
@@ -2400,8 +2420,10 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260717_001_patient_pharmacy_directory_nom_ar.sql` (Mes pharmacies + `nom_ar`)
   - `supabase/migrations/20260718_001_pilot_pharmacy_public_listed.sql` (**`public_listed`**, **`pilot_access`**, RLS annuaire pilote)
   - `supabase/migrations/20260718_002_pilot_visibility_seed_fix.sql` (fix seed SQL Editor — **à appliquer après 001**)
+  - `supabase/migrations/20260811_001_disable_external_sms_notifications.sql` (SMS métier off ; enqueue e-mail + WhatsApp patient P0)
+  - `supabase/migrations/20260812_001_planned_visit_pharmacy_hours_validation.sql` (passage patient vs horaires officine)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260718_002`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** (officines test masquées) ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. i18n messages patient **1 299** clés FR/AR. Reprise courte : **§13.59**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260812_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** (officines test masquées) ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. i18n messages patient **1 296** clés FR/AR. Reprise courte : **§13.60**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2713,7 +2735,11 @@ Voir **§13.37**.
 
 **« Affinage i18n arabe patient §13.58 — étapes 1–5 livrées sur `fix/validated-supply-ecart-ui-modal`. Preview AR ou épique hors pilote (catalogue, SMS, pharmacien AR). Je te donne la tâche ou les retours. »**
 
-### 13.59) Phrase de reprise (recommandée — session **2026-06-10 (suite 2–3)** visibilité annuaire pilote)
+### 13.60) Phrase de reprise (recommandée — session **2026-06-11** passage horaires + CRM sans KPI)
+
+**« Pharmeto (`pharmeto.ma`) — branche `fix/validated-supply-ecart-ui-modal` (commits **`77bccb7`**, **`5c651ad`**, **`57dc498`**). **Migrations Supabase** : **`20260811_001`** (SMS métier off, WhatsApp P0) puis **`20260812_001`** (passage vs horaires officine — appliquer avec RLS normal). **Passage patient** : ≥ **30 min** si aujourd’hui + heure ; jour fermé / hors créneaux bloqués UI + RPC ; **`lib/planned-visit-pharmacy-validation.ts`**. **Mes pharmacies / Clients** : liste = en-tête + recherche/filtres + cartes (**sans** KPI 3 colonnes). Lots antérieurs : annuaire pilote **§13.59**, i18n **§13.58**. Je te donne la tâche ou les retours preview. »**
+
+### 13.59) Phrase de reprise (session **2026-06-10 (suite 2–3)** visibilité annuaire pilote)
 
 **« Pharmeto (`pharmeto.ma`) — branche `fix/validated-supply-ecart-ui-modal` (commits **`b76bdec`**, **`d06520e`**, **`bdbfcc2`**). **Migrations Supabase** : **`20260718_001`** puis **`20260718_002`** (les deux obligatoires — le 002 corrige le seed `pilot_access` / `public_listed` si tout était resté à `false`). **Annuaire public** : **`pharmacies.public_listed = true`** → seule **AL JAZIRA** en prod ; Saad / Yassine BJ masquées sauf comptes **`pilot_access`**. **Annuaire app** : rechargement après déconnexion + filtre filet **`lib/annuaire/pilot-directory-access.ts`** ; déconnexion header = rechargement complet (**mobile**). **Comptes test** : admin MIASMO + 4 patients **`pilot_access = true`** ; **Noureddine SALAMI** → **`pilot_access = false`**. Admin : case **Visible dans l'annuaire public** à la création. Lots antérieurs : i18n **§13.58**, ville **§13.55**. Je te donne la tâche ou les retours preview. »**
 
@@ -2873,7 +2899,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-10 (suite 3)** — annuaire déconnexion mobile + pilote **§13.59**, commits **`bdbfcc2`**). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260718_002`** (**`001`** + **`002`** visibilité officines) ; annuaire public = **Al Jazira seule** ; catalogue **~19 677** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.59**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-11** — passage horaires + CRM sans KPI, commits **`57dc498`**). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260812_001`** (après **`20260811_001`**) ; annuaire public = **Al Jazira seule** ; catalogue **~19 677** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.60**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
