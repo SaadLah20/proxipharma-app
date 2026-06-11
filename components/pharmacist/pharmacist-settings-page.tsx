@@ -490,7 +490,7 @@ export function PharmacistSettingsPage() {
           <div className="border-t border-border/60 pt-4">
             <p className="text-xs font-semibold text-foreground">Alertes hors application</p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Au pilote, pas de SMS pharmacien — e-mail et WhatsApp selon vos préférences.
+              E-mail et WhatsApp selon vos préférences (pas de SMS alertes dossier).
             </p>
             {profile?.id ? (
               <ExternalNotificationPrefs userId={profile.id} variant="pharmacien" appearance="settings" />

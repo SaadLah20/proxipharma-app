@@ -22,13 +22,12 @@ export function ExternalNotificationPrefs({
   appearance = "default",
 }: {
   userId: string | null;
-  /** SMS réservé aux patients (événements dossier à fort impact). */
+  /** Préférences alertes hors-app (e-mail, WhatsApp). SMS métier désactivé — OTP auth inchangé. */
   variant?: "patient" | "pharmacien";
   /** `settings` : intégré dans la page paramètres patient (style sobre). */
   appearance?: "default" | "settings";
 }) {
   const t = useTranslations("account.notificationPrefs");
-  const showSms = variant === "patient";
   const [prefs, setPrefs] = useState<Prefs>(defaultPrefs);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -46,10 +45,10 @@ export function ExternalNotificationPrefs({
 
     if (!error && data) {
       const row = data as Prefs;
-      setPrefs(showSms ? row : { ...row, sms_enabled: false });
+      setPrefs({ ...row, sms_enabled: false });
     }
     setLoaded(true);
-  }, [userId, showSms]);
+  }, [userId]);
 
   useEffect(() => {
     const tid = window.setTimeout(() => {
@@ -68,7 +67,7 @@ export function ExternalNotificationPrefs({
       {
         user_id: userId,
         email_enabled: prefs.email_enabled,
-        sms_enabled: showSms ? prefs.sms_enabled : false,
+        sms_enabled: false,
         whatsapp_enabled: prefs.whatsapp_enabled,
       },
       { onConflict: "user_id" }
@@ -94,8 +93,11 @@ export function ExternalNotificationPrefs({
         <h2 className="text-lg font-semibold text-amber-950">{t("titleDefault")}</h2>
       ) : null}
       <p className={isSettings ? "text-[11px] leading-relaxed text-muted-foreground" : "mt-1 text-xs text-amber-900/85"}>
-        {showSms ? (isSettings ? t("introPatientSettings") : t("introPatientDefault")) : t("introPharmacist")}
-        {!isSettings ? t("whatsappLater") : null}
+        {variant === "patient"
+          ? isSettings
+            ? t("introPatientSettings")
+            : t("introPatientDefault")
+          : t("introPharmacist")}
       </p>
       <div className={isSettings ? "mt-3 space-y-2" : "mt-4 space-y-2"}>
         <label className="flex cursor-pointer items-start gap-2 text-sm text-foreground">
@@ -108,18 +110,6 @@ export function ExternalNotificationPrefs({
           />
           <span>{t("email")}</span>
         </label>
-        {showSms ? (
-          <label className="flex cursor-pointer items-start gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              className="mt-0.5 rounded border-input"
-              checked={prefs.sms_enabled}
-              disabled={!loaded}
-              onChange={(e) => setPrefs((p) => ({ ...p, sms_enabled: e.target.checked }))}
-            />
-            <span>{t("sms")}</span>
-          </label>
-        ) : null}
         {showWhatsApp ? (
           <label className="flex cursor-pointer items-start gap-2 text-sm text-foreground">
             <input
