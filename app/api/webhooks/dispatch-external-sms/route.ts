@@ -13,14 +13,16 @@ type SupabaseDbWebhookBody = {
 
 function channelFromInsert(record: SupabaseDbWebhookBody["record"]): ExternalNotificationChannel | null {
   if (record?.status !== "pending") return null;
-  if (record.channel === "sms" || record.channel === "email") return record.channel;
+  if (record.channel === "sms" || record.channel === "email" || record.channel === "whatsapp") {
+    return record.channel;
+  }
   return null;
 }
 
 /**
- * Déclenchement rapide e-mail + SMS (Supabase Database Webhook sur INSERT notification_external_queue).
+ * Déclenchement rapide e-mail + SMS + WhatsApp (Supabase Database Webhook sur INSERT notification_external_queue).
  * POST + Authorization: Bearer CRON_SECRET
- * Traite la file du canal inséré (email ou sms). WhatsApp : pas encore.
+ * Traite la file du canal inséré (email, sms ou whatsapp).
  */
 export async function POST(req: Request) {
   const denied = assertCronAuthorized(req);
@@ -62,7 +64,13 @@ export async function POST(req: Request) {
       requestOrigin,
       limit: 10,
     });
-    return Response.json({ ok: true, email, sms });
+    const whatsapp = await processExternalNotificationQueue({
+      supabase,
+      channel: "whatsapp",
+      requestOrigin,
+      limit: 10,
+    });
+    return Response.json({ ok: true, email, sms, whatsapp });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return Response.json({ ok: false, error: msg }, { status: 500 });

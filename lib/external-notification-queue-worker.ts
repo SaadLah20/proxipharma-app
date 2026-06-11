@@ -3,8 +3,15 @@ import { displayRequestPublicRef } from "@/lib/public-ref";
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
 import { appendSmsRequestLinkIfEnabled } from "@/lib/sms-request-short-link";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
+import {
+  WHATSAPP_PATIENT_EVENT_TYPES,
+  buildWhatsAppContentVariables,
+  resolveWhatsAppContentSid,
+  sendWhatsAppViaTwilio,
+  type WhatsAppDispatchResult,
+} from "@/lib/twilio-whatsapp";
 
-export type ExternalNotificationChannel = "email" | "sms";
+export type ExternalNotificationChannel = "email" | "sms" | "whatsapp";
 
 /** SMS pilote patient : événements à fort impact métier. */
 export const SMS_PATIENT_EVENT_TYPES = new Set<string>([
@@ -180,7 +187,7 @@ export function twilioSmsErrorLooksPermanent(errorMessage: string): boolean {
 }
 
 function maxAttemptsForChannel(channel: ExternalNotificationChannel): number {
-  return channel === "sms" ? 1 : 3;
+  return channel === "sms" || channel === "whatsapp" ? 1 : 3;
 }
 
 /** Numéros à ne jamais appeler (Vercel : SMS_BLOCKED_DESTINATIONS=+212600000123,…). */
@@ -394,17 +401,34 @@ export async function processExternalNotificationQueue(args: {
     }
   }
 
-  const smsBlocked = args.channel === "sms" ? loadSmsBlockedDestinations() : new Set<string>();
+  const smsBlocked =
+    args.channel === "sms" || args.channel === "whatsapp" ? loadSmsBlockedDestinations() : new Set<string>();
 
   for (const r of rows) {
-    if (args.channel === "sms" && roleByRecipient.get(r.recipient_id) !== "patient") {
+    if (
+      (args.channel === "sms" || args.channel === "whatsapp") &&
+      roleByRecipient.get(r.recipient_id) !== "patient"
+    ) {
       failed++;
       await args.supabase
         .from("notification_external_queue")
         .update({
           status: "failed",
           attempt_count: maxAttempts,
-          last_error: "skipped: SMS réservé aux patients",
+          last_error: `skipped: ${args.channel === "whatsapp" ? "WhatsApp" : "SMS"} réservé aux patients`,
+        })
+        .eq("id", r.id);
+      continue;
+    }
+
+    if (args.channel === "whatsapp" && !WHATSAPP_PATIENT_EVENT_TYPES.has(r.event_type)) {
+      failed++;
+      await args.supabase
+        .from("notification_external_queue")
+        .update({
+          status: "failed",
+          attempt_count: maxAttempts,
+          last_error: "skipped: WhatsApp pilote limité à répondu / traité patient",
         })
         .eq("id", r.id);
       continue;
@@ -423,7 +447,10 @@ export async function processExternalNotificationQueue(args: {
       continue;
     }
 
-    if (args.channel === "sms" && isSmsDestinationBlocked(r.destination_snapshot, smsBlocked)) {
+    if (
+      (args.channel === "sms" || args.channel === "whatsapp") &&
+      isSmsDestinationBlocked(r.destination_snapshot, smsBlocked)
+    ) {
       failed++;
       await args.supabase
         .from("notification_external_queue")
@@ -438,22 +465,59 @@ export async function processExternalNotificationQueue(args: {
 
     const role = roleByRecipient.get(r.recipient_id);
     const meta = requestMetaById.get(r.request_id);
-    const { subject, text } = buildOutboundNotificationText({
-      row: r,
-      requestOrigin: args.requestOrigin,
-      role,
-      pharmacyName: meta?.pharmacyName ?? null,
-      requestType: meta?.requestType ?? null,
-      requestPublicRef: meta?.requestPublicRef ?? null,
-      channel: args.channel,
-    });
 
     try {
-      const out = await dispatchOutbound(args.channel, {
-        destination: r.destination_snapshot,
-        subject,
-        text,
-      });
+      let out: SmsDispatchResult | WhatsAppDispatchResult | { id?: string };
+      let payload: Record<string, unknown> | undefined;
+
+      if (args.channel === "whatsapp") {
+        const contentSid = resolveWhatsAppContentSid(r.event_type);
+        if (!contentSid) {
+          throw new Error(`Missing WhatsApp Content SID for event ${r.event_type}`);
+        }
+        const contentVariables = buildWhatsAppContentVariables({
+          pharmacyName: meta?.pharmacyName ?? null,
+          requestPublicRef: meta?.requestPublicRef ?? null,
+          requestId: r.request_id,
+        });
+        const waOut = await sendWhatsAppViaTwilio({
+          to: r.destination_snapshot,
+          contentSid,
+          contentVariables,
+        });
+        out = waOut;
+        payload = {
+          twilio_status: waOut.twilioStatus ?? null,
+          twilio_from: waOut.twilioFrom ?? null,
+          content_sid: waOut.contentSid ?? null,
+          content_variables: contentVariables,
+          twilio: waOut.twilioMeta ?? null,
+        };
+      } else {
+        const { subject, text } = buildOutboundNotificationText({
+          row: r,
+          requestOrigin: args.requestOrigin,
+          role,
+          pharmacyName: meta?.pharmacyName ?? null,
+          requestType: meta?.requestType ?? null,
+          requestPublicRef: meta?.requestPublicRef ?? null,
+          channel: args.channel,
+        });
+        out = await dispatchOutbound(args.channel, {
+          destination: r.destination_snapshot,
+          subject,
+          text,
+        });
+        if (args.channel === "sms") {
+          const smsOut = out as SmsDispatchResult;
+          payload = {
+            twilio_status: smsOut.twilioStatus ?? null,
+            twilio_from: smsOut.twilioFrom ?? null,
+            twilio: smsOut.twilioMeta ?? null,
+          };
+        }
+      }
+
       sent++;
       const updateRow: {
         status: string;
@@ -467,13 +531,8 @@ export async function processExternalNotificationQueue(args: {
         provider_message_id: out.id ?? null,
         last_error: null,
       };
-      if (args.channel === "sms") {
-        const smsOut = out as SmsDispatchResult;
-        updateRow.payload = {
-          twilio_status: smsOut.twilioStatus ?? null,
-          twilio_from: smsOut.twilioFrom ?? null,
-          twilio: smsOut.twilioMeta ?? null,
-        };
+      if (payload) {
+        updateRow.payload = payload;
       }
       await args.supabase.from("notification_external_queue").update(updateRow).eq("id", r.id);
     } catch (e) {
@@ -481,7 +540,7 @@ export async function processExternalNotificationQueue(args: {
       const msg = e instanceof Error ? e.message : String(e);
       const prev = r.attempt_count ?? 0;
       const bump =
-        args.channel === "sms" && twilioSmsErrorLooksPermanent(msg)
+        (args.channel === "sms" || args.channel === "whatsapp") && twilioSmsErrorLooksPermanent(msg)
           ? maxAttempts
           : Math.min(maxAttempts, prev + 1);
       await args.supabase
