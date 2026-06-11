@@ -8,7 +8,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase-service";
 type SupabaseDbWebhookBody = {
   type?: string;
   table?: string;
-  record?: { channel?: string; status?: string };
+  record?: { id?: string; channel?: string; status?: string };
 };
 
 function channelFromInsert(record: SupabaseDbWebhookBody["record"]): ExternalNotificationChannel | null {
@@ -29,10 +29,12 @@ export async function POST(req: Request) {
   if (denied) return denied;
 
   let channel: ExternalNotificationChannel | null = null;
+  let insertedQueueRowId: string | undefined;
   try {
     const body = (await req.json()) as SupabaseDbWebhookBody;
     if (body.type === "INSERT" && body.table === "notification_external_queue") {
       channel = channelFromInsert(body.record);
+      insertedQueueRowId = body.record?.id?.trim() || undefined;
     }
   } catch {
     /* corps vide : traiter e-mail puis SMS (ping manuel) */
@@ -47,7 +49,8 @@ export async function POST(req: Request) {
         supabase,
         channel,
         requestOrigin,
-        limit: 10,
+        limit: insertedQueueRowId ? 1 : 10,
+        onlyQueueRowIds: insertedQueueRowId ? [insertedQueueRowId] : undefined,
       });
       return Response.json(result);
     }
