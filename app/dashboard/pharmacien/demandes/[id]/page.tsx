@@ -235,9 +235,14 @@ import {
   pharmacistProductSectionTitleClass,
 } from "@/lib/pharmacist-product-dossier-shell";
 import { PharmacistAltCatalogPicker } from "@/components/pharmacist/pharmacist-alt-catalog-picker";
-import { PharmacistManualRequestLineCard } from "@/components/pharmacist/pharmacist-manual-request-line-card";
+import { PharmacistManualRequestLineCard, PharmacistManualLinkDraftBanner } from "@/components/pharmacist/pharmacist-manual-request-line-card";
 import { PharmacistAlternativeLinePanel } from "@/components/pharmacist/pharmacist-alternative-line-panel";
-import { isUnresolvedManualRequestItem } from "@/lib/patient-manual-product-line";
+import {
+  isUnresolvedManualRequestItem,
+  manualLineNeedsCatalogLink,
+} from "@/lib/patient-manual-product-line";
+import { itemRowWithManualLinkDraft } from "@/lib/pharmacist-manual-line-link-draft";
+import { linkManualLineToProduct } from "@/lib/pharmacy-catalog-api";
 import { PharmacistLineAlternativesTabs } from "@/components/pharmacist/pharmacist-line-alternatives-tabs";
 import { PharmacienAvailabilityDropdown } from "@/components/pharmacist/pharmacien-availability-dropdown";
 import {
@@ -1855,6 +1860,7 @@ export default function PharmacienDemandeDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [manualLinkDrafts, setManualLinkDrafts] = useState<Record<string, UnifiedCatalogHit>>({});
   const [busy, setBusy] = useState(false);
   const [request, setRequest] = useState<RequestRow | null>(null);
   useSyncBottomNavDossierTab(request?.request_type);
@@ -2280,6 +2286,15 @@ export default function PharmacienDemandeDetailPage() {
     setItems(
       mapRequestItemsPhotos(list.map((row) => normalizeRequestItemTreeEmbed(row as ItemRow)))
     );
+    setManualLinkDrafts((prev) => {
+      const next: Record<string, UnifiedCatalogHit> = {};
+      for (const item of list) {
+        if (prev[item.id] && isUnresolvedManualRequestItem(item)) {
+          next[item.id] = prev[item.id]!;
+        }
+      }
+      return next;
+    });
     setAltQtyDrafts({});
 
     if (r.request_type === "prescription") {
@@ -4418,6 +4433,16 @@ export default function PharmacienDemandeDetailPage() {
     setBusy(false);
   };
 
+  const revealDossierError = useCallback((message: string) => {
+    setError(message);
+    window.requestAnimationFrame(() => {
+      document
+        .querySelector("[data-pharma-dossier-error]")
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }, []);
+
   const publishResponse = async () => {
     if (!request) return;
     if (
@@ -4434,9 +4459,9 @@ export default function PharmacienDemandeDetailPage() {
     }
 
     if (request.request_type === "product_request") {
-      const unresolvedManual = displayRows.filter(isUnresolvedManualRequestItem);
+      const unresolvedManual = displayRows.filter((r) => manualLineNeedsCatalogLink(r, manualLinkDrafts));
       if (unresolvedManual.length > 0) {
-        setError(
+        revealDossierError(
           "Associez chaque produit saisi par le patient au catalogue avant d'envoyer la réponse."
         );
         return;
@@ -4505,10 +4530,43 @@ export default function PharmacienDemandeDetailPage() {
     const altSnap = [...pendingAlternatives];
     const deletedAltSnap = [...pendingDeletedAlternativeIds];
     const altDraftSnap = { ...altQtyDrafts };
-    const rowsForPublish = [...displayRows];
+    const manualLinkSnap = { ...manualLinkDrafts };
+    let rowsForPublish = [...displayRows];
 
     try {
       await flushPendingAlternativeDeletes(deletedAltSnap);
+
+      for (const row of rowsForPublish) {
+        const hit = manualLinkSnap[row.id];
+        if (hit && isUnresolvedManualRequestItem(row)) {
+          await linkManualLineToProduct(supabase, row.id, hit);
+        }
+      }
+      if (Object.keys(manualLinkSnap).length > 0) {
+        const { data: itemsData, error: itemsErr } = await supabase
+          .from("request_items")
+          .select(PHARMA_REQUEST_ITEMS_SELECT)
+          .eq("request_id", id)
+          .order("created_at", { ascending: true });
+        if (itemsErr) throw new Error(itemsErr.message);
+        const freshList = mapRequestItemsPhotos(
+          ((itemsData as ItemRow[]) ?? []).map((row) => normalizeRequestItemTreeEmbed(row))
+        );
+        setItems(freshList);
+        setManualLinkDrafts({});
+        const baseRows = hideStaleServerPharmacistProposals
+          ? freshList.filter((r) => r.line_source !== "pharmacist_proposed")
+          : freshList.slice();
+        rowsForPublish = applyPendingAlternativeDeletesToRows(
+          mergePendingAlternativesOntoRows(
+            [...baseRows, ...proposalSnap].filter(
+              (r) => !removedPersistedRespondedEditIds.includes(r.id)
+            ),
+            altSnap
+          ),
+          deletedAltSnap
+        );
+      }
 
       if (currentStatus === "submitted") {
         const { error: u1 } = await supabase.from("requests").update({ status: "in_review" }).eq("id", id);
@@ -4526,7 +4584,7 @@ export default function PharmacienDemandeDetailPage() {
         );
       }
 
-      for (const row of displayRows) {
+      for (const row of rowsForPublish) {
         if (isLocalProposedItemId(row.id)) continue;
         const f = draftSnap[row.id]!;
         if (f.unit_price.trim() !== "") {
@@ -5390,7 +5448,10 @@ export default function PharmacienDemandeDetailPage() {
             ) : null}
 
             {error ? (
-              <p className="shrink-0 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">
+              <p
+                data-pharma-dossier-error
+                className="shrink-0 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive"
+              >
                 {error}
               </p>
             ) : null}
@@ -5672,7 +5733,12 @@ export default function PharmacienDemandeDetailPage() {
       ) : null}
 
       {!showConsultationTabbed && error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{error}</p>
+        <p
+          data-pharma-dossier-error
+          className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive"
+        >
+          {error}
+        </p>
       ) : null}
 
       {kindConfig.capabilities.workflowEnabled ? (
@@ -5880,7 +5946,12 @@ export default function PharmacienDemandeDetailPage() {
                   )}
                 >
                   {group.entries.map(({ header, row }, entryIdx) => {
-              const prod = one(row.products);
+              const pendingManualHit = manualLinkDrafts[row.id];
+              const editorRow =
+                pendingManualHit && isUnresolvedManualRequestItem(row)
+                  ? itemRowWithManualLinkDraft(row, pendingManualHit)
+                  : row;
+              const prod = one(editorRow.pharmacy_catalog_products) ?? one(editorRow.products);
               const f = draft[row.id];
               if (!f) return null;
               const draftIndicativePuMad =
@@ -5897,7 +5968,7 @@ export default function PharmacienDemandeDetailPage() {
                               brand: prod.brand,
                             }
                           : null,
-                        row.product_id ?? undefined
+                        row.product_id ?? editorRow.pharmacy_product_id ?? undefined
                       )
                     ).replace("\u00A0DH", "\u00A0MAD");
               const co = row.counter_outcome ?? "unset";
@@ -5905,7 +5976,7 @@ export default function PharmacienDemandeDetailPage() {
               const lineLockedTrace = co === "cancelled_at_counter";
               const canEditThisRow = showLineAndPublishEdits && !lineLockedTrace && !archiveFrozen;
 
-              if (request.request_type === "product_request" && isUnresolvedManualRequestItem(row)) {
+              if (request.request_type === "product_request" && manualLineNeedsCatalogLink(row, manualLinkDrafts)) {
                 return (
                   <Fragment key={row.id}>
                     {header ? (
@@ -5917,7 +5988,6 @@ export default function PharmacienDemandeDetailPage() {
                     ) : null}
                     <li className="list-none">
                       <PharmacistManualRequestLineCard
-                        requestItemId={row.id}
                         patientLabel={row.patient_requested_label?.trim() || "Produit"}
                         requestedQty={row.requested_qty}
                         clientComment={row.client_comment}
@@ -5930,7 +6000,10 @@ export default function PharmacienDemandeDetailPage() {
                         onToggleConvo={() =>
                           setLineConvoRowId((cur) => (cur === row.id ? null : row.id))
                         }
-                        onLinked={() => load()}
+                        onDraftLink={(hit) => {
+                          setError("");
+                          setManualLinkDrafts((prev) => ({ ...prev, [row.id]: hit }));
+                        }}
                         onPhotoPreview={openProductPhotoPreview}
                         onError={setError}
                       />
@@ -5959,7 +6032,7 @@ export default function PharmacienDemandeDetailPage() {
                   : null;
               const chosenAltId = row.patient_chosen_alternative_id ?? null;
               const chosenAltRow = chosenAltId ? rowAlts.find((a) => a.id === chosenAltId) : null;
-              const lineEditorPhotoPath = validatedBranchPhotoPath(row as PatientLineLike);
+              const lineEditorPhotoPath = validatedBranchPhotoPath(editorRow as PatientLineLike);
               const withdrawnDraft = Boolean(f.withdrawn_after_confirm);
               const showPatientConfirmedChoice =
                 selected &&
@@ -6652,6 +6725,23 @@ export default function PharmacienDemandeDetailPage() {
                   {header ? (
                     <li className={clsx("list-none", entryIdx > 0 && "mt-2 pt-4")}>
                       <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{header}</div>
+                    </li>
+                  ) : null}
+                  {pendingManualHit && isUnresolvedManualRequestItem(row) ? (
+                    <li className="list-none">
+                      <PharmacistManualLinkDraftBanner
+                        patientLabel={row.patient_requested_label?.trim() || "Produit"}
+                        linkedName={pendingManualHit.name}
+                        disabled={busy}
+                        onRestore={() => {
+                          setManualLinkDrafts((prev) => {
+                            const next = { ...prev };
+                            delete next[row.id];
+                            return next;
+                          });
+                          setError("");
+                        }}
+                      />
                     </li>
                   ) : null}
                   <li

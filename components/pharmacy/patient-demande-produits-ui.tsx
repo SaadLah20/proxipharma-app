@@ -27,7 +27,7 @@ import {
 } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import type { PatientWorkflowLineAccent } from "@/lib/patient-workflow-line-ui";
 import type { PatientDemandeProduitsDraftLine } from "@/lib/patient-demande-produits-draft";
-import { isManualDraftLine } from "@/lib/patient-manual-product-line";
+import { isManualDraftLine, draftCartTotalsSummary } from "@/lib/patient-manual-product-line";
 import { ProductCatalogExplorerThumb } from "@/components/products/product-catalog-explorer-thumb";
 import { ProductCatalogMetaLabel } from "@/components/products/product-brand-label";
 import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
@@ -682,6 +682,39 @@ export function PriceDhInline({
   );
 }
 
+/** Total panier : montant partiel + mention si lignes manuelles sans prix. */
+export function PatientCartEstimatedTotal({
+  lines,
+  amountClassName,
+  suffixClassName,
+  hintClassName,
+}: {
+  lines: PatientDemandeProduitsDraftLine[];
+  amountClassName?: string;
+  suffixClassName?: string;
+  hintClassName?: string;
+}) {
+  const td = useTranslations("demandePublic");
+  const summary = draftCartTotalsSummary(lines);
+  if (summary.totalLines === 0 || summary.allManual) {
+    return <span className={cn("font-bold text-muted-foreground", amountClassName)}>—</span>;
+  }
+  return (
+    <div className="text-right leading-tight">
+      <PriceDhInline
+        value={summary.amount}
+        amountClassName={amountClassName}
+        suffixClassName={suffixClassName}
+      />
+      {summary.hasMixed ? (
+        <p className={cn("mt-0.5 text-[9px] font-medium text-muted-foreground", hintClassName)}>
+          {td("manualProductPartialTotalHint", { manual: summary.manualLines })}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 /** Barre de recherche seule (page Explorer catalogue). */
 export function ProductRequestExplorerSearchBar({
   query,
@@ -1121,19 +1154,15 @@ export function PatientDemandeSendConfirmModal({
         <div className={cn("border-t bg-muted/25 px-4 py-3", t.searchDivider)}>
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-bold text-foreground">{td("estimatedTotal")}</span>
-            <span className={cn("text-lg font-bold", t.price)}>
-              {lines.every(isManualDraftLine) ? (
-                <span className="text-base">—</span>
-              ) : (
-                <PriceDhInline
-                  value={totalAmount}
-                  amountClassName="text-lg font-bold"
-                  suffixClassName="text-[0.65em] font-bold text-sky-600/80"
-                />
-              )}
-            </span>
+            <PatientCartEstimatedTotal
+              lines={lines}
+              amountClassName={cn("text-lg font-bold", t.price)}
+              suffixClassName="text-[0.65em] font-bold text-sky-600/80"
+            />
           </div>
-          {lines.some(isManualDraftLine) ? (
+          {lines.some(isManualDraftLine) && !lines.every(isManualDraftLine) ? (
+            <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{td("manualProductTotalNote")}</p>
+          ) : lines.every(isManualDraftLine) ? (
             <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{td("manualProductTotalNote")}</p>
           ) : null}
           <div className="mt-3 flex gap-2">
