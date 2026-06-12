@@ -116,6 +116,17 @@ Titres/corps contextuels (patient vs pharmacien) ; événements **`pharmacy_enga
 - **Demande produits** : notif pharmacien dédiée si patient change la date de passage — **`20260531_002`**.
 - **Phrase de reprise** : **`CAHIER_DES_CHARGES.md` §13.36** (patient bandeau officine + pharmacien validée/traitée/archives ; voir §10 session **2026-06-03 suite 3**).
 
+**Mise à jour 2026-06-11 — catalogue communautaire (V1)** :
+- **SQL** : **`20260813_001`** … **`20260819_002`** (voir **`supabase/README.md`** ; enum **`archived_hidden`** = run **`20260819_001`** seul puis **`20260819_002`**).
+- **Pharmacien** : **`/dashboard/pharmacien/mes-produits`** — privé, dépublier, modifier (y compris dépublié), supprimer (masqué), bouton ajout dans recherches dossier.
+- **Patient** : ligne manuelle (demande produits uniquement) ; panier sans PU ; liaison pharmacien → ligne normale.
+- **Admin** : **`/admin/produits-communautaires`** — file, enrichir, publier au catalogue national.
+- **Prix** : PPH/PPV saisis + marge officine (para) ; marque = liste ou texte libre (**`PharmacyCatalogBrandField`**).
+- **Phrase reprise** : **`CAHIER_DES_CHARGES.md` §13.61**.
+
+**Mise à jour 2026-06-11 — WhatsApp C-pilote (PR #344)** :
+- Répondu patient v2 link + nouvelle demande pharmacien ; migration **`20260817_001`**. Reprise : **`docs/WHATSAPP-NOTIFS-REPRISE.md`**, **`RUNBOOK.md` §10**.
+
 **Mise à jour 2026-05-19 — annuaire + fiche publique (UI)** :
 - **Annuaire** : hero, cartes avec **avis**, menu rayon portail, lint **`set-state-in-effect`** corrigé — `components/annuaire/`.
 - **Fiche** : chrome partagé **`pharmacy-public-chrome.tsx`** ; onglets Services / Offres / Horaires / Infos harmonisés ; demande produits + catalogue alignés.

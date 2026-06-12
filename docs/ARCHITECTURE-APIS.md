@@ -1,9 +1,9 @@
 # ProxiPharma — APIs externes et technologies
 
 Document de référence (parcours patient, pharmacien, admin, notifications, médias).  
-**Branche de travail** : `fix/validated-supply-ecart-ui-modal` · **Dernière mise à jour doc** : mai 2026.
+**Branche de travail** : `feature/catalog-phase-c-admin` · **Dernière mise à jour doc** : juin 2026.
 
-**Voir aussi** : [`RUNBOOK.md`](../RUNBOOK.md) (variables d’environnement), [`CAHIER_DES_CHARGES.md`](../CAHIER_DES_CHARGES.md) §11 (migrations), phrase de reprise **§13.31**.
+**Voir aussi** : [`RUNBOOK.md`](../RUNBOOK.md) (variables d’environnement), [`CAHIER_DES_CHARGES.md`](../CAHIER_DES_CHARGES.md) §11 (migrations), phrase reprise **§13.61** (catalogue communautaire).
 
 ---
 
@@ -28,7 +28,19 @@ Document de référence (parcours patient, pharmacien, admin, notifications, mé
 | **Supabase Auth** | Connexion, inscription, OTP, MDP | `app/auth/page.tsx` — `signInWithPassword`, `signInWithOtp`, `verifyOtp`, reset |
 | **Supabase Storage** | Médias fichiers | Buckets **`public-assets`** et **`private-media`** — `lib/storage-media.ts` |
 | **Supabase Database Webhooks** | Notifs rapides | `INSERT` sur `notification_external_queue` → `POST /api/webhooks/dispatch-external-sms` |
-| **PostgreSQL** (migrations) | Logique métier | `supabase/migrations/` — demandes, pricing, promos, ratings, refs `D042/26`, etc. |
+| **PostgreSQL** (migrations) | Logique métier | `supabase/migrations/` — demandes, pricing, promos, ratings, **catalogue communautaire** (`pharmacy_catalog_products`), refs `D042/26`, etc. |
+
+### Catalogue communautaire (RPC Supabase — juin 2026)
+
+| RPC | Rôle |
+|-----|------|
+| `pharmacy_catalog_search` | Recherche unifiée global + privés `active` |
+| `pharmacist_create/update/unpublish/republish_pharmacy_product` | CRUD privé officine |
+| `pharmacist_archive_pharmacy_product` | Masquage « Supprimer » (`archived_hidden`) |
+| `pharmacist_link_manual_line_to_product` | Liaison ligne manuelle patient |
+| `admin_list/enrich/publish_pharmacy_catalog_product` | File admin + publication nationale |
+
+Routes UI : **`/dashboard/pharmacien/mes-produits`**, **`/admin/produits-communautaires`**. Détail : **`AGENTS.md`** (paragraphe catalogue communautaire).
 
 ### Buckets Storage
 
@@ -44,19 +56,19 @@ Document de référence (parcours patient, pharmacien, admin, notifications, mé
 | Service | Endpoint / canal | Utilisation | Variables d’environnement |
 |---------|------------------|-------------|---------------------------|
 | **Resend** | `https://api.resend.com/emails` | E-mails hors-app (file `notification_external_queue`, canal `email`) | `RESEND_API_KEY`, `EMAIL_FROM` |
-| **Twilio Content API (WhatsApp)** | Content API + Messages WhatsApp | C-pilote : patient répondu (v2 link) + traité ; pharmacien nouvelle demande | `TWILIO_WHATSAPP_CONTENT_SID_*` |
+| **Twilio Content API (WhatsApp)** | Content API + Messages WhatsApp | C-pilote prod (PR #344) ; M2 3 templates pending Meta | `TWILIO_WHATSAPP_CONTENT_SID_*` — **`docs/WHATSAPP-NOTIFS-REPRISE.md`** |
 | **Twilio Messages** | `https://api.twilio.com/.../Messages.json` | **Legacy** — plus d’enqueue SMS métier (`20260811_001`) ; route test `/api/cron/test-external-sms` seulement | `TWILIO_SMS_FROM` (optionnel) |
 | **Twilio Verify** | Via **Supabase Auth** (Phone) | OTP inscription / reset téléphone (SMS ou WhatsApp selon config) — **≠** notifs métier | Config dashboard Supabase + compte Twilio |
 | **Supabase Auth API** | `GET .../auth/v1/user` | Vérification JWT sur routes API (`lib/verify-bearer-user.ts`) | Clés Supabase |
 
 **Implémentation** : `lib/external-notification-queue-worker.ts`, `lib/twilio-whatsapp.ts`.
 
-### Prévu (phase 2+ — templates Meta restants)
+### Prévu (M2 suite — après approbation Meta)
 
 | Service | Statut | Usage prévu |
 |---------|--------|-------------|
-| **WhatsApp traité v2 link** | Template à soumettre | Lien `/r/` sur événement traité |
-| **WhatsApp événements étendus** | Code après templates M2 | 4 patient + 4 pharmacien restants |
+| **WhatsApp traité / expiré / rappel v2** | Soumis Meta 12/06 — pending | C-suite lot 1 après Approved |
+| **WhatsApp 6 templates restants** | Pas soumis | produit reçu, rupture, 4 pharmacien |
 | **SMTP personnalisé Supabase** | Recommandé prod | E-mails Auth (OTP, reset) via Resend/SendGrid côté Supabase |
 
 ---
@@ -141,8 +153,9 @@ Prérequis scripts : `.env.local` avec `SUPABASE_SERVICE_ROLE_KEY` ; sous Window
 | `TWILIO_ACCOUNT_SID` | Twilio |
 | `TWILIO_AUTH_TOKEN` | Twilio |
 | `TWILIO_WHATSAPP_FROM` | Expéditeur WhatsApp Business (`whatsapp:+212…`) |
-| `TWILIO_WHATSAPP_CONTENT_SID_RESPONDED` | Modèle Meta répondu (v1) |
+| `TWILIO_WHATSAPP_CONTENT_SID_RESPONDED` | Modèle Meta répondu (v2 link) |
 | `TWILIO_WHATSAPP_CONTENT_SID_TREATED` | Modèle Meta traité (v1) |
+| `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_NEW_REQUEST` | Modèle Meta nouvelle demande (pharmacien) |
 | `WHATSAPP_TEST_TO` | Route test WhatsApp |
 | `TWILIO_SMS_FROM` | Legacy test SMS (optionnel) |
 | `SMS_BLOCKED_DESTINATIONS` | Numéros test bloqués (legacy SMS) |

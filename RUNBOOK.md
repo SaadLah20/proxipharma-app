@@ -296,7 +296,7 @@ Avant **`20260811_001`**, le pilote envoyait des SMS patient (`responded` / `tre
 
 ## 10) Notifications WhatsApp (Q35 — actif prod pilote)
 
-**État repo (juin 2026)** : worker **`channel=whatsapp`** livré et **activé Vercel** (`lib/twilio-whatsapp.ts`, `lib/external-notification-queue-worker.ts`) ; webhook `/api/webhooks/dispatch-external-sms` (e-mail + WhatsApp, **une ligne INSERT à la fois**) ; cron `/api/cron/send-external-whatsapp` (appelé aussi par le workflow e-mail §9) ; test `/api/cron/test-external-whatsapp`. Migration **`20260811_001`** : plus d’enqueue SMS métier. Migration **`20260817_001`** : enqueue WhatsApp pharmacien **nouvelle demande** (C-pilote).
+**État repo (juin 2026)** : worker **`channel=whatsapp`** livré et **activé Vercel** ; PR **#344** (`feature/whatsapp-c-pilote`) **mergée `main`** — répondu v2 link + nouvelle demande pharma + route **`/rp/`**. Migrations **`20260811_001`** (SMS off) + **`20260817_001`** (enqueue pharma `submitted`). **Reprise complète** : **`docs/WHATSAPP-NOTIFS-REPRISE.md`**.
 
 **Infra Meta/Twilio — FAIT ✅** :
 - Expéditeur **+212770165668** (nom **Pharmeto**), sender Twilio **Online**
@@ -313,6 +313,16 @@ Avant **`20260811_001`**, le pilote envoyait des SMS patient (`responded` / `tre
 Variables template : `{{1}}` = officine (patient) ou nom patient (pharma) ; `{{2}}` = ref dossier (D042/26…) ; `{{3}}` = token lien court (UUID sans tirets).
 
 **Secours v1 répondu** (sans lien, si rollback) : `copy_pharmeto_request_responded_fr` → `HXe97624f91a846e92c56ca0fe2fabd2d5`.
+
+**En attente Meta (M2 — soumis 12/06/2026, ne pas coder avant Approved)** :
+
+| Template | Content SID | `event_type` |
+|----------|-------------|--------------|
+| `pharmeto_request_treated_fr_v2_link` | `HX7bb5e8dfca48fde180a316a0f0dc0e91` | `request_status:treated` |
+| `pharmeto_request_expired_fr_v2_link` | `HX781b5d3d9091c307629c722799559825` | `request_status:expired` |
+| `pharmeto_request_reminder_fr_v2_link` | `HX671183dc98399066641bbf71670cce3c` | `request_event:responded_expiry_reminder` |
+
+**M2 restant (6 templates — pas encore soumis)** : produit reçu, rupture dispo (patient) ; validée, ordonnance, passage, message (pharmacien) — **`docs/WHATSAPP-NOTIFS-REPRISE.md`**.
 
 **Variables Vercel** (en plus de `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN`) :
 - `TWILIO_WHATSAPP_FROM` = `whatsapp:+212770165668`
@@ -339,6 +349,8 @@ Ou Twilio Console → **Try it out** → variables `{"1":"Pharmacie Centrale","2
 
 **Ops** : rafale backlog webhook corrigée (`onlyQueueRowIds` sur INSERT) ; script annulation file WhatsApp obsolète : `supabase/scripts/cancel-pending-whatsapp-backlog.sql`.
 
+**Reprise agent** : phrase exacte + capture Twilio → **`docs/WHATSAPP-NOTIFS-REPRISE.md`** § « Phrases de reprise ».
+
 **Rappels** :
 - Numéro **SMS USA** (OTP Auth) ≠ expéditeur WhatsApp Business.
 - **Ne pas** MM Lite (erreur **63055**) — Content API Twilio classique.
@@ -364,6 +376,10 @@ Ou Twilio Console → **Try it out** → variables `{"1":"Pharmacie Centrale","2
 | Migrations jusqu'à `20260718_002` (`nom_ar`, `adresse_ar`, `public_listed`, `pilot_access`) | À confirmer sur Supabase (`001` puis `002` obligatoires) |
 | SMS préfixe `Pharmeto:` (code legacy) | OK (SMS métier **désactivé** — §9) |
 | WhatsApp alertes patient (répondu / traité) | OK pilote (§10) |
+| WhatsApp C-pilote (répondu v2 + pharma nouvelle demande, PR #344) | OK merge prod |
+| Migration `20260817_001` (enqueue WhatsApp pharma) | À confirmer sur Supabase |
+| Catalogue communautaire `20260813_001` … `20260816_001` | Mergé `main` — à confirmer Supabase |
+| Catalogue admin `20260818_001` + archivage `20260819_001` puis `20260819_002` | Branche catalog — **001 enum seul**, puis **002** |
 | Migration `20260811_001` (désactivation SMS métier) | À confirmer sur Supabase |
 | OTP Auth Supabase (quota / e-mail) | Reporté si quota atteint |
 
