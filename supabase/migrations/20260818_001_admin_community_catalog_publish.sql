@@ -365,6 +365,6 @@ $$;
 
 grant execute on function public.admin_list_pharmacy_catalog_products(text, int, int) to authenticated;
 grant execute on function public.admin_count_pending_community_catalog_products() to authenticated;
-grant execute on function public.admin_enrich_pharmacy_catalog_product(uuid, text, text, numeric, numeric, text, text, text, text, text, text, text, text, text, text) to authenticated;
+grant execute on function public.admin_enrich_pharmacy_catalog_product(uuid, text, text, numeric, numeric, text, text, text, text, text, text, text, text, text) to authenticated;
 grant execute on function public.admin_publish_pharmacy_product_to_global(uuid, boolean, text) to authenticated;
 grant execute on function public.admin_list_pharmacy_catalog_product_events(uuid, int) to authenticated;
