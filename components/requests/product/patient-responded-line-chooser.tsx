@@ -30,6 +30,7 @@ import { requestKindUiTheme } from "@/lib/request-kind-ui-theme";
 import { usePrescriptionUiCopy } from "@/lib/use-prescription-ui-copy";
 import { useConsultationUiCopy } from "@/lib/use-consultation-ui-copy";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
+import { requestLineProductEmbed } from "@/lib/request-line-product-embed";
 import { cn } from "@/lib/utils";
 import {
   patientLineQtyAppearance,
@@ -867,7 +868,7 @@ export function RespondedPatientLineChooser({
   const formatDateShort = (iso: string) =>
     formatDateForLocale(iso, locale, { day: "numeric", month: "short", year: "numeric" });
 
-  const prod = one(row.products);
+  const prod = requestLineProductEmbed(row);
   const altList = normalizeAlternatives(row.request_item_alternatives);
   const hasAlts = altList.length > 0;
   const isProposedLine = row.line_source === "pharmacist_proposed";
@@ -927,7 +928,7 @@ export function RespondedPatientLineChooser({
       dispoQty,
       unitPrice: resolvedRespondedUnitPrice(
         row.unit_price,
-        row.product_id ?? undefined,
+        row.product_id ?? row.pharmacy_product_id ?? undefined,
         prod,
         resolveCatalogUnitPrice
       ),
@@ -944,7 +945,7 @@ export function RespondedPatientLineChooser({
   };
 
   const buildAltVariant = (alt: ActionItemAltRow, index: number): VariantData => {
-    const altProd = one(alt.products);
+    const altProd = requestLineProductEmbed(alt);
     const dispoQty =
       alt.available_qty != null && Number.isFinite(Number(alt.available_qty))
         ? Math.max(0, Math.floor(Number(alt.available_qty)))
@@ -963,7 +964,7 @@ export function RespondedPatientLineChooser({
       dispoQty,
       unitPrice: resolvedRespondedUnitPrice(
         alt.unit_price,
-        alt.product_id ?? undefined,
+        alt.product_id ?? alt.pharmacy_product_id ?? undefined,
         altProd,
         resolveCatalogUnitPrice
       ),

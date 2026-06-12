@@ -12,17 +12,10 @@ import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-p
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
 import { formatPharmacyCatalogPrice } from "@/lib/product-price";
 import { productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
-
-type AltProduct = {
-  name?: string | null;
-  photo_url?: string | null;
-  full_description?: string | null;
-  product_type?: string | null;
-  price_pph?: number | null;
-  price_ppv?: number | null;
-  brand?: string | null;
-  laboratory?: string | null;
-};
+import {
+  requestLineProductEmbed,
+  type RequestLineProductEmbed,
+} from "@/lib/request-line-product-embed";
 
 export type PharmacistAltLineRow = {
   id: string;
@@ -30,13 +23,9 @@ export type PharmacistAltLineRow = {
   product_id: string | null;
   pharmacy_product_id?: string | null;
   available_qty?: number | null;
-  products?: AltProduct | AltProduct[] | null;
+  products?: RequestLineProductEmbed | RequestLineProductEmbed[] | null;
+  pharmacy_catalog_products?: RequestLineProductEmbed | RequestLineProductEmbed[] | null;
 };
-
-function one<T>(v: T | T[] | null | undefined): T | null {
-  if (v == null) return null;
-  return Array.isArray(v) ? (v[0] ?? null) : v;
-}
 
 /** Bloc produit compact pour un onglet alternative (sous la barre d’onglets). */
 export function PharmacistAlternativeLinePanel({
@@ -70,7 +59,7 @@ export function PharmacistAlternativeLinePanel({
   readOnly?: boolean;
   onPhotoPreview?: ProductPhotoPreviewHandler;
 }) {
-  const altProd = one(alt.products);
+  const altProd = requestLineProductEmbed(alt);
   const altName = altProd?.name ?? "Alternative";
   const photo = altProd?.photo_url?.trim() ? resolvePublicMediaUrl(altProd.photo_url) ?? altProd.photo_url : null;
   const catalogPu = formatPharmacyCatalogPrice(

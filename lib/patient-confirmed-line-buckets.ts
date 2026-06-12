@@ -3,6 +3,10 @@
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
 import { productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 import { resolveLineUnitPrice } from "@/lib/pharmacy-pricing/resolve";
+import {
+  requestLineProductEmbed,
+  type RequestLineProductEmbed,
+} from "@/lib/request-line-product-embed";
 
 export type PatientLineLike = {
   id: string;
@@ -26,85 +30,44 @@ export type PatientLineLike = {
   withdrawn_after_confirm?: boolean | null;
   /** Horodatage dernière mise à jour ligne (écarts, comptoir…). */
   updated_at?: string | null;
-  products?:
-    | {
-        name?: string | null;
-        product_type?: string | null;
-        brand?: string | null;
-        laboratory?: string | null;
-        price_pph?: number | string | null;
-        price_ppv?: number | string | null;
-        photo_url?: string | null;
-        full_description?: string | null;
-      }
-    | {
-        name?: string | null;
-        product_type?: string | null;
-        brand?: string | null;
-        laboratory?: string | null;
-        price_pph?: number | string | null;
-        price_ppv?: number | string | null;
-        photo_url?: string | null;
-        full_description?: string | null;
-      }[]
-    | null;
+  products?: RequestLineProductEmbed | RequestLineProductEmbed[] | null;
+  pharmacy_catalog_products?: RequestLineProductEmbed | RequestLineProductEmbed[] | null;
   request_item_alternatives?:
     | Array<{
         id: string;
+        product_id?: string | null;
+        pharmacy_product_id?: string | null;
         availability_status: string | null;
         available_qty: number | null;
         unit_price: number | null;
         expected_availability_date: string | null;
-        products?:
-          | {
-              name?: string | null;
-              price_pph?: number | string | null;
-              photo_url?: string | null;
-              full_description?: string | null;
-            }
-          | {
-              name?: string | null;
-              price_pph?: number | string | null;
-              photo_url?: string | null;
-              full_description?: string | null;
-            }[]
-          | null;
+        products?: RequestLineProductEmbed | RequestLineProductEmbed[] | null;
+        pharmacy_catalog_products?: RequestLineProductEmbed | RequestLineProductEmbed[] | null;
       }>
     | {
         id: string;
+        product_id?: string | null;
+        pharmacy_product_id?: string | null;
         availability_status: string | null;
         available_qty: number | null;
         unit_price: number | null;
         expected_availability_date: string | null;
-        products?:
-          | {
-              name?: string | null;
-              price_pph?: number | string | null;
-              photo_url?: string | null;
-              full_description?: string | null;
-            }
-          | {
-              name?: string | null;
-              price_pph?: number | string | null;
-              photo_url?: string | null;
-              full_description?: string | null;
-            }[]
-          | null;
+        products?: RequestLineProductEmbed | RequestLineProductEmbed[] | null;
+        pharmacy_catalog_products?: RequestLineProductEmbed | RequestLineProductEmbed[] | null;
       }
     | null;
 };
 
 type LineAltRow = {
   id: string;
-  product_id?: string;
+  product_id?: string | null;
+  pharmacy_product_id?: string | null;
   availability_status: string | null;
   available_qty: number | null;
   unit_price: number | null;
   expected_availability_date: string | null;
-        products?:
-          | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }
-          | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }[]
-          | null;
+  products?: RequestLineProductEmbed | RequestLineProductEmbed[] | null;
+  pharmacy_catalog_products?: RequestLineProductEmbed | RequestLineProductEmbed[] | null;
 };
 
 export function altRowsOf(line: PatientLineLike): LineAltRow[] {
@@ -113,9 +76,11 @@ export function altRowsOf(line: PatientLineLike): LineAltRow[] {
   return Array.isArray(raw) ? (raw as LineAltRow[]) : [raw as LineAltRow];
 }
 
-function oneProd(p: PatientLineLike["products"]) {
-  if (!p) return undefined;
-  return Array.isArray(p) ? p[0] : p;
+function lineProductEmbed(row: {
+  products?: PatientLineLike["products"];
+  pharmacy_catalog_products?: PatientLineLike["pharmacy_catalog_products"];
+} | null | undefined) {
+  return requestLineProductEmbed(row ?? undefined);
 }
 
 /** Branche retenue par le patient (principal ou alternative choisie). */
@@ -178,24 +143,26 @@ export function groupPatientConfirmedLines<T extends PatientLineLike>(items: T[]
 
 export function validatedProductLabel(row: PatientLineLike): string {
   const chosenId = row.patient_chosen_alternative_id ?? null;
-  if (!chosenId) return oneProd(row.products)?.name ?? "Produit";
+  if (!chosenId) return lineProductEmbed(row)?.name?.trim() || "Produit";
   const alt = altRowsOf(row).find((a) => a.id === chosenId);
-  return oneProd(alt?.products)?.name ?? oneProd(row.products)?.name ?? "Produit";
+  return (
+    lineProductEmbed(alt)?.name?.trim() || lineProductEmbed(row)?.name?.trim() || "Produit"
+  );
 }
 
 export function validatedProductBrand(row: PatientLineLike): string | null {
   const chosenId = row.patient_chosen_alternative_id ?? null;
-  if (!chosenId) return oneProd(row.products)?.brand?.trim() || null;
+  if (!chosenId) return lineProductEmbed(row)?.brand?.trim() || null;
   const alt = altRowsOf(row).find((a) => a.id === chosenId);
-  return oneProd(alt?.products)?.brand?.trim() || oneProd(row.products)?.brand?.trim() || null;
+  return lineProductEmbed(alt)?.brand?.trim() || lineProductEmbed(row)?.brand?.trim() || null;
 }
 
 export function validatedProductType(row: PatientLineLike): string | null {
   const chosenId = row.patient_chosen_alternative_id ?? null;
-  if (!chosenId) return oneProd(row.products)?.product_type?.trim() || null;
+  if (!chosenId) return lineProductEmbed(row)?.product_type?.trim() || null;
   const alt = altRowsOf(row).find((a) => a.id === chosenId);
   return (
-    oneProd(alt?.products)?.product_type?.trim() || oneProd(row.products)?.product_type?.trim() || null
+    lineProductEmbed(alt)?.product_type?.trim() || lineProductEmbed(row)?.product_type?.trim() || null
   );
 }
 
@@ -203,11 +170,11 @@ export function validatedProductType(row: PatientLineLike): string | null {
 export function validatedBranchPhotoPath(row: PatientLineLike): string | null {
   const chosenId = row.patient_chosen_alternative_id ?? null;
   if (!chosenId) {
-    const p = oneProd(row.products)?.photo_url;
+    const p = lineProductEmbed(row)?.photo_url;
     return p?.trim() ? p.trim() : null;
   }
   const alt = altRowsOf(row).find((a) => a.id === chosenId);
-  const altPhoto = oneProd(alt?.products)?.photo_url;
+  const altPhoto = lineProductEmbed(alt)?.photo_url;
   return altPhoto?.trim() ? altPhoto.trim() : null;
 }
 
@@ -215,11 +182,11 @@ export function validatedBranchPhotoPath(row: PatientLineLike): string | null {
 export function validatedBranchDescriptionHtml(row: PatientLineLike): string | null {
   const chosenId = row.patient_chosen_alternative_id ?? null;
   if (!chosenId) {
-    const d = oneProd(row.products)?.full_description;
+    const d = lineProductEmbed(row)?.full_description;
     return d?.trim() ? d.trim() : null;
   }
   const alt = altRowsOf(row).find((a) => a.id === chosenId);
-  const altDesc = oneProd(alt?.products)?.full_description;
+  const altDesc = lineProductEmbed(alt)?.full_description;
   return altDesc?.trim() ? altDesc.trim() : null;
 }
 
@@ -231,7 +198,7 @@ export function validatedBranchUnitPriceMad(
 ): number | null {
   const chosenId = row.patient_chosen_alternative_id ?? null;
   if (!chosenId) {
-    const prod = oneProd(row.products);
+    const prod = lineProductEmbed(row);
     return resolveLineUnitPrice(
       pricingConfig,
       productEmbedToPricingInput(
@@ -249,7 +216,7 @@ export function validatedBranchUnitPriceMad(
     );
   }
   const alt = altRowsOf(row).find((a) => a.id === chosenId);
-  const prod = oneProd(alt?.products);
+  const prod = lineProductEmbed(alt);
   return resolveLineUnitPrice(
     pricingConfig,
     productEmbedToPricingInput(
@@ -261,7 +228,7 @@ export function validatedBranchUnitPriceMad(
             brand: prod.brand,
           }
         : null,
-      alt?.product_id
+      alt?.product_id ?? alt?.pharmacy_product_id ?? undefined
     ),
     alt?.unit_price ?? null
   );

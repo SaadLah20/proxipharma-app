@@ -21,6 +21,10 @@ import { RequestDetailBackLink } from "@/components/requests/shared/request-deta
 import { RequestKindHeader } from "@/components/requests/shared/request-kind-header";
 import { one } from "@/lib/embed";
 import { mapRequestItemsPhotos } from "@/lib/storage-media";
+import {
+  normalizeRequestItemTreeEmbed,
+  REQUEST_ITEMS_CATALOG_EMBED_SELECT,
+} from "@/lib/request-line-product-embed";
 import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
 import { useRequestDetailDrift } from "@/lib/use-request-detail-drift";
 import { RequestDetailStaleBanner } from "@/components/requests/shared/request-detail-stale-banner";
@@ -236,9 +240,7 @@ export default function DemandeDetailPage() {
         await Promise.all([
         supabase
           .from("request_items")
-          .select(
-            "id,product_id,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,client_comment,line_source,pharmacist_proposal_reason,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,patient_chosen_alternative_id,post_confirm_fulfillment,withdrawn_after_confirm,updated_at,products(name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description))"
-          )
+          .select(REQUEST_ITEMS_CATALOG_EMBED_SELECT)
           .eq("request_id", id)
           .order("created_at", { ascending: true }),
         supabase
@@ -295,7 +297,11 @@ export default function DemandeDetailPage() {
       if (itemsErr) {
         setError(itemsErr.message);
       } else if (Array.isArray(itemsData)) {
-        setItems(mapRequestItemsPhotos(itemsData as RequestItemRow[]));
+        setItems(
+          mapRequestItemsPhotos(
+            (itemsData as RequestItemRow[]).map((row) => normalizeRequestItemTreeEmbed(row))
+          )
+        );
       }
       if (!amendmentsResult.error && Array.isArray(amendmentsResult.data)) {
         setSupplyAmendments(amendmentsResult.data as { id: string; created_at: string; amendments: unknown }[]);

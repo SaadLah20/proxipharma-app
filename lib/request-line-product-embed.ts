@@ -1,7 +1,7 @@
 import { one } from "@/lib/embed";
 
 export type RequestLineProductEmbed = {
-  name: string;
+  name?: string | null;
   product_type?: string | null;
   brand?: string | null;
   laboratory?: string | null;
@@ -15,6 +15,14 @@ type EmbeddableRow = {
   products?: RequestLineProductEmbed | RequestLineProductEmbed[] | null;
   pharmacy_catalog_products?: RequestLineProductEmbed | RequestLineProductEmbed[] | null;
 };
+
+const PRODUCT_EMBED_FIELDS =
+  "name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description";
+
+/** Select PostgREST : lignes + alternatives avec embed global et catalogue privé officine. */
+export const REQUEST_ITEM_ALTERNATIVES_CATALOG_EMBED_SELECT = `id,rank,product_id,pharmacy_product_id,line_product_kind,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(${PRODUCT_EMBED_FIELDS}),pharmacy_catalog_products(${PRODUCT_EMBED_FIELDS})`;
+
+export const REQUEST_ITEMS_CATALOG_EMBED_SELECT = `id,product_id,pharmacy_product_id,line_product_kind,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,client_comment,line_source,pharmacist_proposal_reason,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,patient_chosen_alternative_id,post_confirm_fulfillment,withdrawn_after_confirm,updated_at,products(${PRODUCT_EMBED_FIELDS}),pharmacy_catalog_products(${PRODUCT_EMBED_FIELDS}),request_item_alternatives!request_item_alternatives_request_item_id_fkey(${REQUEST_ITEM_ALTERNATIVES_CATALOG_EMBED_SELECT})`;
 
 /** Nom + métadonnées produit d'une ligne (global ou catalogue privé officine). */
 export function requestLineProductEmbed(row: EmbeddableRow | null | undefined): RequestLineProductEmbed | null {
@@ -32,4 +40,21 @@ export function normalizeRequestItemRowEmbed<T extends EmbeddableRow>(row: T): T
   if (!embed) return row;
   if (one(row.products)) return row;
   return { ...row, products: embed };
+}
+
+type EmbeddableRowWithAlts = EmbeddableRow & {
+  request_item_alternatives?: EmbeddableRow | EmbeddableRow[] | null;
+};
+
+/** Normalise la ligne et chaque alternative (catalogue privé → `products`). */
+export function normalizeRequestItemTreeEmbed<T extends EmbeddableRowWithAlts>(row: T): T {
+  const normalizedRow = normalizeRequestItemRowEmbed(row);
+  const rawAlts = normalizedRow.request_item_alternatives;
+  if (!rawAlts) return normalizedRow;
+  const list = Array.isArray(rawAlts) ? rawAlts : [rawAlts];
+  const normalizedList = list.map((alt) => normalizeRequestItemRowEmbed(alt));
+  return {
+    ...normalizedRow,
+    request_item_alternatives: (Array.isArray(rawAlts) ? normalizedList : normalizedList[0] ?? null) as T["request_item_alternatives"],
+  };
 }
