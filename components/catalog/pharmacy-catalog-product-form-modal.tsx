@@ -10,6 +10,7 @@ import {
   type UnifiedCatalogHit,
 } from "@/lib/pharmacy-catalog-types";
 import { createPharmacyCatalogProduct, pharmacyCatalogRowToHit } from "@/lib/pharmacy-catalog-api";
+import { PharmacyCatalogBrandField } from "@/components/catalog/pharmacy-catalog-brand-field";
 import { supabase } from "@/lib/supabase";
 
 export type PharmacyCatalogProductFormModalProps = {
@@ -160,15 +161,23 @@ export function PharmacyCatalogProductFormModal({
               Informations facultatives
             </summary>
             <div className="mt-2 space-y-2">
-              <label className="block space-y-1">
-                <span className="text-[11px] font-medium text-muted-foreground">Marque</span>
-                <input
-                  type="text"
+              {values.product_type === "parapharmacie" ? (
+                <PharmacyCatalogBrandField
                   value={values.brand}
-                  onChange={(e) => setValues((v) => ({ ...v, brand: e.target.value }))}
-                  className="h-9 w-full rounded-md border border-border bg-background px-2.5 text-sm"
+                  onChange={(brand) => setValues((v) => ({ ...v, brand }))}
+                  enabled={open}
                 />
-              </label>
+              ) : (
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-medium text-muted-foreground">Marque</span>
+                  <input
+                    type="text"
+                    value={values.brand}
+                    onChange={(e) => setValues((v) => ({ ...v, brand: e.target.value }))}
+                    className="h-9 w-full rounded-md border border-border bg-background px-2.5 text-sm"
+                  />
+                </label>
+              )}
               <label className="block space-y-1">
                 <span className="text-[11px] font-medium text-muted-foreground">Laboratoire</span>
                 <input

@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260812_001`** si pas fait — après **`20260811_001`** WhatsApp / SMS off) → phrase **§13.60**. La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260819_002`** si pas fait — catalogue communautaire + WhatsApp **`20260817_001`**) → phrase **§13.61** (catalogue) ou **§13.60** (général). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -2734,6 +2734,10 @@ Voir **§13.37**.
 **Phrase de reprise (étape 6 / fin pilote i18n patient)** :
 
 **« Affinage i18n arabe patient §13.58 — étapes 1–5 livrées sur `fix/validated-supply-ecart-ui-modal`. Preview AR ou épique hors pilote (catalogue, SMS, pharmacien AR). Je te donne la tâche ou les retours. »**
+
+### 13.61) Phrase de reprise (recommandée — catalogue communautaire V1, juin 2026)
+
+**« Pharmeto — catalogue communautaire V1 livré (PR #342–#346, suite `feature/catalog-phase-c-admin` : Supprimer + marque liste). **Migrations** (ordre) : `20260813_001`, `20260815_001`, `20260816_001`, `20260818_001`, `20260819_001` (enum seul), `20260819_002`. Pharmacien : Mes produits + prix PPH/PPV + marge para ; patient : ligne manuelle ; admin : `/admin/produits-communautaires`. Hors scope V1 : notifs admin, photos Storage dédiées, dédoublonnage auto. Lis `AGENTS.md` (catalogue communautaire), `CONTEXTE.md` §2026-06-11. Je te donne la tâche ou les retours preview. »**
 
 ### 13.60) Phrase de reprise (recommandée — session **2026-06-11** passage horaires + CRM sans KPI)
 
