@@ -1,21 +1,5 @@
--- Archivage masqué pharmacien (« Supprimer » Mes produits) : hors vue hub + recherche,
--- conservé pour dossiers existants et file admin.
-
--- ---------------------------------------------------------------------------
--- Statut archived_hidden
--- ---------------------------------------------------------------------------
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_enum e
-    join pg_type t on t.oid = e.enumtypid
-    where t.typname = 'pharmacy_catalog_product_status'
-      and e.enumlabel = 'archived_hidden'
-  ) then
-    alter type public.pharmacy_catalog_product_status add value 'archived_hidden';
-  end if;
-end $$;
+-- Étape 2/2 — archivage masqué pharmacien (« Supprimer » Mes produits).
+-- Prérequis : 20260819_001_pharmacy_catalog_archived_hidden_enum.sql déjà appliquée.
 
 -- ---------------------------------------------------------------------------
 -- Journal : événement archivage pharmacien
