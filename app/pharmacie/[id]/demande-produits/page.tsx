@@ -47,6 +47,16 @@ import {
   writePatientDemandeProduitsDraft,
   type PatientDemandeProduitsDraftLine,
 } from "@/lib/patient-demande-produits-draft";
+import {
+  buildManualRequestItemInsert,
+  createManualDraftLineId,
+  draftCartCatalogTotal,
+  draftHasManualLines,
+  draftLineKey,
+  normalizeManualProductLabel,
+} from "@/lib/patient-manual-product-line";
+import { PatientManualProductAddButton } from "@/components/catalog/patient-manual-product-add-button";
+import { PatientManualProductModal } from "@/components/catalog/patient-manual-product-modal";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 import { usePharmacyPublicGate } from "@/lib/use-pharmacy-public-gate";
@@ -96,10 +106,12 @@ export default function DemandeProduitsPage() {
     []
   );
   const [lineCommentModal, setLineCommentModal] = useState<{
-    productId: string;
+    lineKey: string;
     productName: string;
     draft: string;
   } | null>(null);
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [manualModalPrefill, setManualModalPrefill] = useState("");
   const { resolve: resolveCatalogPrice } = usePharmacyPricingForPatient(pharmacyId);
   const {
     pharmacyName,
@@ -137,10 +149,7 @@ export default function DemandeProduitsPage() {
   }, [lines, pharmacyId, sessionReady, pathname]);
 
   const debouncedQuery = useMemo(() => query.trim(), [query]);
-  const occupiedCatalogKeys = useMemo(
-    () => new Set(lines.map((l) => `${l.catalog_source ?? "global"}:${l.product_id}`)),
-    [lines]
-  );
+  const occupiedCatalogKeys = useMemo(() => new Set(lines.map(draftLineKey)), [lines]);
   const visibleHits = useMemo(() => {
     if (debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) return [];
     return filterUnifiedCatalogHitsExcludingKeys(hits, occupiedCatalogKeys);
@@ -207,14 +216,45 @@ export default function DemandeProduitsPage() {
     [resolveCatalogPrice]
   );
 
-  const setQty = (productId: string, qty: number) => {
+  const setQty = (lineKey: string, qty: number) => {
     const q = Math.min(10, Math.max(1, qty));
-    setLines((prev) => prev.map((l) => (l.product_id === productId ? { ...l, qty: q } : l)));
+    setLines((prev) => prev.map((l) => (draftLineKey(l) === lineKey ? { ...l, qty: q } : l)));
   };
 
-  const removeLine = (productId: string) => {
-    setLines((prev) => prev.filter((l) => l.product_id !== productId));
+  const removeLine = (lineKey: string) => {
+    setLines((prev) => prev.filter((l) => draftLineKey(l) !== lineKey));
   };
+
+  const addManualProduct = useCallback(
+    (rawName: string) => {
+      const name = normalizeManualProductLabel(rawName);
+      if (name.length < 2) return;
+      const key = `manual:${name.toLowerCase()}`;
+      setLines((prev) => {
+        if (prev.some((l) => draftLineKey(l) === key)) return prev;
+        return [
+          ...prev,
+          {
+            product_id: createManualDraftLineId(),
+            catalog_source: "manual",
+            name,
+            photo_url: null,
+            qty: 1,
+          },
+        ];
+      });
+      setQuery("");
+      setHits([]);
+      setFeedback(null);
+      setManualModalOpen(false);
+    },
+    []
+  );
+
+  const openManualModal = useCallback((prefill = "") => {
+    setManualModalPrefill(prefill || debouncedQuery);
+    setManualModalOpen(true);
+  }, [debouncedQuery]);
 
   const validateBeforeSend = (): string | null => {
     if (!pharmacyId) return td("pharmacyNotFound");
@@ -273,8 +313,11 @@ export default function DemandeProduitsPage() {
 
     const { error: itemsErr } = await supabase.from("request_items").insert(
       lines.map((l) => {
+        if ((l.catalog_source ?? "global") === "manual") {
+          return { request_id: reqRow.id, ...buildManualRequestItemInsert(l) };
+        }
         const cc = l.client_comment?.trim();
-        const isPharmacy = (l.catalog_source ?? "global") === "pharmacy";
+        const isPharmacy = l.catalog_source === "pharmacy";
         return {
           request_id: reqRow.id,
           line_product_kind: isPharmacy ? ("pharmacy" as const) : ("global" as const),
@@ -331,17 +374,14 @@ export default function DemandeProduitsPage() {
   };
 
   const fieldFocus = t.focus;
-  const totalAmount = useMemo(
-    () => lines.reduce((sum, l) => sum + (draftLineUnitPrice(l) ?? 0) * l.qty, 0),
-    [lines]
-  );
+  const totalAmount = useMemo(() => draftCartCatalogTotal(lines), [lines]);
 
   const saveLineComment = () => {
     if (!lineCommentModal) return;
     const trimmed = lineCommentModal.draft.trim();
     setLines((prev) =>
       prev.map((row) =>
-        row.product_id === lineCommentModal.productId
+        draftLineKey(row) === lineCommentModal.lineKey
           ? {
               ...row,
               client_comment:
@@ -413,8 +453,14 @@ export default function DemandeProduitsPage() {
                     />
                   ))}
                 </ul>
-              ) : debouncedQuery.length >= PRODUCT_CATALOG_SEARCH_MIN_CHARS && !searchLoading ? (
-                <p className="mt-2 text-xs text-muted-foreground">{td("noResults")}</p>
+              ) : null}
+              {debouncedQuery.length >= PRODUCT_CATALOG_SEARCH_MIN_CHARS && !searchLoading ? (
+                <div className="mt-2 space-y-1.5">
+                  {visibleHits.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">{td("noResults")}</p>
+                  ) : null}
+                  <PatientManualProductAddButton query={debouncedQuery} onClick={() => openManualModal()} />
+                </div>
               ) : null}
             </>
           }
@@ -439,19 +485,19 @@ export default function DemandeProduitsPage() {
             <ul className="w-full min-w-0 space-y-2">
               {lines.map((l) => (
                 <ProductRequestCartLineRow
-                  key={l.product_id}
+                  key={draftLineKey(l)}
                   line={l}
                   unitPrice={draftLineUnitPrice(l)}
-                  onRemove={() => removeLine(l.product_id)}
+                  onRemove={() => removeLine(draftLineKey(l))}
                   onPhotoPreview={() =>
                     openPhotoPreview(l.photo_url, l.name, l.full_description, l.brand, l.product_type, {
                       catalogExplorerPreview: true,
                     })
                   }
-                  onSetQty={(qty) => setQty(l.product_id, qty)}
+                  onSetQty={(qty) => setQty(draftLineKey(l), qty)}
                   onOpenComment={() =>
                     setLineCommentModal({
-                      productId: l.product_id,
+                      lineKey: draftLineKey(l),
                       productName: l.name,
                       draft: l.client_comment ?? "",
                     })
@@ -495,11 +541,15 @@ export default function DemandeProduitsPage() {
             </>
           }
           summaryRight={
-            <PriceDhInline
-              value={totalAmount}
-              amountClassName={cn("font-bold", t.price)}
-              suffixClassName="font-bold text-sky-700/80"
-            />
+            lines.length > 0 && lines.every((l) => (l.catalog_source ?? "global") === "manual") ? (
+              <span className="text-sm font-bold text-muted-foreground">—</span>
+            ) : (
+              <PriceDhInline
+                value={totalAmount}
+                amountClassName={cn("font-bold", t.price)}
+                suffixClassName="font-bold text-sky-700/80"
+              />
+            )
           }
         >
           <Button
@@ -540,6 +590,14 @@ export default function DemandeProduitsPage() {
         }
         onClose={() => setLineCommentModal(null)}
         onSave={saveLineComment}
+      />
+
+      <PatientManualProductModal
+        key={manualModalPrefill}
+        open={manualModalOpen}
+        initialName={manualModalPrefill}
+        onClose={() => setManualModalOpen(false)}
+        onConfirm={addManualProduct}
       />
 
       <PatientProductPhotoPreviewModal

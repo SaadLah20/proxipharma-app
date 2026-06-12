@@ -27,6 +27,7 @@ import {
 } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import type { PatientWorkflowLineAccent } from "@/lib/patient-workflow-line-ui";
 import type { PatientDemandeProduitsDraftLine } from "@/lib/patient-demande-produits-draft";
+import { isManualDraftLine } from "@/lib/patient-manual-product-line";
 import { ProductCatalogExplorerThumb } from "@/components/products/product-catalog-explorer-thumb";
 import { ProductCatalogMetaLabel } from "@/components/products/product-brand-label";
 import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
@@ -256,6 +257,16 @@ export function ProductRequestLinePrices({
       <ProductRequestLinePu unitPrice={unitPrice} />
       <ProductRequestLineTotIndicative totalValue={totalValue} />
     </div>
+  );
+}
+
+/** Message prix pharmacien pour lignes saisies manuellement (sans PU/TOTAL). */
+export function ProductRequestManualPriceHint({ className }: { className?: string }) {
+  const td = useTranslations("demandePublic");
+  return (
+    <p className={cn("max-w-[11rem] text-[10px] font-medium leading-snug text-sky-800/90", className)}>
+      {td("manualProductPriceHint")}
+    </p>
   );
 }
 
@@ -496,6 +507,7 @@ export function ProductRequestLinePanel({
   title,
   unitPrice,
   totalValue,
+  priceSlot,
   qtyControl,
   bottomRight,
   thumb,
@@ -505,6 +517,7 @@ export function ProductRequestLinePanel({
   title: ReactNode;
   unitPrice: number | null;
   totalValue: number | null;
+  priceSlot?: ReactNode;
   qtyControl: ReactNode;
   bottomRight?: ReactNode;
   thumb: ReactNode;
@@ -518,7 +531,7 @@ export function ProductRequestLinePanel({
         <div className="min-w-0 overflow-hidden pe-5 leading-tight">{title}</div>
         <div className="flex min-h-8 w-full min-w-0 items-center justify-between gap-2">
           <div className="min-w-0 shrink leading-none">
-            <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />
+            {priceSlot ?? <ProductRequestLinePrices unitPrice={unitPrice} totalValue={totalValue} />}
           </div>
           <div className="flex shrink-0 items-center gap-2 me-5 sm:me-6">
             {qtyControl}
@@ -838,14 +851,16 @@ export function ProductRequestCartLineRow({
   onOpenComment: () => void;
   hasComment: boolean;
 }) {
+  const td = useTranslations("demandePublic");
+  const isManual = isManualDraftLine(line);
   const thumbInner = (
     <ProductCatalogExplorerThumb
-      photoUrl={line.photo_url}
+      photoUrl={isManual ? null : line.photo_url}
       productType={line.product_type}
       productName={line.name}
       className="size-full"
       ringClassName={t.photoRing}
-      onOpenPreview={onPhotoPreview}
+      onOpenPreview={isManual ? () => {} : onPhotoPreview}
     />
   );
 
@@ -860,10 +875,16 @@ export function ProductRequestCartLineRow({
             <p className="truncate pb-px text-[13px] font-semibold leading-snug text-foreground" title={line.name}>
               {line.name}
             </p>
+            {isManual ? (
+              <span className="mt-0.5 inline-flex rounded-full border border-sky-200/80 bg-sky-50/80 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-sky-900">
+                {td("manualProductBadge")}
+              </span>
+            ) : null}
           </div>
         }
-        unitPrice={unitPrice}
-        totalValue={unitPrice != null ? unitPrice * line.qty : null}
+        unitPrice={isManual ? null : unitPrice}
+        totalValue={isManual ? null : unitPrice != null ? unitPrice * line.qty : null}
+        priceSlot={isManual ? <ProductRequestManualPriceHint /> : undefined}
         qtyControl={
           <ProductRequestLineQtyPicker
             qty={line.qty}
@@ -1016,6 +1037,7 @@ export function PatientDemandeSendConfirmModal({
           <ul className="space-y-2">
             {lines.map((l) => {
               const pu = unitPriceForLine(l);
+              const isManual = isManualDraftLine(l);
               return (
                 <li
                   key={l.product_id}
@@ -1023,41 +1045,53 @@ export function PatientDemandeSendConfirmModal({
                 >
                   <div className="relative size-12 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card">
                     <ProductCatalogExplorerThumb
-                      photoUrl={l.photo_url}
+                      photoUrl={isManual ? null : l.photo_url}
                       productType={l.product_type}
                       productName={l.name}
                       className="size-full"
                       ringClassName={t.photoRing}
-                      onOpenPreview={() =>
-                        onPhotoPreview(l.photo_url, l.name, l.full_description, l.brand, l.product_type, {
-                          catalogExplorerPreview: true,
-                        })
+                      onOpenPreview={
+                        isManual
+                          ? () => {}
+                          : () =>
+                              onPhotoPreview(l.photo_url, l.name, l.full_description, l.brand, l.product_type, {
+                                catalogExplorerPreview: true,
+                              })
                       }
                     />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-semibold leading-snug text-foreground">{l.name}</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {td("qty")} <span className="font-bold tabular-nums text-foreground">{l.qty}</span>
-                      <span className="mx-1 text-border">·</span>
-                      {td("unitPrice")}{" "}
-                      <strong className="text-foreground">
-                        <PriceDhInline value={pu} amountClassName="text-[11px]" suffixClassName="text-[9px]" />
-                      </strong>
-                      <span className="mx-1 text-border">·</span>
-                      <span className={cn("font-bold", t.price)}>
-                        {td("totalShort")}{" "}
-                        {pu != null ? (
-                          <PriceDhInline
-                            value={pu * l.qty}
-                            amountClassName="text-[11px] font-bold"
-                            suffixClassName="text-[9px] font-bold text-sky-600/80"
-                          />
-                        ) : (
-                          "—"
-                        )}
-                      </span>
-                    </p>
+                    {isManual ? (
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {td("qty")} <span className="font-bold tabular-nums text-foreground">{l.qty}</span>
+                      </p>
+                    ) : (
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {td("qty")} <span className="font-bold tabular-nums text-foreground">{l.qty}</span>
+                        <span className="mx-1 text-border">·</span>
+                        {td("unitPrice")}{" "}
+                        <strong className="text-foreground">
+                          <PriceDhInline value={pu} amountClassName="text-[11px]" suffixClassName="text-[9px]" />
+                        </strong>
+                        <span className="mx-1 text-border">·</span>
+                        <span className={cn("font-bold", t.price)}>
+                          {td("totalShort")}{" "}
+                          {pu != null ? (
+                            <PriceDhInline
+                              value={pu * l.qty}
+                              amountClassName="text-[11px] font-bold"
+                              suffixClassName="text-[9px] font-bold text-sky-600/80"
+                            />
+                          ) : (
+                            "—"
+                          )}
+                        </span>
+                      </p>
+                    )}
+                    {isManual ? (
+                      <p className="mt-1 text-[10px] leading-snug text-sky-800/90">{td("manualProductPriceHint")}</p>
+                    ) : null}
                     {l.client_comment?.trim() ? (
                       <p className={cn("mt-1.5 rounded-lg border px-2 py-1 text-[11px] leading-snug text-foreground", t.modalHighlight)}>
                         <span className={cn("font-semibold", t.modalLabel)}>{td("yourNote")}</span>
@@ -1088,13 +1122,20 @@ export function PatientDemandeSendConfirmModal({
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-bold text-foreground">{td("estimatedTotal")}</span>
             <span className={cn("text-lg font-bold", t.price)}>
-              <PriceDhInline
-                value={totalAmount}
-                amountClassName="text-lg font-bold"
-                suffixClassName="text-[0.65em] font-bold text-sky-600/80"
-              />
+              {lines.every(isManualDraftLine) ? (
+                <span className="text-base">—</span>
+              ) : (
+                <PriceDhInline
+                  value={totalAmount}
+                  amountClassName="text-lg font-bold"
+                  suffixClassName="text-[0.65em] font-bold text-sky-600/80"
+                />
+              )}
             </span>
           </div>
+          {lines.some(isManualDraftLine) ? (
+            <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{td("manualProductTotalNote")}</p>
+          ) : null}
           <div className="mt-3 flex gap-2">
             <Button
               type="button"

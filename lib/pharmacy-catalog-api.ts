@@ -110,3 +110,17 @@ export async function pharmacyProductUsedInResponse(
   if (error) throw error;
   return Boolean(data);
 }
+
+/** Lie une ligne `patient_manual` non résolue à un produit global ou privé officine. */
+export async function linkManualLineToProduct(
+  supabase: SupabaseClient,
+  requestItemId: string,
+  hit: UnifiedCatalogHit
+): Promise<void> {
+  const params =
+    hit.source === "pharmacy"
+      ? { p_request_item_id: requestItemId, p_pharmacy_product_id: hit.id }
+      : { p_request_item_id: requestItemId, p_product_id: hit.id };
+  const { error } = await supabase.rpc("pharmacist_link_manual_line_to_product", params);
+  if (error) throw error;
+}

@@ -971,4 +971,18 @@ export const demandePublicFr = {
   qtyLabel: "Quantité",
   photoPreviewCatalogFooter: "Fiche produit catalogue",
   photoPreviewIndicativeFooter: "Photo catalogue — visuel indicatif.",
+  manualProductPriceHint:
+    "Le produit et son prix seront indiqués par le pharmacien dans sa réponse.",
+  manualProductBadge: "Saisi par vous",
+  manualProductAddNamed: "Ajouter « {name} » (produit introuvable)",
+  manualProductAddGeneric: "Ajouter un produit introuvable",
+  manualProductModalTitle: "Produit introuvable au catalogue",
+  manualProductModalHint:
+    "Indiquez le nom du produit recherché. La pharmacie le retrouvera et précisera le prix dans sa réponse.",
+  manualProductNameLabel: "Nom du produit",
+  manualProductNameTooShort: "Indiquez au moins 2 caractères.",
+  manualProductNameTooLong: "Le nom ne peut pas dépasser 120 caractères.",
+  manualProductAddToList: "Ajouter à ma liste",
+  manualProductTotalNote:
+    "Les produits saisis manuellement n'ont pas de prix estimé — le pharmacien les indiquera dans sa réponse.",
 };
