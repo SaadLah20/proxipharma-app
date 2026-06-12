@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Package, PackagePlus, Search } from "lucide-react";
+import { Package, PackagePlus, RotateCcw, Search } from "lucide-react";
 import { clsx } from "clsx";
 import { PharmacistAltCatalogPicker } from "@/components/pharmacist/pharmacist-alt-catalog-picker";
 import {
@@ -10,7 +10,6 @@ import {
 } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import { PharmacyCatalogProductFormModal } from "@/components/catalog/pharmacy-catalog-product-form-modal";
 import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
-import { linkManualLineToProduct } from "@/lib/pharmacy-catalog-api";
 import { searchPharmacyCatalog } from "@/lib/pharmacy-catalog-search";
 import type { UnifiedCatalogHit } from "@/lib/pharmacy-catalog-types";
 import { pharmacistProductRequestLineCardClass } from "@/lib/pharmacist-product-request-line-ui";
@@ -85,8 +84,42 @@ function PharmacistManualLineLinkPicker({
   );
 }
 
+/** Bandeau brouillon : association enregistrée seulement à l'envoi de la réponse. */
+export function PharmacistManualLinkDraftBanner({
+  patientLabel,
+  linkedName,
+  onRestore,
+  disabled,
+}: {
+  patientLabel: string;
+  linkedName: string;
+  onRestore: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200/80 bg-amber-50/80 px-2.5 py-2 text-[10px] text-amber-950">
+      <p className="min-w-0 leading-snug">
+        <span className="font-semibold">Saisi patient ·</span> {patientLabel}
+        <span className="mx-1 text-amber-700">→</span>
+        <span className="font-semibold">{linkedName}</span>
+        <span className="mt-0.5 block text-[9px] font-medium text-amber-800/85">
+          Enregistré à l&apos;envoi de la réponse
+        </span>
+      </p>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onRestore}
+        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-300/80 bg-white px-2 py-1 text-[10px] font-semibold text-amber-950 transition hover:bg-amber-50 disabled:opacity-50"
+      >
+        <RotateCcw className="size-3" aria-hidden />
+        Restaurer
+      </button>
+    </div>
+  );
+}
+
 export function PharmacistManualRequestLineCard({
-  requestItemId,
   patientLabel,
   requestedQty,
   clientComment,
@@ -97,11 +130,10 @@ export function PharmacistManualRequestLineCard({
   pharmacistComment,
   convoOpen,
   onToggleConvo,
-  onLinked,
+  onDraftLink,
   onPhotoPreview,
   onError,
 }: {
-  requestItemId: string;
   patientLabel: string;
   requestedQty: number;
   clientComment?: string | null;
@@ -112,33 +144,20 @@ export function PharmacistManualRequestLineCard({
   pharmacistComment?: string | null;
   convoOpen: boolean;
   onToggleConvo: () => void;
-  onLinked: () => void | Promise<void>;
+  onDraftLink: (hit: UnifiedCatalogHit) => void;
   onPhotoPreview?: ProductPhotoPreviewHandler;
   onError: (message: string) => void;
 }) {
   const [linkOpen, setLinkOpen] = useState(false);
-  const [linkBusy, setLinkBusy] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
   const patientLineCc = clientComment?.trim() ?? "";
   const lineConvoVisual = lineConversationVisual(patientLineCc, pharmacistComment ?? "");
 
-  const handleLink = async (hit: UnifiedCatalogHit) => {
-    setLinkBusy(true);
+  const handleDraftLink = (hit: UnifiedCatalogHit) => {
     onError("");
-    try {
-      await linkManualLineToProduct(supabase, requestItemId, hit);
-      setLinkOpen(false);
-      await onLinked();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Liaison impossible.");
-    } finally {
-      setLinkBusy(false);
-    }
-  };
-
-  const handleCreated = async (hit: UnifiedCatalogHit) => {
-    await handleLink(hit);
+    setLinkOpen(false);
+    onDraftLink(hit);
   };
 
   return (
@@ -166,7 +185,7 @@ export function PharmacistManualRequestLineCard({
               <PharmacistLineMessageButton
                 visual={lineConvoVisual}
                 open={convoOpen}
-                disabled={busy || linkBusy}
+                disabled={busy}
                 appearance="neutral"
                 onClick={(e) => {
                   e.preventDefault();
@@ -202,7 +221,7 @@ export function PharmacistManualRequestLineCard({
               <div className="flex flex-col gap-1.5 sm:flex-row">
                 <button
                   type="button"
-                  disabled={busy || linkBusy}
+                  disabled={busy}
                   onClick={() => {
                     onError("");
                     setLinkOpen(true);
@@ -214,7 +233,7 @@ export function PharmacistManualRequestLineCard({
                 </button>
                 <button
                   type="button"
-                  disabled={busy || linkBusy}
+                  disabled={busy}
                   onClick={() => {
                     onError("");
                     setCreateOpen(true);
@@ -227,12 +246,12 @@ export function PharmacistManualRequestLineCard({
               </div>
             ) : (
               <PharmacistManualLineLinkPicker
-                key={requestItemId}
+                key={patientLabel}
                 initialQuery={patientLabel}
                 pharmacyId={pharmacyId}
                 pricingConfig={pricingConfig}
-                busy={busy || linkBusy}
-                onSelect={(h) => void handleLink(h)}
+                busy={busy}
+                onSelect={handleDraftLink}
                 onClose={() => setLinkOpen(false)}
                 onPhotoPreview={onPhotoPreview}
                 onAddCustomProduct={() => setCreateOpen(true)}
@@ -247,7 +266,7 @@ export function PharmacistManualRequestLineCard({
         open={createOpen}
         prefillName={patientLabel}
         onClose={() => setCreateOpen(false)}
-        onCreated={(hit) => void handleCreated(hit)}
+        onCreated={handleDraftLink}
       />
     </>
   );

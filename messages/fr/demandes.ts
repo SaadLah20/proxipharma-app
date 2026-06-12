@@ -985,4 +985,5 @@ export const demandePublicFr = {
   manualProductAddToList: "Ajouter à ma liste",
   manualProductTotalNote:
     "Les produits saisis manuellement n'ont pas de prix estimé — le pharmacien les indiquera dans sa réponse.",
+  manualProductPartialTotalHint: "hors {manual} sans prix connu",
 };

@@ -17,6 +17,7 @@ import { PharmacyPublicBackLink } from "@/components/pharmacy/pharmacy-public-ch
 import {
   PatientDemandeSendConfirmModal,
   PatientLineCommentModal,
+  PatientCartEstimatedTotal,
   PriceDhInline,
   ProductRequestCartLineRow,
   ProductRequestCatalogHitRow,
@@ -540,15 +541,11 @@ export default function DemandeProduitsPage() {
             </>
           }
           summaryRight={
-            lines.length > 0 && lines.every((l) => (l.catalog_source ?? "global") === "manual") ? (
-              <span className="text-sm font-bold text-muted-foreground">—</span>
-            ) : (
-              <PriceDhInline
-                value={totalAmount}
-                amountClassName={cn("font-bold", t.price)}
-                suffixClassName="font-bold text-sky-700/80"
-              />
-            )
+            <PatientCartEstimatedTotal
+              lines={lines}
+              amountClassName={cn("font-bold", t.price)}
+              suffixClassName="font-bold text-sky-700/80"
+            />
           }
         >
           <Button

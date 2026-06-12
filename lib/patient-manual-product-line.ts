@@ -83,6 +83,44 @@ export function isUnresolvedManualRequestItem(row: {
   return row.line_product_kind === "patient_manual" && row.manual_resolved_at == null;
 }
 
+export function manualLineNeedsCatalogLink(
+  row: { id: string; line_product_kind?: string | null; manual_resolved_at?: string | null },
+  linkDrafts: Readonly<Record<string, unknown>>
+): boolean {
+  return isUnresolvedManualRequestItem(row) && linkDrafts[row.id] == null;
+}
+
+export function manualLineHasPendingLink(
+  row: { id: string; line_product_kind?: string | null; manual_resolved_at?: string | null },
+  linkDrafts: Readonly<Record<string, unknown>>
+): boolean {
+  return isUnresolvedManualRequestItem(row) && linkDrafts[row.id] != null;
+}
+
+export type DraftCartTotalsSummary = {
+  totalLines: number;
+  manualLines: number;
+  pricedLines: number;
+  amount: number;
+  allManual: boolean;
+  hasMixed: boolean;
+};
+
+export function draftCartTotalsSummary(lines: PatientDemandeProduitsDraftLine[]): DraftCartTotalsSummary {
+  const totalLines = lines.length;
+  const manualLines = lines.filter(isManualDraftLine).length;
+  const pricedLines = totalLines - manualLines;
+  const amount = draftCartCatalogTotal(lines);
+  return {
+    totalLines,
+    manualLines,
+    pricedLines,
+    amount,
+    allManual: totalLines > 0 && manualLines === totalLines,
+    hasMixed: manualLines > 0 && pricedLines > 0,
+  };
+}
+
 export function manualRequestLineDisplayName(row: {
   line_product_kind?: string | null;
   patient_requested_label?: string | null;

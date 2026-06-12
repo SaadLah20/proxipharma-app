@@ -944,4 +944,5 @@ export const demandePublicAr = {
   manualProductAddToList: "إضافة إلى قائمتي",
   manualProductTotalNote:
     "المنتجات المدخلة يدويًا بلا سعر تقديري — سيحددها الصيدلي في ردّه.",
+  manualProductPartialTotalHint: "باستثناء {manual} بلا سعر معروف",
 };

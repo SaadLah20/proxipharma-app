@@ -122,6 +122,7 @@ import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput, productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
 import {
+  PatientCartEstimatedTotal,
   PriceDhInline,
   ProductRequestCatalogHitRow,
   ProductRequestLineMessageIconButton,
@@ -2475,24 +2476,20 @@ export function PatientProductRequestActions({
     if (debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) return [];
     return filterCatalogHitsExcludingProductIds(hits, productIdsFromLineProductIds(lines));
   }, [debouncedQuery, hits, lines]);
-  const resubmitTotal = useMemo(
+  const resubmitCartLines = useMemo(
     () =>
-      draftCartCatalogTotal(
-        lines.map((l) => ({
-          product_id: l.product_id,
-          catalog_source: l.catalog_source,
-          name: l.name,
-          brand: l.brand,
-          product_type: l.product_type,
-          photo_url: l.photo_url ?? null,
-          full_description: l.full_description ?? null,
-          qty: l.qty,
-          unit_price: l.unit_price,
-          client_comment: l.client_comment,
-        }))
-      ),
+      lines.map((l) => ({
+        product_id: l.product_id,
+        catalog_source: l.catalog_source ?? "global",
+        name: l.name,
+        photo_url: l.photo_url ?? null,
+        qty: l.qty,
+        unit_price: l.catalog_source === "manual" ? null : resubmitLineUnitPrice(l),
+        client_comment: l.client_comment,
+      })),
     [lines]
   );
+  const resubmitTotal = useMemo(() => draftCartCatalogTotal(resubmitCartLines), [resubmitCartLines]);
 
   const confirmSelectionSummary = useMemo(() => {
     let count = 0;
@@ -4362,7 +4359,13 @@ export function PatientProductRequestActions({
                 produit{lines.length > 1 ? "s" : ""}
               </>
             }
-            summaryRight={formatPriceDh(resubmitTotal)}
+            summaryRight={
+              <PatientCartEstimatedTotal
+                lines={resubmitCartLines}
+                amountClassName="font-bold tabular-nums text-foreground"
+                suffixClassName="font-bold text-sky-700/80"
+              />
+            }
           >
             {!editMode ? (
               <div className="flex flex-col gap-2">
@@ -4958,7 +4961,11 @@ export function PatientProductRequestActions({
             <div className="border-t border-slate-200 bg-slate-50 px-3 py-2.5 sm:px-4">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-bold text-slate-800">{tCommon("totalLabel")}</span>
-                <span className="text-lg font-bold tabular-nums text-sky-900">{formatPriceDh(resubmitTotal)}</span>
+                <PatientCartEstimatedTotal
+                  lines={resubmitCartLines}
+                  amountClassName="text-lg font-bold text-sky-900"
+                  suffixClassName="text-[0.65em] font-bold text-sky-600/80"
+                />
               </div>
               <div className={cn("mt-2", uiActionBtnFlexRow())}>
                 <button
