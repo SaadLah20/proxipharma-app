@@ -5,6 +5,8 @@
 
 export type PatientDemandeProduitsDraftLine = {
   product_id: string;
+  /** `global` = catalogue Pharmeto ; `pharmacy` = catalogue privé officine. */
+  catalog_source?: "global" | "pharmacy";
   name: string;
   brand?: string | null;
   product_type?: string | null;

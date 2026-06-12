@@ -20,9 +20,13 @@ import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { PolishedOptionPicker } from "@/components/ui/polished-option-picker";
 import { PlannedVisitDateInput } from "@/components/requests/planned-visit-date-input";
 import { receptionDateMaxYmd } from "@/lib/planned-visit";
+import { CatalogProductAddButton } from "@/components/catalog/pharmacy-catalog-product-form-modal";
+import type { CatalogProductSource } from "@/lib/pharmacy-catalog-types";
+import { catalogHitKey } from "@/lib/pharmacy-catalog-types";
 
 export type OrdonnanceCatalogHit = {
   id: string;
+  source?: CatalogProductSource;
   name: string;
   product_type?: string;
   laboratory?: string | null;
@@ -34,6 +38,7 @@ export type OrdonnanceCatalogHit = {
 
 export type OrdonnanceModalAlternativePick = {
   id: string;
+  source?: CatalogProductSource;
   name: string;
   product_type?: string;
   price_pph?: number | null;
@@ -76,6 +81,10 @@ type Props = {
   receptionDateMin: string;
   onConfirmAdd: () => void | Promise<void>;
   catalogUnitPriceLabel?: (hit: OrdonnanceCatalogHit) => string | null;
+  onAddCatalogProduct?: () => void;
+  catalogSearchQuery?: string;
+  catalogSearchDebouncedLen?: number;
+  catalogHitCount?: number;
 };
 
 function QtyStepper({
@@ -179,6 +188,10 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
     receptionDateMin,
     onConfirmAdd,
     catalogUnitPriceLabel,
+    onAddCatalogProduct,
+    catalogSearchQuery = "",
+    catalogSearchDebouncedLen = 0,
+    catalogHitCount = 0,
   } = props;
 
   const puLabel = (hit: OrdonnanceCatalogHit) => catalogUnitPriceLabel?.(hit) ?? null;
@@ -255,7 +268,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
               {hits.length > 0 ? (
                 <ul className="min-h-0 space-y-0.5 rounded-md border border-border/60 bg-muted/15 p-1">
                   {hits.map((h) => (
-                    <li key={h.id}>
+                    <li key={catalogHitKey({ source: h.source ?? "global", id: h.id })}>
                       <button
                         type="button"
                         disabled={busy}
@@ -273,6 +286,9 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block font-medium text-foreground">{h.name}</span>
+                          {h.source === "pharmacy" ? (
+                            <span className="mt-0.5 block text-[10px] font-medium text-amber-800">Mon catalogue</span>
+                          ) : null}
                           {puLabel(h) ? (
                             <span className="mt-0.5 block text-[11px] font-medium text-teal-800">PU {puLabel(h)}</span>
                           ) : null}
@@ -286,6 +302,16 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
               ) : (
                 <p className="text-[11px] text-muted-foreground">Saisissez au moins 2 caractères.</p>
               )}
+              {onAddCatalogProduct ? (
+                <CatalogProductAddButton
+                  query={catalogSearchQuery || query}
+                  debouncedLen={catalogSearchDebouncedLen || query.trim().length}
+                  hitCount={catalogHitCount || hits.length}
+                  variant="amber"
+                  disabled={busy}
+                  onClick={onAddCatalogProduct}
+                />
+              ) : null}
             </>
           ) : selectedProduct ? (
             <div className="rounded-xl border-2 border-amber-300/80 bg-amber-50/60 p-2.5">

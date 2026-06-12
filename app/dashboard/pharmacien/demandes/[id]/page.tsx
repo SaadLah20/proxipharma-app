@@ -29,10 +29,6 @@ import {
 } from "@/components/pharmacist/pharmacist-line-conversation-chip";
 import { RequestExitConfirmModalFr } from "@/components/requests/request-exit-confirm-modal-fr";
 import { availabilityStatusUi } from "@/lib/pharmacist-availability-ui";
-import {
-  pharmacistRequestCatalogProductBlockMessageFr,
-  pharmacistRequestCatalogProductIdBlocked,
-} from "@/lib/pharmacist-request-catalog-product-block";
 import { supabase } from "@/lib/supabase";
 import { formatDateShortFr, formatDateTimeShort24hFr, archiveTerminalFootnoteFr } from "@/lib/datetime-fr";
 import {
@@ -116,9 +112,28 @@ import { mapRequestItemRowPhotos, mapRequestItemsPhotos, resolvePublicMediaUrl }
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
-  productNameOrLaboratoryIlikeOr,
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
+import { searchPharmacyCatalog } from "@/lib/pharmacy-catalog-search";
+import type { UnifiedCatalogHit } from "@/lib/pharmacy-catalog-types";
+import {
+  catalogHitToRequestItemFields,
+  mapUnifiedCatalogHitsPhotoUrls,
+  requestItemFieldsFromStoredRow,
+  unifiedCatalogHitKey,
+} from "@/lib/pharmacy-catalog-request-insert";
+import {
+  CatalogProductAddButton,
+  PharmacyCatalogProductFormModal,
+} from "@/components/catalog/pharmacy-catalog-product-form-modal";
+import {
+  catalogLineRefFromRow,
+  catalogLineRefKey,
+  occupiedCatalogRefKeysFromRows,
+  pharmacistRequestCatalogRefBlocked,
+  pharmacistRequestCatalogProductBlockMessageFr,
+} from "@/lib/pharmacist-request-catalog-product-block";
+import { normalizeRequestItemRowEmbed } from "@/lib/request-line-product-embed";
 import { PageShell } from "@/components/ui/compact-shell";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { PolishedOptionPicker } from "@/components/ui/polished-option-picker";
@@ -309,7 +324,9 @@ type ProdEmbedDb = {
 type AltRowDb = {
   id: string;
   rank: number;
-  product_id: string;
+  product_id: string | null;
+  pharmacy_product_id?: string | null;
+  line_product_kind?: string | null;
   availability_status: string | null;
   available_qty: number | null;
   unit_price: number | null;
@@ -320,7 +337,9 @@ type AltRowDb = {
 
 type ItemRow = {
   id: string;
-  product_id: string;
+  product_id: string | null;
+  pharmacy_product_id?: string | null;
+  line_product_kind?: string | null;
   requested_qty: number;
   availability_status: string | null;
   available_qty: number | null;
@@ -340,6 +359,7 @@ type ItemRow = {
   withdrawn_after_confirm?: boolean | null;
   updated_at: string;
   products: ProdEmbedDb | ProdEmbedDb[] | null;
+  pharmacy_catalog_products?: ProdEmbedDb | ProdEmbedDb[] | null;
   request_item_alternatives: AltRowDb | AltRowDb[] | null;
 };
 
@@ -364,7 +384,7 @@ type ItemDraft = {
 type Draft = Record<string, ItemDraft>;
 
 const PHARMA_REQUEST_ITEMS_SELECT =
-  "id,product_id,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,is_selected_by_patient,selected_qty,patient_chosen_alternative_id,post_confirm_fulfillment,withdrawn_after_confirm,line_source,pharmacist_proposal_reason,client_comment,updated_at,products(name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description))";
+  "id,product_id,pharmacy_product_id,line_product_kind,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,is_selected_by_patient,selected_qty,patient_chosen_alternative_id,post_confirm_fulfillment,withdrawn_after_confirm,line_source,pharmacist_proposal_reason,client_comment,updated_at,products(name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description),pharmacy_catalog_products(name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,pharmacy_product_id,line_product_kind,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description),pharmacy_catalog_products(name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description))";
 
 function rowsWithEffectiveWithdrawnForSupply(rows: ItemRow[], d: Draft): ItemRow[] {
   return rows.map((row) => {
@@ -402,17 +422,7 @@ function rowForValidatedSupplyBucket(row: ItemRow, d: Draft, requestType: string
   return rowForValidatedLineLabels(row, f, requestType);
 }
 
-type ProductCatalogHit = {
-  id: string;
-  name: string;
-  product_type: string;
-  brand: string | null;
-  laboratory: string | null;
-  photo_url?: string | null;
-  price_pph?: number | null;
-  price_ppv?: number | null;
-  full_description?: string | null;
-};
+type ProductCatalogHit = UnifiedCatalogHit;
 
 type PatientBrief = {
   full_name: string | null;
@@ -520,7 +530,9 @@ type PendingAlternativeEntry = {
   localAltId: string;
   parentItemId: string;
   rank: number;
-  product_id: string;
+  product_id: string | null;
+  pharmacy_product_id?: string | null;
+  line_product_kind?: string | null;
   availability_status: string | null;
   available_qty: number | null;
   unit_price: number | null;
@@ -538,6 +550,8 @@ function pendingAltsAsRankedDb(prev: PendingAlternativeEntry[], parentId: string
         id: e.localAltId,
         rank: e.rank,
         product_id: e.product_id,
+        pharmacy_product_id: e.pharmacy_product_id ?? null,
+        line_product_kind: e.line_product_kind ?? "global",
         availability_status: e.availability_status,
         available_qty: e.available_qty,
         unit_price: e.unit_price,
@@ -854,7 +868,7 @@ function buildPublishConfirmRowMeta(
   const priceMad =
     fd.unit_price.trim() !== ""
       ? `${Number(fd.unit_price.replace(",", ".")).toFixed(2)} MAD`
-      : catalogPriceMadLabel(pricingConfig, one(r.products), r.product_id);
+      : catalogPriceMadLabel(pricingConfig, one(r.products), r.product_id ?? undefined);
   const note = fd.pharmacist_comment?.trim() ?? "";
   const eta =
     fd.availability_status === "to_order" && fd.expected_availability_date.trim()
@@ -994,7 +1008,7 @@ function PublishConfirmLineLi({
               const ap = catalogPriceMadLabel(
                 pricingConfig,
                 one(alt.products),
-                alt.product_id,
+                alt.product_id ?? undefined,
                 alt.unit_price
               );
               return (
@@ -1957,6 +1971,11 @@ export default function PharmacienDemandeDetailPage() {
   const [ordonnanceQuickAlternatives, setOrdonnanceQuickAlternatives] = useState<OrdonnanceModalAlternativePick[]>([]);
   const [ordonnanceAltQuery, setOrdonnanceAltQuery] = useState("");
   const [ordonnanceAltHits, setOrdonnanceAltHits] = useState<ProductCatalogHit[]>([]);
+  const [catalogAddModalOpen, setCatalogAddModalOpen] = useState(false);
+  const [catalogAddPrefill, setCatalogAddPrefill] = useState("");
+  const [catalogAddAfterCreate, setCatalogAddAfterCreate] = useState<((hit: ProductCatalogHit) => void) | null>(
+    null
+  );
   const [prescriptionScanLightbox, setPrescriptionScanLightbox] = useState<{ label: string; url: string } | null>(
     null
   );
@@ -2015,12 +2034,32 @@ export default function PharmacienDemandeDetailPage() {
 
   const catalogBlockRequestStatus = request?.status ?? null;
 
+  const occupiedCatalogKeys = useMemo(
+    () => occupiedCatalogRefKeysFromRows(displayRows, draft, catalogBlockRequestStatus),
+    [displayRows, draft, catalogBlockRequestStatus]
+  );
+
   const propVisibleHits = useMemo(() => {
     if (!propCatalogSearchActive || propDebounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) return [];
     return propHits.filter(
-      (h) => !pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft, catalogBlockRequestStatus)
+      (h) =>
+        !occupiedCatalogKeys.has(unifiedCatalogHitKey(h)) &&
+        !pharmacistRequestCatalogRefBlocked(
+          { source: h.source, id: h.id },
+          displayRows,
+          draft,
+          catalogBlockRequestStatus
+        )
     );
-  }, [propCatalogSearchActive, propDebounced, propHits, displayRows, draft, catalogBlockRequestStatus]);
+  }, [
+    propCatalogSearchActive,
+    propDebounced,
+    propHits,
+    occupiedCatalogKeys,
+    displayRows,
+    draft,
+    catalogBlockRequestStatus,
+  ]);
 
   const altPickerParentRow = useMemo(
     () => (altPickerOpenFor ? displayRows.find((r) => r.id === altPickerOpenFor) ?? null : null),
@@ -2030,26 +2069,63 @@ export default function PharmacienDemandeDetailPage() {
   const altVisibleHits = useMemo(() => {
     if (altDebounced.length < 2) return [];
     const parent = altPickerParentRow;
+    const parentRef = parent ? catalogLineRefFromRow(parent) : null;
     const parentAlts = parent ? normalizeAlts(parent.request_item_alternatives) : [];
     return altHits.filter((h) => {
-      if (parent && h.id === parent.product_id) return false;
-      if (parent && parentAlts.some((a) => a.product_id === h.id)) return false;
-      return !pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft, catalogBlockRequestStatus);
+      const hitKey = unifiedCatalogHitKey(h);
+      if (parentRef && catalogLineRefKey(parentRef) === hitKey) return false;
+      if (
+        parent &&
+        parentAlts.some((a) => {
+          if (a.pharmacy_product_id && h.source === "pharmacy" && a.pharmacy_product_id === h.id) return true;
+          return a.product_id === h.id && h.source === "global";
+        })
+      ) {
+        return false;
+      }
+      return (
+        !occupiedCatalogKeys.has(hitKey) &&
+        !pharmacistRequestCatalogRefBlocked(
+          { source: h.source, id: h.id },
+          displayRows,
+          draft,
+          catalogBlockRequestStatus
+        )
+      );
     });
-  }, [altDebounced, altHits, altPickerParentRow, displayRows, draft, catalogBlockRequestStatus]);
+  }, [
+    altDebounced,
+    altHits,
+    altPickerParentRow,
+    occupiedCatalogKeys,
+    displayRows,
+    draft,
+    catalogBlockRequestStatus,
+  ]);
 
   const ordonnanceAltVisibleHits = useMemo(() => {
-    const pickId = ordonnanceQuickAddPick?.id;
-    return ordonnanceAltHits.filter(
-      (h) =>
-        h.id !== pickId &&
-        !ordonnanceQuickAlternatives.some((a) => a.id === h.id) &&
-        !pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft, catalogBlockRequestStatus)
-    );
+    const pickKey = ordonnanceQuickAddPick ? unifiedCatalogHitKey(ordonnanceQuickAddPick) : null;
+    return ordonnanceAltHits.filter((h) => {
+      const hitKey = unifiedCatalogHitKey(h);
+      if (pickKey && hitKey === pickKey) return false;
+      if (ordonnanceQuickAlternatives.some((a) => a.id === h.id && (a.source ?? "global") === h.source)) {
+        return false;
+      }
+      return (
+        !occupiedCatalogKeys.has(hitKey) &&
+        !pharmacistRequestCatalogRefBlocked(
+          { source: h.source, id: h.id },
+          displayRows,
+          draft,
+          catalogBlockRequestStatus
+        )
+      );
+    });
   }, [
     ordonnanceAltHits,
-    ordonnanceQuickAddPick?.id,
+    ordonnanceQuickAddPick,
     ordonnanceQuickAlternatives,
+    occupiedCatalogKeys,
     displayRows,
     draft,
     catalogBlockRequestStatus,
@@ -2185,7 +2261,7 @@ export default function PharmacienDemandeDetailPage() {
       list = (itemsDataRetry as ItemRow[]) ?? [];
     }
 
-    setItems(mapRequestItemsPhotos(list));
+    setItems(mapRequestItemsPhotos(list).map((row) => normalizeRequestItemRowEmbed(row as ItemRow)));
     setAltQtyDrafts({});
 
     if (r.request_type === "prescription") {
@@ -2377,7 +2453,7 @@ export default function PharmacienDemandeDetailPage() {
   }, [id, load]);
 
   useEffect(() => {
-    if (altDebounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS || !altPickerOpenFor) {
+    if (altDebounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS || !altPickerOpenFor || !request?.pharmacy_id) {
       return;
     }
     const t = window.setTimeout(() => {
@@ -2387,27 +2463,16 @@ export default function PharmacienDemandeDetailPage() {
           setAltHits([]);
           return;
         }
-        const { data, error } = await supabase
-          .from("products")
-          .select("id,name,product_type,brand,laboratory,photo_url,price_pph,price_ppv,full_description")
-          .eq("is_active", true)
-          .or(productNameOrLaboratoryIlikeOr(sanitized))
-          .order("name")
-          .limit(PRODUCT_CATALOG_SEARCH_LIMIT);
-        if (error || !Array.isArray(data)) {
+        try {
+          const data = await searchPharmacyCatalog(supabase, request.pharmacy_id, sanitized);
+          setAltHits(mapUnifiedCatalogHitsPhotoUrls(data, resolvePublicMediaUrl));
+        } catch {
           setAltHits([]);
-          return;
         }
-        setAltHits(
-          (data as ProductCatalogHit[]).map((p) => ({
-            ...p,
-            photo_url: resolvePublicMediaUrl(p.photo_url ?? null),
-          }))
-        );
       })();
     }, 280);
     return () => window.clearTimeout(t);
-  }, [altDebounced, altPickerOpenFor]);
+  }, [altDebounced, altPickerOpenFor, request?.pharmacy_id]);
 
   useEffect(() => {
     if (availabilityMenuRowId === null) return undefined;
@@ -2424,7 +2489,7 @@ export default function PharmacienDemandeDetailPage() {
   }, [availabilityMenuRowId]);
 
   useEffect(() => {
-    if (propDebounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS || !propCatalogSearchActive) {
+    if (propDebounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS || !propCatalogSearchActive || !request?.pharmacy_id) {
       return;
     }
     const t = window.setTimeout(() => {
@@ -2434,30 +2499,23 @@ export default function PharmacienDemandeDetailPage() {
           setPropHits([]);
           return;
         }
-        const { data, error } = await supabase
-          .from("products")
-          .select("id,name,product_type,brand,laboratory,photo_url,price_pph,price_ppv,full_description")
-          .eq("is_active", true)
-          .or(productNameOrLaboratoryIlikeOr(sanitized))
-          .order("name")
-          .limit(PRODUCT_CATALOG_SEARCH_LIMIT);
-        if (error || !Array.isArray(data)) {
+        try {
+          const data = await searchPharmacyCatalog(supabase, request.pharmacy_id, sanitized);
+          setPropHits(mapUnifiedCatalogHitsPhotoUrls(data, resolvePublicMediaUrl));
+        } catch {
           setPropHits([]);
-          return;
         }
-        setPropHits(
-          (data as ProductCatalogHit[]).map((p) => ({
-            ...p,
-            photo_url: resolvePublicMediaUrl(p.photo_url ?? null),
-          }))
-        );
       })();
     }, 280);
     return () => window.clearTimeout(t);
-  }, [propDebounced, propCatalogSearchActive]);
+  }, [propDebounced, propCatalogSearchActive, request?.pharmacy_id]);
 
   useEffect(() => {
-    if (!ordonnanceQuickAddOpen || ordonnanceAltDebounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
+    if (
+      !ordonnanceQuickAddOpen ||
+      ordonnanceAltDebounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS ||
+      !request?.pharmacy_id
+    ) {
       return;
     }
     const t = window.setTimeout(() => {
@@ -2467,27 +2525,16 @@ export default function PharmacienDemandeDetailPage() {
           setOrdonnanceAltHits([]);
           return;
         }
-        const { data, error } = await supabase
-          .from("products")
-          .select("id,name,product_type,brand,laboratory,photo_url,price_pph,price_ppv,full_description")
-          .eq("is_active", true)
-          .or(productNameOrLaboratoryIlikeOr(sanitized))
-          .order("name")
-          .limit(PRODUCT_CATALOG_SEARCH_LIMIT);
-        if (error || !Array.isArray(data)) {
+        try {
+          const data = await searchPharmacyCatalog(supabase, request.pharmacy_id, sanitized);
+          setOrdonnanceAltHits(mapUnifiedCatalogHitsPhotoUrls(data, resolvePublicMediaUrl));
+        } catch {
           setOrdonnanceAltHits([]);
-          return;
         }
-        setOrdonnanceAltHits(
-          (data as ProductCatalogHit[]).map((p) => ({
-            ...p,
-            photo_url: resolvePublicMediaUrl(p.photo_url ?? null),
-          }))
-        );
       })();
     }, 280);
     return () => window.clearTimeout(t);
-  }, [ordonnanceAltDebounced, ordonnanceQuickAddOpen]);
+  }, [ordonnanceAltDebounced, ordonnanceQuickAddOpen, request?.pharmacy_id]);
 
   const setField = (itemId: string, field: keyof ItemDraft, value: string) => {
     setDraft((prev) => ({
@@ -3112,10 +3159,18 @@ export default function PharmacienDemandeDetailPage() {
       }
     }
     const expectedDateValue = needsEta && etaYmd ? etaYmd : null;
-    if (pharmacistRequestCatalogProductIdBlocked(pick.id, displayRows, draft, catalogBlockRequestStatus)) {
+    if (
+      pharmacistRequestCatalogRefBlocked(
+        { source: pick.source, id: pick.id },
+        displayRows,
+        draft,
+        catalogBlockRequestStatus
+      )
+    ) {
       setError(pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null));
       return;
     }
+    const catalogFields = catalogHitToRequestItemFields(pick);
     const postConfirmImmediatePersist =
       !!request && ["confirmed", "treated"].includes(request.status);
     if (deferPersistOfficineAdditions) {
@@ -3127,7 +3182,9 @@ export default function PharmacienDemandeDetailPage() {
       const syntheticId = newLocalProposedId();
       const syntheticRow: ItemRow = {
         id: syntheticId,
-        product_id: pick.id,
+        product_id: catalogFields.product_id,
+        pharmacy_product_id: catalogFields.pharmacy_product_id,
+        line_product_kind: catalogFields.line_product_kind,
         requested_qty: requestedQty,
         availability_status: avail,
         available_qty: safeAvailableQty,
@@ -3182,16 +3239,35 @@ export default function PharmacienDemandeDetailPage() {
             const mergedExisting = pendingAltsAsRankedDb(prev, syntheticId);
             let next = [...prev];
             for (const alt of altPicks.slice(0, 3)) {
-              if (alt.id === pick.id) continue;
+              if (alt.id === pick.id && (alt.source ?? "global") === pick.source) continue;
               const mergedForRank = [
                 ...mergedExisting,
                 ...pendingAltsAsRankedDb(next, syntheticId),
               ];
-              if (mergedForRank.some((a) => a.product_id === alt.id)) {
+              const altFields = catalogHitToRequestItemFields({
+                source: alt.source ?? "global",
+                id: alt.id,
+              });
+              if (
+                mergedForRank.some(
+                  (a) =>
+                    (a.pharmacy_product_id &&
+                      altFields.pharmacy_product_id &&
+                      a.pharmacy_product_id === altFields.pharmacy_product_id) ||
+                    (a.product_id && altFields.product_id && a.product_id === altFields.product_id)
+                )
+              ) {
                 altValidationError = "Cette alternative figure déjà sur cette ligne.";
                 return prev;
               }
-              if (pharmacistRequestCatalogProductIdBlocked(alt.id, displayRows, draft, catalogBlockRequestStatus)) {
+              if (
+                pharmacistRequestCatalogRefBlocked(
+                  { source: alt.source ?? "global", id: alt.id },
+                  displayRows,
+                  draft,
+                  catalogBlockRequestStatus
+                )
+              ) {
                 altValidationError = pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null);
                 return prev;
               }
@@ -3213,7 +3289,9 @@ export default function PharmacienDemandeDetailPage() {
                   localAltId: newLocalAltId(),
                   parentItemId: syntheticId,
                   rank,
-                  product_id: alt.id,
+                  product_id: altFields.product_id,
+                  pharmacy_product_id: altFields.pharmacy_product_id,
+                  line_product_kind: altFields.line_product_kind,
                   availability_status: "available",
           available_qty: Math.max(1, alt.available_qty ?? availableQty),
           pharmacist_comment: null,
@@ -3259,7 +3337,7 @@ export default function PharmacienDemandeDetailPage() {
       .from("request_items")
       .insert({
         request_id: id,
-        product_id: pick.id,
+        ...catalogFields,
         requested_qty: requestedQty,
         availability_status: avail,
         available_qty: availableQty,
@@ -3283,22 +3361,34 @@ export default function PharmacienDemandeDetailPage() {
     if (insertedRow?.id && altPicks.length > 0) {
       let rank = 1;
       for (const alt of altPicks.slice(0, 3)) {
-        if (alt.id === pick.id) continue;
-        if (pharmacistRequestCatalogProductIdBlocked(alt.id, displayRows, draft, catalogBlockRequestStatus)) {
+        if (alt.id === pick.id && (alt.source ?? "global") === pick.source) continue;
+        if (
+          pharmacistRequestCatalogRefBlocked(
+            { source: alt.source ?? "global", id: alt.id },
+            displayRows,
+            draft,
+            catalogBlockRequestStatus
+          )
+        ) {
           setPropBusy(false);
           setError(pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null));
           return;
         }
+        const altFields = catalogHitToRequestItemFields({
+          source: alt.source ?? "global",
+          id: alt.id,
+        });
         const prefPrice = resolveCatalogPrice(
           catalogHitToPricingInput({
             ...alt,
             product_type: alt.product_type ?? "parapharmacie",
+            source: alt.source ?? "global",
           })
         );
         const { error: altErr } = await supabase.from("request_item_alternatives").insert({
           request_item_id: insertedRow.id,
           rank,
-          product_id: alt.id,
+          ...altFields,
           availability_status: "available",
           available_qty: Math.max(1, alt.available_qty ?? availableQty),
           pharmacist_comment: null,
@@ -3333,13 +3423,21 @@ export default function PharmacienDemandeDetailPage() {
   };
 
   const insertAlternative = async (parentRow: ItemRow, pick: ProductCatalogHit) => {
-    const catalogProductId = pick.id;
+    const pickFields = catalogHitToRequestItemFields(pick);
     setError("");
-    if (catalogProductId === parentRow.product_id) {
+    const parentRef = catalogLineRefFromRow(parentRow);
+    if (parentRef && catalogLineRefKey(parentRef) === unifiedCatalogHitKey(pick)) {
       setError("Choisis un produit différent de la ligne principale.");
       return;
     }
-    if (pharmacistRequestCatalogProductIdBlocked(catalogProductId, displayRows, draft, catalogBlockRequestStatus)) {
+    if (
+      pharmacistRequestCatalogRefBlocked(
+        { source: pick.source, id: pick.id },
+        displayRows,
+        draft,
+        catalogBlockRequestStatus
+      )
+    ) {
       setError(pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null));
       return;
     }
@@ -3355,7 +3453,15 @@ export default function PharmacienDemandeDetailPage() {
             ...normalizeAlts(parentRow.request_item_alternatives),
             ...pendingAltsAsRankedDb(prev, parentRow.id),
           ];
-          if (mergedExisting.some((a) => a.product_id === catalogProductId)) {
+          if (
+            mergedExisting.some(
+              (a) =>
+                (a.pharmacy_product_id &&
+                  pickFields.pharmacy_product_id &&
+                  a.pharmacy_product_id === pickFields.pharmacy_product_id) ||
+                (a.product_id && pickFields.product_id && a.product_id === pickFields.product_id)
+            )
+          ) {
             validationError = "Cette alternative figure déjà sur cette ligne.";
             return prev;
           }
@@ -3373,7 +3479,9 @@ export default function PharmacienDemandeDetailPage() {
               localAltId,
               parentItemId: parentRow.id,
               rank,
-              product_id: catalogProductId,
+              product_id: pickFields.product_id,
+              pharmacy_product_id: pickFields.pharmacy_product_id,
+              line_product_kind: pickFields.line_product_kind,
               availability_status: "available",
               available_qty: Math.max(1, parentRow.requested_qty),
               pharmacist_comment: null,
@@ -3404,7 +3512,15 @@ export default function PharmacienDemandeDetailPage() {
     }
     const existing = normalizeAlts(parentRow.request_item_alternatives);
     const rank = nextAltRank(existing);
-    if (existing.some((a) => a.product_id === catalogProductId)) {
+    if (
+      existing.some(
+        (a) =>
+          (a.pharmacy_product_id &&
+            pickFields.pharmacy_product_id &&
+            a.pharmacy_product_id === pickFields.pharmacy_product_id) ||
+          (a.product_id && pickFields.product_id && a.product_id === pickFields.product_id)
+      )
+    ) {
       setError("Cette alternative figure déjà sur cette ligne.");
       return;
     }
@@ -3417,7 +3533,7 @@ export default function PharmacienDemandeDetailPage() {
     const { error: insErr } = await supabase.from("request_item_alternatives").insert({
       request_item_id: parentRow.id,
       rank,
-      product_id: catalogProductId,
+      ...pickFields,
       availability_status: "available",
       available_qty: Math.max(1, parentRow.requested_qty),
       pharmacist_comment: null,
@@ -3587,7 +3703,7 @@ export default function PharmacienDemandeDetailPage() {
           .from("request_items")
           .insert({
             request_id: id,
-            product_id: row.product_id,
+            ...requestItemFieldsFromStoredRow(row),
             requested_qty: requestedQty,
             line_source: "patient_request",
             pharmacist_proposal_reason: null,
@@ -3675,7 +3791,7 @@ export default function PharmacienDemandeDetailPage() {
         .from("request_items")
         .insert({
           request_id: id,
-          product_id: row.product_id,
+          ...requestItemFieldsFromStoredRow(row),
           requested_qty: qtyLine,
           line_source: "pharmacist_proposed",
           pharmacist_proposal_reason: row.pharmacist_proposal_reason,
@@ -5755,7 +5871,7 @@ export default function PharmacienDemandeDetailPage() {
                               brand: prod.brand,
                             }
                           : null,
-                        row.product_id
+                        row.product_id ?? undefined
                       )
                     ).replace("\u00A0DH", "\u00A0MAD");
               const co = row.counter_outcome ?? "unset";
@@ -6568,6 +6684,13 @@ export default function PharmacienDemandeDetailPage() {
                           onClose={() => resetAltPicker(row.id)}
                           pricingConfig={pricingConfig}
                           onPhotoPreview={openProductPhotoPreview}
+                          onAddCustomProduct={() => {
+                            setCatalogAddPrefill(altQuery.trim());
+                            setCatalogAddAfterCreate(() => (hit: ProductCatalogHit) => {
+                              void insertAlternative(row, hit);
+                            });
+                            setCatalogAddModalOpen(true);
+                          }}
                         />
                       ) : null}
                     </>
@@ -7082,7 +7205,7 @@ export default function PharmacienDemandeDetailPage() {
                               const ap = catalogPriceMadLabel(
                                 pricingConfig,
                                 one(alt.products),
-                                alt.product_id,
+                                alt.product_id ?? undefined,
                                 alt.unit_price
                               );
                               return (
@@ -7461,7 +7584,7 @@ export default function PharmacienDemandeDetailPage() {
                           propAvailability === "to_order" &&
                           !propExpectedDate.trim();
                         return (
-                        <li key={h.id}>
+                        <li key={unifiedCatalogHitKey(h)}>
                           <button
                             type="button"
                             disabled={propBusy || Boolean(needsEtaBeforePick)}
@@ -7496,6 +7619,11 @@ export default function PharmacienDemandeDetailPage() {
                             <span className="min-w-0 flex-1">
                               <span className="block font-medium text-foreground">{h.name}</span>
                               <ProductCatalogMetaLabel productType={h.product_type} brand={h.brand} />
+                              {h.source === "pharmacy" ? (
+                                <span className="mt-0.5 block text-[10px] font-medium text-violet-700">
+                                  Mon catalogue
+                                </span>
+                              ) : null}
                               {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h)) !== "—" ? (
                                 <span className="mt-0.5 block text-[11px] font-medium text-teal-800">
                                   PU {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h))}
@@ -7510,6 +7638,28 @@ export default function PharmacienDemandeDetailPage() {
                   ) : propDebounced.length >= 2 ? (
                     <p className="text-[11px] text-muted-foreground">Aucun résultat.</p>
                   ) : null}
+                  <CatalogProductAddButton
+                    query={propQuery}
+                    debouncedLen={propDebounced.length}
+                    hitCount={propVisibleHits.length}
+                    variant="sky"
+                    disabled={propBusy}
+                    onClick={() => {
+                      setCatalogAddPrefill(propQuery.trim());
+                      setCatalogAddAfterCreate(() => (hit: ProductCatalogHit) => {
+                        void insertPharmacistProposedLine(hit, {
+                          lineKind: isPrescription ? "proposed" : undefined,
+                          qty: isProductRequestSent
+                            ? 1
+                            : Math.min(
+                                PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX,
+                                Math.max(1, parseInt(propQty, 10) || 1)
+                              ),
+                        });
+                      });
+                      setCatalogAddModalOpen(true);
+                    }}
+                  />
                 </div>
               ) : null}
             </section>
@@ -8231,8 +8381,15 @@ export default function PharmacienDemandeDetailPage() {
           altHits={ordonnanceAltVisibleHits}
           onAddAlternative={(h) => {
             if (ordonnanceQuickAlternatives.length >= 3) return;
-            if (h.id === ordonnanceQuickAddPick?.id) return;
-            if (pharmacistRequestCatalogProductIdBlocked(h.id, displayRows, draft, catalogBlockRequestStatus)) {
+            if (h.id === ordonnanceQuickAddPick?.id && (h.source ?? "global") === ordonnanceQuickAddPick?.source) return;
+            if (
+              pharmacistRequestCatalogRefBlocked(
+                { source: h.source ?? "global", id: h.id },
+                displayRows,
+                draft,
+                catalogBlockRequestStatus
+              )
+            ) {
               setError(pharmacistRequestCatalogProductBlockMessageFr(request?.status ?? null));
               return;
             }
@@ -8241,6 +8398,7 @@ export default function PharmacienDemandeDetailPage() {
               ...prev,
               {
                 id: h.id,
+                source: h.source ?? "global",
                 name: h.name,
                 product_type: h.product_type,
                 price_pph: h.price_pph ?? null,
@@ -8253,6 +8411,39 @@ export default function PharmacienDemandeDetailPage() {
             setOrdonnanceAltQuery("");
             setOrdonnanceAltHits([]);
           }}
+          onAddCatalogProduct={() => {
+            setCatalogAddPrefill(propQuery.trim() || ordonnanceAltQuery.trim());
+            setCatalogAddAfterCreate(() => (hit: ProductCatalogHit) => {
+              if (ordonnanceQuickAddPick) {
+                if (ordonnanceQuickAlternatives.length >= 3) return;
+                setOrdonnanceQuickAlternatives((prev) => [
+                  ...prev,
+                  {
+                    id: hit.id,
+                    source: hit.source,
+                    name: hit.name,
+                    product_type: hit.product_type,
+                    price_pph: hit.price_pph ?? null,
+                    price_ppv: hit.price_ppv ?? null,
+                    photo_url: hit.photo_url ?? null,
+                    full_description: hit.full_description ?? null,
+                    available_qty: Math.max(
+                      1,
+                      clampOrdonnanceRequestedQty(parseInt(ordonnanceQuickRequestedQty, 10) || 1)
+                    ),
+                  },
+                ]);
+              } else {
+                setOrdonnanceQuickAddPick(hit);
+                setPropQuery("");
+                setPropHits([]);
+              }
+            });
+            setCatalogAddModalOpen(true);
+          }}
+          catalogSearchQuery={propQuery}
+          catalogSearchDebouncedLen={propDebounced.length}
+          catalogHitCount={propVisibleHits.length}
           onAlternativeQtyChange={(productId, qty) => {
             setOrdonnanceQuickAlternatives((prev) =>
               prev.map((a) => (a.id === productId ? { ...a, available_qty: qty } : a))
@@ -8380,6 +8571,19 @@ export default function PharmacienDemandeDetailPage() {
           }}
         />
       ) : null}
+      <PharmacyCatalogProductFormModal
+        open={catalogAddModalOpen}
+        prefillName={catalogAddPrefill}
+        onClose={() => {
+          setCatalogAddModalOpen(false);
+          setCatalogAddAfterCreate(null);
+        }}
+        onCreated={(hit) => {
+          catalogAddAfterCreate?.(hit);
+          setCatalogAddModalOpen(false);
+          setCatalogAddAfterCreate(null);
+        }}
+      />
       <LineHistoryModalFr
         open={pharmaHistoryRowId != null}
         title={

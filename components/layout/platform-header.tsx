@@ -203,6 +203,7 @@ export const pharmacienNavMenu: PlatformNavBlock[] = [
     heading: "Officine & visibilité",
     items: [
       { href: "/dashboard/pharmacien/clients", label: "Clients", icon: Users },
+      { href: "/dashboard/pharmacien/mes-produits", label: "Mes produits", icon: Package },
       { href: "/dashboard/pharmacien/ma-fiche", label: "Ma fiche publique", icon: Store },
       { href: "/dashboard/pharmacien/horaires-garde", label: "Horaires et garde", icon: CalendarClock },
       { href: "/dashboard/pharmacien/offres-promos", label: "Offres et promos", icon: Gift },

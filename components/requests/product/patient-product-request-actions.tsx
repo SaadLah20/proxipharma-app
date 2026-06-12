@@ -228,7 +228,9 @@ type ProdBrief = {
 export type ActionItemAltRow = {
   id: string;
   rank: number;
-  product_id: string;
+  product_id: string | null;
+  pharmacy_product_id?: string | null;
+  line_product_kind?: string | null;
   availability_status: string | null;
   available_qty: number | null;
   unit_price: number | null;
@@ -239,7 +241,9 @@ export type ActionItemAltRow = {
 
 export type ActionItemRow = {
   id: string;
-  product_id: string;
+  product_id: string | null;
+  pharmacy_product_id?: string | null;
+  line_product_kind?: string | null;
   requested_qty: number;
   selected_qty: number | null;
   is_selected_by_patient: boolean;
@@ -328,7 +332,7 @@ function monetaryTotalsForRetainedLines(
   for (const row of rows) {
     if (!row.is_selected_by_patient || row.withdrawn_after_confirm) continue;
     count += 1;
-    const unit = validatedBranchUnitPriceMad(row, pricingConfig, row.product_id);
+    const unit = validatedBranchUnitPriceMad(row, pricingConfig, row.product_id ?? undefined);
     const qty = patientDisplayQtyForLine(row, requestStatus);
     if (unit == null) missingPrice = true;
     else sumKnown += unit * qty;
@@ -390,7 +394,7 @@ export function PatientValidatedCompactLineCard({
   const validatedBrand = validatedProductBrand(row);
   const descriptionHtml = validatedBranchDescriptionHtml(row);
   const displayQty = patientDisplayQtyForLine(row, requestStatusForCard);
-  const unitMad = validatedBranchUnitPriceMad(row, pricingConfig, row.product_id);
+  const unitMad = validatedBranchUnitPriceMad(row, pricingConfig, row.product_id ?? undefined);
   const lineTotalMad = unitMad != null ? unitMad * displayQty : null;
   const thumbUrl = resolvePublicMediaUrl(validatedBranchPhotoPath(row));
 
@@ -736,8 +740,10 @@ function computeResubmitLinesFromItems(
   resolveCatalog: ((row: ActionItemRow) => number | null) | undefined,
   productFallback: string,
 ): ResubmitLine[] {
-  return items.map((row) => ({
-    product_id: row.product_id,
+  return items
+    .filter((row) => row.product_id || row.pharmacy_product_id)
+    .map((row) => ({
+      product_id: (row.product_id ?? row.pharmacy_product_id)!,
     name: one(row.products)?.name ?? productFallback,
     brand: one(row.products)?.brand ?? null,
     product_type: one(row.products)?.product_type ?? null,
@@ -899,12 +905,12 @@ function PatientArchiveFrozenProductsView({
       <ul className={patientBucketProductListClass}>
         {items.map((row) => {
           const prod = one(row.products);
-          const unit = validatedBranchUnitPriceMad(row, pricingConfig, row.product_id);
+          const unit = validatedBranchUnitPriceMad(row, pricingConfig, row.product_id ?? undefined);
           return (
             <PatientProductRequestCompactLine
               key={row.id}
               line={{
-                product_id: row.product_id,
+                product_id: row.product_id ?? row.pharmacy_product_id ?? "",
                 name: prod?.name ?? tCommon("product"),
                 product_type: prod?.product_type ?? null,
                 photo_url: prod?.photo_url ?? null,
@@ -2032,7 +2038,7 @@ export function PatientProductRequestActions({
                 brand: prod.brand,
               }
             : null,
-          row.product_id
+          row.product_id ?? undefined
         )
       );
     },
@@ -2432,7 +2438,7 @@ export function PatientProductRequestActions({
               const alt = alts.find((a) => a.id === st.branch);
               if (!alt) return null;
               const altProd = one(alt.products);
-              return alt.unit_price ?? resolveCatalogUnitPriceForProduct(alt.product_id, altProd);
+              return alt.unit_price ?? resolveCatalogUnitPriceForProduct(alt.product_id ?? "", altProd);
             })();
       if (branchPrice != null && Number.isFinite(Number(branchPrice))) {
         total += Number(branchPrice) * effQty;

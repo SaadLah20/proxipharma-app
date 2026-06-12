@@ -1,4 +1,5 @@
 import type { ProductPricingInput } from "./types";
+import type { CatalogProductSource, UnifiedCatalogHit } from "@/lib/pharmacy-catalog-types";
 
 export type ProductEmbedLike = {
   product_type?: string | null;
@@ -33,12 +34,17 @@ export function catalogHitToPricingInput(hit: {
   price_pph?: number | null;
   price_ppv?: number | null;
   brand?: string | null;
+  source?: CatalogProductSource;
 }): ProductPricingInput {
   return {
-    product_id: hit.id,
+    product_id: hit.source === "pharmacy" ? undefined : hit.id,
     product_type: hit.product_type,
     price_pph: hit.price_pph ?? null,
     price_ppv: hit.price_ppv ?? null,
     brand: hit.brand ?? null,
   };
+}
+
+export function unifiedCatalogHitToPricingInput(hit: UnifiedCatalogHit): ProductPricingInput {
+  return catalogHitToPricingInput(hit);
 }
