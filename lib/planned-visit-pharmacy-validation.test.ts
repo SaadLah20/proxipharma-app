@@ -22,9 +22,9 @@ describe("validatePlannedVisitAgainstPharmacy", () => {
     if (!result.ok) assert.equal(result.code, "too_soon");
   });
 
-  it("accepts visit time at least 30 minutes from now in open slot", () => {
+  it("accepts visit time 32 minutes from now in open slot", () => {
     const now = casablancaNow(2026, 6, 11, 14, 0);
-    const result = validatePlannedVisitAgainstPharmacy(bundle, "2026-06-11", "14:30", now);
+    const result = validatePlannedVisitAgainstPharmacy(bundle, "2026-06-11", "14:32", now);
     assert.equal(result.ok, true);
   });
 

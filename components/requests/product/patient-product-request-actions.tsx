@@ -67,6 +67,7 @@ import {
 } from "@/lib/annuaire/schedule-bundle";
 import {
   validatePlannedVisitAgainstPharmacy,
+  validatePlannedVisitMinLead,
   type PlannedVisitPharmacyValidationResult,
 } from "@/lib/planned-visit-pharmacy-validation";
 import {
@@ -1775,12 +1776,21 @@ function validateVisitPassageSchedule(
   if (scheduleLoading) {
     return { ok: false, message: copy.scheduleLoading, focus: "visit_passage" };
   }
+
+  const timeTrimmed = visitTimeComposed.trim();
+  if (timeTrimmed !== "") {
+    const lead = validatePlannedVisitMinLead(resolvedVisitDate, timeTrimmed);
+    if (!lead.ok) {
+      return { ok: false, message: copy.visitTimeTooSoon, focus: "visit_passage" };
+    }
+  }
+
   if (!scheduleBundle) return null;
 
   const result = validatePlannedVisitAgainstPharmacy(
     scheduleBundle,
     resolvedVisitDate,
-    visitTimeComposed.trim() !== "" ? visitTimeComposed : null,
+    timeTrimmed !== "" ? timeTrimmed : null,
   );
   if (result.ok) return null;
   return {
@@ -2807,6 +2817,30 @@ export function PatientProductRequestActions({
       setActionError(staleActionMessage ?? "");
       return;
     }
+
+    const snapTimeHm = confirmReviewSnap.plannedVisitTimePg
+      ? confirmReviewSnap.plannedVisitTimePg.slice(0, 5)
+      : "";
+    const preflight = validatePatientConfirmBeforeReview(
+      items,
+      sel,
+      confirmReviewSnap.rpcPayload,
+      visitWin,
+      confirmReviewSnap.plannedVisitDate,
+      confirmReviewSnap.plannedVisitDate,
+      snapTimeHm,
+      pharmacyId,
+      activeScheduleBundle,
+      activeScheduleLoading,
+      { ...validationCopy, ...confirmLineCopy },
+      formatMaxVisitDate,
+    );
+    if (!preflight.ok) {
+      closeConfirmReview();
+      applyConfirmValidationError(preflight);
+      return;
+    }
+
     setActionError("");
     setBusyAction("confirm");
     const selections = confirmReviewSnap.rpcPayload.map((p) => ({
@@ -2835,6 +2869,13 @@ export function PatientProductRequestActions({
         setActionError(msg);
       } else if (/selected_qty out of range|Quantité invalide pour cette ligne/i.test(msg)) {
         setActionError(tValidation("qtyExceedsServer"));
+      } else if (/30 minutes|30 min/i.test(msg)) {
+        closeConfirmReview();
+        applyConfirmValidationError({
+          ok: false,
+          message: validationCopy.visitTimeTooSoon,
+          focus: "visit_passage",
+        });
       } else {
         setActionError(msg);
       }

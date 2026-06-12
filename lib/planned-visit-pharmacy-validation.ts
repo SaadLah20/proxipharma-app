@@ -9,12 +9,29 @@ import {
 } from "@/lib/pharmacy-schedule-fr";
 import { pharmacyScheduleLabelsForLocale } from "@/lib/pharmacy-schedule-labels";
 
+const CASABLANCA_TZ = "Africa/Casablanca";
+
+function casablancaDateTimeParts(now: Date): { dateIso: string; minutes: number } {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: CASABLANCA_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+  const hour = Number.parseInt(get("hour"), 10) || 0;
+  const minute = Number.parseInt(get("minute"), 10) || 0;
+  return {
+    dateIso: `${get("year")}-${get("month")}-${get("day")}`,
+    minutes: hour * 60 + minute,
+  };
+}
+
 function todayIsoFromNow(now: Date): string {
-  const local = new Date(now.toLocaleString("en-US", { timeZone: "Africa/Casablanca" }));
-  const y = local.getFullYear();
-  const m = String(local.getMonth() + 1).padStart(2, "0");
-  const day = String(local.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return casablancaDateTimeParts(now).dateIso;
 }
 
 export const PLANNED_VISIT_MIN_LEAD_MINUTES = 30;
@@ -33,8 +50,25 @@ export type PlannedVisitPharmacyValidationResult =
     };
 
 function minutesNowInCasablanca(now: Date): number {
-  const local = new Date(now.toLocaleString("en-US", { timeZone: "Africa/Casablanca" }));
-  return local.getHours() * 60 + local.getMinutes();
+  return casablancaDateTimeParts(now).minutes;
+}
+
+/** Délai minimum 30 min (fuseau Casablanca), sans horaires officine. */
+export function validatePlannedVisitMinLead(
+  dateYmd: string,
+  timeHm: string,
+  now: Date = new Date(),
+): { ok: true } | { ok: false; code: "too_soon" } {
+  const dateIso = dateYmd.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return { ok: true };
+  const visitMinutes = parseTimeHmToMinutes(timeHm.trim());
+  if (visitMinutes == null) return { ok: true };
+  const { dateIso: today, minutes: nowMinutes } = casablancaDateTimeParts(now);
+  if (dateIso !== today) return { ok: true };
+  if (visitMinutes < nowMinutes + PLANNED_VISIT_MIN_LEAD_MINUTES) {
+    return { ok: false, code: "too_soon" };
+  }
+  return { ok: true };
 }
 
 function formatMinutesFr(minutes: number): string {

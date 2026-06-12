@@ -1,12 +1,14 @@
-/** Bornes locale (navigateur) pour `<input type="date">`, alignées règle serveur Morocco + 4j / dernier ETA+3j */
+/** Bornes calendrier patient (fuseau Casablanca) pour `<input type="date">`, alignées serveur + 4j / dernier ETA+3j */
+
+import { todayIsoCasablanca } from "@/lib/pharmacy-schedule-fr";
 
 function isoDateParts(d: Date): { y: number; m: number; da: number } {
   return { y: d.getFullYear(), m: d.getMonth() + 1, da: d.getDate() };
 }
 
+/** Aujourd’hui en Africa/Casablanca (YYYY-MM-DD). */
 export function todayLocalIsoDate(): string {
-  const { y, m, da } = isoDateParts(new Date());
-  return `${y}-${String(m).padStart(2, "0")}-${String(da).padStart(2, "0")}`;
+  return todayIsoCasablanca();
 }
 
 /** Plafond calendrier « réception prévue » (défaut +5 ans). */
