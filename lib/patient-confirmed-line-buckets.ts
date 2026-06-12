@@ -60,15 +60,14 @@ export type PatientLineLike = {
 
 type LineAltRow = {
   id: string;
-  product_id?: string;
+  product_id?: string | null;
+  pharmacy_product_id?: string | null;
   availability_status: string | null;
   available_qty: number | null;
   unit_price: number | null;
   expected_availability_date: string | null;
-        products?:
-          | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }
-          | { name?: string | null; price_pph?: number | string | null; photo_url?: string | null }[]
-          | null;
+  products?: RequestLineProductEmbed | RequestLineProductEmbed[] | null;
+  pharmacy_catalog_products?: RequestLineProductEmbed | RequestLineProductEmbed[] | null;
 };
 
 export function altRowsOf(line: PatientLineLike): LineAltRow[] {

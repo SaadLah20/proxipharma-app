@@ -1,7 +1,7 @@
 import { one } from "@/lib/embed";
 
 export type RequestLineProductEmbed = {
-  name: string;
+  name?: string | null;
   product_type?: string | null;
   brand?: string | null;
   laboratory?: string | null;
