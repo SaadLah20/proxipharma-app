@@ -34,6 +34,14 @@ export function requestLineProductName(row: EmbeddableRow | null | undefined, fa
   return requestLineProductEmbed(row)?.name?.trim() || fallback;
 }
 
+/** Identifiant catalogue pour résolution prix (global ou privé officine). */
+export function requestLineCatalogProductId(row: {
+  product_id?: string | null;
+  pharmacy_product_id?: string | null;
+}): string | undefined {
+  return row.pharmacy_product_id ?? row.product_id ?? undefined;
+}
+
 /** Normalise les lignes chargées : expose toujours `products` pour l'UI existante. */
 export function normalizeRequestItemRowEmbed<T extends EmbeddableRow>(row: T): T {
   const embed = requestLineProductEmbed(row);
