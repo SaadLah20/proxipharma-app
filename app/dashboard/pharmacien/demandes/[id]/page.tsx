@@ -235,7 +235,9 @@ import {
   pharmacistProductSectionTitleClass,
 } from "@/lib/pharmacist-product-dossier-shell";
 import { PharmacistAltCatalogPicker } from "@/components/pharmacist/pharmacist-alt-catalog-picker";
+import { PharmacistManualRequestLineCard } from "@/components/pharmacist/pharmacist-manual-request-line-card";
 import { PharmacistAlternativeLinePanel } from "@/components/pharmacist/pharmacist-alternative-line-panel";
+import { isUnresolvedManualRequestItem } from "@/lib/patient-manual-product-line";
 import { PharmacistLineAlternativesTabs } from "@/components/pharmacist/pharmacist-line-alternatives-tabs";
 import { PharmacienAvailabilityDropdown } from "@/components/pharmacist/pharmacien-availability-dropdown";
 import {
@@ -346,6 +348,8 @@ type ItemRow = {
   product_id: string | null;
   pharmacy_product_id?: string | null;
   line_product_kind?: string | null;
+  patient_requested_label?: string | null;
+  manual_resolved_at?: string | null;
   requested_qty: number;
   availability_status: string | null;
   available_qty: number | null;
@@ -4429,6 +4433,16 @@ export default function PharmacienDemandeDetailPage() {
       return;
     }
 
+    if (request.request_type === "product_request") {
+      const unresolvedManual = displayRows.filter(isUnresolvedManualRequestItem);
+      if (unresolvedManual.length > 0) {
+        setError(
+          "Associez chaque produit saisi par le patient au catalogue avant d'envoyer la réponse."
+        );
+        return;
+      }
+    }
+
     for (const row of displayRows) {
       const f = draft[row.id];
       if (!f?.availability_status) {
@@ -5890,6 +5904,41 @@ export default function PharmacienDemandeDetailPage() {
               const selected = Boolean(row.is_selected_by_patient);
               const lineLockedTrace = co === "cancelled_at_counter";
               const canEditThisRow = showLineAndPublishEdits && !lineLockedTrace && !archiveFrozen;
+
+              if (request.request_type === "product_request" && isUnresolvedManualRequestItem(row)) {
+                return (
+                  <Fragment key={row.id}>
+                    {header ? (
+                      <li className={clsx("list-none", entryIdx > 0 && "mt-2 pt-4")}>
+                        <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                          {header}
+                        </div>
+                      </li>
+                    ) : null}
+                    <li className="list-none">
+                      <PharmacistManualRequestLineCard
+                        requestItemId={row.id}
+                        patientLabel={row.patient_requested_label?.trim() || "Produit"}
+                        requestedQty={row.requested_qty}
+                        clientComment={row.client_comment}
+                        pharmacistComment={f.pharmacist_comment}
+                        pharmacyId={request.pharmacy_id}
+                        pricingConfig={pricingConfig}
+                        canEdit={canEditThisRow}
+                        busy={busy}
+                        convoOpen={lineConvoEffectiveRowId === row.id}
+                        onToggleConvo={() =>
+                          setLineConvoRowId((cur) => (cur === row.id ? null : row.id))
+                        }
+                        onLinked={() => load()}
+                        onPhotoPreview={openProductPhotoPreview}
+                        onError={setError}
+                      />
+                    </li>
+                  </Fragment>
+                );
+              }
+
               const rowAlts = normalizeAlts(row.request_item_alternatives);
               const showVariantTabs =
                 (usePharmaSentLineLayout &&

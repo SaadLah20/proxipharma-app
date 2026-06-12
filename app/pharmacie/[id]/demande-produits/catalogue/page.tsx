@@ -30,6 +30,14 @@ import { ProductCatalogExplorerListRow } from "@/components/products/product-cat
 import { defaultProductCatalogExplorerFilters } from "@/lib/product-catalog-filters";
 import { useCatalogDistinctBrands } from "@/lib/use-catalog-distinct-brands";
 import { useProductCatalogExplorer } from "@/lib/use-product-catalog-explorer";
+import {
+  createManualDraftLineId,
+  draftLineKey,
+  normalizeManualProductLabel,
+} from "@/lib/patient-manual-product-line";
+import { PatientManualProductAddButton } from "@/components/catalog/patient-manual-product-add-button";
+import { PatientManualProductModal } from "@/components/catalog/patient-manual-product-modal";
+import { PRODUCT_CATALOG_SEARCH_MIN_CHARS } from "@/lib/product-catalog-search";
 
 export default function DemandeProduitsCataloguePage() {
   const td = useTranslations("demandePublic");
@@ -49,6 +57,8 @@ export default function DemandeProduitsCataloguePage() {
   );
   const [photoPreview, setPhotoPreview] = useState<CatalogProductPhotoPreview | null>(null);
   const [adding, setAdding] = useState(false);
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [manualModalPrefill, setManualModalPrefill] = useState("");
   const loadMoreSentinelRef = useRef<HTMLLIElement>(null);
   const listScrollRef = useRef<HTMLDivElement>(null);
   const loadMoreLockRef = useRef(false);
@@ -89,6 +99,32 @@ export default function DemandeProduitsCataloguePage() {
     const draft = readPatientDemandeProduitsDraft(pharmacyId, editRequestId);
     return new Set(draft.map((l) => l.product_id));
   }, [sessionReady, pharmacyId, editRequestId]);
+
+  const addManualProduct = (rawName: string) => {
+    const name = normalizeManualProductLabel(rawName);
+    if (name.length < 2 || !pharmacyId) return;
+    const key = `manual:${name.toLowerCase()}`;
+    const existing = readPatientDemandeProduitsDraft(pharmacyId, editRequestId);
+    if (existing.some((l) => draftLineKey(l) === key)) {
+      setManualModalOpen(false);
+      router.push(backHref);
+      return;
+    }
+    const merged = [
+      ...existing,
+      {
+        product_id: createManualDraftLineId(),
+        catalog_source: "manual" as const,
+        name,
+        photo_url: null,
+        qty: 1,
+      },
+    ];
+    writePatientDemandeProduitsDraft(pharmacyId, merged, editRequestId);
+    if (editRequestId) markPatientDemandeCatalogueReturnEdit(editRequestId);
+    setManualModalOpen(false);
+    router.push(backHref);
+  };
 
   const displayProducts = useMemo(
     () =>
@@ -236,7 +272,18 @@ export default function DemandeProduitsCataloguePage() {
           {loading ? (
             <p className="px-3 py-8 text-center text-sm text-muted-foreground">{tc("loading")}</p>
           ) : filtered.length === 0 ? (
-            <p className="px-3 py-8 text-center text-sm text-muted-foreground">{td("noProductsFound")}</p>
+            <div className="space-y-3 px-3 py-8">
+              <p className="text-center text-sm text-muted-foreground">{td("noProductsFound")}</p>
+              {filterQuery.trim().length >= PRODUCT_CATALOG_SEARCH_MIN_CHARS ? (
+                <PatientManualProductAddButton
+                  query={filterQuery}
+                  onClick={() => {
+                    setManualModalPrefill(filterQuery.trim());
+                    setManualModalOpen(true);
+                  }}
+                />
+              ) : null}
+            </div>
           ) : (
             <div
               ref={listScrollRef}
@@ -308,6 +355,14 @@ export default function DemandeProduitsCataloguePage() {
         descriptionHtml={photoPreview?.descriptionHtml}
         catalogExplorerPreview={photoPreview?.catalogExplorerPreview}
         onClose={() => setPhotoPreview(null)}
+      />
+
+      <PatientManualProductModal
+        key={manualModalPrefill}
+        open={manualModalOpen}
+        initialName={manualModalPrefill}
+        onClose={() => setManualModalOpen(false)}
+        onConfirm={addManualProduct}
       />
     </main>
   );
