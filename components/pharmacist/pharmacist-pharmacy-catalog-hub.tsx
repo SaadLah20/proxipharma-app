@@ -71,7 +71,8 @@ export function PharmacistPharmacyCatalogHub() {
   }, []);
 
   useEffect(() => {
-    void load();
+    const tid = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(tid);
   }, [load]);
 
   const filtered = useMemo(() => {
