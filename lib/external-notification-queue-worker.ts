@@ -4,8 +4,8 @@ import { normalizePhoneToE164 } from "@/lib/phone-e164";
 import { appendSmsRequestLinkIfEnabled } from "@/lib/sms-request-short-link";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import {
-  WHATSAPP_PATIENT_EVENT_TYPES,
   buildWhatsAppContentVariables,
+  isWhatsAppEventAllowed,
   resolveWhatsAppContentSid,
   sendWhatsAppViaTwilio,
   type WhatsAppDispatchResult,
@@ -55,6 +55,7 @@ type RequestMeta = {
   id: string;
   request_type: string | null;
   request_public_ref: string | null;
+  patient_id: string | null;
   pharmacies: { nom: string | null } | { nom: string | null }[] | null;
 };
 
@@ -401,8 +402,14 @@ export async function processExternalNotificationQueue(args: {
   const roleByRecipient = new Map<string, string>();
   const requestMetaById = new Map<
     string,
-    { requestType: string | null; requestPublicRef: string | null; pharmacyName: string | null }
+    {
+      requestType: string | null;
+      requestPublicRef: string | null;
+      pharmacyName: string | null;
+      patientName: string | null;
+    }
   >();
+  const patientNameById = new Map<string, string>();
 
   if (recipientIds.length > 0) {
     const { data: profiles } = await args.supabase.from("profiles").select("id,role").in("id", recipientIds);
@@ -415,15 +422,34 @@ export async function processExternalNotificationQueue(args: {
   if (requestIds.length > 0) {
     const { data: reqRows } = await args.supabase
       .from("requests")
-      .select("id,request_type,request_public_ref,pharmacies(nom)")
+      .select("id,request_type,request_public_ref,patient_id,pharmacies(nom)")
       .in("id", requestIds);
+    const patientIds = new Set<string>();
     for (const raw of (reqRows ?? []) as unknown as RequestMeta[]) {
       const pharmacy = Array.isArray(raw.pharmacies) ? raw.pharmacies[0] : raw.pharmacies;
+      if (raw.patient_id) patientIds.add(raw.patient_id);
       requestMetaById.set(raw.id, {
         requestType: raw.request_type ?? null,
         requestPublicRef: raw.request_public_ref ?? null,
         pharmacyName: pharmacy?.nom ?? null,
+        patientName: null,
       });
+    }
+    if (patientIds.size > 0) {
+      const { data: patientProfiles } = await args.supabase
+        .from("profiles")
+        .select("id,full_name")
+        .in("id", [...patientIds]);
+      for (const p of patientProfiles ?? []) {
+        const row = p as { id: string; full_name: string | null };
+        const name = (row.full_name ?? "").trim();
+        patientNameById.set(row.id, name || "Client");
+      }
+      for (const raw of (reqRows ?? []) as unknown as RequestMeta[]) {
+        if (!raw.patient_id) continue;
+        const meta = requestMetaById.get(raw.id);
+        if (meta) meta.patientName = patientNameById.get(raw.patient_id) ?? "Client";
+      }
     }
   }
 
@@ -431,30 +457,29 @@ export async function processExternalNotificationQueue(args: {
     args.channel === "sms" || args.channel === "whatsapp" ? loadSmsBlockedDestinations() : new Set<string>();
 
   for (const r of rows) {
-    if (
-      (args.channel === "sms" || args.channel === "whatsapp") &&
-      roleByRecipient.get(r.recipient_id) !== "patient"
-    ) {
+    const role = roleByRecipient.get(r.recipient_id);
+
+    if (args.channel === "sms" && role !== "patient") {
       failed++;
       await args.supabase
         .from("notification_external_queue")
         .update({
           status: "failed",
           attempt_count: maxAttempts,
-          last_error: `skipped: ${args.channel === "whatsapp" ? "WhatsApp" : "SMS"} réservé aux patients`,
+          last_error: "skipped: SMS réservé aux patients",
         })
         .eq("id", r.id);
       continue;
     }
 
-    if (args.channel === "whatsapp" && !WHATSAPP_PATIENT_EVENT_TYPES.has(r.event_type)) {
+    if (args.channel === "whatsapp" && !isWhatsAppEventAllowed({ role, eventType: r.event_type })) {
       failed++;
       await args.supabase
         .from("notification_external_queue")
         .update({
           status: "failed",
           attempt_count: maxAttempts,
-          last_error: "skipped: WhatsApp pilote limité à répondu / traité patient",
+          last_error: "skipped: WhatsApp pilote limité (patient répondu/traité, pharma nouvelle demande)",
         })
         .eq("id", r.id);
       continue;
@@ -489,7 +514,6 @@ export async function processExternalNotificationQueue(args: {
       continue;
     }
 
-    const role = roleByRecipient.get(r.recipient_id);
     const meta = requestMetaById.get(r.request_id);
 
     try {
@@ -502,7 +526,9 @@ export async function processExternalNotificationQueue(args: {
           throw new Error(`Missing WhatsApp Content SID for event ${r.event_type}`);
         }
         const contentVariables = buildWhatsAppContentVariables({
+          eventType: r.event_type,
           pharmacyName: meta?.pharmacyName ?? null,
+          patientName: meta?.patientName ?? null,
           requestPublicRef: meta?.requestPublicRef ?? null,
           requestId: r.request_id,
         });

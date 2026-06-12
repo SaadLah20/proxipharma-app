@@ -44,19 +44,19 @@ Document de référence (parcours patient, pharmacien, admin, notifications, mé
 | Service | Endpoint / canal | Utilisation | Variables d’environnement |
 |---------|------------------|-------------|---------------------------|
 | **Resend** | `https://api.resend.com/emails` | E-mails hors-app (file `notification_external_queue`, canal `email`) | `RESEND_API_KEY`, `EMAIL_FROM` |
-| **Twilio Content API (WhatsApp)** | Content API + Messages WhatsApp | Alertes métier patient P0 (`responded`, `treated`) — modèles Meta Utility | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, `TWILIO_WHATSAPP_CONTENT_SID_*` |
+| **Twilio Content API (WhatsApp)** | Content API + Messages WhatsApp | C-pilote : patient répondu (v2 link) + traité ; pharmacien nouvelle demande | `TWILIO_WHATSAPP_CONTENT_SID_*` |
 | **Twilio Messages** | `https://api.twilio.com/.../Messages.json` | **Legacy** — plus d’enqueue SMS métier (`20260811_001`) ; route test `/api/cron/test-external-sms` seulement | `TWILIO_SMS_FROM` (optionnel) |
 | **Twilio Verify** | Via **Supabase Auth** (Phone) | OTP inscription / reset téléphone (SMS ou WhatsApp selon config) — **≠** notifs métier | Config dashboard Supabase + compte Twilio |
 | **Supabase Auth API** | `GET .../auth/v1/user` | Vérification JWT sur routes API (`lib/verify-bearer-user.ts`) | Clés Supabase |
 
 **Implémentation** : `lib/external-notification-queue-worker.ts`, `lib/twilio-whatsapp.ts`.
 
-### Prévu (phase 2+ — templates Meta en attente)
+### Prévu (phase 2+ — templates Meta restants)
 
 | Service | Statut | Usage prévu |
 |---------|--------|-------------|
-| **WhatsApp CTA avec lien** | Pilotes Meta Pending | v2 répondu + nouvelle demande pharma ; routes `/r/`, `/rp/` |
-| **WhatsApp événements étendus** | Code après templates | 6 patient + 5 pharmacien — plan `.cursor/plans/whatsapp_notifs_phases_92071eea.plan.md` |
+| **WhatsApp traité v2 link** | Template à soumettre | Lien `/r/` sur événement traité |
+| **WhatsApp événements étendus** | Code après templates M2 | 4 patient + 4 pharmacien restants |
 | **SMTP personnalisé Supabase** | Recommandé prod | E-mails Auth (OTP, reset) via Resend/SendGrid côté Supabase |
 
 ---
@@ -97,6 +97,7 @@ Document de référence (parcours patient, pharmacien, admin, notifications, mé
 | `POST /api/admin/onboard-pharmacy` | Création officine + pharmacien | Supabase Auth Admin |
 | `POST /api/media/private-signed-url` | Lecture médias privés | Storage URL signée |
 | `GET /r/[token]` | Raccourci lien court → dossier patient | Redirection interne |
+| `GET /rp/[token]` | Raccourci lien court → dossier pharmacien | Redirection interne |
 | `POST /api/patient/prescription-page` | Ordonnance (serveur) | Storage / métier prescription |
 
 Protection crons / webhook : en-tête `Authorization: Bearer <CRON_SECRET>`.
