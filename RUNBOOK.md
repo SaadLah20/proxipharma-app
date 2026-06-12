@@ -296,43 +296,48 @@ Avant **`20260811_001`**, le pilote envoyait des SMS patient (`responded` / `tre
 
 ## 10) Notifications WhatsApp (Q35 — actif prod pilote)
 
-**État repo (juin 2026)** : worker **`channel=whatsapp`** livré et **activé Vercel** (`lib/twilio-whatsapp.ts`, `lib/external-notification-queue-worker.ts`) ; webhook `/api/webhooks/dispatch-external-sms` (e-mail + WhatsApp, **une ligne INSERT à la fois**) ; cron `/api/cron/send-external-whatsapp` (appelé aussi par le workflow e-mail §9) ; test `/api/cron/test-external-whatsapp`. Migration **`20260811_001`** : plus d’enqueue SMS métier — WhatsApp remplace SMS pour répondu / traité.
+**État repo (juin 2026)** : worker **`channel=whatsapp`** livré et **activé Vercel** (`lib/twilio-whatsapp.ts`, `lib/external-notification-queue-worker.ts`) ; webhook `/api/webhooks/dispatch-external-sms` (e-mail + WhatsApp, **une ligne INSERT à la fois**) ; cron `/api/cron/send-external-whatsapp` (appelé aussi par le workflow e-mail §9) ; test `/api/cron/test-external-whatsapp`. Migration **`20260811_001`** : plus d’enqueue SMS métier. Migration **`20260817_001`** : enqueue WhatsApp pharmacien **nouvelle demande** (C-pilote).
 
 **Infra Meta/Twilio — FAIT ✅** :
 - Expéditeur **+212770165668** (nom **Pharmeto**), sender Twilio **Online**
 - WABA **Miasmo** / Page **Pharmeto.ma**
-- **2 modèles Utility FR approuvés v1 (sans lien)** :
 
-| Événement | Template Twilio | Content SID |
-|-----------|-------------------|-------------|
-| `request_status:responded` | `copy_pharmeto_request_responded_fr` | `HXe97624f91a846e92c56ca0fe2fabd2d5` |
-| `request_status:treated` | `copy_pharmeto_request_treated_fr` | `HX5aa3d5e71dc6242ac53448fb95022f54` |
+**Modèles actifs (C-pilote — juin 2026)** :
 
-Corps type : `Pharmeto : {{1}} a répondu. Dossier {{2}}. Ouvrez l'application pour consulter.` (idem **traité**).
+| Événement | Rôle | Template Twilio | Content SID | Lien bouton |
+|-----------|------|-------------------|-------------|-------------|
+| `request_status:responded` | patient | `pharmeto_request_responded_fr_v2_link` | `HX887df3db18f89b20a78cfec865745d28` | `https://pharmeto.ma/r/{{3}}` |
+| `request_status:treated` | patient | `copy_pharmeto_request_treated_fr` (v1) | `HX5aa3d5e71dc6242ac53448fb95022f54` | — |
+| `request_status:submitted` | pharmacien | `pharmeto_pharmacy_new_request_fr` | `HX806ef0e68b7e5f2a6cc674b4637e4a60` | `https://pharmeto.ma/rp/{{3}}` |
 
-**En attente Meta (pilotes CTA avec lien — phase 2)** :
-- `pharmeto_request_responded_fr_v2_link` → `HX887df3db18f89b20a78cfec865745d28` (URL `https://pharmeto.ma/r/{{3}}`)
-- `pharmeto_pharmacy_new_request_fr` → `HX806ef0e68b7e5f2a6cc674b4637e4a60` (URL `https://pharmeto.ma/rp/{{3}}`)
+Variables template : `{{1}}` = officine (patient) ou nom patient (pharma) ; `{{2}}` = ref dossier (D042/26…) ; `{{3}}` = token lien court (UUID sans tirets).
 
-Ne pas basculer le code sur v2 tant que Meta n’a pas **Approved** les pilotes. Garder v1 en secours.
+**Secours v1 répondu** (sans lien, si rollback) : `copy_pharmeto_request_responded_fr` → `HXe97624f91a846e92c56ca0fe2fabd2d5`.
 
 **Variables Vercel** (en plus de `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN`) :
 - `TWILIO_WHATSAPP_FROM` = `whatsapp:+212770165668`
-- `TWILIO_WHATSAPP_CONTENT_SID_RESPONDED` = `HXe97624f91a846e92c56ca0fe2fabd2d5`
-- `TWILIO_WHATSAPP_CONTENT_SID_TREATED` = `HX5aa3d5e71dc6242ac53448fb95022f54`
+- `TWILIO_WHATSAPP_CONTENT_SID_RESPONDED` = `HX887df3db18f89b20a78cfec865745d28` (**v2 link**)
+- `TWILIO_WHATSAPP_CONTENT_SID_TREATED` = `HX5aa3d5e71dc6242ac53448fb95022f54` (v1)
+- `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_NEW_REQUEST` = `HX806ef0e68b7e5f2a6cc674b4637e4a60`
 - Optionnel test : `WHATSAPP_TEST_TO` = `+2126…` perso
 
 **Test B** — après deploy preview :
 ```bash
+# Patient répondu (v2 + lien)
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
   -d '{"to":"+2126XXXXXXXX","eventType":"request_status:responded"}' \
   "$APP_BASE_URL/api/cron/test-external-whatsapp"
+
+# Pharmacien nouvelle demande
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
+  -d '{"to":"+2126XXXXXXXX","eventType":"request_status:submitted","patientName":"Fatima B."}' \
+  "$APP_BASE_URL/api/cron/test-external-whatsapp"
 ```
-Ou Twilio Console → **Try it out** → From `whatsapp:+212770165668`, ContentSid + variables `{"1":"Pharmacie Centrale","2":"D042/26"}`.
+Ou Twilio Console → **Try it out** → variables `{"1":"Pharmacie Centrale","2":"D042/26","3":"a1b2c3d4e5f6789012345678abcdef01"}`.
 
-**Pilote worker** : patient uniquement ; événements **répondu** + **traité** (P0). Autres `event_type` enqueue mais **skip** worker tant qu’il n’y a pas de modèle. Destination = `profiles.whatsapp` (E.164). Phase 1 = **sans lien** (v1).
+**Pilote worker** : patient **répondu** + **traité** ; pharmacien **nouvelle demande** (`submitted`). Autres `event_type` enqueue e-mail mais **skip** WhatsApp. Destination = `profiles.whatsapp` (E.164). Routes lien court : **`/r/[token]`** (patient), **`/rp/[token]`** (pharmacien).
 
-**Ops** : rafale backlog webhook corrigée (`onlyQueueRowIds` sur INSERT) ; script annulation file WhatsApp obsolète : `supabase/scripts/cancel-pending-whatsapp-backlog.sql`. Plan détaillé : `.cursor/plans/whatsapp_notifs_phases_92071eea.plan.md`.
+**Ops** : rafale backlog webhook corrigée (`onlyQueueRowIds` sur INSERT) ; script annulation file WhatsApp obsolète : `supabase/scripts/cancel-pending-whatsapp-backlog.sql`.
 
 **Rappels** :
 - Numéro **SMS USA** (OTP Auth) ≠ expéditeur WhatsApp Business.

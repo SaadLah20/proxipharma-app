@@ -1,11 +1,21 @@
 import { normalizePhoneToE164 } from "@/lib/phone-e164";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { displayRequestPublicRef } from "@/lib/public-ref";
+import { smsRequestShortToken } from "@/lib/sms-request-short-link";
 
-/** WhatsApp pilote patient P0 — modèles Utility Meta approuvés. */
+/** WhatsApp pilote patient P0 — répondu (v2 link) + traité (v1). */
 export const WHATSAPP_PATIENT_EVENT_TYPES = new Set<string>([
   "request_status:responded",
   "request_status:treated",
+]);
+
+/** WhatsApp pilote pharmacien C-pilote — nouvelle demande. */
+export const WHATSAPP_PHARMACIST_EVENT_TYPES = new Set<string>(["request_status:submitted"]);
+
+/** Modèles CTA Meta avec token lien court en variable {{3}}. */
+export const WHATSAPP_LINK_EVENT_TYPES = new Set<string>([
+  "request_status:responded",
+  "request_status:submitted",
 ]);
 
 export type WhatsAppDispatchResult = {
@@ -16,6 +26,13 @@ export type WhatsAppDispatchResult = {
   twilioMeta?: Record<string, unknown>;
 };
 
+export function isWhatsAppEventAllowed(args: { role: string | null | undefined; eventType: string }): boolean {
+  if (args.role === "pharmacien") {
+    return WHATSAPP_PHARMACIST_EVENT_TYPES.has(args.eventType);
+  }
+  return WHATSAPP_PATIENT_EVENT_TYPES.has(args.eventType);
+}
+
 export function resolveWhatsAppContentSid(eventType: string): string | null {
   if (eventType === "request_status:responded") {
     return process.env.TWILIO_WHATSAPP_CONTENT_SID_RESPONDED?.trim() ?? null;
@@ -23,20 +40,46 @@ export function resolveWhatsAppContentSid(eventType: string): string | null {
   if (eventType === "request_status:treated") {
     return process.env.TWILIO_WHATSAPP_CONTENT_SID_TREATED?.trim() ?? null;
   }
+  if (eventType === "request_status:submitted") {
+    return process.env.TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_NEW_REQUEST?.trim() ?? null;
+  }
   return null;
 }
 
+function trimWhatsAppPersonLabel(name: string, max = 44): string {
+  const t = name.trim();
+  if (!t) return "Client";
+  return t.length <= max ? t : t.slice(0, max);
+}
+
 export function buildWhatsAppContentVariables(args: {
-  pharmacyName: string | null;
+  eventType: string;
+  pharmacyName?: string | null;
+  patientName?: string | null;
   requestPublicRef: string | null;
   requestId: string;
 }): Record<string, string> {
-  const pharma = (args.pharmacyName ? pharmacyPublicLabel(args.pharmacyName) : "Pharmacie").trim();
   const ref = displayRequestPublicRef({
     request_public_ref: args.requestPublicRef,
     id: args.requestId,
   });
-  return { "1": pharma, "2": ref };
+
+  const vars: Record<string, string> = {};
+
+  if (args.eventType === "request_status:submitted") {
+    vars["1"] = trimWhatsAppPersonLabel(args.patientName ?? "Client");
+    vars["2"] = ref;
+  } else {
+    const pharma = (args.pharmacyName ? pharmacyPublicLabel(args.pharmacyName) : "Pharmacie").trim();
+    vars["1"] = pharma;
+    vars["2"] = ref;
+  }
+
+  if (WHATSAPP_LINK_EVENT_TYPES.has(args.eventType)) {
+    vars["3"] = smsRequestShortToken(args.requestId);
+  }
+
+  return vars;
 }
 
 /** Envoi WhatsApp business-initiated via Content Template (pas de body libre). */

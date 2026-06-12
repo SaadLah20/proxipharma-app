@@ -11,8 +11,9 @@ import {
  * Body JSON optionnel :
  * {
  *   "to": "+212...",
- *   "eventType": "request_status:responded" | "request_status:treated",
+ *   "eventType": "request_status:responded" | "request_status:treated" | "request_status:submitted",
  *   "pharmacyName": "Pharmacie Centrale",
+ *   "patientName": "Fatima B.",
  *   "requestRef": "D042/26"
  * }
  */
@@ -23,6 +24,7 @@ async function handle(req: Request) {
   let to = process.env.WHATSAPP_TEST_TO?.trim() ?? process.env.SMS_TEST_TO?.trim() ?? "";
   let eventType = "request_status:responded";
   let pharmacyName = "Pharmacie Centrale";
+  let patientName = "Fatima B.";
   let requestRef = "D042/26";
 
   if (req.method === "POST") {
@@ -31,11 +33,13 @@ async function handle(req: Request) {
         to?: string;
         eventType?: string;
         pharmacyName?: string;
+        patientName?: string;
         requestRef?: string;
       };
       if (body.to?.trim()) to = body.to.trim();
       if (body.eventType?.trim()) eventType = body.eventType.trim();
       if (body.pharmacyName?.trim()) pharmacyName = body.pharmacyName.trim();
+      if (body.patientName?.trim()) patientName = body.patientName.trim();
       if (body.requestRef?.trim()) requestRef = body.requestRef.trim();
     } catch {
       /* corps vide OK */
@@ -58,18 +62,19 @@ async function handle(req: Request) {
     return Response.json(
       {
         ok: false,
-        error: `Content SID manquant pour ${eventType}. Définir TWILIO_WHATSAPP_CONTENT_SID_RESPONDED / _TREATED sur Vercel.`,
+        error: `Content SID manquant pour ${eventType}. Définir TWILIO_WHATSAPP_CONTENT_SID_* sur Vercel (§10 RUNBOOK).`,
       },
       { status: 400 }
     );
   }
 
   const contentVariables = buildWhatsAppContentVariables({
+    eventType,
     pharmacyName,
+    patientName,
     requestPublicRef: requestRef,
     requestId: "00000000-0000-0000-0000-000000000000",
   });
-  // Override ref label when caller passes explicit public ref (test route).
   contentVariables["2"] = requestRef;
 
   try {
