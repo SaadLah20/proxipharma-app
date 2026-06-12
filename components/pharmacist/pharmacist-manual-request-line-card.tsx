@@ -21,6 +21,70 @@ import {
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
 import { supabase } from "@/lib/supabase";
 
+function PharmacistManualLineLinkPicker({
+  initialQuery,
+  pharmacyId,
+  pricingConfig,
+  busy,
+  onSelect,
+  onClose,
+  onPhotoPreview,
+  onAddCustomProduct,
+  onError,
+}: {
+  initialQuery: string;
+  pharmacyId: string;
+  pricingConfig: PharmacyPricingConfig | null;
+  busy: boolean;
+  onSelect: (hit: UnifiedCatalogHit) => void;
+  onClose: () => void;
+  onPhotoPreview?: ProductPhotoPreviewHandler;
+  onAddCustomProduct: () => void;
+  onError: (message: string) => void;
+}) {
+  const [query, setQuery] = useState(initialQuery);
+  const [hits, setHits] = useState<UnifiedCatalogHit[]>([]);
+  const [searchBusy, setSearchBusy] = useState(false);
+  const debounced = useMemo(() => query.trim(), [query]);
+
+  useEffect(() => {
+    if (debounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS || !pharmacyId) return;
+    const timer = window.setTimeout(() => {
+      const run = async () => {
+        const sanitized = sanitizeProductSearchQuery(debounced);
+        if (sanitized.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) return;
+        setSearchBusy(true);
+        try {
+          const data = await searchPharmacyCatalog(supabase, pharmacyId, sanitized);
+          setHits(data);
+        } catch (e) {
+          onError(e instanceof Error ? e.message : "Recherche impossible.");
+          setHits([]);
+        } finally {
+          setSearchBusy(false);
+        }
+      };
+      void run();
+    }, 280);
+    return () => window.clearTimeout(timer);
+  }, [debounced, pharmacyId, onError]);
+
+  return (
+    <PharmacistAltCatalogPicker
+      query={query}
+      onQueryChange={setQuery}
+      hits={hits}
+      debouncedLen={debounced.length}
+      busy={busy || searchBusy}
+      onSelect={onSelect}
+      onClose={onClose}
+      pricingConfig={pricingConfig}
+      onPhotoPreview={onPhotoPreview}
+      onAddCustomProduct={onAddCustomProduct}
+    />
+  );
+}
+
 export function PharmacistManualRequestLineCard({
   requestItemId,
   patientLabel,
@@ -53,43 +117,11 @@ export function PharmacistManualRequestLineCard({
   onError: (message: string) => void;
 }) {
   const [linkOpen, setLinkOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [hits, setHits] = useState<UnifiedCatalogHit[]>([]);
-  const [searchBusy, setSearchBusy] = useState(false);
   const [linkBusy, setLinkBusy] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const debounced = useMemo(() => query.trim(), [query]);
   const patientLineCc = clientComment?.trim() ?? "";
   const lineConvoVisual = lineConversationVisual(patientLineCc, pharmacistComment ?? "");
-
-  useEffect(() => {
-    if (!linkOpen || debounced.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS || !pharmacyId) {
-      setHits([]);
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      const run = async () => {
-        const sanitized = sanitizeProductSearchQuery(debounced);
-        if (sanitized.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
-          setHits([]);
-          return;
-        }
-        setSearchBusy(true);
-        try {
-          const data = await searchPharmacyCatalog(supabase, pharmacyId, sanitized);
-          setHits(data);
-        } catch (e) {
-          onError(e instanceof Error ? e.message : "Recherche impossible.");
-          setHits([]);
-        } finally {
-          setSearchBusy(false);
-        }
-      };
-      void run();
-    }, 280);
-    return () => window.clearTimeout(timer);
-  }, [debounced, linkOpen, pharmacyId, onError]);
 
   const handleLink = async (hit: UnifiedCatalogHit) => {
     setLinkBusy(true);
@@ -97,8 +129,6 @@ export function PharmacistManualRequestLineCard({
     try {
       await linkManualLineToProduct(supabase, requestItemId, hit);
       setLinkOpen(false);
-      setQuery("");
-      setHits([]);
       await onLinked();
     } catch (e) {
       onError(e instanceof Error ? e.message : "Liaison impossible.");
@@ -176,7 +206,6 @@ export function PharmacistManualRequestLineCard({
                   onClick={() => {
                     onError("");
                     setLinkOpen(true);
-                    setQuery(patientLabel);
                   }}
                   className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-sky-300/70 bg-sky-50/80 px-3 py-2 text-[11px] font-semibold text-sky-950 transition hover:bg-sky-100/90 disabled:opacity-50"
                 >
@@ -197,21 +226,17 @@ export function PharmacistManualRequestLineCard({
                 </button>
               </div>
             ) : (
-              <PharmacistAltCatalogPicker
-                query={query}
-                onQueryChange={setQuery}
-                hits={hits}
-                debouncedLen={debounced.length}
-                busy={busy || linkBusy || searchBusy}
-                onSelect={(h) => void handleLink(h)}
-                onClose={() => {
-                  setLinkOpen(false);
-                  setQuery("");
-                  setHits([]);
-                }}
+              <PharmacistManualLineLinkPicker
+                key={requestItemId}
+                initialQuery={patientLabel}
+                pharmacyId={pharmacyId}
                 pricingConfig={pricingConfig}
+                busy={busy || linkBusy}
+                onSelect={(h) => void handleLink(h)}
+                onClose={() => setLinkOpen(false)}
                 onPhotoPreview={onPhotoPreview}
                 onAddCustomProduct={() => setCreateOpen(true)}
+                onError={onError}
               />
             )}
           </div>

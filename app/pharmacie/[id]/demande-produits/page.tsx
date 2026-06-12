@@ -51,7 +51,6 @@ import {
   buildManualRequestItemInsert,
   createManualDraftLineId,
   draftCartCatalogTotal,
-  draftHasManualLines,
   draftLineKey,
   normalizeManualProductLabel,
 } from "@/lib/patient-manual-product-line";

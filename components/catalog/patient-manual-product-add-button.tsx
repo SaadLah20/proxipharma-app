@@ -3,7 +3,6 @@
 import { PackagePlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { PRODUCT_CATALOG_SEARCH_MIN_CHARS } from "@/lib/product-catalog-search";
-import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { cn } from "@/lib/utils";
 
 /** Bouton patient : ajouter un produit introuvable (recherche / explorateur). */
