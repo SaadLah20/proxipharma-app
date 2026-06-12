@@ -106,6 +106,7 @@ import {
   validatedProductLabel,
   patientDisplayQtyForLine,
 } from "@/lib/patient-confirmed-line-buckets";
+import { requestLineProductEmbed } from "@/lib/request-line-product-embed";
 import { formatPriceDh } from "@/lib/product-price";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput, productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
@@ -1597,7 +1598,7 @@ function buildPatientConfirmSelection(
     const chosenAlt = on && st.branch !== null && st.branch !== "principal" ? st.branch : null;
 
     if (on && qty != null) {
-      const principalProd = one(row.products);
+      const principalProd = requestLineProductEmbed(row);
       let productName: string;
       let unitPrice: number | null;
       let effStatus: string | null;
@@ -1637,7 +1638,7 @@ function buildPatientConfirmSelection(
         descriptionHtml = productDescriptionHtmlForDisplay(principalProd?.full_description);
       } else {
         const alt = alts.find((a) => a.id === st.branch);
-        const altProd = alt ? one(alt.products) : null;
+        const altProd = alt ? requestLineProductEmbed(alt) : null;
         productName = altProd?.name ?? copy.alternativeFallback;
         brand = altProd?.brand?.trim() || null;
         productType = altProd?.product_type?.trim() || null;

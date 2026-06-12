@@ -137,6 +137,8 @@ import {
   normalizeRequestItemTreeEmbed,
   REQUEST_ITEM_ALTERNATIVES_CATALOG_EMBED_SELECT,
   REQUEST_ITEMS_CATALOG_EMBED_SELECT,
+  requestLineCatalogProductId,
+  requestLineProductEmbed,
 } from "@/lib/request-line-product-embed";
 import { PageShell } from "@/components/ui/compact-shell";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
@@ -867,11 +869,17 @@ function buildPublishConfirmRowMeta(
   }
   const prescribedQty = ordonnancePrincipal ? requestedQtyForInfer : null;
   const availUi = availabilityStatusUi(inferredKey);
-  const prodName = one(r.products)?.name ?? "Produit";
+  const prodEmbed = requestLineProductEmbed(r);
+  const prodName = prodEmbed?.name?.trim() || "Produit";
   const priceMad =
     fd.unit_price.trim() !== ""
       ? `${Number(fd.unit_price.replace(",", ".")).toFixed(2)} MAD`
-      : catalogPriceMadLabel(pricingConfig, one(r.products), r.product_id ?? undefined);
+      : catalogPriceMadLabel(
+          pricingConfig,
+          prodEmbed as ProdEmbedDb | null,
+          requestLineCatalogProductId(r),
+          r.unit_price
+        );
   const note = fd.pharmacist_comment?.trim() ?? "";
   const eta =
     fd.availability_status === "to_order" && fd.expected_availability_date.trim()
@@ -1000,7 +1008,8 @@ function PublishConfirmLineLi({
           </p>
           <ul className="mt-1 space-y-1">
             {alts.map((alt) => {
-              const an = one(alt.products)?.name ?? "Alternative";
+              const altEmbed = requestLineProductEmbed(alt);
+              const an = altEmbed?.name?.trim() || "Alternative";
               const aq = isLocalAltId(alt.id)
                 ? clampAlternativeAvailableQty(Number(alt.available_qty ?? 1))
                 : clampAlternativeAvailableQty(Number(altQtyDrafts[alt.id] ?? alt.available_qty ?? r.requested_qty));
@@ -1010,8 +1019,8 @@ function PublishConfirmLineLi({
                   : null;
               const ap = catalogPriceMadLabel(
                 pricingConfig,
-                one(alt.products),
-                alt.product_id ?? undefined,
+                altEmbed as ProdEmbedDb | null,
+                requestLineCatalogProductId(alt),
                 alt.unit_price
               );
               return (
@@ -1157,7 +1166,7 @@ function buildPharmaConfirmAdjustmentAudit(items: ItemRow[], draft: Draft): Phar
 
 /** État du formulaire officine depuis une ligne base (chargement ou nouvelle ligne). */
 function buildItemDraftFromRow(row: ItemRow, requestStatus?: string | null, requestType?: string): ItemDraft {
-  const catalogPph = one(row.products)?.price_pph;
+  const catalogPph = requestLineProductEmbed(row)?.price_pph;
   const isProp = row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
   const isAjoutOfficine = requestType === "product_request" && isProp;
   const isOrdonnancePharma =
@@ -6652,7 +6661,10 @@ export default function PharmacienDemandeDetailPage() {
                         tabs={[
                           ...rowAlts.map((alt, altIndex) => ({
                             id: alt.id,
-                            label: pharmacistAltTabLabel(one(alt.products)?.name ?? null, altIndex + 1),
+                            label: pharmacistAltTabLabel(
+                              requestLineProductEmbed(alt)?.name ?? null,
+                              altIndex + 1
+                            ),
                           })),
                         ]}
                         activeTab={activeAltTab}
@@ -7195,7 +7207,8 @@ export default function PharmacienDemandeDetailPage() {
                           </p>
                           <ul className="mt-1 space-y-1">
                             {rowAlts.map((alt) => {
-                              const an = one(alt.products)?.name ?? "Alternative";
+                              const altEmbed = requestLineProductEmbed(alt);
+                              const an = altEmbed?.name?.trim() || "Alternative";
                               const aq = clampAlternativeAvailableQty(
                                 Number(alt.available_qty ?? row.requested_qty)
                               );
@@ -7207,8 +7220,8 @@ export default function PharmacienDemandeDetailPage() {
                                   : null;
                               const ap = catalogPriceMadLabel(
                                 pricingConfig,
-                                one(alt.products),
-                                alt.product_id ?? undefined,
+                                altEmbed as ProdEmbedDb | null,
+                                requestLineCatalogProductId(alt),
                                 alt.unit_price
                               );
                               return (
