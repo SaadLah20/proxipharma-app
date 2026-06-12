@@ -60,7 +60,7 @@ import {
   requestItemLineSourceFr,
   requestStatusBadgeClass,
 } from "@/lib/request-display";
-import { plannedVisitWindow, dateOnlyAddDays } from "@/lib/planned-visit";
+import { plannedVisitWindow, dateOnlyAddDays, todayLocalIsoDate } from "@/lib/planned-visit";
 import {
   loadScheduleBundleForPharmacy,
   type PharmacyScheduleBundle,
@@ -68,6 +68,7 @@ import {
 import {
   validatePlannedVisitAgainstPharmacy,
   validatePlannedVisitMinLead,
+  suggestPlannedVisitTimeHm,
   type PlannedVisitPharmacyValidationResult,
 } from "@/lib/planned-visit-pharmacy-validation";
 import {
@@ -1534,6 +1535,28 @@ function splitVisitHm(raw: string | null | undefined): { h: string; m: string } 
   return { h: m[1] ?? "", m: m[2] ?? "" };
 }
 
+function composeVisitTimeHm(hour: string, minute: string): string {
+  const h = hour.trim();
+  const m = minute.trim();
+  if (h === "" && m === "") return "";
+  if (h === "" || m === "") return "";
+  const hi = Math.min(23, Math.max(0, Number.parseInt(h, 10) || 0));
+  const mi = Math.min(59, Math.max(0, Number.parseInt(m, 10) || 0));
+  return `${String(hi).padStart(2, "0")}:${String(mi).padStart(2, "0")}`;
+}
+
+function initialVisitTimeFields(
+  plannedTime: string | null | undefined,
+  dateYmd: string,
+): { h: string; m: string } {
+  const fromStored = splitVisitHm(plannedTime);
+  if (fromStored.h !== "" || fromStored.m !== "") return fromStored;
+  const dateForSuggest = dateYmd.trim() || todayLocalIsoDate();
+  const suggested = suggestPlannedVisitTimeHm(dateForSuggest);
+  if (!suggested) return fromStored;
+  return splitVisitHm(suggested);
+}
+
 type PatientConfirmRpcRow = {
   request_item_id: string;
   is_selected: boolean;
@@ -1771,18 +1794,20 @@ function validateVisitPassageSchedule(
   resolvedVisitDate: string,
   visitTimeComposed: string,
   copy: VisitScheduleValidationCopy,
+  now: Date = new Date(),
 ): Extract<PatientConfirmValidationResult, { ok: false }> | null {
   if (!pharmacyId) return null;
-  if (scheduleLoading) {
-    return { ok: false, message: copy.scheduleLoading, focus: "visit_passage" };
-  }
 
   const timeTrimmed = visitTimeComposed.trim();
   if (timeTrimmed !== "") {
-    const lead = validatePlannedVisitMinLead(resolvedVisitDate, timeTrimmed);
+    const lead = validatePlannedVisitMinLead(resolvedVisitDate, timeTrimmed, now);
     if (!lead.ok) {
       return { ok: false, message: copy.visitTimeTooSoon, focus: "visit_passage" };
     }
+  }
+
+  if (scheduleLoading) {
+    return { ok: false, message: copy.scheduleLoading, focus: "visit_passage" };
   }
 
   if (!scheduleBundle) return null;
@@ -1791,6 +1816,7 @@ function validateVisitPassageSchedule(
     scheduleBundle,
     resolvedVisitDate,
     timeTrimmed !== "" ? timeTrimmed : null,
+    now,
   );
   if (result.ok) return null;
   return {
@@ -2127,15 +2153,20 @@ export function PatientProductRequestActions({
 
   /** Créneau de passage officine (`''` = défaut automatique borne min) */
   const [visitDate, setVisitDate] = useState(initialPlannedVisitDate ?? "");
-  const [visitHour, setVisitHour] = useState(() => splitVisitHm(initialPlannedVisitTime).h);
-  const [visitMinute, setVisitMinute] = useState(() => splitVisitHm(initialPlannedVisitTime).m);
+  const [visitHour, setVisitHour] = useState(() =>
+    initialVisitTimeFields(initialPlannedVisitTime, initialPlannedVisitDate ?? "").h
+  );
+  const [visitMinute, setVisitMinute] = useState(() =>
+    initialVisitTimeFields(initialPlannedVisitTime, initialPlannedVisitDate ?? "").m
+  );
+  const [visitValidationNow, setVisitValidationNow] = useState(() => Date.now());
 
   const visitSyncKey = `${initialPlannedVisitDate ?? ""}|${initialPlannedVisitTime ?? ""}`;
   const [prevVisitSyncKey, setPrevVisitSyncKey] = useState(visitSyncKey);
   if (visitSyncKey !== prevVisitSyncKey) {
     setPrevVisitSyncKey(visitSyncKey);
     setVisitDate(initialPlannedVisitDate ?? "");
-    const hm = splitVisitHm(initialPlannedVisitTime);
+    const hm = initialVisitTimeFields(initialPlannedVisitTime, initialPlannedVisitDate ?? "");
     setVisitHour(hm.h);
     setVisitMinute(hm.m);
   }
@@ -2284,6 +2315,14 @@ export function PatientProductRequestActions({
     !isPatientProductArchiveStatus(status) &&
     (status === "responded" || status === "confirmed" || status === "treated");
   const shouldLoadPharmacySchedule = Boolean(pharmacyId) && visitPassageStatusEditable;
+
+  useEffect(() => {
+    if (!visitPassageStatusEditable) return;
+    const id = window.setInterval(() => setVisitValidationNow(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, [visitPassageStatusEditable]);
+
+  const visitValidationClock = useMemo(() => new Date(visitValidationNow), [visitValidationNow]);
   const scheduleFetchKey = shouldLoadPharmacySchedule
     ? `${pharmacyId}|${visitWin.minYmd}|${visitWin.maxYmd}`
     : "";
@@ -2326,14 +2365,10 @@ export function PatientProductRequestActions({
     return clampVisitYmd(t, visitWin.minYmd, visitWin.maxYmd);
   }, [visitDate, visitWin.minYmd, visitWin.maxYmd]);
 
-  const visitTimeComposed = useMemo(() => {
-    const h = visitHour.trim();
-    const m = visitMinute.trim();
-    if (h === "" && m === "") return "";
-    const hi = Math.min(23, Math.max(0, Number.parseInt(h, 10) || 0));
-    const mi = Math.min(59, Math.max(0, Number.parseInt(m, 10) || 0));
-    return `${String(hi).padStart(2, "0")}:${String(mi).padStart(2, "0")}`;
-  }, [visitHour, visitMinute]);
+  const visitTimeComposed = useMemo(
+    () => composeVisitTimeHm(visitHour, visitMinute),
+    [visitHour, visitMinute],
+  );
 
   const baselineResolvedVisitDate = useMemo(() => {
     const raw = (initialPlannedVisitDate ?? "").trim();
@@ -2366,6 +2401,7 @@ export function PatientProductRequestActions({
       resolvedVisitDate,
       visitTimeComposed,
       validationCopy,
+      visitValidationClock,
     );
     return err?.message ?? "";
   }, [
@@ -2376,6 +2412,7 @@ export function PatientProductRequestActions({
     resolvedVisitDate,
     visitTimeComposed,
     validationCopy,
+    visitValidationClock,
   ]);
 
   const displayedVisitPassageError = visitPassageError || visitScheduleLiveError;
@@ -2625,10 +2662,20 @@ export function PatientProductRequestActions({
     [focusVisitPassageBlock]
   );
 
-  const handleVisitDateChange = useCallback((ymd: string) => {
-    setVisitDate(ymd);
-    setVisitPassageError("");
-  }, []);
+  const handleVisitDateChange = useCallback(
+    (ymd: string) => {
+      setVisitDate(ymd);
+      setVisitPassageError("");
+      const resolved = ymd.trim() !== "" ? ymd.trim() : visitWin.minYmd;
+      const suggested = suggestPlannedVisitTimeHm(resolved, new Date());
+      if (suggested && visitHour.trim() === "" && visitMinute.trim() === "") {
+        const hm = splitVisitHm(suggested);
+        setVisitHour(hm.h);
+        setVisitMinute(hm.m);
+      }
+    },
+    [visitWin.minYmd, visitHour, visitMinute],
+  );
 
   const handleVisitHourChange = useCallback((v: string) => {
     setVisitHour(v);

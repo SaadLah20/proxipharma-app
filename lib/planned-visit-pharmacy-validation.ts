@@ -36,6 +36,36 @@ function todayIsoFromNow(now: Date): string {
 
 export const PLANNED_VISIT_MIN_LEAD_MINUTES = 30;
 
+/** Marge UI au-dessus du minimum légal (30 min serveur). */
+export const PLANNED_VISIT_SUGGESTED_BUFFER_MINUTES = 2;
+
+function visitInstantCasablanca(dateIso: string, timeHm: string): Date | null {
+  const visitMinutes = parseTimeHmToMinutes(timeHm.trim());
+  if (visitMinutes == null) return null;
+  const h = Math.floor(visitMinutes / 60);
+  const m = visitMinutes % 60;
+  return new Date(
+    `${dateIso}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00+01:00`,
+  );
+}
+
+/** HH:MM suggéré pour un passage « aujourd'hui » (now + 30 min + marge UI). */
+export function suggestPlannedVisitTimeHm(
+  dateYmd: string,
+  now: Date = new Date(),
+  bufferMinutes = PLANNED_VISIT_MIN_LEAD_MINUTES + PLANNED_VISIT_SUGGESTED_BUFFER_MINUTES,
+): string | null {
+  const dateIso = dateYmd.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return null;
+  const { dateIso: today, minutes: nowMinutes } = casablancaDateTimeParts(now);
+  if (dateIso !== today) return null;
+  const total = nowMinutes + bufferMinutes;
+  if (total >= 24 * 60) return null;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
 export type PlannedVisitPharmacyValidationCode = "too_soon" | "day_closed" | "time_closed";
 
 export type PlannedVisitPharmacyValidationResult =
@@ -49,11 +79,8 @@ export type PlannedVisitPharmacyValidationResult =
       holidayLabel?: string;
     };
 
-function minutesNowInCasablanca(now: Date): number {
-  return casablancaDateTimeParts(now).minutes;
-}
 
-/** Délai minimum 30 min (fuseau Casablanca), sans horaires officine. */
+/** Délai minimum 30 min (fuseau Casablanca), aligné serveur `now() + interval '30 minutes'`. */
 export function validatePlannedVisitMinLead(
   dateYmd: string,
   timeHm: string,
@@ -61,11 +88,12 @@ export function validatePlannedVisitMinLead(
 ): { ok: true } | { ok: false; code: "too_soon" } {
   const dateIso = dateYmd.trim().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return { ok: true };
-  const visitMinutes = parseTimeHmToMinutes(timeHm.trim());
-  if (visitMinutes == null) return { ok: true };
-  const { dateIso: today, minutes: nowMinutes } = casablancaDateTimeParts(now);
+  const visitAt = visitInstantCasablanca(dateIso, timeHm);
+  if (visitAt == null) return { ok: true };
+  const { dateIso: today } = casablancaDateTimeParts(now);
   if (dateIso !== today) return { ok: true };
-  if (visitMinutes < nowMinutes + PLANNED_VISIT_MIN_LEAD_MINUTES) {
+  const minAt = new Date(now.getTime() + PLANNED_VISIT_MIN_LEAD_MINUTES * 60_000);
+  if (visitAt.getTime() < minAt.getTime()) {
     return { ok: false, code: "too_soon" };
   }
   return { ok: true };
@@ -132,9 +160,8 @@ export function validatePlannedVisitAgainstPharmacy(
 
   const today = todayIsoFromNow(now);
   if (dateIso === today) {
-    const nowMinutes = minutesNowInCasablanca(now);
-    const minAllowed = nowMinutes + PLANNED_VISIT_MIN_LEAD_MINUTES;
-    if (visitMinutes < minAllowed) {
+    const lead = validatePlannedVisitMinLead(dateIso, timeTrimmed, now);
+    if (!lead.ok) {
       return {
         ok: false,
         code: "too_soon",

@@ -4,11 +4,13 @@ import {
   defaultMoroccoWeeklyHoursFixture,
   nextSundayIsoFrom,
   PLANNED_VISIT_MIN_LEAD_MINUTES,
+  suggestPlannedVisitTimeHm,
   validatePlannedVisitAgainstPharmacy,
+  validatePlannedVisitMinLead,
 } from "./planned-visit-pharmacy-validation";
 
-function casablancaNow(y: number, mo: number, d: number, h: number, mi: number): Date {
-  return new Date(`${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}T${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}:00+01:00`);
+function casablancaNow(y: number, mo: number, d: number, h: number, mi: number, s = 0): Date {
+  return new Date(`${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}T${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}:${String(s).padStart(2, "0")}+01:00`);
 }
 
 describe("validatePlannedVisitAgainstPharmacy", () => {
@@ -26,6 +28,18 @@ describe("validatePlannedVisitAgainstPharmacy", () => {
     const now = casablancaNow(2026, 6, 11, 14, 0);
     const result = validatePlannedVisitAgainstPharmacy(bundle, "2026-06-11", "14:32", now);
     assert.equal(result.ok, true);
+  });
+
+  it("rejects wall-clock 30 min ahead when seconds make it too soon (server parity)", () => {
+    const now = casablancaNow(2026, 6, 11, 14, 0, 45);
+    const result = validatePlannedVisitMinLead("2026-06-11", "14:30", now);
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.code, "too_soon");
+  });
+
+  it("suggests now + 32 min for today", () => {
+    const now = casablancaNow(2026, 6, 11, 14, 0);
+    assert.equal(suggestPlannedVisitTimeHm("2026-06-11", now), "14:32");
   });
 
   it("rejects closed day (Sunday)", () => {
