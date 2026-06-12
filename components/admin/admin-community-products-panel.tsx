@@ -172,6 +172,7 @@ function AdminCommunityProductDetail({
             "inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold",
             row.status === "active" && "bg-emerald-100 text-emerald-900",
             row.status === "unpublished" && "bg-amber-100 text-amber-900",
+            row.status === "archived_hidden" && "bg-rose-100 text-rose-900",
             row.status === "archived_published" && "bg-slate-200 text-slate-800"
           )}
         >
@@ -400,7 +401,11 @@ export function AdminCommunityProductsPanel() {
 
   const filtered = useMemo(() => {
     if (filter === "all") return rows;
-    if (filter === "pending") return rows.filter((r) => r.status === "active" || r.status === "unpublished");
+    if (filter === "pending") {
+      return rows.filter(
+        (r) => r.status === "active" || r.status === "unpublished" || r.status === "archived_hidden"
+      );
+    }
     return rows.filter((r) => r.status === filter);
   }, [rows, filter]);
 
@@ -416,11 +421,14 @@ export function AdminCommunityProductsPanel() {
     { id: "pending", label: "À publier" },
     { id: "active", label: "Actifs" },
     { id: "unpublished", label: "Dépubliés" },
+    { id: "archived_hidden", label: "Masqués (pharmacien)" },
     { id: "archived_published", label: "Archivés (national)" },
     { id: "all", label: "Tous" },
   ];
 
-  const pendingCount = rows.filter((r) => r.status === "active" || r.status === "unpublished").length;
+  const pendingCount = rows.filter(
+    (r) => r.status === "active" || r.status === "unpublished" || r.status === "archived_hidden"
+  ).length;
 
   return (
     <div>
@@ -493,6 +501,7 @@ export function AdminCommunityProductsPanel() {
                     "mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
                     row.status === "active" && "bg-emerald-100 text-emerald-900",
                     row.status === "unpublished" && "bg-amber-100 text-amber-900",
+                    row.status === "archived_hidden" && "bg-rose-100 text-rose-900",
                     row.status === "archived_published" && "bg-slate-200 text-slate-800"
                   )}
                 >

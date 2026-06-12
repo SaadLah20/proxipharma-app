@@ -89,6 +89,18 @@ export async function republishPharmacyCatalogProduct(
   return data as PharmacyCatalogProductRow;
 }
 
+/** Masque le produit (hub + recherche) ; conservé pour dossiers existants et admin. */
+export async function archivePharmacyCatalogProduct(
+  supabase: SupabaseClient,
+  productId: string
+): Promise<PharmacyCatalogProductRow> {
+  const { data, error } = await supabase.rpc("pharmacist_archive_pharmacy_product", {
+    p_product_id: productId,
+  });
+  if (error) throw error;
+  return data as PharmacyCatalogProductRow;
+}
+
 export async function listPharmacyCatalogProducts(
   supabase: SupabaseClient,
   status?: PharmacyCatalogProductStatus | null

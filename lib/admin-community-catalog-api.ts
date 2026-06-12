@@ -166,6 +166,8 @@ export function adminCommunityEventLabelFr(eventType: string): string {
       return "Enrichi (admin)";
     case "published":
       return "Publié au catalogue national";
+    case "archived_by_pharmacist":
+      return "Masqué par le pharmacien";
     case "rejected":
       return "Rejeté";
     default:

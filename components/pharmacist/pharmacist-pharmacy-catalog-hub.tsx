@@ -10,6 +10,7 @@ import {
   PharmacyCatalogProductFormModal,
 } from "@/components/catalog/pharmacy-catalog-product-form-modal";
 import {
+  archivePharmacyCatalogProduct,
   listPharmacyCatalogProducts,
   republishPharmacyCatalogProduct,
   unpublishPharmacyCatalogProduct,
@@ -101,6 +102,26 @@ export function PharmacistPharmacyCatalogHub() {
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action impossible.");
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  const handleArchive = async (row: PharmacyCatalogProductRow) => {
+    if (
+      !window.confirm(
+        `Supprimer « ${row.name} » de votre catalogue ?\n\nLe produit sera masqué pour les nouvelles demandes mais restera visible dans vos dossiers déjà envoyés.`
+      )
+    ) {
+      return;
+    }
+    setActionBusyId(row.id);
+    setError("");
+    try {
+      await archivePharmacyCatalogProduct(supabase, row.id);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Suppression impossible.");
     } finally {
       setActionBusyId(null);
     }
@@ -205,24 +226,24 @@ export function PharmacistPharmacyCatalogHub() {
                   </span>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-1.5">
+                  {row.status === "active" || row.status === "unpublished" ? (
+                    <button
+                      type="button"
+                      className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-semibold"
+                      onClick={() => setEditRow(row)}
+                    >
+                      Modifier
+                    </button>
+                  ) : null}
                   {row.status === "active" ? (
-                    <>
-                      <button
-                        type="button"
-                        className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-semibold"
-                        onClick={() => setEditRow(row)}
-                      >
-                        Modifier
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-lg border border-amber-300/80 bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-950"
-                        disabled={actionBusyId === row.id}
-                        onClick={() => void handleUnpublish(row)}
-                      >
-                        Dépublier
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-amber-300/80 bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-950"
+                      disabled={actionBusyId === row.id}
+                      onClick={() => void handleUnpublish(row)}
+                    >
+                      Dépublier
+                    </button>
                   ) : null}
                   {row.status === "unpublished" ? (
                     <button
@@ -232,6 +253,16 @@ export function PharmacistPharmacyCatalogHub() {
                       onClick={() => void handleRepublish(row)}
                     >
                       Republier
+                    </button>
+                  ) : null}
+                  {row.status === "active" || row.status === "unpublished" ? (
+                    <button
+                      type="button"
+                      className="rounded-lg border border-destructive/40 bg-destructive/5 px-2.5 py-1.5 text-[11px] font-semibold text-destructive"
+                      disabled={actionBusyId === row.id}
+                      onClick={() => void handleArchive(row)}
+                    >
+                      Supprimer
                     </button>
                   ) : null}
                   {row.status === "archived_published" && row.promoted_product_id ? (
