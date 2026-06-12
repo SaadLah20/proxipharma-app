@@ -1,24 +1,17 @@
 "use client";
 
 import { Package, Search } from "lucide-react";
+import { CatalogProductAddButton } from "@/components/catalog/pharmacy-catalog-product-form-modal";
 import { PharmacistProductPhotoThumb } from "@/components/pharmacist/pharmacist-product-photo-thumb";
 import { ProductCatalogMetaLabel } from "@/components/products/product-brand-label";
 import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-product-photo-preview-modal";
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
 import { formatPharmacyCatalogPrice } from "@/lib/product-price";
 import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
+import type { UnifiedCatalogHit } from "@/lib/pharmacy-catalog-types";
+import { unifiedCatalogHitKey } from "@/lib/pharmacy-catalog-request-insert";
 
-export type AltCatalogHit = {
-  id: string;
-  name: string;
-  product_type: string;
-  brand: string | null;
-  laboratory: string | null;
-  photo_url?: string | null;
-  price_pph?: number | null;
-  price_ppv?: number | null;
-  full_description?: string | null;
-};
+export type AltCatalogHit = UnifiedCatalogHit;
 
 /** Recherche catalogue pour ajouter une alternative (onglet dédié). */
 export function PharmacistAltCatalogPicker({
@@ -31,6 +24,7 @@ export function PharmacistAltCatalogPicker({
   onClose,
   pricingConfig,
   onPhotoPreview,
+  onAddCustomProduct,
 }: {
   query: string;
   onQueryChange: (q: string) => void;
@@ -41,6 +35,7 @@ export function PharmacistAltCatalogPicker({
   onClose: () => void;
   pricingConfig: PharmacyPricingConfig | null;
   onPhotoPreview?: ProductPhotoPreviewHandler;
+  onAddCustomProduct?: () => void;
 }) {
   return (
     <div className="mx-2 mb-2 flex max-h-[min(70svh,28rem)] min-h-0 flex-col gap-2 overflow-hidden overscroll-y-contain rounded-xl border-2 border-teal-400/55 bg-white p-2.5 shadow-md ring-2 ring-teal-200/35">
@@ -74,7 +69,7 @@ export function PharmacistAltCatalogPicker({
       {hits.length > 0 ? (
         <ul className="min-h-0 flex-1 touch-pan-y space-y-0.5 overflow-y-auto overscroll-contain rounded-xl border border-border/70 bg-card p-1 shadow-inner ring-1 ring-teal-200/35 [-webkit-overflow-scrolling:touch]">
           {hits.map((h) => (
-            <li key={h.id}>
+            <li key={unifiedCatalogHitKey(h)}>
               <button
                 type="button"
                 disabled={busy}
@@ -96,6 +91,9 @@ export function PharmacistAltCatalogPicker({
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold leading-tight text-foreground">{h.name}</span>
                   <ProductCatalogMetaLabel productType={h.product_type} brand={h.brand} />
+                  {h.source === "pharmacy" ? (
+                    <span className="mt-0.5 block text-[10px] font-medium text-teal-800">Mon catalogue</span>
+                  ) : null}
                   {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h)) !== "—" ? (
                     <span className="mt-0.5 block text-[10px] font-semibold text-primary">
                       PU {formatPharmacyCatalogPrice(pricingConfig, catalogHitToPricingInput(h))}
@@ -111,6 +109,16 @@ export function PharmacistAltCatalogPicker({
       ) : (
         <p className="text-[10px] text-muted-foreground">Tapez au moins 2 lettres pour chercher dans le catalogue.</p>
       )}
+      {onAddCustomProduct ? (
+        <CatalogProductAddButton
+          query={query}
+          debouncedLen={debouncedLen}
+          hitCount={hits.length}
+          variant="teal"
+          disabled={busy}
+          onClick={onAddCustomProduct}
+        />
+      ) : null}
     </div>
   );
 }

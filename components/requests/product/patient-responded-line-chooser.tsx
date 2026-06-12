@@ -820,11 +820,12 @@ type RespondedProdBrief = {
 
 function resolvedRespondedUnitPrice(
   stored: number | null | undefined,
-  productId: string,
+  productId: string | null | undefined,
   prod: RespondedProdBrief | null,
   resolveCatalog?: (productId: string, prod: RespondedProdBrief | null) => number | null
 ): number | null {
   if (stored != null && Number.isFinite(Number(stored))) return Number(stored);
+  if (!productId) return null;
   return resolveCatalog?.(productId, prod) ?? null;
 }
 
@@ -926,7 +927,7 @@ export function RespondedPatientLineChooser({
       dispoQty,
       unitPrice: resolvedRespondedUnitPrice(
         row.unit_price,
-        row.product_id,
+        row.product_id ?? undefined,
         prod,
         resolveCatalogUnitPrice
       ),
@@ -962,7 +963,7 @@ export function RespondedPatientLineChooser({
       dispoQty,
       unitPrice: resolvedRespondedUnitPrice(
         alt.unit_price,
-        alt.product_id,
+        alt.product_id ?? undefined,
         altProd,
         resolveCatalogUnitPrice
       ),

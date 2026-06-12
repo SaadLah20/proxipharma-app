@@ -5,13 +5,13 @@ import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
-  PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
-  filterCatalogHitsExcludingProductIds,
-  productIdsFromLineProductIds,
-  productNameOrLaboratoryIlikeOr,
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
+import { filterUnifiedCatalogHitsExcludingKeys } from "@/lib/pharmacy-catalog-search";
+import { searchPharmacyCatalog } from "@/lib/pharmacy-catalog-search";
+import { mapUnifiedCatalogHitsPhotoUrls } from "@/lib/pharmacy-catalog-request-insert";
+import type { UnifiedCatalogHit } from "@/lib/pharmacy-catalog-types";
 import { supabase } from "@/lib/supabase";
 import { PharmacyPublicBackLink } from "@/components/pharmacy/pharmacy-public-chrome";
 import {
@@ -51,17 +51,7 @@ import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 import { usePharmacyPublicGate } from "@/lib/use-pharmacy-public-gate";
 
-type ProductLite = {
-  id: string;
-  name: string;
-  product_type: string;
-  brand: string | null;
-  laboratory: string | null;
-  photo_url: string | null;
-  full_description?: string | null;
-  price_pph?: number | null;
-  price_ppv?: number | null;
-};
+type ProductLite = UnifiedCatalogHit;
 
 type CartLine = PatientDemandeProduitsDraftLine;
 
@@ -147,14 +137,17 @@ export default function DemandeProduitsPage() {
   }, [lines, pharmacyId, sessionReady, pathname]);
 
   const debouncedQuery = useMemo(() => query.trim(), [query]);
-  const occupiedProductIds = useMemo(() => productIdsFromLineProductIds(lines), [lines]);
+  const occupiedCatalogKeys = useMemo(
+    () => new Set(lines.map((l) => `${l.catalog_source ?? "global"}:${l.product_id}`)),
+    [lines]
+  );
   const visibleHits = useMemo(() => {
     if (debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) return [];
-    return filterCatalogHitsExcludingProductIds(hits, occupiedProductIds);
-  }, [debouncedQuery, hits, occupiedProductIds]);
+    return filterUnifiedCatalogHitsExcludingKeys(hits, occupiedCatalogKeys);
+  }, [debouncedQuery, hits, occupiedCatalogKeys]);
 
   useEffect(() => {
-    if (debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
+    if (debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS || !pharmacyId) {
       return;
     }
     const timer = setTimeout(() => {
@@ -165,39 +158,38 @@ export default function DemandeProduitsPage() {
           return;
         }
         setSearchLoading(true);
-        const { data, error } = await supabase
-          .from("products")
-          .select("id,name,product_type,brand,laboratory,photo_url,price_pph,price_ppv,full_description")
-          .eq("is_active", true)
-          .or(productNameOrLaboratoryIlikeOr(sanitized))
-          .order("name")
-          .limit(PRODUCT_CATALOG_SEARCH_LIMIT);
-
-        setSearchLoading(false);
-        if (error) {
-          setFeedback({ type: "err", text: error.message });
+        try {
+          const data = await searchPharmacyCatalog(supabase, pharmacyId, sanitized);
+          setHits(
+            mapUnifiedCatalogHitsPhotoUrls(data, (url) => resolvePublicMediaUrl(url) ?? url)
+          );
+        } catch (e) {
+          setFeedback({
+            type: "err",
+            text: e instanceof Error ? e.message : "Recherche impossible.",
+          });
           setHits([]);
-          return;
+        } finally {
+          setSearchLoading(false);
         }
-        setHits(((data as ProductLite[]) ?? []).map((p) => ({
-          ...p,
-          photo_url: resolvePublicMediaUrl(p.photo_url),
-        })));
       };
       void run();
     }, 280);
     return () => clearTimeout(timer);
-  }, [debouncedQuery]);
+  }, [debouncedQuery, pharmacyId, td]);
 
   const addProduct = useCallback(
     (p: ProductLite) => {
       const unitPrice = resolveCatalogPrice(catalogHitToPricingInput(p));
       setLines((prev) => {
-        if (prev.some((l) => l.product_id === p.id)) return prev;
+        if (prev.some((l) => l.product_id === p.id && (l.catalog_source ?? "global") === p.source)) {
+          return prev;
+        }
         return [
           ...prev,
           {
             product_id: p.id,
+            catalog_source: p.source,
             name: p.name,
             brand: p.brand,
             product_type: p.product_type,
@@ -282,9 +274,12 @@ export default function DemandeProduitsPage() {
     const { error: itemsErr } = await supabase.from("request_items").insert(
       lines.map((l) => {
         const cc = l.client_comment?.trim();
+        const isPharmacy = (l.catalog_source ?? "global") === "pharmacy";
         return {
           request_id: reqRow.id,
-          product_id: l.product_id,
+          line_product_kind: isPharmacy ? ("pharmacy" as const) : ("global" as const),
+          product_id: isPharmacy ? null : l.product_id,
+          pharmacy_product_id: isPharmacy ? l.product_id : null,
           requested_qty: l.qty,
           line_source: "patient_request" as const,
           client_comment: cc && cc.length > 0 ? cc.slice(0, PATIENT_PRODUCT_LINE_COMMENT_MAX) : null,
@@ -400,7 +395,7 @@ export default function DemandeProduitsPage() {
                 <ul className="mt-2 max-h-56 space-y-1.5 overflow-y-auto">
                   {visibleHits.map((p) => (
                     <ProductRequestCatalogHitRow
-                      key={p.id}
+                      key={`${p.source}:${p.id}`}
                       hit={{
                         id: p.id,
                         name: p.name,

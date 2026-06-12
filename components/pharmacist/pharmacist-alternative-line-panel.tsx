@@ -27,7 +27,8 @@ type AltProduct = {
 export type PharmacistAltLineRow = {
   id: string;
   rank: number;
-  product_id: string;
+  product_id: string | null;
+  pharmacy_product_id?: string | null;
   available_qty?: number | null;
   products?: AltProduct | AltProduct[] | null;
 };
@@ -83,7 +84,7 @@ export function PharmacistAlternativeLinePanel({
             brand: altProd.brand,
           }
         : null,
-      alt.product_id
+      alt.product_id ?? undefined
     )
   );
 
