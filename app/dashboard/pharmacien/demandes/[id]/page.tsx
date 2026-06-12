@@ -133,7 +133,11 @@ import {
   pharmacistRequestCatalogRefBlocked,
   pharmacistRequestCatalogProductBlockMessageFr,
 } from "@/lib/pharmacist-request-catalog-product-block";
-import { normalizeRequestItemRowEmbed } from "@/lib/request-line-product-embed";
+import {
+  normalizeRequestItemTreeEmbed,
+  REQUEST_ITEM_ALTERNATIVES_CATALOG_EMBED_SELECT,
+  REQUEST_ITEMS_CATALOG_EMBED_SELECT,
+} from "@/lib/request-line-product-embed";
 import { PageShell } from "@/components/ui/compact-shell";
 import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { PolishedOptionPicker } from "@/components/ui/polished-option-picker";
@@ -383,8 +387,7 @@ type ItemDraft = {
 
 type Draft = Record<string, ItemDraft>;
 
-const PHARMA_REQUEST_ITEMS_SELECT =
-  "id,product_id,pharmacy_product_id,line_product_kind,requested_qty,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,is_selected_by_patient,selected_qty,patient_chosen_alternative_id,post_confirm_fulfillment,withdrawn_after_confirm,line_source,pharmacist_proposal_reason,client_comment,updated_at,products(name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description),pharmacy_catalog_products(name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,rank,product_id,pharmacy_product_id,line_product_kind,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description),pharmacy_catalog_products(name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description))";
+const PHARMA_REQUEST_ITEMS_SELECT = REQUEST_ITEMS_CATALOG_EMBED_SELECT;
 
 function rowsWithEffectiveWithdrawnForSupply(rows: ItemRow[], d: Draft): ItemRow[] {
   return rows.map((row) => {
@@ -2261,7 +2264,9 @@ export default function PharmacienDemandeDetailPage() {
       list = (itemsDataRetry as ItemRow[]) ?? [];
     }
 
-    setItems(mapRequestItemsPhotos(list).map((row) => normalizeRequestItemRowEmbed(row as ItemRow)));
+    setItems(
+      mapRequestItemsPhotos(list.map((row) => normalizeRequestItemTreeEmbed(row as ItemRow)))
+    );
     setAltQtyDrafts({});
 
     if (r.request_type === "prescription") {
@@ -3558,9 +3563,7 @@ export default function PharmacienDemandeDetailPage() {
 
     const { data: altRows, error: fetchErr } = await supabase
       .from("request_item_alternatives")
-      .select(
-        "id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,price_pph,photo_url,full_description)"
-      )
+      .select(REQUEST_ITEM_ALTERNATIVES_CATALOG_EMBED_SELECT)
       .eq("request_item_id", parentRow.id)
       .order("rank", { ascending: true });
 
@@ -3569,11 +3572,12 @@ export default function PharmacienDemandeDetailPage() {
       return;
     }
 
-    const lastAlt = (altRows ?? [])[((altRows ?? []).length) - 1] as { id?: string } | undefined;
+    const normalizedAlts = (altRows ?? []).map((alt) => normalizeRequestItemTreeEmbed(alt));
+    const lastAlt = normalizedAlts[normalizedAlts.length - 1] as { id?: string } | undefined;
     setItems((prev) =>
       prev.map((r) =>
         r.id === parentRow.id
-          ? mapRequestItemRowPhotos({ ...r, request_item_alternatives: altRows ?? [] })
+          ? mapRequestItemRowPhotos({ ...r, request_item_alternatives: normalizedAlts })
           : r
       )
     );
@@ -3634,16 +3638,15 @@ export default function PharmacienDemandeDetailPage() {
       setLineAltTabByRowId((t) => (t[parentRowId] === altId ? { ...t, [parentRowId]: "principal" } : t));
       const { data: altRows, error: fetchErr } = await supabase
         .from("request_item_alternatives")
-        .select(
-          "id,rank,product_id,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(name,product_type,price_pph,price_ppv,laboratory,photo_url,full_description)"
-        )
+        .select(REQUEST_ITEM_ALTERNATIVES_CATALOG_EMBED_SELECT)
         .eq("request_item_id", parentRowId)
         .order("rank", { ascending: true });
       if (!fetchErr) {
+        const normalizedAlts = (altRows ?? []).map((alt) => normalizeRequestItemTreeEmbed(alt));
         setItems((prev) =>
           prev.map((r) =>
             r.id === parentRowId
-              ? mapRequestItemRowPhotos({ ...r, request_item_alternatives: altRows ?? [] })
+              ? mapRequestItemRowPhotos({ ...r, request_item_alternatives: normalizedAlts })
               : r
           )
         );

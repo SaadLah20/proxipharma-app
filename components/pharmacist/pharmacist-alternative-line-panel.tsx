@@ -12,6 +12,7 @@ import type { ProductPhotoPreviewHandler } from "@/components/requests/patient-p
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
 import { formatPharmacyCatalogPrice } from "@/lib/product-price";
 import { productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
+import { requestLineProductEmbed } from "@/lib/request-line-product-embed";
 
 type AltProduct = {
   name?: string | null;
@@ -31,6 +32,7 @@ export type PharmacistAltLineRow = {
   pharmacy_product_id?: string | null;
   available_qty?: number | null;
   products?: AltProduct | AltProduct[] | null;
+  pharmacy_catalog_products?: AltProduct | AltProduct[] | null;
 };
 
 function one<T>(v: T | T[] | null | undefined): T | null {
@@ -70,7 +72,7 @@ export function PharmacistAlternativeLinePanel({
   readOnly?: boolean;
   onPhotoPreview?: ProductPhotoPreviewHandler;
 }) {
-  const altProd = one(alt.products);
+  const altProd = requestLineProductEmbed(alt);
   const altName = altProd?.name ?? "Alternative";
   const photo = altProd?.photo_url?.trim() ? resolvePublicMediaUrl(altProd.photo_url) ?? altProd.photo_url : null;
   const catalogPu = formatPharmacyCatalogPrice(
