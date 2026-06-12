@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { clsx } from "clsx";
 import { CheckCircle2, Globe, Loader2, Package, RefreshCw } from "lucide-react";
 import {
@@ -40,29 +39,19 @@ function validateForm(values: AdminCommunityCatalogFormValues): string | null {
   return null;
 }
 
-function AdminCommunityProductDetail({
-  row,
-  onSaved,
-  onPublished,
+function AdminCommunityProductEventsHistory({
+  productId,
+  eventCount,
 }: {
-  row: AdminCommunityCatalogRow;
-  onSaved: () => void;
-  onPublished: () => void;
+  productId: string;
+  eventCount: number;
 }) {
-  const [values, setValues] = useState<AdminCommunityCatalogFormValues>(() => adminCommunityRowToFormValues(row));
   const [events, setEvents] = useState<AdminCommunityCatalogEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
-  const [busy, setBusy] = useState<"save" | "publish" | null>(null);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [forceDuplicate, setForceDuplicate] = useState(false);
-
-  const readOnly = row.status === "archived_published";
 
   useEffect(() => {
     let cancelled = false;
-    setEventsLoading(true);
-    void listAdminCommunityCatalogEvents(supabase, row.id)
+    void listAdminCommunityCatalogEvents(supabase, productId)
       .then((data) => {
         if (!cancelled) setEvents(data);
       })
@@ -75,7 +64,48 @@ function AdminCommunityProductDetail({
     return () => {
       cancelled = true;
     };
-  }, [row.id, row.updated_at]);
+  }, [productId]);
+
+  return (
+    <details className="mt-6 rounded-lg border bg-slate-50/80 p-3">
+      <summary className="cursor-pointer text-sm font-semibold">
+        Historique ({eventCount} événement{eventCount > 1 ? "s" : ""})
+      </summary>
+      <div className="mt-3 space-y-2">
+        {eventsLoading ? (
+          <p className="text-xs text-muted-foreground">Chargement…</p>
+        ) : events.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Aucun événement.</p>
+        ) : (
+          events.map((ev) => (
+            <div key={ev.id} className="rounded border bg-white px-2.5 py-2 text-xs">
+              <p className="font-semibold">{adminCommunityEventLabelFr(ev.event_type)}</p>
+              <p className="text-muted-foreground">{formatDateTimeShort24hFr(ev.created_at)}</p>
+              {ev.notes ? <p className="mt-1 text-slate-700">{ev.notes}</p> : null}
+            </div>
+          ))
+        )}
+      </div>
+    </details>
+  );
+}
+
+function AdminCommunityProductDetail({
+  row,
+  onSaved,
+  onPublished,
+}: {
+  row: AdminCommunityCatalogRow;
+  onSaved: () => void;
+  onPublished: () => void;
+}) {
+  const [values, setValues] = useState<AdminCommunityCatalogFormValues>(() => adminCommunityRowToFormValues(row));
+  const [busy, setBusy] = useState<"save" | "publish" | null>(null);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [forceDuplicate, setForceDuplicate] = useState(false);
+
+  const readOnly = row.status === "archived_published";
 
   const handleSave = async () => {
     setError("");
@@ -333,26 +363,11 @@ function AdminCommunityProductDetail({
         ) : null}
       </form>
 
-      <details className="mt-6 rounded-lg border bg-slate-50/80 p-3">
-        <summary className="cursor-pointer text-sm font-semibold">
-          Historique ({row.event_count} événement{row.event_count > 1 ? "s" : ""})
-        </summary>
-        <div className="mt-3 space-y-2">
-          {eventsLoading ? (
-            <p className="text-xs text-muted-foreground">Chargement…</p>
-          ) : events.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Aucun événement.</p>
-          ) : (
-            events.map((ev) => (
-              <div key={ev.id} className="rounded border bg-white px-2.5 py-2 text-xs">
-                <p className="font-semibold">{adminCommunityEventLabelFr(ev.event_type)}</p>
-                <p className="text-muted-foreground">{formatDateTimeShort24hFr(ev.created_at)}</p>
-                {ev.notes ? <p className="mt-1 text-slate-700">{ev.notes}</p> : null}
-              </div>
-            ))
-          )}
-        </div>
-      </details>
+      <AdminCommunityProductEventsHistory
+        key={`${row.id}-${row.updated_at}`}
+        productId={row.id}
+        eventCount={row.event_count}
+      />
     </div>
   );
 }
