@@ -11,6 +11,7 @@ import {
   ProductRequestLineQtyReadonly,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
+import { ProductRequestManualPriceHint } from "@/components/pharmacy/patient-demande-produits-ui";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { cn } from "@/lib/utils";
 import { lineConversationVisual } from "@/components/pharmacist/pharmacist-line-conversation-chip";
@@ -27,6 +28,7 @@ export type PatientDossierCompactLine = {
   client_comment?: string;
   line_source?: string | null;
   pharmacist_proposal_reason?: string | null;
+  is_manual?: boolean;
 };
 
 export function PatientProductRequestCompactLine({
@@ -49,19 +51,21 @@ export function PatientProductRequestCompactLine({
   notesSlot?: React.ReactNode;
 }) {
   const tDemandes = useTranslations("demandes");
+  const td = useTranslations("demandePublic");
   const [commentOpen, setCommentOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState(line.client_comment ?? "");
   const messageVisual = lineConversationVisual(line.client_comment ?? "", "");
   const isProposed = line.line_source === "pharmacist_proposed";
+  const isManual = Boolean(line.is_manual);
 
   const thumbInner = (
     <ProductCatalogExplorerThumb
-      photoUrl={line.photo_url}
+      photoUrl={isManual ? null : line.photo_url}
       productType={line.product_type}
       productName={line.name}
       className="size-full"
       ringClassName={t.photoRing}
-      onOpenPreview={onPhotoPreview}
+      onOpenPreview={isManual ? () => {} : onPhotoPreview}
     />
   );
 
@@ -76,6 +80,11 @@ export function PatientProductRequestCompactLine({
               <p className="line-clamp-2 min-w-0 pb-px text-[13px] font-semibold leading-snug text-foreground" title={line.name}>
                 {line.name}
               </p>
+              {isManual ? (
+                <span className="mt-0.5 inline-flex rounded-full border border-sky-200/80 bg-sky-50/80 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-sky-900">
+                  {td("manualProductBadge")}
+                </span>
+              ) : null}
               {isProposed ? (
                 <p
                   className="truncate text-[9px] font-medium text-violet-900"
@@ -87,8 +96,9 @@ export function PatientProductRequestCompactLine({
               ) : null}
             </div>
           }
-          unitPrice={unitPrice}
-          totalValue={unitPrice != null ? unitPrice * line.qty : null}
+          unitPrice={isManual ? null : unitPrice}
+          totalValue={isManual ? null : unitPrice != null ? unitPrice * line.qty : null}
+          priceSlot={isManual ? <ProductRequestManualPriceHint /> : undefined}
           qtyControl={
             editMode ? (
               <ProductRequestLineQtyPicker

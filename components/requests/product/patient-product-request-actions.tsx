@@ -106,7 +106,17 @@ import {
   validatedProductLabel,
   patientDisplayQtyForLine,
 } from "@/lib/patient-confirmed-line-buckets";
-import { requestLineProductEmbed } from "@/lib/request-line-product-embed";
+import { requestLineProductEmbed, requestLineProductName } from "@/lib/request-line-product-embed";
+import {
+  buildResubmitItemPayload,
+  createManualDraftLineId,
+  draftCartCatalogTotal,
+  draftLineKey,
+  isUnresolvedManualRequestItem,
+  normalizeManualProductLabel,
+} from "@/lib/patient-manual-product-line";
+import { PatientManualProductAddButton } from "@/components/catalog/patient-manual-product-add-button";
+import { PatientManualProductModal } from "@/components/catalog/patient-manual-product-modal";
 import { formatPriceDh } from "@/lib/product-price";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
 import { catalogHitToPricingInput, productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
@@ -246,6 +256,8 @@ export type ActionItemRow = {
   product_id: string | null;
   pharmacy_product_id?: string | null;
   line_product_kind?: string | null;
+  patient_requested_label?: string | null;
+  manual_resolved_at?: string | null;
   requested_qty: number;
   selected_qty: number | null;
   is_selected_by_patient: boolean;
@@ -680,6 +692,7 @@ export function computeSelFromItems(items: ActionItemRow[]): Record<string, Line
 
 type ResubmitLine = {
   product_id: string;
+  catalog_source?: "global" | "pharmacy" | "manual";
   name: string;
   brand?: string | null;
   product_type?: string | null;
@@ -743,28 +756,62 @@ function computeResubmitLinesFromItems(
   productFallback: string,
 ): ResubmitLine[] {
   return items
-    .filter((row) => row.product_id || row.pharmacy_product_id)
-    .map((row) => ({
-      product_id: (row.product_id ?? row.pharmacy_product_id)!,
-    name: one(row.products)?.name ?? productFallback,
-    brand: one(row.products)?.brand ?? null,
-    product_type: one(row.products)?.product_type ?? null,
-    photo_url: resolvePublicMediaUrl(one(row.products)?.photo_url ?? null),
-    full_description: one(row.products)?.full_description ?? null,
-    qty: Math.min(10, Math.max(1, row.requested_qty)),
-    unit_price: row.unit_price ?? resolveCatalog?.(row) ?? null,
-    client_comment: row.client_comment ?? "",
-    pharmacist_comment: row.pharmacist_comment ?? "",
-    line_source: row.line_source ?? null,
-    pharmacist_proposal_reason: row.pharmacist_proposal_reason ?? null,
-  }));
+    .filter(
+      (row) =>
+        row.product_id ||
+        row.pharmacy_product_id ||
+        isUnresolvedManualRequestItem(row)
+    )
+    .map((row) => {
+      if (isUnresolvedManualRequestItem(row)) {
+        return {
+          product_id: `manual:${row.id}`,
+          catalog_source: "manual" as const,
+          name: row.patient_requested_label?.trim() || productFallback,
+          brand: null,
+          product_type: null,
+          photo_url: null,
+          full_description: null,
+          qty: Math.min(10, Math.max(1, row.requested_qty)),
+          unit_price: null,
+          client_comment: row.client_comment ?? "",
+          pharmacist_comment: row.pharmacist_comment ?? "",
+          line_source: row.line_source ?? null,
+          pharmacist_proposal_reason: row.pharmacist_proposal_reason ?? null,
+        };
+      }
+      const isPharmacy = row.line_product_kind === "pharmacy" || Boolean(row.pharmacy_product_id);
+      const embed = requestLineProductEmbed(row);
+      return {
+        product_id: (row.product_id ?? row.pharmacy_product_id)!,
+        catalog_source: isPharmacy ? ("pharmacy" as const) : ("global" as const),
+        name: requestLineProductName(row, productFallback),
+        brand: embed?.brand ?? null,
+        product_type: embed?.product_type ?? null,
+        photo_url: resolvePublicMediaUrl(embed?.photo_url ?? null),
+        full_description: embed?.full_description ?? null,
+        qty: Math.min(10, Math.max(1, row.requested_qty)),
+        unit_price: row.unit_price ?? resolveCatalog?.(row) ?? null,
+        client_comment: row.client_comment ?? "",
+        pharmacist_comment: row.pharmacist_comment ?? "",
+        line_source: row.line_source ?? null,
+        pharmacist_proposal_reason: row.pharmacist_proposal_reason ?? null,
+      };
+    });
+}
+
+function resubmitLineKey(line: ResubmitLine): string {
+  if (line.catalog_source === "manual") {
+    return `manual:${normalizeManualProductLabel(line.name).toLowerCase()}`;
+  }
+  return `${line.catalog_source ?? "global"}:${line.product_id}`;
 }
 
 function resubmitLinesSignature(ls: ResubmitLine[]): string {
   return ls
     .map((l) =>
       [
-        l.product_id,
+        resubmitLineKey(l),
         String(l.qty),
         l.client_comment.trim(),
         (l.pharmacist_comment ?? "").trim(),
@@ -912,16 +959,17 @@ function PatientArchiveFrozenProductsView({
             <PatientProductRequestCompactLine
               key={row.id}
               line={{
-                product_id: row.product_id ?? row.pharmacy_product_id ?? "",
-                name: prod?.name ?? tCommon("product"),
+                product_id: row.product_id ?? row.pharmacy_product_id ?? row.id,
+                name: requestLineProductName(row, tCommon("product")),
                 product_type: prod?.product_type ?? null,
                 photo_url: prod?.photo_url ?? null,
                 qty: row.requested_qty,
                 client_comment: row.client_comment ?? "",
                 line_source: row.line_source,
                 pharmacist_proposal_reason: row.pharmacist_proposal_reason,
+                is_manual: isUnresolvedManualRequestItem(row),
               }}
-              unitPrice={unit}
+              unitPrice={isUnresolvedManualRequestItem(row) ? null : unit}
               editMode={false}
               onPhotoPreview={() => {
                 const raw = prod?.photo_url;
@@ -2143,6 +2191,8 @@ export function PatientProductRequestActions({
 
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<ProductHit[]>([]);
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [manualModalPrefill, setManualModalPrefill] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [confirmedRevalidationMode, setConfirmedRevalidationMode] = useState(false);
   const [confirmedRevalidationBaseline, setConfirmedRevalidationBaseline] = useState<Record<
@@ -2426,7 +2476,21 @@ export function PatientProductRequestActions({
     return filterCatalogHitsExcludingProductIds(hits, productIdsFromLineProductIds(lines));
   }, [debouncedQuery, hits, lines]);
   const resubmitTotal = useMemo(
-    () => lines.reduce((sum, l) => sum + (resubmitLineUnitPrice(l) ?? 0) * l.qty, 0),
+    () =>
+      draftCartCatalogTotal(
+        lines.map((l) => ({
+          product_id: l.product_id,
+          catalog_source: l.catalog_source,
+          name: l.name,
+          brand: l.brand,
+          product_type: l.product_type,
+          photo_url: l.photo_url ?? null,
+          full_description: l.full_description ?? null,
+          qty: l.qty,
+          unit_price: l.unit_price,
+          client_comment: l.client_comment,
+        }))
+      ),
     [lines]
   );
 
@@ -2491,13 +2555,41 @@ export function PatientProductRequestActions({
     return () => clearTimeout(t);
   }, [debouncedQuery]);
 
+  const addManualProduct = (rawName: string) => {
+    const name = normalizeManualProductLabel(rawName);
+    if (name.length < 2) return;
+    const key = `manual:${name.toLowerCase()}`;
+    setLines((prev) => {
+      if (prev.some((l) => resubmitLineKey(l) === key)) return prev;
+      return [
+        ...prev,
+        {
+          product_id: createManualDraftLineId(),
+          catalog_source: "manual" as const,
+          name,
+          photo_url: null,
+          qty: 1,
+          unit_price: null,
+          client_comment: "",
+          line_source: "patient_request",
+          pharmacist_proposal_reason: null,
+        },
+      ];
+    });
+    setQuery("");
+    setHits([]);
+    setActionError("");
+    setManualModalOpen(false);
+  };
+
   const addProduct = (p: ProductHit) => {
     setLines((prev) => {
-      if (prev.some((l) => l.product_id === p.id)) return prev;
+      if (prev.some((l) => l.product_id === p.id && (l.catalog_source ?? "global") === "global")) return prev;
       return [
         ...prev,
         {
           product_id: p.id,
+          catalog_source: "global" as const,
           name: p.name,
           brand: p.brand,
           product_type: p.product_type,
@@ -2892,8 +2984,9 @@ export function PatientProductRequestActions({
     if (lines.length === 0) return tCommon("addAtLeastOneProduct");
     const seen = new Set<string>();
     for (const l of lines) {
-      if (seen.has(l.product_id)) return tValidation("duplicateProduct");
-      seen.add(l.product_id);
+      const key = resubmitLineKey(l);
+      if (seen.has(key)) return tValidation("duplicateProduct");
+      seen.add(key);
       if (l.qty < 1 || l.qty > 10) return tCommon("qtyBetween1And10");
     }
     return null;
@@ -2902,14 +2995,20 @@ export function PatientProductRequestActions({
   const executeResubmit = async () => {
     setActionError("");
 
-    const p_items = lines.map((l) => {
-      const cc = l.client_comment.trim().slice(0, PATIENT_PRODUCT_LINE_COMMENT_MAX);
-      return {
-        product_id: l.product_id,
-        requested_qty: l.qty,
-        ...(cc.length > 0 ? { client_comment: cc } : {}),
-      };
-    });
+    const p_items = lines.map((l) =>
+      buildResubmitItemPayload({
+        product_id: l.catalog_source === "manual" ? createManualDraftLineId() : l.product_id,
+        catalog_source: l.catalog_source,
+        name: l.name,
+        brand: l.brand,
+        product_type: l.product_type,
+        photo_url: l.photo_url ?? null,
+        full_description: l.full_description ?? null,
+        qty: l.qty,
+        unit_price: l.unit_price,
+        client_comment: l.client_comment,
+      })
+    );
     setBusyAction("resubmit");
     const { error } = await supabase.rpc("patient_resubmit_product_request_after_response", {
       p_request_id: requestId,
@@ -3959,8 +4058,20 @@ export function PatientProductRequestActions({
                         />
                       ))}
                     </ul>
-                  ) : query.trim().length >= 2 ? (
-                    <p className="mt-2 text-xs text-muted-foreground">{tDemandePublic("noResults")}</p>
+                  ) : null}
+                  {query.trim().length >= 2 ? (
+                    <div className="mt-2 space-y-1.5">
+                      {visibleHits.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">{tDemandePublic("noResults")}</p>
+                      ) : null}
+                      <PatientManualProductAddButton
+                        query={query}
+                        onClick={() => {
+                          setManualModalPrefill(query.trim());
+                          setManualModalOpen(true);
+                        }}
+                      />
+                    </div>
                   ) : null}
                 </>
               }
@@ -3969,7 +4080,7 @@ export function PatientProductRequestActions({
           <ul className="w-full min-w-0 max-w-full space-y-1.5 overflow-visible">
             {lines.map((l, idx) => (
               <PatientProductRequestCompactLine
-                key={`${l.product_id}-${idx}`}
+                key={`${resubmitLineKey(l)}-${idx}`}
                 line={{
                   product_id: l.product_id,
                   name: l.name,
@@ -3980,8 +4091,9 @@ export function PatientProductRequestActions({
                   client_comment: l.client_comment,
                   line_source: l.line_source,
                   pharmacist_proposal_reason: l.pharmacist_proposal_reason,
+                  is_manual: l.catalog_source === "manual",
                 }}
-                unitPrice={resubmitLineUnitPrice(l)}
+                unitPrice={l.catalog_source === "manual" ? null : resubmitLineUnitPrice(l)}
                 editMode={editMode}
                 onRemove={editMode ? () => setLines((prev) => prev.filter((_, i) => i !== idx)) : undefined}
                 onPhotoPreview={() =>
@@ -4870,6 +4982,14 @@ export function PatientProductRequestActions({
           </div>
         </AppModalOverlay>
       ) : null}
+
+      <PatientManualProductModal
+        key={manualModalPrefill}
+        open={manualModalOpen}
+        initialName={manualModalPrefill}
+        onClose={() => setManualModalOpen(false)}
+        onConfirm={addManualProduct}
+      />
 
       <LineHistoryModalFr
         open={historyModalItemId !== null}

@@ -931,4 +931,17 @@ export const demandePublicAr = {
   qtyLabel: "الكمية",
   photoPreviewCatalogFooter: "بطاقة منتج الفهرس",
   photoPreviewIndicativeFooter: "صورة الفهرس — مرجع بصري.",
+  manualProductPriceHint: "سيحدد الصيدلي المنتج وسعره في ردّه.",
+  manualProductBadge: "أدخلته أنت",
+  manualProductAddNamed: "إضافة « {name} » (منتج غير موجود في الفهرس)",
+  manualProductAddGeneric: "إضافة منتج غير موجود في الفهرس",
+  manualProductModalTitle: "منتج غير موجود في الفهرس",
+  manualProductModalHint:
+    "أدخل اسم المنتج المطلوب. ستعثر الصيدلية عليه وتحدد السعر في الرد.",
+  manualProductNameLabel: "اسم المنتج",
+  manualProductNameTooShort: "أدخل حرفين على الأقل.",
+  manualProductNameTooLong: "لا يمكن أن يتجاوز الاسم 120 حرفًا.",
+  manualProductAddToList: "إضافة إلى قائمتي",
+  manualProductTotalNote:
+    "المنتجات المدخلة يدويًا بلا سعر تقديري — سيحددها الصيدلي في ردّه.",
 };

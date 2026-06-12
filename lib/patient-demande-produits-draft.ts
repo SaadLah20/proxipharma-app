@@ -5,8 +5,8 @@
 
 export type PatientDemandeProduitsDraftLine = {
   product_id: string;
-  /** `global` = catalogue Pharmeto ; `pharmacy` = catalogue privé officine. */
-  catalog_source?: "global" | "pharmacy";
+  /** `global` = catalogue Pharmeto ; `pharmacy` = catalogue privé officine ; `manual` = saisi patient. */
+  catalog_source?: "global" | "pharmacy" | "manual";
   name: string;
   brand?: string | null;
   product_type?: string | null;
@@ -91,14 +91,15 @@ export function readPatientDemandeProduitsDraft(
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (row): row is PatientDemandeProduitsDraftLine =>
-        row != null &&
-        typeof row === "object" &&
-        typeof (row as PatientDemandeProduitsDraftLine).product_id === "string" &&
-        typeof (row as PatientDemandeProduitsDraftLine).name === "string" &&
-        typeof (row as PatientDemandeProduitsDraftLine).qty === "number"
-    );
+    return parsed.filter((row): row is PatientDemandeProduitsDraftLine => {
+      if (row == null || typeof row !== "object") return false;
+      const line = row as PatientDemandeProduitsDraftLine;
+      if (typeof line.name !== "string" || typeof line.qty !== "number") return false;
+      if (line.catalog_source === "manual") {
+        return typeof line.product_id === "string" && line.product_id.startsWith("manual:");
+      }
+      return typeof line.product_id === "string";
+    });
   } catch {
     return [];
   }

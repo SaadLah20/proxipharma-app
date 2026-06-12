@@ -22,7 +22,7 @@ const PRODUCT_EMBED_FIELDS =
 /** Select PostgREST : lignes + alternatives avec embed global et catalogue privé officine. */
 export const REQUEST_ITEM_ALTERNATIVES_CATALOG_EMBED_SELECT = `id,rank,product_id,pharmacy_product_id,line_product_kind,availability_status,available_qty,unit_price,pharmacist_comment,expected_availability_date,products(${PRODUCT_EMBED_FIELDS}),pharmacy_catalog_products(${PRODUCT_EMBED_FIELDS})`;
 
-export const REQUEST_ITEMS_CATALOG_EMBED_SELECT = `id,product_id,pharmacy_product_id,line_product_kind,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,client_comment,line_source,pharmacist_proposal_reason,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,patient_chosen_alternative_id,post_confirm_fulfillment,withdrawn_after_confirm,updated_at,products(${PRODUCT_EMBED_FIELDS}),pharmacy_catalog_products(${PRODUCT_EMBED_FIELDS}),request_item_alternatives!request_item_alternatives_request_item_id_fkey(${REQUEST_ITEM_ALTERNATIVES_CATALOG_EMBED_SELECT})`;
+export const REQUEST_ITEMS_CATALOG_EMBED_SELECT = `id,product_id,pharmacy_product_id,line_product_kind,patient_requested_label,manual_resolved_at,requested_qty,selected_qty,is_selected_by_patient,availability_status,available_qty,unit_price,pharmacist_comment,client_comment,line_source,pharmacist_proposal_reason,expected_availability_date,counter_outcome,counter_cancel_reason,counter_cancel_detail,patient_chosen_alternative_id,post_confirm_fulfillment,withdrawn_after_confirm,updated_at,products(${PRODUCT_EMBED_FIELDS}),pharmacy_catalog_products(${PRODUCT_EMBED_FIELDS}),request_item_alternatives!request_item_alternatives_request_item_id_fkey(${REQUEST_ITEM_ALTERNATIVES_CATALOG_EMBED_SELECT})`;
 
 /** Nom + métadonnées produit d'une ligne (global ou catalogue privé officine). */
 export function requestLineProductEmbed(row: EmbeddableRow | null | undefined): RequestLineProductEmbed | null {
@@ -30,7 +30,15 @@ export function requestLineProductEmbed(row: EmbeddableRow | null | undefined): 
   return one(row.pharmacy_catalog_products) ?? one(row.products) ?? null;
 }
 
-export function requestLineProductName(row: EmbeddableRow | null | undefined, fallback = "Produit"): string {
+type EmbeddableRowWithManual = EmbeddableRow & {
+  line_product_kind?: string | null;
+  patient_requested_label?: string | null;
+};
+
+export function requestLineProductName(row: EmbeddableRowWithManual | null | undefined, fallback = "Produit"): string {
+  if (row?.line_product_kind === "patient_manual") {
+    return row.patient_requested_label?.trim() || fallback;
+  }
   return requestLineProductEmbed(row)?.name?.trim() || fallback;
 }
 
@@ -43,7 +51,11 @@ export function requestLineCatalogProductId(row: {
 }
 
 /** Normalise les lignes chargées : expose toujours `products` pour l'UI existante. */
-export function normalizeRequestItemRowEmbed<T extends EmbeddableRow>(row: T): T {
+export function normalizeRequestItemRowEmbed<T extends EmbeddableRowWithManual>(row: T): T {
+  if (row.line_product_kind === "patient_manual" && row.patient_requested_label?.trim()) {
+    if (one(row.products)) return row;
+    return { ...row, products: { name: row.patient_requested_label.trim() } };
+  }
   const embed = requestLineProductEmbed(row);
   if (!embed) return row;
   if (one(row.products)) return row;
