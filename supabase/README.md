@@ -40,6 +40,8 @@ Ce dossier contient le SQL versionne sous Git (**source de verite schema + RLS /
 | `20260812_001_planned_visit_pharmacy_hours_validation.sql` | Passage patient : garde horaires officine (≥ 30 min si aujourd’hui, jour fermé, hors créneaux) dans **`patient_confirm_after_response`** et **`patient_update_planned_visit_after_confirmation`** |
 | `20260817_001_whatsapp_c_pilote_pharmacist_enqueue.sql` | WhatsApp C-pilote : enqueue pharmacien **`submitted`** (nouvelle demande) en plus du patient P0 |
 | `20260818_001_admin_community_catalog_publish.sql` | Catalogue communautaire Phase C : RPC admin list/enrich/publish + compteur file |
+| `20260819_001_pharmacy_catalog_archived_hidden_enum.sql` | Enum `archived_hidden` — **exécuter seul** (commit requis avant 002) |
+| `20260819_002_pharmacy_catalog_pharmacist_archive.sql` | Mes produits : RPC archivage pharmacien + modifier si dépublié |
 
 **Ordre** : après **007**, appliquer **009** sur toute base où **007** a été jouée. En pratique **008 + 009** suffisent pour le contact patient côté pharmacien (sans policy **007**).
 

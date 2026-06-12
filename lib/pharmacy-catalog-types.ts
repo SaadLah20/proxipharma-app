@@ -1,7 +1,7 @@
 /** Source d'un hit catalogue unifié (global Pharmeto ou privé officine). */
 export type CatalogProductSource = "global" | "pharmacy";
 
-export type PharmacyCatalogProductStatus = "active" | "unpublished" | "archived_published";
+export type PharmacyCatalogProductStatus = "active" | "unpublished" | "archived_published" | "archived_hidden";
 
 export type UnifiedCatalogHit = {
   source: CatalogProductSource;
@@ -85,6 +85,8 @@ export function pharmacyCatalogStatusLabelFr(status: PharmacyCatalogProductStatu
       return "Dépublié";
     case "archived_published":
       return "Archivé (catalogue national)";
+    case "archived_hidden":
+      return "Masqué";
     default:
       return status;
   }
