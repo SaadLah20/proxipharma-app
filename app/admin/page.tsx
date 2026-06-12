@@ -13,6 +13,7 @@ import {
 import { PharmacyCitySelect } from "@/components/pharmacy/pharmacy-city-select";
 import { lookupPharmacyCity, validatePharmacyCityForSubmit } from "@/lib/pharmacy-cities-morocco";
 import { parseAdminPharmacyCoords } from "@/lib/pharmacy-coords-morocco";
+import { countPendingCommunityCatalogProducts } from "@/lib/admin-community-catalog-api";
 
 type Pharmacy = {
   id: string;
@@ -53,6 +54,7 @@ export default function AdminPage() {
   const [selectedPharmacyId, setSelectedPharmacyId] = useState("");
   const [pharmacienUserId, setPharmacienUserId] = useState("");
   const [isOwner, setIsOwner] = useState(true);
+  const [pendingCommunityProducts, setPendingCommunityProducts] = useState<number | null>(null);
 
   const loadData = useCallback(async () => {
     const [{ data: pharmaciesData }, { data: assignmentsData }] = await Promise.all([
@@ -122,6 +124,12 @@ export default function AdminPage() {
 
       setIsAdmin(true);
       await loadData();
+      try {
+        const count = await countPendingCommunityCatalogProducts(supabase);
+        setPendingCommunityProducts(count);
+      } catch {
+        setPendingCommunityProducts(null);
+      }
       setLoading(false);
     };
 
@@ -222,6 +230,28 @@ export default function AdminPage() {
       </div>
 
       {message ? <p className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{message}</p> : null}
+
+      <section className="mb-6 rounded-xl border bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Catalogue communautaire</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Produits créés par les officines, en attente de publication nationale.
+            </p>
+          </div>
+          <Link
+            href="/admin/produits-communautaires"
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
+          >
+            Produits communautaires
+            {pendingCommunityProducts != null ? (
+              <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">
+                {pendingCommunityProducts}
+              </span>
+            ) : null}
+          </Link>
+        </div>
+      </section>
 
       <AdminOnboardPharmacyForm onCreated={loadData} />
 
