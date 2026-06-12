@@ -3848,7 +3848,7 @@ export default function PharmacienDemandeDetailPage() {
       const { error: altErr } = await supabase.from("request_item_alternatives").insert({
         request_item_id: parentResolved,
         rank: p.rank,
-        product_id: p.product_id,
+        ...requestItemFieldsFromStoredRow(p),
         availability_status: p.availability_status,
         available_qty: p.available_qty,
         pharmacist_comment: p.pharmacist_comment,

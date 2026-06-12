@@ -32,7 +32,7 @@ export function requestItemFieldsFromStoredRow(row: {
   pharmacy_product_id?: string | null;
   line_product_kind?: string | null;
 }) {
-  if (row.line_product_kind === "pharmacy" && row.pharmacy_product_id) {
+  if (row.pharmacy_product_id) {
     return {
       line_product_kind: "pharmacy" as const,
       pharmacy_product_id: row.pharmacy_product_id,
