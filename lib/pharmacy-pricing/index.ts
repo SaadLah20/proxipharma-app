@@ -6,3 +6,4 @@ export * from "./product-embed";
 export * from "./use-pharmacy-pricing";
 export * from "./catalog-price-visibility";
 export * from "./price-adjust";
+export * from "./fetch-catalog-price-visibility-map";

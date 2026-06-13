@@ -66,7 +66,11 @@ function resolvedUnitPrice(
 export function summarizeRequestForPatientCard(
   items: PatientRequestItemRow[] | null | undefined,
   /** Si `submitted` / `in_review`, ignore les lignes seulement en brouillon côté pharmacie (`pharmacist_proposed`). */
-  requestStatus?: string | null
+  requestStatus?: string | null,
+  options?: {
+    /** Si false sur submitted/in_review, masque le total indicatif (paramètre officine). Défaut true. */
+    showCatalogPricesToPatient?: boolean;
+  }
 ): {
   lineCount: number;
   principalCount: number;
@@ -90,6 +94,9 @@ export function summarizeRequestForPatientCard(
   ) {
     rows = rows.filter((r) => r.line_source !== "pharmacist_proposed");
   }
+  const hideInitialCatalogTotals =
+    options?.showCatalogPricesToPatient === false &&
+    (requestStatus === "submitted" || requestStatus === "in_review");
   const selectedRows = rows.filter((r) => r.is_selected_by_patient !== false);
 
   let principalCount = 0;
@@ -120,6 +127,7 @@ export function summarizeRequestForPatientCard(
     alternativesCount += Array.isArray(it.request_item_alternatives) ? it.request_item_alternatives.length : 0;
 
     if (isProposed) continue;
+    if (hideInitialCatalogTotals) continue;
     const p = resolvedUnitPrice(it.unit_price, it);
     if (p == null) continue;
     const qtyRaw = it.requested_qty;

@@ -2119,8 +2119,9 @@ export function PatientProductRequestActions({
   );
 
   const resolveCatalogUnitPriceForProduct = useCallback(
-    (productId: string, embed: { product_type?: string | null; price_pph?: number | null; price_ppv?: number | null; brand?: string | null; laboratory?: string | null } | null) =>
-      resolveCatalogPrice(
+    (productId: string, embed: { product_type?: string | null; price_pph?: number | null; price_ppv?: number | null; brand?: string | null; laboratory?: string | null } | null) => {
+      if (!showCatalogPricesForStatus) return null;
+      return resolveCatalogPrice(
         productEmbedToPricingInput(
           embed
             ? {
@@ -2132,8 +2133,9 @@ export function PatientProductRequestActions({
             : null,
           productId
         )
-      ),
-    [resolveCatalogPrice]
+      );
+    },
+    [resolveCatalogPrice, showCatalogPricesForStatus]
   );
   const isPrescription = requestType === "prescription";
   const isConsultation = requestType === "free_consultation";

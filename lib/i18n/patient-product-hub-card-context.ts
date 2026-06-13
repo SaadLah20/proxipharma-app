@@ -12,6 +12,8 @@ import {
   summarizeRequestForPatientCard,
   type PatientRequestItemRow,
 } from "@/lib/patient-request-list-summary";
+import { shouldShowCatalogPricesToPatient } from "@/lib/pharmacy-pricing/catalog-price-visibility";
+import { usePharmacyCatalogPriceShowFlag } from "@/lib/patient-hub-catalog-price-visibility-context";
 
 function itemsOf(row: PatientRequestRow): PatientRequestItemRow[] {
   const raw = row.request_items;
@@ -22,8 +24,12 @@ function itemsOf(row: PatientRequestRow): PatientRequestItemRow[] {
 export function usePatientProductHubCardContext(row: PatientRequestRow): PatientProductHubCardContext {
   const locale = useLocale() as AppLocale;
   const t = useTranslations("hub.cardContext");
+  const pharmacyShowFlag = usePharmacyCatalogPriceShowFlag(row.pharmacy_id);
+  const showCatalogPricesToPatient = shouldShowCatalogPricesToPatient(pharmacyShowFlag, row.status);
   const items = itemsOf(row);
-  const summary = summarizeRequestForPatientCard(items.length ? items : null, row.status);
+  const summary = summarizeRequestForPatientCard(items.length ? items : null, row.status, {
+    showCatalogPricesToPatient,
+  });
   const n = summary.lineCount;
   const retained =
     summary.selectedPrincipalCount + summary.selectedProposedCount + summary.selectedAlternativesCount;
@@ -112,6 +118,6 @@ export function usePatientProductHubCardContext(row: PatientRequestRow): Patient
         emphasis: "muted",
       };
     default:
-      return patientProductHubCardContextFr(row);
+      return patientProductHubCardContextFr(row, { showCatalogPricesToPatient });
   }
 }
