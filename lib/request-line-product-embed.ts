@@ -16,6 +16,11 @@ type EmbeddableRow = {
   pharmacy_catalog_products?: RequestLineProductEmbed | RequestLineProductEmbed[] | null;
 };
 
+const PRODUCT_EMBED_PRICE_FIELDS = "price_pph,price_ppv,product_type";
+
+/** Hub listes patient/pharmacien — totaux cartes (sans embed catalogue dans les alternatives : limite profondeur PostgREST). */
+export const REQUEST_ITEMS_HUB_SUMMARY_EMBED_SELECT = `requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient,line_source,patient_chosen_alternative_id,counter_outcome,post_confirm_fulfillment,availability_status,products(${PRODUCT_EMBED_PRICE_FIELDS}),pharmacy_catalog_products(${PRODUCT_EMBED_PRICE_FIELDS}),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,unit_price)`;
+
 const PRODUCT_EMBED_FIELDS =
   "name,product_type,brand,laboratory,price_pph,price_ppv,photo_url,full_description";
 
