@@ -131,7 +131,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
         .from("requests")
         .select(
           "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,request_public_ref,pharmacies(nom,nom_ar,ville,public_ref)," +
-            "request_items(requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient,line_source,patient_chosen_alternative_id,counter_outcome,post_confirm_fulfillment,availability_status,products(price_pph),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,unit_price))"
+            "request_items(requested_qty,selected_qty,available_qty,unit_price,is_selected_by_patient,line_source,patient_chosen_alternative_id,counter_outcome,post_confirm_fulfillment,availability_status,products(price_pph,price_ppv,product_type),pharmacy_catalog_products(price_pph,price_ppv,product_type),request_item_alternatives!request_item_alternatives_request_item_id_fkey(id,unit_price,products(price_pph,price_ppv,product_type),pharmacy_catalog_products(price_pph,price_ppv,product_type))"
         )
         .eq("patient_id", user.id)
         .eq("request_type", kindId)

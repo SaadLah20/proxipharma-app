@@ -8599,6 +8599,8 @@ export default function PharmacienDemandeDetailPage() {
           catalogSearchQuery={propQuery}
           catalogSearchDebouncedLen={propDebounced.length}
           catalogHitCount={propVisibleHits.length}
+          altCatalogSearchDebouncedLen={ordonnanceAltDebounced.length}
+          altCatalogHitCount={ordonnanceAltVisibleHits.length}
           onAlternativeQtyChange={(productId, qty) => {
             setOrdonnanceQuickAlternatives((prev) =>
               prev.map((a) => (a.id === productId ? { ...a, available_qty: qty } : a))
