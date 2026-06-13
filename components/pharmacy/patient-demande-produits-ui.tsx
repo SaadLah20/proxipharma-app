@@ -270,6 +270,16 @@ export function ProductRequestManualPriceHint({ className }: { className?: strin
   );
 }
 
+/** Message lorsque l'officine masque les prix catalogue avant sa réponse. */
+export function ProductRequestCatalogPriceHiddenHint({ className }: { className?: string }) {
+  const td = useTranslations("demandePublic");
+  return (
+    <p className={cn("max-w-[11rem] text-[10px] font-medium leading-snug text-sky-800/90", className)}>
+      {td("catalogPriceHiddenHint")}
+    </p>
+  );
+}
+
 const QTY_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
 /** Libellé quantité (lecture seule ou dans le sélecteur). */
@@ -688,14 +698,26 @@ export function PatientCartEstimatedTotal({
   amountClassName,
   suffixClassName,
   hintClassName,
+  hideCatalogPrices = false,
 }: {
   lines: PatientDemandeProduitsDraftLine[];
   amountClassName?: string;
   suffixClassName?: string;
   hintClassName?: string;
+  hideCatalogPrices?: boolean;
 }) {
   const td = useTranslations("demandePublic");
   const summary = draftCartTotalsSummary(lines);
+  if (hideCatalogPrices && summary.manualLines < summary.totalLines) {
+    return (
+      <div className="text-right leading-tight">
+        <span className={cn("font-bold text-muted-foreground", amountClassName)}>—</span>
+        <p className={cn("mt-0.5 text-[9px] font-medium text-muted-foreground", hintClassName)}>
+          {td("catalogPriceHiddenTotalNote")}
+        </p>
+      </div>
+    );
+  }
   if (summary.totalLines === 0 || summary.allManual) {
     return <span className={cn("font-bold text-muted-foreground", amountClassName)}>—</span>;
   }
@@ -832,11 +854,14 @@ export function ProductRequestCatalogHitRow({
   hit,
   onAdd,
   onPhotoPreview,
+  hideCatalogPrices = false,
 }: {
   hit: CatalogHit;
   onAdd: () => void;
   onPhotoPreview: () => void;
+  hideCatalogPrices?: boolean;
 }) {
+  const td = useTranslations("demandePublic");
   return (
     <li>
       <div
@@ -858,9 +883,13 @@ export function ProductRequestCatalogHitRow({
             {hit.name}
           </p>
           <ProductCatalogMetaLabel productType={hit.product_type} brand={hit.brand} />
-          <p className={cn("text-xs font-semibold", t.price)}>
-            <PriceDhInline value={hit.unitPrice} amountClassName={cn("font-semibold", t.price)} />
-          </p>
+          {hideCatalogPrices ? (
+            <p className="text-[10px] font-medium leading-snug text-sky-800/90">{td("catalogPriceHiddenHint")}</p>
+          ) : (
+            <p className={cn("text-xs font-semibold", t.price)}>
+              <PriceDhInline value={hit.unitPrice} amountClassName={cn("font-semibold", t.price)} />
+            </p>
+          )}
         </button>
       </div>
     </li>
@@ -875,6 +904,7 @@ export function ProductRequestCartLineRow({
   onSetQty,
   onOpenComment,
   hasComment,
+  hideCatalogPrices = false,
 }: {
   line: PatientDemandeProduitsDraftLine;
   unitPrice: number | null;
@@ -883,9 +913,11 @@ export function ProductRequestCartLineRow({
   onSetQty: (qty: number) => void;
   onOpenComment: () => void;
   hasComment: boolean;
+  hideCatalogPrices?: boolean;
 }) {
   const td = useTranslations("demandePublic");
   const isManual = isManualDraftLine(line);
+  const hidePrice = hideCatalogPrices && !isManual;
   const thumbInner = (
     <ProductCatalogExplorerThumb
       photoUrl={isManual ? null : line.photo_url}
@@ -915,9 +947,15 @@ export function ProductRequestCartLineRow({
             ) : null}
           </div>
         }
-        unitPrice={isManual ? null : unitPrice}
-        totalValue={isManual ? null : unitPrice != null ? unitPrice * line.qty : null}
-        priceSlot={isManual ? <ProductRequestManualPriceHint /> : undefined}
+        unitPrice={isManual || hidePrice ? null : unitPrice}
+        totalValue={isManual || hidePrice ? null : unitPrice != null ? unitPrice * line.qty : null}
+        priceSlot={
+          isManual ? (
+            <ProductRequestManualPriceHint />
+          ) : hidePrice ? (
+            <ProductRequestCatalogPriceHiddenHint />
+          ) : undefined
+        }
         qtyControl={
           <ProductRequestLineQtyPicker
             qty={line.qty}
@@ -1016,6 +1054,7 @@ export function PatientDemandeSendConfirmModal({
   onClose,
   onConfirm,
   onPhotoPreview,
+  hideCatalogPrices = false,
 }: {
   open: boolean;
   lines: PatientDemandeProduitsDraftLine[];
@@ -1027,6 +1066,7 @@ export function PatientDemandeSendConfirmModal({
   onClose: () => void;
   onConfirm: () => void;
   onPhotoPreview: ProductPhotoPreviewHandler;
+  hideCatalogPrices?: boolean;
 }) {
   const td = useTranslations("demandePublic");
   const tc = useTranslations("common");
@@ -1099,6 +1139,10 @@ export function PatientDemandeSendConfirmModal({
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
                         {td("qty")} <span className="font-bold tabular-nums text-foreground">{l.qty}</span>
                       </p>
+                    ) : hideCatalogPrices ? (
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {td("qty")} <span className="font-bold tabular-nums text-foreground">{l.qty}</span>
+                      </p>
                     ) : (
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
                         {td("qty")} <span className="font-bold tabular-nums text-foreground">{l.qty}</span>
@@ -1124,6 +1168,8 @@ export function PatientDemandeSendConfirmModal({
                     )}
                     {isManual ? (
                       <p className="mt-1 text-[10px] leading-snug text-sky-800/90">{td("manualProductPriceHint")}</p>
+                    ) : hideCatalogPrices ? (
+                      <p className="mt-1 text-[10px] leading-snug text-sky-800/90">{td("catalogPriceHiddenHint")}</p>
                     ) : null}
                     {l.client_comment?.trim() ? (
                       <p className={cn("mt-1.5 rounded-lg border px-2 py-1 text-[11px] leading-snug text-foreground", t.modalHighlight)}>
@@ -1156,10 +1202,14 @@ export function PatientDemandeSendConfirmModal({
             <span className="text-sm font-bold text-foreground">{td("estimatedTotal")}</span>
             <PatientCartEstimatedTotal
               lines={lines}
+              hideCatalogPrices={hideCatalogPrices}
               amountClassName={cn("text-lg font-bold", t.price)}
               suffixClassName="text-[0.65em] font-bold text-sky-600/80"
             />
           </div>
+          {hideCatalogPrices && lines.some((l) => !isManualDraftLine(l)) ? (
+            <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{td("sendConfirmNoPricesNote")}</p>
+          ) : null}
           {lines.some(isManualDraftLine) && !lines.every(isManualDraftLine) ? (
             <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{td("manualProductTotalNote")}</p>
           ) : lines.every(isManualDraftLine) ? (

@@ -11,7 +11,7 @@ import {
   ProductRequestLineQtyReadonly,
 } from "@/components/pharmacy/patient-demande-produits-ui";
 import { PATIENT_PRODUCT_LINE_COMMENT_MAX } from "@/lib/patient-request-form-limits";
-import { ProductRequestManualPriceHint } from "@/components/pharmacy/patient-demande-produits-ui";
+import { ProductRequestManualPriceHint, ProductRequestCatalogPriceHiddenHint } from "@/components/pharmacy/patient-demande-produits-ui";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { cn } from "@/lib/utils";
 import { lineConversationVisual } from "@/components/pharmacist/pharmacist-line-conversation-chip";
@@ -40,6 +40,7 @@ export function PatientProductRequestCompactLine({
   onSetQty,
   onSaveComment,
   notesSlot,
+  hideCatalogPrice = false,
 }: {
   line: PatientDossierCompactLine;
   unitPrice: number | null;
@@ -49,6 +50,7 @@ export function PatientProductRequestCompactLine({
   onSetQty: (qty: number) => void;
   onSaveComment?: (comment: string) => void;
   notesSlot?: React.ReactNode;
+  hideCatalogPrice?: boolean;
 }) {
   const tDemandes = useTranslations("demandes");
   const td = useTranslations("demandePublic");
@@ -96,9 +98,15 @@ export function PatientProductRequestCompactLine({
               ) : null}
             </div>
           }
-          unitPrice={isManual ? null : unitPrice}
-          totalValue={isManual ? null : unitPrice != null ? unitPrice * line.qty : null}
-          priceSlot={isManual ? <ProductRequestManualPriceHint /> : undefined}
+          unitPrice={isManual || hideCatalogPrice ? null : unitPrice}
+          totalValue={isManual || hideCatalogPrice ? null : unitPrice != null ? unitPrice * line.qty : null}
+          priceSlot={
+            isManual ? (
+              <ProductRequestManualPriceHint />
+            ) : hideCatalogPrice ? (
+              <ProductRequestCatalogPriceHiddenHint />
+            ) : undefined
+          }
           qtyControl={
             editMode ? (
               <ProductRequestLineQtyPicker

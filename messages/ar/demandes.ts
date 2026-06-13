@@ -945,4 +945,7 @@ export const demandePublicAr = {
   manualProductTotalNote:
     "المنتجات المدخلة يدويًا بلا سعر تقديري — سيحددها الصيدلي في ردّه.",
   manualProductPartialTotalHint: "باستثناء {manual} بلا سعر معروف",
+  catalogPriceHiddenHint: "سيُبلّغكم الصيدلي بالسعر في ردّه.",
+  catalogPriceHiddenTotalNote: "المجموع التقديري متاح بعد ردّ الصيدلية.",
+  sendConfirmNoPricesNote: "ستُبلّغون بالأسعار التقديرية في ردّ الصيدلية.",
 };

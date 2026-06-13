@@ -375,7 +375,7 @@ export function PharmacistSettingsPage() {
             <SettingsNavLink
               href="/dashboard/pharmacien/pricing"
               label="Moteur de pricing"
-              hint="Marges parapharmacie"
+              hint="Marges parapharmacie et visibilité des prix patient"
               icon={Percent}
             />
             <SettingsNavLink

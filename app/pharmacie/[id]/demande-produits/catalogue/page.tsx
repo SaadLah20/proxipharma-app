@@ -62,7 +62,9 @@ export default function DemandeProduitsCataloguePage() {
   const loadMoreSentinelRef = useRef<HTMLLIElement>(null);
   const listScrollRef = useRef<HTMLDivElement>(null);
   const loadMoreLockRef = useRef(false);
-  const { resolve: resolveCatalogPrice } = usePharmacyPricingForPatient(pharmacyId);
+  const { resolve: resolveCatalogPrice, showCatalogPricesBeforeResponse } =
+    usePharmacyPricingForPatient(pharmacyId);
+  const hideCatalogPrices = !showCatalogPricesBeforeResponse;
 
   const { brands, loading: brandsLoading } = useCatalogDistinctBrands(sessionReady);
 
@@ -204,7 +206,8 @@ export default function DemandeProduitsCataloguePage() {
       existing,
       toAdd,
       resolvePublicMediaUrl,
-      (p) => resolveCatalogPrice(catalogHitToPricingInput(p))
+      (p) =>
+        hideCatalogPrices ? null : resolveCatalogPrice(catalogHitToPricingInput(p)) ?? null
     );
     writePatientDemandeProduitsDraft(pharmacyId, merged, editRequestId);
     if (editRequestId) markPatientDemandeCatalogueReturnEdit(editRequestId);
@@ -293,7 +296,9 @@ export default function DemandeProduitsCataloguePage() {
               {filtered.map((p) => {
                 const inCart = cartProductIds.has(p.id);
                 const checked = !inCart && selectedById.has(p.id);
-                const unitPrice = resolveCatalogPrice(catalogHitToPricingInput(p));
+                const unitPrice = hideCatalogPrices
+                  ? null
+                  : resolveCatalogPrice(catalogHitToPricingInput(p));
                 return (
                   <ProductCatalogExplorerListRow
                     key={p.id}
@@ -301,6 +306,7 @@ export default function DemandeProduitsCataloguePage() {
                     inCart={inCart}
                     checked={checked}
                     unitPrice={unitPrice}
+                    hideCatalogPrices={hideCatalogPrices}
                     onToggleSelect={() => toggleSelect(p)}
                     onOpenPreview={() =>
                       setPhotoPreview({

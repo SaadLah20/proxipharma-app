@@ -119,6 +119,7 @@ import { PatientManualProductAddButton } from "@/components/catalog/patient-manu
 import { PatientManualProductModal } from "@/components/catalog/patient-manual-product-modal";
 import { formatPriceDh } from "@/lib/product-price";
 import { usePharmacyPricingForPatient } from "@/lib/pharmacy-pricing";
+import { shouldShowCatalogPricesToPatient } from "@/lib/pharmacy-pricing/catalog-price-visibility";
 import { catalogHitToPricingInput, productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 import type { PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
 import {
@@ -918,6 +919,7 @@ function PatientArchiveFrozenProductsView({
   onPhotoPreview,
   pharmacistProposedBadgeLabel,
   resolveCatalogUnitPriceForProduct,
+  showCatalogPricesForStatus,
 }: {
   snapshotStatus: import("@/lib/request-archive-snapshot-status").RequestArchiveSnapshotStatus;
   terminalStatus: string;
@@ -931,6 +933,7 @@ function PatientArchiveFrozenProductsView({
   onOpenLineHistory: (itemId: string) => void;
   onPhotoPreview: ProductPhotoPreviewHandler;
   pharmacistProposedBadgeLabel: string;
+  showCatalogPricesForStatus: boolean;
   resolveCatalogUnitPriceForProduct: (
     productId: string,
     embed: {
@@ -955,7 +958,9 @@ function PatientArchiveFrozenProductsView({
       <ul className={patientBucketProductListClass}>
         {items.map((row) => {
           const prod = one(row.products);
-          const unit = validatedBranchUnitPriceMad(row, pricingConfig, row.product_id ?? undefined);
+          const unit = showCatalogPricesForStatus
+            ? validatedBranchUnitPriceMad(row, pricingConfig, row.product_id ?? undefined)
+            : null;
           return (
             <PatientProductRequestCompactLine
               key={row.id}
@@ -971,6 +976,7 @@ function PatientArchiveFrozenProductsView({
                 is_manual: isUnresolvedManualRequestItem(row),
               }}
               unitPrice={isUnresolvedManualRequestItem(row) ? null : unit}
+              hideCatalogPrice={!showCatalogPricesForStatus}
               editMode={false}
               onPhotoPreview={() => {
                 const raw = prod?.photo_url;
@@ -2083,10 +2089,17 @@ export function PatientProductRequestActions({
   const kindConfig = getRequestKindConfig(requestType);
   const workflowCopy = kindConfig.copy.workflow;
   const accent = kindConfig.theme.accent;
-  const { config: pricingConfig, resolve: resolveCatalogPrice } = usePharmacyPricingForPatient(pharmacyId ?? undefined);
+  const { config: pricingConfig, resolve: resolveCatalogPrice, showCatalogPricesBeforeResponse } =
+    usePharmacyPricingForPatient(pharmacyId ?? undefined);
+
+  const showCatalogPricesForStatus = shouldShowCatalogPricesToPatient(
+    showCatalogPricesBeforeResponse,
+    status
+  );
 
   const resolveItemCatalogPrice = useCallback(
     (row: ActionItemRow) => {
+      if (!showCatalogPricesForStatus) return null;
       const prod = one(row.products);
       return resolveCatalogPrice(
         productEmbedToPricingInput(
@@ -2102,7 +2115,7 @@ export function PatientProductRequestActions({
         )
       );
     },
-    [resolveCatalogPrice]
+    [resolveCatalogPrice, showCatalogPricesForStatus]
   );
 
   const resolveCatalogUnitPriceForProduct = useCallback(
@@ -3555,6 +3568,7 @@ export function PatientProductRequestActions({
             onPhotoPreview={openProductPhotoPreview}
             pharmacistProposedBadgeLabel={workflowCopy.patientProposedBadge}
             resolveCatalogUnitPriceForProduct={resolveCatalogUnitPriceForProduct}
+            showCatalogPricesForStatus={showCatalogPricesForStatus}
           />
         </>
       ) : null}
@@ -4090,7 +4104,8 @@ export function PatientProductRequestActions({
                   pharmacist_proposal_reason: l.pharmacist_proposal_reason,
                   is_manual: l.catalog_source === "manual",
                 }}
-                unitPrice={l.catalog_source === "manual" ? null : resubmitLineUnitPrice(l)}
+                unitPrice={l.catalog_source === "manual" || !showCatalogPricesForStatus ? null : resubmitLineUnitPrice(l)}
+                hideCatalogPrice={!showCatalogPricesForStatus}
                 editMode={editMode}
                 onRemove={editMode ? () => setLines((prev) => prev.filter((_, i) => i !== idx)) : undefined}
                 onPhotoPreview={() =>
@@ -4362,6 +4377,7 @@ export function PatientProductRequestActions({
             summaryRight={
               <PatientCartEstimatedTotal
                 lines={resubmitCartLines}
+                hideCatalogPrices={!showCatalogPricesForStatus}
                 amountClassName="font-bold tabular-nums text-foreground"
                 suffixClassName="font-bold text-sky-700/80"
               />
@@ -4963,6 +4979,7 @@ export function PatientProductRequestActions({
                 <span className="text-sm font-bold text-slate-800">{tCommon("totalLabel")}</span>
                 <PatientCartEstimatedTotal
                   lines={resubmitCartLines}
+                  hideCatalogPrices={!showCatalogPricesForStatus}
                   amountClassName="text-lg font-bold text-sky-900"
                   suffixClassName="text-[0.65em] font-bold text-sky-600/80"
                 />

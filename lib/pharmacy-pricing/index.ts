@@ -4,3 +4,5 @@ export * from "./resolve";
 export * from "./api";
 export * from "./product-embed";
 export * from "./use-pharmacy-pricing";
+export * from "./catalog-price-visibility";
+export * from "./price-adjust";
