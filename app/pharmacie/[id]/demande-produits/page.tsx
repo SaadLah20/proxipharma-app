@@ -112,7 +112,9 @@ export default function DemandeProduitsPage() {
   } | null>(null);
   const [manualModalOpen, setManualModalOpen] = useState(false);
   const [manualModalPrefill, setManualModalPrefill] = useState("");
-  const { resolve: resolveCatalogPrice } = usePharmacyPricingForPatient(pharmacyId);
+  const { resolve: resolveCatalogPrice, showCatalogPricesBeforeResponse } =
+    usePharmacyPricingForPatient(pharmacyId);
+  const hideCatalogPrices = !showCatalogPricesBeforeResponse;
   const {
     pharmacyName,
     loading: pharmacyLoading,
@@ -189,7 +191,9 @@ export default function DemandeProduitsPage() {
 
   const addProduct = useCallback(
     (p: ProductLite) => {
-      const unitPrice = resolveCatalogPrice(catalogHitToPricingInput(p));
+      const unitPrice = hideCatalogPrices
+        ? undefined
+        : resolveCatalogPrice(catalogHitToPricingInput(p)) ?? undefined;
       setLines((prev) => {
         if (prev.some((l) => l.product_id === p.id && (l.catalog_source ?? "global") === p.source)) {
           return prev;
@@ -213,7 +217,7 @@ export default function DemandeProduitsPage() {
       setHits([]);
       setFeedback(null);
     },
-    [resolveCatalogPrice]
+    [resolveCatalogPrice, hideCatalogPrices]
   );
 
   const setQty = (lineKey: string, qty: number) => {
@@ -442,8 +446,11 @@ export default function DemandeProduitsPage() {
                         brand: p.brand,
                         product_type: p.product_type,
                         photo_url: p.photo_url,
-                        unitPrice: resolveCatalogPrice(catalogHitToPricingInput(p)),
+                        unitPrice: hideCatalogPrices
+                          ? null
+                          : resolveCatalogPrice(catalogHitToPricingInput(p)),
                       }}
+                      hideCatalogPrices={hideCatalogPrices}
                       onAdd={() => addProduct(p)}
                       onPhotoPreview={() =>
                         openPhotoPreview(p.photo_url, p.name, p.full_description, p.brand, p.product_type, {
@@ -487,7 +494,8 @@ export default function DemandeProduitsPage() {
                 <ProductRequestCartLineRow
                   key={draftLineKey(l)}
                   line={l}
-                  unitPrice={draftLineUnitPrice(l)}
+                  unitPrice={hideCatalogPrices ? null : draftLineUnitPrice(l)}
+                  hideCatalogPrices={hideCatalogPrices}
                   onRemove={() => removeLine(draftLineKey(l))}
                   onPhotoPreview={() =>
                     openPhotoPreview(l.photo_url, l.name, l.full_description, l.brand, l.product_type, {
@@ -543,6 +551,7 @@ export default function DemandeProduitsPage() {
           summaryRight={
             <PatientCartEstimatedTotal
               lines={lines}
+              hideCatalogPrices={hideCatalogPrices}
               amountClassName={cn("font-bold", t.price)}
               suffixClassName="font-bold text-sky-700/80"
             />
@@ -575,6 +584,7 @@ export default function DemandeProduitsPage() {
         onClose={() => setSendConfirmOpen(false)}
         onConfirm={() => void performSubmit()}
         onPhotoPreview={openPhotoPreview}
+        hideCatalogPrices={hideCatalogPrices}
       />
 
       <PatientLineCommentModal

@@ -2,9 +2,25 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { defaultShowCatalogPricesBeforeResponse } from "./catalog-price-visibility";
 import { fetchPharmacistPricingConfig, fetchPharmacyPricingConfigPublic } from "./api";
 import { resolveLineUnitPrice, resolvePharmacyUnitPrice } from "./resolve";
 import type { PharmacyPricingConfig, ProductPricingInput } from "./types";
+
+const DEFAULT_SETTINGS = {
+  parapharmacy_mode: "at_pph" as const,
+  parapharmacy_margin_pct: 0,
+  show_catalog_prices_before_response: true,
+};
+
+function defaultConfig(pharmacyId: string): PharmacyPricingConfig {
+  return {
+    pharmacy_id: pharmacyId,
+    settings: { ...DEFAULT_SETTINGS },
+    brand_rules: [],
+    product_overrides: [],
+  };
+}
 
 export function usePharmacyPricing(pharmacyId: string | undefined) {
   const [config, setConfig] = useState<PharmacyPricingConfig | null>(null);
@@ -26,18 +42,13 @@ export function usePharmacyPricing(pharmacyId: string | undefined) {
       } else {
         setConfig({
           pharmacy_id: pharmacyId,
-          settings: { parapharmacy_mode: "at_pph", parapharmacy_margin_pct: 0 },
+          settings: { ...DEFAULT_SETTINGS },
           brand_rules: [],
           product_overrides: [],
         });
       }
     } catch {
-      setConfig({
-        pharmacy_id: pharmacyId,
-        settings: { parapharmacy_mode: "at_pph", parapharmacy_margin_pct: 0 },
-        brand_rules: [],
-        product_overrides: [],
-      });
+      setConfig(defaultConfig(pharmacyId));
     } finally {
       setLoading(false);
     }
@@ -87,23 +98,13 @@ export function usePharmacyPricingForPatient(pharmacyId: string | undefined) {
         const row = await fetchPharmacyPricingConfigPublic(supabase, pharmacyId);
         if (cancelled) return;
         if (!row) {
-          setConfig({
-            pharmacy_id: pharmacyId,
-            settings: { parapharmacy_mode: "at_pph", parapharmacy_margin_pct: 0 },
-            brand_rules: [],
-            product_overrides: [],
-          });
+          setConfig(defaultConfig(pharmacyId));
           return;
         }
         setConfig(row);
       } catch {
         if (!cancelled) {
-          setConfig({
-            pharmacy_id: pharmacyId,
-            settings: { parapharmacy_mode: "at_pph", parapharmacy_margin_pct: 0 },
-            brand_rules: [],
-            product_overrides: [],
-          });
+          setConfig(defaultConfig(pharmacyId));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -120,5 +121,10 @@ export function usePharmacyPricingForPatient(pharmacyId: string | undefined) {
     [config]
   );
 
-  return useMemo(() => ({ config, loading, resolve }), [config, loading, resolve]);
+  const showCatalogPricesBeforeResponse = defaultShowCatalogPricesBeforeResponse(config?.settings);
+
+  return useMemo(
+    () => ({ config, loading, resolve, showCatalogPricesBeforeResponse }),
+    [config, loading, resolve, showCatalogPricesBeforeResponse]
+  );
 }

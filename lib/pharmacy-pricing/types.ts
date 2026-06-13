@@ -3,6 +3,8 @@ export type ParapharmacyPricingMode = "at_pph" | "margin_on_pph";
 export type PharmacyPricingSettings = {
   parapharmacy_mode: ParapharmacyPricingMode;
   parapharmacy_margin_pct: number;
+  /** Si false, masquer les PU catalogue patient avant réponse officine. Défaut true. */
+  show_catalog_prices_before_response?: boolean;
 };
 
 export type PharmacyPricingBrandRule = {

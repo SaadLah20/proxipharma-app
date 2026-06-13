@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import { clsx } from "clsx";
 import { ProductCatalogExplorerThumb } from "@/components/products/product-catalog-explorer-thumb";
 import { ProductCatalogMetaLabel } from "@/components/products/product-brand-label";
-import { PriceDhInline } from "@/components/pharmacy/patient-demande-produits-ui";
+import { PriceDhInline, ProductRequestCatalogPriceHiddenHint } from "@/components/pharmacy/patient-demande-produits-ui";
 import type { PatientDemandeProduitsCatalogProduct } from "@/lib/patient-demande-produits-draft";
 import { productRequestPublicTheme as t } from "@/lib/request-kinds/product-request-public-theme";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ export function ProductCatalogExplorerListRow({
   onToggleSelect,
   onOpenPreview,
   labels,
+  hideCatalogPrices = false,
 }: {
   product: PatientDemandeProduitsCatalogProduct & { photo_url: string | null };
   inCart: boolean;
@@ -27,6 +28,7 @@ export function ProductCatalogExplorerListRow({
   unitPrice: number | null;
   onToggleSelect: () => void;
   onOpenPreview: () => void;
+  hideCatalogPrices?: boolean;
   labels: {
     alreadyInRequest: string;
     selectAria: string;
@@ -89,13 +91,17 @@ export function ProductCatalogExplorerListRow({
           </p>
           <ProductCatalogMetaLabel productType={product.product_type} brand={product.brand} />
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <p className={cn("text-sm font-bold leading-none", t.price)}>
-              <PriceDhInline
-                value={unitPrice}
-                amountClassName={cn("font-bold", t.price)}
-                suffixClassName="text-[10px] font-semibold text-sky-700/70"
-              />
-            </p>
+            {hideCatalogPrices ? (
+              <ProductRequestCatalogPriceHiddenHint className="max-w-none text-[10px]" />
+            ) : (
+              <p className={cn("text-sm font-bold leading-none", t.price)}>
+                <PriceDhInline
+                  value={unitPrice}
+                  amountClassName={cn("font-bold", t.price)}
+                  suffixClassName="text-[10px] font-semibold text-sky-700/70"
+                />
+              </p>
+            )}
             {inCart ? (
               <span className="rounded-full bg-muted px-1.5 py-px text-[10px] font-medium text-muted-foreground">
                 {labels.alreadyInRequest}

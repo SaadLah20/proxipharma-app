@@ -986,4 +986,9 @@ export const demandePublicFr = {
   manualProductTotalNote:
     "Les produits saisis manuellement n'ont pas de prix estimé — le pharmacien les indiquera dans sa réponse.",
   manualProductPartialTotalHint: "hors {manual} sans prix connu",
+  catalogPriceHiddenHint:
+    "Le prix vous sera communiqué par l'officine dans sa réponse.",
+  catalogPriceHiddenTotalNote: "Total indicatif disponible après la réponse de l'officine.",
+  sendConfirmNoPricesNote:
+    "Les prix indicatifs seront communiqués par l'officine dans sa réponse.",
 };

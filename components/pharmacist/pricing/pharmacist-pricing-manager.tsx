@@ -281,7 +281,47 @@ export function PharmacistPricingManager() {
       </div>
 
       {tab === "general" ? (
-        <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+        <>
+          <section className="space-y-3 rounded-xl border border-border bg-card p-4">
+            <h2 className="text-sm font-bold text-foreground">Affichage des prix au patient</h2>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              Choisissez si le patient voit les prix indicatifs du catalogue avant votre réponse officielle.
+            </p>
+            <div className="flex flex-col gap-2">
+              <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border px-3 py-2 text-xs has-[:checked]:border-violet-400 has-[:checked]:bg-violet-50/50">
+                <input
+                  type="radio"
+                  name="catalog_price_visibility"
+                  className="mt-0.5"
+                  checked={config.settings.show_catalog_prices_before_response !== false}
+                  onChange={() => updateSettings({ show_catalog_prices_before_response: true })}
+                />
+                <span>
+                  <span className="font-semibold">Dès la sélection</span>
+                  <span className="mt-0.5 block text-muted-foreground">
+                    Le patient voit le PU indicatif dans le catalogue et son panier.
+                  </span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border px-3 py-2 text-xs has-[:checked]:border-violet-400 has-[:checked]:bg-violet-50/50">
+                <input
+                  type="radio"
+                  name="catalog_price_visibility"
+                  className="mt-0.5"
+                  checked={config.settings.show_catalog_prices_before_response === false}
+                  onChange={() => updateSettings({ show_catalog_prices_before_response: false })}
+                />
+                <span>
+                  <span className="font-semibold">Après ma réponse</span>
+                  <span className="mt-0.5 block text-muted-foreground">
+                    Les prix restent masqués jusqu&apos;à la publication de votre réponse officielle.
+                  </span>
+                </span>
+              </label>
+            </div>
+          </section>
+
+          <section className="space-y-4 rounded-xl border border-border bg-card p-4">
           <h2 className="text-sm font-bold text-foreground">Parapharmacie — règle globale</h2>
           <div className="flex flex-col gap-2 sm:flex-row sm:gap-4">
             <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border px-3 py-2 text-xs has-[:checked]:border-violet-400 has-[:checked]:bg-violet-50/50">
@@ -339,6 +379,7 @@ export function PharmacistPricingManager() {
             </p>
           ) : null}
         </section>
+        </>
       ) : null}
 
       {tab === "brands" ? (

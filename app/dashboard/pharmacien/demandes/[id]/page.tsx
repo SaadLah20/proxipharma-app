@@ -106,6 +106,12 @@ import type { PrescriptionPagePaths } from "@/lib/prescription-media";
 import { one } from "@/lib/embed";
 import { formatPharmacyCatalogPrice, formatPharmacyLinePrice, formatPriceDh } from "@/lib/product-price";
 import { usePharmacyPricing, type PharmacyPricingConfig } from "@/lib/pharmacy-pricing";
+import { canPharmacistAdjustNationalParaLinePrice } from "@/lib/pharmacy-pricing/price-adjust";
+import { PharmacistIndicativeUnitPrice } from "@/components/pharmacist/pharmacist-indicative-unit-price";
+import {
+  PharmacistLinePriceAdjustModal,
+  type PharmacistLinePriceAdjustTarget,
+} from "@/components/pharmacist/pharmacist-line-price-adjust-modal";
 import { resolvePharmacyUnitPrice } from "@/lib/pharmacy-pricing/resolve";
 import { catalogHitToPricingInput, productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 import { mapRequestItemRowPhotos, mapRequestItemsPhotos, resolvePublicMediaUrl } from "@/lib/storage-media";
@@ -1864,7 +1870,8 @@ export default function PharmacienDemandeDetailPage() {
   const [busy, setBusy] = useState(false);
   const [request, setRequest] = useState<RequestRow | null>(null);
   useSyncBottomNavDossierTab(request?.request_type);
-  const { config: pricingConfig, resolve: resolveCatalogPrice } = usePharmacyPricing(request?.pharmacy_id);
+  const { config: pricingConfig, resolve: resolveCatalogPrice, reload: reloadPricingConfig } =
+    usePharmacyPricing(request?.pharmacy_id);
   const [items, setItems] = useState<ItemRow[]>([]);
   const [draft, setDraft] = useState<Draft>({});
   const [altRowsOpen, setAltRowsOpen] = useState<Record<string, boolean>>({});
@@ -1886,6 +1893,10 @@ export default function PharmacienDemandeDetailPage() {
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [declareTreatedBusy, setDeclareTreatedBusy] = useState(false);
   const [declareTreatedModalOpen, setDeclareTreatedModalOpen] = useState(false);
+  const [linePriceAdjust, setLinePriceAdjust] = useState<{
+    rowId: string;
+    target: PharmacistLinePriceAdjustTarget;
+  } | null>(null);
   /** Lignes dont l’éditeur post-validation est ouvert (sans modale accord par action). */
   const [supplyEditOpenRowIds, setSupplyEditOpenRowIds] = useState<Record<string, true>>({});
   /** Propositions officine persistées marquées pour retrait au prochain enregistrement. */
@@ -4736,6 +4747,7 @@ export default function PharmacienDemandeDetailPage() {
         })
       : request?.status;
   const canEditResponse = request && ["submitted", "in_review"].includes(uiRequestStatus ?? "");
+  const canEditLinePrice = canEditResponse;
   const canManageSupply =
     request && ["confirmed", "treated"].includes(uiRequestStatus ?? "") && !archiveFrozen;
   const canManageResponded = uiRequestStatus === "responded" && !archiveFrozen;
@@ -5971,6 +5983,40 @@ export default function PharmacienDemandeDetailPage() {
                         row.product_id ?? editorRow.pharmacy_product_id ?? undefined
                       )
                     ).replace("\u00A0DH", "\u00A0MAD");
+              const nationalProductId = row.product_id ?? null;
+              const canAdjustThisLinePrice = canPharmacistAdjustNationalParaLinePrice({
+                canEditLinePrice: Boolean(canEditLinePrice),
+                productType: prod?.product_type,
+                productId: nationalProductId,
+                pricePph: prod?.price_pph,
+              });
+              const draftPuTitle =
+                draftIndicativePuMad !== "—"
+                  ? `Prix catalogue officine : ${draftIndicativePuMad}`
+                  : undefined;
+              const openLinePriceAdjust = () => {
+                if (!nationalProductId || !prod) return;
+                const pricingInput = productEmbedToPricingInput(
+                  {
+                    product_type: prod.product_type ?? "parapharmacie",
+                    price_pph: prod.price_pph,
+                    price_ppv: prod.price_ppv,
+                    brand: prod.brand,
+                  },
+                  nationalProductId
+                );
+                if (!pricingInput) return;
+                setLinePriceAdjust({
+                  rowId: row.id,
+                  target: {
+                    productId: nationalProductId,
+                    productName: prod.name,
+                    brand: prod.brand,
+                    pricingInput,
+                    currentDraftUnitPrice: f.unit_price,
+                  },
+                });
+              };
               const co = row.counter_outcome ?? "unset";
               const selected = Boolean(row.is_selected_by_patient);
               const lineLockedTrace = co === "cancelled_at_counter";
@@ -6262,10 +6308,15 @@ export default function PharmacienDemandeDetailPage() {
                             />
                           </label>
                         ) : null}
-                        <p className="text-[10px] text-muted-foreground">
-                          PU indicatif{" "}
-                          <span className="font-semibold tabular-nums text-foreground">{draftIndicativePuMad}</span>
-                        </p>
+                        <PharmacistIndicativeUnitPrice
+                          layout="inline"
+                          priceLabel={draftIndicativePuMad}
+                          title={draftPuTitle}
+                          canEditPrice={canAdjustThisLinePrice}
+                          productId={nationalProductId}
+                          pricingConfig={pricingConfig}
+                          onEditPrice={openLinePriceAdjust}
+                        />
                       </div>
                     );
                   })()
@@ -6397,21 +6448,14 @@ export default function PharmacienDemandeDetailPage() {
                           </button>
                         </div>
                       </label>
-                      <div className="flex min-w-[5.25rem] flex-col justify-end gap-0.5 text-end sm:min-w-[6rem]">
-                        <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
-                          PU indicatif
-                        </span>
-                        <p
-                          className="whitespace-nowrap py-2 text-[12px] font-semibold tabular-nums text-foreground"
-                          title={
-                            draftIndicativePuMad !== "—"
-                              ? `Prix catalogue officine : ${draftIndicativePuMad}`
-                              : undefined
-                          }
-                        >
-                          {draftIndicativePuMad}
-                        </p>
-                      </div>
+                      <PharmacistIndicativeUnitPrice
+                        priceLabel={draftIndicativePuMad}
+                        title={draftPuTitle}
+                        canEditPrice={canAdjustThisLinePrice}
+                        productId={nationalProductId}
+                        pricingConfig={pricingConfig}
+                        onEditPrice={openLinePriceAdjust}
+                      />
                     </div>
                     {canEditThisRow &&
                     pharmacistSupplyDraftNeedsReceptionDate({
@@ -6931,21 +6975,17 @@ export default function PharmacienDemandeDetailPage() {
                               </span>
                             </span>
                           ) : null}
-                          <span
-                            className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular-nums"
-                            title={
-                              draftIndicativePuMad !== "—"
-                                ? `Prix catalogue officine : ${draftIndicativePuMad}`
-                                : undefined
-                            }
-                          >
-                            <span className="text-[8px] font-bold uppercase tracking-wide text-muted-foreground">
-                              PU{" "}
-                            </span>
-                            <span className="text-[11px] font-semibold text-foreground sm:text-[12px]">
-                              {draftIndicativePuMad}
-                            </span>
-                          </span>
+                          <PharmacistIndicativeUnitPrice
+                            layout="inline"
+                            label="PU"
+                            priceLabel={draftIndicativePuMad}
+                            title={draftPuTitle}
+                            canEditPrice={canAdjustThisLinePrice}
+                            productId={nationalProductId}
+                            pricingConfig={pricingConfig}
+                            onEditPrice={openLinePriceAdjust}
+                            className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular-nums text-[10px]"
+                          />
                           {lineLockedTrace ? (
                             <span className="rounded-md bg-rose-100 px-1.5 py-px text-[9px] font-semibold text-rose-900 ring-1 ring-rose-200/80">
                               Non distribué
@@ -8760,6 +8800,35 @@ export default function PharmacienDemandeDetailPage() {
         descriptionHtml={productPhotoPreview?.descriptionHtml}
         catalogExplorerPreview={productPhotoPreview?.catalogExplorerPreview}
         onClose={() => setProductPhotoPreview(null)}
+      />
+      <PharmacistLinePriceAdjustModal
+        open={linePriceAdjust != null}
+        target={linePriceAdjust?.target ?? null}
+        pricingConfig={pricingConfig}
+        onClose={() => setLinePriceAdjust(null)}
+        onResetDraft={
+          linePriceAdjust
+            ? () => {
+                const rowId = linePriceAdjust.rowId;
+                setDraft((prev) => {
+                  const cur = prev[rowId];
+                  if (!cur) return prev;
+                  return { ...prev, [rowId]: { ...cur, unit_price: "" } };
+                });
+              }
+            : undefined
+        }
+        onSaved={({ unitPrice }) => {
+          if (!linePriceAdjust) return;
+          const rowId = linePriceAdjust.rowId;
+          setDraft((prev) => {
+            const cur = prev[rowId];
+            if (!cur) return prev;
+            return { ...prev, [rowId]: { ...cur, unit_price: unitPrice.toFixed(2) } };
+          });
+          void reloadPricingConfig();
+          setLinePriceAdjust(null);
+        }}
       />
       {usesLineWorkflow &&
       sessionUserId &&

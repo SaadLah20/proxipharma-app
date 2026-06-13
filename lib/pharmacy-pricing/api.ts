@@ -15,7 +15,12 @@ export async function savePharmacistPricingConfig(
   config: PharmacyPricingConfig
 ): Promise<PharmacyPricingConfig | null> {
   const payload = {
-    settings: config.settings,
+    settings: {
+      parapharmacy_mode: config.settings.parapharmacy_mode,
+      parapharmacy_margin_pct: config.settings.parapharmacy_margin_pct,
+      show_catalog_prices_before_response:
+        config.settings.show_catalog_prices_before_response !== false,
+    },
     brand_rules: config.brand_rules.map((r) => ({
       brand_key: r.brand_key,
       margin_pct: r.margin_pct,
@@ -27,6 +32,19 @@ export async function savePharmacistPricingConfig(
   };
   const { data, error } = await supabase.rpc("pharmacist_pricing_config_save", {
     p_payload: payload,
+  });
+  if (error) throw error;
+  return (data as PharmacyPricingConfig | null) ?? null;
+}
+
+export async function upsertPharmacistProductOverride(
+  supabase: SupabaseClient,
+  productId: string,
+  marginPct: number
+): Promise<PharmacyPricingConfig | null> {
+  const { data, error } = await supabase.rpc("pharmacist_pricing_product_override_upsert", {
+    p_product_id: productId,
+    p_margin_pct: marginPct,
   });
   if (error) throw error;
   return (data as PharmacyPricingConfig | null) ?? null;
