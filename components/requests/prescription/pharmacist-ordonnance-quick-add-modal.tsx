@@ -85,6 +85,9 @@ type Props = {
   catalogSearchQuery?: string;
   catalogSearchDebouncedLen?: number;
   catalogHitCount?: number;
+  /** Recherche alternative (produit déjà choisi) — bouton « ajouter au catalogue ». */
+  altCatalogSearchDebouncedLen?: number;
+  altCatalogHitCount?: number;
 };
 
 function QtyStepper({
@@ -192,6 +195,8 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
     catalogSearchQuery = "",
     catalogSearchDebouncedLen = 0,
     catalogHitCount = 0,
+    altCatalogSearchDebouncedLen = 0,
+    altCatalogHitCount = 0,
   } = props;
 
   const puLabel = (hit: OrdonnanceCatalogHit) => catalogUnitPriceLabel?.(hit) ?? null;
@@ -519,7 +524,7 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                     {altHits.length > 0 ? (
                       <ul className="mt-1 min-h-0 space-y-0.5 rounded-md border border-border/60 bg-muted/15 p-1">
                         {altHits.map((h) => (
-                          <li key={h.id}>
+                          <li key={catalogHitKey({ source: h.source ?? "global", id: h.id })}>
                             <button
                               type="button"
                               disabled={busy}
@@ -547,6 +552,18 @@ export function PharmacistOrdonnanceQuickAddModal(props: Props) {
                           </li>
                         ))}
                       </ul>
+                    ) : altQuery.trim().length >= 2 ? (
+                      <p className="mt-1 text-[10px] text-muted-foreground">Aucun résultat.</p>
+                    ) : null}
+                    {onAddCatalogProduct ? (
+                      <CatalogProductAddButton
+                        query={altQuery}
+                        debouncedLen={altCatalogSearchDebouncedLen || altQuery.trim().length}
+                        hitCount={altCatalogHitCount || altHits.length}
+                        variant="amber"
+                        disabled={busy}
+                        onClick={onAddCatalogProduct}
+                      />
                     ) : null}
                   </>
                 ) : null}
