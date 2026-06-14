@@ -314,21 +314,25 @@ Variables template : `{{1}}` = officine (patient) ou nom patient (pharma) ; `{{2
 
 **Secours v1 répondu** (sans lien, si rollback) : `copy_pharmeto_request_responded_fr` → `HXe97624f91a846e92c56ca0fe2fabd2d5`.
 
-**En attente Meta (M2 — soumis 12/06/2026, ne pas coder avant Approved)** :
+**En attente Meta (M2 lot 1 — soumis 12/06/2026, code livré 14/06/2026 sur `feature/whatsapp-c-suite-m2-lot1`)** :
 
-| Template | Content SID | `event_type` |
-|----------|-------------|--------------|
-| `pharmeto_request_treated_fr_v2_link` | `HX7bb5e8dfca48fde180a316a0f0dc0e91` | `request_status:treated` |
-| `pharmeto_request_expired_fr_v2_link` | `HX781b5d3d9091c307629c722799559825` | `request_status:expired` |
-| `pharmeto_request_reminder_fr_v2_link` | `HX671183dc98399066641bbf71670cce3c` | `request_event:responded_expiry_reminder` |
+| Template | Content SID | `event_type` | Code |
+|----------|-------------|--------------|------|
+| `pharmeto_request_treated_fr_v2_link` | `HX7bb5e8dfca48fde180a316a0f0dc0e91` | `request_status:treated` | ✅ |
+| `pharmeto_request_expired_fr_v2_link` | `HX781b5d3d9091c307629c722799559825` | `request_status:expired` | ✅ |
+| `pharmeto_request_reminder_fr_v2_link` | `HX671183dc98399066641bbf71670cce3c` | `request_event:responded_expiry_reminder` | ✅ |
+
+Basculer vars Vercel **après Approved** Meta (voir ci-dessous).
 
 **M2 restant (6 templates — pas encore soumis)** : produit reçu, rupture dispo (patient) ; validée, ordonnance, passage, message (pharmacien) — **`docs/WHATSAPP-NOTIFS-REPRISE.md`**.
 
 **Variables Vercel** (en plus de `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN`) :
 - `TWILIO_WHATSAPP_FROM` = `whatsapp:+212770165668`
 - `TWILIO_WHATSAPP_CONTENT_SID_RESPONDED` = `HX887df3db18f89b20a78cfec865745d28` (**v2 link**)
-- `TWILIO_WHATSAPP_CONTENT_SID_TREATED` = `HX5aa3d5e71dc6242ac53448fb95022f54` (v1)
+- `TWILIO_WHATSAPP_CONTENT_SID_TREATED` = `HX5aa3d5e71dc6242ac53448fb95022f54` (v1 prod — basculer **`HX7bb5e8dfca48fde180a316a0f0dc0e91`** après Approved + merge lot 1)
 - `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_NEW_REQUEST` = `HX806ef0e68b7e5f2a6cc674b4637e4a60`
+- `TWILIO_WHATSAPP_CONTENT_SID_EXPIRED` = `HX781b5d3d9091c307629c722799559825` (lot 1 — après Approved)
+- `TWILIO_WHATSAPP_CONTENT_SID_REMINDER` = `HX671183dc98399066641bbf71670cce3c` (lot 1 — après Approved)
 - Optionnel test : `WHATSAPP_TEST_TO` = `+2126…` perso
 
 **Test B** — après deploy preview :
@@ -345,7 +349,7 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: applicati
 ```
 Ou Twilio Console → **Try it out** → variables `{"1":"Pharmacie Centrale","2":"D042/26","3":"a1b2c3d4e5f6789012345678abcdef01"}`.
 
-**Pilote worker** : patient **répondu** + **traité** ; pharmacien **nouvelle demande** (`submitted`). Autres `event_type` enqueue e-mail mais **skip** WhatsApp. Destination = `profiles.whatsapp` (E.164). Routes lien court : **`/r/[token]`** (patient), **`/rp/[token]`** (pharmacien).
+**Pilote worker** : patient **répondu** + **traité** (+ **expiré** + **rappel** après merge lot 1 et vars Vercel) ; pharmacien **nouvelle demande** (`submitted`). Autres `event_type` enqueue e-mail mais **skip** WhatsApp. Destination = `profiles.whatsapp` (E.164). Routes lien court : **`/r/[token]`** (patient), **`/rp/[token]`** (pharmacien).
 
 **Ops** : rafale backlog webhook corrigée (`onlyQueueRowIds` sur INSERT) ; script annulation file WhatsApp obsolète : `supabase/scripts/cancel-pending-whatsapp-backlog.sql`.
 

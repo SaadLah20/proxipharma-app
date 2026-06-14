@@ -2,7 +2,7 @@
 
 Document de reprise pour fondateur + agent. Détail ops : **`RUNBOOK.md` §10**.
 
-## État au 12/06/2026
+## État au 14/06/2026
 
 ### Livré en prod (PR **#344** — `feature/whatsapp-c-pilote`, mergée `main`)
 
@@ -18,15 +18,17 @@ Document de reprise pour fondateur + agent. Détail ops : **`RUNBOOK.md` §10**.
 
 **Secours v1 répondu** (rollback) : `copy_pharmeto_request_responded_fr` → `HXe97624f91a846e92c56ca0fe2fabd2d5`.
 
-### En attente Meta (soumis 12/06/2026 — lot M2 patient)
+### En attente Meta (soumis 12/06/2026 — lot M2 patient) — **code lot 1 livré 14/06/2026**
 
-Business initiated **gris** = pending. **Ne pas coder** tant que pas **Approved** (vert).
+Business initiated **gris** = pending. **Code intégré** sur branche **`feature/whatsapp-c-suite-m2-lot1`** (commit **`a0c69ae`**) — **basculer vars Vercel** uniquement quand **Approved** (vert).
 
-| Template | Content SID | `event_type` |
-|----------|-------------|--------------|
-| `pharmeto_request_treated_fr_v2_link` | `HX7bb5e8dfca48fde180a316a0f0dc0e91` | `request_status:treated` |
-| `pharmeto_request_expired_fr_v2_link` | `HX781b5d3d9091c307629c722799559825` | `request_status:expired` |
-| `pharmeto_request_reminder_fr_v2_link` | `HX671183dc98399066641bbf71670cce3c` | `request_event:responded_expiry_reminder` |
+| Template | Content SID | `event_type` | Code |
+|----------|-------------|--------------|------|
+| `pharmeto_request_treated_fr_v2_link` | `HX7bb5e8dfca48fde180a316a0f0dc0e91` | `request_status:treated` | ✅ codé |
+| `pharmeto_request_expired_fr_v2_link` | `HX781b5d3d9091c307629c722799559825` | `request_status:expired` | ✅ codé |
+| `pharmeto_request_reminder_fr_v2_link` | `HX671183dc98399066641bbf71670cce3c` | `request_event:responded_expiry_reminder` | ✅ codé |
+
+**Fichiers** : `lib/twilio-whatsapp.ts`, `lib/external-notification-queue-worker.ts`, route test **`/api/cron/test-external-whatsapp`**.
 
 ### M2 restant (pas encore soumis Twilio)
 
@@ -59,7 +61,7 @@ TWILIO_WHATSAPP_CONTENT_SID_TREATED=HX5aa3d5e71dc6242ac53448fb95022f54
 TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_NEW_REQUEST=HX806ef0e68b7e5f2a6cc674b4637e4a60
 ```
 
-**Après C-suite lot 1** (quand les 3 pending sont Approved) :
+**Après C-suite lot 1** (quand les 3 pending sont Approved — code déjà sur **`feature/whatsapp-c-suite-m2-lot1`**) :
 
 ```
 TWILIO_WHATSAPP_CONTENT_SID_TREATED=HX7bb5e8dfca48fde180a316a0f0dc0e91
@@ -76,19 +78,21 @@ TWILIO_WHATSAPP_CONTENT_SID_REMINDER=HX671183dc98399066641bbf71670cce3c
 Capture Twilio recommandée + phrase :
 
 ```
-Continuons WhatsApp — 3 templates Approved, étape C-suite (lot patient M2)
+Continuons WhatsApp — 3 templates Approved, basculer prod lot patient M2
 
 Les 3 templates Meta sont Approved (business initiated vert) :
 - pharmeto_request_treated_fr_v2_link → HX7bb5e8dfca48fde180a316a0f0dc0e91
 - pharmeto_request_expired_fr_v2_link → HX781b5d3d9091c307629c722799559825
 - pharmeto_request_reminder_fr_v2_link → HX671183dc98399066641bbf71670cce3c
 
-Contexte déjà livré et testé (C-pilote, PR #344 mergée main) :
-- pharmeto_request_responded_fr_v2_link → HX887df3db18f89b20a78cfec865745d28
-- pharmeto_pharmacy_new_request_fr → HX806ef0e68b7e5f2a6cc674b4637e4a60
-- Migration 20260817_001 appliquée Supabase · routes /r/ et /rp/
+Code déjà livré (14/06/2026, branche feature/whatsapp-c-suite-m2-lot1, commit a0c69ae) :
+- lib/twilio-whatsapp.ts + worker + route test
 
-À faire : intégrer ces 3 événements patient dans lib/twilio-whatsapp.ts + worker + variables Vercel ; basculer TWILIO_WHATSAPP_CONTENT_SID_TREATED vers v2 ; commit + push + PR.
+À faire : merger PR lot 1 si pas fait ; basculer Vercel :
+TWILIO_WHATSAPP_CONTENT_SID_TREATED=HX7bb5e8dfca48fde180a316a0f0dc0e91
+TWILIO_WHATSAPP_CONTENT_SID_EXPIRED=HX781b5d3d9091c307629c722799559825
+TWILIO_WHATSAPP_CONTENT_SID_REMINDER=HX671183dc98399066641bbf71670cce3c
+Redeploy prod · tester expired + reminder + treated v2 sur preview.
 
 Reprise doc : docs/WHATSAPP-NOTIFS-REPRISE.md
 
