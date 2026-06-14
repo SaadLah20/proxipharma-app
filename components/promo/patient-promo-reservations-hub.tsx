@@ -222,7 +222,6 @@ export function PatientPromoReservationsHub() {
     entityFilter: pharmacyFilter,
     referenceQuery: refQuery,
     sortNewestFirst,
-    activeOnly,
   });
 
   const filtersPanelExpanded = hubListFiltersPanelExpanded({
