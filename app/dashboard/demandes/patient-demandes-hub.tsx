@@ -260,7 +260,6 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     entityFilter: pharmacyFilter,
     referenceQuery: refQuery,
     sortNewestFirst,
-    activeOnly,
   });
   const filtersPanelExpanded = hubListFiltersPanelExpanded({
     tabIsList: tab === "list",
