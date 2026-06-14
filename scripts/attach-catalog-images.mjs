@@ -9,6 +9,7 @@
  *
  * Usage (Windows : erreur certificat TLS → ajouter --use-system-ca) :
  *   node --use-system-ca scripts/attach-catalog-images.mjs
+ *   node --use-system-ca scripts/attach-catalog-images.mjs --category beautymall_catalog
  *   node --use-system-ca scripts/attach-catalog-images.mjs --dry-run
  */
 
@@ -18,7 +19,14 @@ import path from "node:path";
 
 const BUCKET = "public-assets";
 const IMAGES_DIR = path.join("catalog", "images");
-const CATALOG_CATEGORY = "ma_catalog_photos";
+const DEFAULT_CATEGORY = "ma_catalog_photos";
+
+function parseCategoryArg(argv) {
+  for (let i = 2; i < argv.length; i++) {
+    if (argv[i] === "--category" && argv[i + 1]) return argv[++i];
+  }
+  return DEFAULT_CATEGORY;
+}
 
 async function loadEnvLocal() {
   try {
@@ -47,12 +55,13 @@ async function main() {
   }
 
   const dryRun = process.argv.includes("--dry-run");
+  const catalogCategory = parseCategoryArg(process.argv);
   const supabase = createClient(url, key, { auth: { persistSession: false } });
 
   const { data: products, error: pe } = await supabase
     .from("products")
     .select("id,name,subcategory")
-    .eq("category", CATALOG_CATEGORY);
+    .eq("category", catalogCategory);
   if (pe) throw pe;
 
   const bySlug = new Map((products ?? []).map((p) => [p.subcategory, p]));
