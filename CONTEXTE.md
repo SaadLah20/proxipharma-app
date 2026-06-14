@@ -41,6 +41,13 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 ## 6. État technique récent (aligné repo — mai–juin 2026)
 
+**Mise à jour 2026-06-14 — pricing patient, abandon pharmacien, admin pilote, WhatsApp M2 lot 1** :
+- **Pricing patient (PR #352 mergée)** : modal validation = même PU que dossier (**`lib/patient-responded-line-pricing.ts`**) ; médicament = **PPV** toujours (**`resolveLineUnitPrice`**, brouillon pharma **`catalogEmbedUnitPriceFallback`**) ; visibilité PU avant réponse officine (**`20260820_001`**, **`show_catalog_prices_before_response`**) — commits **`6065889`**, **`e8bff83`**.
+- **Abandon pharmacien direct** : migration **`20260821_001`** ; RPC **`pharmacist_abandon_request`** ; bouton **Abandonner le dossier** sur validé/traité (motif, refuse si retrait comptoir) — commit **`c8e2fb8`**.
+- **Admin pilote** : refonte espace **`/admin`** (dashboard, demandes, officines) — commits **`70784b8`**, **`4862464`** (fix lint).
+- **WhatsApp M2 lot 1** : code **`expired`** + **`responded_expiry_reminder`** + traité v2 link — branche **`feature/whatsapp-c-suite-m2-lot1`**, commit **`a0c69ae`** ; vars Vercel à basculer après Meta Approved.
+- **Migrations Supabase** (ordre, si pas fait) : **`20260820_001`** puis **`20260821_001`**. Phrase reprise **§13.62** · journal **§10 session 2026-06-14**.
+
 **Mise à jour 2026-06-11 — passage vs horaires + allègement CRM Mes pharmacies / Clients** :
 - **Passage officine** : validation client **`lib/planned-visit-pharmacy-validation.ts`** (≥ **30 min** si aujourd’hui + heure, jour fermé, hors créneaux) + garde SQL migration **`20260812_001`** dans **`patient_confirm_after_response`** et **`patient_update_planned_visit_after_confirmation`** ; UI live **`PatientProductRequestActions`** — commits **`77bccb7`**, **`5c651ad`**.
 - **Mes pharmacies** / **Clients** : retrait grille KPI 3 colonnes — en-tête + recherche/tri/filtre + cartes uniquement — **`patient-pharmacies-directory.tsx`**, **`pharmacist-clients-directory.tsx`** — commit **`57dc498`**.

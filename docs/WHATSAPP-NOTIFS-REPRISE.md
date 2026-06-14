@@ -20,7 +20,7 @@ Document de reprise pour fondateur + agent. Détail ops : **`RUNBOOK.md` §10**.
 
 **Secours v1 traité** (rollback) : `copy_pharmeto_request_treated_fr` → `HX5aa3d5e71dc6242ac53448fb95022f54`.
 
-### C-suite lot 1 patient M2 — Approved Meta 13/06/2026 (PR en cours)
+### C-suite lot 1 patient M2 — Approved Meta 13/06/2026 (mergée `main`)
 
 | Template | Content SID | `event_type` | Env Vercel |
 |----------|-------------|--------------|------------|
@@ -28,7 +28,7 @@ Document de reprise pour fondateur + agent. Détail ops : **`RUNBOOK.md` §10**.
 | `pharmeto_request_expired_fr_v2_link` | `HX781b5d3d9091c307629c722799559825` | `request_status:expired` | `TWILIO_WHATSAPP_CONTENT_SID_EXPIRED` |
 | `pharmeto_request_reminder_fr_v2_link` | `HX671183dc98399066641bbf71670cce3c` | `request_event:responded_expiry_reminder` | `TWILIO_WHATSAPP_CONTENT_SID_REMINDER` |
 
-Branche : `feature/whatsapp-c-suite-m2-lot1`. Pas de migration Supabase (enqueue déjà OK via `20260817_001`).
+Branche : `feature/whatsapp-c-suite-m2-lot1` (commit **`a0c69ae`**). Pas de migration Supabase (enqueue déjà OK via `20260817_001`).
 
 ### M2 restant (pas encore soumis Twilio)
 

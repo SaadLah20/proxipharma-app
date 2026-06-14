@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260819_002`** si pas fait — catalogue communautaire + WhatsApp **`20260817_001`**) → phrase **§13.61** (catalogue) ou **§13.60** (général). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260821_001`** si pas fait — après catalogue **`20260819_002`**, WhatsApp **`20260817_001`**, pricing visibilité **`20260820_001`**, abandon pharmacien **`20260821_001`**) → phrase **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -381,6 +381,40 @@ git checkout pilote-stable-2026-05-24
 **Branche de travail après retour** : `git switch -c reprise-depuis-stable-2026-05-24`
 
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
+
+---
+
+### Session 2026-06-14 — Pricing patient, abandon pharmacien, admin pilote, WhatsApp M2 lot 1
+
+**Branches / PR** :
+- **`feature/pricing-visibility-pu-adjust`** — PR **#352** mergée **`main`** — commits **`6065889`**, **`c8e2fb8`**, **`e8bff83`**.
+- **`feature/admin-dashboard-refonte`** — commits **`70784b8`**, **`4862464`** (fix lint `AdminPilotBlock`).
+- **`feature/whatsapp-c-suite-m2-lot1`** — commit **`a0c69ae`**.
+
+**Migrations** (ordre, si pas déjà fait) :
+- **`20260820_001_pharmacy_pricing_catalog_visibility.sql`** — **`show_catalog_prices_before_response`** + RPC **`pharmacist_pricing_product_override_upsert`**.
+- **`20260821_001_pharmacist_abandon_request.sql`** — RPC **`pharmacist_abandon_request(p_request_id, p_reason_text)`** : **`confirmed`/`treated` → `abandoned`**, écarte les lignes retenues actives, motif obligatoire ; refuse si retrait comptoir **`picked_up`**.
+
+**Pricing patient (PR #352)** :
+- Modal **Valider ma demande** : même résolution PU que le dossier répondu — **`lib/patient-responded-line-pricing.ts`**, **`resolvedRespondedUnitPrice`** dans **`buildPatientConfirmSelection`**.
+- **Médicaments** : affichage **PPV** toujours (**`resolveLineUnitPrice`**, brouillon pharmacien **`catalogEmbedUnitPriceFallback`**) — catalogue national ou PPV privé officine.
+- Visibilité PU catalogue avant réponse officine : **`show_catalog_prices_before_response`** (onglet **Général** pricing pharmacien).
+
+**Abandon pharmacien direct** :
+- Bouton **Abandonner le dossier** sur dossier **validé** / **traité** (sans retrait comptoir) — modale motif **`RequestExitConfirmModalFr`** mode **`pharmacist_abandon`**.
+- Ancien parcours conservé : écarter toutes les lignes + **Enregistrer** → **`pharmacist_abandon_request_no_pickup`**.
+- **Annuler la demande** retiré sur **traité** (RPC **`pharmacist_cancel_request`** ne couvrait pas ce statut).
+
+**Admin pilote (refonte espace)** :
+- Layout **`app/admin/layout.tsx`** + nav sections **`lib/admin-nav.ts`**.
+- **`/admin`** dashboard fondateur (**`admin-dashboard.tsx`**) ; **`/admin/demandes`** liste + tuiles statuts ; **`/admin/officines`** ; détail demande allégé.
+- **`AdminPilotBlock`** : filtres bucket + compteurs e-mail ; sync URL via **`key`** (plus de `setState` dans effet — CI lint).
+
+**WhatsApp M2 lot 1 patient (code livré, vars Vercel à basculer)** :
+- **`lib/twilio-whatsapp.ts`** : **`request_status:expired`**, **`request_event:responded_expiry_reminder`** + lien **`/r/`** ; traité passe en **v2 link** si **`TWILIO_WHATSAPP_CONTENT_SID_TREATED=HX7bb5…`**.
+- Variables : **`TWILIO_WHATSAPP_CONTENT_SID_EXPIRED`**, **`TWILIO_WHATSAPP_CONTENT_SID_REMINDER`** — voir **`docs/WHATSAPP-NOTIFS-REPRISE.md`**, **`RUNBOOK.md` §10**.
+
+**Phrase de reprise** : **§13.62**.
 
 ---
 
@@ -2422,8 +2456,13 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260718_002_pilot_visibility_seed_fix.sql` (fix seed SQL Editor — **à appliquer après 001**)
   - `supabase/migrations/20260811_001_disable_external_sms_notifications.sql` (SMS métier off ; enqueue e-mail + WhatsApp patient P0)
   - `supabase/migrations/20260812_001_planned_visit_pharmacy_hours_validation.sql` (passage patient vs horaires officine)
+  - `supabase/migrations/20260813_001_pharmacy_catalog_products.sql` (catalogue privé officine + recherche unifiée)
+  - `supabase/migrations/20260815_001` · **`20260816_001`** · **`20260818_001`** · **`20260819_001`** · **`20260819_002`** (catalogue communautaire V1 — **001 enum seul puis 002**)
+  - `supabase/migrations/20260817_001_whatsapp_c_pilote_pharmacist_enqueue.sql` (enqueue WhatsApp pharmacien nouvelle demande)
+  - `supabase/migrations/20260820_001_pharmacy_pricing_catalog_visibility.sql` (**masquer PU patient avant réponse** + override produit pricing)
+  - `supabase/migrations/20260821_001_pharmacist_abandon_request.sql` (**abandon direct pharmacien** validé/traité avec motif)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260812_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** (officines test masquées) ; catalogue **~19 677** (13 651 para + 6 026 méd.) ; marques para **~93,65 %** en base. i18n messages patient **1 296** clés FR/AR. Reprise courte : **§13.60**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260821_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** ; catalogue **~19 677** ; i18n patient **~1 220** clés FR/AR. Reprise courte : **§13.62**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2440,7 +2479,7 @@ Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-
 - **`/pharmacie/[id]/demande-produits`** (+ **`/catalogue`**) : parcours patient aligné visuellement sur l’annuaire (hero émeraude, cartes produits) ; **aperçu photo + description** catalogue au clic vignette (**`736100f`**).
 - **Catalogue pilote** : **~19 677** produits en BDD (juin 2026) — **13 651** parapharmacie BeautyMall (photos URL **`beautymall.ma`**, descriptions HTML **`full_description`**, marques **~93,65 %**) + **6 026** médicaments officine (PPH/PPV, sans photo) ; voir **`scripts/README-beautymall-catalog.md`** et **`scripts/README-medicaments-officine.md`**.
 - **`/dashboard/pharmacien/ma-fiche`** + **`/dashboard/pharmacien/horaires-garde`** : édition fiche officine (onglets **Coordonnées** / Accueil / Photos / Liens / Services ; titulaire + **`titular_public`** ; horaires compacts + fériés auto + garde ; upload **couverture** / **logo** versionnés via **`lib/pharmacy-media.ts`**).
-- **`/admin`** : onboarding officine + pharmacien (**`AdminOnboardPharmacyForm`**, MDP provisoire copié manuellement).
+- **`/admin`** : espace pilote refoné (**juin 2026**) — layout + nav **`lib/admin-nav.ts`** ; dashboard **`admin-dashboard.tsx`** ; **`/admin/demandes`**, **`/admin/officines`**, **`/admin/produits-communautaires`** ; onboarding officine (**`AdminOnboardPharmacyForm`**) ; accès pilote **`admin-pilot-access-list.tsx`**.
 - **`/dashboard/pharmacien/offres-promos`** + **`/dashboard/pharmacien/reservations-packs`** ; **`/dashboard/patient/packs-promo`** — workflow packs promo (après **`20260610_001`**).
 - **`/dashboard/pharmacien/pricing`** — moteur de pricing officine (**`20260619_001`**, appliquée).
 - **`/dashboard/pharmacien/parametres`** — **Mes paramètres** pharmacien (**`pharmacist-settings-page.tsx`**, charte **`platform-dashboard-chrome`**).
@@ -2735,11 +2774,15 @@ Voir **§13.37**.
 
 **« Affinage i18n arabe patient §13.58 — étapes 1–5 livrées sur `fix/validated-supply-ecart-ui-modal`. Preview AR ou épique hors pilote (catalogue, SMS, pharmacien AR). Je te donne la tâche ou les retours. »**
 
-### 13.61) Phrase de reprise (recommandée — catalogue communautaire V1, juin 2026)
+### 13.62) Phrase de reprise (recommandée — session **2026-06-14** pricing + abandon + admin + WhatsApp M2)
+
+**« Pharmeto (`pharmeto.ma`) — reprise session **2026-06-14**. **Migrations Supabase** (ordre, si pas fait) : catalogue **`20260813_001`** → **`20260819_002`** ; WhatsApp **`20260817_001`** ; pricing visibilité **`20260820_001`** ; abandon pharmacien **`20260821_001`**. **Pricing patient (PR #352 mergée)** : modal validation = même PU que dossier (**`lib/patient-responded-line-pricing.ts`**) ; médicament = **PPV** toujours. **Pharmacien** : bouton **Abandonner le dossier** direct (**`pharmacist_abandon_request`**) sur validé/traité sans retrait comptoir. **Admin** : refonte espace pilote (**`/admin`**, demandes, officines). **WhatsApp M2 lot 1** : traité v2 + expiré + rappel — vars **`TWILIO_WHATSAPP_CONTENT_SID_TREATED` / `_EXPIRED` / `_REMINDER`** (**`docs/WHATSAPP-NOTIFS-REPRISE.md`**). Je te donne la tâche ou les retours preview. »**
+
+### 13.61) Phrase de reprise (catalogue communautaire V1 seul — juin 2026)
 
 **« Pharmeto — catalogue communautaire V1 livré (PR #342–#346, suite `feature/catalog-phase-c-admin` : Supprimer + marque liste). **Migrations** (ordre) : `20260813_001`, `20260815_001`, `20260816_001`, `20260818_001`, `20260819_001` (enum seul), `20260819_002`. Pharmacien : Mes produits + prix PPH/PPV + marge para ; patient : ligne manuelle ; admin : `/admin/produits-communautaires`. Hors scope V1 : notifs admin, photos Storage dédiées, dédoublonnage auto. Lis `AGENTS.md` (catalogue communautaire), `CONTEXTE.md` §2026-06-11. Je te donne la tâche ou les retours preview. »**
 
-### 13.60) Phrase de reprise (recommandée — session **2026-06-11** passage horaires + CRM sans KPI)
+### 13.60) Phrase de reprise (dépassée — session **2026-06-11** passage horaires + CRM sans KPI)
 
 **« Pharmeto (`pharmeto.ma`) — branche `fix/validated-supply-ecart-ui-modal` (commits **`77bccb7`**, **`5c651ad`**, **`57dc498`**). **Migrations Supabase** : **`20260811_001`** (SMS métier off, WhatsApp P0) puis **`20260812_001`** (passage vs horaires officine — appliquer avec RLS normal). **Passage patient** : ≥ **30 min** si aujourd’hui + heure ; jour fermé / hors créneaux bloqués UI + RPC ; **`lib/planned-visit-pharmacy-validation.ts`**. **Mes pharmacies / Clients** : liste = en-tête + recherche/filtres + cartes (**sans** KPI 3 colonnes). Lots antérieurs : annuaire pilote **§13.59**, i18n **§13.58**. Je te donne la tâche ou les retours preview. »**
 
@@ -2903,7 +2946,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail et merge prod : `fix/validated-supply-ecart-ui-modal` (dernier lot journal §10 **2026-06-11** — passage horaires + CRM sans KPI, commits **`57dc498`**). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux sur la branche courante. Supabase pilote : migrations jusqu’à **`20260812_001`** (après **`20260811_001`**) ; annuaire public = **Al Jazira seule** ; catalogue **~19 677** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.60**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail courante : **`main`** (dernier lot journal §10 **2026-06-14** — pricing patient PR #352, abandon pharmacien, admin pilote, WhatsApp M2 lot 1). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux. Supabase pilote : migrations jusqu’à **`20260821_001`** ; annuaire public = **Al Jazira seule** ; catalogue **~19 677** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.62**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
