@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { useLocale, useTranslations } from "next-intl";
+import { AdminAccountPageHeader } from "@/components/admin/admin-account-page-header";
 import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
 import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
 import { PageShell } from "@/components/ui/compact-shell";
@@ -207,15 +208,25 @@ export default function NotificationsPage() {
   }
 
   const back = accountBackForRole(role);
-  const subtitle = role === "pharmacien"
-    ? "Alertes dossiers et réservations packs promo de votre officine."
-    : tn("patientSubtitle");
+  const subtitle =
+    role === "pharmacien"
+      ? "Alertes dossiers et réservations packs promo de votre officine."
+      : role === "admin"
+        ? "Alertes dossiers et événements du pilote Pharmeto."
+        : tn("patientSubtitle");
 
   return (
     <PageShell className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden">
       {role === "pharmacien" ? (
         <PharmacistAccountPageHeader
           eyebrow="Espace pharmacien"
+          title="Notifications"
+          subtitle={subtitle}
+          backHref={back.href}
+          backLabel={back.label}
+        />
+      ) : role === "admin" ? (
+        <AdminAccountPageHeader
           title="Notifications"
           subtitle={subtitle}
           backHref={back.href}

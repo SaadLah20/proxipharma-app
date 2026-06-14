@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { useParams } from "next/navigation";
+import { clsx } from "clsx";
+import { AdminAccountPageHeader } from "@/components/admin/admin-account-page-header";
 import { formatDateTimeShort24hFr, formatPlannedVisitFr } from "@/lib/datetime-fr";
 import {
   availabilityStatusFr,
@@ -13,7 +14,9 @@ import {
   requestTypeFr,
 } from "@/lib/request-display";
 import { one } from "@/lib/embed";
+import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
+import { supabase } from "@/lib/supabase";
 
 type PharmacyEmbed = { nom: string; ville: string; adresse: string; telephone: string | null };
 
@@ -43,8 +46,16 @@ type ItemRow = {
   products: { name: string } | { name: string }[] | null;
 };
 
+function MetaCard({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
+      <dt className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 text-sm text-foreground">{children}</dd>
+    </div>
+  );
+}
+
 export default function AdminDemandeDetailPage() {
-  const router = useRouter();
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
 
@@ -61,19 +72,6 @@ export default function AdminDemandeDetailPage() {
     }
     setLoading(true);
     setError("");
-
-    const { data: authData } = await supabase.auth.getSession();
-    const user = authData.session?.user;
-    if (!user) {
-      router.replace("/auth");
-      return;
-    }
-
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-    if ((profile as { role?: string } | null)?.role !== "admin") {
-      router.replace("/");
-      return;
-    }
 
     const { data: reqData, error: reqErr } = await supabase
       .from("requests")
@@ -109,7 +107,7 @@ export default function AdminDemandeDetailPage() {
     }
 
     setLoading(false);
-  }, [id, router]);
+  }, [id]);
 
   useEffect(() => {
     const tid = window.setTimeout(() => {
@@ -131,96 +129,83 @@ export default function AdminDemandeDetailPage() {
   const ph = request ? one(request.pharmacies) : null;
 
   if (loading) {
-    return (
-      <main className="mx-auto max-w-3xl p-6">
-        <p className="text-sm text-gray-600">Chargement…</p>
-      </main>
-    );
+    return <p className="text-sm text-muted-foreground">Chargement…</p>;
   }
 
   return (
-    <main className="mx-auto max-w-3xl p-6">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold">Vue admin — demande</h1>
-          <p className="text-sm text-gray-600">Lecture seule pilote.</p>
-        </div>
-        <Link href="/admin" className="text-sm text-blue-700 underline">
-          ← Panneau admin
-        </Link>
-      </div>
+    <div className="space-y-4">
+      <AdminAccountPageHeader
+        title="Détail demande"
+        subtitle="Vue lecture seule pour le pilotage Pharmeto."
+        backHref="/admin/demandes"
+        backLabel="← Demandes pilote"
+      />
 
-      {error ? <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
+      {error ? <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p> : null}
 
       {request ? (
-        <div className="space-y-4 text-sm">
-          <dl className="grid gap-1 rounded-xl border bg-white p-4">
-            <div>
-              <dt className="text-xs uppercase text-gray-500">Réf.</dt>
-              <dd className="font-mono text-xs">{request.id}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase text-gray-500">Statut</dt>
-              <dd>{requestStatusFr[request.status] ?? request.status}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase text-gray-500">Type</dt>
-              <dd>{requestTypeFr[request.request_type] ?? request.request_type}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase text-gray-500">Pharmacie</dt>
-              <dd>{ph ? `${ph.nom} (${ph.ville})` : request.pharmacy_id}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase text-gray-500">Patient</dt>
-              <dd className="font-mono text-xs">{formatShortId(request.patient_id)} — {request.patient_id}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase text-gray-500">Créé</dt>
-              <dd>{formatDateTimeShort24hFr(request.created_at)}</dd>
-            </div>
+        <>
+          <p className="text-xs text-muted-foreground">
+            <Link href="/admin/demandes" className={p.linkInline}>
+              Demandes
+            </Link>
+            <span className="mx-1.5">›</span>
+            <span className="font-mono">{formatShortId(request.id)}</span>
+          </p>
+
+          <section className={clsx(p.hero, "grid gap-2 sm:grid-cols-2")}>
+            <MetaCard label="Statut">{requestStatusFr[request.status] ?? request.status}</MetaCard>
+            <MetaCard label="Type">{requestTypeFr[request.request_type] ?? request.request_type}</MetaCard>
+            <MetaCard label="Pharmacie">{ph ? `${ph.nom} (${ph.ville})` : request.pharmacy_id}</MetaCard>
+            <MetaCard label="Patient">
+              <span className="font-mono text-xs">{formatShortId(request.patient_id)}</span>
+            </MetaCard>
+            <MetaCard label="Créé">{formatDateTimeShort24hFr(request.created_at)}</MetaCard>
             {request.submitted_at ? (
-              <div>
-                <dt className="text-xs uppercase text-gray-500">Soumis</dt>
-                <dd>{formatDateTimeShort24hFr(request.submitted_at)}</dd>
-              </div>
+              <MetaCard label="Soumis">{formatDateTimeShort24hFr(request.submitted_at)}</MetaCard>
             ) : null}
             {request.responded_at ? (
-              <div>
-                <dt className="text-xs uppercase text-gray-500">Répondu</dt>
-                <dd>{formatDateTimeShort24hFr(request.responded_at)}</dd>
-              </div>
+              <MetaCard label="Répondu">{formatDateTimeShort24hFr(request.responded_at)}</MetaCard>
             ) : null}
             {request.confirmed_at ? (
-              <div>
-                <dt className="text-xs uppercase text-gray-500">Confirmé patient</dt>
-                <dd>{formatDateTimeShort24hFr(request.confirmed_at)}</dd>
-              </div>
+              <MetaCard label="Confirmé patient">{formatDateTimeShort24hFr(request.confirmed_at)}</MetaCard>
             ) : null}
             {request.patient_planned_visit_date ? (
-              <div>
-                <dt className="text-xs uppercase text-gray-500">Passage prévu</dt>
-                <dd>{formatPlannedVisitFr(request.patient_planned_visit_date, request.patient_planned_visit_time)}</dd>
-              </div>
+              <MetaCard label="Passage prévu">
+                {formatPlannedVisitFr(request.patient_planned_visit_date, request.patient_planned_visit_time)}
+              </MetaCard>
             ) : null}
-          </dl>
+            <MetaCard label="Réf. complète">
+              <span className="break-all font-mono text-[11px]">{request.id}</span>
+            </MetaCard>
+          </section>
 
-          <section>
-            <h2 className="mb-2 text-base font-semibold">Lignes produits ({items.length})</h2>
+          {ph ? (
+            <section className={clsx(p.filterShell, "space-y-1 text-sm")}>
+              <h2 className="font-semibold text-foreground">Officine</h2>
+              <p>{ph.adresse}</p>
+              {ph.telephone ? <p className="text-muted-foreground">Tél. {ph.telephone}</p> : null}
+            </section>
+          ) : null}
+
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-foreground">Lignes produits ({items.length})</h2>
             <ul className="space-y-2">
               {items.map((it) => {
                 const pname = one(it.products)?.name ?? "?";
                 return (
-                  <li key={it.id} className="rounded-lg border bg-white px-3 py-2">
-                    <p className="font-medium">{pname}</p>
-                    <p className="text-xs text-gray-600">
-                      Qté demandée: {it.requested_qty} · Dispo:{" "}
-                      {it.availability_status ? availabilityStatusFr[it.availability_status] ?? it.availability_status : "—"}
+                  <li key={it.id} className="rounded-xl border border-border/90 bg-card px-3 py-2.5 shadow-sm">
+                    <p className="font-medium text-foreground">{pname}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Qté demandée : {it.requested_qty} · Dispo :{" "}
+                      {it.availability_status
+                        ? availabilityStatusFr[it.availability_status] ?? it.availability_status
+                        : "—"}
                       {it.available_qty != null ? ` (${it.available_qty})` : ""}
                       {it.unit_price != null ? ` · PU ${it.unit_price}` : ""}
                     </p>
-                    <p className="text-xs text-gray-500">
-                      Comptoir: {counterOutcomeFr[it.counter_outcome] ?? it.counter_outcome} · Ligne #
+                    <p className="text-xs text-muted-foreground">
+                      Comptoir : {counterOutcomeFr[it.counter_outcome] ?? it.counter_outcome} · Ligne #
                       {formatShortId(it.id)}
                     </p>
                   </li>
@@ -228,14 +213,8 @@ export default function AdminDemandeDetailPage() {
               })}
             </ul>
           </section>
-
-          <div className="flex flex-wrap gap-3 text-sm">
-            <Link href="/admin" className="text-blue-700 underline">
-              Retour panneau admin
-            </Link>
-          </div>
-        </div>
+        </>
       ) : null}
-    </main>
+    </div>
   );
 }

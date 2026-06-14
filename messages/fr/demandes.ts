@@ -546,14 +546,18 @@ export const modalsFr = {
   },
   exitCancelPharmacist: {
     cancelTitle: "Annuler la demande côté pharmacie",
+    abandonTitle: "Abandonner le dossier",
     intro:
       "Motif obligatoire (visible pour le patient dans son suivi). Cette action est définitive.",
+    abandonIntro:
+      "Le patient ne s'est pas présenté ou ne donne plus suite. Les produits retenus seront retirés du dossier et celui-ci passera en « abandonné ».",
     reasonLabel: "Motif (au moins 5 caractères)",
     reasonPlaceholder: "Exemple : doublon, erreur de saisie, rupture prolongée…",
     warning:
       "Le patient sera informé et ne pourra pas rouvrir ce dossier. Votre officine ne pourra plus le traiter non plus.",
     reasonPrefix: "Motif :",
     confirmCancel: "Confirmer l'annulation officine",
+    confirmAbandon: "Confirmer l'abandon du dossier",
   },
   photoPreview: {
     description: "Description",

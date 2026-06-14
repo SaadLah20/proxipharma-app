@@ -186,6 +186,7 @@ import {
 import {
   buildPharmacistDeclareTreatedSummary,
   pharmacistActiveRetainedLineCount,
+  pharmacistAbandonNoPickupEligible,
 } from "@/lib/pharmacist-declare-treated-fr";
 import {
   flattenPharmacistSupplyListEntriesStable,
@@ -1952,6 +1953,9 @@ export default function PharmacienDemandeDetailPage() {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelModalNonce, setCancelModalNonce] = useState(0);
   const [cancelBusy, setCancelBusy] = useState(false);
+  const [abandonModalOpen, setAbandonModalOpen] = useState(false);
+  const [abandonModalNonce, setAbandonModalNonce] = useState(0);
+  const [abandonBusy, setAbandonBusy] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyBusy, setHistoryBusy] = useState(false);
   const [historyRows, setHistoryRows] = useState<
@@ -4698,6 +4702,30 @@ export default function PharmacienDemandeDetailPage() {
     await load();
   };
 
+  const runPharmacistAbandonRequest = async (motif: string) => {
+    if (!id) return;
+    const m = motif.trim();
+    if (m.length < 5) {
+      setError("Précisez un motif d'abandon d'au moins 5 caractères.");
+      return;
+    }
+    setAbandonBusy(true);
+    setError("");
+    const { error: rpcErr } = await supabase.rpc("pharmacist_abandon_request", {
+      p_request_id: id,
+      p_reason_text: m,
+    });
+    setAbandonBusy(false);
+    if (rpcErr) {
+      setError(rpcErr.message);
+      return;
+    }
+    setAbandonModalOpen(false);
+    setSupplyEditOpenRowIds({});
+    await load();
+    dispatchRequestDetailRefresh(id);
+  };
+
   const loadHistory = useCallback(async () => {
     if (!id) return;
     setHistoryBusy(true);
@@ -5307,6 +5335,15 @@ export default function PharmacienDemandeDetailPage() {
     !supplyStructuralDirty &&
     !showSupplyDirtyBar;
 
+  const pharmacistAbandonEligible = Boolean(
+    usesLineWorkflow &&
+      canManageSupply &&
+      !respondedFrozenView &&
+      !supplyStructuralDirty &&
+      !requestDrift.stale &&
+      pharmacistAbandonNoPickupEligible(items, draft).eligible
+  );
+
   const showSupplyStatsFooter = usesLineWorkflow && Boolean(canManageSupply) && displayRows.length > 0;
 
   const showBottomActionSticky = showDeclareTreatedSticky || showCloseCounterSticky;
@@ -5411,6 +5448,7 @@ export default function PharmacienDemandeDetailPage() {
     declareTreatedModalOpen ||
     closeConfirmOpen ||
     cancelModalOpen ||
+    abandonModalOpen ||
     ordonnanceQuickAddOpen ||
     Boolean(prescriptionScanLightbox) ||
     prescriptionScanPanelOpen ||
@@ -8142,8 +8180,7 @@ export default function PharmacienDemandeDetailPage() {
           {(request.status === "submitted" ||
             request.status === "in_review" ||
             request.status === "responded" ||
-            request.status === "confirmed" ||
-            request.status === "treated") &&
+            request.status === "confirmed") &&
           !(canManageResponded && respondedEditMode) ? (
             <div className="mt-6 border-t border-rose-200/50 pt-4">
               <button
@@ -8168,6 +8205,39 @@ export default function PharmacienDemandeDetailPage() {
                 }}
                 onConfirmPharmacist={async (p) => {
                   await runPharmacistCancelRequest(p.motif);
+                }}
+              />
+            </div>
+          ) : null}
+
+          {pharmacistAbandonEligible ? (
+            <div className="mt-6 border-t border-orange-200/50 pt-4">
+              <p className="mb-3 text-center text-[11px] leading-snug text-muted-foreground">
+                Le patient ne s&apos;est pas présenté ou ne donne plus suite ? Vous pouvez abandonner le dossier sans
+                retirer chaque produit un par un.
+              </p>
+              <button
+                type="button"
+                disabled={abandonBusy}
+                onClick={() => {
+                  setAbandonModalNonce((n) => n + 1);
+                  setAbandonModalOpen(true);
+                }}
+                className="mx-auto flex min-h-[2.75rem] min-w-[min(100%,14rem)] max-w-md items-center justify-center rounded-lg border border-orange-300/70 bg-orange-50/80 px-4 py-2.5 text-sm font-semibold text-orange-950 shadow-sm hover:bg-orange-100/90 disabled:opacity-50"
+              >
+                Abandonner le dossier
+              </button>
+              <RequestExitConfirmModalFr
+                key={abandonModalNonce}
+                open={abandonModalOpen}
+                mode="pharmacist_abandon"
+                busy={abandonBusy}
+                onClose={() => {
+                  if (abandonBusy) return;
+                  setAbandonModalOpen(false);
+                }}
+                onConfirmPharmacist={async (p) => {
+                  await runPharmacistAbandonRequest(p.motif);
                 }}
               />
             </div>
