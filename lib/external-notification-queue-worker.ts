@@ -10,6 +10,10 @@ import {
   sendWhatsAppViaTwilio,
   type WhatsAppDispatchResult,
 } from "@/lib/twilio-whatsapp";
+import {
+  twilioSmsErrorLooksPermanent,
+  twilioWhatsAppErrorLooksPermanent,
+} from "@/lib/twilio-permanent-delivery-errors";
 
 export type ExternalNotificationChannel = "email" | "sms" | "whatsapp";
 
@@ -168,23 +172,21 @@ async function sendEmailViaResend(args: { to: string; subject: string; text: str
   }
 }
 
-/** Codes Twilio : ne pas retenter (facturation à chaque appel). */
-const TWILIO_SMS_PERMANENT_ERROR_CODES = new Set([
-  21211, 21214, 21217, 21219, 21408, 21601, 21602, 21604, 21606, 21607, 21608, 21610, 21611, 21612,
-  21614, 30007, 30032, 30034, 30035,
-]);
+/** Codes Twilio SMS : ne pas retenter — voir `lib/twilio-permanent-delivery-errors.ts`. */
+export { twilioSmsErrorLooksPermanent, twilioWhatsAppErrorLooksPermanent } from "@/lib/twilio-permanent-delivery-errors";
 
-export function twilioSmsErrorLooksPermanent(errorMessage: string): boolean {
-  const raw = errorMessage.trim();
-  try {
-    const j = JSON.parse(raw) as { code?: unknown };
-    if (typeof j.code === "number" && TWILIO_SMS_PERMANENT_ERROR_CODES.has(j.code)) return true;
-  } catch {
-    /* corps Twilio parfois embarqué dans notre message */
-  }
-  const m = raw.match(/"code"\s*:\s*(\d+)/);
-  if (m && TWILIO_SMS_PERMANENT_ERROR_CODES.has(Number(m[1]))) return true;
+function twilioChannelErrorLooksPermanent(channel: ExternalNotificationChannel, errorMessage: string): boolean {
+  if (channel === "whatsapp") return twilioWhatsAppErrorLooksPermanent(errorMessage);
+  if (channel === "sms") return twilioSmsErrorLooksPermanent(errorMessage);
   return false;
+}
+
+async function disableWhatsAppNotificationPrefs(supabase: SupabaseClient, recipientId: string): Promise<void> {
+  await supabase
+    .from("notification_external_prefs")
+    .update({ whatsapp_enabled: false })
+    .eq("user_id", recipientId)
+    .eq("whatsapp_enabled", true);
 }
 
 function maxAttemptsForChannel(channel: ExternalNotificationChannel): number {
@@ -592,10 +594,9 @@ export async function processExternalNotificationQueue(args: {
       failed++;
       const msg = e instanceof Error ? e.message : String(e);
       const prev = r.attempt_count ?? 0;
-      const bump =
-        (args.channel === "sms" || args.channel === "whatsapp") && twilioSmsErrorLooksPermanent(msg)
-          ? maxAttempts
-          : Math.min(maxAttempts, prev + 1);
+      const permanent =
+        (args.channel === "sms" || args.channel === "whatsapp") && twilioChannelErrorLooksPermanent(args.channel, msg);
+      const bump = permanent ? maxAttempts : Math.min(maxAttempts, prev + 1);
       await args.supabase
         .from("notification_external_queue")
         .update({
@@ -604,6 +605,9 @@ export async function processExternalNotificationQueue(args: {
           last_error: msg.slice(0, 2000),
         })
         .eq("id", r.id);
+      if (args.channel === "whatsapp" && permanent) {
+        await disableWhatsAppNotificationPrefs(args.supabase, r.recipient_id);
+      }
     }
   }
 

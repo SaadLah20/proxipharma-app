@@ -29,6 +29,7 @@ export function ExternalNotificationPrefs({
 }) {
   const t = useTranslations("account.notificationPrefs");
   const [prefs, setPrefs] = useState<Prefs>(defaultPrefs);
+  const [contactPhone, setContactPhone] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -37,16 +38,21 @@ export function ExternalNotificationPrefs({
     if (!userId) {
       return;
     }
-    const { data, error } = await supabase
-      .from("notification_external_prefs")
-      .select("email_enabled,sms_enabled,whatsapp_enabled")
-      .eq("user_id", userId)
-      .maybeSingle();
+    const [prefsRes, profileRes] = await Promise.all([
+      supabase
+        .from("notification_external_prefs")
+        .select("email_enabled,sms_enabled,whatsapp_enabled")
+        .eq("user_id", userId)
+        .maybeSingle(),
+      supabase.from("profiles").select("whatsapp").eq("id", userId).maybeSingle(),
+    ]);
 
-    if (!error && data) {
-      const row = data as Prefs;
+    if (!prefsRes.error && prefsRes.data) {
+      const row = prefsRes.data as Prefs;
       setPrefs({ ...row, sms_enabled: false });
     }
+    const wa = (profileRes.data as { whatsapp?: string | null } | null)?.whatsapp?.trim();
+    setContactPhone(wa || null);
     setLoaded(true);
   }, [userId]);
 
@@ -63,12 +69,13 @@ export function ExternalNotificationPrefs({
     }
     setSaving(true);
     setMsg(null);
+    const whatsappEnabled = contactPhone ? prefs.whatsapp_enabled : false;
     const { error } = await supabase.from("notification_external_prefs").upsert(
       {
         user_id: userId,
         email_enabled: prefs.email_enabled,
         sms_enabled: false,
-        whatsapp_enabled: prefs.whatsapp_enabled,
+        whatsapp_enabled: whatsappEnabled,
       },
       { onConflict: "user_id" }
     );
@@ -111,16 +118,27 @@ export function ExternalNotificationPrefs({
           <span>{t("email")}</span>
         </label>
         {showWhatsApp ? (
-          <label className="flex cursor-pointer items-start gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              className="mt-0.5 rounded border-input"
-              checked={prefs.whatsapp_enabled}
-              disabled={!loaded}
-              onChange={(e) => setPrefs((p) => ({ ...p, whatsapp_enabled: e.target.checked }))}
-            />
-            <span>{t("whatsapp")}</span>
-          </label>
+          <div className="space-y-1">
+            <label
+              className={`flex items-start gap-2 text-sm text-foreground ${contactPhone ? "cursor-pointer" : ""}`}
+            >
+              <input
+                type="checkbox"
+                className="mt-0.5 rounded border-input"
+                checked={contactPhone ? prefs.whatsapp_enabled : false}
+                disabled={!loaded || !contactPhone}
+                onChange={(e) => setPrefs((p) => ({ ...p, whatsapp_enabled: e.target.checked }))}
+              />
+              <span>
+                {contactPhone ? t("whatsappOnNumber", { phone: contactPhone }) : t("whatsapp")}
+              </span>
+            </label>
+            {contactPhone ? (
+              <p className="text-[11px] leading-relaxed text-muted-foreground">{t("whatsappHint")}</p>
+            ) : (
+              <p className="text-[11px] leading-relaxed text-muted-foreground">{t("whatsappNoPhone")}</p>
+            )}
+          </div>
         ) : null}
       </div>
       <button
