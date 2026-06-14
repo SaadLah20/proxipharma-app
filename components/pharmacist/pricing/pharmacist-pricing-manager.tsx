@@ -25,10 +25,9 @@ import { formatPriceDh } from "@/lib/product-price";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
-  PRODUCT_PRICING_SEARCH_SELECT,
-  productNameOrLaboratoryIlikeOr,
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
+import { searchProductsCatalog } from "@/lib/products-catalog-search";
 
 type TabId = "general" | "brands" | "products";
 
@@ -171,27 +170,27 @@ export function PharmacistPricingManager() {
     let cancelled = false;
     const loadingTid = window.setTimeout(() => setProductSearchLoading(true), 0);
     void (async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select(PRODUCT_PRICING_SEARCH_SELECT)
-        .eq("is_active", true)
-        .eq("product_type", "parapharmacie")
-        .or(productNameOrLaboratoryIlikeOr(productSearchQ))
-        .order("name")
-        .limit(PRODUCT_CATALOG_SEARCH_LIMIT);
-      if (cancelled) return;
-      if (!error && data) {
+      try {
+        const data = await searchProductsCatalog(supabase, {
+          query: productSearchQ,
+          productType: "parapharmacie",
+          limit: PRODUCT_CATALOG_SEARCH_LIMIT,
+        });
+        if (cancelled) return;
         setProductHits(
-          (data as CatalogHit[]).map((p) => ({
-            ...p,
-            price_pph: p.price_pph != null ? Number(p.price_pph) : null,
-            price_ppv: p.price_ppv != null ? Number(p.price_ppv) : null,
+          data.map((p) => ({
+            id: p.id,
+            name: p.name,
+            product_type: p.product_type,
+            brand: p.brand,
+            price_pph: p.price_pph,
+            price_ppv: p.price_ppv,
           }))
         );
-      } else {
-        setProductHits([]);
+      } catch {
+        if (!cancelled) setProductHits([]);
       }
-      setProductSearchLoading(false);
+      if (!cancelled) setProductSearchLoading(false);
     })();
     return () => {
       cancelled = true;

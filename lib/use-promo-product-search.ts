@@ -3,10 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { PromoCatalogProduct } from "@/lib/promo/catalog";
+import { searchProductsCatalog } from "@/lib/products-catalog-search";
 import {
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
-  PRODUCT_CATALOG_SELECT,
-  productNameOrLaboratoryIlikeOr,
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
 
@@ -55,15 +54,20 @@ export function usePromoProductSearch(query: string, enabled = true) {
       }
 
       const from = reset ? 0 : offsetRef.current;
-      const to = from + PROMO_PRODUCT_SEARCH_PAGE_SIZE - 1;
 
-      const { data, error: fetchErr } = await supabase
-        .from("products")
-        .select(PRODUCT_CATALOG_SELECT)
-        .eq("is_active", true)
-        .or(productNameOrLaboratoryIlikeOr(sanitized))
-        .order("name")
-        .range(from, to);
+      let rows: PromoCatalogProduct[];
+      let fetchErr: { message: string } | null = null;
+
+      try {
+        rows = await searchProductsCatalog(supabase, {
+          query: sanitized,
+          offset: from,
+          limit: PROMO_PRODUCT_SEARCH_PAGE_SIZE,
+        });
+      } catch (err) {
+        fetchErr = { message: err instanceof Error ? err.message : "Erreur recherche" };
+        rows = [];
+      }
 
       if (queryKeyRef.current !== queryKey) {
         setLoadingMore(false);
@@ -80,8 +84,6 @@ export function usePromoProductSearch(query: string, enabled = true) {
         fetchInFlightRef.current = false;
         return;
       }
-
-      const rows = (data as PromoCatalogProduct[]) ?? [];
 
       if (reset) {
         setProducts(rows);
