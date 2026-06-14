@@ -3,10 +3,12 @@ import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { smsRequestShortToken } from "@/lib/sms-request-short-link";
 
-/** WhatsApp pilote patient P0 — répondu (v2 link) + traité (v1). */
+/** WhatsApp pilote patient — répondu, traité, expiré, rappel validation (v2 link). */
 export const WHATSAPP_PATIENT_EVENT_TYPES = new Set<string>([
   "request_status:responded",
   "request_status:treated",
+  "request_status:expired",
+  "request_event:responded_expiry_reminder",
 ]);
 
 /** WhatsApp pilote pharmacien C-pilote — nouvelle demande. */
@@ -15,6 +17,9 @@ export const WHATSAPP_PHARMACIST_EVENT_TYPES = new Set<string>(["request_status:
 /** Modèles CTA Meta avec token lien court en variable {{3}}. */
 export const WHATSAPP_LINK_EVENT_TYPES = new Set<string>([
   "request_status:responded",
+  "request_status:treated",
+  "request_status:expired",
+  "request_event:responded_expiry_reminder",
   "request_status:submitted",
 ]);
 
@@ -39,6 +44,12 @@ export function resolveWhatsAppContentSid(eventType: string): string | null {
   }
   if (eventType === "request_status:treated") {
     return process.env.TWILIO_WHATSAPP_CONTENT_SID_TREATED?.trim() ?? null;
+  }
+  if (eventType === "request_status:expired") {
+    return process.env.TWILIO_WHATSAPP_CONTENT_SID_EXPIRED?.trim() ?? null;
+  }
+  if (eventType === "request_event:responded_expiry_reminder") {
+    return process.env.TWILIO_WHATSAPP_CONTENT_SID_REMINDER?.trim() ?? null;
   }
   if (eventType === "request_status:submitted") {
     return process.env.TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_NEW_REQUEST?.trim() ?? null;
