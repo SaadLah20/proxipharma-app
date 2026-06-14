@@ -15,7 +15,7 @@ import { AppModalOverlay } from "@/components/ui/app-modal-overlay";
 import { requestKindUiTheme, type RequestKindUiTheme } from "@/lib/request-kind-ui-theme";
 import { pharmacyCityLabel } from "@/lib/pharmacy-cities-morocco";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
-import { uiActionBtnCompactOutline, uiActionBtnCompactPrimary } from "@/lib/ui-action-buttons";
+import { uiActionBtnCompactOutline } from "@/lib/ui-action-buttons";
 import { cn } from "@/lib/utils";
 
 export function PatientPharmacyDossierBand({
@@ -126,7 +126,7 @@ export function PatientPharmacyDossierBand({
               disabledClassName="pointer-events-none opacity-45"
             />
           ) : null}
-          <Link href={`/pharmacie/${pharmacyId}`} className={uiActionBtnCompactPrimary()}>
+          <Link href={`/pharmacie/${pharmacyId}`} className={uiActionBtnCompactOutline()}>
             {tCommon("viewProfile")}
           </Link>
         </div>
