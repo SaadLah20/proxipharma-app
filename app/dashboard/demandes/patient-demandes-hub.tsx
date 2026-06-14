@@ -395,15 +395,26 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
         </>
       ) : (
         <div className="mt-4 space-y-3">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-bold text-foreground">{listTabLabel}</h2>
-            <button
-              type="button"
-              onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
-              className={filterBtn}
-            >
-              {filtersPanelExpanded ? tList("hideFilters") : tList("filters")}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+                <input
+                  type="checkbox"
+                  checked={activeOnly}
+                  onChange={(e) => setActiveOnly(e.target.checked)}
+                  className="rounded border-input"
+                />
+                {tList("activeOnly")}
+              </label>
+              <button
+                type="button"
+                onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
+                className={filterBtn}
+              >
+                {filtersPanelExpanded ? tList("hideFilters") : tList("filters")}
+              </button>
+            </div>
           </div>
 
           {listHasActiveFilters && !filtersPanelExpanded ? (
@@ -479,15 +490,6 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                   </select>
                 </label>
               </div>
-              <label className="flex cursor-pointer items-center gap-1.5 text-xs">
-                <input
-                  type="checkbox"
-                  checked={activeOnly}
-                  onChange={(e) => setActiveOnly(e.target.checked)}
-                  className="rounded border-input"
-                />
-                {tList("activeOnly")}
-              </label>
             </section>
           ) : null}
 
