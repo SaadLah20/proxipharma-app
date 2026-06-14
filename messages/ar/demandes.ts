@@ -530,12 +530,16 @@ export const modalsAr = {
   },
   exitCancelPharmacist: {
     cancelTitle: "إلغاء الطلب من الصيدلية",
+    abandonTitle: "التخلي عن الملف",
     intro: "السبب إلزامي (يظهر للمريض في متابعته). هذا الإجراء نهائي.",
+    abandonIntro:
+      "لم يحضر المريض أو لم يعد يتابع. ستُزال المنتجات المحتفظ بها من الملف ويصبح «متروكاً».",
     reasonLabel: "السبب (5 أحرف على الأقل)",
     reasonPlaceholder: "مثال: تكرار، خطأ إدخال، نقص مطوّل…",
     warning: "سيُبلّغ المريض ولن يتمكن من إعادة فتح الملف. صيدليتك أيضاً لن تتمكن من معالجته.",
     reasonPrefix: "السبب:",
     confirmCancel: "تأكيد إلغاء الصيدلية",
+    confirmAbandon: "تأكيد التخلي عن الملف",
   },
   photoPreview: {
     description: "الوصف",

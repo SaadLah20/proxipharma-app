@@ -195,6 +195,13 @@ export function patientDossierHistoryDetailParagraphsFr(reason: string | null | 
     const motif = r.slice("pharmacist_cancel|".length).trim();
     return [motif ? `La pharmacie a annulé la demande. Précision : ${motif}.` : "La pharmacie a annulé la demande."];
   }
+  if (r.startsWith("pharmacist_abandon|")) {
+    const motif = r.slice("pharmacist_abandon|".length).trim();
+    return [motif ? `La pharmacie a abandonné le dossier. Précision : ${motif}.` : "La pharmacie a abandonné le dossier."];
+  }
+  if (r.startsWith("pharmacist_abandon_no_pickup|")) {
+    return ["La pharmacie a abandonné le dossier (aucun retrait au comptoir)."];
+  }
   if (r.startsWith("counter_outcome:")) {
     const product = counterOutcomeReasonProductName(r);
     const rest = counterOutcomeReasonPayload(r).slice("counter_outcome:".length).trim();
@@ -254,6 +261,13 @@ export function pharmacistDossierHistoryDetailParagraphsFr(reason: string | null
   if (r.startsWith("pharmacist_cancel|")) {
     const motif = r.slice("pharmacist_cancel|".length).trim();
     return [motif ? `Annulation officine enregistrée. Précision : ${motif}.` : "Annulation officine enregistrée."];
+  }
+  if (r.startsWith("pharmacist_abandon|")) {
+    const motif = r.slice("pharmacist_abandon|".length).trim();
+    return [motif ? `Abandon officine enregistré. Précision : ${motif}.` : "Abandon officine enregistré."];
+  }
+  if (r.startsWith("pharmacist_abandon_no_pickup|")) {
+    return ["Dossier abandonné : toutes les lignes retenues étaient écartées, sans retrait comptoir."];
   }
   if (r.startsWith("counter_outcome:")) {
     const product = counterOutcomeReasonProductName(r);

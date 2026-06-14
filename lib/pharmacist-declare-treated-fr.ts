@@ -120,3 +120,21 @@ export function pharmacistActiveRetainedLineCount(
   }
   return n;
 }
+
+/** Abandon sans retrait comptoir : au moins une ligne active, aucun picked_up. */
+export function pharmacistAbandonNoPickupEligible(
+  items: ItemLike[],
+  draft: Record<string, DraftLike | undefined>
+): { eligible: boolean; activeRetained: number; pickedUpCount: number } {
+  let pickedUpCount = 0;
+  for (const row of items) {
+    if (!row.is_selected_by_patient) continue;
+    if ((row.counter_outcome ?? "unset") === "picked_up") pickedUpCount += 1;
+  }
+  const activeRetained = pharmacistActiveRetainedLineCount(items, draft);
+  return {
+    eligible: activeRetained > 0 && pickedUpCount < 1,
+    activeRetained,
+    pickedUpCount,
+  };
+}

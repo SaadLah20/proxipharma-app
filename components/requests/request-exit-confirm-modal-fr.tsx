@@ -15,7 +15,11 @@ import {
   type PatientCancelReasonCode,
 } from "@/lib/patient-flow-reasons";
 
-export type RequestExitModalMode = "patient_before_response" | "patient_abandon" | "pharmacist_cancel";
+export type RequestExitModalMode =
+  | "patient_before_response"
+  | "patient_abandon"
+  | "pharmacist_cancel"
+  | "pharmacist_abandon";
 
 type PatientPayload = { kind: "patient"; code: PatientCancelReasonCode; other: string | null };
 type PharmacistPayload = { kind: "pharmacist"; motif: string };
@@ -61,13 +65,17 @@ export function RequestExitConfirmModalFr({
     ? t("cancelTitle")
     : isPatient
       ? t("abandonTitle")
-      : tPharma("cancelTitle");
+      : mode === "pharmacist_abandon"
+        ? tPharma("abandonTitle")
+        : tPharma("cancelTitle");
 
   const step1Intro = isBefore
     ? t("introBeforeResponse")
     : isPatient
       ? t("introAbandon")
-      : tPharma("intro");
+      : mode === "pharmacist_abandon"
+        ? tPharma("abandonIntro")
+        : tPharma("intro");
 
   const otherOk = code !== "other" || detail.trim().length >= 8;
   const pharmaOk = pharmaMotif.trim().length >= 5;
@@ -218,7 +226,9 @@ export function RequestExitConfirmModalFr({
                       ? t("confirmCancel")
                       : isPatient
                         ? t("confirmAbandon")
-                        : tPharma("confirmCancel")}
+                        : mode === "pharmacist_abandon"
+                          ? tPharma("confirmAbandon")
+                          : tPharma("confirmCancel")}
                 </button>
               </div>
             </div>
