@@ -47,12 +47,15 @@ export function resolvePharmacyUnitPrice(
   return roundMad(Number(pph) * (1 + margin / 100));
 }
 
-/** Affichage ligne : prix saisi pharmacien, sinon prix résolu. */
+/** Affichage ligne : prix saisi pharmacien, sinon prix résolu. Médicament = PPV catalogue toujours. */
 export function resolveLineUnitPrice(
   config: PharmacyPricingConfig | null | undefined,
   product: ProductPricingInput | null | undefined,
   unitPriceOnLine?: number | null
 ): number | null {
+  if (product?.product_type === "medicament") {
+    return resolvePharmacyUnitPrice(config, product);
+  }
   if (unitPriceOnLine != null && !Number.isNaN(Number(unitPriceOnLine))) {
     return roundMad(Number(unitPriceOnLine));
   }

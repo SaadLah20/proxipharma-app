@@ -1,5 +1,6 @@
-import type { ProductPricingInput } from "./types";
+import type { PharmacyPricingConfig, ProductPricingInput } from "./types";
 import type { CatalogProductSource, UnifiedCatalogHit } from "@/lib/pharmacy-catalog-types";
+import { resolvePharmacyUnitPrice } from "./resolve";
 
 export type ProductEmbedLike = {
   product_type?: string | null;
@@ -47,4 +48,12 @@ export function catalogHitToPricingInput(hit: {
 
 export function unifiedCatalogHitToPricingInput(hit: UnifiedCatalogHit): ProductPricingInput {
   return catalogHitToPricingInput(hit);
+}
+
+/** Préremplissage brouillon officine : PPV médicament, PPH+marge parapharmacie. */
+export function catalogEmbedUnitPriceFallback(
+  product: ProductEmbedLike | null | undefined,
+  config?: PharmacyPricingConfig | null
+): number | null {
+  return resolvePharmacyUnitPrice(config ?? null, productEmbedToPricingInput(product));
 }
