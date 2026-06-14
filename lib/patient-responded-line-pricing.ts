@@ -1,5 +1,3 @@
-import type { ProductEmbedLike } from "@/lib/pharmacy-pricing/product-embed";
-
 export type RespondedProdBrief = {
   product_type?: string | null;
   laboratory?: string | null;
