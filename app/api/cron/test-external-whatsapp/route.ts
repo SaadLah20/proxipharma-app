@@ -11,7 +11,9 @@ import {
  * Body JSON optionnel :
  * {
  *   "to": "+212...",
- *   "eventType": "request_status:responded" | "request_status:treated" | "request_status:submitted",
+ *   "eventType":
+ *     "request_status:responded" | "request_status:treated" | "request_status:expired"
+ *     | "request_event:responded_expiry_reminder" | "request_status:submitted",
  *   "pharmacyName": "Pharmacie Centrale",
  *   "patientName": "Fatima B.",
  *   "requestRef": "D042/26"
