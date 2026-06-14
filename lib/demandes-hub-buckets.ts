@@ -193,3 +193,18 @@ export const PHARMACIST_STAT_BUCKET_GROUPS: DemandeStatBucketGroup[] = [
 export function statBucketGroupsForRole(role: "patient" | "pharmacien"): DemandeStatBucketGroup[] {
   return role === "patient" ? PATIENT_STAT_BUCKET_GROUPS : PHARMACIST_STAT_BUCKET_GROUPS;
 }
+
+export const PATIENT_ARCHIVE_BUCKET_KEYS = ["cloturees", "abandonnees", "expirees", "annulees"] as const;
+
+const PATIENT_ARCHIVE_BUCKET_KEY_SET = new Set<string>(PATIENT_ARCHIVE_BUCKET_KEYS);
+
+export function isPatientArchiveBucketKey(key: DemandeStatBucketKey): boolean {
+  return PATIENT_ARCHIVE_BUCKET_KEY_SET.has(key);
+}
+
+/** Statuts hors groupe Archives (liste patient « actives seulement »). */
+export function patientRequestActiveStatuses(
+  buckets: DemandeStatBucket[] = PATIENT_DASHBOARD_BUCKETS,
+): readonly string[] {
+  return buckets.filter((b) => !isPatientArchiveBucketKey(b.key)).flatMap((b) => b.statuses);
+}

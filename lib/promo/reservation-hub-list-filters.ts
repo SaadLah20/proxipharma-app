@@ -6,6 +6,9 @@ export type PromoHubListFilterSummaryInput = {
   referenceQuery: string;
   sortNewestFirst: boolean;
   entityFieldLabel?: string;
+  /** Défaut `true` — ne figure pas dans le résumé. */
+  activeOnly?: boolean;
+  includeArchivesLabel?: string;
 };
 
 export function promoHubListActiveFilterParts(input: PromoHubListFilterSummaryInput): string[] {
@@ -21,6 +24,9 @@ export function promoHubListActiveFilterParts(input: PromoHubListFilterSummaryIn
   }
   if (!input.sortNewestFirst) {
     parts.push("Tri : plus anciennes d'abord");
+  }
+  if (input.activeOnly === false && input.includeArchivesLabel) {
+    parts.push(input.includeArchivesLabel);
   }
   return parts;
 }

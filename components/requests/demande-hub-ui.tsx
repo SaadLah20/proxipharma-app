@@ -113,41 +113,51 @@ export type PharmacistRequestRow = {
   }[] | null;
 };
 
+function hubTabButtonClass(active: boolean): string {
+  return clsx(
+    "flex-1 rounded-md px-2 py-1.5 text-center text-xs font-semibold transition sm:px-3 sm:text-sm",
+    active
+      ? "bg-card text-foreground shadow-sm ring-1 ring-border/80"
+      : "text-muted-foreground hover:text-foreground",
+  );
+}
+
 export function DemandeHubTabBar({
   tab,
   onTab,
   labels,
+  tabOrder = "dashboardFirst",
 }: {
   tab: HubTab;
   onTab: (t: HubTab) => void;
   labels: { dashboard: string; list: string };
+  /** Patient : liste à gauche ; pharmacien : tableau de bord à gauche (défaut). */
+  tabOrder?: "dashboardFirst" | "listFirst";
 }) {
+  const dashboardBtn = (
+    <button
+      key="dashboard"
+      type="button"
+      onClick={() => onTab("dashboard")}
+      className={hubTabButtonClass(tab === "dashboard")}
+    >
+      {labels.dashboard}
+    </button>
+  );
+  const listBtn = (
+    <button
+      key="list"
+      type="button"
+      onClick={() => onTab("list")}
+      className={hubTabButtonClass(tab === "list")}
+    >
+      {labels.list}
+    </button>
+  );
+
   return (
     <div className="flex rounded-lg bg-muted/60 p-0.5 ring-1 ring-border/80">
-      <button
-        type="button"
-        onClick={() => onTab("dashboard")}
-        className={clsx(
-          "flex-1 rounded-md px-2 py-1.5 text-center text-xs font-semibold transition sm:px-3 sm:text-sm",
-          tab === "dashboard"
-            ? "bg-card text-foreground shadow-sm ring-1 ring-border/80"
-            : "text-muted-foreground hover:text-foreground"
-        )}
-      >
-        {labels.dashboard}
-      </button>
-      <button
-        type="button"
-        onClick={() => onTab("list")}
-        className={clsx(
-          "flex-1 rounded-md px-2 py-1.5 text-center text-xs font-semibold transition sm:px-3 sm:text-sm",
-          tab === "list"
-            ? "bg-card text-foreground shadow-sm ring-1 ring-border/80"
-            : "text-muted-foreground hover:text-foreground"
-        )}
-      >
-        {labels.list}
-      </button>
+      {tabOrder === "listFirst" ? [listBtn, dashboardBtn] : [dashboardBtn, listBtn]}
     </div>
   );
 }
