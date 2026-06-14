@@ -157,9 +157,14 @@ function itemsOf(row: PatientRequestRow): PatientRequestItemRow[] {
   return (Array.isArray(raw) ? raw : []) as PatientRequestItemRow[];
 }
 
-export function patientProductHubCardContextFr(row: PatientRequestRow): PatientProductHubCardContext {
+export function patientProductHubCardContextFr(
+  row: PatientRequestRow,
+  opts?: { showCatalogPricesToPatient?: boolean }
+): PatientProductHubCardContext {
   const items = itemsOf(row);
-  const summary = summarizeRequestForPatientCard(items.length ? items : null, row.status);
+  const summary = summarizeRequestForPatientCard(items.length ? items : null, row.status, {
+    showCatalogPricesToPatient: opts?.showCatalogPricesToPatient,
+  });
   const n = summary.lineCount;
   const retained = summary.selectedPrincipalCount + summary.selectedProposedCount + summary.selectedAlternativesCount;
   const when = formatDateTimeShort24hFr(row.updated_at ?? row.submitted_at ?? row.created_at);

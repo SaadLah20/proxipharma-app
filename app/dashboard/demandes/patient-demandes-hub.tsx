@@ -35,6 +35,8 @@ import { collatorForLocale } from "@/lib/datetime-locale";
 import type { AppLocale } from "@/lib/i18n/config";
 import { useRequestKindPatientCopy } from "@/lib/i18n/request-kind-patient-copy";
 import { REQUEST_ITEMS_HUB_SUMMARY_EMBED_SELECT } from "@/lib/request-line-product-embed";
+import { PatientHubCatalogPriceVisibilityProvider } from "@/lib/patient-hub-catalog-price-visibility-context";
+import { fetchCatalogPriceVisibilityByPharmacyIds } from "@/lib/pharmacy-pricing/fetch-catalog-price-visibility-map";
 import { supabase } from "@/lib/supabase";
 import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
 
@@ -77,6 +79,9 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [rows, setRows] = useState<PatientRequestRow[]>([]);
+  const [catalogPriceVisibilityByPharmacyId, setCatalogPriceVisibilityByPharmacyId] = useState<
+    Record<string, boolean>
+  >({});
   const [unreadById, setUnreadById] = useState<Record<string, boolean>>({});
   const [pharmacyFilter, setPharmacyFilter] = useState("");
   const [refQuery, setRefQuery] = useState("");
@@ -145,7 +150,16 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
         setError(re.message);
         setUnreadById({});
       } else if (Array.isArray(data)) {
-        setRows(data as unknown as PatientRequestRow[]);
+        const typed = data as unknown as PatientRequestRow[];
+        setRows(typed);
+        const pharmacyIds = [...new Set(typed.map((r) => r.pharmacy_id).filter(Boolean))];
+        if (pharmacyIds.length > 0) {
+          void fetchCatalogPriceVisibilityByPharmacyIds(supabase, pharmacyIds).then((map) => {
+            if (!cancelled) setCatalogPriceVisibilityByPharmacyId(map);
+          });
+        } else if (!cancelled) {
+          setCatalogPriceVisibilityByPharmacyId({});
+        }
         const ids = (data as unknown as { id: string }[]).map((r) => r.id);
         const unreadMap: Record<string, boolean> = {};
         if (ids.length > 0) {
@@ -314,6 +328,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const filterBtn = uiActionBtnFilterToggle();
 
   return (
+    <PatientHubCatalogPriceVisibilityProvider visibilityByPharmacyId={catalogPriceVisibilityByPharmacyId}>
     <PageShell
       maxWidthClass="max-w-3xl"
       className="space-y-4"
@@ -475,6 +490,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
         </div>
       )}
     </PageShell>
+    </PatientHubCatalogPriceVisibilityProvider>
   );
 }
 

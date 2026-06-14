@@ -31,6 +31,7 @@ import { usePrescriptionUiCopy } from "@/lib/use-prescription-ui-copy";
 import { useConsultationUiCopy } from "@/lib/use-consultation-ui-copy";
 import { resolvePublicMediaUrl } from "@/lib/storage-media";
 import { requestLineProductEmbed } from "@/lib/request-line-product-embed";
+import { resolvedRespondedUnitPrice } from "@/lib/patient-responded-line-pricing";
 import { cn } from "@/lib/utils";
 import {
   patientLineQtyAppearance,
@@ -818,17 +819,6 @@ type RespondedProdBrief = {
   price_pph?: number | null;
   price_ppv?: number | null;
 };
-
-function resolvedRespondedUnitPrice(
-  stored: number | null | undefined,
-  productId: string | null | undefined,
-  prod: RespondedProdBrief | null,
-  resolveCatalog?: (productId: string, prod: RespondedProdBrief | null) => number | null
-): number | null {
-  if (stored != null && Number.isFinite(Number(stored))) return Number(stored);
-  if (!productId) return null;
-  return resolveCatalog?.(productId, prod) ?? null;
-}
 
 export type RespondedChooserProps = {
   row: ActionItemRow;

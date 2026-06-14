@@ -106,7 +106,8 @@ import {
   validatedProductLabel,
   patientDisplayQtyForLine,
 } from "@/lib/patient-confirmed-line-buckets";
-import { requestLineProductEmbed, requestLineProductName } from "@/lib/request-line-product-embed";
+import { requestLineProductEmbed, requestLineCatalogProductId, requestLineProductName } from "@/lib/request-line-product-embed";
+import { resolvedRespondedUnitPrice } from "@/lib/patient-responded-line-pricing";
 import {
   buildResubmitItemPayload,
   createManualDraftLineId,
@@ -1635,6 +1636,12 @@ type ConfirmLineCopy = {
   pharmacyProposedProduct: string;
 };
 
+type PatientConfirmUnitPriceResolver = (
+  stored: number | null | undefined,
+  productId: string | null | undefined,
+  prod: ReturnType<typeof requestLineProductEmbed>
+) => number | null;
+
 function buildPatientConfirmSelection(
   items: ActionItemRow[],
   sel: Record<string, LineSelState>,
@@ -1642,6 +1649,7 @@ function buildPatientConfirmSelection(
   amendmentBundles: { amendments: unknown }[],
   formatDateShort: (ymd: string | null | undefined) => string,
   copy: ConfirmLineCopy,
+  resolveUnitPrice: PatientConfirmUnitPriceResolver,
 ): { rpcPayload: PatientConfirmRpcRow[]; preview: PatientConfirmPreviewLine[] } {
   const preview: PatientConfirmPreviewLine[] = [];
   const rpcPayload = items.map((row) => {
@@ -1668,7 +1676,11 @@ function buildPatientConfirmSelection(
         productName = principalProd?.name ?? copy.productFallback;
         brand = principalProd?.brand?.trim() || null;
         productType = principalProd?.product_type?.trim() || null;
-        unitPrice = row.unit_price != null ? Number(row.unit_price) : null;
+        unitPrice = resolveUnitPrice(
+          row.unit_price,
+          row.product_id ?? row.pharmacy_product_id ?? undefined,
+          principalProd
+        );
         effStatus = row.availability_status;
         try {
           effStatus = inferAvailabilityStatusFromQty({
@@ -1697,7 +1709,11 @@ function buildPatientConfirmSelection(
         productName = altProd?.name ?? copy.alternativeFallback;
         brand = altProd?.brand?.trim() || null;
         productType = altProd?.product_type?.trim() || null;
-        unitPrice = alt?.unit_price != null ? Number(alt.unit_price) : null;
+        unitPrice = resolveUnitPrice(
+          alt?.unit_price,
+          alt?.product_id ?? alt?.pharmacy_product_id ?? undefined,
+          altProd
+        );
         effStatus = alt?.availability_status ?? null;
         try {
           effStatus = inferAvailabilityStatusFromQty({
@@ -2100,7 +2116,7 @@ export function PatientProductRequestActions({
   const resolveItemCatalogPrice = useCallback(
     (row: ActionItemRow) => {
       if (!showCatalogPricesForStatus) return null;
-      const prod = one(row.products);
+      const prod = requestLineProductEmbed(row);
       return resolveCatalogPrice(
         productEmbedToPricingInput(
           prod
@@ -2111,7 +2127,7 @@ export function PatientProductRequestActions({
                 brand: prod.brand,
               }
             : null,
-          row.product_id ?? undefined
+          requestLineCatalogProductId(row)
         )
       );
     },
@@ -2119,8 +2135,9 @@ export function PatientProductRequestActions({
   );
 
   const resolveCatalogUnitPriceForProduct = useCallback(
-    (productId: string, embed: { product_type?: string | null; price_pph?: number | null; price_ppv?: number | null; brand?: string | null; laboratory?: string | null } | null) =>
-      resolveCatalogPrice(
+    (productId: string, embed: { product_type?: string | null; price_pph?: number | null; price_ppv?: number | null; brand?: string | null; laboratory?: string | null } | null) => {
+      if (!showCatalogPricesForStatus) return null;
+      return resolveCatalogPrice(
         productEmbedToPricingInput(
           embed
             ? {
@@ -2132,9 +2149,26 @@ export function PatientProductRequestActions({
             : null,
           productId
         )
-      ),
-    [resolveCatalogPrice]
+      );
+    },
+    [resolveCatalogPrice, showCatalogPricesForStatus]
   );
+
+  const resolveRespondedUnitPrice = useCallback(
+    (
+      stored: number | null | undefined,
+      productId: string | null | undefined,
+      prod: ReturnType<typeof requestLineProductEmbed>
+    ) =>
+      resolvedRespondedUnitPrice(
+        stored,
+        productId,
+        prod,
+        resolveCatalogUnitPriceForProduct
+      ),
+    [resolveCatalogUnitPriceForProduct]
+  );
+
   const isPrescription = requestType === "prescription";
   const isConsultation = requestType === "free_consultation";
   const dossierUiTheme = requestKindUiTheme(requestType);
@@ -2518,19 +2552,26 @@ export function PatientProductRequestActions({
       const effQty = Math.min(lineSelQtyForBranch(st, st.branch!, cap), cap);
       const branchPrice =
         st.branch === "principal"
-          ? (row.unit_price ?? resolveItemCatalogPrice(row))
+          ? resolveRespondedUnitPrice(
+              row.unit_price,
+              row.product_id ?? row.pharmacy_product_id ?? undefined,
+              requestLineProductEmbed(row)
+            )
           : (() => {
               const alt = alts.find((a) => a.id === st.branch);
               if (!alt) return null;
-              const altProd = one(alt.products);
-              return alt.unit_price ?? resolveCatalogUnitPriceForProduct(alt.product_id ?? "", altProd);
+              return resolveRespondedUnitPrice(
+                alt.unit_price,
+                alt.product_id ?? alt.pharmacy_product_id ?? undefined,
+                requestLineProductEmbed(alt)
+              );
             })();
       if (branchPrice != null && Number.isFinite(Number(branchPrice))) {
         total += Number(branchPrice) * effQty;
       }
     }
     return { count, total };
-  }, [status, items, sel, resolveItemCatalogPrice, resolveCatalogUnitPriceForProduct]);
+  }, [status, items, sel, resolveRespondedUnitPrice]);
 
   useEffect(() => {
     if (debouncedQuery.length < PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
@@ -2757,6 +2798,7 @@ export function PatientProductRequestActions({
       supplyAmendmentBundles,
       dt.formatDateShort,
       confirmLineCopy,
+      resolveRespondedUnitPrice,
     );
     const result = validatePatientConfirmBeforeReview(
       items,
@@ -2805,11 +2847,14 @@ export function PatientProductRequestActions({
     visitDate,
     visitTimeComposed,
     validationCopy,
+    confirmLineCopy,
     formatMaxVisitDate,
     applyConfirmValidationError,
     pharmacyId,
     activeScheduleBundle,
     activeScheduleLoading,
+    resolveRespondedUnitPrice,
+    dt.formatDateShort,
   ]);
 
   const openConfirmedRevalidationReview = useCallback(() => {
@@ -2825,6 +2870,7 @@ export function PatientProductRequestActions({
       supplyAmendmentBundles,
       dt.formatDateShort,
       confirmLineCopy,
+      resolveRespondedUnitPrice,
     );
     const result = validatePatientConfirmBeforeReview(
       items,
@@ -2872,12 +2918,15 @@ export function PatientProductRequestActions({
     visitTimeComposed,
     detailStale,
     validationCopy,
+    confirmLineCopy,
     formatMaxVisitDate,
     applyConfirmValidationError,
     staleActionMessage,
     pharmacyId,
     activeScheduleBundle,
     activeScheduleLoading,
+    resolveRespondedUnitPrice,
+    dt.formatDateShort,
   ]);
 
   const startConfirmedRevalidation = useCallback(() => {

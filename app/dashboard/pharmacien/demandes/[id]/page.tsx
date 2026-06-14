@@ -113,7 +113,7 @@ import {
   type PharmacistLinePriceAdjustTarget,
 } from "@/components/pharmacist/pharmacist-line-price-adjust-modal";
 import { resolvePharmacyUnitPrice } from "@/lib/pharmacy-pricing/resolve";
-import { catalogHitToPricingInput, productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
+import { catalogHitToPricingInput, catalogEmbedUnitPriceFallback, productEmbedToPricingInput } from "@/lib/pharmacy-pricing/product-embed";
 import { mapRequestItemRowPhotos, mapRequestItemsPhotos, resolvePublicMediaUrl } from "@/lib/storage-media";
 import {
   PRODUCT_CATALOG_SEARCH_LIMIT,
@@ -1180,8 +1180,24 @@ function buildPharmaConfirmAdjustmentAudit(items: ItemRow[], draft: Draft): Phar
 }
 
 /** État du formulaire officine depuis une ligne base (chargement ou nouvelle ligne). */
+function pharmacistDraftUnitPriceStr(
+  stored: number | null | undefined,
+  embed: ReturnType<typeof requestLineProductEmbed>,
+  catalogFallback: number | null
+): string {
+  if (embed?.product_type === "medicament") {
+    if (catalogFallback != null) return String(catalogFallback);
+    if (stored != null) return String(stored);
+    return "";
+  }
+  if (stored != null) return String(stored);
+  if (catalogFallback != null) return String(catalogFallback);
+  return "";
+}
+
 function buildItemDraftFromRow(row: ItemRow, requestStatus?: string | null, requestType?: string): ItemDraft {
-  const catalogPph = requestLineProductEmbed(row)?.price_pph;
+  const rowEmbed = requestLineProductEmbed(row);
+  const catalogFallback = catalogEmbedUnitPriceFallback(rowEmbed);
   const isProp = row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
   const isAjoutOfficine = requestType === "product_request" && isProp;
   const isOrdonnancePharma =
@@ -1235,18 +1251,12 @@ function buildItemDraftFromRow(row: ItemRow, requestStatus?: string | null, requ
   }
 
   const unitPriceStr = useChosenBranchForDraft
-    ? chosenAlt!.unit_price != null
-      ? String(chosenAlt!.unit_price)
-      : row.unit_price != null
-        ? String(row.unit_price)
-        : catalogPph != null
-          ? String(catalogPph)
-          : ""
-    : row.unit_price != null
-      ? String(row.unit_price)
-      : catalogPph != null
-        ? String(catalogPph)
-        : "";
+    ? pharmacistDraftUnitPriceStr(
+        chosenAlt!.unit_price ?? row.unit_price,
+        requestLineProductEmbed(chosenAlt!) ?? rowEmbed,
+        catalogEmbedUnitPriceFallback(requestLineProductEmbed(chosenAlt!) ?? rowEmbed)
+      )
+    : pharmacistDraftUnitPriceStr(row.unit_price, rowEmbed, catalogFallback);
 
   const expectedDateStr = useChosenBranchForDraft
     ? chosenAlt!.expected_availability_date ?? row.expected_availability_date ?? ""
@@ -3250,7 +3260,10 @@ export default function PharmacienDemandeDetailPage() {
         updated_at: new Date().toISOString(),
         products: {
           name: pick.name,
+          product_type: pick.product_type,
           price_pph: pick.price_pph ?? null,
+          price_ppv: pick.price_ppv ?? null,
+          brand: pick.brand ?? null,
           photo_url: pick.photo_url ?? null,
         },
         request_item_alternatives: null,
