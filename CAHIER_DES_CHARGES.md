@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260821_001`** si pas fait — après catalogue **`20260819_002`**, WhatsApp **`20260817_001`**, pricing visibilité **`20260820_001`**, abandon pharmacien **`20260821_001`**) → phrase **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260822_001`** si pas fait — après abandon pharmacien **`20260821_001`**, recherche catalogue **`20260822_001`**) → phrase **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -21,6 +21,11 @@ Au **demarrage** d une session :
 1. `node scripts/fetch-beautymall-sitemap-products.mjs` → `beautymall_sitemap_products.csv`.
 2. `node scripts/merge-beautymall-products.mjs` (+ CSV WooCommerce `--main` si besoin) → `products_final.csv` + `products_unmatched.csv` (fuzzy ≥ 85 %).
 3. SQL `supabase/scripts/wipe-catalog-beautymall-import.sql` (vider catalogue + lignes promo liées) puis `node scripts/import-beautymall-catalog.mjs` (`--dry-run` possible). **Pilote** : **13 651** parapharmacie BeautyMall, **12 171** avec photo URL, **1 480** sans photo. Pas de migration Git — colonne **`full_description`** déjà en schéma. Détail §10 session **2026-06-04 (suite 2)** · phrase **§13.39**.
+
+**Indépendance photos BeautyMall (juin 2026)** — guide reprise **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`** :
+1. **Phase 1** — sauvegarde locale (sans Supabase Storage) : `node --use-system-ca scripts/download-beautymall-catalog-images.mjs` → `catalog/images/{slug}.*` + journal.
+2. **Phase test** — rien en base (URLs BeautyMall inchangées).
+3. **Phase prod** — upload Storage : `node --use-system-ca scripts/attach-catalog-images.mjs --category beautymall_catalog`. Détail §10 session **2026-06-14 (suite 2)** · phrase **§13.63**.
 
 **Médicaments officine (juin 2026)** — Excel « Base de données médicaments » (colonne **TVA = 0**) · **`scripts/README-medicaments-officine.md`** :
 1. `python scripts/convert-medicaments-xlsx.py "<chemin>.xlsx"` → `medicaments_officine.csv`.
@@ -381,6 +386,32 @@ git checkout pilote-stable-2026-05-24
 **Branche de travail après retour** : `git switch -c reprise-depuis-stable-2026-05-24`
 
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
+
+---
+
+### Session 2026-06-14 (suite 2) — Recherche catalogue + sauvegarde photos BeautyMall
+
+**Branche** : `feature/product-search-relevance-rank` — commits **`b3650df`**, **`ab8aca0`**, lot photos local (cette session).
+
+**Migration** (ordre, si pas déjà fait) :
+- **`20260822_001_product_search_relevance_rank.sql`** — score **`_product_search_match_rank`** (préfixe nom avant sous-chaîne) ; RPC **`products_catalog_search`** paginée ; explorateur patient + recherche promo + pricing pharmacien.
+
+**Recherche catalogue** :
+- Ex. « doliprane » : **Doliprane** avant **Codoliprane** (tri alphabétique seul remplacé par score pertinence).
+- **`lib/products-catalog-search.ts`**, **`lib/use-product-catalog-explorer.ts`**, **`lib/use-promo-product-search.ts`**.
+
+**Patient (bandeau officine répondue)** — commit **`ab8aca0`** :
+- **`PatientPharmacyDossierBand`** sur dossier **répondu** ; date de passage reprise depuis la sélection.
+
+**Indépendance photos BeautyMall (sauvegarde locale, pas Storage)** :
+- **`scripts/download-beautymall-catalog-images.mjs`** — télécharge ~**12 171** URLs → **`catalog/images/{slug}.*`** ; reprise auto ; `--dry-run` / `--limit`.
+- **`scripts/attach-catalog-images.mjs`** — option **`--category beautymall_catalog`** pour phase prod Storage.
+- Guide reprise étapes + phrases agent : **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`**.
+- **État** : script validé (3 images test) ; **téléchargement complet non lancé** ; **`photo_url` en base inchangées** (URLs BeautyMall).
+
+**i18n** : libellé hint WhatsApp prefs — « échec d'envoi » (`messages/fr/demandes.ts`).
+
+**Phrase de reprise** : **§13.63**.
 
 ---
 
@@ -2462,7 +2493,7 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260820_001_pharmacy_pricing_catalog_visibility.sql` (**masquer PU patient avant réponse** + override produit pricing)
   - `supabase/migrations/20260821_001_pharmacist_abandon_request.sql` (**abandon direct pharmacien** validé/traité avec motif)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260821_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** ; catalogue **~19 677** ; i18n patient **~1 220** clés FR/AR. Reprise courte : **§13.62**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260822_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** ; catalogue **~19 677** ; photos catalogue = URLs BeautyMall (sauvegarde locale **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`**) ; i18n patient **~1 220** clés FR/AR. Reprise courte : **§13.63** (photos) ou **§13.62**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2773,6 +2804,10 @@ Voir **§13.37**.
 **Phrase de reprise (étape 6 / fin pilote i18n patient)** :
 
 **« Affinage i18n arabe patient §13.58 — étapes 1–5 livrées sur `fix/validated-supply-ecart-ui-modal`. Preview AR ou épique hors pilote (catalogue, SMS, pharmacien AR). Je te donne la tâche ou les retours. »**
+
+### 13.63) Phrase de reprise (indépendance photos catalogue BeautyMall — juin 2026)
+
+**« Pharmeto — indépendance photos catalogue BeautyMall. Lis **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`** et dis-moi à quelle phase on en est (manifeste **`catalog/images/beautymall-download-manifest.json`**, comptage fichiers locaux, SQL **`photo_url`** BeautyMall vs Storage). **Phase 1** : `node --use-system-ca scripts/download-beautymall-catalog-images.mjs` (sauvegarde PC, pas Storage). **Phase 4 prod** : `node --use-system-ca scripts/attach-catalog-images.mjs --category beautymall_catalog`. Noms/descriptions déjà en base — seules les photos dépendent encore de BeautyMall. Branche courante possible : **`feature/product-search-relevance-rank`** ; migration **`20260822_001`** si pas appliquée. Je te donne la tâche ou les retours. »**
 
 ### 13.62) Phrase de reprise (recommandée — session **2026-06-14** pricing + abandon + admin + WhatsApp M2)
 

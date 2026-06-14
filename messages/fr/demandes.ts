@@ -731,7 +731,8 @@ export const accountFr = {
     sms: "SMS",
     whatsapp: "WhatsApp",
     whatsappOnNumber: "WhatsApp sur {phone}",
-    whatsappHint: "Activez seulement si vous utilisez WhatsApp sur ce numéro. En cas d'échec de livraison, WhatsApp sera désactivé automatiquement.",
+    whatsappHint:
+      "Activez seulement si vous utilisez WhatsApp sur ce numéro. En cas d'échec d'envoi, WhatsApp sera désactivé automatiquement.",
     whatsappNoPhone: "Aucun numéro sur votre profil — activez WhatsApp après avoir renseigné votre téléphone.",
     save: "Enregistrer",
     saving: "Enregistrement…",

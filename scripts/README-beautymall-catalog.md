@@ -74,6 +74,41 @@ Règles d’import :
 
 Photos : les URLs BeautyMall restent externes pour l’instant. Migration progressive vers Storage = à prévoir (`import-products-catalog.mjs` comme modèle).
 
+## 3b. Sauvegarde locale des photos (indépendance BeautyMall)
+
+**Guide reprise étape par étape (phrases à donner à un agent)** :  
+→ **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`**
+
+Télécharge les images sur votre PC **sans** utiliser Supabase Storage (idéal phase test / plan Free).
+
+```bash
+# Aperçu (10 produits)
+node scripts/download-beautymall-catalog-images.mjs --dry-run
+
+# Test réel (50 images)
+node --use-system-ca scripts/download-beautymall-catalog-images.mjs --limit 50
+
+# Lot complet (~12 171 images — plusieurs heures, reprise auto si relancé)
+node --use-system-ca scripts/download-beautymall-catalog-images.mjs
+```
+
+| Option | Rôle |
+|--------|------|
+| `--source supabase` | Lit `products.photo_url` en base (défaut) |
+| `--source csv` | Lit `scripts/products_final.csv` (sans `.env.local`) |
+| `--limit N` | Sous-ensemble |
+| `--force` | Re-télécharge même si le fichier existe |
+
+**Sortie** : `catalog/images/{slug}.jpg|webp|png` + journal `beautymall-download-log.jsonl`.
+
+**Phase prod** (quand prêt) : upload depuis ce dossier :
+
+```bash
+node --use-system-ca scripts/attach-catalog-images.mjs --category beautymall_catalog
+```
+
+Sur Windows, préfixer les commandes avec `node --use-system-ca` si erreur certificat TLS.
+
 **Vérification après import** (SQL Editor) :
 
 ```sql
