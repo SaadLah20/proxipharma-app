@@ -9,6 +9,7 @@ import {
   Calculator,
   CalendarClock,
   ChevronDown,
+  ClipboardList,
   FileText,
   Gift,
   LayoutDashboard,
@@ -215,8 +216,37 @@ export const pharmacienNavMenu: PlatformNavBlock[] = [
   { kind: "link", item: { href: "/dashboard/pharmacien/parametres", label: "Mes paramètres", icon: Settings } },
 ];
 
+/** Admin pilote : pilotage réseau + catalogue communautaire. */
+export const adminNavMenu: PlatformNavBlock[] = [
+  {
+    kind: "link",
+    emphasis: "primary",
+    item: { href: "/admin", label: "Tableau de bord", icon: LayoutDashboard },
+  },
+  {
+    kind: "section",
+    id: "pilotage",
+    heading: "Pilotage",
+    items: [
+      { href: "/admin/demandes", label: "Demandes pilote", icon: ClipboardList },
+      { href: "/dashboard/notifications", label: "Notifications", icon: Bell },
+    ],
+  },
+  {
+    kind: "section",
+    id: "reseau",
+    heading: "Réseau",
+    items: [
+      { href: "/admin/officines", label: "Officines", icon: Store },
+      { href: "/admin/produits-communautaires", label: "Catalogue communautaire", icon: Package },
+    ],
+  },
+  { kind: "link", item: { href: "/", label: "Annuaire public", icon: Building2 } },
+];
+
 export const patientNavLinks = flattenNavBlocks(patientNavMenu);
 export const pharmacienNavLinks = flattenNavBlocks(pharmacienNavMenu);
+export const adminNavLinks = flattenNavBlocks(adminNavMenu);
 
 function ProfileNavSectionHeading({ children }: { children: string }) {
   return (
@@ -689,25 +719,14 @@ export function PlatformHeader() {
                         </Link>
                       </div>
                     ) : profile?.role === "admin" ? (
-                      <div className="px-2">
-                        <p className="truncate px-3 py-1 text-xs text-muted-foreground">
+                      <div className="flex max-h-[min(70vh,26rem)] flex-col overflow-hidden">
+                        <p className="shrink-0 truncate px-5 py-1.5 text-xs text-muted-foreground">
                           {profile.full_name?.trim() || "Administrateur"}
                         </p>
-                        <Link
-                          href="/admin"
-                          onClick={() => setProfileOpen(false)}
-                          className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/80"
-                        >
-                          Administration
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => void handleLogout()}
-                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50"
-                        >
-                          <LogOut className="h-4 w-4 shrink-0" />
-                          Déconnexion
-                        </button>
+                        <ProfileNavScrollPanel maxHeightClass="max-h-[min(58vh,20rem)]" scrollHint={tHeader("scrollHint")}>
+                          <ProfileNavMenu blocks={adminNavMenu} onNavigate={() => setProfileOpen(false)} />
+                        </ProfileNavScrollPanel>
+                        <ProfileNavLogoutButton onLogout={() => void handleLogout()} label={tCommon("logout")} />
                       </div>
                     ) : profile?.role === "pharmacien" ? (
                       <div className="flex max-h-[min(70vh,26rem)] flex-col overflow-hidden">

@@ -479,7 +479,8 @@ export async function processExternalNotificationQueue(args: {
         .update({
           status: "failed",
           attempt_count: maxAttempts,
-          last_error: "skipped: WhatsApp pilote limité (patient répondu/traité, pharma nouvelle demande)",
+          last_error:
+            "skipped: WhatsApp pilote limité (patient répondu/traité/expiré/rappel, pharma nouvelle demande)",
         })
         .eq("id", r.id);
       continue;
