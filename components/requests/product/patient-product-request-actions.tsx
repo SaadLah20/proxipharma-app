@@ -171,9 +171,9 @@ import {
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
   filterCatalogHitsExcludingProductIds,
   productIdsFromLineProductIds,
-  productNameOrLaboratoryIlikeOr,
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
+import { searchProductsCatalog } from "@/lib/products-catalog-search";
 import { supabase } from "@/lib/supabase";
 import { one } from "@/lib/embed";
 import {
@@ -2584,23 +2584,20 @@ export function PatientProductRequestActions({
           setHits([]);
           return;
         }
-        const { data, error } = await supabase
-          .from("products")
-          .select("id,name,product_type,brand,laboratory,photo_url,price_pph,price_ppv,full_description")
-          .eq("is_active", true)
-          .or(productNameOrLaboratoryIlikeOr(sanitized))
-          .order("name")
-          .limit(PRODUCT_CATALOG_SEARCH_LIMIT);
-        if (error || !Array.isArray(data)) {
+        try {
+          const data = await searchProductsCatalog(supabase, {
+            query: sanitized,
+            limit: PRODUCT_CATALOG_SEARCH_LIMIT,
+          });
+          setHits(
+            data.map((p) => ({
+              ...p,
+              photo_url: resolvePublicMediaUrl(p.photo_url ?? null),
+            }))
+          );
+        } catch {
           setHits([]);
-          return;
         }
-        setHits(
-          (data as ProductHit[]).map((p) => ({
-            ...p,
-            photo_url: resolvePublicMediaUrl(p.photo_url ?? null),
-          }))
-        );
       })();
     }, 280);
     return () => clearTimeout(t);

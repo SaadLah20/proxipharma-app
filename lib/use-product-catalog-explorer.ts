@@ -8,12 +8,12 @@ import {
   productCatalogFiltersKey,
   type ProductCatalogExplorerFilters,
 } from "@/lib/product-catalog-filters";
+import { searchProductsCatalog } from "@/lib/products-catalog-search";
 import {
   PRODUCT_CATALOG_EXPLORER_PAGE_SIZE,
   PRODUCT_CATALOG_SEARCH_MIN_CHARS,
   PRODUCT_CATALOG_SELECT,
   productBrandDisplayIlikePattern,
-  productNameOrLaboratoryIlikeOr,
   sanitizeProductSearchQuery,
 } from "@/lib/product-catalog-search";
 
@@ -57,28 +57,46 @@ export function useProductCatalogExplorer(
       }
 
       const from = reset ? 0 : offsetRef.current;
-      const to = from + PRODUCT_CATALOG_EXPLORER_PAGE_SIZE - 1;
+      const searchActive = sanitized.length >= PRODUCT_CATALOG_SEARCH_MIN_CHARS;
 
-      let q = supabase
-        .from("products")
-        .select(CATALOG_SELECT)
-        .eq("is_active", true)
-        .order("name");
+      let rows: PatientDemandeProduitsCatalogProduct[];
+      let fetchErr: { message: string } | null = null;
 
-      if (filters.productType !== "all") {
-        q = q.eq("product_type", filters.productType);
+      if (searchActive) {
+        try {
+          rows = await searchProductsCatalog(supabase, {
+            query: sanitized,
+            productType: filters.productType,
+            brand: filters.brand,
+            offset: from,
+            limit: PRODUCT_CATALOG_EXPLORER_PAGE_SIZE,
+          });
+        } catch (err) {
+          fetchErr = { message: err instanceof Error ? err.message : "Erreur recherche" };
+          rows = [];
+        }
+      } else {
+        const to = from + PRODUCT_CATALOG_EXPLORER_PAGE_SIZE - 1;
+
+        let q = supabase
+          .from("products")
+          .select(CATALOG_SELECT)
+          .eq("is_active", true)
+          .order("name");
+
+        if (filters.productType !== "all") {
+          q = q.eq("product_type", filters.productType);
+        }
+
+        const brandPattern = filters.brand ? productBrandDisplayIlikePattern(filters.brand) : null;
+        if (brandPattern) {
+          q = q.ilike("brand", brandPattern);
+        }
+
+        const { data, error } = await q.range(from, to);
+        fetchErr = error;
+        rows = (data as PatientDemandeProduitsCatalogProduct[]) ?? [];
       }
-
-      const brandPattern = filters.brand ? productBrandDisplayIlikePattern(filters.brand) : null;
-      if (brandPattern) {
-        q = q.ilike("brand", brandPattern);
-      }
-
-      if (sanitized.length >= PRODUCT_CATALOG_SEARCH_MIN_CHARS) {
-        q = q.or(productNameOrLaboratoryIlikeOr(sanitized));
-      }
-
-      const { data, error: fetchErr } = await q.range(from, to);
 
       if (queryKeyRef.current !== queryKey) {
         setLoadingMore(false);
@@ -95,8 +113,6 @@ export function useProductCatalogExplorer(
         fetchInFlightRef.current = false;
         return;
       }
-
-      const rows = (data as PatientDemandeProduitsCatalogProduct[]) ?? [];
 
       if (reset) {
         setProducts(rows);
