@@ -123,17 +123,6 @@ export function AdminPilotBlock({
   }, [typeFilter, pharmacyFilter, statusFilter, bucketFilterKey]);
 
   useEffect(() => {
-    const bucket = bucketForStatusParam(initialBucketKey ?? null, PHARMACIST_DASHBOARD_BUCKETS);
-    if (bucket) {
-      setBucketFilterKey(bucket.key);
-      setStatusFilter("");
-      return;
-    }
-    setBucketFilterKey(null);
-    setStatusFilter(resolveInitialStatusFilter(initialStatusFilter ?? null));
-  }, [initialStatusFilter, initialBucketKey]);
-
-  useEffect(() => {
     const t1 = window.setTimeout(() => {
       void loadQueue();
       void loadStatusCounts();

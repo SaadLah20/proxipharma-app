@@ -35,6 +35,7 @@ function AdminDemandesContent() {
         subtitle="Suivi transversal des dossiers patient et file de notifications e-mail."
       />
       <AdminPilotBlock
+        key={statutParam ?? "all"}
         pharmacies={pharmacies}
         initialStatusFilter={initialStatus}
         initialBucketKey={initialBucketKey ?? statutParam}
