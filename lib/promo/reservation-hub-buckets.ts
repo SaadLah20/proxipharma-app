@@ -137,3 +137,20 @@ export function filterPromoHubListRows<T extends { status: string }>(
   const allow = new Set(opts.bucketStatuses);
   return rows.filter((r) => allow.has(r.status as PromoReservationStatus));
 }
+
+export const PATIENT_PROMO_ARCHIVE_BUCKET_KEYS = ["recuperee", "indisponible", "annulee"] as const;
+
+const PATIENT_PROMO_ARCHIVE_BUCKET_KEY_SET = new Set<string>(PATIENT_PROMO_ARCHIVE_BUCKET_KEYS);
+
+export function isPatientPromoArchiveBucketKey(key: PromoStatBucketKey): boolean {
+  return PATIENT_PROMO_ARCHIVE_BUCKET_KEY_SET.has(key);
+}
+
+/** Statuts groupe « En cours » (liste patient « actives seulement »). */
+export function patientPromoActiveStatuses(
+  buckets: PromoStatBucket[] = PATIENT_PROMO_DASHBOARD_BUCKETS_FR,
+): readonly PromoReservationStatus[] {
+  return buckets
+    .filter((b) => !isPatientPromoArchiveBucketKey(b.key))
+    .flatMap((b) => b.statuses);
+}

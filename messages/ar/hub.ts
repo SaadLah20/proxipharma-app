@@ -86,6 +86,8 @@ export const hubAr = {
     allPharmacies: "الكل",
     sortNewest: "الأحدث أولاً",
     sortOldest: "الأقدم أولاً",
+    activeOnly: "النشطة فقط",
+    includeArchives: "يشمل الأرشيف",
     noResults: "لا نتائج.",
     clearFilters: "مسح الفلاتر",
     inDiscussion: "قيد النقاش",

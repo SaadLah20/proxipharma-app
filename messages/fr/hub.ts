@@ -86,6 +86,8 @@ export const hubFr = {
     allPharmacies: "Toutes",
     sortNewest: "Plus récentes d'abord",
     sortOldest: "Plus anciennes d'abord",
+    activeOnly: "Actives seulement",
+    includeArchives: "Archives incluses",
     noResults: "Aucun résultat.",
     clearFilters: "Effacer les filtres",
     inDiscussion: "En discussion",

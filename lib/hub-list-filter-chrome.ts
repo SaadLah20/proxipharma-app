@@ -6,11 +6,14 @@ export function hubListHasManualFilters(input: {
   entityFilter?: string;
   referenceQuery: string;
   sortNewestFirst: boolean;
+  /** Patient hub : `false` = archives incluses (hors défaut). */
+  activeOnly?: boolean;
 }): boolean {
   return (
     Boolean(input.entityFilter?.trim()) ||
     input.referenceQuery.trim().length >= 2 ||
-    !input.sortNewestFirst
+    !input.sortNewestFirst ||
+    input.activeOnly === false
   );
 }
 

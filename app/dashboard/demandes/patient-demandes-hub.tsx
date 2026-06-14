@@ -22,7 +22,7 @@ import {
 } from "@/lib/hub-list-filter-chrome";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import { PageShell } from "@/components/ui/compact-shell";
-import { bucketForStatusParam } from "@/lib/demandes-hub-buckets";
+import { bucketForStatusParam, isPatientArchiveBucketKey, patientRequestActiveStatuses } from "@/lib/demandes-hub-buckets";
 import { one } from "@/lib/embed";
 import { dashboardBucketsForKind } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { pharmacyCityLabel, pharmacyCitySearchTerms } from "@/lib/pharmacy-cities-morocco";
@@ -41,7 +41,7 @@ import { supabase } from "@/lib/supabase";
 import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
 
 function tabFromSearch(v: string | null): HubTab {
-  return v === "liste" ? "list" : "dashboard";
+  return v === "dashboard" ? "dashboard" : "list";
 }
 
 function tabToSearch(t: HubTab): string {
@@ -86,6 +86,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const [pharmacyFilter, setPharmacyFilter] = useState("");
   const [refQuery, setRefQuery] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
+  const [activeOnly, setActiveOnly] = useState(true);
   /** `null` = ouverture auto si filtres URL ou actifs sur la liste. */
   const [filtersExpandedUser, setFiltersExpandedUser] = useState<boolean | null>(null);
 
@@ -212,6 +213,12 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   let filteredList = filterPatientProductHubListRows(rowsWithDashboardStatus, {
     bucketStatuses: activeBucket?.statuses ?? null,
   });
+  const applyActiveOnly =
+    activeOnly && !(activeBucket && isPatientArchiveBucketKey(activeBucket.key));
+  if (applyActiveOnly) {
+    const activeStatuses = new Set(patientRequestActiveStatuses());
+    filteredList = filteredList.filter((r) => activeStatuses.has(r.status));
+  }
   if (pharmacyFilter) filteredList = filteredList.filter((r) => r.pharmacy_id === pharmacyFilter);
   if (refQuery.trim().length >= 2) {
     filteredList = filteredList.filter((r) => {
@@ -237,6 +244,8 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     pharmacyLabel: pharmacyFilterLabel,
     referenceQuery: refQuery,
     sortNewestFirst,
+    activeOnly,
+    includeArchivesLabel: tList("includeArchives"),
   });
 
   const listHasActiveFilters = patientHubListHasActiveFilters({
@@ -244,12 +253,14 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     pharmacyLabel: pharmacyFilterLabel,
     referenceQuery: refQuery,
     sortNewestFirst,
+    activeOnly,
   });
 
   const hasManualListFilters = hubListHasManualFilters({
     entityFilter: pharmacyFilter,
     referenceQuery: refQuery,
     sortNewestFirst,
+    activeOnly,
   });
   const filtersPanelExpanded = hubListFiltersPanelExpanded({
     tabIsList: tab === "list",
@@ -262,6 +273,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     setPharmacyFilter("");
     setRefQuery("");
     setSortNewestFirst(true);
+    setActiveOnly(true);
     setFiltersExpandedUser(null);
     const next = new URLSearchParams(searchParams.toString());
     next.set("vue", "liste");
@@ -348,6 +360,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
         <DemandeHubTabBar
           tab={tab}
           onTab={setTab}
+          tabOrder="listFirst"
           labels={{
             dashboard: tList("dashboardTab"),
             list: listTabLabel,
@@ -466,6 +479,15 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                   </select>
                 </label>
               </div>
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+                <input
+                  type="checkbox"
+                  checked={activeOnly}
+                  onChange={(e) => setActiveOnly(e.target.checked)}
+                  className="rounded border-input"
+                />
+                {tList("activeOnly")}
+              </label>
             </section>
           ) : null}
 

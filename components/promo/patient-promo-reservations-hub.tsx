@@ -22,6 +22,8 @@ import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
 import {
   bucketForPromoStatusParam,
   filterPromoHubListRows,
+  isPatientPromoArchiveBucketKey,
+  patientPromoActiveStatuses,
 } from "@/lib/promo/reservation-hub-buckets";
 import {
   promoHubListActiveFiltersSummary,
@@ -39,7 +41,7 @@ import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
 const HUB_PATH = "/dashboard/patient/packs-promo";
 
 function tabFromSearch(v: string | null): HubTab {
-  return v === "liste" ? "list" : "dashboard";
+  return v === "dashboard" ? "dashboard" : "list";
 }
 
 function tabToSearch(t: HubTab): string {
@@ -63,6 +65,7 @@ export function PatientPromoReservationsHub() {
   const [pharmacyFilter, setPharmacyFilter] = useState("");
   const [refQuery, setRefQuery] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
+  const [activeOnly, setActiveOnly] = useState(true);
   const [filtersExpandedUser, setFiltersExpandedUser] = useState<boolean | null>(null);
 
   const dashboardBuckets = useMemo(() => patientPromoDashboardBuckets(t), [t]);
@@ -173,6 +176,12 @@ export function PatientPromoReservationsHub() {
   let filteredList = filterPromoHubListRows(rows, {
     bucketStatuses: activeBucket?.statuses ?? null,
   });
+  const applyActiveOnly =
+    activeOnly && !(activeBucket && isPatientPromoArchiveBucketKey(activeBucket.key));
+  if (applyActiveOnly) {
+    const activeStatuses = new Set(patientPromoActiveStatuses());
+    filteredList = filteredList.filter((r) => activeStatuses.has(r.status));
+  }
   if (pharmacyFilter) filteredList = filteredList.filter((r) => r.pharmacy_id === pharmacyFilter);
   if (refQuery.trim().length >= 2) {
     filteredList = filteredList.filter((r) =>
@@ -197,6 +206,8 @@ export function PatientPromoReservationsHub() {
     referenceQuery: refQuery,
     sortNewestFirst,
     entityFieldLabel: tList("pharmacy"),
+    activeOnly,
+    includeArchivesLabel: tList("includeArchives"),
   });
 
   const listHasActiveFilters = promoHubListHasActiveFilters({
@@ -204,12 +215,14 @@ export function PatientPromoReservationsHub() {
     entityLabel: pharmacyFilterLabel,
     referenceQuery: refQuery,
     sortNewestFirst,
+    activeOnly,
   });
 
   const hasManualListFilters = hubListHasManualFilters({
     entityFilter: pharmacyFilter,
     referenceQuery: refQuery,
     sortNewestFirst,
+    activeOnly,
   });
 
   const filtersPanelExpanded = hubListFiltersPanelExpanded({
@@ -223,6 +236,7 @@ export function PatientPromoReservationsHub() {
     setPharmacyFilter("");
     setRefQuery("");
     setSortNewestFirst(true);
+    setActiveOnly(true);
     setFiltersExpandedUser(null);
     const next = new URLSearchParams(searchParams.toString());
     next.set("vue", "liste");
@@ -266,6 +280,7 @@ export function PatientPromoReservationsHub() {
       <DemandeHubTabBar
         tab={tab}
         onTab={setTab}
+        tabOrder="listFirst"
         labels={{
           dashboard: tList("dashboardTab"),
           list: t("dashboard.allReservations"),
@@ -377,6 +392,15 @@ export function PatientPromoReservationsHub() {
                   </select>
                 </label>
               </div>
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+                <input
+                  type="checkbox"
+                  checked={activeOnly}
+                  onChange={(e) => setActiveOnly(e.target.checked)}
+                  className="rounded border-input"
+                />
+                {tList("activeOnly")}
+              </label>
             </section>
           ) : null}
 
