@@ -2458,6 +2458,7 @@ export function PatientProductRequestActions({
 
   const visitScheduleLiveError = useMemo(() => {
     if (!visitPassageStatusEditable) return "";
+    if (visitDate.trim() === "") return "";
     const err = validateVisitPassageSchedule(
       pharmacyId,
       activeScheduleBundle,
@@ -2469,6 +2470,7 @@ export function PatientProductRequestActions({
     return err?.message ?? "";
   }, [
     visitPassageStatusEditable,
+    visitDate,
     pharmacyId,
     activeScheduleBundle,
     activeScheduleLoading,
