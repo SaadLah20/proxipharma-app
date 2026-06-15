@@ -38,6 +38,7 @@ import { REQUEST_ITEMS_HUB_SUMMARY_EMBED_SELECT } from "@/lib/request-line-produ
 import { PatientHubCatalogPriceVisibilityProvider } from "@/lib/patient-hub-catalog-price-visibility-context";
 import { fetchCatalogPriceVisibilityByPharmacyIds } from "@/lib/pharmacy-pricing/fetch-catalog-price-visibility-map";
 import { supabase } from "@/lib/supabase";
+import { REQUEST_CONVERSATION_READ_EVENT, type RequestConversationReadDetail } from "@/lib/request-detail-refresh-bus";
 import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
 
 function tabFromSearch(v: string | null): HubTab {
@@ -186,6 +187,22 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
       window.clearTimeout(tid);
     };
   }, [router, hubPath, kindId]);
+
+  useEffect(() => {
+    const onConversationRead = (event: Event) => {
+      const requestId = (event as CustomEvent<RequestConversationReadDetail>).detail?.requestId;
+      if (!requestId) return;
+      setUnreadById((prev) => {
+        if (!prev[requestId]) return prev;
+        const next = { ...prev };
+        delete next[requestId];
+        return next;
+      });
+    };
+
+    window.addEventListener(REQUEST_CONVERSATION_READ_EVENT, onConversationRead);
+    return () => window.removeEventListener(REQUEST_CONVERSATION_READ_EVENT, onConversationRead);
+  }, []);
 
   const pharmacyOptions = useMemo(() => {
     const m = new Map<string, string>();

@@ -1,6 +1,22 @@
 /** Rechargement explicite quand une notif ouvre une demande dont l’URL est déjà active (Next ne remonte pas la page). */
 export const REQUEST_DETAIL_REFRESH_EVENT = "proxipharma:request-detail-refresh";
 
+/** Synchronise cloche / fil Messages quand la conversation est lue depuis le dossier (FAB ou onglet). */
+export const REQUEST_CONVERSATION_READ_EVENT = "proxipharma:request-conversation-read";
+
+export type RequestConversationReadDetail = {
+  requestId: string;
+};
+
+export function dispatchRequestConversationRead(requestId: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<RequestConversationReadDetail>(REQUEST_CONVERSATION_READ_EVENT, {
+      detail: { requestId },
+    }),
+  );
+}
+
 /** Même logique pour les réservations packs promo. */
 export const PROMO_RESERVATION_DETAIL_REFRESH_EVENT = "proxipharma:promo-reservation-detail-refresh";
 

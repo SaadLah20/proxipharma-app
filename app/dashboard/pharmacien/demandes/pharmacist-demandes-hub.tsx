@@ -39,6 +39,7 @@ import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { formatShortId } from "@/lib/request-display";
 import { REQUEST_ITEMS_HUB_SUMMARY_EMBED_SELECT } from "@/lib/request-line-product-embed";
 import { supabase } from "@/lib/supabase";
+import { REQUEST_CONVERSATION_READ_EVENT, type RequestConversationReadDetail } from "@/lib/request-detail-refresh-bus";
 import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
 
 function tabFromSearch(v: string | null): HubTab {
@@ -217,6 +218,22 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
       window.clearTimeout(tid);
     };
   }, [router, hubPath, kindId]);
+
+  useEffect(() => {
+    const onConversationRead = (event: Event) => {
+      const requestId = (event as CustomEvent<RequestConversationReadDetail>).detail?.requestId;
+      if (!requestId) return;
+      setUnreadById((prev) => {
+        if (!prev[requestId]) return prev;
+        const next = { ...prev };
+        delete next[requestId];
+        return next;
+      });
+    };
+
+    window.addEventListener(REQUEST_CONVERSATION_READ_EVENT, onConversationRead);
+    return () => window.removeEventListener(REQUEST_CONVERSATION_READ_EVENT, onConversationRead);
+  }, []);
 
   const patientOptions = useMemo(() => {
     const ids = [...new Set(rows.map((r) => r.patient_id))];
