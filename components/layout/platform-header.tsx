@@ -43,6 +43,10 @@ import {
   markSingleAlertNotificationRead,
   type ConversationInboxRow,
 } from "@/lib/conversation-inbox";
+import {
+  REQUEST_CONVERSATION_READ_EVENT,
+  type RequestConversationReadDetail,
+} from "@/lib/request-detail-refresh-bus";
 import { supabase } from "@/lib/supabase";
 
 type ProfileLite = {
@@ -560,6 +564,28 @@ export function PlatformHeader() {
     const tid = window.setTimeout(() => void loadProfileAndNotifs(userId), 0);
     return () => window.clearTimeout(tid);
   }, [loadProfileAndNotifs, pathname, session?.user?.id]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+
+    const onConversationRead = (event: Event) => {
+      const requestId = (event as CustomEvent<RequestConversationReadDetail>).detail?.requestId;
+      if (!requestId) return;
+
+      setMessageThreads((prev) => {
+        const hadUnread = prev.some((row) => row.requestId === requestId && row.hasUnread);
+        if (hadUnread) setMessageUnreadCount((count) => Math.max(0, count - 1));
+        return prev.map((row) =>
+          row.requestId === requestId ? { ...row, hasUnread: false } : row,
+        );
+      });
+      void loadProfileAndNotifs(userId);
+    };
+
+    window.addEventListener(REQUEST_CONVERSATION_READ_EVENT, onConversationRead);
+    return () => window.removeEventListener(REQUEST_CONVERSATION_READ_EVENT, onConversationRead);
+  }, [loadProfileAndNotifs, session?.user?.id]);
 
   useEffect(() => {
     if (!profileOpen && !notifOpen) return;

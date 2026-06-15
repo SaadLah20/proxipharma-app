@@ -23,6 +23,7 @@ import {
 } from "@/lib/conversation-inbox";
 import { pickPatientNotificationText } from "@/lib/i18n/pick-notification-text";
 import { rewriteForPharmacistView } from "@/lib/patient-copy";
+import { REQUEST_CONVERSATION_READ_EVENT, type RequestConversationReadDetail } from "@/lib/request-detail-refresh-bus";
 import { supabase } from "@/lib/supabase";
 
 type RequestTypeFilter = "product_request" | "prescription" | "free_consultation";
@@ -294,6 +295,16 @@ export default function NotificationsPage() {
       return prev.map((t) => (t.requestId === requestId ? { ...t, hasUnread: false } : t));
     });
   }, []);
+
+  useEffect(() => {
+    const onConversationRead = (event: Event) => {
+      const requestId = (event as CustomEvent<RequestConversationReadDetail>).detail?.requestId;
+      if (requestId) handleMessageNavigate(requestId);
+    };
+
+    window.addEventListener(REQUEST_CONVERSATION_READ_EVENT, onConversationRead);
+    return () => window.removeEventListener(REQUEST_CONVERSATION_READ_EVENT, onConversationRead);
+  }, [handleMessageNavigate]);
 
   if (loading) {
     return (
