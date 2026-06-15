@@ -81,3 +81,26 @@ export function summarizeSupplyAmendmentEntry(
 ): string {
   return summarizeSupplyAmendmentEntryLines(row, audience).join("\n");
 }
+
+/** Amendements post-validation visibles patient (aligné `buildAmendmentResume` / badge « Modifiée »). */
+const PATIENT_POST_CONFIRM_SUPPLY_AMENDMENT_KINDS = new Set([
+  "validated_qty_change",
+  "line_adjust_supply",
+  "line_added_after_confirm",
+  "withdraw_after_confirm",
+  "line_removed_after_confirm",
+]);
+
+export function hasPatientPostConfirmSupplyAmendments(
+  bundles: { amendments: unknown }[] | null | undefined
+): boolean {
+  if (!bundles?.length) return false;
+  for (const bundle of bundles) {
+    const entries = Array.isArray(bundle.amendments) ? bundle.amendments : [];
+    for (const raw of entries) {
+      const kind = (raw as SupplyAmendmentEntryJson).kind?.trim();
+      if (kind && PATIENT_POST_CONFIRM_SUPPLY_AMENDMENT_KINDS.has(kind)) return true;
+    }
+  }
+  return false;
+}

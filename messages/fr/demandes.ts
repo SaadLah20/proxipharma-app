@@ -116,6 +116,8 @@ export const demandesFr = {
   },
   validated: {
     modifyValidation: "Modifier ma validation",
+    modifyValidationBlockedHint:
+      "La pharmacie a adapté votre commande après validation. Consultez le résumé en haut du dossier ; pour modifier les produits, contactez l'officine.",
     pharmaUpdateTitle: "Mise à jour de l'officine",
     pharmaUpdateBody: "La pharmacie a modifié la préparation. Consultez les détails avant votre passage.",
     reservedByPharmacy: "À réserver par la pharmacie",

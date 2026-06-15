@@ -112,6 +112,8 @@ export const demandesAr = {
   },
   validated: {
     modifyValidation: "تعديل تأكيدي",
+    modifyValidationBlockedHint:
+      "عدّلت الصيدلية طلبك بعد التأكيد. راجع الملخص أعلى الملف؛ لتعديل المنتجات، تواصل مع الصيدلية.",
     pharmaUpdateTitle: "تحديث من الصيدلية",
     pharmaUpdateBody: "عدّلت الصيدلية التحضير. راجع التفاصيل قبل زيارتك.",
     reservedByPharmacy: "يُحجز من الصيدلية",
