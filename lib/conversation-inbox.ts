@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { requestDetailHrefWithConversationFocus } from "@/lib/request-detail-conversation-focus";
 
 export type ConversationInboxRow = {
   requestId: string;
@@ -27,9 +28,13 @@ type InboxRpcRow = {
 };
 
 function requestDetailHref(role: string, requestId: string): string {
-  if (role === "admin") return `/admin/demandes/${requestId}`;
-  if (role === "pharmacien") return `/dashboard/pharmacien/demandes/${requestId}`;
-  return `/dashboard/demandes/${requestId}`;
+  const base =
+    role === "admin"
+      ? `/admin/demandes/${requestId}`
+      : role === "pharmacien"
+        ? `/dashboard/pharmacien/demandes/${requestId}`
+        : `/dashboard/demandes/${requestId}`;
+  return requestDetailHrefWithConversationFocus(base);
 }
 
 export async function countUnreadConversationThreads(supabase: SupabaseClient): Promise<number> {

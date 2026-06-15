@@ -11,6 +11,7 @@ import {
   requestIdFromNotificationDemandeHref,
   reservationIdFromNotificationPromoHref,
 } from "@/lib/request-detail-refresh-bus";
+import { requestDetailHrefWithConversationFocus } from "@/lib/request-detail-conversation-focus";
 import {
   Bell,
   Building2,
@@ -87,6 +88,9 @@ export function InAppNotificationItem({
   isRead?: boolean;
 }) {
   const pathname = usePathname();
+  const linkHref = notificationEventFocusConversation(eventType)
+    ? requestDetailHrefWithConversationFocus(href)
+    : href;
 
   const commonClass = clsx(
     "flex w-full max-w-full gap-3 overflow-hidden rounded-xl border p-3 text-left shadow-sm transition hover:bg-muted/30",
@@ -142,11 +146,11 @@ export function InAppNotificationItem({
   if (href) {
     return (
       <Link
-        href={href}
+        href={linkHref}
         onClick={(e) => {
           onNavigate?.();
-          if (!notificationHrefTargetsCurrentPath(pathname, href)) return;
-          const requestId = requestIdFromNotificationDemandeHref(href);
+          if (!notificationHrefTargetsCurrentPath(pathname, linkHref)) return;
+          const requestId = requestIdFromNotificationDemandeHref(linkHref);
           if (requestId) {
             e.preventDefault();
             dispatchRequestDetailRefresh(requestId, {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { clsx } from "clsx";
@@ -26,6 +26,7 @@ import {
   REQUEST_ITEMS_CATALOG_EMBED_SELECT,
 } from "@/lib/request-line-product-embed";
 import { REQUEST_DETAIL_REFRESH_EVENT, type RequestDetailRefreshDetail } from "@/lib/request-detail-refresh-bus";
+import { applyRequestDetailConversationUrlFocusOnce } from "@/lib/request-detail-conversation-focus";
 import { useRequestDetailDrift } from "@/lib/use-request-detail-drift";
 import { RequestDetailStaleBanner } from "@/components/requests/shared/request-detail-stale-banner";
 import { PatientProductRequestActions, type PatientPharmacyContactInfo, usePatientSummaryStatusCopy } from "@/components/requests/product/patient-product-request-actions";
@@ -164,6 +165,7 @@ export default function DemandeDetailPage() {
   const [consultationTab, setConsultationTab] = useState<ConsultationDetailTab>("conversation");
   const [prevConsultationTabSyncKey, setPrevConsultationTabSyncKey] = useState("");
   const [conversationRefreshToken, setConversationRefreshToken] = useState(0);
+  const conversationUrlFocusRef = useRef(false);
   const [consultationExitOpen, setConsultationExitOpen] = useState(false);
   const [consultationExitBusy, setConsultationExitBusy] = useState(false);
   const [consultationExitNonce, setConsultationExitNonce] = useState(0);
@@ -351,6 +353,13 @@ export default function DemandeDetailPage() {
       } else {
         setConsultationBrief(null);
       }
+
+      applyRequestDetailConversationUrlFocusOnce(conversationUrlFocusRef, reqRow as RequestDetail, {
+        setConversationOpen,
+        setConsultationTab,
+        bumpConversationRefresh: () => setConversationRefreshToken((t) => t + 1),
+        lockConsultationTabSyncKey: setPrevConsultationTabSyncKey,
+      });
 
       setLoading(false);
       return {
