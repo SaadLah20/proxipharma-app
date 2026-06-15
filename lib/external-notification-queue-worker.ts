@@ -482,7 +482,7 @@ export async function processExternalNotificationQueue(args: {
           status: "failed",
           attempt_count: maxAttempts,
           last_error:
-            "skipped: WhatsApp pilote limité (patient répondu/traité/expiré/rappel, pharma nouvelle demande)",
+            "skipped: WhatsApp pilote limité (événement non autorisé pour ce rôle — voir lib/twilio-whatsapp.ts)",
         })
         .eq("id", r.id);
       continue;

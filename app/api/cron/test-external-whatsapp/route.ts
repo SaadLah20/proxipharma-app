@@ -13,7 +13,15 @@ import {
  *   "to": "+212...",
  *   "eventType":
  *     "request_status:responded" | "request_status:treated" | "request_status:expired"
- *     | "request_event:responded_expiry_reminder" | "request_status:submitted",
+ *     | "request_status:confirmed"
+ *     | "request_event:responded_expiry_reminder"
+ *     | "request_event:post_confirm_product_arrived"
+ *     | "request_event:market_shortage_product_available"
+ *     | "request_event:planned_visit_day_reminder"
+ *     | "request_event:planned_visit_pre_passage_reminder"
+ *     | "request_status:submitted"
+ *     | "request_event:planned_visit_passed_no_pickup"
+ *     | "request_event:responded_expiry_pharmacist_reminder",
  *   "pharmacyName": "Pharmacie Centrale",
  *   "patientName": "Fatima B.",
  *   "requestRef": "D042/26"
