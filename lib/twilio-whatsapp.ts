@@ -15,15 +15,12 @@ export const WHATSAPP_PATIENT_EVENT_TYPES = new Set<string>([
   "request_event:market_shortage_product_available",
 ]);
 
-/** WhatsApp pilote pharmacien — nouvelle demande, validée, alertes, messages patient. */
+/** WhatsApp pilote pharmacien — nouvelle demande, validée, alertes passage / validation. */
 export const WHATSAPP_PHARMACIST_EVENT_TYPES = new Set<string>([
   "request_status:submitted",
   "request_status:confirmed",
   "request_event:planned_visit_passed_no_pickup",
   "request_event:responded_expiry_pharmacist_reminder",
-  "request_event:patient_planned_visit_updated",
-  "request_status:patient_prescription_updated",
-  "request_conversation:message",
 ]);
 
 /** Modèles CTA Meta avec token lien court en variable {{3}}. */
@@ -40,9 +37,6 @@ export const WHATSAPP_LINK_EVENT_TYPES = new Set<string>([
   "request_status:confirmed",
   "request_event:planned_visit_passed_no_pickup",
   "request_event:responded_expiry_pharmacist_reminder",
-  "request_event:patient_planned_visit_updated",
-  "request_status:patient_prescription_updated",
-  "request_conversation:message",
 ]);
 
 export type WhatsAppDispatchResult = {
@@ -105,15 +99,6 @@ export function resolveWhatsAppContentSid(eventType: string): string | null {
   if (eventType === "request_event:market_shortage_product_available") {
     return process.env.TWILIO_WHATSAPP_CONTENT_SID_SHORTAGE_AVAILABLE?.trim() ?? null;
   }
-  if (eventType === "request_event:patient_planned_visit_updated") {
-    return process.env.TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_VISIT_UPDATED?.trim() ?? null;
-  }
-  if (eventType === "request_status:patient_prescription_updated") {
-    return process.env.TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PRESCRIPTION_UPDATED?.trim() ?? null;
-  }
-  if (eventType === "request_conversation:message") {
-    return process.env.TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PATIENT_MESSAGE?.trim() ?? null;
-  }
   return null;
 }
 
@@ -137,14 +122,7 @@ export function buildWhatsAppContentVariables(args: {
 
   const vars: Record<string, string> = {};
 
-  const pharmacistPatientLabel =
-    args.eventType === "request_status:submitted" ||
-    args.eventType === "request_status:confirmed" ||
-    args.eventType === "request_event:patient_planned_visit_updated" ||
-    args.eventType === "request_status:patient_prescription_updated" ||
-    args.eventType === "request_conversation:message";
-
-  if (pharmacistPatientLabel) {
+  if (args.eventType === "request_status:submitted" || args.eventType === "request_status:confirmed") {
     vars["1"] = trimWhatsAppPersonLabel(args.patientName ?? "Client");
     vars["2"] = ref;
   } else {

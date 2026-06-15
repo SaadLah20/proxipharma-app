@@ -24,7 +24,7 @@ Prod **`pharmeto.ma`**. Marque **Pharmeto** (ex-ProxiPharma). Dev : **`npm run d
 
 ## Migrations Supabase (ancre pilote)
 
-Appliquer dans l’ordre `YYYYMMDD_*` jusqu’à **`20260828_001`** (WhatsApp M2 lot 3 pharmacien ; après **`20260827_001`** labels inbox).
+Appliquer dans l’ordre `YYYYMMDD_*` jusqu’à **`20260827_001`** (labels inbox FR/AR ; après **`20260826_001`** WhatsApp M2).
 
 Piège : **`20260503_007`** (policy profiles) ≠ **`20260505_007`** (codes publics). **`20260718_001`** + **`20260718_002`** = deux runs. **`20260819_001`** puis **`20260819_002`**.
 
