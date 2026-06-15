@@ -311,6 +311,7 @@ import {
   REQUEST_DETAIL_REFRESH_EVENT,
   type RequestDetailRefreshDetail,
 } from "@/lib/request-detail-refresh-bus";
+import { applyRequestDetailConversationUrlFocusOnce } from "@/lib/request-detail-conversation-focus";
 import { useRequestDetailDrift } from "@/lib/use-request-detail-drift";
 import { RequestDetailStaleBanner } from "@/components/requests/shared/request-detail-stale-banner";
 import { requestDetailStaleMessage } from "@/lib/i18n/request-detail-stale-copy";
@@ -1990,6 +1991,7 @@ export default function PharmacienDemandeDetailPage() {
   const [consultationTab, setConsultationTab] = useState<ConsultationDetailTab>("conversation");
   const [prevConsultationTabSyncKey, setPrevConsultationTabSyncKey] = useState("");
   const [conversationRefreshToken, setConversationRefreshToken] = useState(0);
+  const conversationUrlFocusRef = useRef(false);
   /** Après publication (`responded`), affichage figé jusqu'à « Modifier ». */
   const [respondedEditMode, setRespondedEditMode] = useState(false);
   const [respondedSaveConfirmOpen, setRespondedSaveConfirmOpen] = useState(false);
@@ -2425,6 +2427,14 @@ export default function PharmacienDemandeDetailPage() {
       }
       return next;
     });
+
+    applyRequestDetailConversationUrlFocusOnce(conversationUrlFocusRef, r, {
+      setConversationOpen,
+      setConsultationTab,
+      bumpConversationRefresh: () => setConversationRefreshToken((t) => t + 1),
+      lockConsultationTabSyncKey: setPrevConsultationTabSyncKey,
+    });
+
     setLoading(false);
   }, [id, router, resetRespondedLineAltUi]);
 
