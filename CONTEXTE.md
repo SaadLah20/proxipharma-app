@@ -41,6 +41,18 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 ## 6. État technique récent (aligné repo — mai–juin 2026)
 
+**Mise à jour 2026-06-15 (suite) — WhatsApp M2 lot 2 + inbox notifications** :
+- **WhatsApp M2 lot 2** (PR **#369** mergée) : produit reçu, rupture dispo (patient) ; dossier validé (pharmacien). Migration **`20260826_001`**. Vars Vercel **`_PRODUCT_ARRIVED`**, **`_SHORTAGE_AVAILABLE`**, **`_PHARMACY_CONFIRMED`** configurées prod. **8 événements WhatsApp actifs** ; 6 en attente — **`docs/WHATSAPP-NOTIFS-REPRISE.md`**.
+- **Inbox notifications** (PR **#370** mergée) : onglets Alertes/Messages ; migration **`20260825_001`** (RPC inbox + sync lecture) ; **`20260824_001`** (grâce modification passage). Ouverture fil via **`?conversation=1`**.
+- Phrase reprise **§13.65** · journal **§10 session 2026-06-15 (suite)**.
+
+**Mise à jour 2026-06-15 — expiration passage traité + rappels** :
+- **Migration** **`20260823_001`** : dossier **`treated`** sans retrait comptoir ni modification date → **`abandoned`** (`auto_abandon_after_pickup_window`). Échéance : fin **J+1 23:59** Casablanca (date seule) ou **passage + 24 h** (avec heure).
+- **RPC cron** : **`remind_planned_visit_passage`** (patient ~10 h jour J ou T−2 h), **`alert_pharmacist_pickup_missed`**, **`remind_pharmacist_responded_expiry`** (pharma T−1 h avant expiration `responded`), **`abandon_overdue_pickup_requests`**.
+- **Cron** : **`POST /api/cron/expire-overdue-requests`** (GitHub Actions 5 min, `.github/workflows/expire-overdue-requests-cron.yml`) — inclut aussi **`expire_overdue_requests`** + rappel patient T−4 h. Env test : **`PLANNED_VISIT_DAY_REMINDER_HOUR`**, **`EXPIRE_RESPONDED_SILENCE`**.
+- **App** : encarts règle passage patient/pharmacien, bandeau urgence **`visitAbandonUrgencyBanner`**, archive **`autoPickupMissed`** ; **`lib/planned-visit-abandon-deadline.ts`**. Branche **`feature/validated-supply-patient-lock`**, commit **`2c2ee6b`**.
+- **WhatsApp passage** : enqueue OK ; envoi si SID Meta (**`docs/WHATSAPP-NOTIFS-REPRISE.md`** lot expiration). In-app + e-mail actifs. Phrase reprise **§13.64** · journal **§10 session 2026-06-15**.
+
 **Mise à jour 2026-06-14 — pricing patient, abandon pharmacien, admin pilote, WhatsApp M2 lot 1** :
 - **Pricing patient (PR #352 mergée)** : modal validation = même PU que dossier (**`lib/patient-responded-line-pricing.ts`**) ; médicament = **PPV** toujours (**`resolveLineUnitPrice`**, brouillon pharma **`catalogEmbedUnitPriceFallback`**) ; visibilité PU avant réponse officine (**`20260820_001`**, **`show_catalog_prices_before_response`**) — commits **`6065889`**, **`e8bff83`**.
 - **Abandon pharmacien direct** : migration **`20260821_001`** ; RPC **`pharmacist_abandon_request`** ; bouton **Abandonner le dossier** sur validé/traité (motif, refuse si retrait comptoir) — commit **`c8e2fb8`**.

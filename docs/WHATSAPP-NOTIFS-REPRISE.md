@@ -30,7 +30,7 @@ Document de reprise pour fondateur + agent. Détail ops : **`RUNBOOK.md` §10**.
 
 Branche : `feature/whatsapp-c-suite-m2-lot1` (commit **`a0c69ae`**). Pas de migration Supabase (enqueue déjà OK via `20260817_001`).
 
-### M2 lot 2 partiel — Approved Meta 15/06/2026 (code + migration `20260826_001`)
+### M2 lot 2 partiel — Approved Meta 15/06/2026 — **prod** (PR **#369**, vars Vercel OK)
 
 | Template | Content SID | `event_type` | Env Vercel |
 |----------|-------------|--------------|------------|
@@ -38,7 +38,9 @@ Branche : `feature/whatsapp-c-suite-m2-lot1` (commit **`a0c69ae`**). Pas de migr
 | `pharmeto_request_shortage_available_fr_v2_link` | `HXbe4a11fd3dd30f9bfc1023c33afc58aa` | `request_event:market_shortage_product_available` | `TWILIO_WHATSAPP_CONTENT_SID_SHORTAGE_AVAILABLE` |
 | `pharmeto_pharmacy_confirmed_fr` | `HX974770152c33d37c18defeef9e0809e2` | `request_status:confirmed` | `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_CONFIRMED` |
 
-Enqueue patient produit/rupture : déjà OK depuis `20260823_001`. Enqueue pharmacien `confirmed` : **`20260826_001`**.
+Migration **`20260826_001`** (enqueue pharmacien `confirmed`). **8 événements WhatsApp actifs** en prod.
+
+**En attente (6)** : 3 templates Twilio user-initiated seulement (ci-dessous) + 3 templates passage pas encore soumis.
 
 ### M2 restant — Meta user-initiated seulement (pas outbound business)
 
@@ -68,7 +70,7 @@ Cron : `POST /api/cron/expire-overdue-requests` (GitHub Actions 5 min) — appel
 
 ---
 
-## Variables Vercel (prod — après merge M2 lot 2 partiel)
+## Variables Vercel (prod — M2 lot 2 partiel actif)
 
 ```
 TWILIO_WHATSAPP_FROM=whatsapp:+212770165668
