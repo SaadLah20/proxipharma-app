@@ -18,6 +18,7 @@ import {
   countUnreadAlertNotifications,
   loadConversationInbox,
   markAlertNotificationsAsRead,
+  markSingleAlertNotificationRead,
   type ConversationInboxRow,
 } from "@/lib/conversation-inbox";
 import { pickPatientNotificationText } from "@/lib/i18n/pick-notification-text";
@@ -131,7 +132,7 @@ export default function NotificationsPage() {
         .eq("recipient_id", user.id)
         .order("created_at", { ascending: false })
         .limit(60),
-      loadConversationInbox(supabase, { role: r, limit: 40 }),
+      loadConversationInbox(supabase, { role: r, locale, limit: 40 }),
       countUnreadAlertNotifications(supabase, user.id),
     ]);
 
@@ -214,7 +215,7 @@ export default function NotificationsPage() {
     if (markAlerts) {
       await markAlertNotificationsAsRead(supabase, user.id);
     }
-  }, [router]);
+  }, [locale, router]);
 
   useEffect(() => {
     const markOnLoad = channelFromSearch(searchParams.get("onglet")) === "notifications";
@@ -274,10 +275,25 @@ export default function NotificationsPage() {
     [markAlertRowsAsRead, setChannelTab, userId],
   );
 
-  const refreshAfterMessageOpen = useCallback(() => {
-    if (!userId) return;
-    void load();
-  }, [load, userId]);
+  const handleNotificationNavigate = useCallback(
+    (row: FeedRow) => {
+      if (!row.read_at && userId) {
+        const nowIso = new Date().toISOString();
+        void markSingleAlertNotificationRead(supabase, { id: row.id, source: row.source });
+        setAlertUnreadCount((count) => Math.max(0, count - 1));
+        setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, read_at: nowIso } : r)));
+      }
+    },
+    [userId],
+  );
+
+  const handleMessageNavigate = useCallback((requestId: string) => {
+    setMessageThreads((prev) => {
+      const hadUnread = prev.some((t) => t.requestId === requestId && t.hasUnread);
+      if (hadUnread) setMessageUnreadCount((count) => Math.max(0, count - 1));
+      return prev.map((t) => (t.requestId === requestId ? { ...t, hasUnread: false } : t));
+    });
+  }, []);
 
   if (loading) {
     return (
@@ -366,6 +382,7 @@ export default function NotificationsPage() {
                     eventType={n.event_type}
                     href={n.href}
                     isRead={Boolean(n.read_at)}
+                    onNavigate={() => handleNotificationNavigate(n)}
                   />
                 </li>
               ))}
@@ -383,7 +400,10 @@ export default function NotificationsPage() {
             <ul className="w-full min-w-0 max-w-full space-y-3">
               {messageThreads.map((thread) => (
                 <li key={thread.requestId} className="min-w-0 max-w-full">
-                  <ConversationInboxItem row={thread} onNavigate={refreshAfterMessageOpen} />
+                  <ConversationInboxItem
+                    row={thread}
+                    onNavigate={() => handleMessageNavigate(thread.requestId)}
+                  />
                 </li>
               ))}
             </ul>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   AlertTriangle,
   Bell,
@@ -39,6 +40,7 @@ import {
   countUnreadAlertNotifications,
   loadConversationInbox,
   markAlertNotificationsAsRead,
+  markSingleAlertNotificationRead,
   type ConversationInboxRow,
 } from "@/lib/conversation-inbox";
 import { supabase } from "@/lib/supabase";
@@ -336,6 +338,7 @@ function ProfileNavMenu({ blocks, onNavigate }: { blocks: PlatformNavBlock[]; on
 
 export function PlatformHeader() {
   const locale = useLocale() as AppLocale;
+  const pathname = usePathname();
   const tHeader = useTranslations("header");
   const tCommon = useTranslations("common");
   const patientNavMenu = usePatientNavMenu();
@@ -380,7 +383,7 @@ export function PlatformHeader() {
         .order("created_at", { ascending: false })
         .limit(12),
       countUnreadAlertNotifications(supabase, userId),
-      loadConversationInbox(supabase, { role, limit: 12 }),
+      loadConversationInbox(supabase, { role, locale, limit: 12 }),
     ]);
 
     const merged: HeaderNotifRow[] = [
@@ -446,7 +449,7 @@ export function PlatformHeader() {
     setMessageThreads(inbox.threads);
     setAlertUnreadCount(alertUnread);
     setMessageUnreadCount(inbox.unreadCount);
-  }, []);
+  }, [locale]);
 
   const markAlertNotificationsRead = useCallback(async () => {
     const userId = session?.user?.id;
@@ -550,6 +553,13 @@ export function PlatformHeader() {
       void supabase.removeChannel(channel);
     };
   }, [loadProfileAndNotifs, session?.user?.id]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    const tid = window.setTimeout(() => void loadProfileAndNotifs(userId), 0);
+    return () => window.clearTimeout(tid);
+  }, [loadProfileAndNotifs, pathname, session?.user?.id]);
 
   useEffect(() => {
     if (!profileOpen && !notifOpen) return;
@@ -684,7 +694,22 @@ export function PlatformHeader() {
                                     createdAt={n.created_at}
                                     eventType={n.event_type}
                                     href={n.href}
-                                    onNavigate={() => setNotifOpen(false)}
+                                    onNavigate={() => {
+                                      if (!n.read_at) {
+                                        const nowIso = new Date().toISOString();
+                                        void markSingleAlertNotificationRead(supabase, {
+                                          id: n.id,
+                                          source: n.source,
+                                        });
+                                        setAlertUnreadCount((count) => Math.max(0, count - 1));
+                                        setNotifications((prev) =>
+                                          prev.map((row) =>
+                                            row.id === n.id ? { ...row, read_at: nowIso } : row,
+                                          ),
+                                        );
+                                      }
+                                      setNotifOpen(false);
+                                    }}
                                     compact
                                     isRead={Boolean(n.read_at)}
                                   />
@@ -703,9 +728,17 @@ export function PlatformHeader() {
                                 row={thread}
                                 compact
                                 onNavigate={() => {
+                                  if (thread.hasUnread) {
+                                    setMessageUnreadCount((count) => Math.max(0, count - 1));
+                                    setMessageThreads((prev) =>
+                                      prev.map((row) =>
+                                        row.requestId === thread.requestId
+                                          ? { ...row, hasUnread: false }
+                                          : row,
+                                      ),
+                                    );
+                                  }
                                   setNotifOpen(false);
-                                  const userId = session?.user?.id;
-                                  if (userId) void loadProfileAndNotifs(userId);
                                 }}
                               />
                             </li>
