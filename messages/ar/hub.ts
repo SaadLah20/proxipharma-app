@@ -121,7 +121,7 @@ export const hubAr = {
     respondedTotalIfAll: " · تقريباً {amount} درهم إن اخترت الكل",
     treatedWaitingPrimary: "{count, plural, one {منتج واحد بانتظار زيارتك} other {# منتجات بانتظار زيارتك}}",
     treatedRetainedPrimary: "{count, plural, one {منتج واحد مُختار} other {# منتجات مُختارة}}",
-    treatedSecondary: "انتهى التحضير — استلام أو متابعة عند الصندوق",
+    treatedSecondary: "انتهى التحضير — زُر الصيدلية أو عدّل تاريخ الزيارة",
     prescriptionEnteredPrimary: "{count, plural, one {منتج واحد أدخلته الصيدلية} other {# منتجات أدخلتها الصيدلية}}",
     prescriptionScanPrimary: "وصفة مُرسلة — إدخال جارٍ",
     prescriptionPrepSecondary: "رد الصيدلية قيد التحضير",

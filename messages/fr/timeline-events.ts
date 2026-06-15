@@ -287,6 +287,10 @@ export const timelineEventsFr = {
         patient: "Cloture enregistree (tout recupere)",
         pharmacist: "Dossier cloture apres comptoir",
       },
+      treated_to_abandoned: {
+        patient: "Dossier clos automatiquement : passage non effectue dans les delais",
+        pharmacist: "Dossier clos automatiquement : passage non effectue",
+      },
       any_to_cancelled: {
         patient: "La demande a ete annulee",
         pharmacist: "Demande annulee",
@@ -325,6 +329,7 @@ export const timelineEventsFr = {
       treated_to_completed: "Dossier cloture apres les retraits au comptoir.",
       treated_to_partially_collected: "Cloture enregistree (retrait partiel).",
       treated_to_fully_collected: "Cloture enregistree (tout recupere).",
+      treated_to_abandoned: "Dossier clos automatiquement : passage non effectue dans les delais.",
       cancelled: "La demande a ete annulee.",
       abandoned: "La demande a ete abandonnee.",
       expired: "La demande a expire.",

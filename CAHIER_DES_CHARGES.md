@@ -195,6 +195,7 @@ Sans nouvelle validation patient obligatoire pour les ajustements officine coura
 - **Lignes décochées** (`is_selected_by_patient = false` après réponse patient) : **aucun bloc** Validé / Suivi (juste la mention « Vous n'avez pas retenu cette ligne »).
 - **Historique patient** : lors d'un enregistrement d'ajustements après validation, `request_status_history.reason` peut porter un payload **`audit_v1:`** (JSON) expliquant **par produit** les changements (interprété en français dans l'UI) — voir `lib/patient-request-history-audit.ts`. Chaque entrée d'historique affiche désormais **auteur** (Vous / La pharmacie / Système, cf. `historyActorLabel`) **et date** (`formatDateTimeShort24hFr`).
 - **Règles officine (UI post-validation)** : la quantité **préparation** est **plafonnée** par la quantité validée tant que la ligne n'est pas marquée **récupérée** (`picked_up`) ; en repassant de **récupéré** à un autre état comptoir, la quantité brouillon est **réalignée** sur la quantité validée avant nouvel enregistrement. Lignes **`cancelled_at_counter`** : **lecture seule** côté pharmacien (traçabilité), avec choix du **motif** (`client_request` / `pharmacy_unable`) et **détail libre** facultatif. Compteur **Annulés** sur les cartes patient : toutes les lignes **`cancelled_at_counter`**, y compris si **`is_selected_by_patient`** repasse à false après action officine. **Comptoir / clôture** : les lignes **`withdrawn_after_confirm`** ne bloquent pas la clôture dossier (hors périmètre retrait actif).
+- **Expiration passage (`treated`, juin 2026 — `20260823_001`)** : si le patient ne passe pas et ne modifie pas **`patient_planned_visit_date/time`**, le dossier **`treated`** sans aucun **`picked_up`** passe en **`abandoned`** (`auto_abandon_after_pickup_window`) — **fin J+1 23:59** (Casablanca) si pas d'heure, sinon **datetime passage + 24 h**. Rappels patient : **~10 h** le jour J (date seule) ou **T−2 h** (avec heure). Alertes pharmacien : **~1 h** avant expiration **`responded`**, puis **juste après** passage manqué. Cron **`/api/cron/expire-overdue-requests`** (5 min). UI + i18n FR/AR : encarts passage, bandeau urgence patient, hub pharmacien.
 
 ### 4.5 Réponse pharmacien — règles de saisie
 
@@ -388,6 +389,12 @@ git checkout pilote-stable-2026-05-24
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
 
 ---
+
+### Session 2026-06-15 — Expiration passage traité + rappels
+
+- **`20260823_001_pickup_window_expiration.sql`** — helpers `_planned_visit_passage_at` / `_planned_visit_abandon_at` ; RPC cron **`remind_planned_visit_passage`**, **`alert_pharmacist_pickup_missed`**, **`remind_pharmacist_responded_expiry`**, **`abandon_overdue_pickup_requests`** ; notifs in-app + e-mail (+ WhatsApp si SID Meta).
+- Cron **`expire-overdue-requests`** étendu ; env test **`PLANNED_VISIT_DAY_REMINDER_HOUR`** (défaut 10).
+- UI patient/pharmacien + i18n FR/AR ; helper TS **`lib/planned-visit-abandon-deadline.ts`**.
 
 ### Session 2026-06-14 (suite 2) — Recherche catalogue + sauvegarde photos BeautyMall
 

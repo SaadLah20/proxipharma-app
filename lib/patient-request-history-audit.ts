@@ -126,6 +126,11 @@ const PATIENT_HISTORY_TECH_REASON_FR: Record<string, string> = {
   auto_expire_24h_after_response: "Sans réponse de votre part à temps, la demande a expiré.",
   expire_overdue_requests: "Le délai du dossier est dépassé : la demande a expiré.",
   auto_abandon_24h_after_response: "Sans validation de votre part, la demande a été fermée automatiquement.",
+  auto_abandon_after_pickup_window:
+    "Vous n'êtes pas passé à la date prévue et le délai de 24 h est dépassé sans modification de date.",
+  planned_visit_day_reminder: "Rappel envoyé : passage prévu aujourd'hui.",
+  planned_visit_pre_passage_reminder: "Rappel envoyé : passage dans environ 2 h.",
+  responded_expiry_reminder: "Rappel envoyé : validation en attente.",
   request_created_with_status: "Votre demande a été créée et envoyée à la pharmacie.",
   patient_abandon_request: "Vous avez abandonné la demande.",
   patient_resubmit_product_request_after_response: "Vous avez renvoyé une liste de produits mise à jour.",
@@ -150,6 +155,12 @@ const PHARMACIST_HISTORY_TECH_REASON_FR: Record<string, string> = {
   auto_expire_24h_after_response: "Expiration automatique : pas de validation patient à temps.",
   expire_overdue_requests: "Délai dépassé : demande expirée.",
   auto_abandon_24h_after_response: "Fermeture automatique faute de validation patient.",
+  auto_abandon_after_pickup_window: "Fermeture automatique : passage non effectué dans les délais.",
+  responded_expiry_reminder: "Rappel envoyé : validation patient en attente.",
+  responded_expiry_pharmacist_reminder: "Alerte : validation patient imminente (~1 h).",
+  planned_visit_day_reminder: "Rappel envoyé au patient : passage prévu aujourd'hui.",
+  planned_visit_pre_passage_reminder: "Rappel envoyé au patient : passage dans environ 2 h.",
+  planned_visit_passed_no_pickup: "Passage patient non effectué à la date prévue.",
   request_created_with_status: "Demande reçue.",
   patient_abandon_request: "Le patient a abandonné la demande.",
   patient_resubmit_product_request_after_response: "Le patient a renvoyé une liste de produits mise à jour.",
@@ -201,6 +212,15 @@ export function patientDossierHistoryDetailParagraphsFr(reason: string | null | 
   }
   if (r.startsWith("pharmacist_abandon_no_pickup|")) {
     return ["La pharmacie a abandonné le dossier (aucun retrait au comptoir)."];
+  }
+  if (r.startsWith("planned_visit_day_reminder|")) {
+    return [PATIENT_HISTORY_TECH_REASON_FR.planned_visit_day_reminder];
+  }
+  if (r.startsWith("planned_visit_pre_passage_reminder|")) {
+    return [PATIENT_HISTORY_TECH_REASON_FR.planned_visit_pre_passage_reminder];
+  }
+  if (r.startsWith("planned_visit_passed_no_pickup|")) {
+    return ["Passage prévu non effectué — le délai de clôture automatique est en cours."];
   }
   if (r.startsWith("counter_outcome:")) {
     const product = counterOutcomeReasonProductName(r);
@@ -268,6 +288,15 @@ export function pharmacistDossierHistoryDetailParagraphsFr(reason: string | null
   }
   if (r.startsWith("pharmacist_abandon_no_pickup|")) {
     return ["Dossier abandonné : toutes les lignes retenues étaient écartées, sans retrait comptoir."];
+  }
+  if (r.startsWith("planned_visit_passed_no_pickup|")) {
+    return [PHARMACIST_HISTORY_TECH_REASON_FR.planned_visit_passed_no_pickup];
+  }
+  if (r.startsWith("planned_visit_day_reminder|") || r.startsWith("planned_visit_pre_passage_reminder|")) {
+    return ["Rappel passage patient enregistré sur le dossier."];
+  }
+  if (r === "responded_expiry_pharmacist_reminder") {
+    return [PHARMACIST_HISTORY_TECH_REASON_FR.responded_expiry_pharmacist_reminder];
   }
   if (r.startsWith("counter_outcome:")) {
     const product = counterOutcomeReasonProductName(r);

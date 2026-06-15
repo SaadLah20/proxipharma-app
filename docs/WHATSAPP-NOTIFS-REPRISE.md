@@ -50,6 +50,18 @@ Branche : `feature/whatsapp-c-suite-m2-lot1` (commit **`a0c69ae`**). Pas de migr
 
 Textes templates M2 : demander à l’agent *« étape M2 »* ou voir historique chat juin 2026.
 
+### Lot expiration passage (juin 2026 — migration `20260823_001`)
+
+**In-app + e-mail** : actifs dès migration appliquée. **WhatsApp** : enqueue OK ; envoi seulement si SID Meta approuvé (sinon worker ignore, comme M2).
+
+| Template (à soumettre Meta) | Rôle | `event_type` | Env Vercel (proposé) |
+|-----------------------------|------|--------------|----------------------|
+| `pharmeto_pickup_reminder_fr_v2_link` | patient | `request_event:planned_visit_day_reminder` / `planned_visit_pre_passage_reminder` | `TWILIO_WHATSAPP_CONTENT_SID_PICKUP_REMINDER` (repli : `TWILIO_WHATSAPP_CONTENT_SID_REMINDER`) |
+| `pharmeto_pharmacy_responded_expiry_fr` | pharmacien | `request_event:responded_expiry_pharmacist_reminder` | `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_RESPONDED_EXPIRY` |
+| `pharmeto_pharmacy_pickup_missed_fr` | pharmacien | `request_event:planned_visit_passed_no_pickup` | `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PICKUP_MISSED` |
+
+Cron : `POST /api/cron/expire-overdue-requests` (GitHub Actions 5 min) — appelle aussi `remind_planned_visit_passage`, `alert_pharmacist_pickup_missed`, `remind_pharmacist_responded_expiry`, `abandon_overdue_pickup_requests`.
+
 ---
 
 ## Variables Vercel (prod — après merge C-suite lot 1)
