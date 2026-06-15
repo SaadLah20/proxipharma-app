@@ -111,6 +111,8 @@ export const commonFr = {
   lastRecordedOn: "Dernier enregistrement le",
   plannedVisitPassageWithTime: "Votre passage est prévu le {date} à {time}",
   plannedVisitPassageDateOnly: "Votre passage est prévu le {date}",
+  plannedVisitPassageIntro: "Votre passage est prévu le",
+  visitPassageDatePassed: "La date de passage est dépassée. Modifiez-la ci-dessous.",
   archiveClosedOn: "Clôturée le",
   plannedVisitIndicative: "Passage prévu (indicatif)",
   plannedVisitIndicativeRelative: "Passage prévu (indicatif) — {relative}",

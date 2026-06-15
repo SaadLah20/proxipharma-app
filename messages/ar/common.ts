@@ -110,6 +110,8 @@ export const commonAr = {
   lastRecordedOn: "آخر تسجيل في",
   plannedVisitPassageWithTime: "زيارتك المقررة في {date} الساعة {time}",
   plannedVisitPassageDateOnly: "زيارتك المقررة في {date}",
+  plannedVisitPassageIntro: "زيارتك المقررة في",
+  visitPassageDatePassed: "تاريخ المرور في الصيدلية قد انتهى. يرجى تعديله أدناه.",
   archiveClosedOn: "أُغلق في",
   plannedVisitIndicative: "زيارة مخططة (إرشادية)",
   plannedVisitIndicativeRelative: "زيارة مخططة (إرشادية) — {relative}",

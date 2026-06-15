@@ -1,6 +1,27 @@
 /** Bornes calendrier patient (fuseau Casablanca) pour `<input type="date">`, alignées serveur + 4j / dernier ETA+3j */
 
-import { todayIsoCasablanca } from "@/lib/pharmacy-schedule-fr";
+import { parseTimeHmToMinutes, todayIsoCasablanca } from "@/lib/pharmacy-schedule-fr";
+
+const CASABLANCA_TZ = "Africa/Casablanca";
+
+function casablancaDateTimeParts(now: Date): { dateIso: string; minutes: number } {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: CASABLANCA_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+  const hour = Number.parseInt(get("hour"), 10) || 0;
+  const minute = Number.parseInt(get("minute"), 10) || 0;
+  return {
+    dateIso: `${get("year")}-${get("month")}-${get("day")}`,
+    minutes: hour * 60 + minute,
+  };
+}
 
 function isoDateParts(d: Date): { y: number; m: number; da: number } {
   return { y: d.getFullYear(), m: d.getMonth() + 1, da: d.getDate() };
@@ -121,4 +142,22 @@ export function plannedVisitWindow(lines: VisitBoundLine[]): PlannedVisitWindow 
     maxEtaYmd: maxEta,
     missingEtaOnToOrder,
   };
+}
+
+/** Passage enregistré strictement dans le passé (date ou heure du jour, fuseau Casablanca). */
+export function isPlannedVisitPassageOverdue(
+  dateYmd: string | null | undefined,
+  timeHmOrPg: string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  const d = String(dateYmd ?? "").trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+  const today = todayLocalIsoDate();
+  if (d < today) return true;
+  if (d > today) return false;
+  const m = String(timeHmOrPg ?? "").trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return false;
+  const visitMinutes = parseTimeHmToMinutes(`${m[1]}:${m[2]}`);
+  if (visitMinutes == null) return false;
+  return visitMinutes <= casablancaDateTimeParts(now).minutes;
 }

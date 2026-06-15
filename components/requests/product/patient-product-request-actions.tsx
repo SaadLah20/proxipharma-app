@@ -60,7 +60,7 @@ import {
   requestItemLineSourceFr,
   requestStatusBadgeClass,
 } from "@/lib/request-display";
-import { plannedVisitWindow, dateOnlyAddDays } from "@/lib/planned-visit";
+import { plannedVisitWindow, dateOnlyAddDays, isPlannedVisitPassageOverdue } from "@/lib/planned-visit";
 import {
   loadScheduleBundleForPharmacy,
   type PharmacyScheduleBundle,
@@ -1808,6 +1808,7 @@ type PatientConfirmValidationCopy = {
   missingEtaOnToOrder: string;
   visitDateRequired: string;
   visitDateOutOfRange: (maxDate: string, hasToOrder: boolean) => string;
+  visitPassageDatePassed: string;
 };
 
 type PatientConfirmValidationResult =
@@ -1922,7 +1923,10 @@ function validatePatientConfirmBeforeReview(
   if (rawVisit === "") {
     return fail(copy.visitDateRequired, "visit_passage");
   }
-  if (rawVisit !== "" && rawVisit !== resolvedVisitDate) {
+  if (isPlannedVisitPassageOverdue(rawVisit, visitTimeComposed)) {
+    return fail(copy.visitPassageDatePassed, "visit_passage");
+  }
+  if (rawVisit < visitWin.minYmd || rawVisit > visitWin.maxYmd) {
     const maxDate = formatMaxVisitDate(visitWin.maxYmd);
     return fail(copy.visitDateOutOfRange(maxDate, visitWin.hasToOrder), "visit_passage");
   }
@@ -2088,6 +2092,7 @@ export function PatientProductRequestActions({
         hasToOrder
           ? tCommon("visitDateOutOfRangeOrder", { maxDate })
           : tCommon("visitDateOutOfRange", { maxDate }),
+      visitPassageDatePassed: tCommon("visitPassageDatePassed"),
       scheduleLoading: tCommon("visitScheduleLoading"),
       visitTimeTooSoon: tCommon("visitTimeTooSoon"),
       visitDayPharmacyClosed: tCommon("visitDayPharmacyClosed"),
@@ -2480,8 +2485,23 @@ export function PatientProductRequestActions({
     validationCopy,
   ]);
 
-  const displayedVisitPassageError = visitPassageError || visitScheduleLiveError;
-  const visitScheduleBlocksSubmit = Boolean(visitScheduleLiveError);
+  const visitPassageOverdue = useMemo(() => {
+    if (!visitPassageStatusEditable) return false;
+    const raw = visitDate.trim().slice(0, 10);
+    if (!raw) return false;
+    return isPlannedVisitPassageOverdue(raw, visitTimeComposed);
+  }, [visitPassageStatusEditable, visitDate, visitTimeComposed]);
+
+  const visitDateInputMinYmd = useMemo(() => {
+    const raw = visitDate.trim().slice(0, 10);
+    if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw) && raw < visitWin.minYmd) return raw;
+    return visitWin.minYmd;
+  }, [visitDate, visitWin.minYmd]);
+
+  const visitPassageOverdueMessage = visitPassageOverdue ? tCommon("visitPassageDatePassed") : "";
+  const displayedVisitPassageError =
+    visitPassageError || visitScheduleLiveError || visitPassageOverdueMessage;
+  const visitScheduleBlocksSubmit = Boolean(visitScheduleLiveError || visitPassageOverdue);
 
   const historyModalRow = useMemo(
     () => (historyModalItemId ? items.find((r) => r.id === historyModalItemId) ?? null : null),
@@ -3142,7 +3162,15 @@ export function PatientProductRequestActions({
     }
     setActionError("");
     const rawVisit = visitDate.trim();
-    if (rawVisit !== "" && rawVisit !== resolvedVisitDate) {
+    if (rawVisit === "") {
+      focusVisitPassageBlock(tCommon("visitDateRequiredToValidate"));
+      return;
+    }
+    if (isPlannedVisitPassageOverdue(rawVisit, visitTimeComposed)) {
+      focusVisitPassageBlock(tCommon("visitPassageDatePassed"));
+      return;
+    }
+    if (rawVisit < visitWin.minYmd || rawVisit > visitWin.maxYmd) {
       const maxDate = formatMaxVisitDate(visitWin.maxYmd);
       focusVisitPassageBlock(
         visitWin.hasToOrder
@@ -3234,11 +3262,6 @@ export function PatientProductRequestActions({
         : (initialPlannedVisitTime ?? null),
     [visitTimeComposed, initialPlannedVisitTime]
   );
-
-  const treatedPassageLine = useMemo(() => {
-    if (!isTreatedActiveView) return "";
-    return dt.plannedVisitPassageLine(plannedVisitDateYmd, plannedVisitTimePg);
-  }, [isTreatedActiveView, plannedVisitDateYmd, plannedVisitTimePg, dt.plannedVisitPassageLine]);
 
   const archivePassageFootnote = useMemo(() => {
     if (!showArchivePassageLine) return null;
@@ -4281,38 +4304,37 @@ export function PatientProductRequestActions({
                   </p>
                 </div>
               </div>
-            ) : (
-              <div className="mx-auto max-w-md space-y-1">
-                <p className="text-xs font-bold text-foreground">{tCommon("visitAtPharmacy")}</p>
-                {isTreatedActiveView && treatedPassageLine ? (
-                  <p className="text-[11px] font-semibold leading-snug text-foreground" role="status">
-                    {treatedPassageLine}
-                  </p>
-                ) : null}
-              </div>
-            )}
+            ) : null}
             <div
               className={clsx(
                 "flex gap-2",
                 useCompactPassageBlock
-                  ? "mx-auto w-fit max-w-full flex-row items-stretch justify-center"
+                  ? "mx-auto w-fit max-w-full flex-row flex-wrap items-end justify-center"
                   : "flex-col sm:flex-row sm:items-stretch"
               )}
             >
+              {useCompactPassageBlock ? (
+                <p className="shrink-0 self-center text-xs font-bold leading-snug text-foreground">
+                  {tCommon("plannedVisitPassageIntro")}
+                </p>
+              ) : null}
               <label
                 className={clsx(
                   "flex min-w-0 flex-col gap-1",
                   useCompactPassageBlock ? "w-[8rem] sm:w-[8.5rem]" : "flex-1"
                 )}
               >
-                <span className="text-[11px] font-semibold text-foreground">
-                  {tCommon("fieldDate")} {visitFieldsEditable && showConfirm ? <span className="text-destructive">*</span> : null}
-                </span>
+                {!useCompactPassageBlock ? (
+                  <span className="text-[11px] font-semibold text-foreground">
+                    {tCommon("fieldDate")}{" "}
+                    {visitFieldsEditable && showConfirm ? <span className="text-destructive">*</span> : null}
+                  </span>
+                ) : null}
                 <PlannedVisitDateInput
                   key={visitSyncKey}
-                  valueYmd={showConfirm && visitFieldsEditable ? visitDate : resolvedVisitDate}
+                  valueYmd={visitFieldsEditable ? visitDate : resolvedVisitDate}
                   onChangeYmd={handleVisitDateChange}
-                  minYmd={visitWin.minYmd}
+                  minYmd={visitDateInputMinYmd}
                   maxYmd={visitWin.maxYmd}
                   disabled={!visitFieldsEditable}
                   required={showConfirm && visitFieldsEditable}
