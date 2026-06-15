@@ -40,7 +40,7 @@ Branche : `feature/whatsapp-c-suite-m2-lot1` (commit **`a0c69ae`**). Pas de migr
 
 Migration **`20260826_001`** (enqueue pharmacien `confirmed`). **8 événements WhatsApp actifs** en prod (avant lot 3).
 
-### M2 lot 3 pharmacien — Approved Meta 15/06/2026 (code + migration `20260828_001`)
+### M2 lot 3 pharmacien — Approved Meta 15/06/2026 — branche `feature/whatsapp-m2-lot3-pharmacist`
 
 | Template | Content SID | `event_type` | Env Vercel |
 |----------|-------------|--------------|------------|
@@ -48,21 +48,23 @@ Migration **`20260826_001`** (enqueue pharmacien `confirmed`). **8 événements 
 | `pharmeto_pharmacy_prescription_updated_fr` | `HXc1e711549498a13063f41c806cbd860c` | `request_status:patient_prescription_updated` | `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PRESCRIPTION_UPDATED` |
 | `pharmeto_pharmacy_patient_message_fr` | `HXf06efe852d03609d335ee6e89207ea17` | `request_conversation:message` | `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PATIENT_MESSAGE` |
 
-**11 événements WhatsApp** après merge + vars Vercel lot 3.
+Migration **`20260828_001`**. **11 événements WhatsApp** après merge PR + vars Vercel + migration appliquée.
 
 **En attente (3)** : templates passage pas encore soumis Meta (ci-dessous).
 
 ### Lot expiration passage (juin 2026 — migration `20260823_001`)
 
-**In-app + e-mail** : actifs dès migration appliquée. **WhatsApp** : enqueue OK ; envoi seulement si SID Meta approuvé (sinon worker ignore, comme M2).
+**In-app + e-mail** : actifs. **WhatsApp** : enqueue OK ; envoi seulement si SID Meta approuvé.
 
-| Template (à soumettre Meta) | Rôle | `event_type` | Env Vercel (proposé) |
-|-----------------------------|------|--------------|----------------------|
-| `pharmeto_pickup_reminder_fr_v2_link` | patient | `request_event:planned_visit_day_reminder` / `planned_visit_pre_passage_reminder` | `TWILIO_WHATSAPP_CONTENT_SID_PICKUP_REMINDER` (repli : `TWILIO_WHATSAPP_CONTENT_SID_REMINDER`) |
-| `pharmeto_pharmacy_responded_expiry_fr` | pharmacien | `request_event:responded_expiry_pharmacist_reminder` | `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_RESPONDED_EXPIRY` |
-| `pharmeto_pharmacy_pickup_missed_fr` | pharmacien | `request_event:planned_visit_passed_no_pickup` | `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PICKUP_MISSED` |
+| Template (à soumettre Meta) | Rôle | `event_type` | Env Vercel (proposé) | Corps (Twilio) |
+|-----------------------------|------|--------------|----------------------|----------------|
+| `pharmeto_pickup_reminder_fr_v2_link` | patient | `planned_visit_day_reminder` / `planned_visit_pre_passage_reminder` | `TWILIO_WHATSAPP_CONTENT_SID_PICKUP_REMINDER` | `Pharmeto : rappel de passage chez {{1}}. Dossier {{2}}. Si vous ne pouvez pas venir, modifiez la date depuis le bouton — sans changement, le dossier sera clos automatiquement.` |
+| `pharmeto_pharmacy_responded_expiry_fr` | pharmacien | `responded_expiry_pharmacist_reminder` | `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_RESPONDED_EXPIRY` | `Pharmeto : la demande de {{1}} expire dans environ 1 h faute de validation. Dossier {{2}}. Consultez le dossier depuis le bouton ci-dessous.` |
+| `pharmeto_pharmacy_pickup_missed_fr` | pharmacien | `planned_visit_passed_no_pickup` | `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PICKUP_MISSED` | `Pharmeto : {{1}} ne s'est pas présenté à la date de passage prévue. Dossier {{2}}. Le dossier sera clos automatiquement 24 h après le passage si aucun retrait.` |
 
-Cron : `POST /api/cron/expire-overdue-requests` (GitHub Actions 5 min) — appelle aussi `remind_planned_visit_passage`, `alert_pharmacist_pickup_missed`, `remind_pharmacist_responded_expiry`, `abandon_overdue_pickup_requests`.
+Boutons : patient `https://pharmeto.ma/r/{{3}}` · pharmacien `https://pharmeto.ma/rp/{{3}}`. Repli pickup : `_PICKUP_REMINDER` → `_REMINDER` (texte rappel validation — à éviter en prod).
+
+Cron : `POST /api/cron/expire-overdue-requests` (GitHub Actions 5 min).
 
 ---
 
@@ -89,6 +91,25 @@ TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PATIENT_MESSAGE=HXf06efe852d03609d335ee6e89
 
 ## Phrases de reprise (copier-coller dans un nouveau chat **Agent**)
 
+### Lot 3 pharmacien branché — merge PR + vars Vercel + migration `20260828_001`
+
+```
+Continuons WhatsApp — lot 3 pharmacien mergé
+Branche feature/whatsapp-m2-lot3-pharmacist mergée main.
+Migration 20260828_001 appliquée. Vars Vercel lot 3 OK.
+Tester : passage modifié, ordonnance, message conversation.
+```
+
+### Quand les 3 templates passage Meta sont **Approved**
+
+```
+Continuons WhatsApp — templates passage Approved
+pharmeto_pickup_reminder_fr_v2_link → HX…
+pharmeto_pharmacy_responded_expiry_fr → HX…
+pharmeto_pharmacy_pickup_missed_fr → HX…
+Brancher vars Vercel (_PICKUP_REMINDER, _PHARMACY_RESPONDED_EXPIRY, _PHARMACY_PICKUP_MISSED).
+```
+
 ### Quand les 3 templates pharmacien lot 3 étaient **Approved** (visit / ordonnance / message) — fait 15/06/2026
 
 ### Quand les 3 templates M2 lot 2 étaient **Approved** (produit, rupture, validée) — fait 15/06/2026
@@ -105,10 +126,11 @@ Motif Meta : [copier-coller]
 
 (+ capture Twilio)
 
-### Pour les textes des 6 templates restants (M2 suite)
+### Pour soumettre les 3 templates passage restants
 
 ```
-Continuons WhatsApp — étape M2 (fiche des 6 templates restants)
+Continuons WhatsApp — soumission Meta lot passage (3 templates)
+Textes dans docs/WHATSAPP-NOTIFS-REPRISE.md section lot expiration passage.
 ```
 
 ---

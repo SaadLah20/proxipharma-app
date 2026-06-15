@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260827_001`** si pas fait — après inbox **`20260825_001`**, WhatsApp **`20260826_001`**, labels inbox **`20260827_001`**) → phrase **§13.65** (WhatsApp M2 + inbox) ou **§13.64** (expiration passage) ou **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260830_001`** si pas fait — après inbox **`20260825_001`**, WhatsApp lot 2 **`20260826_001`**, labels inbox **`20260827_001`**, WhatsApp lot 3 **`20260828_001`**, rupture marché catalogue privé **`20260829_001`**, restaurer produits Mes produits **`20260830_001`**) → phrase **§13.66** (WhatsApp lot 3) ou **§13.65** (inbox) ou **§13.64** (expiration passage) ou **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -243,9 +243,9 @@ Les étapes du premier tableau ci-dessus couvrent les **parcours encore évoluan
 ## 5) Rupture du marche - logique specifique
 
 Quand le pharmacien marque "rupture du marche":
-- Le produit est ajoute dans une liste "produits en rupture" liee a cette pharmacie
-- Le pharmacien peut retirer l'article de la liste quand il redevient disponible
-- Les clients concernes sont notifies a la disponibilite
+- La dispo ligne passe a **`market_shortage`** (visible patient / dossier).
+- **Catalogue national** (`request_items.product_id` renseigne) : le produit est ajoute dans **`market_shortages`** (hub **Produits en rupture** pharmacien) ; retrait manuel quand dispo ; notification patients concernes (canal WhatsApp si template actif).
+- **Catalogue privé officine** (`pharmacy_product_id` seul, `product_id` null — produits privés / archivés masqués) : **pas** d'entree **`market_shortages`** (hub national) ; la rupture reste sur la ligne de demande uniquement — migration **`20260829_001`**.
 
 Note:
 - Le systeme de notifications complet sera detaille dans un chantier dedie.
@@ -389,6 +389,47 @@ git checkout pilote-stable-2026-05-24
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
 
 ---
+
+### Session 2026-06-16 (suite) — Mes produits : restaurer les supprimés
+
+**Branche** : `feature/whatsapp-m2-lot3-pharmacist`.
+
+**Besoin** : produits « Supprimer » restent accessibles comme **Dépubliés** avec **Restaurer**.
+
+**Migration** **`20260830_001_pharmacy_catalog_restore_archived_hidden.sql`** :
+- **`pharmacist_list_pharmacy_products`** : inclut **`archived_hidden`** (filtre Dépubliés côté app).
+- **`pharmacist_restore_pharmacy_product`** : **`archived_hidden`** → **`active`** ; événement **`restored_by_pharmacist`**.
+
+**App** : hub Mes produits — badge Dépublié, bouton Restaurer, message confirmation Supprimer.
+
+**Phrase de reprise** : **§13.66** (inclut **`20260830_001`**).
+
+### Session 2026-06-16 — Réponse pharmacien : produits privés / archivés + brouillon lignes
+
+**Branche** : `feature/whatsapp-m2-lot3-pharmacist` — commit **`2ec9dc9`**.
+
+**Bug corrigé** : envoi réponse demande produits échouait sur lignes **catalogue privé officine** (dont produit **archivé**) quand dispo **rupture du marché** ou **indisponible** — erreur Postgres `market_shortages.product_id` NOT NULL ; message générique « Choisissez une disponibilité » si proposition officine en brouillon masquée après reload.
+
+**Migration** **`20260829_001_market_shortage_skip_pharmacy_catalog_lines.sql`** — trigger **`_sync_market_shortage_from_request_item`** : skip si **`product_id`** null (lignes **`pharmacy_product_id`** seules).
+
+**App** (`app/dashboard/pharmacien/demandes/[id]/page.tsx`) :
+- Brouillon conservé pour propositions locales (**`__pp_local:`**) après **`load()`**.
+- **`itemDraftForRow`** : validation / affichage même si entrée brouillon absente.
+- Erreurs de dispo **par nom de produit**.
+
+**Phrase de reprise** : **§13.66** (inclut **`20260829_001`**).
+
+### Session 2026-06-15 (suite 3) — WhatsApp M2 lot 3 pharmacien
+
+**Branche** : `feature/whatsapp-m2-lot3-pharmacist` — commit **`4868e1d`** (PR vers `main` en cours).
+
+**WhatsApp M2 lot 3 pharmacien** (Meta Approved business-initiated 15/06/2026) :
+- Templates : passage modifié, ordonnance mise à jour, message patient.
+- Migration **`20260828_001_whatsapp_m2_lot3_pharmacist.sql`** — enqueue WhatsApp pour `patient_planned_visit_updated`, `patient_prescription_updated`, `request_conversation:message`.
+- Vars Vercel : `_PHARMACY_VISIT_UPDATED`, `_PHARMACY_PRESCRIPTION_UPDATED`, `_PHARMACY_PATIENT_MESSAGE`.
+- **11 événements WhatsApp** après merge PR + vars Vercel + migration ; **3 en attente** (templates passage Meta — **`docs/WHATSAPP-NOTIFS-REPRISE.md`**).
+
+**Phrase de reprise** : **§13.66**.
 
 ### Session 2026-06-15 (suite 2) — Inbox labels AR + hubs pharmacien alignés patient
 
@@ -2286,7 +2327,7 @@ git checkout pilote-stable-2026-05-24
 - **`patient_cancel_product_request_before_response`** : annulation **submitted / in_review** avec les mêmes motifs.
 - **`patient_resubmit_product_request_after_response`** : contrôle doublons + qté côté serveur ; remet **`expires_at`** à **null** au retour `submitted`.
 - **`abandon_unconfirmed_responded_requests()`** (service_role) : `responded` sans action **> 24 h** → **`abandoned`** (Q6) — à planifier comme `expire_overdue_requests` (cron / Edge).
-- Trigger **`_sync_market_shortage_from_request_item`** : si dispo ligne = **`market_shortage`**, upsert logique vers **`market_shortages`** (rupture active par officine + produit).
+- Trigger **`_sync_market_shortage_from_request_item`** : si dispo ligne = **`market_shortage`**, upsert logique vers **`market_shortages`** (rupture active par officine + **`product_id`** catalogue national ; lignes privé officine sans **`product_id`** ignorées depuis **`20260829_001`**).
 
 **Next.js** :
 - Publication réponse pharmacien : **`expires_at` = null** (pilote Q38 : pas d’expiration +7 j pilotée par ce champ ; l’abandon 24 h porte sur l’absence de passage à `confirmed`).
@@ -2553,8 +2594,11 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260825_001_request_conversation_inbox.sql` (inbox conversation + sync lecture)
   - `supabase/migrations/20260826_001_whatsapp_m2_lot2_partial.sql` (WhatsApp M2 lot 2 : produit, rupture, validée pharma)
   - `supabase/migrations/20260827_001_request_conversation_inbox_labels.sql` (inbox conversation : labels FR/AR structurés)
+  - `supabase/migrations/20260828_001_whatsapp_m2_lot3_pharmacist.sql` (WhatsApp M2 lot 3 : visit, ordonnance, message patient)
+  - `supabase/migrations/20260829_001_market_shortage_skip_pharmacy_catalog_lines.sql` (rupture marché : pas d’insert hub si ligne catalogue privé sans `product_id`)
+  - `supabase/migrations/20260830_001_pharmacy_catalog_restore_archived_hidden.sql` (Mes produits : restaurer produits supprimés)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260827_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** ; catalogue **~19 677** ; photos catalogue = URLs BeautyMall (sauvegarde locale **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`**) ; i18n patient **~1 334** clés FR/AR ; **8 notifs WhatsApp actives**. Reprise courte : **§13.65** (WhatsApp M2 + inbox) ou **§13.64** (expiration passage) ou **§13.63** (photos) ou **§13.62**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260830_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** ; catalogue **~19 677** ; photos catalogue = URLs BeautyMall (sauvegarde locale **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`**) ; i18n patient **~1 334** clés FR/AR ; **11 notifs WhatsApp actives** (après merge lot 3 + vars Vercel). Reprise courte : **§13.66** (WhatsApp lot 3) ou **§13.64** (expiration passage) ou **§13.63** (photos) ou **§13.62**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2651,7 +2695,7 @@ _Objectif declaré_: **boucler fonctionnellement le flux « demande de produits 
 | **Abandon automatique** 24 h après **`responded`** | **Remplacé** par le même batch **`expire_overdue_requests()`** ( statut cible **`expired`** , pas **`abandoned`** ) |
 | **Ordonnance** : capture + saisie pharma (qté prescrite/dispo, modal, badge Ordonnance) | **Fait** (sessions **2026-05-25** + **2026-05-17**) — QA pilote §D dans `docs/workflow-ordonnance-consultation-REPONSES.md` |
 | **Consultation libre** : texte + photos + workflow lignes + hubs violet | **Fait** (session **2026-05-17**, migration **`20260529_001`**) — QA pilote idem |
-| **`market_shortages`** insert auto quand pharma choisit **market_shortage** dispo ligne | **Fait** (trigger `20260503_005`) + **UI liste / retrait pharmacien** (`/dashboard/pharmacien/ruptures-marche`) |
+| **`market_shortages`** insert auto quand pharma choisit **market_shortage** dispo ligne | **Fait** (trigger `20260503_005`, affiné **`20260829_001`** : catalogue national seulement) + **UI liste / retrait pharmacien** (`/dashboard/pharmacien/ruptures-marche`) |
 | **Notifications Q34–Q35** | **Q34 MVP fait** ; **Q35** schéma + enqueue + opt-in UI (**`20260505_001`**) ; **livraison messages** (API prestataires + worker) à brancher |
 | **PPH catalogue** sur parcours produits (`price_pph`) | **Fait** (`lib/product-price.ts` + selects + seed `20260503_003`) |
 | Consolidation UX post-retours utilisateur (libelles, ordre des etapes, messages d erreur) | Hub **blocs statuts** + cartes + filtres **livré** ; fiche pharmacien **compacte** + contact patient **RPC** ; affiner microcopie, skeletons, accessibilité |
@@ -2867,9 +2911,13 @@ Voir **§13.37**.
 
 **« Affinage i18n arabe patient §13.58 — étapes 1–5 livrées sur `fix/validated-supply-ecart-ui-modal`. Preview AR ou épique hors pilote (catalogue, SMS, pharmacien AR). Je te donne la tâche ou les retours. »**
 
-### 13.65) Phrase de reprise (WhatsApp M2 lot 2 + inbox — juin 2026)
+### 13.66) Phrase de reprise (WhatsApp M2 lot 3 pharmacien — juin 2026)
 
-**« Pharmeto (`pharmeto.ma`) — reprise WhatsApp M2 lot 2 + inbox. **Migrations** (si pas fait, ordre) : **`20260825_001`** → **`20260826_001`** → **`20260827_001`** (labels FR/AR inbox). **WhatsApp prod** : 8 événements actifs (PR **#369**) — vars Vercel OK. **En attente** : 3 templates Meta user-initiated + 3 passage à soumettre — **`docs/WHATSAPP-NOTIFS-REPRISE.md`**. **Inbox** : onglets Alertes/Messages ; cloche marque alertes lues à l’ouverture ; hubs pharmacien alignés patient (**`PharmacistWorkflowHubHeader`**). Je te donne la tâche ou les retours preview. »**
+**« Pharmeto (`pharmeto.ma`) — reprise WhatsApp M2 lot 3 pharmacien + fix réponse produits privés. **Migrations** (si pas fait, ordre) : **`20260825_001`** → **`20260826_001`** → **`20260827_001`** → **`20260828_001`** → **`20260829_001`** (rupture marché lignes catalogue privé). **Branche / PR** : `feature/whatsapp-m2-lot3-pharmacist` (visit, ordonnance, message patient ; commit **`2ec9dc9`** fix réponse pharma). **Vars Vercel** (3 nouvelles) : `_PHARMACY_VISIT_UPDATED`, `_PHARMACY_PRESCRIPTION_UPDATED`, `_PHARMACY_PATIENT_MESSAGE` — détail **`docs/WHATSAPP-NOTIFS-REPRISE.md`**. **11 événements WhatsApp** après merge + vars ; **3 en attente** (templates passage Meta). Je te donne la tâche ou les retours preview. »**
+
+### 13.65) Phrase de reprise (inbox + WhatsApp lot 2 — juin 2026)
+
+**« Pharmeto (`pharmeto.ma`) — reprise inbox + WhatsApp lot 2. **Migrations** (si pas fait, ordre) : **`20260825_001`** → **`20260826_001`** → **`20260827_001`** (labels FR/AR inbox). **WhatsApp prod** : lot 2 mergé (PR **#369**) ; lot 3 sur branche **`feature/whatsapp-m2-lot3-pharmacist`**. **Inbox** : onglets Alertes/Messages ; cloche marque alertes lues à l’ouverture ; hubs pharmacien (**`PharmacistWorkflowHubHeader`**). Je te donne la tâche ou les retours preview. »**
 
 ### 13.64) Phrase de reprise (expiration passage traité — juin 2026)
 
@@ -3051,7 +3099,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail courante : **`main`** (dernier lot journal §10 **2026-06-15** — WhatsApp M2, inbox labels AR, hubs pharmacien). Refonte UX Glovo-like **abandonnée** ; UI/UX = affinages incrémentaux. Supabase pilote : migrations jusqu’à **`20260827_001`** ; **8 notifs WhatsApp actives**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.65**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail courante : **`main`** ou **`feature/whatsapp-m2-lot3-pharmacist`** (dernier lot journal §10 **2026-06-16** — fix réponse produits privés + WhatsApp lot 3). Refonte UX Glovo-like **abandonnée** ; UI/UX = affinages incrémentaux. Supabase pilote : migrations jusqu’à **`20260829_001`** ; **11 notifs WhatsApp actives** (après merge lot 3). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.66**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 

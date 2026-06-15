@@ -13,6 +13,7 @@ import {
   archivePharmacyCatalogProduct,
   listPharmacyCatalogProducts,
   republishPharmacyCatalogProduct,
+  restorePharmacyCatalogProduct,
   unpublishPharmacyCatalogProduct,
 } from "@/lib/pharmacy-catalog-api";
 import {
@@ -31,6 +32,15 @@ function unitPriceLabel(row: PharmacyCatalogProductRow): string {
     return row.price_ppv != null ? formatPriceDh(Number(row.price_ppv)) : "—";
   }
   return row.price_pph != null ? formatPriceDh(Number(row.price_pph)) : "—";
+}
+
+function isDepublishedStatus(status: PharmacyCatalogProductStatus): boolean {
+  return status === "unpublished" || status === "archived_hidden";
+}
+
+function pharmacistHubStatusLabel(status: PharmacyCatalogProductStatus): string {
+  if (status === "archived_hidden") return "Dépublié";
+  return pharmacyCatalogStatusLabelFr(status);
 }
 
 function rowToFormValues(row: PharmacyCatalogProductRow) {
@@ -78,6 +88,7 @@ export function PharmacistPharmacyCatalogHub() {
 
   const filtered = useMemo(() => {
     if (filter === "all") return rows;
+    if (filter === "unpublished") return rows.filter((r) => isDepublishedStatus(r.status));
     return rows.filter((r) => r.status === filter);
   }, [rows, filter]);
 
@@ -107,10 +118,23 @@ export function PharmacistPharmacyCatalogHub() {
     }
   };
 
+  const handleRestore = async (row: PharmacyCatalogProductRow) => {
+    setActionBusyId(row.id);
+    setError("");
+    try {
+      await restorePharmacyCatalogProduct(supabase, row.id);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Restauration impossible.");
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
   const handleArchive = async (row: PharmacyCatalogProductRow) => {
     if (
       !window.confirm(
-        `Supprimer « ${row.name} » de votre catalogue ?\n\nLe produit sera masqué pour les nouvelles demandes mais restera visible dans vos dossiers déjà envoyés.`
+        `Supprimer « ${row.name} » de votre catalogue ?\n\nLe produit apparaîtra dans « Dépubliés » et pourra être restauré. Il restera visible dans vos dossiers déjà envoyés.`
       )
     ) {
       return;
@@ -218,11 +242,11 @@ export function PharmacistPharmacyCatalogHub() {
                     className={clsx(
                       "mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
                       row.status === "active" && "bg-emerald-100 text-emerald-900",
-                      row.status === "unpublished" && "bg-amber-100 text-amber-900",
+                      isDepublishedStatus(row.status) && "bg-amber-100 text-amber-900",
                       row.status === "archived_published" && "bg-slate-200 text-slate-800"
                     )}
                   >
-                    {pharmacyCatalogStatusLabelFr(row.status)}
+                    {pharmacistHubStatusLabel(row.status)}
                   </span>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-1.5">
@@ -253,6 +277,16 @@ export function PharmacistPharmacyCatalogHub() {
                       onClick={() => void handleRepublish(row)}
                     >
                       Republier
+                    </button>
+                  ) : null}
+                  {row.status === "archived_hidden" ? (
+                    <button
+                      type="button"
+                      className="rounded-lg border border-emerald-300/80 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-950"
+                      disabled={actionBusyId === row.id}
+                      onClick={() => void handleRestore(row)}
+                    >
+                      Restaurer
                     </button>
                   ) : null}
                   {row.status === "active" || row.status === "unpublished" ? (

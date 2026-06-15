@@ -36,7 +36,8 @@ Document de référence (parcours patient, pharmacien, admin, notifications, mé
 |-----|------|
 | `pharmacy_catalog_search` | Recherche unifiée global + privés `active` |
 | `pharmacist_create/update/unpublish/republish_pharmacy_product` | CRUD privé officine |
-| `pharmacist_archive_pharmacy_product` | Masquage « Supprimer » (`archived_hidden`) |
+| `pharmacist_archive_pharmacy_product` | Masquage « Supprimer » (`archived_hidden`, visible Dépubliés) |
+| `pharmacist_restore_pharmacy_product` | Restauration supprimé → `active` |
 | `pharmacist_link_manual_line_to_product` | Liaison ligne manuelle patient |
 | `admin_list/enrich/publish_pharmacy_catalog_product` | File admin + publication nationale |
 
@@ -56,7 +57,7 @@ Routes UI : **`/dashboard/pharmacien/mes-produits`**, **`/admin/produits-communa
 | Service | Endpoint / canal | Utilisation | Variables d’environnement |
 |---------|------------------|-------------|---------------------------|
 | **Resend** | `https://api.resend.com/emails` | E-mails hors-app (file `notification_external_queue`, canal `email`) | `RESEND_API_KEY`, `EMAIL_FROM` |
-| **Twilio Content API (WhatsApp)** | Content API + Messages WhatsApp | C-pilote prod ; **11 templates actifs** (lot 3 pharmacien juin 2026) | `TWILIO_WHATSAPP_CONTENT_SID_*` — **`docs/WHATSAPP-NOTIFS-REPRISE.md`** |
+| **Twilio Content API (WhatsApp)** | Content API + Messages WhatsApp | **11 templates actifs** (lot 3 pharmacien) ; **3 passage** en attente Meta | `TWILIO_WHATSAPP_CONTENT_SID_*` — **`docs/WHATSAPP-NOTIFS-REPRISE.md`** |
 | **Twilio Messages** | `https://api.twilio.com/.../Messages.json` | **Legacy** — plus d’enqueue SMS métier (`20260811_001`) ; route test `/api/cron/test-external-sms` seulement | `TWILIO_SMS_FROM` (optionnel) |
 | **Twilio Verify** | Via **Supabase Auth** (Phone) | OTP inscription / reset téléphone (SMS ou WhatsApp selon config) — **≠** notifs métier | Config dashboard Supabase + compte Twilio |
 | **Supabase Auth API** | `GET .../auth/v1/user` | Vérification JWT sur routes API (`lib/verify-bearer-user.ts`) | Clés Supabase |
