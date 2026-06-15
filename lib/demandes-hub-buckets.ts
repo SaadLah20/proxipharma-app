@@ -208,3 +208,14 @@ export function patientRequestActiveStatuses(
 ): readonly string[] {
   return buckets.filter((b) => !isPatientArchiveBucketKey(b.key)).flatMap((b) => b.statuses);
 }
+
+export function isPharmacistArchiveBucketKey(key: DemandeStatBucketKey): boolean {
+  return isPatientArchiveBucketKey(key);
+}
+
+/** Statuts hors groupe Archives (liste pharmacien « actives seulement »). */
+export function pharmacistRequestActiveStatuses(
+  buckets: DemandeStatBucket[] = PHARMACIST_DASHBOARD_BUCKETS,
+): readonly string[] {
+  return buckets.filter((b) => !isPharmacistArchiveBucketKey(b.key)).flatMap((b) => b.statuses);
+}

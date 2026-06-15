@@ -171,9 +171,9 @@ export function DemandeHubTabBar({
   tab: HubTab;
   onTab: (t: HubTab) => void;
   labels: { dashboard: string; list: string };
-  /** Patient : liste à gauche ; pharmacien : tableau de bord à gauche (défaut). */
+  /** Parcours hub : liste à gauche ; compte neutre : tableau de bord à gauche (défaut). */
   tabOrder?: "dashboardFirst" | "listFirst";
-  /** Bandeau parcours patient — onglets intégrés avec accent discret. */
+  /** Bandeau parcours — onglets intégrés avec accent discret. */
   variant?: "standalone" | "embedded";
   accent?: HubTabAccent;
 }) {

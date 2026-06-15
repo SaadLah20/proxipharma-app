@@ -41,6 +41,12 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 ## 6. État technique récent (aligné repo — mai–juin 2026)
 
+**Mise à jour 2026-06-15 (suite 2) — inbox labels AR + hubs pharmacien** :
+- **Migration** **`20260827_001`** : labels structurés inbox (officine FR/AR, patient via annuaire pharmacien).
+- **Cloche / page notifications** : alertes marquées lues à l’ouverture ; pastille messages au clic ; labels i18n AR (**`lib/conversation-inbox.ts`**).
+- **Hubs pharmacien** : **`PharmacistWorkflowHubHeader`** — bandeau accentué, onglets inversés, filtre actives (commit **`2f976c3`**).
+- Phrase reprise **§13.65** · journal **§10 session 2026-06-15 (suite 2)**.
+
 **Mise à jour 2026-06-15 (suite) — WhatsApp M2 lot 2 + inbox notifications** :
 - **WhatsApp M2 lot 2** (PR **#369** mergée) : produit reçu, rupture dispo (patient) ; dossier validé (pharmacien). Migration **`20260826_001`**. Vars Vercel **`_PRODUCT_ARRIVED`**, **`_SHORTAGE_AVAILABLE`**, **`_PHARMACY_CONFIRMED`** configurées prod. **8 événements WhatsApp actifs** ; 6 en attente — **`docs/WHATSAPP-NOTIFS-REPRISE.md`**.
 - **Inbox notifications** (PR **#370** mergée) : onglets Alertes/Messages ; migration **`20260825_001`** (RPC inbox + sync lecture) ; **`20260824_001`** (grâce modification passage). Ouverture fil via **`?conversation=1`**.

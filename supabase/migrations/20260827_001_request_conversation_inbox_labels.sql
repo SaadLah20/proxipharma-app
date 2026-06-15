@@ -1,7 +1,9 @@
 -- Inbox conversation : noms patients (annuaire pharmacien) + champs pharmacie pour i18n client.
+-- Retour enrichi : DROP obligatoire (PostgreSQL refuse CREATE OR REPLACE si OUT params changent).
 
-CREATE OR REPLACE FUNCTION public.request_conversation_inbox(p_limit integer DEFAULT 30)
-RETURNS TABLE (
+DROP FUNCTION IF EXISTS public.request_conversation_inbox(integer);
+
+CREATE OR REPLACE FUNCTION public.request_conversation_inbox(p_limit integer DEFAULT 30)RETURNS TABLE (
   request_id uuid,
   request_public_ref text,
   request_type text,
@@ -125,5 +127,8 @@ AS $$
   LIMIT greatest(coalesce(p_limit, 30), 1);
 $$;
 
-COMMENT ON FUNCTION public.request_conversation_inbox(integer) IS
-  'Fil conversation global : labels structurés (pharmacie FR/AR, patient via annuaire officine).';
+REVOKE ALL ON FUNCTION public.request_conversation_inbox(integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.request_conversation_inbox(integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.request_conversation_inbox(integer) TO service_role;
+
+COMMENT ON FUNCTION public.request_conversation_inbox(integer) IS  'Fil conversation global : labels structurés (pharmacie FR/AR, patient via annuaire officine).';

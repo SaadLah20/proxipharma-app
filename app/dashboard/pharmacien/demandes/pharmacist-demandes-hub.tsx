@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
-import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
+import { Search } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { PharmacistWorkflowHubHeader } from "@/components/pharmacist/pharmacist-workflow-hub-header";
 import { RequestKindHubDashboard } from "@/components/requests/hub/request-kind-hub-dashboard";
 import {
-  DemandeHubTabBar,
   type HubTab,
   PharmacistDemandeCard,
   type PharmacistRequestRow,
@@ -24,8 +25,13 @@ import {
   hubListHasManualFilters,
 } from "@/lib/hub-list-filter-chrome";
 import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
+import { patientHubDashboardAccent } from "@/lib/patient-workflow-hub-dashboard-ui";
 import { PageShell } from "@/components/ui/compact-shell";
-import { bucketForStatusParam } from "@/lib/demandes-hub-buckets";
+import {
+  bucketForStatusParam,
+  isPharmacistArchiveBucketKey,
+  pharmacistRequestActiveStatuses,
+} from "@/lib/demandes-hub-buckets";
 import { dashboardBucketsForKind } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
@@ -33,9 +39,10 @@ import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { formatShortId } from "@/lib/request-display";
 import { REQUEST_ITEMS_HUB_SUMMARY_EMBED_SELECT } from "@/lib/request-line-product-embed";
 import { supabase } from "@/lib/supabase";
+import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
 
 function tabFromSearch(v: string | null): HubTab {
-  return v === "liste" ? "list" : "dashboard";
+  return v === "dashboard" ? "dashboard" : "list";
 }
 
 function tabToSearch(t: HubTab): string {
@@ -44,6 +51,7 @@ function tabToSearch(t: HubTab): string {
 
 export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const kindConfig = getRequestKindConfig(kindId);
+  const tList = useTranslations("hub.listChrome");
   const hubPath = kindConfig.routes.pharmacistHubPath;
   const refPlaceholder =
     kindConfig.publicRefPrefix === "O" ? "Ex. O042/26" : kindConfig.publicRefPrefix === "C" ? "Ex. C042/26" : "Ex. D042/26";
@@ -73,6 +81,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   const [patientFilter, setPatientFilter] = useState("");
   const [refQuery, setRefQuery] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
+  const [activeOnly, setActiveOnly] = useState(true);
   /** `null` = ouverture auto si filtres URL ou actifs sur la liste. */
   const [filtersExpandedUser, setFiltersExpandedUser] = useState<boolean | null>(null);
 
@@ -240,6 +249,12 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
       allow.has((r as { status_for_dashboard?: string }).status_for_dashboard ?? r.status)
     );
   }
+  const applyActiveOnly =
+    activeOnly && !(activeBucket && isPharmacistArchiveBucketKey(activeBucket.key));
+  if (applyActiveOnly) {
+    const activeStatuses = new Set(pharmacistRequestActiveStatuses());
+    filteredList = filteredList.filter((r) => activeStatuses.has(r.status));
+  }
   if (patientFilter) {
     filteredList = filteredList.filter((r) => r.patient_id === patientFilter);
   }
@@ -265,6 +280,8 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
     patientLabel: patientFilterLabel,
     referenceQuery: refQuery,
     sortNewestFirst,
+    activeOnly,
+    includeArchivesLabel: tList("includeArchives"),
   });
 
   const listHasActiveFilters = pharmacistHubListHasActiveFilters({
@@ -272,6 +289,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
     patientLabel: patientFilterLabel,
     referenceQuery: refQuery,
     sortNewestFirst,
+    activeOnly,
   });
 
   const hasManualListFilters = hubListHasManualFilters({
@@ -290,6 +308,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
     setPatientFilter("");
     setRefQuery("");
     setSortNewestFirst(true);
+    setActiveOnly(true);
     setFiltersExpandedUser(null);
     const next = new URLSearchParams(searchParams.toString());
     next.set("vue", "liste");
@@ -309,8 +328,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
     router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
   };
 
-  const filterBtn =
-    "rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm hover:bg-muted/50";
+  const filterBtn = uiActionBtnFilterToggle();
 
   const listTabLabel =
     kindId === "prescription"
@@ -319,12 +337,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
         ? "Toutes les consultations"
         : "Toutes les demandes";
 
-  const hubSubtitle =
-    kindId === "prescription"
-      ? "Ordonnances reçues : 8 statuts en tête, reprise rapide et liste filtrable."
-      : kindId === "free_consultation"
-        ? "Consultations libres : lire le message, échanger puis proposer des produits."
-        : "8 statuts en tête, reprise rapide et liste filtrable par statut, patient ou référence.";
+  const hubAccent = patientHubDashboardAccent(kindId, "pharmacien") ?? "sky";
 
   if (loading) {
     return (
@@ -348,12 +361,17 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   return (
     <PageShell
       maxWidthClass="max-w-3xl"
-      className="space-y-4"
+      className="space-y-3"
     >
-      <PharmacistAccountPageHeader
-        eyebrow="Dossiers & réservations"
+      <PharmacistWorkflowHubHeader
         title={kindConfig.copy.pharmacistHubTitle}
-        subtitle={hubSubtitle}
+        accent={hubAccent}
+        tab={tab}
+        onTab={setTab}
+        tabLabels={{
+          dashboard: tList("dashboardTab"),
+          list: listTabLabel,
+        }}
         trailing={
           <Link href="/dashboard/notifications" className={p.headerAction}>
             Notifications
@@ -361,30 +379,14 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
         }
       />
 
-      <div className="mt-1">
-        <DemandeHubTabBar
-          tab={tab}
-          onTab={setTab}
-          labels={{
-            dashboard: "Tableau de bord",
-            list:
-              kindId === "prescription"
-                ? "Toutes les ordonnances"
-                : kindId === "free_consultation"
-                  ? "Toutes les consultations"
-                  : "Toutes les demandes",
-          }}
-        />
-      </div>
-
       {error ? (
-        <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-950">{error}</p>
+        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-950">{error}</p>
       ) : null}
 
       {tab === "dashboard" ? (
         <>
           {rows.length === 0 ? (
-            <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center">
+            <div className="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center">
               <p className="text-sm font-medium text-foreground">
                 {kindId === "prescription"
                   ? "Aucune ordonnance"
@@ -401,61 +403,77 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
               </p>
             </div>
           ) : (
-            <div className="mt-4">
-              <RequestKindHubDashboard
-                kindId={kindId}
-                role="pharmacien"
-                rows={rows}
-                basePath={hubPath}
-                unreadById={unreadById}
-              />
-            </div>
+            <RequestKindHubDashboard
+              kindId={kindId}
+              role="pharmacien"
+              rows={rows}
+              basePath={hubPath}
+              unreadById={unreadById}
+            />
           )}
         </>
       ) : (
-        <div className="mt-4 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-bold text-foreground">{listTabLabel}</h2>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+              <input
+                type="checkbox"
+                checked={activeOnly}
+                onChange={(e) => setActiveOnly(e.target.checked)}
+                className="rounded border-input"
+              />
+              {tList("activeOnly")}
+            </label>
             <button
               type="button"
               onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
               className={filterBtn}
             >
-              {filtersPanelExpanded ? "Masquer les filtres" : "Filtres"}
+              {filtersPanelExpanded ? tList("hideFilters") : tList("filters")}
             </button>
           </div>
 
           {listHasActiveFilters && !filtersPanelExpanded ? (
             <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-[11px] leading-snug text-foreground">
               <p>
-                <span className="font-semibold">Filtres actifs :</span> {listFiltersSummary}
+                <span className="font-semibold">{tList("activeFilters")}</span> {listFiltersSummary}
               </p>
               <button type="button" onClick={clearListFilters} className={clsx("mt-1.5", filterChrome.clearLink)}>
-                Tout effacer
+                {tList("clearAll")}
               </button>
             </div>
           ) : null}
 
           {filtersPanelExpanded ? (
             <section className={filterChrome.shell}>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 sm:items-end">
-                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2 lg:col-span-1">
-                  Référence demande / client
-                  <input
-                    value={refQuery}
-                    onChange={(e) => setRefQuery(e.target.value)}
-                    placeholder={refPlaceholder}
-                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/70"
-                  />
+              <div className="grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4">
+                <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    Référence demande / client
+                  </span>
+                  <span className="relative block">
+                    <Search
+                      className="pointer-events-none absolute start-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60"
+                      aria-hidden
+                    />
+                    <input
+                      value={refQuery}
+                      onChange={(e) => setRefQuery(e.target.value)}
+                      placeholder={refPlaceholder}
+                      className="w-full rounded-lg border border-input bg-background py-2 ps-8 pe-2.5 text-xs text-foreground shadow-sm placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    />
+                  </span>
                 </label>
-                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Statut
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {tList("status")}
+                  </span>
                   <select
                     value={activeBucket?.key ?? ""}
                     onChange={(e) => setStatutFilter(e.target.value)}
-                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
+                    className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
                   >
-                    <option value="">Tous</option>
+                    <option value="">{tList("allStatuses")}</option>
                     {dashboardBuckets.map((b) => (
                       <option key={b.key} value={b.key}>
                         {b.label}
@@ -463,12 +481,12 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
                     ))}
                   </select>
                 </label>
-                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Patient
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Patient</span>
                   <select
                     value={patientFilter}
                     onChange={(e) => setPatientFilter(e.target.value)}
-                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
+                    className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
                   >
                     <option value="">Tous</option>
                     {patientOptions.map((pid) => (
@@ -478,15 +496,17 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
                     ))}
                   </select>
                 </label>
-                <label className="flex min-w-0 flex-col gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Tri date
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {tList("sort")}
+                  </span>
                   <select
                     value={sortNewestFirst ? "desc" : "asc"}
                     onChange={(e) => setSortNewestFirst(e.target.value === "desc")}
-                    className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
+                    className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
                   >
-                    <option value="desc">Plus récentes d’abord</option>
-                    <option value="asc">Plus anciennes d’abord</option>
+                    <option value="desc">{tList("sortNewest")}</option>
+                    <option value="asc">{tList("sortOldest")}</option>
                   </select>
                 </label>
               </div>
@@ -495,10 +515,10 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
 
           {filteredSorted.length === 0 ? (
             <div className="space-y-2 py-6 text-center text-xs text-muted-foreground">
-              <p>Aucun résultat.</p>
+              <p>{tList("noResults")}</p>
               {listHasActiveFilters ? (
                 <button type="button" onClick={clearListFilters} className={filterChrome.clearLink}>
-                  Effacer les filtres
+                  {tList("clearFilters")}
                 </button>
               ) : null}
             </div>

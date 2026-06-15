@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260826_001`** si pas fait — après inbox conversation **`20260825_001`**, WhatsApp M2 **`20260826_001`**) → phrase **§13.65** (WhatsApp M2) ou **§13.64** (expiration passage) ou **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260827_001`** si pas fait — après inbox **`20260825_001`**, WhatsApp **`20260826_001`**, labels inbox **`20260827_001`**) → phrase **§13.65** (WhatsApp M2 + inbox) ou **§13.64** (expiration passage) ou **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -389,6 +389,23 @@ git checkout pilote-stable-2026-05-24
 **Supabase** : aligner le schéma sur les migrations jusqu’à **`20260622_001`** (pas automatique avec le seul `git checkout`).
 
 ---
+
+### Session 2026-06-15 (suite 2) — Inbox labels AR + hubs pharmacien alignés patient
+
+**Commits** : **`7036535`** / **`1ad3ed8`** (inbox labels), **`6a0338b`** (alertes lues à l’ouverture cloche), **`2f976c3`** (hubs pharmacien).
+
+**Migration** (si pas déjà fait, après **`20260825_001`**) :
+- **`20260827_001_request_conversation_inbox_labels.sql`** — RPC **`request_conversation_inbox`** : champs structurés (`pharmacy_nom`, `pharmacy_nom_ar`, `patient_full_name`, `patient_ref` via annuaire officine).
+
+**Inbox / cloche** :
+- Labels patient côté pharmacien (nom + ref annuaire) ; officine FR/AR côté patient (**`lib/conversation-inbox.ts`**).
+- Pastille : décrément au clic message ; alertes marquées lues à l’ouverture cloche / onglet Alertes (**`platform-header.tsx`**, page **`/dashboard/notifications`**).
+
+**Hubs pharmacien** (produits, ordonnances, consultations, packs) :
+- **`PharmacistWorkflowHubHeader`** — bandeau accentué aligné patient ; onglets inversés ; filtre **actives** seulement par défaut.
+- Fichiers : **`pharmacist-demandes-hub.tsx`**, **`pharmacist-promo-reservations-hub.tsx`**, **`lib/demandes-hub-buckets.ts`**, **`lib/pharmacist-request-hub-list-filters.ts`**.
+
+**Phrase de reprise** : **§13.65** (migrations **`20260825_001`** → **`20260827_001`**).
 
 ### Session 2026-06-15 (suite) — WhatsApp M2 lot 2 + inbox notifications
 
@@ -2535,8 +2552,9 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260824_001_planned_visit_update_grace.sql` (grâce modification date passage)
   - `supabase/migrations/20260825_001_request_conversation_inbox.sql` (inbox conversation + sync lecture)
   - `supabase/migrations/20260826_001_whatsapp_m2_lot2_partial.sql` (WhatsApp M2 lot 2 : produit, rupture, validée pharma)
+  - `supabase/migrations/20260827_001_request_conversation_inbox_labels.sql` (inbox conversation : labels FR/AR structurés)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260826_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** ; catalogue **~19 677** ; photos catalogue = URLs BeautyMall (sauvegarde locale **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`**) ; i18n patient **~1 334** clés FR/AR ; **8 notifs WhatsApp actives**. Reprise courte : **§13.65** (WhatsApp M2) ou **§13.64** (expiration passage) ou **§13.63** (photos) ou **§13.62**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260827_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** ; catalogue **~19 677** ; photos catalogue = URLs BeautyMall (sauvegarde locale **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`**) ; i18n patient **~1 334** clés FR/AR ; **8 notifs WhatsApp actives**. Reprise courte : **§13.65** (WhatsApp M2 + inbox) ou **§13.64** (expiration passage) ou **§13.63** (photos) ou **§13.62**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2851,7 +2869,7 @@ Voir **§13.37**.
 
 ### 13.65) Phrase de reprise (WhatsApp M2 lot 2 + inbox — juin 2026)
 
-**« Pharmeto (`pharmeto.ma`) — reprise WhatsApp M2 lot 2 + inbox. **Migrations** (si pas fait, ordre) : **`20260825_001`** (inbox conversation) puis **`20260826_001`** (WhatsApp confirmed pharma). **WhatsApp prod** : 8 événements actifs (PR **#369**) — vars Vercel `_PRODUCT_ARRIVED`, `_SHORTAGE_AVAILABLE`, `_PHARMACY_CONFIRMED` OK. **En attente** : 3 templates Meta user-initiated seulement + 3 templates passage à soumettre — **`docs/WHATSAPP-NOTIFS-REPRISE.md`**. **Inbox** : onglets Alertes/Messages (PR **#370**). Je te donne la tâche ou les retours preview. »**
+**« Pharmeto (`pharmeto.ma`) — reprise WhatsApp M2 lot 2 + inbox. **Migrations** (si pas fait, ordre) : **`20260825_001`** → **`20260826_001`** → **`20260827_001`** (labels FR/AR inbox). **WhatsApp prod** : 8 événements actifs (PR **#369**) — vars Vercel OK. **En attente** : 3 templates Meta user-initiated + 3 passage à soumettre — **`docs/WHATSAPP-NOTIFS-REPRISE.md`**. **Inbox** : onglets Alertes/Messages ; cloche marque alertes lues à l’ouverture ; hubs pharmacien alignés patient (**`PharmacistWorkflowHubHeader`**). Je te donne la tâche ou les retours preview. »**
 
 ### 13.64) Phrase de reprise (expiration passage traité — juin 2026)
 
@@ -3033,7 +3051,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail courante : **`main`** (dernier lot journal §10 **2026-06-15** — WhatsApp M2 lot 2 + inbox notifications + expiration passage). Refonte UX Glovo-like **abandonnée** ; UI/UX = affinages incrémentaux. Supabase pilote : migrations jusqu’à **`20260826_001`** ; **8 notifs WhatsApp actives**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.65**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail courante : **`main`** (dernier lot journal §10 **2026-06-15** — WhatsApp M2, inbox labels AR, hubs pharmacien). Refonte UX Glovo-like **abandonnée** ; UI/UX = affinages incrémentaux. Supabase pilote : migrations jusqu’à **`20260827_001`** ; **8 notifs WhatsApp actives**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.65**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
