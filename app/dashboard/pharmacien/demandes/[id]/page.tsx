@@ -652,8 +652,8 @@ function normalizeCounterOutcomeForPersist(row: ItemRow, f: ItemDraft): { outcom
 /** Plafond technique saisie stock pour les lignes proposées par l’officine (pas de lien avec la « quantité demandée » initiale). */
 const PHARMACIST_PROPOSED_STOCK_CEILING = 9999;
 
-/** Après validation dossier : quantité validée / stock saisissable sur les lignes retenues (hors « récupéré »). */
-const PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX = 999;
+/** Après validation dossier : quantité validée / stock saisissable (1–10, peut dépasser la qté demandée). */
+const PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX = 10;
 
 function validatedLineReferenceQty(row: ItemRow): number {
   return Math.min(
@@ -1070,6 +1070,22 @@ function PublishConfirmLineLi({
 
 function isPharmacistProposedRow(row: ItemRow): boolean {
   return row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id);
+}
+
+/** Plafond saisie qté proposition officine (10 avant validation ; aligné supply post-validé sinon). */
+function pharmacistProposedProductQtyCap(
+  request: { request_type: string; status: string } | null | undefined,
+  row: ItemRow,
+  stockCeiling: number
+): number {
+  const postConfirmSelected =
+    request != null &&
+    ["confirmed", "treated"].includes(request.status) &&
+    row.is_selected_by_patient;
+  if (isPharmacistProposedRow(row) && request?.request_type === "product_request" && !postConfirmSelected) {
+    return 10;
+  }
+  return stockCeiling;
 }
 
 function withSyncedPostConfirmQtyDraft(
@@ -2630,18 +2646,18 @@ export default function PharmacienDemandeDetailPage() {
     [request]
   );
 
-  /** Plafond de saisie « Stock » : lignes patient ≤ quantité demandée (+ règle comptoir si applicable) ; propositions officine : plafond technique seulement. */
+  /** Plafond de saisie « Stock » : avant validation ≤ qté demandée ; post-validé lignes retenues 1–10 (indépendant de la qté demandée). */
   const draftStockCeilingForRow = useCallback(
     (row: ItemRow): number => {
       if (request && isPrescriptionOrdonnancePharmacistLine(request.request_type, row)) {
         const f = draft[row.id];
         return ordonnanceDraftRequestedQty(row, f);
       }
-      if (row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id)) {
-        return PHARMACIST_PROPOSED_STOCK_CEILING;
-      }
       if (request && ["confirmed", "treated"].includes(request.status) && row.is_selected_by_patient) {
         return PHARMACIST_VALIDATED_SUPPLY_EDIT_MAX;
+      }
+      if (row.line_source === "pharmacist_proposed" || isLocalProposedItemId(row.id)) {
+        return PHARMACIST_PROPOSED_STOCK_CEILING;
       }
       const rqRaw = Number(row.requested_qty);
       const reqCap = Number.isFinite(rqRaw) ? Math.max(0, Math.floor(rqRaw)) : 0;
@@ -2675,17 +2691,26 @@ export default function PharmacienDemandeDetailPage() {
       if (!Number.isFinite(qty)) qty = 0;
       if (nextStatus === "market_shortage" || nextStatus === "unavailable") qty = 0;
       const cap = draftStockCeilingForRow(row);
+      const proposedQtyCap = pharmacistProposedProductQtyCap(request, row, cap);
+      const postConfirmSelected =
+        request != null &&
+        ["confirmed", "treated"].includes(request.status) &&
+        row.is_selected_by_patient;
       if (nextStatus === "to_order") {
         qty =
           isAjoutOfficine || isPharmacistProposed
-            ? Math.max(1, Math.min(10, qty || Number(current.available_qty) || 1))
-            : Math.min(cap, refR);
+            ? Math.max(1, Math.min(proposedQtyCap, qty || Number(current.available_qty) || 1))
+            : postConfirmSelected
+              ? Math.max(1, Math.min(cap, qty || Number(current.available_qty) || 1))
+              : Math.min(cap, refR);
       }
       if (nextStatus === "available") {
         qty =
           isAjoutOfficine || isPharmacistProposed
-            ? Math.max(1, Math.min(10, qty || Number(current.available_qty) || 1))
-            : Math.min(cap, refR);
+            ? Math.max(1, Math.min(proposedQtyCap, qty || Number(current.available_qty) || 1))
+            : postConfirmSelected
+              ? Math.max(1, Math.min(cap, qty || Number(current.available_qty) || refR))
+              : Math.min(cap, refR);
       }
       const minQty = isAjoutOfficine || isPharmacistProposed ? 1 : 0;
       const nextAvailNum = Math.max(minQty, Math.min(cap, qty));
@@ -2849,10 +2874,7 @@ export default function PharmacienDemandeDetailPage() {
         setField(row.id, "available_qty", "");
         return;
       }
-      const capToOrder =
-        isPharmacistProposed && request?.request_type === "product_request"
-          ? 10
-          : max;
+      const capToOrder = pharmacistProposedProductQtyCap(request, row, max);
       const n = Math.min(capToOrder, Math.max(1, Number(digits)));
       const nextQty = Number.isFinite(n) ? n : 1;
       setDraft((prev) => {
@@ -2881,7 +2903,7 @@ export default function PharmacienDemandeDetailPage() {
       return;
     }
     const n = Math.min(
-      isPharmacistProposed && request?.request_type === "product_request" ? 10 : max,
+      pharmacistProposedProductQtyCap(request, row, max),
       Math.max(isAjoutOfficine || isPrescriptionExtraProposed || isPharmacistProposed ? 1 : 0, Number(digits))
     );
     const nextQty = Number.isFinite(n) ? n : 0;
@@ -6328,7 +6350,7 @@ export default function PharmacienDemandeDetailPage() {
                           {sentQty.qtyEditable && canEditThisRow && isSupplyLineEditing ? (
                             <ProductRequestLineQtyPicker
                               qty={sentQty.displayQty}
-                              maxQty={Math.min(10, draftStockCeilingForRow(row))}
+                              maxQty={Math.min(10, stockCeiling)}
                               appearance="neutral"
                               onSelect={(n) => setAvailableQty(row, String(n))}
                             />

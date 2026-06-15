@@ -181,6 +181,7 @@ import {
   type PatientLineTimelineBlockFr,
 } from "@/lib/build-patient-line-timeline-fr";
 import { usePatientPharmaAmendmentCopy } from "@/lib/i18n/use-patient-pharma-amendment-copy";
+import { hasPatientPostConfirmSupplyAmendments } from "@/lib/supply-amendment-channels";
 import { LineHistoryModalFr } from "@/components/requests/line-history-modal-fr";
 import { isPatientProductArchiveStatus } from "@/components/requests/patient-request-outcome-banner";
 import {
@@ -2933,12 +2934,15 @@ export function PatientProductRequestActions({
       setActionError(staleActionMessage ?? "");
       return;
     }
+    if (hasPatientPostConfirmSupplyAmendments(supplyAmendmentBundles)) {
+      return;
+    }
     const baseline = computeSelFromConfirmedItems(items);
     setConfirmedRevalidationBaseline(baseline);
     setConfirmedRevalidationMode(true);
     setSel(baseline);
     setActionError("");
-  }, [items, detailStale]);
+  }, [items, detailStale, supplyAmendmentBundles]);
 
   const cancelConfirmedRevalidation = useCallback(() => {
     setConfirmedRevalidationMode(false);
@@ -3299,8 +3303,16 @@ export function PatientProductRequestActions({
     requestType === "product_request" ||
     requestType === "prescription" ||
     requestType === "free_consultation";
+  const pharmacistAmendedAfterPatientConfirmation =
+    uiStatus === "confirmed" &&
+    !forceReadOnly &&
+    usesLineWorkflowUi &&
+    hasPatientPostConfirmSupplyAmendments(supplyAmendmentBundles);
   const canPatientRevalidateConfirmation =
-    uiStatus === "confirmed" && !forceReadOnly && usesLineWorkflowUi;
+    uiStatus === "confirmed" &&
+    !forceReadOnly &&
+    usesLineWorkflowUi &&
+    !pharmacistAmendedAfterPatientConfirmation;
   const showProductResubmit =
     !forceReadOnly &&
     !isPrescription &&
@@ -4586,6 +4598,11 @@ export function PatientProductRequestActions({
 
         {showPatientExitCTA ? (
           <div className="mt-4 border-t border-rose-200/50 pt-3">
+            {pharmacistAmendedAfterPatientConfirmation && !confirmedRevalidationMode ? (
+              <p className="mb-3 text-center text-[11px] leading-snug text-muted-foreground">
+                {tDemandes("validated.modifyValidationBlockedHint")}
+              </p>
+            ) : null}
             {canPatientRevalidateConfirmation && !confirmedRevalidationMode ? (
               <button
                 type="button"
