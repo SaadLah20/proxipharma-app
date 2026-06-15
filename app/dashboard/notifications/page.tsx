@@ -15,6 +15,10 @@ import { pickPatientNotificationText } from "@/lib/i18n/pick-notification-text";
 import { rewriteForPharmacistView } from "@/lib/patient-copy";
 import { supabase } from "@/lib/supabase";
 
+type RequestTypeFilter = "product_request" | "prescription" | "free_consultation";
+
+type NotificationFilter = "all" | RequestTypeFilter | "promo";
+
 type FeedRow = {
   id: string;
   created_at: string;
@@ -26,7 +30,15 @@ type FeedRow = {
   event_type: string | null;
   href: string;
   source: "request" | "promo";
+  requestType: RequestTypeFilter | null;
 };
+
+function parseRequestTypeFilter(value: string | null | undefined): RequestTypeFilter | null {
+  if (value === "product_request" || value === "prescription" || value === "free_consultation") {
+    return value;
+  }
+  return null;
+}
 
 function requestHref(role: string, requestId: string) {
   if (role === "admin") return `/admin/demandes/${requestId}`;
@@ -47,7 +59,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string>("patient");
   const [rows, setRows] = useState<FeedRow[]>([]);
-  const [filter, setFilter] = useState<"all" | "request" | "promo">("all");
+  const [filter, setFilter] = useState<NotificationFilter>("all");
   const [error, setError] = useState("");
 
   const markAllAsRead = useCallback(async () => {
@@ -87,7 +99,7 @@ export default function NotificationsPage() {
     const [{ data: reqNotifs, error: re }, { data: promoNotifs, error: pe2 }] = await Promise.all([
       supabase
         .from("app_notifications")
-        .select("id,created_at,title,body,title_ar,body_ar,request_id,read_at,event_type")
+        .select("id,created_at,title,body,title_ar,body_ar,request_id,read_at,event_type,requests(request_type)")
         .eq("recipient_id", user.id)
         .order("created_at", { ascending: false })
         .limit(60),
@@ -117,7 +129,10 @@ export default function NotificationsPage() {
           request_id: string;
           read_at: string | null;
           event_type: string | null;
+          requests: { request_type: string } | { request_type: string }[] | null;
         };
+        const reqJoin = row.requests;
+        const requestTypeRaw = Array.isArray(reqJoin) ? reqJoin[0]?.request_type : reqJoin?.request_type;
         return {
           id: row.id,
           created_at: row.created_at,
@@ -129,6 +144,7 @@ export default function NotificationsPage() {
           event_type: row.event_type,
           href: requestHref(r, row.request_id),
           source: "request" as const,
+          requestType: parseRequestTypeFilter(requestTypeRaw),
         };
       }),
       ...(promoNotifs ?? []).map((n) => {
@@ -152,6 +168,7 @@ export default function NotificationsPage() {
           event_type: row.event_type,
           href: promoHref(r, row.reservation_id),
           source: "promo" as const,
+          requestType: null,
         };
       }),
     ]
@@ -170,10 +187,21 @@ export default function NotificationsPage() {
 
   const filtered = useMemo(() => {
     if (filter === "all") return rows;
-    return rows.filter((x) => x.source === filter);
+    if (filter === "promo") return rows.filter((x) => x.source === "promo");
+    return rows.filter((x) => x.source === "request" && x.requestType === filter);
   }, [rows, filter]);
 
-  const promoCount = rows.filter((x) => x.source === "promo").length;
+  const filterTabs = useMemo(
+    () =>
+      [
+        { key: "all" as const, label: tn("filterAll") },
+        { key: "product_request" as const, label: tn("filterProductRequests") },
+        { key: "prescription" as const, label: tn("filterPrescriptions") },
+        { key: "free_consultation" as const, label: tn("filterConsultations") },
+        { key: "promo" as const, label: tn("filterPromo") },
+      ] as const,
+    [tn],
+  );
 
   const audience = role === "pharmacien" ? "pharmacien" : role === "admin" ? "admin" : "patient";
 
@@ -242,29 +270,21 @@ export default function NotificationsPage() {
         />
       )}
 
-      {promoCount > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {(
-            [
-              { key: "all", label: tn("filterAll") },
-              { key: "request", label: tn("filterRequests") },
-              { key: "promo", label: tn("filterPromo") },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              className={clsx(
-                "rounded-full px-3 py-1 text-[11px] font-bold",
-                filter === tab.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              )}
-              onClick={() => setFilter(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <div className="flex flex-wrap gap-1.5">
+        {filterTabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            className={clsx(
+              "rounded-full px-3 py-1 text-[11px] font-bold",
+              filter === tab.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+            )}
+            onClick={() => setFilter(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
 

@@ -586,8 +586,10 @@ export const notificationsFr = {
   patientSubtitle:
     "Demandes (produits, ordonnances, consultations) et réservations de packs promo.",
   filterAll: "Tout",
-  filterRequests: "Demandes",
-  filterPromo: "Packs promo",
+  filterProductRequests: "Demandes produits",
+  filterPrescriptions: "Ordonnances",
+  filterConsultations: "Consultations",
+  filterPromo: "Pack",
 };
 
 export const accountFr = {

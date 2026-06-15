@@ -566,8 +566,10 @@ export const notificationsAr = {
   patientEyebrow: "مساحة المريض",
   patientSubtitle: "الطلبات (منتجات، وصفات، استشارات) وحجوزات الباقات الترويجية.",
   filterAll: "الكل",
-  filterRequests: "الطلبات",
-  filterPromo: "باقات ترويجية",
+  filterProductRequests: "طلبات منتجات",
+  filterPrescriptions: "وصفات",
+  filterConsultations: "استشارات",
+  filterPromo: "باقة",
 };
 
 export const accountAr = {

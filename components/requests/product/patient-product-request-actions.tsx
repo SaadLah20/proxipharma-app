@@ -2386,7 +2386,9 @@ export function PatientProductRequestActions({
         })),
       };
     });
-    return plannedVisitWindow(linesPayload);
+    return plannedVisitWindow(linesPayload, {
+      context: status === "confirmed" || status === "treated" ? "update" : "confirm",
+    });
   }, [itemsFilteredPending, sel, status]);
 
   const visitPassageStatusEditable =

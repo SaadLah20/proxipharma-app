@@ -72,11 +72,48 @@ export interface PlannedVisitWindow {
   maxEtaYmd: string | null;
   /** ETA manquante sur une ligne « à commander » sélectionnée (serveur refusera aussi) */
   missingEtaOnToOrder: boolean;
+  /** Plafond avant grâce mise à jour (confirm / update sans extension). */
+  maxNormalYmd: string;
+  /** +2 j appliqués sur la mise à jour passage si ≤ 1 j restant sur maxNormalYmd. */
+  updateGraceApplied: boolean;
+}
+
+export type PlannedVisitWindowContext = "confirm" | "update";
+
+/** Jours calendaires entre deux dates ISO (to − from). */
+export function daysBetweenIsoYmd(fromYmd: string, toYmd: string): number {
+  const [fy, fm, fd] = fromYmd.split("-").map(Number);
+  const [ty, tm, td] = toYmd.split("-").map(Number);
+  if (![fy, fm, fd, ty, tm, td].every(Number.isFinite)) return 0;
+  const fromMs = Date.UTC(fy, fm - 1, fd);
+  const toMs = Date.UTC(ty, tm - 1, td);
+  return Math.round((toMs - fromMs) / (24 * 60 * 60 * 1000));
+}
+
+export const PLANNED_VISIT_UPDATE_GRACE_THRESHOLD_DAYS = 2;
+export const PLANNED_VISIT_UPDATE_GRACE_EXTENSION_DAYS = 2;
+
+/** Mise à jour passage : +2 j si ≤ 1 j restant (ou dépassé) sur la borne normale. */
+export function applyPlannedVisitUpdateGraceMax(
+  maxNormalYmd: string,
+  todayYmd: string = todayLocalIsoDate(),
+): { maxYmd: string; updateGraceApplied: boolean } {
+  const remaining = daysBetweenIsoYmd(todayYmd, maxNormalYmd);
+  if (remaining >= PLANNED_VISIT_UPDATE_GRACE_THRESHOLD_DAYS) {
+    return { maxYmd: maxNormalYmd, updateGraceApplied: false };
+  }
+  return {
+    maxYmd: dateOnlyAddDays(maxNormalYmd, PLANNED_VISIT_UPDATE_GRACE_EXTENSION_DAYS),
+    updateGraceApplied: true,
+  };
 }
 
 /** Calcule fenêtre autorisable avant appel RPC (calendrier local patient). */
-export function plannedVisitWindow(lines: VisitBoundLine[]): PlannedVisitWindow {
-  const today = todayLocalIsoDate();
+export function plannedVisitWindow(
+  lines: VisitBoundLine[],
+  options?: { context?: PlannedVisitWindowContext; todayYmd?: string },
+): PlannedVisitWindow {
+  const today = options?.todayYmd ?? todayLocalIsoDate();
   let hasToOrder = false;
   let maxEta: string | null = null;
   let missingEtaOnToOrder = false;
@@ -108,17 +145,24 @@ export function plannedVisitWindow(lines: VisitBoundLine[]): PlannedVisitWindow 
     }
   }
 
-  const maxEnd = !hasToOrder
+  const maxNormal = !hasToOrder
     ? dateOnlyAddDays(today, 4)
     : maxEta != null
       ? dateOnlyAddDays(maxEta, 3)
       : dateOnlyAddDays(today, 4);
 
+  const grace =
+    options?.context === "update"
+      ? applyPlannedVisitUpdateGraceMax(maxNormal, today)
+      : { maxYmd: maxNormal, updateGraceApplied: false };
+
   return {
     minYmd: today,
-    maxYmd: maxEnd,
+    maxYmd: grace.maxYmd,
     hasToOrder,
     maxEtaYmd: maxEta,
     missingEtaOnToOrder,
+    maxNormalYmd: maxNormal,
+    updateGraceApplied: grace.updateGraceApplied,
   };
 }
