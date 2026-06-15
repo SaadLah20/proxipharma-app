@@ -3,7 +3,8 @@
 
 DROP FUNCTION IF EXISTS public.request_conversation_inbox(integer);
 
-CREATE OR REPLACE FUNCTION public.request_conversation_inbox(p_limit integer DEFAULT 30)RETURNS TABLE (
+CREATE OR REPLACE FUNCTION public.request_conversation_inbox(p_limit integer DEFAULT 30)
+RETURNS TABLE (
   request_id uuid,
   request_public_ref text,
   request_type text,

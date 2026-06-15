@@ -433,10 +433,10 @@ git checkout pilote-stable-2026-05-24
 
 ### Session 2026-06-15 (suite 2) — Inbox labels AR + hubs pharmacien alignés patient
 
-**Commits** : **`7036535`** / **`1ad3ed8`** (inbox labels), **`6a0338b`** (alertes lues à l’ouverture cloche), **`2f976c3`** (hubs pharmacien).
+**Commits** : **`7036535`** / **`1ad3ed8`** (inbox labels), **`6a0338b`** (alertes lues à l’ouverture cloche), **`2f976c3`** (hubs pharmacien), **`7471688`** (fix migration DROP).
 
 **Migration** (si pas déjà fait, après **`20260825_001`**) :
-- **`20260827_001_request_conversation_inbox_labels.sql`** — RPC **`request_conversation_inbox`** : champs structurés (`pharmacy_nom`, `pharmacy_nom_ar`, `patient_full_name`, `patient_ref` via annuaire officine).
+- **`20260827_001_request_conversation_inbox_labels.sql`** — `DROP FUNCTION` puis RPC **`request_conversation_inbox`** enrichie : champs structurés (`pharmacy_nom`, `pharmacy_nom_ar`, `patient_full_name`, `patient_ref` via annuaire officine). **Piège** : si `20260827` a échoué avec erreur **42P13**, réexécuter le fichier complet (DROP inclus).
 
 **Inbox / cloche** :
 - Labels patient côté pharmacien (nom + ref annuaire) ; officine FR/AR côté patient (**`lib/conversation-inbox.ts`**).
