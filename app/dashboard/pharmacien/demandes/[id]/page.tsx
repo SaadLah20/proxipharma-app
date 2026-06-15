@@ -1300,6 +1300,21 @@ function buildItemDraftFromRow(row: ItemRow, requestStatus?: string | null, requ
   };
 }
 
+/** Brouillon effectif : mémoire locale, sinon dérivé de la ligne (évite lignes masquées sans saisie). */
+function itemDraftForRow(
+  row: ItemRow,
+  draft: Draft,
+  requestStatus?: string | null,
+  requestType?: string
+): ItemDraft {
+  return draft[row.id] ?? buildItemDraftFromRow(row, requestStatus, requestType);
+}
+
+function missingAvailabilityErrorForRow(row: ItemRow): string {
+  const nm = validatedProductLabel(row as PatientLineLike);
+  return `« ${nm} » : choisissez une disponibilité.`;
+}
+
 /**
  * Fusion brouillon après reload : conserve les saisies en cours, sauf disponibilité
  * de l’alternative retenue (sinon l’ancien brouillon « réponse » masque Réservé / Commandé).
@@ -2424,6 +2439,11 @@ export default function PharmacienDemandeDetailPage() {
           statusChangedSincePrevDraft || forceFreshDraft
             ? built
             : mergeItemDraftOnReload(row, built, prev[row.id], r.status);
+      }
+      for (const key of Object.keys(prev)) {
+        if (isLocalProposedItemId(key) && !(key in next)) {
+          next[key] = prev[key];
+        }
       }
       return next;
     });
@@ -3757,9 +3777,9 @@ export default function PharmacienDemandeDetailPage() {
     const proposedIdMap = new Map<string, string>();
 
     for (const row of proposalSnap) {
-      const f = draftSnap[row.id];
-      if (!f?.availability_status) {
-        throw new Error("Choisis une disponibilité pour chaque ligne.");
+      const f = draftSnap[row.id] ?? buildItemDraftFromRow(row, request?.status ?? null, request?.request_type);
+      if (!f.availability_status) {
+        throw new Error(missingAvailabilityErrorForRow(row));
       }
       const price = f.unit_price.trim() === "" ? null : Number(f.unit_price.replace(",", "."));
       if (f.unit_price.trim() !== "" && (price == null || Number.isNaN(price) || price < 0)) {
@@ -4098,8 +4118,8 @@ export default function PharmacienDemandeDetailPage() {
     setError("");
     try {
       for (const row of rows) {
-        const f = d[row.id];
-        if (!f?.availability_status) throw new Error("Choisis une disponibilité pour chaque ligne.");
+        const f = itemDraftForRow(row, d, request.status, request.request_type);
+        if (!f.availability_status) throw new Error(missingAvailabilityErrorForRow(row));
         const qtyPrep = Number(f.available_qty);
         if (Number.isNaN(qtyPrep) || qtyPrep < 0) throw new Error("Quantité disponible invalide sur une ligne.");
         const nm = validatedProductLabel(row as PatientLineLike);
@@ -4457,8 +4477,8 @@ export default function PharmacienDemandeDetailPage() {
       for (const row of displayRows) {
         if (isLocalProposedItemId(row.id)) continue;
         if (removedSnap.includes(row.id)) continue;
-        const f = draftSnap[row.id];
-        if (!f?.availability_status) throw new Error("Choisis une disponibilité pour chaque ligne.");
+        const f = itemDraftForRow(row, draftSnap, request.status, request.request_type);
+        if (!f.availability_status) throw new Error(missingAvailabilityErrorForRow(row));
         const { error: up } = await supabase
           .from("request_items")
           .update(
@@ -4529,9 +4549,9 @@ export default function PharmacienDemandeDetailPage() {
     }
 
     for (const row of displayRows) {
-      const f = draft[row.id];
-      if (!f?.availability_status) {
-        setError("Choisis une disponibilité pour chaque ligne.");
+      const f = itemDraftForRow(row, draft, request.status, request.request_type);
+      if (!f.availability_status) {
+        setError(missingAvailabilityErrorForRow(row));
         return;
       }
       const qty = Number(f.available_qty);
@@ -4646,7 +4666,7 @@ export default function PharmacienDemandeDetailPage() {
 
       for (const row of rowsForPublish) {
         if (isLocalProposedItemId(row.id)) continue;
-        const f = draftSnap[row.id]!;
+        const f = itemDraftForRow(row, draftSnap, request.status, request.request_type);
         if (f.unit_price.trim() !== "") {
           const price = Number(f.unit_price.replace(",", "."));
           if (price == null || Number.isNaN(price) || price < 0) {
@@ -6050,8 +6070,7 @@ export default function PharmacienDemandeDetailPage() {
                   ? itemRowWithManualLinkDraft(row, pendingManualHit)
                   : row;
               const prod = one(editorRow.pharmacy_catalog_products) ?? one(editorRow.products);
-              const f = draft[row.id];
-              if (!f) return null;
+              const f = itemDraftForRow(row, draft, request?.status ?? null, request?.request_type);
               const draftIndicativePuMad =
                 f.unit_price.trim() !== ""
                   ? `${Number(f.unit_price.replace(",", ".")).toFixed(2)}\u00A0MAD`
