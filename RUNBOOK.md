@@ -306,7 +306,7 @@ Avant **`20260811_001`**, le pilote envoyait des SMS patient (`responded` / `tre
 - Expéditeur **+212770165668** (nom **Pharmeto**), sender Twilio **Online**
 - WABA **Miasmo** / Page **Pharmeto.ma**
 
-**Modèles actifs (C-pilote + C-suite lot 1 M2 — juin 2026)** :
+**Modèles actifs (juin 2026 — 11 après merge lot 3 + vars Vercel)** :
 
 | Événement | Rôle | Template Twilio | Content SID | Lien bouton |
 |-----------|------|-------------------|-------------|-------------|
@@ -376,10 +376,15 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: applicati
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
   -d '{"to":"+2126XXXXXXXX","eventType":"request_status:confirmed","patientName":"Fatima B."}' \
   "$APP_BASE_URL/api/cron/test-external-whatsapp"
+
+# Pharmacien passage modifié / ordonnance / message patient (lot 3)
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
+  -d '{"to":"+2126XXXXXXXX","eventType":"request_event:patient_planned_visit_updated","patientName":"Fatima B."}' \
+  "$APP_BASE_URL/api/cron/test-external-whatsapp"
 ```
 Ou Twilio Console → **Try it out** → variables `{"1":"Pharmacie Centrale","2":"D042/26","3":"a1b2c3d4e5f6789012345678abcdef01"}`.
 
-**Pilote worker** : patient **répondu**, **traité**, **expiré**, **rappel validation**, **rappels passage**, **produit reçu**, **rupture dispo** ; pharmacien **nouvelle demande**, **validée**, **alertes passage / validation**. Autres `event_type` enqueue e-mail mais **skip** WhatsApp. Destination = `profiles.whatsapp` (E.164). Routes lien court : **`/r/[token]`** (patient), **`/rp/[token]`** (pharmacien).
+**Pilote worker** : patient **répondu**, **traité**, **expiré**, **rappel validation**, **rappels passage**, **produit reçu**, **rupture dispo** ; pharmacien **nouvelle demande**, **validée**, **passage modifié**, **ordonnance**, **message patient**, **alertes passage / validation**. Autres `event_type` enqueue e-mail mais **skip** WhatsApp si SID absent. Destination = `profiles.whatsapp` (E.164). Routes lien court : **`/r/[token]`** (patient), **`/rp/[token]`** (pharmacien).
 
 **Ops** : rafale backlog webhook corrigée (`onlyQueueRowIds` sur INSERT) ; script annulation file WhatsApp obsolète : `supabase/scripts/cancel-pending-whatsapp-backlog.sql`.
 

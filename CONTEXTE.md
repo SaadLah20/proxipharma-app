@@ -41,6 +41,24 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 ## 6. État technique récent (aligné repo — mai–juin 2026)
 
+**Mise à jour 2026-06-16 (suite) — Mes produits : restaurer les supprimés** :
+- **Migration** **`20260830_001`** : produits « Supprimer » (`archived_hidden`) visibles dans **Dépubliés** ; RPC **`pharmacist_restore_pharmacy_product`** → actif.
+- Hub **`/dashboard/pharmacien/mes-produits`** : badge Dépublié + bouton **Restaurer**.
+- Ancre migrations **`AGENTS.md`** → **`20260830_001`**.
+
+**Mise à jour 2026-06-16 — réponse pharmacien produits privés / archivés** :
+- **Bug** : réponse demande produits bloquée sur lignes **catalogue privé officine** (rupture marché / indispo) — `market_shortages.product_id` NOT NULL ; erreur dispo générique si proposition officine masquée après reload.
+- **Migration** **`20260829_001`** : trigger rupture marché ignore les lignes sans **`product_id`** national.
+- **App** : brouillon propositions locales conservé au reload ; validation par nom de produit — commit **`2ec9dc9`** sur **`feature/whatsapp-m2-lot3-pharmacist`**.
+- Journal **§10 session 2026-06-16** · ancre migrations **`AGENTS.md`** → **`20260829_001`**.
+
+**Mise à jour 2026-06-15 (suite 3) — WhatsApp M2 lot 3 pharmacien** :
+- **Branche** **`feature/whatsapp-m2-lot3-pharmacist`** (commit **`4868e1d`**) — PR vers `main` en cours.
+- Templates Meta Approved : passage modifié, ordonnance mise à jour, message patient.
+- Migration **`20260828_001`** ; vars Vercel **`_PHARMACY_VISIT_UPDATED`**, **`_PHARMACY_PRESCRIPTION_UPDATED`**, **`_PHARMACY_PATIENT_MESSAGE`**.
+- **11 événements WhatsApp** après merge + vars ; **3 en attente** (templates passage Meta) — **`docs/WHATSAPP-NOTIFS-REPRISE.md`**.
+- Phrase reprise **§13.66** · journal **§10 session 2026-06-15 (suite 3)**.
+
 **Mise à jour 2026-06-15 (suite 2) — inbox labels AR + hubs pharmacien** :
 - **Migration** **`20260827_001`** : labels structurés inbox (officine FR/AR, patient via annuaire pharmacien).
 - **Cloche / page notifications** : alertes marquées lues à l’ouverture ; pastille messages au clic ; labels i18n AR (**`lib/conversation-inbox.ts`**).

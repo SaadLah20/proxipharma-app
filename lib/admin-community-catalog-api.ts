@@ -168,6 +168,8 @@ export function adminCommunityEventLabelFr(eventType: string): string {
       return "Publié au catalogue national";
     case "archived_by_pharmacist":
       return "Masqué par le pharmacien";
+    case "restored_by_pharmacist":
+      return "Restauré par le pharmacien";
     case "rejected":
       return "Rejeté";
     default:
