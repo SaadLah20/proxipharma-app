@@ -56,7 +56,7 @@ Routes UI : **`/dashboard/pharmacien/mes-produits`**, **`/admin/produits-communa
 | Service | Endpoint / canal | Utilisation | Variables d’environnement |
 |---------|------------------|-------------|---------------------------|
 | **Resend** | `https://api.resend.com/emails` | E-mails hors-app (file `notification_external_queue`, canal `email`) | `RESEND_API_KEY`, `EMAIL_FROM` |
-| **Twilio Content API (WhatsApp)** | Content API + Messages WhatsApp | C-pilote prod ; M2 lot 2 partiel (8 templates actifs) | `TWILIO_WHATSAPP_CONTENT_SID_*` — **`docs/WHATSAPP-NOTIFS-REPRISE.md`** |
+| **Twilio Content API (WhatsApp)** | Content API + Messages WhatsApp | C-pilote prod ; **11 templates actifs** (lot 3 pharmacien juin 2026) | `TWILIO_WHATSAPP_CONTENT_SID_*` — **`docs/WHATSAPP-NOTIFS-REPRISE.md`** |
 | **Twilio Messages** | `https://api.twilio.com/.../Messages.json` | **Legacy** — plus d’enqueue SMS métier (`20260811_001`) ; route test `/api/cron/test-external-sms` seulement | `TWILIO_SMS_FROM` (optionnel) |
 | **Twilio Verify** | Via **Supabase Auth** (Phone) | OTP inscription / reset téléphone (SMS ou WhatsApp selon config) — **≠** notifs métier | Config dashboard Supabase + compte Twilio |
 | **Supabase Auth API** | `GET .../auth/v1/user` | Vérification JWT sur routes API (`lib/verify-bearer-user.ts`) | Clés Supabase |
@@ -68,7 +68,6 @@ Routes UI : **`/dashboard/pharmacien/mes-produits`**, **`/admin/produits-communa
 | Service | Statut | Usage prévu |
 |---------|--------|-------------|
 | **WhatsApp passage (3 templates)** | Pas encore soumis Meta | pickup reminder, pharma responded expiry, pharma pickup missed |
-| **WhatsApp pharmacien (3 templates)** | User-initiated seulement — attendre business-initiated | visit updated, prescription updated, patient message |
 | **SMTP personnalisé Supabase** | Recommandé prod | E-mails Auth (OTP, reset) via Resend/SendGrid côté Supabase |
 
 ---
