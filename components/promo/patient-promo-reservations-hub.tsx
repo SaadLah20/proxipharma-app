@@ -6,8 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
 import { Search } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
-import { DemandeHubTabBar, type HubTab } from "@/components/requests/demande-hub-ui";
+import { PatientWorkflowHubHeader } from "@/components/patient/patient-workflow-hub-header";
+import { type HubTab } from "@/components/requests/demande-hub-ui";
 import { PatientPromoReservationHubCard } from "@/components/promo/promo-reservation-hub-card";
 import { PromoReservationsHubDashboard } from "@/components/promo/promo-reservations-hub-dashboard";
 import { PageShell } from "@/components/ui/compact-shell";
@@ -262,25 +262,15 @@ export function PatientPromoReservationsHub() {
   }
 
   return (
-    <PageShell maxWidthClass="max-w-3xl" className="space-y-4">
-      <PatientAccountPageHeader
-        eyebrow={ta("myDossiers")}
+    <PageShell maxWidthClass="max-w-3xl" className="space-y-3">
+      <PatientWorkflowHubHeader
         title={t("hubTitle")}
-        subtitle={t("hubSubtitle")}
+        accent="emerald"
         backHref="/dashboard/patient/pharmacies"
         backLabel={ta("backToPharmacies")}
-        trailing={
-          <Link href="/dashboard/notifications" className={p.headerAction}>
-            {tc("notifications")}
-          </Link>
-        }
-      />
-
-      <DemandeHubTabBar
         tab={tab}
         onTab={setTab}
-        tabOrder="listFirst"
-        labels={{
+        tabLabels={{
           dashboard: tList("dashboardTab"),
           list: t("dashboard.allReservations"),
         }}
@@ -301,10 +291,8 @@ export function PatientPromoReservationsHub() {
         )
       ) : (
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-bold text-foreground">{t("dashboard.allReservations")}</h2>
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <label className="flex cursor-pointer items-center gap-1.5 text-xs">
                 <input
                   type="checkbox"
                   checked={activeOnly}
@@ -312,15 +300,14 @@ export function PatientPromoReservationsHub() {
                   className="rounded border-input"
                 />
                 {tList("activeOnly")}
-              </label>
-              <button
-                type="button"
-                onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
-                className={filterBtn}
-              >
-                {filtersPanelExpanded ? tList("hideFilters") : tList("filters")}
-              </button>
-            </div>
+            </label>
+            <button
+              type="button"
+              onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
+              className={filterBtn}
+            >
+              {filtersPanelExpanded ? tList("hideFilters") : tList("filters")}
+            </button>
           </div>
 
           {listHasActiveFilters && !filtersPanelExpanded ? (

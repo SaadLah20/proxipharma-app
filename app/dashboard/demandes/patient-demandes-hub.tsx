@@ -6,9 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
 import { Search } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { PatientAccountPageHeader } from "@/components/patient/patient-account-page-header";
+import { PatientWorkflowHubHeader } from "@/components/patient/patient-workflow-hub-header";
 import { RequestKindHubDashboard } from "@/components/requests/hub/request-kind-hub-dashboard";
-import { DemandeHubTabBar, type HubTab, type PatientRequestRow } from "@/components/requests/demande-hub-ui";
+import { type HubTab, type PatientRequestRow } from "@/components/requests/demande-hub-ui";
 import { PatientProductDemandeHubCard } from "@/components/requests/product/patient-product-demande-hub-card";
 import { filterPatientProductHubListRows } from "@/lib/patient-product-hub-sections";
 import {
@@ -20,7 +20,7 @@ import {
   hubListFiltersPanelExpanded,
   hubListHasManualFilters,
 } from "@/lib/hub-list-filter-chrome";
-import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
+import { patientHubDashboardAccent } from "@/lib/patient-workflow-hub-dashboard-ui";
 import { PageShell } from "@/components/ui/compact-shell";
 import { bucketForStatusParam, isPatientArchiveBucketKey, patientRequestActiveStatuses } from "@/lib/demandes-hub-buckets";
 import { one } from "@/lib/embed";
@@ -53,7 +53,6 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const workflowCopy = useRequestKindPatientCopy(kindId);
   const tHub = useTranslations("hub");
   const tList = useTranslations("hub.listChrome");
-  const tAccount = useTranslations("account");
   const tCommon = useTranslations("common");
   const tDemandes = useTranslations("demandes");
   const locale = useLocale() as AppLocale;
@@ -296,12 +295,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
         ? tHub("dashboard.allConsultations")
         : tHub("dashboard.allRequests");
 
-  const hubSubtitle =
-    kindId === "prescription"
-      ? tList("subtitlePrescription")
-      : kindId === "free_consultation"
-        ? tList("subtitleConsultation")
-        : tList("subtitleProduct");
+  const hubAccent = patientHubDashboardAccent(kindId, "patient") ?? "sky";
 
   if (loading) {
     return (
@@ -314,7 +308,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   if (error && rows.length === 0) {
     return (
       <PageShell maxWidthClass="max-w-3xl">
-        <Link href="/" className={p.backLink}>
+        <Link href="/" className="text-xs font-medium text-primary underline underline-offset-2">
           ← Annuaire
         </Link>
         <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</p>
@@ -342,35 +336,23 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     <PatientHubCatalogPriceVisibilityProvider visibilityByPharmacyId={catalogPriceVisibilityByPharmacyId}>
     <PageShell
       maxWidthClass="max-w-3xl"
-      className="space-y-4"
+      className="space-y-3"
     >
-      <PatientAccountPageHeader
-        eyebrow={tAccount("myDossiers")}
+      <PatientWorkflowHubHeader
         title={workflowCopy.patientHubTitle}
-        subtitle={hubSubtitle}
-        trailing={
-          <Link href="/dashboard/notifications" className={p.headerAction}>
-            {tCommon("notifications")}
-          </Link>
-        }
+        accent={hubAccent}
+        tab={tab}
+        onTab={setTab}
+        tabLabels={{
+          dashboard: tList("dashboardTab"),
+          list: listTabLabel,
+        }}
       />
-
-      <div className="mt-1">
-        <DemandeHubTabBar
-          tab={tab}
-          onTab={setTab}
-          tabOrder="listFirst"
-          labels={{
-            dashboard: tList("dashboardTab"),
-            list: listTabLabel,
-          }}
-        />
-      </div>
 
       {tab === "dashboard" ? (
         <>
           {rows.length === 0 ? (
-            <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center sm:p-8">
+            <div className="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center sm:p-8">
               <p className="text-sm font-medium text-foreground">{emptyTitle}</p>
               <p className="mt-1 text-[11px] text-muted-foreground">{emptyHint}</p>
               <Link
@@ -381,23 +363,19 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
               </Link>
             </div>
           ) : (
-            <div className="mt-4">
-              <RequestKindHubDashboard
-                kindId={kindId}
-                role="patient"
-                rows={rows}
-                basePath={hubPath}
-                unreadById={unreadById}
-              />
-            </div>
+            <RequestKindHubDashboard
+              kindId={kindId}
+              role="patient"
+              rows={rows}
+              basePath={hubPath}
+              unreadById={unreadById}
+            />
           )}
         </>
       ) : (
-        <div className="mt-4 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-bold text-foreground">{listTabLabel}</h2>
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <label className="flex cursor-pointer items-center gap-1.5 text-xs">
                 <input
                   type="checkbox"
                   checked={activeOnly}
@@ -405,15 +383,14 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                   className="rounded border-input"
                 />
                 {tList("activeOnly")}
-              </label>
-              <button
-                type="button"
-                onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
-                className={filterBtn}
-              >
-                {filtersPanelExpanded ? tList("hideFilters") : tList("filters")}
-              </button>
-            </div>
+            </label>
+            <button
+              type="button"
+              onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
+              className={filterBtn}
+            >
+              {filtersPanelExpanded ? tList("hideFilters") : tList("filters")}
+            </button>
           </div>
 
           {listHasActiveFilters && !filtersPanelExpanded ? (
