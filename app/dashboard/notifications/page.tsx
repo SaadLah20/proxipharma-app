@@ -99,7 +99,7 @@ export default function NotificationsPage() {
     await markAlertNotificationsAsRead(supabase, uid);
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { markAlertsAsRead?: boolean }) => {
     setError("");
     const { data: auth } = await supabase.auth.getSession();
     const user = auth.session?.user;
@@ -199,22 +199,28 @@ export default function NotificationsPage() {
       }),
     ].sort((a, b) => b.created_at.localeCompare(a.created_at));
 
-    setRows(alertRows);
+    const markAlerts = opts?.markAlertsAsRead === true;
+    const nowIso = new Date().toISOString();
+    const nextRows = markAlerts
+      ? alertRows.map((r) => (!r.read_at ? { ...r, read_at: nowIso } : r))
+      : alertRows;
+
+    setRows(nextRows);
     setMessageThreads(inbox.threads);
     setMessageUnreadCount(inbox.unreadCount);
-    setAlertUnreadCount(alertUnread);
+    setAlertUnreadCount(markAlerts ? 0 : alertUnread);
     setLoading(false);
+
+    if (markAlerts) {
+      await markAlertNotificationsAsRead(supabase, user.id);
+    }
   }, [router]);
 
   useEffect(() => {
-    const tid = window.setTimeout(() => void load(), 0);
+    const markOnLoad = channelFromSearch(searchParams.get("onglet")) === "notifications";
+    const tid = window.setTimeout(() => void load({ markAlertsAsRead: markOnLoad }), 0);
     return () => window.clearTimeout(tid);
-  }, [load]);
-
-  useEffect(() => {
-    if (loading || channelTab !== "notifications" || !userId) return;
-    void markAlertRowsAsRead(userId);
-  }, [channelTab, loading, markAlertRowsAsRead, userId]);
+  }, [load, searchParams]);
 
   const filtered = useMemo(() => {
     if (filter === "all") return rows;
@@ -260,9 +266,12 @@ export default function NotificationsPage() {
 
   const handleChannelChange = useCallback(
     (tab: InboxChannelTab) => {
+      if (tab === "notifications" && userId) {
+        void markAlertRowsAsRead(userId);
+      }
       setChannelTab(tab);
     },
-    [setChannelTab],
+    [markAlertRowsAsRead, setChannelTab, userId],
   );
 
   const refreshAfterMessageOpen = useCallback(() => {

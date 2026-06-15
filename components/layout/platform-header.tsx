@@ -10,7 +10,6 @@ import {
   CalendarClock,
   ChevronDown,
   ClipboardList,
-  FileText,
   Gift,
   LayoutDashboard,
   LogOut,
