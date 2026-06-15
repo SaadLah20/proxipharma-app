@@ -74,6 +74,10 @@ export const commonFr = {
   totalLabel: "TOTAL",
   visitChangesVisibleToPharmacy: "La pharmacie voit les changements sur la demande.",
   visitEditHint: "Modifiez la date ou l'heure puis enregistrez ci-dessous.",
+  visitPickupWindowHint:
+    "Si vous ne pouvez pas passer à la date prévue, modifiez-la ici. Sans changement, le dossier sera clos automatiquement 24 h après le passage prévu (ou le lendemain soir si vous n'avez pas indiqué d'heure).",
+  visitAbandonUrgencyBanner:
+    "Clôture automatique prévue le {deadline} — modifiez votre date de passage si vous ne pouvez pas venir.",
   emailTitle: "Courriel",
   writeToPharmacy: "Écrire à la pharmacie",
   redirecting: "Redirection…",
