@@ -19,6 +19,7 @@ import {
 } from "@/lib/send-request-conversation-message";
 import { ConversationComposer } from "@/components/requests/conversation/conversation-composer";
 import { ConversationMessageBubble } from "@/components/requests/conversation/conversation-message-bubble";
+import { dispatchRequestConversationRead } from "@/lib/request-detail-refresh-bus";
 
 export type ConsultationConversationSeed = {
   text: string;
@@ -192,7 +193,10 @@ export function RequestConversationInline({
 
   const markRead = useCallback(async () => {
     const { error } = await supabase.rpc("mark_request_conversation_read", { p_request_id: requestId });
-    if (!error) onMarkedReadRef.current?.();
+    if (!error) {
+      dispatchRequestConversationRead(requestId);
+      onMarkedReadRef.current?.();
+    }
   }, [requestId]);
 
   useEffect(() => {

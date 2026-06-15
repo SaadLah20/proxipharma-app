@@ -6,6 +6,7 @@ import { CalendarClock, MessageSquare } from "lucide-react";
 import { clsx } from "clsx";
 import type { ConversationInboxRow } from "@/lib/conversation-inbox";
 import {
+  dispatchRequestConversationRead,
   dispatchRequestDetailRefresh,
   notificationHrefTargetsCurrentPath,
   requestIdFromNotificationDemandeHref,
@@ -25,7 +26,8 @@ export function ConversationInboxItem({
   const refLabel = row.requestPublicRef?.trim() || `#${row.requestId.slice(0, 8)}`;
 
   const handleOpen = async () => {
-    await supabase.rpc("mark_request_conversation_read", { p_request_id: row.requestId });
+    const { error } = await supabase.rpc("mark_request_conversation_read", { p_request_id: row.requestId });
+    if (!error) dispatchRequestConversationRead(row.requestId);
     onNavigate?.();
   };
 
