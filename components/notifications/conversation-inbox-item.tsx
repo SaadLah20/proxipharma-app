@@ -10,7 +10,6 @@ import {
   notificationHrefTargetsCurrentPath,
   requestIdFromNotificationDemandeHref,
 } from "@/lib/request-detail-refresh-bus";
-import { markConversationNotificationsReadForRequest } from "@/lib/mark-conversation-notifications-read";
 import { supabase } from "@/lib/supabase";
 
 export function ConversationInboxItem({
@@ -26,14 +25,7 @@ export function ConversationInboxItem({
   const refLabel = row.requestPublicRef?.trim() || `#${row.requestId.slice(0, 8)}`;
 
   const handleOpen = async () => {
-    const { data: auth } = await supabase.auth.getSession();
-    const userId = auth.session?.user?.id;
-    if (userId) {
-      await Promise.all([
-        supabase.rpc("mark_request_conversation_read", { p_request_id: row.requestId }),
-        markConversationNotificationsReadForRequest(supabase, userId, row.requestId),
-      ]);
-    }
+    await supabase.rpc("mark_request_conversation_read", { p_request_id: row.requestId });
     onNavigate?.();
   };
 

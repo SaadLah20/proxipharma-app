@@ -131,7 +131,7 @@ export default function NotificationsPage() {
         .eq("recipient_id", user.id)
         .order("created_at", { ascending: false })
         .limit(60),
-      loadConversationInbox(supabase, { userId: user.id, role: r, locale, limit: 40 }),
+      loadConversationInbox(supabase, { role: r, limit: 40 }),
       countUnreadAlertNotifications(supabase, user.id),
     ]);
 
@@ -204,7 +204,7 @@ export default function NotificationsPage() {
     setMessageUnreadCount(inbox.unreadCount);
     setAlertUnreadCount(alertUnread);
     setLoading(false);
-  }, [locale, router]);
+  }, [router]);
 
   useEffect(() => {
     const tid = window.setTimeout(() => void load(), 0);

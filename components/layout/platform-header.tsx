@@ -381,7 +381,7 @@ export function PlatformHeader() {
         .order("created_at", { ascending: false })
         .limit(12),
       countUnreadAlertNotifications(supabase, userId),
-      loadConversationInbox(supabase, { userId, role, locale, limit: 12 }),
+      loadConversationInbox(supabase, { role, limit: 12 }),
     ]);
 
     const merged: HeaderNotifRow[] = [
@@ -447,7 +447,7 @@ export function PlatformHeader() {
     setMessageThreads(inbox.threads);
     setAlertUnreadCount(alertUnread);
     setMessageUnreadCount(inbox.unreadCount);
-  }, [locale]);
+  }, []);
 
   const markAlertNotificationsRead = useCallback(async () => {
     const userId = session?.user?.id;
@@ -529,6 +529,17 @@ export function PlatformHeader() {
           schema: "public",
           table: "promo_in_app_notifications",
           filter: `recipient_id=eq.${userId}`,
+        },
+        () => {
+          void loadProfileAndNotifs(userId);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "request_comments",
         },
         () => {
           void loadProfileAndNotifs(userId);
