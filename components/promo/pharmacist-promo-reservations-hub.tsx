@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clsx } from "clsx";
 import { Search } from "lucide-react";
-import { PharmacistAccountPageHeader } from "@/components/pharmacist/pharmacist-account-page-header";
-import { DemandeHubTabBar, type HubTab } from "@/components/requests/demande-hub-ui";
+import { useTranslations } from "next-intl";
+import { PharmacistWorkflowHubHeader } from "@/components/pharmacist/pharmacist-workflow-hub-header";
+import { type HubTab } from "@/components/requests/demande-hub-ui";
 import { PharmacistPromoReservationHubCard } from "@/components/promo/promo-reservation-hub-card";
 import { PromoReservationsHubDashboard } from "@/components/promo/promo-reservations-hub-dashboard";
 import { PageShell } from "@/components/ui/compact-shell";
@@ -20,6 +21,8 @@ import { loadPharmacistPharmacyId } from "@/lib/pharmacy-staff-context";
 import {
   bucketForPromoStatusParam,
   filterPromoHubListRows,
+  isPatientPromoArchiveBucketKey,
+  pharmacistPromoActiveStatuses,
   promoDashboardBucketsForRole,
 } from "@/lib/promo/reservation-hub-buckets";
 import {
@@ -37,7 +40,7 @@ import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
 const HUB_PATH = "/dashboard/pharmacien/reservations-packs";
 
 function tabFromSearch(v: string | null): HubTab {
-  return v === "liste" ? "list" : "dashboard";
+  return v === "dashboard" ? "dashboard" : "list";
 }
 
 function tabToSearch(t: HubTab): string {
@@ -48,6 +51,7 @@ export function PharmacistPromoReservationsHub() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tab = tabFromSearch(searchParams.get("vue"));
+  const tList = useTranslations("hub.listChrome");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -55,6 +59,7 @@ export function PharmacistPromoReservationsHub() {
   const [patientFilter, setPatientFilter] = useState("");
   const [refQuery, setRefQuery] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
+  const [activeOnly, setActiveOnly] = useState(true);
   const [filtersExpandedUser, setFiltersExpandedUser] = useState<boolean | null>(null);
 
   const dashboardBuckets = useMemo(() => promoDashboardBucketsForRole("pharmacien"), []);
@@ -180,6 +185,12 @@ export function PharmacistPromoReservationsHub() {
   let filteredList = filterPromoHubListRows(rows, {
     bucketStatuses: activeBucket?.statuses ?? null,
   });
+  const applyActiveOnly =
+    activeOnly && !(activeBucket && isPatientPromoArchiveBucketKey(activeBucket.key));
+  if (applyActiveOnly) {
+    const activeStatuses = new Set(pharmacistPromoActiveStatuses());
+    filteredList = filteredList.filter((r) => activeStatuses.has(r.status));
+  }
   if (patientFilter) {
     filteredList = (filteredList as RowWithPatientId[]).filter((r) => r.patient_id === patientFilter);
   }
@@ -200,6 +211,8 @@ export function PharmacistPromoReservationsHub() {
     referenceQuery: refQuery,
     sortNewestFirst,
     entityFieldLabel: "Patient",
+    activeOnly,
+    includeArchivesLabel: tList("includeArchives"),
   });
 
   const listHasActiveFilters = promoHubListHasActiveFilters({
@@ -207,6 +220,7 @@ export function PharmacistPromoReservationsHub() {
     entityLabel: patientFilterLabel,
     referenceQuery: refQuery,
     sortNewestFirst,
+    activeOnly,
   });
 
   const hasManualListFilters = hubListHasManualFilters({
@@ -226,6 +240,7 @@ export function PharmacistPromoReservationsHub() {
     setPatientFilter("");
     setRefQuery("");
     setSortNewestFirst(true);
+    setActiveOnly(true);
     setFiltersExpandedUser(null);
     const next = new URLSearchParams(searchParams.toString());
     next.set("vue", "liste");
@@ -252,25 +267,21 @@ export function PharmacistPromoReservationsHub() {
   }
 
   return (
-    <PageShell maxWidthClass="max-w-4xl" className="space-y-4">
-      <PharmacistAccountPageHeader
-        eyebrow="Dossiers & réservations"
+    <PageShell maxWidthClass="max-w-4xl" className="space-y-3">
+      <PharmacistWorkflowHubHeader
         title="Réservations packs promo"
-        subtitle="Demandes de réservation sur vos offres promo publiées."
+        accent="emerald"
+        tab={tab}
+        onTab={setTab}
+        tabLabels={{
+          dashboard: tList("dashboardTab"),
+          list: "Toutes les réservations",
+        }}
         trailing={
           <Link href="/dashboard/pharmacien/offres-promos" className={chrome.ctaOutline}>
             Offres et promos
           </Link>
         }
-      />
-
-      <DemandeHubTabBar
-        tab={tab}
-        onTab={setTab}
-        labels={{
-          dashboard: "Tableau de bord",
-          list: "Toutes les réservations",
-        }}
       />
 
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
@@ -291,24 +302,32 @@ export function PharmacistPromoReservationsHub() {
         )
       ) : (
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-bold text-foreground">Toutes les réservations</h2>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+              <input
+                type="checkbox"
+                checked={activeOnly}
+                onChange={(e) => setActiveOnly(e.target.checked)}
+                className="rounded border-input"
+              />
+              {tList("activeOnly")}
+            </label>
             <button
               type="button"
               onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
               className={filterBtn}
             >
-              {filtersPanelExpanded ? "Masquer les filtres" : "Filtres"}
+              {filtersPanelExpanded ? tList("hideFilters") : tList("filters")}
             </button>
           </div>
 
           {listHasActiveFilters && !filtersPanelExpanded ? (
             <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-[11px] leading-snug text-foreground">
               <p>
-                <span className="font-semibold">Filtres actifs :</span> {listFiltersSummary}
+                <span className="font-semibold">{tList("activeFilters")}</span> {listFiltersSummary}
               </p>
               <button type="button" onClick={clearListFilters} className={clsx("mt-1.5", filterChrome.clearLink)}>
-                Tout effacer
+                {tList("clearAll")}
               </button>
             </div>
           ) : null}
@@ -380,10 +399,10 @@ export function PharmacistPromoReservationsHub() {
 
           {filteredSorted.length === 0 ? (
             <div className="space-y-2 py-6 text-center text-xs text-muted-foreground">
-              <p>{rows.length === 0 ? "Aucune réservation pour le moment." : "Aucun résultat pour ces filtres."}</p>
+              <p>{rows.length === 0 ? "Aucune réservation pour le moment." : tList("noResults")}</p>
               {listHasActiveFilters ? (
                 <button type="button" onClick={clearListFilters} className={filterChrome.clearLink}>
-                  Effacer les filtres
+                  {tList("clearFilters")}
                 </button>
               ) : null}
             </div>

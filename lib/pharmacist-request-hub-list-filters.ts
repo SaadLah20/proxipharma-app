@@ -5,6 +5,9 @@ export type PharmacistHubListFilterSummaryInput = {
   patientLabel: string | null;
   referenceQuery: string;
   sortNewestFirst: boolean;
+  /** Défaut `true` — ne figure pas dans le résumé. */
+  activeOnly?: boolean;
+  includeArchivesLabel?: string;
 };
 
 export function pharmacistHubListActiveFilterParts(input: PharmacistHubListFilterSummaryInput): string[] {
@@ -20,6 +23,9 @@ export function pharmacistHubListActiveFilterParts(input: PharmacistHubListFilte
   }
   if (!input.sortNewestFirst) {
     parts.push("Tri : plus anciennes d’abord");
+  }
+  if (input.activeOnly === false && input.includeArchivesLabel) {
+    parts.push(input.includeArchivesLabel);
   }
   return parts;
 }

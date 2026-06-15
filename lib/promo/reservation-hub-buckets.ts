@@ -154,3 +154,12 @@ export function patientPromoActiveStatuses(
     .filter((b) => !isPatientPromoArchiveBucketKey(b.key))
     .flatMap((b) => b.statuses);
 }
+
+/** Statuts groupe « À suivre » (liste pharmacien « actives seulement »). */
+export function pharmacistPromoActiveStatuses(
+  buckets: PromoStatBucket[] = PHARMACIST_PROMO_DASHBOARD_BUCKETS_FR,
+): readonly PromoReservationStatus[] {
+  return buckets
+    .filter((b) => !isPatientPromoArchiveBucketKey(b.key))
+    .flatMap((b) => b.statuses);
+}
