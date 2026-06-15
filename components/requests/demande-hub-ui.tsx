@@ -113,7 +113,45 @@ export type PharmacistRequestRow = {
   }[] | null;
 };
 
-function hubTabButtonClass(active: boolean): string {
+export type HubTabAccent = "sky" | "amber" | "violet" | "emerald";
+
+function embeddedTabTrackClass(accent: HubTabAccent): string {
+  switch (accent) {
+    case "sky":
+      return "bg-sky-100/35 ring-sky-100/45";
+    case "amber":
+      return "bg-amber-100/30 ring-amber-100/40";
+    case "violet":
+      return "bg-violet-100/30 ring-violet-100/40";
+    case "emerald":
+      return "bg-emerald-100/30 ring-emerald-100/40";
+  }
+}
+
+function embeddedTabActiveClass(accent: HubTabAccent): string {
+  switch (accent) {
+    case "sky":
+      return "bg-white/95 text-sky-950 shadow-sm ring-1 ring-sky-200/55";
+    case "amber":
+      return "bg-white/95 text-amber-950 shadow-sm ring-1 ring-amber-200/50";
+    case "violet":
+      return "bg-white/95 text-violet-950 shadow-sm ring-1 ring-violet-200/50";
+    case "emerald":
+      return "bg-white/95 text-emerald-950 shadow-sm ring-1 ring-emerald-200/50";
+  }
+}
+
+function hubTabButtonClass(
+  active: boolean,
+  variant: "standalone" | "embedded" = "standalone",
+  accent?: HubTabAccent,
+): string {
+  if (variant === "embedded" && accent) {
+    return clsx(
+      "flex-1 rounded-md px-2 py-1.5 text-center text-xs font-semibold transition sm:px-3 sm:text-sm",
+      active ? embeddedTabActiveClass(accent) : "text-muted-foreground hover:text-foreground",
+    );
+  }
   return clsx(
     "flex-1 rounded-md px-2 py-1.5 text-center text-xs font-semibold transition sm:px-3 sm:text-sm",
     active
@@ -127,19 +165,24 @@ export function DemandeHubTabBar({
   onTab,
   labels,
   tabOrder = "dashboardFirst",
+  variant = "standalone",
+  accent,
 }: {
   tab: HubTab;
   onTab: (t: HubTab) => void;
   labels: { dashboard: string; list: string };
   /** Patient : liste à gauche ; pharmacien : tableau de bord à gauche (défaut). */
   tabOrder?: "dashboardFirst" | "listFirst";
+  /** Bandeau parcours patient — onglets intégrés avec accent discret. */
+  variant?: "standalone" | "embedded";
+  accent?: HubTabAccent;
 }) {
   const dashboardBtn = (
     <button
       key="dashboard"
       type="button"
       onClick={() => onTab("dashboard")}
-      className={hubTabButtonClass(tab === "dashboard")}
+      className={hubTabButtonClass(tab === "dashboard", variant, accent)}
     >
       {labels.dashboard}
     </button>
@@ -149,14 +192,19 @@ export function DemandeHubTabBar({
       key="list"
       type="button"
       onClick={() => onTab("list")}
-      className={hubTabButtonClass(tab === "list")}
+      className={hubTabButtonClass(tab === "list", variant, accent)}
     >
       {labels.list}
     </button>
   );
 
+  const trackClass =
+    variant === "embedded" && accent
+      ? clsx("flex rounded-lg p-0.5 ring-1", embeddedTabTrackClass(accent))
+      : "flex rounded-lg bg-muted/60 p-0.5 ring-1 ring-border/80";
+
   return (
-    <div className="flex rounded-lg bg-muted/60 p-0.5 ring-1 ring-border/80">
+    <div className={trackClass}>
       {tabOrder === "listFirst" ? [listBtn, dashboardBtn] : [dashboardBtn, listBtn]}
     </div>
   );
