@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260822_001`** si pas fait — après abandon pharmacien **`20260821_001`**, recherche catalogue **`20260822_001`**) → phrase **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260826_001`** si pas fait — après inbox conversation **`20260825_001`**, WhatsApp M2 **`20260826_001`**) → phrase **§13.65** (WhatsApp M2) ou **§13.64** (expiration passage) ou **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -390,11 +390,42 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
+### Session 2026-06-15 (suite) — WhatsApp M2 lot 2 + inbox notifications
+
+**Branches mergées `main`** : PR **#369** (`feature/whatsapp-m2-lot2-partial`), PR **#370** (`feature/notifications-messages-tabs`).
+
+**WhatsApp M2 lot 2 partiel** (commit **`e1f5eb5`**) :
+- Templates actifs : produit reçu, rupture dispo (patient) ; dossier validé (pharmacien).
+- Migration **`20260826_001_whatsapp_m2_lot2_partial.sql`**.
+- Vars Vercel : `_PRODUCT_ARRIVED`, `_SHORTAGE_AVAILABLE`, `_PHARMACY_CONFIRMED` — configurées prod.
+- **8 événements WhatsApp** actifs ; **6 en attente** (3 user-initiated Meta + 3 passage à soumettre) — **`docs/WHATSAPP-NOTIFS-REPRISE.md`**.
+
+**Inbox notifications** (PR **#370**) :
+- Onglets **Alertes** / **Messages** ; pastille unique cloche.
+- Migration **`20260825_001_request_conversation_inbox.sql`** — RPC **`request_conversation_inbox`**, **`mark_request_conversation_read`**, compteur non lus.
+- Migration **`20260824_001_planned_visit_update_grace.sql`** — grâce modification date passage.
+- Ouverture conversation via **`?conversation=1`** sur chargement dossier.
+
+**Phrase de reprise** : **§13.65**.
+
 ### Session 2026-06-15 — Expiration passage traité + rappels
 
+**Branche** : `feature/validated-supply-patient-lock` — commit **`2c2ee6b`** (fix build + livraison complète).
+
+**Migration** (ordre, si pas déjà fait) :
 - **`20260823_001_pickup_window_expiration.sql`** — helpers `_planned_visit_passage_at` / `_planned_visit_abandon_at` ; RPC cron **`remind_planned_visit_passage`**, **`alert_pharmacist_pickup_missed`**, **`remind_pharmacist_responded_expiry`**, **`abandon_overdue_pickup_requests`** ; notifs in-app + e-mail (+ WhatsApp si SID Meta).
-- Cron **`expire-overdue-requests`** étendu ; env test **`PLANNED_VISIT_DAY_REMINDER_HOUR`** (défaut 10).
+
+**Règle métier** :
+- Dossier **`treated`**, **`product_request`**, lignes retenues actives, **aucun** `picked_up` : si le patient ne modifie pas la date de passage → **`abandoned`** (`auto_abandon_after_pickup_window`).
+- **Date seule** : échéance fin **J+1 23:59** (Casablanca) ; rappel patient ~**10 h** le jour J.
+- **Date + heure** : échéance **passage + 24 h** ; rappel patient **T−2 h**.
+- Pharmacien : alerte **T−1 h** avant expiration **`responded`** ; alerte juste après passage manqué.
+
+**App** :
+- Cron **`/api/cron/expire-overdue-requests`** (GitHub Actions 5 min) — env test **`PLANNED_VISIT_DAY_REMINDER_HOUR`** (défaut 10).
 - UI patient/pharmacien + i18n FR/AR ; helper TS **`lib/planned-visit-abandon-deadline.ts`**.
+
+**Phrase de reprise** : **§13.64**.
 
 ### Session 2026-06-14 (suite 2) — Recherche catalogue + sauvegarde photos BeautyMall
 
@@ -2499,8 +2530,13 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260817_001_whatsapp_c_pilote_pharmacist_enqueue.sql` (enqueue WhatsApp pharmacien nouvelle demande)
   - `supabase/migrations/20260820_001_pharmacy_pricing_catalog_visibility.sql` (**masquer PU patient avant réponse** + override produit pricing)
   - `supabase/migrations/20260821_001_pharmacist_abandon_request.sql` (**abandon direct pharmacien** validé/traité avec motif)
+  - `supabase/migrations/20260822_001_product_search_relevance_rank.sql` (recherche catalogue — score préfixe nom)
+  - `supabase/migrations/20260823_001_pickup_window_expiration.sql` (**expiration passage traité** + rappels patient/pharmacien)
+  - `supabase/migrations/20260824_001_planned_visit_update_grace.sql` (grâce modification date passage)
+  - `supabase/migrations/20260825_001_request_conversation_inbox.sql` (inbox conversation + sync lecture)
+  - `supabase/migrations/20260826_001_whatsapp_m2_lot2_partial.sql` (WhatsApp M2 lot 2 : produit, rupture, validée pharma)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260822_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** ; catalogue **~19 677** ; photos catalogue = URLs BeautyMall (sauvegarde locale **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`**) ; i18n patient **~1 220** clés FR/AR. Reprise courte : **§13.63** (photos) ou **§13.62**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260826_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** ; catalogue **~19 677** ; photos catalogue = URLs BeautyMall (sauvegarde locale **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`**) ; i18n patient **~1 334** clés FR/AR ; **8 notifs WhatsApp actives**. Reprise courte : **§13.65** (WhatsApp M2) ou **§13.64** (expiration passage) ou **§13.63** (photos) ou **§13.62**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2508,7 +2544,8 @@ Regles fonctionnelles retenues (alignement dernier atelier):
 - **Prix catalogue officine** (depuis **`20260619_001`**, migration **appliquée**) : résolution via **`lib/pharmacy-pricing`** + RPC **`resolve_pharmacy_product_unit_price`** / **`pharmacy_pricing_config_public_get`** — **médicament = PPV** ; **parapharmacie = PPH + marge** (global / laboratoire / produit, voir **`/dashboard/pharmacien/pricing`**). Patient : libellé **Prix / PU** uniquement. **`request_items.unit_price`** = prix saisi ou résolu à l’enregistrement pharmacien (lignes déjà répondues).
 - Le client peut **modifier et renvoyer** une demande produit **avant réponse** (`submitted`|`in_review`) ou **après réponse** (`responded` uniquement pour ce flux ; en **`confirmed`** le renvoi liste est retiré côté UI — abandon possible) via RPC `patient_resubmit_product_request_after_response` → retour **`submitted`**, reset préparation pharma.
 - Le **retrait reel** au comptoir est porte par le **pharmacien**: colonne par ligne `request_items.counter_outcome` (en UI post-validé **saisie brouillon** limitée à **`unset`** / **`picked_up`** pour les lignes non figées ; valeurs legacy **`deferred_next_visit`** / **`cancelled_at_counter`** restent en base et sont affichées en lecture seule ou normalisées à l’enregistrement). **Clôture** dossier : **`pharmacist_complete_request_after_counter`** accessible dès qu’**au moins une** ligne retenue (non écartée) est **`picked_up`**, avec **confirmation** si d’autres lignes retenues ne le sont pas encore.
-- **Après réponse** : l’app ne renseigne plus **`expires_at` +7 j** sur publication (pilote). L’expiration **`responded`** sans validation patient repose sur **`expire_overdue_requests()`** (cron **`service_role`** ou **`/api/cron/expire-overdue-requests`**) : **`responded_at`** vs **`now()`** ; défaut **24 h** (**`20260523_001`**) ; **`expires_at`** non nul reste pris en charge en seconde passe. **`abandon_unconfirmed_responded_requests()`** = alias. Les **`request_items`** sont limités à **qté 1–10** et **un seul `product_id` par demande**.
+- **Après réponse** : l’app ne renseigne plus **`expires_at` +7 j** sur publication (pilote). L’expiration **`responded`** sans validation patient repose sur **`expire_overdue_requests()`** (cron **`service_role`** ou **`/api/cron/expire-overdue-requests`**) : **`responded_at`** vs **`now()`** ; défaut **24 h** (**`20260523_001`**) ; rappel patient **T−4 h** ; alerte pharmacien **T−1 h** (**`20260823_001`**). **`expires_at`** non nul reste pris en charge en seconde passe. **`abandon_unconfirmed_responded_requests()`** = alias.
+- **Après traité (`treated`)** : sans retrait comptoir ni modification **`patient_planned_visit_date/time`** → **`abandoned`** auto (**`abandon_overdue_pickup_requests`**, **`20260823_001`**) — fin **J+1 23:59** Casablanca (date seule) ou **passage + 24 h** (avec heure). Distinct de **`expired`** (pré-validation). Rappels passage patient ; alerte pharmacien passage manqué. Helper UI **`lib/planned-visit-abandon-deadline.ts`**. Les **`request_items`** sont limités à **qté 1–10** et **un seul `product_id` par demande**.
 - Les statuts enum `partially_collected` / `fully_collected` restent en base mais le flux officiel livre passe par **`completed`**; `patient_mark_collected` nest plus callable par le JWT patient (obsolete).
 
 Implémentation frontend associée repo (voir journal §10 dont **Sessions 2026-05-03**, **2026-05-05**, **2026-05-06** et **lot plateforme / codes publics 2026-05-05**):
@@ -2812,6 +2849,14 @@ Voir **§13.37**.
 
 **« Affinage i18n arabe patient §13.58 — étapes 1–5 livrées sur `fix/validated-supply-ecart-ui-modal`. Preview AR ou épique hors pilote (catalogue, SMS, pharmacien AR). Je te donne la tâche ou les retours. »**
 
+### 13.65) Phrase de reprise (WhatsApp M2 lot 2 + inbox — juin 2026)
+
+**« Pharmeto (`pharmeto.ma`) — reprise WhatsApp M2 lot 2 + inbox. **Migrations** (si pas fait, ordre) : **`20260825_001`** (inbox conversation) puis **`20260826_001`** (WhatsApp confirmed pharma). **WhatsApp prod** : 8 événements actifs (PR **#369**) — vars Vercel `_PRODUCT_ARRIVED`, `_SHORTAGE_AVAILABLE`, `_PHARMACY_CONFIRMED` OK. **En attente** : 3 templates Meta user-initiated seulement + 3 templates passage à soumettre — **`docs/WHATSAPP-NOTIFS-REPRISE.md`**. **Inbox** : onglets Alertes/Messages (PR **#370**). Je te donne la tâche ou les retours preview. »**
+
+### 13.64) Phrase de reprise (expiration passage traité — juin 2026)
+
+**« Pharmeto (`pharmeto.ma`) — reprise session **2026-06-15** expiration passage. **Migration Supabase** (si pas fait, après **`20260822_001`**) : **`20260823_001_pickup_window_expiration.sql`**. **Règle** : dossier **`treated`** sans `picked_up` et sans changement de date → **`abandoned`** auto (`auto_abandon_after_pickup_window`) — fin J+1 23:59 (sans heure) ou passage + 24 h (avec heure). **Cron** : `/api/cron/expire-overdue-requests` (5 min) — expire `responded`, rappels passage, alertes pharma. **App** : encarts patient/pharmacien, bandeau urgence, archive `autoPickupMissed` ; **`lib/planned-visit-abandon-deadline.ts`**. **WhatsApp passage** : templates Meta en attente — in-app + e-mail actifs (**`docs/WHATSAPP-NOTIFS-REPRISE.md`** lot expiration). Branche possible : **`feature/validated-supply-patient-lock`**. Je te donne la tâche ou les retours preview. »**
+
 ### 13.63) Phrase de reprise (indépendance photos catalogue BeautyMall — juin 2026)
 
 **« Pharmeto — indépendance photos catalogue BeautyMall. Lis **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`** et dis-moi à quelle phase on en est (manifeste **`catalog/images/beautymall-download-manifest.json`**, comptage fichiers locaux, SQL **`photo_url`** BeautyMall vs Storage). **Phase 1** : `node --use-system-ca scripts/download-beautymall-catalog-images.mjs` (sauvegarde PC, pas Storage). **Phase 4 prod** : `node --use-system-ca scripts/attach-catalog-images.mjs --category beautymall_catalog`. Noms/descriptions déjà en base — seules les photos dépendent encore de BeautyMall. Branche courante possible : **`feature/product-search-relevance-rank`** ; migration **`20260822_001`** si pas appliquée. Je te donne la tâche ou les retours. »**
@@ -2988,7 +3033,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail courante : **`main`** (dernier lot journal §10 **2026-06-14** — pricing patient PR #352, abandon pharmacien, admin pilote, WhatsApp M2 lot 1). Refonte UX Glovo-like **abandonnée** (branche **`design/ux-refonte-2026`** supprimée — voir §10 **2026-06-01**) ; UI/UX = affinages incrémentaux. Supabase pilote : migrations jusqu’à **`20260821_001`** ; annuaire public = **Al Jazira seule** ; catalogue **~19 677** produits. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.62**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail courante : **`main`** (dernier lot journal §10 **2026-06-15** — WhatsApp M2 lot 2 + inbox notifications + expiration passage). Refonte UX Glovo-like **abandonnée** ; UI/UX = affinages incrémentaux. Supabase pilote : migrations jusqu’à **`20260826_001`** ; **8 notifs WhatsApp actives**. Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.65**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
