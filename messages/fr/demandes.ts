@@ -581,10 +581,13 @@ export const notificationsFr = {
   pageTitle: "Notifications",
   empty: "Aucune notification.",
   emptyFeed: "Aucune notification pour le moment.",
+  emptyMessagesFeed: "Aucun message récent pour le moment.",
   markAllRead: "Tout marquer comme lu",
   patientEyebrow: "Espace patient",
   patientSubtitle:
     "Demandes (produits, ordonnances, consultations) et réservations de packs promo.",
+  tabNotifications: "Notifications",
+  tabMessages: "Messages",
   filterAll: "Tout",
   filterProductRequests: "Demandes produits",
   filterPrescriptions: "Ordonnances",

@@ -27,6 +27,9 @@ export const headerFr = {
     ariaLabel: "Notifications",
     title: "Notifications",
     empty: "Aucune notification récente.",
+    emptyMessages: "Aucun message récent.",
+    tabNotifications: "Notifications",
+    tabMessages: "Messages",
     viewAll: "Tout voir",
   },
   account: {
