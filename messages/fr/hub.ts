@@ -121,7 +121,7 @@ export const hubFr = {
     respondedTotalIfAll: " · env. {amount} MAD si tout est retenu",
     treatedWaitingPrimary: "{count, plural, one {# produit en attente de votre passage} other {# produits en attente de votre passage}}",
     treatedRetainedPrimary: "{count, plural, one {# produit retenu} other {# produits retenus}}",
-    treatedSecondary: "Préparation terminée — retrait ou suivi au comptoir",
+    treatedSecondary: "Préparation terminée — passez ou modifiez la date de passage",
     prescriptionEnteredPrimary: "{count, plural, one {# produit saisi par l'officine} other {# produits saisis par l'officine}}",
     prescriptionScanPrimary: "Ordonnance transmise — saisie en cours",
     prescriptionPrepSecondary: "Réponse officine en préparation",

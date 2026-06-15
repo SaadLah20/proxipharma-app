@@ -3,16 +3,22 @@ import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { smsRequestShortToken } from "@/lib/sms-request-short-link";
 
-/** WhatsApp pilote patient — répondu, traité, expiré, rappel validation (v2 link). */
+/** WhatsApp pilote patient — répondu, traité, expiré, rappel validation + passage (v2 link). */
 export const WHATSAPP_PATIENT_EVENT_TYPES = new Set<string>([
   "request_status:responded",
   "request_status:treated",
   "request_status:expired",
   "request_event:responded_expiry_reminder",
+  "request_event:planned_visit_day_reminder",
+  "request_event:planned_visit_pre_passage_reminder",
 ]);
 
-/** WhatsApp pilote pharmacien C-pilote — nouvelle demande. */
-export const WHATSAPP_PHARMACIST_EVENT_TYPES = new Set<string>(["request_status:submitted"]);
+/** WhatsApp pilote pharmacien — nouvelle demande + alertes passage / validation. */
+export const WHATSAPP_PHARMACIST_EVENT_TYPES = new Set<string>([
+  "request_status:submitted",
+  "request_event:planned_visit_passed_no_pickup",
+  "request_event:responded_expiry_pharmacist_reminder",
+]);
 
 /** Modèles CTA Meta avec token lien court en variable {{3}}. */
 export const WHATSAPP_LINK_EVENT_TYPES = new Set<string>([
@@ -20,7 +26,11 @@ export const WHATSAPP_LINK_EVENT_TYPES = new Set<string>([
   "request_status:treated",
   "request_status:expired",
   "request_event:responded_expiry_reminder",
+  "request_event:planned_visit_day_reminder",
+  "request_event:planned_visit_pre_passage_reminder",
   "request_status:submitted",
+  "request_event:planned_visit_passed_no_pickup",
+  "request_event:responded_expiry_pharmacist_reminder",
 ]);
 
 export type WhatsAppDispatchResult = {
@@ -50,6 +60,26 @@ export function resolveWhatsAppContentSid(eventType: string): string | null {
   }
   if (eventType === "request_event:responded_expiry_reminder") {
     return process.env.TWILIO_WHATSAPP_CONTENT_SID_REMINDER?.trim() ?? null;
+  }
+  if (eventType === "request_event:planned_visit_day_reminder") {
+    return (
+      process.env.TWILIO_WHATSAPP_CONTENT_SID_PICKUP_REMINDER?.trim() ??
+      process.env.TWILIO_WHATSAPP_CONTENT_SID_REMINDER?.trim() ??
+      null
+    );
+  }
+  if (eventType === "request_event:planned_visit_pre_passage_reminder") {
+    return (
+      process.env.TWILIO_WHATSAPP_CONTENT_SID_PICKUP_REMINDER?.trim() ??
+      process.env.TWILIO_WHATSAPP_CONTENT_SID_REMINDER?.trim() ??
+      null
+    );
+  }
+  if (eventType === "request_event:planned_visit_passed_no_pickup") {
+    return process.env.TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PICKUP_MISSED?.trim() ?? null;
+  }
+  if (eventType === "request_event:responded_expiry_pharmacist_reminder") {
+    return process.env.TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_RESPONDED_EXPIRY?.trim() ?? null;
   }
   if (eventType === "request_status:submitted") {
     return process.env.TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_NEW_REQUEST?.trim() ?? null;

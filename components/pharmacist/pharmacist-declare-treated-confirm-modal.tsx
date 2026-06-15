@@ -151,7 +151,7 @@ export function PharmacistDeclareTreatedConfirmModal({
           <p className="mt-3 rounded-lg border border-border/70 bg-muted/15 px-2.5 py-2 text-[10px] leading-snug text-muted-foreground">
             {isAlreadyTreated
               ? "Cette action confirme que la préparation est finalisée. Vous pourrez continuer à marquer les réceptions et retraits ligne par ligne."
-              : "Après confirmation, le dossier passera en « Traitée ». Vous pourrez ensuite marquer les réceptions en officine et les retraits au comptoir sur chaque produit."}
+              : "Après confirmation, le dossier passera en « Traitée ». Le patient peut modifier sa date de passage ; sans passage ni changement de date, le dossier se ferme automatiquement 24 h après la date prévue."}
           </p>
         </div>
         <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-muted/10 px-3 py-3 sm:flex-row sm:justify-end sm:px-4">

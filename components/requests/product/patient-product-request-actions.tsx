@@ -7,7 +7,6 @@ import {
   ChevronDown,
   History,
   Layers,
-  Calendar,
   MessageCircle,
   Package,
   Pencil,
@@ -60,7 +59,12 @@ import {
   requestItemLineSourceFr,
   requestStatusBadgeClass,
 } from "@/lib/request-display";
-import { plannedVisitWindow, dateOnlyAddDays, isPlannedVisitPassageOverdue } from "@/lib/planned-visit";
+import { plannedVisitWindow, dateOnlyAddDays } from "@/lib/planned-visit";
+import {
+  formatPlannedVisitAbandonDeadlineFr,
+  plannedVisitAbandonWithinHours,
+  plannedVisitPassageOverdue,
+} from "@/lib/planned-visit-abandon-deadline";
 import {
   loadScheduleBundleForPharmacy,
   type PharmacyScheduleBundle,
@@ -1923,7 +1927,7 @@ function validatePatientConfirmBeforeReview(
   if (rawVisit === "") {
     return fail(copy.visitDateRequired, "visit_passage");
   }
-  if (isPlannedVisitPassageOverdue(rawVisit, visitTimeComposed)) {
+  if (plannedVisitPassageOverdue(rawVisit, visitTimeComposed)) {
     return fail(copy.visitPassageDatePassed, "visit_passage");
   }
   if (rawVisit < visitWin.minYmd || rawVisit > visitWin.maxYmd) {
@@ -2489,7 +2493,7 @@ export function PatientProductRequestActions({
     if (!visitPassageStatusEditable) return false;
     const raw = visitDate.trim().slice(0, 10);
     if (!raw) return false;
-    return isPlannedVisitPassageOverdue(raw, visitTimeComposed);
+    return plannedVisitPassageOverdue(raw, visitTimeComposed);
   }, [visitPassageStatusEditable, visitDate, visitTimeComposed]);
 
   const visitDateInputMinYmd = useMemo(() => {
@@ -3166,7 +3170,7 @@ export function PatientProductRequestActions({
       focusVisitPassageBlock(tCommon("visitDateRequiredToValidate"));
       return;
     }
-    if (isPlannedVisitPassageOverdue(rawVisit, visitTimeComposed)) {
+    if (plannedVisitPassageOverdue(rawVisit, visitTimeComposed)) {
       focusVisitPassageBlock(tCommon("visitPassageDatePassed"));
       return;
     }
@@ -3263,6 +3267,27 @@ export function PatientProductRequestActions({
     [visitTimeComposed, initialPlannedVisitTime]
   );
 
+  const pickupAbandonUrgency = useMemo(() => {
+    if (!isTreatedActiveView) return null;
+    const dateYmd = (initialPlannedVisitDate ?? "").trim();
+    if (!dateYmd) return null;
+    const timeForDeadline =
+      (initialPlannedVisitTime ?? "").trim() !== ""
+        ? initialPlannedVisitTime
+        : visitTimeComposed.trim() !== ""
+          ? visitTimeComposed
+          : null;
+    if (!plannedVisitAbandonWithinHours(dateYmd, timeForDeadline, 24)) return null;
+    const deadline = formatPlannedVisitAbandonDeadlineFr(dateYmd, timeForDeadline);
+    if (!deadline) return null;
+    return deadline;
+  }, [
+    isTreatedActiveView,
+    initialPlannedVisitDate,
+    initialPlannedVisitTime,
+    visitTimeComposed,
+  ]);
+
   const archivePassageFootnote = useMemo(() => {
     if (!showArchivePassageLine) return null;
     return dt.archiveLastPlannedVisitFootnote(plannedVisitDateYmd, plannedVisitTimePg);
@@ -3298,6 +3323,8 @@ export function PatientProductRequestActions({
   const showConfirm = uiStatus === "responded";
   const showVisitFields = (showConfirm || showConfirmedCards) && !forceReadOnly;
   const visitFieldsEditable = showVisitFields;
+  const showVisitPickupWindowHint =
+    visitFieldsEditable && (status === "confirmed" || status === "treated") && !forceReadOnly;
 
   const latestSupplyAmendmentNotice =
     showConfirmedCards ? pharmaAmendmentCopy.latestSupplyAmendmentNotice(supplyAmendmentBundles) : null;
@@ -3373,7 +3400,6 @@ export function PatientProductRequestActions({
   const confirmAllPreviewLines = confirmReviewSnap?.preview ?? [];
   const confirmSkippedLines = confirmReviewSnap?.skippedLines ?? [];
 
-  const useCompactPassageBlock = !forceReadOnly && showConfirmedCards;
   const workflowDossierSectionShell = patientWorkflowDossierSectionShellClass(requestType);
   const useWorkflowAccentDossierShell =
     hasPatientWorkflowAccentShell(requestType) &&
@@ -3422,7 +3448,7 @@ export function PatientProductRequestActions({
     : isCancelledProductArchive
       ? archiveCopy.cancelledHintShort()
       : isAbandonedProductArchive
-        ? archiveCopy.abandonedHintShort()
+        ? archiveCopy.abandonedHintShort(terminalHistoryEntry)
         : isClosedProductArchive
           ? archiveCopy.closedHintShort({ terminalStatus: status, items })
           : tCommon("archiveReadOnly");
@@ -4257,79 +4283,29 @@ export function PatientProductRequestActions({
           />
         ) : null}
 
+        {pickupAbandonUrgency ? (
+          <p
+            role="status"
+            className="rounded-lg border border-amber-300/80 bg-amber-50 px-3 py-2 text-[11px] font-semibold leading-snug text-amber-950"
+          >
+            {tCommon("visitAbandonUrgencyBanner", { deadline: pickupAbandonUrgency })}
+          </p>
+        ) : null}
+
         {showVisitFields ? (
           <div
             ref={visitPassageBlockRef}
             className={clsx(
-              "mt-4 space-y-2 border-t border-border/60 pt-3",
-              useCompactPassageBlock && "text-center",
-              !useCompactPassageBlock &&
-                "rounded-xl border-2 p-2.5 shadow-md sm:p-3",
-              !useCompactPassageBlock &&
-                visitFieldsEditable &&
-                !displayedVisitPassageError &&
-                "border-primary/35 bg-gradient-to-br from-primary/[0.12] via-background to-primary/[0.06] ring-1 ring-primary/25",
-              !useCompactPassageBlock &&
-                visitFieldsEditable &&
-                displayedVisitPassageError &&
-                "border-destructive/50 bg-destructive/5 ring-2 ring-destructive/25",
-              !useCompactPassageBlock &&
-                !visitFieldsEditable &&
-                "border-slate-200/90 bg-slate-50/80 ring-1 ring-slate-200/50",
-              useCompactPassageBlock &&
-                displayedVisitPassageError &&
+              "mt-4 space-y-2 border-t border-border/60 pt-3 text-center",
+              displayedVisitPassageError &&
                 "rounded-xl border-2 border-destructive/50 bg-destructive/5 p-2.5 ring-2 ring-destructive/25"
             )}
           >
-            {!useCompactPassageBlock ? (
-              <div className="flex items-center gap-2">
-                <span
-                  className={clsx(
-                    "flex size-9 shrink-0 items-center justify-center rounded-lg shadow-sm ring-1",
-                    visitFieldsEditable
-                      ? "bg-primary/15 text-primary ring-primary/20"
-                      : "bg-slate-200/80 text-slate-600 ring-slate-200/80"
-                  )}
-                >
-                  <Calendar className="size-4" strokeWidth={2} aria-hidden />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-foreground">
-                    {tCommon("visitDateLabel")}
-                  </p>
-                  <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
-                    {visitFieldsEditable
-                      ? tCommon("visitDateHint")
-                      : tCommon("readOnlyConsultationDossier")}
-                  </p>
-                </div>
-              </div>
-            ) : null}
-            <div
-              className={clsx(
-                "flex gap-2",
-                useCompactPassageBlock
-                  ? "mx-auto w-fit max-w-full flex-row flex-wrap items-end justify-center"
-                  : "flex-col sm:flex-row sm:items-stretch"
-              )}
-            >
-              {useCompactPassageBlock ? (
-                <p className="shrink-0 self-center text-xs font-bold leading-snug text-foreground">
-                  {tCommon("plannedVisitPassageIntro")}
-                </p>
-              ) : null}
-              <label
-                className={clsx(
-                  "flex min-w-0 flex-col gap-1",
-                  useCompactPassageBlock ? "w-[8rem] sm:w-[8.5rem]" : "flex-1"
-                )}
-              >
-                {!useCompactPassageBlock ? (
-                  <span className="text-[11px] font-semibold text-foreground">
-                    {tCommon("fieldDate")}{" "}
-                    {visitFieldsEditable && showConfirm ? <span className="text-destructive">*</span> : null}
-                  </span>
-                ) : null}
+            <div className="mx-auto flex w-fit max-w-full flex-row flex-wrap items-end justify-center gap-2">
+              <p className="shrink-0 self-center text-xs font-bold leading-snug text-foreground">
+                {tCommon("plannedVisitPassageIntro")}
+              </p>
+              <label className="flex w-[8rem] min-w-0 flex-col gap-1 sm:w-[8.5rem]">
                 <PlannedVisitDateInput
                   key={visitSyncKey}
                   valueYmd={visitFieldsEditable ? visitDate : resolvedVisitDate}
@@ -4341,12 +4317,7 @@ export function PatientProductRequestActions({
                   invalid={Boolean(displayedVisitPassageError)}
                 />
               </label>
-              <div
-                className={clsx(
-                  "flex shrink-0 flex-col gap-1",
-                  useCompactPassageBlock ? "w-[6.75rem] sm:w-[7.25rem]" : "w-full sm:w-[8.25rem]"
-                )}
-              >
+              <div className="flex w-[6.75rem] shrink-0 flex-col gap-1 sm:w-[7.25rem]">
                 <span className="text-[11px] font-semibold text-foreground">
                   {tCommon("fieldTime")}{" "}
                   <span className="font-normal text-muted-foreground">{tCommon("optionalParen")}</span>
@@ -4357,7 +4328,7 @@ export function PatientProductRequestActions({
                   onHourChange={handleVisitHourChange}
                   onMinuteChange={handleVisitMinuteChange}
                   disabled={!visitFieldsEditable}
-                  appearance={useCompactPassageBlock ? "unified" : "split"}
+                  appearance="unified"
                   className="w-full"
                 />
               </div>
@@ -4365,39 +4336,28 @@ export function PatientProductRequestActions({
             {displayedVisitPassageError ? (
               <p
                 role="alert"
-                className={clsx(
-                  "text-[11px] font-semibold leading-snug text-destructive",
-                  useCompactPassageBlock && "mx-auto max-w-md"
-                )}
+                className="mx-auto max-w-md text-[11px] font-semibold leading-snug text-destructive"
               >
                 {displayedVisitPassageError}
               </p>
             ) : null}
             {visitTimeFr ? (
-              <span
-                className={clsx(
-                  "block text-[10px] font-medium text-muted-foreground",
-                  useCompactPassageBlock && "mx-auto max-w-md"
-                )}
-              >
+              <span className="mx-auto block max-w-md text-[10px] font-medium text-muted-foreground">
                 {tCommon("visitSavedAt", { time: visitTimeFr })}
               </span>
             ) : null}
-            {useCompactPassageBlock && visitFieldsEditable && showConfirmedCards && status === "confirmed" ? (
+            {visitFieldsEditable && showConfirmedCards && status === "confirmed" ? (
               <p className="mx-auto max-w-md text-[10px] leading-snug text-muted-foreground">
                 {tCommon("visitChangesVisibleToPharmacy")}
               </p>
-            ) : !useCompactPassageBlock && visitFieldsEditable && showConfirmedCards && status === "confirmed" ? (
-              <p className="text-[10px] leading-snug text-primary/90">
-                {tCommon("visitChangesVisibleToPharmacy")}
-              </p>
-            ) : useCompactPassageBlock && visitFieldsEditable && isTreatedActiveView ? (
+            ) : visitFieldsEditable && isTreatedActiveView ? (
               <p className="mx-auto max-w-md text-[10px] leading-snug text-muted-foreground">
                 {tCommon("visitEditHint")}
               </p>
-            ) : !useCompactPassageBlock && visitFieldsEditable && isTreatedActiveView ? (
-              <p className="text-[10px] leading-snug text-sky-900/85">
-                {tCommon("visitEditHint")}
+            ) : null}
+            {showVisitPickupWindowHint ? (
+              <p className="mx-auto max-w-md text-[10px] leading-snug text-muted-foreground">
+                {tCommon("visitPickupWindowHint")}
               </p>
             ) : null}
             {showConfirmedCards && !confirmedRevalidationMode && visitFieldsEditable ? (
@@ -4410,10 +4370,7 @@ export function PatientProductRequestActions({
                   visitScheduleBlocksSubmit
                 }
                 onClick={() => void runUpdateVisit()}
-                className={clsx(
-                  uiActionBtnFull("mt-2 flex items-center justify-center"),
-                  useCompactPassageBlock && "mx-auto max-w-md",
-                )}
+                className={uiActionBtnFull("mx-auto mt-2 flex max-w-md items-center justify-center")}
               >
                 {busyAction === "visit"
                   ? tCommon("updating")

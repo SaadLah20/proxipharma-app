@@ -31,13 +31,13 @@ export const PHARMACIST_PRODUCT_HUB_SECTIONS: PharmacistProductHubSection[] = [
   {
     id: "awaiting_patient_validation",
     title: "En attente du patient",
-    subtitle: "Réponse publiée — le patient doit valider sous 24 h",
+    subtitle: "Réponse publiée — le patient doit valider sous 24 h (alerte ~1 h avant expiration)",
     statuses: ["responded"],
   },
   {
     id: "awaiting_patient",
     title: "Passage patient / comptoir",
-    subtitle: "Préparation déclarée traitée — le patient passe en officine pour le retrait",
+    subtitle: "Préparation traitée — retrait comptoir ; clôture auto si passage manqué + 24 h",
     statuses: ["treated"],
   },
   {
@@ -180,7 +180,7 @@ export function pharmacistProductHubCardContextFr(row: PharmacistRequestRow): Ph
             : "Passage patient — prêt à clôturer le dossier",
         secondaryLine:
           wait > 0
-            ? "Préparation déclarée — marquez les retraits au comptoir à l’arrivée du patient"
+            ? "Préparation déclarée — marquez les retraits ; clôture auto si passage manqué + 24 h"
             : "Marquez les retraits puis clôturez le dossier",
         emphasis: "info",
       };

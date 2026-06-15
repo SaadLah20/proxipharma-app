@@ -4,6 +4,11 @@ import type { AppLocale } from "@/lib/i18n/config";
 const TITLE_AR_BY_FR: Record<string, string> = {
   "Passage en pharmacie mis à jour": "تم تحديث موعد زيارة الصيدلية",
   "Rappel — validation en attente": "تذكير — التأكيد قيد الانتظار",
+  "Rappel — passage prévu aujourd'hui": "تذكير — زيارة اليوم",
+  "Rappel — passage dans 2 h": "تذكير — زيارة خلال ساعتين",
+  "Dossier clos — passage non effectué": "ملف مُغلق — لم تتم الزيارة",
+  "Passage non effectué": "زيارة غير مُنجزة",
+  "Validation patient imminente": "تأكيد المريض وشيك",
   "Mise à jour après validation": "تحديث بعد التأكيد",
   "Produit reçu en officine": "منتج وصل إلى الصيدلية",
   "Produit reçu en pharmacie": "منتج وصل إلى الصيدلية",

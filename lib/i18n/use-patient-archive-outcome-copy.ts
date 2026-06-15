@@ -120,16 +120,31 @@ export function usePatientArchiveOutcomeCopy() {
     [terminalDetailWithActor],
   );
 
-  const abandonedHintShort = useCallback(() => t("abandoned.short"), [t]);
-
   const abandonedHintDetail = useCallback(
-    (entry: ArchiveHistoryRow | null): string =>
-      terminalDetailWithActor(entry, {
+    (entry: ArchiveHistoryRow | null): string => {
+      if (entry?.reason === "auto_abandon_after_pickup_window") {
+        const when = formatDateTimeShort(entry.created_at);
+        return when
+          ? t("autoPickupMissed.detailWithDate", { when })
+          : t("autoPickupMissed.detailNoDate");
+      }
+      return terminalDetailWithActor(entry, {
         withActor: "abandoned.detailWithActor",
         withMotive: "abandoned.detailWithMotive",
         default: "abandoned.detailDefault",
-      }),
-    [terminalDetailWithActor],
+      });
+    },
+    [terminalDetailWithActor, formatDateTimeShort, t],
+  );
+
+  const abandonedHintShort = useCallback(
+    (entry: ArchiveHistoryRow | null): string => {
+      if (entry?.reason === "auto_abandon_after_pickup_window") {
+        return t("autoPickupMissed.short");
+      }
+      return t("abandoned.short");
+    },
+    [t],
   );
 
   const abandonedPrescriptionEmptyDetail = useCallback(

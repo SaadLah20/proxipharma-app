@@ -5430,19 +5430,22 @@ export default function PharmacienDemandeDetailPage() {
           "Répondez au patient puis publiez la proposition (alternatives possibles par onglet).";
       }
     } else if (request.status === "responded") {
-      dossierStatusHint = "En attente de validation patient — délai 24 h après votre réponse.";
+      dossierStatusHint =
+        "En attente de validation patient — délai 24 h après votre réponse (alerte ~1 h avant expiration).";
     } else if (request.status === "confirmed") {
       dossierStatusHint =
         "Commande validée — préparez les lignes, déclarez traitée quand c’est prêt, puis suivez le comptoir.";
     } else if (request.status === "treated") {
       const pickedN = pharmacistCounterPickedUpCount(items);
+      const pickupWindowNote =
+        " Sans passage ni modification de date par le patient, le dossier se ferme automatiquement 24 h après la date prévue.";
       dossierStatusHint = canCompleteCounter
         ? pickedN > 0 && counterClosurePendingTracked > 0
           ? `${pickedN} produit${pickedN > 1 ? "s" : ""} récupéré${pickedN > 1 ? "s" : ""} — vous pouvez clôturer (les non récupérés seront retirés).`
           : "Au moins un produit récupéré — vous pouvez clôturer le dossier."
         : counterClosurePendingTracked > 0
-          ? "Comptoir : marquez au moins un produit « Récupéré » pour pouvoir clôturer."
-          : "Marquez « Récupéré » sur au moins une ligne retenue pour clôturer le dossier.";
+          ? `Comptoir : marquez au moins un produit « Récupéré » pour pouvoir clôturer.${pickupWindowNote}`
+          : `Marquez « Récupéré » sur au moins une ligne retenue pour clôturer le dossier.${pickupWindowNote}`;
     }
   }
 

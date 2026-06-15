@@ -2,22 +2,22 @@ import { timelineEventsFr } from "./timeline-events";
 
 export const demandesFr = {
   statusHints: {
-    responded: "Validez votre choix et votre date de passage.",
+    responded: "Validez votre choix sous 24 h et indiquez votre date de passage.",
     confirmedPrescription: "Préparation en cours selon l'ordonnance.",
     confirmedDefault: "Préparation en cours à l'officine.",
-    treated: "Passez à l'officine pour retirer vos produits.",
+    treated: "Passez à l'officine pour retirer vos produits — modifiez la date si besoin.",
     inReview: "L'officine examine votre demande.",
     submitted: "Demande envoyée — en attente de réponse.",
   },
   statusDetails: {
     responded:
-      "Pour chaque produit : garder ou non, quantité, alternative éventuelle, puis date de passage et validation.",
+      "Pour chaque produit : garder ou non, quantité, alternative éventuelle, puis date de passage et validation. Sans validation sous 24 h après la réponse officine, le dossier expire.",
     confirmedPrescription:
       "La pharmacie prépare votre commande selon les produits saisis sur l'ordonnance. Les mises à jour restent visibles sur cette page.",
     confirmedDefault:
       "Votre pharmacie prépare la commande (mise de côté et commandes fournisseur selon les produits). Les mises à jour restent visibles sur cette page.",
     treated:
-      "Vous pouvez passer à l'officine pour retirer les produits réservés et ceux commandés déjà reçus. Le suivi par produit est indiqué sur chaque carte.",
+      "Passez retirer vos produits à la date prévue. Si vous ne pouvez pas venir, modifiez la date ci-dessous — sans changement, le dossier sera clos automatiquement 24 h après le passage prévu (ou le lendemain si vous n'avez pas indiqué d'heure).",
   },
   validatedBuckets: {
     reservedForYou: "Réservés pour vous",
@@ -324,6 +324,15 @@ export const demandesFr = {
           "Ordonnance annulée.{motive} Votre scan reste consultable ci-dessous.",
         prescriptionEmptyDefault: "Ordonnance annulée. Votre scan reste consultable ci-dessous.",
       },
+      autoPickupMissed: {
+        short: "Dossier clos — passage non effectué.",
+        detailWithDate:
+          "Vous n'êtes pas passé à la date prévue et le délai de 24 h est dépassé sans modification de date. Le dossier a été fermé automatiquement le {when}.",
+        detailNoDate:
+          "Vous n'êtes pas passé à la date prévue et le délai est dépassé sans modification de date. Le dossier a été fermé automatiquement.",
+        hintProduct:
+          "Vous pouvez créer une nouvelle demande avec les mêmes produits si besoin.",
+      },
       abandoned: {
         short: "Demande abandonnée.",
         detailWithActor:
@@ -415,9 +424,9 @@ export const demandesFr = {
     productSteps: {
       s0: { status: "Envoyée", title: "Vous envoyez votre liste", body: "La pharmacie reçoit la demande et peut la modifier tant qu'elle n'a pas publié sa réponse." },
       s1: { status: "En cours de traitement", title: "L'officine examine le dossier", body: "Disponibilité, prix indicatifs et éventuelles alternatives sont renseignés produit par produit." },
-      s2: { status: "Répondue — à valider", title: "Vous validez votre choix", body: "Pour chaque ligne : garder ou non, quantité, alternative éventuelle, puis date de passage et validation." },
+      s2: { status: "Répondue — à valider", title: "Vous validez votre choix", body: "Pour chaque ligne : garder ou non, quantité, alternative éventuelle, puis date de passage et validation — sous 24 h après la réponse officine." },
       s3: { status: "Validée", title: "Préparation en officine", body: "Réservation ou commande fournisseur selon les produits retenus ; suivi visible sur chaque carte." },
-      s4: { status: "Traitée", title: "Passage au comptoir", body: "Retrait des produits prêts ; la pharmacie peut clôturer le dossier après les retraits." },
+      s4: { status: "Traitée", title: "Passage au comptoir", body: "Retrait des produits prêts. Si vous ne pouvez pas passer, modifiez la date — sinon le dossier se ferme automatiquement 24 h après le passage prévu." },
       s5: { status: "Clôturée", title: "Dossier terminé", body: "Tout a été récupéré ou le dossier est clos (annulation, expiration, etc.)." },
     },
     prescriptionSteps: {
@@ -425,7 +434,7 @@ export const demandesFr = {
       s1: { status: "En cours de traitement", title: "Saisie par la pharmacie", body: "L'officine lit votre ordonnance et saisit les produits (qté prescrite, disponibilité, alternatives)." },
       s2: { status: "Répondue — à valider", title: "Vous validez les produits proposés", body: "Pour chaque ligne : garder ou non, quantité, alternative éventuelle, puis date de passage et validation." },
       s3: { status: "Validée", title: "Préparation en officine", body: "Réservation ou commande selon les produits retenus ; suivi visible sur chaque carte." },
-      s4: { status: "Traitée", title: "Passage au comptoir", body: "Retrait des produits prêts ; la pharmacie peut clôturer le dossier après les retraits." },
+      s4: { status: "Traitée", title: "Passage au comptoir", body: "Retrait des produits prêts. Si vous ne pouvez pas passer, modifiez la date — sinon le dossier se ferme automatiquement 24 h après le passage prévu." },
       s5: { status: "Clôturée", title: "Ordonnance close", body: "Tout a été récupéré ou le dossier est clos (annulation, expiration, etc.)." },
     },
   },
@@ -722,7 +731,7 @@ export const accountFr = {
   notificationPrefs: {
     titleDefault: "Alertes hors application (pilote)",
     introPatientSettings:
-      "E-mail : mêmes alertes que dans l'app si votre profil a une adresse. WhatsApp : réponse officine, rappel avant expiration, dossier traité, produit reçu ou de nouveau disponible, dossier expiré — si votre numéro est renseigné.",
+      "E-mail : mêmes alertes que dans l'app si votre profil a une adresse. WhatsApp : réponse officine, rappel validation, rappels passage, dossier traité, produit reçu ou de nouveau disponible, dossier expiré ou clos — si votre numéro est renseigné.",
     introPatientDefault:
       "En plus des notifications dans Pharmeto, vous pouvez activer l'e-mail (mêmes alertes que dans l'app) ou WhatsApp pour les étapes importantes de vos dossiers — lorsque votre profil contient une adresse e-mail ou un numéro mobile (champ WhatsApp, format international).",
     introPharmacist:

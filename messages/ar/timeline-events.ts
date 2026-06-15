@@ -287,6 +287,10 @@ export const timelineEventsAr = {
         patient: "تم تسجيل الإغلاق (استلام كامل)",
         pharmacist: "أُغلق الملف بعد الصندوق",
       },
+      treated_to_abandoned: {
+        patient: "ملف مُغلق تلقائياً : لم تتم الزيارة في المهلة",
+        pharmacist: "ملف مُغلق تلقائياً : زيارة غير مُنجزة",
+      },
       any_to_cancelled: {
         patient: "تم إلغاء الطلب",
         pharmacist: "تم إلغاء الطلب",
@@ -323,6 +327,7 @@ export const timelineEventsAr = {
       treated_to_completed: "أُغلق الملف بعد الاستلام عند الصندوق.",
       treated_to_partially_collected: "تم تسجيل الإغلاق (استلام جزئي).",
       treated_to_fully_collected: "تم تسجيل الإغلاق (استلام كامل).",
+      treated_to_abandoned: "ملف مُغلق تلقائياً : لم تتم الزيارة في المهلة.",
       cancelled: "تم إلغاء الطلب.",
       abandoned: "تم التخلي عن الطلب.",
       expired: "انتهت صلاحية الطلب.",

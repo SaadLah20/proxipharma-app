@@ -73,6 +73,10 @@ export const commonAr = {
   totalLabel: "المجموع",
   visitChangesVisibleToPharmacy: "ترى الصيدلية التغييرات على الطلب.",
   visitEditHint: "عدّل التاريخ أو الوقت ثم احفظ أدناه.",
+  visitPickupWindowHint:
+    "إن لم تستطع الحضور في الموعد، عدّل التاريخ هنا. بدون تغيير، يُغلق الملف تلقائياً بعد 24 ساعة من الموعد (أو مساء اليوم التالي إن لم تُحدّد ساعة).",
+  visitAbandonUrgencyBanner:
+    "إغلاق تلقائي متوقع في {deadline} — عدّل تاريخ زيارتك إن لم تستطع الحضور.",
   emailTitle: "البريد الإلكتروني",
   writeToPharmacy: "مراسلة الصيدلية",
   redirecting: "جاري التحويل…",

@@ -70,6 +70,12 @@ const DOSSIER_ONLY_REASON_KEYS = new Set([
   "auto_expire_24h_after_response",
   "expire_overdue_requests",
   "auto_abandon_24h_after_response",
+  "auto_abandon_after_pickup_window",
+  "responded_expiry_reminder",
+  "responded_expiry_pharmacist_reminder",
+  "planned_visit_day_reminder",
+  "planned_visit_pre_passage_reminder",
+  "planned_visit_passed_no_pickup",
   "patient_abandon_request",
 ]);
 
