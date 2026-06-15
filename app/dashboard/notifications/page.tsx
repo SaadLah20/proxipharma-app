@@ -18,7 +18,6 @@ import {
   countUnreadAlertNotifications,
   loadConversationInbox,
   markAlertNotificationsAsRead,
-  markSingleAlertNotificationRead,
   type ConversationInboxRow,
 } from "@/lib/conversation-inbox";
 import { pickPatientNotificationText } from "@/lib/i18n/pick-notification-text";
@@ -275,18 +274,6 @@ export default function NotificationsPage() {
     [markAlertRowsAsRead, setChannelTab, userId],
   );
 
-  const handleNotificationNavigate = useCallback(
-    (row: FeedRow) => {
-      if (!row.read_at && userId) {
-        const nowIso = new Date().toISOString();
-        void markSingleAlertNotificationRead(supabase, { id: row.id, source: row.source });
-        setAlertUnreadCount((count) => Math.max(0, count - 1));
-        setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, read_at: nowIso } : r)));
-      }
-    },
-    [userId],
-  );
-
   const handleMessageNavigate = useCallback((requestId: string) => {
     setMessageThreads((prev) => {
       const hadUnread = prev.some((t) => t.requestId === requestId && t.hasUnread);
@@ -382,7 +369,6 @@ export default function NotificationsPage() {
                     eventType={n.event_type}
                     href={n.href}
                     isRead={Boolean(n.read_at)}
-                    onNavigate={() => handleNotificationNavigate(n)}
                   />
                 </li>
               ))}

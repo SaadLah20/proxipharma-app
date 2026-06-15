@@ -40,7 +40,6 @@ import {
   countUnreadAlertNotifications,
   loadConversationInbox,
   markAlertNotificationsAsRead,
-  markSingleAlertNotificationRead,
   type ConversationInboxRow,
 } from "@/lib/conversation-inbox";
 import { supabase } from "@/lib/supabase";
@@ -638,6 +637,7 @@ export function PlatformHeader() {
                       setProfileOpen(false);
                       if (next) {
                         setInboxTab("notifications");
+                        void markAlertNotificationsRead();
                       }
                     }}
                     className="relative flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm hover:bg-muted/50"
@@ -694,22 +694,7 @@ export function PlatformHeader() {
                                     createdAt={n.created_at}
                                     eventType={n.event_type}
                                     href={n.href}
-                                    onNavigate={() => {
-                                      if (!n.read_at) {
-                                        const nowIso = new Date().toISOString();
-                                        void markSingleAlertNotificationRead(supabase, {
-                                          id: n.id,
-                                          source: n.source,
-                                        });
-                                        setAlertUnreadCount((count) => Math.max(0, count - 1));
-                                        setNotifications((prev) =>
-                                          prev.map((row) =>
-                                            row.id === n.id ? { ...row, read_at: nowIso } : row,
-                                          ),
-                                        );
-                                      }
-                                      setNotifOpen(false);
-                                    }}
+                                    onNavigate={() => setNotifOpen(false)}
                                     compact
                                     isRead={Boolean(n.read_at)}
                                   />
