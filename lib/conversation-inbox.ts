@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppLocale } from "@/lib/i18n/config";
+import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { requestDetailHrefWithConversationFocus } from "@/lib/request-detail-conversation-focus";
 
 export type ConversationInboxRow = {
@@ -22,6 +24,10 @@ type InboxRpcRow = {
   request_public_ref: string | null;
   request_type: string;
   counterpart_label: string;
+  pharmacy_nom: string | null;
+  pharmacy_nom_ar: string | null;
+  patient_full_name: string | null;
+  patient_ref: string | null;
   last_message_at: string;
   last_message_preview: string;
   has_unread: boolean;
@@ -37,6 +43,28 @@ function requestDetailHref(role: string, requestId: string): string {
   return requestDetailHrefWithConversationFocus(base);
 }
 
+export function buildConversationCounterpartLabel(
+  role: string,
+  locale: AppLocale,
+  row: Pick<
+    InboxRpcRow,
+    "counterpart_label" | "pharmacy_nom" | "pharmacy_nom_ar" | "patient_full_name" | "patient_ref"
+  >,
+): string {
+  if (role === "pharmacien") {
+    const name = row.patient_full_name?.trim();
+    const ref = row.patient_ref?.trim();
+    if (name && ref) return `${name} · ${ref}`;
+    if (name) return name;
+    if (ref) return ref;
+    return row.counterpart_label?.trim() || "Patient";
+  }
+  if (role === "patient") {
+    return pharmacyPublicLabel(row.pharmacy_nom, { locale, nomAr: row.pharmacy_nom_ar });
+  }
+  return row.counterpart_label?.trim() || "Pharmacie";
+}
+
 export async function countUnreadConversationThreads(supabase: SupabaseClient): Promise<number> {
   const { data, error } = await supabase.rpc("request_conversation_unread_count");
   if (error) return 0;
@@ -48,10 +76,11 @@ export async function loadConversationInbox(
   supabase: SupabaseClient,
   opts: {
     role: string;
+    locale: AppLocale;
     limit?: number;
   },
 ): Promise<ConversationInboxLoadResult> {
-  const { role, limit = 30 } = opts;
+  const { role, locale, limit = 30 } = opts;
 
   const [{ data: rows, error: inboxErr }, unreadCount] = await Promise.all([
     supabase.rpc("request_conversation_inbox", { p_limit: limit }),
@@ -66,7 +95,7 @@ export async function loadConversationInbox(
     requestId: row.request_id,
     requestPublicRef: row.request_public_ref,
     requestType: row.request_type,
-    counterpartLabel: row.counterpart_label,
+    counterpartLabel: buildConversationCounterpartLabel(role, locale, row),
     lastMessageAt: row.last_message_at,
     lastMessagePreview: row.last_message_preview,
     hasUnread: row.has_unread === true,
@@ -94,6 +123,19 @@ export async function countUnreadAlertNotifications(
       .is("read_at", null),
   ]);
   return (reqUnread ?? 0) + (promoUnread ?? 0);
+}
+
+export async function markSingleAlertNotificationRead(
+  supabase: SupabaseClient,
+  row: { id: string; source: "request" | "promo" },
+): Promise<void> {
+  const nowIso = new Date().toISOString();
+  if (row.source === "promo") {
+    const rawId = row.id.startsWith("promo-") ? row.id.slice("promo-".length) : row.id;
+    await supabase.from("promo_in_app_notifications").update({ read_at: nowIso }).eq("id", rawId);
+    return;
+  }
+  await supabase.from("app_notifications").update({ read_at: nowIso }).eq("id", row.id);
 }
 
 export async function markAlertNotificationsAsRead(
