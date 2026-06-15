@@ -27,6 +27,9 @@ export const headerAr = {
     ariaLabel: "الإشعارات",
     title: "الإشعارات",
     empty: "لا توجد إشعارات حديثة.",
+    emptyMessages: "لا رسائل حديثة.",
+    tabNotifications: "الإشعارات",
+    tabMessages: "الرسائل",
     viewAll: "عرض الكل",
   },
   account: {

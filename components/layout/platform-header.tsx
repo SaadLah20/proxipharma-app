@@ -10,12 +10,10 @@ import {
   CalendarClock,
   ChevronDown,
   ClipboardList,
-  FileText,
   Gift,
   LayoutDashboard,
   LogOut,
   MapPin,
-  MessageSquare,
   Package,
   Settings,
   ShoppingBag,
@@ -29,11 +27,20 @@ import type { Session } from "@supabase/supabase-js";
 import { useLocale, useTranslations } from "next-intl";
 import { PharmetoLogo } from "@/components/brand/pharmeto-logo";
 import { InAppNotificationItem } from "@/components/notifications/in-app-notification-item";
+import { ConversationInboxItem } from "@/components/notifications/conversation-inbox-item";
+import { InboxChannelTabs, type InboxChannelTab } from "@/components/notifications/inbox-channel-tabs";
 import { LocaleRoleGuard } from "@/components/layout/locale-role-guard";
 import { LocaleSwitcher } from "@/components/layout/locale-switcher";
 import { pickPatientNotificationText } from "@/lib/i18n/pick-notification-text";
 import { rewriteForPharmacistView } from "@/lib/patient-copy";
 import type { AppLocale } from "@/lib/i18n/config";
+import { isAlertNotificationEvent } from "@/lib/in-app-notification-channels";
+import {
+  countUnreadAlertNotifications,
+  loadConversationInbox,
+  markAlertNotificationsAsRead,
+  type ConversationInboxRow,
+} from "@/lib/conversation-inbox";
 import { supabase } from "@/lib/supabase";
 
 type ProfileLite = {
@@ -336,7 +343,10 @@ export function PlatformHeader() {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<ProfileLite | null>(null);
   const [notifications, setNotifications] = useState<HeaderNotifRow[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [messageThreads, setMessageThreads] = useState<ConversationInboxRow[]>([]);
+  const [alertUnreadCount, setAlertUnreadCount] = useState(0);
+  const [messageUnreadCount, setMessageUnreadCount] = useState(0);
+  const [inboxTab, setInboxTab] = useState<InboxChannelTab>("notifications");
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [booting, setBooting] = useState(true);
@@ -354,36 +364,30 @@ export function PlatformHeader() {
       setProfile(null);
     }
 
-    const [{ data: requestNotifs }, { data: promoNotifs }, { count: requestUnread }, { count: promoUnread }] =
-      await Promise.all([
-        supabase
-          .from("app_notifications")
-          .select("id,created_at,title,body,title_ar,body_ar,request_id,read_at,event_type")
-          .eq("recipient_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(12),
-        supabase
-          .from("promo_in_app_notifications")
-          .select("id,created_at,title,body,reservation_id,read_at,event_type")
-          .eq("recipient_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(12),
-        supabase
-          .from("app_notifications")
-          .select("id", { count: "exact", head: true })
-          .eq("recipient_id", userId)
-          .is("read_at", null),
-        supabase
-          .from("promo_in_app_notifications")
-          .select("id", { count: "exact", head: true })
-          .eq("recipient_id", userId)
-          .is("read_at", null),
-      ]);
-
     const role = (profileData as ProfileLite | null)?.role ?? "patient";
+
+    const [{ data: requestNotifs }, { data: promoNotifs }, alertUnread, inbox] = await Promise.all([
+      supabase
+        .from("app_notifications")
+        .select("id,created_at,title,body,title_ar,body_ar,request_id,read_at,event_type")
+        .eq("recipient_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(24),
+      supabase
+        .from("promo_in_app_notifications")
+        .select("id,created_at,title,body,reservation_id,read_at,event_type")
+        .eq("recipient_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(12),
+      countUnreadAlertNotifications(supabase, userId),
+      loadConversationInbox(supabase, { role, limit: 12 }),
+    ]);
+
     const merged: HeaderNotifRow[] = [
       ...(Array.isArray(requestNotifs)
-        ? requestNotifs.map((n) => {
+        ? requestNotifs
+            .filter((n) => isAlertNotificationEvent((n as { event_type: string | null }).event_type))
+            .map((n) => {
             const row = n as {
               id: string;
               created_at: string;
@@ -439,31 +443,29 @@ export function PlatformHeader() {
       .slice(0, 12);
 
     setNotifications(merged);
-    setUnreadCount((requestUnread ?? 0) + (promoUnread ?? 0));
+    setMessageThreads(inbox.threads);
+    setAlertUnreadCount(alertUnread);
+    setMessageUnreadCount(inbox.unreadCount);
   }, []);
 
-  const markNotificationsAsRead = useCallback(async () => {
+  const markAlertNotificationsRead = useCallback(async () => {
     const userId = session?.user?.id;
     if (!userId) return;
     const nowIso = new Date().toISOString();
     setNotifications((prev) => prev.map((n) => (!n.read_at ? { ...n, read_at: nowIso } : n)));
-    setUnreadCount(0);
-    const [{ error: reqErr }, { error: promoErr }] = await Promise.all([
-      supabase
-        .from("app_notifications")
-        .update({ read_at: nowIso })
-        .eq("recipient_id", userId)
-        .is("read_at", null),
-      supabase
-        .from("promo_in_app_notifications")
-        .update({ read_at: nowIso })
-        .eq("recipient_id", userId)
-        .is("read_at", null),
-    ]);
-    if (reqErr || promoErr) {
-      if (userId) await loadProfileAndNotifs(userId);
-    }
-  }, [loadProfileAndNotifs, session?.user?.id]);
+    setAlertUnreadCount(0);
+    await markAlertNotificationsAsRead(supabase, userId);
+  }, [session?.user?.id]);
+
+  const handleInboxTabChange = useCallback(
+    (tab: InboxChannelTab) => {
+      setInboxTab(tab);
+      if (tab === "notifications") {
+        void markAlertNotificationsRead();
+      }
+    },
+    [markAlertNotificationsRead],
+  );
 
   useEffect(() => {
     const init = async () => {
@@ -474,7 +476,9 @@ export function PlatformHeader() {
       } else {
         setProfile(null);
         setNotifications([]);
-        setUnreadCount(0);
+        setMessageThreads([]);
+        setAlertUnreadCount(0);
+        setMessageUnreadCount(0);
       }
       setBooting(false);
     };
@@ -488,7 +492,9 @@ export function PlatformHeader() {
       } else {
         setProfile(null);
         setNotifications([]);
-        setUnreadCount(0);
+        setMessageThreads([]);
+        setAlertUnreadCount(0);
+        setMessageUnreadCount(0);
       }
     });
 
@@ -527,6 +533,17 @@ export function PlatformHeader() {
           void loadProfileAndNotifs(userId);
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "request_comments",
+        },
+        () => {
+          void loadProfileAndNotifs(userId);
+        }
+      )
       .subscribe();
 
     return () => {
@@ -555,7 +572,7 @@ export function PlatformHeader() {
   };
 
   const role = profile?.role ?? "patient";
-  const unread = unreadCount;
+  const unread = alertUnreadCount + messageUnreadCount;
   const showNotifs = Boolean(session);
   const showLocaleSwitcher = !session || role === "patient";
 
@@ -610,7 +627,7 @@ export function PlatformHeader() {
                       setNotifOpen(next);
                       setProfileOpen(false);
                       if (next) {
-                        void markNotificationsAsRead();
+                        setInboxTab("notifications");
                       }
                     }}
                     className="relative flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm hover:bg-muted/50"
@@ -625,50 +642,79 @@ export function PlatformHeader() {
                   </button>
                   {notifOpen ? (
                     <div className="fixed inset-x-3 top-14 z-50 max-h-[min(85vh,28rem)] overflow-hidden rounded-xl border border-border bg-popover py-2 text-popover-foreground shadow-xl sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-2 sm:max-h-none sm:w-[min(100vw-2rem,24rem)]">
-                      <div className="border-b border-border/80 px-3 pb-2">
+                      <div className="space-y-2 border-b border-border/80 px-3 pb-2">
                         <p className="text-xs font-semibold text-foreground">{tHeader("notifications.title")}</p>
+                        <InboxChannelTabs
+                          active={inboxTab}
+                          onChange={handleInboxTabChange}
+                          alertCount={alertUnreadCount}
+                          messageCount={messageUnreadCount}
+                          notificationsLabel={tHeader("notifications.tabNotifications")}
+                          messagesLabel={tHeader("notifications.tabMessages")}
+                          compact
+                        />
                       </div>
-                      {notifications.length === 0 ? (
-                        <p className="px-3 py-4 text-center text-xs text-muted-foreground">{tHeader("notifications.empty")}</p>
+                      {inboxTab === "notifications" ? (
+                        notifications.length === 0 ? (
+                          <p className="px-3 py-4 text-center text-xs text-muted-foreground">{tHeader("notifications.empty")}</p>
+                        ) : (
+                          <ul className="max-h-[min(70vh,22rem)] space-y-2 overflow-y-auto px-2 py-2">
+                            {notifications.map((n) => {
+                              const patientText =
+                                role === "patient"
+                                  ? pickPatientNotificationText(n, locale, "patient")
+                                  : null;
+                              return (
+                                <li key={n.id}>
+                                  <InAppNotificationItem
+                                    title={
+                                      patientText
+                                        ? patientText.title
+                                        : role === "pharmacien"
+                                          ? rewriteForPharmacistView(n.title) ?? n.title
+                                          : n.title
+                                    }
+                                    body={
+                                      patientText
+                                        ? patientText.body
+                                        : role === "pharmacien"
+                                          ? rewriteForPharmacistView(n.body)
+                                          : n.body
+                                    }
+                                    createdAt={n.created_at}
+                                    eventType={n.event_type}
+                                    href={n.href}
+                                    onNavigate={() => setNotifOpen(false)}
+                                    compact
+                                    isRead={Boolean(n.read_at)}
+                                  />
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )
+                      ) : messageThreads.length === 0 ? (
+                        <p className="px-3 py-4 text-center text-xs text-muted-foreground">{tHeader("notifications.emptyMessages")}</p>
                       ) : (
                         <ul className="max-h-[min(70vh,22rem)] space-y-2 overflow-y-auto px-2 py-2">
-                          {notifications.map((n) => {
-                            const patientText =
-                              role === "patient"
-                                ? pickPatientNotificationText(n, locale, "patient")
-                                : null;
-                            return (
-                            <li key={n.id}>
-                              <InAppNotificationItem
-                                title={
-                                  patientText
-                                    ? patientText.title
-                                    : role === "pharmacien"
-                                      ? rewriteForPharmacistView(n.title) ?? n.title
-                                      : n.title
-                                }
-                                body={
-                                  patientText
-                                    ? patientText.body
-                                    : role === "pharmacien"
-                                      ? rewriteForPharmacistView(n.body)
-                                      : n.body
-                                }
-                                createdAt={n.created_at}
-                                eventType={n.event_type}
-                                href={n.href}
-                                onNavigate={() => setNotifOpen(false)}
+                          {messageThreads.map((thread) => (
+                            <li key={thread.requestId}>
+                              <ConversationInboxItem
+                                row={thread}
                                 compact
-                                isRead={Boolean(n.read_at)}
+                                onNavigate={() => {
+                                  setNotifOpen(false);
+                                  const userId = session?.user?.id;
+                                  if (userId) void loadProfileAndNotifs(userId);
+                                }}
                               />
                             </li>
-                            );
-                          })}
+                          ))}
                         </ul>
                       )}
                       <div className="border-t border-border/80 px-3 pt-2">
                         <Link
-                          href="/dashboard/notifications"
+                          href={inboxTab === "messages" ? "/dashboard/notifications?onglet=messages" : "/dashboard/notifications"}
                           onClick={() => setNotifOpen(false)}
                           className="block text-center text-xs font-semibold text-primary hover:underline"
                         >
