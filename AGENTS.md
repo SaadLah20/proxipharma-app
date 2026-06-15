@@ -15,7 +15,7 @@ Prod **`pharmeto.ma`**. Marque **Pharmeto** (ex-ProxiPharma). Dev : **`npm run d
 | Contexte onboarding / Supabase | `CONTEXTE.md` §6 |
 | Spec produit + journal sessions | `CAHIER_DES_CHARGES.md` — §0.1, §4.4–§4.6, §10, §11, §12 |
 | Reprise sans tâche | `CAHIER_DES_CHARGES.md` §13.35 |
-| Reprise courte (infra à jour) | §13.62 (général), §13.61 (catalogue), §13.63 (photos catalogue) |
+| Reprise courte (infra à jour) | §13.65 (WhatsApp M2), §13.64 (expiration passage), §13.63 (photos catalogue), §13.62 (général), §13.61 (catalogue) |
 | Livraison git/PR (utilisateur non dev) | `.cursor/rules/delivery-workflow-user.mdc` |
 | WhatsApp notifs | `docs/WHATSAPP-NOTIFS-REPRISE.md`, `RUNBOOK.md` §10 |
 | Runbook ops | `RUNBOOK.md` |
@@ -24,13 +24,15 @@ Prod **`pharmeto.ma`**. Marque **Pharmeto** (ex-ProxiPharma). Dev : **`npm run d
 
 ## Migrations Supabase (ancre pilote)
 
-Appliquer dans l’ordre `YYYYMMDD_*` jusqu’à **`20260823_001`** (expiration passage traité ; après **`20260822_001`** recherche catalogue).
+Appliquer dans l’ordre `YYYYMMDD_*` jusqu’à **`20260826_001`** (WhatsApp M2 lot 2 ; après **`20260825_001`** inbox conversation).
 
-Piège : **`20260503_007`** (policy profiles) ≠ **`20260505_007`** (codes publics). **`20260718_001`** + **`20260718_002`** = deux runs. **`20260819_001`** puis **`20260819_002`**. Après **`20260822_001`** : **`20260823_001`** (expiration passage traité).
+Piège : **`20260503_007`** (policy profiles) ≠ **`20260505_007`** (codes publics). **`20260718_001`** + **`20260718_002`** = deux runs. **`20260819_001`** puis **`20260819_002`**.
 
 ## Règles métier critiques
 
 - **Workflow dossier** : après validation patient → **`confirmed`** (réservé/commandé) → **`treated`** (comptoir, RPC **`pharmacist_mark_request_treated`**). Hub **`in_progress_virtual`** si **`confirmed`** + **`post_confirm_fulfillment`** avancé. Détail §4.4, amendements **`request_supply_amendments`**.
+- **Expiration `responded`** : validation patient sous **24 h** (`expire_overdue_requests`, rappel patient T−4 h, alerte pharmacien T−1 h). Défaut cron ; test : **`EXPIRE_RESPONDED_SILENCE`**.
+- **Expiration passage `treated`** : sans retrait comptoir ni modification date → **`abandoned`** (`auto_abandon_after_pickup_window`) — fin **J+1 23:59** Casablanca si pas d’heure, sinon **passage + 24 h**. RPC cron **`abandon_overdue_pickup_requests`** + rappels **`remind_planned_visit_passage`**. Migration **`20260823_001`** ; helper TS **`lib/planned-visit-abandon-deadline.ts`**. Ne pas confondre avec **`expired`** (pré-validation).
 - **`post_confirm_fulfillment`** : envoyer **`unset`**, jamais **`null`** (NOT NULL). Clamp = dispo déduite du brouillon (`buildItemUpdatePayload`, **`inferredAvailabilityForPostConfirmClamp`**).
 - **Post-validé pharmacien** : enregistrer via **Enregistrer les modifications** (`PharmacistSupplyCompactLine`) — pas d’auto-save comptoir.
 - **Types de demande** (`lib/request-kinds/`) : produits **sky**, ordonnances **amber**, consultations **violet**, promos **emerald**. Compte/officine = **`lib/platform-dashboard-chrome.ts`** (pas couleurs dossier).

@@ -1,5 +1,5 @@
-# Même principe que send-external-emails-cron : appelle l’endpoint Next avec CRON_SECRET.
-# Planifie l’expiration des demandes `responded` (voir migration `20260516_001`).
+# Expiration responded + rappels passage + abandon auto treated (20260523_001, 20260823_001).
+# Planifie : expire responded, rappels validation, rappels passage, alertes pharma, abandon pickup.
 name: Expire Overdue Requests Cron
 
 on:

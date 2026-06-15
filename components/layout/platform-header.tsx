@@ -40,6 +40,7 @@ import {
   countUnreadAlertNotifications,
   loadConversationInbox,
   markAlertNotificationsAsRead,
+  markSingleAlertNotificationRead,
   type ConversationInboxRow,
 } from "@/lib/conversation-inbox";
 import { supabase } from "@/lib/supabase";
@@ -694,7 +695,22 @@ export function PlatformHeader() {
                                     createdAt={n.created_at}
                                     eventType={n.event_type}
                                     href={n.href}
-                                    onNavigate={() => setNotifOpen(false)}
+                                    onNavigate={() => {
+                                      if (!n.read_at) {
+                                        const nowIso = new Date().toISOString();
+                                        void markSingleAlertNotificationRead(supabase, {
+                                          id: n.id,
+                                          source: n.source,
+                                        });
+                                        setAlertUnreadCount((count) => Math.max(0, count - 1));
+                                        setNotifications((prev) =>
+                                          prev.map((row) =>
+                                            row.id === n.id ? { ...row, read_at: nowIso } : row,
+                                          ),
+                                        );
+                                      }
+                                      setNotifOpen(false);
+                                    }}
                                     compact
                                     isRead={Boolean(n.read_at)}
                                   />

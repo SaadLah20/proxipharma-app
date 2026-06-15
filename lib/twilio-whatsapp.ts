@@ -3,7 +3,7 @@ import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
 import { displayRequestPublicRef } from "@/lib/public-ref";
 import { smsRequestShortToken } from "@/lib/sms-request-short-link";
 
-/** WhatsApp pilote patient — répondu, traité, expiré, rappel validation + passage (v2 link). */
+/** WhatsApp pilote patient — répondu, traité, expiré, rappels + produit reçu / rupture (v2 link). */
 export const WHATSAPP_PATIENT_EVENT_TYPES = new Set<string>([
   "request_status:responded",
   "request_status:treated",
@@ -11,11 +11,14 @@ export const WHATSAPP_PATIENT_EVENT_TYPES = new Set<string>([
   "request_event:responded_expiry_reminder",
   "request_event:planned_visit_day_reminder",
   "request_event:planned_visit_pre_passage_reminder",
+  "request_event:post_confirm_product_arrived",
+  "request_event:market_shortage_product_available",
 ]);
 
-/** WhatsApp pilote pharmacien — nouvelle demande + alertes passage / validation. */
+/** WhatsApp pilote pharmacien — nouvelle demande, validée, alertes passage / validation. */
 export const WHATSAPP_PHARMACIST_EVENT_TYPES = new Set<string>([
   "request_status:submitted",
+  "request_status:confirmed",
   "request_event:planned_visit_passed_no_pickup",
   "request_event:responded_expiry_pharmacist_reminder",
 ]);
@@ -28,7 +31,10 @@ export const WHATSAPP_LINK_EVENT_TYPES = new Set<string>([
   "request_event:responded_expiry_reminder",
   "request_event:planned_visit_day_reminder",
   "request_event:planned_visit_pre_passage_reminder",
+  "request_event:post_confirm_product_arrived",
+  "request_event:market_shortage_product_available",
   "request_status:submitted",
+  "request_status:confirmed",
   "request_event:planned_visit_passed_no_pickup",
   "request_event:responded_expiry_pharmacist_reminder",
 ]);
@@ -84,6 +90,15 @@ export function resolveWhatsAppContentSid(eventType: string): string | null {
   if (eventType === "request_status:submitted") {
     return process.env.TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_NEW_REQUEST?.trim() ?? null;
   }
+  if (eventType === "request_status:confirmed") {
+    return process.env.TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_CONFIRMED?.trim() ?? null;
+  }
+  if (eventType === "request_event:post_confirm_product_arrived") {
+    return process.env.TWILIO_WHATSAPP_CONTENT_SID_PRODUCT_ARRIVED?.trim() ?? null;
+  }
+  if (eventType === "request_event:market_shortage_product_available") {
+    return process.env.TWILIO_WHATSAPP_CONTENT_SID_SHORTAGE_AVAILABLE?.trim() ?? null;
+  }
   return null;
 }
 
@@ -107,7 +122,7 @@ export function buildWhatsAppContentVariables(args: {
 
   const vars: Record<string, string> = {};
 
-  if (args.eventType === "request_status:submitted") {
+  if (args.eventType === "request_status:submitted" || args.eventType === "request_status:confirmed") {
     vars["1"] = trimWhatsAppPersonLabel(args.patientName ?? "Client");
     vars["2"] = ref;
   } else {

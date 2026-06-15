@@ -269,6 +269,10 @@ git log --oneline -n 10
 **État juin 2026** : alertes métier = **e-mail + WhatsApp** patient (P0 répondu / traité). **SMS métier désactivé** (migration **`20260811_001`**) — OTP inscription / reset téléphone **inchangés** (Twilio Verify via Supabase Auth).
 
 - **E-mail + WhatsApp (filet ~5 min)** : `.github/workflows/send-external-emails-cron.yml` — toutes les 5 min + manuel → `POST /api/cron/send-external-emails` puis `POST /api/cron/send-external-whatsapp`.
+- **Expiration + rappels délais (~5 min)** : `.github/workflows/expire-overdue-requests-cron.yml` — toutes les 5 min + manuel → `POST /api/cron/expire-overdue-requests` :
+  - **`responded`** sans validation → **`expired`** (défaut 24 h, env **`EXPIRE_RESPONDED_SILENCE`** pour tests).
+  - Rappel patient validation **T−4 h** ; alerte pharmacien **T−1 h** avant expiration `responded`.
+  - Rappels passage **`treated`** (jour J ~10 h ou T−2 h ; env **`PLANNED_VISIT_DAY_REMINDER_HOUR`**) ; alerte pharmacien passage manqué ; abandon auto passage (**`20260823_001`**).
 - **SMS (legacy)** : `.github/workflows/send-external-sms-cron.yml` — ne traite que d’**anciennes** lignes `channel=sms` encore `pending` ; **aucune nouvelle ligne SMS** n’est enqueue après **`20260811_001`**.
 - **Quasi immédiat (~secondes, recommandé)** : Supabase → **Database Webhooks** → `POST https://<APP>/api/webhooks/dispatch-external-sms` avec en-tête `Authorization: Bearer <CRON_SECRET>`, table `notification_external_queue`, événement **INSERT** (une ligne `email` + une ligne `whatsapp` → deux appels ; le webhook ne traite **que la ligne insérée**). Sans webhook, délai = cron GitHub (~5 min).
 - Secrets GitHub : `APP_BASE_URL`, `CRON_SECRET`.
@@ -311,6 +315,19 @@ Avant **`20260811_001`**, le pilote envoyait des SMS patient (`responded` / `tre
 | `request_status:expired` | patient | `pharmeto_request_expired_fr_v2_link` | `HX781b5d3d9091c307629c722799559825` | `https://pharmeto.ma/r/{{3}}` |
 | `request_event:responded_expiry_reminder` | patient | `pharmeto_request_reminder_fr_v2_link` | `HX671183dc98399066641bbf71670cce3c` | `https://pharmeto.ma/r/{{3}}` |
 | `request_status:submitted` | pharmacien | `pharmeto_pharmacy_new_request_fr` | `HX806ef0e68b7e5f2a6cc674b4637e4a60` | `https://pharmeto.ma/rp/{{3}}` |
+| `request_event:post_confirm_product_arrived` | patient | `pharmeto_request_product_arrived_fr_v2_link` | `HX60d070b8ea5b8f02f38209cb79f18d05` | `https://pharmeto.ma/r/{{3}}` |
+| `request_event:market_shortage_product_available` | patient | `pharmeto_request_shortage_available_fr_v2_link` | `HXbe4a11fd3dd30f9bfc1023c33afc58aa` | `https://pharmeto.ma/r/{{3}}` |
+| `request_status:confirmed` | pharmacien | `pharmeto_pharmacy_confirmed_fr` | `HX974770152c33d37c18defeef9e0809e2` | `https://pharmeto.ma/rp/{{3}}` |
+
+**Lot expiration passage (`20260823_001`) — in-app + e-mail actifs ; WhatsApp si SID Meta approuvé** :
+
+| Événement | Rôle | Template (à soumettre) | Env Vercel (proposé) |
+|-----------|------|------------------------|----------------------|
+| `request_event:planned_visit_day_reminder` / `planned_visit_pre_passage_reminder` | patient | `pharmeto_pickup_reminder_fr_v2_link` | `TWILIO_WHATSAPP_CONTENT_SID_PICKUP_REMINDER` (repli : `_REMINDER`) |
+| `request_event:responded_expiry_pharmacist_reminder` | pharmacien | `pharmeto_pharmacy_responded_expiry_fr` | `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_RESPONDED_EXPIRY` |
+| `request_event:planned_visit_passed_no_pickup` | pharmacien | `pharmeto_pharmacy_pickup_missed_fr` | `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PICKUP_MISSED` |
+
+Détail : **`docs/WHATSAPP-NOTIFS-REPRISE.md`** (section lot expiration passage).
 
 Variables template : `{{1}}` = officine (patient) ou nom patient (pharma) ; `{{2}}` = ref dossier (D042/26…) ; `{{3}}` = token lien court (UUID sans tirets).
 
@@ -318,7 +335,7 @@ Variables template : `{{1}}` = officine (patient) ou nom patient (pharma) ; `{{2
 
 **Secours v1 traité** (sans lien, si rollback) : `copy_pharmeto_request_treated_fr` → `HX5aa3d5e71dc6242ac53448fb95022f54`.
 
-**M2 restant (6 templates — pas encore soumis)** : produit reçu, rupture dispo (patient) ; validée, ordonnance, passage, message (pharmacien) — **`docs/WHATSAPP-NOTIFS-REPRISE.md`**.
+**M2 restant** : 3 templates pharmacien **user-initiated seulement** (visit / ordonnance / message — attendre business-initiated) ; 3 templates passage **pas encore soumis** — **`docs/WHATSAPP-NOTIFS-REPRISE.md`**.
 
 **Variables Vercel** (en plus de `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN`) :
 - `TWILIO_WHATSAPP_FROM` = `whatsapp:+212770165668`
@@ -327,6 +344,9 @@ Variables template : `{{1}}` = officine (patient) ou nom patient (pharma) ; `{{2
 - `TWILIO_WHATSAPP_CONTENT_SID_EXPIRED` = `HX781b5d3d9091c307629c722799559825`
 - `TWILIO_WHATSAPP_CONTENT_SID_REMINDER` = `HX671183dc98399066641bbf71670cce3c`
 - `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_NEW_REQUEST` = `HX806ef0e68b7e5f2a6cc674b4637e4a60`
+- `TWILIO_WHATSAPP_CONTENT_SID_PRODUCT_ARRIVED` = `HX60d070b8ea5b8f02f38209cb79f18d05`
+- `TWILIO_WHATSAPP_CONTENT_SID_SHORTAGE_AVAILABLE` = `HXbe4a11fd3dd30f9bfc1023c33afc58aa`
+- `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_CONFIRMED` = `HX974770152c33d37c18defeef9e0809e2`
 - Optionnel test : `WHATSAPP_TEST_TO` = `+2126…` perso
 
 **Test B** — après deploy preview :
@@ -341,14 +361,19 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: applicati
   -d '{"to":"+2126XXXXXXXX","eventType":"request_status:submitted","patientName":"Fatima B."}' \
   "$APP_BASE_URL/api/cron/test-external-whatsapp"
 
-# Patient traité / expiré / rappel (v2 link)
+# Patient traité / expiré / rappel / produit reçu / rupture (v2 link)
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
   -d '{"to":"+2126XXXXXXXX","eventType":"request_status:treated"}' \
+  "$APP_BASE_URL/api/cron/test-external-whatsapp"
+
+# Pharmacien dossier validé (confirmed)
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
+  -d '{"to":"+2126XXXXXXXX","eventType":"request_status:confirmed","patientName":"Fatima B."}' \
   "$APP_BASE_URL/api/cron/test-external-whatsapp"
 ```
 Ou Twilio Console → **Try it out** → variables `{"1":"Pharmacie Centrale","2":"D042/26","3":"a1b2c3d4e5f6789012345678abcdef01"}`.
 
-**Pilote worker** : patient **répondu**, **traité**, **expiré**, **rappel validation** ; pharmacien **nouvelle demande** (`submitted`). Autres `event_type` enqueue e-mail mais **skip** WhatsApp. Destination = `profiles.whatsapp` (E.164). Routes lien court : **`/r/[token]`** (patient), **`/rp/[token]`** (pharmacien).
+**Pilote worker** : patient **répondu**, **traité**, **expiré**, **rappel validation**, **rappels passage**, **produit reçu**, **rupture dispo** ; pharmacien **nouvelle demande**, **validée**, **alertes passage / validation**. Autres `event_type` enqueue e-mail mais **skip** WhatsApp. Destination = `profiles.whatsapp` (E.164). Routes lien court : **`/r/[token]`** (patient), **`/rp/[token]`** (pharmacien).
 
 **Ops** : rafale backlog webhook corrigée (`onlyQueueRowIds` sur INSERT) ; script annulation file WhatsApp obsolète : `supabase/scripts/cancel-pending-whatsapp-backlog.sql`.
 
