@@ -318,6 +318,9 @@ Avant **`20260811_001`**, le pilote envoyait des SMS patient (`responded` / `tre
 | `request_event:post_confirm_product_arrived` | patient | `pharmeto_request_product_arrived_fr_v2_link` | `HX60d070b8ea5b8f02f38209cb79f18d05` | `https://pharmeto.ma/r/{{3}}` |
 | `request_event:market_shortage_product_available` | patient | `pharmeto_request_shortage_available_fr_v2_link` | `HXbe4a11fd3dd30f9bfc1023c33afc58aa` | `https://pharmeto.ma/r/{{3}}` |
 | `request_status:confirmed` | pharmacien | `pharmeto_pharmacy_confirmed_fr` | `HX974770152c33d37c18defeef9e0809e2` | `https://pharmeto.ma/rp/{{3}}` |
+| `request_event:patient_planned_visit_updated` | pharmacien | `pharmeto_pharmacy_visit_updated_fr` | `HX6a9cc14a6400341a91be956857943ae2` | `https://pharmeto.ma/rp/{{3}}` |
+| `request_status:patient_prescription_updated` | pharmacien | `pharmeto_pharmacy_prescription_updated_fr` | `HXc1e711549498a13063f41c806cbd860c` | `https://pharmeto.ma/rp/{{3}}` |
+| `request_conversation:message` | pharmacien | `pharmeto_pharmacy_patient_message_fr` | `HXf06efe852d03609d335ee6e89207ea17` | `https://pharmeto.ma/rp/{{3}}` |
 
 **Lot expiration passage (`20260823_001`) — in-app + e-mail actifs ; WhatsApp si SID Meta approuvé** :
 
@@ -335,7 +338,7 @@ Variables template : `{{1}}` = officine (patient) ou nom patient (pharma) ; `{{2
 
 **Secours v1 traité** (sans lien, si rollback) : `copy_pharmeto_request_treated_fr` → `HX5aa3d5e71dc6242ac53448fb95022f54`.
 
-**M2 restant** : 3 templates pharmacien **user-initiated seulement** (visit / ordonnance / message — attendre business-initiated) ; 3 templates passage **pas encore soumis** — **`docs/WHATSAPP-NOTIFS-REPRISE.md`**.
+**M2 restant** : 3 templates passage **pas encore soumis** Meta — **`docs/WHATSAPP-NOTIFS-REPRISE.md`**.
 
 **Variables Vercel** (en plus de `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN`) :
 - `TWILIO_WHATSAPP_FROM` = `whatsapp:+212770165668`
@@ -347,6 +350,9 @@ Variables template : `{{1}}` = officine (patient) ou nom patient (pharma) ; `{{2
 - `TWILIO_WHATSAPP_CONTENT_SID_PRODUCT_ARRIVED` = `HX60d070b8ea5b8f02f38209cb79f18d05`
 - `TWILIO_WHATSAPP_CONTENT_SID_SHORTAGE_AVAILABLE` = `HXbe4a11fd3dd30f9bfc1023c33afc58aa`
 - `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_CONFIRMED` = `HX974770152c33d37c18defeef9e0809e2`
+- `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_VISIT_UPDATED` = `HX6a9cc14a6400341a91be956857943ae2`
+- `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PRESCRIPTION_UPDATED` = `HXc1e711549498a13063f41c806cbd860c`
+- `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PATIENT_MESSAGE` = `HXf06efe852d03609d335ee6e89207ea17`
 - Optionnel test : `WHATSAPP_TEST_TO` = `+2126…` perso
 
 **Test B** — après deploy preview :

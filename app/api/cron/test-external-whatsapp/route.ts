@@ -21,7 +21,10 @@ import {
  *     | "request_event:planned_visit_pre_passage_reminder"
  *     | "request_status:submitted"
  *     | "request_event:planned_visit_passed_no_pickup"
- *     | "request_event:responded_expiry_pharmacist_reminder",
+ *     | "request_event:responded_expiry_pharmacist_reminder"
+ *     | "request_event:patient_planned_visit_updated"
+ *     | "request_status:patient_prescription_updated"
+ *     | "request_conversation:message",
  *   "pharmacyName": "Pharmacie Centrale",
  *   "patientName": "Fatima B.",
  *   "requestRef": "D042/26"

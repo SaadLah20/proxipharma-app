@@ -38,23 +38,19 @@ Branche : `feature/whatsapp-c-suite-m2-lot1` (commit **`a0c69ae`**). Pas de migr
 | `pharmeto_request_shortage_available_fr_v2_link` | `HXbe4a11fd3dd30f9bfc1023c33afc58aa` | `request_event:market_shortage_product_available` | `TWILIO_WHATSAPP_CONTENT_SID_SHORTAGE_AVAILABLE` |
 | `pharmeto_pharmacy_confirmed_fr` | `HX974770152c33d37c18defeef9e0809e2` | `request_status:confirmed` | `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_CONFIRMED` |
 
-Migration **`20260826_001`** (enqueue pharmacien `confirmed`). **8 événements WhatsApp actifs** en prod.
+Migration **`20260826_001`** (enqueue pharmacien `confirmed`). **8 événements WhatsApp actifs** en prod (avant lot 3).
 
-**En attente (6)** : 3 templates Twilio user-initiated seulement (ci-dessous) + 3 templates passage pas encore soumis.
+### M2 lot 3 pharmacien — Approved Meta 15/06/2026 (code + migration `20260828_001`)
 
-### M2 restant — Meta user-initiated seulement (pas outbound business)
+| Template | Content SID | `event_type` | Env Vercel |
+|----------|-------------|--------------|------------|
+| `pharmeto_pharmacy_visit_updated_fr` | `HX6a9cc14a6400341a91be956857943ae2` | `request_event:patient_planned_visit_updated` | `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_VISIT_UPDATED` |
+| `pharmeto_pharmacy_prescription_updated_fr` | `HXc1e711549498a13063f41c806cbd860c` | `request_status:patient_prescription_updated` | `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PRESCRIPTION_UPDATED` |
+| `pharmeto_pharmacy_patient_message_fr` | `HXf06efe852d03609d335ee6e89207ea17` | `request_conversation:message` | `TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PATIENT_MESSAGE` |
 
-Ces 3 templates sont **Approved** pour **user initiated** mais **pas business initiated** — ne pas brancher tant que la coche business n’est pas verte (sinon erreur Twilio/Meta à l’envoi proactif).
+**11 événements WhatsApp** après merge + vars Vercel lot 3.
 
-| Template | Content SID | `event_type` |
-|----------|-------------|--------------|
-| `pharmeto_pharmacy_visit_updated_fr` | `HX6a9cc14a6400341a91be956857943ae2` | `request_event:patient_planned_visit_updated` |
-| `pharmeto_pharmacy_prescription_updated_fr` | `HXc1e711549498a13063f41c806cbd860c` | `request_status:patient_prescription_updated` |
-| `pharmeto_pharmacy_patient_message_fr` | `HXf06efe852d03609d335ee6e89207ea17` | `request_conversation:message` |
-
-Action fondateur : attendre approbation business-initiated ou resoumettre (Utility + CTA). Puis migration enqueue + 3 env vars.
-
-### M2 restant (pas encore soumis Twilio)
+**En attente (3)** : templates passage pas encore soumis Meta (ci-dessous).
 
 ### Lot expiration passage (juin 2026 — migration `20260823_001`)
 
@@ -70,7 +66,7 @@ Cron : `POST /api/cron/expire-overdue-requests` (GitHub Actions 5 min) — appel
 
 ---
 
-## Variables Vercel (prod — M2 lot 2 partiel actif)
+## Variables Vercel (prod — après merge M2 lot 3)
 
 ```
 TWILIO_WHATSAPP_FROM=whatsapp:+212770165668
@@ -82,6 +78,9 @@ TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_NEW_REQUEST=HX806ef0e68b7e5f2a6cc674b4637e4
 TWILIO_WHATSAPP_CONTENT_SID_PRODUCT_ARRIVED=HX60d070b8ea5b8f02f38209cb79f18d05
 TWILIO_WHATSAPP_CONTENT_SID_SHORTAGE_AVAILABLE=HXbe4a11fd3dd30f9bfc1023c33afc58aa
 TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_CONFIRMED=HX974770152c33d37c18defeef9e0809e2
+TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_VISIT_UPDATED=HX6a9cc14a6400341a91be956857943ae2
+TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PRESCRIPTION_UPDATED=HXc1e711549498a13063f41c806cbd860c
+TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_PATIENT_MESSAGE=HXf06efe852d03609d335ee6e89207ea17
 ```
 
 **Rollback traité v1** : `TWILIO_WHATSAPP_CONTENT_SID_TREATED=HX5aa3d5e71dc6242ac53448fb95022f54` (sans lien bouton).
@@ -90,13 +89,7 @@ TWILIO_WHATSAPP_CONTENT_SID_PHARMACY_CONFIRMED=HX974770152c33d37c18defeef9e0809e
 
 ## Phrases de reprise (copier-coller dans un nouveau chat **Agent**)
 
-### Quand les 3 templates pharmacien bloqués passent **business initiated**
-
-Capture Twilio + phrase :
-
-```
-Continuons WhatsApp — templates business initiated Approved (visit / ordonnance / message)
-```
+### Quand les 3 templates pharmacien lot 3 étaient **Approved** (visit / ordonnance / message) — fait 15/06/2026
 
 ### Quand les 3 templates M2 lot 2 étaient **Approved** (produit, rupture, validée) — fait 15/06/2026
 
