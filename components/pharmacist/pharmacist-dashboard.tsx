@@ -12,6 +12,7 @@ import {
   Gift,
   MessageSquare,
   MousePointerClick,
+  NotebookPen,
   Package,
   Phone,
   RefreshCw,
@@ -522,6 +523,7 @@ export function PharmacistDashboard() {
                 { href: "/dashboard/pharmacien/produits-commandes", label: "Produits commandés", icon: ClipboardList },
                 { href: "/dashboard/pharmacien/ruptures-marche", label: "Ruptures marché", icon: AlertCircle },
                 { href: "/dashboard/pharmacien/clients", label: "Clients", icon: Users },
+                { href: "/dashboard/pharmacien/notes-officine", label: "Notes officine", icon: NotebookPen },
                 { href: "/dashboard/pharmacien/visites-interactions", label: "Journal visites", icon: Eye },
                 { href: "/dashboard/pharmacien/parametres", label: "Mes paramètres", icon: Settings },
               ].map(({ href, label, icon: Icon }) => (
