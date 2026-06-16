@@ -1,11 +1,5 @@
-import { Suspense } from "react";
-import { PatientHubLoadingFallback } from "@/components/patient/patient-hub-loading-fallback";
-import { PatientRequestKindHub } from "@/app/dashboard/demandes/patient-demandes-hub";
+import { redirect } from "next/navigation";
 
 export default function PatientConsultationsLibresPage() {
-  return (
-    <Suspense fallback={<PatientHubLoadingFallback />}>
-      <PatientRequestKindHub kindId="free_consultation" />
-    </Suspense>
-  );
+  redirect("/dashboard/demandes?parcours=consultations");
 }

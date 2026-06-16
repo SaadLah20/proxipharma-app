@@ -21,11 +21,9 @@ const BottomNavDossierTabContext = createContext<BottomNavDossierTabContextValue
   setDossierTabId: () => {},
 });
 
-export function requestTypeToBottomNavTabId(requestType: string | null | undefined): BottomNavTabId | null {
-  if (!requestType || requestType === "product_request") return "products";
-  if (requestType === "prescription") return "prescriptions";
-  if (requestType === "free_consultation") return "consultations";
-  return null;
+/** Hub unifié : tous les types de dossier surlignent l’onglet Demandes / Mes demandes. */
+export function requestTypeToBottomNavTabId(_requestType: string | null | undefined): BottomNavTabId | null {
+  return "requests";
 }
 
 export function PlatformBottomNavDossierTabProvider({ children }: { children: ReactNode }) {
@@ -38,7 +36,7 @@ export function useBottomNavDossierTab() {
   return useContext(BottomNavDossierTabContext);
 }
 
-/** Aligne l’onglet footer sur le type de dossier (ordonnance, consultation, produits). */
+/** Aligne l’onglet footer sur le hub demandes unifié. */
 export function useSyncBottomNavDossierTab(requestType: string | null | undefined): void {
   const { setDossierTabId } = useBottomNavDossierTab();
 

@@ -45,6 +45,18 @@ export const hubFr = {
     loadMore: "Charger plus",
     refPrefix: "Réf.",
   },
+  parcours: {
+    ariaLabel: "Filtrer par type de demande",
+    all: "Tous",
+    products: "Produits",
+    prescriptions: "Ordonnances",
+    consultations: "Consultations",
+    activeCountAria: "{count, plural, one {# demande active} other {# demandes actives}}",
+  },
+  unifiedHub: {
+    patientTitle: "Mes demandes",
+    pharmacistTitle: "Demandes",
+  },
   dashboard: {
     resumeQuickly: "Reprendre rapidement",
     allPrescriptions: "Toutes les ordonnances",

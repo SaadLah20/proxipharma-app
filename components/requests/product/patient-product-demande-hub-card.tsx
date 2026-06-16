@@ -14,6 +14,7 @@ import { one } from "@/lib/embed";
 import { formatDateTimeShortForLocale } from "@/lib/datetime-locale";
 import type { AppLocale } from "@/lib/i18n/config";
 import { usePatientHubCardCopy } from "@/lib/i18n/patient-hub-card-copy";
+import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import { uiSecondaryLabel } from "@/lib/ui-label-styles";
 import {
   hubDemandeCardAccent,
@@ -25,10 +26,12 @@ import {
 export function PatientProductDemandeHubCard({
   row,
   conversationUnread = false,
+  showParcoursLabel = false,
 }: {
   row: PatientRequestRow;
   compact?: boolean;
   conversationUnread?: boolean;
+  showParcoursLabel?: boolean;
 }) {
   const locale = useLocale() as AppLocale;
   const cardCopy = usePatientHubCardCopy();
@@ -37,6 +40,7 @@ export function PatientProductDemandeHubCard({
   const refVisuel = displayRequestPublicRef(row);
   const when = formatDateTimeShortForLocale(row.updated_at ?? row.submitted_at ?? row.created_at, locale);
   const accent = hubDemandeCardAccent(row.request_type);
+  const parcoursLabel = showParcoursLabel ? getRequestKindConfig(row.request_type).theme.headerLabelShort : null;
   const pharmacyTitle = ph?.nom
     ? pharmacyPublicLabel(ph.nom, { locale, nomAr: ph.nom_ar })
     : cardCopy.pharmacyFallback;
@@ -63,9 +67,25 @@ export function PatientProductDemandeHubCard({
                   </span>
                 ) : null}
               </div>
-              <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-[11px]">
-                {refVisuel}
-              </span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {parcoursLabel ? (
+                  <span
+                    className={clsx(
+                      "rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide sm:text-[10px]",
+                      accent === "amber"
+                        ? "bg-amber-100/90 text-amber-900"
+                        : accent === "violet"
+                          ? "bg-violet-100/90 text-violet-900"
+                          : "bg-sky-100/90 text-sky-900",
+                    )}
+                  >
+                    {parcoursLabel}
+                  </span>
+                ) : null}
+                <span className="font-mono text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-[11px]">
+                  {refVisuel}
+                </span>
+              </div>
             </div>
 
             <div className="flex items-start justify-between gap-2">

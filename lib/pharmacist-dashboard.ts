@@ -1,4 +1,5 @@
 import { PHARMACIST_DASHBOARD_BUCKETS } from "@/lib/demandes-hub-buckets";
+import { hubPathForRequestKind } from "@/lib/request-hub-parcours";
 import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 
@@ -146,6 +147,9 @@ export function requestTypeLabelFr(type: string): string {
 
 export function requestTypeHubPath(type: string): string {
   const cfg = getRequestKindConfig(type);
+  if (cfg.id === "product_request" || cfg.id === "prescription" || cfg.id === "free_consultation") {
+    return hubPathForRequestKind(cfg.id, "pharmacien");
+  }
   return cfg.routes.pharmacistHubPath;
 }
 

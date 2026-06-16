@@ -6,10 +6,10 @@ export const prescriptionRequestKindConfig: RequestKindConfig = {
   id: "prescription",
   publicRefPrefix: "O",
   routes: {
-    patientHubPath: "/dashboard/patient/ordonnances",
-    pharmacistHubPath: "/dashboard/pharmacien/ordonnances",
-    patientListPath: "/dashboard/patient/ordonnances",
-    pharmacistListPath: "/dashboard/pharmacien/ordonnances",
+    patientHubPath: "/dashboard/demandes",
+    pharmacistHubPath: "/dashboard/pharmacien/demandes",
+    patientListPath: "/dashboard/demandes",
+    pharmacistListPath: "/dashboard/pharmacien/demandes",
     patientCreatePath: "/pharmacie/[id]/demande-ordonnance",
   },
   theme: {

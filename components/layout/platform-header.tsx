@@ -8,7 +8,6 @@ import {
   Bell,
   Building2,
   Calculator,
-  CalendarClock,
   ChevronDown,
   ClipboardList,
   Gift,
@@ -165,11 +164,7 @@ function ProfileNavLogoutButton({ onLogout, label }: { onLogout: () => void; lab
 
 function usePatientNavMenu(): PlatformNavBlock[] {
   const t = useTranslations("header.patient");
-  return [
-    { kind: "link", item: { href: "/dashboard/patient/pharmacies", label: t("myPharmacies"), icon: MapPin } },
-    { kind: "link", item: { href: "/", label: t("directory"), icon: Building2 } },
-    { kind: "link", item: { href: "/dashboard/patient/parametres", label: t("settings"), icon: Settings } },
-  ];
+  return [{ kind: "link", item: { href: "/dashboard/patient/parametres", label: t("settings"), icon: Settings } }];
 }
 
 export type PlatformNavItem = { href: string; label: string; icon: LucideIcon };
@@ -183,22 +178,15 @@ function flattenNavBlocks(blocks: PlatformNavBlock[]): PlatformNavItem[] {
   return blocks.flatMap((b) => (b.kind === "section" ? b.items : [b.item]));
 }
 
-/** Patient : raccourcis compte (dossiers = barre basse). */
+/** Patient : paramètres uniquement (navigation principale = barre basse). */
 export const patientNavMenu: PlatformNavBlock[] = [
-  { kind: "link", item: { href: "/dashboard/patient/pharmacies", label: "Mes pharmacies", icon: MapPin } },
-  { kind: "link", item: { href: "/", label: "Annuaire pharmacies", icon: Building2 } },
   { kind: "link", item: { href: "/dashboard/patient/parametres", label: "Mes paramètres", icon: Settings } },
 ];
 
 /**
- * Pharmacien : accueil → supply → officine (dont promos) → outil → paramètres (dossiers = barre basse).
+ * Pharmacien : supply → officine → outil → paramètres (navigation principale = barre basse).
  */
 export const pharmacienNavMenu: PlatformNavBlock[] = [
-  {
-    kind: "link",
-    emphasis: "primary",
-    item: { href: "/dashboard/pharmacien", label: "Tableau de bord", icon: LayoutDashboard },
-  },
   {
     kind: "section",
     id: "supply",
@@ -216,7 +204,6 @@ export const pharmacienNavMenu: PlatformNavBlock[] = [
       { href: "/dashboard/pharmacien/clients", label: "Clients", icon: Users },
       { href: "/dashboard/pharmacien/mes-produits", label: "Mes produits", icon: Package },
       { href: "/dashboard/pharmacien/ma-fiche", label: "Ma fiche publique", icon: Store },
-      { href: "/dashboard/pharmacien/horaires-garde", label: "Horaires et garde", icon: CalendarClock },
       { href: "/dashboard/pharmacien/offres-promos", label: "Offres et promos", icon: Gift },
       { href: "/dashboard/pharmacien/visites-interactions", label: "Visites et interactions", icon: MapPin },
     ],

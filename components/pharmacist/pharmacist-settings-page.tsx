@@ -503,16 +503,21 @@ export function PharmacistSettingsPage() {
         <ul className="space-y-2 text-sm">
           <li>
             <Link href="/dashboard/pharmacien/demandes" className={p.linkInline}>
+              Toutes les demandes
+            </Link>
+          </li>
+          <li>
+            <Link href="/dashboard/pharmacien/demandes?parcours=produits" className={p.linkInline}>
               Demandes de produits
             </Link>
           </li>
           <li>
-            <Link href="/dashboard/pharmacien/ordonnances" className={p.linkInline}>
+            <Link href="/dashboard/pharmacien/demandes?parcours=ordonnances" className={p.linkInline}>
               Ordonnances
             </Link>
           </li>
           <li>
-            <Link href="/dashboard/pharmacien/consultations-libres" className={p.linkInline}>
+            <Link href="/dashboard/pharmacien/demandes?parcours=consultations" className={p.linkInline}>
               Consultations libres
             </Link>
           </li>

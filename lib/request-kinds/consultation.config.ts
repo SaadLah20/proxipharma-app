@@ -5,10 +5,10 @@ export const consultationRequestKindConfig: RequestKindConfig = {
   id: "free_consultation",
   publicRefPrefix: "C",
   routes: {
-    patientHubPath: "/dashboard/patient/consultations-libres",
-    pharmacistHubPath: "/dashboard/pharmacien/consultations-libres",
-    patientListPath: "/dashboard/patient/consultations-libres",
-    pharmacistListPath: "/dashboard/pharmacien/consultations-libres",
+    patientHubPath: "/dashboard/demandes",
+    pharmacistHubPath: "/dashboard/pharmacien/demandes",
+    patientListPath: "/dashboard/demandes",
+    pharmacistListPath: "/dashboard/pharmacien/demandes",
     patientCreatePath: "/pharmacie/[id]/consultation-libre",
   },
   theme: {
