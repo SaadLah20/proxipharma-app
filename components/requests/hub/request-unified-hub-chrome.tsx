@@ -8,7 +8,9 @@ import { patientConsultationHubDashboardShellClass } from "@/lib/patient-consult
 import { patientPrescriptionHubDashboardShellClass } from "@/lib/patient-prescription-hub-dashboard-ui";
 import { patientProductHubDashboardShellClass } from "@/lib/patient-product-hub-dashboard-ui";
 import type { RequestHubParcoursSlug } from "@/lib/request-hub-parcours";
-import { platformDashboardChrome as p } from "@/lib/platform-dashboard-chrome";
+
+const PLATFORM_HUB_BANNER_SHELL =
+  "border-border bg-gradient-to-br from-card via-card to-primary/[0.06] ring-1 ring-primary/10";
 
 export type UnifiedHubWorkflowAccent = HubTabAccent | "neutral";
 
@@ -18,7 +20,7 @@ function workflowAccentToHubTab(accent: UnifiedHubWorkflowAccent): HubTabAccent 
 
 function bannerShellClass(accent: UnifiedHubWorkflowAccent): string {
   if (accent === "neutral") {
-    return clsx(p.hero, "p-0");
+    return PLATFORM_HUB_BANNER_SHELL;
   }
   switch (accent) {
     case "sky":
@@ -75,7 +77,7 @@ export function RequestUnifiedHubChrome({
   const tabAccent = workflowAccentToHubTab(workflowAccent);
 
   return (
-    <div className={clsx("overflow-hidden rounded-2xl border shadow-sm", bannerShellClass(workflowAccent))}>
+    <div className={clsx("overflow-hidden rounded-2xl border p-0 shadow-sm", bannerShellClass(workflowAccent))}>
       <RequestParcoursTabBar
         active={parcours}
         counts={parcoursCounts}
