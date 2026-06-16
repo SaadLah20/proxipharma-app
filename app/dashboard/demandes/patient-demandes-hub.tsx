@@ -8,6 +8,7 @@ import { Search } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { PatientWorkflowHubHeader } from "@/components/patient/patient-workflow-hub-header";
 import { RequestKindHubDashboard } from "@/components/requests/hub/request-kind-hub-dashboard";
+import { RequestParcoursTabBar } from "@/components/requests/hub/request-parcours-tab-bar";
 import { type HubTab, type PatientRequestRow } from "@/components/requests/demande-hub-ui";
 import { PatientProductDemandeHubCard } from "@/components/requests/product/patient-product-demande-hub-card";
 import { filterPatientProductHubListRows } from "@/lib/patient-product-hub-sections";
@@ -27,16 +28,24 @@ import { one } from "@/lib/embed";
 import { dashboardBucketsForKind } from "@/lib/request-kinds/hub-and-terminal-copy";
 import { pharmacyCityLabel, pharmacyCitySearchTerms } from "@/lib/pharmacy-cities-morocco";
 import { pharmacyPublicLabel } from "@/lib/pharmacy-public-label";
-import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { formatShortId } from "@/lib/request-display";
 import { collatorForLocale } from "@/lib/datetime-locale";
 import type { AppLocale } from "@/lib/i18n/config";
-import { useRequestKindPatientCopy } from "@/lib/i18n/request-kind-patient-copy";
 import { REQUEST_ITEMS_HUB_SUMMARY_EMBED_SELECT } from "@/lib/request-line-product-embed";
 import { PatientHubCatalogPriceVisibilityProvider } from "@/lib/patient-hub-catalog-price-visibility-context";
 import { fetchCatalogPriceVisibilityByPharmacyIds } from "@/lib/pharmacy-pricing/fetch-catalog-price-visibility-map";
+import {
+  ALL_REQUEST_KIND_IDS,
+  buildHubUrl,
+  countActiveRequestsByParcours,
+  effectiveKindIdForHub,
+  filterRowsByParcours,
+  parseParcoursParam,
+  type RequestHubParcoursSlug,
+  UNIFIED_PATIENT_HUB_PATH,
+} from "@/lib/request-hub-parcours";
 import { supabase } from "@/lib/supabase";
 import { REQUEST_CONVERSATION_READ_EVENT, type RequestConversationReadDetail } from "@/lib/request-detail-refresh-bus";
 import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
@@ -49,31 +58,64 @@ function tabToSearch(t: HubTab): string {
   return t === "list" ? "liste" : "dashboard";
 }
 
-export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
-  const kindConfig = getRequestKindConfig(kindId);
-  const workflowCopy = useRequestKindPatientCopy(kindId);
+function listTabLabelForParcours(
+  parcours: RequestHubParcoursSlug,
+  tHub: ReturnType<typeof useTranslations<"hub">>,
+): string {
+  if (parcours === "ordonnances") return tHub("dashboard.allPrescriptions");
+  if (parcours === "consultations") return tHub("dashboard.allConsultations");
+  return tHub("dashboard.allRequests");
+}
+
+function emptyCopyForParcours(
+  parcours: RequestHubParcoursSlug,
+  tList: ReturnType<typeof useTranslations<"hub.listChrome">>,
+): { title: string; hint: string } {
+  if (parcours === "ordonnances") {
+    return { title: tList("noPrescriptions"), hint: tList("emptyHintPrescription") };
+  }
+  if (parcours === "consultations") {
+    return { title: tList("noConsultations"), hint: tList("emptyHintConsultation") };
+  }
+  if (parcours === "produits") {
+    return { title: tList("noRequests"), hint: tList("emptyHintProduct") };
+  }
+  return {
+    title: tList("noRequests"),
+    hint: "Annuaire → pharmacie → demande de produits, ordonnance ou consultation.",
+  };
+}
+
+export function PatientUnifiedRequestsHub() {
   const tHub = useTranslations("hub");
+  const tUnified = useTranslations("hub.unifiedHub");
   const tList = useTranslations("hub.listChrome");
   const tCommon = useTranslations("common");
   const tDemandes = useTranslations("demandes");
   const locale = useLocale() as AppLocale;
-  const hubPath = kindConfig.routes.patientHubPath;
-  const refPlaceholder =
-    kindConfig.publicRefPrefix === "O" ? "Ex. O042/26" : kindConfig.publicRefPrefix === "C" ? "Ex. C042/26" : "Ex. D042/26";
+  const hubPath = UNIFIED_PATIENT_HUB_PATH;
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const tab = tabFromSearch(searchParams.get("vue"));
+  const parcours = parseParcoursParam(searchParams.get("parcours"));
+  const effectiveKindId = effectiveKindIdForHub(parcours);
+
+  const replaceHubUrl = (params: Parameters<typeof buildHubUrl>[1]) => {
+    router.replace(buildHubUrl(hubPath, params, searchParams), { scroll: false });
+  };
 
   const setTab = (t: HubTab) => {
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("vue", tabToSearch(t));
-    if (t === "dashboard") {
-      next.delete("statut");
-      next.delete("section");
-      setFiltersExpandedUser(null);
-    }
-    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
+    replaceHubUrl({
+      vue: tabToSearch(t),
+      statut: t === "dashboard" ? null : undefined,
+      section: t === "dashboard" ? null : undefined,
+    });
+    if (t === "dashboard") setFiltersExpandedUser(null);
+  };
+
+  const setParcours = (nextParcours: RequestHubParcoursSlug) => {
+    replaceHubUrl({ parcours: nextParcours });
   };
 
   const [loading, setLoading] = useState(true);
@@ -87,31 +129,37 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
   const [refQuery, setRefQuery] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
   const [activeOnly, setActiveOnly] = useState(true);
-  /** `null` = ouverture auto si filtres URL ou actifs sur la liste. */
   const [filtersExpandedUser, setFiltersExpandedUser] = useState<boolean | null>(null);
 
-  const dashboardBuckets = useMemo(() => dashboardBucketsForKind(kindId, "patient"), [kindId]);
+  const dashboardBuckets = useMemo(
+    () => dashboardBucketsForKind(effectiveKindId, "patient"),
+    [effectiveKindId],
+  );
 
-  /** Filtres URL : réservés à l’onglet liste — le tableau de bord reste toujours complet. */
   const listStatutParam = tab === "list" ? searchParams.get("statut") : null;
   const activeBucket = bucketForStatusParam(listStatutParam, dashboardBuckets);
+
+  const parcoursCounts = useMemo(() => countActiveRequestsByParcours(rows, "patient"), [rows]);
+  const displayRows = useMemo(() => filterRowsByParcours(rows, parcours), [rows, parcours]);
+
+  const preserveSearchParams = useMemo(() => {
+    if (parcours === "tous") return undefined;
+    return { parcours };
+  }, [parcours]);
 
   useEffect(() => {
     if (tab !== "dashboard") return;
     const hasListOnlyParams = searchParams.has("statut") || searchParams.has("section");
     if (!hasListOnlyParams) return;
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete("statut");
-    next.delete("section");
-    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
-  }, [tab, searchParams, router, hubPath]);
+    replaceHubUrl({ statut: null, section: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync URL when leaving list-only params on dashboard tab
+  }, [tab, searchParams]);
 
   useEffect(() => {
     if (searchParams.get("filtres") !== "0") return;
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete("filtres");
-    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
-  }, [searchParams, hubPath, router]);
+    replaceHubUrl({ filtres: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot cleanup of filtres=0
+  }, [searchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -138,10 +186,10 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
         .from("requests")
         .select(
           "id,created_at,updated_at,status,request_type,pharmacy_id,submitted_at,responded_at,request_public_ref,pharmacies(nom,nom_ar,ville,public_ref)," +
-            `request_items(${REQUEST_ITEMS_HUB_SUMMARY_EMBED_SELECT})`
+            `request_items(${REQUEST_ITEMS_HUB_SUMMARY_EMBED_SELECT})`,
         )
         .eq("patient_id", user.id)
-        .eq("request_type", kindId)
+        .in("request_type", ALL_REQUEST_KIND_IDS)
         .order("created_at", { ascending: false })
         .limit(200);
 
@@ -186,7 +234,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
       cancelled = true;
       window.clearTimeout(tid);
     };
-  }, [router, hubPath, kindId]);
+  }, [router, hubPath, tList]);
 
   useEffect(() => {
     const onConversationRead = (event: Event) => {
@@ -206,7 +254,7 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
 
   const pharmacyOptions = useMemo(() => {
     const m = new Map<string, string>();
-    for (const r of rows) {
+    for (const r of displayRows) {
       if (m.has(r.pharmacy_id)) continue;
       const ph = one(r.pharmacies);
       m.set(
@@ -219,18 +267,19 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
       );
     }
     return [...m.entries()].sort((a, b) => collatorForLocale(locale).compare(a[1], b[1]));
-  }, [rows, locale, tDemandes]);
+  }, [displayRows, locale, tDemandes]);
 
-  const rowsWithDashboardStatus = useMemo(() => rows.map((r) => ({ ...r, status_for_dashboard: r.status })), [rows]);
+  const rowsWithDashboardStatus = useMemo(
+    () => displayRows.map((r) => ({ ...r, status_for_dashboard: r.status })),
+    [displayRows],
+  );
 
-  const pharmacyFilterLabel =
-    pharmacyOptions.find(([id]) => id === pharmacyFilter)?.[1] ?? null;
+  const pharmacyFilterLabel = pharmacyOptions.find(([id]) => id === pharmacyFilter)?.[1] ?? null;
 
   let filteredList = filterPatientProductHubListRows(rowsWithDashboardStatus, {
     bucketStatuses: activeBucket?.statuses ?? null,
   });
-  const applyActiveOnly =
-    activeOnly && !(activeBucket && isPatientArchiveBucketKey(activeBucket.key));
+  const applyActiveOnly = activeOnly && !(activeBucket && isPatientArchiveBucketKey(activeBucket.key));
   if (applyActiveOnly) {
     const activeStatuses = new Set(patientRequestActiveStatuses());
     filteredList = filteredList.filter((r) => activeStatuses.has(r.status));
@@ -290,29 +339,18 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     setSortNewestFirst(true);
     setActiveOnly(true);
     setFiltersExpandedUser(null);
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("vue", "liste");
-    next.delete("statut");
-    next.delete("section");
-    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
+    replaceHubUrl({ vue: "liste", statut: null, section: null });
   };
 
   const setStatutFilter = (key: string) => {
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("vue", "liste");
-    if (key === "") next.delete("statut");
-    else next.set("statut", key);
-    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
+    replaceHubUrl({ vue: "liste", statut: key || null });
   };
 
-  const listTabLabel =
-    kindId === "prescription"
-      ? tHub("dashboard.allPrescriptions")
-      : kindId === "free_consultation"
-        ? tHub("dashboard.allConsultations")
-        : tHub("dashboard.allRequests");
-
-  const hubAccent = patientHubDashboardAccent(kindId, "patient") ?? "sky";
+  const hubAccent = patientHubDashboardAccent(effectiveKindId, "patient") ?? "sky";
+  const listTabLabel = listTabLabelForParcours(parcours, tHub);
+  const emptyCopy = emptyCopyForParcours(parcours, tList);
+  const filterBtn = uiActionBtnFilterToggle();
+  const showParcoursLabel = parcours === "tous";
 
   if (loading) {
     return (
@@ -333,66 +371,50 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
     );
   }
 
-  const emptyHint =
-    kindId === "prescription"
-      ? tList("emptyHintPrescription")
-      : kindId === "free_consultation"
-        ? tList("emptyHintConsultation")
-        : tList("emptyHintProduct");
-
-  const emptyTitle =
-    kindId === "prescription"
-      ? tList("noPrescriptions")
-      : kindId === "free_consultation"
-        ? tList("noConsultations")
-        : tList("noRequests");
-
-  const filterBtn = uiActionBtnFilterToggle();
-
   return (
     <PatientHubCatalogPriceVisibilityProvider visibilityByPharmacyId={catalogPriceVisibilityByPharmacyId}>
-    <PageShell
-      maxWidthClass="max-w-3xl"
-      className="space-y-3"
-    >
-      <PatientWorkflowHubHeader
-        title={workflowCopy.patientHubTitle}
-        accent={hubAccent}
-        tab={tab}
-        onTab={setTab}
-        tabLabels={{
-          dashboard: tList("dashboardTab"),
-          list: listTabLabel,
-        }}
-      />
+      <PageShell maxWidthClass="max-w-3xl" className="space-y-3">
+        <RequestParcoursTabBar active={parcours} counts={parcoursCounts} onChange={setParcours} />
 
-      {tab === "dashboard" ? (
-        <>
-          {rows.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center sm:p-8">
-              <p className="text-sm font-medium text-foreground">{emptyTitle}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">{emptyHint}</p>
-              <Link
-                href="/"
-                className="mt-4 inline-flex rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-95"
-              >
-                {tList("directory")}
-              </Link>
-            </div>
-          ) : (
-            <RequestKindHubDashboard
-              kindId={kindId}
-              role="patient"
-              rows={rows}
-              basePath={hubPath}
-              unreadById={unreadById}
-            />
-          )}
-        </>
-      ) : (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+        <PatientWorkflowHubHeader
+          title={tUnified("patientTitle")}
+          accent={hubAccent}
+          tab={tab}
+          onTab={setTab}
+          tabLabels={{
+            dashboard: tList("dashboardTab"),
+            list: listTabLabel,
+          }}
+        />
+
+        {tab === "dashboard" ? (
+          <>
+            {displayRows.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center sm:p-8">
+                <p className="text-sm font-medium text-foreground">{emptyCopy.title}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{emptyCopy.hint}</p>
+                <Link
+                  href="/"
+                  className="mt-4 inline-flex rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-95"
+                >
+                  {tList("directory")}
+                </Link>
+              </div>
+            ) : (
+              <RequestKindHubDashboard
+                kindId={effectiveKindId}
+                role="patient"
+                rows={displayRows}
+                basePath={hubPath}
+                unreadById={unreadById}
+                preserveSearchParams={preserveSearchParams}
+              />
+            )}
+          </>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs">
                 <input
                   type="checkbox"
                   checked={activeOnly}
@@ -400,117 +422,132 @@ export function PatientRequestKindHub({ kindId }: { kindId: RequestKindId }) {
                   className="rounded border-input"
                 />
                 {tList("activeOnly")}
-            </label>
-            <button
-              type="button"
-              onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
-              className={filterBtn}
-            >
-              {filtersPanelExpanded ? tList("hideFilters") : tList("filters")}
-            </button>
-          </div>
-
-          {listHasActiveFilters && !filtersPanelExpanded ? (
-            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-[11px] leading-snug text-foreground">
-              <p>
-                <span className="font-semibold">{tList("activeFilters")}</span> {listFiltersSummary}
-              </p>
-              <button type="button" onClick={clearListFilters} className={clsx("mt-1.5", filterChrome.clearLink)}>
-                {tList("clearAll")}
+              </label>
+              <button
+                type="button"
+                onClick={() => setFiltersExpandedUser(!filtersPanelExpanded)}
+                className={filterBtn}
+              >
+                {filtersPanelExpanded ? tList("hideFilters") : tList("filters")}
               </button>
             </div>
-          ) : null}
 
-          {filtersPanelExpanded ? (
-            <section className={filterChrome.shell}>
-              <div className="grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4">
-                <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                    {tList("dossierRef")}
-                  </span>
-                  <span className="relative block">
-                    <Search
-                      className="pointer-events-none absolute start-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60"
-                      aria-hidden
-                    />
-                    <input
-                      value={refQuery}
-                      onChange={(e) => setRefQuery(e.target.value)}
-                      placeholder={refPlaceholder}
-                      className="w-full rounded-lg border border-input bg-background py-2 ps-8 pe-2.5 text-xs text-foreground shadow-sm placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                    />
-                  </span>
-                </label>
-                <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{tList("status")}</span>
-                  <select
-                    value={activeBucket?.key ?? ""}
-                    onChange={(e) => setStatutFilter(e.target.value)}
-                    className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
-                  >
-                    <option value="">{tList("allStatuses")}</option>
-                    {dashboardBuckets.map((b) => (
-                      <option key={b.key} value={b.key}>
-                        {b.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex min-w-0 flex-col gap-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{tList("pharmacy")}</span>
-                  <select
-                    value={pharmacyFilter}
-                    onChange={(e) => setPharmacyFilter(e.target.value)}
-                    className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
-                  >
-                    <option value="">{tList("allPharmacies")}</option>
-                    {pharmacyOptions.map(([id, label]) => (
-                      <option key={id} value={id}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex min-w-0 flex-col gap-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{tList("sort")}</span>
-                  <select
-                    value={sortNewestFirst ? "desc" : "asc"}
-                    onChange={(e) => setSortNewestFirst(e.target.value === "desc")}
-                    className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
-                  >
-                    <option value="desc">{tList("sortNewest")}</option>
-                    <option value="asc">{tList("sortOldest")}</option>
-                  </select>
-                </label>
-              </div>
-            </section>
-          ) : null}
-
-          {filteredSorted.length === 0 ? (
-            <div className="space-y-2 py-6 text-center text-xs text-muted-foreground">
-              <p>{tList("noResults")}</p>
-              {listHasActiveFilters ? (
-                <button type="button" onClick={clearListFilters} className={filterChrome.clearLink}>
-                  {tList("clearFilters")}
+            {listHasActiveFilters && !filtersPanelExpanded ? (
+              <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-[11px] leading-snug text-foreground">
+                <p>
+                  <span className="font-semibold">{tList("activeFilters")}</span> {listFiltersSummary}
+                </p>
+                <button type="button" onClick={clearListFilters} className={clsx("mt-1.5", filterChrome.clearLink)}>
+                  {tList("clearAll")}
                 </button>
-              ) : null}
-            </div>
-          ) : (
-            <ul className="space-y-2.5">
-              {filteredSorted.map((r) => (
-                <li key={r.id}>
-                  <PatientProductDemandeHubCard row={r} conversationUnread={unreadById[r.id] === true} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-    </PageShell>
+              </div>
+            ) : null}
+
+            {filtersPanelExpanded ? (
+              <section className={filterChrome.shell}>
+                <div className="grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4">
+                  <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                      {tList("dossierRef")}
+                    </span>
+                    <span className="relative block">
+                      <Search
+                        className="pointer-events-none absolute start-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60"
+                        aria-hidden
+                      />
+                      <input
+                        value={refQuery}
+                        onChange={(e) => setRefQuery(e.target.value)}
+                        placeholder="Ex. D042/26, O042/26…"
+                        className="w-full rounded-lg border border-input bg-background py-2 ps-8 pe-2.5 text-xs text-foreground shadow-sm placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                      />
+                    </span>
+                  </label>
+                  <label className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                      {tList("status")}
+                    </span>
+                    <select
+                      value={activeBucket?.key ?? ""}
+                      onChange={(e) => setStatutFilter(e.target.value)}
+                      className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
+                    >
+                      <option value="">{tList("allStatuses")}</option>
+                      {dashboardBuckets.map((b) => (
+                        <option key={b.key} value={b.key}>
+                          {b.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex min-w-0 flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                      {tList("pharmacy")}
+                    </span>
+                    <select
+                      value={pharmacyFilter}
+                      onChange={(e) => setPharmacyFilter(e.target.value)}
+                      className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
+                    >
+                      <option value="">{tList("allPharmacies")}</option>
+                      {pharmacyOptions.map(([id, label]) => (
+                        <option key={id} value={id}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex min-w-0 flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                      {tList("sort")}
+                    </span>
+                    <select
+                      value={sortNewestFirst ? "desc" : "asc"}
+                      onChange={(e) => setSortNewestFirst(e.target.value === "desc")}
+                      className="rounded-lg border border-input bg-background px-2.5 py-2 text-xs text-foreground shadow-sm"
+                    >
+                      <option value="desc">{tList("sortNewest")}</option>
+                      <option value="asc">{tList("sortOldest")}</option>
+                    </select>
+                  </label>
+                </div>
+              </section>
+            ) : null}
+
+            {filteredSorted.length === 0 ? (
+              <div className="space-y-2 py-6 text-center text-xs text-muted-foreground">
+                <p>{tList("noResults")}</p>
+                {listHasActiveFilters ? (
+                  <button type="button" onClick={clearListFilters} className={filterChrome.clearLink}>
+                    {tList("clearFilters")}
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <ul className="space-y-2.5">
+                {filteredSorted.map((r) => (
+                  <li key={r.id}>
+                    <PatientProductDemandeHubCard
+                      row={r}
+                      conversationUnread={unreadById[r.id] === true}
+                      showParcoursLabel={showParcoursLabel}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </PageShell>
     </PatientHubCatalogPriceVisibilityProvider>
   );
 }
 
+/** @deprecated Utiliser `PatientUnifiedRequestsHub`. */
+export function PatientRequestKindHub(_props: { kindId: RequestKindId }) {
+  return <PatientUnifiedRequestsHub />;
+}
+
 export function PatientDemandesHub() {
-  return <PatientRequestKindHub kindId="product_request" />;
+  return <PatientUnifiedRequestsHub />;
 }

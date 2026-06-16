@@ -45,6 +45,18 @@ export const hubAr = {
     loadMore: "تحميل المزيد",
     refPrefix: "مرجع",
   },
+  parcours: {
+    ariaLabel: "تصفية حسب نوع الطلب",
+    all: "الكل",
+    products: "منتجات",
+    prescriptions: "وصفات",
+    consultations: "استشارات",
+    activeCountAria: "{count, plural, one {طلب نشط واحد} other {# طلبات نشطة}}",
+  },
+  unifiedHub: {
+    patientTitle: "طلباتي",
+    pharmacistTitle: "الطلبات",
+  },
   dashboard: {
     resumeQuickly: "متابعة سريعة",
     allPrescriptions: "جميع الوصفات",

@@ -9,6 +9,7 @@ import { displayRequestPublicRef } from "@/lib/public-ref";
 import { pharmacistProductHubCardContextFr } from "@/lib/pharmacist-product-hub-sections";
 import { formatShortId } from "@/lib/request-display";
 import { formatDateTimeShort24hFr } from "@/lib/datetime-fr";
+import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import { uiSecondaryLabel } from "@/lib/ui-label-styles";
 import {
   hubDemandeCardAccent,
@@ -52,10 +53,12 @@ function pharmacistHubCardContextLines(
 export function PharmacistProductDemandeHubCard({
   row,
   conversationUnread = false,
+  showParcoursLabel = false,
 }: {
   row: PharmacistRequestRow;
   compact?: boolean;
   conversationUnread?: boolean;
+  showParcoursLabel?: boolean;
 }) {
   const ctx = pharmacistProductHubCardContextFr(row);
   const { headline, detail } = pharmacistHubCardContextLines(row, ctx);
@@ -63,6 +66,7 @@ export function PharmacistProductDemandeHubCard({
   const refVisuel = displayRequestPublicRef(row);
   const when = formatDateTimeShort24hFr(row.updated_at ?? row.submitted_at ?? row.created_at);
   const accent = hubDemandeCardAccent(row.request_type);
+  const parcoursLabel = showParcoursLabel ? getRequestKindConfig(row.request_type).theme.headerLabelShort : null;
   const tag = patientTag(row);
 
   return (
@@ -88,9 +92,25 @@ export function PharmacistProductDemandeHubCard({
                   </span>
                 ) : null}
               </div>
-              <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-[11px]">
-                {refVisuel}
-              </span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {parcoursLabel ? (
+                  <span
+                    className={clsx(
+                      "rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide sm:text-[10px]",
+                      accent === "amber"
+                        ? "bg-amber-100/90 text-amber-900"
+                        : accent === "violet"
+                          ? "bg-violet-100/90 text-violet-900"
+                          : "bg-sky-100/90 text-sky-900",
+                    )}
+                  >
+                    {parcoursLabel}
+                  </span>
+                ) : null}
+                <span className="font-mono text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-[11px]">
+                  {refVisuel}
+                </span>
+              </div>
             </div>
 
             <div className="flex items-start justify-between gap-2">

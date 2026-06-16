@@ -8,9 +8,9 @@ import { Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { PharmacistWorkflowHubHeader } from "@/components/pharmacist/pharmacist-workflow-hub-header";
 import { RequestKindHubDashboard } from "@/components/requests/hub/request-kind-hub-dashboard";
+import { RequestParcoursTabBar } from "@/components/requests/hub/request-parcours-tab-bar";
 import {
   type HubTab,
-  PharmacistDemandeCard,
   type PharmacistRequestRow,
 } from "@/components/requests/demande-hub-ui";
 import { PharmacistProductDemandeHubCard } from "@/components/requests/product/pharmacist-product-demande-hub-card";
@@ -33,11 +33,21 @@ import {
   pharmacistRequestActiveStatuses,
 } from "@/lib/demandes-hub-buckets";
 import { dashboardBucketsForKind } from "@/lib/request-kinds/hub-and-terminal-copy";
-import { getRequestKindConfig } from "@/lib/request-kinds/registry";
 import type { RequestKindId } from "@/lib/request-kinds/types";
 import { rowMatchesPublicRefQuery } from "@/lib/public-ref";
 import { formatShortId } from "@/lib/request-display";
 import { REQUEST_ITEMS_HUB_SUMMARY_EMBED_SELECT } from "@/lib/request-line-product-embed";
+import {
+  ALL_REQUEST_KIND_IDS,
+  buildHubUrl,
+  countActiveRequestsByParcours,
+  effectiveKindIdForHub,
+  excludePharmacistPrescriptionDrafts,
+  filterRowsByParcours,
+  parseParcoursParam,
+  type RequestHubParcoursSlug,
+  UNIFIED_PHARMACIST_HUB_PATH,
+} from "@/lib/request-hub-parcours";
 import { supabase } from "@/lib/supabase";
 import { REQUEST_CONVERSATION_READ_EVENT, type RequestConversationReadDetail } from "@/lib/request-detail-refresh-bus";
 import { uiActionBtnFilterToggle } from "@/lib/ui-action-buttons";
@@ -50,30 +60,61 @@ function tabToSearch(t: HubTab): string {
   return t === "list" ? "liste" : "dashboard";
 }
 
-export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) {
-  const kindConfig = getRequestKindConfig(kindId);
+function listTabLabelForParcours(parcours: RequestHubParcoursSlug): string {
+  if (parcours === "ordonnances") return "Toutes les ordonnances";
+  if (parcours === "consultations") return "Toutes les consultations";
+  return "Toutes les demandes";
+}
+
+function emptyCopyForParcours(parcours: RequestHubParcoursSlug): { title: string; hint: string } {
+  if (parcours === "ordonnances") {
+    return {
+      title: "Aucune ordonnance",
+      hint: "Les ordonnances envoyées par vos patients apparaîtront ici.",
+    };
+  }
+  if (parcours === "consultations") {
+    return {
+      title: "Aucune consultation",
+      hint: "Les consultations libres envoyées par vos patients apparaîtront ici.",
+    };
+  }
+  if (parcours === "produits") {
+    return { title: "Aucune demande", hint: "Les dossiers patients apparaîtront ici." };
+  }
+  return {
+    title: "Aucune demande",
+    hint: "Les demandes produits, ordonnances et consultations apparaîtront ici.",
+  };
+}
+
+export function PharmacistUnifiedRequestsHub() {
   const tList = useTranslations("hub.listChrome");
-  const hubPath = kindConfig.routes.pharmacistHubPath;
-  const refPlaceholder =
-    kindConfig.publicRefPrefix === "O" ? "Ex. O042/26" : kindConfig.publicRefPrefix === "C" ? "Ex. C042/26" : "Ex. D042/26";
+  const tUnified = useTranslations("hub.unifiedHub");
+  const hubPath = UNIFIED_PHARMACIST_HUB_PATH;
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const tab = tabFromSearch(searchParams.get("vue"));
+  const parcours = parseParcoursParam(searchParams.get("parcours"));
+  const effectiveKindId = effectiveKindIdForHub(parcours);
 
-  const setTab = (t: HubTab) => {
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("vue", tabToSearch(t));
-    if (t === "dashboard") {
-      next.delete("statut");
-      next.delete("section");
-      setFiltersExpandedUser(null);
-    }
-    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
+  const replaceHubUrl = (params: Parameters<typeof buildHubUrl>[1]) => {
+    router.replace(buildHubUrl(hubPath, params, searchParams), { scroll: false });
   };
 
-  const useRichPharmacistHubCard =
-    kindId === "product_request" || kindId === "prescription" || kindId === "free_consultation";
+  const setTab = (t: HubTab) => {
+    replaceHubUrl({
+      vue: tabToSearch(t),
+      statut: t === "dashboard" ? null : undefined,
+      section: t === "dashboard" ? null : undefined,
+    });
+    if (t === "dashboard") setFiltersExpandedUser(null);
+  };
+
+  const setParcours = (nextParcours: RequestHubParcoursSlug) => {
+    replaceHubUrl({ parcours: nextParcours });
+  };
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -83,30 +124,37 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   const [refQuery, setRefQuery] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
   const [activeOnly, setActiveOnly] = useState(true);
-  /** `null` = ouverture auto si filtres URL ou actifs sur la liste. */
   const [filtersExpandedUser, setFiltersExpandedUser] = useState<boolean | null>(null);
 
-  const dashboardBuckets = useMemo(() => dashboardBucketsForKind(kindId, "pharmacien"), [kindId]);
+  const dashboardBuckets = useMemo(
+    () => dashboardBucketsForKind(effectiveKindId, "pharmacien"),
+    [effectiveKindId],
+  );
 
   const listStatutParam = tab === "list" ? searchParams.get("statut") : null;
   const activeBucket = bucketForStatusParam(listStatutParam, dashboardBuckets);
+
+  const parcoursCounts = useMemo(() => countActiveRequestsByParcours(rows, "pharmacien"), [rows]);
+  const displayRows = useMemo(() => filterRowsByParcours(rows, parcours), [rows, parcours]);
+
+  const preserveSearchParams = useMemo(() => {
+    if (parcours === "tous") return undefined;
+    return { parcours };
+  }, [parcours]);
 
   useEffect(() => {
     if (tab !== "dashboard") return;
     const hasListOnlyParams = searchParams.has("statut") || searchParams.has("section");
     if (!hasListOnlyParams) return;
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete("statut");
-    next.delete("section");
-    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
-  }, [tab, searchParams, router, hubPath]);
+    replaceHubUrl({ statut: null, section: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, searchParams]);
 
   useEffect(() => {
     if (searchParams.get("filtres") !== "0") return;
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete("filtres");
-    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
-  }, [searchParams, hubPath, router]);
+    replaceHubUrl({ filtres: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,21 +192,15 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
         return;
       }
 
-      const itemsSelect =
-        kindId === "product_request"
-          ? `request_items(${REQUEST_ITEMS_HUB_SUMMARY_EMBED_SELECT})`
-          : "request_items(counter_outcome,is_selected_by_patient,post_confirm_fulfillment)";
-      let q = supabase
+      const { data, error: re } = await supabase
         .from("requests")
         .select(
-          `id,created_at,updated_at,status,request_type,patient_id,submitted_at,responded_at,request_public_ref,${itemsSelect}`
+          `id,created_at,updated_at,status,request_type,patient_id,submitted_at,responded_at,request_public_ref,request_items(${REQUEST_ITEMS_HUB_SUMMARY_EMBED_SELECT})`,
         )
         .eq("pharmacy_id", staff.pharmacy_id)
-        .eq("request_type", kindId);
-      if (kindId === "prescription") {
-        q = q.neq("status", "draft");
-      }
-      const { data, error: re } = await q.order("created_at", { ascending: false }).limit(220);
+        .in("request_type", ALL_REQUEST_KIND_IDS)
+        .order("created_at", { ascending: false })
+        .limit(220);
 
       if (cancelled) return;
 
@@ -169,7 +211,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
         return;
       }
 
-      const raw = (data ?? []) as unknown as PharmacistRequestRow[];
+      const raw = excludePharmacistPrescriptionDrafts((data ?? []) as unknown as PharmacistRequestRow[]);
       const { data: directory, error: dirErr } = await supabase.rpc("pharmacist_patient_directory_for_my_pharmacy");
       let enriched = raw;
       if (dirErr) {
@@ -184,12 +226,12 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
         };
         const map = new Map((directory as DirRow[] | null)?.map((p) => [p.patient_id, p]) ?? []);
         enriched = raw.map((r) => {
-          const p = map.get(r.patient_id);
+          const patient = map.get(r.patient_id);
           return {
             ...r,
-            patient_full_name: p?.full_name ?? null,
-            patient_whatsapp: p?.whatsapp ?? null,
-            patient_ref: p?.patient_ref ?? null,
+            patient_full_name: patient?.full_name ?? null,
+            patient_whatsapp: patient?.whatsapp ?? null,
+            patient_ref: patient?.patient_ref ?? null,
           };
         });
       }
@@ -217,7 +259,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
       cancelled = true;
       window.clearTimeout(tid);
     };
-  }, [router, hubPath, kindId]);
+  }, [router, hubPath]);
 
   useEffect(() => {
     const onConversationRead = (event: Event) => {
@@ -235,39 +277,31 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
     return () => window.removeEventListener(REQUEST_CONVERSATION_READ_EVENT, onConversationRead);
   }, []);
 
-  const patientOptions = useMemo(() => {
-    const ids = [...new Set(rows.map((r) => r.patient_id))];
-    return ids.sort();
-  }, [rows]);
+  const patientOptions = useMemo(() => [...new Set(displayRows.map((r) => r.patient_id))].sort(), [displayRows]);
 
   const patientSelectLabel = useCallback(
     (pid: string) => {
-      const row = rows.find((r) => r.patient_id === pid);
+      const row = displayRows.find((r) => r.patient_id === pid);
       const name = row?.patient_full_name?.trim();
       const pref = row?.patient_ref?.trim();
       const tag = pref ? pref : `#${formatShortId(pid)}`;
       return name ? `${name} · ${tag}` : `Patient ${tag}`;
     },
-    [rows]
+    [displayRows],
   );
 
-  const rowsWithDashboardStatus = useMemo(() => rows.map((r) => ({ ...r, status_for_dashboard: r.status })), [rows]);
+  const rowsWithDashboardStatus = useMemo(
+    () => displayRows.map((r) => ({ ...r, status_for_dashboard: r.status })),
+    [displayRows],
+  );
 
   const patientFilterLabel = patientFilter ? patientSelectLabel(patientFilter) : null;
 
-  let filteredList = rowsWithDashboardStatus;
-  if (useRichPharmacistHubCard) {
-    filteredList = filterPharmacistProductHubListRows(filteredList, {
-      bucketStatuses: activeBucket?.statuses ?? null,
-    });
-  } else if (activeBucket) {
-    const allow = new Set(activeBucket.statuses);
-    filteredList = filteredList.filter((r) =>
-      allow.has((r as { status_for_dashboard?: string }).status_for_dashboard ?? r.status)
-    );
-  }
-  const applyActiveOnly =
-    activeOnly && !(activeBucket && isPharmacistArchiveBucketKey(activeBucket.key));
+  let filteredList = filterPharmacistProductHubListRows(rowsWithDashboardStatus, {
+    bucketStatuses: activeBucket?.statuses ?? null,
+  });
+
+  const applyActiveOnly = activeOnly && !(activeBucket && isPharmacistArchiveBucketKey(activeBucket.key));
   if (applyActiveOnly) {
     const activeStatuses = new Set(pharmacistRequestActiveStatuses());
     filteredList = filteredList.filter((r) => activeStatuses.has(r.status));
@@ -283,7 +317,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
         r.patient_full_name,
         formatShortId(r.id),
         formatShortId(r.patient_id),
-      ])
+      ]),
     );
   }
   const filteredSorted = [...filteredList].sort((a, b) => {
@@ -327,34 +361,18 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
     setSortNewestFirst(true);
     setActiveOnly(true);
     setFiltersExpandedUser(null);
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("vue", "liste");
-    next.delete("statut");
-    next.delete("section");
-    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
+    replaceHubUrl({ vue: "liste", statut: null, section: null });
   };
 
   const setStatutFilter = (key: string) => {
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("vue", "liste");
-    if (key === "") {
-      next.delete("statut");
-    } else {
-      next.set("statut", key);
-    }
-    router.replace(`${hubPath}?${next.toString()}`, { scroll: false });
+    replaceHubUrl({ vue: "liste", statut: key || null });
   };
 
   const filterBtn = uiActionBtnFilterToggle();
-
-  const listTabLabel =
-    kindId === "prescription"
-      ? "Toutes les ordonnances"
-      : kindId === "free_consultation"
-        ? "Toutes les consultations"
-        : "Toutes les demandes";
-
-  const hubAccent = patientHubDashboardAccent(kindId, "pharmacien") ?? "sky";
+  const listTabLabel = listTabLabelForParcours(parcours);
+  const hubAccent = patientHubDashboardAccent(effectiveKindId, "pharmacien") ?? "sky";
+  const emptyCopy = emptyCopyForParcours(parcours);
+  const showParcoursLabel = parcours === "tous";
 
   if (loading) {
     return (
@@ -376,12 +394,11 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   }
 
   return (
-    <PageShell
-      maxWidthClass="max-w-3xl"
-      className="space-y-3"
-    >
+    <PageShell maxWidthClass="max-w-3xl" className="space-y-3">
+      <RequestParcoursTabBar active={parcours} counts={parcoursCounts} onChange={setParcours} />
+
       <PharmacistWorkflowHubHeader
-        title={kindConfig.copy.pharmacistHubTitle}
+        title={tUnified("pharmacistTitle")}
         accent={hubAccent}
         tab={tab}
         onTab={setTab}
@@ -402,30 +419,19 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
 
       {tab === "dashboard" ? (
         <>
-          {rows.length === 0 ? (
+          {displayRows.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center">
-              <p className="text-sm font-medium text-foreground">
-                {kindId === "prescription"
-                  ? "Aucune ordonnance"
-                  : kindId === "free_consultation"
-                    ? "Aucune consultation"
-                    : "Aucune demande"}
-              </p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                {kindId === "prescription"
-                  ? "Les ordonnances envoyées par vos patients apparaîtront ici."
-                  : kindId === "free_consultation"
-                    ? "Les consultations libres envoyées par vos patients apparaîtront ici."
-                    : "Les dossiers patients apparaîtront ici."}
-              </p>
+              <p className="text-sm font-medium text-foreground">{emptyCopy.title}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">{emptyCopy.hint}</p>
             </div>
           ) : (
             <RequestKindHubDashboard
-              kindId={kindId}
+              kindId={effectiveKindId}
               role="pharmacien"
-              rows={rows}
+              rows={displayRows}
               basePath={hubPath}
               unreadById={unreadById}
+              preserveSearchParams={preserveSearchParams}
             />
           )}
         </>
@@ -476,7 +482,7 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
                     <input
                       value={refQuery}
                       onChange={(e) => setRefQuery(e.target.value)}
-                      placeholder={refPlaceholder}
+                      placeholder="Ex. D042/26, O042/26…"
                       className="w-full rounded-lg border border-input bg-background py-2 ps-8 pe-2.5 text-xs text-foreground shadow-sm placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                     />
                   </span>
@@ -543,14 +549,11 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
             <ul className="flex flex-col gap-3">
               {filteredSorted.map((r) => (
                 <li key={r.id} className="list-none">
-                  {useRichPharmacistHubCard ? (
-                    <PharmacistProductDemandeHubCard
-                      row={r}
-                      conversationUnread={unreadById[r.id] === true}
-                    />
-                  ) : (
-                    <PharmacistDemandeCard row={r} conversationUnread={unreadById[r.id] === true} />
-                  )}
+                  <PharmacistProductDemandeHubCard
+                    row={r}
+                    conversationUnread={unreadById[r.id] === true}
+                    showParcoursLabel={showParcoursLabel}
+                  />
                 </li>
               ))}
             </ul>
@@ -561,6 +564,11 @@ export function PharmacistRequestKindHub({ kindId }: { kindId: RequestKindId }) 
   );
 }
 
+/** @deprecated Utiliser `PharmacistUnifiedRequestsHub`. */
+export function PharmacistRequestKindHub(_props: { kindId: RequestKindId }) {
+  return <PharmacistUnifiedRequestsHub />;
+}
+
 export function PharmacistDemandesHub() {
-  return <PharmacistRequestKindHub kindId="product_request" />;
+  return <PharmacistUnifiedRequestsHub />;
 }

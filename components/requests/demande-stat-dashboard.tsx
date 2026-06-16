@@ -186,6 +186,7 @@ export function DemandeStatDashboard({
   bucketGroups,
   kindId,
   viewerRole = "patient",
+  preserveSearchParams,
 }: {
   rows: Row[];
   buckets: DemandeStatBucket[];
@@ -197,6 +198,8 @@ export function DemandeStatDashboard({
   bucketGroups?: DemandeStatBucketGroup[];
   kindId?: RequestKindId;
   viewerRole?: "patient" | "pharmacien";
+  /** Params URL à conserver lors d'un clic tuile (ex. `parcours`). */
+  preserveSearchParams?: Record<string, string>;
 }) {
   const router = useRouter();
   const max = Math.max(1, ...buckets.map((b) => countInBucket(rows, b)));
@@ -206,6 +209,11 @@ export function DemandeStatDashboard({
 
   const openBucket = (key: DemandeStatBucketKey) => {
     const next = new URLSearchParams();
+    if (preserveSearchParams) {
+      for (const [name, value] of Object.entries(preserveSearchParams)) {
+        if (value) next.set(name, value);
+      }
+    }
     next.set("vue", "liste");
     next.set("statut", key);
     /** Panneau filtres replié à l’arrivée (hub lit puis retire ce paramètre). */

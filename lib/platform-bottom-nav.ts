@@ -1,32 +1,49 @@
 import type { LucideIcon } from "lucide-react";
-import { CalendarClock, FileText, Gift, MessageSquare, Package } from "lucide-react";
+import {
+  Building2,
+  CalendarClock,
+  ClipboardList,
+  Clock,
+  Gift,
+  LayoutDashboard,
+  MapPin,
+  Package,
+} from "lucide-react";
 
 export const PLATFORM_BOTTOM_NAV_HEIGHT_PX = 56;
 
 export type BottomNavRole = "patient" | "pharmacien";
 
-export type BottomNavTabId = "products" | "prescriptions" | "consultations" | "promos";
+export type BottomNavTabId = "home" | "requests" | "packs" | "pharmacies" | "dashboard" | "schedule";
 
 export type BottomNavTabConfig = {
   id: BottomNavTabId;
   href: string;
   icon: LucideIcon;
   /** i18n key under header.bottomNav */
-  labelKey: "products" | "prescriptions" | "consultations" | "promos" | "demandes" | "reservations";
+  labelKey:
+    | "home"
+    | "myRequests"
+    | "myPacks"
+    | "myPharmacies"
+    | "dashboard"
+    | "demandes"
+    | "reservations"
+    | "schedule";
 };
 
 const PATIENT_TABS: BottomNavTabConfig[] = [
-  { id: "products", href: "/dashboard/demandes", icon: Package, labelKey: "products" },
-  { id: "prescriptions", href: "/dashboard/patient/ordonnances", icon: FileText, labelKey: "prescriptions" },
-  { id: "consultations", href: "/dashboard/patient/consultations-libres", icon: MessageSquare, labelKey: "consultations" },
-  { id: "promos", href: "/dashboard/patient/packs-promo", icon: Gift, labelKey: "promos" },
+  { id: "home", href: "/", icon: Building2, labelKey: "home" },
+  { id: "requests", href: "/dashboard/demandes", icon: ClipboardList, labelKey: "myRequests" },
+  { id: "packs", href: "/dashboard/patient/packs-promo", icon: Gift, labelKey: "myPacks" },
+  { id: "pharmacies", href: "/dashboard/patient/pharmacies", icon: MapPin, labelKey: "myPharmacies" },
 ];
 
 const PHARMACIEN_TABS: BottomNavTabConfig[] = [
-  { id: "products", href: "/dashboard/pharmacien/demandes", icon: Package, labelKey: "demandes" },
-  { id: "prescriptions", href: "/dashboard/pharmacien/ordonnances", icon: FileText, labelKey: "prescriptions" },
-  { id: "consultations", href: "/dashboard/pharmacien/consultations-libres", icon: MessageSquare, labelKey: "consultations" },
-  { id: "promos", href: "/dashboard/pharmacien/reservations-packs", icon: CalendarClock, labelKey: "reservations" },
+  { id: "dashboard", href: "/dashboard/pharmacien", icon: LayoutDashboard, labelKey: "dashboard" },
+  { id: "requests", href: "/dashboard/pharmacien/demandes", icon: Package, labelKey: "demandes" },
+  { id: "packs", href: "/dashboard/pharmacien/reservations-packs", icon: CalendarClock, labelKey: "reservations" },
+  { id: "schedule", href: "/dashboard/pharmacien/horaires-garde", icon: Clock, labelKey: "schedule" },
 ];
 
 export function bottomNavTabsForRole(role: BottomNavRole): BottomNavTabConfig[] {
@@ -42,7 +59,7 @@ export function shouldHideBottomNav(pathname: string, role: string | null, hasSe
   return false;
 }
 
-/** Détail dossier partagé (`/dashboard/demandes/[id]`) — l’URL ne reflète pas le type. */
+/** Détail dossier partagé — l’URL ne reflète pas le hub unifié. */
 export function isSharedDemandeDetailPath(pathname: string, role: BottomNavRole): boolean {
   const normalized = pathname.split("?")[0] ?? pathname;
   if (role === "patient") {
@@ -53,60 +70,58 @@ export function isSharedDemandeDetailPath(pathname: string, role: BottomNavRole)
   );
 }
 
+function pathMatchesPrefix(pathname: string, href: string): boolean {
+  const normalized = pathname.split("?")[0] ?? pathname;
+  return normalized === href || normalized.startsWith(`${href}/`);
+}
+
 export function isBottomNavTabActive(
   pathname: string,
   tab: BottomNavTabConfig,
   role: BottomNavRole,
-  dossierTabId?: BottomNavTabId | null
+  dossierTabId?: BottomNavTabId | null,
 ): boolean {
-  const normalized = pathname.split("?")[0] ?? pathname;
-
   if (isSharedDemandeDetailPath(pathname, role)) {
-    if (!dossierTabId) return false;
+    return tab.id === "requests";
+  }
+
+  if (dossierTabId) {
     return tab.id === dossierTabId;
   }
 
-  if (tab.id === "products") {
-    if (role === "patient") {
-      return normalized === "/dashboard/demandes" || normalized.startsWith("/dashboard/demandes/");
-    }
-    return normalized === "/dashboard/pharmacien/demandes" || normalized.startsWith("/dashboard/pharmacien/demandes/");
+  if (tab.id === "home") {
+    const normalized = pathname.split("?")[0] ?? pathname;
+    return normalized === "/";
   }
 
-  if (tab.id === "prescriptions") {
+  if (tab.id === "requests") {
     if (role === "patient") {
-      return normalized === "/dashboard/patient/ordonnances" || normalized.startsWith("/dashboard/patient/ordonnances/");
+      return pathMatchesPrefix(pathname, "/dashboard/demandes");
     }
-    return (
-      normalized === "/dashboard/pharmacien/ordonnances" ||
-      normalized.startsWith("/dashboard/pharmacien/ordonnances/")
-    );
+    return pathMatchesPrefix(pathname, "/dashboard/pharmacien/demandes");
   }
 
-  if (tab.id === "consultations") {
+  if (tab.id === "packs") {
     if (role === "patient") {
-      return (
-        normalized === "/dashboard/patient/consultations-libres" ||
-        normalized.startsWith("/dashboard/patient/consultations-libres/")
-      );
+      return pathMatchesPrefix(pathname, "/dashboard/patient/packs-promo");
     }
-    return (
-      normalized === "/dashboard/pharmacien/consultations-libres" ||
-      normalized.startsWith("/dashboard/pharmacien/consultations-libres/")
-    );
+    return pathMatchesPrefix(pathname, "/dashboard/pharmacien/reservations-packs");
   }
 
-  if (tab.id === "promos") {
-    if (role === "patient") {
-      return normalized === "/dashboard/patient/packs-promo" || normalized.startsWith("/dashboard/patient/packs-promo/");
-    }
-    return (
-      normalized === "/dashboard/pharmacien/reservations-packs" ||
-      normalized.startsWith("/dashboard/pharmacien/reservations-packs/")
-    );
+  if (tab.id === "pharmacies") {
+    return role === "patient" && pathMatchesPrefix(pathname, "/dashboard/patient/pharmacies");
   }
 
-  return normalized === tab.href || normalized.startsWith(`${tab.href}/`);
+  if (tab.id === "dashboard") {
+    const normalized = pathname.split("?")[0] ?? pathname;
+    return normalized === "/dashboard/pharmacien";
+  }
+
+  if (tab.id === "schedule") {
+    return role === "pharmacien" && pathMatchesPrefix(pathname, "/dashboard/pharmacien/horaires-garde");
+  }
+
+  return pathMatchesPrefix(pathname, tab.href);
 }
 
 export function platformBottomNavPadClass(): string {

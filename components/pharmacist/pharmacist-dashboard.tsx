@@ -355,7 +355,7 @@ export function PharmacistDashboard() {
                 basePath="/dashboard/pharmacien/demandes"
                 density="compact"
                 dashboardTitle="8 statuts"
-                dashboardSubtitle="Tous parcours confondus — ouvre le hub produits filtré (ordonnances et consultations : menu Dossiers)."
+                dashboardSubtitle="Tous parcours confondus — ouvre le hub Demandes unifié."
               />
             </section>
           ) : null}
@@ -515,9 +515,10 @@ export function PharmacistDashboard() {
             <h2 className="text-sm font-semibold text-foreground">Accès rapides</h2>
             <div className="mt-3 flex flex-wrap gap-2">
               {[
-                { href: "/dashboard/pharmacien/demandes", label: "Demandes produits", icon: Package },
-                { href: "/dashboard/pharmacien/ordonnances", label: "Ordonnances", icon: FileText },
-                { href: "/dashboard/pharmacien/consultations-libres", label: "Consultations libres", icon: MessageSquare },
+                { href: "/dashboard/pharmacien/demandes", label: "Toutes les demandes", icon: Package },
+                { href: "/dashboard/pharmacien/demandes?parcours=produits", label: "Demandes produits", icon: Package },
+                { href: "/dashboard/pharmacien/demandes?parcours=ordonnances", label: "Ordonnances", icon: FileText },
+                { href: "/dashboard/pharmacien/demandes?parcours=consultations", label: "Consultations libres", icon: MessageSquare },
                 { href: "/dashboard/pharmacien/produits-commandes", label: "Produits commandés", icon: ClipboardList },
                 { href: "/dashboard/pharmacien/ruptures-marche", label: "Ruptures marché", icon: AlertCircle },
                 { href: "/dashboard/pharmacien/clients", label: "Clients", icon: Users },

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { hubPathForRequestKind } from "@/lib/request-hub-parcours";
 import type { RequestKindConfig } from "@/lib/request-kinds/types";
 
 type RequestDetailBackLinkProps = {
@@ -12,8 +13,9 @@ type RequestDetailBackLinkProps = {
 
 export function RequestDetailBackLink({ config, viewerRole }: RequestDetailBackLinkProps) {
   const t = useTranslations("common");
-  const href = viewerRole === "patient" ? config.routes.patientHubPath : config.routes.pharmacistHubPath;
-  const label = viewerRole === "patient" ? config.copy.patientHubTitle : config.copy.pharmacistHubTitle;
+  const tUnified = useTranslations("hub.unifiedHub");
+  const href = hubPathForRequestKind(config.id, viewerRole);
+  const label = viewerRole === "patient" ? tUnified("patientTitle") : tUnified("pharmacistTitle");
   const linkClass =
     viewerRole === "patient" ? config.theme.patientBackLinkClass : config.theme.pharmacistBackLinkClass;
 

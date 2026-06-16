@@ -13,12 +13,14 @@ export function RequestKindHubDashboard({
   role,
   rows,
   basePath,
+  preserveSearchParams,
 }: {
   kindId: RequestKindId;
   role: "patient" | "pharmacien";
   rows: PatientRequestRow[] | PharmacistRequestRow[];
   basePath: string;
   unreadById?: Record<string, boolean>;
+  preserveSearchParams?: Record<string, string>;
 }) {
   const tHub = useTranslations("hub");
   const baseBuckets =
@@ -42,6 +44,7 @@ export function RequestKindHubDashboard({
       bucketGroups={statBucketGroupsForRole(role)}
       kindId={kindId}
       viewerRole={role}
+      preserveSearchParams={preserveSearchParams}
     />
   );
 }
