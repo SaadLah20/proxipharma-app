@@ -18,6 +18,7 @@ import {
   Package,
   Settings,
   ShoppingBag,
+  Star,
   Store,
   User,
   Users,
@@ -203,6 +204,7 @@ export const pharmacienNavMenu: PlatformNavBlock[] = [
     heading: "Officine & visibilité",
     items: [
       { href: "/dashboard/pharmacien/clients", label: "Clients", icon: Users },
+      { href: "/dashboard/pharmacien/avis-patients", label: "Avis patients", icon: Star },
       { href: "/dashboard/pharmacien/mes-produits", label: "Mes produits", icon: Package },
       { href: "/dashboard/pharmacien/produits-signales", label: "Produits signalés", icon: Flag },
       { href: "/dashboard/pharmacien/ma-fiche", label: "Ma fiche publique", icon: Store },
