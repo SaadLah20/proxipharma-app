@@ -15,7 +15,7 @@ Prod **`pharmeto.ma`**. Marque **Pharmeto** (ex-ProxiPharma). Dev : **`npm run d
 | Contexte onboarding / Supabase | `CONTEXTE.md` §6 |
 | Spec produit + journal sessions | `CAHIER_DES_CHARGES.md` — §0.1, §4.4–§4.6, §10, §11, §12 |
 | Reprise sans tâche | `CAHIER_DES_CHARGES.md` §13.35 |
-| Reprise courte (infra à jour) | §13.66 (WhatsApp lot 3), §13.65 (inbox), §13.64 (expiration passage), §13.63 (photos catalogue), §13.62 (général), §13.61 (catalogue) |
+| Reprise courte (infra à jour) | §13.67 (hubs + footers), §13.66 (WhatsApp lot 3), §13.65 (inbox), §13.64 (expiration passage), §13.63 (photos catalogue), §13.62 (général), §13.61 (catalogue) |
 | Livraison git/PR (utilisateur non dev) | `.cursor/rules/delivery-workflow-user.mdc` |
 | WhatsApp notifs | `docs/WHATSAPP-NOTIFS-REPRISE.md`, `RUNBOOK.md` §10 |
 | Runbook ops | `RUNBOOK.md` |
