@@ -18,6 +18,7 @@ Ce dossier contient le SQL versionne sous Git (**source de verite schema + RLS /
 | `20260503_005_abandon_24h_qty_dupe_shortage_reasons.sql` | Qté 1–10, unique produit/demande, motifs abandon/annulation, `abandon_unconfirmed_responded_requests` (alias **`expire_overdue_requests`** depuis **`20260516_001`**), trigger `market_shortages` |
 | `20260829_001_market_shortage_skip_pharmacy_catalog_lines.sql` | Rupture marché : pas d’insert **`market_shortages`** si ligne catalogue privé (`product_id` null) |
 | `20260830_001_pharmacy_catalog_restore_archived_hidden.sql` | Mes produits : lister `archived_hidden` + RPC **`pharmacist_restore_pharmacy_product`** |
+| `20260831_001_pharmacy_catalog_list_supprimes_filter.sql` | Filtre RPC : Dépubliés ≠ Supprimés (`archived_hidden` séparé) |
 | `20260507_001_patient_abandon_cancel_expire_clone.sql` | Règles abandon/annulation/expiré ; batch 24 h → **`expired`** ; RPC **`patient_create_followup_from_expired_product_request`** |
 | `20260507_002_counter_cancel_reason.sql` | Motifs d'annulation ligne au comptoir (client / pharmacie) + détail libre, RPC `pharmacist_set_item_counter_outcome` étendue |
 | `20260507_003_pharmacist_cancel_request.sql` | RPC **`pharmacist_cancel_request`** : annulation totale par la pharmacie avec motif (submitted / in_review / responded / confirmed → cancelled) |

@@ -43,7 +43,7 @@ La philosophie directrice est la **"réduction de la friction"** : l'application
 
 **Mise à jour 2026-06-16 (suite) — Mes produits : restaurer les supprimés** :
 - **Migration** **`20260830_001`** : produits « Supprimer » (`archived_hidden`) visibles dans **Dépubliés** ; RPC **`pharmacist_restore_pharmacy_product`** → actif.
-- Hub **`/dashboard/pharmacien/mes-produits`** : badge Dépublié + bouton **Restaurer**.
+- Hub **`/dashboard/pharmacien/mes-produits`** : onglet **Supprimés** (distinct de Dépubliés), badge Supprimé + bouton **Restaurer**.
 - Ancre migrations **`AGENTS.md`** → **`20260830_001`**.
 
 **Mise à jour 2026-06-16 — réponse pharmacien produits privés / archivés** :

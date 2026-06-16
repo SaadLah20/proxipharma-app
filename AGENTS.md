@@ -24,7 +24,7 @@ Prod **`pharmeto.ma`**. Marque **Pharmeto** (ex-ProxiPharma). Dev : **`npm run d
 
 ## Migrations Supabase (ancre pilote)
 
-Appliquer dans l’ordre `YYYYMMDD_*` jusqu’à **`20260830_001`** (Mes produits : restaurer produits supprimés ; après **`20260829_001`** rupture marché lignes catalogue privé).
+Appliquer dans l’ordre `YYYYMMDD_*` jusqu’à **`20260831_001`** (onglet Supprimés Mes produits ; après **`20260830_001`** restaurer produits supprimés).
 
 Piège : **`20260503_007`** (policy profiles) ≠ **`20260505_007`** (codes publics). **`20260718_001`** + **`20260718_002`** = deux runs. **`20260819_001`** puis **`20260819_002`**.
 
@@ -38,7 +38,7 @@ Piège : **`20260503_007`** (policy profiles) ≠ **`20260505_007`** (codes publ
 - **Types de demande** (`lib/request-kinds/`) : produits **sky**, ordonnances **amber**, consultations **violet**, promos **emerald**. Compte/officine = **`lib/platform-dashboard-chrome.ts`** (pas couleurs dossier).
 - **Pricing** : médicament **PPV** ; parapharmacie PPH + marge −10 % à +40 % (produit > marque > global). Modal patient = **`lib/patient-responded-line-pricing.ts`**.
 - **Rupture marché** : dispo **`market_shortage`** sur la ligne OK partout ; entrée hub **`market_shortages`** **uniquement** si la ligne a un **`product_id`** catalogue national (`pharmacy_product_id` seul → pas d’insert hub — migration **`20260829_001`**).
-- **Mes produits** : « Supprimer » → `archived_hidden`, visible filtre **Dépubliés** + **Restaurer** (`pharmacist_restore_pharmacy_product`, migration **`20260830_001`**).
+- **Mes produits** : « Supprimer » → `archived_hidden`, onglet **Supprimés** + **Restaurer** (`pharmacist_restore_pharmacy_product`, migrations **`20260830_001`** + **`20260831_001`** si `20260830` déjà appliquée).
 - **Annuaire pilote** : public + nouveaux patients → **Al Jazira seule** (`public_listed` + RLS) ; test → **`pilot_access`** (`lib/annuaire/pilot-directory-access.ts`).
 - **Refonte UX Glovo-like** : **ABANDONNÉE** — ne pas recréer. UI = affinages incrémentaux, preview PR.
 - **Pilote en dev** : si plus simple, **proposer vidage** demandes (`CAHIER_DES_CHARGES.md` §0.1) plutôt que préserver jeux obsolètes.

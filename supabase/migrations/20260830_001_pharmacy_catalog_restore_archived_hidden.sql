@@ -1,4 +1,4 @@
--- Mes produits : conserver les produits supprimés (archived_hidden) visibles comme dépubliés + restauration.
+-- Mes produits : conserver les produits supprimés (archived_hidden) visibles + onglet Supprimés + restauration.
 
 alter table public.pharmacy_catalog_product_admin_events
   drop constraint if exists pharmacy_catalog_product_admin_events_event_type_check;
@@ -19,7 +19,7 @@ alter table public.pharmacy_catalog_product_admin_events
     )
   );
 
--- Liste hub : inclure archived_hidden (filtre « Dépubliés » côté client ou p_status = unpublished)
+-- Liste hub : inclure archived_hidden (onglet « Supprimés » côté client)
 create or replace function public.pharmacist_list_pharmacy_products(
   p_status text default null
 )
@@ -52,14 +52,7 @@ begin
     )
     and (
       p_status is null
-      or (
-        p_status = 'unpublished'
-        and cp.status in ('unpublished', 'archived_hidden')
-      )
-      or (
-        p_status <> 'unpublished'
-        and cp.status::text = p_status
-      )
+      or cp.status::text = p_status
     )
   order by cp.updated_at desc, cp.name asc;
 end;
