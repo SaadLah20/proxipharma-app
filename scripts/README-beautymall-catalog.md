@@ -88,9 +88,11 @@ node scripts/download-beautymall-catalog-images.mjs --dry-run
 # Test réel (50 images)
 node --use-system-ca scripts/download-beautymall-catalog-images.mjs --limit 50
 
-# Lot complet (~12 171 images — plusieurs heures, reprise auto si relancé)
+# Lot complet (~11 796 slugs uniques — reprise auto si relancé)
 node --use-system-ca scripts/download-beautymall-catalog-images.mjs
 ```
+
+**État (2026-06-16)** : Phase 1 **terminée** — 11 793 téléchargées + 3 ignorées, 0 erreur ; journal `catalog/images/beautymall-download-manifest.json`. Prochaine étape : Phase 2 du guide `docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`.
 
 | Option | Rôle |
 |--------|------|

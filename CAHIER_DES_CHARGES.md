@@ -8,7 +8,7 @@ Il doit etre mis a jour a chaque fin de session pour garder un historique clair 
 **But**: avancer plusieurs semaines sans perdre la vision, sans divergence BDD/code, avec peu d explications repetitives et sans dependre d une « connexion Supabase » Cursor (impossible sans secrets non versionnes).
 
 Au **demarrage** d une session :
-- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260830_001`** si pas fait — après inbox **`20260825_001`**, WhatsApp lot 2 **`20260826_001`**, labels inbox **`20260827_001`**, WhatsApp lot 3 **`20260828_001`**, rupture marché catalogue privé **`20260829_001`**, restaurer produits Mes produits **`20260830_001`**) → phrase **§13.66** (WhatsApp lot 3) ou **§13.65** (inbox) ou **§13.64** (expiration passage) ou **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
+- **Reprise courte** lorsque Supabase est **deja aligne avec les migrations Git** (pilote : appliquer jusqu a **`20260831_001`** si pas fait — après inbox **`20260825_001`**, WhatsApp lot 2 **`20260826_001`**, labels inbox **`20260827_001`**, WhatsApp lot 3 **`20260828_001`**, rupture marché catalogue privé **`20260829_001`**, restaurer produits Mes produits **`20260830_001`**, onglet Supprimés **`20260831_001`**) → phrase **§13.66** (WhatsApp lot 3) ou **§13.65** (inbox) ou **§13.64** (expiration passage) ou **§13.63** (photos catalogue) ou **§13.62** (général) ou **§13.61** (catalogue communautaire seul). La **tache precise** est donnee dans le message suivant.
 - **Contexte projet, onboarding nouvelle machine, ou fichier SQL nouveau sous `supabase/migrations/`** → lire `CONTEXTE.md`, `CAHIER_DES_CHARGES.md` (**§0.1**, **§11**, dernier bloc **§10 Journal**, **§12** ; **phrase detaillee migrations** sous **§13.5-suite** si besoin). Ne dedouble pas les migrations hors fichiers dans `supabase/migrations/` sans me demander. Si tu touches Supabase : ordre des fichiers `YYYYMMDD_*`. **Ne pas confondre** : migration **`20260503_007`** = policy `profiles` (dangereuse seule, à annuler avec **`20260503_009`**) ; migration **`20260505_007`** = **codes publics** PH / P / D (refs mémorisables).
 
 **Outils utiles (hors migration)** — **vider demandes + médias liés** (garde officines, catalogue, photos officines) :
@@ -23,9 +23,10 @@ Au **demarrage** d une session :
 3. SQL `supabase/scripts/wipe-catalog-beautymall-import.sql` (vider catalogue + lignes promo liées) puis `node scripts/import-beautymall-catalog.mjs` (`--dry-run` possible). **Pilote** : **13 651** parapharmacie BeautyMall, **12 171** avec photo URL, **1 480** sans photo. Pas de migration Git — colonne **`full_description`** déjà en schéma. Détail §10 session **2026-06-04 (suite 2)** · phrase **§13.39**.
 
 **Indépendance photos BeautyMall (juin 2026)** — guide reprise **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`** :
-1. **Phase 1** — sauvegarde locale (sans Supabase Storage) : `node --use-system-ca scripts/download-beautymall-catalog-images.mjs` → `catalog/images/{slug}.*` + journal.
-2. **Phase test** — rien en base (URLs BeautyMall inchangées).
-3. **Phase prod** — upload Storage : `node --use-system-ca scripts/attach-catalog-images.mjs --category beautymall_catalog`. Détail §10 session **2026-06-14 (suite 2)** · phrase **§13.63**.
+1. **Phase 1** — **FAIT (2026-06-16)** : sauvegarde locale **11 796** slugs, **0** erreur → `catalog/images/{slug}.*` + journal (12 171 lignes en base couvertes ; 375 slugs partagés ; 1 480 sans photo).
+2. **Phase 2** — vérification manifeste + comptage fichiers (à faire).
+3. **Phase test** — rien en base (URLs BeautyMall inchangées).
+4. **Phase prod** — upload Storage : `node --use-system-ca scripts/attach-catalog-images.mjs --category beautymall_catalog`. Détail §10 sessions **2026-06-14 (suite 2)** + **2026-06-16** · phrase **§13.63**.
 
 **Médicaments officine (juin 2026)** — Excel « Base de données médicaments » (colonne **TVA = 0**) · **`scripts/README-medicaments-officine.md`** :
 1. `python scripts/convert-medicaments-xlsx.py "<chemin>.xlsx"` → `medicaments_officine.csv`.
@@ -390,19 +391,19 @@ git checkout pilote-stable-2026-05-24
 
 ---
 
-### Session 2026-06-16 (suite) — Mes produits : restaurer les supprimés
+### Session 2026-06-16 (suite) — Mes produits : onglet Supprimés + restauration
 
-**Branche** : `feature/whatsapp-m2-lot3-pharmacist`.
+**Branche** : `feature/whatsapp-m2-lot3-pharmacist` — commits **`c90c478`**, **`c9bc238`**.
 
-**Besoin** : produits « Supprimer » restent accessibles comme **Dépubliés** avec **Restaurer**.
+**Besoin** : produits « Supprimer » restent accessibles (onglet **Supprimés**, distinct de **Dépubliés**) avec **Restaurer**.
 
-**Migration** **`20260830_001_pharmacy_catalog_restore_archived_hidden.sql`** :
-- **`pharmacist_list_pharmacy_products`** : inclut **`archived_hidden`** (filtre Dépubliés côté app).
-- **`pharmacist_restore_pharmacy_product`** : **`archived_hidden`** → **`active`** ; événement **`restored_by_pharmacist`**.
+**Migrations** :
+- **`20260830_001_pharmacy_catalog_restore_archived_hidden.sql`** — liste inclut **`archived_hidden`** ; RPC **`pharmacist_restore_pharmacy_product`** (`archived_hidden` → `active`, événement **`restored_by_pharmacist`**).
+- **`20260831_001_pharmacy_catalog_list_supprimes_filter.sql`** — si `20260830` déjà appliquée : filtre RPC **`p_status`** sans mélanger Dépubliés / Supprimés.
 
-**App** : hub Mes produits — badge Dépublié, bouton Restaurer, message confirmation Supprimer.
+**App** : hub Mes produits — onglets Tous / Actifs / Dépubliés / **Supprimés** / Archivés (national) ; badge **Supprimé** ; bouton **Restaurer** ; confirmation Supprimer → « Supprimés ».
 
-**Phrase de reprise** : **§13.66** (inclut **`20260830_001`**).
+**Phrase de reprise** : **§13.66** (inclut **`20260830_001`** + **`20260831_001`** si besoin).
 
 ### Session 2026-06-16 — Réponse pharmacien : produits privés / archivés + brouillon lignes
 
@@ -485,6 +486,21 @@ git checkout pilote-stable-2026-05-24
 
 **Phrase de reprise** : **§13.64**.
 
+### Session 2026-06-16 — Indépendance photos BeautyMall Phase 1 (téléchargement local)
+
+**Opération locale** (pas de commit Git, pas de migration, pas de Storage) :
+- Commande : `node --use-system-ca scripts/download-beautymall-catalog-images.mjs` (dry-run 10 produits puis lot complet).
+- **Résultat** : **11 793** téléchargées + **3** ignorées (pilote) = **11 796** slugs uniques, **0** erreur, ~33 min.
+- **Couverture** : les **12 171** lignes `photo_url` BeautyMall en base sont couvertes (375 produits partagent un slug / même fichier) ; **1 480** produits `beautymall_catalog` sans photo — hors périmètre.
+- **Fichiers** : `catalog/images/{slug}.*`, `catalog/images/beautymall-download-log.jsonl`, `catalog/images/beautymall-download-manifest.json` (gitignored).
+- **`photo_url` en base** : inchangées (URLs BeautyMall — app preview inchangée).
+
+**Prochaine étape** : **Phase 2** du guide (`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`) — vérification comptes + échantillon ; puis **Phase 4** upload Storage quand prêt prod.
+
+**Phrase de reprise** : **§13.63**.
+
+---
+
 ### Session 2026-06-14 (suite 2) — Recherche catalogue + sauvegarde photos BeautyMall
 
 **Branche** : `feature/product-search-relevance-rank` — commits **`b3650df`**, **`ab8aca0`**, lot photos local (cette session).
@@ -503,7 +519,7 @@ git checkout pilote-stable-2026-05-24
 - **`scripts/download-beautymall-catalog-images.mjs`** — télécharge ~**12 171** URLs → **`catalog/images/{slug}.*`** ; reprise auto ; `--dry-run` / `--limit`.
 - **`scripts/attach-catalog-images.mjs`** — option **`--category beautymall_catalog`** pour phase prod Storage.
 - Guide reprise étapes + phrases agent : **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`**.
-- **État** : script validé (3 images test) ; **téléchargement complet non lancé** ; **`photo_url` en base inchangées** (URLs BeautyMall).
+- **État (2026-06-14)** : script validé (3 images test) ; téléchargement complet **lancé ensuite** — voir session **2026-06-16** (Phase 1 terminée).
 
 **i18n** : libellé hint WhatsApp prefs — « échec d'envoi » (`messages/fr/demandes.ts`).
 
@@ -2596,9 +2612,10 @@ Etat technique valide dans le depot:
   - `supabase/migrations/20260827_001_request_conversation_inbox_labels.sql` (inbox conversation : labels FR/AR structurés)
   - `supabase/migrations/20260828_001_whatsapp_m2_lot3_pharmacist.sql` (WhatsApp M2 lot 3 : visit, ordonnance, message patient)
   - `supabase/migrations/20260829_001_market_shortage_skip_pharmacy_catalog_lines.sql` (rupture marché : pas d’insert hub si ligne catalogue privé sans `product_id`)
-  - `supabase/migrations/20260830_001_pharmacy_catalog_restore_archived_hidden.sql` (Mes produits : restaurer produits supprimés)
+  - `supabase/migrations/20260830_001_pharmacy_catalog_restore_archived_hidden.sql` (Mes produits : lister supprimés + RPC restaurer)
+  - `supabase/migrations/20260831_001_pharmacy_catalog_list_supprimes_filter.sql` (Mes produits : onglet Supprimés — filtre RPC séparé)
 
-**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260830_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** ; catalogue **~19 677** ; photos catalogue = URLs BeautyMall (sauvegarde locale **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`**) ; i18n patient **~1 334** clés FR/AR ; **11 notifs WhatsApp actives** (après merge lot 3 + vars Vercel). Reprise courte : **§13.66** (WhatsApp lot 3) ou **§13.64** (expiration passage) ou **§13.63** (photos) ou **§13.62**.
+**Pilote (état infra juin 2026)** : migrations jusqu’à **`20260831_001`** ; prod **`pharmeto.ma`** ; marque **Pharmeto** ; **annuaire public = Al Jazira seule** ; catalogue **~19 677** ; photos catalogue = URLs BeautyMall en prod, **copies locales Phase 1 faites** (11 796 slugs — **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`**) ; i18n patient **~1 334** clés FR/AR ; **11 notifs WhatsApp actives** (après merge lot 3 + vars Vercel). Reprise courte : **§13.66** (WhatsApp lot 3) ou **§13.64** (expiration passage) ou **§13.63** (photos — Phase 2 / upload Storage) ou **§13.62**.
 
 Regles fonctionnelles retenues (alignement dernier atelier):
 - A la **`responded` -> `confirmed`**, le patient indique une **date de passage** (bornes métier CAS : 4 jours sans « à commander » sélectionné, sinon jusqu à **ETA max + 3 j** pour les lignes « à commander » de sa sélection) et une **heure optionnelle** ; données stockées sur **`requests`**, effacées si le patient **renvoie** la demande (`submitted`).
@@ -2913,7 +2930,7 @@ Voir **§13.37**.
 
 ### 13.66) Phrase de reprise (WhatsApp M2 lot 3 pharmacien — juin 2026)
 
-**« Pharmeto (`pharmeto.ma`) — reprise WhatsApp M2 lot 3 pharmacien + fix réponse produits privés. **Migrations** (si pas fait, ordre) : **`20260825_001`** → **`20260826_001`** → **`20260827_001`** → **`20260828_001`** → **`20260829_001`** (rupture marché lignes catalogue privé). **Branche / PR** : `feature/whatsapp-m2-lot3-pharmacist` (visit, ordonnance, message patient ; commit **`2ec9dc9`** fix réponse pharma). **Vars Vercel** (3 nouvelles) : `_PHARMACY_VISIT_UPDATED`, `_PHARMACY_PRESCRIPTION_UPDATED`, `_PHARMACY_PATIENT_MESSAGE` — détail **`docs/WHATSAPP-NOTIFS-REPRISE.md`**. **11 événements WhatsApp** après merge + vars ; **3 en attente** (templates passage Meta). Je te donne la tâche ou les retours preview. »**
+**« Pharmeto (`pharmeto.ma`) — reprise WhatsApp M2 lot 3 pharmacien + fix réponse produits privés + Mes produits Supprimés. **Migrations** (si pas fait, ordre) : **`20260825_001`** → **`20260826_001`** → **`20260827_001`** → **`20260828_001`** → **`20260829_001`** (rupture marché lignes catalogue privé) → **`20260830_001`** (restaurer supprimés) → **`20260831_001`** (onglet Supprimés, si `20260830` déjà appliquée). **Branche / PR** : `feature/whatsapp-m2-lot3-pharmacist`. **Vars Vercel** (3 nouvelles) : `_PHARMACY_VISIT_UPDATED`, `_PHARMACY_PRESCRIPTION_UPDATED`, `_PHARMACY_PATIENT_MESSAGE` — détail **`docs/WHATSAPP-NOTIFS-REPRISE.md`**. **11 événements WhatsApp** après merge + vars ; **3 en attente** (templates passage Meta). Je te donne la tâche ou les retours preview. »**
 
 ### 13.65) Phrase de reprise (inbox + WhatsApp lot 2 — juin 2026)
 
@@ -2925,7 +2942,7 @@ Voir **§13.37**.
 
 ### 13.63) Phrase de reprise (indépendance photos catalogue BeautyMall — juin 2026)
 
-**« Pharmeto — indépendance photos catalogue BeautyMall. Lis **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`** et dis-moi à quelle phase on en est (manifeste **`catalog/images/beautymall-download-manifest.json`**, comptage fichiers locaux, SQL **`photo_url`** BeautyMall vs Storage). **Phase 1** : `node --use-system-ca scripts/download-beautymall-catalog-images.mjs` (sauvegarde PC, pas Storage). **Phase 4 prod** : `node --use-system-ca scripts/attach-catalog-images.mjs --category beautymall_catalog`. Noms/descriptions déjà en base — seules les photos dépendent encore de BeautyMall. Branche courante possible : **`feature/product-search-relevance-rank`** ; migration **`20260822_001`** si pas appliquée. Je te donne la tâche ou les retours. »**
+**« Pharmeto — indépendance photos catalogue BeautyMall. Lis **`docs/CATALOGUE-PHOTOS-INDEPENDANCE-BEAUTYMALL.md`**. **Phase 1 FAIT (2026-06-16)** : **11 796** slugs locaux, **0** erreur (`catalog/images/beautymall-download-manifest.json`). Vérifie la phase en cours (manifeste, comptage fichiers, SQL **`photo_url`** BeautyMall vs Storage). **Phase 2** : vérification post-téléchargement. **Phase 4 prod** : `node --use-system-ca scripts/attach-catalog-images.mjs --category beautymall_catalog`. Noms/descriptions déjà en base — seules les photos dépendent encore de BeautyMall en prod. Je te donne la tâche ou les retours. »**
 
 ### 13.62) Phrase de reprise (recommandée — session **2026-06-14** pricing + abandon + admin + WhatsApp M2)
 
@@ -3099,7 +3116,7 @@ Voir **§13.39** (import Supabase + aperçu photo effectués).
 
 À coller en **premier message** d’un **nouveau chat** quand tu veux recharger le contexte **sans** lancer de travail : l’agent **lit** puis **attend** ta consigne.
 
-**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail courante : **`main`** ou **`feature/whatsapp-m2-lot3-pharmacist`** (dernier lot journal §10 **2026-06-16** — fix réponse produits privés + WhatsApp lot 3). Refonte UX Glovo-like **abandonnée** ; UI/UX = affinages incrémentaux. Supabase pilote : migrations jusqu’à **`20260829_001`** ; **11 notifs WhatsApp actives** (après merge lot 3). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.66**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
+**« Pharmeto (`pharmeto.ma`) — reprise de contexte uniquement. Branche de travail courante : **`main`** ou **`feature/whatsapp-m2-lot3-pharmacist`** (dernier lot journal §10 **2026-06-16** — fix réponse produits privés, WhatsApp lot 3, Mes produits onglet Supprimés). Refonte UX Glovo-like **abandonnée** ; UI/UX = affinages incrémentaux. Supabase pilote : migrations jusqu’à **`20260831_001`** ; **11 notifs WhatsApp actives** (après merge lot 3). Lis `CONTEXTE.md` §6, `AGENTS.md`, `CAHIER_DES_CHARGES.md` §0.1, dernier §10 Journal, §11 et **§13.66**. Ne modifie aucun fichier, n’applique aucune migration et ne propose aucun changement tant que je n’ai pas donné une consigne explicite. Réponds par un bref récap, puis attends ma précision. »**
 
 ### 13.28-ancien) Phrase de reprise (dépassée — session **2026-05-22** fiche seule)
 
